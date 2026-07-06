@@ -19,6 +19,8 @@ concurrency:
   group: vault-audit-cmd-${{ github.repository }}-${{ github.event.issue.number }}
   cancel-in-progress: false
 
+permissions: {}
+
 jobs:
   handle-command:
     if: |
@@ -30,6 +32,7 @@ jobs:
       )
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       issues: write
       pull-requests: write
       statuses: write
@@ -55,10 +58,11 @@ jobs:
         if: steps.auth.outputs.authorized == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           COMMENTER: ${{ github.event.comment.user.login }}
           PR_NUMBER: ${{ github.event.issue.number }}
         run: |
-          gh pr comment "$PR_NUMBER" \
+          gh pr comment "$PR_NUMBER" -R "$REPO" \
             --body "⛔ @${COMMENTER} — only authorized reviewers (repository write access) can use vault audit commands."
           exit 1
 
@@ -120,10 +124,11 @@ jobs:
         if: steps.cmd.outputs.type == 'run' && steps.cmd.outputs.error != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.issue.number }}
           ERROR: ${{ steps.cmd.outputs.error }}
         run: |
-          gh pr comment "$PR_NUMBER" \
+          gh pr comment "$PR_NUMBER" -R "$REPO" \
             --body "⛔ ${ERROR} (Or omit the override to use the defaults.)"
           exit 1
 
@@ -144,7 +149,7 @@ jobs:
             -f context="vault-audit" \
             -f description="Vault audit skipped by ${COMMENTER}: ${REASON}"
 
-          gh pr comment "$PR_NUMBER" \
+          gh pr comment "$PR_NUMBER" -R "$REPO" \
             --body "✅ Vault audit skipped by @${COMMENTER}
 
           **Reason:** ${REASON}
@@ -192,7 +197,7 @@ jobs:
             -f description="Vault audit blocked — PR contains unverified commits"
 
           PRETTY=$(echo "$DETAILS" | jq -r '.[] | "- `\(.)`"')
-          gh pr comment "$PR_NUMBER" \
+          gh pr comment "$PR_NUMBER" -R "$REPO" \
             --body "⛔ Vault audit not run — this PR contains commits that are not verified (signed):
 
           ${PRETTY}
@@ -203,12 +208,11 @@ jobs:
       - name: Get GATI token for cre-docs dispatch
         id: gati
         if: steps.cmd.outputs.type == 'run' && steps.verify.outputs.unverified == 'false'
-        uses: smartcontractkit/chainlink-github-actions/apps/setup-github-token@main
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
         with:
-          app-id: ${{ secrets.GATI_APP_ID }}
-          private-key: ${{ secrets.GATI_PRIVATE_KEY }}
-          # Needs contents:write on cre-docs to trigger repository_dispatch
-          repositories: cre-docs
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
 
       - name: Set commit status pending
         if: steps.cmd.outputs.type == 'run'
@@ -226,7 +230,7 @@ jobs:
       - name: Dispatch audit to cre-docs
         if: steps.cmd.outputs.type == 'run'
         env:
-          GH_TOKEN: ${{ steps.gati.outputs.token }}
+          GH_TOKEN: ${{ steps.gati.outputs.access-token }}
           PR_NUMBER: ${{ github.event.issue.number }}
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
           BASE_SHA: ${{ steps.pr.outputs.base_sha }}

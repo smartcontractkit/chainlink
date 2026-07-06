@@ -40,9 +40,9 @@ jobs:
 
           FILES=$(gh api "/repos/${REPO}/pulls/${PR_NUMBER}/files" --paginate --jq '.[].filename')
           if echo "$FILES" | grep -qE "$VAULT_RE"; then
-            echo "touched=true" >> "$GITHUB_OUTPUT"
+            echo "touched=true" | tee -a "$GITHUB_OUTPUT"
           else
-            echo "touched=false" >> "$GITHUB_OUTPUT"
+            echo "touched=false" | tee -a "$GITHUB_OUTPUT"
           fi
 
       - name: No vault changes — auto-pass
