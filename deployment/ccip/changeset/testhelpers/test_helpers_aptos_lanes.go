@@ -133,7 +133,8 @@ func evmBindingFQToLanesFQ(cfg fee_quoter.FeeQuoterDestChainConfig) lanes.FeeQuo
 		DefaultTokenFeeUSDCents:     cfg.DefaultTokenFeeUSDCents,
 		DefaultTokenDestGasOverhead: cfg.DefaultTokenDestGasOverhead,
 		DefaultTxGasLimit:           cfg.DefaultTxGasLimit,
-		NetworkFeeUSDCents:          uint16(cfg.NetworkFeeUSDCents),
+		// #nosec G115 - test FeeQuoter configs use small network-fee values (e.g. 10 cents).
+		NetworkFeeUSDCents: uint16(cfg.NetworkFeeUSDCents),
 		V1Params: &lanes.FeeQuoterV1Params{
 			MaxNumberOfTokensPerMsg:           cfg.MaxNumberOfTokensPerMsg,
 			DestGasPerPayloadByteHigh:         cfg.DestGasPerPayloadByteHigh,
