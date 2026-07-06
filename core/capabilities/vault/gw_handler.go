@@ -173,8 +173,13 @@ func (h *GatewayHandler) Methods() []string {
 	return vaulttypes.Methods
 }
 
+func (h *GatewayHandler) requestLogger(req *jsonrpc.Request[json.RawMessage], gatewayID string) logger.Logger {
+	return h.lggr.With("requestID", req.ID, "method", req.Method, "gatewayID", gatewayID)
+}
+
 func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) (err error) {
-	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "req", req, "requestID", req.ID)
+	reqLggr := h.requestLogger(req, gatewayID)
+	reqLggr.Debugw("received message from gateway", "req", req)
 
 	var response *jsonrpc.Response[json.RawMessage]
 	var authResult *AuthResult
@@ -219,11 +224,11 @@ func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID str
 	}
 
 	if err = h.gatewayConnector.SendToGateway(ctx, gatewayID, response); err != nil {
-		h.lggr.Errorw("Failed to send message to gateway", "gatewayID", gatewayID, "error", err)
+		reqLggr.Errorw("Failed to send message to gateway", "error", err)
 		return err
 	}
 
-	h.lggr.Infow("Sent message to gateway", "gatewayID", gatewayID, "resp", response, "requestID", req.ID)
+	reqLggr.Infow("Sent message to gateway", "resp", response)
 	h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("gateway_id", gatewayID),
 	))
@@ -387,7 +392,7 @@ func (h *GatewayHandler) errorResponse(
 	errorCode api.ErrorCode,
 	err error,
 ) *jsonrpc.Response[json.RawMessage] {
-	h.lggr.Errorw("gateway handler error response", "gatewayID", gatewayID, "requestID", req.ID, "method", req.Method, "errorCode", errorCode, "error", err)
+	h.requestLogger(req, gatewayID).Errorw("gateway handler error response", "errorCode", errorCode, "error", err)
 	h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("gateway_id", gatewayID),
 		attribute.String("error", errorCode.String()),
