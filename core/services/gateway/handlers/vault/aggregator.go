@@ -299,7 +299,7 @@ func (a *baseAggregator) validateUsingSignatures(ctx context.Context, l logger.L
 	// gateway should start rejecting responses with a missing requestId.
 	// https://smartcontract-it.atlassian.net/browse/CRE-4875
 	if payloadRequestID != "" && payloadRequestID != requestID {
-		l.Errorw("signed payload request id mismatch, discarding response", "requestID", requestID, "signedPayloadRequestID", payloadRequestID, "method", resp.Method)
+		logger.Sugared(l).Criticalw("signed payload request id mismatch, discarding response", "requestID", requestID, "signedPayloadRequestID", payloadRequestID, "method", resp.Method)
 		a.recordSignedPayloadRequestIDMismatch(ctx)
 		return nil, errSignedPayloadRequestIDMismatch
 	}
