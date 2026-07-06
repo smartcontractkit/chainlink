@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -25,7 +24,6 @@ import (
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -38,8 +36,6 @@ import (
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/helpers"
-	_ "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/adapters"              // register Aptos deploy/lane/curse/mcms adapters
-	_ "github.com/smartcontractkit/chainlink-ccip/chains/evm/deployment/v1_6_0/sequences" // register EVM deploy/lane adapters
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/usdc_token_pool"
@@ -59,9 +55,6 @@ import (
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	ccipsolstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"github.com/smartcontractkit/chainlink-ccip/deployment/lanes"
-	cs_ccip "github.com/smartcontractkit/chainlink-ccip/deployment/utils/changesets"
-	ccipmcms "github.com/smartcontractkit/chainlink-ccip/deployment/utils/mcms"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -954,28 +947,25 @@ func AddLane(
 	changesets := []commoncs.ConfiguredChangeSet{}
 
 	if fromFamily == chainsel.FamilyAptos || toFamily == chainsel.FamilyAptos {
-		// lanes.ConnectChains configures both legs of the lane, including the non-Aptos
-		// peer. Some mixed-family adapter combinations can omit the EVM router half,
-		// so reconcile it after ConnectChains has had the first chance to configure.
-		changesets = append(changesets, AddLaneAptosChangesets(t, from, to, isTestRouter, gasPrices, tokenPrices)...)
-	} else {
-		switch fromFamily {
-		case chainsel.FamilyEVM:
-			evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
-			for address, price := range tokenPrices {
-				evmTokenPrices[common.HexToAddress(address)] = price
-			}
-			changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasPrices, evmTokenPrices, fqCfg)...)
-		case chainsel.FamilySolana:
-			changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, from, to, toFamily)...)
-		}
+		return addAptosMixedLane(t, e, state, from, to, fromFamily, toFamily, isTestRouter, gasPrices, tokenPrices, fqCfg)
+	}
 
-		switch toFamily {
-		case chainsel.FamilyEVM:
-			changesets = append(changesets, AddEVMDestChangesets(e, to, from, isTestRouter)...)
-		case chainsel.FamilySolana:
-			changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, to, from, fromFamily)...)
+	switch fromFamily {
+	case chainsel.FamilyEVM:
+		evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
+		for address, price := range tokenPrices {
+			evmTokenPrices[common.HexToAddress(address)] = price
 		}
+		changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasPrices, evmTokenPrices, fqCfg)...)
+	case chainsel.FamilySolana:
+		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, from, to, toFamily)...)
+	}
+
+	switch toFamily {
+	case chainsel.FamilyEVM:
+		changesets = append(changesets, AddEVMDestChangesets(e, to, from, isTestRouter)...)
+	case chainsel.FamilySolana:
+		changesets = append(changesets, AddLaneSolanaChangesetsV0_1_0(e, to, from, fromFamily)...)
 	}
 
 	e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
@@ -983,137 +973,7 @@ func AddLane(
 		return err
 	}
 
-	if fromFamily == chainsel.FamilyEVM && toFamily == chainsel.FamilyAptos {
-		evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
-		for address, price := range tokenPrices {
-			evmTokenPrices[common.HexToAddress(address)] = price
-		}
-		fqChangesets := addEVMFeeQuoterDestAndPricesChangesets(
-			from, to, gasPrices, evmTokenPrices, fqCfg, nil,
-		)
-		e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, fqChangesets)
-		if err != nil {
-			return err
-		}
-	}
-
-	if fromFamily == chainsel.FamilyAptos || toFamily == chainsel.FamilyAptos {
-		if err := ensureEVMRouterLaneConfig(t, e, state, from, to, fromFamily, toFamily, isTestRouter, gasPrices, tokenPrices, fqCfg); err != nil {
-			return err
-		}
-	}
-
 	return nil
-}
-
-func ensureEVMRouterLaneConfig(
-	t *testing.T,
-	e *DeployedEnv,
-	state stateview.CCIPOnChainState,
-	from, to uint64,
-	fromFamily, toFamily string,
-	isTestRouter bool,
-	gasPrices map[uint64]*big.Int,
-	tokenPrices map[string]*big.Int,
-	fqCfg fee_quoter.FeeQuoterDestChainConfig,
-) error {
-	changesets := make([]commoncs.ConfiguredChangeSet, 0, 6)
-
-	if fromFamily == chainsel.FamilyEVM && toFamily == chainsel.FamilyAptos {
-		wired, err := evmSourceRouterWired(e, state, from, to, isTestRouter)
-		if err != nil {
-			return err
-		}
-		if !wired {
-			evmTokenPrices := make(map[common.Address]*big.Int, len(tokenPrices))
-			for address, price := range tokenPrices {
-				evmTokenPrices[common.HexToAddress(address)] = price
-			}
-			changesets = append(changesets, AddEVMSrcChangesets(from, to, isTestRouter, gasPrices, evmTokenPrices, fqCfg)...)
-		}
-	}
-
-	if fromFamily == chainsel.FamilyAptos && toFamily == chainsel.FamilyEVM {
-		wired, err := evmDestRouterWired(e, state, to, from, isTestRouter)
-		if err != nil {
-			return err
-		}
-		if !wired {
-			changesets = append(changesets, AddEVMDestChangesets(e, to, from, isTestRouter)...)
-		}
-	}
-
-	if len(changesets) > 0 {
-		var err error
-		e.Env, _, err = commoncs.ApplyChangesets(t, e.Env, changesets)
-		if err != nil {
-			return err
-		}
-	}
-
-	if fromFamily == chainsel.FamilyEVM && toFamily == chainsel.FamilyAptos {
-		wired, err := evmSourceRouterWired(e, state, from, to, isTestRouter)
-		if err != nil {
-			return err
-		}
-		if !wired {
-			return fmt.Errorf("EVM source router on chain %d missing on-ramp for destination %d", from, to)
-		}
-	}
-
-	if fromFamily == chainsel.FamilyAptos && toFamily == chainsel.FamilyEVM {
-		wired, err := evmDestRouterWired(e, state, to, from, isTestRouter)
-		if err != nil {
-			return err
-		}
-		if !wired {
-			return fmt.Errorf("EVM destination router on chain %d missing off-ramp for source %d", to, from)
-		}
-	}
-
-	return nil
-}
-
-func evmSourceRouterWired(e *DeployedEnv, state stateview.CCIPOnChainState, evmSource, remoteDest uint64, isTestRouter bool) (bool, error) {
-	chainState := state.MustGetEVMChainState(evmSource)
-	routerContract := chainState.Router
-	if isTestRouter {
-		routerContract = chainState.TestRouter
-	}
-	if routerContract == nil {
-		return false, fmt.Errorf("router not found for EVM source chain %d", evmSource)
-	}
-	if chainState.OnRamp == nil {
-		return false, fmt.Errorf("on-ramp not found for EVM source chain %d", evmSource)
-	}
-
-	onRamp, err := routerContract.GetOnRamp(&bind.CallOpts{Context: e.Env.GetContext()}, remoteDest)
-	if err != nil {
-		return false, fmt.Errorf("get on-ramp for EVM source chain %d and destination %d: %w", evmSource, remoteDest, err)
-	}
-
-	return onRamp == chainState.OnRamp.Address(), nil
-}
-
-func evmDestRouterWired(e *DeployedEnv, state stateview.CCIPOnChainState, evmDest, remoteSource uint64, isTestRouter bool) (bool, error) {
-	chainState := state.MustGetEVMChainState(evmDest)
-	routerContract := chainState.Router
-	if isTestRouter {
-		routerContract = chainState.TestRouter
-	}
-	if routerContract == nil {
-		return false, fmt.Errorf("router not found for EVM destination chain %d", evmDest)
-	}
-	if chainState.OffRamp == nil {
-		return false, fmt.Errorf("off-ramp not found for EVM destination chain %d", evmDest)
-	}
-
-	isOffRamp, err := routerContract.IsOffRamp(&bind.CallOpts{Context: e.Env.GetContext()}, remoteSource, chainState.OffRamp.Address())
-	if err != nil {
-		return false, fmt.Errorf("check off-ramp for EVM destination chain %d and source %d: %w", evmDest, remoteSource, err)
-	}
-
-	return isOffRamp, nil
 }
 
 func AddLaneSolanaChangesetsV0_1_0(e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
@@ -1306,58 +1166,6 @@ func AddSuiDestChangeset(e *DeployedEnv, to, from uint64, isTestRouter bool) []c
 	}
 
 	return suiDstChangesets
-}
-
-// AddLaneAptosChangesets connects an Aptos chain with its (EVM or Aptos) peer via the
-// generic lanes.ConnectChains changeset, which configures both legs of the lane using the
-// adapters registered by the chainlink-aptos and chainlink-ccip EVM adapter packages.
-// Gas prices are keyed by destination chain selector (a missing entry falls back to the
-// adapter default); token prices apply to Aptos chains and are keyed by token address string.
-func AddLaneAptosChangesets(t *testing.T, srcChainSelector, destChainSelector uint64, isTestRouter bool, gasPrices map[uint64]*big.Int, tokenPrices map[string]*big.Int) []commoncs.ConfiguredChangeSet {
-	srcFamily, err := chainsel.GetSelectorFamily(srcChainSelector)
-	require.NoError(t, err)
-	destFamily, err := chainsel.GetSelectorFamily(destChainSelector)
-	require.NoError(t, err)
-
-	if srcFamily != chainsel.FamilyAptos &&
-		destFamily != chainsel.FamilyAptos {
-		t.Fatalf("At least one of the provided source/destination chains has to be Aptos. srcFamily: %v destFamily: %v", srcFamily, destFamily)
-	}
-
-	makeDefinition := func(selector uint64, family string) lanes.ChainDefinition {
-		definition := lanes.ChainDefinition{
-			Selector: selector,
-			GasPrice: gasPrices[selector],
-		}
-		if selector == srcChainSelector {
-			definition.TokenPrices = tokenPrices
-		}
-		return definition
-	}
-
-	validUntil, err := mcmsValidUntil(time.Now().Add(24 * time.Hour))
-	require.NoError(t, err)
-
-	return []commoncs.ConfiguredChangeSet{
-		commoncs.Configure(
-			lanes.ConnectChains(lanes.GetLaneAdapterRegistry(), cs_ccip.GetRegistry()),
-			lanes.ConnectChainsConfig{
-				MCMS: ccipmcms.Input{
-					ValidUntil:     validUntil,
-					TimelockDelay:  mcmstypes.NewDuration(time.Second),
-					TimelockAction: mcmstypes.TimelockActionSchedule,
-				},
-				Lanes: []lanes.LaneConfig{
-					{
-						Version:    semver.MustParse("1.6.0"),
-						ChainA:     makeDefinition(srcChainSelector, srcFamily),
-						ChainB:     makeDefinition(destChainSelector, destFamily),
-						TestRouter: isTestRouter,
-					},
-				},
-			},
-		),
-	}
 }
 
 // RemoveLane removes a lane between the source and destination chains in the deployed environment.
