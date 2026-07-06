@@ -384,11 +384,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		emitterCfg.InsertBatchSize = 500
 		emitterCfg.InsertBatchWorkers = 6
 		emitterCfg.InsertBatchFlushInterval = 100 * time.Millisecond
-		emitterCfg.MarkBatchSize = 500
-		emitterCfg.MarkBatchWorkers = 6
-		emitterCfg.MarkBatchFlushInterval = 100 * time.Millisecond
-		emitterCfg.PurgeBatchSize = 5000
-		emitterCfg.PurgeInterval = 100 * time.Millisecond
+		emitterCfg.DeleteBatchSize = 500
+		emitterCfg.DeleteBatchWorkers = 6
+		emitterCfg.DeleteBatchFlushInterval = 100 * time.Millisecond
 		emitterCfg.RetransmitBatchSize = 2000
 		emitterCfg.RetransmitInterval = 2 * time.Second
 		emitterCfg.PublishTimeout = 10 * time.Second

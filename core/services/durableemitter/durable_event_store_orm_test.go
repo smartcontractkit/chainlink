@@ -122,7 +122,7 @@ func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
 	assert.Positive(t, st.OldestPendingAge)
 }
 
-func TestPgDurableEventStore_MarkDeliveredAndPurgeDelivered(t *testing.T) {
+func TestPgDurableEventStore_BatchDelete(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
@@ -135,8 +135,13 @@ func TestPgDurableEventStore_MarkDeliveredAndPurgeDelivered(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, pending, 1)
 
-	require.NoError(t, store.MarkDelivered(ctx, id))
-	require.NoError(t, store.MarkDelivered(ctx, id), "second mark is idempotent")
+	n, err := store.BatchDelete(ctx, []int64{id})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), n)
+
+	n, err = store.BatchDelete(ctx, []int64{id})
+	require.NoError(t, err)
+	require.Equal(t, int64(0), n, "second delete is idempotent")
 
 	pending, err = store.ListPending(ctx, time.Now().Add(time.Hour), 10)
 	require.NoError(t, err)
@@ -144,12 +149,5 @@ func TestPgDurableEventStore_MarkDeliveredAndPurgeDelivered(t *testing.T) {
 
 	var cnt int64
 	require.NoError(t, db.GetContext(ctx, &cnt, `SELECT count(*) FROM cre.chip_durable_events`))
-	require.Equal(t, int64(1), cnt, "row remains as tombstone until purge")
-
-	n, err := store.PurgeDelivered(ctx, 10)
-	require.NoError(t, err)
-	require.Equal(t, int64(1), n)
-
-	require.NoError(t, db.GetContext(ctx, &cnt, `SELECT count(*) FROM cre.chip_durable_events`))
-	require.Equal(t, int64(0), cnt)
+	require.Equal(t, int64(0), cnt, "row is deleted on delivery, not tombstoned")
 }
