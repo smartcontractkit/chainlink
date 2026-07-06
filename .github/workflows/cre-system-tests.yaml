@@ -353,7 +353,7 @@ jobs:
         with:
           jd-image:
             "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
-            }}.amazonaws.com/job-distributor:0.22.1"
+            }}.amazonaws.com/job-distributor:0.28.1"
           chainlink-image: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
