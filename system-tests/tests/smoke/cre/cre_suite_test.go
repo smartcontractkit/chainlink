@@ -271,7 +271,7 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 	})
 }
 
-//nolint:paralleltest
+//nolint:paralleltest // isolate local cre env run
 func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
 	t.Run("Stellar", func(t *testing.T) {
