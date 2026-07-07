@@ -166,9 +166,19 @@ jobs:
       - name: Get CTF version from go.mod
         shell: bash
         working-directory: ${{ env.WORKING_DIR }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CTF_VERSION=$(go list -m -json "github.com/smartcontractkit/chainlink-testing-framework/framework" | jq -r .Version)
-          echo "CTF_TAG=framework/$CTF_VERSION" >> "$GITHUB_ENV"
+          CTF_VERSION=$(go list -m -json "github.com/smartcontractkit/chainlink-testing-framework/framework" | jq -r 'if .Replace then .Replace.Version else .Version end')
+          # Pseudo-versions (and unreleased semver tags) have no GitHub release assets.
+          if [[ "$CTF_VERSION" == *"-"* ]]; then
+            CTF_VERSION="v${CTF_VERSION#v}"
+            CTF_VERSION="v${CTF_VERSION%%-*}"
+          fi
+          if ! gh release view "framework/${CTF_VERSION}" --repo smartcontractkit/chainlink-testing-framework >/dev/null 2>&1; then
+            CTF_VERSION=$(gh release list --repo smartcontractkit/chainlink-testing-framework --limit 50 --json tagName -q '[.[] | select(.tagName | startswith("framework/v0.")) | .tagName | sub("^framework/"; "")][0]')
+          fi
+          echo "CTF_TAG=framework/${CTF_VERSION}" >> "$GITHUB_ENV"
 
       - name: Install CTF binary
         working-directory: ${{ env.WORKING_DIR }}
