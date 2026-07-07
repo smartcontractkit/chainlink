@@ -1,0 +1,60 @@
+name: Vault Audit Status
+
+# Applies vault-audit commit statuses dispatched from cre-docs. cre-docs never
+# writes statuses directly on chainlink — it sends a repository_dispatch with
+# the desired state and this workflow hardcodes context=vault-audit.
+
+on:
+  repository_dispatch:
+    types: [vault-audit-status]
+
+permissions:
+  statuses: write
+  pull-requests: read
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.client_payload.pr_number }}
+      HEAD_SHA: ${{ github.event.client_payload.head_sha }}
+      STATE: ${{ github.event.client_payload.state }}
+      DESCRIPTION: ${{ github.event.client_payload.description }}
+      TARGET_URL: ${{ github.event.client_payload.target_url }}
+    steps:
+      - name: Validate payload
+        run: |
+          case "$STATE" in
+            success|failure|pending|error) ;;
+            *)
+              echo "Invalid state: ${STATE}"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$PR_NUMBER" ] || [ -z "$HEAD_SHA" ] || [ -z "$DESCRIPTION" ]; then
+            echo "Missing required payload fields (pr_number, head_sha, description)"
+            exit 1
+          fi
+
+          CURRENT=$(gh api "/repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')
+          if [ "$HEAD_SHA" != "$CURRENT" ]; then
+            echo "head_sha ${HEAD_SHA} does not match current PR head ${CURRENT}"
+            exit 1
+          fi
+
+      - name: Set vault-audit commit status
+        run: |
+          ARGS=(
+            --method POST
+            -f "state=${STATE}"
+            -f context=vault-audit
+            -f "description=${DESCRIPTION}"
+          )
+          if [ -n "$TARGET_URL" ]; then
+            ARGS+=(-f "target_url=${TARGET_URL}")
+          fi
+
+          gh api "/repos/${REPO}/statuses/${HEAD_SHA}" "${ARGS[@]}"
