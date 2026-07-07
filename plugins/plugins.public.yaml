@@ -93,7 +93,7 @@ plugins:
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "78f22db50d700d9b369578aebafd7d239daee8d1"
+      gitRef: "696014b3922779324f277894a1f476597d77eff3"
       installPath: "."
 
   capability-httptrigger:
