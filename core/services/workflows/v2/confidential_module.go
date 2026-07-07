@@ -7,13 +7,18 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -70,6 +75,30 @@ type ConfidentialModule struct {
 	provider          func(tee *sdkpb.Tee) bool
 	executionHandlers *confidentialrelay.ExecutionHandlers
 	enabledGate       limits.GateLimiter
+	metrics           *confidentialModuleMetrics
+}
+
+// confidentialModuleMetrics are node-measured (and therefore trusted) metrics for
+// the enclave round-trip, complementing the enclave-reported enclave.* metrics
+// which are non-attested. Names are new, so they do not overload classic metrics.
+type confidentialModuleMetrics struct {
+	executionDuration metric.Int64Histogram
+	executionFailures metric.Int64Counter
+}
+
+func newConfidentialModuleMetrics() (*confidentialModuleMetrics, error) {
+	executionDuration, err := beholder.GetMeter().Int64Histogram("platform_engine_confidential_execution_time_ms")
+	if err != nil {
+		return nil, err
+	}
+	executionFailures, err := beholder.GetMeter().Int64Counter("platform_engine_confidential_execution_failures")
+	if err != nil {
+		return nil, err
+	}
+	return &confidentialModuleMetrics{
+		executionDuration: executionDuration,
+		executionFailures: executionFailures,
+	}, nil
 }
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
@@ -78,6 +107,10 @@ var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
+	}
+	metrics, err := newConfidentialModuleMetrics()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create confidential module metrics: %w", err)
 	}
 	return &ConfidentialModule{
 		capRegistry:       capRegistry,
@@ -90,6 +123,7 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandl
 		workflowTag:       workflowTag,
 		enabledGate:       enabledGate,
 		lggr:              lggr,
+		metrics:           metrics,
 	}, nil
 }
 
@@ -132,7 +166,17 @@ func (m *ConfidentialModule) Execute(
 	}
 
 	capOutput := &confworkflowtypes.ConfidentialWorkflowResponse{}
-	if err := doRequest(ctx, m, helper.GetWorkflowExecutionID(), "Execute", capInput, capOutput); err != nil {
+	// Time the enclave round-trip (node-measured, trusted) and count failures.
+	attrs := metric.WithAttributes(
+		attribute.String(platform.KeyWorkflowID, m.workflowID),
+		attribute.String(platform.KeyWorkflowOwner, m.workflowOwner),
+		attribute.String(platform.KeyWorkflowName, m.workflowName),
+	)
+	start := time.Now()
+	err := doRequest(ctx, m, workflowExecutionID, "Execute", capInput, capOutput)
+	m.metrics.executionDuration.Record(ctx, time.Since(start).Milliseconds(), attrs)
+	if err != nil {
+		m.metrics.executionFailures.Add(ctx, 1, attrs)
 		return nil, err
 	}
 
