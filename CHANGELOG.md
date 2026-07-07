@@ -1,5 +1,17 @@
 # Changelog Chainlink Core
 
+## 2.55.0
+
+### Minor Changes
+
+- [#22876](https://github.com/smartcontractkit/chainlink/pull/22876) [`c0c329e`](https://github.com/smartcontractkit/chainlink/commit/c0c329e1739cda8f5857877eefb0724e28916675) - Add the ConfidentialWorkflows.Enabled feature gate to the v2 workflow engine. Confidential workflow execution can now be toggled per workflow/owner/org/global via the settings registry; when disabled, ConfidentialModule.Execute rejects the request.
+
+- [#22996](https://github.com/smartcontractkit/chainlink/pull/22996) [`d3685b2`](https://github.com/smartcontractkit/chainlink/commit/d3685b2fc93879be0de861895395a86845d20ae3) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22994](https://github.com/smartcontractkit/chainlink/pull/22994) [`1a5f3ca`](https://github.com/smartcontractkit/chainlink/commit/1a5f3cac0f32b856b6d9de5e7d2927a32c1f61f2) - Add structured vault request ID logging across capability, OCR plugin, and workflow secrets paths. #internal
+
 ## 2.54.0
 
 ### Minor Changes
