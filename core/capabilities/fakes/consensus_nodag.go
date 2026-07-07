@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
@@ -23,6 +24,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 )
+
+// fakeConsensusLag is an artificial delay injected into consensus calls to
+// simulate the latency of reaching DON consensus.
+const fakeConsensusLag = 10 * time.Second
 
 type fakeConsensusNoDAG struct {
 	services.Service
@@ -68,6 +73,7 @@ func (fc *fakeConsensusNoDAG) close() error {
 // When the real NoDAG consensus OCR plugin is ready, it should be used here, similarly to how the V1 fake works.
 func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.SimpleConsensusInputs) (*capabilities.ResponseAndMetadata[*valuespb.Value], caperrors.Error) {
 	fc.eng.Infow("Executing Fake Consensus NoDAG: Simple()", "input", input, "metadata", metadata)
+	time.Sleep(fakeConsensusLag) // simulate consensus latency
 
 	switch obs := input.Observation.(type) {
 	case *sdkpb.SimpleConsensusInputs_Value:
@@ -90,6 +96,7 @@ func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.
 
 func (fc *fakeConsensusNoDAG) Report(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.ReportRequest) (*capabilities.ResponseAndMetadata[*sdkpb.ReportResponse], caperrors.Error) {
 	fc.eng.Infow("Executing Fake Consensus NoDAG: Report()", "input", input, "metadata", metadata)
+	time.Sleep(fakeConsensusLag) // simulate consensus latency
 	// Prepare EVM metadata that will be prepended to all reports
 	meta := consensustypes.Metadata{
 		Version:          1,

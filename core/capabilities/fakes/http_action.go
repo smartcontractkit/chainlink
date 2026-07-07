@@ -30,6 +30,10 @@ var (
 const (
 	HTTPActionID          = "http-actions@0.1.0"
 	HTTPActionServiceName = "HttpActionService"
+
+	// fakeHTTPActionLag is an artificial delay injected into HTTP action calls
+	// to simulate outbound request latency.
+	fakeHTTPActionLag = 10 * time.Second
 )
 
 var directHTTPActionInfo = commonCap.MustNewCapabilityInfo(
@@ -59,6 +63,7 @@ func NewDirectHTTPAction(lggr logger.Logger) *DirectHTTPAction {
 
 func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.RequestMetadata, input *customhttp.Request) (*commonCap.ResponseAndMetadata[*customhttp.Response], caperrors.Error) {
 	fh.eng.Infow("HTTP Action SendRequest Started", "input", input)
+	time.Sleep(fakeHTTPActionLag) // simulate HTTP action latency
 
 	// Create HTTP client with timeout
 	timeout := time.Duration(30) * time.Second // default timeout
