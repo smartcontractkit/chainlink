@@ -121,20 +121,9 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		}
 	}
 
-	// We need to generate sufficiently unique IDs accounting for two cases:
-	// 1. called during the subscription phase, in which case the executionID will be blank
-	// 2. called during execution, in which case it'll be present.
-	// The reference ID is unique per phase, so we need to differentiate when generating
-	// an ID.
 	md := request.Metadata
-	phaseOrExecution := md.WorkflowExecutionID
-	if phaseOrExecution == "" {
-		phaseOrExecution = "subscription"
-	}
-	id := fmt.Sprintf("%s::%s::%s", md.WorkflowID, phaseOrExecution, md.ReferenceID)
-
-	// Workflow DON reads populate secret identifiers explicitly; OCR paths do not rely on legacy
-	// top-level protobuf identity fields.
+	id := vaultutils.BuildWorkflowGetSecretsRequestID(md)
+	s.lggr.Debugw("received workflow get secrets request", "requestID", id, "request", r.String())
 
 	resp, err := s.handleRequest(ctx, id, r)
 	if err != nil {
@@ -160,7 +149,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 }
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received create secrets request", "request", request.String())
+	s.lggr.Debugw("received create secrets request", "requestID", request.RequestId, "request", request.String())
 	if err := validateEncryptedSecretsUniformOwners(request.EncryptedSecrets); err != nil {
 		return nil, err
 	}
@@ -173,7 +162,7 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 }
 
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received update secrets request", "request", request.String())
+	s.lggr.Debugw("received update secrets request", "requestID", request.RequestId, "request", request.String())
 	if err := validateEncryptedSecretsUniformOwners(request.EncryptedSecrets); err != nil {
 		return nil, err
 	}
@@ -186,7 +175,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 }
 
 func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received delete secrets request", "request", request.String())
+	s.lggr.Debugw("received delete secrets request", "requestID", request.RequestId, "request", request.String())
 	err := s.ValidateDeleteSecretsRequest(ctx, request)
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "request", request.String(), "err", err)
@@ -200,7 +189,7 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 }
 
 func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received get secrets request", "request", request.String())
+	s.lggr.Debugw("received get secrets request", "requestID", requestID, "request", request.String())
 	if err := s.ValidateGetSecretsRequest(ctx, request); err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", requestID, "request", request.String(), "err", err)
 		return nil, err
@@ -211,7 +200,7 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 }
 
 func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received list secret identifiers request", "request", request.String())
+	s.lggr.Debugw("received list secret identifiers request", "requestID", request.RequestId, "request", request.String())
 	err := s.ValidateListSecretIdentifiersRequest(ctx, request)
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "request", request.String(), "err", err)

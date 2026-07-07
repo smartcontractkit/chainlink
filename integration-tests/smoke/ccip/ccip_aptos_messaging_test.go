@@ -54,7 +54,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 
 	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Aptos): ", destChain)
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false))
 
 	var (
 		nonce  uint64
@@ -416,7 +416,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 
 	lggr.Debug("Source chain (Aptos): ", sourceChain, "Dest chain (EVM): ", destChain)
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false))
 
 	aptosCallOpts := &aptos_call_opts.CallOpts{}
 

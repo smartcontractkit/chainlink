@@ -34,7 +34,7 @@ func TestCache(t *testing.T) {
 	cache.start()
 	defer cache.close()
 
-	binary := wasmtest.CreateTestBinary(t, simpleBinaryCmd, false)
+	binary := wasmtest.GetTestBinary(t, simpleBinaryCmd, false)
 	hmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         logger.Test(t),
 		IsUncompressed: true,
@@ -45,7 +45,7 @@ func TestCache(t *testing.T) {
 	mod := &module{
 		module: hmod,
 	}
-	cache.add(id, mod)
+	require.NoError(t, cache.add(id, mod))
 
 	got, ok := cache.get(id)
 	assert.True(t, ok)
@@ -73,7 +73,7 @@ func TestCache_EvictAfterSize(t *testing.T) {
 	cache.start()
 	defer cache.close()
 
-	binary := wasmtest.CreateTestBinary(t, simpleBinaryCmd, false)
+	binary := wasmtest.GetTestBinary(t, simpleBinaryCmd, false)
 	hmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         logger.Test(t),
 		IsUncompressed: true,
@@ -84,7 +84,7 @@ func TestCache_EvictAfterSize(t *testing.T) {
 	mod := &module{
 		module: hmod,
 	}
-	cache.add(id, mod)
+	require.NoError(t, cache.add(id, mod))
 	assert.Len(t, cache.m, 1)
 
 	got, ok := cache.get(id)
@@ -116,7 +116,7 @@ func TestCache_AddDuplicatedModule(t *testing.T) {
 	cache.start()
 	defer cache.close()
 
-	simpleBinary := wasmtest.CreateTestBinary(t, simpleBinaryCmd, false)
+	simpleBinary := wasmtest.GetTestBinary(t, simpleBinaryCmd, false)
 	shmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         logger.Test(t),
 		IsUncompressed: true,
@@ -136,7 +136,7 @@ func TestCache_AddDuplicatedModule(t *testing.T) {
 	assert.Equal(t, got, smod)
 
 	// Adding a different module but with the same id should not overwrite the existing module
-	fetchBinary := wasmtest.CreateTestBinary(t, fetchBinaryCmd, false)
+	fetchBinary := wasmtest.GetTestBinary(t, fetchBinaryCmd, false)
 	fhmod, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         logger.Test(t),
 		IsUncompressed: true,

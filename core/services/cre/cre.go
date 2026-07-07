@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/diskmonitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
@@ -1031,10 +1030,9 @@ func newWorkflowRegistrySyncerV2(
 		}
 
 		if diskMonitorEnabled {
-			dm, dmErr := diskmonitor.NewDiskMonitor(
+			dm, dmErr := syncerV2.NewWorkflowModuleCacheDiskMonitor(
 				lggr,
 				fileStore.CacheDir(),
-				syncerV2.GaugeWorkflowModuleCacheDiskUsageBytes,
 				syncerV2.WorkflowModuleCacheDiskMonitorTickInterval,
 			)
 			if dmErr != nil {
@@ -1114,6 +1112,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithAdditionalSources(addSourceConfigs),
 		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
 		syncerV2.WithMaxConcurrency(wfReg.MaxConcurrency()),
+		syncerV2.WithMaxActivationRetries(wfReg.MaxActivationRetries()),
 	}
 	if cfg.Sharding().ShardingEnabled() {
 		registryOpts = append(registryOpts,

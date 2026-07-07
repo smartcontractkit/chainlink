@@ -43,9 +43,10 @@ import (
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 
+	aptosstate "github.com/smartcontractkit/chainlink-aptos/deployment/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/maputils"
 	ccipshared "github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 
@@ -1042,7 +1043,7 @@ func LoadOnchainState(e cldf.Environment, opts ...LoadOption) (CCIPOnChainState,
 	if err != nil {
 		return CCIPOnChainState{}, err
 	}
-	aptosChains, err := aptosstate.LoadOnchainStateAptos(e)
+	aptosChains, err := aptosstate.LoadOnchainState(e)
 	if err != nil {
 		return CCIPOnChainState{}, err
 	}

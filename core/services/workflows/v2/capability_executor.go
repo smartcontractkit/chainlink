@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"

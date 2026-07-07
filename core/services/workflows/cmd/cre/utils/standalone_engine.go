@@ -143,9 +143,9 @@ func NewStandaloneEngine(
 	}
 
 	if module.IsLegacyDAG() {
-		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
-		if err != nil {
-			return nil, nil, err
+		sdkSpec, specErr := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
+		if specErr != nil {
+			return nil, nil, specErr
 		}
 
 		cfg := workflows.Config{
@@ -167,9 +167,9 @@ func NewStandaloneEngine(
 			BillingClient:        billingClient,
 		}
 
-		engine, err := workflows.NewEngine(ctx, cfg)
-		if err != nil {
-			return nil, nil, err
+		engine, engineErr := workflows.NewEngine(ctx, cfg)
+		if engineErr != nil {
+			return nil, nil, engineErr
 		}
 		return engine, nil, nil
 	}
