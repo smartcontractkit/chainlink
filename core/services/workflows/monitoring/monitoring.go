@@ -434,18 +434,18 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 // platformEngineHistogramBoundaries caps Prometheus le-cardinality on high-workflow-count
 // CRE nodes. Each slice has 7 explicit boundaries (8 buckets including +Inf).
 var platformEngineHistogramBoundaries = struct {
-	workflowCompletedTime              []float64
-	triggerEventQueueWait            []float64
-	triggerQueueToExecutionStart     []float64
-	triggerPayloadBytes              []float64
-	executionSemaphoreWait           []float64
+	workflowCompletedTime        []float64
+	triggerEventQueueWait        []float64
+	triggerQueueToExecutionStart []float64
+	triggerPayloadBytes          []float64
+	executionSemaphoreWait       []float64
 }{
 	// Workflows-Engine p95/p99; coarser than prior 16-bucket layout but keeps SLO range.
-	workflowCompletedTime:          []float64{0, 10, 40, 90, 150, 300, 900},
-	triggerEventQueueWait:          []float64{0, 0.001, 0.01, 0.1, 1, 10, 60},
-	triggerQueueToExecutionStart:   []float64{0, 0.01, 0.1, 1, 10, 60, 300},
-	triggerPayloadBytes:            []float64{0, 512, 4096, 32768, 262144, 1048576, 4194304},
-	executionSemaphoreWait:         []float64{0, 0.001, 0.01, 0.1, 1, 10, 60},
+	workflowCompletedTime:        []float64{0, 10, 40, 90, 150, 300, 900},
+	triggerEventQueueWait:        []float64{0, 0.001, 0.01, 0.1, 1, 10, 60},
+	triggerQueueToExecutionStart: []float64{0, 0.01, 0.1, 1, 10, 60, 300},
+	triggerPayloadBytes:          []float64{0, 512, 4096, 32768, 262144, 1048576, 4194304},
+	executionSemaphoreWait:       []float64{0, 0.001, 0.01, 0.1, 1, 10, 60},
 }
 
 // Note: due to the OTEL specification, all histogram buckets
