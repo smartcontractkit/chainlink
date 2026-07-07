@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
@@ -118,12 +119,34 @@ func keyFor(owner, namespace, id string) string {
 	return fmt.Sprintf("%s::%s::%s", owner, namespace, id)
 }
 
+func (s *secretsFetcher) vaultGetSecretsMetadata(ctx context.Context, callbackID int64) capabilities.RequestMetadata {
+	metadata := capabilities.RequestMetadata{
+		WorkflowOwner:       s.workflowOwner,
+		WorkflowName:        s.workflowName,
+		WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(callbackID, 10)),
+		ReferenceID:         strconv.FormatInt(callbackID, 10),
+	}
+	if propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, s.creSettingsGetter); propagateOrgIDMeta && s.orgID != "" {
+		metadata.OrgID = s.orgID
+		// WorkflowID is under this gate because we previously skipped setting workflowID on SecretsFetcher entirely. Now setting it safely.
+		metadata.WorkflowID = s.workflowID
+	}
+	return metadata
+}
+
 func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{
 		Org:      s.orgID,
 		Owner:    s.workflowOwner,
 		Workflow: s.workflowID,
 	})
+	var callbackID int64
+	if request != nil {
+		callbackID = int64(request.CallbackId)
+	}
+	metadata := s.vaultGetSecretsMetadata(ctx, callbackID)
+	vaultRequestID := vaultutils.BuildWorkflowGetSecretsRequestID(metadata)
+	s.lggr.Debugw("get secrets request received", "vaultRequestID", vaultRequestID, "metadata", metadata)
 	s.callCounter.mu.Lock()
 	secretsCalled := s.callCounter.called + 1
 	if err := s.secretsCallsLimit.Check(ctx, secretsCalled); err != nil {
@@ -143,8 +166,12 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	}()
 	getSecretsDuration := time.Since(start).Milliseconds()
 	if err != nil {
-		// Log errors when secrets fetching fails, for troubleshooting and debugging
-		s.lggr.Warnw("Secrets fetching failed for request", "request", request, "error", err, "requestLatency", getSecretsDuration)
+		s.lggr.Warnw("Secrets fetching failed for request",
+			"vaultRequestID", vaultRequestID,
+			"metadata", metadata,
+			"error", err,
+			"requestLatency", getSecretsDuration,
+		)
 	}
 	s.metrics.With(
 		"workflowOwner", s.workflowOwner,
@@ -258,17 +285,8 @@ func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSe
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encryption keys: %w", err)
 	}
-	metadata := capabilities.RequestMetadata{
-		WorkflowOwner:       s.workflowOwner,
-		WorkflowName:        s.workflowName,
-		WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(int64(request.CallbackId), 10)),
-		ReferenceID:         strconv.FormatInt(int64(request.CallbackId), 10),
-	}
-	if propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, s.creSettingsGetter); propagateOrgIDMeta && s.orgID != "" {
-		metadata.OrgID = s.orgID
-		// WorkflowID is under this gate because we previously skipped setting workflowID on SecretsFetcher entirely. Now setting it safely.
-		metadata.WorkflowID = s.workflowID
-	}
+	metadata := s.vaultGetSecretsMetadata(ctx, int64(request.CallbackId))
+	vaultRequestID := vaultutils.BuildWorkflowGetSecretsRequestID(metadata)
 	vp := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0),
 	}
@@ -300,8 +318,8 @@ func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSe
 		return nil, fmt.Errorf("failed to convert vault request to any: %w", err)
 	}
 
-	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "metadata", metadata)
-	lggr.Debug("fetching secrets...")
+	lggr := logger.With(s.lggr, "requestedKeys", logKeys, "vaultRequestID", vaultRequestID, "metadata", metadata)
+	lggr.Debugw("fetching secrets from vault")
 
 	capabilityResponse, err := vaultCap.Execute(ctx, capabilities.CapabilityRequest{
 		Payload:      anypbReq,
@@ -314,7 +332,7 @@ func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSe
 		return nil, fmt.Errorf("failed to execute vault.GetSecrets: %w", err)
 	}
 
-	lggr.Debug("successfully fetched secrets from vault capability")
+	lggr.Debugw("successfully fetched secrets from vault capability")
 
 	batchedVaultResponse := &vault.GetSecretsResponse{}
 	err = capabilityResponse.Payload.UnmarshalTo(batchedVaultResponse)

@@ -29,7 +29,7 @@ import (
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
-	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
+	aptosstate "github.com/smartcontractkit/chainlink-aptos/deployment/state"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 

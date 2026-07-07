@@ -152,7 +152,7 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sigstore/sigstore v1.10.4 // indirect
 	github.com/sigstore/sigstore-go v1.1.4 // indirect
-	github.com/smartcontractkit/chainlink-canton v0.0.0-20260609155219-dcbe77d4a320 // indirect
+	github.com/smartcontractkit/chainlink-canton v0.0.0-20260615233851-4e78e7c23a58 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260706093831-dad26b360094 // indirect
@@ -167,9 +167,9 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.19.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260512230622-65f10f4cd305 // indirect
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1 // indirect
-	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260706170510-94f3a0409ea5 // indirect
+	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260707055827-4efc3ddb4e82 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9 // indirect
-	github.com/smartcontractkit/go-daml v0.0.0-20260604143752-c6f6567940ba // indirect
+	github.com/smartcontractkit/go-daml v0.0.0-20260615231356-88c6ee9b5774 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20260508200755-99940c85383c // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/stellar/go-stellar-sdk v0.5.0 // indirect
@@ -236,7 +236,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.43.3 // indirect
 	github.com/aws/constructs-go/constructs/v10 v10.4.2 // indirect
 	github.com/aws/jsii-runtime-go v1.112.0 // indirect
-	github.com/aws/smithy-go v1.27.1 // indirect
+	github.com/aws/smithy-go v1.27.2 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -681,4 +681,4 @@ replace github.com/doyensec/safeurl => github.com/cedric-cordenier/safeurl v0.0.
 // merged upstream yet.
 replace github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.3.1-0.20260410131411-8c2f3bdae9db
 
-replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260706170510-94f3a0409ea5
+replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260707055827-4efc3ddb4e82

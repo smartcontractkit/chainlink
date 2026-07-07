@@ -36,7 +36,7 @@ require (
 	github.com/smartcontractkit/chainlink/v2 v2.29.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/atomic v1.11.0
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.21.0
 )
 
 require (
@@ -106,7 +106,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.43.3 // indirect
 	github.com/aws/constructs-go/constructs/v10 v10.4.2 // indirect
 	github.com/aws/jsii-runtime-go v1.104.0 // indirect
-	github.com/aws/smithy-go v1.27.1 // indirect
+	github.com/aws/smithy-go v1.27.2 // indirect
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/basgys/goxml2json v1.1.1-0.20231018121955-e66ee54ceaad // indirect
 	github.com/bboreham/go-loser v0.0.0-20230920113527-fcc2c21820a3 // indirect
@@ -477,8 +477,9 @@ require (
 	github.com/slack-go/slack v0.23.1 // indirect
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
+	github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260706100550-d43558069754 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-canton v0.0.0-20260609155219-dcbe77d4a320 // indirect
+	github.com/smartcontractkit/chainlink-canton v0.0.0-20260615233851-4e78e7c23a58 // indirect
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260624154507-ea7ff77a0ddb // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260706093831-dad26b360094 // indirect
 	github.com/smartcontractkit/chainlink-common/keystore v1.2.0 // indirect
@@ -511,8 +512,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260630073003-fb8da7229930 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1 // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0 // indirect
-	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260706170510-94f3a0409ea5 // indirect
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260706170510-94f3a0409ea5 // indirect
+	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260707055827-4efc3ddb4e82 // indirect
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260707055827-4efc3ddb4e82 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
@@ -521,7 +522,7 @@ require (
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/cld-changesets v0.5.0 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
-	github.com/smartcontractkit/go-daml v0.0.0-20260604143752-c6f6567940ba // indirect
+	github.com/smartcontractkit/go-daml v0.0.0-20260615231356-88c6ee9b5774 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20260508200755-99940c85383c // indirect
 	github.com/smartcontractkit/mcms v0.48.0 // indirect
@@ -628,14 +629,14 @@ require (
 	go.yaml.in/yaml/v4 v4.0.0-rc.4 // indirect
 	go4.org/netipx v0.0.0-20230125063823-8449b0a6169f // indirect
 	golang.org/x/arch v0.22.0 // indirect
-	golang.org/x/crypto v0.52.0 // indirect
+	golang.org/x/crypto v0.53.0 // indirect
 	golang.org/x/exp v0.0.0-20260508232706-74f9aab9d74a // indirect
 	golang.org/x/mod v0.36.0 // indirect
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/term v0.43.0 // indirect
-	golang.org/x/text v0.37.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/term v0.44.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.45.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
@@ -688,4 +689,4 @@ replace github.com/doyensec/safeurl => github.com/cedric-cordenier/safeurl v0.0.
 // merged upstream yet.
 replace github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.3.1-0.20260410131411-8c2f3bdae9db
 
-replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260624134342-6bfb9c92859d
+replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260707055827-4efc3ddb4e82
