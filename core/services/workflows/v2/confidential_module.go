@@ -79,19 +79,20 @@ type ConfidentialModule struct {
 }
 
 // confidentialModuleMetrics are node-measured (and therefore trusted) metrics for
-// the enclave round-trip, complementing the enclave-reported enclave.* metrics
-// which are non-attested. Names are new, so they do not overload classic metrics.
+// the enclave round-trip. They live in the enclave* namespace alongside the
+// enclave-reported enclave.* metrics (which are non-attested), keeping all
+// confidential-workflow metrics out of the classic platform_engine_* namespace.
 type confidentialModuleMetrics struct {
 	executionDuration metric.Int64Histogram
 	executionFailures metric.Int64Counter
 }
 
-func newConfidentialModuleMetrics() (*confidentialModuleMetrics, error) {
-	executionDuration, err := beholder.GetMeter().Int64Histogram("platform_engine_confidential_execution_time_ms")
+func newConfidentialModuleMetrics(meter metric.Meter) (*confidentialModuleMetrics, error) {
+	executionDuration, err := meter.Int64Histogram("enclave_execution_time_ms")
 	if err != nil {
 		return nil, err
 	}
-	executionFailures, err := beholder.GetMeter().Int64Counter("platform_engine_confidential_execution_failures")
+	executionFailures, err := meter.Int64Counter("enclave_execution_failures")
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +109,7 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandl
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
 	}
-	metrics, err := newConfidentialModuleMetrics()
+	metrics, err := newConfidentialModuleMetrics(beholder.GetMeter())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create confidential module metrics: %w", err)
 	}

@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -260,6 +262,107 @@ func TestConfidentialModule_Execute(t *testing.T) {
 		assert.Equal(t, binaryHash, confReq.Execution.BinaryHash)
 
 		assert.Equal(t, execReq.GetConfig(), confReq.Execution.SdkExecuteRequest.GetConfig())
+	})
+}
+
+// collectMetric returns the aggregated value of a named instrument from the
+// reader: total for a counter (Sum), total observation count for a histogram.
+// The bool reports whether the instrument was emitted at all.
+func collectMetric(t *testing.T, reader *sdkmetric.ManualReader, name string) (int64, bool) {
+	t.Helper()
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+	for _, sm := range rm.ScopeMetrics {
+		for _, m := range sm.Metrics {
+			if m.Name != name {
+				continue
+			}
+			switch d := m.Data.(type) {
+			case metricdata.Sum[int64]:
+				var total int64
+				for _, dp := range d.DataPoints {
+					total += dp.Value
+				}
+				return total, true
+			case metricdata.Histogram[int64]:
+				var count uint64
+				for _, dp := range d.DataPoints {
+					count += dp.Count
+				}
+				return int64(count), true
+			}
+		}
+	}
+	return 0, false
+}
+
+func TestConfidentialModule_Execute_Metrics(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	lggr := logger.Nop()
+	execReq := &sdkpb.ExecuteRequest{Config: []byte("test-config")}
+
+	confResp := &confworkflowtypes.ConfidentialWorkflowResponse{
+		SdkExecutionResult: &sdkpb.ExecutionResult{
+			Result: &sdkpb.ExecutionResult_Value{Value: valuespb.NewStringValue("out")},
+		},
+	}
+	respPayload, err := anypb.New(confResp)
+	require.NoError(t, err)
+
+	// meteredModule builds a module and swaps its metrics for ones backed by a
+	// ManualReader so emitted values can be read back.
+	meteredModule := func(t *testing.T, capReg *regmocks.CapabilitiesRegistry) (*ConfidentialModule, *sdkmetric.ManualReader) {
+		reader := sdkmetric.NewManualReader()
+		mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+		mod := mustNewConfidentialModule(t, capReg, &confidentialrelay.ExecutionHandlers{},
+			"https://example.com/binary.wasm", []byte("h"), "wf-123", "owner-abc", "my-workflow", "v1",
+			limits.NewGateLimiter(true), lggr)
+		m, mErr := newConfidentialModuleMetrics(mp.Meter("test"))
+		require.NoError(t, mErr)
+		mod.metrics = m
+		return mod, reader
+	}
+
+	t.Run("success records duration and no failure", func(t *testing.T) {
+		t.Parallel()
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).Return(execCap, nil).Once()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+
+		mod, reader := meteredModule(t, capReg)
+		_, execErr := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-456"})
+		require.NoError(t, execErr)
+
+		durCount, ok := collectMetric(t, reader, "enclave_execution_time_ms")
+		require.True(t, ok, "enclave_execution_time_ms should be recorded")
+		assert.Equal(t, int64(1), durCount)
+
+		_, failPresent := collectMetric(t, reader, "enclave_execution_failures")
+		assert.False(t, failPresent, "no failure counter on success")
+	})
+
+	t.Run("failure increments counter and still records duration", func(t *testing.T) {
+		t.Parallel()
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).Return(execCap, nil).Once()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{}, errors.New("enclave unavailable")).Once()
+
+		mod, reader := meteredModule(t, capReg)
+		_, execErr := mod.Execute(ctx, execReq, &stubExecutionHelper{})
+		require.Error(t, execErr)
+
+		failTotal, ok := collectMetric(t, reader, "enclave_execution_failures")
+		require.True(t, ok, "enclave_execution_failures should be present")
+		assert.Equal(t, int64(1), failTotal)
+
+		durCount, ok := collectMetric(t, reader, "enclave_execution_time_ms")
+		require.True(t, ok, "duration recorded even on failure")
+		assert.Equal(t, int64(1), durCount)
 	})
 }
 
