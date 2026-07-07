@@ -757,6 +757,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 					BinaryHash:        v2.ComputeBinaryHash(binary),
 					SdkExecuteRequest: executeRequest,
 					Owner:             hex.EncodeToString(wfOwner),
+					OrgId:             testOrgID,
 					BinaryUrl:         binaryURL,
 					Requirements:      &sdk.Requirements{Tee: &sdk.Tee{Item: &sdk.Tee_AnyRegions{}}},
 				},
@@ -1439,8 +1440,10 @@ func (m *testOrgResolver) Name() string { return "TestOrgResolver" }
 
 func (m *testOrgResolver) Ready() error { return nil }
 
+const testOrgID = "test-org"
+
 func withTestOrgResolver() func(*eventHandler) {
-	return WithOrgResolver(&testOrgResolver{orgID: "test-org"})
+	return WithOrgResolver(&testOrgResolver{orgID: testOrgID})
 }
 
 // mockLinkingService implements the LinkingServiceServer interface for testing
