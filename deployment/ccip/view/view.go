@@ -7,8 +7,9 @@ import (
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 
+	aptosview "github.com/smartcontractkit/chainlink-aptos/deployment/view"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/maputils"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
@@ -129,40 +130,9 @@ func (v *ChainView) UpdateRegistryModuleView(registryModuleAddress string, regis
 	v.RegistryModules[registryModuleAddress] = registryModuleView
 }
 
-type AptosChainView struct {
-	ChainSelector uint64 `json:"chainSelector,omitempty"`
-	ChainID       string `json:"chainID,omitempty"`
+type AptosChainView = aptosview.AptosChainView
 
-	MCMSWithTimelock aptos.MCMSWithTimelockView `json:"mcmsWithTimelock"`
-
-	LinkToken aptos.TokenView            `json:"linkToken"`
-	Tokens    map[string]aptos.TokenView `json:"tokens,omitempty"`
-
-	CCIP    aptos.CCIPView               `json:"ccip"`
-	Router  map[string]aptos.RouterView  `json:"router,omitempty"`
-	OnRamp  map[string]aptos.OnRampView  `json:"onRamp,omitempty"`
-	OffRamp map[string]aptos.OffRampView `json:"offRamp,omitempty"`
-
-	TokenPools map[string]map[string]aptos.TokenPoolView `json:"poolByTokens,omitempty"` // TokenSymbol => TokenPool Address => PoolView
-
-	UpdateMu *sync.Mutex `json:"-"`
-}
-
-func NewAptosChainView() AptosChainView {
-	return AptosChainView{
-		ChainSelector:    0,
-		ChainID:          "",
-		MCMSWithTimelock: aptos.MCMSWithTimelockView{},
-		LinkToken:        aptos.TokenView{},
-		Tokens:           make(map[string]aptos.TokenView),
-		CCIP:             aptos.CCIPView{},
-		Router:           make(map[string]aptos.RouterView),
-		OnRamp:           make(map[string]aptos.OnRampView),
-		OffRamp:          make(map[string]aptos.OffRampView),
-		TokenPools:       make(map[string]map[string]aptos.TokenPoolView),
-		UpdateMu:         &sync.Mutex{},
-	}
-}
+var NewAptosChainView = aptosview.NewAptosChainView
 
 type CCIPView struct {
 	Chains      map[string]ChainView             `json:"chains,omitempty"`
