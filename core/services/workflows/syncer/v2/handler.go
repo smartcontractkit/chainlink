@@ -89,7 +89,7 @@ type eventHandler struct {
 	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
-	secretsFetcher v2.SecretsFetcher
+	secretsFetcher         v2.SecretsFetcher
 	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
 	localSecretOverrides map[string]map[string]string
 
