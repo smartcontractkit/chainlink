@@ -87,3 +87,36 @@ func TestMetricViews_platformEngineHistogramBuckets(t *testing.T) {
 		})
 	}
 }
+
+func TestMetricViews_getSecretsDurationBuckets(t *testing.T) {
+	t.Parallel()
+
+	wantBoundaries := []float64{0, 10, 50, 100, 250, 500, 1000}
+
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(reader),
+		sdkmetric.WithView(monitoring.MetricViews()...),
+	)
+	t.Cleanup(func() { _ = mp.Shutdown(context.Background()) })
+
+	hist, err := mp.Meter("test").Int64Histogram(
+		"platform_engine_get_secrets_duration_ms",
+		metric.WithUnit("ms"),
+	)
+	require.NoError(t, err)
+	hist.Record(context.Background(), 75)
+
+	var rm metricdata.ResourceMetrics
+	require.NoError(t, reader.Collect(context.Background(), &rm))
+
+	require.Len(t, rm.ScopeMetrics, 1)
+	require.Len(t, rm.ScopeMetrics[0].Metrics, 1)
+	require.Equal(t, "platform_engine_get_secrets_duration_ms", rm.ScopeMetrics[0].Metrics[0].Name)
+
+	data, ok := rm.ScopeMetrics[0].Metrics[0].Data.(metricdata.Histogram[int64])
+	require.True(t, ok)
+	require.Len(t, data.DataPoints, 1)
+	assert.Equal(t, wantBoundaries, data.DataPoints[0].Bounds)
+	assert.Len(t, data.DataPoints[0].Bounds, 7, "expected 7 boundaries (8 Prometheus buckets including +Inf)")
+}

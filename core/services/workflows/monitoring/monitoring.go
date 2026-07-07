@@ -507,6 +507,13 @@ func MetricViews() []sdkmetric.View {
 				Boundaries: b.executionSemaphoreWait,
 			}},
 		),
+		// Default OTel buckets (16) for this instrument; Capabilities dashboards use p50/p90.
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_get_secrets_duration_ms"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 10, 50, 100, 250, 500, 1000},
+			}},
+		),
 	}
 }
 
