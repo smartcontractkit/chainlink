@@ -171,7 +171,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9 // indirect
 	github.com/smartcontractkit/go-daml v0.0.0-20260615231356-88c6ee9b5774 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20260508200755-99940c85383c // indirect
-	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
+	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20260626090144-2343efd61516 // indirect
 	github.com/stellar/go-stellar-sdk v0.5.0 // indirect
 	github.com/stellar/go-xdr v0.0.0-20260423131911-a87d4d0789c3 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
