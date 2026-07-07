@@ -387,17 +387,22 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		emitterCfg.DeleteBatchSize = 500
 		emitterCfg.DeleteBatchWorkers = 6
 		emitterCfg.DeleteBatchFlushInterval = 100 * time.Millisecond
-		// Retransmit is a bounded safety net for genuinely-failed deliveries, NOT a
-		// bulk-replay engine. Two rules keep a recovering backlog from becoming a
-		// self-amplifying storm that overwhelms chip ingress and grows the table:
-		//   1. RetransmitAfter MUST exceed worst-case delivery latency, so an event
-		//      still in flight is never re-queued (no duplicate amplification).
-		//   2. The re-queue rate is a controlled trickle sized to downstream
-		//      capacity, so it never floods the batch emitter buffer.
-		emitterCfg.RetransmitAfter = 60 * time.Second    // >> PublishTimeout/MaxPublishTimeout (10s) + buffering
-		emitterCfg.RetransmitBatchSize = 500             // bounded rows per tick
-		emitterCfg.RetransmitInterval = 10 * time.Second // → ≤50 events/s re-queued; raise only to downstream capacity
-		emitterCfg.EventTTL = 1 * time.Hour              // hard cap on backlog: expiry GCs rows older than this
+		// Recovery profile: retransmit replays the post-outage backlog while the
+		// primary path keeps delivering live emits — both feed the same BatchEmitter,
+		// which has ample headroom (BatchSize × MaxConcurrentSends) for live + backlog.
+		//   - RetransmitInterval = 1s, so RetransmitBatchSize is literally the backlog
+		//     replay rate in events/s. Keep it below BatchEmitter capacity minus the
+		//     live rate, so live emits are never starved out of the buffer.
+		//   - RetransmitAfter MUST exceed delivery latency so an in-flight event is
+		//     never re-queued (the real storm guard — the rate itself is safe because
+		//     MaxConcurrentSends bounds actual downstream load).
+		//   - EventTTL MUST exceed the recovery duration, or the backlog EXPIRES
+		//     (rows dropped by the 1-min expiry loop) before it can be delivered — a
+		//     fake "drain". 6h gives a wide margin for the test.
+		emitterCfg.RetransmitAfter = 60 * time.Second // > PublishTimeout/MaxPublishTimeout (10s) + buffering
+		emitterCfg.RetransmitBatchSize = 500          // 500 events/s replayed (interval = 1s)
+		emitterCfg.RetransmitInterval = 1 * time.Second
+		emitterCfg.EventTTL = 2 * time.Hour
 		emitterCfg.PublishTimeout = 10 * time.Second
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
