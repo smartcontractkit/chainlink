@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -72,12 +73,12 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 	}
 	ab := cldf.NewMemoryAddressBook()
 	// Note we also deploy the cap reg.
-	_, err = deployHomeChain(env.Logger, env, ab, env.BlockChains.EVMChains()[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
+	_, err = deployHomeChain(env.Logger, env, ab, env.ExistingAddresses, env.BlockChains.EVMChains()[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
-		ds, err2 := shared.PopulateDataStore(ab)
+		ds, err2 := populateHomeChainDataStore(env.ExistingAddresses, ab)
 		if err2 != nil {
-			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
 		}
 
 		return cldf.ChangesetOutput{
@@ -86,15 +87,53 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 		}, errors.Join(err, err2)
 	}
 
-	ds, err := shared.PopulateDataStore(ab)
+	ds, err := populateHomeChainDataStore(env.ExistingAddresses, ab)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		return cldf.ChangesetOutput{}, err
 	}
 
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
 		DataStore:   ds,
 	}, nil
+}
+
+func populateHomeChainDataStore(existingAddresses cldf.AddressBook, ab cldf.AddressBook) (*datastore.MemoryDataStore, error) {
+	dsAb := cldf.NewMemoryAddressBook()
+	if existingAddresses != nil {
+		if err := dsAb.Merge(existingAddresses); err != nil {
+			return nil, fmt.Errorf("merge existing addresses for DataStore: %w", err)
+		}
+	}
+	if err := dsAb.Merge(ab); err != nil {
+		return nil, fmt.Errorf("merge new addresses for DataStore: %w", err)
+	}
+	ds, err := shared.PopulateDataStore(dsAb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+	return ds, nil
+}
+
+func saveExistingContractIfNeeded(
+	ab cldf.AddressBook,
+	existingAddresses cldf.AddressBook,
+	chainSelector uint64,
+	address common.Address,
+	tv cldf.TypeAndVersion,
+) error {
+	if existingAddresses != nil {
+		addrs, err := existingAddresses.AddressesForChain(chainSelector)
+		if err == nil {
+			if _, exists := addrs[address.Hex()]; exists {
+				return nil
+			}
+		}
+	}
+	if err := ab.Save(chainSelector, address.Hex(), tv); err != nil {
+		return fmt.Errorf("save existing %s to address book: %w", tv.Type, err)
+	}
+	return nil
 }
 
 type DeployHomeChainConfig struct {
@@ -139,6 +178,7 @@ func deployCapReg(
 	lggr logger.Logger,
 	state stateview.CCIPOnChainState,
 	ab cldf.AddressBook,
+	existingAddresses cldf.AddressBook,
 	chain cldf_evm.Chain,
 ) (*cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
 	homeChainState, exists := state.Chains[chain.Selector]
@@ -146,8 +186,12 @@ func deployCapReg(
 		cr := homeChainState.CapabilityRegistry
 		if cr != nil {
 			lggr.Infow("Found CapabilitiesRegistry in chain state", "address", cr.Address().String())
+			tv := cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0)
+			if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, cr.Address(), tv); err != nil {
+				return nil, err
+			}
 			return &cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-				Address: cr.Address(), Contract: cr, Tv: cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0),
+				Address: cr.Address(), Contract: cr, Tv: tv,
 			}, nil
 		}
 	}
@@ -180,6 +224,7 @@ func deployHomeChain(
 	lggr logger.Logger,
 	e cldf.Environment,
 	ab cldf.AddressBook,
+	existingAddresses cldf.AddressBook,
 	chain cldf_evm.Chain,
 	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
 	rmnHomeDynamic rmn_home.RMNHomeDynamicConfig,
@@ -192,7 +237,7 @@ func deployHomeChain(
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	// Deploy CapabilitiesRegistry, CCIPHome, RMNHome
-	capReg, err := deployCapReg(lggr, state, ab, chain)
+	capReg, err := deployCapReg(lggr, state, ab, existingAddresses, chain)
 	if err != nil {
 		return nil, err
 	}
@@ -204,8 +249,13 @@ func deployHomeChain(
 	}
 	var ccipHomeAddr common.Address
 	if state.Chains[chain.Selector].CCIPHome != nil {
-		lggr.Infow("CCIPHome already deployed", "addr", state.Chains[chain.Selector].CCIPHome.Address().String())
-		ccipHomeAddr = state.Chains[chain.Selector].CCIPHome.Address()
+		ccipHome := state.Chains[chain.Selector].CCIPHome
+		lggr.Infow("CCIPHome already deployed", "addr", ccipHome.Address().String())
+		tv := cldf.NewTypeAndVersion(shared.CCIPHome, deployment.Version1_6_0)
+		if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, ccipHome.Address(), tv); err != nil {
+			return nil, err
+		}
+		ccipHomeAddr = ccipHome.Address()
 	} else {
 		ccipHome, err := cldf.DeployContract(
 			lggr, chain, ab,
@@ -230,8 +280,12 @@ func deployHomeChain(
 		ccipHomeAddr = ccipHome.Address
 	}
 	rmnHome := state.Chains[chain.Selector].RMNHome
-	if state.Chains[chain.Selector].RMNHome != nil {
-		lggr.Infow("RMNHome already deployed", "addr", state.Chains[chain.Selector].RMNHome.Address().String())
+	if rmnHome != nil {
+		lggr.Infow("RMNHome already deployed", "addr", rmnHome.Address().String())
+		tv := cldf.NewTypeAndVersion(shared.RMNHome, deployment.Version1_6_0)
+		if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, rmnHome.Address(), tv); err != nil {
+			return nil, err
+		}
 	} else {
 		rmnHomeContract, err := cldf.DeployContract(
 			lggr, chain, ab,
