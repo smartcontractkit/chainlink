@@ -369,6 +369,7 @@ MeterRecordsEnabled = false
 MeterSnapshotsEnabled = false
 Product = ''
 Tenant = ''
+NumericTenantID = ''
 Environment = ''
 Zone = ''
 NodeID = ''

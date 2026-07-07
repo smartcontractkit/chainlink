@@ -134,38 +134,22 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 	})
 }
 
-// TestStandardCapabilities_ForwardsNodeMeteringIdentity asserts that the
-// host-injected deployment/node metering identity (Product/Environment/Zone/
-// NodeID) supplied on the deps at construction is re-delivered, unchanged, on the
-// StandardCapabilitiesDependencies handed to the capability LOOP at Initialise.
-// This is the standardized Initialise channel that gives trigger LOOPs the same
-// coarse metering identity the node's engine uses.
-func TestStandardCapabilities_ForwardsNodeMeteringIdentity(t *testing.T) {
+func TestStandardCapabilities_InitialiseDependenciesRoundTrip(t *testing.T) {
 	want := core.StandardCapabilitiesDependencies{
-		Product:     "cre",
-		Environment: "staging",
-		Zone:        "wf-zone-a",
-		NodeID:      "0a1b2c3d4e5f",
+		Config: "test-config",
 	}
 
 	std := NewStandardCapabilities(
 		logger.TestLogger(t),
 		"not/found/path/to/binary",
-		"{}",
+		want.Config,
 		&capturingRegistrar{},
 		want,
 	)
 
 	got := std.initialiseDependencies()
 
-	require.Equal(t, want.Product, got.Product,
-		"the host-injected product must reach the capability LOOP via Initialise")
-	require.Equal(t, want.Environment, got.Environment,
-		"the host-injected environment must reach the capability LOOP via Initialise")
-	require.Equal(t, want.Zone, got.Zone,
-		"the host-injected zone must reach the capability LOOP via Initialise")
-	require.Equal(t, want.NodeID, got.NodeID,
-		"the host-injected node_id (CSA pubkey) must reach the capability LOOP via Initialise")
+	require.Equal(t, want.Config, got.Config, "config should be re-delivered to LOOP Initialise dependencies")
 }
 
 const capturingRegistrarErr = "capturingRegistrar: stop after capture"

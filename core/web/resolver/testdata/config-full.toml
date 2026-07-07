@@ -387,6 +387,7 @@ MeterRecordsEnabled = true
 MeterSnapshotsEnabled = true
 Product = 'cre'
 Tenant = 'mainline'
+NumericTenantID = '42'
 Environment = 'production'
 Zone = 'wf-zone-a'
 NodeID = 'csa-pubkey-1'

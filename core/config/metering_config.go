@@ -9,6 +9,7 @@ type Metering interface {
 	MeterSnapshotsEnabled() bool
 	Product() string
 	Tenant() string
+	NumericTenantID() string
 	Environment() string
 	Zone() string
 	NodeID() string

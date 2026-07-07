@@ -175,11 +175,12 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	if m.cfgMetering != nil {
 		envCfg.MeterRecordsEnabled = m.cfgMetering.MeterRecordsEnabled()
 		envCfg.MeterSnapshotsEnabled = m.cfgMetering.MeterSnapshotsEnabled()
-		envCfg.MeteringProduct = m.cfgMetering.Product()
-		envCfg.MeteringTenant = m.cfgMetering.Tenant()
-		envCfg.MeteringEnvironment = m.cfgMetering.Environment()
-		envCfg.MeteringZone = m.cfgMetering.Zone()
-		envCfg.MeteringNodeID = m.cfgMetering.NodeID()
+		envCfg.MeterProduct = m.cfgMetering.Product()
+		envCfg.MeterTenant = m.cfgMetering.Tenant()
+		envCfg.MeterNumericTenantID = m.cfgMetering.NumericTenantID()
+		envCfg.MeterEnvironment = m.cfgMetering.Environment()
+		envCfg.MeterZone = m.cfgMetering.Zone()
+		envCfg.MeterNodeID = m.cfgMetering.NodeID()
 	}
 	m.lggr.Debugf("Registered loopp %q with port %d", id, envCfg.PrometheusPort)
 

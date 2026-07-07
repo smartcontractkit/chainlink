@@ -36,6 +36,13 @@ func (b *meteringConfig) Tenant() string {
 	return *b.s.Tenant
 }
 
+func (b *meteringConfig) NumericTenantID() string {
+	if b.s.NumericTenantID == nil {
+		return ""
+	}
+	return *b.s.NumericTenantID
+}
+
 func (b *meteringConfig) Environment() string {
 	if b.s.Environment == nil {
 		return ""

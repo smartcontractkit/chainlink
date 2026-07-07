@@ -583,6 +583,7 @@ func TestConfig_Marshal(t *testing.T) {
 		MeterSnapshotsEnabled: ptr(true),
 		Product:               ptr("cre"),
 		Tenant:                ptr("mainline"),
+		NumericTenantID:       ptr("42"),
 		Environment:           ptr("production"),
 		Zone:                  ptr("wf-zone-a"),
 		NodeID:                ptr("csa-pubkey-1"),

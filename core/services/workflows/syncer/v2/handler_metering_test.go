@@ -66,8 +66,8 @@ func (r *recordingEmitter) Records() []*meteringpb.MeterRecord {
 func newMeteringResourceManager(t *testing.T, enabled bool, emitter resourcemanager.Emitter) *resourcemanager.ResourceManager {
 	t.Helper()
 	return resourcemanager.NewResourceManager(commonlogger.Test(t), resourcemanager.ResourceManagerConfig{
-		Enabled: enabled,
-		Emitter: emitter,
+		MeterRecordsEnabled: enabled,
+		Emitter:             emitter,
 	})
 }
 
@@ -137,29 +137,16 @@ func requireMeterRecord(t *testing.T, record *meteringpb.MeterRecord, action met
 	t.Helper()
 	require.NotNil(t, record.Identity)
 	assert.Equal(t, "workflow-syncer-v2", record.Identity.Service)
-	assert.Equal(t, "workflow_specs_v2", record.Identity.Resource)
-	assert.Equal(t, "operations", record.Identity.ResourceType)
-	// resource_id = workflow_id for the syncer (no shared physical resource).
-	assert.Equal(t, workflowID, record.Identity.ResourceId)
+	assert.Equal(t, "workflow_specs_v2", record.Identity.ResourcePool)
 	assert.Equal(t, action, record.Action)
 	assert.NotNil(t, record.Timestamp)
-	require.NotNil(t, record.Utilization)
-	assert.Equal(t, int64(1), record.Utilization.Value)
-	// The idempotency key is derived over the full identity (with resource_id set
-	// to workflow_id) and the originating event name as the event identity.
-	wantIdentity := record.Identity
-	wantID := resourcemanager.ResourceIdentity{
-		Product:      wantIdentity.Product,
-		Environment:  wantIdentity.Environment,
-		Zone:         wantIdentity.Zone,
-		DONID:        wantIdentity.DonId,
-		NodeID:       wantIdentity.NodeId,
-		Service:      wantIdentity.Service,
-		Resource:     wantIdentity.Resource,
-		ResourceType: wantIdentity.ResourceType,
-		ResourceID:   wantIdentity.ResourceId,
-	}
-	assert.Equal(t, resourcemanager.IdempotencyKey(wantID, action, string(originatingEvent)), record.Utilization.IdempotencyKey)
+	require.Len(t, record.Utilizations, 1)
+	util := record.Utilizations[0]
+	assert.Equal(t, "1", util.Value)
+	assert.Equal(t, "operations", util.ResourceType)
+	// resource_id = workflow_id for the syncer (no shared physical resource).
+	assert.Equal(t, workflowID, util.ResourceId)
+	assert.Equal(t, string(originatingEvent), util.EventId)
 }
 
 func Test_meterRecords(t *testing.T) {
@@ -187,7 +174,7 @@ func Test_meterRecords(t *testing.T) {
 		requireMeterRecord(t, records[0], meteringpb.MeterAction_METER_ACTION_RESERVE, WorkflowRegistered, wfID.Hex())
 	})
 
-	t.Run("retried registered event emits an identical idempotency key", func(t *testing.T) {
+	t.Run("retried registered event emits equivalent utilization identity", func(t *testing.T) {
 		t.Parallel()
 		emitter := &recordingEmitter{}
 		// The stub never returns a stored spec, so each call replays the
@@ -205,7 +192,13 @@ func Test_meterRecords(t *testing.T) {
 
 		records := emitter.Records()
 		require.Len(t, records, 2)
-		assert.Equal(t, records[0].Utilization.IdempotencyKey, records[1].Utilization.IdempotencyKey)
+		require.Len(t, records[0].Utilizations, 1)
+		require.Len(t, records[1].Utilizations, 1)
+		assert.Equal(t, records[0].Action, records[1].Action)
+		assert.Equal(t, records[0].Identity.GetService(), records[1].Identity.GetService())
+		assert.Equal(t, records[0].Identity.GetResourcePool(), records[1].Identity.GetResourcePool())
+		assert.Equal(t, records[0].Utilizations[0].GetResourceId(), records[1].Utilizations[0].GetResourceId())
+		assert.Equal(t, records[0].Utilizations[0].GetEventId(), records[1].Utilizations[0].GetEventId())
 	})
 
 	t.Run("activated event with existing spec emits UPDATE", func(t *testing.T) {
@@ -404,10 +397,11 @@ func Test_meterRecords(t *testing.T) {
 		emitter := &recordingSnapshotEmitter{}
 		clock := clockwork.NewFakeClockAt(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
 		rm := resourcemanager.NewResourceManager(commonlogger.Test(t), resourcemanager.ResourceManagerConfig{
-			Enabled:          true,
-			Emitter:          emitter,
-			SnapshotInterval: time.Minute,
-			Clock:            clock,
+			MeterRecordsEnabled:   true,
+			MeterSnapshotsEnabled: true,
+			Emitter:               emitter,
+			SnapshotInterval:      time.Minute,
+			Clock:                 clock,
 		})
 		h := newMeteringTestHandler(t, &stubWorkflowArtifactsStore{}, rm)
 		unregister := rm.Register(h)
@@ -434,11 +428,11 @@ func Test_meterRecords(t *testing.T) {
 		for _, snap := range snapshots {
 			require.NotNil(t, snap.Identity)
 			assert.Equal(t, "workflow-syncer-v2", snap.Identity.Service)
-			assert.Equal(t, "workflow_specs_v2", snap.Identity.Resource)
-			require.NotNil(t, snap.Utilization)
-			assert.Equal(t, int64(1), snap.Utilization.Value)
+			assert.Equal(t, "workflow_specs_v2", snap.Identity.ResourcePool)
+			require.Len(t, snap.Utilization, 1)
+			assert.Equal(t, "1", snap.Utilization[0].Value)
 			// resource_id = workflow_id fully identifies the resource; no labels.
-			byWorkflowID[snap.Identity.ResourceId] = snap
+			byWorkflowID[snap.Utilization[0].ResourceId] = snap
 		}
 		require.NotNil(t, byWorkflowID[wfID1.Hex()], "snapshot must contain an entry for the first running engine")
 		require.NotNil(t, byWorkflowID[wfID2.Hex()], "snapshot must contain an entry for the second running engine")

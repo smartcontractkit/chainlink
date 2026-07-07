@@ -46,12 +46,9 @@ type RelayGetter interface {
 	GetIDToRelayerMap() map[types.RelayID]loop.Relayer
 }
 
-// NodeIdentity is the host-injected deployment/node metering identity that the
-// Delegate stamps onto every spawned capability's StandardCapabilitiesDependencies,
-// mirroring how the engine sources the same dimensions from node config (see
-// core/services/cre). It is sourced once at node startup (where the CSA key and
-// telemetry config are both available) so operators configure it in one place and
-// a node's engine and its trigger LOOPs agree on product/environment/zone/node_id.
+// NodeIdentity is the host-injected deployment/node metering identity sourced at
+// node startup. It is retained on the delegate for compatibility with launcher
+// wiring while metering identity delivery is handled through loop.EnvConfig.
 type NodeIdentity struct {
 	// Product is the deployment product, e.g. "cre".
 	Product string
@@ -59,7 +56,7 @@ type NodeIdentity struct {
 	Environment string
 	// Zone is the deployment zone, from [Telemetry.ResourceAttributes]["zone"].
 	Zone string
-	// NodeID is the node's CSA public key (hex), matching the engine's node_id.
+	// NodeID is the node's logical name (not the CSA public key).
 	NodeID string
 }
 
@@ -428,12 +425,6 @@ func (d *Delegate) NewServices(
 		CRESettings:        d.creSettings,
 		TriggerEventStore:  triggercap.NewTriggerEventStore(d.ds),
 		CapabilityDonID:    capabilityDonID,
-		// Host-injected deployment/node metering identity, delivered to trigger
-		// LOOPs through the standardized Initialise channel.
-		Product:     d.nodeIdentity.Product,
-		Environment: d.nodeIdentity.Environment,
-		Zone:        d.nodeIdentity.Zone,
-		NodeID:      d.nodeIdentity.NodeID,
 	}
 	standardCapability := NewStandardCapabilities(log, command, configJSON, d.cfg, dependencies)
 

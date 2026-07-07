@@ -69,13 +69,14 @@ type DrainableService interface {
 var ErrDrainInProgress = errors.New("drain in progress")
 
 // Service-level metering identity constants for the workflow syncer. Service is
-// the stable service constant; Resource/ResourceType identify the workflow_specs_v2
-// pool and its billing unit. The coarse deployment/node/DON dimensions (product,
-// environment, zone, don_id, node_id) are supplied at construction via
-// WithIdentity; resource_id is set per workflow via WithResourceID.
+// the stable service constant; ResourcePool identifies the workflow_specs_v2
+// pool. The billing unit (ResourceType) and per-resource id (ResourceID) are
+// carried on each Utilization. The coarse deployment/node/DON dimensions
+// (product, tenant, environment, zone, don_id, node_id) are supplied at
+// construction via WithIdentity.
 const (
 	meterService      = "workflow-syncer-v2"
-	meterResource     = "workflow_specs_v2"
+	meterResourcePool = "workflow_specs_v2"
 	meterResourceType = "operations"
 )
 
@@ -105,11 +106,12 @@ type eventHandler struct {
 	billingClient          metering.BillingClient
 	resourceManager        *resourcemanager.ResourceManager
 	// meterIdentity is the base metering identity for this node's syncer: the
-	// six coarse dimensions (product, environment, zone, don_id, node_id,
-	// service) plus the workflow_specs_v2 resource/resource_type. resource_id is
-	// set per workflow via WithResourceID. It is populated by WithIdentity in
-	// cre.go from node TOML + CSA + the workflow DON; Service/Resource/
-	// ResourceType are forced to the syncer constants regardless of the option.
+	// six coarse dimensions (product, tenant, environment, zone, don_id,
+	// node_id) plus service/resource_pool. Per-resource billing fields
+	// (resource_type/resource_id/event_id/org_id/value) are attached at emit/
+	// snapshot time via UtilizationFields. It is populated by WithIdentity in
+	// cre.go; Service/ResourcePool are forced to syncer constants regardless of
+	// the option.
 	meterIdentity resourcemanager.ResourceIdentity
 	// resolvedDonID holds the workflow DON id once resolved from the don notifier
 	// at start (the engine runs on the workflow DON). It is resolved
@@ -194,17 +196,14 @@ func WithResourceManager(rm *resourcemanager.ResourceManager) func(*eventHandler
 }
 
 // WithIdentity supplies the coarse metering identity dimensions sourced once at
-// construction in cre.go (product, environment, zone from node TOML; node_id =
-// CSA pubkey hex; don_id = the workflow DON the engine runs on). The syncer
-// Service/Resource/ResourceType are stable constants and always overwrite
-// whatever the caller passes, so the option carries only the deployment/node/DON
-// dimensions; resource_id is left empty and set per workflow via WithResourceID.
+// construction in cre.go (product/tenant/environment/zone/node_id from node
+// metering config; don_id resolved later by the handler). The syncer
+// Service/ResourcePool are stable constants and always overwrite whatever the
+// caller passes.
 func WithIdentity(id resourcemanager.ResourceIdentity) func(*eventHandler) {
 	return func(e *eventHandler) {
 		id.Service = meterService
-		id.Resource = meterResource
-		id.ResourceType = meterResourceType
-		id.ResourceID = ""
+		id.ResourcePool = meterResourcePool
 		e.meterIdentity = id
 	}
 }
@@ -367,8 +366,7 @@ func NewEventHandler(
 		// deployment/node/DON dimensions are filled in by WithIdentity in cre.go.
 		meterIdentity: resourcemanager.ResourceIdentity{
 			Service:      meterService,
-			Resource:     meterResource,
-			ResourceType: meterResourceType,
+			ResourcePool: meterResourcePool,
 		},
 		tracer: noop.NewTracerProvider().Tracer(""), // default to noop, enable via WithDebugMode
 	}
@@ -1015,9 +1013,9 @@ func (h *eventHandler) workflowDeletedEvent(
 
 // emitMeterRecord emits a metering.v1.MeterRecord for a workflow_specs_v2 mutation.
 // Callers must invoke it only after the database mutation has succeeded. Emission is
-// fail-open: it never returns an error and must never affect event handling. The
-// idempotency key is deterministic over workflowID, originatingEvent, and action, so
-// a retried event emits a record the billing consumer dedups against the original.
+// fail-open: it never returns an error and must never affect event handling.
+// Consumer-side dedup can use the emitted identity + action +
+// utilization(resource_id/event_id).
 //
 // Known lost-record windows (consumer-side reconciliation tracked by SHARED-2141):
 //   - A node crash between the workflow spec database write and this emit loses the
@@ -1030,12 +1028,18 @@ func (h *eventHandler) emitMeterRecord(ctx context.Context, action meteringpb.Me
 	if h.resourceManager == nil {
 		return
 	}
-	// resource_id = workflow_id (the syncer has no shared physical resource); the
-	// originating event name is the event identity that distinguishes lifecycle
-	// edges in the idempotency key.
-	identity := h.baseIdentity().WithResourceID(workflowID)
+	// resource_id = workflow_id (the syncer has no shared physical resource);
+	// event_id = originating event name so lifecycle edges remain distinguishable.
+	identity := h.baseIdentity()
+	utilizations := []*meteringpb.Utilization{
+		resourcemanager.NewUtilizationInt(1, resourcemanager.UtilizationFields{
+			ResourceType: meterResourceType,
+			ResourceID:   workflowID,
+			EventID:      string(originatingEvent),
+		}),
+	}
 	h.resourceManager.EmitMeterRecord(ctx, identity, action,
-		resourcemanager.NewUtilization(identity, action, 1, string(originatingEvent)))
+		utilizations)
 }
 
 // baseIdentity returns the handler's metering identity with the workflow DON id
@@ -1045,25 +1049,33 @@ func (h *eventHandler) emitMeterRecord(ctx context.Context, action meteringpb.Me
 func (h *eventHandler) baseIdentity() resourcemanager.ResourceIdentity {
 	id := h.meterIdentity
 	if donID := h.resolvedDonID.Load(); donID != nil {
-		id.DONID = *donID
+		nodeID := ""
+		if id.Don != nil {
+			nodeID = id.Don.NodeID
+		}
+		id.Don = &resourcemanager.DonIdentity{
+			DonID:  *donID,
+			NodeID: nodeID,
+		}
 	}
 	return id
 }
 
 // ResourceIdentity implements resourcemanager.Meterable: it returns the syncer's
-// base identity (six coarse dimensions + workflow_specs_v2 resource/resource_type,
-// resource_id empty). The ResourceManager uses it as the top-level identity of
-// each emitted Snapshot.
+// base identity (coarse deployment/DON/node dimensions + service/resource_pool).
+// The ResourceManager uses it as the top-level identity of each emitted
+// Snapshot.
 func (h *eventHandler) ResourceIdentity() resourcemanager.ResourceIdentity {
 	return h.baseIdentity()
 }
 
 // GetUtilization implements resourcemanager.Meterable: it returns one
-// SnapshotEntry per running engine, with Value 1 (each running workflow holds one
-// workflow_specs_v2 reservation). It is a pure in-memory read over the engine
-// registry — each entry's resource_id is the workflow_id, which fully identifies
-// the resource (Design 1; reconciling persisted-but-not-running specs is the
-// Design 2 follow-up, see snapshotDesign2Followup below).
+// SnapshotEntry per running engine, each with one Utilization at value 1
+// (each running workflow holds one workflow_specs_v2 reservation). It is a pure
+// in-memory read over the engine registry — each entry's resource_id is the
+// workflow_id, which fully identifies the resource (Design 1; reconciling
+// persisted-but-not-running specs is the Design 2 follow-up, see
+// snapshotDesign2Followup below).
 func (h *eventHandler) GetUtilization(_ context.Context) []resourcemanager.SnapshotEntry {
 	base := h.baseIdentity()
 	engines := h.engineRegistry.GetAll()
@@ -1071,8 +1083,13 @@ func (h *eventHandler) GetUtilization(_ context.Context) []resourcemanager.Snaps
 	for _, e := range engines {
 		workflowID := e.WorkflowID.Hex()
 		entries = append(entries, resourcemanager.SnapshotEntry{
-			Identity: base.WithResourceID(workflowID),
-			Value:    1,
+			Identity: base,
+			Utilizations: []*meteringpb.Utilization{
+				resourcemanager.NewUtilizationInt(1, resourcemanager.UtilizationFields{
+					ResourceType: meterResourceType,
+					ResourceID:   workflowID,
+				}),
+			},
 		})
 	}
 	return entries
@@ -1098,12 +1115,18 @@ func (h *eventHandler) emitGracefulCloseReleases(ctx context.Context, engines []
 	if h.resourceManager == nil {
 		return
 	}
-	base := h.baseIdentity()
+	identity := h.baseIdentity()
 	for _, e := range engines {
 		workflowID := e.WorkflowID.Hex()
-		identity := base.WithResourceID(workflowID)
+		utilizations := []*meteringpb.Utilization{
+			resourcemanager.NewUtilizationInt(1, resourcemanager.UtilizationFields{
+				ResourceType: meterResourceType,
+				ResourceID:   workflowID,
+				EventID:      string(WorkflowDeleted),
+			}),
+		}
 		h.resourceManager.EmitMeterRecord(ctx, identity, meteringpb.MeterAction_METER_ACTION_RELEASE,
-			resourcemanager.NewUtilization(identity, meteringpb.MeterAction_METER_ACTION_RELEASE, 1, string(WorkflowDeleted)))
+			utilizations)
 	}
 }
 

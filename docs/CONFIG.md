@@ -2573,13 +2573,14 @@ MeterRecordsEnabled = false # Default
 MeterSnapshotsEnabled = false # Default
 Product = '' # Default
 Tenant = '' # Default
+NumericTenantID = '' # Default
 Environment = '' # Default
 Zone = '' # Default
 NodeID = '' # Default
 ```
 Metering configures durable resource metering emission and the coarse
 deployment/node identity dimensions stamped on emitted MeterRecords and
-MeterSnapshots. These are plumbed to every LOOP plugin via its environment.
+MeterSnapshots. These are plumbed to LOOP plugins via env.
 
 ### MeterRecordsEnabled
 ```toml
@@ -2604,7 +2605,13 @@ Product is the deployment product identity dimension, e.g. 'cre'.
 ```toml
 Tenant = '' # Default
 ```
-Tenant is the deployment tenant identity dimension, e.g. 'mainline'.
+Tenant is the human-readable tenant name, e.g. 'mainline'.
+
+### NumericTenantID
+```toml
+NumericTenantID = '' # Default
+```
+NumericTenantID is the numbered tenant identifier represented as a string.
 
 ### Environment
 ```toml

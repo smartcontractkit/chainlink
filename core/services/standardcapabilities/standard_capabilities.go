@@ -46,13 +46,6 @@ type StandardCapabilities struct {
 	// at Initialise time. Zero means the host did not resolve one; the plugin
 	// will fall back to capability-registry lookup.
 	capabilityDonID uint32
-	// Host-injected deployment/node metering identity, captured from the deps
-	// passed at construction and re-delivered to the LOOP through the deps built
-	// for Initialise below.
-	product     string
-	environment string
-	zone        string
-	nodeID      string
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 
@@ -84,19 +77,13 @@ func NewStandardCapabilities(
 		creSettings:          dependencies.CRESettings,
 		triggerEventStore:    dependencies.TriggerEventStore,
 		capabilityDonID:      dependencies.CapabilityDonID,
-		product:              dependencies.Product,
-		environment:          dependencies.Environment,
-		zone:                 dependencies.Zone,
-		nodeID:               dependencies.NodeID,
 		stopChan:             make(chan struct{}),
 		readyChan:            make(chan struct{}),
 	}
 }
 
 // initialiseDependencies builds the StandardCapabilitiesDependencies delivered to
-// the capability LOOP via Initialise. It re-emits the host-injected metering
-// identity (product/environment/zone/node_id) captured at construction so trigger
-// LOOPs receive it through the standardized Initialise channel.
+// the capability LOOP via Initialise.
 func (s *StandardCapabilities) initialiseDependencies() core.StandardCapabilitiesDependencies {
 	return core.StandardCapabilitiesDependencies{
 		Config:             s.config,
@@ -110,10 +97,6 @@ func (s *StandardCapabilities) initialiseDependencies() core.StandardCapabilitie
 		CRESettings:        s.creSettings,
 		TriggerEventStore:  s.triggerEventStore,
 		CapabilityDonID:    s.capabilityDonID,
-		Product:            s.product,
-		Environment:        s.environment,
-		Zone:               s.zone,
-		NodeID:             s.nodeID,
 	}
 }
 

@@ -52,6 +52,7 @@ func (s stubConfig) CRE() config.CRE                   { return nil }
 func (s stubConfig) P2P() config.P2P                   { return s.p2p }
 func (s stubConfig) Sharding() config.Sharding         { return nil }
 func (s stubConfig) Telemetry() config.Telemetry       { return nil }
+func (s stubConfig) Metering() config.Metering         { return nil }
 
 func peerIDFromByte(b byte) p2pkey.PeerID {
 	var id p2pkey.PeerID

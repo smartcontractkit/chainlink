@@ -3097,8 +3097,10 @@ type Metering struct {
 	MeterSnapshotsEnabled *bool
 	// Product is the deployment product identity dimension, e.g. "cre".
 	Product *string
-	// Tenant is the deployment tenant identity dimension, e.g. "mainline".
+	// Tenant is the human-readable tenant name, e.g. "mainline".
 	Tenant *string
+	// NumericTenantID is the numbered tenant identifier as a string.
+	NumericTenantID *string
 	// Environment is the deployment environment dimension, e.g. "production".
 	Environment *string
 	// Zone is the deployment zone dimension, e.g. "wf-zone-a".
@@ -3122,6 +3124,9 @@ func (b *Metering) setFrom(f *Metering) {
 	}
 	if v := f.Tenant; v != nil {
 		b.Tenant = v
+	}
+	if v := f.NumericTenantID; v != nil {
+		b.NumericTenantID = v
 	}
 	if v := f.Environment; v != nil {
 		b.Environment = v

@@ -933,8 +933,10 @@ MeterRecordsEnabled = false # Default
 MeterSnapshotsEnabled = false # Default
 # Product is the deployment product identity dimension, e.g. 'cre'.
 Product = '' # Default
-# Tenant is the deployment tenant identity dimension, e.g. 'mainline'.
+# Tenant is the human-readable tenant name, e.g. 'mainline'.
 Tenant = '' # Default
+# NumericTenantID is the numbered tenant identifier represented as a string.
+NumericTenantID = '' # Default
 # Environment is the deployment environment identity dimension, e.g. 'production'.
 Environment = '' # Default
 # Zone is the deployment zone identity dimension, e.g. 'wf-zone-a'.

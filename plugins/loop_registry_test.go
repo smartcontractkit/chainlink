@@ -98,6 +98,7 @@ func (m mockCfgMetering) MeterRecordsEnabled() bool   { return true }
 func (m mockCfgMetering) MeterSnapshotsEnabled() bool { return true }
 func (m mockCfgMetering) Product() string             { return "cre" }
 func (m mockCfgMetering) Tenant() string              { return "mainline" }
+func (m mockCfgMetering) NumericTenantID() string     { return "42" }
 func (m mockCfgMetering) Environment() string         { return "production" }
 func (m mockCfgMetering) Zone() string                { return "wf-zone-a" }
 func (m mockCfgMetering) NodeID() string              { return "csa-pubkey-1" }
@@ -264,11 +265,12 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 2048, envCfg.TelemetryLogMaxQueueSize)
 	require.True(t, envCfg.MeterRecordsEnabled)
 	require.True(t, envCfg.MeterSnapshotsEnabled)
-	require.Equal(t, "cre", envCfg.MeteringProduct)
-	require.Equal(t, "mainline", envCfg.MeteringTenant)
-	require.Equal(t, "production", envCfg.MeteringEnvironment)
-	require.Equal(t, "wf-zone-a", envCfg.MeteringZone)
-	require.Equal(t, "csa-pubkey-1", envCfg.MeteringNodeID)
+	require.Equal(t, "cre", envCfg.MeterProduct)
+	require.Equal(t, "mainline", envCfg.MeterTenant)
+	require.Equal(t, "42", envCfg.MeterNumericTenantID)
+	require.Equal(t, "production", envCfg.MeterEnvironment)
+	require.Equal(t, "wf-zone-a", envCfg.MeterZone)
+	require.Equal(t, "csa-pubkey-1", envCfg.MeterNodeID)
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 	require.False(t, envCfg.ChipIngressBatchEmitterEnabled)

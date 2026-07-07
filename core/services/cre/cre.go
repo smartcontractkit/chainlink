@@ -300,9 +300,9 @@ func (s *Services) newSubservices(
 		return srvs, nil
 	}
 
-	// Build the syncer's base metering identity once from node config + CSA key;
+	// Build the syncer's base metering identity once from node metering config;
 	// the handler resolves the workflow DON id later from the don notifier.
-	meterIdentity := newSyncerMeterIdentity(cfg, keyStore, lggr)
+	meterIdentity := newSyncerMeterIdentity(cfg)
 
 	wfSyncer, billingClient, wfSyncerSrvcs, err := newWorkflowRegistrySyncer(
 		cfg,
@@ -347,6 +347,7 @@ type Config interface {
 	P2P() config.P2P
 	Sharding() config.Sharding
 	Telemetry() config.Telemetry
+	Metering() config.Metering
 }
 
 // RelayerChainInterops is the minimal interface needed for relayer chain interops
@@ -727,47 +728,28 @@ func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.Billi
 	return billing.NewWorkflowClient(lggr, cfg.Billing().URL(), workflowOpts...)
 }
 
-// Metering identity sourcing constants. meterProduct is the deployment product
-// dimension for all CRE metering records. The environment/zone dimensions are
-// read from the node's [Telemetry.ResourceAttributes] map under these keys, the
-// same map the host injects into trigger LOOPs (see core/services/
-// standardcapabilities), so a node's engine and its trigger LOOPs agree on the
-// coarse identity.
-const (
-	meterProduct        = "cre"
-	resourceAttrEnvKey  = "env"
-	resourceAttrZoneKey = "zone"
-)
-
-// nodeCSAPublicKeyHex returns the node's CSA public key as hex — the canonical
-// node_id used uniformly across a node's engine and its trigger LOOPs (matching
-// keystore.BuildBeholderAuth, which derives the beholder auth pubkey from the
-// same default CSA key). A node has at most one CSA key; an empty string is
-// returned (with a warning) when none is available, so metering degrades to an
-// empty node_id rather than failing node startup.
-func nodeCSAPublicKeyHex(keyStore Keystore, lggr logger.Logger) string {
-	keys, err := keyStore.CSA().GetAll()
-	if err != nil || len(keys) == 0 {
-		lggr.Warnw("no CSA key available for metering node_id; node_id will be empty", "err", err)
-		return ""
-	}
-	return keys[0].PublicKeyString()
-}
-
 // newSyncerMeterIdentity builds the syncer's base metering identity from node
-// config: product is the constant, environment/zone come from
-// [Telemetry.ResourceAttributes], and node_id is the CSA public key. The
-// workflow DON id (don_id) is resolved later by the handler from the don
-// notifier (the engine runs on the workflow DON), so it is intentionally left
-// empty here. Service/Resource/ResourceType are stamped by WithIdentity.
-func newSyncerMeterIdentity(cfg Config, keyStore Keystore, lggr logger.Logger) resourcemanager.ResourceIdentity {
-	attrs := cfg.Telemetry().ResourceAttributes()
-	return resourcemanager.ResourceIdentity{
-		Product:     meterProduct,
-		Environment: attrs[resourceAttrEnvKey],
-		Zone:        attrs[resourceAttrZoneKey],
-		NodeID:      nodeCSAPublicKeyHex(keyStore, lggr),
+// metering config. Product/tenant/environment/zone and logical node_id are read
+// from [Metering]. The workflow DON id (don_id) is resolved later by the
+// handler from the don notifier (the engine runs on the workflow DON), so it is
+// intentionally left empty here. Service/resource_pool are stamped by
+// syncer.WithIdentity.
+func newSyncerMeterIdentity(cfg Config) resourcemanager.ResourceIdentity {
+	m := cfg.Metering()
+	if m == nil {
+		return resourcemanager.ResourceIdentity{}
 	}
+	id := resourcemanager.ResourceIdentity{
+		Product:         m.Product(),
+		Tenant:          m.Tenant(),
+		NumericTenantID: m.NumericTenantID(),
+		Environment:     m.Environment(),
+		Zone:            m.Zone(),
+	}
+	if nodeID := m.NodeID(); nodeID != "" {
+		id.Don = &resourcemanager.DonIdentity{NodeID: nodeID}
+	}
+	return id
 }
 
 // meterRecordsEnabled reads the CL_METER_RECORDS_ENABLED env var gating emission of
@@ -1079,6 +1061,7 @@ func newWorkflowRegistrySyncerV2(
 		}
 		shardRoutingSteady = shardownership.NewSteadySignal(shardownership.WithSteadySignalMetrics(steadyMetrics))
 	}
+	meterRecords := meterRecordsEnabled(lggr)
 
 	handlerOpts := []syncerV2.EventHandlerOption{
 		syncerV2.WithBillingClient(billingClient),
@@ -1093,9 +1076,10 @@ func newWorkflowRegistrySyncerV2(
 		// SnapshotInterval enables the periodic absolute-state snapshot loop; the
 		// RM is otherwise a no-op when metering is disabled.
 		syncerV2.WithResourceManager(resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
-			Enabled:          meterRecordsEnabled(lggr),
-			Emitter:          beholder.GetEmitter(),
-			SnapshotInterval: resourcemanager.DefaultSnapshotInterval,
+			MeterRecordsEnabled:   meterRecords,
+			MeterSnapshotsEnabled: meterRecords,
+			Emitter:               beholder.GetEmitter(),
+			SnapshotInterval:      resourcemanager.DefaultSnapshotInterval,
 		})),
 		syncerV2.WithIdentity(meterIdentity),
 	}
