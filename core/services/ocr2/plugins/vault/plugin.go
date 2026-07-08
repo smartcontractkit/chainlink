@@ -1948,7 +1948,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			for sha, obs := range shaToObs {
 				shaToObsCount[sha] = len(obs)
 			}
-			l.Warnw("insufficient observations found for id", "id", id, "shaToObsCount", shaToObsCount)
+			l.Warnw("insufficient observations found for requestID", "requestID", id, "shaToObsCount", shaToObsCount)
 			if includeInvalid {
 				break
 			}
