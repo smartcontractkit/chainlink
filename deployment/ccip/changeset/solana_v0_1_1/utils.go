@@ -95,11 +95,19 @@ func ValidateMCMSConfigSolana(
 	return nil
 }
 
-func buildProposalCommon(
+// buildProposalCommonWithConfig builds a Solana MCMS timelock proposal honoring the MCMS
+// action (schedule/bypass/cancel) carried in mcmsCfg. It selects the MCM signer group that
+// matches the action (proposer for schedule, bypasser for bypass, canceller for cancel) so
+// the resulting proposal's Merkle root is anchored to the correct MCM contract and its op
+// count. This selection must happen here, at generation time: the root is cryptographically
+// bound to the chosen MCM, so a proposal cannot be reliably retargeted to a different signer
+// group after it has been generated. A nil mcmsCfg defaults to a schedule proposal against
+// the proposer MCM.
+func buildProposalCommonWithConfig(
 	e cldf.Environment,
 	chainSelector uint64,
 	description string,
-	minDelay time.Duration,
+	mcmsCfg *cldfproposalutils.TimelockConfig,
 	batches []mcmsTypes.BatchOperation) (*mcms.TimelockProposal, error) {
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
@@ -109,11 +117,26 @@ func buildProposalCommon(
 	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
 	mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 
+	cfg := cldfproposalutils.TimelockConfig{}
+	if mcmsCfg != nil {
+		cfg = *mcmsCfg
+	}
+
+	// Select the MCM signer group matching the action. Defaults to the proposer MCM
+	// (schedule) when the action is empty, preserving previous behavior.
+	mcmSeed := mcmState.ProposerMcmSeed
+	switch cfg.MCMSAction {
+	case mcmsTypes.TimelockActionBypass:
+		mcmSeed = mcmState.BypasserMcmSeed
+	case mcmsTypes.TimelockActionCancel:
+		mcmSeed = mcmState.CancellerMcmSeed
+	}
+
 	timelocks[chainSelector] = mcmsSolana.ContractAddress(
 		mcmState.TimelockProgram,
 		mcmsSolana.PDASeed(mcmState.TimelockSeed),
 	)
-	proposers[chainSelector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
+	proposers[chainSelector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmSeed))
 	inspectors[chainSelector] = mcmsSolana.NewInspector(chain.Client)
 
 	proposal, err := proposeutils.BuildProposalFromBatchesV2(
@@ -123,7 +146,7 @@ func buildProposalCommon(
 		inspectors,
 		batches,
 		description,
-		cldfproposalutils.TimelockConfig{MinDelay: minDelay})
+		cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build proposal: %w", err)
 	}
@@ -136,13 +159,27 @@ func BuildProposalsForTxns(
 	description string,
 	minDelay time.Duration,
 	txns []mcmsTypes.Transaction) (*mcms.TimelockProposal, error) {
+	return BuildProposalsForTxnsWithConfig(
+		e, chainSelector, description,
+		&cldfproposalutils.TimelockConfig{MinDelay: minDelay},
+		txns)
+}
+
+// BuildProposalsForTxnsWithConfig is like BuildProposalsForTxns but honors the MCMS action
+// (schedule/bypass/cancel) in mcmsCfg, selecting the matching signer group.
+func BuildProposalsForTxnsWithConfig(
+	e cldf.Environment,
+	chainSelector uint64,
+	description string,
+	mcmsCfg *cldfproposalutils.TimelockConfig,
+	txns []mcmsTypes.Transaction) (*mcms.TimelockProposal, error) {
 	batches := []mcmsTypes.BatchOperation{
 		{
 			ChainSelector: mcmsTypes.ChainSelector(chainSelector),
 			Transactions:  txns,
 		},
 	}
-	return buildProposalCommon(e, chainSelector, description, minDelay, batches)
+	return buildProposalCommonWithConfig(e, chainSelector, description, mcmsCfg, batches)
 }
 
 func BuildProposalsForBatches(
@@ -151,7 +188,21 @@ func BuildProposalsForBatches(
 	description string,
 	minDelay time.Duration,
 	batches []mcmsTypes.BatchOperation) (*mcms.TimelockProposal, error) {
-	return buildProposalCommon(e, chainSelector, description, minDelay, batches)
+	return BuildProposalsForBatchesWithConfig(
+		e, chainSelector, description,
+		&cldfproposalutils.TimelockConfig{MinDelay: minDelay},
+		batches)
+}
+
+// BuildProposalsForBatchesWithConfig is like BuildProposalsForBatches but honors the MCMS
+// action (schedule/bypass/cancel) in mcmsCfg, selecting the matching signer group.
+func BuildProposalsForBatchesWithConfig(
+	e cldf.Environment,
+	chainSelector uint64,
+	description string,
+	mcmsCfg *cldfproposalutils.TimelockConfig,
+	batches []mcmsTypes.BatchOperation) (*mcms.TimelockProposal, error) {
+	return buildProposalCommonWithConfig(e, chainSelector, description, mcmsCfg, batches)
 }
 
 type MCMSTxParams struct {
@@ -247,8 +298,8 @@ func generateProposalIfMCMS(e cldf.Environment, chainSelector uint64, mcmsCfg *c
 		if mcmsCfg == nil {
 			return cldf.ChangesetOutput{}, errors.New("MCMS txn detected but no MCMS config provided. Please re-run with mcms specified")
 		}
-		proposal, err := BuildProposalsForTxns(
-			e, chainSelector, "proposal to upgrade CCIP contracts", mcmsCfg.MinDelay, mcmsTxs)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, chainSelector, "proposal to upgrade CCIP contracts", mcmsCfg, mcmsTxs)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -275,8 +326,8 @@ func ExecuteInstructionsAndBuildProposals(e cldf.Environment, cfg ExecuteConfig,
 	}
 
 	if len(mcmsTxs) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal in Solana", cfg.MCMS.MinDelay, mcmsTxs)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal in Solana", cfg.MCMS, mcmsTxs)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

@@ -201,11 +201,11 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 	}
 
 	if len(batches) > 0 {
-		proposal, err := BuildProposalsForBatches(
+		proposal, err := BuildProposalsForBatchesWithConfig(
 			e,
 			chain.Selector,
 			"proposal to upgrade CCIP contracts",
-			c.UpgradeConfig.MCMS.MinDelay,
+			c.UpgradeConfig.MCMS,
 			batches,
 		)
 		if err != nil {
