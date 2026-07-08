@@ -36,7 +36,8 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 	fromAddress = "0x" + fromAddress
 
 	return map[string]any{
-		"IsLoopPlugin": true,
+		"IsLoopPlugin":               true,
+		"NormalizeReturnValuesToHex": true,
 		"EventsIndexer": map[string]any{
 			"PollingInterval": 10 * time.Second,
 			"SyncTimeout":     10 * time.Second,
