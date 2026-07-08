@@ -1,4 +1,4 @@
-package executable
+package remote_test
 
 import (
 	"context"
@@ -10,11 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 )
 
 func Test_CancellingContext_StopsTask(t *testing.T) {
 	t.Parallel()
-	tp := newParallelExecutor(10)
+	tp := remote.NewParallelExecutor(10)
 	servicetest.Run(t, tp)
 
 	cancelFns := make([]context.CancelFunc, 0, 10)
@@ -44,7 +45,7 @@ func Test_CancellingContext_StopsTask(t *testing.T) {
 
 func Test_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) {
 	t.Parallel()
-	tp := newParallelExecutor(3)
+	tp := remote.NewParallelExecutor(3)
 	servicetest.Run(t, tp)
 
 	for range 3 {
@@ -64,7 +65,7 @@ func Test_ExecuteRequestTimesOutWhenParallelExecutionLimitReached(t *testing.T) 
 
 func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
 	t.Parallel()
-	tp := newParallelExecutor(10)
+	tp := remote.NewParallelExecutor(10)
 	servicetest.Run(t, tp)
 
 	var counter atomic.Int32
@@ -82,7 +83,7 @@ func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
 
 func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
 	t.Parallel()
-	tp := newParallelExecutor(10)
+	tp := remote.NewParallelExecutor(10)
 	var counter atomic.Int32
 	t.Cleanup(func() {
 		assert.Eventually(t, func() bool { return counter.Load() == 0 }, 5*time.Second, 10*time.Millisecond)

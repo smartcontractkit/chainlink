@@ -1,4 +1,4 @@
-package executable
+package remote
 
 import (
 	"context"
@@ -8,7 +8,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
-type parallelExecutor struct {
+// ParallelExecutor runs tasks concurrently up to a configured limit.
+type ParallelExecutor struct {
 	services.StateMachine
 	wg       sync.WaitGroup
 	stopChan services.StopChan
@@ -16,19 +17,19 @@ type parallelExecutor struct {
 	taskSemaphore chan struct{}
 }
 
-func newParallelExecutor(maxParallelTasks int) *parallelExecutor {
-	executor := &parallelExecutor{
+// NewParallelExecutor creates an executor that allows at most maxParallelTasks in-flight tasks.
+func NewParallelExecutor(maxParallelTasks int) *ParallelExecutor {
+	return &ParallelExecutor{
 		stopChan:      make(services.StopChan),
 		wg:            sync.WaitGroup{},
 		taskSemaphore: make(chan struct{}, maxParallelTasks),
 	}
-
-	return executor
 }
 
-// ExecuteTask executes a task in parallel up to the maximum allowed parallel executions.  If the maximum execute limit
-// is reached, the function will block until a slot is available or the context is cancelled.
-func (t *parallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.Context)) error {
+// ExecuteTask executes a task in parallel up to the maximum allowed parallel executions. If the
+// maximum execute limit is reached, the function will block until a slot is available or the
+// context is cancelled.
+func (t *ParallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.Context)) error {
 	select {
 	case t.taskSemaphore <- struct{}{}:
 		stopped := !t.IfNotStopped(func() {
@@ -52,13 +53,15 @@ func (t *parallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.
 	return nil
 }
 
-func (t *parallelExecutor) Start(ctx context.Context) error {
+// Start starts the executor.
+func (t *ParallelExecutor) Start(ctx context.Context) error {
 	return t.StartOnce(t.Name(), func() error {
 		return nil
 	})
 }
 
-func (t *parallelExecutor) Close() error {
+// Close stops the executor and waits for in-flight tasks to finish.
+func (t *ParallelExecutor) Close() error {
 	return t.StopOnce(t.Name(), func() error {
 		close(t.stopChan)
 		t.wg.Wait()
@@ -66,6 +69,7 @@ func (t *parallelExecutor) Close() error {
 	})
 }
 
-func (t *parallelExecutor) Name() string {
+// Name returns the service name.
+func (t *ParallelExecutor) Name() string {
 	return "ParallelExecutor"
 }

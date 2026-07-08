@@ -44,7 +44,7 @@ type server struct {
 	stopCh      services.StopChan
 	wg          sync.WaitGroup
 
-	parallelExecutor *parallelExecutor
+	parallelExecutor *remote.ParallelExecutor
 }
 
 type dynamicServerConfig struct {
@@ -166,7 +166,7 @@ func (r *server) Start(ctx context.Context) error {
 		}
 
 		// Initialize parallel executor with the configured max parallel requests
-		r.parallelExecutor = newParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests))
+		r.parallelExecutor = remote.NewParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests))
 
 		r.wg.Go(func() {
 			ticker := time.NewTicker(getServerTickerInterval(cfg))

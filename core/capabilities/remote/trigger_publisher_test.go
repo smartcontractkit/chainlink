@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -125,7 +126,7 @@ func TestTriggerPublisher_ReceiveTriggerEventAcks(t *testing.T) {
 	regEvent := newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[1])
 	publisher.Receive(ctx, regEvent)
 
-	require.True(t, underlyingTriggerCap.eventAckd)
+	require.Eventually(t, func() bool { return underlyingTriggerCap.ackCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
 	require.NoError(t, publisher.Close())
 }
 
@@ -331,6 +332,8 @@ type testTrigger struct {
 	registrationsCh chan commoncap.TriggerRegistrationRequest
 	eventCh         chan commoncap.TriggerResponse
 	eventAckd       bool
+	ackCount        atomic.Int32
+	ackBlock        chan struct{}
 }
 
 func (tr *testTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
@@ -348,7 +351,92 @@ func (tr *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.Tr
 
 func (tr *testTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
 	tr.eventAckd = true
+	tr.ackCount.Add(1)
+	if tr.ackBlock != nil {
+		<-tr.ackBlock
+	}
 	return nil
+}
+
+func TestTriggerPublisher_AckEvent_DoesNotBlockReceive(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+	underlying, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 1, time.Second)
+	underlying.ackBlock = make(chan struct{})
+
+	eventID := "evt-block-test"
+	triggerID := "trigA"
+	publisher.Receive(ctx, newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[1]))
+
+	regDone := make(chan struct{})
+	go func() {
+		publisher.Receive(ctx, newRegisterTriggerMessage(t, workflowDONID, peers[1]))
+		close(regDone)
+	}()
+
+	select {
+	case <-regDone:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("RegisterTrigger Receive blocked while AckEvent in flight")
+	}
+
+	close(underlying.ackBlock)
+	require.Eventually(t, func() bool { return underlying.ackCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
+	require.NoError(t, publisher.Close())
+}
+
+func TestTriggerPublisher_AckEvent_RedundantAfterQuorum(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	lggr := logger.Test(t)
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+
+	capInfo := commoncap.CapabilityInfo{
+		ID:             capID,
+		CapabilityType: commoncap.CapabilityTypeTrigger,
+		Description:    "Remote Trigger",
+	}
+	peers := make([]p2ptypes.PeerID, 4)
+	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
+	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
+	require.NoError(t, peers[2].UnmarshalText([]byte(peerID3)))
+	require.NoError(t, peers[3].UnmarshalText([]byte("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")))
+
+	capDonInfo := commoncap.DON{ID: capabilityDONID, Members: []p2ptypes.PeerID{peers[0]}, F: 0}
+	workflowDonInfo := commoncap.DON{ID: workflowDONID, Members: peers, F: 1}
+	workflowDONs := map[uint32]commoncap.DON{workflowDONID: workflowDonInfo}
+
+	underlying := &testTrigger{
+		info:            capInfo,
+		registrationsCh: make(chan commoncap.TriggerRegistrationRequest, 1),
+		eventCh:         make(chan commoncap.TriggerResponse, 1),
+	}
+	dispatcher := mocks.NewDispatcher(t)
+	allowRegistrationChecks(dispatcher)
+	config := &commoncap.RemoteTriggerConfig{
+		RegistrationRefresh:     100 * time.Millisecond,
+		RegistrationExpiry:      100 * time.Second,
+		MinResponsesToAggregate: 1,
+		MessageExpiry:           100 * time.Second,
+		MaxBatchSize:            1,
+		BatchCollectionPeriod:   time.Second,
+	}
+	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
+	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
+	require.NoError(t, publisher.Start(ctx))
+
+	eventID := "evt-redundant"
+	triggerID := "trigA"
+	for _, peer := range peers {
+		publisher.Receive(ctx, newAckEventMessage(t, eventID, triggerID, workflowDONID, peer))
+	}
+
+	// F=1 needs 3 ACKs; 4th peer ACK re-fires Ready(once=false) for implicit retry.
+	require.Eventually(t, func() bool { return underlying.ackCount.Load() == 2 }, 2*time.Second, 10*time.Millisecond)
+	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
@@ -1080,6 +1168,8 @@ func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.
 
 	publisher.Receive(ctx, newAckEventMessage(t, eventID, "triggerA", workflowDONID, peers[0]))
 	publisher.Receive(ctx, newAckEventMessage(t, eventID, "triggerA", workflowDONID, peers[1]))
+
+	time.Sleep(100 * time.Millisecond)
 
 	underlying.SendEvent("triggerA", commoncap.TriggerResponse{
 		Event: commoncap.TriggerEvent{ID: eventID},
