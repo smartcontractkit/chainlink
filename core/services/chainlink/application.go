@@ -402,7 +402,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		emitterCfg.RetransmitAfter = 60 * time.Second // > PublishTimeout/MaxPublishTimeout (10s) + buffering
 		emitterCfg.RetransmitBatchSize = 500          // 500 events/s replayed (interval = 1s)
 		emitterCfg.RetransmitInterval = 1 * time.Second
-		emitterCfg.EventTTL = 2 * time.Hour
+		emitterCfg.EventTTL = 1 * time.Hour
 		emitterCfg.PublishTimeout = 10 * time.Second
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
