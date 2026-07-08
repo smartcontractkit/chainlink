@@ -1,12 +1,38 @@
 name: Vault Audit Status
 
-# Applies vault-audit commit statuses dispatched from cre-docs. cre-docs never
-# writes statuses directly on chainlink — it sends a repository_dispatch with
-# the desired state and this workflow hardcodes context=vault-audit.
+# Applies vault-audit commit statuses triggered from cre-docs. cre-docs never
+# writes statuses directly on chainlink — it runs this workflow via
+# workflow_dispatch with the desired state and this workflow hardcodes
+# context=vault-audit.
 
 on:
-  repository_dispatch:
-    types: [vault-audit-status]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Chainlink PR number
+        required: true
+        type: string
+      head_sha:
+        description: PR head commit SHA to stamp
+        required: true
+        type: string
+      state:
+        description: Commit status state
+        required: true
+        type: choice
+        options:
+          - pending
+          - success
+          - failure
+          - error
+      description:
+        description: Commit status description
+        required: true
+        type: string
+      target_url:
+        description: Optional Details link (private audit issue)
+        required: false
+        type: string
 
 permissions:
   statuses: write
@@ -18,11 +44,11 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
-      PR_NUMBER: ${{ github.event.client_payload.pr_number }}
-      HEAD_SHA: ${{ github.event.client_payload.head_sha }}
-      STATE: ${{ github.event.client_payload.state }}
-      DESCRIPTION: ${{ github.event.client_payload.description }}
-      TARGET_URL: ${{ github.event.client_payload.target_url }}
+      PR_NUMBER: ${{ github.event.inputs.pr_number }}
+      HEAD_SHA: ${{ github.event.inputs.head_sha }}
+      STATE: ${{ github.event.inputs.state }}
+      DESCRIPTION: ${{ github.event.inputs.description }}
+      TARGET_URL: ${{ github.event.inputs.target_url }}
     steps:
       - name: Validate payload
         run: |
@@ -35,7 +61,7 @@ jobs:
           esac
 
           if [ -z "$PR_NUMBER" ] || [ -z "$HEAD_SHA" ] || [ -z "$DESCRIPTION" ]; then
-            echo "Missing required payload fields (pr_number, head_sha, description)"
+            echo "Missing required inputs (pr_number, head_sha, description)"
             exit 1
           fi
 

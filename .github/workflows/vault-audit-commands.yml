@@ -1,7 +1,7 @@
 name: Vault Audit Commands
 
 # Handles vault audit slash commands from authorized reviewers:
-#   /vault-audit               — run the audit (dispatches to cre-docs)
+#   /vault-audit               — run the audit (workflow_dispatch to cre-docs)
 #   /vault-audit skip <reason> — bypass the audit entirely
 #
 # The audit report and its findings are NOT posted here (this repo is public).
@@ -86,7 +86,11 @@ jobs:
           if echo "$COMMENT_BODY" | grep -qP '^/vault-audit skip .+'; then
             echo "type=skip" >> "$GITHUB_OUTPUT"
             REASON="${COMMENT_BODY#/vault-audit skip }"
-            echo "reason=${REASON}" >> "$GITHUB_OUTPUT"
+            {
+              echo 'reason<<EOF'
+              echo "$REASON"
+              echo 'EOF'
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -147,7 +151,7 @@ jobs:
             --method POST \
             -f state=success \
             -f context="vault-audit" \
-            -f description="Vault audit skipped by ${COMMENTER}: ${REASON}"
+            -f description="Vault audit skipped by ${COMMENTER}"
 
           gh pr comment "$PR_NUMBER" -R "$REPO" \
             --body "✅ Vault audit skipped by @${COMMENTER}
@@ -239,16 +243,16 @@ jobs:
           MODEL: ${{ steps.cmd.outputs.model }}
           EFFORT: ${{ steps.cmd.outputs.effort }}
         run: |
-          gh api /repos/smartcontractkit/cre-docs/dispatches \
-            --method POST \
-            -f event_type=vault-audit \
-            -F 'client_payload[pr_number]'"=$PR_NUMBER" \
-            -f 'client_payload[head_sha]'"=$HEAD_SHA" \
-            -f 'client_payload[base_sha]'"=$BASE_SHA" \
-            -f 'client_payload[chainlink_repo]'"=$CHAINLINK_REPO" \
-            -f 'client_payload[triggered_by]'"=$COMMENTER" \
-            -f 'client_payload[model]'"=$MODEL" \
-            -f 'client_payload[effort]'"=$EFFORT"
+          gh workflow run vault-audit-dispatch.yml \
+            --repo smartcontractkit/cre-docs \
+            --ref main \
+            -f "pr_number=${PR_NUMBER}" \
+            -f "head_sha=${HEAD_SHA}" \
+            -f "base_sha=${BASE_SHA}" \
+            -f "chainlink_repo=${CHAINLINK_REPO}" \
+            -f "triggered_by=${COMMENTER}" \
+            -f "model=${MODEL}" \
+            -f "effort=${EFFORT}"
         # The acknowledgement / result comment on the PR is posted and updated by
         # the cre-docs dispatch workflow (it owns all vault-audit PR output), so
         # the issue link lands directly in the comment when the audit completes.
