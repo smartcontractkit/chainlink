@@ -370,9 +370,10 @@ func TestTriggerPublisher_AckEvent_DoesNotBlockReceive(t *testing.T) {
 	triggerID := "trigA"
 	publisher.Receive(ctx, newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[1]))
 
+	regMsg := newRegisterTriggerMessage(t, workflowDONID, peers[1])
 	regDone := make(chan struct{})
 	go func() {
-		publisher.Receive(ctx, newRegisterTriggerMessage(t, workflowDONID, peers[1]))
+		publisher.Receive(ctx, regMsg)
 		close(regDone)
 	}()
 
