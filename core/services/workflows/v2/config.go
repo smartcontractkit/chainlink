@@ -361,8 +361,7 @@ func (l *EngineLimiters) Close() error {
 }
 
 type EngineFeatureFlags struct {
-	FeatureMultiTriggerExecutionIDs             limits.RangeLimiter[config.Timestamp]
-	FeatureUseSingleDONTimeProviderPerExecution limits.RangeLimiter[config.Timestamp]
+	// put feature flags here and create them in NewFeatureFlags
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -370,18 +369,9 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
-	featureMultiTriggerExecutionIDs, err := limits.MakeRangeLimiter(lf, cfg.FeatureMultiTriggerExecutionIDsActivePeriod)
-	if err != nil {
-		return nil, err
-	}
-	featureUseSingleDONTimeProviderPerExecution, err := limits.MakeRangeLimiter(lf, cfg.FeatureUseSingleDONTimeProviderPerExecutionActivePeriod)
-	if err != nil {
-		return nil, err
-	}
-	return &EngineFeatureFlags{
-		FeatureMultiTriggerExecutionIDs:             featureMultiTriggerExecutionIDs,
-		FeatureUseSingleDONTimeProviderPerExecution: featureUseSingleDONTimeProviderPerExecution,
-	}, nil
+	// example:
+	// featureXYZFlag, err := limits.MakeRangeLimiter(lf, cfg.FeatureXYZActivePeriod)
+	return &EngineFeatureFlags{}, nil
 }
 
 const (
