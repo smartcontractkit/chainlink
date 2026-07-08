@@ -455,4 +455,4 @@ replace github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.3.1-
 // ../../../../../go/pkg/mod/github.com/smartcontractkit/chainlink-evm@v0.3.4-0.20260504070828-3216bb63d886/pkg/types/blocks/internal_types_codecgen.go:842:20: undefined: codec1978.GenHelper
 replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
 
-tool github.com/smartcontractkit/chainlink-testing-framework/framework
+tool github.com/smartcontractkit/chainlink-testing-framework/framework/cmd
