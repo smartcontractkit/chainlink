@@ -422,8 +422,8 @@ func (p *triggerPublisher) handleTriggerEventAck(ctx context.Context, cfg *dynam
 	p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 	minRequired := uint32(2*callerDon.F + 1)
 	ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
+	ackCount := len(p.ackCache.Peers(key))
 	if !ready {
-		ackCount := len(p.ackCache.Peers(key))
 		p.mu.Unlock()
 		p.lggr.Debugw("not ready to ACK trigger event yet",
 			"triggerEventId", triggerEventID,
@@ -432,7 +432,7 @@ func (p *triggerPublisher) handleTriggerEventAck(ctx context.Context, cfg *dynam
 			"minRequired", minRequired)
 		return
 	}
-	ackCount := len(p.ackCache.Peers(key))
+
 	p.mu.Unlock()
 
 	if p.ackExecutor == nil {
@@ -447,19 +447,12 @@ func (p *triggerPublisher) handleTriggerEventAck(ctx context.Context, cfg *dynam
 		attribute.String("callerDonID", strconv.FormatUint(uint64(callerDonID), 10)),
 	)
 
-	p.lggr.Infow("starting AckEvent task",
+	p.lggr.Infow("ACK quorum reached, forwarding to underlying trigger",
 		"triggerEventId", triggerEventID,
 		"triggerID", triggerID,
-		"callerDonId", callerDonID,
-		"sender", sender,
-		"acksReceived", ackCount,
 		"minRequired", minRequired)
 
 	scheduleErr := p.ackExecutor.ExecuteTask(ctx, func(taskCtx context.Context) {
-		p.lggr.Infow("ACK quorum reached, forwarding to underlying trigger",
-			"triggerEventId", triggerEventID,
-			"triggerID", triggerID,
-			"minRequired", minRequired)
 		p.lggr.Infow("executing AckEvent task",
 			"triggerEventId", triggerEventID,
 			"triggerID", triggerID,
@@ -472,6 +465,11 @@ func (p *triggerPublisher) handleTriggerEventAck(ctx context.Context, cfg *dynam
 				"eventID", triggerEventID, "capabilityID", p.capabilityID, "err", ackErr)
 			return
 		}
+		p.lggr.Infow("AckEvent completed successfully",
+			"triggerEventId", triggerEventID,
+			"triggerID", triggerID,
+			"callerDonId", callerDonID,
+			"minRequired", minRequired)
 		p.metrics.ackEventCounter.Add(taskCtx, 1, ackAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
 	})
 	if scheduleErr != nil {
