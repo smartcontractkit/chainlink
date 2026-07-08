@@ -1305,8 +1305,8 @@ func CloseBuffersChangeset(e cldf.Environment, cfg CloseBuffersConfig) (cldf.Cha
 		}
 	}
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to close existing programs", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to close existing programs", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
