@@ -39,12 +39,12 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 		"IsLoopPlugin":               true,
 		"NormalizeReturnValuesToHex": true,
 		"EventsIndexer": map[string]any{
-			"PollingInterval": 10 * time.Second,
-			"SyncTimeout":     10 * time.Second,
+			"PollingInterval": 2 * time.Second,
+			"SyncTimeout":     60 * time.Second,
 		},
 		"TransactionsIndexer": map[string]any{
-			"PollingInterval": 10 * time.Second,
-			"SyncTimeout":     10 * time.Second,
+			"PollingInterval": 2 * time.Second,
+			"SyncTimeout":     60 * time.Second,
 		},
 		"Modules": map[string]any{
 			// TODO: more offramp config and other modules
