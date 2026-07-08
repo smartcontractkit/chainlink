@@ -192,8 +192,8 @@ func AddBillingTokenChangeset(e cldf.Environment, cfg BillingTokenConfig) (cldf.
 
 	// create proposals for ixns
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to add billing token to Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to add billing token to Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -307,8 +307,8 @@ func AddTokenTransferFeeForRemoteChain(e cldf.Environment, cfg TokenTransferFeeF
 	}
 
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to set billing token for remote chain to Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to set billing token for remote chain to Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -422,8 +422,8 @@ func UpdatePrices(e cldf.Environment, cfg UpdatePricesConfig) (cldf.ChangesetOut
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to NewUpdatePricesInstruction in Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to NewUpdatePricesInstruction in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -530,8 +530,8 @@ func ModifyPriceUpdater(e cldf.Environment, cfg ModifyPriceUpdaterConfig) (cldf.
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to NewUpdatePricesInstruction in Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to NewUpdatePricesInstruction in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -630,8 +630,8 @@ func WithdrawBilledFunds(e cldf.Environment, cfg WithdrawBilledFundsConfig) (cld
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to WithdrawBilledFunds in Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to WithdrawBilledFunds in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -711,8 +711,8 @@ func SetMaxFeeJuelsPerMsg(e cldf.Environment, cfg SetMaxFeeJuelsPerMsgConfig) (c
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to SetMaxFeeJuelsPerMsg in Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to SetMaxFeeJuelsPerMsg in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
