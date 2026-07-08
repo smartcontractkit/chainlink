@@ -43,11 +43,11 @@ require (
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260706100550-d43558069754
 	github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260706100550-d43558069754
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260625091148-e5618f5682ee
-	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260618155522-3600f66e26cd
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
-	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260511195239-0f6e1b177fc7
-	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260618155522-3600f66e26cd
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260707143019-4b54918a3cad
+	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
+	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb
+	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260624154507-ea7ff77a0ddb
+	github.com/smartcontractkit/chainlink-common v1.3.1-0.20260708141629-702e4f78e838
 	github.com/smartcontractkit/chainlink-common/keystore v1.2.0
 	github.com/smartcontractkit/chainlink-data-streams v0.1.15-0.20260522094612-5f9f748bd87a
 	github.com/smartcontractkit/chainlink-deployments-framework v0.111.1-0.20260612191326-e31c0ae4cd54
@@ -60,7 +60,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1
 	github.com/smartcontractkit/chainlink-sui v0.0.0
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260624134342-6bfb9c92859d
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260707125635-abec997b6eae
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6-0.20260630120514-36abe27604df
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260629213843-c52e07523035
@@ -447,6 +447,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.2.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260630073003-fb8da7229930 // indirect
+	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260706170510-94f3a0409ea5 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
@@ -566,4 +567,4 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 // to be removed after https://github.com/doyensec/safeurl/pull/11 is merged
 replace github.com/doyensec/safeurl => github.com/cedric-cordenier/safeurl v0.0.0-20260525105509-613a4d94ca55
 
-replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260624134342-6bfb9c92859d
+replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260707125635-abec997b6eae
