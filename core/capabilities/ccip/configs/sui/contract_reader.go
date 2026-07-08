@@ -9,9 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 
+	"github.com/smartcontractkit/chainlink-sui/codec"
 	chainreaderConfig "github.com/smartcontractkit/chainlink-sui/relayer/chainreader/config"
 	"github.com/smartcontractkit/chainlink-sui/relayer/client"
-	"github.com/smartcontractkit/chainlink-sui/relayer/codec"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
 )

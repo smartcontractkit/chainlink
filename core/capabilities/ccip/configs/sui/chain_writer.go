@@ -7,9 +7,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 
+	"github.com/smartcontractkit/chainlink-sui/codec"
 	_ "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter" // Register Sui chainwriter
 	chainwriter "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter/config"
-	"github.com/smartcontractkit/chainlink-sui/relayer/codec"
 )
 
 func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, error) {
