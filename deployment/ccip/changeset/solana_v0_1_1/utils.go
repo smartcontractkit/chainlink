@@ -121,21 +121,12 @@ func buildProposalCommonWithConfig(
 		cfg = *mcmsCfg
 	}
 
-	// Select the MCM signer group matching the action. Defaults to the proposer MCM
-	// (schedule) when the action is empty, preserving previous behavior.
-	mcmSeed := mcmState.ProposerMcmSeed
-	switch cfg.MCMSAction {
-	case mcmsTypes.TimelockActionBypass:
-		mcmSeed = mcmState.BypasserMcmSeed
-	case mcmsTypes.TimelockActionCancel:
-		mcmSeed = mcmState.CancellerMcmSeed
-	}
-
 	timelocks[chainSelector] = mcmsSolana.ContractAddress(
 		mcmState.TimelockProgram,
 		mcmsSolana.PDASeed(mcmState.TimelockSeed),
 	)
-	proposers[chainSelector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmSeed))
+	// Select the MCM signer group matching the action (proposer for schedule/empty).
+	proposers[chainSelector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmSeedForAction(mcmState, cfg.MCMSAction))
 	inspectors[chainSelector] = mcmsSolana.NewInspector(chain.Client)
 
 	proposal, err := proposeutils.BuildProposalFromBatchesV2(
@@ -150,6 +141,21 @@ func buildProposalCommonWithConfig(
 		return nil, fmt.Errorf("failed to build proposal: %w", err)
 	}
 	return proposal, nil
+}
+
+// mcmSeedForAction returns the MCM PDA seed for the signer group matching the MCMS action:
+// bypasser for bypass, canceller for cancel, and proposer otherwise (schedule or empty).
+// Callers building a proposal for a specific action must anchor it to the matching MCM,
+// because the proposal's Merkle root is bound to the chosen MCM contract.
+func mcmSeedForAction(mcmState *solstate.MCMSWithTimelockState, action mcmsTypes.TimelockAction) mcmsSolana.PDASeed {
+	switch action {
+	case mcmsTypes.TimelockActionBypass:
+		return mcmsSolana.PDASeed(mcmState.BypasserMcmSeed)
+	case mcmsTypes.TimelockActionCancel:
+		return mcmsSolana.PDASeed(mcmState.CancellerMcmSeed)
+	default:
+		return mcmsSolana.PDASeed(mcmState.ProposerMcmSeed)
+	}
 }
 
 // BuildProposalsForTxnsWithConfig wraps the given Solana transactions in a single batch and
