@@ -382,99 +382,95 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.lggr.Errorw("trigger request failed with error",
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
 	case types.MethodTriggerEventAck:
-		p.handleTriggerEventAck(ctx, cfg, msg, sender)
+		triggerMetadata := msg.GetTriggerEventMetadata()
+		if triggerMetadata == nil {
+			p.lggr.Errorw("received empty trigger event ack metadata", "sender", sender)
+			break
+		}
+		triggerEventID := triggerMetadata.TriggerEventId
+		p.lggr.Debugw("received trigger event ACK", "sender", sender, "trigger event ID", triggerEventID)
+
+		p.mu.Lock()
+		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
+		if !ok {
+			p.mu.Unlock()
+			p.lggr.Errorw("received a message from unsupported workflow DON", "callerDonId", msg.CallerDonId)
+			return
+		}
+		if !cfg.membersCache[msg.CallerDonId][sender] {
+			p.mu.Unlock()
+			p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
+			return
+		}
+		if len(triggerMetadata.TriggerIds) != 1 {
+			p.mu.Unlock()
+			p.lggr.Errorw("did not receive single triggerID in ACK request", "callerDonId", msg.CallerDonId, "sender", sender, "triggerIDs", triggerMetadata.TriggerIds)
+			return
+		}
+		triggerID := triggerMetadata.TriggerIds[0]
+
+		key := ackKey{msg.CallerDonId, triggerEventID, triggerID}
+		nowMs := time.Now().UnixMilli()
+		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
+		minRequired := uint32(2*callerDon.F + 1)
+		ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
+		ackCount := len(p.ackCache.Peers(key))
+		if !ready {
+			p.mu.Unlock()
+			p.lggr.Debugw("not ready to ACK trigger event yet",
+				"triggerEventId", triggerEventID,
+				"triggerID", triggerID,
+				"acksReceived", ackCount,
+				"minRequired", minRequired)
+			return
+		}
+
+		p.mu.Unlock()
+
+		if p.ackExecutor == nil {
+			p.lggr.Errorw("ack executor not started; cannot forward AckEvent",
+				"triggerEventId", triggerEventID, "triggerID", triggerID)
+			return
+		}
+
+		callerDonID := msg.CallerDonId
+		ackAttrs := metric.WithAttributes(
+			attribute.String("capabilityID", p.capabilityID),
+			attribute.String("callerDonID", strconv.FormatUint(uint64(callerDonID), 10)),
+		)
+
+		p.lggr.Infow("ACK quorum reached, forwarding to underlying trigger",
+			"triggerEventId", triggerEventID,
+			"triggerID", triggerID,
+			"minRequired", minRequired)
+
+		scheduleErr := p.ackExecutor.ExecuteTask(ctx, func(taskCtx context.Context) {
+			p.lggr.Infow("executing AckEvent task",
+				"triggerEventId", triggerEventID,
+				"triggerID", triggerID,
+				"callerDonId", callerDonID,
+				"minRequired", minRequired)
+			ackErr := cfg.underlying.AckEvent(taskCtx, triggerID, triggerEventID, p.capMethodName)
+			if ackErr != nil {
+				p.metrics.ackEventCounter.Add(taskCtx, 1, ackAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
+				p.lggr.Errorw("failed to AckEvent on underlying trigger capability",
+					"eventID", triggerEventID, "capabilityID", p.capabilityID, "err", ackErr)
+				return
+			}
+			p.lggr.Infow("AckEvent completed successfully",
+				"triggerEventId", triggerEventID,
+				"triggerID", triggerID,
+				"callerDonId", callerDonID,
+				"minRequired", minRequired)
+			p.metrics.ackEventCounter.Add(taskCtx, 1, ackAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
+		})
+		if scheduleErr != nil {
+			p.lggr.Errorw("failed to schedule AckEvent task",
+				"triggerEventId", triggerEventID, "triggerID", triggerID, "err", scheduleErr)
+		}
 	default:
 		p.lggr.Errorw("received message with unknown method",
 			"method", SanitizeLogString(msg.Method), "sender", sender)
-	}
-}
-
-func (p *triggerPublisher) handleTriggerEventAck(ctx context.Context, cfg *dynamicPublisherConfig, msg *types.MessageBody, sender p2ptypes.PeerID) {
-	triggerMetadata := msg.GetTriggerEventMetadata()
-	if triggerMetadata == nil {
-		p.lggr.Errorw("received empty trigger event ack metadata", "sender", sender)
-		return
-	}
-	triggerEventID := triggerMetadata.TriggerEventId
-	p.lggr.Debugw("received trigger event ACK", "sender", sender, "trigger event ID", triggerEventID)
-
-	p.mu.Lock()
-	callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
-	if !ok {
-		p.mu.Unlock()
-		p.lggr.Errorw("received a message from unsupported workflow DON", "callerDonId", msg.CallerDonId)
-		return
-	}
-	if !cfg.membersCache[msg.CallerDonId][sender] {
-		p.mu.Unlock()
-		p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
-		return
-	}
-	if len(triggerMetadata.TriggerIds) != 1 {
-		p.mu.Unlock()
-		p.lggr.Errorw("did not receive single triggerID in ACK request", "callerDonId", msg.CallerDonId, "sender", sender, "triggerIDs", triggerMetadata.TriggerIds)
-		return
-	}
-	triggerID := triggerMetadata.TriggerIds[0]
-
-	key := ackKey{msg.CallerDonId, triggerEventID, triggerID}
-	nowMs := time.Now().UnixMilli()
-	p.ackCache.Insert(key, sender, nowMs, msg.Payload)
-	minRequired := uint32(2*callerDon.F + 1)
-	ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
-	ackCount := len(p.ackCache.Peers(key))
-	if !ready {
-		p.mu.Unlock()
-		p.lggr.Debugw("not ready to ACK trigger event yet",
-			"triggerEventId", triggerEventID,
-			"triggerID", triggerID,
-			"acksReceived", ackCount,
-			"minRequired", minRequired)
-		return
-	}
-
-	p.mu.Unlock()
-
-	if p.ackExecutor == nil {
-		p.lggr.Errorw("ack executor not started; cannot forward AckEvent",
-			"triggerEventId", triggerEventID, "triggerID", triggerID)
-		return
-	}
-
-	callerDonID := msg.CallerDonId
-	ackAttrs := metric.WithAttributes(
-		attribute.String("capabilityID", p.capabilityID),
-		attribute.String("callerDonID", strconv.FormatUint(uint64(callerDonID), 10)),
-	)
-
-	p.lggr.Infow("ACK quorum reached, forwarding to underlying trigger",
-		"triggerEventId", triggerEventID,
-		"triggerID", triggerID,
-		"minRequired", minRequired)
-
-	scheduleErr := p.ackExecutor.ExecuteTask(ctx, func(taskCtx context.Context) {
-		p.lggr.Infow("executing AckEvent task",
-			"triggerEventId", triggerEventID,
-			"triggerID", triggerID,
-			"callerDonId", callerDonID,
-			"minRequired", minRequired)
-		ackErr := cfg.underlying.AckEvent(taskCtx, triggerID, triggerEventID, p.capMethodName)
-		if ackErr != nil {
-			p.metrics.ackEventCounter.Add(taskCtx, 1, ackAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
-			p.lggr.Errorw("failed to AckEvent on underlying trigger capability",
-				"eventID", triggerEventID, "capabilityID", p.capabilityID, "err", ackErr)
-			return
-		}
-		p.lggr.Infow("AckEvent completed successfully",
-			"triggerEventId", triggerEventID,
-			"triggerID", triggerID,
-			"callerDonId", callerDonID,
-			"minRequired", minRequired)
-		p.metrics.ackEventCounter.Add(taskCtx, 1, ackAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
-	})
-	if scheduleErr != nil {
-		p.lggr.Errorw("failed to schedule AckEvent task",
-			"triggerEventId", triggerEventID, "triggerID", triggerID, "err", scheduleErr)
 	}
 }
 
