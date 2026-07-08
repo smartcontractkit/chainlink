@@ -214,7 +214,7 @@ func classifyContributions(obs []*vaultcommon.Observation) (ok []*vaultcommon.Ob
 // an Ok observation. pendingIDs scopes coverage to the current queue (Byzantine ids outside the
 // queue are ignored); pass nil to count all Ok contributions. Used to attribute prefix divergence
 // to a specific oracle — a node consistently reporting lower coverage than peers is withholding
-// or truncating its observation prefix, which stalls head-of-queue quorum under skip-invalid.
+// or truncating its observation prefix, which stalls head-of-queue quorum under include-invalid.
 func observerOkCoverage(obs *vaultcommon.Observations, pendingIDs map[string]bool) int {
 	if obs == nil {
 		return 0
@@ -234,7 +234,7 @@ func observerOkCoverage(obs *vaultcommon.Observations, pendingIDs map[string]boo
 
 // coverageSpread returns max-min of per-observer Ok prefix coverage. A non-zero spread means
 // oracles disagree on how much of the pending queue they observed — the head-of-queue stall
-// signature under skip-invalid.
+// signature under include-invalid.
 func coverageSpread(coverages []int) int {
 	if len(coverages) == 0 {
 		return 0

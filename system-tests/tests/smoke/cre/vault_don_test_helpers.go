@@ -59,7 +59,7 @@ const (
 	vaultDefaultConfigPath              = "/configs/workflow-gateway-capabilities-don.toml"
 	vaultJWTAuthEnabledConfigPath       = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
 	vaultOptimizationsEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
-	vaultSkipInvalidEnabledConfigPath   = "/configs/workflow-gateway-capabilities-don-vault-skip-invalid-enabled.toml"
+	vaultIncludeInvalidEnabledConfigPath   = "/configs/workflow-gateway-capabilities-don-vault-include-invalid-enabled.toml"
 	vaultJWTIssuerListenAddr            = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
@@ -304,10 +304,10 @@ func getVaultOptimizationsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultOptimizationsEnabledConfigPath)
 }
 
-func getVaultSkipInvalidEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
+func getVaultIncludeInvalidEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
-	return t_helpers.GetTestConfig(t, vaultSkipInvalidEnabledConfigPath)
+	return t_helpers.GetTestConfig(t, vaultIncludeInvalidEnabledConfigPath)
 }
 
 func isVaultJWTAuthEnabledTopology(topologyName string) bool {
@@ -318,8 +318,8 @@ func isVaultOptimizationsEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-optimizations-enabled")
 }
 
-func isVaultSkipInvalidEnabledTopology(topologyName string) bool {
-	return strings.Contains(topologyName, "vault-skip-invalid-enabled")
+func isVaultIncludeInvalidEnabledTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-include-invalid-enabled")
 }
 
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {

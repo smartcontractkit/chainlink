@@ -249,9 +249,9 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		})
 	}
 
-	if isVaultSkipInvalidEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
-		t.Run("skip_invalid_pending_items_liveness", func(t *testing.T) {
-			ExecuteVaultSkipInvalidLivenessSmokeTest(t, fixture, testEnv)
+	if isVaultIncludeInvalidEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		t.Run("include_invalid_pending_items_liveness", func(t *testing.T) {
+			ExecuteVaultIncludeInvalidLivenessSmokeTest(t, fixture, testEnv)
 		})
 	}
 }
@@ -524,9 +524,9 @@ func ExecuteVaultJWTDisabledTest(t *testing.T, fixture *vaultScenarioFixture) {
 	})
 }
 
-// ExecuteVaultSkipInvalidLivenessSmokeTest verifies that an erroring workflow GetSecrets for a
-// deleted secret does not stall concurrent valid gateway creates while skip-invalid is enabled.
-func ExecuteVaultSkipInvalidLivenessSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+// ExecuteVaultIncludeInvalidLivenessSmokeTest verifies that an erroring workflow GetSecrets for a
+// deleted secret does not stall concurrent valid gateway creates while include-invalid is enabled.
+func ExecuteVaultIncludeInvalidLivenessSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
 	t.Helper()
 	testLogger := framework.L
 
@@ -540,12 +540,12 @@ func ExecuteVaultSkipInvalidLivenessSmokeTest(t *testing.T, fixture *vaultScenar
 	require.NoError(t, err)
 	requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
 	vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
-	encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-skip-invalid-liveness", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+	encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-include-invalid-liveness", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
 	require.NoError(t, err)
 	auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
 
-	deletedSecretID := uniqueVaultSecretID("skipinvaliddeleted")
-	liveSecretID := uniqueVaultSecretID("skipinvalidlive")
+	deletedSecretID := uniqueVaultSecretID("includeinvaliddeleted")
+	liveSecretID := uniqueVaultSecretID("includeinvalidlive")
 	namespaces := []string{"main"}
 
 	executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, deletedSecretID, owner, gwURL, namespaces)
@@ -560,7 +560,7 @@ func ExecuteVaultSkipInvalidLivenessSmokeTest(t *testing.T, fixture *vaultScenar
 		t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
 	})
 
-	workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "skip-invalid-liveness", []vaultWorkflowPhase{
+	workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "include-invalid-liveness", []vaultWorkflowPhase{
 		{
 			Name: "deleted-secret-not-found",
 			Checks: []vaultWorkflowCheck{
@@ -953,9 +953,9 @@ func TestVaultJSONOmitUnpopulatedEnabled_CRESettingDefaultsDisabled(t *testing.T
 	require.False(t, cresettings.Default.VaultJSONOmitUnpopulatedEnabled.DefaultValue)
 }
 
-func TestVaultSkipInvalidPendingItemsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+func TestVaultIncludeInvalidPendingItemsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	t.Parallel()
-	require.False(t, cresettings.Default.VaultSkipInvalidPendingItemsEnabled.DefaultValue)
+	require.False(t, cresettings.Default.VaultIncludeInvalidPendingItemsEnabled.DefaultValue)
 }
 
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
@@ -968,7 +968,7 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 		wantJWTGate           string
 		wantLinking           bool
 		wantOptimizationsGate string
-		wantSkipInvalidGate   string
+		wantIncludeInvalidGate   string
 	}{
 		{
 			name:        "enabled",
@@ -990,11 +990,11 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			wantOptimizationsGate: "true",
 		},
 		{
-			name:       "skip_invalid_enabled",
-			configPath: vaultSkipInvalidEnabledConfigPath,
+			name:       "include_invalid_enabled",
+			configPath: vaultIncludeInvalidEnabledConfigPath,
 			wantJWTGate: "false",
 			wantLinking: false,
-			wantSkipInvalidGate: "true",
+			wantIncludeInvalidGate: "true",
 		},
 	}
 
@@ -1007,7 +1007,7 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 				switch nodeSet.Name {
 				case "workflow", "capabilities":
 				case "bootstrap-gateway":
-					if tc.wantOptimizationsGate != "true" && tc.wantSkipInvalidGate != "true" {
+					if tc.wantOptimizationsGate != "true" && tc.wantIncludeInvalidGate != "true" {
 						continue
 					}
 				default:
@@ -1019,16 +1019,16 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 					if tc.wantOptimizationsGate != "" {
 						require.Equal(t, "false", tc.wantOptimizationsGate)
 					}
-					if tc.wantSkipInvalidGate != "" {
-						require.Equal(t, "false", tc.wantSkipInvalidGate)
+					if tc.wantIncludeInvalidGate != "" {
+						require.Equal(t, "false", tc.wantIncludeInvalidGate)
 					}
 				} else {
 					var settings map[string]string
 					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
 					if tc.wantOptimizationsGate == "true" {
 						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
-					} else if tc.wantSkipInvalidGate == "true" {
-						require.Equal(t, "true", settings["VaultSkipInvalidPendingItemsEnabled"])
+					} else if tc.wantIncludeInvalidGate == "true" {
+						require.Equal(t, "true", settings["VaultIncludeInvalidPendingItemsEnabled"])
 						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
 					} else {
 						require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])

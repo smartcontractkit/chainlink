@@ -25,17 +25,17 @@ func writeUnobservablePendingQueueItem(t *testing.T, rdr *kv, id string) *vaultc
 }
 
 // Regression: appendPendingQueueObservations walks the full pending queue and emits
-// error contributions for unobservable items when skip-invalid is on, but
+// error contributions for unobservable items when include-invalid is on, but
 // validatePendingQueueObservationsPrefix used observablePendingQueueItems which
 // drops those items — rejecting every honest observation and stalling the round.
-func TestSkipInvalid_UnobservableQueueItemObservationRoundTrip(t *testing.T) {
+func TestIncludeInvalid_UnobservableQueueItemObservationRoundTrip(t *testing.T) {
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultSkipInvalidPendingItemsEnabled(),
+		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -69,14 +69,14 @@ func TestSkipInvalid_UnobservableQueueItemObservationRoundTrip(t *testing.T) {
 	require.Equal(t, vaultcommon.RequestType_UNKNOWN, os.Outcomes[0].RequestType)
 }
 
-func TestSkipInvalid_UnobservableHeadWithValidTailAlignsByQueuePosition(t *testing.T) {
+func TestIncludeInvalid_UnobservableHeadWithValidTailAlignsByQueuePosition(t *testing.T) {
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultSkipInvalidPendingItemsEnabled(),
+		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -107,7 +107,7 @@ func TestValidateObservation_AcceptsErrContributionForQueueItem(t *testing.T) {
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultSkipInvalidPendingItemsEnabled(),
+		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -141,7 +141,7 @@ func TestValidateObservation_AcceptsErrContributionForQueueItem(t *testing.T) {
 	))
 }
 
-func TestValidateObservation_SkipInvalid_AcceptsNonMaximalPrefix(t *testing.T) {
+func TestValidateObservation_IncludeInvalid_AcceptsNonMaximalPrefix(t *testing.T) {
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -149,7 +149,7 @@ func TestValidateObservation_SkipInvalid_AcceptsNonMaximalPrefix(t *testing.T) {
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
 		withVaultOptimizationsEnabled(),
-		withVaultSkipInvalidPendingItemsEnabled(),
+		withVaultIncludeInvalidPendingItemsEnabled(),
 		withMaxObservationBytes(10*1024*1024),
 	)
 
@@ -166,14 +166,14 @@ func TestValidateObservation_SkipInvalid_AcceptsNonMaximalPrefix(t *testing.T) {
 	require.NoError(t, validatePendingQueueObservation(t, r, rdr, prefixObs))
 }
 
-func TestObservationQuorum_SkipInvalid_RequiresHeadContribution(t *testing.T) {
+func TestObservationQuorum_IncludeInvalid_RequiresHeadContribution(t *testing.T) {
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultSkipInvalidPendingItemsEnabled(),
+		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -232,18 +232,18 @@ func TestObservationQuorum_SkipInvalid_RequiresHeadContribution(t *testing.T) {
 	require.False(t, reached)
 }
 
-func TestStateTransition_SkipInvalid_ProcessesHeadBeforeStoppingOnTail(t *testing.T) {
+func TestStateTransition_IncludeInvalid_ProcessesHeadBeforeStoppingOnTail(t *testing.T) {
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultSkipInvalidPendingItemsEnabled(),
+		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
-	// Head sorts after tail alphabetically; skip-invalid must still process head first.
+	// Head sorts after tail alphabetically; include-invalid must still process head first.
 	writeDeleteSecretsPendingQueueItems(t, kv, "zzz-head", "aaa-tail")
 
 	secretID := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "my_secret"}
@@ -294,14 +294,14 @@ func TestStateTransition_SkipInvalid_ProcessesHeadBeforeStoppingOnTail(t *testin
 	require.Equal(t, "zzz-head", os.Outcomes[0].Id)
 }
 
-func TestStateTransition_SkipInvalid_RejectsItemOnFPlusOneErr(t *testing.T) {
+func TestStateTransition_IncludeInvalid_RejectsItemOnFPlusOneErr(t *testing.T) {
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultSkipInvalidPendingItemsEnabled(),
+		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}
@@ -399,14 +399,14 @@ func TestBuildRejectedOutcome_FansOutPerItemErrors(t *testing.T) {
 	})
 }
 
-func TestStateTransition_SkipInvalid_RejectsMultiItemBatchOnFPlusOneErr(t *testing.T) {
+func TestStateTransition_IncludeInvalid_RejectsMultiItemBatchOnFPlusOneErr(t *testing.T) {
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultSkipInvalidPendingItemsEnabled(),
+		withVaultIncludeInvalidPendingItemsEnabled(),
 	)
 
 	kv := &kv{m: make(map[string]response)}

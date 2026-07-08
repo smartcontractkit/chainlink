@@ -65,7 +65,7 @@ type ReportingPluginConfig struct {
 	VaultJSONOmitUnpopulatedEnabled                   limits.GateLimiter
 	VaultGetSecretsShareAggregationIncludesPublicKeys limits.GateLimiter
 	VaultGetSecretsRelaxedConsensusEnabled            limits.GateLimiter
-	VaultSkipInvalidPendingItemsEnabled               limits.GateLimiter
+	VaultIncludeInvalidPendingItemsEnabled            limits.GateLimiter
 }
 
 func NewReportingPluginFactory(
@@ -205,9 +205,9 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultGetSecretsRelaxedConsensusEnabled: %w", err)
 	}
 
-	vaultSkipInvalidPendingItemsEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultSkipInvalidPendingItemsEnabled)
+	vaultIncludeInvalidPendingItemsEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultIncludeInvalidPendingItemsEnabled)
 	if err != nil {
-		return nil, fmt.Errorf("VaultSkipInvalidPendingItemsEnabled: %w", err)
+		return nil, fmt.Errorf("VaultIncludeInvalidPendingItemsEnabled: %w", err)
 	}
 
 	maxBlobPayloadBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
@@ -229,7 +229,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		VaultJSONOmitUnpopulatedEnabled:                   vaultJSONOmitUnpopulatedEnabled,
 		VaultGetSecretsShareAggregationIncludesPublicKeys: vaultGetSecretsShareAggregationIncludesPublicKeys,
 		VaultGetSecretsRelaxedConsensusEnabled:            vaultGetSecretsRelaxedConsensusEnabled,
-		VaultSkipInvalidPendingItemsEnabled:               vaultSkipInvalidPendingItemsEnabled,
+		VaultIncludeInvalidPendingItemsEnabled:            vaultIncludeInvalidPendingItemsEnabled,
 	}, nil
 }
 
@@ -603,8 +603,8 @@ func (r *ReportingPlugin) getSecretsRelaxedConsensusEnabled(ctx context.Context)
 	return gateAllows(ctx, r.lggr, r.cfg.VaultGetSecretsRelaxedConsensusEnabled, "VaultGetSecretsRelaxedConsensusEnabled")
 }
 
-func (r *ReportingPlugin) skipInvalidPendingItemsEnabled(ctx context.Context) bool {
-	return gateAllows(ctx, r.lggr, r.cfg.VaultSkipInvalidPendingItemsEnabled, "VaultSkipInvalidPendingItemsEnabled")
+func (r *ReportingPlugin) includeInvalidPendingItemsEnabled(ctx context.Context) bool {
+	return gateAllows(ctx, r.lggr, r.cfg.VaultIncludeInvalidPendingItemsEnabled, "VaultIncludeInvalidPendingItemsEnabled")
 }
 
 type pendingQueueStore interface {
@@ -798,11 +798,11 @@ func (r *ReportingPlugin) validatePendingQueueObservationsPrefix(
 	pendingQueueItems []*vaultcommon.StoredPendingQueueItem,
 	obs *vaultcommon.Observations,
 ) error {
-	// When skip-invalid is on, Observation() walks the full pending queue (including
+	// When include-invalid is on, Observation() walks the full pending queue (including
 	// items that fail UnmarshalNew or have an unknown type) and may emit error
 	// contributions at those positions. Prefix validation must use the same walk.
 	var expected []*vaultcommon.StoredPendingQueueItem
-	if r.skipInvalidPendingItemsEnabled(ctx) {
+	if r.includeInvalidPendingItemsEnabled(ctx) {
 		expected = pendingQueueItems
 	} else {
 		expected = r.observablePendingQueueItems(ctx, pendingQueueItems)
@@ -835,12 +835,12 @@ func (r *ReportingPlugin) appendPendingQueueObservations(
 	obspb *vaultcommon.Observations,
 	applyWireCap bool,
 ) []string {
-	skipInvalid := r.skipInvalidPendingItemsEnabled(ctx)
+	includeInvalid := r.includeInvalidPendingItemsEnabled(ctx)
 	ids := make([]string, 0, len(currentPendingQueueItems))
 	for _, req := range currentPendingQueueItems {
 		o, err := r.observePendingQueueItem(ctx, readKV, req)
 		if err != nil {
-			if skipInvalid {
+			if includeInvalid {
 				o = observationToErrContribution(&vaultcommon.Observation{
 					Id: req.Id,
 				}, userFacingError(err, "failed to observe pending queue item"))
@@ -855,7 +855,7 @@ func (r *ReportingPlugin) appendPendingQueueObservations(
 				r.lggr.Errorw("failed to observe pending queue item", "id", req.Id, "error", err)
 				continue
 			}
-		} else if skipInvalid {
+		} else if includeInvalid {
 			if cerr := r.checkContribution(ctx, readKV, req, o); cerr != nil {
 				o = observationToErrContribution(o, userFacingError(cerr, "request is not valid"))
 				r.lggr.Warnw("pending queue item failed contribution self-check; emitting error contribution",
@@ -1458,7 +1458,7 @@ func (r *ReportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, a
 		return false, nil
 	}
 
-	if !r.skipInvalidPendingItemsEnabled(ctx) {
+	if !r.includeInvalidPendingItemsEnabled(ctx) {
 		return true, nil
 	}
 
@@ -1820,7 +1820,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		Outcomes: []*vaultcommon.Outcome{},
 	}
 
-	skipInvalid := r.skipInvalidPendingItemsEnabled(ctx)
+	includeInvalid := r.includeInvalidPendingItemsEnabled(ctx)
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
 	var pendingQueueErr error
 	pendingQueueItems, pendingQueueErr = writeKV.GetPendingQueue(ctx)
@@ -1834,7 +1834,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	}
 
 	var idsToProcess []string
-	if skipInvalid {
+	if includeInvalid {
 		idsToProcess = make([]string, 0, len(pendingQueueItems))
 		for _, item := range pendingQueueItems {
 			idsToProcess = append(idsToProcess, item.Id)
@@ -1844,14 +1844,14 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	}
 	for _, id := range idsToProcess {
 		obs, ok := obsMap[id]
-		// This can only happen if skipInvalid is true and the pending queue item is not in the obsMap
+		// This can only happen if includeInvalid is true and the pending queue item is not in the obsMap
 		// at which point we know any other requests in the pending queue can't be processed so we can break.
 		if !ok {
 			r.lggr.Warnw("no observations for pending queue item; stopping state transition", "id", id)
 			break
 		}
 
-		if skipInvalid {
+		if includeInvalid {
 			okObs, errObs := classifyContributions(obs)
 			f := r.onchainCfg.F
 			if len(errObs) >= f+1 {
@@ -1948,7 +1948,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 				shaToObsCount[sha] = len(obs)
 			}
 			r.lggr.Warnw("insufficient observations found for id", "id", id, "shaToObsCount", shaToObsCount)
-			if skipInvalid {
+			if includeInvalid {
 				break
 			}
 			continue
