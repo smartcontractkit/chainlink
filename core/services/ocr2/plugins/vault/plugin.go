@@ -62,7 +62,6 @@ type ReportingPluginConfig struct {
 	MaxBlobPayloadBytes                               limits.BoundLimiter[pkgconfig.Size]
 	VaultForceEmptyOCRRounds                          limits.GateLimiter
 	VaultOptimizationsEnabled                         limits.GateLimiter
-	VaultCiphertextlessObservationsEnabled            limits.GateLimiter
 	VaultJSONOmitUnpopulatedEnabled                   limits.GateLimiter
 	VaultGetSecretsShareAggregationIncludesPublicKeys limits.GateLimiter
 	VaultGetSecretsRelaxedConsensusEnabled            limits.GateLimiter
@@ -191,11 +190,6 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultOptimizationsEnabled: %w", err)
 	}
 
-	vaultCiphertextlessObservationsEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultCiphertextlessObservationsEnabled)
-	if err != nil {
-		return nil, fmt.Errorf("VaultCiphertextlessObservationsEnabled: %w", err)
-	}
-
 	vaultGetSecretsShareAggregationIncludesPublicKeys, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultGetSecretsShareAggregationIncludesPublicKeys)
 	if err != nil {
 		return nil, fmt.Errorf("VaultGetSecretsShareAggregationIncludesPublicKeys: %w", err)
@@ -232,7 +226,6 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxPendingQueueWriteSize:                          maxPendingQueueWriteSizeLimiter,
 		VaultForceEmptyOCRRounds:                          vaultForceEmptyOCRRounds,
 		VaultOptimizationsEnabled:                         vaultOptimizationsEnabled,
-		VaultCiphertextlessObservationsEnabled:            vaultCiphertextlessObservationsEnabled,
 		VaultJSONOmitUnpopulatedEnabled:                   vaultJSONOmitUnpopulatedEnabled,
 		VaultGetSecretsShareAggregationIncludesPublicKeys: vaultGetSecretsShareAggregationIncludesPublicKeys,
 		VaultGetSecretsRelaxedConsensusEnabled:            vaultGetSecretsRelaxedConsensusEnabled,
@@ -596,10 +589,6 @@ func (r *ReportingPlugin) prepareLegacyObservationPendingQueueBlobs(
 
 func (r *ReportingPlugin) optimizationsEnabled(ctx context.Context) bool {
 	return gateAllows(ctx, r.lggr, r.cfg.VaultOptimizationsEnabled, "VaultOptimizationsEnabled")
-}
-
-func (r *ReportingPlugin) ciphertextlessObservationsEnabled(ctx context.Context) bool {
-	return gateAllows(ctx, r.lggr, r.cfg.VaultCiphertextlessObservationsEnabled, "VaultCiphertextlessObservationsEnabled")
 }
 
 func (r *ReportingPlugin) shareAggregationIncludesPublicKeys(ctx context.Context) bool {
@@ -1106,18 +1095,11 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		Id: id,
 		Result: &vaultcommon.SecretResponse_Data{
 			Data: &vaultcommon.SecretData{
-				EncryptedValue:               encryptedValueForGetSecretsObservation(r.ciphertextlessObservationsEnabled(ctx), secret.EncryptedSecret),
+				EncryptedValue:               hex.EncodeToString(secret.EncryptedSecret),
 				EncryptedDecryptionKeyShares: shares,
 			},
 		},
 	}, nil
-}
-
-func encryptedValueForGetSecretsObservation(ciphertextlessObservationsEnabled bool, encryptedSecret []byte) string {
-	if ciphertextlessObservationsEnabled {
-		return ""
-	}
-	return hex.EncodeToString(encryptedSecret)
 }
 
 func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
@@ -1543,7 +1525,7 @@ func shaForProto(msg proto.Message) (string, error) {
 	return fmt.Sprintf("%x", sha256.Sum256(protoBytes)), nil
 }
 
-func (r *ReportingPlugin) shaForObservation(ctx context.Context, o *vaultcommon.Observation, omitCiphertext bool) (string, error) {
+func (r *ReportingPlugin) shaForObservation(ctx context.Context, o *vaultcommon.Observation) (string, error) {
 	switch o.RequestType {
 	case vaultcommon.RequestType_GET_SECRETS:
 		cloned := proto.CloneOf(o)
@@ -1557,9 +1539,6 @@ func (r *ReportingPlugin) shaForObservation(ctx context.Context, o *vaultcommon.
 				} else {
 					// Exclude the encrypted shares from the sha, as these need to be aggregated later.
 					rsp.GetData().EncryptedDecryptionKeyShares = nil
-				}
-				if omitCiphertext {
-					rsp.GetData().EncryptedValue = ""
 				}
 			}
 		}
@@ -1674,10 +1653,6 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 		d := rsp.GetData()
 		if d == nil {
 			continue
-		}
-
-		if r.ciphertextlessObservationsEnabled(ctx) && d.EncryptedValue != "" {
-			return errors.New("GetSecrets response must not include encrypted value when ciphertextless observations are enabled")
 		}
 
 		secretReq, err := secretRequestForID(pendingReq, rsp.Id)
@@ -1845,11 +1820,6 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		Outcomes: []*vaultcommon.Outcome{},
 	}
 
-	var preRoundCiphertexts map[string][]byte
-	if r.ciphertextlessObservationsEnabled(ctx) {
-		preRoundCiphertexts = make(map[string][]byte)
-	}
-
 	skipInvalid := r.skipInvalidPendingItemsEnabled(ctx)
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
 	var pendingQueueErr error
@@ -1928,9 +1898,8 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// This means that each entry in `shaToObs` will contain a list of all
 		// of the entries matching a given sha.
 		shaToObs := map[string][]*vaultcommon.Observation{}
-		omitCiphertext := r.ciphertextlessObservationsEnabled(ctx)
 		for _, ob := range obs {
-			sha, err := r.shaForObservation(ctx, ob, omitCiphertext)
+			sha, err := r.shaForObservation(ctx, ob)
 			if err != nil {
 				r.lggr.Errorw("failed to compute sha for observation", "error", err, "observation", ob)
 				continue
@@ -1994,13 +1963,13 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 		switch first.RequestType {
 		case vaultcommon.RequestType_GET_SECRETS:
-			r.stateTransitionGetSecrets(ctx, writeKV, preRoundCiphertexts, chosen, o)
+			r.stateTransitionGetSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_CREATE_SECRETS:
 			r.stateTransitionCreateSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_UPDATE_SECRETS:
-			r.stateTransitionUpdateSecrets(ctx, writeKV, preRoundCiphertexts, chosen, o)
+			r.stateTransitionUpdateSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_DELETE_SECRETS:
-			r.stateTransitionDeleteSecrets(ctx, writeKV, preRoundCiphertexts, chosen, o)
+			r.stateTransitionDeleteSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS:
 			r.stateTransitionListSecretIdentifiers(ctx, writeKV, chosen, o)
 		default:
@@ -2177,33 +2146,7 @@ func sortKey(id string, nonce []byte) []byte {
 	return h.Sum(nil)
 }
 
-func capturePreRoundCiphertext(preRound map[string][]byte, id *vaultcommon.SecretIdentifier, encryptedSecret []byte) {
-	if preRound == nil {
-		return
-	}
-	key := vaulttypes.KeyFor(id)
-	if _, exists := preRound[key]; exists {
-		return
-	}
-	preRound[key] = encryptedSecret
-}
-
-func capturePreRoundCiphertextFromStore(ctx context.Context, store ReadKVStore, preRound map[string][]byte, id *vaultcommon.SecretIdentifier) {
-	if preRound == nil {
-		return
-	}
-	key := vaulttypes.KeyFor(id)
-	if _, exists := preRound[key]; exists {
-		return
-	}
-	stored, err := store.GetSecret(ctx, id)
-	if err != nil || stored == nil {
-		return
-	}
-	preRound[key] = stored.EncryptedSecret
-}
-
-func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader ReadKVStore, preRoundCiphertexts map[string][]byte, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
+func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader ReadKVStore, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
 	if !r.optimizationsEnabled(ctx) {
 		first := chosen[0]
 		reqs := first.GetGetSecretsRequest().Requests
@@ -2295,34 +2238,6 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader 
 	sortedResponses := []*vaultcommon.SecretResponse{}
 	for _, k := range slices.Sorted(maps.Keys(idToAggResponse)) {
 		sortedResponses = append(sortedResponses, idToAggResponse[k])
-	}
-
-	if r.ciphertextlessObservationsEnabled(ctx) {
-		for _, resp := range sortedResponses {
-			if resp.GetData() == nil {
-				continue
-			}
-			secretKey := vaulttypes.KeyFor(resp.Id)
-			if ct, ok := preRoundCiphertexts[secretKey]; ok {
-				resp.GetData().EncryptedValue = hex.EncodeToString(ct)
-				continue
-			}
-			stored, err := reader.GetSecret(ctx, resp.Id)
-			if err != nil {
-				r.lggr.Errorw("failed to read secret from key-value store for outcome", "id", resp.Id, "error", err)
-				resp.Result = &vaultcommon.SecretResponse_Error{
-					Error: userFacingError(err, "failed to read secret"),
-				}
-				continue
-			}
-			if stored == nil {
-				resp.Result = &vaultcommon.SecretResponse_Error{
-					Error: userFacingError(newUserError("key does not exist"), "failed to read secret"),
-				}
-				continue
-			}
-			resp.GetData().EncryptedValue = hex.EncodeToString(stored.EncryptedSecret)
-		}
 	}
 
 	o.Response = &vaultcommon.Outcome_GetSecretsResponse{
@@ -2453,7 +2368,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 	}, nil
 }
 
-func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, store WriteKVStore, preRoundCiphertexts map[string][]byte, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
+func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, store WriteKVStore, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
 	first := chosen[0]
 	reqID := first.GetUpdateSecretsRequest().RequestId
 	// First we'll aggregate the requests.
@@ -2502,7 +2417,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 			})
 			continue
 		}
-		resp, err := r.stateTransitionUpdateSecretsRequest(ctx, store, preRoundCiphertexts, req, resp)
+		resp, err := r.stateTransitionUpdateSecretsRequest(ctx, store, req, resp)
 		if err != nil {
 			logUserErrorAware(r.lggr, "failed to handle update secret request", err, "id", req.Id, "requestID", reqID)
 			errorMsg := userFacingError(err, "failed to handle update secret request")
@@ -2524,7 +2439,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Context, store WriteKVStore, preRoundCiphertexts map[string][]byte, req *vaultcommon.EncryptedSecret, resp *vaultcommon.UpdateSecretResponse) (*vaultcommon.UpdateSecretResponse, error) {
+func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.UpdateSecretResponse) (*vaultcommon.UpdateSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
@@ -2543,8 +2458,6 @@ func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Contex
 		return nil, newUserError("could not write update to key value store: key does not exist")
 	}
 
-	capturePreRoundCiphertext(preRoundCiphertexts, req.Id, secret.EncryptedSecret)
-
 	err = store.WriteSecret(ctx, req.Id, &vaultcommon.StoredSecret{
 		EncryptedSecret: encryptedSecret,
 	})
@@ -2559,7 +2472,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Contex
 	}, nil
 }
 
-func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, store WriteKVStore, preRoundCiphertexts map[string][]byte, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
+func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, store WriteKVStore, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
 	first := chosen[0]
 	reqID := first.GetDeleteSecretsRequest().RequestId
 	// First we'll aggregate the requests.
@@ -2608,7 +2521,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 			})
 			continue
 		}
-		resp, err := r.stateTransitionDeleteSecretsRequest(ctx, store, preRoundCiphertexts, req, resp)
+		resp, err := r.stateTransitionDeleteSecretsRequest(ctx, store, req, resp)
 		if err != nil {
 			logUserErrorAware(r.lggr, "failed to handle delete secret request", err, "id", id, "requestId", reqID)
 			errorMsg := userFacingError(err, "failed to handle delete secret request")
@@ -2630,12 +2543,10 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 	}
 }
 
-func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Context, store WriteKVStore, preRoundCiphertexts map[string][]byte, id *vaultcommon.SecretIdentifier, resp *vaultcommon.DeleteSecretResponse) (*vaultcommon.DeleteSecretResponse, error) {
+func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Context, store WriteKVStore, id *vaultcommon.SecretIdentifier, resp *vaultcommon.DeleteSecretResponse) (*vaultcommon.DeleteSecretResponse, error) {
 	if resp.GetError() != "" {
 		return resp, newUserError(resp.GetError())
 	}
-
-	capturePreRoundCiphertextFromStore(ctx, store, preRoundCiphertexts, id)
 
 	err := store.DeleteSecret(ctx, id)
 	if err != nil {

@@ -132,16 +132,16 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeysFlag(t *test
 
 	ctx := context.Background()
 	pluginOff := newTestReportingPlugin(t, withOnchainCfg(4, 1))
-	shaHonestOff, err := pluginOff.shaForObservation(ctx, honestObs, false)
+	shaHonestOff, err := pluginOff.shaForObservation(ctx, honestObs)
 	require.NoError(t, err)
-	shaByzOff, err := pluginOff.shaForObservation(ctx, byzObs, false)
+	shaByzOff, err := pluginOff.shaForObservation(ctx, byzObs)
 	require.NoError(t, err)
 	require.Equal(t, shaHonestOff, shaByzOff)
 
 	pluginOn := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
-	shaHonestOn, err := pluginOn.shaForObservation(ctx, honestObs, false)
+	shaHonestOn, err := pluginOn.shaForObservation(ctx, honestObs)
 	require.NoError(t, err)
-	shaByzOn, err := pluginOn.shaForObservation(ctx, byzObs, false)
+	shaByzOn, err := pluginOn.shaForObservation(ctx, byzObs)
 	require.NoError(t, err)
 	require.NotEqual(t, shaHonestOn, shaByzOn)
 }
@@ -182,9 +182,9 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_PermutedEnt
 	ctx := context.Background()
 	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
 
-	shaAB, err := plugin.shaForObservation(ctx, makeObs([]string{keyA, keyB}, []string{"share-a1", "share-b1"}), false)
+	shaAB, err := plugin.shaForObservation(ctx, makeObs([]string{keyA, keyB}, []string{"share-a1", "share-b1"}))
 	require.NoError(t, err)
-	shaBA, err := plugin.shaForObservation(ctx, makeObs([]string{keyB, keyA}, []string{"share-b2", "share-a2"}), false)
+	shaBA, err := plugin.shaForObservation(ctx, makeObs([]string{keyB, keyA}, []string{"share-b2", "share-a2"}))
 	require.NoError(t, err)
 	require.NotEqual(t, shaAB, shaBA)
 }
@@ -223,9 +223,9 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_DifferentSh
 	ctx := context.Background()
 	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
 
-	sha1, err := plugin.shaForObservation(ctx, makeObs("share-from-node-1"), false)
+	sha1, err := plugin.shaForObservation(ctx, makeObs("share-from-node-1"))
 	require.NoError(t, err)
-	sha2, err := plugin.shaForObservation(ctx, makeObs("share-from-node-2"), false)
+	sha2, err := plugin.shaForObservation(ctx, makeObs("share-from-node-2"))
 	require.NoError(t, err)
 	require.Equal(t, sha1, sha2)
 }

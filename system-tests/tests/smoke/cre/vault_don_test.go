@@ -948,11 +948,6 @@ func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
 }
 
-func TestVaultCiphertextlessObservationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
-	t.Parallel()
-	require.False(t, cresettings.Default.VaultCiphertextlessObservationsEnabled.DefaultValue)
-}
-
 func TestVaultJSONOmitUnpopulatedEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	t.Parallel()
 	require.False(t, cresettings.Default.VaultJSONOmitUnpopulatedEnabled.DefaultValue)
@@ -1032,16 +1027,12 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
 					if tc.wantOptimizationsGate == "true" {
 						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
-						require.Equal(t, "true", settings["VaultCiphertextlessObservationsEnabled"])
 					} else if tc.wantSkipInvalidGate == "true" {
 						require.Equal(t, "true", settings["VaultSkipInvalidPendingItemsEnabled"])
 						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
 					} else {
 						require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
 						if v, ok := settings["VaultOptimizationsEnabled"]; ok {
-							require.Equal(t, "false", v)
-						}
-						if v, ok := settings["VaultCiphertextlessObservationsEnabled"]; ok {
 							require.Equal(t, "false", v)
 						}
 					}

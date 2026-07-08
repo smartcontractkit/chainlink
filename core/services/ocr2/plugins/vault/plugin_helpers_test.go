@@ -38,7 +38,6 @@ type testPluginBuildOpts struct {
 	vaultOptimizationsEnabled               bool
 	vaultJSONOmitUnpopulatedEnabled         bool
 	vaultShareAggregationIncludesPublicKeys bool
-	vaultCiphertextlessObservationsEnabled  bool
 	vaultGetSecretsRelaxedConsensusEnabled  bool
 	vaultSkipInvalidPendingItemsEnabled     bool
 	marshalBlob                             func(ocr3_1types.BlobHandle) ([]byte, error)
@@ -80,10 +79,6 @@ func withMaxSecretsPerOwner(n int) testPluginOption {
 
 func withVaultOptimizationsEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
-}
-
-func withVaultCiphertextlessObservationsEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultCiphertextlessObservationsEnabled = true }
 }
 
 func withVaultGetSecretsShareAggregationIncludesPublicKeys() testPluginOption {
@@ -154,9 +149,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	cfg := makeReportingPluginConfig(t, o.batchSize, o.publicKey, o.privateKeyShare, o.maxSecretsPerOwner, o.maxBlobPayloadBytes)
 	if o.vaultOptimizationsEnabled {
 		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
-	}
-	if o.vaultCiphertextlessObservationsEnabled {
-		cfg.VaultCiphertextlessObservationsEnabled = limits.NewGateLimiter(true)
 	}
 	if o.vaultShareAggregationIncludesPublicKeys {
 		cfg.VaultGetSecretsShareAggregationIncludesPublicKeys = limits.NewGateLimiter(true)
@@ -279,7 +271,6 @@ func makeReportingPluginConfig(
 		VaultOptimizationsEnabled:       limits.NewGateLimiter(false),
 		VaultJSONOmitUnpopulatedEnabled: limits.NewGateLimiter(false),
 		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
-		VaultCiphertextlessObservationsEnabled:            limits.NewGateLimiter(false),
 		VaultGetSecretsRelaxedConsensusEnabled:            limits.NewGateLimiter(false),
 		VaultSkipInvalidPendingItemsEnabled:               limits.NewGateLimiter(false),
 	}
