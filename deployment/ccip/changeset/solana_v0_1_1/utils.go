@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/gagliardetto/solana-go"
 	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
@@ -153,20 +152,9 @@ func buildProposalCommonWithConfig(
 	return proposal, nil
 }
 
-func BuildProposalsForTxns(
-	e cldf.Environment,
-	chainSelector uint64,
-	description string,
-	minDelay time.Duration,
-	txns []mcmsTypes.Transaction) (*mcms.TimelockProposal, error) {
-	return BuildProposalsForTxnsWithConfig(
-		e, chainSelector, description,
-		&cldfproposalutils.TimelockConfig{MinDelay: minDelay},
-		txns)
-}
-
-// BuildProposalsForTxnsWithConfig is like BuildProposalsForTxns but honors the MCMS action
-// (schedule/bypass/cancel) in mcmsCfg, selecting the matching signer group.
+// BuildProposalsForTxnsWithConfig wraps the given Solana transactions in a single batch and
+// builds an MCMS timelock proposal, honoring the MCMS action (schedule/bypass/cancel) in
+// mcmsCfg and selecting the matching signer group.
 func BuildProposalsForTxnsWithConfig(
 	e cldf.Environment,
 	chainSelector uint64,
@@ -182,20 +170,9 @@ func BuildProposalsForTxnsWithConfig(
 	return buildProposalCommonWithConfig(e, chainSelector, description, mcmsCfg, batches)
 }
 
-func BuildProposalsForBatches(
-	e cldf.Environment,
-	chainSelector uint64,
-	description string,
-	minDelay time.Duration,
-	batches []mcmsTypes.BatchOperation) (*mcms.TimelockProposal, error) {
-	return BuildProposalsForBatchesWithConfig(
-		e, chainSelector, description,
-		&cldfproposalutils.TimelockConfig{MinDelay: minDelay},
-		batches)
-}
-
-// BuildProposalsForBatchesWithConfig is like BuildProposalsForBatches but honors the MCMS
-// action (schedule/bypass/cancel) in mcmsCfg, selecting the matching signer group.
+// BuildProposalsForBatchesWithConfig builds an MCMS timelock proposal from the given batch
+// operations, honoring the MCMS action (schedule/bypass/cancel) in mcmsCfg and selecting the
+// matching signer group.
 func BuildProposalsForBatchesWithConfig(
 	e cldf.Environment,
 	chainSelector uint64,
