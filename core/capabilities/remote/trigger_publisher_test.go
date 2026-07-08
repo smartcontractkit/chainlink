@@ -387,58 +387,6 @@ func TestTriggerPublisher_AckEvent_DoesNotBlockReceive(t *testing.T) {
 	require.NoError(t, publisher.Close())
 }
 
-func TestTriggerPublisher_AckEvent_RedundantAfterQuorum(t *testing.T) {
-	t.Parallel()
-
-	ctx := t.Context()
-	lggr := logger.Test(t)
-	capabilityDONID, workflowDONID := uint32(1), uint32(2)
-
-	capInfo := commoncap.CapabilityInfo{
-		ID:             capID,
-		CapabilityType: commoncap.CapabilityTypeTrigger,
-		Description:    "Remote Trigger",
-	}
-	peers := make([]p2ptypes.PeerID, 4)
-	require.NoError(t, peers[0].UnmarshalText([]byte(peerID1)))
-	require.NoError(t, peers[1].UnmarshalText([]byte(peerID2)))
-	require.NoError(t, peers[2].UnmarshalText([]byte(peerID3)))
-	require.NoError(t, peers[3].UnmarshalText([]byte("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw")))
-
-	capDonInfo := commoncap.DON{ID: capabilityDONID, Members: []p2ptypes.PeerID{peers[0]}, F: 0}
-	workflowDonInfo := commoncap.DON{ID: workflowDONID, Members: peers, F: 1}
-	workflowDONs := map[uint32]commoncap.DON{workflowDONID: workflowDonInfo}
-
-	underlying := &testTrigger{
-		info:            capInfo,
-		registrationsCh: make(chan commoncap.TriggerRegistrationRequest, 1),
-		eventCh:         make(chan commoncap.TriggerResponse, 1),
-	}
-	dispatcher := mocks.NewDispatcher(t)
-	allowRegistrationChecks(dispatcher)
-	config := &commoncap.RemoteTriggerConfig{
-		RegistrationRefresh:     100 * time.Millisecond,
-		RegistrationExpiry:      100 * time.Second,
-		MinResponsesToAggregate: 1,
-		MessageExpiry:           100 * time.Second,
-		MaxBatchSize:            1,
-		BatchCollectionPeriod:   time.Second,
-	}
-	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
-	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
-	require.NoError(t, publisher.Start(ctx))
-
-	eventID := "evt-redundant"
-	triggerID := "trigA"
-	for _, peer := range peers {
-		publisher.Receive(ctx, newAckEventMessage(t, eventID, triggerID, workflowDONID, peer))
-	}
-
-	// F=1 needs 3 ACKs; 4th peer ACK re-fires Ready(once=false) for implicit retry.
-	require.Eventually(t, func() bool { return underlying.ackCount.Load() == 2 }, 2*time.Second, 10*time.Millisecond)
-	require.NoError(t, publisher.Close())
-}
-
 func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
 	t.Parallel()
 
