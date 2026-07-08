@@ -1662,7 +1662,6 @@ func TestPlugin_Observation_GetSecretsRequest_BinarySharesWhenOptimizationsEnabl
 	require.NoError(t, err)
 }
 
-
 func TestPlugin_Observation_CreateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
 	tcs := []struct {
 		name            string

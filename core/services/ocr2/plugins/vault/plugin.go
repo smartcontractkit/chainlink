@@ -844,18 +844,17 @@ func (r *ReportingPlugin) appendPendingQueueObservations(
 	for _, req := range currentPendingQueueItems {
 		o, err := r.observePendingQueueItem(ctx, seqNr, readKV, req)
 		if err != nil {
-			if includeInvalid {
-				o = observationToErrContribution(&vaultcommon.Observation{
-					Id: req.Id,
-				}, userFacingError(err, "failed to observe pending queue item"))
-				if payload, uerr := req.Item.UnmarshalNew(); uerr == nil {
-					o.RequestType = requestTypeForPayload(payload)
-				}
-				r.requestLggr(seqNr, req.Id).Warnw("pending queue item observation failed; emitting error contribution", "error", err)
-			} else {
+			if !includeInvalid {
 				r.requestLggr(seqNr, req.Id).Errorw("failed to observe pending queue item", "error", err)
 				continue
 			}
+			o = observationToErrContribution(&vaultcommon.Observation{
+				Id: req.Id,
+			}, userFacingError(err, "failed to observe pending queue item"))
+			if payload, uerr := req.Item.UnmarshalNew(); uerr == nil {
+				o.RequestType = requestTypeForPayload(payload)
+			}
+			r.requestLggr(seqNr, req.Id).Warnw("pending queue item observation failed; emitting error contribution", "error", err)
 		} else if includeInvalid {
 			if cerr := r.checkContribution(ctx, readKV, req, o); cerr != nil {
 				o = observationToErrContribution(o, userFacingError(cerr, "request is not valid"))

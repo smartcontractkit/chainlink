@@ -587,6 +587,7 @@ func ExecuteVaultIncludeInvalidLivenessSmokeTest(t *testing.T, fixture *vaultSce
 	<-createDone
 	require.NoError(t, <-createErrCh)
 }
+
 // local pending queue and exercises batched pending-queue blobs (beyond the legacy per-blob single-item cap).
 func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
 	t.Helper()
@@ -963,12 +964,12 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 
 	testCases := []struct {
-		name                  string
-		configPath            string
-		wantJWTGate           string
-		wantLinking           bool
-		wantOptimizationsGate string
-		wantIncludeInvalidGate   string
+		name                   string
+		configPath             string
+		wantJWTGate            string
+		wantLinking            bool
+		wantOptimizationsGate  string
+		wantIncludeInvalidGate string
 	}{
 		{
 			name:        "enabled",
@@ -990,10 +991,10 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			wantOptimizationsGate: "true",
 		},
 		{
-			name:       "include_invalid_enabled",
-			configPath: vaultIncludeInvalidEnabledConfigPath,
-			wantJWTGate: "false",
-			wantLinking: false,
+			name:                   "include_invalid_enabled",
+			configPath:             vaultIncludeInvalidEnabledConfigPath,
+			wantJWTGate:            "false",
+			wantLinking:            false,
 			wantIncludeInvalidGate: "true",
 		},
 	}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -56,11 +57,11 @@ import (
 )
 
 const (
-	vaultDefaultConfigPath              = "/configs/workflow-gateway-capabilities-don.toml"
-	vaultJWTAuthEnabledConfigPath       = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
-	vaultOptimizationsEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
-	vaultIncludeInvalidEnabledConfigPath   = "/configs/workflow-gateway-capabilities-don-vault-include-invalid-enabled.toml"
-	vaultJWTIssuerListenAddr            = "0.0.0.0:18123"
+	vaultDefaultConfigPath               = "/configs/workflow-gateway-capabilities-don.toml"
+	vaultJWTAuthEnabledConfigPath        = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
+	vaultOptimizationsEnabledConfigPath  = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
+	vaultIncludeInvalidEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-include-invalid-enabled.toml"
+	vaultJWTIssuerListenAddr             = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
 	vaultJWTTestTenantID uint64 = 1
@@ -605,7 +606,7 @@ func trySendVaultSignedOCRRequestToGateway(gatewayURL string, jsonRequest jsonrp
 
 func tryValidateVaultSecretsCreateResponse(gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], uniqueRequestID, secretID string, expectedResponseOwners []string, namespaces []string) error {
 	if len(expectedResponseOwners) == 0 {
-		return fmt.Errorf("expected response owners must not be empty")
+		return errors.New("expected response owners must not be empty")
 	}
 
 	jsonResponse, err := trySendVaultSignedOCRRequestToGateway(gatewayURL, jsonRequest)

@@ -48,10 +48,10 @@ func TestIncludeInvalid_UnobservableQueueItemObservationRoundTrip(t *testing.T) 
 
 	require.NoError(t, validatePendingQueueObservation(t, r, kv, obs))
 
-	makeAO := func(observer int) types.AttributedObservation {
+	makeAO := func(observer commontypes.OracleID) types.AttributedObservation {
 		obsb, merr := proto.Marshal(obs)
 		require.NoError(t, merr)
-		return types.AttributedObservation{Observer: commontypes.OracleID(observer), Observation: types.Observation(obsb)}
+		return types.AttributedObservation{Observer: observer, Observation: types.Observation(obsb)}
 	}
 
 	aos := []types.AttributedObservation{makeAO(0), makeAO(1), makeAO(2), makeAO(3)}
@@ -185,7 +185,7 @@ func TestObservationQuorum_IncludeInvalid_RequiresHeadContribution(t *testing.T)
 		{Id: vaulttypes.KeyFor(id), Item: anyDel},
 	}))
 
-	makeAO := func(observer int, errContribution bool) types.AttributedObservation {
+	makeAO := func(observer commontypes.OracleID, errContribution bool) types.AttributedObservation {
 		var item *vaultcommon.Observation
 		if errContribution {
 			item = observationToErrContribution(&vaultcommon.Observation{
@@ -209,7 +209,7 @@ func TestObservationQuorum_IncludeInvalid_RequiresHeadContribution(t *testing.T)
 		}
 		obsb, merr := proto.Marshal(obs)
 		require.NoError(t, merr)
-		return types.AttributedObservation{Observer: commontypes.OracleID(observer), Observation: types.Observation(obsb)}
+		return types.AttributedObservation{Observer: observer, Observation: types.Observation(obsb)}
 	}
 
 	// N=4, F=1 -> need 3 observations for QuorumTwoFPlusOne; head needs f+1=2 Err or 2f+1=3 Ok.
@@ -264,7 +264,7 @@ func TestStateTransition_IncludeInvalid_ProcessesHeadBeforeStoppingOnTail(t *tes
 			},
 		}
 	}
-	makeAO := func(observer int, includeTail bool) types.AttributedObservation {
+	makeAO := func(observer commontypes.OracleID, includeTail bool) types.AttributedObservation {
 		items := []*vaultcommon.Observation{makeDeleteObs("zzz-head")}
 		if includeTail {
 			items = append(items, makeDeleteObs("aaa-tail"))
@@ -275,7 +275,7 @@ func TestStateTransition_IncludeInvalid_ProcessesHeadBeforeStoppingOnTail(t *tes
 		}
 		obsb, merr := proto.Marshal(obs)
 		require.NoError(t, merr)
-		return types.AttributedObservation{Observer: commontypes.OracleID(observer), Observation: types.Observation(obsb)}
+		return types.AttributedObservation{Observer: observer, Observation: types.Observation(obsb)}
 	}
 
 	// N=4, F=1: head has 2F+1 ok from all nodes; tail has only 2 ok (< 2F+1) and no F+1 err.
@@ -314,7 +314,7 @@ func TestStateTransition_IncludeInvalid_RejectsItemOnFPlusOneErr(t *testing.T) {
 		{Id: queueID, Item: anyDel},
 	}))
 
-	makeAO := func(observer int) types.AttributedObservation {
+	makeAO := func(observer commontypes.OracleID) types.AttributedObservation {
 		item := observationToErrContribution(&vaultcommon.Observation{
 			Id:          queueID,
 			RequestType: vaultcommon.RequestType_DELETE_SECRETS,
@@ -325,7 +325,7 @@ func TestStateTransition_IncludeInvalid_RejectsItemOnFPlusOneErr(t *testing.T) {
 		}
 		obsb, merr := proto.Marshal(obs)
 		require.NoError(t, merr)
-		return types.AttributedObservation{Observer: commontypes.OracleID(observer), Observation: types.Observation(obsb)}
+		return types.AttributedObservation{Observer: observer, Observation: types.Observation(obsb)}
 	}
 
 	aos := []types.AttributedObservation{makeAO(0), makeAO(1), makeAO(2), makeAO(3)}
@@ -423,7 +423,7 @@ func TestStateTransition_IncludeInvalid_RejectsMultiItemBatchOnFPlusOneErr(t *te
 		{Id: queueID, Item: anyDel},
 	}))
 
-	makeAO := func(observer int) types.AttributedObservation {
+	makeAO := func(observer commontypes.OracleID) types.AttributedObservation {
 		item := observationToErrContribution(&vaultcommon.Observation{
 			Id:          queueID,
 			RequestType: vaultcommon.RequestType_DELETE_SECRETS,
@@ -434,7 +434,7 @@ func TestStateTransition_IncludeInvalid_RejectsMultiItemBatchOnFPlusOneErr(t *te
 		}
 		obsb, merr := proto.Marshal(obs)
 		require.NoError(t, merr)
-		return types.AttributedObservation{Observer: commontypes.OracleID(observer), Observation: types.Observation(obsb)}
+		return types.AttributedObservation{Observer: observer, Observation: types.Observation(obsb)}
 	}
 
 	aos := []types.AttributedObservation{makeAO(0), makeAO(1), makeAO(2), makeAO(3)}

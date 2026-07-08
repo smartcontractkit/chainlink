@@ -2,6 +2,7 @@ package vault
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -83,7 +84,7 @@ func (r *ReportingPlugin) checkGetSecretsContribution(
 	}
 	resp := o.GetGetSecretsResponse()
 	if resp == nil {
-		return fmt.Errorf("GetSecrets observation must have a response")
+		return errors.New("GetSecrets observation must have a response")
 	}
 	return validateRequestResponseItemCount(len(req.Requests), len(resp.Responses), "GetSecrets")
 }
@@ -99,7 +100,7 @@ func (r *ReportingPlugin) checkCreateSecretsContribution(
 	}
 	resp := o.GetCreateSecretsResponse()
 	if resp == nil {
-		return fmt.Errorf("CreateSecrets observation must have a response")
+		return errors.New("CreateSecrets observation must have a response")
 	}
 	if err := validateRequestResponseItemCount(len(req.EncryptedSecrets), len(resp.Responses), "CreateSecrets"); err != nil {
 		return err
@@ -124,7 +125,7 @@ func (r *ReportingPlugin) checkUpdateSecretsContribution(
 	}
 	resp := o.GetUpdateSecretsResponse()
 	if resp == nil {
-		return fmt.Errorf("UpdateSecrets observation must have a response")
+		return errors.New("UpdateSecrets observation must have a response")
 	}
 	if err := validateRequestResponseItemCount(len(req.EncryptedSecrets), len(resp.Responses), "UpdateSecrets"); err != nil {
 		return err
@@ -149,7 +150,7 @@ func (r *ReportingPlugin) checkDeleteSecretsContribution(
 	}
 	resp := o.GetDeleteSecretsResponse()
 	if resp == nil {
-		return fmt.Errorf("DeleteSecrets observation must have a response")
+		return errors.New("DeleteSecrets observation must have a response")
 	}
 	return validateRequestResponseItemCount(len(req.Ids), len(resp.Responses), "DeleteSecrets")
 }
@@ -162,13 +163,13 @@ func (r *ReportingPlugin) checkListSecretIdentifiersContribution(
 ) error {
 	resp := o.GetListSecretIdentifiersResponse()
 	if resp == nil {
-		return fmt.Errorf("ListSecretIdentifiers observation must have a response")
+		return errors.New("ListSecretIdentifiers observation must have a response")
 	}
 	if !resp.Success {
 		if resp.GetError() != "" {
 			return fmt.Errorf("%s", resp.GetError())
 		}
-		return fmt.Errorf("ListSecretIdentifiers observation failed")
+		return errors.New("ListSecretIdentifiers observation failed")
 	}
 	if err := r.validateListSecretIdentifiersOwnerWire(ctx, req); err != nil {
 		return err
@@ -305,6 +306,7 @@ func buildRejectedOutcome(id string, payload proto.Message, requestType vaultcom
 				Error:   errMsg,
 			},
 		}
+	case vaultcommon.RequestType_UNKNOWN:
 	}
 	return o
 }

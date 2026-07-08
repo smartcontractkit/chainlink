@@ -173,7 +173,7 @@ func (r *ReportingPlugin) validateGetSecretsRequestPayload(ctx context.Context, 
 	counts := buildGetSecretsRequestIdentifierCounts(req.Requests)
 	for _, sr := range req.Requests {
 		if sr.Id == nil {
-			return fmt.Errorf("GetSecrets request contains nil secret identifier")
+			return errors.New("GetSecrets request contains nil secret identifier")
 		}
 		if _, err := r.validateGetSecretsRequestItem(ctx, sr, counts); err != nil {
 			return err
@@ -244,7 +244,7 @@ func (r *ReportingPlugin) validateDeleteSecretsRequestPayload(ctx context.Contex
 	counts := buildSecretIdentifierCounts(req.Ids)
 	for _, id := range req.Ids {
 		if id == nil {
-			return fmt.Errorf("DeleteSecrets request contains nil secret identifier")
+			return errors.New("DeleteSecrets request contains nil secret identifier")
 		}
 		if _, err := r.validateDeleteSecretsRequestItem(ctx, id, counts); err != nil {
 			return err
