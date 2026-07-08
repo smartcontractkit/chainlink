@@ -10,7 +10,7 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260609211101-71d38bd6a0a9"
+      gitRef: "v0.0.0-20260706100550-d43558069754"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
@@ -18,7 +18,7 @@ plugins:
       # IMP: consult chainlink-sui team before updating this version
       # Must track the gRPC-migrated chainlink-sui used in go.mod, otherwise the DON runs a
       # pre-migration relayer (no gRPC ChainPoller) and never observes Sui source events.
-      gitRef: "v0.0.0-20260624134342-6bfb9c92859d"
+      gitRef: "v0.0.0-20260707125635-abec997b6eae"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
@@ -71,7 +71,7 @@ plugins:
 
   capability-cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "69e882e0f24cf9ae897366c4dcbbd3c7e035ae33"
+      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
       installPath: "."
       flags: "-tags timetzdata"
 
@@ -82,7 +82,7 @@ plugins:
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "69e882e0f24cf9ae897366c4dcbbd3c7e035ae33"
+      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
       installPath: "."
 
   capability-workflowevent:
@@ -93,17 +93,17 @@ plugins:
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "78f22db50d700d9b369578aebafd7d239daee8d1"
+      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "602b8fb7d379afb0a245dd6b4f67cc4557c40541"
+      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
       installPath: "."
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "9d0d4e43abcab3e2144890fa71bc696724638ec5"
+      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
       installPath: "."
 
   capability-solana:

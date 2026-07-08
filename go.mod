@@ -78,10 +78,10 @@ require (
 	github.com/shirou/gopsutil/v3 v3.24.3
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.104
-	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260609211101-71d38bd6a0a9
+	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260706100550-d43558069754
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260625091148-e5618f5682ee
-	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260618155522-3600f66e26cd
+	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccv v0.0.2-0.20260706093831-dad26b360094
@@ -105,7 +105,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260331131315-f08a616d8dcd
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260630073003-fb8da7229930
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260624134342-6bfb9c92859d
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260707125635-abec997b6eae
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260629213843-c52e07523035
 	github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260625132924-dcceeb57cf3c
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.0
@@ -113,7 +113,7 @@ require (
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad
 	github.com/smartcontractkit/libocr v0.0.0-20260508200755-99940c85383c
 	github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb
-	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
+	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20260626090144-2343efd61516
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
 	github.com/spf13/cast v1.10.0
@@ -359,6 +359,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.2.0 // indirect
+	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260706170510-94f3a0409ea5 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
@@ -433,4 +434,4 @@ tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 
 tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
 
-replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260624134342-6bfb9c92859d
+replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260707125635-abec997b6eae

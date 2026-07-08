@@ -199,3 +199,15 @@ func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (
 		MaxPerOracleUnexpiredBlobCount:                  maxPerOracleUnexpiredBlobCount,
 	}, nil
 }
+
+func (r *ReportingPlugin) roundLggr(seqNr uint64) logger.Logger {
+	return r.lggr.With("seqNr", seqNr)
+}
+
+func (r *ReportingPlugin) requestLggr(seqNr uint64, requestID string) logger.Logger {
+	return r.roundLggr(seqNr).With("requestID", requestID)
+}
+
+func (r *ReportingPlugin) typedRequestLggr(seqNr uint64, requestID, requestType string) logger.Logger {
+	return r.requestLggr(seqNr, requestID).With("requestType", requestType)
+}

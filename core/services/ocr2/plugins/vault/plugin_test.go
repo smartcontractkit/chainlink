@@ -2846,7 +2846,7 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 
 	assert.Empty(t, os.Outcomes, 0)
 
-	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for id").Len())
+	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for requestID").Len())
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *testing.T) {
@@ -3318,7 +3318,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 
 	assert.Empty(t, os.Outcomes)
 
-	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for id").Len())
+	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for requestID").Len())
 }
 
 func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
