@@ -1118,8 +1118,6 @@ func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.
 	publisher.Receive(ctx, newAckEventMessage(t, eventID, "triggerA", workflowDONID, peers[0]))
 	publisher.Receive(ctx, newAckEventMessage(t, eventID, "triggerA", workflowDONID, peers[1]))
 
-	time.Sleep(100 * time.Millisecond)
-
 	underlying.SendEvent("triggerA", commoncap.TriggerResponse{
 		Event: commoncap.TriggerEvent{ID: eventID},
 	})
