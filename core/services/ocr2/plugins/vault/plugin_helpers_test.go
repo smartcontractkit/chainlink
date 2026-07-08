@@ -40,6 +40,7 @@ type testPluginBuildOpts struct {
 	vaultShareAggregationIncludesPublicKeys bool
 	vaultCiphertextlessObservationsEnabled  bool
 	vaultGetSecretsRelaxedConsensusEnabled  bool
+	vaultSkipInvalidPendingItemsEnabled     bool
 	marshalBlob                             func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                           func([]byte) (ocr3_1types.BlobHandle, error)
 	maxObservationBytesOverride             int
@@ -95,6 +96,10 @@ func withVaultJSONOmitUnpopulatedEnabled() testPluginOption {
 
 func withVaultGetSecretsRelaxedConsensusEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultGetSecretsRelaxedConsensusEnabled = true }
+}
+
+func withVaultSkipInvalidPendingItemsEnabled() testPluginOption {
+	return func(o *testPluginBuildOpts) { o.vaultSkipInvalidPendingItemsEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -161,6 +166,9 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	}
 	if o.vaultGetSecretsRelaxedConsensusEnabled {
 		cfg.VaultGetSecretsRelaxedConsensusEnabled = limits.NewGateLimiter(true)
+	}
+	if o.vaultSkipInvalidPendingItemsEnabled {
+		cfg.VaultSkipInvalidPendingItemsEnabled = limits.NewGateLimiter(true)
 	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
@@ -273,6 +281,7 @@ func makeReportingPluginConfig(
 		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
 		VaultCiphertextlessObservationsEnabled:            limits.NewGateLimiter(false),
 		VaultGetSecretsRelaxedConsensusEnabled:            limits.NewGateLimiter(false),
+		VaultSkipInvalidPendingItemsEnabled:               limits.NewGateLimiter(false),
 	}
 }
 

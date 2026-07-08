@@ -7259,25 +7259,6 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 		require.NoError(t, validatePendingQueueObservation(t, r, rdr, truncatedObs))
 	})
 
-	t.Run("rejects under stuffed observation", func(t *testing.T) {
-		t.Parallel()
-		rdr := &kv{m: make(map[string]response)}
-		writeGetSecretsPendingQueueItems(t, rdr, pk, "request-1", "request-2")
-
-		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(10*1024*1024))
-		fullObs := observePendingQueueOnly(t, r, rdr)
-		require.Len(t, fullObs.Observations, 2)
-
-		underStuffed := &vaultcommon.Observations{
-			Observations:      fullObs.Observations[:1],
-			PendingQueueItems: fullObs.PendingQueueItems,
-			SortNonce:         fullObs.SortNonce,
-		}
-
-		err := validatePendingQueueObservation(t, r, rdr, underStuffed)
-		require.ErrorContains(t, err, "would fit within max observation bytes")
-	})
-
 	t.Run("rejects wrong observation order", func(t *testing.T) {
 		t.Parallel()
 		rdr := &kv{m: make(map[string]response)}

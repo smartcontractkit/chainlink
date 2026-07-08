@@ -96,6 +96,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			} else if isVaultOptimizationsEnabledTopology(topology) {
 				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
+			} else if isVaultSkipInvalidEnabledTopology(topology) {
+				vaultConfig = getVaultSkipInvalidEnabledTestConfig(t)
+				allowlistSubtestName = "allowlist_auth_when_vault_skip_invalid_enabled"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
 
