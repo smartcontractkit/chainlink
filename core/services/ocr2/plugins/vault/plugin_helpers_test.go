@@ -39,7 +39,7 @@ type testPluginBuildOpts struct {
 	vaultJSONOmitUnpopulatedEnabled         bool
 	vaultShareAggregationIncludesPublicKeys bool
 	vaultGetSecretsRelaxedConsensusEnabled  bool
-	vaultIncludeInvalidPendingItemsEnabled     bool
+	vaultIncludeInvalidPendingItemsEnabled  bool
 	marshalBlob                             func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                           func([]byte) (ocr3_1types.BlobHandle, error)
 	maxObservationBytesOverride             int
@@ -272,7 +272,7 @@ func makeReportingPluginConfig(
 		VaultJSONOmitUnpopulatedEnabled: limits.NewGateLimiter(false),
 		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
 		VaultGetSecretsRelaxedConsensusEnabled:            limits.NewGateLimiter(false),
-		VaultIncludeInvalidPendingItemsEnabled:               limits.NewGateLimiter(false),
+		VaultIncludeInvalidPendingItemsEnabled:            limits.NewGateLimiter(false),
 	}
 }
 

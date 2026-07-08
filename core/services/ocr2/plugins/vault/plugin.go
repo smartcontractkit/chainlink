@@ -1847,7 +1847,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// This can only happen if includeInvalid is true and the pending queue item is not in the obsMap
 		// at which point we know any other requests in the pending queue can't be processed so we can break.
 		if !ok {
-			r.lggr.Warnw("no observations for pending queue item; stopping state transition", "id", id)
+			r.lggr.Warnw("no observations for pending queue item; stopping state transition pending queue processing", "id", id)
 			break
 		}
 
