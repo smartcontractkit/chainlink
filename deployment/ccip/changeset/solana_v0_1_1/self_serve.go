@@ -8,11 +8,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_0/lockrelease_token_pool"
-	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/burnmint_token_pool"
-	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_common"
-	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
-	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/lockrelease_token_pool"
+	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_3/burnmint_token_pool"
+	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_3/ccip_common"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_3/ccip_router"
+	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v1_6_3/lockrelease_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -234,7 +233,7 @@ func generateInitializeCLLTokenPoolIx(e cldf.Environment, config OnboardTokenPoo
 	if err != nil {
 		return nil, err
 	}
-	var tokenPoolAccount lockrelease.State
+	var tokenPoolAccount solLockReleaseTokenPool.State
 	if err := solChainState.chain.GetAccountDataBorshInto(context.Background(), tokenPoolPDA, &tokenPoolAccount); err == nil {
 		e.Logger.Infow("Skipping InitializeCLLTokenPoolIx", "tokenPool", tokenPoolPDA)
 		// Skip Creating existing PDA
