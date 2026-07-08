@@ -40,8 +40,6 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-require github.com/go-errors/errors v1.5.1 // indirect
-
 require (
 	cloud.google.com/go/auth v0.18.2 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.8 // indirect
@@ -141,6 +139,7 @@ require (
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/gin-contrib/sse v1.1.1 // indirect
 	github.com/gin-gonic/gin v1.12.0 // indirect
+	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250223041408-d3c622f1b874 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
@@ -455,3 +454,5 @@ replace github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.3.1-
 // We can remove it when we re-generate this part in chainlink-evm
 // ../../../../../go/pkg/mod/github.com/smartcontractkit/chainlink-evm@v0.3.4-0.20260504070828-3216bb63d886/pkg/types/blocks/internal_types_codecgen.go:842:20: undefined: codec1978.GenHelper
 replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
+
+tool github.com/smartcontractkit/chainlink-testing-framework/framework/cmd
