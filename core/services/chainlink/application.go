@@ -34,6 +34,7 @@ import (
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/otelhealth"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/beholderhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/promhealth"
 	commoncresettings "github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -584,61 +585,59 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, loopRegistry.Register, loopRegistry.Unregister)
 
-	var (
-		delegates = map[job.Type]job.Delegate{
-			job.DirectRequest: &job.DeprecatedDelegate{Type: job.DirectRequest},
-			job.VRF: vrf.NewDelegate(
-				opts.DS,
-				keyStore,
-				pipelineRunner,
-				pipelineORM,
-				legacyEVMChains,
-				globalLogger,
-				mailMon),
-			job.Webhook: &job.DeprecatedDelegate{Type: job.Webhook},
-			job.Cron: cron.NewDelegate(
-				pipelineRunner,
-				globalLogger),
-			job.BlockhashStore: blockhashstore.NewDelegate(
-				cfg,
-				globalLogger,
-				legacyEVMChains,
-				keyStore.Eth()),
-			job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
-				cfg,
-				globalLogger,
-				legacyEVMChains,
-				keyStore.Eth()),
-			job.Gateway: gateway.NewDelegate(
-				legacyEVMChains,
-				keyStore.Eth(),
-				opts.DS,
-				opts.CapabilitiesRegistry,
-				creServices.WorkflowRegistrySyncer,
-				globalLogger,
-				limitsFactory,
-			),
-			job.Stream: streams.NewDelegate(
-				globalLogger,
-				streamRegistry,
-				pipelineRunner,
-				cfg.JobPipeline(),
-			),
-			job.CCVCommitteeVerifier: ccvcommitteeverifier.NewDelegate(
-				globalLogger,
-				opts.DS,
-				cfg.CCV(),
-				keyStore.OCR2(),
-				relayChainInterops.LegacyEVMChains().Slice(),
-			),
-			job.CCVExecutor: ccvexecutor.NewDelegate(
-				globalLogger,
-				cfg.CCV(),
-				keyStore.Eth(),
-				relayChainInterops.LegacyEVMChains().Slice(),
-			),
-		}
-	)
+	delegates := map[job.Type]job.Delegate{
+		job.DirectRequest: &job.DeprecatedDelegate{Type: job.DirectRequest},
+		job.VRF: vrf.NewDelegate(
+			opts.DS,
+			keyStore,
+			pipelineRunner,
+			pipelineORM,
+			legacyEVMChains,
+			globalLogger,
+			mailMon),
+		job.Webhook: &job.DeprecatedDelegate{Type: job.Webhook},
+		job.Cron: cron.NewDelegate(
+			pipelineRunner,
+			globalLogger),
+		job.BlockhashStore: blockhashstore.NewDelegate(
+			cfg,
+			globalLogger,
+			legacyEVMChains,
+			keyStore.Eth()),
+		job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
+			cfg,
+			globalLogger,
+			legacyEVMChains,
+			keyStore.Eth()),
+		job.Gateway: gateway.NewDelegate(
+			legacyEVMChains,
+			keyStore.Eth(),
+			opts.DS,
+			opts.CapabilitiesRegistry,
+			creServices.WorkflowRegistrySyncer,
+			globalLogger,
+			limitsFactory,
+		),
+		job.Stream: streams.NewDelegate(
+			globalLogger,
+			streamRegistry,
+			pipelineRunner,
+			cfg.JobPipeline(),
+		),
+		job.CCVCommitteeVerifier: ccvcommitteeverifier.NewDelegate(
+			globalLogger,
+			opts.DS,
+			cfg.CCV(),
+			keyStore.OCR2(),
+			relayChainInterops.LegacyEVMChains().Slice(),
+		),
+		job.CCVExecutor: ccvexecutor.NewDelegate(
+			globalLogger,
+			cfg.CCV(),
+			keyStore.Eth(),
+			relayChainInterops.LegacyEVMChains().Slice(),
+		),
+	}
 
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
@@ -779,8 +778,15 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, bridgeStatusReporter)
 
-	healthCfg := commonsrv.HealthCheckerConfig{Ver: static.Version, Sha: static.Sha}
+	healthCfg := commonsrv.HealthCheckerConfig{
+		Ver:    static.Version,
+		Sha:    static.Sha,
+	}
 	healthCfg = promhealth.ConfigureHooks(healthCfg)
+	healthCfg, err = beholderhealth.ConfigureHooks(healthCfg, opts.Logger, beholder.GetEmitter())
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure health checker beholder hooks: %w", err)
+	}
 	healthCfg, err = otelhealth.ConfigureHooks(healthCfg, meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure health checker otel hooks: %w", err)
