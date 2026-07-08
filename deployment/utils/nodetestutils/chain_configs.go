@@ -64,6 +64,13 @@ func createSuiChainConfig(chainID string, chain cldf_sui.Chain) chainlink.RawCon
 		node["GrpcToken"] = defaultSuiGrpcToken
 	}
 	chainConfig["Nodes"] = []any{node}
+	chainConfig["ChainPoller"] = map[string]any{
+		"PollingIntervalSecs":     uint64(2),
+		"SyncTimeoutSecs":         uint64(60),
+		"ChannelBufferSize":       uint64(32),
+		"BackfillCheckpointCount": uint64(100),
+		"StartCheckpointSequence": uint64(357495000),
+	}
 
 	return chainConfig
 }
