@@ -176,7 +176,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 			mcmState.TimelockProgram,
 			mcmsSolana.PDASeed(mcmState.TimelockSeed),
 		)
-		proposers[solChain.Selector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
+		proposers[solChain.Selector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmSeedForAction(mcmState, cfg.MCMSCfg.MCMSAction))
 		inspectors[solChain.Selector] = mcmsSolana.NewInspector(solChain.Client)
 		if contractsToTransfer.Router {
 			mcmsTxs, err := transferOwnershipRouter(

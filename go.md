@@ -28,8 +28,11 @@ flowchart LR
 	click ccip-owner-contracts href "https://github.com/smartcontractkit/ccip-owner-contracts"
 	chain-selectors
 	click chain-selectors href "https://github.com/smartcontractkit/chain-selectors"
+	chainlink-aptos --> chainlink-aptos/codec
 	chainlink-aptos --> chainlink-framework/metrics
 	click chainlink-aptos href "https://github.com/smartcontractkit/chainlink-aptos"
+	chainlink-aptos/codec --> chainlink-common
+	click chainlink-aptos/codec href "https://github.com/smartcontractkit/chainlink-aptos"
 	chainlink-automation --> chainlink-common
 	click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
 	chainlink-ccip --> chainlink-common
@@ -155,10 +158,11 @@ flowchart LR
 	click chainlink-protos/workflows/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-solana
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
+	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
 	chainlink-sui --> chainlink-sui/codec
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
-	chainlink-sui/codec --> chainlink-aptos
+	chainlink-sui/codec --> chainlink-aptos/codec
 	click chainlink-sui/codec href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-testing-framework/framework
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
@@ -204,6 +208,12 @@ flowchart LR
 	click tdh2/go/tdh2 href "https://github.com/smartcontractkit/tdh2"
 	wsrpc
 	click wsrpc href "https://github.com/smartcontractkit/wsrpc"
+
+	subgraph chainlink-aptos-repo[chainlink-aptos]
+		 chainlink-aptos
+		 chainlink-aptos/codec
+	end
+	click chainlink-aptos-repo href "https://github.com/smartcontractkit/chainlink-aptos"
 
 	subgraph chainlink-ccip-repo[chainlink-ccip]
 		 chainlink-ccip
@@ -293,7 +303,7 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-sui-repo,chainlink-testing-framework-repo,cre-sdk-go-repo,tdh2-repo outline
+	class chainlink-aptos-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-sui-repo,chainlink-testing-framework-repo,cre-sdk-go-repo,tdh2-repo outline
 ```
 ## All modules
 ```mermaid
@@ -324,8 +334,11 @@ flowchart LR
 	click ccip-owner-contracts href "https://github.com/smartcontractkit/ccip-owner-contracts"
 	chain-selectors
 	click chain-selectors href "https://github.com/smartcontractkit/chain-selectors"
+	chainlink-aptos --> chainlink-aptos/codec
 	chainlink-aptos --> chainlink-framework/metrics
 	click chainlink-aptos href "https://github.com/smartcontractkit/chainlink-aptos"
+	chainlink-aptos/codec --> chainlink-common
+	click chainlink-aptos/codec href "https://github.com/smartcontractkit/chainlink-aptos"
 	chainlink-aptos/deployment
 	click chainlink-aptos/deployment href "https://github.com/smartcontractkit/chainlink-aptos"
 	chainlink-automation --> chainlink-common
@@ -459,10 +472,11 @@ flowchart LR
 	chainlink-solana/contracts --> chainlink-testing-framework/framework
 	chainlink-solana/contracts --> chainlink-tron/relayer
 	click chainlink-solana/contracts href "https://github.com/smartcontractkit/chainlink-solana"
+	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
 	chainlink-sui --> chainlink-sui/codec
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
-	chainlink-sui/codec --> chainlink-aptos
+	chainlink-sui/codec --> chainlink-aptos/codec
 	click chainlink-sui/codec href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-sui/deployment --> mcms
 	click chainlink-sui/deployment href "https://github.com/smartcontractkit/chainlink-sui"
@@ -697,6 +711,7 @@ flowchart LR
 
 	subgraph chainlink-aptos-repo[chainlink-aptos]
 		 chainlink-aptos
+		 chainlink-aptos/codec
 		 chainlink-aptos/deployment
 	end
 	click chainlink-aptos-repo href "https://github.com/smartcontractkit/chainlink-aptos"
