@@ -399,11 +399,11 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		//   - EventTTL MUST exceed the recovery duration, or the backlog EXPIRES
 		//     (rows dropped by the 1-min expiry loop) before it can be delivered — a
 		//     fake "drain". 6h gives a wide margin for the test.
-		emitterCfg.RetransmitAfter = 60 * time.Second // > PublishTimeout/MaxPublishTimeout (10s) + buffering
+		emitterCfg.RetransmitAfter = 60 * time.Second // > PublishTimeout/MaxPublishTimeout (20s) + buffering
 		emitterCfg.RetransmitBatchSize = 500          // 500 events/s replayed (interval = 1s)
 		emitterCfg.RetransmitInterval = 1 * time.Second
 		emitterCfg.EventTTL = 1 * time.Hour
-		emitterCfg.PublishTimeout = 10 * time.Second
+		emitterCfg.PublishTimeout = 20 * time.Second
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
