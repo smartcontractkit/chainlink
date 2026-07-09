@@ -108,6 +108,7 @@
 
 [capability_configs.stellar.values]
   RequestTimeout = "30s"
+  DeltaStage = "15s"
 
 [capability_configs.mock]
   binary_name = "mock"
