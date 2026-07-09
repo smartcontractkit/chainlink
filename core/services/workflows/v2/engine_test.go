@@ -1,8 +1,5 @@
 package v2_test
 
-//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd
-//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/with_config
-//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/with_secrets
 import (
 	"context"
 	"crypto/ed25519"
