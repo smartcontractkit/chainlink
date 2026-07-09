@@ -585,59 +585,61 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, loopRegistry.Register, loopRegistry.Unregister)
 
-	delegates := map[job.Type]job.Delegate{
-		job.DirectRequest: &job.DeprecatedDelegate{Type: job.DirectRequest},
-		job.VRF: vrf.NewDelegate(
-			opts.DS,
-			keyStore,
-			pipelineRunner,
-			pipelineORM,
-			legacyEVMChains,
-			globalLogger,
-			mailMon),
-		job.Webhook: &job.DeprecatedDelegate{Type: job.Webhook},
-		job.Cron: cron.NewDelegate(
-			pipelineRunner,
-			globalLogger),
-		job.BlockhashStore: blockhashstore.NewDelegate(
-			cfg,
-			globalLogger,
-			legacyEVMChains,
-			keyStore.Eth()),
-		job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
-			cfg,
-			globalLogger,
-			legacyEVMChains,
-			keyStore.Eth()),
-		job.Gateway: gateway.NewDelegate(
-			legacyEVMChains,
-			keyStore.Eth(),
-			opts.DS,
-			opts.CapabilitiesRegistry,
-			creServices.WorkflowRegistrySyncer,
-			globalLogger,
-			limitsFactory,
-		),
-		job.Stream: streams.NewDelegate(
-			globalLogger,
-			streamRegistry,
-			pipelineRunner,
-			cfg.JobPipeline(),
-		),
-		job.CCVCommitteeVerifier: ccvcommitteeverifier.NewDelegate(
-			globalLogger,
-			opts.DS,
-			cfg.CCV(),
-			keyStore.OCR2(),
-			relayChainInterops.LegacyEVMChains().Slice(),
-		),
-		job.CCVExecutor: ccvexecutor.NewDelegate(
-			globalLogger,
-			cfg.CCV(),
-			keyStore.Eth(),
-			relayChainInterops.LegacyEVMChains().Slice(),
-		),
-	}
+	var (
+		delegates = map[job.Type]job.Delegate{
+			job.DirectRequest: &job.DeprecatedDelegate{Type: job.DirectRequest},
+			job.VRF: vrf.NewDelegate(
+				opts.DS,
+				keyStore,
+				pipelineRunner,
+				pipelineORM,
+				legacyEVMChains,
+				globalLogger,
+				mailMon),
+			job.Webhook: &job.DeprecatedDelegate{Type: job.Webhook},
+			job.Cron: cron.NewDelegate(
+				pipelineRunner,
+				globalLogger),
+			job.BlockhashStore: blockhashstore.NewDelegate(
+				cfg,
+				globalLogger,
+				legacyEVMChains,
+				keyStore.Eth()),
+			job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
+				cfg,
+				globalLogger,
+				legacyEVMChains,
+				keyStore.Eth()),
+			job.Gateway: gateway.NewDelegate(
+				legacyEVMChains,
+				keyStore.Eth(),
+				opts.DS,
+				opts.CapabilitiesRegistry,
+				creServices.WorkflowRegistrySyncer,
+				globalLogger,
+				limitsFactory,
+			),
+			job.Stream: streams.NewDelegate(
+				globalLogger,
+				streamRegistry,
+				pipelineRunner,
+				cfg.JobPipeline(),
+			),
+			job.CCVCommitteeVerifier: ccvcommitteeverifier.NewDelegate(
+				globalLogger,
+				opts.DS,
+				cfg.CCV(),
+				keyStore.OCR2(),
+				relayChainInterops.LegacyEVMChains().Slice(),
+			),
+			job.CCVExecutor: ccvexecutor.NewDelegate(
+				globalLogger,
+				cfg.CCV(),
+				keyStore.Eth(),
+				relayChainInterops.LegacyEVMChains().Slice(),
+			),
+		}
+	)
 
 	delegates[job.Workflow] = workflows.NewDelegate(
 		globalLogger,
