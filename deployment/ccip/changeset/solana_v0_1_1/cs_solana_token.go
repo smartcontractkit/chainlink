@@ -390,8 +390,8 @@ func SetTokenAuthority(e cldf.Environment, cfg SetTokenAuthorityConfig) (cldf.Ch
 	}
 
 	if len(mcmsTxs) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to SetTokenAuthority in Solana", cfg.MCMS.MinDelay, mcmsTxs)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to SetTokenAuthority in Solana", cfg.MCMS, mcmsTxs)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
