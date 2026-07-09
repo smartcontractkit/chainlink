@@ -70,6 +70,10 @@ func (s *Stellar) PreEnvStartup(
 		UseCapRegOCRConfig: true,
 	}}
 
+	if deployErr := deployStellarForwarders(ctx, testLogger, creEnv, stellarChain); deployErr != nil {
+		return nil, fmt.Errorf("failed to deploy stellar CRE forwarder: %w", deployErr)
+	}
+
 	capabilityToExtraSignerFamilies := make(map[string][]string, len(capabilities))
 	ocrConfigs := map[string]*ocr3.OracleConfig{}
 	for _, capability := range capabilities {
@@ -98,6 +102,14 @@ func (s *Stellar) PostEnvStartup(
 	nodeSet, err := nodeSetForDON(dons, don.Name)
 	if err != nil {
 		return err
+	}
+
+	if cfgErr := configureStellarForwarders(ctx, testLogger, creEnv, consensusDons[0], stellarChain); cfgErr != nil {
+		return errors.Wrap(cfgErr, "failed to configure stellar CRE forwarder")
+	}
+
+	if authErr := authorizeStellarForwarderTransmitters(ctx, testLogger, creEnv, don, stellarChain); authErr != nil {
+		return errors.Wrap(authErr, "failed to authorize stellar forwarder transmitters")
 	}
 
 	specs, err := proposeStellarStandardCapabilityJobs(ctx, don, dons, creEnv, nodeSet)
