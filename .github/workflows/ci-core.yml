@@ -337,7 +337,10 @@ jobs:
         uses: actions/cache@v6
         with:
           path: .wasm-cache/
-          key: ${{ runner.os }}-wasmcache-${{ hashFiles('go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/test/**', 'core/services/workflows/test/**', 'core/services/workflows/cmd/cre/examples/**') }}
+          # Best-effort warming key. Correctness is guaranteed by the in-code content
+          # fingerprint (filename), so a coarse/stale key here only risks a rebuild.
+          # restore-keys still restores the latest cache so only changed pkgs rebuild.
+          key: ${{ runner.os }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}
           restore-keys: |
             ${{ runner.os }}-wasmcache-
 
