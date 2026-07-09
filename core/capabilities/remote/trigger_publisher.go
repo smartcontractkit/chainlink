@@ -56,12 +56,12 @@ type triggerPublisher struct {
 }
 
 type triggerPublisherMetrics struct {
-	registerTriggerCounter      metric.Int64Counter
-	unregisterTriggerCounter    metric.Int64Counter
-	ackEventCounter             metric.Int64Counter
-	ackExecutorSlotUsage        metric.Float64Gauge
-	ackPreExecuteDurationMs     metric.Int64Histogram
-	ackTaskDurationMs           metric.Int64Histogram
+	registerTriggerCounter   metric.Int64Counter
+	unregisterTriggerCounter metric.Int64Counter
+	ackEventCounter          metric.Int64Counter
+	ackExecutorSlotUsage     metric.Float64Gauge
+	ackPreExecuteDurationMs  metric.Int64Histogram
+	ackTaskDurationMs        metric.Int64Histogram
 }
 
 type dynamicPublisherConfig struct {
