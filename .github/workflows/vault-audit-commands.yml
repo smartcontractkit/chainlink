@@ -80,49 +80,56 @@ jobs:
 
       - name: Parse command
         id: cmd
-        env:
-          COMMENT_BODY: ${{ github.event.comment.body }}
-        run: |
-          if echo "$COMMENT_BODY" | grep -qP '^/vault-audit skip .+'; then
-            echo "type=skip" >> "$GITHUB_OUTPUT"
-            REASON="${COMMENT_BODY#/vault-audit skip }"
-            {
-              echo 'reason<<EOF'
-              echo "$REASON"
-              echo 'EOF'
-            } >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const body = context.payload.comment.body ?? '';
 
-          echo "type=run" >> "$GITHUB_OUTPUT"
+            const skip = body.match(/^\/vault-audit skip (.+)/s);
+            if (skip) {
+              core.setOutput('type', 'skip');
+              core.setOutput('reason', skip[1]);
+              return;
+            }
 
-          ERROR=""
+            core.setOutput('type', 'run');
 
-          # Optional model override: /vault-audit model=<alias-or-id>
-          MODEL=""
-          RAW_M=$(echo "$COMMENT_BODY" | grep -oiP 'model=\K[^[:space:]]+' || true)
-          if [ -n "$RAW_M" ]; then
-            case "$(echo "$RAW_M" | tr '[:upper:]' '[:lower:]')" in
-              opus|claude-opus-4-8)     MODEL="claude-opus-4-8" ;;
-              sonnet|claude-sonnet-4-6) MODEL="claude-sonnet-4-6" ;;
-              haiku|claude-haiku-4-5)   MODEL="claude-haiku-4-5" ;;
-              *) ERROR="Unknown model \`${RAW_M}\`. Use \`opus\`, \`sonnet\`, or \`haiku\`." ;;
-            esac
-          fi
+            let error = '';
 
-          # Optional thinking/effort override: /vault-audit effort=<level> (or thinking=)
-          EFFORT=""
-          RAW_E=$(echo "$COMMENT_BODY" | grep -oiP '(effort|thinking)=\K[^[:space:]]+' || true)
-          if [ -n "$RAW_E" ]; then
-            case "$(echo "$RAW_E" | tr '[:upper:]' '[:lower:]')" in
-              low|medium|high|xhigh|max) EFFORT="$(echo "$RAW_E" | tr '[:upper:]' '[:lower:]')" ;;
-              *) [ -z "$ERROR" ] && ERROR="Unknown thinking level \`${RAW_E}\`. Use \`low\`, \`medium\`, \`high\`, \`xhigh\`, or \`max\`." ;;
-            esac
-          fi
+            const modelMap = {
+              opus:                'claude-opus-4-8',
+              'claude-opus-4-8':   'claude-opus-4-8',
+              sonnet:              'claude-sonnet-4-6',
+              'claude-sonnet-4-6': 'claude-sonnet-4-6',
+              haiku:               'claude-haiku-4-5',
+              'claude-haiku-4-5':  'claude-haiku-4-5',
+            };
 
-          echo "model=${MODEL}" >> "$GITHUB_OUTPUT"
-          echo "effort=${EFFORT}" >> "$GITHUB_OUTPUT"
-          echo "error=${ERROR}" >> "$GITHUB_OUTPUT"
+            let model = '';
+            const rawM = body.match(/model=(\S+)/i);
+            if (rawM) {
+              const key = rawM[1].toLowerCase();
+              if (Object.hasOwn(modelMap, key)) {
+                model = modelMap[key];
+              } else {
+                error = `Unknown model \`${rawM[1]}\`. Use \`opus\`, \`sonnet\`, or \`haiku\`.`;
+              }
+            }
+
+            let effort = '';
+            const rawE = body.match(/(?:effort|thinking)=(\S+)/i);
+            if (rawE) {
+              const level = rawE[1].toLowerCase();
+              if (['low', 'medium', 'high', 'xhigh', 'max'].includes(level)) {
+                effort = level;
+              } else if (!error) {
+                error = `Unknown thinking level \`${rawE[1]}\`. Use \`low\`, \`medium\`, \`high\`, \`xhigh\`, or \`max\`.`;
+              }
+            }
+
+            core.setOutput('model', model);
+            core.setOutput('effort', effort);
+            core.setOutput('error', error);
 
       - name: Reject invalid override
         if: steps.cmd.outputs.type == 'run' && steps.cmd.outputs.error != ''

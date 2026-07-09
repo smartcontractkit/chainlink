@@ -34,16 +34,16 @@ on:
         required: false
         type: string
 
-permissions:
-  statuses: write
-  pull-requests: read
+permissions: {}
 
 jobs:
   apply:
     runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+      pull-requests: read
     env:
       GH_TOKEN: ${{ github.token }}
-      REPO: ${{ github.repository }}
       PR_NUMBER: ${{ github.event.inputs.pr_number }}
       HEAD_SHA: ${{ github.event.inputs.head_sha }}
       STATE: ${{ github.event.inputs.state }}
@@ -65,7 +65,7 @@ jobs:
             exit 1
           fi
 
-          CURRENT=$(gh api "/repos/${REPO}/pulls/${PR_NUMBER}" --jq '.head.sha')
+          CURRENT=$(gh api "/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')
           if [ "$HEAD_SHA" != "$CURRENT" ]; then
             echo "head_sha ${HEAD_SHA} does not match current PR head ${CURRENT}"
             exit 1
@@ -83,4 +83,4 @@ jobs:
             ARGS+=(-f "target_url=${TARGET_URL}")
           fi
 
-          gh api "/repos/${REPO}/statuses/${HEAD_SHA}" "${ARGS[@]}"
+          gh api "/repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" "${ARGS[@]}"
