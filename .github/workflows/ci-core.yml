@@ -332,6 +332,18 @@ jobs:
           go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
           go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
 
+      - name: Cache WASM test binaries
+        if: ${{ matrix.type.should-run == 'true' }}
+        uses: actions/cache@v6
+        with:
+          path: .wasm-cache/
+          # Best-effort warming key. Correctness is guaranteed by the in-code content
+          # fingerprint (filename), so a coarse/stale key here only risks a rebuild.
+          # restore-keys still restores the latest cache so only changed pkgs rebuild.
+          key: ${{ runner.os }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}
+          restore-keys: |
+            ${{ runner.os }}-wasmcache-
+
       - name: Setup Solana
         if:
           ${{ matrix.type.should-run == 'true' && matrix.type.setup-solana == 'true'
