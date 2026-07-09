@@ -207,6 +207,11 @@ type listPackage struct {
 	Dir string `json:"Dir"`
 }
 
+type fileDigest struct {
+	path string
+	hash string
+}
+
 func computeBuildFingerprint(pkgPath string) (string, error) {
 	repoRoot, err := getRepoRoot()
 	if err != nil {
@@ -230,10 +235,6 @@ func computeBuildFingerprint(pkgPath string) (string, error) {
 		return "", err
 	}
 
-	type fileDigest struct {
-		path string
-		hash string
-	}
 	var digests []fileDigest
 
 	for _, dir := range dirs {
@@ -241,37 +242,7 @@ func computeBuildFingerprint(pkgPath string) (string, error) {
 			continue
 		}
 
-		err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, walkErr error) error {
-			if walkErr != nil {
-				return walkErr
-			}
-			if d.IsDir() {
-				name := d.Name()
-				if name == "testdata" || strings.HasPrefix(name, ".") {
-					return filepath.SkipDir
-				}
-				return nil
-			}
-			if !strings.HasSuffix(path, ".go") {
-				return nil
-			}
-
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			sum := sha256.Sum256(data)
-			rel, err := filepath.Rel(repoRoot, path)
-			if err != nil {
-				return err
-			}
-			digests = append(digests, fileDigest{
-				path: filepath.ToSlash(rel),
-				hash: hex.EncodeToString(sum[:]),
-			})
-			return nil
-		})
-		if err != nil {
+		if err := hashDirSources(repoRoot, dir, &digests); err != nil {
 			return "", fmt.Errorf("hash sources in %s: %w", dir, err)
 		}
 	}
@@ -281,20 +252,89 @@ func computeBuildFingerprint(pkgPath string) (string, error) {
 	})
 
 	h := sha256.New()
-	_, _ = io.WriteString(h, goVersion)
-	_, _ = io.WriteString(h, "\nwasip1\nwasm\n")
-	_, _ = io.WriteString(h, buildFlags)
-	_, _ = io.WriteString(h, "\n")
-	_, _ = h.Write(goSumDigest[:])
-	_, _ = io.WriteString(h, "\n")
-	for _, d := range digests {
-		_, _ = io.WriteString(h, d.path)
-		_, _ = io.WriteString(h, "\n")
-		_, _ = io.WriteString(h, d.hash)
-		_, _ = io.WriteString(h, "\n")
+	if err := writeFingerprint(h, goVersion, goSumDigest, digests); err != nil {
+		return "", err
 	}
 
 	return hex.EncodeToString(h.Sum(nil)[:16]), nil
+}
+
+func hashDirSources(repoRoot, dir string, digests *[]fileDigest) error {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+
+	return fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			// fs.WalkDir reports the root as "."; Name() is "." and must not SkipDir.
+			if path != "." {
+				name := d.Name()
+				if name == "testdata" || strings.HasPrefix(name, ".") {
+					return fs.SkipDir
+				}
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") {
+			return nil
+		}
+
+		data, err := root.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(data)
+		rel, err := filepath.Rel(repoRoot, filepath.Join(dir, path))
+		if err != nil {
+			return err
+		}
+		*digests = append(*digests, fileDigest{
+			path: filepath.ToSlash(rel),
+			hash: hex.EncodeToString(sum[:]),
+		})
+		return nil
+	})
+}
+
+func writeFingerprint(h io.Writer, goVersion string, goSumDigest [sha256.Size]byte, digests []fileDigest) error {
+	if _, err := io.WriteString(h, goVersion); err != nil {
+		return fmt.Errorf("hash go version: %w", err)
+	}
+	if _, err := io.WriteString(h, "\nwasip1\nwasm\n"); err != nil {
+		return fmt.Errorf("hash platform: %w", err)
+	}
+	if _, err := io.WriteString(h, buildFlags); err != nil {
+		return fmt.Errorf("hash build flags: %w", err)
+	}
+	if _, err := io.WriteString(h, "\n"); err != nil {
+		return fmt.Errorf("hash separator: %w", err)
+	}
+	if _, err := h.Write(goSumDigest[:]); err != nil {
+		return fmt.Errorf("hash go.sum digest: %w", err)
+	}
+	if _, err := io.WriteString(h, "\n"); err != nil {
+		return fmt.Errorf("hash separator: %w", err)
+	}
+	for _, d := range digests {
+		if _, err := io.WriteString(h, d.path); err != nil {
+			return fmt.Errorf("hash source path: %w", err)
+		}
+		if _, err := io.WriteString(h, "\n"); err != nil {
+			return fmt.Errorf("hash separator: %w", err)
+		}
+		if _, err := io.WriteString(h, d.hash); err != nil {
+			return fmt.Errorf("hash source digest: %w", err)
+		}
+		if _, err := io.WriteString(h, "\n"); err != nil {
+			return fmt.Errorf("hash separator: %w", err)
+		}
+	}
+	return nil
 }
 
 func listDepDirs(pkgPath string) ([]string, error) {
