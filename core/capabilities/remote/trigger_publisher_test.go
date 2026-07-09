@@ -1244,11 +1244,21 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 		publisher.Receive(ctx, regMsg)
 		require.Eventually(t, func() bool { return underlying.callCount == 1 }, 2*time.Second, 10*time.Millisecond)
 
-		// publisher.Receive(ctx, regMsg)
-		// require.Eventually(t, func() bool { return underlying.callCount == 2 }, 2*time.Second, 10*time.Millisecond)
+		require.Eventually(t, func() bool {
+			if underlying.callCount >= 2 {
+				return true
+			}
+			publisher.Receive(ctx, regMsg)
+			return underlying.callCount >= 2
+		}, 2*time.Second, 10*time.Millisecond)
 
-		// publisher.Receive(ctx, regMsg)
-		// require.Eventually(t, func() bool { return underlying.callCount == 3 }, 2*time.Second, 10*time.Millisecond)
+		require.Eventually(t, func() bool {
+			if underlying.callCount >= 3 {
+				return true
+			}
+			publisher.Receive(ctx, regMsg)
+			return underlying.callCount >= 3
+		}, 2*time.Second, 10*time.Millisecond)
 
 		require.NoError(t, publisher.Close())
 	})

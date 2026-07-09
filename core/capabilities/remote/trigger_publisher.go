@@ -56,16 +56,14 @@ type triggerPublisher struct {
 }
 
 type triggerPublisherMetrics struct {
-	registerTriggerCounter             metric.Int64Counter
-	unregisterTriggerCounter           metric.Int64Counter
-	ackEventCounter                    metric.Int64Counter
-	ackExecutorSlotUsage               metric.Float64Gauge
-	ackPreExecuteDurationMs            metric.Int64Histogram
-	ackTaskDurationMs                  metric.Int64Histogram
-	registerTriggerReceiveDurationMs   metric.Int64Histogram
-	registerTriggerTaskDurationMs      metric.Int64Histogram
-	unregisterTriggerReceiveDurationMs metric.Int64Histogram
-	unregisterTriggerTaskDurationMs    metric.Int64Histogram
+	registerTriggerCounter      metric.Int64Counter
+	unregisterTriggerCounter    metric.Int64Counter
+	ackEventCounter             metric.Int64Counter
+	ackExecutorSlotUsage        metric.Float64Gauge
+	registerExecutorSlotUsage   metric.Float64Gauge
+	registerTriggerDurationMs   metric.Int64Histogram
+	unregisterTriggerDurationMs metric.Int64Histogram
+	ackEventDurationMs          metric.Int64Histogram
 }
 
 type dynamicPublisherConfig struct {
@@ -191,30 +189,22 @@ func (p *triggerPublisher) initMetrics() error {
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_ack_executor_slot_usage: %w", err)
 	}
-	ackDurationBuckets := metric.WithExplicitBucketBoundaries(1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 30_000)
-	p.metrics.ackPreExecuteDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_ack_pre_execute_duration_ms", ackDurationBuckets)
+	p.metrics.registerExecutorSlotUsage, err = beholder.GetMeter().Float64Gauge("platform_trigger_publisher_register_executor_slot_usage")
 	if err != nil {
-		return fmt.Errorf("failed to register platform_trigger_publisher_ack_pre_execute_duration_ms: %w", err)
+		return fmt.Errorf("failed to register platform_trigger_publisher_register_executor_slot_usage: %w", err)
 	}
-	p.metrics.ackTaskDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_ack_task_duration_ms", ackDurationBuckets)
+	durationBuckets := metric.WithExplicitBucketBoundaries(1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 30_000)
+	p.metrics.registerTriggerDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_register_trigger_duration_ms", durationBuckets)
 	if err != nil {
-		return fmt.Errorf("failed to register platform_trigger_publisher_ack_task_duration_ms: %w", err)
+		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_duration_ms: %w", err)
 	}
-	p.metrics.registerTriggerReceiveDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_register_trigger_receive_duration_ms", ackDurationBuckets)
+	p.metrics.unregisterTriggerDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_unregister_trigger_duration_ms", durationBuckets)
 	if err != nil {
-		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_receive_duration_ms: %w", err)
+		return fmt.Errorf("failed to register platform_trigger_publisher_unregister_trigger_duration_ms: %w", err)
 	}
-	p.metrics.registerTriggerTaskDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_register_trigger_task_duration_ms", ackDurationBuckets)
+	p.metrics.ackEventDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_ack_event_duration_ms", durationBuckets)
 	if err != nil {
-		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_task_duration_ms: %w", err)
-	}
-	p.metrics.unregisterTriggerReceiveDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_unregister_trigger_receive_duration_ms", ackDurationBuckets)
-	if err != nil {
-		return fmt.Errorf("failed to register platform_trigger_publisher_unregister_trigger_receive_duration_ms: %w", err)
-	}
-	p.metrics.unregisterTriggerTaskDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_unregister_trigger_task_duration_ms", ackDurationBuckets)
-	if err != nil {
-		return fmt.Errorf("failed to register platform_trigger_publisher_unregister_trigger_task_duration_ms: %w", err)
+		return fmt.Errorf("failed to register platform_trigger_publisher_ack_event_duration_ms: %w", err)
 	}
 	return nil
 }
@@ -234,41 +224,28 @@ func (p *triggerPublisher) recordAckExecutorSlotUsage(ctx context.Context) {
 	))
 }
 
-func (p *triggerPublisher) recordAckPreExecuteDuration(ctx context.Context, d time.Duration, callerDonID uint32) {
-	if p.metrics.ackPreExecuteDurationMs == nil {
+func (p *triggerPublisher) recordRegisterExecutorSlotUsage(ctx context.Context) {
+	if p.registerExecutor == nil || p.metrics.registerExecutorSlotUsage == nil {
 		return
 	}
-	p.metrics.ackPreExecuteDurationMs.Record(ctx, d.Milliseconds(), metric.WithAttributes(
+	maxSlots := p.registerExecutor.MaxSlots()
+	if maxSlots == 0 {
+		return
+	}
+	usage := float64(p.registerExecutor.OccupiedSlots()) / float64(maxSlots)
+	p.metrics.registerExecutorSlotUsage.Record(ctx, usage, metric.WithAttributes(
 		attribute.String("capabilityID", p.capabilityID),
 		attribute.String("capMethodName", p.capMethodName),
-		attribute.String("callerDonID", strconv.FormatUint(uint64(callerDonID), 10)),
 	))
 }
 
-func (p *triggerPublisher) recordAckTaskDuration(ctx context.Context, d time.Duration, callerDonID uint32, success bool) {
-	if p.metrics.ackTaskDurationMs == nil {
-		return
-	}
-	outcome := "error"
-	if success {
-		outcome = "success"
-	}
-	p.metrics.ackTaskDurationMs.Record(ctx, d.Milliseconds(), metric.WithAttributes(
-		attribute.String("capabilityID", p.capabilityID),
-		attribute.String("capMethodName", p.capMethodName),
-		attribute.String("callerDonID", strconv.FormatUint(uint64(callerDonID), 10)),
-		attribute.String("outcome", outcome),
-	))
-}
-
-func (p *triggerPublisher) recordReceivePathDuration(hist metric.Int64Histogram, ctx context.Context, callerDonID uint32, outcome string, d time.Duration) {
+func (p *triggerPublisher) recordMethodDuration(ctx context.Context, hist metric.Int64Histogram, outcome string, d time.Duration) {
 	if hist == nil {
 		return
 	}
 	hist.Record(ctx, d.Milliseconds(), metric.WithAttributes(
 		attribute.String("capabilityID", p.capabilityID),
 		attribute.String("capMethodName", p.capMethodName),
-		attribute.String("callerDonID", strconv.FormatUint(uint64(callerDonID), 10)),
 		attribute.String("outcome", outcome),
 	))
 }
@@ -338,10 +315,23 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 	switch msg.Method {
 	case types.MethodRegisterTrigger:
 		registerStart := time.Now()
-		callerDonID := msg.CallerDonId
 		registerOutcome := "invalid"
+		// Duration is recorded either by this defer (synchronous Receive exits) or by the
+		// register executor goroutine (success/error). recordRegisterDuration=false on
+		// successful schedule prevents double-counting.
+		//
+		// Interpreting outcomes:
+		//   - success/error: quorum reached, RegisterTrigger ran (includes executor queue
+		//     wait + underlying work such as DB). Use for end-to-end register latency.
+		//   - anything else (not_ready, skipped_exists, schedule_failed, ...): Receive
+		//     returned without calling RegisterTrigger. These did early-exit as intended.
+		//     High p99 here means Receive itself was slow—typically p.mu wait and/or
+		//     time blocked acquiring an executor slot (schedule_failed), not DB writes.
+		recordRegisterDuration := true
 		defer func() {
-			p.recordReceivePathDuration(p.metrics.registerTriggerReceiveDurationMs, ctx, callerDonID, registerOutcome, time.Since(registerStart))
+			if recordRegisterDuration {
+				p.recordMethodDuration(ctx, p.metrics.registerTriggerDurationMs, registerOutcome, time.Since(registerStart))
+			}
 		}()
 
 		req, unmarshalErr := pb.UnmarshalTriggerRegistrationRequest(msg.Payload)
@@ -421,13 +411,13 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		)
 
 		scheduleErr := p.registerExecutor.ExecuteTask(ctx, func(taskCtx context.Context) {
-			taskStart := time.Now()
+			defer p.recordRegisterExecutorSlotUsage(taskCtx)
 			callbackCh, registerErr := cfg.underlying.RegisterTrigger(taskCtx, unmarshaled)
 			taskOutcome := "success"
 			if registerErr != nil {
 				taskOutcome = "error"
 			}
-			p.recordReceivePathDuration(p.metrics.registerTriggerTaskDurationMs, taskCtx, callerDonID, taskOutcome, time.Since(taskStart))
+			p.recordMethodDuration(taskCtx, p.metrics.registerTriggerDurationMs, taskOutcome, time.Since(registerStart))
 
 			p.mu.Lock()
 			defer p.mu.Unlock()
@@ -448,13 +438,18 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.metrics.registerTriggerCounter.Add(taskCtx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
 			var capErr caperrors.Error
 			if errors.As(registerErr, &capErr) && capErr.Origin() == caperrors.OriginUser {
+
 				p.registrations[key] = &pubRegState{registrationErr: registerErr}
 				p.lggr.Errorw("trigger registration failed with user error; will not retry",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", registerErr)
 				return
 			}
+			// System errors should retry. Ready(..., once=true) sets wasReady on quorum and never
+			// resets it; without Delete, later messages keep getting not_ready even though we
+			// never registered. Delete clears wasReady so a fresh quorum can schedule again.
 			p.lggr.Errorw("trigger registration failed with system error; will retry",
 				"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", registerErr)
+			p.messageCache.Delete(key)
 		})
 		if scheduleErr != nil {
 			registerOutcome = "schedule_failed"
@@ -462,13 +457,15 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 				"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", scheduleErr)
 			return
 		}
+		// Hand off to executor; disable defer recording—goroutine records success/error.
+		recordRegisterDuration = false
+		p.recordRegisterExecutorSlotUsage(ctx)
 		registerOutcome = "scheduled"
 	case types.MethodUnregisterTrigger:
 		unregisterStart := time.Now()
-		callerDonID := msg.CallerDonId
 		unregisterOutcome := "invalid"
 		defer func() {
-			p.recordReceivePathDuration(p.metrics.unregisterTriggerReceiveDurationMs, ctx, callerDonID, unregisterOutcome, time.Since(unregisterStart))
+			p.recordMethodDuration(ctx, p.metrics.unregisterTriggerDurationMs, unregisterOutcome, time.Since(unregisterStart))
 		}()
 
 		meta := msg.GetTriggerEventMetadata()
@@ -528,13 +525,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		reg.cancel()
 
 		ctx, cancel := p.stopCh.NewCtx()
-		taskStart := time.Now()
 		err = p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
-		taskOutcome := "success"
-		if err != nil {
-			taskOutcome = "error"
-		}
-		p.recordReceivePathDuration(p.metrics.unregisterTriggerTaskDurationMs, ctx, callerDonID, taskOutcome, time.Since(taskStart))
 		if err != nil {
 			unregisterOutcome = "error"
 			p.lggr.Errorw("failed to unregister trigger on underlying", "workflowID", key.workflowID, "triggerID", key.triggerID, "err", err)
@@ -548,10 +539,21 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			"method", SanitizeLogString(msg.Method), "sender", sender, "errorMsg", SanitizeLogString(msg.ErrorMsg))
 	case types.MethodTriggerEventAck:
 		ackHandlerStart := time.Now()
+		ackOutcome := "invalid"
+		// Same two-path duration model as register: defer for synchronous Receive exits,
+		// executor goroutine for success/error after quorum. See register case comment.
+		recordAckDuration := true
+		defer func() {
+			if recordAckDuration {
+				p.recordMethodDuration(ctx, p.metrics.ackEventDurationMs, ackOutcome, time.Since(ackHandlerStart))
+			}
+		}()
+
 		triggerMetadata := msg.GetTriggerEventMetadata()
 		if triggerMetadata == nil {
+			ackOutcome = "nil_metadata"
 			p.lggr.Errorw("received empty trigger event ack metadata", "sender", sender)
-			break
+			return
 		}
 		triggerEventID := triggerMetadata.TriggerEventId
 		p.lggr.Debugw("received trigger event ACK", "sender", sender, "trigger event ID", triggerEventID)
@@ -560,16 +562,19 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
 		if !ok {
 			p.mu.Unlock()
+			ackOutcome = "unsupported_don"
 			p.lggr.Errorw("received a message from unsupported workflow DON", "callerDonId", msg.CallerDonId)
 			return
 		}
 		if !cfg.membersCache[msg.CallerDonId][sender] {
 			p.mu.Unlock()
+			ackOutcome = "invalid_sender"
 			p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
 		if len(triggerMetadata.TriggerIds) != 1 {
 			p.mu.Unlock()
+			ackOutcome = "invalid_trigger_ids"
 			p.lggr.Errorw("did not receive single triggerID in ACK request", "callerDonId", msg.CallerDonId, "sender", sender, "triggerIDs", triggerMetadata.TriggerIds)
 			return
 		}
@@ -583,6 +588,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		ackCount := len(p.ackCache.Peers(key))
 		if !ready {
 			p.mu.Unlock()
+			ackOutcome = "not_ready"
 			p.lggr.Debugw("not ready to ACK trigger event yet",
 				"triggerEventId", triggerEventID,
 				"triggerID", triggerID,
@@ -594,6 +600,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.mu.Unlock()
 
 		if p.ackExecutor == nil {
+			ackOutcome = "executor_not_started"
 			p.lggr.Errorw("ack executor not started; cannot forward AckEvent",
 				"triggerEventId", triggerEventID, "triggerID", triggerID)
 			return
@@ -612,15 +619,17 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 
 		scheduleErr := p.ackExecutor.ExecuteTask(ctx, func(taskCtx context.Context) {
 			defer p.recordAckExecutorSlotUsage(taskCtx)
-			p.recordAckPreExecuteDuration(taskCtx, time.Since(ackHandlerStart), callerDonID)
-			taskStart := time.Now()
 			p.lggr.Infow("executing AckEvent task",
 				"triggerEventId", triggerEventID,
 				"triggerID", triggerID,
 				"callerDonId", callerDonID,
 				"minRequired", minRequired)
 			ackErr := cfg.underlying.AckEvent(taskCtx, triggerID, triggerEventID, p.capMethodName)
-			p.recordAckTaskDuration(taskCtx, time.Since(taskStart), callerDonID, ackErr == nil)
+			taskOutcome := "success"
+			if ackErr != nil {
+				taskOutcome = "error"
+			}
+			p.recordMethodDuration(taskCtx, p.metrics.ackEventDurationMs, taskOutcome, time.Since(ackHandlerStart))
 			if ackErr != nil {
 				p.metrics.ackEventCounter.Add(taskCtx, 1, ackAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
 				p.lggr.Errorw("failed to AckEvent on underlying trigger capability",
@@ -635,11 +644,13 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.metrics.ackEventCounter.Add(taskCtx, 1, ackAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
 		})
 		if scheduleErr != nil {
+			ackOutcome = "schedule_failed"
 			p.lggr.Errorw("failed to schedule AckEvent task",
 				"triggerEventId", triggerEventID, "triggerID", triggerID, "err", scheduleErr)
-		} else {
-			p.recordAckExecutorSlotUsage(ctx)
+			return
 		}
+		recordAckDuration = false
+		p.recordAckExecutorSlotUsage(ctx)
 	default:
 		p.lggr.Errorw("received message with unknown method",
 			"method", SanitizeLogString(msg.Method), "sender", sender)
