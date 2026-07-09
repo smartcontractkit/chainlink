@@ -115,10 +115,10 @@ ocr_soak_report.csv
 vendor/*
 
 *.wasm
-!**/testdata/output.wasm.br
 contracts/lcov.info
 contracts/out/
 /cache
+/.wasm-cache/
 
 # Used by plugins/chainlink.prebuilt.Dockerfile
 /bin/
