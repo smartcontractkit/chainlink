@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/go-co-op/gocron/v2"
@@ -43,6 +44,7 @@ type ManualCronTriggerService struct {
 	capabilities.CapabilityInfo
 	config           ManualCronConfig
 	lggr             logger.Logger
+	mu               sync.Mutex // guards callbackCh, workflowIDs and triggerConfigs
 	callbackCh       map[string]chan capabilities.TriggerAndId[*crontypedapi.Payload]
 	legacyCallbackCh chan capabilities.TriggerAndId[*crontypedapi.LegacyPayload] //nolint:staticcheck // LegacyPayload intentionally used for backward compatibility
 	workflowIDs      map[string]string                                           // triggerID -> workflowID mapping
@@ -95,10 +97,26 @@ func (f *ManualCronTriggerService) Initialise(ctx context.Context, dependencies 
 }
 
 func (f *ManualCronTriggerService) RegisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) (<-chan capabilities.TriggerAndId[*crontypedapi.Payload], caperrors.Error) {
-	f.callbackCh[triggerID] = make(chan capabilities.TriggerAndId[*crontypedapi.Payload], 1)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ch := make(chan capabilities.TriggerAndId[*crontypedapi.Payload], 1)
+	f.callbackCh[triggerID] = ch
 	f.workflowIDs[triggerID] = metadata.WorkflowID
 	f.triggerConfigs[triggerID] = input
-	return f.callbackCh[triggerID], nil
+	return ch, nil
+}
+
+// TriggerIDs returns a snapshot of the currently registered trigger IDs. It is
+// primarily useful for external drivers that fire registered triggers on their
+// schedule (see ManualTrigger).
+func (f *ManualCronTriggerService) TriggerIDs() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	ids := make([]string, 0, len(f.callbackCh))
+	for id := range f.callbackCh {
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 func (f *ManualCronTriggerService) UnregisterTrigger(ctx context.Context, triggerID string, metadata capabilities.RequestMetadata, input *crontypedapi.Config) caperrors.Error {
@@ -118,7 +136,10 @@ func (f *ManualCronTriggerService) AckEvent(ctx context.Context, triggerID strin
 }
 
 func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID string, skipWait <-chan struct{}) error {
+	f.mu.Lock()
 	config, exists := f.triggerConfigs[triggerID]
+	callbackCh := f.callbackCh[triggerID]
+	f.mu.Unlock()
 	if !exists {
 		return fmt.Errorf(`trigger config "%s" not found`, triggerID)
 	}
@@ -144,7 +165,9 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 	triggerEvent := f.createManualTriggerEvent(scheduledExecutionTime)
 
 	// Get the workflowID for this trigger
+	f.mu.Lock()
 	workflowID, exists := f.workflowIDs[triggerID]
+	f.mu.Unlock()
 	if !exists {
 		f.lggr.Errorw("workflowID not found for triggerID", "triggerID", triggerID)
 		workflowID = "unknownWorkflow"
@@ -177,7 +200,7 @@ func (f *ManualCronTriggerService) ManualTrigger(ctx context.Context, triggerID 
 	}
 
 	// Sent trigger response
-	f.callbackCh[triggerID] <- triggerEvent
+	callbackCh <- triggerEvent
 	return nil
 }
 

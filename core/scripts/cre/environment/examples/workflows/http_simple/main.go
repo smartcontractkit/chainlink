@@ -8,6 +8,7 @@ import (
 	"log/slog"
 
 	http "github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
+	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
@@ -15,8 +16,8 @@ import (
 )
 
 type Config struct {
-	AuthorizedKey string `json:"authorizedKey"`
-	URL           string `json:"url"`
+	Schedule string `yaml:"schedule,omitempty"`
+	URL      string `yaml:"url,omitempty"`
 }
 
 func main() {
@@ -32,14 +33,7 @@ func main() {
 func RunSimpleHttpWorkflow(config Config, _ *slog.Logger, _ cre.SecretsProvider) (sdk.Workflow[Config], error) {
 	workflows := sdk.Workflow[Config]{
 		sdk.Handler(
-			http.Trigger(&http.Config{
-				AuthorizedKeys: []*http.AuthorizedKey{
-					{
-						Type:      http.KeyType_KEY_TYPE_ECDSA_EVM,
-						PublicKey: config.AuthorizedKey,
-					},
-				},
-			}),
+			cron.Trigger(&cron.Config{Schedule: config.Schedule}),
 			onTrigger,
 		),
 	}
@@ -52,11 +46,11 @@ type OrderResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
-func onTrigger(cfg Config, runtime sdk.Runtime, trigger *http.Payload) (string, error) {
+func onTrigger(cfg Config, runtime sdk.Runtime, trigger *cron.Payload) (string, error) {
 	logger := runtime.Logger()
 	logger.Info("Simple HTTP workflow triggered.")
 
-	logger.Info("Processing order with inputs", "inputs", string(trigger.Input))
+	logger.Info("Processing order with inputs", "inputs", trigger.ScheduledExecutionTime.String())
 
 	orderPromise := sdk.RunInNodeMode(cfg, runtime,
 		func(cfg Config, nodeRuntime sdk.NodeRuntime) (string, error) {
@@ -64,8 +58,7 @@ func onTrigger(cfg Config, runtime sdk.Runtime, trigger *http.Payload) (string, 
 
 			req := &http.Request{
 				Url:    cfg.URL,
-				Method: "POST",
-				Body:   trigger.Input,
+				Method: "GET",
 				Headers: map[string]string{
 					"Content-Type": "application/json",
 				},

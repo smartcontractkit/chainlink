@@ -960,6 +960,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			},
 		},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
+		SuspendOnAwait:  true,
 		Config:          e.cfg.WorkflowConfig,
 	}, execHelper.PossiblyWithRawSecrets())
 	// Non-evictable modules do not record skew; label those as direct.

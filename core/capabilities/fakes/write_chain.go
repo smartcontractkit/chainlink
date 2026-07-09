@@ -2,12 +2,17 @@ package fakes
 
 import (
 	"context"
+	"time"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
+
+// fakeWriteChainLag is an artificial delay injected into chain-write calls to
+// simulate the latency of submitting a report on-chain and awaiting inclusion.
+const fakeWriteChainLag = 60 * time.Second
 
 type fakeWriteChain struct {
 	services.Service
@@ -40,6 +45,7 @@ func (wc *fakeWriteChain) UnregisterFromWorkflow(ctx context.Context, request co
 
 func (wc *fakeWriteChain) Execute(ctx context.Context, request commonCap.CapabilityRequest) (commonCap.CapabilityResponse, error) {
 	wc.eng.Infow("Executed Fake Write Chain", "targetID", wc.targetID, "workflowID", request.Metadata.WorkflowID, "executionID", request.Metadata.WorkflowExecutionID)
+	time.Sleep(fakeWriteChainLag) // simulate on-chain write latency
 	return commonCap.CapabilityResponse{Value: &values.Map{}}, nil
 }
 
