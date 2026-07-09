@@ -56,12 +56,16 @@ type triggerPublisher struct {
 }
 
 type triggerPublisherMetrics struct {
-	registerTriggerCounter   metric.Int64Counter
-	unregisterTriggerCounter metric.Int64Counter
-	ackEventCounter          metric.Int64Counter
-	ackExecutorSlotUsage     metric.Float64Gauge
-	ackPreExecuteDurationMs  metric.Int64Histogram
-	ackTaskDurationMs        metric.Int64Histogram
+	registerTriggerCounter          metric.Int64Counter
+	unregisterTriggerCounter        metric.Int64Counter
+	ackEventCounter                 metric.Int64Counter
+	ackExecutorSlotUsage            metric.Float64Gauge
+	ackPreExecuteDurationMs         metric.Int64Histogram
+	ackTaskDurationMs               metric.Int64Histogram
+	registerTriggerReceiveDurationMs metric.Int64Histogram
+	registerTriggerTaskDurationMs    metric.Int64Histogram
+	unregisterTriggerReceiveDurationMs metric.Int64Histogram
+	unregisterTriggerTaskDurationMs    metric.Int64Histogram
 }
 
 type dynamicPublisherConfig struct {
@@ -195,6 +199,22 @@ func (p *triggerPublisher) initMetrics() error {
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_ack_task_duration_ms: %w", err)
 	}
+	p.metrics.registerTriggerReceiveDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_register_trigger_receive_duration_ms", ackDurationBuckets)
+	if err != nil {
+		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_receive_duration_ms: %w", err)
+	}
+	p.metrics.registerTriggerTaskDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_register_trigger_task_duration_ms", ackDurationBuckets)
+	if err != nil {
+		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_task_duration_ms: %w", err)
+	}
+	p.metrics.unregisterTriggerReceiveDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_unregister_trigger_receive_duration_ms", ackDurationBuckets)
+	if err != nil {
+		return fmt.Errorf("failed to register platform_trigger_publisher_unregister_trigger_receive_duration_ms: %w", err)
+	}
+	p.metrics.unregisterTriggerTaskDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_unregister_trigger_task_duration_ms", ackDurationBuckets)
+	if err != nil {
+		return fmt.Errorf("failed to register platform_trigger_publisher_unregister_trigger_task_duration_ms: %w", err)
+	}
 	return nil
 }
 
@@ -233,6 +253,18 @@ func (p *triggerPublisher) recordAckTaskDuration(ctx context.Context, d time.Dur
 		outcome = "success"
 	}
 	p.metrics.ackTaskDurationMs.Record(ctx, d.Milliseconds(), metric.WithAttributes(
+		attribute.String("capabilityID", p.capabilityID),
+		attribute.String("capMethodName", p.capMethodName),
+		attribute.String("callerDonID", strconv.FormatUint(uint64(callerDonID), 10)),
+		attribute.String("outcome", outcome),
+	))
+}
+
+func (p *triggerPublisher) recordReceivePathDuration(hist metric.Int64Histogram, ctx context.Context, callerDonID uint32, outcome string, d time.Duration) {
+	if hist == nil {
+		return
+	}
+	hist.Record(ctx, d.Milliseconds(), metric.WithAttributes(
 		attribute.String("capabilityID", p.capabilityID),
 		attribute.String("capMethodName", p.capMethodName),
 		attribute.String("callerDonID", strconv.FormatUint(uint64(callerDonID), 10)),
@@ -299,21 +331,32 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 
 	switch msg.Method {
 	case types.MethodRegisterTrigger:
+		registerStart := time.Now()
+		callerDonID := msg.CallerDonId
+		registerOutcome := "invalid"
+		defer func() {
+			p.recordReceivePathDuration(p.metrics.registerTriggerReceiveDurationMs, ctx, callerDonID, registerOutcome, time.Since(registerStart))
+		}()
+
 		req, unmarshalErr := pb.UnmarshalTriggerRegistrationRequest(msg.Payload)
 		if unmarshalErr != nil {
+			registerOutcome = "unmarshal_error"
 			p.lggr.Errorw("failed to unmarshal trigger registration request", "err", unmarshalErr)
 			return
 		}
 		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
 		if !ok {
+			registerOutcome = "unsupported_don"
 			p.lggr.Errorw("received a message from unsupported workflow DON", "callerDonId", msg.CallerDonId)
 			return
 		}
 		if !cfg.membersCache[msg.CallerDonId][sender] {
+			registerOutcome = "invalid_sender"
 			p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
 		if err = validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
+			registerOutcome = "invalid_workflow_id"
 			p.lggr.Errorw("received trigger request with invalid workflow ID", "workflowId", SanitizeLogString(req.Metadata.WorkflowID), "err", err)
 			return
 		}
@@ -325,9 +368,11 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.messageCache.Insert(key, sender, nowMs, msg.Payload)
 		if existing, exists := p.registrations[key]; exists {
 			if existing.registrationErr != nil {
+				registerOutcome = "skipped_user_error"
 				p.lggr.Debugw("skipping trigger registration; previous attempt failed with user error",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", existing.registrationErr)
 			} else {
+				registerOutcome = "skipped_exists"
 				p.lggr.Debugw("trigger registration already exists", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
 			}
 			return
@@ -336,26 +381,36 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		minRequired := uint32(2*callerDon.F + 1)
 		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
 		if !ready {
+			registerOutcome = "not_ready"
 			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "minRequired", minRequired)
 			return
 		}
 		aggregated, aggregateErr := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
 		if aggregateErr != nil {
+			registerOutcome = "aggregate_error"
 			p.lggr.Errorw("failed to aggregate trigger registrations", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", aggregateErr)
 			return
 		}
 		unmarshaled, unmarshalErr := pb.UnmarshalTriggerRegistrationRequest(aggregated)
 		if unmarshalErr != nil {
+			registerOutcome = "aggregate_unmarshal_error"
 			p.lggr.Errorw("failed to unmarshal request", "err", unmarshalErr)
 			return
 		}
 		ctx, cancel := p.stopCh.NewCtx()
+		taskStart := time.Now()
 		callbackCh, registerErr := cfg.underlying.RegisterTrigger(ctx, unmarshaled)
+		taskOutcome := "success"
+		if registerErr != nil {
+			taskOutcome = "error"
+		}
+		p.recordReceivePathDuration(p.metrics.registerTriggerTaskDurationMs, ctx, callerDonID, taskOutcome, time.Since(taskStart))
 		capAttrs := metric.WithAttributes(
 			attribute.String("capabilityID", p.capabilityID),
 			attribute.String("callerDonID", strconv.FormatUint(uint64(key.callerDonID), 10)),
 		)
 		if registerErr == nil {
+			registerOutcome = "success"
 			p.metrics.registerTriggerCounter.Add(ctx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
 			p.registrations[key] = &pubRegState{
 				callback: callbackCh,
@@ -366,6 +421,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			go p.triggerEventLoop(callbackCh, key)
 			p.lggr.Debugw("updated trigger registration", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
 		} else {
+			registerOutcome = "error"
 			p.metrics.registerTriggerCounter.Add(ctx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
 			cancel()
 			var capErr caperrors.Error
@@ -379,22 +435,33 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			}
 		}
 	case types.MethodUnregisterTrigger:
+		unregisterStart := time.Now()
+		callerDonID := msg.CallerDonId
+		unregisterOutcome := "invalid"
+		defer func() {
+			p.recordReceivePathDuration(p.metrics.unregisterTriggerReceiveDurationMs, ctx, callerDonID, unregisterOutcome, time.Since(unregisterStart))
+		}()
+
 		meta := msg.GetTriggerEventMetadata()
 		if meta == nil {
+			unregisterOutcome = "nil_metadata"
 			p.lggr.Errorw("received unregister with nil metadata", "sender", sender)
 			return
 		}
 		if len(meta.WorkflowIds) != 1 || len(meta.TriggerIds) != 1 {
+			unregisterOutcome = "invalid_metadata"
 			p.lggr.Errorw("received unregister with unexpected metadata sizes",
 				"sender", sender, "workflowIdsLen", len(meta.WorkflowIds), "triggerIdsLen", len(meta.TriggerIds))
 			return
 		}
 		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
 		if !ok {
+			unregisterOutcome = "unsupported_don"
 			p.lggr.Errorw("received unregister from unsupported workflow DON", "callerDonId", msg.CallerDonId)
 			return
 		}
 		if !cfg.membersCache[msg.CallerDonId][sender] {
+			unregisterOutcome = "invalid_sender"
 			p.lggr.Errorw("unregister sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
@@ -409,6 +476,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		reg, exists := p.registrations[key]
 		if !exists {
 			p.mu.Unlock()
+			unregisterOutcome = "not_registered"
 			return
 		}
 		nowMs := time.Now().UnixMilli()
@@ -417,6 +485,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		ready, _ := p.unregisterCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
 		if !ready {
 			p.mu.Unlock()
+			unregisterOutcome = "not_ready"
 			p.lggr.Debugw("unregister quorum not reached yet", "workflowID", key.workflowID, "triggerID", key.triggerID, "sender", sender, "minRequired", minRequired)
 			return
 		}
@@ -430,9 +499,18 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		reg.cancel()
 
 		ctx, cancel := p.stopCh.NewCtx()
+		taskStart := time.Now()
 		err = p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
+		taskOutcome := "success"
 		if err != nil {
+			taskOutcome = "error"
+		}
+		p.recordReceivePathDuration(p.metrics.unregisterTriggerTaskDurationMs, ctx, callerDonID, taskOutcome, time.Since(taskStart))
+		if err != nil {
+			unregisterOutcome = "error"
 			p.lggr.Errorw("failed to unregister trigger on underlying", "workflowID", key.workflowID, "triggerID", key.triggerID, "err", err)
+		} else {
+			unregisterOutcome = "success"
 		}
 		cancel()
 		p.lggr.Infow("unregistered trigger", "workflowID", key.workflowID, "triggerID", key.triggerID)
