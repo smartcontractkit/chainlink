@@ -74,41 +74,14 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 
 	t.Run("env file unset results in empty CmdConfig.Env", func(t *testing.T) {
 		t.Setenv(string(env.CapabilitiesPlugin.Env), "")
-		t.Setenv(string(env.MeterRecordsEnabled), "")
 
 		cfg, err := startAndCapture(t)
 		require.Error(t, err, "expected synthetic Start failure from capturingRegistrar")
 		require.Contains(t, err.Error(), capturingRegistrarErr)
 
 		require.Empty(t, cfg.Env,
-			"no operator-provided env vars should be forwarded when CL_CAPABILITIES_ENV is unset")
-	})
-
-	t.Run("CL_METER_RECORDS_ENABLED set on the node is passed through to the LOOPP", func(t *testing.T) {
-		envFile := writeEnvFile(t, "FOO=bar\n")
-		t.Setenv(string(env.CapabilitiesPlugin.Env), envFile)
-		t.Setenv(string(env.MeterRecordsEnabled), "true")
-
-		cfg, err := startAndCapture(t)
-		require.Error(t, err, "expected synthetic Start failure from capturingRegistrar")
-		require.Contains(t, err.Error(), capturingRegistrarErr)
-
-		require.Contains(t, cfg.Env, "CL_METER_RECORDS_ENABLED=true",
-			"the node's meter-record emission gate must reach capability LOOPPs, which do not inherit os.Environ()")
-		require.Contains(t, cfg.Env, "FOO=bar",
-			"the pass-through must not displace entries from the operator-supplied env file")
-	})
-
-	t.Run("CL_METER_RECORDS_ENABLED unset is not forwarded", func(t *testing.T) {
-		t.Setenv(string(env.CapabilitiesPlugin.Env), "")
-		t.Setenv(string(env.MeterRecordsEnabled), "")
-
-		cfg, err := startAndCapture(t)
-		require.Error(t, err, "expected synthetic Start failure from capturingRegistrar")
-		require.Contains(t, err.Error(), capturingRegistrarErr)
-
-		require.Empty(t, cfg.Env,
-			"no CL_METER_RECORDS_ENABLED entry should be forwarded when the gate is unset on the node")
+			"no operator-provided env vars should be forwarded when CL_CAPABILITIES_ENV is unset; "+
+				"metering config reaches LOOPs via loop.EnvConfig, not this pass-through")
 	})
 
 	t.Run("missing env file fails Start before RegisterLOOP", func(t *testing.T) {
@@ -150,6 +123,44 @@ func TestStandardCapabilities_InitialiseDependenciesRoundTrip(t *testing.T) {
 	got := std.initialiseDependencies()
 
 	require.Equal(t, want.Config, got.Config, "config should be re-delivered to LOOP Initialise dependencies")
+}
+
+// TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP asserts that the
+// host-resolved capability DON ID is carried on the dependencies delivered to
+// the capability LOOP at Initialise. Without this, a trigger producer silently
+// falls back to the consumer workflow's DON for metering identity and event
+// labels even when the node knows which DON it is serving.
+func TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP(t *testing.T) {
+	t.Run("nonzero DON ID round-trips when the DON is known", func(t *testing.T) {
+		const knownDonID = uint32(42)
+		std := NewStandardCapabilities(
+			logger.TestLogger(t),
+			"not/found/path/to/binary",
+			"{}",
+			&capturingRegistrar{},
+			core.StandardCapabilitiesDependencies{CapabilityDonID: knownDonID},
+		)
+
+		got := std.initialiseDependencies()
+
+		require.Equal(t, knownDonID, got.CapabilityDonID,
+			"the host-resolved capability DON ID must reach the LOOP at Initialise")
+	})
+
+	t.Run("zero DON ID is preserved when the host could not resolve one", func(t *testing.T) {
+		std := NewStandardCapabilities(
+			logger.TestLogger(t),
+			"not/found/path/to/binary",
+			"{}",
+			&capturingRegistrar{},
+			core.StandardCapabilitiesDependencies{},
+		)
+
+		got := std.initialiseDependencies()
+
+		require.Zero(t, got.CapabilityDonID,
+			"an unresolved DON ID stays zero so the LOOP can fall back to the workflow DON")
+	})
 }
 
 const capturingRegistrarErr = "capturingRegistrar: stop after capture"

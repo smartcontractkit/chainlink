@@ -411,7 +411,7 @@ Tenant = 'mainline'
 NumericTenantID = '42'
 Environment = 'production'
 Zone = 'wf-zone-a'
-NodeID = 'csa-pubkey-1'
+NodeID = 'clp-cre-wf-zone-a-1'
 
 [Workflows]
 [Workflows.Limits]

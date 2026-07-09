@@ -101,7 +101,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305
 	github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260706185759-873029fd9019
-	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260512230622-65f10f4cd305
+	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260709145319-7782fb89eb16
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0
 	github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260331131315-f08a616d8dcd
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
@@ -436,3 +436,12 @@ tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
 
 replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260707125635-abec997b6eae
+
+// Local development replaces for the delta-based metering redesign. The
+// chainlink-common (feat/metering-v2-cll-meter) and chainlink-protos
+// (feat/metering-v2-cll-meter) siblings carry the new resourcemanager API and
+// metering protos this branch builds against. The maintainer drops these and
+// bumps the module pins at merge time.
+replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
+
+replace github.com/smartcontractkit/chainlink-protos/metering/go => ../chainlink-protos/metering/go

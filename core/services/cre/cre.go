@@ -45,7 +45,6 @@ import (
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	capStreams "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
@@ -245,8 +244,16 @@ func (s *Services) newSubservices(
 			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
 		fallbackResolver := orgresolver.NewOrgResolverWithFallback(inner, lggr)
-		s.OrgResolver = fallbackResolver
-		srvs = append(srvs, fallbackResolver)
+		// Wrap in a caching resolver so the metering snapshot path
+		// (Meterable.GetUtilization, which is contractually no-network) can
+		// resolve org attribution from memory. This single instance is shared:
+		// the syncer's record path resolves through it too, warming the cache
+		// for snapshots. The caching resolver owns the inner resolver's
+		// lifecycle (its Start/Close drive the inner), so only the caching
+		// resolver is added to the service list.
+		cachingResolver := orgresolver.NewCaching(fallbackResolver, resourcemanager.DefaultSnapshotInterval)
+		s.OrgResolver = cachingResolver
+		srvs = append(srvs, cachingResolver)
 	} else {
 		lggr.Warn("Skipping orgResolver, no linking service configured")
 	}
@@ -752,24 +759,6 @@ func newSyncerMeterIdentity(cfg Config) resourcemanager.ResourceIdentity {
 	return id
 }
 
-// meterRecordsEnabled reads the CL_METER_RECORDS_ENABLED env var gating emission of
-// metering.v1.MeterRecord events. Unset, empty, or invalid values disable emission.
-// Promotion of this gate to TOML config is tracked by SHARED-2718.
-func meterRecordsEnabled(lggr logger.Logger) bool {
-	v := env.MeterRecordsEnabled.Get()
-	if v == "" {
-		return false
-	}
-	enabled, err := strconv.ParseBool(v)
-	if err != nil {
-		// Warn, not error, matching the capability producers: a bad gate value
-		// disables emission but must never disturb the node.
-		lggr.Warnw("Invalid CL_METER_RECORDS_ENABLED value; meter record emission disabled", "value", v, "err", err)
-		return false
-	}
-	return enabled
-}
-
 func newShardOrchestratorClient(cfg Config, lggr logger.Logger) (*shardorchestrator.Client, error) {
 	shardID := cfg.Sharding().ShardIndex()
 	if shardID == 0 {
@@ -1061,7 +1050,11 @@ func newWorkflowRegistrySyncerV2(
 		}
 		shardRoutingSteady = shardownership.NewSteadySignal(shardownership.WithSteadySignalMetrics(steadyMetrics))
 	}
-	meterRecords := meterRecordsEnabled(lggr)
+	// TOML [Metering] is the single authority for the emission gate; the
+	// deleted CL_METER_RECORDS_ENABLED node env var no longer participates.
+	meteringCfg := cfg.Metering()
+	meterRecordsEnabled := meteringCfg != nil && meteringCfg.MeterRecordsEnabled()
+	meterSnapshotsEnabled := meteringCfg != nil && meteringCfg.MeterSnapshotsEnabled()
 
 	handlerOpts := []syncerV2.EventHandlerOption{
 		syncerV2.WithBillingClient(billingClient),
@@ -1076,8 +1069,8 @@ func newWorkflowRegistrySyncerV2(
 		// SnapshotInterval enables the periodic absolute-state snapshot loop; the
 		// RM is otherwise a no-op when metering is disabled.
 		syncerV2.WithResourceManager(resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
-			MeterRecordsEnabled:   meterRecords,
-			MeterSnapshotsEnabled: meterRecords,
+			MeterRecordsEnabled:   meterRecordsEnabled,
+			MeterSnapshotsEnabled: meterSnapshotsEnabled,
 			Emitter:               beholder.GetEmitter(),
 			SnapshotInterval:      resourcemanager.DefaultSnapshotInterval,
 		})),

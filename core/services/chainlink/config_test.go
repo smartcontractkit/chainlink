@@ -586,7 +586,7 @@ func TestConfig_Marshal(t *testing.T) {
 		NumericTenantID:       ptr("42"),
 		Environment:           ptr("production"),
 		Zone:                  ptr("wf-zone-a"),
-		NodeID:                ptr("csa-pubkey-1"),
+		NodeID:                ptr("clp-cre-wf-zone-a-1"),
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),

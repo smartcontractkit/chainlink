@@ -408,7 +408,9 @@ Prefixes = ['go_']
 [Metering]
 MeterRecordsEnabled = false
 MeterSnapshotsEnabled = false
-Product = ''
+Product = 'cre'
+Tenant = ''
+NumericTenantID = ''
 Environment = ''
 Zone = ''
 NodeID = ''

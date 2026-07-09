@@ -676,16 +676,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		atomicSettings,
 		creServices.OCRConfigService,
 		cfg.Capabilities().Local(),
-		// Host-injected deployment/node metering identity for spawned capability
-		// LOOPs. Sourced once here from node config: product constant, env/zone
-		// from [Telemetry.ResourceAttributes], node_id = the same CSA pubkey hex
-		// the node uses for beholder auth and the engine's node_id.
-		standardcapabilities.NodeIdentity{
-			Product:     "cre",
-			Environment: cfg.Telemetry().ResourceAttributes()["env"],
-			Zone:        cfg.Telemetry().ResourceAttributes()["zone"],
-			NodeID:      csaPubKeyHex,
-		},
 	)
 	delegates[job.StandardCapabilities] = stdcapDelegate
 	if creServices.SetDelegatesDeps != nil {

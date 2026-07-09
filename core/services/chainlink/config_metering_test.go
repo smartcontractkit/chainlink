@@ -13,7 +13,10 @@ func TestMeteringConfig(t *testing.T) {
 		mc := meteringConfig{s: toml.Metering{}}
 		assert.False(t, mc.MeterRecordsEnabled())
 		assert.False(t, mc.MeterSnapshotsEnabled())
-		assert.Empty(t, mc.Product())
+		// Product defaults to "cre" so metering can never be enabled with an
+		// empty product dimension and the syncer identity matches the plugins'
+		// fallback.
+		assert.Equal(t, "cre", mc.Product())
 		assert.Empty(t, mc.Tenant())
 		assert.Empty(t, mc.NumericTenantID())
 		assert.Empty(t, mc.Environment())
@@ -30,7 +33,7 @@ func TestMeteringConfig(t *testing.T) {
 			NumericTenantID:       ptr("42"),
 			Environment:           ptr("production"),
 			Zone:                  ptr("wf-zone-a"),
-			NodeID:                ptr("csa-pubkey-1"),
+			NodeID:                ptr("clp-cre-wf-zone-a-1"),
 		}}
 		assert.True(t, mc.MeterRecordsEnabled())
 		assert.True(t, mc.MeterSnapshotsEnabled())
@@ -39,6 +42,6 @@ func TestMeteringConfig(t *testing.T) {
 		assert.Equal(t, "42", mc.NumericTenantID())
 		assert.Equal(t, "production", mc.Environment())
 		assert.Equal(t, "wf-zone-a", mc.Zone())
-		assert.Equal(t, "csa-pubkey-1", mc.NodeID())
+		assert.Equal(t, "clp-cre-wf-zone-a-1", mc.NodeID())
 	})
 }

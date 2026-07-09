@@ -308,6 +308,10 @@ func WithModuleEngineVersion(v string) func(*eventHandler) {
 type WorkflowArtifactsStore interface {
 	FetchWorkflowArtifacts(ctx context.Context, workflowID, binaryIdentifier, configIdentifier string) ([]byte, []byte, error)
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
+	// GetWorkflowSpecList returns the persisted workflow specs. It backs the
+	// metering snapshot path (Meterable.GetUtilization), which enumerates the
+	// durable specs rather than running engines.
+	GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error)
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
 	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error
 	DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error
@@ -361,7 +365,9 @@ func NewEventHandler(
 		workflowArtifactsStore: workflowArtifacts,
 		workflowEncryptionKey:  workflowEncryptionKey,
 		workflowDonSubscriber:  workflowDonSubscriber,
-		resourceManager:        resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{}), // default to disabled, enable via WithResourceManager
+		// resourceManager defaults to nil (metering off); it is set only via
+		// WithResourceManager. A nil manager keeps every emission site guarded
+		// and avoids registering duplicate OTel metering instruments.
 		// Default identity carries only the service-level constants; the coarse
 		// deployment/node/DON dimensions are filled in by WithIdentity in cre.go.
 		meterIdentity: resourcemanager.ResourceIdentity{
@@ -441,10 +447,10 @@ func (h *eventHandler) close() error {
 		h.moduleLRU.Close()
 	}
 	es := h.engineRegistry.PopAll()
-	// Emit a graceful-close RELEASE for each still-running engine before popping
-	// them, so a clean shutdown pairs every snapshot RESERVE. Best-effort and
-	// fail-open: metering must never gate shutdown.
-	h.emitGracefulCloseReleases(context.Background(), es)
+	// No metering is emitted on close: meter records anchor on workflow-spec
+	// storage transitions, not engine lifecycle, so stopping an engine at
+	// shutdown leaves the persisted spec (and therefore its metered level)
+	// untouched. A spec that is genuinely released stops being snapshotted.
 	// Stop snapshotting this handler, then close the ResourceManager service.
 	if h.rmUnregister != nil {
 		h.rmUnregister()
@@ -675,7 +681,9 @@ func (h *eventHandler) workflowRegisteredEvent(
 		if innerErr != nil {
 			return innerErr
 		}
-		h.emitMeterRecord(ctx, meteringpb.MeterAction_METER_ACTION_RESERVE, originatingEvent, payload.WorkflowID.Hex())
+		// A new spec's artifacts were persisted for the first time: the durable
+		// workflow_specs_v2 resource gained one unit, so emit a +1 delta.
+		h.emitSpecDelta(ctx, 1, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner))
 
 		spec = newSpec
 	case spec.WorkflowID != payload.WorkflowID.Hex():
@@ -683,7 +691,9 @@ func (h *eventHandler) workflowRegisteredEvent(
 		if innerErr != nil {
 			return innerErr
 		}
-		h.emitMeterRecord(ctx, meteringpb.MeterAction_METER_ACTION_RESERVE, originatingEvent, payload.WorkflowID.Hex())
+		// A different spec's artifacts were persisted under this key: the newly
+		// stored spec is a fresh durable resource, so emit a +1 delta.
+		h.emitSpecDelta(ctx, 1, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner))
 
 		spec = newSpec
 	case spec.Status != status:
@@ -691,7 +701,9 @@ func (h *eventHandler) workflowRegisteredEvent(
 		if _, innerErr := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); innerErr != nil {
 			return fmt.Errorf("failed to update workflow spec: %w", innerErr)
 		}
-		h.emitMeterRecord(ctx, meteringpb.MeterAction_METER_ACTION_UPDATE, originatingEvent, payload.WorkflowID.Hex())
+		// Status-only update (e.g. activate an already-stored spec): the spec
+		// stays stored, so there is no artifact-persistence transition and no
+		// meter delta. The level is unchanged and remains covered by snapshots.
 	}
 
 	// Next, let's synchronize the engine.
@@ -959,6 +971,16 @@ func (h *eventHandler) workflowDeletedEvent(
 	// At the same time, popping the engine should occur last to allow deletes to be retried if any of the
 	// prior steps fail.
 	workflowID := payload.WorkflowID.Hex()
+	// Capture the stored owner before deletion so a real-delete -1 delta can
+	// resolve org attribution from durable state. Only needed for actual
+	// deletions (pause emits no delta); fail-open, an empty owner yields an
+	// empty org.
+	var deleteOwner string
+	if originatingEvent == WorkflowDeleted {
+		if existing, gerr := h.workflowArtifactsStore.GetWorkflowSpec(ctx, workflowID); gerr == nil && existing != nil {
+			deleteOwner = existing.WorkflowOwner
+		}
+	}
 	e, ok := h.engineRegistry.Get(payload.WorkflowID)
 	var drainable DrainableService
 	var isDrainable bool
@@ -990,7 +1012,13 @@ func (h *eventHandler) workflowDeletedEvent(
 	if err := h.workflowArtifactsStore.DeleteWorkflowArtifacts(ctx, payload.WorkflowID.Hex()); err != nil {
 		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
 	}
-	h.emitMeterRecord(ctx, meteringpb.MeterAction_METER_ACTION_RELEASE, originatingEvent, workflowID)
+	// A real delete removed the persisted spec, so emit a -1 delta. Pause is
+	// delegated here too (originatingEvent == WorkflowPaused); its release is
+	// realized by the spec's absence from subsequent snapshots, so pause emits
+	// no delta.
+	if originatingEvent == WorkflowDeleted {
+		h.emitSpecDelta(ctx, -1, workflowID, deleteOwner)
+	}
 
 	h.cleanupModuleCache(payload.WorkflowID.Hex())
 
@@ -1011,35 +1039,30 @@ func (h *eventHandler) workflowDeletedEvent(
 	return nil
 }
 
-// emitMeterRecord emits a metering.v1.MeterRecord for a workflow_specs_v2 mutation.
-// Callers must invoke it only after the database mutation has succeeded. Emission is
-// fail-open: it never returns an error and must never affect event handling.
-// Consumer-side dedup can use the emitted identity + action +
-// utilization(resource_id/event_id).
+// emitSpecDelta emits one metering.v1.MeterRecord (METER_ACTION_UPDATE)
+// capturing a signed ±delta to the durable workflow_specs_v2 level for
+// workflowID. Each record is a first-class billing event: a +1 when a new
+// spec's artifacts are persisted, a -1 when a spec is deleted. It is the single
+// emission helper for every syncer meter record; callers invoke it only after
+// the workflow-spec storage mutation has committed.
 //
-// Known lost-record windows (consumer-side reconciliation tracked by SHARED-2141):
-//   - A node crash between the workflow spec database write and this emit loses the
-//     record (e.g. the RESERVE for a new spec): the syncer has no recovery path that
-//     re-emits records for mutations persisted before the crash.
-//   - A workflow paused or deleted while the node is down loses its RELEASE:
-//     reconciliation only synthesizes events for engine-registry entries, and the
-//     restarted node has no engine registered for the already-removed workflow.
-func (h *eventHandler) emitMeterRecord(ctx context.Context, action meteringpb.MeterAction, originatingEvent WorkflowRegistryEventName, workflowID string) {
+// owner is the workflow owner as stored in durable state; the organization is
+// resolved fail-open at emit time via ResolveOrEmpty and is never persisted.
+// Emission is fail-open and returns no error, so metering can never gate,
+// delay, or fail the storage operation it records. event_id is generated per
+// emission by the ResourceManager (a fresh UUIDv4) and is the consumer's dedup
+// key.
+func (h *eventHandler) emitSpecDelta(ctx context.Context, delta int64, workflowID, owner string) {
 	if h.resourceManager == nil {
 		return
 	}
-	// resource_id = workflow_id (the syncer has no shared physical resource);
-	// event_id = originating event name so lifecycle edges remain distinguishable.
-	identity := h.baseIdentity()
-	utilizations := []*meteringpb.Utilization{
-		resourcemanager.NewUtilizationInt(1, resourcemanager.UtilizationFields{
-			ResourceType: meterResourceType,
-			ResourceID:   workflowID,
-			EventID:      string(originatingEvent),
-		}),
-	}
-	h.resourceManager.EmitMeterRecord(ctx, identity, action,
-		utilizations)
+	orgID := orgresolver.ResolveOrEmpty(ctx, h.orgResolver, owner, h.lggr)
+	// resource_id = workflow_id (the syncer meters one durable spec per workflow).
+	h.resourceManager.EmitDelta(ctx, h.baseIdentity(), delta, resourcemanager.UtilizationFields{
+		ResourceType: meterResourceType,
+		ResourceID:   workflowID,
+		OrgID:        orgID,
+	})
 }
 
 // baseIdentity returns the handler's metering identity with the workflow DON id
@@ -1070,64 +1093,43 @@ func (h *eventHandler) ResourceIdentity() resourcemanager.ResourceIdentity {
 }
 
 // GetUtilization implements resourcemanager.Meterable: it returns one
-// SnapshotEntry per running engine, each with one Utilization at value 1
-// (each running workflow holds one workflow_specs_v2 reservation). It is a pure
-// in-memory read over the engine registry — each entry's resource_id is the
-// workflow_id, which fully identifies the resource (Design 1; reconciling
-// persisted-but-not-running specs is the Design 2 follow-up, see
-// snapshotDesign2Followup below).
-func (h *eventHandler) GetUtilization(_ context.Context) []resourcemanager.SnapshotEntry {
+// SnapshotEntry per persisted workflow_specs_v2 spec, each at level 1, so the
+// periodic absolute-state snapshot agrees with the +1/-1 deltas emitted on
+// artifact-persistence transitions. The durable resource is the stored spec,
+// not the running engine, so this enumerates persisted specs (via the store's
+// list) rather than the engine registry — that way paused-but-stored specs and
+// specs whose engine failed to start are still accounted for, and a delete is
+// reflected by the spec's absence from the next snapshot.
+//
+// resource_id is the workflow_id; the organization is resolved from the spec's
+// stored owner through the caching resolver, which serves from memory so this
+// tick stays effectively no-network. Fail-open: a store error yields no entries
+// for this tick.
+func (h *eventHandler) GetUtilization(ctx context.Context) []resourcemanager.SnapshotEntry {
+	specs, err := h.workflowArtifactsStore.GetWorkflowSpecList(ctx)
+	if err != nil {
+		h.lggr.Warnw("failed to list persisted workflow specs for metering snapshot; skipping tick", "err", err)
+		return nil
+	}
 	base := h.baseIdentity()
-	engines := h.engineRegistry.GetAll()
-	entries := make([]resourcemanager.SnapshotEntry, 0, len(engines))
-	for _, e := range engines {
-		workflowID := e.WorkflowID.Hex()
+	entries := make([]resourcemanager.SnapshotEntry, 0, len(specs))
+	for _, spec := range specs {
+		if spec == nil {
+			continue
+		}
+		orgID := orgresolver.ResolveOrEmpty(ctx, h.orgResolver, spec.WorkflowOwner, h.lggr)
 		entries = append(entries, resourcemanager.SnapshotEntry{
 			Identity: base,
 			Utilizations: []*meteringpb.Utilization{
 				resourcemanager.NewUtilizationInt(1, resourcemanager.UtilizationFields{
 					ResourceType: meterResourceType,
-					ResourceID:   workflowID,
+					ResourceID:   spec.WorkflowID,
+					OrgID:        orgID,
 				}),
 			},
 		})
 	}
 	return entries
-}
-
-// snapshotDesign2Followup documents the deferred reconciliation work. Design 1
-// (implemented here) snapshots only engines that are currently running in this
-// node's engine registry. Design 2 — the follow-up — would additionally
-// enumerate persisted-but-not-running specs via WorkflowSpecsDS.ListAll so that
-// snapshots also account for specs the database has but for which no engine is
-// live (e.g. paused specs, or specs whose engine failed to start). That requires
-// a store-backed read on the tick (not a cheap in-memory snapshot) and a policy
-// for the utilization value of a non-running spec, so it is intentionally left
-// out of the in-memory GetUtilization above. Tracked as the syncer Design 2
-// follow-up.
-const snapshotDesign2Followup = "Design 2: reconcile persisted-but-not-running specs via WorkflowSpecsDS.ListAll"
-
-// emitGracefulCloseReleases emits a RELEASE meter record for every engine still
-// in the registry at shutdown, so a clean close pairs every snapshot RESERVE. It
-// is fail-open like all metering emission. Called from close before the engines
-// are popped.
-func (h *eventHandler) emitGracefulCloseReleases(ctx context.Context, engines []ServiceWithMetadata) {
-	if h.resourceManager == nil {
-		return
-	}
-	identity := h.baseIdentity()
-	for _, e := range engines {
-		workflowID := e.WorkflowID.Hex()
-		utilizations := []*meteringpb.Utilization{
-			resourcemanager.NewUtilizationInt(1, resourcemanager.UtilizationFields{
-				ResourceType: meterResourceType,
-				ResourceID:   workflowID,
-				EventID:      string(WorkflowDeleted),
-			}),
-		}
-		h.resourceManager.EmitMeterRecord(ctx, identity, meteringpb.MeterAction_METER_ACTION_RELEASE,
-			utilizations)
-	}
 }
 
 // tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the

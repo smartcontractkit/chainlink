@@ -101,7 +101,7 @@ func (m mockCfgMetering) Tenant() string              { return "mainline" }
 func (m mockCfgMetering) NumericTenantID() string     { return "42" }
 func (m mockCfgMetering) Environment() string         { return "production" }
 func (m mockCfgMetering) Zone() string                { return "wf-zone-a" }
-func (m mockCfgMetering) NodeID() string              { return "csa-pubkey-1" }
+func (m mockCfgMetering) NodeID() string              { return "clp-cre-wf-zone-a-1" }
 
 type mockPrometheusBridge struct{}
 
@@ -270,7 +270,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, "42", envCfg.MeterNumericTenantID)
 	require.Equal(t, "production", envCfg.MeterEnvironment)
 	require.Equal(t, "wf-zone-a", envCfg.MeterZone)
-	require.Equal(t, "csa-pubkey-1", envCfg.MeterNodeID)
+	require.Equal(t, "clp-cre-wf-zone-a-1", envCfg.MeterNodeID)
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 	require.False(t, envCfg.ChipIngressBatchEmitterEnabled)

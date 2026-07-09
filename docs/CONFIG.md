@@ -2571,7 +2571,7 @@ By default, we only forward the go runtime metrics. Empty means forward everythi
 [Metering]
 MeterRecordsEnabled = false # Default
 MeterSnapshotsEnabled = false # Default
-Product = '' # Default
+Product = 'cre' # Default
 Tenant = '' # Default
 NumericTenantID = '' # Default
 Environment = '' # Default
@@ -2580,7 +2580,13 @@ NodeID = '' # Default
 ```
 Metering configures durable resource metering emission and the coarse
 deployment/node identity dimensions stamped on emitted MeterRecords and
-MeterSnapshots. These are plumbed to LOOP plugins via env.
+MeterSnapshots. This TOML section is the single authority for metering on the
+core node; there is no environment-variable gate. For capability LOOP plugins
+the values are forwarded unchanged over the plugin environment
+(loop.EnvConfig), which is only a child-process transport produced from this
+config, not a separate gate. Snapshots are emitted on a fixed internal
+interval and are bucket-aligned (each snapshot timestamp is truncated to the
+interval) so cross-node snapshot buckets agree.
 
 ### MeterRecordsEnabled
 ```toml
@@ -2597,7 +2603,7 @@ Requires MeterRecordsEnabled = true.
 
 ### Product
 ```toml
-Product = '' # Default
+Product = 'cre' # Default
 ```
 Product is the deployment product identity dimension, e.g. 'cre'.
 

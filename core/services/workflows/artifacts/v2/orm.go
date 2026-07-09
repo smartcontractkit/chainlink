@@ -20,6 +20,11 @@ type WorkflowSpecsDS interface {
 	// GetWorkflowSpecByID returns the workflow spec for the given workflowID.
 	GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error)
 
+	// GetWorkflowSpecList returns the persisted workflow specs. It projects only
+	// the identity columns needed by the metering snapshot path (workflow_id and
+	// workflow_owner); other fields are left zero.
+	GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error)
+
 	// DeleteWorkflowSpec deletes the workflow spec for the given workflow ID.
 	DeleteWorkflowSpec(ctx context.Context, id string) error
 
@@ -127,6 +132,22 @@ func (orm *orm) GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSp
 	}
 
 	return &spec, nil
+}
+
+// GetWorkflowSpecList returns all persisted workflow specs, projecting only the
+// identity columns the metering snapshot path needs (workflow_id, workflow_owner).
+func (orm *orm) GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error) {
+	query := `
+		SELECT workflow_id, workflow_owner
+		FROM workflow_specs_v2
+	`
+
+	var specs []*job.WorkflowSpec
+	if err := orm.ds.SelectContext(ctx, &specs, query); err != nil {
+		return nil, err
+	}
+
+	return specs, nil
 }
 
 func (orm *orm) DeleteWorkflowSpec(ctx context.Context, id string) error {

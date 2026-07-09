@@ -46,20 +46,6 @@ type RelayGetter interface {
 	GetIDToRelayerMap() map[types.RelayID]loop.Relayer
 }
 
-// NodeIdentity is the host-injected deployment/node metering identity sourced at
-// node startup. It is retained on the delegate for compatibility with launcher
-// wiring while metering identity delivery is handled through loop.EnvConfig.
-type NodeIdentity struct {
-	// Product is the deployment product, e.g. "cre".
-	Product string
-	// Environment is the deployment environment, from [Telemetry.ResourceAttributes]["env"].
-	Environment string
-	// Zone is the deployment zone, from [Telemetry.ResourceAttributes]["zone"].
-	Zone string
-	// NodeID is the node's logical name (not the CSA public key).
-	NodeID string
-}
-
 type Delegate struct {
 	logger                  logger.Logger
 	ds                      sqlutil.DataSource
@@ -80,7 +66,6 @@ type Delegate struct {
 	creSettings             core.SettingsBroadcaster
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
-	nodeIdentity            NodeIdentity
 	initErr                 error
 
 	isNewlyCreatedJob bool
@@ -113,7 +98,6 @@ func NewDelegate(
 	creSettings core.SettingsBroadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
 	localCfg coreconfig.LocalCapabilities,
-	nodeIdentity NodeIdentity,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	initErr := registerOptionalMockStreamsTrigger(logger, localCfg, registry)
@@ -141,7 +125,6 @@ func NewDelegate(
 		creSettings:             creSettings,
 		ocrConfigService:        ocrConfigService,
 		localCfg:                localCfg,
-		nodeIdentity:            nodeIdentity,
 		initErr:                 initErr,
 		selectorOpts:            opts,
 	}

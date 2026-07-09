@@ -106,12 +106,10 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse capabilities env file: %w", err)
 		}
-		// Pass through the node's meter-record emission gate so capability LOOPPs
-		// inherit it: plugins.NewCmdFactory builds the child env from CmdConfig.Env
-		// only and does not inherit os.Environ().
-		if v := env.MeterRecordsEnabled.Get(); v != "" {
-			envVars = append(envVars, fmt.Sprintf("%s=%s", env.MeterRecordsEnabled, v))
-		}
+		// Metering identity and the emission gate reach capability LOOPs through
+		// loop.EnvConfig (produced from the node's TOML [Metering] via
+		// EnvConfig.AsCmdEnv), so there is no meter-record env var to pass
+		// through here.
 		cmdFn, opts, err := s.pluginRegistrar.RegisterLOOP(plugins.CmdConfig{
 			ID:  s.log.Name(),
 			Cmd: s.command,
