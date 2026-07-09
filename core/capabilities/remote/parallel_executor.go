@@ -26,6 +26,16 @@ func NewParallelExecutor(maxParallelTasks int) *ParallelExecutor {
 	}
 }
 
+// OccupiedSlots returns the number of in-flight tasks holding executor slots.
+func (t *ParallelExecutor) OccupiedSlots() int {
+	return len(t.taskSemaphore)
+}
+
+// MaxSlots returns the maximum number of concurrent tasks allowed.
+func (t *ParallelExecutor) MaxSlots() int {
+	return cap(t.taskSemaphore)
+}
+
 // ExecuteTask executes a task in parallel up to the maximum allowed parallel executions. If the
 // maximum execute limit is reached, the function will block until a slot is available or the
 // context is cancelled.

@@ -79,6 +79,8 @@ func Test_ExecutingMultipleTasksInParallel(t *testing.T) {
 	}
 
 	assert.Eventually(t, func() bool { return counter.Load() == 10 }, 5*time.Second, 10*time.Millisecond)
+	assert.Equal(t, 10, tp.OccupiedSlots())
+	assert.Equal(t, 10, tp.MaxSlots())
 }
 
 func Test_StopsExecutingMultipleParallelTasksWhenClosed(t *testing.T) {
