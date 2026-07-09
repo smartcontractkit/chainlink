@@ -323,7 +323,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		// Interpreting outcomes:
 		//   - success/error: quorum reached, RegisterTrigger ran (includes executor queue
 		//     wait + underlying work such as DB). Use for end-to-end register latency.
-		//   - anything else (not_ready, skipped_exists, schedule_failed, ...): Receive
+		//   - anything else (not_ready, quorum_already_met, skipped_exists, schedule_failed, ...):
 		//     returned without calling RegisterTrigger. These did early-exit as intended.
 		//     High p99 here means Receive itself was slow—typically p.mu wait and/or
 		//     time blocked acquiring an executor slot (schedule_failed), not DB writes.
@@ -377,9 +377,20 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		minRequired := uint32(2*callerDon.F + 1)
 		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
 		if !ready {
-			registerOutcome = "not_ready"
-			p.mu.Unlock()
-			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "minRequired", minRequired)
+			peersReceived := len(p.messageCache.Peers(key))
+			if p.messageCache.WasReady(key) {
+				registerOutcome = "quorum_already_met"
+				p.mu.Unlock()
+				p.lggr.Debugw("quorum already met; ignoring duplicate registration message",
+					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID,
+					"peersReceived", peersReceived, "minRequired", minRequired)
+			} else {
+				registerOutcome = "not_ready"
+				p.mu.Unlock()
+				p.lggr.Debugw("quorum not reached yet",
+					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID,
+					"peersReceived", peersReceived, "minRequired", minRequired)
+			}
 			return
 		}
 		aggregated, aggregateErr := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
@@ -510,9 +521,20 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.unregisterCache.Insert(key, sender, nowMs, nil)
 		ready, _ := p.unregisterCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
 		if !ready {
-			p.mu.Unlock()
-			unregisterOutcome = "not_ready"
-			p.lggr.Debugw("unregister quorum not reached yet", "workflowID", key.workflowID, "triggerID", key.triggerID, "sender", sender, "minRequired", minRequired)
+			peersReceived := len(p.unregisterCache.Peers(key))
+			if p.unregisterCache.WasReady(key) {
+				unregisterOutcome = "quorum_already_met"
+				p.mu.Unlock()
+				p.lggr.Debugw("unregister quorum already met; ignoring duplicate message",
+					"workflowID", key.workflowID, "triggerID", key.triggerID, "sender", sender,
+					"peersReceived", peersReceived, "minRequired", minRequired)
+			} else {
+				unregisterOutcome = "not_ready"
+				p.mu.Unlock()
+				p.lggr.Debugw("unregister quorum not reached yet",
+					"workflowID", key.workflowID, "triggerID", key.triggerID, "sender", sender,
+					"peersReceived", peersReceived, "minRequired", minRequired)
+			}
 			return
 		}
 		p.lggr.Debugw("unregister trigger", "workflowID", key.workflowID, "triggerID", key.triggerID,
@@ -588,12 +610,21 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		ackCount := len(p.ackCache.Peers(key))
 		if !ready {
 			p.mu.Unlock()
-			ackOutcome = "not_ready"
-			p.lggr.Debugw("not ready to ACK trigger event yet",
-				"triggerEventId", triggerEventID,
-				"triggerID", triggerID,
-				"acksReceived", ackCount,
-				"minRequired", minRequired)
+			if p.ackCache.WasReady(key) {
+				ackOutcome = "quorum_already_met"
+				p.lggr.Debugw("ACK quorum already met; ignoring duplicate message",
+					"triggerEventId", triggerEventID,
+					"triggerID", triggerID,
+					"acksReceived", ackCount,
+					"minRequired", minRequired)
+			} else {
+				ackOutcome = "not_ready"
+				p.lggr.Debugw("ACK quorum not reached yet",
+					"triggerEventId", triggerEventID,
+					"triggerID", triggerID,
+					"acksReceived", ackCount,
+					"minRequired", minRequired)
+			}
 			return
 		}
 
