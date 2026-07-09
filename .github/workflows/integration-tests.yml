@@ -149,6 +149,7 @@ jobs:
             workflow-files:
               - ".github/workflows/integration-tests.yml"
               - ".github/actions/**/*.y*ml"
+              - '.github/e2e-tests.yml'
             docker-files:
               - "**/*Dockerfile"
               - "plugins/plugins.public.yaml"
@@ -287,7 +288,7 @@ jobs:
               }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@d141ef83eb66d096ce8afc767e09115a65c63b60 # v2.1.2
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
 
       - name: Check if image exists in ECR
         id: check-image-exists
