@@ -40,30 +40,30 @@ type triggerPublisher struct {
 	dispatcher    types.Dispatcher
 	cfg           atomic.Pointer[dynamicPublisherConfig]
 
-	messageCache    *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
-	registrations   map[registrationKey]*pubRegState
-	unregisterCache *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
-	ackCache        *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
-	mu              sync.RWMutex // protects messageCache, ackCache, unregisterCache, and registrations
-
-	batchingQueue map[[32]byte]*batchedResponse
-	bqMu          sync.Mutex // protects batchingQueue
-	stopCh        services.StopChan
-	wg            sync.WaitGroup
-	ackExecutor   *ParallelExecutor
-	lggr          logger.Logger
-	metrics       triggerPublisherMetrics
+	messageCache     *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
+	registrations    map[registrationKey]*pubRegState
+	unregisterCache  *messagecache.MessageCache[registrationKey, p2ptypes.PeerID]
+	ackCache         *messagecache.MessageCache[ackKey, p2ptypes.PeerID]
+	mu               sync.RWMutex // protects messageCache, ackCache, unregisterCache, and registrations
+	batchingQueue    map[[32]byte]*batchedResponse
+	bqMu             sync.Mutex // protects batchingQueue
+	stopCh           services.StopChan
+	wg               sync.WaitGroup
+	ackExecutor      *ParallelExecutor
+	registerExecutor *ParallelExecutor
+	lggr             logger.Logger
+	metrics          triggerPublisherMetrics
 }
 
 type triggerPublisherMetrics struct {
-	registerTriggerCounter          metric.Int64Counter
-	unregisterTriggerCounter        metric.Int64Counter
-	ackEventCounter                 metric.Int64Counter
-	ackExecutorSlotUsage            metric.Float64Gauge
-	ackPreExecuteDurationMs         metric.Int64Histogram
-	ackTaskDurationMs               metric.Int64Histogram
-	registerTriggerReceiveDurationMs metric.Int64Histogram
-	registerTriggerTaskDurationMs    metric.Int64Histogram
+	registerTriggerCounter             metric.Int64Counter
+	unregisterTriggerCounter           metric.Int64Counter
+	ackEventCounter                    metric.Int64Counter
+	ackExecutorSlotUsage               metric.Float64Gauge
+	ackPreExecuteDurationMs            metric.Int64Histogram
+	ackTaskDurationMs                  metric.Int64Histogram
+	registerTriggerReceiveDurationMs   metric.Int64Histogram
+	registerTriggerTaskDurationMs      metric.Int64Histogram
 	unregisterTriggerReceiveDurationMs metric.Int64Histogram
 	unregisterTriggerTaskDurationMs    metric.Int64Histogram
 }
@@ -115,6 +115,7 @@ var _ types.ReceiverService = &triggerPublisher{}
 const (
 	minAllowedBatchCollectionPeriod = 10 * time.Millisecond
 	defaultMaxParallelAcks          = 100 // TODO: pass through config from remoteConfig
+	defaultMaxParallelRegisters     = 100 // TODO: pass through config from remoteConfig
 )
 
 func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
@@ -307,6 +308,11 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to start ack executor: %w", err)
 	}
 
+	p.registerExecutor = NewParallelExecutor(defaultMaxParallelRegisters)
+	if err := p.registerExecutor.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start register executor: %w", err)
+	}
+
 	p.lggr.Info("TriggerPublisher started")
 	return nil
 }
@@ -364,9 +370,9 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		key := registrationKey{msg.CallerDonId, req.Metadata.WorkflowID, req.TriggerID}
 		nowMs := time.Now().UnixMilli()
 		p.mu.Lock()
-		defer p.mu.Unlock()
 		p.messageCache.Insert(key, sender, nowMs, msg.Payload)
 		if existing, exists := p.registrations[key]; exists {
+			p.mu.Unlock()
 			if existing.registrationErr != nil {
 				registerOutcome = "skipped_user_error"
 				p.lggr.Debugw("skipping trigger registration; previous attempt failed with user error",
@@ -379,61 +385,84 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		}
 		// NOTE: require 2F+1 by default, introduce different strategies later (KS-76)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), false)
+		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
 		if !ready {
 			registerOutcome = "not_ready"
+			p.mu.Unlock()
 			p.lggr.Debugw("not ready to aggregate yet", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "minRequired", minRequired)
 			return
 		}
 		aggregated, aggregateErr := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
 		if aggregateErr != nil {
 			registerOutcome = "aggregate_error"
+			p.mu.Unlock()
 			p.lggr.Errorw("failed to aggregate trigger registrations", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", aggregateErr)
 			return
 		}
 		unmarshaled, unmarshalErr := pb.UnmarshalTriggerRegistrationRequest(aggregated)
 		if unmarshalErr != nil {
 			registerOutcome = "aggregate_unmarshal_error"
+			p.mu.Unlock()
 			p.lggr.Errorw("failed to unmarshal request", "err", unmarshalErr)
 			return
 		}
-		ctx, cancel := p.stopCh.NewCtx()
-		taskStart := time.Now()
-		callbackCh, registerErr := cfg.underlying.RegisterTrigger(ctx, unmarshaled)
-		taskOutcome := "success"
-		if registerErr != nil {
-			taskOutcome = "error"
+		if p.registerExecutor == nil {
+			registerOutcome = "executor_not_started"
+			p.mu.Unlock()
+			p.lggr.Errorw("register executor not started; cannot register trigger",
+				"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
+			return
 		}
-		p.recordReceivePathDuration(p.metrics.registerTriggerTaskDurationMs, ctx, callerDonID, taskOutcome, time.Since(taskStart))
+		p.mu.Unlock()
+
 		capAttrs := metric.WithAttributes(
 			attribute.String("capabilityID", p.capabilityID),
 			attribute.String("callerDonID", strconv.FormatUint(uint64(key.callerDonID), 10)),
 		)
-		if registerErr == nil {
-			registerOutcome = "success"
-			p.metrics.registerTriggerCounter.Add(ctx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
-			p.registrations[key] = &pubRegState{
-				callback: callbackCh,
-				request:  unmarshaled,
-				cancel:   cancel,
+
+		scheduleErr := p.registerExecutor.ExecuteTask(ctx, func(taskCtx context.Context) {
+			taskStart := time.Now()
+			callbackCh, registerErr := cfg.underlying.RegisterTrigger(taskCtx, unmarshaled)
+			taskOutcome := "success"
+			if registerErr != nil {
+				taskOutcome = "error"
 			}
-			p.wg.Add(1)
-			go p.triggerEventLoop(callbackCh, key)
-			p.lggr.Debugw("updated trigger registration", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
-		} else {
-			registerOutcome = "error"
-			p.metrics.registerTriggerCounter.Add(ctx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
-			cancel()
+			p.recordReceivePathDuration(p.metrics.registerTriggerTaskDurationMs, taskCtx, callerDonID, taskOutcome, time.Since(taskStart))
+
+			p.mu.Lock()
+			defer p.mu.Unlock()
+			if registerErr == nil {
+				_, cancel := p.stopCh.NewCtx()
+				p.metrics.registerTriggerCounter.Add(taskCtx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
+				p.registrations[key] = &pubRegState{
+					callback: callbackCh,
+					request:  unmarshaled,
+					cancel:   cancel,
+				}
+				p.wg.Add(1)
+				go p.triggerEventLoop(callbackCh, key)
+				p.lggr.Debugw("updated trigger registration", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
+				return
+			}
+
+			p.metrics.registerTriggerCounter.Add(taskCtx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
 			var capErr caperrors.Error
 			if errors.As(registerErr, &capErr) && capErr.Origin() == caperrors.OriginUser {
 				p.registrations[key] = &pubRegState{registrationErr: registerErr}
 				p.lggr.Errorw("trigger registration failed with user error; will not retry",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", registerErr)
-			} else {
-				p.lggr.Errorw("trigger registration failed with system error; will retry",
-					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", registerErr)
+				return
 			}
+			p.lggr.Errorw("trigger registration failed with system error; will retry",
+				"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", registerErr)
+		})
+		if scheduleErr != nil {
+			registerOutcome = "schedule_failed"
+			p.lggr.Errorw("failed to schedule RegisterTrigger task",
+				"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", scheduleErr)
+			return
 		}
+		registerOutcome = "scheduled"
 	case types.MethodUnregisterTrigger:
 		unregisterStart := time.Now()
 		callerDonID := msg.CallerDonId
@@ -929,6 +958,11 @@ func (p *triggerPublisher) Close() error {
 	if p.ackExecutor != nil {
 		if err := p.ackExecutor.Close(); err != nil {
 			return fmt.Errorf("failed to close ack executor: %w", err)
+		}
+	}
+	if p.registerExecutor != nil {
+		if err := p.registerExecutor.Close(); err != nil {
+			return fmt.Errorf("failed to close register executor: %w", err)
 		}
 	}
 	p.lggr.Info("TriggerPublisher closed")
