@@ -67,7 +67,7 @@ func TestGetOrBuildBinaryUsesCache(t *testing.T) {
 	repoRoot := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(repoRoot, "go.mod"), []byte("module example.com/test\n"), 0o600))
 
-	pkgRelPath := "core/capabilities/compute/test/simple/cmd"
+	pkgRelPath := "core/synthetic/test/cmd"
 	fingerprint := "deadbeefcafebabe"
 	cacheDir := filepath.Join(repoRoot, cacheDirName)
 	require.NoError(t, os.MkdirAll(cacheDir, 0o755))

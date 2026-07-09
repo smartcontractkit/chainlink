@@ -26,8 +26,9 @@ import (
 const (
 	modulePath   = "github.com/smartcontractkit/chainlink/v2"
 	cacheDirName = ".wasm-cache"
-	buildFlags   = "-trimpath -buildvcs=false"
 )
+
+var buildFlags = []string{"-trimpath", "-buildvcs=false"}
 
 var getRepoRoot = sync.OnceValues(func() (string, error) {
 	_, filename, _, ok := runtime.Caller(0)
@@ -348,7 +349,7 @@ func writeFingerprint(h io.Writer, goVersion string, goSumDigest [sha256.Size]by
 	if _, err := io.WriteString(h, "\nwasip1\nwasm\n"); err != nil {
 		return fmt.Errorf("hash platform: %w", err)
 	}
-	if _, err := io.WriteString(h, buildFlags); err != nil {
+	if _, err := io.WriteString(h, strings.Join(buildFlags, " ")); err != nil {
 		return fmt.Errorf("hash build flags: %w", err)
 	}
 	if _, err := io.WriteString(h, "\n"); err != nil {
@@ -432,7 +433,9 @@ func buildBinary(pkgPath string) ([]byte, error) {
 	defer cancel()
 
 	buildPath := filepath.Join(tmpDir, "output.wasm")
-	cmd := exec.CommandContext(cmdCtx, "go", "build", "-trimpath", "-buildvcs=false", "-o", buildPath, pkgPath) // #nosec
+	args := append([]string{"build"}, buildFlags...)
+	args = append(args, "-o", buildPath, pkgPath)
+	cmd := exec.CommandContext(cmdCtx, "go", args...) // #nosec
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
 	output, err := cmd.CombinedOutput()
