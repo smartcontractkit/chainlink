@@ -319,23 +319,19 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 
 		req, unmarshalErr := pb.UnmarshalTriggerRegistrationRequest(msg.Payload)
 		if unmarshalErr != nil {
-			registerOutcome = "unmarshal_error"
 			p.lggr.Errorw("failed to unmarshal trigger registration request", "err", unmarshalErr)
 			return
 		}
 		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
 		if !ok {
-			registerOutcome = "unsupported_don"
 			p.lggr.Errorw("received a message from unsupported workflow DON", "callerDonId", msg.CallerDonId)
 			return
 		}
 		if !cfg.membersCache[msg.CallerDonId][sender] {
-			registerOutcome = "invalid_sender"
 			p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
 		if err = validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
-			registerOutcome = "invalid_workflow_id"
 			p.lggr.Errorw("received trigger request with invalid workflow ID", "workflowId", SanitizeLogString(req.Metadata.WorkflowID), "err", err)
 			return
 		}
@@ -347,11 +343,9 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		if existing, exists := p.registrations[key]; exists {
 			p.mu.Unlock()
 			if existing.registrationErr != nil {
-				registerOutcome = "skipped_user_error"
 				p.lggr.Debugw("skipping trigger registration; previous attempt failed with user error",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", existing.registrationErr)
 			} else {
-				registerOutcome = "skipped_exists"
 				p.lggr.Debugw("trigger registration already exists", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
 			}
 			return
@@ -362,13 +356,11 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		if !ready {
 			peersReceived := len(p.messageCache.Peers(key))
 			if p.messageCache.WasReady(key) {
-				registerOutcome = "quorum_already_met"
 				p.mu.Unlock()
 				p.lggr.Debugw("quorum already met; ignoring duplicate registration message",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID,
 					"peersReceived", peersReceived, "minRequired", minRequired)
 			} else {
-				registerOutcome = "not_ready"
 				p.mu.Unlock()
 				p.lggr.Debugw("quorum not reached yet",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID,
@@ -378,20 +370,17 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		}
 		aggregated, aggregateErr := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
 		if aggregateErr != nil {
-			registerOutcome = "aggregate_error"
 			p.mu.Unlock()
 			p.lggr.Errorw("failed to aggregate trigger registrations", "workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", aggregateErr)
 			return
 		}
 		unmarshaled, unmarshalErr := pb.UnmarshalTriggerRegistrationRequest(aggregated)
 		if unmarshalErr != nil {
-			registerOutcome = "aggregate_unmarshal_error"
 			p.mu.Unlock()
 			p.lggr.Errorw("failed to unmarshal request", "err", unmarshalErr)
 			return
 		}
 		if err := p.registerExecutor.Ready(); err != nil {
-			registerOutcome = "executor_not_started"
 			p.mu.Unlock()
 			p.lggr.Errorw("register executor not started; cannot register trigger",
 				"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
@@ -442,14 +431,12 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.messageCache.Delete(key)
 		})
 		if scheduleErr != nil {
-			registerOutcome = "schedule_failed"
 			p.lggr.Errorw("failed to schedule RegisterTrigger task",
 				"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", scheduleErr)
 			return
 		}
 		// Hand off to executor; disable defer recording—goroutine records success/error.
 		recordRegisterDuration = false
-		registerOutcome = "scheduled"
 	case types.MethodUnregisterTrigger:
 		unregisterStart := time.Now()
 		unregisterOutcome := "invalid"
@@ -459,24 +446,20 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 
 		meta := msg.GetTriggerEventMetadata()
 		if meta == nil {
-			unregisterOutcome = "nil_metadata"
 			p.lggr.Errorw("received unregister with nil metadata", "sender", sender)
 			return
 		}
 		if len(meta.WorkflowIds) != 1 || len(meta.TriggerIds) != 1 {
-			unregisterOutcome = "invalid_metadata"
 			p.lggr.Errorw("received unregister with unexpected metadata sizes",
 				"sender", sender, "workflowIdsLen", len(meta.WorkflowIds), "triggerIdsLen", len(meta.TriggerIds))
 			return
 		}
 		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
 		if !ok {
-			unregisterOutcome = "unsupported_don"
 			p.lggr.Errorw("received unregister from unsupported workflow DON", "callerDonId", msg.CallerDonId)
 			return
 		}
 		if !cfg.membersCache[msg.CallerDonId][sender] {
-			unregisterOutcome = "invalid_sender"
 			p.lggr.Errorw("unregister sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
@@ -491,7 +474,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		reg, exists := p.registrations[key]
 		if !exists {
 			p.mu.Unlock()
-			unregisterOutcome = "not_registered"
 			return
 		}
 		nowMs := time.Now().UnixMilli()
@@ -501,13 +483,11 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		if !ready {
 			peersReceived := len(p.unregisterCache.Peers(key))
 			if p.unregisterCache.WasReady(key) {
-				unregisterOutcome = "quorum_already_met"
 				p.mu.Unlock()
 				p.lggr.Debugw("unregister quorum already met; ignoring duplicate message",
 					"workflowID", key.workflowID, "triggerID", key.triggerID, "sender", sender,
 					"peersReceived", peersReceived, "minRequired", minRequired)
 			} else {
-				unregisterOutcome = "not_ready"
 				p.mu.Unlock()
 				p.lggr.Debugw("unregister quorum not reached yet",
 					"workflowID", key.workflowID, "triggerID", key.triggerID, "sender", sender,
@@ -549,7 +529,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 
 		triggerMetadata := msg.GetTriggerEventMetadata()
 		if triggerMetadata == nil {
-			ackOutcome = "nil_metadata"
 			p.lggr.Errorw("received empty trigger event ack metadata", "sender", sender)
 			return
 		}
@@ -560,19 +539,16 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		callerDon, ok := cfg.workflowDONs[msg.CallerDonId]
 		if !ok {
 			p.mu.Unlock()
-			ackOutcome = "unsupported_don"
 			p.lggr.Errorw("received a message from unsupported workflow DON", "callerDonId", msg.CallerDonId)
 			return
 		}
 		if !cfg.membersCache[msg.CallerDonId][sender] {
 			p.mu.Unlock()
-			ackOutcome = "invalid_sender"
 			p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
 		if len(triggerMetadata.TriggerIds) != 1 {
 			p.mu.Unlock()
-			ackOutcome = "invalid_trigger_ids"
 			p.lggr.Errorw("did not receive single triggerID in ACK request", "callerDonId", msg.CallerDonId, "sender", sender, "triggerIDs", triggerMetadata.TriggerIds)
 			return
 		}
@@ -587,14 +563,12 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		if !ready {
 			p.mu.Unlock()
 			if p.ackCache.WasReady(key) {
-				ackOutcome = "quorum_already_met"
 				p.lggr.Debugw("ACK quorum already met; ignoring duplicate message",
 					"triggerEventId", triggerEventID,
 					"triggerID", triggerID,
 					"acksReceived", ackCount,
 					"minRequired", minRequired)
 			} else {
-				ackOutcome = "not_ready"
 				p.lggr.Debugw("ACK quorum not reached yet",
 					"triggerEventId", triggerEventID,
 					"triggerID", triggerID,
@@ -607,7 +581,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.mu.Unlock()
 
 		if err := p.ackExecutor.Ready(); err != nil {
-			ackOutcome = "executor_not_started"
 			p.lggr.Errorw("ack executor not started; cannot forward AckEvent",
 				"triggerEventId", triggerEventID, "triggerID", triggerID)
 			return
@@ -650,7 +623,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.metrics.ackEventCounter.Add(taskCtx, 1, ackAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
 		})
 		if scheduleErr != nil {
-			ackOutcome = "schedule_failed"
 			p.lggr.Errorw("failed to schedule AckEvent task",
 				"triggerEventId", triggerEventID, "triggerID", triggerID, "err", scheduleErr)
 			return
