@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -136,9 +135,10 @@ func newMeteringTestHandler(t *testing.T, artifactsStore WorkflowArtifactsStore,
 
 // requireSpecDelta asserts that record is a workflow-syncer-v2 spec delta: a
 // METER_ACTION_UPDATE carrying a single utilization with the given signed value
-// and resource_id (= workflow_id). event_id must be a manager-generated UUID,
-// not the originating event name.
-func requireSpecDelta(t *testing.T, record *meteringpb.MeterRecord, value, workflowID string) {
+// and resource_id (= workflow_id). event_id must be the deterministic,
+// cross-node-identical id wantEventID (an opaque string that is never
+// format-validated).
+func requireSpecDelta(t *testing.T, record *meteringpb.MeterRecord, value, workflowID, wantEventID string) {
 	t.Helper()
 	require.NotNil(t, record.Identity)
 	assert.Equal(t, "workflow-syncer-v2", record.Identity.Service)
@@ -153,9 +153,9 @@ func requireSpecDelta(t *testing.T, record *meteringpb.MeterRecord, value, workf
 	assert.Equal(t, "operations", util.ResourceType)
 	// resource_id = workflow_id for the syncer (no shared physical resource).
 	assert.Equal(t, workflowID, util.ResourceId)
-	// event_id is generated per emission by the ResourceManager (a UUIDv4).
-	_, parseErr := uuid.Parse(util.EventId)
-	assert.NoError(t, parseErr, "event_id must be a manager-generated UUID, got %q", util.EventId)
+	// event_id is the deterministic reconciliation-derived id, identical on every
+	// workflow-DON node; it is an opaque string with no validated format.
+	assert.Equal(t, wantEventID, util.EventId)
 }
 
 func Test_meterRecords(t *testing.T) {
@@ -179,14 +179,16 @@ func Test_meterRecords(t *testing.T) {
 
 		records := emitter.Records()
 		require.Len(t, records, 1)
-		requireSpecDelta(t, records[0], "1", wfID.Hex())
+		requireSpecDelta(t, records[0], "1", wfID.Hex(),
+			resourcemanager.EventID("workflow-spec-register", wfID.Hex(), "0"))
 	})
 
-	t.Run("retried registered event emits a fresh event_id per emission", func(t *testing.T) {
+	t.Run("reprocessed registered event emits the IDENTICAL event_id (cross-node dedup)", func(t *testing.T) {
 		t.Parallel()
 		emitter := &recordingEmitter{}
 		// The stub never returns a stored spec, so each call replays the
-		// new-spec path exactly as a reprocessed event would.
+		// new-spec path exactly as a reprocessed event (or a second node
+		// reconciling the same on-chain event) would.
 		h := newMeteringTestHandler(t, &stubWorkflowArtifactsStore{}, newMeteringResourceManager(t, true, emitter))
 
 		event := WorkflowRegisteredEvent{
@@ -194,6 +196,7 @@ func Test_meterRecords(t *testing.T) {
 			WorkflowID:    types.WorkflowID{2},
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "wf-name",
+			CreatedAt:     123,
 		}
 		require.NoError(t, h.workflowRegisteredEvent(t.Context(), event, WorkflowRegistered))
 		require.NoError(t, h.workflowRegisteredEvent(t.Context(), event, WorkflowRegistered))
@@ -202,12 +205,12 @@ func Test_meterRecords(t *testing.T) {
 		require.Len(t, records, 2)
 		require.Len(t, records[0].Utilizations, 1)
 		require.Len(t, records[1].Utilizations, 1)
-		assert.Equal(t, records[0].Action, records[1].Action)
-		assert.Equal(t, records[0].Identity.GetService(), records[1].Identity.GetService())
-		assert.Equal(t, records[0].Identity.GetResourcePool(), records[1].Identity.GetResourcePool())
-		assert.Equal(t, records[0].Utilizations[0].GetResourceId(), records[1].Utilizations[0].GetResourceId())
-		// event_id is generated fresh per emission; retries do not reuse it.
-		assert.NotEqual(t, records[0].Utilizations[0].GetEventId(), records[1].Utilizations[0].GetEventId())
+		// The same reconciliation event MUST yield the identical event_id, so the
+		// billing consumer dedups reprocessing and cross-node duplicates. It is
+		// derived deterministically from the on-chain workflowID + CreatedAt.
+		want := resourcemanager.EventID("workflow-spec-register", types.WorkflowID{2}.Hex(), "123")
+		assert.Equal(t, want, records[0].Utilizations[0].GetEventId())
+		assert.Equal(t, records[0].Utilizations[0].GetEventId(), records[1].Utilizations[0].GetEventId())
 	})
 
 	t.Run("activating an already-stored spec emits nothing (status-only update)", func(t *testing.T) {
@@ -270,7 +273,8 @@ func Test_meterRecords(t *testing.T) {
 
 		records := emitter.Records()
 		require.Len(t, records, 1)
-		requireSpecDelta(t, records[0], "-1", wfID.Hex())
+		requireSpecDelta(t, records[0], "-1", wfID.Hex(),
+			resourcemanager.EventID("workflow-spec-delete", wfID.Hex()))
 	})
 
 	t.Run("no record when persisting a new spec fails", func(t *testing.T) {
@@ -331,7 +335,8 @@ func Test_meterRecords(t *testing.T) {
 
 		records := emitter.Records()
 		require.Len(t, records, 1)
-		requireSpecDelta(t, records[0], "-1", wfID.Hex())
+		requireSpecDelta(t, records[0], "-1", wfID.Hex(),
+			resourcemanager.EventID("workflow-spec-delete", wfID.Hex()))
 	})
 
 	t.Run("emit failure never fails event handling", func(t *testing.T) {

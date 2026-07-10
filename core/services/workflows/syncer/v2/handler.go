@@ -683,7 +683,8 @@ func (h *eventHandler) workflowRegisteredEvent(
 		}
 		// A new spec's artifacts were persisted for the first time: the durable
 		// workflow_specs_v2 resource gained one unit, so emit a +1 delta.
-		h.emitSpecDelta(ctx, 1, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner))
+		h.emitSpecDelta(ctx, 1, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner),
+			resourcemanager.EventID("workflow-spec-register", payload.WorkflowID.Hex(), strconv.FormatUint(payload.CreatedAt, 10)))
 
 		spec = newSpec
 	case spec.WorkflowID != payload.WorkflowID.Hex():
@@ -693,7 +694,8 @@ func (h *eventHandler) workflowRegisteredEvent(
 		}
 		// A different spec's artifacts were persisted under this key: the newly
 		// stored spec is a fresh durable resource, so emit a +1 delta.
-		h.emitSpecDelta(ctx, 1, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner))
+		h.emitSpecDelta(ctx, 1, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner),
+			resourcemanager.EventID("workflow-spec-register", payload.WorkflowID.Hex(), strconv.FormatUint(payload.CreatedAt, 10)))
 
 		spec = newSpec
 	case spec.Status != status:
@@ -1017,7 +1019,12 @@ func (h *eventHandler) workflowDeletedEvent(
 	// realized by the spec's absence from subsequent snapshots, so pause emits
 	// no delta.
 	if originatingEvent == WorkflowDeleted {
-		h.emitSpecDelta(ctx, -1, workflowID, deleteOwner)
+		// WorkflowDeletedEvent carries only the workflow ID (no on-chain
+		// CreatedAt/block), so the delete event_id is derived from the
+		// DON-consistent workflowID alone. See the emitSpecDelta call for the
+		// re-delete-cycle limitation noted in the metering redesign.
+		h.emitSpecDelta(ctx, -1, workflowID, deleteOwner,
+			resourcemanager.EventID("workflow-spec-delete", workflowID))
 	}
 
 	h.cleanupModuleCache(payload.WorkflowID.Hex())
@@ -1049,16 +1056,20 @@ func (h *eventHandler) workflowDeletedEvent(
 // owner is the workflow owner as stored in durable state; the organization is
 // resolved fail-open at emit time via ResolveOrEmpty and is never persisted.
 // Emission is fail-open and returns no error, so metering can never gate,
-// delay, or fail the storage operation it records. event_id is generated per
-// emission by the ResourceManager (a fresh UUIDv4) and is the consumer's dedup
-// key.
-func (h *eventHandler) emitSpecDelta(ctx context.Context, delta int64, workflowID, owner string) {
+// delay, or fail the storage operation it records.
+//
+// eventID is the caller-supplied, deterministic cross-node dedup key. The syncer
+// is a workflow-DON service driven by reconciliation against the shared on-chain
+// WorkflowRegistry, so every workflow-DON node sees the same reconciliation
+// event and derives the identical id from it (see the call sites). It is never
+// generated here; an empty eventID is rejected by the ResourceManager.
+func (h *eventHandler) emitSpecDelta(ctx context.Context, delta int64, workflowID, owner, eventID string) {
 	if h.resourceManager == nil {
 		return
 	}
 	orgID := orgresolver.ResolveOrEmpty(ctx, h.orgResolver, owner, h.lggr)
 	// resource_id = workflow_id (the syncer meters one durable spec per workflow).
-	h.resourceManager.EmitDelta(ctx, h.baseIdentity(), delta, resourcemanager.UtilizationFields{
+	h.resourceManager.EmitDelta(ctx, h.baseIdentity(), eventID, delta, resourcemanager.UtilizationFields{
 		ResourceType: meterResourceType,
 		ResourceID:   workflowID,
 		OrgID:        orgID,
