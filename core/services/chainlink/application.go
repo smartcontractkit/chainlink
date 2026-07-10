@@ -217,8 +217,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	var srvcs []services.ServiceCtx
 
 	heartbeat := NewHeartbeat(NewHeartbeatConfig(opts))
-	nodePlatformBuildInfo := NewNodePlatformBuildInfoService(NewNodePlatformBuildInfoConfig(opts))
-	srvcs = append(srvcs, &heartbeat, &nodePlatformBuildInfo)
+	srvcs = append(srvcs, &heartbeat)
 
 	auditLogger := opts.AuditLogger
 	cfg := opts.Config
@@ -786,6 +785,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to configure health checker otel hooks: %w", err)
 	}
 	healthChecker := healthCfg.New()
+
+	nodePlatformInfo := NewNodePlatformInfoService(healthChecker, NewNodePlatformInfoConfig(opts))
+	srvcs = append(srvcs, &nodePlatformInfo)
 
 	var lbs []utils.DependentAwaiter
 	for _, c := range legacyEVMChains.Slice() {
