@@ -683,6 +683,8 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	}
 	obspb.PendingQueueItems = pendingQueueItems
 
+	return obspb, nil
+
 	// Second, generate a random nonce that we'll use to sort the observations.
 	// Each node generates a nonce indepedently, to be concatenated later on.
 	nonce, ierr := generateRandomNonce()
