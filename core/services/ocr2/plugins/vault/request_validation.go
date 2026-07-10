@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"google.golang.org/protobuf/proto"
+
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -275,4 +277,21 @@ func decodeEncryptedSecretHex(encryptedValue string) ([]byte, error) {
 		return nil, newUserError("could not decode secret value: invalid hex: " + err.Error())
 	}
 	return encryptedSecret, nil
+}
+
+func requestTypeForPayload(payload proto.Message) vaultcommon.RequestType {
+	switch payload.(type) {
+	case *vaultcommon.GetSecretsRequest:
+		return vaultcommon.RequestType_GET_SECRETS
+	case *vaultcommon.CreateSecretsRequest:
+		return vaultcommon.RequestType_CREATE_SECRETS
+	case *vaultcommon.UpdateSecretsRequest:
+		return vaultcommon.RequestType_UPDATE_SECRETS
+	case *vaultcommon.DeleteSecretsRequest:
+		return vaultcommon.RequestType_DELETE_SECRETS
+	case *vaultcommon.ListSecretIdentifiersRequest:
+		return vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS
+	default:
+		return vaultcommon.RequestType_UNKNOWN
+	}
 }

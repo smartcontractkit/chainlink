@@ -856,7 +856,7 @@ func (r *ReportingPlugin) appendPendingQueueObservations(
 			}
 			r.requestLggr(seqNr, req.Id).Warnw("pending queue item observation failed; emitting error contribution", "error", err)
 		} else if includeInvalid {
-			if cerr := r.checkContribution(ctx, readKV, req, o); cerr != nil {
+			if cerr := r.validateContribution(ctx, readKV, req, o); cerr != nil {
 				o = observationToErrContribution(o, userFacingError(cerr, "request is not valid"))
 				r.requestLggr(seqNr, req.Id).Warnw("pending queue item failed contribution self-check; emitting error contribution", "error", cerr)
 			}
@@ -1372,9 +1372,21 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		return fmt.Errorf("could not decode pending queue GetSecrets requests: %w", err)
 	}
 
+	includeInvalid := r.includeInvalidPendingItemsEnabled(ctx)
+	pendingQueueByID := map[string]*vaultcommon.StoredPendingQueueItem{}
+	if includeInvalid {
+		for _, item := range pendingQueueItems {
+			pendingQueueByID[item.Id] = item
+		}
+	}
+
 	idToObs := map[string]*vaultcommon.Observation{}
 	for _, o := range obs.Observations {
-		err = r.validateObservation(ctx, o, pendingGetSecretsByID)
+		if includeInvalid {
+			err = r.validateContribution(ctx, readKV, pendingQueueByID[o.Id], o)
+		} else {
+			err = r.validateObservation(ctx, o, pendingGetSecretsByID)
+		}
 		if err != nil {
 			valLggr.Debugw("validate observation failed", "requestID", o.Id, "error", err)
 			return errors.New("invalid observation: " + err.Error())
@@ -1450,6 +1462,47 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	}
 
 	return nil
+}
+
+// observerOkCoverage counts the distinct pending-queue ids for which the observer contributed
+// an Ok observation. pendingIDs scopes coverage to the current queue (Byzantine ids outside the
+// queue are ignored); pass nil to count all Ok contributions. Used to attribute prefix divergence
+// to a specific oracle — a node consistently reporting lower coverage than peers is withholding
+// or truncating its observation prefix, which stalls head-of-queue quorum under include-invalid.
+func observerOkCoverage(obs *vaultcommon.Observations, pendingIDs map[string]bool) int {
+	if obs == nil {
+		return 0
+	}
+	seen := map[string]bool{}
+	for _, o := range obs.Observations {
+		if !observationContributionIsOk(o) {
+			continue
+		}
+		if pendingIDs != nil && !pendingIDs[o.Id] {
+			continue
+		}
+		seen[o.Id] = true
+	}
+	return len(seen)
+}
+
+// coverageSpread returns max-min of per-observer Ok prefix coverage. A non-zero spread means
+// oracles disagree on how much of the pending queue they observed — the head-of-queue stall
+// signature under include-invalid.
+func coverageSpread(coverages []int) int {
+	if len(coverages) == 0 {
+		return 0
+	}
+	minC, maxC := coverages[0], coverages[0]
+	for _, c := range coverages[1:] {
+		if c < minC {
+			minC = c
+		}
+		if c > maxC {
+			maxC = c
+		}
+	}
+	return maxC - minC
 }
 
 func (r *ReportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReader ocr3_1types.KeyValueStateReader, blobFetcher ocr3_1types.BlobFetcher) (quorumReached bool, err error) {
@@ -1609,6 +1662,45 @@ func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommo
 	default:
 		return errors.New("invalid observation type: " + o.RequestType.String())
 	}
+}
+
+// validateGetSecretsResponseShares checks TDH2 share labels and per-share size
+// limits for every GetSecrets response carrying data. Shared by the legacy
+// ValidateObservation path and the unified validateContribution path so the
+// share checks cannot drift between them.
+func (r *ReportingPlugin) validateGetSecretsResponseShares(ctx context.Context, req *vaultcommon.GetSecretsRequest, respMap map[string]*vaultcommon.SecretResponse) error {
+	for _, rsp := range respMap {
+		d := rsp.GetData()
+		if d == nil {
+			continue
+		}
+
+		secretReq, err := secretRequestForID(req, rsp.Id)
+		if err != nil {
+			return fmt.Errorf("GetSecrets response id not found in pending queue request: %w", err)
+		}
+		if err := validateGetSecretsShareLabels(secretReq, d); err != nil {
+			return err
+		}
+
+		// TODO orgID https://smartcontractkit-it.atlassian.net/browse/CRE-1707
+		innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
+		for _, ds := range d.GetEncryptedDecryptionKeyShares() {
+			shareSize, err := encryptedShareSizeForLimit(ds)
+			if err != nil {
+				return err
+			}
+			if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
+				var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+				if errors.As(err, &errBoundLimited) {
+					return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
+				}
+				return errors.New("failed to check share size")
+			}
+		}
+	}
+
+	return nil
 }
 
 func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *vaultcommon.Observation, pendingGetSecretsByID map[string]*vaultcommon.GetSecretsRequest) error {
@@ -1954,6 +2046,27 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			continue
 		}
 
+		// Defense in depth: re-run the same validateContribution used by the
+		// Observation self-check and ValidateObservation on each chosen observation
+		// before aggregating it. Honest nodes never fail this guard (chosen
+		// observations already passed ValidateObservation); a failure means KV
+		// divergence or a Byzantine observation, so we skip the item entirely.
+		if includeInvalid {
+			item := pendingQueueByID[id]
+			guardFailed := false
+			for _, ob := range chosen {
+				if gerr := r.validateContribution(ctx, writeKV, item, ob); gerr != nil {
+					l.Warnw("state transition guard rejected chosen observation; skipping item",
+						"seqNr", seqNr, "id", id, "error", gerr)
+					guardFailed = true
+					break
+				}
+			}
+			if guardFailed {
+				continue
+			}
+		}
+
 		// The shas are the same so the requests will have
 		// the same Id and Type.
 		first := chosen[0]
@@ -2147,6 +2260,7 @@ func sortKey(id string, nonce []byte) []byte {
 }
 
 func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader ReadKVStore, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
+	includeInvalid := r.includeInvalidPendingItemsEnabled(ctx)
 	if !r.optimizationsEnabled(ctx) {
 		first := chosen[0]
 		reqs := first.GetGetSecretsRequest().Requests
@@ -2201,24 +2315,26 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader 
 				// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 				innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
 				for _, existing := range rsp.GetData().EncryptedDecryptionKeyShares {
-					if err := validateEncryptedSharesEntry(existing); err != nil {
-						// This should not happen because we validate against this in ValidateObservation.
-						r.lggr.Errorw("exactly 1 share must be provided in the response, skipping", "id", rsp.Id)
-						continue
-					}
-					shareSize, err := encryptedShareSizeForLimit(existing)
-					if err != nil {
-						r.lggr.Errorw("could not measure share size, skipping", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
-						continue
-					}
-					if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
-						var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-						if errors.As(err, &errBoundLimited) {
-							r.lggr.Errorw("share exceeds max allowed size, skipping...", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
-						} else {
-							r.lggr.Errorw("could not check max allowed share size, skipping...", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
+					if !includeInvalid {
+						if err := validateEncryptedSharesEntry(existing); err != nil {
+							// This should not happen because we validate against this in ValidateObservation.
+							r.lggr.Errorw("exactly 1 share must be provided in the response, skipping", "id", rsp.Id)
+							continue
 						}
-						continue
+						shareSize, err := encryptedShareSizeForLimit(existing)
+						if err != nil {
+							r.lggr.Errorw("could not measure share size, skipping", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
+							continue
+						}
+						if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
+							var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+							if errors.As(err, &errBoundLimited) {
+								r.lggr.Errorw("share exceeds max allowed size, skipping...", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
+							} else {
+								r.lggr.Errorw("could not check max allowed share size, skipping...", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
+							}
+							continue
+						}
 					}
 
 					if shares, ok := keyToShares[existing.EncryptionKey]; ok {

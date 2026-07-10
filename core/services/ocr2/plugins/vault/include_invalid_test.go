@@ -453,3 +453,123 @@ func TestStateTransition_IncludeInvalid_RejectsMultiItemBatchOnFPlusOneErr(t *te
 	require.Contains(t, resps[0].GetError(), "invalid request")
 	require.Contains(t, resps[1].GetError(), "invalid request")
 }
+
+// TestValidateContribution_GetSecretsSelfCheckedObsPassesValidateObservation is the
+// core desync regression: an honest node stamps a GetSecrets item OK in the
+// Observation self-check, and every peer's ValidateObservation must accept that
+// same observation. Before unification, checkContribution skipped the response
+// share checks that validateGetSecretsObservation enforced, so a valid
+// self-checked OK could be rejected wholesale by peers and stall head-of-queue
+// quorum. Both phases now call validateContribution, so the verdicts agree.
+func TestValidateContribution_GetSecretsSelfCheckedObsPassesValidateObservation(t *testing.T) {
+	t.Parallel()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t,
+		withKeys(pk, shares[0]),
+		withOnchainCfg(4, 1),
+		withVaultIncludeInvalidPendingItemsEnabled(),
+	)
+
+	rdr := &kv{m: make(map[string]response)}
+	writeGetSecretsPendingQueueItems(t, rdr, pk, "get-secrets-1")
+
+	obs := observePendingQueueOnly(t, r, rdr)
+	require.Len(t, obs.Observations, 1)
+	require.False(t, observationContributionIsErr(obs.Observations[0]), "self-check should stamp a valid GetSecrets item OK")
+	require.True(t, observationContributionIsOk(obs.Observations[0]))
+
+	require.NoError(t, validatePendingQueueObservation(t, r, rdr, obs),
+		"ValidateObservation must accept the same observation the Observation self-check stamped OK")
+}
+
+// TestValidateContribution_GetSecretsOversizedShareRejected proves the shared
+// validator now enforces GetSecrets response share-size limits in the
+// Observation self-check path too. The old checkContribution skipped share
+// checks, so an oversized share would be stamped OK locally and then rejected
+// by peers. validateContribution must reject it so the self-check emits an error
+// contribution instead.
+func TestValidateContribution_GetSecretsOversizedShareRejected(t *testing.T) {
+	t.Parallel()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t,
+		withKeys(pk, shares[0]),
+		withOnchainCfg(4, 1),
+		withVaultIncludeInvalidPendingItemsEnabled(),
+	)
+
+	owner := "0x0001020304050607080900010203040506070809"
+	secretID := &vaultcommon.SecretIdentifier{Owner: owner, Namespace: "main", Key: "my_secret"}
+	queueID := "get-secrets-oversized"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{Id: secretID, EncryptionKeys: []string{"enc-key-1"}},
+		},
+	}
+	anyReq, err := anypb.New(req)
+	require.NoError(t, err)
+	pendingItem := &vaultcommon.StoredPendingQueueItem{Id: queueID, Item: anyReq}
+
+	o := &vaultcommon.Observation{
+		Id:          queueID,
+		RequestType: vaultcommon.RequestType_GET_SECRETS,
+		Response: &vaultcommon.Observation_GetSecretsResponse{
+			GetSecretsResponse: &vaultcommon.GetSecretsResponse{
+				Responses: []*vaultcommon.SecretResponse{
+					{
+						Id: secretID,
+						Result: &vaultcommon.SecretResponse_Data{
+							Data: &vaultcommon.SecretData{
+								EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
+									{EncryptionKey: "enc-key-1", BinaryShares: [][]byte{make([]byte, 10*1024*1024)}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err = r.validateContribution(t.Context(), newTestReadStore(t, &kv{m: make(map[string]response)}), pendingItem, o)
+	require.Error(t, err, "validateContribution must reject oversized shares so the self-check stamps an error contribution")
+	require.ErrorContains(t, err, "exceeds maximum size allowed")
+}
+
+// TestStateTransition_IncludeInvalid_GuardAcceptsValidGetSecrets proves the
+// StateTransition guard (which re-runs validateContribution on each chosen
+// observation) accepts observations that passed the Observation self-check and
+// produces an outcome, so the three phases agree end-to-end.
+func TestStateTransition_IncludeInvalid_GuardAcceptsValidGetSecrets(t *testing.T) {
+	t.Parallel()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t,
+		withKeys(pk, shares[0]),
+		withOnchainCfg(4, 1),
+		withVaultIncludeInvalidPendingItemsEnabled(),
+	)
+
+	rdr := &kv{m: make(map[string]response)}
+	writeGetSecretsPendingQueueItems(t, rdr, pk, "get-secrets-1")
+
+	obs := observePendingQueueOnly(t, r, rdr)
+	require.Len(t, obs.Observations, 1)
+	obsb, err := proto.Marshal(obs)
+	require.NoError(t, err)
+
+	makeAO := func(observer commontypes.OracleID) types.AttributedObservation {
+		return types.AttributedObservation{Observer: observer, Observation: types.Observation(obsb)}
+	}
+	aos := []types.AttributedObservation{makeAO(0), makeAO(1), makeAO(2), makeAO(3)}
+
+	out, err := r.StateTransition(t.Context(), 1, types.AttributedQuery{}, aos, rdr, &blobber{})
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal([]byte(out), os))
+	require.Len(t, os.Outcomes, 1)
+	require.Equal(t, "get-secrets-1", os.Outcomes[0].Id)
+	require.Equal(t, vaultcommon.RequestType_GET_SECRETS, os.Outcomes[0].RequestType)
+}
