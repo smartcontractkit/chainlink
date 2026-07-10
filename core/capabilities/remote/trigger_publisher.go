@@ -415,12 +415,10 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.mu.Lock()
 			defer p.mu.Unlock()
 			if registerErr == nil {
-				_, cancel := p.stopCh.NewCtx()
 				p.metrics.registerTriggerCounter.Add(taskCtx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "success")))
 				p.registrations[key] = &pubRegState{
 					callback: callbackCh,
 					request:  unmarshaled,
-					cancel:   cancel,
 				}
 				p.wg.Add(1)
 				go p.triggerEventLoop(callbackCh, key)
@@ -523,8 +521,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.unregisterCache.Delete(key)
 		p.messageCache.Delete(key)
 		p.mu.Unlock()
-
-		reg.cancel()
 
 		ctx, cancel := p.stopCh.NewCtx()
 		err = p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
