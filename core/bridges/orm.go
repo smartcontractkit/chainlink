@@ -124,8 +124,8 @@ func (o *orm) BridgeTypes(ctx context.Context, offset int, limit int) (bridges [
 
 // CreateBridgeType saves the bridge type.
 func (o *orm) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
-	stmt := `INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, minimum_contract_payment, created_at, updated_at)
-	VALUES (:name, :url, :confirmations, :incoming_token_hash, :salt, :outgoing_token, :minimum_contract_payment, now(), now())
+	stmt := `INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, minimum_contract_payment, use_connection_manager, created_at, updated_at)
+	VALUES (:name, :url, :confirmations, :incoming_token_hash, :salt, :outgoing_token, :minimum_contract_payment, :use_connection_manager, now(), now())
 	RETURNING *;`
 	err := o.transact(ctx, false, func(tx *orm) error {
 		stmt, err := tx.ds.PrepareNamedContext(ctx, stmt)
@@ -141,8 +141,8 @@ func (o *orm) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
 
 // UpdateBridgeType updates the bridge type.
 func (o *orm) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error {
-	stmt := "UPDATE bridge_types SET url = $1, confirmations = $2, minimum_contract_payment = $3 WHERE name = $4 RETURNING *"
-	err := o.ds.GetContext(ctx, bt, stmt, btr.URL, btr.Confirmations, btr.MinimumContractPayment, bt.Name)
+	stmt := "UPDATE bridge_types SET url = $1, confirmations = $2, minimum_contract_payment = $3, use_connection_manager = $4 WHERE name = $5 RETURNING *"
+	err := o.ds.GetContext(ctx, bt, stmt, btr.URL, btr.Confirmations, btr.MinimumContractPayment, btr.UseConnectionManager, bt.Name)
 
 	return err
 }

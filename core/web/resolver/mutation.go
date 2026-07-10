@@ -58,6 +58,7 @@ type createBridgeInput struct {
 	URL                    string
 	Confirmations          int32
 	MinimumContractPayment string
+	UseConnectionManager   *bool
 }
 
 // CreateBridge creates a new bridge.
@@ -84,6 +85,7 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 		URL:                    webURL,
 		Confirmations:          uint32(args.Input.Confirmations),
 		MinimumContractPayment: minContractPayment,
+		UseConnectionManager:   args.Input.UseConnectionManager != nil && *args.Input.UseConnectionManager,
 	}
 
 	bta, bt, err := bridges.NewBridgeType(btr)
@@ -451,6 +453,7 @@ type updateBridgeInput struct {
 	URL                    string
 	Confirmations          int32
 	MinimumContractPayment string
+	UseConnectionManager   *bool
 }
 
 func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
@@ -479,6 +482,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		URL:                    webURL,
 		Confirmations:          uint32(args.Input.Confirmations),
 		MinimumContractPayment: minContractPayment,
+		UseConnectionManager:   args.Input.UseConnectionManager != nil && *args.Input.UseConnectionManager,
 	}
 
 	taskType, err := bridges.ParseBridgeName(string(args.ID))
