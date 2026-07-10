@@ -529,6 +529,7 @@ type DonMetadata struct {
 	ID                           uint64                              `toml:"id" json:"id"`
 	Name                         string                              `toml:"name" json:"name"`
 	DonFamily                    string                              `toml:"don_family" json:"don_family"` // nodesets.don_family; gateway pairing, cap-registration, and workflow deploy family
+	AdditionalDonFamilies        []string                            `toml:"additional_don_families" json:"additional_don_families"`
 	ExposesRemoteCapabilities    bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
 	ShardIndex                   uint                                `toml:"shard_index" json:"shard_index"`
 	CapabilityConfigs            map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
@@ -588,6 +589,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 		NodesMetadata:                nodes,
 		Name:                         c.Name,
 		DonFamily:                    strings.TrimSpace(c.DonFamily),
+		AdditionalDonFamilies:        trimmedNonEmpty(c.AdditionalDonFamilies),
 		ns:                           c,
 		ExposesRemoteCapabilities:    c.ExposesRemoteCapabilities,
 		ShardIndex:                   c.ShardIndex,
@@ -596,6 +598,41 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	}
 
 	return out, nil
+}
+
+// trimmedNonEmpty trims whitespace from each string and drops empty results, preserving order.
+func trimmedNonEmpty(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if t := strings.TrimSpace(s); t != "" {
+			out = append(out, t)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// DonFamilies returns primary DonFamily plus AdditionalDonFamilies, de-duplicated in order.
+func (m *DonMetadata) DonFamilies() []string {
+	families := make([]string, 0, 1+len(m.AdditionalDonFamilies))
+	seen := make(map[string]struct{}, 1+len(m.AdditionalDonFamilies))
+	for _, f := range append([]string{m.DonFamily}, m.AdditionalDonFamilies...) {
+		f = strings.TrimSpace(f)
+		if f == "" {
+			continue
+		}
+		if _, ok := seen[f]; ok {
+			continue
+		}
+		seen[f] = struct{}{}
+		families = append(families, f)
+	}
+	return families
 }
 
 func processCapabilityConfigs(c *NodeSet, defaults CapabilityConfigs) (CapabilityConfigs, error) {
@@ -1217,6 +1254,8 @@ type NodeSet struct {
 	// DonFamily groups workflow and gateway nodesets for per-family gateway pairing in local CRE.
 	// Required on every nodeset; env start fails if missing or unmatched (see topology_don_family.go).
 	DonFamily string `toml:"don_family" validate:"required"`
+	// AdditionalDonFamilies are extra CapReg families for sharded capability routing.
+	AdditionalDonFamilies []string `toml:"additional_don_families"`
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
 	SupportedEVMChains []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
 	EnvVars            map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node

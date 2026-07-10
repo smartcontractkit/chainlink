@@ -836,6 +836,194 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneBID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capDONZoneBID)].DON}, res[3])
 }
 
+func TestLauncher_ShardedCapabilityRoutingByFamily(t *testing.T) {
+	lggr := logger.Test(t)
+	registry := NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes := newNodes(4)
+	capShard0Nodes, capShard1Nodes, capShard2Nodes, sharedCapNodes := newNodes(4), newNodes(4), newNodes(4), newNodes(4)
+	peer := mocks.NewPeer(t)
+	peer.On("UpdateConnections", mock.Anything).Return(nil)
+	peer.On("ID").Return(workflowDonNodes[0])
+	peer.On("IsBootstrap").Return(false)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+
+	fullShardedTargetID := "write-chain_evm_1@1.0.0"
+	fullSharedTargetID := "read-chain_evm_1@1.0.0"
+	shardedCapIDHash := RandomUTF8BytesWord()
+	sharedCapIDHash := RandomUTF8BytesWord()
+
+	wfDONID := uint32(1)
+	capShard0ID := uint32(2)
+	capShard1ID := uint32(3)
+	capShard2ID := uint32(4)
+	sharedCapDONID := uint32(5)
+
+	cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{})
+	require.NoError(t, err)
+
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDONID, uint32(0), uint8(1), true, true, workflowDonNodes, []string{"zone-a", "zone-a_shard-0"}, 1, nil)
+	addDON(localRegistry, capShard0ID, uint32(0), uint8(1), true, false, capShard0Nodes, []string{"zone-a_shard-0"}, 1, [][32]byte{shardedCapIDHash})
+	addCapabilityToDON(localRegistry, capShard0ID, fullShardedTargetID, capabilities.CapabilityTypeTarget, cfg)
+	addDON(localRegistry, capShard1ID, uint32(0), uint8(1), true, false, capShard1Nodes, []string{"zone-a_shard-1"}, 1, [][32]byte{shardedCapIDHash})
+	addCapabilityToDON(localRegistry, capShard1ID, fullShardedTargetID, capabilities.CapabilityTypeTarget, cfg)
+	addDON(localRegistry, capShard2ID, uint32(0), uint8(1), true, false, capShard2Nodes, []string{"zone-a_shard-2"}, 1, [][32]byte{shardedCapIDHash})
+	addCapabilityToDON(localRegistry, capShard2ID, fullShardedTargetID, capabilities.CapabilityTypeTarget, cfg)
+	addDON(localRegistry, sharedCapDONID, uint32(0), uint8(1), true, false, sharedCapNodes, []string{"zone-a"}, 1, [][32]byte{sharedCapIDHash})
+	addCapabilityToDON(localRegistry, sharedCapDONID, fullSharedTargetID, capabilities.CapabilityTypeTarget, cfg)
+
+	launcher, err := NewLauncher(
+		lggr,
+		wrapper,
+		nil,
+		nil,
+		dispatcher,
+		registry,
+		&mockDonNotifier{},
+	)
+	require.NoError(t, err)
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
+
+	dispatcher.On("SetReceiver", fullShardedTargetID, capShard0ID, mock.AnythingOfType("*executable.client")).Return(nil)
+	dispatcher.On("SetReceiver", fullSharedTargetID, sharedCapDONID, mock.AnythingOfType("*executable.client")).Return(nil)
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	shardedCap, err := registry.Get(t.Context(), fullShardedTargetID)
+	require.NoError(t, err)
+	shardedInfo, err := shardedCap.Info(t.Context())
+	require.NoError(t, err)
+	require.NotNil(t, shardedInfo.DON)
+	require.Equal(t, capShard0ID, shardedInfo.DON.ID)
+
+	sharedCap, err := registry.Get(t.Context(), fullSharedTargetID)
+	require.NoError(t, err)
+	sharedInfo, err := sharedCap.Info(t.Context())
+	require.NoError(t, err)
+	require.NotNil(t, sharedInfo.DON)
+	require.Equal(t, sharedCapDONID, sharedInfo.DON.ID)
+}
+
+func TestLauncher_DonPairsToUpdate_ShardedFamilies(t *testing.T) {
+	registry := NewRegistry(logger.Test(t))
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	var pid ragetypes.PeerID
+	require.NoError(t, pid.UnmarshalText([]byte(utils.MustNewPeerID())))
+	sharedPeer := mocks.NewSharedPeer(t)
+
+	fullTargetID := "write-chain_evm_1@1.0.0"
+	capIDHash := RandomUTF8BytesWord()
+
+	workflowDonNodes := newNodes(4)
+	capShard0Nodes, capShard1Nodes, sharedCapNodes := newNodes(4), newNodes(4), newNodes(4)
+	workflowDonNodes[0] = pid // node belongs to the workflow shard
+
+	wfDONID := uint32(1)
+	capShard0ID := uint32(2)
+	capShard1ID := uint32(3)
+	sharedCapDONID := uint32(4)
+
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDONID, uint32(0), uint8(1), true, true, workflowDonNodes, []string{"zone-a", "zone-a_shard-0"}, 1, nil)
+	addDON(localRegistry, capShard0ID, uint32(0), uint8(1), true, false, capShard0Nodes, []string{"zone-a_shard-0"}, 1, [][32]byte{capIDHash})
+	addCapabilityToDON(localRegistry, capShard0ID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
+	addDON(localRegistry, capShard1ID, uint32(0), uint8(1), true, false, capShard1Nodes, []string{"zone-a_shard-1"}, 1, [][32]byte{capIDHash})
+	addCapabilityToDON(localRegistry, capShard1ID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
+	addDON(localRegistry, sharedCapDONID, uint32(0), uint8(1), true, false, sharedCapNodes, []string{"zone-a"}, 1, [][32]byte{capIDHash})
+	addCapabilityToDON(localRegistry, sharedCapDONID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
+
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	require.NoError(t, err)
+
+	sharedPeer.On("IsBootstrap").Return(false).Once()
+	res := launcher.donPairsToUpdate(pid, localRegistry)
+	require.Len(t, res, 2, "workflow shard connects only to its shard-family capability DON and the shared-family capability DON")
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON}, res[0])
+	require.Equal(t, p2ptypes.DonPair{localRegistry.IDsToDONs[registrysyncer.DonID(wfDONID)].DON, localRegistry.IDsToDONs[registrysyncer.DonID(sharedCapDONID)].DON}, res[1])
+}
+
+func TestLauncher_ShardedCapability_PhaseA_AllCapsInCommonFamily(t *testing.T) {
+	lggr := logger.Test(t)
+	registry := NewRegistry(lggr)
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	workflowDonNodes, capShard0Nodes, capShard1Nodes := newNodes(4), newNodes(4), newNodes(4)
+	peer := mocks.NewPeer(t)
+	peer.On("UpdateConnections", mock.Anything).Return(nil)
+	peer.On("ID").Return(workflowDonNodes[0])
+	peer.On("IsBootstrap").Return(false)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+
+	fullTargetID := "write-chain_evm_1@1.0.0"
+	cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{})
+	require.NoError(t, err)
+
+	wfDONID := uint32(1)
+	capShard0ID := uint32(2)
+	capShard1ID := uint32(3)
+
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfDONID, uint32(0), uint8(1), true, true, workflowDonNodes, []string{"zone-a", "zone-a_shard-0"}, 1, nil)
+	addDON(localRegistry, capShard0ID, uint32(0), uint8(1), true, false, capShard0Nodes, []string{"zone-a"}, 1, [][32]byte{RandomUTF8BytesWord()})
+	addCapabilityToDON(localRegistry, capShard0ID, fullTargetID, capabilities.CapabilityTypeTarget, cfg)
+	addDON(localRegistry, capShard1ID, uint32(0), uint8(1), true, false, capShard1Nodes, []string{"zone-a"}, 1, [][32]byte{RandomUTF8BytesWord()})
+	addCapabilityToDON(localRegistry, capShard1ID, fullTargetID, capabilities.CapabilityTypeTarget, cfg)
+
+	launcher, err := NewLauncher(lggr, wrapper, nil, nil, dispatcher, registry, &mockDonNotifier{})
+	require.NoError(t, err)
+	require.NoError(t, launcher.Start(t.Context()))
+	defer launcher.Close()
+
+	dispatcher.On("SetReceiver", fullTargetID, capShard0ID, mock.AnythingOfType("*executable.client")).Return(nil)
+
+	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
+
+	targetCap, err := registry.Get(t.Context(), fullTargetID)
+	require.NoError(t, err)
+	info, err := targetCap.Info(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, capShard0ID, info.DON.ID)
+}
+
+func TestLauncher_DonPairsToUpdate_CapShardPairsOnlyWithWorkflowShard(t *testing.T) {
+	registry := NewRegistry(logger.Test(t))
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	var capNodePID ragetypes.PeerID
+	require.NoError(t, capNodePID.UnmarshalText([]byte(utils.MustNewPeerID())))
+	sharedPeer := mocks.NewSharedPeer(t)
+
+	wfShard0Nodes, wfShard1Nodes, capShard0Nodes := newNodes(4), newNodes(4), newNodes(4)
+	capShard0Nodes[0] = capNodePID
+
+	wfShard0ID := uint32(1)
+	wfShard1ID := uint32(2)
+	capShard0ID := uint32(3)
+
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfShard0ID, uint32(0), uint8(1), true, true, wfShard0Nodes, []string{"zone-a", "zone-a_shard-0"}, 1, nil)
+	addDON(localRegistry, wfShard1ID, uint32(0), uint8(1), true, true, wfShard1Nodes, []string{"zone-a", "zone-a_shard-1"}, 1, nil)
+	addDON(localRegistry, capShard0ID, uint32(0), uint8(1), true, false, capShard0Nodes, []string{"zone-a_shard-0"}, 1, [][32]byte{RandomUTF8BytesWord()})
+	addCapabilityToDON(localRegistry, capShard0ID, "write-chain_evm_1@1.0.0", capabilities.CapabilityTypeTarget, nil)
+
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	require.NoError(t, err)
+
+	sharedPeer.On("IsBootstrap").Return(false).Once()
+	res := launcher.donPairsToUpdate(capNodePID, localRegistry)
+	require.Len(t, res, 1)
+	require.Equal(t, p2ptypes.DonPair{
+		localRegistry.IDsToDONs[registrysyncer.DonID(wfShard0ID)].DON,
+		localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON,
+	}, res[0])
+}
+
 func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
