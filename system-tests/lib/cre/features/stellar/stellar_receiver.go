@@ -14,6 +14,7 @@ import (
 	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"
 	stellarreceiver "github.com/smartcontractkit/chainlink-stellar/deployment/cre/receiver"
 
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 )
 
@@ -33,8 +34,19 @@ func DeployStellarTestReceiver(ctx context.Context, chain *stellchain.Blockchain
 	if err != nil {
 		return "", fmt.Errorf("failed to build stellar deployer: %w", err)
 	}
+
+	// Source the receiver WASM at deploy time (build or download) — no committed binary.
+	buildCfg, err := stellarBuildConfig(helpers.ReceiverWASMFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve stellar receiver WASM source: %w", err)
+	}
+	wasm, err := helpers.BuildStellar(ctx, buildCfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to source stellar receiver WASM: %w", err)
+	}
+
 	var salt [32]byte
-	return stellarreceiver.DeployReceiver(ctx, deployer, salt)
+	return stellarreceiver.DeployReceiver(ctx, deployer, wasm, salt)
 }
 
 // StellarReceiverReportCount reads the receiver's report_count (read-only simulate,
