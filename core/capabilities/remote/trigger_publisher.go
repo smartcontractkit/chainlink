@@ -112,8 +112,8 @@ var _ types.ReceiverService = &triggerPublisher{}
 
 const (
 	minAllowedBatchCollectionPeriod = 10 * time.Millisecond
-	defaultMaxParallelAcks          = 100 // TODO: pass through config from remoteConfig
-	defaultMaxParallelRegisters     = 100 // TODO: pass through config from remoteConfig
+	defaultMaxParallelAcks          = 100
+	defaultMaxParallelRegisters     = 100
 )
 
 func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
@@ -294,6 +294,7 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 	return nil
 }
 
+// TODO: Reduce complexity -> https://smartcontract-it.atlassian.net/browse/PLEX-3258
 func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) {
 	cfg := p.cfg.Load()
 	if cfg == nil {
@@ -449,7 +450,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.metrics.registerTriggerCounter.Add(taskCtx, 1, capAttrs, metric.WithAttributes(attribute.String("outcome", "error")))
 			var capErr caperrors.Error
 			if errors.As(registerErr, &capErr) && capErr.Origin() == caperrors.OriginUser {
-
 				p.registrations[key] = &pubRegState{registrationErr: registerErr}
 				p.lggr.Errorw("trigger registration failed with user error; will not retry",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID, "err", registerErr)
