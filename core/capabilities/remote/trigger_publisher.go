@@ -389,7 +389,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.lggr.Errorw("failed to unmarshal request", "err", unmarshalErr)
 			return
 		}
-		if err := p.registerExecutor.Ready(); err != nil {
+		if err = p.registerExecutor.Ready(); err != nil {
 			p.mu.Unlock()
 			p.lggr.Errorw("register executor not started; cannot register trigger",
 				"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
@@ -589,7 +589,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 
 		p.mu.Unlock()
 
-		if err := p.ackExecutor.Ready(); err != nil {
+		if err = p.ackExecutor.Ready(); err != nil {
 			p.lggr.Errorw("ack executor not started; cannot forward AckEvent",
 				"triggerEventId", triggerEventID, "triggerID", triggerID)
 			return
