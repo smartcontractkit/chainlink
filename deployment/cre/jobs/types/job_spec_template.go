@@ -21,6 +21,7 @@ const (
 	EVM
 	Aptos
 	Solana
+	Stellar
 	Gateway
 	BootstrapVault
 	Consensus
@@ -53,6 +54,8 @@ func (jt JobSpecTemplate) String() string {
 		return "aptos"
 	case Solana:
 		return "solana"
+	case Stellar:
+		return "stellar"
 	case Gateway:
 		return "gateway"
 	case BootstrapVault:
@@ -99,6 +102,8 @@ func parseJobSpecTemplate(s string) (JobSpecTemplate, error) {
 		return Aptos, nil
 	case "solana":
 		return Solana, nil
+	case "stellar":
+		return Stellar, nil
 	case "gateway":
 		return Gateway, nil
 	case "bootstrap-vault":
