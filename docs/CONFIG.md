@@ -2394,6 +2394,7 @@ ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 ChipIngressBatchEmitterEnabled = true # Default
 DurableEmitterEnabled = false # Default
+DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
 LogStreamingEnabled = false # Default
@@ -2482,6 +2483,13 @@ When false, events are sent individually (legacy behavior).
 DurableEmitterEnabled = false # Default
 ```
 DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
+
+### DurableEmitterMaxQueuePayloadBytes
+```toml
+DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
+```
+DurableEmitterMaxQueuePayloadBytes is the byte ceiling used as the denominator for the durable emitter's
+queue capacity_usage_ratio metric. Defaults to 1 GiB.
 
 ### HeartbeatInterval
 ```toml

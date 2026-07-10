@@ -16,6 +16,11 @@ var _ config.Telemetry = (*telemetryConfig)(nil)
 
 const defaultHeartbeatInterval = 1 * time.Second
 
+// defaultDurableEmitterMaxQueuePayloadBytes is the denominator used for the
+// durable_emitter.queue.capacity_usage_ratio gauge when the operator does not
+// override it via TOML. 1 GiB gives capacity tracking a sane default ceiling.
+const defaultDurableEmitterMaxQueuePayloadBytes int64 = 1 << 30
+
 type telemetryConfig struct {
 	s toml.Telemetry
 }
@@ -112,6 +117,13 @@ func (b *telemetryConfig) DurableEmitterEnabled() bool {
 		return false
 	}
 	return *b.s.DurableEmitterEnabled
+}
+
+func (b *telemetryConfig) DurableEmitterMaxQueuePayloadBytes() int64 {
+	if b.s.DurableEmitterMaxQueuePayloadBytes == nil {
+		return defaultDurableEmitterMaxQueuePayloadBytes
+	}
+	return *b.s.DurableEmitterMaxQueuePayloadBytes
 }
 
 func (b *telemetryConfig) HeartbeatInterval() time.Duration {
