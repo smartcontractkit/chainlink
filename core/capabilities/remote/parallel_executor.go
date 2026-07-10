@@ -5,6 +5,9 @@ import (
 	"errors"
 	"sync"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
@@ -14,16 +17,59 @@ type ParallelExecutor struct {
 	wg       sync.WaitGroup
 	stopChan services.StopChan
 
-	taskSemaphore chan struct{}
+	taskSemaphore  chan struct{}
+	name           string
+	slotUsageGauge metric.Float64Gauge
+	slotUsageAttrs []attribute.KeyValue
+}
+
+// ParallelExecutorOption configures a ParallelExecutor.
+type ParallelExecutorOption func(*ParallelExecutor)
+
+// WithExecutorName sets the service name returned by Name().
+func WithExecutorName(name string) ParallelExecutorOption {
+	return func(e *ParallelExecutor) {
+		e.name = name
+	}
+}
+
+// WithSlotUsageMetric records occupied/max slot ratio on the gauge when tasks start and finish.
+func WithSlotUsageMetric(gauge metric.Float64Gauge, attrs ...attribute.KeyValue) ParallelExecutorOption {
+	return func(e *ParallelExecutor) {
+		e.slotUsageGauge = gauge
+		e.slotUsageAttrs = attrs
+	}
 }
 
 // NewParallelExecutor creates an executor that allows at most maxParallelTasks in-flight tasks.
-func NewParallelExecutor(maxParallelTasks int) *ParallelExecutor {
-	return &ParallelExecutor{
+func NewParallelExecutor(maxParallelTasks int, opts ...ParallelExecutorOption) *ParallelExecutor {
+	e := &ParallelExecutor{
 		stopChan:      make(services.StopChan),
 		wg:            sync.WaitGroup{},
 		taskSemaphore: make(chan struct{}, maxParallelTasks),
 	}
+	for _, opt := range opts {
+		opt(e)
+	}
+	return e
+}
+
+// SetSlotUsageGauge binds the gauge used by RecordSlotUsage. Attributes are set via WithSlotUsageMetric.
+func (t *ParallelExecutor) SetSlotUsageGauge(gauge metric.Float64Gauge) {
+	t.slotUsageGauge = gauge
+}
+
+// RecordSlotUsage publishes current slot utilization to the configured gauge, if any.
+func (t *ParallelExecutor) RecordSlotUsage(ctx context.Context) {
+	if t.slotUsageGauge == nil {
+		return
+	}
+	maxSlots := t.MaxSlots()
+	if maxSlots == 0 {
+		return
+	}
+	usage := float64(t.OccupiedSlots()) / float64(maxSlots)
+	t.slotUsageGauge.Record(ctx, usage, metric.WithAttributes(t.slotUsageAttrs...))
 }
 
 // OccupiedSlots returns the number of in-flight tasks holding executor slots.
@@ -42,12 +88,16 @@ func (t *ParallelExecutor) MaxSlots() int {
 func (t *ParallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.Context)) error {
 	select {
 	case t.taskSemaphore <- struct{}{}:
+		t.RecordSlotUsage(ctx)
 		stopped := !t.IfNotStopped(func() {
 			t.wg.Go(func() {
 				ctxWithStop, cancel := t.stopChan.Ctx(ctx)
+				defer func() {
+					cancel()
+					<-t.taskSemaphore
+					t.RecordSlotUsage(ctxWithStop)
+				}()
 				fn(ctxWithStop)
-				cancel()
-				<-t.taskSemaphore
 			})
 		})
 
@@ -81,5 +131,8 @@ func (t *ParallelExecutor) Close() error {
 
 // Name returns the service name.
 func (t *ParallelExecutor) Name() string {
+	if t.name != "" {
+		return t.name
+	}
 	return "ParallelExecutor"
 }

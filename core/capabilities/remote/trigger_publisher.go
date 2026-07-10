@@ -117,6 +117,11 @@ const (
 )
 
 func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+	slotUsageAttrs := []attribute.KeyValue{
+		attribute.String("capabilityID", capabilityID),
+		attribute.String("capMethodName", capMethodName),
+	}
+
 	return &triggerPublisher{
 		capabilityID:    capabilityID,
 		capMethodName:   capMethodName,
@@ -128,6 +133,14 @@ func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher t
 		batchingQueue:   make(map[[32]byte]*batchedResponse),
 		stopCh:          make(services.StopChan),
 		lggr:            logger.With(logger.Named(lggr, "TriggerPublisher"), "capabilityID", capabilityID, "capMethodName", capMethodName),
+		ackExecutor: NewParallelExecutor(defaultMaxParallelAcks,
+			WithExecutorName("trigger_publisher_ack_executor"),
+			WithSlotUsageMetric(nil, slotUsageAttrs...),
+		),
+		registerExecutor: NewParallelExecutor(defaultMaxParallelRegisters,
+			WithExecutorName("trigger_publisher_register_executor"),
+			WithSlotUsageMetric(nil, slotUsageAttrs...),
+		),
 	}
 }
 
@@ -193,6 +206,8 @@ func (p *triggerPublisher) initMetrics() error {
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_register_executor_slot_usage: %w", err)
 	}
+	p.ackExecutor.SetSlotUsageGauge(p.metrics.ackExecutorSlotUsage)
+	p.registerExecutor.SetSlotUsageGauge(p.metrics.registerExecutorSlotUsage)
 	durationBuckets := metric.WithExplicitBucketBoundaries(1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 30_000)
 	p.metrics.registerTriggerDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_register_trigger_duration_ms", durationBuckets)
 	if err != nil {
@@ -207,36 +222,6 @@ func (p *triggerPublisher) initMetrics() error {
 		return fmt.Errorf("failed to register platform_trigger_publisher_ack_event_duration_ms: %w", err)
 	}
 	return nil
-}
-
-func (p *triggerPublisher) recordAckExecutorSlotUsage(ctx context.Context) {
-	if p.ackExecutor == nil || p.metrics.ackExecutorSlotUsage == nil {
-		return
-	}
-	maxSlots := p.ackExecutor.MaxSlots()
-	if maxSlots == 0 {
-		return
-	}
-	usage := float64(p.ackExecutor.OccupiedSlots()) / float64(maxSlots)
-	p.metrics.ackExecutorSlotUsage.Record(ctx, usage, metric.WithAttributes(
-		attribute.String("capabilityID", p.capabilityID),
-		attribute.String("capMethodName", p.capMethodName),
-	))
-}
-
-func (p *triggerPublisher) recordRegisterExecutorSlotUsage(ctx context.Context) {
-	if p.registerExecutor == nil || p.metrics.registerExecutorSlotUsage == nil {
-		return
-	}
-	maxSlots := p.registerExecutor.MaxSlots()
-	if maxSlots == 0 {
-		return
-	}
-	usage := float64(p.registerExecutor.OccupiedSlots()) / float64(maxSlots)
-	p.metrics.registerExecutorSlotUsage.Record(ctx, usage, metric.WithAttributes(
-		attribute.String("capabilityID", p.capabilityID),
-		attribute.String("capMethodName", p.capMethodName),
-	))
 }
 
 func (p *triggerPublisher) recordMethodDuration(ctx context.Context, hist metric.Int64Histogram, outcome string, d time.Duration) {
@@ -280,12 +265,9 @@ func (p *triggerPublisher) Start(ctx context.Context) error {
 	p.wg.Add(1)
 	go p.batchingLoop()
 
-	p.ackExecutor = NewParallelExecutor(defaultMaxParallelAcks)
 	if err := p.ackExecutor.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start ack executor: %w", err)
 	}
-
-	p.registerExecutor = NewParallelExecutor(defaultMaxParallelRegisters)
 	if err := p.registerExecutor.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start register executor: %w", err)
 	}
@@ -408,7 +390,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.lggr.Errorw("failed to unmarshal request", "err", unmarshalErr)
 			return
 		}
-		if p.registerExecutor == nil {
+		if err := p.registerExecutor.Ready(); err != nil {
 			registerOutcome = "executor_not_started"
 			p.mu.Unlock()
 			p.lggr.Errorw("register executor not started; cannot register trigger",
@@ -423,7 +405,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		)
 
 		scheduleErr := p.registerExecutor.ExecuteTask(ctx, func(taskCtx context.Context) {
-			defer p.recordRegisterExecutorSlotUsage(taskCtx)
 			callbackCh, registerErr := cfg.underlying.RegisterTrigger(taskCtx, unmarshaled)
 			taskOutcome := "success"
 			if registerErr != nil {
@@ -470,7 +451,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		}
 		// Hand off to executor; disable defer recording—goroutine records success/error.
 		recordRegisterDuration = false
-		p.recordRegisterExecutorSlotUsage(ctx)
 		registerOutcome = "scheduled"
 	case types.MethodUnregisterTrigger:
 		unregisterStart := time.Now()
@@ -630,7 +610,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 
 		p.mu.Unlock()
 
-		if p.ackExecutor == nil {
+		if err := p.ackExecutor.Ready(); err != nil {
 			ackOutcome = "executor_not_started"
 			p.lggr.Errorw("ack executor not started; cannot forward AckEvent",
 				"triggerEventId", triggerEventID, "triggerID", triggerID)
@@ -649,7 +629,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			"minRequired", minRequired)
 
 		scheduleErr := p.ackExecutor.ExecuteTask(ctx, func(taskCtx context.Context) {
-			defer p.recordAckExecutorSlotUsage(taskCtx)
 			p.lggr.Infow("executing AckEvent task",
 				"triggerEventId", triggerEventID,
 				"triggerID", triggerID,
@@ -681,7 +660,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			return
 		}
 		recordAckDuration = false
-		p.recordAckExecutorSlotUsage(ctx)
 	default:
 		p.lggr.Errorw("received message with unknown method",
 			"method", SanitizeLogString(msg.Method), "sender", sender)
