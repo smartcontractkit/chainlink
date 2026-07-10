@@ -8,14 +8,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 )
 
 type RMNHomeView struct {
-	commoncldchangesets.ContractMetaData
+	view.ContractMetaData
 	CandidateConfig *RMNHomeVersionedConfig `json:"candidateConfig,omitempty"`
 	ActiveConfig    *RMNHomeVersionedConfig `json:"activeConfig,omitempty"`
 }
@@ -164,7 +164,7 @@ func GenerateRMNHomeView(rmnReader *rmn_home.RMNHome) (RMNHomeView, error) {
 		return RMNHomeView{}, fmt.Errorf("failed to generate candidate config for contract %s: %w", address, err)
 	}
 
-	contractMetaData, err := commoncldchangesets.NewContractMetaData(rmnReader, rmnReader.Address())
+	contractMetaData, err := view.NewContractMetaData(rmnReader, rmnReader.Address())
 	if err != nil {
 		return RMNHomeView{}, fmt.Errorf("failed to create contract metadata for contract %s: %w", address, err)
 	}

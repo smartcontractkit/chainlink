@@ -7,8 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/maps"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_with_from_mint_token_pool"
@@ -19,6 +17,7 @@ import (
 	lock_release_token_pool_v1_6_1 "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_1/lock_release_token_pool"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
 )
 
 type TokenPoolContract interface {
@@ -107,7 +106,7 @@ type PoolView struct {
 }
 
 type TokenPoolView struct {
-	commoncldchangesets.ContractMetaData
+	view.ContractMetaData
 	Token              common.Address               `json:"token"`
 	TokenPriceFeed     common.Address               `json:"tokenPriceFeed"`
 	RemoteChainConfigs map[uint64]RemoteChainConfig `json:"remoteChainConfigs"`
@@ -191,7 +190,7 @@ func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (To
 	}
 
 	return TokenPoolView{
-		ContractMetaData: commoncldchangesets.ContractMetaData{
+		ContractMetaData: view.ContractMetaData{
 			TypeAndVersion: typeAndVersion,
 			Address:        pool.Address(),
 			Owner:          owner,

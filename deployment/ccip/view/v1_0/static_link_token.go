@@ -6,15 +6,15 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
-	"github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	linkcontracts "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/contracts/link"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
 )
 
 type StaticLinkTokenView struct {
-	cldfutil.ContractMetaData
+	view.ContractMetaData
 	Decimals uint8    `json:"decimals"`
 	Supply   *big.Int `json:"supply"`
 }
@@ -30,7 +30,7 @@ func GenerateStaticLinkTokenView(lt *link_token_interface.LinkToken) (StaticLink
 	}
 
 	return StaticLinkTokenView{
-		ContractMetaData: cldfutil.ContractMetaData{
+		ContractMetaData: view.ContractMetaData{
 			TypeAndVersion: cldf.TypeAndVersion{
 				Type:    linkcontracts.StaticLinkToken,
 				Version: *semver.MustParse("1.0.0"),
