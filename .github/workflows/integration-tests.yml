@@ -430,7 +430,8 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+    # if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+    if: true # DEBUG: Getting baseline runtime
     uses: ./.github/workflows/cre-system-tests.yaml
     with:
       ecr: "sdlc"
@@ -448,7 +449,8 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'
+    # if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'
+    if: true # DEBUG: Getting baseline runtime
     uses: ./.github/workflows/cre-regression-system-tests.yaml
     with:
       ecr: "sdlc"
@@ -521,7 +523,8 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+    # if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+    if: true # DEBUG: Getting baseline runtime
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9c49ffcf252efbedd7ec280e1993ba29dcbc9443 # 2026-04-28
     with:
       workflow_name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
