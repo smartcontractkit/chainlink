@@ -8,22 +8,22 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	stellarfwd "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 )
 
-const forwarderQualifier = stellarfwd.DefaultForwarderQualifier
-
 func forwarderAddress(ds datastore.DataStore, chainSelector uint64) (string, bool) {
 	key := datastore.NewAddressRefKey(
 		chainSelector,
 		stellarfwd.ForwarderContract,
 		semver.MustParse(stellarfwd.DefaultForwarderVersion),
-		forwarderQualifier,
+		stellarfwd.DefaultForwarderQualifier,
 	)
 	ref, err := ds.Addresses().Get(key)
 	if err != nil {
@@ -79,10 +79,16 @@ func deployStellarForwarders(
 
 	version := forwarderVersion(creEnv)
 
+	buildCfg, err := stellarBuildConfig(helpers.ForwarderWASMFile)
+	if err != nil {
+		return fmt.Errorf("failed to resolve stellar forwarder WASM source: %w", err)
+	}
+
 	out, err := (stellarfwd.DeployForwarder{}).Apply(*creEnv.CldfEnvironment, &stellarfwd.DeployForwarderRequest{
-		ChainSel:  chain.ChainSelector(),
-		Qualifier: forwarderQualifier,
-		Version:   version.String(),
+		ChainSel:    chain.ChainSelector(),
+		Qualifier:   stellarfwd.DefaultForwarderQualifier,
+		Version:     version.String(),
+		BuildConfig: &buildCfg,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to deploy stellar forwarder via CLDF: %w", err)
@@ -132,7 +138,7 @@ func configureStellarForwarders(
 			NodeIDs: consensusDon.KeystoneDONConfig().NodeIDs,
 		},
 		Chains:    map[uint64]struct{}{chain.ChainSelector(): {}},
-		Qualifier: forwarderQualifier,
+		Qualifier: stellarfwd.DefaultForwarderQualifier,
 		Version:   version.String(),
 	})
 	if err != nil {
@@ -181,7 +187,7 @@ func authorizeStellarForwarderTransmitters(
 	if _, err := (stellarfwd.AddForwarders{}).Apply(*creEnv.CldfEnvironment, &stellarfwd.AddForwardersRequest{
 		Transmitters: transmitters,
 		Chains:       map[uint64]struct{}{chain.ChainSelector(): {}},
-		Qualifier:    forwarderQualifier,
+		Qualifier:    stellarfwd.DefaultForwarderQualifier,
 		Version:      version.String(),
 	}); err != nil {
 		return fmt.Errorf("failed to authorize Stellar forwarder transmitters for DON %q: %w", don.Name, err)

@@ -10,6 +10,8 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"
 	stellarforwarder "github.com/smartcontractkit/chainlink-stellar/deployment/cre/forwarder"
+
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 var _ cldf.ChangeSetV2[*DeployForwarderRequest] = DeployForwarder{}
@@ -17,17 +19,12 @@ var _ cldf.ChangeSetV2[*DeployForwarderRequest] = DeployForwarder{}
 type DeployForwarder struct{}
 
 type DeployForwarderRequest struct {
-	ChainSel  uint64
-	Qualifier string
-	Version   string
-	LabelSet  datastore.LabelSet
-	// Salt is optional. Soroban derives a contract's address from
-	// hash(networkID ‖ deployerAddress ‖ salt), so a salt is a required protocol
-	// input (the analog of EVM CREATE2). When left zero, Apply derives a
-	// deterministic salt from the owner + contract type so the forwarder does not
-	// collide with other contracts this deployer instantiates. Set a non-zero salt
-	// explicitly to control the address (e.g. to deploy multiple instances).
-	Salt [32]byte
+	ChainSel    uint64
+	Qualifier   string
+	Version     string
+	LabelSet    datastore.LabelSet
+	Salt        [32]byte
+	BuildConfig *helpers.BuildStellarConfig
 }
 
 func (cs DeployForwarder) VerifyPreconditions(env cldf.Environment, req *DeployForwarderRequest) error {
@@ -45,6 +42,9 @@ func (cs DeployForwarder) VerifyPreconditions(env cldf.Environment, req *DeployF
 	}
 	if _, err := semver.NewVersion(req.Version); err != nil {
 		return fmt.Errorf("invalid forwarder version %q: %w", req.Version, err)
+	}
+	if req.BuildConfig == nil {
+		return errors.New("build config is required to source the forwarder WASM")
 	}
 	return nil
 }
@@ -77,7 +77,11 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 		return out, fmt.Errorf("failed to build stellar deployer for chain selector %d: %w", req.ChainSel, err)
 	}
 
-	forwarderAddr, err := stellarforwarder.DeployForwarder(env.GetContext(), deployer, owner, salt)
+	wasm, err := helpers.BuildStellar(env.GetContext(), *req.BuildConfig)
+	if err != nil {
+		return out, fmt.Errorf("failed to source forwarder WASM: %w", err)
+	}
+	forwarderAddr, err := stellarforwarder.DeployForwarder(env.GetContext(), deployer, owner, wasm, salt)
 	if err != nil {
 		return out, fmt.Errorf("failed to deploy stellar forwarder on chain selector %d: %w", req.ChainSel, err)
 	}
