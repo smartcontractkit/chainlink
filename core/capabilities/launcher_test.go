@@ -837,6 +837,7 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 }
 
 func TestLauncher_ShardedCapabilityRoutingByFamily(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -909,6 +910,7 @@ func TestLauncher_ShardedCapabilityRoutingByFamily(t *testing.T) {
 }
 
 func TestLauncher_DonPairsToUpdate_ShardedFamilies(t *testing.T) {
+	t.Parallel()
 	registry := NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -948,6 +950,7 @@ func TestLauncher_DonPairsToUpdate_ShardedFamilies(t *testing.T) {
 }
 
 func TestLauncher_ShardedCapability_PhaseA_AllCapsInCommonFamily(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -992,6 +995,7 @@ func TestLauncher_ShardedCapability_PhaseA_AllCapsInCommonFamily(t *testing.T) {
 }
 
 func TestLauncher_DonPairsToUpdate_CapShardPairsOnlyWithWorkflowShard(t *testing.T) {
+	t.Parallel()
 	registry := NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
