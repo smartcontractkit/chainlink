@@ -162,8 +162,8 @@ func UpdateOffRampRefAddresses(
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
-		proposal, err := BuildProposalsForTxns(
-			e, config.ChainSelector, "proposal to UpdateOffRampRefAddresses in Solana", config.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, config.ChainSelector, "proposal to UpdateOffRampRefAddresses in Solana", config.MCMS, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -260,8 +260,8 @@ func SetUpgradeAuthorityChangeset(
 		}
 	}
 	if len(mcmsTxns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, config.ChainSelector, "proposal to SetUpgradeAuthority in Solana", config.MCMS.MinDelay, mcmsTxns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, config.ChainSelector, "proposal to SetUpgradeAuthority in Solana", config.MCMS, mcmsTxns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -383,8 +383,8 @@ func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.Chan
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to SetFeeAggregator in Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to SetFeeAggregator in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -708,8 +708,8 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 	}
 
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to SetDefaultCodeVersion in Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to SetDefaultCodeVersion in Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -835,8 +835,8 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 	}
 
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.OldChainSelector, "proposal to UpdateSvmChainSelector in Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.OldChainSelector, "proposal to UpdateSvmChainSelector in Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -919,8 +919,8 @@ func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManual
 	}
 
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to UpdateEnableManualExecutionAfter in Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to UpdateEnableManualExecutionAfter in Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -1038,8 +1038,8 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 	}
 
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to ConfigureCCIPVersion in Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to ConfigureCCIPVersion in Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -1124,8 +1124,8 @@ func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetO
 	}
 
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to RemoveOffRamp in Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to RemoveOffRamp in Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

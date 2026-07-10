@@ -110,7 +110,11 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 			mcmState.TimelockProgram,
 			mcmsSolana.PDASeed(mcmState.TimelockSeed),
 		)
-		proposers[remote] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
+		mcmsAction := mcmsTypes.TimelockActionSchedule
+		if cfg.MCMS != nil {
+			mcmsAction = cfg.MCMS.MCMSAction
+		}
+		proposers[remote] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmSeedForAction(mcmState, mcmsAction))
 		inspectors[remote] = mcmsSolana.NewInspector(chain.Client)
 
 		offRampConfigPDA := state.SolChains[remote].OffRampConfigPDA
