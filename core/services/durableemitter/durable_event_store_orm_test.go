@@ -25,6 +25,7 @@ func truncateChipDurableEvents(t *testing.T, db *sqlx.DB) {
 }
 
 func TestPgDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
@@ -48,6 +49,7 @@ func TestPgDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
 }
 
 func TestPgDurableEventStore_ListPending_RespectsCreatedBefore(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
@@ -68,6 +70,7 @@ func TestPgDurableEventStore_ListPending_RespectsCreatedBefore(t *testing.T) {
 }
 
 func TestPgDurableEventStore_ListPending_RespectsLimit(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
@@ -84,6 +87,7 @@ func TestPgDurableEventStore_ListPending_RespectsLimit(t *testing.T) {
 }
 
 func TestPgDurableEventStore_DeleteExpired(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
@@ -104,6 +108,7 @@ func TestPgDurableEventStore_DeleteExpired(t *testing.T) {
 }
 
 func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
@@ -123,6 +128,7 @@ func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
 }
 
 func TestPgDurableEventStore_BatchDelete(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
