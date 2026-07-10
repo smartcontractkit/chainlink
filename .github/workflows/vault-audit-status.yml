@@ -1,0 +1,86 @@
+name: Vault Audit Status
+
+# Applies vault-audit commit statuses triggered from cre-docs. cre-docs never
+# writes statuses directly on chainlink — it runs this workflow via
+# workflow_dispatch with the desired state and this workflow hardcodes
+# context=vault-audit.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: Chainlink PR number
+        required: true
+        type: string
+      head_sha:
+        description: PR head commit SHA to stamp
+        required: true
+        type: string
+      state:
+        description: Commit status state
+        required: true
+        type: choice
+        options:
+          - pending
+          - success
+          - failure
+          - error
+      description:
+        description: Commit status description
+        required: true
+        type: string
+      target_url:
+        description: Optional Details link (private audit issue)
+        required: false
+        type: string
+
+permissions: {}
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.inputs.pr_number }}
+      HEAD_SHA: ${{ github.event.inputs.head_sha }}
+      STATE: ${{ github.event.inputs.state }}
+      DESCRIPTION: ${{ github.event.inputs.description }}
+      TARGET_URL: ${{ github.event.inputs.target_url }}
+    steps:
+      - name: Validate payload
+        run: |
+          case "$STATE" in
+            success|failure|pending|error) ;;
+            *)
+              echo "Invalid state: ${STATE}"
+              exit 1
+              ;;
+          esac
+
+          if [ -z "$PR_NUMBER" ] || [ -z "$HEAD_SHA" ] || [ -z "$DESCRIPTION" ]; then
+            echo "Missing required inputs (pr_number, head_sha, description)"
+            exit 1
+          fi
+
+          CURRENT=$(gh api "/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.head.sha')
+          if [ "$HEAD_SHA" != "$CURRENT" ]; then
+            echo "head_sha ${HEAD_SHA} does not match current PR head ${CURRENT}"
+            exit 1
+          fi
+
+      - name: Set vault-audit commit status
+        run: |
+          ARGS=(
+            --method POST
+            -f "state=${STATE}"
+            -f context=vault-audit
+            -f "description=${DESCRIPTION}"
+          )
+          if [ -n "$TARGET_URL" ]; then
+            ARGS+=(-f "target_url=${TARGET_URL}")
+          fi
+
+          gh api "/repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" "${ARGS[@]}"

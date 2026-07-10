@@ -574,6 +574,25 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return fmt.Errorf("failed to ensure aptos key: %w", err2)
 		}
 	}
+	if s.Config.StellarEnabled() {
+		for _, k := range s.Config.ImportedStellarKeys().List() {
+			lggr.Debug("Importing stellar key")
+			_, err2 := app.GetKeyStore().Stellar().Import(rootCtx, []byte(k.JSON()), k.Password())
+			if err2 != nil {
+				if errors.Is(err2, keystore.ErrKeyExists) {
+					lggr.Debugf("Stellar key %s already exists for chain %v", k.JSON(), k.ChainDetails())
+					continue
+				}
+				return s.errorOut(fmt.Errorf("error importing stellar key: %w", err2))
+			}
+			lggr.Debugf("Imported stellar key %s for chain %v", k.JSON(), k.ChainDetails())
+		}
+
+		err2 := app.GetKeyStore().Stellar().EnsureKey(rootCtx)
+		if err2 != nil {
+			return fmt.Errorf("failed to ensure stellar key: %w", err2)
+		}
+	}
 	if s.Config.TronEnabled() {
 		err2 := app.GetKeyStore().Tron().EnsureKey(rootCtx)
 		if err2 != nil {

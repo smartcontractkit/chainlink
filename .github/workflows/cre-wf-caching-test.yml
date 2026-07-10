@@ -100,7 +100,7 @@ jobs:
         with:
           jd-image:
             "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
-            }}.amazonaws.com/job-distributor:0.22.1"
+            }}.amazonaws.com/job-distributor:0.28.0"
           # TODO - remove nightly image fallback after testing
           chainlink-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name ||

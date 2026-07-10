@@ -3,13 +3,13 @@ package v1_5
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
 )
 
 type CommitStoreView struct {
-	commoncldchangesets.ContractMetaData
+	view.ContractMetaData
 	DynamicConfig              commit_store.CommitStoreDynamicConfig   `json:"dynamicConfig"`
 	ExpectedNextSequenceNumber uint64                                  `json:"expectedNextSequenceNumber"`
 	LatestPriceEpochAndRound   uint64                                  `json:"latestPriceEpochAndRound"`

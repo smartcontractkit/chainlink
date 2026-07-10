@@ -70,6 +70,10 @@ func (u ProposeJobSpec) VerifyPreconditions(_ cldf.Environment, config ProposeJo
 		if err := verifySolanaJobSpecInputs(config.Inputs); err != nil {
 			return fmt.Errorf("invalid inputs for Solana job spec: %w", err)
 		}
+	case job_types.Stellar:
+		if err := verifyStellarJobSpecInputs(config.Inputs); err != nil {
+			return fmt.Errorf("invalid inputs for Stellar job spec: %w", err)
+		}
 	case job_types.Cron, job_types.BootstrapOCR3, job_types.OCR3, job_types.Gateway, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.BootstrapVault, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract:
 	case job_types.CRESettings:
 		if err := verifyCRESettingsSpecInputs(config.Inputs); err != nil {
@@ -94,7 +98,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 	var report operations.Report[any, any]
 	switch input.Template {
 	// This will hold all standard capabilities jobs as we add support for them.
-	case job_types.EVM, job_types.Aptos, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract, job_types.Solana:
+	case job_types.EVM, job_types.Aptos, job_types.Cron, job_types.HTTPTrigger, job_types.HTTPAction, job_types.ConfidentialHTTP, job_types.Consensus, job_types.WebAPITrigger, job_types.WebAPITarget, job_types.CustomCompute, job_types.LogEventTrigger, job_types.ReadContract, job_types.Solana, job_types.Stellar:
 		job, err := input.Inputs.ToStandardCapabilityJob(input.JobName)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)
@@ -338,7 +342,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 
 func requiresOracleFactory(template job_types.JobSpecTemplate) bool {
 	switch template {
-	case job_types.Consensus, job_types.Aptos, job_types.Solana:
+	case job_types.Consensus, job_types.Aptos, job_types.Solana, job_types.Stellar:
 		return true
 	default:
 		return false

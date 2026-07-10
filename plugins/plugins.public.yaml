@@ -46,7 +46,7 @@ plugins:
 
   stellar:
     - moduleURI: "github.com/smartcontractkit/chainlink-stellar"
-      gitRef: "0e9836f8575b711d87335fbadb1ed28b8f678377" # chainlink-stellar #128 (add-multinode merged)
+      gitRef: "35369348e6326e4a1696712dda37d312fec6e130"
       installPath: "./cmd/chainlink-stellar"
 
   streams:
@@ -114,4 +114,9 @@ plugins:
   capability-aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
       gitRef: "5424665d88fc5c239a2af353abcf0f0e0e4cb710"
+      installPath: "."
+
+  capability-stellar:
+    - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
+      gitRef: "47f3f0da57a121980c3ad366f10e5fbe7bf58998"
       installPath: "."
