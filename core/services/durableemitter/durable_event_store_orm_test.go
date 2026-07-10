@@ -34,7 +34,7 @@ func TestPgDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Positive(t, id)
 
-	events, err := store.ListPending(ctx, time.Now().Add(time.Second), 10)
+	events, err := store.ListPending(ctx, time.Now().Add(time.Second), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 	assert.Equal(t, id, events[0].ID)
@@ -42,7 +42,7 @@ func TestPgDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
 
 	require.NoError(t, store.Delete(ctx, id))
 
-	events, err = store.ListPending(ctx, time.Now().Add(time.Second), 10)
+	events, err = store.ListPending(ctx, time.Now().Add(time.Second), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	assert.Empty(t, events)
 }
@@ -57,12 +57,12 @@ func TestPgDurableEventStore_ListPending_RespectsCreatedBefore(t *testing.T) {
 	require.NoError(t, err)
 
 	// createdBefore in the past should return nothing (event was just created).
-	events, err := store.ListPending(ctx, time.Now().Add(-time.Hour), 10)
+	events, err := store.ListPending(ctx, time.Now().Add(-time.Hour), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	assert.Empty(t, events)
 
 	// createdBefore in the future should return the event.
-	events, err = store.ListPending(ctx, time.Now().Add(time.Hour), 10)
+	events, err = store.ListPending(ctx, time.Now().Add(time.Hour), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	assert.Len(t, events, 1)
 }
@@ -78,7 +78,7 @@ func TestPgDurableEventStore_ListPending_RespectsLimit(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	events, err := store.ListPending(ctx, time.Now().Add(time.Second), 5)
+	events, err := store.ListPending(ctx, time.Now().Add(time.Second), time.Time{}, 0, 5)
 	require.NoError(t, err)
 	assert.Len(t, events, 5)
 }
@@ -131,7 +131,7 @@ func TestPgDurableEventStore_BatchDelete(t *testing.T) {
 	id, err := store.Insert(ctx, []byte("payload"))
 	require.NoError(t, err)
 
-	pending, err := store.ListPending(ctx, time.Now().Add(time.Hour), 10)
+	pending, err := store.ListPending(ctx, time.Now().Add(time.Hour), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	require.Len(t, pending, 1)
 
@@ -143,7 +143,7 @@ func TestPgDurableEventStore_BatchDelete(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(0), n, "second delete is idempotent")
 
-	pending, err = store.ListPending(ctx, time.Now().Add(time.Hour), 10)
+	pending, err = store.ListPending(ctx, time.Now().Add(time.Hour), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	require.Empty(t, pending)
 
