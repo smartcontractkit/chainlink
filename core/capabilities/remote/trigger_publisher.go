@@ -352,6 +352,15 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		}
 		// NOTE: require 2F+1 by default, introduce different strategies later (KS-76)
 		minRequired := uint32(2*callerDon.F + 1)
+		// once=true: only one register attempt per registration cycle. Whichever workflow
+		// node message satisfies quorum schedules RegisterTrigger; the following messages
+		// from other nodes do not (Ready returns false, WasReady returns true). If that attempt fails, registration
+		// must wait for the next cycle (e.g. re-quorum after messageCache.Delete on system
+		// error, or a fresh registration flow).
+		//
+		// This did not matter when registration was synchronous—the "already exists" check
+		// above returned early without causing unncessary RegisterTrigger calls. With async registration,
+		// that check may pass in time, so once=true prevents duplicate RegisterTrigger calls for the same trigger.
 		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
 		if !ready {
 			peersReceived := len(p.messageCache.Peers(key))
