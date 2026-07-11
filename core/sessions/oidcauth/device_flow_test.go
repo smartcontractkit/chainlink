@@ -84,6 +84,65 @@ func TestDeviceFlowStore_ConcurrencyCap(t *testing.T) {
 	require.ErrorIs(t, err, errTooManyDeviceFlows)
 }
 
+func TestDeviceFlowStore_PerIPCap(t *testing.T) {
+	t.Parallel()
+	s := newDeviceFlowStore()
+	ip := "203.0.113.10"
+	for i := range maxDeviceFlowsPerIP {
+		require.NoError(t, s.add(handleN(i), &deviceFlowState{
+			expiresAt: time.Now().Add(time.Minute),
+			clientIP:  ip,
+		}))
+	}
+	err := s.add("overflow-ip", &deviceFlowState{
+		expiresAt: time.Now().Add(time.Minute),
+		clientIP:  ip,
+	})
+	require.ErrorIs(t, err, errTooManyDeviceFlowsPerIP)
+
+	// A different IP can still open a flow.
+	require.NoError(t, s.add("other-ip", &deviceFlowState{
+		expiresAt: time.Now().Add(time.Minute),
+		clientIP:  "198.51.100.1",
+	}))
+}
+
+func TestDeviceFlowStore_Contains(t *testing.T) {
+	t.Parallel()
+	s := newDeviceFlowStore()
+	require.False(t, s.contains("missing"))
+	require.NoError(t, s.add("h1", &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}))
+	require.True(t, s.contains("h1"))
+	s.remove("h1")
+	require.False(t, s.contains("h1"))
+}
+
+func TestPendingAuthStore_PutTakeSingleUse(t *testing.T) {
+	t.Parallel()
+	s := newPendingAuthStore()
+	s.put("state-1", "verifier-1", "nonce-1")
+	v, n, ok := s.take("state-1")
+	require.True(t, ok)
+	assert.Equal(t, "verifier-1", v)
+	assert.Equal(t, "nonce-1", n)
+	_, _, ok = s.take("state-1")
+	assert.False(t, ok, "take must be single-use")
+}
+
+func TestNormalizeEmailClaim(t *testing.T) {
+	t.Parallel()
+	email, err := normalizeEmailClaim(map[string]any{"email": "  User@Example.COM "})
+	require.NoError(t, err)
+	assert.Equal(t, "User@Example.COM", email)
+
+	_, err = normalizeEmailClaim(map[string]any{"email": ""})
+	require.Error(t, err)
+	_, err = normalizeEmailClaim(map[string]any{"email": "not-an-email"})
+	require.Error(t, err)
+	_, err = normalizeEmailClaim(map[string]any{})
+	require.Error(t, err)
+}
+
 func TestDeviceFlowStore_ExpiredSweptOnAdd(t *testing.T) {
 	t.Parallel()
 	s := newDeviceFlowStore()

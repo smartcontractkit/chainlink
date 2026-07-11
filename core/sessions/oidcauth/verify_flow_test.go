@@ -33,7 +33,7 @@ func TestIssueSessionFromIDToken_Valid(t *testing.T) {
 	oi := newAuthenticatorForIDP(t, idp, db)
 
 	raw := idp.signIDToken(t)
-	sessionID, email, _, err := oi.issueSessionFromIDToken(context.Background(), raw)
+	sessionID, email, _, err := oi.issueSessionFromIDToken(context.Background(), raw, "")
 	require.NoError(t, err)
 	assert.NotEmpty(t, sessionID)
 	assert.Equal(t, "valid-user@example.com", email)
@@ -51,7 +51,7 @@ func TestIssueSessionFromIDToken_WrongAudience(t *testing.T) {
 	oi := newAuthenticatorForIDP(t, idp, db)
 
 	raw := idp.signIDToken(t)
-	_, _, _, err := oi.issueSessionFromIDToken(context.Background(), raw)
+	_, _, _, err := oi.issueSessionFromIDToken(context.Background(), raw, "")
 	require.Error(t, err, "token with mismatched audience must be rejected")
 	assert.Contains(t, err.Error(), "verify")
 	assert.Equal(t, 0, countOIDCSessions(t, oi, "attacker@example.com"))
@@ -67,7 +67,7 @@ func TestIssueSessionFromIDToken_Expired(t *testing.T) {
 	oi := newAuthenticatorForIDP(t, idp, db)
 
 	raw := idp.signIDToken(t)
-	_, _, _, err := oi.issueSessionFromIDToken(context.Background(), raw)
+	_, _, _, err := oi.issueSessionFromIDToken(context.Background(), raw, "")
 	require.Error(t, err, "expired token must be rejected")
 	assert.Equal(t, 0, countOIDCSessions(t, oi, "expired-user@example.com"))
 }
@@ -84,7 +84,7 @@ func TestIssueSessionFromIDToken_NoMatchingGroup(t *testing.T) {
 	oi := newAuthenticatorForIDP(t, idp, db)
 
 	raw := idp.signIDToken(t)
-	_, _, _, err := oi.issueSessionFromIDToken(context.Background(), raw)
+	_, _, _, err := oi.issueSessionFromIDToken(context.Background(), raw, "")
 	require.ErrorIs(t, err, errNoMatchingRole)
 	assert.Equal(t, 0, countOIDCSessions(t, oi, "nogroup-user@example.com"))
 }
@@ -112,7 +112,7 @@ func TestIssueSessionFromIDToken_RoleMapping(t *testing.T) {
 			idp.groups = []string{tc.group}
 			oi := newAuthenticatorForIDP(t, idp, db)
 
-			_, _, _, err := oi.issueSessionFromIDToken(context.Background(), idp.signIDToken(t))
+			_, _, _, err := oi.issueSessionFromIDToken(context.Background(), idp.signIDToken(t), "")
 			require.NoError(t, err)
 
 			var role string
@@ -149,6 +149,54 @@ func TestDeviceFlow_EndToEnd(t *testing.T) {
 	assert.NotEmpty(t, state.sessionID)
 	assert.Equal(t, "device-user@example.com", state.email)
 	assert.Equal(t, 1, countOIDCSessions(t, oi, "device-user@example.com"))
+}
+
+// TestIssueSessionFromIDToken_EmptyEmail rejects blank or missing email claims.
+func TestIssueSessionFromIDToken_EmptyEmail(t *testing.T) {
+	t.Parallel()
+	db := pgtest.NewSqlxDB(t)
+	idp := newMockIDP(t, testClientID)
+	idp.email = "   "
+	idp.groups = []string{AdminClaim}
+	oi := newAuthenticatorForIDP(t, idp, db)
+
+	_, _, _, err := oi.issueSessionFromIDToken(context.Background(), idp.signIDToken(t), "")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "email")
+	assert.Equal(t, 0, countOIDCSessions(t, oi, ""))
+}
+
+// TestIssueSessionFromIDToken_NonceMismatch rejects a browser-path token whose
+// nonce does not match the value stored at sign-in.
+func TestIssueSessionFromIDToken_NonceMismatch(t *testing.T) {
+	t.Parallel()
+	db := pgtest.NewSqlxDB(t)
+	idp := newMockIDP(t, testClientID)
+	idp.email = "nonce-user@example.com"
+	idp.groups = []string{AdminClaim}
+	idp.nonce = "token-nonce"
+	oi := newAuthenticatorForIDP(t, idp, db)
+
+	_, _, _, err := oi.issueSessionFromIDToken(context.Background(), idp.signIDToken(t), "expected-nonce")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "nonce")
+	assert.Equal(t, 0, countOIDCSessions(t, oi, "nonce-user@example.com"))
+}
+
+// TestIssueSessionFromIDToken_NonceMatch accepts a matching nonce.
+func TestIssueSessionFromIDToken_NonceMatch(t *testing.T) {
+	t.Parallel()
+	db := pgtest.NewSqlxDB(t)
+	idp := newMockIDP(t, testClientID)
+	idp.email = "nonce-ok@example.com"
+	idp.groups = []string{AdminClaim}
+	idp.nonce = "good-nonce"
+	oi := newAuthenticatorForIDP(t, idp, db)
+
+	sessionID, email, _, err := oi.issueSessionFromIDToken(context.Background(), idp.signIDToken(t), "good-nonce")
+	require.NoError(t, err)
+	assert.NotEmpty(t, sessionID)
+	assert.Equal(t, "nonce-ok@example.com", email)
 }
 
 // TestDeviceFlow_WrongAudienceRejected asserts the device path uses the same

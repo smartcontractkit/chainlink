@@ -54,6 +54,7 @@ func NewTestOIDCAuthenticator(
 		lggr:         logger.Sugared(lggr).Named("OIDCAuthenticationProvider"),
 		auditLogger:  auditLogger,
 		deviceFlows:  newDeviceFlowStore(),
+		pendingAuth:  newPendingAuthStore(),
 	}
 
 	return &oidcAuth, nil
