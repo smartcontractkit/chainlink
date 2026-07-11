@@ -15,6 +15,7 @@ import (
 var _ config.Telemetry = (*telemetryConfig)(nil)
 
 const defaultHeartbeatInterval = 1 * time.Second
+const defaultMetricCardinalityLimit = 100000
 
 type telemetryConfig struct {
 	s toml.Telemetry
@@ -180,6 +181,13 @@ func (b *telemetryConfig) LogMaxQueueSize() int {
 		return 2048
 	}
 	return *b.s.LogMaxQueueSize
+}
+
+func (b *telemetryConfig) MetricCardinalityLimit() int {
+	if b.s.MetricCardinalityLimit == nil {
+		return defaultMetricCardinalityLimit
+	}
+	return *b.s.MetricCardinalityLimit
 }
 
 func (b *telemetryConfig) PrometheusBridge() config.PrometheusBridge {
