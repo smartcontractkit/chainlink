@@ -423,6 +423,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			MaxConcurrentSends: 8,
 			MessageBufferSize:  50_000,
 		}
+		if maxBuf := int(cfg.Telemetry().ChipIngressMaxMessageBufferBytes()); maxBuf > 0 {
+			durableCfg.MaxMessageBufferBytes = maxBuf
+		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
 		if setupErr != nil {

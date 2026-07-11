@@ -237,6 +237,24 @@ func TestTelemetryConfig_ChipIngressBatchEmitterEnabled(t *testing.T) {
 	}
 }
 
+func TestTelemetryConfig_ChipIngressMaxMessageBufferBytes(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  uint
+	}{
+		{"ChipIngressMaxMessageBufferBytesSet", toml.Telemetry{ChipIngressMaxMessageBufferBytes: ptr[uint](1073741824)}, 1073741824},
+		{"ChipIngressMaxMessageBufferBytesNil", toml.Telemetry{ChipIngressMaxMessageBufferBytes: nil}, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressMaxMessageBufferBytes())
+		})
+	}
+}
+
 func ptrDuration(d time.Duration) *config.Duration {
 	return config.MustNewDuration(d)
 }

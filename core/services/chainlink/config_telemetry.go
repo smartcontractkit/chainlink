@@ -107,6 +107,13 @@ func (b *telemetryConfig) ChipIngressBatchEmitterEnabled() bool {
 	return *b.s.ChipIngressBatchEmitterEnabled
 }
 
+func (b *telemetryConfig) ChipIngressMaxMessageBufferBytes() uint {
+	if b.s.ChipIngressMaxMessageBufferBytes == nil {
+		return 0
+	}
+	return *b.s.ChipIngressMaxMessageBufferBytes
+}
+
 func (b *telemetryConfig) DurableEmitterEnabled() bool {
 	if b.s.DurableEmitterEnabled == nil {
 		return false

@@ -889,6 +889,8 @@ ChipIngressInsecureConnection = false # Default
 # ChipIngressBatchEmitterEnabled enables batching for chip-ingress events.
 # When false, events are sent individually (legacy behavior).
 ChipIngressBatchEmitterEnabled = true # Default
+# ChipIngressMaxMessageBufferBytes is the max live byte size of messages buffered in the chip-ingress batch client before drop (default 1 GiB in batch client when unset).
+ChipIngressMaxMessageBufferBytes = 1073741824 # Default
 # DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
 DurableEmitterEnabled = false # Default
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.

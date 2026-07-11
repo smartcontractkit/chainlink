@@ -155,6 +155,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.ChipIngressEndpoint = m.cfgTelemetry.ChipIngressEndpoint()
 		envCfg.ChipIngressInsecureConnection = m.cfgTelemetry.ChipIngressInsecureConnection()
 		envCfg.ChipIngressBatchEmitterEnabled = m.cfgTelemetry.ChipIngressBatchEmitterEnabled()
+		envCfg.ChipIngressMaxMessageBufferBytes = m.cfgTelemetry.ChipIngressMaxMessageBufferBytes()
 		envCfg.ChipIngressDurableEmitterEnabled = m.cfgTelemetry.DurableEmitterEnabled()
 		envCfg.TelemetryLogStreamingEnabled = m.cfgTelemetry.LogStreamingEnabled()
 		envCfg.TelemetryLogLevel = m.cfgTelemetry.LogLevel()

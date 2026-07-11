@@ -437,3 +437,7 @@ tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
 
 replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260707125635-abec997b6eae
+
+replace github.com/smartcontractkit/chainlink-common => ../../chainlink-common/chipingress-buffer-byte-cap
+
+replace github.com/smartcontractkit/chainlink-common/pkg/chipingress => ../../chainlink-common/chipingress-buffer-byte-cap/pkg/chipingress

@@ -155,6 +155,7 @@ func newBeholderClient(
 		ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
 		ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
 		ChipIngressBatchEmitterEnabled: cfgTelemetry.ChipIngressBatchEmitterEnabled(),
+		ChipIngressMaxMessageBufferBytes: cfgTelemetry.ChipIngressMaxMessageBufferBytes(),
 		ChipIngressLogger:              lggr,
 		LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
 		LogLevel:                       cfgTelemetry.LogLevel(),

@@ -2985,6 +2985,7 @@ type Telemetry struct {
 	ChipIngressEndpoint            *string
 	ChipIngressInsecureConnection  *bool
 	ChipIngressBatchEmitterEnabled *bool
+	ChipIngressMaxMessageBufferBytes *uint
 	DurableEmitterEnabled          *bool
 	HeartbeatInterval              *commonconfig.Duration
 	LogLevel                       *string
@@ -3035,6 +3036,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.ChipIngressBatchEmitterEnabled; v != nil {
 		b.ChipIngressBatchEmitterEnabled = v
 	}
+	if v := f.ChipIngressMaxMessageBufferBytes; v != nil {
+		b.ChipIngressMaxMessageBufferBytes = v
+	}
 	if v := f.DurableEmitterEnabled; v != nil {
 		b.DurableEmitterEnabled = v
 	}
@@ -3080,6 +3084,9 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	}
 	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
+	}
+	if v := b.ChipIngressMaxMessageBufferBytes; v != nil && *v == 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxMessageBufferBytes", Value: *v, Msg: "must be greater than 0"})
 	}
 	return err
 }
