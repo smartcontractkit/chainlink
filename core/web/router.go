@@ -644,6 +644,7 @@ var blacklist = map[string]struct{}{
 	"oldpassword":          {},
 	"current_password":     {},
 	"new_account_password": {},
+	"device_handle":        {},
 }
 
 func isBlacklisted(k string) bool {

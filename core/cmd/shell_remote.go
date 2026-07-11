@@ -175,8 +175,26 @@ func (s *Shell) getPage(requestURI string, page int, model any) (err error) {
 }
 
 // RemoteLogin creates a cookie session to run remote commands.
+//
+// With no credentials file and an OIDC-enabled node, login runs the browser
+// device authorization flow against the identity provider. A supplied
+// credentials file always uses the local email/password path (the OIDC
+// break-glass admin), so automation and recovery keep working unchanged.
 func (s *Shell) RemoteLogin(c *cli.Context) error {
 	lggr := s.Logger.Named("RemoteLogin")
+
+	if c.String("file") == "" && NodeHasOIDCEnabled(s.ctx(), s.clientOpts, lggr) {
+		auth := NewOIDCDeviceCookieAuthenticator(s.clientOpts, s.cookieStore, os.Stdout, lggr)
+		if err := auth.Login(s.ctx()); err != nil {
+			return s.errorOut(err)
+		}
+		if err := s.checkRemoteBuildCompatibility(lggr, c.Bool("bypass-version-check"), static.Version, static.Sha); err != nil {
+			return s.errorOut(err)
+		}
+		fmt.Println("Successfully Logged In.")
+		return nil
+	}
+
 	sessionRequest, err := s.buildSessionRequest(c.String("file"))
 	if err != nil {
 		return s.errorOut(err)
