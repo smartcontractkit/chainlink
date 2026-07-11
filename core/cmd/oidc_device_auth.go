@@ -63,7 +63,9 @@ func NewOIDCDeviceCookieAuthenticator(config ClientOpts, store CookieStore, out 
 }
 
 // NodeHasOIDCEnabled probes the node's unauthenticated /oidc-enabled endpoint to
-// decide whether the device flow applies. A non-OIDC node 404s the route.
+// decide whether the device flow applies. A non-OIDC node 404s the route. The
+// body must be JSON with enabled=true so a reverse-proxy 200 HTML page cannot
+// accidentally trigger the device-flow path.
 func NodeHasOIDCEnabled(ctx context.Context, config ClientOpts, lggr logger.Logger) bool {
 	client := newHttpClient(lggr, config.InsecureSkipVerify)
 	u := config.RemoteNodeURL.String() + "/oidc-enabled"
@@ -76,7 +78,16 @@ func NodeHasOIDCEnabled(ctx context.Context, config ClientOpts, lggr logger.Logg
 		return false
 	}
 	defer resp.Body.Close()
-	return resp.StatusCode == http.StatusOK
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+	var body struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return false
+	}
+	return body.Enabled
 }
 
 // Login runs the full device flow: start, prompt the operator, poll until the

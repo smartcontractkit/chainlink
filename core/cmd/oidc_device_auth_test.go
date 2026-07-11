@@ -32,7 +32,8 @@ func (m *mockNode) handler(t *testing.T) http.Handler {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]bool{"enabled": true})
 	})
 	mux.HandleFunc("/oidc-device/start", func(w http.ResponseWriter, r *http.Request) {
 		// assert (not require) inside handler goroutines: require calls Goexit
@@ -92,6 +93,14 @@ func TestNodeHasOIDCEnabled(t *testing.T) {
 	srv2 := httptest.NewServer(disabled.handler(t))
 	defer srv2.Close()
 	assert.False(t, cmd.NodeHasOIDCEnabled(context.Background(), newClientOpts(t, srv2), lggr))
+
+	// HTTP 200 without {"enabled":true} must not trigger the device flow.
+	bare200 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	}))
+	defer bare200.Close()
+	assert.False(t, cmd.NodeHasOIDCEnabled(context.Background(), newClientOpts(t, bare200), lggr))
 }
 
 func TestOIDCDeviceLogin_Success(t *testing.T) {

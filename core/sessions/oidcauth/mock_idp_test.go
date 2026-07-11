@@ -36,6 +36,7 @@ type mockIDP struct {
 	issuerOverride string        // "iss" claim; default = server URL
 	groups         []string      // groups claim
 	email          string        // email claim
+	nonce          string        // optional "nonce" claim
 	lifetime       time.Duration // exp relative to now; negative => already expired
 
 	clientID string
@@ -131,6 +132,9 @@ func (m *mockIDP) signIDToken(t *testing.T) string {
 		"iat":    now.Unix(),
 		"exp":    now.Add(m.lifetime).Unix(),
 	}
+	if m.nonce != "" {
+		claims["nonce"] = m.nonce
+	}
 	raw, err := jwt.Signed(m.signer).Claims(claims).Serialize()
 	require.NoError(t, err)
 	return raw
@@ -154,5 +158,6 @@ func newAuthenticatorForIDP(t *testing.T, idp *mockIDP, ds sqlutil.DataSource) *
 		lggr:         logger.TestLogger(t),
 		auditLogger:  &audit.AuditLoggerService{},
 		deviceFlows:  newDeviceFlowStore(),
+		pendingAuth:  newPendingAuthStore(),
 	}
 }
