@@ -19,6 +19,7 @@ type Telemetry interface {
 	ChipIngressEndpoint() string
 	ChipIngressInsecureConnection() bool
 	ChipIngressBatchEmitterEnabled() bool
+	ChipIngressMaxMessageBufferBytes() uint
 	DurableEmitterEnabled() bool
 	HeartbeatInterval() time.Duration
 	LogStreamingEnabled() bool

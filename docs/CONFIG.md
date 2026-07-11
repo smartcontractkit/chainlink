@@ -2393,6 +2393,7 @@ AuthHeadersTTL = '0s' # Default
 ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 ChipIngressBatchEmitterEnabled = true # Default
+ChipIngressMaxMessageBufferBytes = 1073741824 # Default
 DurableEmitterEnabled = false # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
@@ -2476,6 +2477,12 @@ ChipIngressBatchEmitterEnabled = true # Default
 ```
 ChipIngressBatchEmitterEnabled enables batching for chip-ingress events.
 When false, events are sent individually (legacy behavior).
+
+### ChipIngressMaxMessageBufferBytes
+```toml
+ChipIngressMaxMessageBufferBytes = 1073741824 # Default
+```
+ChipIngressMaxMessageBufferBytes is the max live byte size of messages buffered in the chip-ingress batch client before drop (default 1 GiB in batch client when unset).
 
 ### DurableEmitterEnabled
 ```toml
