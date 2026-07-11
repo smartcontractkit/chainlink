@@ -15,6 +15,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/mail"
 	"slices"
 	"strings"
 
@@ -50,6 +51,9 @@ type oidcAuthenticator struct {
 	lggr         logger.Logger
 	auditLogger  audit.AuditLogger
 	deviceFlows  *deviceFlowStore
+	// pendingAuth holds PKCE verifiers and OIDC nonces server-side for the
+	// browser authorization-code flow (not in the signed session cookie).
+	pendingAuth *pendingAuthStore
 }
 
 // ExchangeTokenRequest represents the expected JSON payload from the frontend
@@ -136,7 +140,12 @@ func NewOIDCAuthenticator(
 		lggr:         lggr.Named("OIDCAuthenticationProvider"),
 		auditLogger:  auditLogger,
 		deviceFlows:  newDeviceFlowStore(),
+		pendingAuth:  newPendingAuthStore(),
 	}
+
+	// Device-flow and pending-auth state are process-local. Multi-replica nodes
+	// need sticky sessions for OIDC routes (see device_flow.go header comment).
+	oidcAuth.lggr.Infof("OIDC authenticator ready (device flow + PKCE). Multi-replica deployments require session affinity for /oidc-device/* and /oidc-login|/oidc-exchange")
 
 	return &oidcAuth, nil
 }
@@ -155,24 +164,33 @@ func (oi *oidcAuthenticator) handleCheckEnabled(c *gin.Context) {
 }
 
 func (oi *oidcAuthenticator) handleSignIn(c *gin.Context) {
-	// generate state and a PKCE verifier, store both on the session. PKCE (RFC
-	// 7636) is sent unconditionally: it is additive hardening for confidential
-	// clients and the sole proof-of-possession for public clients that carry no
-	// secret. The challenge derived from the verifier travels to the provider;
-	// the verifier stays server-side until the exchange.
+	// Generate state (anti-CSRF, stored in the browser session cookie), plus a
+	// PKCE verifier and OIDC nonce kept server-side only. PKCE (RFC 7636) is
+	// sent unconditionally: additive hardening for confidential clients and the
+	// sole proof-of-possession for public clients. The S256 challenge travels
+	// to the provider; the verifier never leaves the node (not even in the
+	// signed session cookie, which is not encrypted).
 	state := oi.generateState()
 	verifier := oauth2.GenerateVerifier()
+	nonce := oi.generateState()
+	oi.pendingAuth.put(state, verifier, nonce)
+
 	session := sessions.Default(c)
 	session.Set("state", state)
-	session.Set("pkce_verifier", verifier)
+	// Intentionally do NOT store pkce_verifier or nonce in the cookie.
 	err := session.Save()
 	if err != nil {
+		oi.pendingAuth.take(state) // best-effort cleanup
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save session"})
 		return
 	}
 
-	// redirect to provider
-	url := oi.oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.S256ChallengeOption(verifier))
+	url := oi.oauth2Config.AuthCodeURL(
+		state,
+		oauth2.AccessTypeOffline,
+		oauth2.S256ChallengeOption(verifier),
+		oidc.Nonce(nonce),
+	)
 	c.Redirect(http.StatusFound, url)
 }
 
@@ -187,25 +205,24 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 		return
 	}
 
-	// check state matches stored value on the session
+	// check state matches stored value on the session (constant-time compare)
 	ginSession := sessions.Default(c)
-	storedState := ginSession.Get("state")
-	if storedState == nil || req.State != storedState.(string) {
+	storedState, _ := ginSession.Get("state").(string)
+	ginSession.Delete("state")
+	if storedState == "" || subtle.ConstantTimeCompare([]byte(req.State), []byte(storedState)) != 1 {
 		c.JSON(http.StatusBadRequest, ExchangeTokenResponse{
 			Success: false,
 			Message: "Invalid state parameter",
 		})
 		return
 	}
-	ginSession.Delete("state")
 
-	// Recover the PKCE verifier stored at sign-in and bind it to this exchange.
-	storedVerifier, _ := ginSession.Get("pkce_verifier").(string)
-	ginSession.Delete("pkce_verifier")
-	if storedVerifier == "" {
+	// Recover PKCE verifier + nonce from the server-side store (single-use).
+	storedVerifier, expectedNonce, ok := oi.pendingAuth.take(req.State)
+	if !ok || storedVerifier == "" {
 		c.JSON(http.StatusBadRequest, ExchangeTokenResponse{
 			Success: false,
-			Message: "Missing PKCE verifier",
+			Message: "Missing or expired authorization state",
 		})
 		return
 	}
@@ -227,12 +244,12 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	// Request token from provider for claims lookup and verification
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
-		oi.lggr.Errorf("No id_token field in oauth2 token: %v", err)
+		oi.lggr.Errorf("No id_token field in oauth2 token")
 		c.String(http.StatusInternalServerError, "Missing id_token field in response")
 		return
 	}
 
-	sessionID, email, role, err := oi.issueSessionFromIDToken(ctx, rawIDToken)
+	sessionID, email, role, err := oi.issueSessionFromIDToken(ctx, rawIDToken, expectedNonce)
 	if err != nil {
 		oi.handleIssueSessionError(c, err)
 		return
@@ -243,6 +260,7 @@ func (oi *oidcAuthenticator) handleTokenExchange(c *gin.Context) {
 	err = ginSession.Save()
 	if err != nil {
 		oi.lggr.Errorf("failed to saved session %v", err)
+		oi.deleteOIDCSession(ctx, sessionID)
 		c.String(http.StatusInternalServerError, "Authentication failed")
 		return
 	}
@@ -267,11 +285,20 @@ var errNoMatchingRole = errors.New("no matching role within attested user group 
 // the new session ID, the authenticated email, and the resolved role. The
 // caller emits the success audit event tagged with its login method so device
 // and UI sessions are distinguishable; this function audits only failures.
-func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDToken string) (string, string, clsessions.UserRole, error) {
+//
+// expectedNonce, when non-empty, must match the id_token nonce claim (browser
+// auth-code flow). Pass "" for the device flow, which does not use a nonce.
+func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDToken string, expectedNonce string) (string, string, clsessions.UserRole, error) {
 	// Verify signature, issuer, expiry, and audience (pinned to ClientID).
 	idToken, err := oi.provider.Verifier(oi.oidcConfig).Verify(ctx, rawIDToken)
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to verify ID token: %w", err)
+	}
+
+	if expectedNonce != "" {
+		if subtle.ConstantTimeCompare([]byte(idToken.Nonce), []byte(expectedNonce)) != 1 {
+			return "", "", "", errors.New("id_token nonce mismatch")
+		}
 	}
 
 	var claims map[string]any
@@ -284,9 +311,9 @@ func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDT
 		return "", "", "", fmt.Errorf("failed to extract ID claims for claim name '%s': %w", oi.config.ClaimName(), err)
 	}
 
-	email, ok := claims["email"].(string)
-	if !ok {
-		return "", "", "", errors.New("failed to get email from claims")
+	email, err := normalizeEmailClaim(claims)
+	if err != nil {
+		return "", "", "", err
 	}
 	oi.lggr.Tracef("Received and validated ID claims: %v\n", idClaims)
 
@@ -317,6 +344,25 @@ func (oi *oidcAuthenticator) issueSessionFromIDToken(ctx context.Context, rawIDT
 	}
 
 	return clSession.ID, email, role, nil
+}
+
+// normalizeEmailClaim extracts and validates the email claim from a verified
+// id_token. Rejects missing, empty, or syntactically invalid addresses so we
+// never mint a session under a blank or garbage identity.
+func normalizeEmailClaim(claims map[string]any) (string, error) {
+	raw, ok := claims["email"].(string)
+	if !ok {
+		return "", errors.New("failed to get email from claims")
+	}
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", errors.New("email claim is empty")
+	}
+	addr, err := mail.ParseAddress(raw)
+	if err != nil || addr.Address == "" {
+		return "", errors.New("email claim is not a valid address")
+	}
+	return addr.Address, nil
 }
 
 // handleIssueSessionError maps an issueSessionFromIDToken error to the HTTP
@@ -722,9 +768,19 @@ func (oi *oidcAuthenticator) ExtendRouter(api *gin.RouterGroup) error {
 	api.GET("/oidc-enabled", oi.handleCheckEnabled)
 	api.GET("/oidc-login", oi.handleSignIn)
 	api.POST("/oidc-exchange", oi.handleTokenExchange)
+
 	// Device authorization grant for headless clients (the CLI).
-	api.POST("/oidc-device/start", oi.handleDeviceStart)
-	api.POST("/oidc-device/poll", oi.handleDevicePoll)
+	// Dedicated pre-auth rate limits: start is expensive (outbound IdP call +
+	// background goroutine); poll is cheaper but still unauthenticated.
+	// These nest under the outer api rate limiter so both apply.
+	api.POST("/oidc-device/start",
+		deviceEndpointRateLimit(deviceStartRatePeriod, deviceStartRateLimit),
+		oi.handleDeviceStart,
+	)
+	api.POST("/oidc-device/poll",
+		deviceEndpointRateLimit(devicePollRatePeriod, devicePollRateLimit),
+		oi.handleDevicePoll,
+	)
 
 	return nil
 }
