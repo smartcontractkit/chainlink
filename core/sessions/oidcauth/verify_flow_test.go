@@ -135,12 +135,16 @@ func TestDeviceFlow_EndToEnd(t *testing.T) {
 	oi := newAuthenticatorForIDP(t, idp, db)
 
 	// Kick off a device authorization at the provider, then run the same
-	// blocking poll the node uses in production.
+	// blocking poll the node uses in production. Register the handle in the
+	// store first — pollDeviceToken refuses to mint a session if the handle
+	// was swept/expired (orphan-session guard).
 	da, err := oi.oauth2Config.DeviceAuth(context.Background())
 	require.NoError(t, err)
 
+	const handle = "e2e-handle"
 	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
-	oi.pollDeviceToken("e2e-handle", state, da)
+	require.NoError(t, oi.deviceFlows.add(handle, state))
+	oi.pollDeviceToken(handle, state, da)
 
 	state.mu.Lock()
 	defer state.mu.Unlock()
@@ -212,8 +216,10 @@ func TestDeviceFlow_WrongAudienceRejected(t *testing.T) {
 	da, err := oi.oauth2Config.DeviceAuth(context.Background())
 	require.NoError(t, err)
 
+	const handle = "e2e-handle-2"
 	state := &deviceFlowState{expiresAt: time.Now().Add(time.Minute)}
-	oi.pollDeviceToken("e2e-handle-2", state, da)
+	require.NoError(t, oi.deviceFlows.add(handle, state))
+	oi.pollDeviceToken(handle, state, da)
 
 	state.mu.Lock()
 	defer state.mu.Unlock()

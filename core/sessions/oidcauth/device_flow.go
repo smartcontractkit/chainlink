@@ -236,9 +236,9 @@ func (oi *oidcAuthenticator) handleDeviceStart(c *gin.Context) {
 		expiresAt: time.Now().Add(5 * time.Minute), // provisional; refined after IdP response
 		clientIP:  c.ClientIP(),
 	}
-	if err := oi.deviceFlows.add(handle, state); err != nil {
-		oi.lggr.Warnf("refusing new device flow: %v", err)
-		c.JSON(http.StatusTooManyRequests, gin.H{"error": err.Error()})
+	if addErr := oi.deviceFlows.add(handle, state); addErr != nil {
+		oi.lggr.Warnf("refusing new device flow: %v", addErr)
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": addErr.Error()})
 		return
 	}
 
