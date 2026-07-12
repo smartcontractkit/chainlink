@@ -78,6 +78,34 @@ func TestDirectHTTPAction_RequestHeaders(t *testing.T) {
 	})
 }
 
+func TestDirectHTTPAction_Redirects(t *testing.T) {
+	t.Run("redirects are blocked like the DON, and surfaced as a user error", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/somewhere-else", http.StatusFound)
+		}))
+		t.Cleanup(srv.Close)
+
+		lggr := logger.Test(t)
+		action := NewDirectHTTPAction(lggr)
+		require.NoError(t, action.Start(context.Background()))
+		t.Cleanup(func() { _ = action.Close() })
+
+		input := &customhttp.Request{
+			Url:    srv.URL,
+			Method: "GET",
+		}
+		metadata := commonCap.RequestMetadata{}
+
+		result, err := action.SendRequest(context.Background(), metadata, input)
+		require.Error(t, err)
+		assert.Equal(t, caperrors.InvalidArgument, err.Code())
+		assert.Contains(t, err.Error(), "redirects are not allowed")
+		require.NotNil(t, result)
+		require.NotNil(t, result.Response)
+		assert.Equal(t, uint32(0), result.Response.StatusCode)
+	})
+}
+
 // Fixed self-signed ECDSA P-256 material (valid until 2100) used by the mTLS
 // tests. The client cert (CN=test-client) doubles as its own CA so the server
 // can verify it; the server cert (CN=127.0.0.1, IP SAN 127.0.0.1) doubles as
