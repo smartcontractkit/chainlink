@@ -79,6 +79,8 @@ func TestDirectHTTPAction_RequestHeaders(t *testing.T) {
 }
 
 func TestDirectHTTPAction_Redirects(t *testing.T) {
+	t.Parallel()
+
 	t.Run("redirects are blocked like the DON, and surfaced as a user error", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/somewhere-else", http.StatusFound)
