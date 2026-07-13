@@ -388,6 +388,7 @@ ChipIngressBatchEmitterEnabled = true
 DurableEmitterEnabled = true
 DurableEmitterRetransmitBatchSize = 500
 DurableEmitterEventTTL = '1h0m0s'
+DurableEmitterMaxQueuePayloadBytes = 1073741824
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false

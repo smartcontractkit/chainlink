@@ -895,6 +895,9 @@ DurableEmitterEnabled = true # Default
 DurableEmitterRetransmitBatchSize = 500 # Default
 # DurableEmitterEventTTL is how long an undelivered event is retained before the durable emitter expires it (older events are dropped).
 DurableEmitterEventTTL = '1h0m0s' # Default
+# DurableEmitterMaxQueuePayloadBytes is the byte ceiling used as the denominator for the durable emitter's
+# queue capacity_usage_ratio metric. Defaults to 1 GiB.
+DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default
 # LogLevel sets the log level for telemetry streaming (debug, info, warn, error, crit, panic, fatal)
