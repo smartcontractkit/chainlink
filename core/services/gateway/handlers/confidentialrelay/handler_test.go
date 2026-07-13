@@ -114,13 +114,17 @@ func setupHandlerWithF(t *testing.T, numNodes, f int) (*handler, *common.Callbac
 	return h, cb, don, clock
 }
 
-// mockBundler lets a test force the bundler error path.
+// mockBundler lets a test force the bundler error path or a fixed summary.
 type mockBundler struct {
-	err error
+	err     error
+	summary *BundleSummary
 }
 
-func (m *mockBundler) Bundle(_ jsonrpc.Request[json.RawMessage], _ map[string]jsonrpc.Response[json.RawMessage], _ logger.Logger) (*jsonrpc.Response[json.RawMessage], int, error) {
-	return nil, 0, m.err
+func (m *mockBundler) Bundle(_ jsonrpc.Request[json.RawMessage], _ map[string]jsonrpc.Response[json.RawMessage], _ logger.Logger) (*BundleSummary, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.summary, nil
 }
 
 func TestConfidentialRelayHandler_Methods(t *testing.T) {
