@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
@@ -406,7 +407,6 @@ func TestTelemetryConfig_MetricCardinalityLimit(t *testing.T) {
 		expected  int
 	}{
 		{"MetricCardinalityLimitSet", toml.Telemetry{MetricCardinalityLimit: new(500)}, 500},
-		{"MetricCardinalityLimitNil", toml.Telemetry{MetricCardinalityLimit: nil}, defaultMetricCardinalityLimit},
 		{"MetricCardinalityLimitZero", toml.Telemetry{MetricCardinalityLimit: new(0)}, 0},
 	}
 
@@ -417,4 +417,11 @@ func TestTelemetryConfig_MetricCardinalityLimit(t *testing.T) {
 			assert.Equal(t, tt.expected, tc.MetricCardinalityLimit())
 		})
 	}
+
+	t.Run("MetricCardinalityLimitDefaultFromCore", func(t *testing.T) {
+		t.Parallel()
+		defaults := docs.CoreDefaults()
+		tc := telemetryConfig{s: defaults.Telemetry}
+		assert.Equal(t, 100000, tc.MetricCardinalityLimit())
+	})
 }
