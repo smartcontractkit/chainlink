@@ -24,7 +24,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -33,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -710,12 +710,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementTriggerEventDroppedTotal(ctx, reason)
 	}
 
-	fullExecutionID, err := events.GenerateExecutionIDWithTriggerIndex(e.cfg.WorkflowID, wrappedTriggerEvent.event.Event.ID, wrappedTriggerEvent.triggerIndex)
+	executionID, err := workflows.GenerateExecutionIDWithTriggerIndex(e.cfg.WorkflowID, wrappedTriggerEvent.event.Event.ID, wrappedTriggerEvent.triggerIndex)
 	if err != nil {
 		e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
 		triggerDrop(monitoring.TriggerDropReasonExecutionIDGenerationFailed)
 		return
 	}
+	e.metrics.IncrementExecutionIDFullCounter(ctx)
+	trace.SpanFromContext(ctx).SetAttributes(attribute.String("execution_id", executionID))
 
 	loggerLabels := e.eventLabels()
 	lggr := e.logger().With(platform.KeyOrganizationID, e.orgID)
@@ -723,7 +725,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	var executionTimestamp time.Time
 	var executionDonTimeProvider TimeProvider
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
-		executionDonTimeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, e.donTimeRequestTimeout(ctx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics)
+		executionDonTimeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.donTimeRequestTimeout(ctx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics)
 		donTime, dtErr := executionDonTimeProvider.GetDONTime()
 		if dtErr != nil {
 			executionTimestamp = e.cfg.Clock.Now()
@@ -737,21 +739,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	triggerEvent := wrappedTriggerEvent.event.Event
-
-	var executionID string
-	if e.cfg.FeatureFlags.FeatureMultiTriggerExecutionIDs.Check(ctx, config.NewTimestamp(executionTimestamp)) == nil {
-		executionID = fullExecutionID
-		e.metrics.IncrementExecutionIDFullCounter(ctx)
-	} else {
-		executionID, err = events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
-		if err != nil {
-			e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
-			triggerDrop(monitoring.TriggerDropReasonExecutionIDGenerationFailed)
-			return
-		}
-		e.metrics.IncrementExecutionIDLegacyCounter(ctx)
-	}
-	trace.SpanFromContext(ctx).SetAttributes(attribute.String("execution_id", executionID))
 
 	// disallow duplicate executions
 	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
@@ -925,9 +912,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if !e.cfg.UseLocalTimeProvider {
-		if e.cfg.FeatureFlags.FeatureUseSingleDONTimeProviderPerExecution.Check(ctx, config.NewTimestamp(executionTimestamp)) == nil && executionDonTimeProvider != nil {
+		if executionDonTimeProvider != nil {
 			timeProvider = executionDonTimeProvider
 		} else {
+			lggr.Warnw("ExecutionTimestampsEnabled is false - creating a new DON time provider")
 			timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.donTimeRequestTimeout(execCtx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics)
 		}
 	}
@@ -960,6 +948,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		executionProfile: newExecutionProfileCollector(),
 		suspension:       suspension,
 	}
+
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
 	var result *sdkpb.ExecutionResult
@@ -972,7 +961,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
-	}, execHelper)
+	}, execHelper.PossiblyWithRawSecrets())
 	// Non-evictable modules do not record skew; label those as direct.
 	skewRec.RecordReady(execCtx, monitoring.ModuleLoadSourceDirect)
 

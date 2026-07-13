@@ -40,6 +40,12 @@ type StandardCapabilities struct {
 	orgResolver          orgresolver.OrgResolver
 	creSettings          core.SettingsBroadcaster
 	triggerEventStore    capabilities.EventStore
+	// capabilityDonID is the authoritative on-chain DON ID this plugin process
+	// was spawned for, resolved by the host (localcapmgr.startCapability or
+	// Delegate.NewServices). Plumbed to the LOOP via StandardCapabilitiesDependencies
+	// at Initialise time. Zero means the host did not resolve one; the plugin
+	// will fall back to capability-registry lookup.
+	capabilityDonID uint32
 
 	capabilitiesLoop *loop.StandardCapabilitiesService
 
@@ -70,6 +76,7 @@ func NewStandardCapabilities(
 		orgResolver:          dependencies.OrgResolver,
 		creSettings:          dependencies.CRESettings,
 		triggerEventStore:    dependencies.TriggerEventStore,
+		capabilityDonID:      dependencies.CapabilityDonID,
 		stopChan:             make(chan struct{}),
 		readyChan:            make(chan struct{}),
 	}
@@ -123,6 +130,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				OrgResolver:        s.orgResolver,
 				CRESettings:        s.creSettings,
 				TriggerEventStore:  s.triggerEventStore,
+				CapabilityDonID:    s.capabilityDonID,
 			}
 			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)

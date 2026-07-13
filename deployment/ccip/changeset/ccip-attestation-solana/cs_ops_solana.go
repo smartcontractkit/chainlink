@@ -50,8 +50,8 @@ func executeOrBuildMCMSProposal(
 		mcmsTxns = append(mcmsTxns, *tx)
 	}
 
-	proposal, err := cs_solana.BuildProposalsForTxns(
-		e, chain.Selector, proposalDescription, mcmsConfig.MinDelay, mcmsTxns)
+	proposal, err := cs_solana.BuildProposalsForTxnsWithConfig(
+		e, chain.Selector, proposalDescription, mcmsConfig, mcmsTxns)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}

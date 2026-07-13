@@ -80,6 +80,7 @@ func (m *metadataCapturingVault) UnregisterFromWorkflow(ctx context.Context, req
 }
 
 func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -258,6 +259,7 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 }
 
 func TestSecretsFetcher_DecryptsBinaryShares(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -352,7 +354,9 @@ func TestSecretsFetcher_DecryptsBinaryShares(t *testing.T) {
 }
 
 func TestEncryptedDecryptionShareBytes(t *testing.T) {
+	t.Parallel()
 	t.Run("prefers binary shares", func(t *testing.T) {
+		t.Parallel()
 		binary := [][]byte{{1, 2}}
 		got, err := encryptedDecryptionShareBytes(binary, []string{"deadbeef"})
 		require.NoError(t, err)
@@ -360,18 +364,21 @@ func TestEncryptedDecryptionShareBytes(t *testing.T) {
 	})
 
 	t.Run("falls back to hex shares", func(t *testing.T) {
+		t.Parallel()
 		got, err := encryptedDecryptionShareBytes(nil, []string{"0102", "0304"})
 		require.NoError(t, err)
 		require.Equal(t, [][]byte{{1, 2}, {3, 4}}, got)
 	})
 
 	t.Run("invalid hex share", func(t *testing.T) {
+		t.Parallel()
 		_, err := encryptedDecryptionShareBytes(nil, []string{"not-hex"})
 		require.Error(t, err)
 	})
 }
 
 func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -411,6 +418,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 }
 
 func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -459,6 +467,7 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 }
 
 func TestSecretsFetcher_VaultCapabilityRequestOmitsWorkflowIDMetadata(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -520,6 +529,7 @@ func TestSecretsFetcher_VaultCapabilityRequestOmitsWorkflowIDMetadata(t *testing
 }
 
 func TestSecretsFetcher_VaultBatchLeavesOrgAndWorkflowIdentityUnset(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -590,6 +600,7 @@ func TestSecretsFetcher_VaultBatchLeavesOrgAndWorkflowIdentityUnset(t *testing.T
 }
 
 func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -646,6 +657,7 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 }
 
 func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -722,6 +734,7 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 }
 
 func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -945,6 +958,7 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 }
 
 func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -995,6 +1009,7 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 }
 
 func TestSecretsFetcher_VaultFirstThenLocalOverridesForVaultFailures(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()
@@ -1117,6 +1132,7 @@ func TestSecretsFetcher_VaultFirstThenLocalOverridesForVaultFailures(t *testing.
 }
 
 func TestSecretsFetcher_LocalOverridesWhenVaultExecuteFails(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
 	peer := coreCap.RandomUTF8BytesWord()

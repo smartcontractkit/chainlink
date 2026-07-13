@@ -9,9 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 
+	"github.com/smartcontractkit/chainlink-sui/codec"
 	chainreaderConfig "github.com/smartcontractkit/chainlink-sui/relayer/chainreader/config"
 	"github.com/smartcontractkit/chainlink-sui/relayer/client"
-	"github.com/smartcontractkit/chainlink-sui/relayer/codec"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
 )
@@ -90,14 +90,22 @@ func GetChainReaderConfig(pubKeyStr string) (map[string]any, error) {
 							},
 						},
 					},
+					consts.MethodNameGetARM: {
+						Name:               "get_arm",
+						SignerAddress:      fromAddress,
+						Params:             []codec.SuiFunctionParam{},
+						ResponseFromInputs: []string{"package_id"},
+					},
 				},
 			},
 			consts.ContractNameRMNProxy: map[string]any{
 				"Name": "rmn_remote",
 				"Functions": map[string]*chainreaderConfig.ChainReaderFunction{
 					consts.MethodNameGetARM: {
-						Name:          "get_arm",
-						SignerAddress: fromAddress,
+						Name:               "get_arm",
+						SignerAddress:      fromAddress,
+						Params:             []codec.SuiFunctionParam{},
+						ResponseFromInputs: []string{"package_id"},
 					},
 				},
 			},

@@ -113,7 +113,12 @@ RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
     && apt-get update && apt-get install -y postgresql-client-17 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN if [ ${CHAINLINK_USER} != root ]; then useradd --uid 14933 --create-home ${CHAINLINK_USER}; fi
+# Prod images (CHAINLINK_USER=chainlink) run as UID:GID 14933:14933 for deterministic
+# ownership on bind mounts in Docker/Compose deployments without K8s securityContext overrides.
+RUN if [ ${CHAINLINK_USER} != root ]; then \
+      groupadd --gid 14933 ${CHAINLINK_USER} && \
+      useradd --uid 14933 --gid 14933 --create-home ${CHAINLINK_USER}; \
+    fi
 USER ${CHAINLINK_USER}
 
 # Expose image metadata to the running node.

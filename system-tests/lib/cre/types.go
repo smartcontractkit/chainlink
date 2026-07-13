@@ -66,6 +66,7 @@ const (
 	SolanaCapability            CapabilityFlag = "solana"
 	ConfidentialRelayCapability CapabilityFlag = "confidential-relay"
 	AptosCapability             CapabilityFlag = "aptos"
+	StellarCapability           CapabilityFlag = "stellar"
 	// Add more capabilities as needed
 )
 
@@ -219,6 +220,7 @@ type WorkflowRegistryInput struct {
 	ChainSelector   uint64                  `toml:"-"`
 	CldEnv          *cldf.Environment       `toml:"-"`
 	AllowedDonIDs   []uint64                `toml:"-"`
+	DONFamilies     []string                `toml:"-"` // distinct workflow don_family values for SetDONLimit at env start
 	WorkflowOwners  []common.Address        `toml:"-"`
 	Out             *WorkflowRegistryOutput `toml:"out"`
 }
@@ -527,6 +529,7 @@ type DonMetadata struct {
 	Flags                        []string                            `toml:"flags" json:"flags"`
 	ID                           uint64                              `toml:"id" json:"id"`
 	Name                         string                              `toml:"name" json:"name"`
+	DonFamily                    string                              `toml:"don_family" json:"don_family"` // nodesets.don_family; gateway pairing, cap-registration, and workflow deploy family
 	ExposesRemoteCapabilities    bool                                `toml:"exposes_remote_capabilities" json:"exposes_remote_capabilities"`
 	ShardIndex                   uint                                `toml:"shard_index" json:"shard_index"`
 	CapabilityConfigs            map[CapabilityFlag]CapabilityConfig `toml:"capability_configs" json:"capability_configs"`
@@ -546,6 +549,7 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 			Keys: NodeKeyInput{
 				EVMChainIDs:     c.EVMChains(),
 				SolanaChainIDs:  c.SupportedSolChains,
+				StellarChainIDs: c.SupportedStellarChains,
 				AptosChainIDs:   aptosChainIDs,
 				Password:        "dev-password",
 				ImportedSecrets: nodeSpec.Node.TestSecretsOverrides,
@@ -576,11 +580,16 @@ func NewDonMetadata(c *NodeSet, id uint64, provider infra.Provider, capabilityCo
 	// Propagate merged configs back to NodeSet for consistent access across codebase
 	c.CapabilityConfigs = capConfigs
 
+	if strings.TrimSpace(c.DonFamily) == "" {
+		return nil, fmt.Errorf("nodeset %q has no don_family; set don_family on every nodeset", c.Name)
+	}
+
 	out := &DonMetadata{
 		ID:                           id,
 		Flags:                        c.Flags(),
 		NodesMetadata:                nodes,
 		Name:                         c.Name,
+		DonFamily:                    strings.TrimSpace(c.DonFamily),
 		ns:                           c,
 		ExposesRemoteCapabilities:    c.ExposesRemoteCapabilities,
 		ShardIndex:                   c.ShardIndex,
@@ -712,6 +721,10 @@ func (m *DonMetadata) SolanaChains() []string {
 	return slices.Clone(m.ns.SupportedSolChains)
 }
 
+func (m *DonMetadata) StellarChains() []string {
+	return slices.Clone(m.ns.SupportedStellarChains)
+}
+
 func (m *DonMetadata) RequiresOCR() bool {
 	return slices.Contains(m.Flags, ConsensusCapability) ||
 		slices.Contains(m.Flags, VaultCapability) || slices.Contains(m.Flags, EVMCapability) || slices.Contains(m.Flags, SolanaCapability)
@@ -725,7 +738,7 @@ func (m *DonMetadata) RequiresGateway() bool {
 
 func (m *DonMetadata) IsWorkflowDON() bool {
 	// is there a case where flags are not set yet?
-	if len(m.Flags) == 0 && len(m.ns.DONTypes) != 0 {
+	if len(m.Flags) == 0 && m.ns != nil && len(m.ns.DONTypes) != 0 {
 		return slices.Contains(m.ns.DONTypes, WorkflowDON)
 	}
 
@@ -734,7 +747,7 @@ func (m *DonMetadata) IsWorkflowDON() bool {
 
 func (m *DonMetadata) IsShardDON() bool {
 	// is there a case where flags are not set yet?
-	if len(m.Flags) == 0 && len(m.ns.DONTypes) != 0 {
+	if len(m.Flags) == 0 && m.ns != nil && len(m.ns.DONTypes) != 0 {
 		return slices.Contains(m.ns.DONTypes, ShardDON)
 	}
 
@@ -1207,6 +1220,9 @@ type NodeSet struct {
 
 	Capabilities []string `toml:"capabilities"` // global capabilities that have no chain-specific configuration (e.g. cron, http-trigger)
 	DONTypes     []string `toml:"don_types"`    // workflow, capabilities, gateway
+	// DonFamily groups workflow and gateway nodesets for per-family gateway pairing in local CRE.
+	// Required on every nodeset; env start fails if missing or unmatched (see topology_don_family.go).
+	DonFamily string `toml:"don_family" validate:"required"`
 	// SupportedEVMChains is filter. Use EVMChains() to get the actual list of chains supported by the nodeset.
 	SupportedEVMChains []uint64          `toml:"supported_evm_chains"` // chain IDs that the DON supports, empty means all chains
 	EnvVars            map[string]string `toml:"env_vars"`             // additional environment variables to be set on each node
@@ -1215,7 +1231,8 @@ type NodeSet struct {
 	// Example: [nodesets.capability_configs.http-action.values] IncomingGlobalRPS = 2000.0
 	CapabilityConfigs map[CapabilityFlag]CapabilityConfig `toml:"capability_configs"`
 
-	SupportedSolChains []string `toml:"supported_sol_chains"` // sol chain IDs that the DON supports
+	SupportedSolChains     []string `toml:"supported_sol_chains"`     // sol chain IDs that the DON supports
+	SupportedStellarChains []string `toml:"supported_stellar_chains"` // stellar network IDs (string) that the DON supports
 
 	ExposesRemoteCapabilities bool `toml:"exposes_remote_capabilities"`
 	ShardIndex                uint `toml:"shard_index"`
@@ -1370,7 +1387,10 @@ func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {
 
 	knownChains := make(map[uint64]struct{})
 	for _, bc := range bcInput {
-		if strings.EqualFold(bc.Type, blockchain.FamilySolana) {
+		// Solana and Stellar use non-numeric string chain IDs and scope their
+		// capabilities via supported_{sol,stellar}_chains (not the numeric
+		// "<flag>-<chainID>" form), so they aren't in chainCapabilityIndex.
+		if strings.EqualFold(bc.Type, blockchain.FamilySolana) || strings.EqualFold(bc.Type, blockchain.FamilyStellar) {
 			continue
 		}
 		chainIDUint64, convErr := strconv.ParseUint(bc.ChainID, 10, 64)
@@ -1426,10 +1446,11 @@ func (c *NodeSet) MaxFaultyNodes() (uint32, error) {
 }
 
 type NodeKeyInput struct {
-	EVMChainIDs    []uint64
-	SolanaChainIDs []string
-	AptosChainIDs  []uint64
-	Password       string
+	EVMChainIDs     []uint64
+	SolanaChainIDs  []string
+	StellarChainIDs []string
+	AptosChainIDs   []uint64
+	Password        string
 
 	ImportedSecrets string // raw JSON string of secrets to import (usually from a previous run)
 }
@@ -1437,8 +1458,9 @@ type NodeKeyInput struct {
 func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 	start := time.Now()
 	out := &secrets.NodeKeys{
-		EVM:    make(map[uint64]*crypto.EVMKey),
-		Solana: make(map[string]*crypto.SolKey),
+		EVM:     make(map[uint64]*crypto.EVMKey),
+		Solana:  make(map[string]*crypto.SolKey),
+		Stellar: make(map[string]*crypto.StellarKey),
 	}
 
 	if input.ImportedSecrets != "" {
@@ -1481,6 +1503,13 @@ func NewNodeKeys(input NodeKeyInput) (*secrets.NodeKeys, error) {
 			return nil, fmt.Errorf("failed to generate Sol keys: %w", err)
 		}
 		out.Solana[chainID] = k
+	}
+	for _, chainID := range input.StellarChainIDs {
+		k, err := crypto.NewStellarKey(input.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate Stellar key: %w", err)
+		}
+		out.Stellar[chainID] = k
 	}
 	if len(input.AptosChainIDs) > 0 {
 		k, err := crypto.NewAptosKey(input.Password)

@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_onramp"
 
+	aptosState "github.com/smartcontractkit/chainlink-aptos/deployment/state"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_router"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	ccipSolState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -25,7 +26,6 @@ import (
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	aptosState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solState "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 )

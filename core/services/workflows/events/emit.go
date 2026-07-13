@@ -101,6 +101,32 @@ func EmitWorkflowStatusChangedEventV2(
 	return multiErr
 }
 
+func EmitWorkflowActivationAbandonedV2(
+	ctx context.Context,
+	labels map[string]string,
+	binaryURL string,
+	configURL string,
+	reason eventsv2.ActivationAbandonReason,
+	activationErr error,
+	retryCount int32,
+) error {
+	var errorMessage string
+	if activationErr != nil {
+		errorMessage = activationErr.Error()
+	}
+
+	event := &eventsv2.WorkflowActivationAbandoned{
+		CreInfo:      buildCREMetadataV2(labels),
+		Workflow:     buildWorkflowV2(labels, binaryURL, configURL),
+		Timestamp:    uint64(time.Now().Unix()), //nolint:gosec // G115: unix timestamp is non-negative
+		ErrorMessage: errorMessage,
+		Reason:       reason,
+		RetryCount:   retryCount,
+	}
+
+	return emitProtoMessage(ctx, event)
+}
+
 func EmitExecutionStartedEvent(
 	ctx context.Context,
 	labels map[string]string,
@@ -411,7 +437,8 @@ func EmitUserMetric(ctx context.Context, labels map[string]string, metric *event
 
 // GenerateExecutionID generates a deterministic execution ID from workflowID and triggerEventID
 // hash of (workflowID, triggerEventID)
-// Deprecated: Use GenerateExecutionIDWithTriggerIndex instead.
+//
+// Deprecated: Used only in V1 engine. For V2 use GenerateExecutionIDWithTriggerIndex from common/pkg/workflows/utils.go.
 func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	s := sha256.New()
 	_, err := s.Write([]byte(workflowID))
@@ -420,26 +447,6 @@ func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	}
 
 	_, err = s.Write([]byte(triggerEventID))
-	if err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(s.Sum(nil)), nil
-}
-
-func GenerateExecutionIDWithTriggerIndex(workflowID, triggerEventID string, triggerIndex int) (string, error) {
-	s := sha256.New()
-	_, err := s.Write([]byte(workflowID))
-	if err != nil {
-		return "", err
-	}
-
-	_, err = s.Write([]byte(triggerEventID))
-	if err != nil {
-		return "", err
-	}
-
-	_, err = s.Write([]byte(strconv.Itoa(triggerIndex)))
 	if err != nil {
 		return "", err
 	}
@@ -504,6 +511,9 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *eventsv2.WorkflowActivated:
 		schema = SchemaWorkflowActivatedV2
 		entity = "workflows.v2." + WorkflowActivated
+	case *eventsv2.WorkflowActivationAbandoned:
+		schema = SchemaWorkflowActivationAbandonedV2
+		entity = "workflows.v2." + WorkflowActivationAbandoned
 	case *eventsv2.WorkflowPaused:
 		schema = SchemaWorkflowPausedV2
 		entity = "workflows.v2." + WorkflowPaused

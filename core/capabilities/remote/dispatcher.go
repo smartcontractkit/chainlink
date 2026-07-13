@@ -156,11 +156,9 @@ func (d *dispatcher) Start(ctx context.Context) error {
 	if err = d.initMetrics(); err != nil {
 		return errors.Wrap(err, "failed to initialize metrics")
 	}
-	d.wg.Add(1)
-	go func() {
-		defer d.wg.Done()
+	d.wg.Go(func() {
 		d.receive()
-	}()
+	})
 
 	d.lggr.Info("dispatcher started")
 	return nil
@@ -273,11 +271,12 @@ func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) er
 	}
 
 	var sendErr error
-	if d.cfg.SendToSharedPeer() {
+	switch {
+	case d.cfg.SendToSharedPeer():
 		sendErr = d.don2donSharedPeer.Send(peerID, rawMsg)
-	} else if d.peer != nil {
+	case d.peer != nil:
 		sendErr = d.peer.Send(peerID, rawMsg)
-	} else {
+	default:
 		sendErr = errors.New("no peer available to send message")
 	}
 

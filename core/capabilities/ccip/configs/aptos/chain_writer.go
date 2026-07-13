@@ -3,29 +3,27 @@ package aptosconfig
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-aptos/codec"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/aptos"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
-
-	"github.com/smartcontractkit/chainlink-aptos/relayer/chainreader/config"
-	"github.com/smartcontractkit/chainlink-aptos/relayer/chainwriter"
-	"github.com/smartcontractkit/chainlink-aptos/relayer/utils"
 )
 
-func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, error) {
-	fromAddress, err := utils.HexPublicKeyToAddress(publicKeyStr)
+func GetChainWriterConfig(publicKeyStr string) (aptos.ContractWriterConfig, error) {
+	fromAddress, err := codec.HexPublicKeyToAddress(publicKeyStr)
 	if err != nil {
-		return chainwriter.ChainWriterConfig{}, fmt.Errorf("failed to parse Aptos address from public key %s: %w", publicKeyStr, err)
+		return aptos.ContractWriterConfig{}, fmt.Errorf("failed to parse Aptos address from public key %s: %w", publicKeyStr, err)
 	}
 
-	return chainwriter.ChainWriterConfig{
-		Modules: map[string]*chainwriter.ChainWriterModule{
+	return aptos.ContractWriterConfig{
+		Modules: map[string]*aptos.ContractWriterModule{
 			consts.ContractNameOffRamp: {
 				Name: "offramp",
-				Functions: map[string]*chainwriter.ChainWriterFunction{
+				Functions: map[string]*aptos.ContractWriterFunction{
 					consts.MethodCommit: {
 						Name:        "commit",
 						PublicKey:   publicKeyStr,
-						FromAddress: fromAddress.String(),
-						Params: []config.AptosFunctionParam{
+						FromAddress: fromAddress,
+						Params: []aptos.FunctionParam{
 							{
 								Name:     "ReportContext",
 								Type:     "vector<vector<u8>>",
@@ -46,8 +44,8 @@ func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, e
 					consts.MethodExecute: {
 						Name:        "execute",
 						PublicKey:   publicKeyStr,
-						FromAddress: fromAddress.String(),
-						Params: []config.AptosFunctionParam{
+						FromAddress: fromAddress,
+						Params: []aptos.FunctionParam{
 							{
 								Name:     "ReportContext",
 								Type:     "vector<vector<u8>>",
@@ -63,6 +61,6 @@ func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, e
 				},
 			},
 		},
-		FeeStrategy: chainwriter.DefaultFeeStrategy,
+		FeeStrategy: aptos.DefaultFeeStrategy,
 	}, nil
 }

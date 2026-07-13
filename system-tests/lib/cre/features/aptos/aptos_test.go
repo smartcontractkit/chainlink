@@ -417,6 +417,7 @@ func testDonMetadataWithCapabilities(t *testing.T, nodeConfigs []string, capabil
 
 	nodeSet := &cre.NodeSet{
 		Input:        &ns.Input{Name: "aptos-don"},
+		DonFamily:    "aptos-don",
 		NodeSpecs:    nodeSpecs,
 		Capabilities: capabilities,
 	}

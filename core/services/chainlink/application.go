@@ -26,11 +26,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/beholderhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/otelhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/promhealth"
 	commoncresettings "github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -233,6 +236,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
 	}
 
+	if opts.ExecutionHandlers == nil {
+		opts.ExecutionHandlers = &confidentialrelay.ExecutionHandlers{}
+	}
+
 	if opts.DonTimeStore == nil {
 		opts.DonTimeStore = dontime.NewStore(dontime.DefaultRequestTimeout)
 	}
@@ -375,6 +382,29 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
 		emitterCfg := durableemitter.DefaultConfig()
 		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{}
+		emitterCfg.InsertBatchSize = 500
+		emitterCfg.InsertBatchWorkers = 6
+		emitterCfg.InsertBatchFlushInterval = 100 * time.Millisecond
+		emitterCfg.DeleteBatchSize = 500
+		emitterCfg.DeleteBatchWorkers = 6
+		emitterCfg.DeleteBatchFlushInterval = 100 * time.Millisecond
+		// Recovery profile: retransmit replays the post-outage backlog while the
+		// primary path keeps delivering live emits — both feed the same BatchEmitter,
+		// which has ample headroom (BatchSize × MaxConcurrentSends) for live + backlog.
+		//   - RetransmitInterval = 1s, so RetransmitBatchSize is literally the backlog
+		//     replay rate in events/s. Keep it below BatchEmitter capacity minus the
+		//     live rate, so live emits are never starved out of the buffer.
+		//   - RetransmitAfter MUST exceed delivery latency so an in-flight event is
+		//     never re-queued (the real storm guard — the rate itself is safe because
+		//     MaxConcurrentSends bounds actual downstream load).
+		//   - EventTTL MUST exceed the recovery duration, or the backlog EXPIRES
+		//     (rows dropped by the 1-min expiry loop) before it can be delivered — a
+		//     fake "drain". 6h gives a wide margin for the test.
+		emitterCfg.RetransmitAfter = 60 * time.Second // > PublishTimeout/MaxPublishTimeout (20s) + buffering
+		emitterCfg.RetransmitBatchSize = 500          // 500 events/s replayed (interval = 1s)
+		emitterCfg.RetransmitInterval = 1 * time.Second
+		emitterCfg.EventTTL = 1 * time.Hour
+		emitterCfg.PublishTimeout = 20 * time.Second
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
@@ -384,9 +414,14 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				AuthPublicKeyHex: csaPubKeyHex,
 				AuthKeySigner:    csaKeystore,
 			},
-			RetransmitEnabled: true, // host process owns retransmit
-			EmitterConfig:     &emitterCfg,
-			Meter:             meter,
+			RetransmitEnabled:  true, // host process owns retransmit
+			EmitterConfig:      &emitterCfg,
+			Meter:              meter,
+			MaxPublishTimeout:  10 * time.Second, // batch emitter rpc timeout
+			BatchSize:          1000,
+			BatchInterval:      100 * time.Millisecond,
+			MaxConcurrentSends: 8,
+			MessageBufferSize:  50_000,
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
@@ -405,6 +440,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		peerWrapper,
 		cre.Opts{
 			CapabilitiesRegistry:    opts.CapabilitiesRegistry,
+			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
 			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
 			CapabilitiesPeerWrapper: opts.CapabilitiesPeerWrapper,
 			FetcherFunc:             opts.FetcherFunc,
@@ -772,8 +808,15 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, bridgeStatusReporter)
 
-	healthCfg := commonsrv.HealthCheckerConfig{Ver: static.Version, Sha: static.Sha}
+	healthCfg := commonsrv.HealthCheckerConfig{
+		Ver: static.Version,
+		Sha: static.Sha,
+	}
 	healthCfg = promhealth.ConfigureHooks(healthCfg)
+	healthCfg, err = beholderhealth.ConfigureHooks(healthCfg, opts.Logger, beholder.GetEmitter())
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure health checker beholder hooks: %w", err)
+	}
 	healthCfg, err = otelhealth.ConfigureHooks(healthCfg, meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure health checker otel hooks: %w", err)

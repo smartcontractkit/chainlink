@@ -91,8 +91,8 @@ func SetOracleConfig(t *testing.T, b evmtypes.Backend, owner *bind.TransactOpts,
 		nil,                  // empty onChain config
 	)
 
-	var signers []common.Address
-	var transmitters []common.Address
+	signers := make([]common.Address, 0, len(signersKeys))
+	transmitters := make([]common.Address, 0, len(signersKeys))
 	for i := range signersKeys {
 		signers = append(signers, common.BytesToAddress(signersKeys[i]))
 		transmitters = append(transmitters, common.HexToAddress(string(transmittersAccounts[i])))
@@ -249,7 +249,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	b.Commit()
 
 	// Deploy Client contracts
-	clientContracts := []deployedClientContract{}
+	clientContracts := make([]deployedClientContract, 0, nClients)
 	for i := range nClients {
 		clientContractAddress, _, clientContract, err := functions_client_example.DeployFunctionsClientExample(owner, b.Client(), routerAddress)
 		require.NoError(t, err)
@@ -279,13 +279,13 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 }
 
 func SetupRouterRoutes(t *testing.T, b evmtypes.Backend, owner *bind.TransactOpts, routerContract *functions_router.FunctionsRouter, coordinatorAddress common.Address, proposedCoordinatorAddress common.Address, allowListAddress common.Address) {
-	allowListId, err := routerContract.GetAllowListId(nilOpts)
+	allowListID, err := routerContract.GetAllowListId(nilOpts)
 	require.NoError(t, err)
-	var donId [32]byte
-	copy(donId[:], DefaultDONId)
-	proposedContractSetIds := []([32]byte){allowListId, donId}
+	var donID [32]byte
+	copy(donID[:], DefaultDONId)
+	proposedContractSetIDs := []([32]byte){allowListID, donID}
 	proposedContractSetAddresses := []common.Address{allowListAddress, coordinatorAddress}
-	_, err = routerContract.ProposeContractsUpdate(owner, proposedContractSetIds, proposedContractSetAddresses)
+	_, err = routerContract.ProposeContractsUpdate(owner, proposedContractSetIDs, proposedContractSetAddresses)
 	require.NoError(t, err)
 
 	b.Commit()
@@ -295,9 +295,9 @@ func SetupRouterRoutes(t *testing.T, b evmtypes.Backend, owner *bind.TransactOpt
 	b.Commit()
 
 	// prepare next coordinator
-	proposedContractSetIds = []([32]byte){donId}
+	proposedContractSetIDs = []([32]byte){donID}
 	proposedContractSetAddresses = []common.Address{proposedCoordinatorAddress}
-	_, err = routerContract.ProposeContractsUpdate(owner, proposedContractSetIds, proposedContractSetAddresses)
+	_, err = routerContract.ProposeContractsUpdate(owner, proposedContractSetIDs, proposedContractSetAddresses)
 	require.NoError(t, err)
 	b.Commit()
 }
@@ -320,7 +320,7 @@ func StartNewNode(
 	ocr2Keystore []byte,
 	thresholdKeyShare string,
 ) *Node {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(port)))
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = new(true)
@@ -352,13 +352,13 @@ func StartNewNode(
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
 
-	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(testutils.Context(t), testutils.SimulatedChainID)
+	sendingKeys, err := app.KeyStore.Eth().EnabledKeysForChain(t.Context(), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	require.Len(t, sendingKeys, 1)
 	transmitter := sendingKeys[0].Address
 
 	// fund the transmitter address
-	n, err := b.Client().NonceAt(testutils.Context(t), owner.From, nil)
+	n, err := b.Client().NonceAt(t.Context(), owner.From, nil)
 	require.NoError(t, err)
 
 	tx := evmtestutils.NewLegacyTransaction(
@@ -369,7 +369,7 @@ func StartNewNode(
 		nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = b.Client().SendTransaction(testutils.Context(t), signedTx)
+	err = b.Client().SendTransaction(t.Context(), signedTx)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -381,7 +381,7 @@ func StartNewNode(
 	}
 	require.NoError(t, err)
 
-	err = app.Start(testutils.Context(t))
+	err = app.Start(t.Context())
 	require.NoError(t, err)
 
 	return &Node{
@@ -420,20 +420,20 @@ func AddBootstrapJob(t *testing.T, app *cltest.TestApplication, contractAddress 
 
 	`, contractAddress, DefaultDONId))
 	require.NoError(t, err)
-	err = app.AddJobV2(testutils.Context(t), &job)
+	err = app.AddJobV2(t.Context(), &job)
 	require.NoError(t, err)
 	return job
 }
 
 func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress common.Address, keyBundleID string, transmitter common.Address, bridgeURL string) job.Job {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	u, err := url.Parse(bridgeURL)
 	require.NoError(t, err)
 	require.NoError(t, app.BridgeORM().CreateBridgeType(ctx, &bridges.BridgeType{
 		Name: "ea_bridge",
 		URL:  models.WebURL(*u),
 	}))
-	job, err := validate.ValidatedOracleSpecToml(testutils.Context(t), app.Config.OCR2(), app.Config.Insecure(), fmt.Sprintf(`
+	job, err := validate.ValidatedOracleSpecToml(t.Context(), app.Config.OCR2(), app.Config.Insecure(), fmt.Sprintf(`
 		type               = "offchainreporting2"
 		name               = "functions-node"
 		schemaVersion      = 1
@@ -477,7 +477,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 			maxSlotsPerUser = 10
 	`, contractAddress, keyBundleID, transmitter, DefaultDONId), nil)
 	require.NoError(t, err)
-	err = app.AddJobV2(testutils.Context(t), &job)
+	err = app.AddJobV2(t.Context(), &job)
 	require.NoError(t, err)
 	return job
 }
@@ -485,9 +485,9 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 func StartNewMockEA(t *testing.T) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		var jsonMap map[string]any
-		require.NoError(t, json.Unmarshal(b, &jsonMap))
+		assert.NoError(t, json.Unmarshal(b, &jsonMap))
 		var responsePayload []byte
 		switch jsonMap["endpoint"].(string) {
 		case "lambda":
@@ -495,11 +495,11 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		case "fetcher":
 			responsePayload = mockEASecretsFetchResponse(t, jsonMap)
 		default:
-			require.Fail(t, "unknown external adapter endpoint '%s'", jsonMap["endpoint"].(string))
+			assert.Failf(t, "unknown external adapter endpoint", "endpoint: %s", jsonMap["endpoint"].(string))
 		}
 		res.WriteHeader(http.StatusOK)
 		_, err = res.Write(responsePayload)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	}))
 }
 
@@ -563,7 +563,7 @@ func CreateFunctionsNodes(
 	}
 
 	bootstrapPort := freeport.GetOne(t)
-	bootstrapNode = StartNewNode(t, owner, bootstrapPort, b, uint32(maxGas), nil, nil, "")
+	bootstrapNode = StartNewNode(t, owner, bootstrapPort, b, uint32(maxGas), nil, nil, "") //nolint:gosec // G115 maxGas is a test-controlled constant, no overflow
 	AddBootstrapJob(t, bootstrapNode.App, routerAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
@@ -581,7 +581,7 @@ func CreateFunctionsNodes(
 		} else {
 			ocr2Keystore = ocr2Keystores[i]
 		}
-		oracleNode := StartNewNode(t, owner, ports[i], b, uint32(maxGas), []commontypes.BootstrapperLocator{
+		oracleNode := StartNewNode(t, owner, ports[i], b, uint32(maxGas), []commontypes.BootstrapperLocator{ //nolint:gosec // G115 maxGas is a test-controlled constant, no overflow
 			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapPort)}},
 		}, ocr2Keystore, thresholdKeyShare)
 		oracleNodes = append(oracleNodes, oracleNode.App)
@@ -598,8 +598,8 @@ func CreateFunctionsNodes(
 
 func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backend, clientContracts []deployedClientContract, requestLenBytes int, expectedSecrets []byte, subscriptionID uint64, timeout time.Duration) {
 	t.Helper()
-	var donId [32]byte
-	copy(donId[:], []byte(DefaultDONId))
+	var donID [32]byte
+	copy(donID[:], []byte(DefaultDONId))
 	// send requests
 	requestSources := make([][]byte, len(clientContracts))
 	rnd := rand.New(rand.NewSource(666))
@@ -614,7 +614,7 @@ func ClientTestRequests(t *testing.T, owner *bind.TransactOpts, b evmtypes.Backe
 			expectedSecrets,
 			[]string{DefaultArg1, DefaultArg2},
 			subscriptionID,
-			donId,
+			donID,
 		)
 		require.NoError(t, err)
 		client.FinalizeLatest(t, b)

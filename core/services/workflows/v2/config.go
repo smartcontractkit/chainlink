@@ -116,8 +116,9 @@ type EngineLimiters struct {
 	UserMetricLabelsPerMetric  limits.BoundLimiter[int]
 	UserMetricLabelValueLength limits.BoundLimiter[int]
 
-	ExecutionTimestampsEnabled limits.GateLimiter
-	DONTimeRequestTimeout      limits.TimeLimiter
+	ExecutionTimestampsEnabled   limits.GateLimiter
+	ConfidentialWorkflowsEnabled limits.GateLimiter
+	DONTimeRequestTimeout        limits.TimeLimiter
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -265,6 +266,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.ConfidentialWorkflowsEnabled, err = limits.MakeGateLimiter(lf, cfg.ConfidentialWorkflows.Enabled)
+	if err != nil {
+		return
+	}
 	l.DONTimeRequestTimeout, err = lf.MakeTimeLimiter(cfg.DONTime.RequestTimeout)
 	if err != nil {
 		return
@@ -307,6 +312,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.ConfidentialHTTPCalls,
 		l.SecretsCalls,
 		l.ExecutionTimestampsEnabled,
+		l.ConfidentialWorkflowsEnabled,
 		l.DONTimeRequestTimeout,
 	}
 	var errs error
@@ -349,13 +355,13 @@ func (l *EngineLimiters) Close() error {
 		l.ConfidentialHTTPCalls,
 		l.SecretsCalls,
 		l.ExecutionTimestampsEnabled,
+		l.ConfidentialWorkflowsEnabled,
 		l.DONTimeRequestTimeout,
 	)
 }
 
 type EngineFeatureFlags struct {
-	FeatureMultiTriggerExecutionIDs             limits.RangeLimiter[config.Timestamp]
-	FeatureUseSingleDONTimeProviderPerExecution limits.RangeLimiter[config.Timestamp]
+	// put feature flags here and create them in NewFeatureFlags
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -363,18 +369,9 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
-	featureMultiTriggerExecutionIDs, err := limits.MakeRangeLimiter(lf, cfg.FeatureMultiTriggerExecutionIDsActivePeriod)
-	if err != nil {
-		return nil, err
-	}
-	featureUseSingleDONTimeProviderPerExecution, err := limits.MakeRangeLimiter(lf, cfg.FeatureUseSingleDONTimeProviderPerExecutionActivePeriod)
-	if err != nil {
-		return nil, err
-	}
-	return &EngineFeatureFlags{
-		FeatureMultiTriggerExecutionIDs:             featureMultiTriggerExecutionIDs,
-		FeatureUseSingleDONTimeProviderPerExecution: featureUseSingleDONTimeProviderPerExecution,
-	}, nil
+	// example:
+	// featureXYZFlag, err := limits.MakeRangeLimiter(lf, cfg.FeatureXYZActivePeriod)
+	return &EngineFeatureFlags{}, nil
 }
 
 const (

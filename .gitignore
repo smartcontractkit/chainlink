@@ -118,6 +118,7 @@ vendor/*
 contracts/lcov.info
 contracts/out/
 /cache
+/.wasm-cache/
 
 # Used by plugins/chainlink.prebuilt.Dockerfile
 /bin/

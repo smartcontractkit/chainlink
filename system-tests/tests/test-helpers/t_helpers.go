@@ -313,6 +313,7 @@ type WorkflowConfig interface {
 	None |
 		portypes.WorkflowConfig |
 		AptosReadWorkflowConfig |
+		StellarReadWorkflowConfig |
 		aptoswrite_config.Config |
 		aptoswriteroundtrip_config.Config |
 		crontypes.WorkflowConfig |
@@ -347,6 +348,14 @@ type AptosReadWorkflowConfig struct {
 	ExpectedCoinName string `yaml:"expectedCoinName"`
 }
 
+// StellarReadWorkflowConfig mirrors the fields of the stellarread workflow's
+// config.Config (system-tests/tests/smoke/cre/stellar/stellarread/config).
+type StellarReadWorkflowConfig struct {
+	ChainSelector     uint64 `yaml:"chainSelector"`
+	WorkflowName      string `yaml:"workflowName"`
+	MinLedgerSequence uint64 `yaml:"minLedgerSequence"`
+}
+
 // WorkflowRegistrationConfig holds configuration for workflow registration
 type WorkflowRegistrationConfig struct {
 	WorkflowName            string
@@ -358,6 +367,7 @@ type WorkflowRegistrationConfig struct {
 	WorkflowRegistryVersion *semver.Version
 	ChainID                 uint64
 	DonID                   uint64
+	DonFamily               string
 	ContainerTargetDir      string
 	SethClient              *seth.Client
 	Attributes              []byte
@@ -430,6 +440,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create aptos read workflow config file")
 			testLogger.Info().Msg("Aptos read workflow config file created.")
+
+		case *StellarReadWorkflowConfig:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create stellar read workflow config file")
+			testLogger.Info().Msg("Stellar read workflow config file created.")
 
 		case *aptoswrite_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
@@ -637,6 +653,7 @@ func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConf
 		wfRegCfg.WorkflowRegistryAddr,
 		wfRegCfg.WorkflowRegistryVersion,
 		wfRegCfg.DonID,
+		wfRegCfg.DonFamily,
 		wfRegCfg.WorkflowName,
 		binaryURL,
 		configURL,
@@ -730,6 +747,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryVersion: workflowRegistryAddress.Version,
 		ChainID:                 registryChainSelector,
 		DonID:                   testEnv.Dons.MustWorkflowDON().ID,
+		DonFamily:               testEnv.Dons.MustWorkflowDON().DonFamily,
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
 		SethClient:              testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient,
 		Attributes:              cfg.attributes,

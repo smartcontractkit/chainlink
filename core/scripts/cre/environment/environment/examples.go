@@ -29,6 +29,7 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 	var (
 		rpcURLFlag                  string
 		workflowDonIDFlag           uint32
+		donFamilyFlag               string
 		exampleWorkflowTimeoutFlag  string
 		workflowRegistryAddressFlag string
 	)
@@ -67,13 +68,26 @@ func deployAndVerifyExampleWorkflowCmd() *cobra.Command {
 				return errors.Wrap(err, "❌ failed to resolve workflow registry")
 			}
 
-			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURL, workflowDONID, timeout, workflowRegistryAddress, contractsVersion)
+			donFamily := donFamilyFlag
+			if !cmd.Flags().Changed("don-family") && resolver != nil {
+				if stateFamily, familyErr := resolver.WorkflowDONFamily(); familyErr == nil {
+					donFamily = stateFamily
+				}
+			}
+
+			donFamily, err = finalizeWorkflowDonFamily(donFamily)
+			if err != nil {
+				return err
+			}
+
+			return deployAndVerifyExampleWorkflow(cmd.Context(), rpcURL, workflowDONID, donFamily, timeout, workflowRegistryAddress, contractsVersion)
 		},
 	}
 
 	cmd.Flags().StringVarP(&rpcURLFlag, "rpc-url", "r", "http://localhost:8545", "RPC URL")
 	cmd.Flags().StringVarP(&exampleWorkflowTimeoutFlag, "example-workflow-timeout", "u", "5m", "Time to wait until example workflow succeeds (e.g. 10s, 1m, 1h)")
 	cmd.Flags().Uint32VarP(&workflowDonIDFlag, "workflow-don-id", "d", 1, "DonID used in the workflow registry contract (integer starting with 1)")
+	cmd.Flags().StringVar(&donFamilyFlag, "don-family", "", "DON family for registry registration (defaults to workflow DON family from local CRE state)")
 	cmd.Flags().StringVarP(&workflowRegistryAddressFlag, "workflow-registry-address", "w", "", "Workflow registry address (if not provided, address from the state file will be used)")
 
 	return cmd
@@ -94,7 +108,7 @@ func executeCronBasedWorkflow(cmdContext context.Context, rpcURL string, consume
 	return nil
 }
 
-func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL string, workflowDonID uint32, timeout time.Duration, workflowRegistryAddress string, contractsVersion *semver.Version) error {
+func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL string, workflowDonID uint32, donFamily string, timeout time.Duration, workflowRegistryAddress string, contractsVersion *semver.Version) error {
 	totalStart := time.Now()
 	start := time.Now()
 
@@ -151,7 +165,7 @@ func deployAndVerifyExampleWorkflow(cmdContext context.Context, rpcURL string, w
 		_ = os.Remove(configFilePath)
 	}()
 
-	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, creworkflow.DefaultWorkflowTargetDir, configFilePath, "", "", rpcURL, "", contractsVersion, nil, workflowDonID)
+	deployErr := compileCopyAndRegisterWorkflow(cmdContext, workflowFilePath, workflowName, "", workflowRegistryAddress, "", creworkflow.DefaultWorkflowNodePattern, "", creworkflow.DefaultWorkflowTargetDir, configFilePath, "", "", rpcURL, "", contractsVersion, nil, workflowDonID, donFamily)
 	if deployErr != nil {
 		return errors.Wrap(deployErr, "failed to deploy example workflow")
 	}
