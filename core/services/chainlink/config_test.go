@@ -572,8 +572,7 @@ func TestConfig_Marshal(t *testing.T) {
 		LogExportMaxBatchSize:          ptr[int](512),
 		LogExportInterval:              ptrDuration(1 * time.Second),
 		LogMaxQueueSize:                ptrInt(2048),
-		MetricViewsDisabled:            new(false),
-		MetricViewsAttributeBlacklist:  []string{"event_id"},
+		MetricViewsAttributeDenylist:  []string{"event_id"},
 
 		PrometheusBridge: toml.PrometheusBridge{
 			Enabled:  ptr(true),
