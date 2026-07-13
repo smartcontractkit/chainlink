@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -19,7 +20,7 @@ type deployAutomationReceiver struct{}
 
 func (d deployAutomationReceiver) VerifyPreconditions(env cldf.Environment, config vaulttypes.DeployAutomationReceiverInput) error {
 	if len(config.Chains) == 0 {
-		return fmt.Errorf("chains must not be empty")
+		return errors.New("chains must not be empty")
 	}
 	evmChains := env.BlockChains.EVMChains()
 	for chainSelector, chainCfg := range config.Chains {

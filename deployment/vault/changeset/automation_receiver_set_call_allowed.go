@@ -3,6 +3,7 @@ package changeset
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -27,7 +28,7 @@ type setCallAllowed struct{}
 
 func (s setCallAllowed) VerifyPreconditions(env cldf.Environment, config vaulttypes.SetCallAllowedInput) error {
 	if len(config.Chains) == 0 {
-		return fmt.Errorf("chains must not be empty")
+		return errors.New("chains must not be empty")
 	}
 	if config.MCMSConfig != nil && config.MCMSConfig.MinDelay < 0 {
 		return fmt.Errorf("MCMS minimum delay cannot be negative: %d", config.MCMSConfig.MinDelay)

@@ -318,8 +318,8 @@ func TestDeployEthBalMonChangeset(t *testing.T) {
 		cfg := types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
 				selector: {
-					KeeperRegistryAddress: testAddr1,
-					SetMinWaitPeriodSeconds:  &customWait,
+					KeeperRegistryAddress:   testAddr1,
+					SetMinWaitPeriodSeconds: &customWait,
 				},
 			},
 		}
@@ -377,8 +377,8 @@ func TestDeployEthBalMonChangeset(t *testing.T) {
 		cfg := types.DeployEthBalMonInput{
 			Chains: map[uint64]types.DeployEthBalMonChainConfig{
 				selector: {
-					KeeperRegistryAddress: testAddr1,
-					SetMinWaitPeriodSeconds:  &zero,
+					KeeperRegistryAddress:   testAddr1,
+					SetMinWaitPeriodSeconds: &zero,
 				},
 			},
 		}

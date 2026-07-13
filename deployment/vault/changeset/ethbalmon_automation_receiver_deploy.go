@@ -1,16 +1,18 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/smartcontractkit/mcms"
+
 	ds "github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/mcms"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -21,7 +23,7 @@ type deployEthBalMonWithReceiver struct{}
 
 func (d deployEthBalMonWithReceiver) VerifyPreconditions(env cldf.Environment, config vaulttypes.DeployEthBalMonWithReceiverInput) error {
 	if len(config.Chains) == 0 {
-		return fmt.Errorf("chains must not be empty")
+		return errors.New("chains must not be empty")
 	}
 	evmChains := env.BlockChains.EVMChains()
 	for chainSelector, chainCfg := range config.Chains {
