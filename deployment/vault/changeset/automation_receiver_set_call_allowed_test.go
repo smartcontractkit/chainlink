@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
 
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
 
@@ -150,12 +151,18 @@ func TestSetCallAllowedChangeSet(t *testing.T) {
 	setupMCMSInfrastructure(t, rt, []uint64{selector})
 	fundDeployerAccounts(t, rt.Environment(), []uint64{selector})
 
+	// The AutomationReceiver validates that setCallAllowed targets have deployed
+	// code (reverts with TargetHasNoCode otherwise), so use a real contract
+	// address as the target. The timelock is already deployed by the MCMS setup.
+	timelockAddr, err := GetContractAddress(rt.State().DataStore, selector, commontypes.RBACTimelock)
+	require.NoError(t, err)
+
 	// Deploy the AutomationReceiver so its address is recorded in the datastore.
 	deployCfg := types.DeployAutomationReceiverInput{
 		Chains: map[uint64]types.AutomationReceiverChainConfig{
 			selector: {
 				ForwarderAddress: testAddr1,
-				TargetAddress:    testAddr2,
+				TargetAddress:    timelockAddr,
 				Selector:         testSelectorHex,
 			},
 		},
