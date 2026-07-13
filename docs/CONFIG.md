@@ -2393,7 +2393,7 @@ AuthHeadersTTL = '0s' # Default
 ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 ChipIngressBatchEmitterEnabled = true # Default
-DurableEmitterEnabled = false # Default
+DurableEmitterEnabled = true # Default
 DurableEmitterRetransmitBatchSize = 500 # Default
 DurableEmitterEventTTL = '1h0m0s' # Default
 HeartbeatInterval = '1s' # Default
@@ -2481,7 +2481,7 @@ When false, events are sent individually (legacy behavior).
 
 ### DurableEmitterEnabled
 ```toml
-DurableEmitterEnabled = false # Default
+DurableEmitterEnabled = true # Default
 ```
 DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
 

@@ -115,7 +115,7 @@ func (b *telemetryConfig) ChipIngressBatchEmitterEnabled() bool {
 
 func (b *telemetryConfig) DurableEmitterEnabled() bool {
 	if b.s.DurableEmitterEnabled == nil {
-		return false
+		return true
 	}
 	return *b.s.DurableEmitterEnabled
 }
