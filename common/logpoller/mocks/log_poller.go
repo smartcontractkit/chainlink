@@ -1758,6 +1758,53 @@ func (_c *LogPoller_ReplayAsync_Call) RunAndReturn(run func(int64)) *LogPoller_R
 	return _c
 }
 
+// SkipToBlock provides a mock function with given fields: ctx, blockNumber
+func (_m *LogPoller) SkipToBlock(ctx context.Context, blockNumber int64) error {
+	ret := _m.Called(ctx, blockNumber)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SkipToBlock")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
+		r0 = rf(ctx, blockNumber)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// LogPoller_SkipToBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SkipToBlock'
+type LogPoller_SkipToBlock_Call struct {
+	*mock.Call
+}
+
+// SkipToBlock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - blockNumber int64
+func (_e *LogPoller_Expecter) SkipToBlock(ctx interface{}, blockNumber interface{}) *LogPoller_SkipToBlock_Call {
+	return &LogPoller_SkipToBlock_Call{Call: _e.mock.On("SkipToBlock", ctx, blockNumber)}
+}
+
+func (_c *LogPoller_SkipToBlock_Call) Run(run func(ctx context.Context, blockNumber int64)) *LogPoller_SkipToBlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(int64))
+	})
+	return _c
+}
+
+func (_c *LogPoller_SkipToBlock_Call) Return(_a0 error) *LogPoller_SkipToBlock_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *LogPoller_SkipToBlock_Call) RunAndReturn(run func(context.Context, int64) error) *LogPoller_SkipToBlock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *LogPoller) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
