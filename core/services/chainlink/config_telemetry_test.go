@@ -397,3 +397,45 @@ func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
 		})
 	}
 }
+
+func TestTelemetryConfig_MetricViewsDisabled(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  bool
+	}{
+		{"MetricViewsDisabledTrue", toml.Telemetry{MetricViewsDisabled: ptr(true)}, true},
+		{"MetricViewsDisabledFalse", toml.Telemetry{MetricViewsDisabled: ptr(false)}, false},
+		{"MetricViewsDisabledNil", toml.Telemetry{MetricViewsDisabled: nil}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.MetricViewsDisabled())
+		})
+	}
+}
+
+func TestTelemetryConfig_MetricViewsAttributeBlacklist(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  []string
+	}{
+		{"BlacklistSet", toml.Telemetry{MetricViewsAttributeBlacklist: []string{"event_id"}}, []string{"event_id"}},
+		{"BlacklistNil", toml.Telemetry{MetricViewsAttributeBlacklist: nil}, nil},
+		{"BlacklistEmpty", toml.Telemetry{MetricViewsAttributeBlacklist: []string{}}, []string{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.MetricViewsAttributeBlacklist())
+		})
+	}
+}

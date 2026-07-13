@@ -907,6 +907,10 @@ LogExportMaxBatchSize = 512 # Default
 LogExportInterval = '1s' # Default
 # LogMaxQueueSize sets the maximum queue size used by the batcher
 LogMaxQueueSize = 2048 # Default
+# MetricViewsDisabled skips default Beholder metric attribute deny views.
+MetricViewsDisabled = false # Default
+# MetricViewsAttributeBlacklist lists attribute keys dropped before export (e.g. event_id).
+MetricViewsAttributeBlacklist = ['event_id'] # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]

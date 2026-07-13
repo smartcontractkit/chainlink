@@ -88,6 +88,12 @@ func (m mockCfgTelemetry) LogExportMaxBatchSize() int       { return 512 }
 func (m mockCfgTelemetry) LogExportInterval() time.Duration { return 5 * time.Second }
 func (m mockCfgTelemetry) LogMaxQueueSize() int             { return 2048 }
 
+func (m mockCfgTelemetry) MetricViewsDisabled() bool { return false }
+
+func (m mockCfgTelemetry) MetricViewsAttributeBlacklist() []string {
+	return []string{"event_id"}
+}
+
 func (m mockCfgTelemetry) PrometheusBridge() config.PrometheusBridge {
 	return mockPrometheusBridge{}
 }
@@ -250,6 +256,8 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 512, envCfg.TelemetryLogExportMaxBatchSize)
 	require.Equal(t, 5*time.Second, envCfg.TelemetryLogExportInterval)
 	require.Equal(t, 2048, envCfg.TelemetryLogMaxQueueSize)
+	require.False(t, envCfg.TelemetryMetricViewsDisabled)
+	require.Equal(t, []string{"event_id"}, envCfg.TelemetryMetricViewsAttributeBlacklist)
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 	require.False(t, envCfg.ChipIngressBatchEmitterEnabled)

@@ -394,6 +394,8 @@ LogExportTimeout = '1s'
 LogExportMaxBatchSize = 512
 LogExportInterval = '1s'
 LogMaxQueueSize = 2048
+MetricViewsDisabled = false
+MetricViewsAttributeBlacklist = ['event_id']
 
 [Telemetry.PrometheusBridge]
 Enabled = false
