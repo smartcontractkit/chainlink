@@ -16,6 +16,12 @@ var _ config.Telemetry = (*telemetryConfig)(nil)
 
 const defaultHeartbeatInterval = 1 * time.Second
 
+// Defaults for the durable emitter tuning knobs (mirrored in docs/core.toml).
+const (
+	defaultDurableEmitterRetransmitBatchSize = 500
+	defaultDurableEmitterEventTTL            = 1 * time.Hour
+)
+
 type telemetryConfig struct {
 	s toml.Telemetry
 }
@@ -112,6 +118,20 @@ func (b *telemetryConfig) DurableEmitterEnabled() bool {
 		return false
 	}
 	return *b.s.DurableEmitterEnabled
+}
+
+func (b *telemetryConfig) DurableEmitterRetransmitBatchSize() int {
+	if b.s.DurableEmitterRetransmitBatchSize == nil {
+		return defaultDurableEmitterRetransmitBatchSize
+	}
+	return *b.s.DurableEmitterRetransmitBatchSize
+}
+
+func (b *telemetryConfig) DurableEmitterEventTTL() time.Duration {
+	if b.s.DurableEmitterEventTTL == nil || b.s.DurableEmitterEventTTL.Duration() <= 0 {
+		return defaultDurableEmitterEventTTL
+	}
+	return b.s.DurableEmitterEventTTL.Duration()
 }
 
 func (b *telemetryConfig) HeartbeatInterval() time.Duration {

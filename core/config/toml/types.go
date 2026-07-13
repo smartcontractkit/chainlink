@@ -2973,27 +2973,29 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled                        *bool
-	CACertFile                     *string
-	Endpoint                       *string
-	InsecureConnection             *bool
-	ResourceAttributes             map[string]string `toml:",omitempty"`
-	TraceSampleRatio               *float64
-	EmitterBatchProcessor          *bool
-	EmitterExportTimeout           *commonconfig.Duration
-	AuthHeadersTTL                 *commonconfig.Duration
-	ChipIngressEndpoint            *string
-	ChipIngressInsecureConnection  *bool
-	ChipIngressBatchEmitterEnabled *bool
-	DurableEmitterEnabled          *bool
-	HeartbeatInterval              *commonconfig.Duration
-	LogLevel                       *string
-	LogStreamingEnabled            *bool
-	LogBatchProcessor              *bool
-	LogExportTimeout               *commonconfig.Duration
-	LogExportMaxBatchSize          *int
-	LogExportInterval              *commonconfig.Duration
-	LogMaxQueueSize                *int
+	Enabled                           *bool
+	CACertFile                        *string
+	Endpoint                          *string
+	InsecureConnection                *bool
+	ResourceAttributes                map[string]string `toml:",omitempty"`
+	TraceSampleRatio                  *float64
+	EmitterBatchProcessor             *bool
+	EmitterExportTimeout              *commonconfig.Duration
+	AuthHeadersTTL                    *commonconfig.Duration
+	ChipIngressEndpoint               *string
+	ChipIngressInsecureConnection     *bool
+	ChipIngressBatchEmitterEnabled    *bool
+	DurableEmitterEnabled             *bool
+	DurableEmitterRetransmitBatchSize *int
+	DurableEmitterEventTTL            *commonconfig.Duration
+	HeartbeatInterval                 *commonconfig.Duration
+	LogLevel                          *string
+	LogStreamingEnabled               *bool
+	LogBatchProcessor                 *bool
+	LogExportTimeout                  *commonconfig.Duration
+	LogExportMaxBatchSize             *int
+	LogExportInterval                 *commonconfig.Duration
+	LogMaxQueueSize                   *int
 
 	PrometheusBridge PrometheusBridge `toml:",omitempty"`
 }
@@ -3037,6 +3039,12 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.DurableEmitterEnabled; v != nil {
 		b.DurableEmitterEnabled = v
+	}
+	if v := f.DurableEmitterRetransmitBatchSize; v != nil {
+		b.DurableEmitterRetransmitBatchSize = v
+	}
+	if v := f.DurableEmitterEventTTL; v != nil {
+		b.DurableEmitterEventTTL = v
 	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v
