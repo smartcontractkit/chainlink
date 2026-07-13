@@ -110,7 +110,7 @@ func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawM
 }
 
 type relayBundler interface {
-	Bundle(req jsonrpc.Request[json.RawMessage], resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*jsonrpc.Response[json.RawMessage], int, error)
+	Bundle(req jsonrpc.Request[json.RawMessage], resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*BundleSummary, error)
 }
 
 type Config struct {
@@ -240,14 +240,14 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
-		// We never reached the 2F+1 early trigger. Forward what we collected only
+		// We never reached the 2F+1 forward threshold. Forward what we collected only
 		// if the bundle can still reach the enclave's F+1 quorum (faulty nodes may
 		// have simply stayed silent). Below F+1 signed responses the enclave is
 		// guaranteed to reject, so forwardBundle returns a timeout error instead of
 		// a futile round trip. The gateway still verifies nothing: this is only a
 		// count floor, not a trust decision.
 		h.lggr.Debugw("request expired, forwarding collected responses to enclave", "requestID", er.req.ID, "responseCount", len(responses))
-		if err := h.forwardBundle(ctx, h.lggr, er, responses, h.donConfig.F+1); err != nil {
+		if err := h.bundleAndForward(ctx, h.lggr, er, responses, h.donConfig.F+1); err != nil {
 			h.lggr.Errorw("error forwarding bundle on expiry", "requestID", er.req.ID, "error", err)
 		}
 	}
@@ -347,44 +347,63 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		l.Debugw("waiting for more relay responses before forwarding bundle", "have", len(copiedResponses), "need", requiredResponses)
 		return nil
 	}
-	return h.forwardBundle(ctx, l, ar, copiedResponses, 0)
+	return h.bundleAndForward(ctx, l, ar, copiedResponses, 0)
 }
 
-// forwardBundle builds the relay response bundle from the collected per-node
-// responses and forwards it to the enclave. The gateway makes no trust decision;
-// the enclave verifies signatures and reaches quorum.
+// forwardBundle sends a previously-built bundle to the enclave. The gateway makes
+// no trust decision; the enclave verifies signatures and reaches quorum.
 //
 // minSigned is a futility floor, not a verification step. The enclave reaches
 // quorum only with F+1 valid distinct signatures, so a bundle carrying fewer than
 // F+1 signed responses cannot possibly be accepted. On the timeout path we pass
 // minSigned=F+1 to skip that guaranteed-reject round trip and return a timeout
 // error instead. (F+1 signed is necessary, not sufficient: some signatures may be
-// invalid, so the timeout path stays optimistic.) The 2F+1 early path passes
+// invalid, so the timeout path stays optimistic.) The 2F+1 path passes
 // minSigned=0 because its raw-count trigger already implies enough signed
-// responses; the gateway inspects no signatures in either case.
-func (h *handler) forwardBundle(ctx context.Context, l logger.Logger, ar *activeRequest, responses map[string]jsonrpc.Response[json.RawMessage], minSigned int) error {
-	bundleResp, signedCount, err := h.bundler.Bundle(ar.req, responses, l)
-	if err != nil {
-		l.Errorw("failed to build relay response bundle", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
-	}
-
-	if signedCount < minSigned {
-		l.Debugw("too few signed responses for enclave quorum; returning timeout", "signed", signedCount, "need", minSigned)
+// responses; the gateway inspects no cryptographic signatures in either case.
+func (h *handler) forwardBundle(ctx context.Context, l logger.Logger, ar *activeRequest, summary *BundleSummary, minSigned int) error {
+	if summary.Signed() < minSigned {
+		l.Warnw("too few signed responses for enclave quorum; returning timeout",
+			"signed", summary.Signed(),
+			"need", minSigned,
+			"total", summary.Total(),
+			"errors", summary.Error(),
+			"undecodable", summary.Undecodable(),
+			"nodeErrors", summary.NodeErrorsFormatted(),
+		)
 		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.RequestTimeoutError,
-			fmt.Errorf("request expired: %d signed relay responses, need at least %d to reach quorum", signedCount, minSigned)))
+			fmt.Errorf("request expired: %d signed relay responses, need at least %d to reach quorum (total=%d errors=%d undecodable=%d)",
+				summary.Signed(), minSigned, summary.Total(), summary.Error(), summary.Undecodable())))
 	}
 
-	rawResponse, err := jsonrpc.EncodeResponse(bundleResp)
+	rawResponse, err := jsonrpc.EncodeResponse(summary.Response())
 	if err != nil {
 		h.lggr.Errorw("failed to encode response", "requestID", ar.req.ID, "error", err)
 		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.NodeReponseEncodingError, err))
 	}
-	l.Debugw("forwarding relay response bundle to enclave", "signedResponses", signedCount, "totalResponses", len(responses))
+	l.Infow("forwarding relay response bundle to enclave",
+		"signedResponses", summary.Signed(),
+		"totalResponses", summary.Total(),
+		"errorResponses", summary.Error(),
+		"undecodableResponses", summary.Undecodable(),
+		"nodeErrors", summary.NodeErrorsFormatted(),
+	)
 	return h.sendResponseAndCleanup(ctx, ar, gwhandlers.UserCallbackPayload{
 		RawResponse: rawResponse,
 		ErrorCode:   api.NoError,
 	})
+}
+
+// bundleAndForward builds a bundle from the collected per-node responses and
+// forwards it subject to minSigned. Used by the timeout path, which has not
+// already built a BundleSummary.
+func (h *handler) bundleAndForward(ctx context.Context, l logger.Logger, ar *activeRequest, responses map[string]jsonrpc.Response[json.RawMessage], minSigned int) error {
+	summary, err := h.bundler.Bundle(ar.req, responses, l)
+	if err != nil {
+		l.Errorw("failed to build relay response bundle", "error", err)
+		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
+	}
+	return h.forwardBundle(ctx, l, ar, summary, minSigned)
 }
 
 func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
