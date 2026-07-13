@@ -108,7 +108,7 @@ type mockAggregator struct {
 	err error
 }
 
-func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
+func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ string, _ map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -1002,8 +1002,9 @@ func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknow
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
-		capabilitiesRegistry: mcr,
-		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
+		capabilitiesRegistry:        mcr,
+		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
+		signedResponseRequestIDGate: limits.NewGateLimiter(true),
 	}
 
 	ocrContext, err := hex.DecodeString("000ec4f6a2ba011e909eccf64628855b848e08876a1edd938a1372a9e51adff100000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000")
@@ -1077,8 +1078,9 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
-		capabilitiesRegistry: mcr,
-		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
+		capabilitiesRegistry:        mcr,
+		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
+		signedResponseRequestIDGate: limits.NewGateLimiter(true),
 	}
 
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
