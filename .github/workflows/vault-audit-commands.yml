@@ -221,8 +221,8 @@ jobs:
         if: steps.cmd.outputs.type == 'run' && steps.verify.outputs.unverified == 'false'
         uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
         with:
-          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-role-arn: ${{ secrets.CHAINLINK_CRE_DOCS_GATI_AWS_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.CHAINLINK_CRE_DOCS_GATI_AWS_LAMBDA_URL }}
           aws-region: us-west-2
 
       - name: Set commit status pending
