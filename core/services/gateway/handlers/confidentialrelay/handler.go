@@ -334,20 +334,38 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 	copiedResponses := ar.copiedResponses()
 	// The gateway is a dumb fan-in: it does not verify signatures, check signer
-	// membership, or decide quorum. It forwards the bundle of all collected
-	// responses to the enclave, which is the sole trust anchor. We wait for 2F+1
-	// responses so that, under the <=F-faulty threat model, at least F+1 honest
-	// matching responses are guaranteed to be in the bundle for the enclave to
-	// reach its F+1-valid-signature quorum. Once 2F+1 have arrived we forward
-	// immediately (minSigned=0: the count is already guaranteed sufficient). If
-	// 2F+1 never arrive, the cleanup timer forwards what was collected only when it
-	// still carries at least F+1 signed responses, the minimum the enclave needs.
-	requiredResponses := 2*h.donConfig.F + 1
-	if len(copiedResponses) < requiredResponses {
-		l.Debugw("waiting for more relay responses before forwarding bundle", "have", len(copiedResponses), "need", requiredResponses)
+	// membership, or decide quorum. It forwards the bundle of collected signed
+	// responses to the enclave, which is the sole trust anchor.
+	//
+	// Forwarding is driven by signed response count only. JSON-RPC errors and
+	// undecodable replies cannot contribute to enclave quorum, so counting them
+	// toward 2F+1 would let a burst of fast failures (e.g. execution-handler-not-
+	// found on lagging nodes) close the request with a signed bundle below F+1.
+	// Under the <=F-faulty threat model, 2F+1 signed replies guarantee at least
+	// F+1 honest signed results are present for the enclave. A node that already
+	// returned an error will not replace it; waiting only helps for nodes that
+	// have not yet replied. If 2F+1 signed never arrive, the cleanup timer
+	// forwards what was collected only when it still carries at least F+1 signed
+	// responses, the minimum the enclave needs.
+	summary, err := h.bundler.Bundle(ar.req, copiedResponses, l)
+	if err != nil {
+		l.Errorw("failed to build relay response bundle", "error", err)
+		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
+	}
+	requiredSigned := 2*h.donConfig.F + 1
+	if summary.Signed() < requiredSigned {
+		l.Debugw("waiting for more signed relay responses before forwarding bundle",
+			"signed", summary.Signed(),
+			"need", requiredSigned,
+			"total", summary.Total(),
+			"errors", summary.Error(),
+			"undecodable", summary.Undecodable(),
+			"nodeErrors", summary.NodeErrorsFormatted(),
+		)
 		return nil
 	}
-	return h.bundleAndForward(ctx, l, ar, copiedResponses, 0)
+	// minSigned=0: signed count already meets 2F+1.
+	return h.forwardBundle(ctx, l, ar, summary, 0)
 }
 
 // forwardBundle sends a previously-built bundle to the enclave. The gateway makes
@@ -358,8 +376,8 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 // F+1 signed responses cannot possibly be accepted. On the timeout path we pass
 // minSigned=F+1 to skip that guaranteed-reject round trip and return a timeout
 // error instead. (F+1 signed is necessary, not sufficient: some signatures may be
-// invalid, so the timeout path stays optimistic.) The 2F+1 path passes
-// minSigned=0 because its raw-count trigger already implies enough signed
+// invalid, so the timeout path stays optimistic.) The 2F+1 signed path passes
+// minSigned=0 because its signed-count trigger already implies enough signed
 // responses; the gateway inspects no cryptographic signatures in either case.
 func (h *handler) forwardBundle(ctx context.Context, l logger.Logger, ar *activeRequest, summary *BundleSummary, minSigned int) error {
 	if summary.Signed() < minSigned {
