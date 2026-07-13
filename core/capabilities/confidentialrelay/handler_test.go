@@ -917,3 +917,104 @@ func TestVerifyWorkflowAuthorization(t *testing.T) {
 		require.ErrorContains(t, h.verifyWorkflowAuthorization(don, params), "do not share one compute request")
 	})
 }
+
+func TestVerifySecretsWithinRestrictions(t *testing.T) {
+	t.Parallel()
+
+	exact := func(id, ns string) *sdkpb.SecretRestriction {
+		return &sdkpb.SecretRestriction{Restriction: &sdkpb.SecretRestriction_ExactSecret{
+			ExactSecret: &sdkpb.Secret{Id: id, Namespace: ns},
+		}}
+	}
+	prefixed := func(prefix, ns string) *sdkpb.SecretRestriction {
+		return &sdkpb.SecretRestriction{Restriction: &sdkpb.SecretRestriction_PrefixedSecret{
+			PrefixedSecret: &sdkpb.SecretPrefixRestriction{Prefix: prefix, Namespace: ns},
+		}}
+	}
+	secretsRestrictions := func(rs ...*sdkpb.SecretRestriction) *sdkpb.Restrictions {
+		return &sdkpb.Restrictions{Secrets: &sdkpb.SecretsRestritions{Restrictions: rs}}
+	}
+	id := func(key, ns string) confidentialrelaytypes.SecretIdentifier {
+		return confidentialrelaytypes.SecretIdentifier{Key: key, Namespace: ns}
+	}
+
+	tests := []struct {
+		name         string
+		restrictions *sdkpb.Restrictions
+		secrets      []confidentialrelaytypes.SecretIdentifier
+		wantErr      string
+	}{
+		{
+			name:         "nil restrictions allow all",
+			restrictions: nil,
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod")},
+		},
+		{
+			name:         "nil secrets restrictions allow all",
+			restrictions: &sdkpb.Restrictions{},
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod")},
+		},
+		{
+			name:         "exact match all present",
+			restrictions: secretsRestrictions(exact("api-key", "prod"), exact("db-pass", "prod")),
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod"), id("db-pass", "prod")},
+		},
+		{
+			name:         "exact match missing secret rejected",
+			restrictions: secretsRestrictions(exact("api-key", "prod")),
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod"), id("db-pass", "prod")},
+			wantErr:      `secret "db-pass" in namespace "prod" not permitted`,
+		},
+		{
+			name:         "exact match wrong namespace rejected",
+			restrictions: secretsRestrictions(exact("api-key", "prod")),
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "staging")},
+			wantErr:      `secret "api-key" in namespace "staging" not permitted`,
+		},
+		{
+			name:         "prefix match allowed",
+			restrictions: secretsRestrictions(prefixed("svc-", "prod")),
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("svc-a", "prod"), id("svc-b", "prod")},
+		},
+		{
+			name:         "prefix match wrong namespace rejected",
+			restrictions: secretsRestrictions(prefixed("svc-", "prod")),
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("svc-a", "staging")},
+			wantErr:      `secret "svc-a" in namespace "staging" not permitted`,
+		},
+		{
+			name:         "prefix non-match rejected",
+			restrictions: secretsRestrictions(prefixed("svc-", "prod")),
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("other-a", "prod")},
+			wantErr:      `secret "other-a" in namespace "prod" not permitted`,
+		},
+		{
+			name:         "mixed exact and prefix",
+			restrictions: secretsRestrictions(exact("api-key", "prod"), prefixed("svc-", "prod")),
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod"), id("svc-x", "prod")},
+		},
+		{
+			name:         "empty restriction list rejects requested secret",
+			restrictions: secretsRestrictions(),
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod")},
+			wantErr:      `secret "api-key" in namespace "prod" not permitted`,
+		},
+		{
+			name:         "empty restriction list allows no secrets",
+			restrictions: secretsRestrictions(),
+			secrets:      nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := verifySecretsWithinRestrictions(tt.restrictions, tt.secrets)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
