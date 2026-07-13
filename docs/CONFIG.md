@@ -2394,6 +2394,8 @@ ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 ChipIngressBatchEmitterEnabled = true # Default
 DurableEmitterEnabled = false # Default
+DurableEmitterRetransmitBatchSize = 500 # Default
+DurableEmitterEventTTL = '1h0m0s' # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
 LogStreamingEnabled = false # Default
@@ -2482,6 +2484,18 @@ When false, events are sent individually (legacy behavior).
 DurableEmitterEnabled = false # Default
 ```
 DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
+
+### DurableEmitterRetransmitBatchSize
+```toml
+DurableEmitterRetransmitBatchSize = 500 # Default
+```
+DurableEmitterRetransmitBatchSize is the number of pending events the durable emitter replays per retransmit tick.
+
+### DurableEmitterEventTTL
+```toml
+DurableEmitterEventTTL = '1h0m0s' # Default
+```
+DurableEmitterEventTTL is how long an undelivered event is retained before the durable emitter expires it (older events are dropped).
 
 ### HeartbeatInterval
 ```toml
