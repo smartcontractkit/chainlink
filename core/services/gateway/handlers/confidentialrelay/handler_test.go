@@ -224,7 +224,7 @@ func TestConfidentialRelayHandler_ForwardsBundleAtQuorum(t *testing.T) {
 func TestConfidentialRelayHandler_DoesNotForwardOnErrorMajority(t *testing.T) {
 	t.Parallel()
 	// F=2, N=7 => forward threshold is 2F+1 = 5 signed responses; enclave needs F+1=3.
-	h, cb, don, clock := setupHandlerWithF(t, 7, 2)
+	h, cb, don, _ := setupHandlerWithF(t, 7, 2)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	params := validCapParamsJSON("wf1")
@@ -257,27 +257,118 @@ func TestConfidentialRelayHandler_DoesNotForwardOnErrorMajority(t *testing.T) {
 	}
 	require.NotNil(t, h.getActiveRequest(req.ID), "must not forward when signed count is below 2F+1")
 
-	// Two more signed successes (nodes 5,6) bring signed to 4, still below 5.
+	// Two more signed successes (nodes 5,6) bring signed to 4 with all nodes replied.
+	// Terminal-state path: remaining=0 and signed >= F+1=3, so forward without timeout.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resp, err := cb.Wait(t.Context())
+		assert.NoError(t, err)
+		assert.Equal(t, api.NoError, resp.ErrorCode)
+		var jsonResp jsonrpc.Response[json.RawMessage]
+		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		var bundle relaytypes.SignedCapabilityResponseBundle
+		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		assert.Len(t, bundle.Responses, 4, "errors are dropped; only signed responses are bundled")
+	}()
 	for i := 5; i < 7; i++ {
 		require.NoError(t, h.HandleNodeMessage(t.Context(),
 			capExecSignedRespPtr(t, req.ID, result, fmt.Appendf(nil, "signer-%d", i)),
 			fmt.Sprintf("0x%04d", i),
 		))
 	}
-	require.NotNil(t, h.getActiveRequest(req.ID), "4 signed is still below 2F+1=5; keep waiting")
+	wg.Wait()
+	require.Nil(t, h.getActiveRequest(req.ID), "terminal-state forward should complete the request")
+}
 
-	// Timeout with signed=4 (>= F+1=3) should forward the partial signed bundle.
-	clock.Advance(31 * time.Second)
-	h.removeExpiredRequests(t.Context())
+// When every node has replied but signed is still below F+1, the gateway must not
+// forward a doomed bundle or wait for cleanup; it fails immediately.
+func TestConfidentialRelayHandler_TerminalStateBelowQuorumFailsImmediately(t *testing.T) {
+	t.Parallel()
+	h, cb, don, _ := setupHandlerWithF(t, 4, 1) // F+1=2, 2F+1=3
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	resp, err := cb.Wait(t.Context())
-	require.NoError(t, err)
-	require.Equal(t, api.NoError, resp.ErrorCode)
-	var jsonResp jsonrpc.Response[json.RawMessage]
-	require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
-	var bundle relaytypes.SignedCapabilityResponseBundle
-	require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
-	require.Len(t, bundle.Responses, 4, "errors are dropped; only signed responses are bundled")
+	params := validCapParamsJSON("wf1")
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-terminal-below",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+	result := relaytypes.CapabilityResponseResult{Payload: "result"}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resp, err := cb.Wait(t.Context())
+		assert.NoError(t, err)
+		assert.Equal(t, api.FatalError, resp.ErrorCode)
+		var jsonResp jsonrpc.Response[json.RawMessage]
+		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		require.NotNil(t, jsonResp.Error)
+		assert.Contains(t, jsonResp.Error.Message, "relay quorum unreachable")
+	}()
+
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+
+	// 3 errors + 1 signed: all nodes replied, signed=1 < F+1=2. Fail immediately.
+	for i := range 3 {
+		errResp := &jsonrpc.Response[json.RawMessage]{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      req.ID,
+			Method:  MethodCapabilityExec,
+			Error:   &jsonrpc.WireError{Code: -32602, Message: "execution handler not found"},
+		}
+		require.NoError(t, h.HandleNodeMessage(t.Context(), errResp, fmt.Sprintf("0x%04d", i)))
+	}
+	require.NoError(t, h.HandleNodeMessage(t.Context(),
+		capExecSignedRespPtr(t, req.ID, result, []byte("signer-3")), "0x0003"))
+	wg.Wait()
+	require.Nil(t, h.getActiveRequest(req.ID))
+}
+
+// If outstanding replies cannot bring signed up to F+1, fail before waiting for
+// silent nodes / timeout. Example: F=1 needs 2 signed; after 3 errors on a 4-node
+// DON only 1 slot remains, so maxPossibleSigned=1.
+func TestConfidentialRelayHandler_QuorumUnreachableFailsImmediately(t *testing.T) {
+	t.Parallel()
+	h, cb, don, _ := setupHandlerWithF(t, 4, 1) // F+1=2
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	params := validCapParamsJSON("wf1")
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-unreachable",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		resp, err := cb.Wait(t.Context())
+		assert.NoError(t, err)
+		assert.Equal(t, api.FatalError, resp.ErrorCode)
+		var jsonResp jsonrpc.Response[json.RawMessage]
+		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		require.NotNil(t, jsonResp.Error)
+		assert.Contains(t, jsonResp.Error.Message, "relay quorum unreachable")
+	}()
+
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+
+	for i := range 3 {
+		errResp := &jsonrpc.Response[json.RawMessage]{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      req.ID,
+			Method:  MethodCapabilityExec,
+			Error:   &jsonrpc.WireError{Code: -32602, Message: "execution handler not found"},
+		}
+		require.NoError(t, h.HandleNodeMessage(t.Context(), errResp, fmt.Sprintf("0x%04d", i)))
+	}
+	wg.Wait()
+	require.Nil(t, h.getActiveRequest(req.ID))
 }
 
 // Same staging shape, but enough later signed successes arrive to hit 2F+1 signed
