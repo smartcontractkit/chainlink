@@ -16,16 +16,16 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	appmocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 func TestLPSkipController_LPSkipToBlock(t *testing.T) {
+	t.Parallel()
 	cfg := configtest.NewTestGeneralConfig(t)
 	ec := setupEthClientForControllerTests(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 
 	postSkip := func(t *testing.T, request web.LPSkipToBlockRequest) *http.Response {
