@@ -399,18 +399,20 @@ func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
 }
 
 func TestTelemetryConfig_MetricCardinalityLimit(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
 		expected  int
 	}{
-		{"MetricCardinalityLimitSet", toml.Telemetry{MetricCardinalityLimit: ptrInt(500)}, 500},
+		{"MetricCardinalityLimitSet", toml.Telemetry{MetricCardinalityLimit: new(500)}, 500},
 		{"MetricCardinalityLimitNil", toml.Telemetry{MetricCardinalityLimit: nil}, defaultMetricCardinalityLimit},
-		{"MetricCardinalityLimitZero", toml.Telemetry{MetricCardinalityLimit: ptrInt(0)}, 0},
+		{"MetricCardinalityLimitZero", toml.Telemetry{MetricCardinalityLimit: new(0)}, 0},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.MetricCardinalityLimit())
 		})
