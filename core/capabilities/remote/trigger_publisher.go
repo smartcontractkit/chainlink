@@ -213,9 +213,6 @@ func (p *triggerPublisher) initMetrics() error {
 }
 
 func (p *triggerPublisher) recordMethodDuration(ctx context.Context, hist metric.Int64Histogram, outcome string, d time.Duration) {
-	if hist == nil {
-		return
-	}
 	hist.Record(ctx, d.Milliseconds(), metric.WithAttributes(
 		attribute.String("capabilityID", p.capabilityID),
 		attribute.String("capMethodName", p.capMethodName),
@@ -351,6 +348,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		// that check may pass in time, so once=true prevents duplicate RegisterTrigger calls for the same trigger.
 		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
 		if !ready {
+			p.mu.Unlock()
 			peersReceived := len(p.messageCache.Peers(key))
 			if p.messageCache.WasReady(key) {
 				p.lggr.Debugw("quorum already met; ignoring duplicate registration message",
@@ -361,7 +359,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID,
 					"peersReceived", peersReceived, "minRequired", minRequired)
 			}
-			p.mu.Unlock()
+
 			return
 		}
 		aggregated, aggregateErr := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
@@ -376,19 +374,12 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.lggr.Errorw("failed to unmarshal request", "err", unmarshalErr)
 			return
 		}
-		if err = p.registerExecutor.Ready(); err != nil {
-			p.mu.Unlock()
-			p.lggr.Errorw("register executor not started; cannot register trigger",
-				"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID)
-			return
-		}
 		p.mu.Unlock()
 
 		capAttrs := metric.WithAttributes(
 			attribute.String("capabilityID", p.capabilityID),
 			attribute.String("callerDonID", strconv.FormatUint(uint64(key.callerDonID), 10)),
 		)
-
 		scheduleErr := p.registerExecutor.ExecuteTask(ctx, func(taskCtx context.Context) {
 			callbackCh, registerErr := cfg.underlying.RegisterTrigger(taskCtx, unmarshaled)
 			taskOutcome := "success"
@@ -575,12 +566,6 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		}
 
 		p.mu.Unlock()
-
-		if err = p.ackExecutor.Ready(); err != nil {
-			p.lggr.Errorw("ack executor not started; cannot forward AckEvent",
-				"triggerEventId", triggerEventID, "triggerID", triggerID)
-			return
-		}
 
 		callerDonID := msg.CallerDonId
 		ackAttrs := metric.WithAttributes(
