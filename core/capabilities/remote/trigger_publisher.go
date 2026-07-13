@@ -208,7 +208,7 @@ func (p *triggerPublisher) initMetrics() error {
 	}
 	p.ackExecutor.SetSlotUsageGauge(p.metrics.ackExecutorSlotUsage)
 	p.registerExecutor.SetSlotUsageGauge(p.metrics.registerExecutorSlotUsage)
-	durationBuckets := metric.WithExplicitBucketBoundaries(1, 5, 10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 30_000)
+	durationBuckets := metric.WithExplicitBucketBoundaries(1, 10, 50, 250, 1_000, 5_000)
 	p.metrics.registerTriggerDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_register_trigger_duration_ms", durationBuckets)
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_duration_ms: %w", err)
@@ -365,16 +365,15 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		if !ready {
 			peersReceived := len(p.messageCache.Peers(key))
 			if p.messageCache.WasReady(key) {
-				p.mu.Unlock()
 				p.lggr.Debugw("quorum already met; ignoring duplicate registration message",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID,
 					"peersReceived", peersReceived, "minRequired", minRequired)
 			} else {
-				p.mu.Unlock()
 				p.lggr.Debugw("quorum not reached yet",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID,
 					"peersReceived", peersReceived, "minRequired", minRequired)
 			}
+			p.mu.Unlock()
 			return
 		}
 		aggregated, aggregateErr := aggregation.AggregateModeRaw(payloads, uint32(callerDon.F+1))
