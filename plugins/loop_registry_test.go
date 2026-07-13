@@ -74,6 +74,10 @@ func (m mockCfgTelemetry) ChipIngressEndpoint() string { return "example.com/chi
 
 func (m mockCfgTelemetry) DurableEmitterEnabled() bool { return true }
 
+func (m mockCfgTelemetry) DurableEmitterRetransmitBatchSize() int { return 500 }
+
+func (m mockCfgTelemetry) DurableEmitterEventTTL() time.Duration { return time.Hour }
+
 func (m mockCfgTelemetry) ChipIngressInsecureConnection() bool { return false }
 
 func (m mockCfgTelemetry) ChipIngressBatchEmitterEnabled() bool { return false }

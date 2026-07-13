@@ -2986,6 +2986,8 @@ type Telemetry struct {
 	ChipIngressInsecureConnection      *bool
 	ChipIngressBatchEmitterEnabled     *bool
 	DurableEmitterEnabled              *bool
+	DurableEmitterRetransmitBatchSize  *int
+	DurableEmitterEventTTL             *commonconfig.Duration
 	DurableEmitterMaxQueuePayloadBytes *int64
 	HeartbeatInterval                  *commonconfig.Duration
 	LogLevel                           *string
@@ -3038,6 +3040,12 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.DurableEmitterEnabled; v != nil {
 		b.DurableEmitterEnabled = v
+	}
+	if v := f.DurableEmitterRetransmitBatchSize; v != nil {
+		b.DurableEmitterRetransmitBatchSize = v
+	}
+	if v := f.DurableEmitterEventTTL; v != nil {
+		b.DurableEmitterEventTTL = v
 	}
 	if v := f.DurableEmitterMaxQueuePayloadBytes; v != nil {
 		b.DurableEmitterMaxQueuePayloadBytes = v

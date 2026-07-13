@@ -2393,7 +2393,9 @@ AuthHeadersTTL = '0s' # Default
 ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 ChipIngressBatchEmitterEnabled = true # Default
-DurableEmitterEnabled = false # Default
+DurableEmitterEnabled = true # Default
+DurableEmitterRetransmitBatchSize = 500 # Default
+DurableEmitterEventTTL = '1h0m0s' # Default
 DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
@@ -2480,9 +2482,21 @@ When false, events are sent individually (legacy behavior).
 
 ### DurableEmitterEnabled
 ```toml
-DurableEmitterEnabled = false # Default
+DurableEmitterEnabled = true # Default
 ```
 DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
+
+### DurableEmitterRetransmitBatchSize
+```toml
+DurableEmitterRetransmitBatchSize = 500 # Default
+```
+DurableEmitterRetransmitBatchSize is the number of pending events the durable emitter replays per retransmit tick.
+
+### DurableEmitterEventTTL
+```toml
+DurableEmitterEventTTL = '1h0m0s' # Default
+```
+DurableEmitterEventTTL is how long an undelivered event is retained before the durable emitter expires it (older events are dropped).
 
 ### DurableEmitterMaxQueuePayloadBytes
 ```toml
