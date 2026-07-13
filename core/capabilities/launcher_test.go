@@ -1028,6 +1028,60 @@ func TestLauncher_DonPairsToUpdate_CapShardPairsOnlyWithWorkflowShard(t *testing
 	}, res[0])
 }
 
+// A bootstrap node that belongs to no shard family still wires connectivity for an isolated
+// cap shard: the self-pair lets the shard discover its own members and the cross-pair connects
+// it to its paired workflow shard. Bootstrap family membership is irrelevant.
+func TestLauncher_DonPairsToUpdate_BootstrapConnectsIsolatedCapShard(t *testing.T) {
+	registry := NewRegistry(logger.Test(t))
+	dispatcher := remoteMocks.NewDispatcher(t)
+
+	var bootstrapPID ragetypes.PeerID
+	require.NoError(t, bootstrapPID.UnmarshalText([]byte(utils.MustNewPeerID())))
+	sharedPeer := mocks.NewSharedPeer(t)
+
+	wfShard0Nodes, wfShard1Nodes, capShard0Nodes, capShard1Nodes := newNodes(4), newNodes(4), newNodes(4), newNodes(4)
+
+	wfShard0ID := uint32(1)
+	wfShard1ID := uint32(2)
+	capShard0ID := uint32(3)
+	capShard1ID := uint32(4)
+
+	localRegistry := buildLocalRegistry()
+	addDON(localRegistry, wfShard0ID, uint32(0), uint8(1), true, true, wfShard0Nodes, []string{"zone-a", "zone-a_shard-0"}, 1, nil)
+	addDON(localRegistry, wfShard1ID, uint32(0), uint8(1), true, true, wfShard1Nodes, []string{"zone-a", "zone-a_shard-1"}, 1, nil)
+	addDON(localRegistry, capShard0ID, uint32(0), uint8(1), true, false, capShard0Nodes, []string{"zone-a_shard-0"}, 1, [][32]byte{RandomUTF8BytesWord()})
+	addCapabilityToDON(localRegistry, capShard0ID, "write-chain_evm_1@1.0.0", capabilities.CapabilityTypeTarget, nil)
+	addDON(localRegistry, capShard1ID, uint32(0), uint8(1), true, false, capShard1Nodes, []string{"zone-a_shard-1"}, 1, [][32]byte{RandomUTF8BytesWord()})
+	addCapabilityToDON(localRegistry, capShard1ID, "write-chain_evm_1@1.0.0", capabilities.CapabilityTypeTarget, nil)
+
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	require.NoError(t, err)
+
+	// bootstrapPID is a member of no DON and therefore of no shard family.
+	sharedPeer.On("IsBootstrap").Return(true).Once()
+	res := launcher.donPairsToUpdate(bootstrapPID, localRegistry)
+
+	capShard0Self := p2ptypes.DonPair{
+		localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON,
+		localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON,
+	}
+	shard0Cross := p2ptypes.DonPair{
+		localRegistry.IDsToDONs[registrysyncer.DonID(wfShard0ID)].DON,
+		localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON,
+	}
+	crossShard := p2ptypes.DonPair{
+		localRegistry.IDsToDONs[registrysyncer.DonID(wfShard1ID)].DON,
+		localRegistry.IDsToDONs[registrysyncer.DonID(capShard0ID)].DON,
+	}
+
+	require.Contains(t, res, capShard0Self, "isolated cap shard must get a self-pair for member discovery via bootstrap")
+	require.Contains(t, res, shard0Cross, "cap shard must connect to its paired workflow shard")
+	require.NotContains(t, res, crossShard, "cap shard must not connect to a workflow shard in a different shard family")
+
+	// 2 cross-pairs (shard-0, shard-1) + 4 self-pairs (one per DON).
+	require.Len(t, res, 6)
+}
+
 func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
