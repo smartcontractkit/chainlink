@@ -431,7 +431,8 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+    # if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+    if: true # DEBUG: Testing runtime improvement
     uses: ./.github/workflows/cre-system-tests.yaml
     with:
       ecr: "sdlc"
@@ -449,7 +450,8 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'
+    # if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'
+    if: true # DEBUG: Testing runtime improvement
     uses: ./.github/workflows/cre-regression-system-tests.yaml
     with:
       ecr: "sdlc"
