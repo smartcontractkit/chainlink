@@ -246,9 +246,15 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 		// guaranteed to reject, so forwardBundle returns a timeout error instead of
 		// a futile round trip. The gateway still verifies nothing: this is only a
 		// count floor, not a trust decision.
-		h.lggr.Debugw("request expired, forwarding collected responses to enclave", "requestID", er.req.ID, "responseCount", len(responses))
-		if err := h.bundleAndForward(ctx, h.lggr, er, responses, h.donConfig.F+1); err != nil {
-			h.lggr.Errorw("error forwarding bundle on expiry", "requestID", er.req.ID, "error", err)
+		l := logger.With(h.lggr, "method", er.req.Method, "requestID", er.req.ID)
+		l.Debugw("request expired, forwarding collected responses to enclave",
+			"collected", len(responses),
+			"nodes", len(h.donConfig.Members),
+			"remaining", len(h.donConfig.Members)-len(responses),
+			"minSigned", h.donConfig.F+1,
+		)
+		if err := h.bundleAndForward(ctx, l, er, responses, h.donConfig.F+1); err != nil {
+			l.Errorw("error forwarding bundle on expiry", "error", err)
 		}
 	}
 }
@@ -353,11 +359,14 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
 	}
 	requiredSigned := 2*h.donConfig.F + 1
+	nodes := len(h.donConfig.Members)
 	if summary.Signed() < requiredSigned {
 		l.Debugw("waiting for more signed relay responses before forwarding bundle",
 			"signed", summary.Signed(),
 			"need", requiredSigned,
-			"total", summary.Total(),
+			"collected", summary.Total(),
+			"nodes", nodes,
+			"remaining", nodes-summary.Total(),
 			"errors", summary.Error(),
 			"undecodable", summary.Undecodable(),
 			"nodeErrors", summary.NodeErrorsFormatted(),
@@ -380,28 +389,36 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 // minSigned=0 because its signed-count trigger already implies enough signed
 // responses; the gateway inspects no cryptographic signatures in either case.
 func (h *handler) forwardBundle(ctx context.Context, l logger.Logger, ar *activeRequest, summary *BundleSummary, minSigned int) error {
+	nodes := len(h.donConfig.Members)
 	if summary.Signed() < minSigned {
 		l.Warnw("too few signed responses for enclave quorum; returning timeout",
 			"signed", summary.Signed(),
 			"need", minSigned,
-			"total", summary.Total(),
+			"earlyNeed", 2*h.donConfig.F+1,
+			"collected", summary.Total(),
+			"nodes", nodes,
+			"remaining", nodes-summary.Total(),
 			"errors", summary.Error(),
 			"undecodable", summary.Undecodable(),
 			"nodeErrors", summary.NodeErrorsFormatted(),
 		)
 		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.RequestTimeoutError,
-			fmt.Errorf("request expired: %d signed relay responses, need at least %d to reach quorum (total=%d errors=%d undecodable=%d)",
-				summary.Signed(), minSigned, summary.Total(), summary.Error(), summary.Undecodable())))
+			fmt.Errorf("request expired: %d signed relay responses, need at least %d to reach quorum (collected=%d nodes=%d errors=%d undecodable=%d)",
+				summary.Signed(), minSigned, summary.Total(), nodes, summary.Error(), summary.Undecodable())))
 	}
 
 	rawResponse, err := jsonrpc.EncodeResponse(summary.Response())
 	if err != nil {
-		h.lggr.Errorw("failed to encode response", "requestID", ar.req.ID, "error", err)
+		l.Errorw("failed to encode response", "error", err)
 		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.NodeReponseEncodingError, err))
 	}
 	l.Infow("forwarding relay response bundle to enclave",
 		"signedResponses", summary.Signed(),
-		"totalResponses", summary.Total(),
+		"minSigned", minSigned,
+		"earlyNeed", 2*h.donConfig.F+1,
+		"collected", summary.Total(),
+		"nodes", nodes,
+		"remaining", nodes-summary.Total(),
 		"errorResponses", summary.Error(),
 		"undecodableResponses", summary.Undecodable(),
 		"nodeErrors", summary.NodeErrorsFormatted(),
