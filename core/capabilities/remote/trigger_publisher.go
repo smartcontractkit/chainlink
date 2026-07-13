@@ -110,8 +110,8 @@ var _ types.ReceiverService = &triggerPublisher{}
 
 const (
 	minAllowedBatchCollectionPeriod = 10 * time.Millisecond
-	defaultMaxParallelAcks          = 100
-	defaultMaxParallelRegisters     = 100
+	defaultMaxParallelAcks          = 100 // TODO: make this configurable https://smartcontract-it.atlassian.net/browse/PLEX-3266
+	defaultMaxParallelRegisters     = 100 // TODO: make this configurable https://smartcontract-it.atlassian.net/browse/PLEX-3266
 )
 
 func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
@@ -545,23 +545,17 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
-		ready, _ := p.ackCache.Ready(key, minRequired, 0, true)
+		// false is set to <once> to return ready even after quorum
+		// to add redundancy in case AckEvent fails below.
+		ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
 		ackCount := len(p.ackCache.Peers(key))
 		if !ready {
 			p.mu.Unlock()
-			if p.ackCache.WasReady(key) {
-				p.lggr.Debugw("ACK quorum already met; ignoring duplicate message",
-					"triggerEventId", triggerEventID,
-					"triggerID", triggerID,
-					"acksReceived", ackCount,
-					"minRequired", minRequired)
-			} else {
-				p.lggr.Debugw("ACK quorum not reached yet",
-					"triggerEventId", triggerEventID,
-					"triggerID", triggerID,
-					"acksReceived", ackCount,
-					"minRequired", minRequired)
-			}
+			p.lggr.Debugw("ACK quorum not reached yet",
+				"triggerEventId", triggerEventID,
+				"triggerID", triggerID,
+				"acksReceived", ackCount,
+				"minRequired", minRequired)
 			return
 		}
 
