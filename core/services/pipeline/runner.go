@@ -69,6 +69,7 @@ type runner struct {
 	lggr                   logger.Logger
 	httpClient             *http.Client
 	unrestrictedHTTPClient *http.Client
+	bridgeConnManager      BridgeConnManager
 
 	// test helper
 	runFinished func(*Run)
@@ -134,6 +135,7 @@ func NewRunner(
 		lggr:                   lggr,
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
+		bridgeConnManager:      NewBridgeConnManager(),
 	}
 
 	r.runReaperWorker = commonutils.NewSleeperTask(
@@ -349,6 +351,7 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			// must use the unrestrictedHTTPClient because some node operators
 			// may run external adapters on their own hardware
 			bt.httpClient = r.unrestrictedHTTPClient
+			bt.bridgeConnManager = r.bridgeConnManager
 			bt.requiredJSONPaths = bt.getRequiredJSONPaths()
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
