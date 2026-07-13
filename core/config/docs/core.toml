@@ -906,7 +906,7 @@ LogExportMaxBatchSize = 512 # Default
 # LogExportInterval sets the maximum duration between batched exports
 LogExportInterval = '1s' # Default
 # LogMaxQueueSize sets the maximum queue size used by the batcher
-	LogMaxQueueSize = 2048 # Default
+LogMaxQueueSize = 2048 # Default
 # MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
 MetricCardinalityLimit = 100000 # Default
 
