@@ -1032,6 +1032,7 @@ func TestLauncher_DonPairsToUpdate_CapShardPairsOnlyWithWorkflowShard(t *testing
 // cap shard: the self-pair lets the shard discover its own members and the cross-pair connects
 // it to its paired workflow shard. Bootstrap family membership is irrelevant.
 func TestLauncher_DonPairsToUpdate_BootstrapConnectsIsolatedCapShard(t *testing.T) {
+	t.Parallel()
 	registry := NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
