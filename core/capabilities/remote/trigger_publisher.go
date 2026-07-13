@@ -59,8 +59,6 @@ type triggerPublisherMetrics struct {
 	registerTriggerCounter      metric.Int64Counter
 	unregisterTriggerCounter    metric.Int64Counter
 	ackEventCounter             metric.Int64Counter
-	ackExecutorSlotUsage        metric.Float64Gauge
-	registerExecutorSlotUsage   metric.Float64Gauge
 	registerTriggerDurationMs   metric.Int64Histogram
 	unregisterTriggerDurationMs metric.Int64Histogram
 	ackEventDurationMs          metric.Int64Histogram
@@ -134,12 +132,12 @@ func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher t
 		stopCh:          make(services.StopChan),
 		lggr:            logger.With(logger.Named(lggr, "TriggerPublisher"), "capabilityID", capabilityID, "capMethodName", capMethodName),
 		ackExecutor: NewParallelExecutor(defaultMaxParallelAcks,
-			WithExecutorName("trigger_publisher_ack_executor"),
-			WithSlotUsageMetric(nil, slotUsageAttrs...),
+			"trigger_publisher_ack_executor",
+			slotUsageAttrs...,
 		),
 		registerExecutor: NewParallelExecutor(defaultMaxParallelRegisters,
-			WithExecutorName("trigger_publisher_register_executor"),
-			WithSlotUsageMetric(nil, slotUsageAttrs...),
+			"trigger_publisher_register_executor",
+			slotUsageAttrs...,
 		),
 	}
 }
@@ -198,17 +196,7 @@ func (p *triggerPublisher) initMetrics() error {
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_ack_event_total: %w", err)
 	}
-	p.metrics.ackExecutorSlotUsage, err = beholder.GetMeter().Float64Gauge("platform_trigger_publisher_ack_executor_slot_usage")
-	if err != nil {
-		return fmt.Errorf("failed to register platform_trigger_publisher_ack_executor_slot_usage: %w", err)
-	}
-	p.metrics.registerExecutorSlotUsage, err = beholder.GetMeter().Float64Gauge("platform_trigger_publisher_register_executor_slot_usage")
-	if err != nil {
-		return fmt.Errorf("failed to register platform_trigger_publisher_register_executor_slot_usage: %w", err)
-	}
-	p.ackExecutor.SetSlotUsageGauge(p.metrics.ackExecutorSlotUsage)
-	p.registerExecutor.SetSlotUsageGauge(p.metrics.registerExecutorSlotUsage)
-	durationBuckets := metric.WithExplicitBucketBoundaries(1, 10, 50, 250, 1_000, 5_000)
+	durationBuckets := metric.WithExplicitBucketBoundaries(1, 50, 250, 1_000, 5_000, 30_000)
 	p.metrics.registerTriggerDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_register_trigger_duration_ms", durationBuckets)
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_duration_ms: %w", err)

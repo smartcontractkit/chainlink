@@ -166,7 +166,7 @@ func (r *server) Start(ctx context.Context) error {
 		}
 
 		// Initialize parallel executor with the configured max parallel requests
-		r.parallelExecutor = remote.NewParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests))
+		r.parallelExecutor = remote.NewParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests), "executable_server")
 
 		r.wg.Go(func() {
 			ticker := time.NewTicker(getServerTickerInterval(cfg))

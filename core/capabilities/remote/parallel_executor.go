@@ -3,11 +3,13 @@ package remote
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
@@ -23,62 +25,39 @@ type ParallelExecutor struct {
 	slotUsageAttrs []attribute.KeyValue
 }
 
-// ParallelExecutorOption configures a ParallelExecutor.
-type ParallelExecutorOption func(*ParallelExecutor)
-
-// WithExecutorName sets the service name returned by Name().
-func WithExecutorName(name string) ParallelExecutorOption {
-	return func(e *ParallelExecutor) {
-		e.name = name
-	}
-}
-
-// WithSlotUsageMetric records occupied/max slot ratio on the gauge when tasks start and finish.
-func WithSlotUsageMetric(gauge metric.Float64Gauge, attrs ...attribute.KeyValue) ParallelExecutorOption {
-	return func(e *ParallelExecutor) {
-		e.slotUsageGauge = gauge
-		e.slotUsageAttrs = attrs
-	}
-}
-
 // NewParallelExecutor creates an executor that allows at most maxParallelTasks in-flight tasks.
-func NewParallelExecutor(maxParallelTasks int, opts ...ParallelExecutorOption) *ParallelExecutor {
+func NewParallelExecutor(maxParallelTasks int, name string, attrs ...attribute.KeyValue) *ParallelExecutor {
+	attrs = append(attrs, attribute.String("parallel_executor_name", name))
 	e := &ParallelExecutor{
-		stopChan:      make(services.StopChan),
-		wg:            sync.WaitGroup{},
-		taskSemaphore: make(chan struct{}, maxParallelTasks),
-	}
-	for _, opt := range opts {
-		opt(e)
+		stopChan:       make(services.StopChan),
+		wg:             sync.WaitGroup{},
+		taskSemaphore:  make(chan struct{}, maxParallelTasks),
+		name:           name,
+		slotUsageAttrs: attrs,
 	}
 	return e
 }
 
-// SetSlotUsageGauge binds the gauge used by RecordSlotUsage. Attributes are set via WithSlotUsageMetric.
-func (t *ParallelExecutor) SetSlotUsageGauge(gauge metric.Float64Gauge) {
-	t.slotUsageGauge = gauge
-}
-
-// RecordSlotUsage publishes current slot utilization to the configured gauge, if any.
-func (t *ParallelExecutor) RecordSlotUsage(ctx context.Context) {
+// recordSlotUsage publishes current slot utilization to the configured gauge, if any.
+func (t *ParallelExecutor) recordSlotUsage(ctx context.Context) {
 	if t.slotUsageGauge == nil {
 		return
 	}
-	maxSlots := t.MaxSlots()
+	maxSlots := t.maxSlots()
 	if maxSlots == 0 {
 		return
 	}
-	usage := float64(t.OccupiedSlots()) / float64(maxSlots)
+	usage := float64(t.occupiedSlots()) / float64(maxSlots)
 	t.slotUsageGauge.Record(ctx, usage, metric.WithAttributes(t.slotUsageAttrs...))
 }
 
-// OccupiedSlots returns the number of in-flight tasks holding executor slots.
-func (t *ParallelExecutor) OccupiedSlots() int {
+// occupiedSlots returns the number of in-flight tasks holding executor slots.
+func (t *ParallelExecutor) occupiedSlots() int {
 	return len(t.taskSemaphore)
 }
 
-// MaxSlots returns the maximum number of concurrent tasks allowed.
-func (t *ParallelExecutor) MaxSlots() int {
+// maxSlots returns the maximum number of concurrent tasks allowed.
+func (t *ParallelExecutor) maxSlots() int {
 	return cap(t.taskSemaphore)
 }
 
@@ -88,14 +67,14 @@ func (t *ParallelExecutor) MaxSlots() int {
 func (t *ParallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.Context)) error {
 	select {
 	case t.taskSemaphore <- struct{}{}:
-		t.RecordSlotUsage(ctx)
+		t.recordSlotUsage(ctx)
 		stopped := !t.IfNotStopped(func() {
 			t.wg.Go(func() {
 				ctxWithStop, cancel := t.stopChan.Ctx(ctx)
 				defer func() {
 					cancel()
 					<-t.taskSemaphore
-					t.RecordSlotUsage(ctxWithStop)
+					t.recordSlotUsage(ctxWithStop)
 				}()
 				fn(ctxWithStop)
 			})
@@ -115,6 +94,11 @@ func (t *ParallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.
 
 // Start starts the executor.
 func (t *ParallelExecutor) Start(ctx context.Context) error {
+	var err error
+	t.slotUsageGauge, err = beholder.GetMeter().Float64Gauge("platform_parallel_executor_slot_usage")
+	if err != nil {
+		return fmt.Errorf("failed to register platform_parallel_executor_slot_usage: %w", err)
+	}
 	return t.StartOnce(t.Name(), func() error {
 		return nil
 	})
