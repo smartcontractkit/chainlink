@@ -386,6 +386,7 @@ ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
 ChipIngressBatchEmitterEnabled = true
 DurableEmitterEnabled = false
+DurableEmitterMaxQueuePayloadBytes = 1073741824
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false

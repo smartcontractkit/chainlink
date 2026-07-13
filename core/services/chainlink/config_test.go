@@ -564,15 +564,15 @@ func TestConfig_Marshal(t *testing.T) {
 		ChipIngressInsecureConnection:      new(false),
 		ChipIngressBatchEmitterEnabled:     new(true),
 		DurableEmitterEnabled:              new(false),
-		DurableEmitterMaxQueuePayloadBytes: new[int64](1073741824),
+		DurableEmitterMaxQueuePayloadBytes: new(int64(1073741824)),
 		HeartbeatInterval:                  commoncfg.MustNewDuration(1 * time.Second),
 		LogStreamingEnabled:                new(false),
 		LogLevel:                           new("info"),
 		LogBatchProcessor:                  new(true),
 		LogExportTimeout:                   commoncfg.MustNewDuration(1 * time.Second),
-		LogExportMaxBatchSize:              new[int](512),
+		LogExportMaxBatchSize:              new(int(512)),
 		LogExportInterval:                  ptrDuration(1 * time.Second),
-		LogMaxQueueSize:                    ptrInt(2048),
+		LogMaxQueueSize:                    new(2048),
 
 		PrometheusBridge: toml.PrometheusBridge{
 			Enabled:  ptr(true),
