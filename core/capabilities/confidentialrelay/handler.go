@@ -646,10 +646,7 @@ func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confi
 	// The signed WorkflowExecution also carries the secret restrictions the workflow declared.
 	// The enclave enforces them, but the relay is the security boundary and re-checks so a
 	// breached enclave cannot fetch secrets the workflow never authorized.
-	if err := verifySecretsWithinRestrictions(execution.GetRestrictions(), params.Secrets); err != nil {
-		return err
-	}
-	return nil
+	return verifySecretsWithinRestrictions(execution.GetRestrictions(), params.Secrets)
 }
 
 // verifySecretsWithinRestrictions enforces that every requested secret is permitted by the
