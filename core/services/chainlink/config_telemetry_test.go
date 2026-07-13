@@ -405,8 +405,8 @@ func TestTelemetryConfig_MetricViewsDisabled(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  bool
 	}{
-		{"MetricViewsDisabledTrue", toml.Telemetry{MetricViewsDisabled: ptr(true)}, true},
-		{"MetricViewsDisabledFalse", toml.Telemetry{MetricViewsDisabled: ptr(false)}, false},
+		{"MetricViewsDisabledTrue", toml.Telemetry{MetricViewsDisabled: new(true)}, true},
+		{"MetricViewsDisabledFalse", toml.Telemetry{MetricViewsDisabled: new(false)}, false},
 		{"MetricViewsDisabledNil", toml.Telemetry{MetricViewsDisabled: nil}, false},
 	}
 
