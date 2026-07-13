@@ -56,7 +56,7 @@ func initBlocksSubCmds(s *Shell) []cli.Command {
 		},
 		{
 			Name:   "lp-skip-to-block",
-			Usage:  "Reposition LogPoller to start processing from the given finalized block number",
+			Usage:  `Reposition LogPoller to start processing from the given finalized block number. Note: LogPoller does not guarantee that finalized blocks in the DB and specified block belong to the same chain. LogPoller will remove all unfinalized logs before saving new checkpoint.`,
 			Action: s.LPSkipToBlock,
 			Flags: []cli.Flag{
 				cli.Int64Flag{
@@ -190,7 +190,7 @@ func (s *Shell) LPSkipToBlock(c *cli.Context) (err error) {
 
 	resp, err := s.HTTP.Post(s.ctx(), "/v2/lp_skip_to_block", bytes.NewReader(request))
 	if err != nil {
-		return s.errorOut(err)
+		return s.errorOut(errors.Wrap(err, "failed to send request to reposition LogPoller"))
 	}
 
 	defer func() {
