@@ -20,6 +20,8 @@ type Telemetry interface {
 	ChipIngressInsecureConnection() bool
 	ChipIngressBatchEmitterEnabled() bool
 	DurableEmitterEnabled() bool
+	DurableEmitterRetransmitBatchSize() int
+	DurableEmitterEventTTL() time.Duration
 	HeartbeatInterval() time.Duration
 	LogStreamingEnabled() bool
 	LogLevel() zapcore.Level

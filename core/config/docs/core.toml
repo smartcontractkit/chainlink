@@ -890,7 +890,11 @@ ChipIngressInsecureConnection = false # Default
 # When false, events are sent individually (legacy behavior).
 ChipIngressBatchEmitterEnabled = true # Default
 # DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
-DurableEmitterEnabled = false # Default
+DurableEmitterEnabled = true # Default
+# DurableEmitterRetransmitBatchSize is the number of pending events the durable emitter replays per retransmit tick.
+DurableEmitterRetransmitBatchSize = 500 # Default
+# DurableEmitterEventTTL is how long an undelivered event is retained before the durable emitter expires it (older events are dropped).
+DurableEmitterEventTTL = '1h0m0s' # Default
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default
 # LogLevel sets the log level for telemetry streaming (debug, info, warn, error, crit, panic, fatal)
