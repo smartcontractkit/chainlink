@@ -260,18 +260,16 @@ func TestConfidentialRelayHandler_DoesNotForwardOnErrorMajority(t *testing.T) {
 	// Two more signed successes (nodes 5,6) bring signed to 4 with all nodes replied.
 	// Terminal-state path: remaining=0 and signed >= F+1=3, so forward without timeout.
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
 		var bundle relaytypes.SignedCapabilityResponseBundle
-		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
 		assert.Len(t, bundle.Responses, 4, "errors are dropped; only signed responses are bundled")
-	}()
+	})
 	for i := 5; i < 7; i++ {
 		require.NoError(t, h.HandleNodeMessage(t.Context(),
 			capExecSignedRespPtr(t, req.ID, result, fmt.Appendf(nil, "signer-%d", i)),
@@ -298,17 +296,16 @@ func TestConfidentialRelayHandler_TerminalStateBelowQuorumFailsImmediately(t *te
 	result := relaytypes.CapabilityResponseResult{Payload: "result"}
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
-		require.NotNil(t, jsonResp.Error)
-		assert.Contains(t, jsonResp.Error.Message, "relay quorum unreachable")
-	}()
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		if assert.NotNil(t, jsonResp.Error) {
+			assert.Contains(t, jsonResp.Error.Message, "relay quorum unreachable")
+		}
+	})
 
 	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
 
@@ -344,17 +341,16 @@ func TestConfidentialRelayHandler_QuorumUnreachableFailsImmediately(t *testing.T
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
-		require.NotNil(t, jsonResp.Error)
-		assert.Contains(t, jsonResp.Error.Message, "relay quorum unreachable")
-	}()
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		if assert.NotNil(t, jsonResp.Error) {
+			assert.Contains(t, jsonResp.Error.Message, "relay quorum unreachable")
+		}
+	})
 
 	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
 
@@ -388,18 +384,16 @@ func TestConfidentialRelayHandler_ForwardsOnceEnoughSignedArrive(t *testing.T) {
 	result := relaytypes.CapabilityResponseResult{Payload: "result"}
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
 		var bundle relaytypes.SignedCapabilityResponseBundle
-		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
 		assert.Len(t, bundle.Responses, 3)
-	}()
+	})
 
 	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
 

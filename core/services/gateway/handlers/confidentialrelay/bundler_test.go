@@ -262,7 +262,7 @@ func TestSanitizeNodeErrorMessage_Truncates(t *testing.T) {
 	t.Parallel()
 	long := strings.Repeat("a", maxNodeErrorMessageLen+50)
 	got := sanitizeNodeErrorMessage(long)
-	require.Equal(t, maxNodeErrorMessageLen-1+len(".."), len(got))
+	require.Len(t, got, maxNodeErrorMessageLen-1+len(".."))
 	require.True(t, strings.HasSuffix(got, ".."))
 }
 
