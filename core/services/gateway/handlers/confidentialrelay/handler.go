@@ -70,6 +70,7 @@ type activeRequest struct {
 	req       jsonrpc.Request[json.RawMessage]
 	responses map[string]*jsonrpc.Response[json.RawMessage]
 	mu        sync.Mutex
+	completed atomic.Bool
 
 	createdAt time.Time
 	gwhandlers.Callback
@@ -470,12 +471,17 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	return nil
 }
 
-// sendResponseAndCleanup sends payload.
-// The request is always removed from activeRequests
-// regardless of whether the send succeeds, since a failed callback cannot
-// be retried.
+// sendResponseAndCleanup claims the request, sends payload, and removes it from
+// activeRequests. Concurrent completion paths (node-message forward,
+// terminal-state forward, expiry) may all race here; only the first claimer
+// sends. Metrics are recorded only after a successful send so losers do not
+// double-count.
 func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest, payload gwhandlers.UserCallbackPayload) error {
-	h.recordMetrics(ctx, payload.ErrorCode)
+	if !ar.completed.CompareAndSwap(false, true) {
+		// Another path already answered this request.
+		return nil
+	}
+
 	sendErr := ar.SendResponse(payload)
 
 	h.mu.Lock()
@@ -487,6 +493,7 @@ func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest,
 		return sendErr
 	}
 
+	h.recordMetrics(ctx, payload.ErrorCode)
 	h.lggr.Debugw("response sent to user", "requestID", ar.req.ID, "errorCode", payload.ErrorCode)
 	return nil
 }
