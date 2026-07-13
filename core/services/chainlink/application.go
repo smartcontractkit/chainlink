@@ -146,6 +146,8 @@ type Application interface {
 	FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error)
 	// DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
 	DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error
+	// LPSkipToBlock repositions the LogPoller to start processing from the given block number.
+	LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -1263,6 +1265,7 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 	if err != nil {
 		return nil, err
 	}
+
 	if !app.Config.Feature().LogPoller() {
 		return nil, errors.New("FindLCA is only available if LogPoller is enabled")
 	}
@@ -1277,6 +1280,36 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 	}
 
 	return lca, nil
+}
+
+// LPSkipToBlock repositions the LogPoller to start processing from the given block number.
+func (app *ChainlinkApplication) LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error {
+	if chainFamily != relay.NetworkEVM {
+		return fmt.Errorf("LPSkipToBlock is only supported for %s chain family", relay.NetworkEVM)
+	}
+	if !app.Config.Feature().LogPoller() {
+		return errors.New("LPSkipToBlock is only available if LogPoller is enabled")
+	}
+	if blockNumber < 2 {
+		return fmt.Errorf("invalid skip block number %d, must be >= 2", blockNumber)
+	}
+
+	relayer, err := app.GetRelayers().Get(commontypes.RelayID{
+		Network: chainFamily,
+		ChainID: chainID,
+	})
+	if err != nil {
+		return err
+	}
+	evmService, err := relayer.EVM()
+	if err != nil {
+		return err
+	}
+
+	if err = evmService.LPSkipToBlock(ctx, blockNumber); err != nil {
+		return fmt.Errorf("failed to skip log poller to block %d: %w", blockNumber, err)
+	}
+	return nil
 }
 
 // DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
