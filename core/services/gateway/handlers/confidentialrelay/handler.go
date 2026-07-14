@@ -241,20 +241,23 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 
 	for _, er := range expiredRequests {
 		responses := er.copiedResponses()
-		// We never reached the 2F+1 forward threshold. Forward what we collected only
-		// if the bundle can still reach the enclave's F+1 quorum (faulty nodes may
-		// have simply stayed silent). Below F+1 signed responses the enclave is
-		// guaranteed to reject, so forwardBundle returns a timeout error instead of
-		// a futile round trip. The gateway still verifies nothing: this is only a
-		// count floor, not a trust decision.
 		l := logger.With(h.lggr, "method", er.req.Method, "requestID", er.req.ID)
-		l.Debugw("request expired, forwarding collected responses to enclave",
+		l.Debugw("request expired, evaluating collected relay responses",
 			"collected", len(responses),
 			"nodes", len(h.donConfig.Members),
-			"remaining", len(h.donConfig.Members)-len(responses),
-			"minSigned", h.donConfig.F+1,
+			"unanswered", len(h.donConfig.Members)-len(responses),
 		)
-		if err := h.bundleAndForward(ctx, l, er, responses, h.donConfig.F+1); err != nil {
+		summary, err := h.bundler.Bundle(er.req, responses, l)
+		if err != nil {
+			l.Errorw("failed to build relay response bundle", "error", err)
+			if sendErr := h.sendResponseAndClearRequest(ctx, er, h.constructErrorResponse(er.req, api.FatalError, err)); sendErr != nil {
+				l.Errorw("error returning bundle failure on expiry", "error", sendErr)
+			}
+			continue
+		}
+		// Expiry makes further responses unavailable to this request. The common
+		// readiness path forwards a viable partial bundle or returns a timeout.
+		if err := h.forwardBundleOrTerminateIfReady(ctx, l, er, summary, 0, true); err != nil {
 			l.Errorw("error forwarding bundle on expiry", "error", err)
 		}
 	}
@@ -340,53 +343,61 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	copiedResponses := ar.copiedResponses()
-	// The gateway is a dumb fan-in: it does not verify signatures, check signer
-	// membership, or decide enclave quorum. It forwards collected signed responses
-	// to the enclave, which is the sole trust anchor.
-	//
-	// Completion rules:
-	//   1. signed >= 2F+1: forward early (under <=F faulty, F+1 honest are guaranteed).
-	//   2. remaining == 0 && signed >= F+1: all members replied with enough signed
-	//      responses; forward the partial bundle without waiting for cleanup.
-	//   3. remaining == 0 && signed < F+1, or signed+remaining < F+1: more waiting
-	//      cannot produce enclave quorum, so fail immediately (do not forward a
-	//      doomed bundle or sleep until the cleanup timer).
-	// JSON-RPC errors and undecodable replies cannot contribute to enclave quorum.
-	// A node that already returned an error will not replace it.
+	// Bundle readiness counts decodable signed responses, while the enclave remains
+	// responsible for signature and quorum verification. A collected response cannot
+	// be replaced by a later response from the same node.
 	summary, err := h.bundler.Bundle(ar.req, copiedResponses, l)
 	if err != nil {
 		l.Errorw("failed to build relay response bundle", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
+		return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
 	}
+	return h.forwardBundleOrTerminateIfReady(ctx, l, ar, summary, len(h.donConfig.Members)-summary.Total(), false)
+}
+
+// forwardBundleOrTerminateIfReady applies the same completion rules to live and
+// expired requests. Remaining counts responses that can still arrive; expiry
+// passes zero because waiting can no longer improve the bundle.
+func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.Logger, ar *activeRequest, summary *BundleSummary, remaining int, expired bool) error {
 	earlyNeed := 2*h.donConfig.F + 1
 	minQuorum := h.donConfig.F + 1
 	nodes := len(h.donConfig.Members)
-	remaining := nodes - summary.Total()
+	unanswered := nodes - summary.Total()
 	maxPossibleSigned := summary.Signed() + remaining
 	if summary.Signed() >= earlyNeed {
-		// minSigned=0: signed count already meets 2F+1.
-		return h.forwardBundle(ctx, l, ar, summary, 0)
+		return h.forwardBundle(ctx, l, ar, summary)
 	}
 	if remaining == 0 && summary.Signed() >= minQuorum {
-		// Every node has replied; no more signed successes can arrive. Forward the
-		// partial signed bundle so the enclave can attempt F+1 quorum without waiting
-		// for the cleanup timer (which races the enclave's gateway HTTP timeout).
-		l.Infow("all nodes responded; forwarding partial signed bundle",
+		l.Infow("no more responses expected; forwarding partial signed bundle",
 			"signed", summary.Signed(),
 			"minQuorum", minQuorum,
 			"earlyNeed", earlyNeed,
 			"collected", summary.Total(),
 			"nodes", nodes,
+			"unanswered", unanswered,
+			"expired", expired,
 			"errors", summary.Error(),
 			"undecodable", summary.Undecodable(),
 			"nodeErrors", summary.NodeErrorsFormatted(),
 		)
-		return h.forwardBundle(ctx, l, ar, summary, 0)
+		return h.forwardBundle(ctx, l, ar, summary)
 	}
 	if maxPossibleSigned < minQuorum {
-		// Even if every outstanding node returns a signed success, enclave quorum is
-		// impossible. Fail now rather than waiting for silence/timeout or forwarding
-		// a doomed bundle.
+		if expired {
+			l.Warnw("request expired before relay quorum was reached",
+				"signed", summary.Signed(),
+				"minQuorum", minQuorum,
+				"earlyNeed", earlyNeed,
+				"collected", summary.Total(),
+				"nodes", nodes,
+				"unanswered", unanswered,
+				"errors", summary.Error(),
+				"undecodable", summary.Undecodable(),
+				"nodeErrors", summary.NodeErrorsFormatted(),
+			)
+			return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.RequestTimeoutError,
+				fmt.Errorf("request expired: %d signed relay responses, need at least %d to reach quorum (collected=%d nodes=%d unanswered=%d errors=%d undecodable=%d)",
+					summary.Signed(), minQuorum, summary.Total(), nodes, unanswered, summary.Error(), summary.Undecodable())))
+		}
 		l.Warnw("relay quorum unreachable; returning error without waiting",
 			"signed", summary.Signed(),
 			"minQuorum", minQuorum,
@@ -399,7 +410,7 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 			"undecodable", summary.Undecodable(),
 			"nodeErrors", summary.NodeErrorsFormatted(),
 		)
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError,
+		return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError,
 			fmt.Errorf("relay quorum unreachable: %d signed responses, at most %d possible, need %d (collected=%d nodes=%d remaining=%d errors=%d undecodable=%d)",
 				summary.Signed(), maxPossibleSigned, minQuorum, summary.Total(), nodes, remaining, summary.Error(), summary.Undecodable())))
 	}
@@ -420,42 +431,15 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 
 // forwardBundle sends a previously-built bundle to the enclave. The gateway makes
 // no trust decision; the enclave verifies signatures and reaches quorum.
-//
-// minSigned is a futility floor, not a verification step. The enclave reaches
-// quorum only with F+1 valid distinct signatures, so a bundle carrying fewer than
-// F+1 signed responses cannot possibly be accepted. On the timeout path we pass
-// minSigned=F+1 to skip that guaranteed-reject round trip and return a timeout
-// error instead. (F+1 signed is necessary, not sufficient: some signatures may be
-// invalid, so the timeout path stays optimistic.) The 2F+1 signed path passes
-// minSigned=0 because its signed-count trigger already implies enough signed
-// responses; the gateway inspects no cryptographic signatures in either case.
-func (h *handler) forwardBundle(ctx context.Context, l logger.Logger, ar *activeRequest, summary *BundleSummary, minSigned int) error {
+func (h *handler) forwardBundle(ctx context.Context, l logger.Logger, ar *activeRequest, summary *BundleSummary) error {
 	nodes := len(h.donConfig.Members)
-	if summary.Signed() < minSigned {
-		l.Warnw("too few signed responses for enclave quorum; returning timeout",
-			"signed", summary.Signed(),
-			"need", minSigned,
-			"earlyNeed", 2*h.donConfig.F+1,
-			"collected", summary.Total(),
-			"nodes", nodes,
-			"remaining", nodes-summary.Total(),
-			"errors", summary.Error(),
-			"undecodable", summary.Undecodable(),
-			"nodeErrors", summary.NodeErrorsFormatted(),
-		)
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.RequestTimeoutError,
-			fmt.Errorf("request expired: %d signed relay responses, need at least %d to reach quorum (collected=%d nodes=%d errors=%d undecodable=%d)",
-				summary.Signed(), minSigned, summary.Total(), nodes, summary.Error(), summary.Undecodable())))
-	}
-
 	rawResponse, err := jsonrpc.EncodeResponse(summary.Response())
 	if err != nil {
 		l.Errorw("failed to encode response", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.NodeReponseEncodingError, err))
+		return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.NodeReponseEncodingError, err))
 	}
 	l.Infow("forwarding relay response bundle to enclave",
 		"signedResponses", summary.Signed(),
-		"minSigned", minSigned,
 		"earlyNeed", 2*h.donConfig.F+1,
 		"collected", summary.Total(),
 		"nodes", nodes,
@@ -464,22 +448,10 @@ func (h *handler) forwardBundle(ctx context.Context, l logger.Logger, ar *active
 		"undecodableResponses", summary.Undecodable(),
 		"nodeErrors", summary.NodeErrorsFormatted(),
 	)
-	return h.sendResponseAndCleanup(ctx, ar, gwhandlers.UserCallbackPayload{
+	return h.sendResponseAndClearRequest(ctx, ar, gwhandlers.UserCallbackPayload{
 		RawResponse: rawResponse,
 		ErrorCode:   api.NoError,
 	})
-}
-
-// bundleAndForward builds a bundle from the collected per-node responses and
-// forwards it subject to minSigned. Used by the timeout path, which has not
-// already built a BundleSummary.
-func (h *handler) bundleAndForward(ctx context.Context, l logger.Logger, ar *activeRequest, responses map[string]jsonrpc.Response[json.RawMessage], minSigned int) error {
-	summary, err := h.bundler.Bundle(ar.req, responses, l)
-	if err != nil {
-		l.Errorw("failed to build relay response bundle", "error", err)
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err))
-	}
-	return h.forwardBundle(ctx, l, ar, summary, minSigned)
 }
 
 func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *activeRequest) error {
@@ -504,19 +476,19 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 	numNodeErrors := nodeErrors.Load()
 	remainingPossibleResponses := len(h.donConfig.Members) - int(numNodeErrors)
 	if remainingPossibleResponses < h.donConfig.F+1 && numNodeErrors > 0 {
-		return h.sendResponseAndCleanup(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
+		return h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, errors.New("failed to forward user request to nodes")))
 	}
 
 	l.Debugw("successfully forwarded request to relay nodes")
 	return nil
 }
 
-// sendResponseAndCleanup claims the request, sends payload, and removes it from
+// sendResponseAndClearRequest claims the request, sends payload, and removes it from
 // activeRequests. Concurrent completion paths (node-message forward,
 // terminal-state forward, expiry) may all race here; only the first claimer
 // sends. Metrics are recorded only after a successful send so losers do not
 // double-count.
-func (h *handler) sendResponseAndCleanup(ctx context.Context, ar *activeRequest, payload gwhandlers.UserCallbackPayload) error {
+func (h *handler) sendResponseAndClearRequest(ctx context.Context, ar *activeRequest, payload gwhandlers.UserCallbackPayload) error {
 	if !ar.completed.CompareAndSwap(false, true) {
 		// Another path already answered this request.
 		return nil
