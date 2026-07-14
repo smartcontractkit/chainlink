@@ -1,5 +1,12 @@
 # Changelog Chainlink Core
 
+## 2.54.1
+
+### Patch Changes
+
+- [23105](https://github.com/smartcontractkit/chainlink/pull/23105) Use a bound creation for CR/CW for each chain to avoid locked context when starting relayers over LOOPP 
+
+
 ## 2.54.0
 
 ### Minor Changes
