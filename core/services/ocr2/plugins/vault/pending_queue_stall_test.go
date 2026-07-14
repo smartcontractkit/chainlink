@@ -57,15 +57,15 @@ func TestPendingQueueStallTracker_Concurrent(t *testing.T) {
 	}
 	wg.Wait()
 
-	require.Equal(t, calls+1, tracker.record(7))
-	require.Equal(t, 1, tracker.record(8))
+	require.Equal(t, calls, tracker.record(7))
+	require.Equal(t, 0, tracker.record(8))
 }
 
 func TestObservation_PendingQueueStallThreshold(t *testing.T) {
 	t.Parallel()
 
 	rdr := &kv{m: make(map[string]response)}
-	r := newTestReportingPlugin(t, withVaultPendingQueueStallThreshold(2))
+	r := newTestReportingPlugin(t, withVaultPendingQueueStallThreshold(1))
 
 	require.False(t, observationSignalsPendingQueueStall(observeAtSeqNr(t, r, rdr, 1)))
 	require.True(t, observationSignalsPendingQueueStall(observeAtSeqNr(t, r, rdr, 1)))
@@ -95,13 +95,13 @@ func TestObservation_ForceEmptyTakesPrecedenceOverStallSignal(t *testing.T) {
 	t.Parallel()
 
 	rdr := &kv{m: make(map[string]response)}
-	r := newTestReportingPlugin(t, withVaultPendingQueueStallThreshold(1))
+	r := newTestReportingPlugin(t, withVaultPendingQueueStallThreshold(2))
 	r.cfg.VaultForceEmptyOCRRounds = limits.NewGateLimiter(true)
 
-	require.False(t, observationSignalsPendingQueueStall(observeAtSeqNr(t, r, rdr, 1)))
+	require.True(t, observationSignalsPendingQueueStall(observeAtSeqNr(t, r, rdr, 1)))
 
 	r.cfg.VaultForceEmptyOCRRounds = limits.NewGateLimiter(false)
-	require.True(t, observationSignalsPendingQueueStall(observeAtSeqNr(t, r, rdr, 1)))
+	require.False(t, observationSignalsPendingQueueStall(observeAtSeqNr(t, r, rdr, 1)))
 }
 
 func TestValidateObservation_PendingQueueStallSignal(t *testing.T) {

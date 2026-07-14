@@ -387,7 +387,7 @@ func (t *pendingQueueStallTracker) record(seqNr uint64) int {
 	defer t.mu.Unlock()
 	if t.seqNr != seqNr {
 		t.seqNr = seqNr
-		t.count = 1
+		t.count = 0
 		return t.count
 	}
 	t.count++
@@ -683,7 +683,7 @@ func (r *ReportingPlugin) includeInvalidPendingItemsEnabled(ctx context.Context)
 
 func (r *ReportingPlugin) shouldPurgePendingQueue(ctx context.Context) bool {
 	if gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
-		return false
+		return true
 	}
 	stallThreshold, err := r.cfg.VaultPendingQueueStallThreshold.Limit(ctx)
 	if err != nil {
