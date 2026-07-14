@@ -93,12 +93,12 @@ plugins:
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "696014b3922779324f277894a1f476597d77eff3"
+      gitRef: "2cf965790a71171e1336f6d1d4f5162f2bd39bd1"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "602b8fb7d379afb0a245dd6b4f67cc4557c40541"
+      gitRef: "2cf965790a71171e1336f6d1d4f5162f2bd39bd1"
       installPath: "."
 
   capability-evm:
