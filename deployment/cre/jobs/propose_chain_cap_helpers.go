@@ -9,6 +9,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -20,6 +21,7 @@ import (
 const (
 	solanaForwarderVersion = "1.0.0"
 	solanaCapRegVersion    = "2.0.0"
+	stellarCapRegVersion   = "2.0.0"
 )
 
 type commonCapFields struct {
