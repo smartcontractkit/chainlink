@@ -26,6 +26,8 @@ const undeployedContractID = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2H
 // (trap, unknown fn, wrong arity, nonexistent contract) in a single workflow trigger.
 // Requires a Local CRE started with workflow-gateway-don-stellar.toml. Contract WASM is
 // built at runtime via stellar CLI (STELLAR_CONTRACTS_SOURCE_DIR or auto go-list module Dir).
+//
+//nolint:paralleltest // would flake
 func Test_CRE_V2_Stellar_ReadContract_Regression(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, stellarConfigPath))
 	t.Run("StellarReadContractNegative", func(t *testing.T) {

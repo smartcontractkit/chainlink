@@ -85,7 +85,7 @@ func ExecuteStellarReadContractSmokeTest(
 	b, err := hex.DecodeString(bytesN32)
 	require.NoError(t, err)
 
-	var vals []uint32 = []uint32{1, 2, 3}
+	vals := []uint32{1, 2, 3}
 	vec := make(xdr.ScVec, len(vals))
 	for i, u := range vals {
 		e, err2 := xdr.NewScVal(xdr.ScValTypeScvU32, xdr.Uint32(u))
@@ -94,7 +94,7 @@ func ExecuteStellarReadContractSmokeTest(
 		}
 		vec[i] = e
 	}
-	var vals2 []uint32 = []uint32{5, 6, 7}
+	vals2 := []uint32{5, 6, 7}
 	vec2 := make(xdr.ScVec, len(vals2))
 	for i, u := range vals2 {
 		e, err2 := xdr.NewScVal(xdr.ScValTypeScvU32, xdr.Uint32(u))
