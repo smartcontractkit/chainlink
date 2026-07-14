@@ -10,7 +10,7 @@ import (
 
 func TestCombineObservationErrors(t *testing.T) {
 	t.Run("empty observations uses fallback", func(t *testing.T) {
-		result := combineObservationErrors([]*vaultcommon.Observation{}, 0)
+		result := consensusObservationError([]*vaultcommon.Observation{}, 0)
 		require.Equal(t, "request is not valid", result)
 	})
 
@@ -18,7 +18,7 @@ func TestCombineObservationErrors(t *testing.T) {
 		obs := []*vaultcommon.Observation{
 			{Error: &vaultcommon.ObservationError{Message: "node error"}},
 		}
-		result := combineObservationErrors(obs, 0)
+		result := consensusObservationError(obs, 0)
 		require.Equal(t, "node error", result)
 	})
 
@@ -29,7 +29,7 @@ func TestCombineObservationErrors(t *testing.T) {
 			{Error: &vaultcommon.ObservationError{Message: "timeout error"}},
 			{Error: &vaultcommon.ObservationError{Message: "different error"}},
 		}
-		result := combineObservationErrors(obs, f)
+		result := consensusObservationError(obs, f)
 		require.Equal(t, "timeout error", result)
 	})
 
@@ -40,7 +40,7 @@ func TestCombineObservationErrors(t *testing.T) {
 			{Error: &vaultcommon.ObservationError{Message: "error2"}},
 			{Error: &vaultcommon.ObservationError{Message: "error3"}},
 		}
-		result := combineObservationErrors(obs, f)
+		result := consensusObservationError(obs, f)
 		require.Equal(t, "request is not valid", result)
 	})
 
@@ -51,7 +51,7 @@ func TestCombineObservationErrors(t *testing.T) {
 			{Error: &vaultcommon.ObservationError{Message: "valid error"}},
 			{Error: &vaultcommon.ObservationError{Message: ""}},
 		}
-		result := combineObservationErrors(obs, f)
+		result := consensusObservationError(obs, f)
 		require.Equal(t, "valid error", result)
 	})
 
@@ -64,7 +64,7 @@ func TestCombineObservationErrors(t *testing.T) {
 			{Error: &vaultcommon.ObservationError{Message: "error2"}},
 			{Error: &vaultcommon.ObservationError{Message: "error2"}},
 		}
-		result := combineObservationErrors(obs, f)
+		result := consensusObservationError(obs, f)
 		require.Equal(t, "error2", result)
 	})
 
@@ -75,7 +75,7 @@ func TestCombineObservationErrors(t *testing.T) {
 			{Error: &vaultcommon.ObservationError{Message: "error"}},
 			{Error: &vaultcommon.ObservationError{Message: "other"}},
 		}
-		result := combineObservationErrors(obs, f)
+		result := consensusObservationError(obs, f)
 		require.Equal(t, "request is not valid", result)
 	})
 
@@ -87,7 +87,7 @@ func TestCombineObservationErrors(t *testing.T) {
 			{Error: &vaultcommon.ObservationError{Message: "consensus error"}},
 			{Error: &vaultcommon.ObservationError{Message: "other"}},
 		}
-		result := combineObservationErrors(obs, f)
+		result := consensusObservationError(obs, f)
 		require.Equal(t, "consensus error", result)
 	})
 
@@ -100,7 +100,7 @@ func TestCombineObservationErrors(t *testing.T) {
 			{Error: &vaultcommon.ObservationError{Message: "all same"}},
 			{Error: &vaultcommon.ObservationError{Message: "all same"}},
 		}
-		result := combineObservationErrors(obs, f)
+		result := consensusObservationError(obs, f)
 		require.Equal(t, "all same", result)
 	})
 }

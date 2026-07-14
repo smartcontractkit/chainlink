@@ -1782,9 +1782,9 @@ func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommo
 }
 
 // validateGetSecretsResponseShares checks TDH2 share labels and per-share size
-// limits for every GetSecrets response carrying data. Shared by the legacy
-// ValidateObservation path and the unified validateContribution path so the
-// share checks cannot drift between them.
+// limits for every GetSecrets response carrying data. Called by both
+// validateGetSecretsObservation (legacy) and validateGetSecretsContribution
+// (unified) so the share checks cannot drift between them.
 func (r *ReportingPlugin) validateGetSecretsResponseShares(ctx context.Context, req *vaultcommon.GetSecretsRequest, respMap map[string]*vaultcommon.SecretResponse) error {
 	for _, rsp := range respMap {
 		d := rsp.GetData()
@@ -1857,38 +1857,7 @@ func (r *ReportingPlugin) validateGetSecretsObservation(ctx context.Context, o *
 		respMap[key] = secretResponse
 	}
 
-	for _, rsp := range respMap {
-		d := rsp.GetData()
-		if d == nil {
-			continue
-		}
-
-		secretReq, err := secretRequestForID(pendingReq, rsp.Id)
-		if err != nil {
-			return fmt.Errorf("GetSecrets response id not found in pending queue request: %w", err)
-		}
-		if err := validateGetSecretsShareLabels(secretReq, d); err != nil {
-			return err
-		}
-
-		// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
-		innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
-		for _, ds := range d.GetEncryptedDecryptionKeyShares() {
-			shareSize, err := encryptedShareSizeForLimit(ds)
-			if err != nil {
-				return err
-			}
-			if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
-				var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-				if errors.As(err, &errBoundLimited) {
-					return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
-				}
-				return errors.New("failed to check share size")
-			}
-		}
-	}
-
-	return nil
+	return r.validateGetSecretsResponseShares(ctx, pendingReq, respMap)
 }
 
 func (r *ReportingPlugin) validateCreateSecretsObservation(ctx context.Context, o *vaultcommon.Observation) error {
