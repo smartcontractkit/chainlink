@@ -1086,6 +1086,7 @@ func (t *clientRequestTestDispatcher) Send(peerID p2ptypes.PeerID, msgBody *type
 }
 
 func TestRequiredConfirmations(t *testing.T) {
+	t.Parallel()
 	// helper vars for these sub-tests
 	workflowPeers := []p2ptypes.PeerID{NewP2PPeerID(t), NewP2PPeerID(t)}
 	testWorkflowDonInfo := commoncap.DON{Members: workflowPeers, ID: 2}
@@ -1110,6 +1111,7 @@ func TestRequiredConfirmations(t *testing.T) {
 	testCapResp := commoncap.CapabilityResponse{Value: m}
 
 	t.Run("default uses F+1", func(t *testing.T) {
+		t.Parallel()
 		// minResponsesToAggregate=0 → F=2, required=F+1=3
 		ctx := t.Context()
 		capabilityPeers, _, capInfo := capabilityDon(t, 7, 2)
@@ -1131,7 +1133,7 @@ func TestRequiredConfirmations(t *testing.T) {
 		}
 
 		// 2 responses → not yet at F+1=3
-		for i := 0; i < 2; i++ {
+		for i := range 2 {
 			msg.Sender = capabilityPeers[i][:]
 			require.NoError(t, req.OnMessage(ctx, msg))
 		}
@@ -1153,6 +1155,7 @@ func TestRequiredConfirmations(t *testing.T) {
 	})
 
 	t.Run("2F+1 threshold (tier-2, N=7 F=2)", func(t *testing.T) {
+		t.Parallel()
 		// minResponsesToAggregate=5 → need 5 matching responses
 		ctx := t.Context()
 		capabilityPeers, _, capInfo := capabilityDon(t, 7, 2)
@@ -1174,7 +1177,7 @@ func TestRequiredConfirmations(t *testing.T) {
 		}
 
 		// 4 responses → not yet at 2F+1=5
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			msg.Sender = capabilityPeers[i][:]
 			require.NoError(t, req.OnMessage(ctx, msg))
 		}
@@ -1195,4 +1198,3 @@ func TestRequiredConfirmations(t *testing.T) {
 		}
 	})
 }
-
