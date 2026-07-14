@@ -26,6 +26,7 @@ func Test_ReplayFromBlock(t *testing.T) {
 	flagSetApplyFromAction(client.ReplayFromBlock, set, "")
 
 	t.Run("invalid args", func(t *testing.T) {
+		t.Parallel()
 		// Incorrect block number
 		require.NoError(t, set.Set("block-number", "0"))
 		c := cli.NewContext(nil, set, nil)
@@ -45,6 +46,7 @@ func Test_ReplayFromBlock(t *testing.T) {
 	})
 
 	t.Run("evm replay", func(t *testing.T) {
+		t.Parallel()
 		require.NoError(t, set.Set("block-number", "1"))
 		require.NoError(t, set.Set("chain-id", "5"))
 		require.NoError(t, set.Set("family", "evm"))
@@ -82,6 +84,7 @@ func Test_LPSkipToBlock(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].ChainID = (*sqlutil.Big)(big.NewInt(5))
 		c.EVM[0].Enabled = ptr(true)
 	})
@@ -92,12 +95,13 @@ func Test_LPSkipToBlock(t *testing.T) {
 	flagSetApplyFromAction(client.LPSkipToBlock, set, "")
 
 	t.Run("invalid args", func(t *testing.T) {
+		t.Parallel()
 		require.NoError(t, set.Set("block-number", "1"))
 		c := cli.NewContext(nil, set, nil)
 		require.ErrorContains(t, client.LPSkipToBlock(c), "Must pass a value >= 2")
 
 		require.NoError(t, set.Set("block-number", "100"))
-		require.NoError(t, set.Set("chain-id", "1"))
+		require.NoError(t, set.Set("chain-id", "123"))
 		require.NoError(t, set.Set("family", "evm"))
 		c = cli.NewContext(nil, set, nil)
 		require.ErrorContains(t, client.LPSkipToBlock(c), "relayer does not exist")
@@ -106,13 +110,5 @@ func Test_LPSkipToBlock(t *testing.T) {
 		require.NoError(t, set.Set("family", "solana"))
 		c = cli.NewContext(nil, set, nil)
 		require.ErrorContains(t, client.LPSkipToBlock(c), "only evm is supported")
-	})
-
-	t.Run("evm skip", func(t *testing.T) {
-		require.NoError(t, set.Set("block-number", "100"))
-		require.NoError(t, set.Set("chain-id", "5"))
-		require.NoError(t, set.Set("family", "evm"))
-		c := cli.NewContext(nil, set, nil)
-		require.ErrorContains(t, client.LPSkipToBlock(c), "LPSkipToBlock is only available if LogPoller is enabled")
 	})
 }

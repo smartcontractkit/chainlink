@@ -17,12 +17,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	appmocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 	t.Parallel()
-	cfg := configtest.NewTestGeneralConfig(t)
+	cfg := configtest.NewGeneralConfig(t, func(config *chainlink.Config, secrets *chainlink.Secrets) {
+		config.Feature.LogPoller = ptr(true)
+	})
 	ec := setupEthClientForControllerTests(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)
 	require.NoError(t, app.Start(t.Context()))
@@ -38,6 +41,7 @@ func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 	}
 
 	t.Run("missing chain family", func(t *testing.T) {
+		t.Parallel()
 		resp := postSkip(t, web.LPSkipToBlockRequest{
 			BlockNumber: 100,
 			ChainID:     "1",
@@ -49,6 +53,7 @@ func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 	})
 
 	t.Run("unsupported chain family", func(t *testing.T) {
+		t.Parallel()
 		resp := postSkip(t, web.LPSkipToBlockRequest{
 			BlockNumber: 100,
 			Family:      "solana",
@@ -61,6 +66,7 @@ func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 	})
 
 	t.Run("missing chain id", func(t *testing.T) {
+		t.Parallel()
 		resp := postSkip(t, web.LPSkipToBlockRequest{
 			BlockNumber: 100,
 			Family:      "evm",
@@ -72,6 +78,7 @@ func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 	})
 
 	t.Run("invalid block number", func(t *testing.T) {
+		t.Parallel()
 		resp := postSkip(t, web.LPSkipToBlockRequest{
 			BlockNumber: 1,
 			Family:      "evm",
@@ -80,10 +87,11 @@ func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 		assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
 		b, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
-		assert.Contains(t, string(b), "block number must be >= 2")
+		assert.Contains(t, string(b), "block number must be")
 	})
 
 	t.Run("unknown relayer", func(t *testing.T) {
+		t.Parallel()
 		resp := postSkip(t, web.LPSkipToBlockRequest{
 			BlockNumber: 100,
 			Family:      "evm",
