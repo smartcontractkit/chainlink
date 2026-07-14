@@ -931,12 +931,15 @@ func TestVerifySecretsWithinRestrictions(t *testing.T) {
 			PrefixedSecret: &sdkpb.SecretPrefixRestriction{Prefix: prefix, Namespace: ns},
 		}}
 	}
-	secretsRestrictions := func(rs ...*sdkpb.SecretRestriction) *sdkpb.Restrictions {
-		return &sdkpb.Restrictions{Secrets: &sdkpb.SecretsRestritions{Restrictions: rs}}
+	secretsRestrictions := func(maxSecrets int32, rs ...*sdkpb.SecretRestriction) *sdkpb.Restrictions {
+		return &sdkpb.Restrictions{Secrets: &sdkpb.SecretsRestritions{MaxSecrets: maxSecrets, Restrictions: rs}}
 	}
 	id := func(key, ns string) confidentialrelaytypes.SecretIdentifier {
 		return confidentialrelaytypes.SecretIdentifier{Key: key, Namespace: ns}
 	}
+	// unlimited is a MaxSecrets large enough that the count check never fires, so these cases
+	// exercise only the exact/prefix membership logic.
+	const unlimited int32 = 100
 
 	tests := []struct {
 		name         string
@@ -956,53 +959,70 @@ func TestVerifySecretsWithinRestrictions(t *testing.T) {
 		},
 		{
 			name:         "exact match all present",
-			restrictions: secretsRestrictions(exact("api-key", "prod"), exact("db-pass", "prod")),
+			restrictions: secretsRestrictions(unlimited, exact("api-key", "prod"), exact("db-pass", "prod")),
 			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod"), id("db-pass", "prod")},
 		},
 		{
 			name:         "exact match missing secret rejected",
-			restrictions: secretsRestrictions(exact("api-key", "prod")),
+			restrictions: secretsRestrictions(unlimited, exact("api-key", "prod")),
 			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod"), id("db-pass", "prod")},
 			wantErr:      `secret "db-pass" in namespace "prod" not permitted`,
 		},
 		{
 			name:         "exact match wrong namespace rejected",
-			restrictions: secretsRestrictions(exact("api-key", "prod")),
+			restrictions: secretsRestrictions(unlimited, exact("api-key", "prod")),
 			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "staging")},
 			wantErr:      `secret "api-key" in namespace "staging" not permitted`,
 		},
 		{
 			name:         "prefix match allowed",
-			restrictions: secretsRestrictions(prefixed("svc-", "prod")),
+			restrictions: secretsRestrictions(unlimited, prefixed("svc-", "prod")),
 			secrets:      []confidentialrelaytypes.SecretIdentifier{id("svc-a", "prod"), id("svc-b", "prod")},
 		},
 		{
 			name:         "prefix match wrong namespace rejected",
-			restrictions: secretsRestrictions(prefixed("svc-", "prod")),
+			restrictions: secretsRestrictions(unlimited, prefixed("svc-", "prod")),
 			secrets:      []confidentialrelaytypes.SecretIdentifier{id("svc-a", "staging")},
 			wantErr:      `secret "svc-a" in namespace "staging" not permitted`,
 		},
 		{
 			name:         "prefix non-match rejected",
-			restrictions: secretsRestrictions(prefixed("svc-", "prod")),
+			restrictions: secretsRestrictions(unlimited, prefixed("svc-", "prod")),
 			secrets:      []confidentialrelaytypes.SecretIdentifier{id("other-a", "prod")},
 			wantErr:      `secret "other-a" in namespace "prod" not permitted`,
 		},
 		{
 			name:         "mixed exact and prefix",
-			restrictions: secretsRestrictions(exact("api-key", "prod"), prefixed("svc-", "prod")),
+			restrictions: secretsRestrictions(unlimited, exact("api-key", "prod"), prefixed("svc-", "prod")),
 			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod"), id("svc-x", "prod")},
 		},
 		{
 			name:         "empty restriction list rejects requested secret",
-			restrictions: secretsRestrictions(),
+			restrictions: secretsRestrictions(unlimited),
 			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod")},
 			wantErr:      `secret "api-key" in namespace "prod" not permitted`,
 		},
 		{
 			name:         "empty restriction list allows no secrets",
-			restrictions: secretsRestrictions(),
+			restrictions: secretsRestrictions(unlimited),
 			secrets:      nil,
+		},
+		{
+			name:         "total limit zero denies all",
+			restrictions: secretsRestrictions(0, exact("api-key", "prod")),
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod")},
+			wantErr:      `requested 1 secrets, exceeds the workflow's limit of 0`,
+		},
+		{
+			name:         "total limit exceeded",
+			restrictions: secretsRestrictions(1, exact("api-key", "prod"), exact("db-pass", "prod")),
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod"), id("db-pass", "prod")},
+			wantErr:      `requested 2 secrets, exceeds the workflow's limit of 1`,
+		},
+		{
+			name:         "total limit exactly met",
+			restrictions: secretsRestrictions(2, exact("api-key", "prod"), exact("db-pass", "prod")),
+			secrets:      []confidentialrelaytypes.SecretIdentifier{id("api-key", "prod"), id("db-pass", "prod")},
 		},
 	}
 

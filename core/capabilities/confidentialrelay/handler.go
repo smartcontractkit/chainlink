@@ -651,12 +651,17 @@ func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confi
 
 // verifySecretsWithinRestrictions enforces that every requested secret is permitted by the
 // workflow's declared secret restrictions. A secret is permitted when it matches an exact
-// restriction (id and namespace) or a prefixed restriction (namespace and key prefix). When
-// no secret restrictions are set the workflow declared no limit, so all secrets are allowed.
+// restriction (id and namespace) or a prefixed restriction (namespace and key prefix), and the
+// number of requested secrets does not exceed MaxSecrets. When no secret restrictions are set
+// the workflow declared no limit, so all secrets are allowed.
 func verifySecretsWithinRestrictions(restrictions *sdkpb.Restrictions, secrets []confidentialrelaytypes.SecretIdentifier) error {
 	secretRestrictions := restrictions.GetSecrets()
 	if secretRestrictions == nil {
 		return nil
+	}
+
+	if len(secrets) > int(secretRestrictions.GetMaxSecrets()) {
+		return fmt.Errorf("requested %d secrets, exceeds the workflow's limit of %d", len(secrets), secretRestrictions.GetMaxSecrets())
 	}
 
 	exact := make(map[confidentialrelaytypes.SecretIdentifier]struct{})
