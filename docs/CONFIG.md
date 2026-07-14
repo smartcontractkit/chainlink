@@ -2396,6 +2396,7 @@ ChipIngressBatchEmitterEnabled = true # Default
 DurableEmitterEnabled = true # Default
 DurableEmitterRetransmitBatchSize = 500 # Default
 DurableEmitterEventTTL = '1h0m0s' # Default
+DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
 LogStreamingEnabled = false # Default
@@ -2496,6 +2497,13 @@ DurableEmitterRetransmitBatchSize is the number of pending events the durable em
 DurableEmitterEventTTL = '1h0m0s' # Default
 ```
 DurableEmitterEventTTL is how long an undelivered event is retained before the durable emitter expires it (older events are dropped).
+
+### DurableEmitterMaxQueuePayloadBytes
+```toml
+DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
+```
+DurableEmitterMaxQueuePayloadBytes is the byte ceiling used as the denominator for the durable emitter's
+queue capacity_usage_ratio metric. Defaults to 1 GiB.
 
 ### HeartbeatInterval
 ```toml
