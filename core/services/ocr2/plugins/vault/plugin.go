@@ -394,21 +394,6 @@ func (t *pendingQueueStallTracker) record(seqNr uint64) int {
 	return t.count
 }
 
-func marshalPendingQueueStallObservation() (types.Observation, error) {
-	nonce, err := generateRandomNonce()
-	if err != nil {
-		return nil, fmt.Errorf("could not generate nonce for pending queue stall signal: %w", err)
-	}
-	obsb, err := proto.MarshalOptions{Deterministic: true}.Marshal(&vaultcommon.Observations{
-		SortNonce:               nonce,
-		PendingQueueStallSignal: vaultcommon.PendingQueueStallSignal_PENDING_QUEUE_STALL_SIGNAL_STALLED,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not marshal pending queue stall signal: %w", err)
-	}
-	return types.Observation(obsb), nil
-}
-
 func countPendingQueueStallSignals(aos []types.AttributedObservation) int {
 	count := 0
 	for _, ao := range aos {
@@ -696,6 +681,22 @@ func (r *ReportingPlugin) includeInvalidPendingItemsEnabled(ctx context.Context)
 	return gateAllows(ctx, r.lggr, r.cfg.VaultIncludeInvalidPendingItemsEnabled, "VaultIncludeInvalidPendingItemsEnabled")
 }
 
+func (r *ReportingPlugin) shouldPurgePendingQueue(ctx context.Context) bool {
+	if gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+		return false
+	}
+	stallThreshold, err := r.cfg.VaultPendingQueueStallThreshold.Limit(ctx)
+	if err != nil {
+		r.lggr.Errorw("could not fetch pending queue stall threshold", "error", err)
+		return false
+	}
+	if stallThreshold == 0 {
+		return false
+	}
+	stalledObservationCount := r.pendingQueueStallTracker.count
+	return stalledObservationCount >= stallThreshold
+}
+
 type pendingQueueStore interface {
 	WritePendingQueue(ctx context.Context, pending []*vaultcommon.StoredPendingQueueItem) error
 }
@@ -707,38 +708,38 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		l.Debugw("observation finished", "elapsed", time.Since(start))
 	}()
 
-	observationCount := r.pendingQueueStallTracker.record(seqNr)
-	forceEmpty := gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds")
-	if !forceEmpty {
-		stallThreshold, err := r.cfg.VaultPendingQueueStallThreshold.Limit(ctx)
+	obspb := &vaultcommon.Observations{}
+
+	// First, generate a random nonce that we'll use to sort the observations.
+	// Each node generates a nonce indepedently, to be concatenated later on.
+	nonce, ierr := generateRandomNonce()
+	if ierr != nil {
+		return nil, fmt.Errorf("could not generate nonce for observation: %w", ierr)
+	}
+	obspb.SortNonce = nonce
+
+	r.pendingQueueStallTracker.record(seqNr)
+
+	if shouldPurge := r.shouldPurgePendingQueue(ctx); shouldPurge {
+		obspb.PendingQueueStallSignal = vaultcommon.PendingQueueStallSignal_PENDING_QUEUE_STALL_SIGNAL_STALLED
+		obsb, err := proto.MarshalOptions{Deterministic: true}.Marshal(obspb)
 		if err != nil {
-			return nil, fmt.Errorf("could not fetch pending queue stall threshold: %w", err)
+			return nil, fmt.Errorf("could not marshal observations: %w", err)
 		}
-		if stallThreshold > 0 && observationCount >= stallThreshold {
-			obs, err := marshalPendingQueueStallObservation()
-			if err != nil {
-				return nil, err
-			}
-			r.metrics.trackPendingQueueStallSignal(ctx)
-			l.Warnw("pending queue stall threshold reached; signaling queue purge",
-				"observationCount", observationCount,
-				"threshold", stallThreshold,
-			)
-			return obs, nil
-		}
+		r.metrics.trackPendingQueueStallSignal(ctx)
+		l.Warnw("pending queue stall threshold reached; signaling queue purge",
+			"observationCount", r.pendingQueueStallTracker.count,
+		)
+		return types.Observation(obsb), nil
 	}
 
 	readKV := NewReadStore(keyValueReader, r.metrics)
 
 	var currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !forceEmpty {
-		var err error
-		currentPendingQueueItems, err = readKV.GetPendingQueue(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
-		}
-	} else {
-		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
+	var err error
+	currentPendingQueueItems, err = readKV.GetPendingQueue(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch batch of requests: %w", err)
 	}
 
 	// Avoid log spam by only logging if we have any requests to process.
@@ -746,10 +747,9 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		l.Debugw("observation started", "batchSize", len(currentPendingQueueItems))
 	}
 
-	obspb := &vaultcommon.Observations{}
 	optimizations := r.optimizationsEnabled(ctx)
 
-	// First, observe the local queue and broadcast blob payloads so the exact
+	// Second, observe the local queue and broadcast blob payloads so the exact
 	// PendingQueueItems + SortNonce wire size is known before packing Observations.
 	localQueueItems, ierr := r.store.All()
 	if ierr != nil {
@@ -815,14 +815,6 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		return nil, err
 	}
 	obspb.PendingQueueItems = pendingQueueItems
-
-	// Second, generate a random nonce that we'll use to sort the observations.
-	// Each node generates a nonce indepedently, to be concatenated later on.
-	nonce, ierr := generateRandomNonce()
-	if ierr != nil {
-		return nil, fmt.Errorf("could not generate nonce for observation: %w", ierr)
-	}
-	obspb.SortNonce = nonce
 
 	// Observe store-backed pending queue items after local-queue blob broadcast so blob wire size is known first.
 	observedIDs := r.appendPendingQueueObservations(ctx, seqNr, readKV, currentPendingQueueItems, obspb, optimizations)
