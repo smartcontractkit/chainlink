@@ -272,10 +272,22 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 }
 
 //nolint:paralleltest // isolate local cre env run
-func Test_CRE_V2_Stellar_Suite(t *testing.T) {
+func Test_CRE_V2_Stellar_Read_LatestLedger(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
-	t.Run("Stellar", func(t *testing.T) {
-		ExecuteStellarTest(t, testEnv)
+	t.Run("StellarReadLatestLedger", func(t *testing.T) {
+		executeStellarScenarios(t, testEnv, []stellarScenario{
+			{name: "Stellar GetLatestLedger", run: ExecuteStellarReadLatestLedgerTest},
+		})
+	})
+}
+
+//nolint:paralleltest // isolate local cre env run
+func Test_CRE_V2_Stellar_Read_Contract(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
+	t.Run("StellarReadContract", func(t *testing.T) {
+		executeStellarScenarios(t, testEnv, []stellarScenario{
+			{name: "Stellar ReadContract", run: ExecuteStellarReadContractSmokeTest},
+		})
 	})
 }
 
