@@ -62,7 +62,7 @@ type ConfidentialModule struct {
 	workflowOwner     string
 	workflowName      string
 	workflowTag       string
-	orgID             string
+	resolveOrgID      func(ctx context.Context, owner string) (string, error)
 	lggr              logger.Logger
 	requirements      sync.Map
 	restritions       sync.Map
@@ -75,9 +75,12 @@ type ConfidentialModule struct {
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag, orgID string, enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
+func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
+	}
+	if resolveOrgID == nil {
+		return nil, errors.New("resolveOrgID must not be nil")
 	}
 	return &ConfidentialModule{
 		capRegistry:       capRegistry,
@@ -88,7 +91,7 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandl
 		workflowOwner:     workflowOwner,
 		workflowName:      workflowName,
 		workflowTag:       workflowTag,
-		orgID:             orgID,
+		resolveOrgID:      resolveOrgID,
 		enabledGate:       enabledGate,
 		lggr:              lggr,
 	}, nil
@@ -118,6 +121,11 @@ func (m *ConfidentialModule) Execute(
 	requirements := loadAndDelete[*sdkpb.Requirements](&m.requirements, workflowExecutionID)
 	restrictions := loadAndDelete[*sdkpb.Restrictions](&m.restritions, workflowExecutionID)
 
+	orgID, orgErr := m.resolveOrgID(ctx, m.workflowOwner)
+	if orgErr != nil {
+		m.lggr.Warnw("failed to resolve organization ID", "error", orgErr)
+	}
+
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
 		Execution: &confworkflowtypes.WorkflowExecution{
 			WorkflowId:        m.workflowID,
@@ -125,7 +133,7 @@ func (m *ConfidentialModule) Execute(
 			SdkExecuteRequest: request,
 			Owner:             m.workflowOwner,
 			ExecutionId:       workflowExecutionID,
-			OrgId:             m.orgID,
+			OrgId:             orgID,
 			Requirements:      requirements,
 			BinaryUrl:         m.binaryURL,
 			Restrictions:      restrictions,
@@ -133,7 +141,7 @@ func (m *ConfidentialModule) Execute(
 	}
 
 	capOutput := &confworkflowtypes.ConfidentialWorkflowResponse{}
-	if err := doRequest(ctx, m, helper.GetWorkflowExecutionID(), "Execute", capInput, capOutput); err != nil {
+	if err := doRequest(ctx, m, helper.GetWorkflowExecutionID(), "Execute", capInput, capOutput, orgID); err != nil {
 		return nil, err
 	}
 
@@ -151,7 +159,7 @@ func (m *ConfidentialModule) SetRestrictions(executionID string, restrictions *s
 func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeAndRegions {
 	capOutput := &confworkflowtypes.ProvidedTeesResponse{}
 	// use an empty execution ID, it's not during an execution.
-	if err := doRequest(ctx, m, "", "ProvidedTees", &emptypb.Empty{}, capOutput); err != nil {
+	if err := doRequest(ctx, m, "", "ProvidedTees", &emptypb.Empty{}, capOutput, ""); err != nil {
 		m.lggr.Errorf("failed to get regions from confidential-workflows capability, assuming no supported regions: %v", err)
 		return []*sdkpb.TeeTypeAndRegions{}
 	}
@@ -182,7 +190,8 @@ func doRequest[I, O proto.Message](
 	execID string,
 	method string,
 	capInput I,
-	capOutput O) error {
+	capOutput O,
+	orgID string) error {
 	payload, err := anypb.New(capInput)
 	if err != nil {
 		return fmt.Errorf("failed to marshal capability payload: %w", err)
@@ -206,7 +215,7 @@ func doRequest[I, O proto.Message](
 			WorkflowName:        m.workflowName,
 			WorkflowTag:         m.workflowTag,
 			WorkflowExecutionID: execID,
-			OrgID:               m.orgID,
+			OrgID:               orgID,
 		},
 	}
 
