@@ -34,6 +34,7 @@ import (
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	aptoschain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -380,6 +381,10 @@ func addBootstrapNodeConfig(
 		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
 	}
 
+	if commonInputs.stellarChain != nil {
+		appendStellarChain(&existingConfig.Stellar, commonInputs.stellarChain)
+	}
+
 	for _, ac := range commonInputs.aptosChains {
 		existingConfig.Aptos = append(existingConfig.Aptos, corechainlink.RawConfig{
 			"ChainID": ac.ChainID,
@@ -480,6 +485,10 @@ func addWorkerNodeConfig(
 
 	if commonInputs.solanaChain != nil {
 		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
+	}
+
+	if commonInputs.stellarChain != nil {
+		appendStellarChain(&existingConfig.Stellar, commonInputs.stellarChain)
 	}
 
 	for _, ac := range commonInputs.aptosChains {
@@ -655,9 +664,10 @@ type commonInputs struct {
 	workflowRegistry   versionedAddress
 	capabilityRegistry versionedAddress
 
-	evmChains   []*evmChain
-	solanaChain *solanaChain
-	aptosChains []*aptosChain
+	evmChains    []*evmChain
+	solanaChain  *solanaChain
+	stellarChain *stellarChain
+	aptosChains  []*aptosChain
 
 	provider infra.Provider
 
@@ -684,6 +694,11 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		return nil, errors.Wrap(aptosErr, "failed to find Aptos chains in the environment configuration")
 	}
 
+	stellarChainCfg, stellarErr := findOneStellarChain(input)
+	if stellarErr != nil {
+		return nil, errors.Wrap(stellarErr, "failed to find Stellar chain in the environment configuration")
+	}
+
 	return &commonInputs{
 		registryChainID:       registryChainID,
 		registryChainSelector: input.RegistryChainSelector,
@@ -691,9 +706,10 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 			address: workflowRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
 		},
-		evmChains:   evmChains,
-		solanaChain: solanaChain,
-		aptosChains: aptosChains,
+		evmChains:    evmChains,
+		solanaChain:  solanaChain,
+		stellarChain: stellarChainCfg,
+		aptosChains:  aptosChains,
 		capabilityRegistry: versionedAddress{
 			address: capabilitiesRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
@@ -713,7 +729,7 @@ type evmChain struct {
 func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 	evmChains := make([]*evmChain, 0)
 	for _, bcOut := range input.Blockchains {
-		if bcOut.IsFamily(chain_selectors.FamilySolana) || bcOut.IsFamily(chain_selectors.FamilyAptos) {
+		if bcOut.IsFamily(chain_selectors.FamilySolana) || bcOut.IsFamily(chain_selectors.FamilyAptos) || bcOut.IsFamily(chain_selectors.FamilyStellar) {
 			continue
 		}
 
@@ -762,6 +778,46 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	}
 
 	return solChain, nil
+}
+
+type stellarChain struct {
+	Name    string
+	ChainID string
+	NodeURL string
+}
+
+func findOneStellarChain(input cre.GenerateConfigsInput) (*stellarChain, error) {
+	var stChain *stellarChain
+	chainsFound := 0
+
+	for _, bcOut := range input.Blockchains {
+		if !bcOut.IsFamily(chain_selectors.FamilyStellar) {
+			continue
+		}
+
+		chainsFound++
+		if chainsFound > 1 {
+			return nil, errors.New("multiple Stellar chains found, expected only one")
+		}
+
+		stBc, ok := bcOut.(*stellchain.Blockchain)
+		if !ok {
+			return nil, fmt.Errorf("expected Stellar blockchain implementation, got %T", bcOut)
+		}
+
+		nodeURL, err := stBc.InternalNodeURL()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get Stellar internal node URL")
+		}
+
+		stChain = &stellarChain{
+			Name:    fmt.Sprintf("node-%d", stBc.ChainSelector()),
+			ChainID: stBc.StellarChainID(), // string network id with a corresponding chain selector
+			NodeURL: nodeURL,
+		}
+	}
+
+	return stChain, nil
 }
 
 func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
@@ -866,6 +922,25 @@ func appendSolanaChain(existingConfig *corechainlink.RawConfigs, solChain *solan
 		},
 		"MultiNode": map[string]any{
 			"VerifyChainID": false, // disable chainID verification as Solana uses hash of genesis block as chainID, but we want to use a hardcoded chainID that has corresponding chain selector
+		},
+	})
+}
+
+func appendStellarChain(existingConfig *corechainlink.RawConfigs, stChain *stellarChain) {
+	for _, existing := range *existingConfig {
+		if existing.ChainID() == stChain.ChainID {
+			return
+		}
+	}
+
+	*existingConfig = append(*existingConfig, corechainlink.RawConfig{
+		"Enabled": true,
+		"ChainID": stChain.ChainID,
+		"Nodes": []map[string]any{
+			{
+				"Name": stChain.Name,
+				"URL":  stChain.NodeURL,
+			},
 		},
 	})
 }

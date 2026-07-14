@@ -37,6 +37,7 @@ type testPluginBuildOpts struct {
 	maxBlobPayloadBytes                     int
 	vaultOptimizationsEnabled               bool
 	vaultJSONOmitUnpopulatedEnabled         bool
+	vaultSignedResponseRequestIDEnabled     bool
 	vaultShareAggregationIncludesPublicKeys bool
 	vaultGetSecretsRelaxedConsensusEnabled  bool
 	vaultIncludeInvalidPendingItemsEnabled  bool
@@ -100,6 +101,10 @@ func withVaultIncludeInvalidPendingItemsEnabled() testPluginOption {
 
 func withVaultPendingQueueStallThreshold(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultPendingQueueStallThreshold = n }
+}
+
+func withVaultSignedResponseRequestIDEnabled() testPluginOption {
+	return func(o *testPluginBuildOpts) { o.vaultSignedResponseRequestIDEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -174,6 +179,9 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		)
 		require.NoError(t, err)
 		cfg.VaultPendingQueueStallThreshold = stallLimiter
+	}
+	if o.vaultSignedResponseRequestIDEnabled {
+		cfg.VaultSignedResponseRequestIDEnabled = limits.NewGateLimiter(true)
 	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
@@ -275,17 +283,17 @@ func makeReportingPluginConfig(
 	require.NoError(t, err)
 
 	return &ReportingPluginConfig{
-		MaxBatchSize:             bsl,
-		MaxPendingQueueWriteSize: maxPendingQueueWriteSizeLimiter,
-
-		PublicKey:                       publicKey,
-		PrivateKeyShare:                 privateKeyShare,
-		MaxSecretsPerOwner:              msl,
-		MaxShareLengthBytes:             shareLimiter,
-		MaxBlobPayloadBytes:             maxBlobPayloadLimiter,
-		VaultForceEmptyOCRRounds:        limits.NewGateLimiter(false),
-		VaultOptimizationsEnabled:       limits.NewGateLimiter(false),
-		VaultJSONOmitUnpopulatedEnabled: limits.NewGateLimiter(false),
+		MaxBatchSize:                                      bsl,
+		MaxPendingQueueWriteSize:                          maxPendingQueueWriteSizeLimiter,
+		PublicKey:                                         publicKey,
+		PrivateKeyShare:                                   privateKeyShare,
+		MaxSecretsPerOwner:                                msl,
+		MaxShareLengthBytes:                               shareLimiter,
+		MaxBlobPayloadBytes:                               maxBlobPayloadLimiter,
+		VaultForceEmptyOCRRounds:                          limits.NewGateLimiter(false),
+		VaultOptimizationsEnabled:                         limits.NewGateLimiter(false),
+		VaultJSONOmitUnpopulatedEnabled:                   limits.NewGateLimiter(false),
+		VaultSignedResponseRequestIDEnabled:               limits.NewGateLimiter(false),
 		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
 		VaultGetSecretsRelaxedConsensusEnabled:            limits.NewGateLimiter(false),
 		VaultIncludeInvalidPendingItemsEnabled:            limits.NewGateLimiter(false),

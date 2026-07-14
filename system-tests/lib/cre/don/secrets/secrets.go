@@ -14,15 +14,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/stellarkey"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 
 type nodeSecret struct {
-	EthKeys         nodeEthKeyWrapper   `toml:"EVM"`
-	SolKeys         nodeSolKeyWrapper   `toml:"Solana"`
-	AptosKeys       nodeAptosKeyWrapper `toml:"Aptos"`
-	P2PKey          nodeP2PKey          `toml:"P2PKey"`
-	DKGRecipientKey nodeDKGRecipientKey `toml:"DKGRecipientKey"`
+	EthKeys         nodeEthKeyWrapper     `toml:"EVM"`
+	SolKeys         nodeSolKeyWrapper     `toml:"Solana"`
+	AptosKeys       nodeAptosKeyWrapper   `toml:"Aptos"`
+	StellarKeys     nodeStellarKeyWrapper `toml:"Stellar"`
+	P2PKey          nodeP2PKey            `toml:"P2PKey"`
+	DKGRecipientKey nodeDKGRecipientKey   `toml:"DKGRecipientKey"`
 
 	// Add more fields as needed to reflect 'Secrets' struct from /core/config/toml/types.go
 	// We can't use the original struct, because it's using custom types that serialize secrets to 'xxxxx'
@@ -68,12 +70,25 @@ type nodeAptosKeyWrapper struct {
 	AptosKeys []nodeAptosKey `toml:"Keys"`
 }
 
+// nodeStellarKey mirrors core toml.StellarKey: ID is the Stellar network id
+// (a string), not a numeric chain id.
+type nodeStellarKey struct {
+	JSON     string `toml:"JSON"`
+	Password string `toml:"Password"`
+	ChainID  string `toml:"ID"`
+}
+
+type nodeStellarKeyWrapper struct {
+	StellarKeys []nodeStellarKey `toml:"Keys"`
+}
+
 type ChainFamily = string
 
 type NodeKeys struct {
 	CSAKey        *crypto.CSAKey
 	EVM           map[uint64]*crypto.EVMKey
 	Solana        map[string]*crypto.SolKey
+	Stellar       map[string]*crypto.StellarKey
 	Aptos         *crypto.AptosKey
 	AptosChainIDs []uint64
 	P2PKey        *crypto.P2PKey
@@ -141,6 +156,17 @@ func (n *NodeKeys) ToNodeSecretsTOML() (string, error) {
 		}
 	}
 
+	if n.Stellar != nil {
+		ns.StellarKeys = nodeStellarKeyWrapper{}
+		for chainID, stellarKey := range n.Stellar {
+			ns.StellarKeys.StellarKeys = append(ns.StellarKeys.StellarKeys, nodeStellarKey{
+				JSON:     string(stellarKey.EncryptedJSON),
+				Password: stellarKey.Password,
+				ChainID:  chainID,
+			})
+		}
+	}
+
 	nodeSecretString, err := toml.Marshal(ns)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to marshal node secrets")
@@ -154,6 +180,7 @@ type secrets struct {
 	EVM             ethKeys         `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	P2PKey          p2PKey          `toml:",omitempty"`
 	Solana          solKeys         `toml:",omitempty"`
+	Stellar         stellarKeys     `toml:",omitempty"`
 	Aptos           aptosKeys       `toml:",omitempty"`
 	DKGRecipientKey dkgRecipientKey `toml:",omitempty"`
 }
@@ -193,6 +220,16 @@ type solKeys struct {
 }
 
 type solKey struct {
+	JSON     *string
+	ID       *string
+	Password *string
+}
+
+type stellarKeys struct {
+	Keys []*stellarKey
+}
+
+type stellarKey struct {
 	JSON     *string
 	ID       *string
 	Password *string
@@ -270,8 +307,9 @@ func publicDKGRecipientKeyFromEncryptedJSON(jsonString string) (dkgocrtypes.P256
 
 func ImportNodeKeys(secretsToml string) (*NodeKeys, error) {
 	keys := &NodeKeys{
-		EVM:    make(map[uint64]*crypto.EVMKey),
-		Solana: make(map[string]*crypto.SolKey),
+		EVM:     make(map[uint64]*crypto.EVMKey),
+		Solana:  make(map[string]*crypto.SolKey),
+		Stellar: make(map[string]*crypto.StellarKey),
 	}
 
 	var sSecrets secrets
@@ -396,6 +434,29 @@ func ImportNodeKeys(secretsToml string) (*NodeKeys, error) {
 			EncryptedJSON: []byte(*solKey.JSON),
 			PublicAddress: publicSolAddr,
 			Password:      *solKey.Password,
+		}
+	}
+
+	for _, stellarKeyEntry := range sSecrets.Stellar.Keys {
+		if stellarKeyEntry.JSON == nil || stellarKeyEntry.Password == nil || stellarKeyEntry.ID == nil {
+			return nil, errors.New("stellar key or password or id is nil")
+		}
+
+		stellarKeyValue, err := stellarkey.FromEncryptedJSON([]byte(*stellarKeyEntry.JSON), *stellarKeyEntry.Password)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to decrypt stellar key from encrypted JSON")
+		}
+
+		account, err := crypto.NormalizeStellarAccount(stellarKeyValue.Account())
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to normalize stellar account")
+		}
+
+		keys.Stellar[*stellarKeyEntry.ID] = &crypto.StellarKey{
+			EncryptedJSON: []byte(*stellarKeyEntry.JSON),
+			PublicKey:     stellarKeyValue.PublicKeyStr(),
+			Account:       account,
+			Password:      *stellarKeyEntry.Password,
 		}
 	}
 

@@ -102,6 +102,13 @@
   SkipPreflight = true
   Local = true
 
+# Stellar chain capability plugin (read path: GetLatestLedger + ReadContract).
+[capability_configs.stellar]
+  binary_name = "stellar"
+
+[capability_configs.stellar.values]
+  RequestTimeout = "30s"
+
 [capability_configs.mock]
   binary_name = "mock"
 

@@ -10,7 +10,7 @@ defaults:
 plugins:
   aptos:
     - moduleURI: "github.com/smartcontractkit/chainlink-aptos"
-      gitRef: "v0.0.0-20260706100550-d43558069754"
+      gitRef: "v0.0.0-20260708114855-e953eeb028a7"
       installPath: "./cmd/chainlink-aptos"
 
   sui:
@@ -46,12 +46,12 @@ plugins:
 
   stellar:
     - moduleURI: "github.com/smartcontractkit/chainlink-stellar"
-      gitRef: "0e9836f8575b711d87335fbadb1ed28b8f678377" # chainlink-stellar #128 (add-multinode merged)
+      gitRef: "35369348e6326e4a1696712dda37d312fec6e130"
       installPath: "./cmd/chainlink-stellar"
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v0.1.15-0.20260522094612-5f9f748bd87a"
+      gitRef: "v0.1.15-0.20260707105132-2da5d31f22fc"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
@@ -103,7 +103,7 @@ plugins:
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
+      gitRef: "db2a5f11cd6447dcf7493924a030853ec05b60a7"
       installPath: "."
 
   capability-solana:
@@ -113,5 +113,10 @@ plugins:
 
   capability-aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "5424665d88fc5c239a2af353abcf0f0e0e4cb710"
+      gitRef: "326012b4ee2e40aedb0a9cb9be5e9fd3c26c524e"
+      installPath: "."
+
+  capability-stellar:
+    - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
+      gitRef: "47f3f0da57a121980c3ad366f10e5fbe7bf58998"
       installPath: "."
