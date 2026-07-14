@@ -29,7 +29,7 @@ func DeployStellarReadFixture(ctx context.Context, chain *stellchain.Blockchain)
 		return "", fmt.Errorf("failed to build stellar deployer: %w", err)
 	}
 
-	buildCfg, err := stellarBuildConfig(stellarcre.ReadFixtureWasm)
+	buildCfg, err := stellarBuildConfig(ctx, stellarcre.ReadFixtureWasm)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve stellar read fixture WASM source: %w", err)
 	}

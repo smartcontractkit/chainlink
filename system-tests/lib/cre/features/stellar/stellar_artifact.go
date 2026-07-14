@@ -2,6 +2,7 @@ package stellar
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -23,7 +24,7 @@ const (
 var autoSourceWarnOnce sync.Once
 
 // stellarBuildConfig resolves how to build the given contract WASM, identified by its artifact filename.
-func stellarBuildConfig(artifactFile string) (helpers.BuildStellarConfig, error) {
+func stellarBuildConfig(ctx context.Context, artifactFile string) (helpers.BuildStellarConfig, error) {
 	destDir, err := os.MkdirTemp("", "stellar-wasm-")
 	if err != nil {
 		return helpers.BuildStellarConfig{}, fmt.Errorf("create stellar wasm dest dir: %w", err)
@@ -35,7 +36,7 @@ func stellarBuildConfig(artifactFile string) (helpers.BuildStellarConfig, error)
 		return cfg, nil
 	}
 
-	moduleDir, modErr := stellarModuleDir()
+	moduleDir, modErr := stellarModuleDir(ctx)
 	if modErr != nil {
 		return helpers.BuildStellarConfig{}, fmt.Errorf(
 			"no Stellar WASM source configured: set %s to a chainlink-stellar checkout (local soroban build), or ensure module %s is available on disk: %w",
@@ -57,8 +58,8 @@ func stellarBuildConfig(artifactFile string) (helpers.BuildStellarConfig, error)
 }
 
 // stellarModuleDir resolves the on-disk path of the pinned chainlink-stellar module
-func stellarModuleDir() (string, error) {
-	cmd := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", stellarGoModule)
+func stellarModuleDir(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-f", "{{.Dir}}", stellarGoModule)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

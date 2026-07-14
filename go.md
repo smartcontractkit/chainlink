@@ -473,6 +473,12 @@ flowchart LR
 	chainlink-solana/contracts --> chainlink-testing-framework/framework
 	chainlink-solana/contracts --> chainlink-tron/relayer
 	click chainlink-solana/contracts href "https://github.com/smartcontractkit/chainlink-solana"
+	chainlink-stellar --> chainlink-ccv/build/devenv
+	chainlink-stellar --> chainlink-stellar/bindings
+	chainlink-stellar --> chainlink/deployment
+	click chainlink-stellar href "https://github.com/smartcontractkit/chainlink-stellar"
+	chainlink-stellar/bindings
+	click chainlink-stellar/bindings href "https://github.com/smartcontractkit/chainlink-stellar"
 	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
 	chainlink-sui --> chainlink-sui/codec
@@ -545,6 +551,7 @@ flowchart LR
 	chainlink/load-tests --> chainlink-testing-framework/havoc
 	chainlink/load-tests --> chainlink/integration-tests
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/lib --> chainlink-stellar
 	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/chiprouter
 	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/dockercompose
 	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/fake
@@ -796,6 +803,12 @@ flowchart LR
 	end
 	click chainlink-solana-repo href "https://github.com/smartcontractkit/chainlink-solana"
 
+	subgraph chainlink-stellar-repo[chainlink-stellar]
+		 chainlink-stellar
+		 chainlink-stellar/bindings
+	end
+	click chainlink-stellar-repo href "https://github.com/smartcontractkit/chainlink-stellar"
+
 	subgraph chainlink-sui-repo[chainlink-sui]
 		 chainlink-sui
 		 chainlink-sui/codec
@@ -847,5 +860,5 @@ flowchart LR
 	click testrig-repo href "https://github.com/smartcontractkit/testrig"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-repo,chainlink-aptos-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-solana-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo,testrig-repo outline
+	class chainlink-repo,chainlink-aptos-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-solana-repo,chainlink-stellar-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo,testrig-repo outline
 ```

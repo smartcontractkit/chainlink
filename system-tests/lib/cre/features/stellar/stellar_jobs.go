@@ -3,6 +3,7 @@ package stellar
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"dario.cat/mergo"
@@ -135,7 +136,7 @@ func newStellarStandardCapabilityJobInput(
 		Domain:      offchain.ProductLabel,
 		Environment: cre.EnvironmentName,
 		DONName:     donName,
-		JobName:     "stellar-worker-" + fmt.Sprintf("%d", stellarChainSelector),
+		JobName:     "stellar-worker-" + strconv.FormatUint(stellarChainSelector, 10),
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
 		DONFilters: []offchain.TargetDONFilter{
 			{Key: offchain.FilterKeyDONName, Value: donName},

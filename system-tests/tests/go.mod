@@ -785,7 +785,3 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 // Replace memberlist with our fork which includes some fixes that haven't been
 // merged upstream yet.
 replace github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.3.1-0.20260410131411-8c2f3bdae9db
-
-replace github.com/smartcontractkit/chainlink-stellar => /Users/ilija/GolandProjects/chainlink-stellar
-
-replace github.com/smartcontractkit/chainlink-stellar/bindings => /Users/ilija/GolandProjects/chainlink-stellar/bindings

@@ -54,10 +54,10 @@ func (c BuildStellarConfig) WASMPath() (string, error) {
 // BuildStellar builds the contract WASM from chainlink-stellar sources and returns its bytes.
 func BuildStellar(ctx context.Context, config BuildStellarConfig) ([]byte, error) {
 	if config.DestinationDir == "" {
-		return nil, fmt.Errorf("buildStellar: DestinationDir is required")
+		return nil, errors.New("buildStellar: DestinationDir is required")
 	}
 	if !config.LocalBuild.BuildLocally {
-		return nil, fmt.Errorf("buildStellar: LocalBuild.BuildLocally must be set — the contract WASM is always built from source (prebuilt-artifact download is not supported)")
+		return nil, errors.New("buildStellar: LocalBuild.BuildLocally must be set — the contract WASM is always built from source (prebuilt-artifact download is not supported)")
 	}
 	if config.LocalBuild.CleanDestinationDir {
 		if err := os.RemoveAll(config.DestinationDir); err != nil {
@@ -85,7 +85,7 @@ func BuildStellar(ctx context.Context, config BuildStellarConfig) ([]byte, error
 
 func buildStellarLocally(ctx context.Context, config BuildStellarConfig) error {
 	if config.LocalBuild.SourceDir == "" {
-		return fmt.Errorf("buildStellar: LocalBuild.SourceDir is required for a local build")
+		return errors.New("buildStellar: LocalBuild.SourceDir is required for a local build")
 	}
 
 	cmdArgs := config.LocalBuild.BuildCmd

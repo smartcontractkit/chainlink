@@ -15,6 +15,7 @@ func TestResolveMethodConfigSettings(t *testing.T) {
 	t.Parallel()
 
 	t.Run("nil values yield defaults", func(t *testing.T) {
+		t.Parallel()
 		got, err := resolveMethodConfigSettings(nil)
 		require.NoError(t, err)
 		assert.Equal(t, defaultRequestTimeout, got.RequestTimeout)
@@ -22,6 +23,7 @@ func TestResolveMethodConfigSettings(t *testing.T) {
 	})
 
 	t.Run("string durations override defaults", func(t *testing.T) {
+		t.Parallel()
 		got, err := resolveMethodConfigSettings(map[string]any{
 			requestTimeoutKey: "45s",
 			deltaStageKey:     "20s",
@@ -32,6 +34,7 @@ func TestResolveMethodConfigSettings(t *testing.T) {
 	})
 
 	t.Run("time.Duration values are accepted", func(t *testing.T) {
+		t.Parallel()
 		got, err := resolveMethodConfigSettings(map[string]any{
 			deltaStageKey: 5 * time.Second,
 		})
@@ -42,11 +45,13 @@ func TestResolveMethodConfigSettings(t *testing.T) {
 	})
 
 	t.Run("invalid duration string errors", func(t *testing.T) {
+		t.Parallel()
 		_, err := resolveMethodConfigSettings(map[string]any{deltaStageKey: "not-a-duration"})
 		require.Error(t, err)
 	})
 
 	t.Run("wrong type errors", func(t *testing.T) {
+		t.Parallel()
 		_, err := resolveMethodConfigSettings(map[string]any{requestTimeoutKey: 5})
 		require.Error(t, err)
 	})
@@ -98,7 +103,7 @@ func TestBuildWorkerConfigJSON(t *testing.T) {
 	// worker plugin defaults absent -> false).
 	_, hasIsLocal := cfg["isLocal"]
 	assert.False(t, hasIsLocal, "isLocal should be omitted when false")
-	assert.Equal(t, float64(settings.DeltaStage), cfg["deltaStage"])
+	assert.InDelta(t, float64(settings.DeltaStage), cfg["deltaStage"], 0)
 
 	rawLocal, err := buildJobConfigJSON(chainID, forwarder, settings, true)
 	require.NoError(t, err)
