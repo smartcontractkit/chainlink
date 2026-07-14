@@ -98,7 +98,6 @@ func addLaneAptosChangesets(
 			lanes.ConnectChainsConfig{
 				MCMS: ccipmcms.Input{
 					ValidUntil:     validUntil,
-					TimelockDelay:  mcmstypes.NewDuration(time.Second),
 					TimelockAction: mcmstypes.TimelockActionSchedule,
 				},
 				Lanes: []lanes.LaneConfig{

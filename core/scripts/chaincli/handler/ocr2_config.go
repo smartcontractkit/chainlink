@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
@@ -126,10 +127,14 @@ func printConfigValues(config *confighelper.PublicConfig) {
 		data = append(data, []string{"TargetInRounds", strconv.Itoa(offConf.TargetInRounds)})
 	}
 
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Field", "Value"})
-	// table.SetFooter([]string{"", "", "Total", "$146.93"}) // Add Footer
-	table.SetBorder(false) // Set Border to false
-	table.AppendBulk(data) // Add Bulk Data
-	table.Render()
+	table := tablewriter.NewTable(os.Stdout, tablewriter.WithRendition(tw.Rendition{
+		Borders: tw.BorderNone,
+	}))
+	table.Header([]string{"Field", "Value"})
+	if err := table.Bulk(data); err != nil {
+		log.Printf("failed to add table rows: %s", err)
+	}
+	if err := table.Render(); err != nil {
+		log.Printf("failed to render table: %s", err)
+	}
 }

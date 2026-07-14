@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -99,13 +100,17 @@ func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
 }
 
 func render(name string, table *tablewriter.Table) {
-	table.SetRowLine(true)
-	table.SetColumnSeparator("║")
-	table.SetRowSeparator("═")
-	table.SetCenterSeparator("╬")
+	table.Options(tablewriter.WithRendition(tw.Rendition{
+		Symbols: tw.NewSymbolCustom("custom").WithColumn("║").WithRow("═").WithCenter("╬"),
+		Settings: tw.Settings{
+			Separators: tw.Separators{BetweenRows: tw.On},
+		},
+	}))
 
 	fmt.Println("╔ " + name)
-	table.Render()
+	if err := table.Render(); err != nil {
+		fmt.Println(err)
+	}
 }
 
 func renderList(fields []string, items [][]string, writer io.Writer) {
@@ -156,8 +161,8 @@ func (rt RendererTable) renderExternalInitiatorAuthentication(eia webpresenters.
 }
 
 func (rt RendererTable) newTable(headers []string) *tablewriter.Table {
-	table := tablewriter.NewWriter(rt)
-	table.SetHeader(headers)
+	table := tablewriter.NewTable(rt)
+	table.Header(headers)
 	return table
 }
 

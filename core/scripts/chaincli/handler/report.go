@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -127,12 +128,16 @@ func OCR2AutomationReports(hdlr *baseHandler, txs []string) error {
 		return data[i][2] > data[j][2]
 	})
 
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Hash", "ChainID", "Block", "Error", "From", "To", "Keys", "CheckBlocks"})
-	// table.SetFooter([]string{"", "", "Total", "$146.93"}) // Add Footer
-	table.SetBorder(false) // Set Border to false
-	table.AppendBulk(data) // Add Bulk Data
-	table.Render()
+	table := tablewriter.NewTable(os.Stdout, tablewriter.WithRendition(tw.Rendition{
+		Borders: tw.BorderNone,
+	}))
+	table.Header([]string{"Hash", "ChainID", "Block", "Error", "From", "To", "Keys", "CheckBlocks"})
+	if err := table.Bulk(data); err != nil {
+		return fmt.Errorf("failed to add table rows: %w", err)
+	}
+	if err := table.Render(); err != nil {
+		return fmt.Errorf("failed to render table: %w", err)
+	}
 
 	return nil
 }

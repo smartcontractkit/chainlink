@@ -1416,7 +1416,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					ConfigType:      cciputils.ConfigTypeActive,
 					MCMS: ccipmcms.Input{
 						ValidUntil:     validUntil,
-						TimelockDelay:  mcmstypes.NewDuration(time.Second),
 						TimelockAction: mcmstypes.TimelockActionSchedule,
 					},
 				},
