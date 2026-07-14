@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
@@ -51,7 +51,7 @@ func TestFingerprint(t *testing.T) {
 		},
 		{
 			name: "successful outcome",
-			msg: &llo.LLOOutcomeTelemetry{
+			msg: &llocommon.LLOOutcomeTelemetry{
 				DonId:                           donID,
 				ConfigDigest:                    configDigest,
 				ObservationTimestampNanoseconds: uint64(ot.UnixNano()),
@@ -63,7 +63,7 @@ func TestFingerprint(t *testing.T) {
 		},
 		{
 			name: "successful report",
-			msg: &llo.LLOReportTelemetry{
+			msg: &llocommon.LLOReportTelemetry{
 				DonId:                           donID,
 				ChannelId:                       channelID,
 				ConfigDigest:                    configDigest,
@@ -122,12 +122,12 @@ func TestSample(t *testing.T) {
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
 	t0 := time.Unix(1600000000, 0)
-	msg0 := &llo.LLOOutcomeTelemetry{
+	msg0 := &llocommon.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(t0.UnixNano()),
 	}
-	msg1 := &llo.LLOOutcomeTelemetry{
+	msg1 := &llocommon.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(t0.Add(50 * time.Millisecond).UnixNano()),
@@ -155,7 +155,7 @@ func TestPruningLoop(t *testing.T) {
 	samplr.prunePeriod = time.Second
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
-	msg := &llo.LLOOutcomeTelemetry{
+	msg := &llocommon.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(time.Now().UnixNano()),
@@ -170,7 +170,7 @@ func TestPruningLoop(t *testing.T) {
 		return flag != nil
 	}
 
-	msg2 := &llo.LLOOutcomeTelemetry{
+	msg2 := &llocommon.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(time.Now().Add(10 * time.Second).UnixNano()),
