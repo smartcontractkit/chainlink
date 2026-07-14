@@ -24,7 +24,7 @@ import (
 func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 	t.Parallel()
 	cfg := configtest.NewGeneralConfig(t, func(config *chainlink.Config, secrets *chainlink.Secrets) {
-		config.Feature.LogPoller = ptr(true)
+		config.Feature.LogPoller = new(true)
 	})
 	ec := setupEthClientForControllerTests(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)

@@ -61,7 +61,7 @@ func Test_FindLCA(t *testing.T) {
 	// ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].ChainID = (*sqlutil.Big)(big.NewInt(5))
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = new(true)
 	})
 
 	client, _ := app.NewShellAndRenderer()
@@ -84,9 +84,9 @@ func Test_LPSkipToBlock(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Feature.LogPoller = ptr(true)
+		c.Feature.LogPoller = new(true)
 		c.EVM[0].ChainID = (*sqlutil.Big)(big.NewInt(5))
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = new(true)
 	})
 
 	client, _ := app.NewShellAndRenderer()
