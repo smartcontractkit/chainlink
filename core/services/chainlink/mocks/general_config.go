@@ -1063,6 +1063,53 @@ func (_c *GeneralConfig_ImportedSolKeys_Call) RunAndReturn(run func() config.Imp
 	return _c
 }
 
+// ImportedStellarKeys provides a mock function with no fields
+func (_m *GeneralConfig) ImportedStellarKeys() config.ImportableChainKeyLister {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ImportedStellarKeys")
+	}
+
+	var r0 config.ImportableChainKeyLister
+	if rf, ok := ret.Get(0).(func() config.ImportableChainKeyLister); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.ImportableChainKeyLister)
+		}
+	}
+
+	return r0
+}
+
+// GeneralConfig_ImportedStellarKeys_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ImportedStellarKeys'
+type GeneralConfig_ImportedStellarKeys_Call struct {
+	*mock.Call
+}
+
+// ImportedStellarKeys is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) ImportedStellarKeys() *GeneralConfig_ImportedStellarKeys_Call {
+	return &GeneralConfig_ImportedStellarKeys_Call{Call: _e.mock.On("ImportedStellarKeys")}
+}
+
+func (_c *GeneralConfig_ImportedStellarKeys_Call) Run(run func()) *GeneralConfig_ImportedStellarKeys_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedStellarKeys_Call) Return(_a0 config.ImportableChainKeyLister) *GeneralConfig_ImportedStellarKeys_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_ImportedStellarKeys_Call) RunAndReturn(run func() config.ImportableChainKeyLister) *GeneralConfig_ImportedStellarKeys_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Insecure provides a mock function with no fields
 func (_m *GeneralConfig) Insecure() config.Insecure {
 	ret := _m.Called()

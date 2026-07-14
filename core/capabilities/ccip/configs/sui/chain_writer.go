@@ -7,36 +7,34 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 
-	_ "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter" // Register Sui chainwriter
-	chainwriter "github.com/smartcontractkit/chainlink-sui/relayer/chainwriter/config"
-	"github.com/smartcontractkit/chainlink-sui/relayer/codec"
+	types "github.com/smartcontractkit/chainlink-common/pkg/types/sui"
 )
 
-func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, error) {
+func GetChainWriterConfig(publicKeyStr string) (types.ChainWriterConfig, error) {
 	// returns 32 byte pubKey
 	rawPubKey, err := hex.DecodeString(publicKeyStr)
 	if err != nil {
-		return chainwriter.ChainWriterConfig{}, fmt.Errorf("invalid public key hex %q: %w", publicKeyStr, err)
+		return types.ChainWriterConfig{}, fmt.Errorf("invalid public key hex %q: %w", publicKeyStr, err)
 	}
 
 	pubKeyBytes := ed25519.PublicKey(rawPubKey)
 	nonMutable := false
 
-	return chainwriter.ChainWriterConfig{
-		Modules: map[string]*chainwriter.ChainWriterModule{
+	return types.ChainWriterConfig{
+		Modules: map[string]*types.ChainWriterModule{
 			consts.ContractNameOffRamp: {
 				Name: "offramp",
-				Functions: map[string]*chainwriter.ChainWriterFunction{
+				Functions: map[string]*types.ChainWriterFunction{
 					consts.MethodCommit: {
 						Name:      "commit",
 						PublicKey: pubKeyBytes,
-						Params:    []codec.SuiFunctionParam{},
-						PTBCommands: []chainwriter.ChainWriterPTBCommand{
+						Params:    []types.SuiFunctionParam{},
+						PTBCommands: []types.ChainWriterPTBCommand{
 							{
-								Type:     codec.SuiPTBCommandMoveCall,
+								Type:     types.SuiPTBCommandMoveCall,
 								ModuleId: strPtr("offramp"),
 								Function: strPtr("commit"),
-								Params: []codec.SuiFunctionParam{
+								Params: []types.SuiFunctionParam{
 									{
 										Name:     "ref",
 										Type:     "object_id",
@@ -75,13 +73,13 @@ func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, e
 					consts.MethodExecute: {
 						Name:      "execute",
 						PublicKey: pubKeyBytes,
-						Params:    []codec.SuiFunctionParam{},
-						PTBCommands: []chainwriter.ChainWriterPTBCommand{
+						Params:    []types.SuiFunctionParam{},
+						PTBCommands: []types.ChainWriterPTBCommand{
 							{
-								Type:     codec.SuiPTBCommandMoveCall,
+								Type:     types.SuiPTBCommandMoveCall,
 								ModuleId: strPtr("offramp"),
 								Function: strPtr("init_execute"),
-								Params: []codec.SuiFunctionParam{
+								Params: []types.SuiFunctionParam{
 									{
 										Name:      "ref",
 										Type:      "object_id",
@@ -117,10 +115,10 @@ func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, e
 								},
 							},
 							{
-								Type:     codec.SuiPTBCommandMoveCall,
+								Type:     types.SuiPTBCommandMoveCall,
 								ModuleId: strPtr("offramp"),
 								Function: strPtr("finish_execute"),
-								Params: []codec.SuiFunctionParam{
+								Params: []types.SuiFunctionParam{
 									{
 										Name:      "ref",
 										Type:      "object_id",
@@ -136,7 +134,7 @@ func GetChainWriterConfig(publicKeyStr string) (chainwriter.ChainWriterConfig, e
 										Name:     "receiver_params",
 										Type:     "ptb_dependency",
 										Required: true,
-										PTBDependency: &codec.PTBCommandDependency{
+										PTBDependency: &types.PTBCommandDependency{
 											CommandIndex: uint16(0),
 										},
 									},

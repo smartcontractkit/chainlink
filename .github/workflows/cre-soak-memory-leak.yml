@@ -97,7 +97,7 @@ jobs:
         uses: ./.github/actions/start-local-cre-environment
         with:
           jd-image: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
-            }}.amazonaws.com/job-distributor:0.22.1"
+            }}.amazonaws.com/job-distributor:0.28.0"
           chainlink-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name ||
             'chainlink' }}:${{ inputs.chainlink_image_tag }}"

@@ -412,6 +412,7 @@ func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyn
 		w.lggr.Debug("Notifying DON set...")
 		w.workflowDonNotifier.NotifyDonSet(myDON.DON)
 
+		w.warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs)
 		for _, rcd := range remoteCapabilityDONs {
 			w.addRemoteCapabilities(ctx, myDON, rcd, localRegistry)
 		}
@@ -453,6 +454,22 @@ func filterDONsByFamilies(donList []registrysyncer.DON, myDONFamilies []string) 
 		}
 	}
 	return filteredDONs
+}
+
+func (w *launcher) warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs []registrysyncer.DON) {
+	donIDsByCapability := map[string][]uint32{}
+	for _, d := range remoteCapabilityDONs {
+		for capID := range d.CapabilityConfigurations {
+			donIDsByCapability[capID] = append(donIDsByCapability[capID], d.ID)
+		}
+	}
+	for capID, donIDs := range donIDsByCapability {
+		if len(donIDs) > 1 {
+			slices.Sort(donIDs)
+			w.lggr.Warnw("multiple in-family capability DONs host the same capability; only the lowest DON ID will be routed to, check DON family configuration",
+				"capabilityID", capID, "donIDs", donIDs)
+		}
+	}
 }
 
 func donFamiliesOverlap(donA []string, donB []string) bool {
