@@ -104,6 +104,54 @@ available in `us-east-1` per the runs-on finder API.
 | Runner | Experiment | Expectation | Workflow Run ID | Commit | Stability | Runtime | Cost | Score | Notes |
 |--------|------------|-------------|-----------------|--------|-----------|---------|------|-------|-------|
 | `ubuntu-latest` (baseline) | current non-RMN CCIP runner | reference | — | — | — | — | — | — | read-only baseline from recent runs |
-| `runs-on/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs` | Trial 1 | faster non-RMN tests | — | — | — | — | — | — | pending |
+| `runs-on/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs` | Trial 1 | faster non-RMN tests | `29343491817` | `ea43a31c` | failed (RMN pre-existing timeout) | 32m46s matrix wall-clock; 13m37s non-RMN critical path | higher than `ubuntu-latest` | TBD pending baseline | see findings below |
 | `runs-on/cpu=48/ram=192/family=m6i+m7i/extras=s3-cache+tmpfs` | Trial 2 (RMN only) | faster RMN if CPU/RAM bound | — | — | — | — | — | — | pending |
 | `ubuntu-latest-16cores-64GB` | Trial 3 (build fallback) | fast GH fallback | — | — | — | — | — | — | pending |
+
+## Trial 1 findings (run 29343491817)
+
+### Overall result
+- **Workflow run:** `failure`
+- **Failure cause:** `smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOneSourceChainCursed$` hit its 30m test timeout (`panic: test timed out after 30m0s`).
+- **Not caused by this trial:** that RMN test uses the unchanged `runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs` runner documented as disabled for Push/Nightly. The other RMN test on the same runner passed in 6m49s.
+- **ETH Smoke Tests** job failed only because it aggregates the CCIP result; core CRE tests passed.
+
+### Runner verification
+All non-RMN CCIP matrix jobs started on the intended runner:
+```text
+Labels            [runs-on=29343491817/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs]
+RunnerName        runs-on--i-02d0c2769adfbd027--i05u6zp859
+ImageName         runs-on-v2.2-ubuntu24-full-x64-20260710155642
+```
+
+### Per-test durations (matrix jobs)
+
+| Test | Runner | Duration | Result | Notes |
+|------|--------|----------|--------|-------|
+| `TestRMN_TwoMessagesOneSourceChainCursed` | 32 vCPU / 128 GiB (unchanged) | 32m46s | failure | 30m timeout; pre-existing issue |
+| `ccip_reorg_test.go:GreaterThanFinalityTests` | 16 vCPU / 64 GiB (trial) | 13m37s | success | slowest non-RMN test |
+| `ccip_reorg_test.go:LessThanFinalityTests` | 16 vCPU / 64 GiB (trial) | 10m55s | success | within 25m timeout |
+| `Test_CCIPGasPriceUpdatesWriteFrequency` | 16 vCPU / 64 GiB (trial) | 7m49s | success | within 18m timeout |
+| `TestRMN_GlobalCurseTwoMessagesOnTwoLanes` | 32 vCPU / 128 GiB (unchanged) | 6m49s | success | heaviest RMN test |
+| `TestRevokeJobs` | 16 vCPU / 64 GiB (trial) | 4m51s | success | |
+| `TestDeleteCCIPJobs` | 16 vCPU / 64 GiB (trial) | 4m34s | success | |
+| `Test_CCIPGasPriceUpdatesDeviation` | 16 vCPU / 64 GiB (trial) | 2m57s | success | |
+| `ccip_token_price_updates_test.go:*` | 16 vCPU / 64 GiB (trial) | 2m50s | success | within 18m timeout |
+
+### Critical path
+- `run-ccip-v1-6-e2e-tests` matrix wall-clock: **32m46s** (gated by the failing RMN test).
+- Without the failing RMN test, the matrix wall-clock would have been **13m37s** (`GreaterThanFinalityTests`).
+- The trial change did not affect the `build-chainlink` join point (6m setup time before CCIP jobs start).
+
+### Stability assessment
+- No OOM or resource-induced failures on the 16 vCPU / 64 GiB runner for non-RMN tests.
+- All non-RMN CCIP tests passed on the new runner.
+- The single failure is a pre-existing RMN timeout unrelated to the runner sizing change.
+
+### Missing baseline
+No recent `workflow_dispatch` run on `develop` executed the non-RMN CCIP tests on `ubuntu-latest`, so a direct speedup number is not available yet. PR/push runs always skip the CCIP matrix.
+
+### Recommendations
+1. **Run a baseline:** Create a temporary commit reverting the non-RMN `runs_on_self_hosted` entries so the same tests run on `ubuntu-latest`, then dispatch the workflow again. This gives a direct before/after comparison.
+2. **Treat RMN timeout separately:** Investigate whether `TestRMN_TwoMessagesOneSourceChainCursed` is genuinely resource-bound or a test bug. If resource-bound, Trial 2 (bump RMN to 48/192) is the next step. If it is a flaky/disabled test, consider excluding it from workflow_dispatch or increasing its test timeout.
+3. **Keep Trial 1 if baseline is favorable:** If the baseline shows non-RMN tests taking significantly longer than 13m37s on `ubuntu-latest`, the 16/64 runner is a clear win for the critical path.
