@@ -109,7 +109,8 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 	// Create HTTP client with timeout (default 30 seconds)
 	timeout := time.Duration(30) * time.Second
 	client := &http.Client{
-		Timeout: timeout,
+		Timeout:       timeout,
+		CheckRedirect: disableRedirects,
 	}
 
 	// Validate HTTP method
