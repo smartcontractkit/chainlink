@@ -60,6 +60,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
+        go mod download github.com/smartcontractkit/chainlink-stellar
         MODULE_DIR="$(go list -m -f '{{.Dir}}' github.com/smartcontractkit/chainlink-stellar)"
         if [[ -z "${MODULE_DIR}" || ! -f "${MODULE_DIR}/Cargo.toml" ]]; then
           echo "failed to resolve chainlink-stellar module Dir (got: '${MODULE_DIR}')"
