@@ -40,6 +40,7 @@ type testPluginBuildOpts struct {
 	vaultShareAggregationIncludesPublicKeys bool
 	vaultGetSecretsRelaxedConsensusEnabled  bool
 	vaultIncludeInvalidPendingItemsEnabled  bool
+	vaultPendingQueueStallThreshold         int
 	marshalBlob                             func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                           func([]byte) (ocr3_1types.BlobHandle, error)
 	maxObservationBytesOverride             int
@@ -95,6 +96,10 @@ func withVaultGetSecretsRelaxedConsensusEnabled() testPluginOption {
 
 func withVaultIncludeInvalidPendingItemsEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultIncludeInvalidPendingItemsEnabled = true }
+}
+
+func withVaultPendingQueueStallThreshold(n int) testPluginOption {
+	return func(o *testPluginBuildOpts) { o.vaultPendingQueueStallThreshold = n }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -161,6 +166,14 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	}
 	if o.vaultIncludeInvalidPendingItemsEnabled {
 		cfg.VaultIncludeInvalidPendingItemsEnabled = limits.NewGateLimiter(true)
+	}
+	if o.vaultPendingQueueStallThreshold > 0 {
+		stallLimiter, err := limits.MakeUpperBoundLimiter(
+			limits.Factory{Settings: cresettings.DefaultGetter},
+			settings.Int(o.vaultPendingQueueStallThreshold),
+		)
+		require.NoError(t, err)
+		cfg.VaultPendingQueueStallThreshold = stallLimiter
 	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
@@ -250,6 +263,9 @@ func makeReportingPluginConfig(
 	maxPendingQueueWriteSizeLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, cresettings.Default.VaultPendingQueueWriteSizeLimit)
 	require.NoError(t, err)
 
+	pendingQueueStallThresholdLimiter, err := limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Int(0))
+	require.NoError(t, err)
+
 	var maxBlobPayloadLimiter limits.BoundLimiter[pkgconfig.Size]
 	if maxBlobPayloadBytes > 0 {
 		maxBlobPayloadLimiter, err = limits.MakeUpperBoundLimiter(limits.Factory{Settings: cresettings.DefaultGetter}, settings.Size(pkgconfig.Size(maxBlobPayloadBytes)*pkgconfig.Byte))
@@ -273,6 +289,7 @@ func makeReportingPluginConfig(
 		VaultGetSecretsShareAggregationIncludesPublicKeys: limits.NewGateLimiter(false),
 		VaultGetSecretsRelaxedConsensusEnabled:            limits.NewGateLimiter(false),
 		VaultIncludeInvalidPendingItemsEnabled:            limits.NewGateLimiter(false),
+		VaultPendingQueueStallThreshold:                   pendingQueueStallThresholdLimiter,
 	}
 }
 

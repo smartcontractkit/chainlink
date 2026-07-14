@@ -99,6 +99,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			} else if isVaultIncludeInvalidEnabledTopology(topology) {
 				vaultConfig = getVaultIncludeInvalidEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_vault_include_invalid_enabled"
+			} else if isVaultStallPurgeTopology(topology) {
+				vaultConfig = getVaultStallPurgeTestConfig(t)
+				allowlistSubtestName = "pending_queue_stall_purge"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
 
@@ -109,6 +112,10 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				allowlistEnv := fixture.TestEnv
 				if parallelEnabled && isVaultJWTAuthEnabledTopology(topology) {
 					allowlistEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
+				}
+				if isVaultStallPurgeTopology(topology) {
+					ExecuteVaultPendingQueueStallPurgeSmokeTest(t, fixture, allowlistEnv)
+					return
 				}
 				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
 			})
@@ -123,6 +130,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 					}
 					ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
 				})
+				return
+			}
+			if isVaultStallPurgeTopology(topology) {
 				return
 			}
 			t.Run(jwtSubtestName, func(t *testing.T) {

@@ -1052,6 +1052,30 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	}
 }
 
+func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := &envconfig.Config{}
+	require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, vaultStallPurgeConfigPath).EnvironmentConfigPath))
+
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet.Name != "capabilities" {
+			continue
+		}
+		settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
+		require.NotEmpty(t, settingsRaw)
+		var configuredSettings map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal([]byte(settingsRaw), &configuredSettings))
+		require.JSONEq(t, `"true"`, string(configuredSettings["VaultIncludeInvalidPendingItemsEnabled"]))
+		require.JSONEq(t, `"false"`, string(configuredSettings["VaultOptimizationsEnabled"]))
+		require.JSONEq(t, `"3"`, string(configuredSettings["VaultPendingQueueStallThreshold"]))
+		require.JSONEq(t, `"4kb"`, string(configuredSettings["VaultMaxObservationSizeLimit"]))
+		var perOwner map[string]string
+		require.NoError(t, json.Unmarshal(configuredSettings["PerOwner"], &perOwner))
+		require.Equal(t, "8kb", perOwner["VaultCiphertextSizeLimit"])
+	}
+}
+
 // TestMustMintVaultJWTForRequest_UsesRawRequestDigest ensures the bearer token binds the digest of
 // the exact JSON-RPC params wire body (canonical json.Marshal / jsonrpc.Request), matching what
 // the gateway verifies—without relying on deprecated top-level identity fields inside params.

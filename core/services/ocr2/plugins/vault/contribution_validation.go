@@ -37,6 +37,24 @@ func observationContributionIsOk(o *vaultcommon.Observation) bool {
 	}
 }
 
+func observationSignalsPendingQueueStall(obs *vaultcommon.Observations) bool {
+	return obs != nil && obs.GetPendingQueueStallSignal() == vaultcommon.PendingQueueStallSignal_PENDING_QUEUE_STALL_SIGNAL_STALLED
+}
+
+func validatePendingQueueStallSignal(obs *vaultcommon.Observations) error {
+	switch obs.GetPendingQueueStallSignal() {
+	case vaultcommon.PendingQueueStallSignal_PENDING_QUEUE_STALL_SIGNAL_CONTINUE:
+		return nil
+	case vaultcommon.PendingQueueStallSignal_PENDING_QUEUE_STALL_SIGNAL_STALLED:
+		if len(obs.GetObservations()) != 0 || len(obs.GetPendingQueueItems()) != 0 {
+			return errors.New("pending queue stall signal must not include contributions or pending queue items")
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown pending queue stall signal %d", obs.GetPendingQueueStallSignal())
+	}
+}
+
 func observationToErrContribution(o *vaultcommon.Observation, msg string) *vaultcommon.Observation {
 	out := &vaultcommon.Observation{
 		Id:          o.Id,

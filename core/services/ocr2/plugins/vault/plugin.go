@@ -11,6 +11,7 @@ import (
 	"maps"
 	"slices"
 	"sort"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/curve25519"
@@ -66,6 +67,7 @@ type ReportingPluginConfig struct {
 	VaultGetSecretsShareAggregationIncludesPublicKeys limits.GateLimiter
 	VaultGetSecretsRelaxedConsensusEnabled            limits.GateLimiter
 	VaultIncludeInvalidPendingItemsEnabled            limits.GateLimiter
+	VaultPendingQueueStallThreshold                   limits.BoundLimiter[int]
 }
 
 func NewReportingPluginFactory(
@@ -210,6 +212,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultIncludeInvalidPendingItemsEnabled: %w", err)
 	}
 
+	vaultPendingQueueStallThreshold, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultPendingQueueStallThreshold)
+	if err != nil {
+		return nil, fmt.Errorf("VaultPendingQueueStallThreshold: %w", err)
+	}
+
 	maxBlobPayloadBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
 	if err != nil {
 		return nil, fmt.Errorf("VaultMaxBlobPayloadSizeLimit: %w", err)
@@ -230,6 +237,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		VaultGetSecretsShareAggregationIncludesPublicKeys: vaultGetSecretsShareAggregationIncludesPublicKeys,
 		VaultGetSecretsRelaxedConsensusEnabled:            vaultGetSecretsRelaxedConsensusEnabled,
 		VaultIncludeInvalidPendingItemsEnabled:            vaultIncludeInvalidPendingItemsEnabled,
+		VaultPendingQueueStallThreshold:                   vaultPendingQueueStallThreshold,
 	}, nil
 }
 
@@ -364,6 +372,87 @@ type ReportingPlugin struct {
 	// to an internal package.
 	unmarshalBlob func(data []byte) (ocr3_1types.BlobHandle, error)
 	marshalBlob   func(handle ocr3_1types.BlobHandle) ([]byte, error)
+
+	pendingQueueStallTracker pendingQueueStallTracker
+}
+
+type pendingQueueStallTracker struct {
+	mu    sync.Mutex
+	seqNr uint64
+	count int
+}
+
+func (t *pendingQueueStallTracker) record(seqNr uint64) int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.seqNr != seqNr {
+		t.seqNr = seqNr
+		t.count = 1
+		return t.count
+	}
+	t.count++
+	return t.count
+}
+
+func marshalPendingQueueStallObservation() (types.Observation, error) {
+	nonce, err := generateRandomNonce()
+	if err != nil {
+		return nil, fmt.Errorf("could not generate nonce for pending queue stall signal: %w", err)
+	}
+	obsb, err := proto.MarshalOptions{Deterministic: true}.Marshal(&vaultcommon.Observations{
+		SortNonce:               nonce,
+		PendingQueueStallSignal: vaultcommon.PendingQueueStallSignal_PENDING_QUEUE_STALL_SIGNAL_STALLED,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not marshal pending queue stall signal: %w", err)
+	}
+	return types.Observation(obsb), nil
+}
+
+func countPendingQueueStallSignals(aos []types.AttributedObservation) int {
+	count := 0
+	for _, ao := range aos {
+		obs := &vaultcommon.Observations{}
+		if err := proto.Unmarshal([]byte(ao.Observation), obs); err != nil {
+			continue
+		}
+		if observationSignalsPendingQueueStall(obs) {
+			count++
+		}
+	}
+	return count
+}
+
+func countPendingQueueStallSignalsInMap(obsByObserver map[uint8]*vaultcommon.Observations) int {
+	count := 0
+	for _, obs := range obsByObserver {
+		if observationSignalsPendingQueueStall(obs) {
+			count++
+		}
+	}
+	return count
+}
+
+func (r *ReportingPlugin) purgeStalledPendingQueue(
+	ctx context.Context,
+	l logger.Logger,
+	store pendingQueueStore,
+	stallSignalCount int,
+) (ocr3_1types.ReportsPlusPrecursor, error) {
+	if err := store.WritePendingQueue(ctx, nil); err != nil {
+		return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not purge stalled pending queue: %w", err)
+	}
+	r.metrics.trackPendingQueueWrittenSize(ctx, 0)
+	r.metrics.trackPendingQueuePurge(ctx)
+	l.Warnw("purged stalled pending queue after f+1 stall signals",
+		"stallSignalCount", stallSignalCount,
+		"threshold", r.onchainCfg.F+1,
+	)
+	ospb, err := proto.MarshalOptions{Deterministic: true}.Marshal(&vaultcommon.Outcomes{})
+	if err != nil {
+		return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("could not marshal empty outcomes after pending queue purge: %w", err)
+	}
+	return ocr3_1types.ReportsPlusPrecursor(ospb), nil
 }
 
 func (r *ReportingPlugin) Query(ctx context.Context, seqNr uint64, keyValueReader ocr3_1types.KeyValueStateReader, blobBroadcastFetcher ocr3_1types.BlobBroadcastFetcher) (types.Query, error) {
@@ -618,10 +707,31 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		l.Debugw("observation finished", "elapsed", time.Since(start))
 	}()
 
+	observationCount := r.pendingQueueStallTracker.record(seqNr)
+	forceEmpty := gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds")
+	if !forceEmpty {
+		stallThreshold, err := r.cfg.VaultPendingQueueStallThreshold.Limit(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("could not fetch pending queue stall threshold: %w", err)
+		}
+		if stallThreshold > 0 && observationCount >= stallThreshold {
+			obs, err := marshalPendingQueueStallObservation()
+			if err != nil {
+				return nil, err
+			}
+			r.metrics.trackPendingQueueStallSignal(ctx)
+			l.Warnw("pending queue stall threshold reached; signaling queue purge",
+				"observationCount", observationCount,
+				"threshold", stallThreshold,
+			)
+			return obs, nil
+		}
+	}
+
 	readKV := NewReadStore(keyValueReader, r.metrics)
 
 	var currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem
-	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
+	if !forceEmpty {
 		var err error
 		currentPendingQueueItems, err = readKV.GetPendingQueue(ctx)
 		if err != nil {
@@ -1355,6 +1465,14 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		return fmt.Errorf("invalid observation: sort nonce must be %d bytes, got %d", sortNonceLength, len(obs.SortNonce))
 	}
 
+	if err := validatePendingQueueStallSignal(obs); err != nil {
+		return fmt.Errorf("invalid observation: %w", err)
+	}
+
+	if observationSignalsPendingQueueStall(obs) {
+		return nil
+	}
+
 	readKV := NewReadStore(keyValueReader, r.metrics)
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
 	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
@@ -1508,6 +1626,10 @@ func coverageSpread(coverages []int) int {
 func (r *ReportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, aq types.AttributedQuery, aos []types.AttributedObservation, keyValueReader ocr3_1types.KeyValueStateReader, blobFetcher ocr3_1types.BlobFetcher) (quorumReached bool, err error) {
 	if !quorumhelper.ObservationCountReachesObservationQuorum(quorumhelper.QuorumTwoFPlusOne, r.onchainCfg.N, r.onchainCfg.F, aos) {
 		return false, nil
+	}
+
+	if countPendingQueueStallSignals(aos) >= r.onchainCfg.F+1 {
+		return true, nil
 	}
 
 	if !r.includeInvalidPendingItemsEnabled(ctx) {
@@ -1881,6 +2003,10 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			continue
 		}
 		marshalledObs[uint8(ao.Observer)] = obs
+	}
+
+	if stallSignalCount := countPendingQueueStallSignalsInMap(marshalledObs); stallSignalCount >= r.onchainCfg.F+1 {
+		return r.purgeStalledPendingQueue(ctx, l, writeKV, stallSignalCount)
 	}
 
 	// ---
