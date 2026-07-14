@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"google.golang.org/protobuf/proto"
 
@@ -285,26 +284,30 @@ func (r *ReportingPlugin) validateListSecretIdentifiersContribution(ctx context.
 	return nil
 }
 
-func combineObservationErrors(errObs []*vaultcommon.Observation) string {
+func consensusObservationError(errObs []*vaultcommon.Observation, f int) string {
 	const fallback = "request is not valid"
 
-	seen := make(map[string]struct{}, len(errObs))
-	messages := make([]string, 0, len(errObs))
+	counts := make(map[string]int)
 	for _, o := range errObs {
 		msg := o.GetError().GetMessage()
-		if msg == "" {
-			continue
+		if msg != "" {
+			counts[msg]++
 		}
-		if _, dup := seen[msg]; dup {
-			continue
+	}
+
+	var consensusMsg string
+	var maxCount int
+	for msg, count := range counts {
+		if count >= f+1 && count > maxCount {
+			consensusMsg = msg
+			maxCount = count
 		}
-		seen[msg] = struct{}{}
-		messages = append(messages, msg)
 	}
-	if len(messages) == 0 {
-		return fallback
+
+	if consensusMsg != "" {
+		return consensusMsg
 	}
-	return strings.Join(messages, "; ")
+	return fallback
 }
 
 func classifyContributions(obs []*vaultcommon.Observation) (ok []*vaultcommon.Observation, err []*vaultcommon.Observation) {

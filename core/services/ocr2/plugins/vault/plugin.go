@@ -1756,6 +1756,9 @@ func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommo
 	}
 
 	if observationContributionIsErr(o) {
+		if !r.includeInvalidPendingItemsEnabled(ctx) {
+			return errors.New("error contribution not allowed when include-invalid is disabled")
+		}
 		if o.Request != nil || o.Response != nil {
 			return errors.New("error contribution must not include request or response fields")
 		}
@@ -2073,7 +2076,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 						requestType = requestTypeForPayload(p)
 					}
 				}
-				rejected := buildRejectedOutcome(id, payload, requestType, combineObservationErrors(errObs))
+				rejected := buildRejectedOutcome(id, payload, requestType, consensusObservationError(errObs, f))
 				os.Outcomes = append(os.Outcomes, rejected)
 				r.lggr.Infow("rejecting invalid pending queue item after f+1 error contributions",
 					"seqNr", seqNr,

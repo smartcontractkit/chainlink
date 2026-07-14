@@ -141,6 +141,43 @@ func TestValidateObservation_AcceptsErrContributionForQueueItem(t *testing.T) {
 	))
 }
 
+// Regression: A Byzantine node submitting a GetSecrets error observation without include-invalid
+// should be rejected during validation, preventing a panic in shaForObservation when
+// dereferencing the nil response.
+func TestValidateObservation_RejectsErrContributionWhenIncludeInvalidDisabled(t *testing.T) {
+	t.Parallel()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t,
+		withKeys(pk, shares[0]),
+		withOnchainCfg(4, 1),
+		// include-invalid is disabled (the default)
+	)
+
+	obs := &vaultcommon.Observations{
+		SortNonce: make([]byte, sortNonceLength),
+		Observations: []*vaultcommon.Observation{
+			observationToErrContribution(&vaultcommon.Observation{
+				Id:          "request-1",
+				RequestType: vaultcommon.RequestType_GET_SECRETS,
+			}, "request is not valid"),
+		},
+	}
+	obsb, err := proto.Marshal(obs)
+	require.NoError(t, err)
+
+	err = r.ValidateObservation(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: types.Observation(obsb)},
+		&kv{m: make(map[string]response)},
+		nil,
+	)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "error contribution not allowed when include-invalid is disabled")
+}
+
 func TestValidateObservation_IncludeInvalid_AcceptsNonMaximalPrefix(t *testing.T) {
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
