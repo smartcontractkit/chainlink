@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -63,6 +62,7 @@ type ConfidentialModule struct {
 	workflowOwner     string
 	workflowName      string
 	workflowTag       string
+	orgID             string
 	lggr              logger.Logger
 	requirements      sync.Map
 	restritions       sync.Map
@@ -75,7 +75,7 @@ type ConfidentialModule struct {
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
+func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag, orgID string, enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
 	}
@@ -88,6 +88,7 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandl
 		workflowOwner:     workflowOwner,
 		workflowName:      workflowName,
 		workflowTag:       workflowTag,
+		orgID:             orgID,
 		enabledGate:       enabledGate,
 		lggr:              lggr,
 	}, nil
@@ -124,7 +125,7 @@ func (m *ConfidentialModule) Execute(
 			SdkExecuteRequest: request,
 			Owner:             m.workflowOwner,
 			ExecutionId:       workflowExecutionID,
-			OrgId:             contexts.CREValue(ctx).Org,
+			OrgId:             m.orgID,
 			Requirements:      requirements,
 			BinaryUrl:         m.binaryURL,
 			Restrictions:      restrictions,
@@ -205,6 +206,7 @@ func doRequest[I, O proto.Message](
 			WorkflowName:        m.workflowName,
 			WorkflowTag:         m.workflowTag,
 			WorkflowExecutionID: execID,
+			OrgID:               m.orgID,
 		},
 	}
 
