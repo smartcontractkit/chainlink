@@ -1416,7 +1416,7 @@ func Test_eventHandler_StartsAndStopsWorkflowStore(t *testing.T) {
 	}, 2*time.Second, 10*time.Millisecond)
 }
 
-func Test_tryEngineCleanup_ClosesEngineOnceAndIsIdempotent(t *testing.T) {
+func Test_tryEngineCleanup_ClosesEngineThenRemovesFromRegistry(t *testing.T) {
 	t.Parallel()
 
 	workflowID := types.WorkflowID{9}
@@ -1429,16 +1429,62 @@ func Test_tryEngineCleanup_ClosesEngineOnceAndIsIdempotent(t *testing.T) {
 		engineRegistry: registry,
 	}
 
-	// First cleanup pops the engine from the registry and closes it exactly once.
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	assert.Equal(t, int32(1), engine.closeCalls.Load())
+	_, ok := registry.Get(workflowID)
+	assert.False(t, ok, "engine should be removed from the registry after a successful close")
+
+	// Cleanup for an already-removed workflow is a no-op and does not close again.
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	assert.Equal(t, int32(1), engine.closeCalls.Load())
+}
+
+func Test_tryEngineCleanup_KeepsEngineInRegistryOnCloseFailure(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{9}
+	engine := &mockDrainableEngine{}
+	engine.CloseErr = assert.AnError
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", engine))
+
+	h := &eventHandler{
+		lggr:           logger.TestLogger(t),
+		engineRegistry: registry,
+	}
+
+	// A failing close leaves the engine in the registry so the cleanup can be retried later.
+	require.Error(t, h.tryEngineCleanup(workflowID))
+	_, ok := registry.Get(workflowID)
+	require.True(t, ok, "engine must remain in the registry so the close can be retried")
+
+	// Once the (spurious) failure clears, the retry succeeds and only then is the engine removed.
+	engine.CloseErr = nil
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	assert.Equal(t, int32(2), engine.closeCalls.Load())
+	_, ok = registry.Get(workflowID)
+	assert.False(t, ok)
+}
+
+func Test_tryEngineCleanup_ToleratesErrAlreadyStopped(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{9}
+	engine := &mockDrainableEngine{}
+	engine.CloseErr = services.ErrAlreadyStopped
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", engine))
+
+	h := &eventHandler{
+		lggr:           logger.TestLogger(t),
+		engineRegistry: registry,
+	}
+
+	// ErrAlreadyStopped means the engine was already closed on a prior attempt; treat it as
+	// success and remove the registry entry.
 	require.NoError(t, h.tryEngineCleanup(workflowID))
 	_, ok := registry.Get(workflowID)
 	assert.False(t, ok)
-	assert.Equal(t, int32(1), engine.closeCalls.Load())
-
-	// A repeated cleanup for the same workflow is a no-op: the engine is already gone, so it is
-	// never closed a second time — there is no double close to swallow.
-	require.NoError(t, h.tryEngineCleanup(workflowID))
-	assert.Equal(t, int32(1), engine.closeCalls.Load())
 }
 
 func Test_workflowRegisteredEvent_DrainingEngineNotTreatedAsHealthy(t *testing.T) {
