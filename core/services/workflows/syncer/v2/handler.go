@@ -319,7 +319,14 @@ func NewEventHandler(
 	}
 
 	eh.Service, eh.eng = services.Config{
-		Name:  "EventHandler",
+		Name: "EventHandler",
+		// The workflow store is started and stopped alongside the handler.
+		NewSubServices: func(logger.Logger) []services.Service {
+			if eh.workflowStore == nil {
+				return nil
+			}
+			return []services.Service{eh.workflowStore}
+		},
 		Start: eh.start,
 		Close: eh.close,
 	}.NewServiceEngine(lggr)
@@ -327,12 +334,7 @@ func NewEventHandler(
 	return eh, nil
 }
 
-func (h *eventHandler) start(ctx context.Context) error {
-	if h.workflowStore != nil {
-		if err := h.workflowStore.Start(ctx); err != nil {
-			return fmt.Errorf("failed to start workflow store: %w", err)
-		}
-	}
+func (h *eventHandler) start(_ context.Context) error {
 	if h.moduleLRU != nil {
 		h.moduleLRU.Start()
 	}
@@ -344,14 +346,11 @@ func (h *eventHandler) close() error {
 		h.moduleLRU.Close()
 	}
 	es := h.engineRegistry.PopAll()
-	cs := make([]io.Closer, 0, len(es)+2)
+	cs := make([]io.Closer, 0, len(es)+1)
+	cs = append(cs, h.engineLimiters)
 	for _, e := range es {
 		cs = append(cs, e)
 	}
-	if h.workflowStore != nil {
-		cs = append(cs, h.workflowStore)
-	}
-	cs = append(cs, h.engineLimiters)
 	return services.CloseAll(cs...)
 }
 
@@ -896,21 +895,21 @@ func (h *eventHandler) workflowDeletedEvent(
 // tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
 // workflow engine is not running.
 func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
-	e, ok := h.engineRegistry.Get(workflowID)
-	if ok {
-		// Stop the engine
-		if err := e.Close(); err != nil && !errors.Is(err, services.ErrAlreadyStopped) {
-			return fmt.Errorf("failed to close workflow engine: %w", err)
-		}
-
-		h.cleanupModuleCache(workflowID.Hex())
-
-		// Remove the engine from the registry
-		_, err := h.engineRegistry.Pop(workflowID)
-		if err != nil {
-			return fmt.Errorf("failed to remove workflow engine: %w", err)
-		}
+	// Pop first so the engine is removed from the registry atomically: it can then only be
+	// closed once, avoiding a double Close (and the resulting ErrAlreadyStopped) if this runs
+	// concurrently with, or is retried after, another cleanup for the same workflow.
+	e, err := h.engineRegistry.Pop(workflowID)
+	if errors.Is(err, ErrNotFound) {
+		return nil
 	}
+	if err != nil {
+		return fmt.Errorf("failed to remove workflow engine: %w", err)
+	}
+
+	if err := e.Close(); err != nil {
+		return fmt.Errorf("failed to close workflow engine: %w", err)
+	}
+	h.cleanupModuleCache(workflowID.Hex())
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"reflect"
 	"testing"
 	"time"
 
@@ -65,7 +66,7 @@ func TestInMemoryStore_Get(t *testing.T) {
 
 func TestInMemoryStore_FinishedExecution(t *testing.T) {
 	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),
-		10*time.Millisecond, 1*time.Hour, 24*time.Hour)
+		10*time.Millisecond, 1*time.Hour)
 	servicetest.Run(t, store)
 
 	_, err := store.Add(t.Context(), map[string]*WorkflowExecutionStep{
@@ -111,7 +112,7 @@ func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
 	expirationDuration := 50 * time.Millisecond
 
 	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),
-		10*time.Millisecond, expirationDuration, 24*time.Hour)
+		10*time.Millisecond, expirationDuration)
 
 	servicetest.Run(t, store)
 
@@ -128,7 +129,7 @@ func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
 
 	// Now repeat the test but with a longer expiration duration and check that the state is not expired
 	store = NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),
-		10*time.Millisecond, 30*time.Second, 24*time.Hour)
+		10*time.Millisecond, 30*time.Second)
 
 	_, err = store.Add(t.Context(), map[string]*WorkflowExecutionStep{
 		"step-1": {Ref: "step-1"},
@@ -141,43 +142,38 @@ func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
 	}, 300*time.Millisecond, 50*time.Millisecond)
 }
 
-func TestInMemoryStore_DefaultRecycleMapForGCInterval(t *testing.T) {
-	assert.Equal(t, time.Hour, defaultRecycleMapForGCInterval)
-}
+// TestInMemoryStore_PruneRebuildsMapOnlyWhenPruning verifies that pruning drops completed and
+// expired executions while retaining active ones, and that the backing map is rebuilt only when
+// something is actually pruned. Rebuilding is what lets stranded bucket storage become
+// GC-eligible (Go maps never shrink after deletes); skipping it on a no-op prune avoids a
+// needless full copy of the map every interval.
+func TestInMemoryStore_PruneRebuildsMapOnlyWhenPruning(t *testing.T) {
+	t.Parallel()
 
-func TestInMemoryStore_RecycleMapWithoutPruning(t *testing.T) {
-	fakeClock := clockwork.NewFakeClock()
-	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), fakeClock,
-		30*time.Second, 24*time.Hour, 50*time.Millisecond)
-	servicetest.Run(t, store)
+	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewFakeClock(),
+		defaultPruneInterval, 24*time.Hour)
 
-	_, err := store.Add(t.Context(), map[string]*WorkflowExecutionStep{
-		"step-1": {Ref: "step-1"},
-	}, "exec-1", "wf-1", StatusStarted)
+	// active stays; done is completed and should be pruned.
+	_, err := store.Add(t.Context(), nil, "active", "wf-1", StatusStarted)
+	require.NoError(t, err)
+	_, err = store.Add(t.Context(), nil, "done", "wf-1", StatusStarted)
+	require.NoError(t, err)
+	_, err = store.FinishExecution(t.Context(), "done", StatusCompleted)
 	require.NoError(t, err)
 
-	fakeClock.Advance(100 * time.Millisecond)
+	mapBefore := reflect.ValueOf(store.idToExecution).Pointer()
+	store.pruneCompletedAndExpiredExecutions()
+	mapAfterPrune := reflect.ValueOf(store.idToExecution).Pointer()
 
-	got, err := store.Get(t.Context(), "exec-1")
+	_, err = store.Get(t.Context(), "done")
+	require.Error(t, err)
+	got, err := store.Get(t.Context(), "active")
 	require.NoError(t, err)
-	assert.Equal(t, "exec-1", got.ExecutionID)
-	assert.Equal(t, StatusStarted, got.Status)
-}
+	assert.Equal(t, "active", got.ExecutionID)
+	assert.NotEqual(t, mapBefore, mapAfterPrune, "map should be rebuilt when entries are pruned")
 
-func TestInMemoryStore_PruneIntervalIndependentOfRecycleInterval(t *testing.T) {
-	fakeClock := clockwork.NewFakeClock()
-	store := NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), fakeClock,
-		50*time.Millisecond, 24*time.Hour, time.Hour)
-	servicetest.Run(t, store)
-
-	_, err := store.Add(t.Context(), nil, "exec-1", "wf-1", StatusStarted)
-	require.NoError(t, err)
-	_, err = store.FinishExecution(t.Context(), "exec-1", StatusCompleted)
-	require.NoError(t, err)
-
-	require.Eventually(t, func() bool {
-		fakeClock.Advance(60 * time.Millisecond)
-		_, getErr := store.Get(t.Context(), "exec-1")
-		return getErr != nil
-	}, 2*time.Second, 10*time.Millisecond)
+	// A prune that removes nothing must leave the same backing map in place.
+	store.pruneCompletedAndExpiredExecutions()
+	assert.Equal(t, mapAfterPrune, reflect.ValueOf(store.idToExecution).Pointer(),
+		"map should not be rebuilt when nothing is pruned")
 }

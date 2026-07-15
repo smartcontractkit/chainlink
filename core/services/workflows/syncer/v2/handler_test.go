@@ -1374,28 +1374,36 @@ func Test_workflowDeletedEvent_IgnoresErrAlreadyStopped(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func Test_eventHandlerStart_StartsWorkflowStorePruning(t *testing.T) {
+func Test_eventHandler_StartsAndStopsWorkflowStore(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
 	lf := limits.Factory{Logger: lggr}
+	emitter := custmsg.NewLabeler()
+	registry := capabilities.NewRegistry(lggr)
+	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	limiters, err := v2.NewLimiters(lf, nil)
 	require.NoError(t, err)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+	require.NoError(t, err)
 
+	// Short prune interval on a fake clock so pruning is only observable once the store has been
+	// started as a sub-service of the handler.
 	fakeClock := clockwork.NewFakeClock()
-	wfStore := store.NewInMemoryStoreWithPruneConfiguration(lggr, fakeClock, 100*time.Millisecond, time.Hour, 24*time.Hour)
-	h := &eventHandler{
-		lggr:           lggr,
-		workflowStore:  wfStore,
-		engineRegistry: NewEngineRegistry(),
-		engineLimiters: limiters,
-	}
-	ctx := testutils.Context(t)
-	require.NoError(t, h.start(ctx))
-	t.Cleanup(func() {
-		require.NoError(t, h.close())
-	})
+	wfStore := store.NewInMemoryStoreWithPruneConfiguration(lggr, fakeClock, 100*time.Millisecond, time.Hour)
 
+	h, err := NewEventHandler(lggr, wfStore, nil, true, registry, &confidentialrelay.ExecutionHandlers{},
+		NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, &stubWorkflowArtifactsStore{},
+		workflowEncryptionKey, &testDonNotifier{})
+	require.NoError(t, err)
+	// servicetest.Run starts the handler (and its sub-services, including the store) and closes
+	// them on cleanup.
+	servicetest.Run(t, h)
+
+	ctx := t.Context()
 	_, err = wfStore.Add(ctx, nil, "exec-1", "wf-1", store.StatusStarted)
 	require.NoError(t, err)
 	_, err = wfStore.FinishExecution(ctx, "exec-1", store.StatusCompleted)
@@ -1408,11 +1416,11 @@ func Test_eventHandlerStart_StartsWorkflowStorePruning(t *testing.T) {
 	}, 2*time.Second, 10*time.Millisecond)
 }
 
-func Test_tryEngineCleanup_IgnoresErrAlreadyStopped(t *testing.T) {
+func Test_tryEngineCleanup_ClosesEngineOnceAndIsIdempotent(t *testing.T) {
 	t.Parallel()
 
 	workflowID := types.WorkflowID{9}
-	engine := &mockEngine{CloseErr: services.ErrAlreadyStopped}
+	engine := &mockDrainableEngine{}
 	registry := NewEngineRegistry()
 	require.NoError(t, registry.Add(workflowID, "test-source", engine))
 
@@ -1421,10 +1429,16 @@ func Test_tryEngineCleanup_IgnoresErrAlreadyStopped(t *testing.T) {
 		engineRegistry: registry,
 	}
 
-	err := h.tryEngineCleanup(workflowID)
-	require.NoError(t, err)
+	// First cleanup pops the engine from the registry and closes it exactly once.
+	require.NoError(t, h.tryEngineCleanup(workflowID))
 	_, ok := registry.Get(workflowID)
 	assert.False(t, ok)
+	assert.Equal(t, int32(1), engine.closeCalls.Load())
+
+	// A repeated cleanup for the same workflow is a no-op: the engine is already gone, so it is
+	// never closed a second time — there is no double close to swallow.
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	assert.Equal(t, int32(1), engine.closeCalls.Load())
 }
 
 func Test_workflowRegisteredEvent_DrainingEngineNotTreatedAsHealthy(t *testing.T) {
