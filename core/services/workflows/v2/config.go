@@ -38,6 +38,7 @@ type EngineConfig struct {
 	DonTimeStore         *dontime.Store
 	UseLocalTimeProvider bool // Set true when DON Time Plugin is not running
 	ExecutionsStore      store.Store
+	PanicStore           ModulePanicStore // Optional; when nil the guard is disabled.
 	Clock                clockwork.Clock
 	SecretsFetcher       SecretsFetcher
 	OverrideFetcher      SecretsFetcher // Optional local secrets overrides

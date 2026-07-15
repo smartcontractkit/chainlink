@@ -163,16 +163,50 @@ func (e *Engine) logger() logger.SugaredLogger {
 	return e.lggr
 }
 
-// safeModuleExecute runs the workflow Wasm module and converts any panic raised
-// during guest execution into an error.
-func (e *Engine) safeModuleExecute(ctx context.Context, req *sdkpb.ExecuteRequest, executor host.ExecutionHelper) (result *sdkpb.ExecutionResult, err error) {
+func (e *Engine) safeModuleExecute(ctx context.Context, req *sdkpb.ExecuteRequest, executor host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("workflow module execution panicked: %v", r)
-			e.logger().Errorw("Recovered from panic during workflow module execution", "err", err, "stack", string(debug.Stack()))
+			count := e.recordModulePanic(ctx)
+			e.logger().Criticalw("Panic during workflow module execution; rethrowing for clean restart",
+				"panic", r, "modulePanicCount", count, "maxModulePanics", MaxModulePanics, "stack", string(debug.Stack()))
+			panic(r)
 		}
 	}()
 	return e.cfg.Module.Execute(ctx, req, executor)
+}
+
+func (e *Engine) recordModulePanic(ctx context.Context) uint64 {
+	if e.cfg.PanicStore == nil {
+		return 0
+	}
+	// The passed ctx may be cancelled by the failing execution; detach it so the
+	// durable write still lands before the process dies.
+	recCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+
+	count, err := recordModulePanic(recCtx, e.cfg.PanicStore, e.cfg.WorkflowID)
+	if err != nil {
+		e.logger().Errorw("Failed to record module panic for loop guard", "err", err)
+		return 0
+	}
+	return count
+}
+
+func (e *Engine) checkModulePanicQuarantine(ctx context.Context) error {
+	if e.cfg.PanicStore == nil {
+		return nil
+	}
+	count, err := modulePanicCount(ctx, e.cfg.PanicStore, e.cfg.WorkflowID)
+	if err != nil {
+		e.logger().Errorw("Failed to read module panic count for loop guard", "err", err)
+		return nil
+	}
+	if count >= MaxModulePanics {
+		e.logger().Criticalw("Workflow quarantined after repeated host panics; refusing to execute",
+			"modulePanicCount", count, "maxModulePanics", MaxModulePanics)
+		return fmt.Errorf("workflow quarantined after %d module panics", count)
+	}
+	return nil
 }
 
 // setLogger updates the logger in a thread-safe manner.
@@ -418,6 +452,13 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 }
 
 func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
+	// Every boot runs this before subscribing to triggers, so it is the single
+	// gate that stops a quarantined workflow from executing (subscription- or
+	// trigger-phase) and crash-looping the node.
+	if err := e.checkModulePanicQuarantine(ctx); err != nil {
+		return err
+	}
+
 	// call into the workflow to get trigger subscriptions
 	subCtx, subCancel, err := e.cfg.LocalLimiters.TriggerSubscriptionTime.WithTimeout(ctx)
 	if err != nil {

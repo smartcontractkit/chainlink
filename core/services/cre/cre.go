@@ -1017,6 +1017,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
 		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
+		syncerV2.WithPanicStore(v2.NewDBModulePanicStore(ds)),
 	}
 
 	mc := capCfg.WorkflowRegistry().ModuleCache()
