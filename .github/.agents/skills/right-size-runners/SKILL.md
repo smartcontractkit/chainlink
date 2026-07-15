@@ -53,11 +53,9 @@ Setup:
 7. Analyze results. Update trial log. Present summary and propose next steps.
 
 <trial-template>
-
-| Runner   | Experiment    | Expectation     | Branch   | Run ID   | Commit | Stability       | Runtime | Cost | Notes    |
-|----------|---------------|-----------------|----------|----------|--------|-----------------|---------|------|----------|
-| `config` | What's tested | Expected result | `branch` | `run-id` | `sha`  | Pass/Fail/Flaky | mm:ss   | $    | Findings |
-
+| Runner | Experiment | Expectation | Branch | Run ID | Commit | Stability | Runtime | Cost | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| `config` | What's tested | Expected result | `branch` | `run-id` | `sha` | Pass/Fail/Flaky | mm:ss | $ | Findings |
 </trial-template>
 </loop>
 
@@ -68,11 +66,10 @@ When the user says stop, or all possible experiments have been exhausted:
 * Summarize all findings (cost + speed + stability changes) per workflow/job as table(s) for PR description.
 
 ## [Workflow/Job Name] Runner Changes
-
-| Runner | Stability | Runtime | Runtime Delta (Abs/%) | Cost | Cost Delta (Abs/%) |
-|--------|-----------|---------|---------------|------|------------|
-| [original runner before trials] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
-| [new runner] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
+| Approach | Runner | Stability | Runtime | Runtime Delta (Abs/%) | Cost | Cost Delta (Abs/%) |
+|---|---|---|---|---|---|---|
+| Old | [original runner before trials] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
+| New | [new runner] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
 
 * Remove all debugs, and make final edits on a new branch after approval, and ask user to commit.
 * Cleanup all trial branches, logs, and PRs.
