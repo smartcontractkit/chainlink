@@ -15,6 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+const reportTimeout = 5 * time.Second
+
 type (
 	HeadReporter interface {
 		ReportNewHead(ctx context.Context, head *types.Head) error
@@ -99,10 +101,14 @@ func (hrd *HeadReporterService) eventLoop() {
 			}
 		case <-after:
 			for _, reporter := range hrd.reporters {
-				err := reporter.ReportPeriodic(ctx)
-				if err != nil && ctx.Err() == nil {
-					hrd.lggr.Errorw("Error in periodic report", "err", err)
-				}
+				func() {
+					timedCtx, timedCancel := context.WithTimeout(ctx, reportTimeout)
+					defer timedCancel()
+					err := reporter.ReportPeriodic(timedCtx)
+					if err != nil && ctx.Err() == nil {
+						hrd.lggr.Errorw("Error in periodic report", "err", err)
+					}
+				}()
 			}
 			after = time.After(hrd.reportPeriod)
 		case <-hrd.chStop:
