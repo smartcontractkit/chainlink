@@ -1,8 +1,10 @@
 package cre
 
 import (
+	"context"
 	"encoding/hex"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -13,7 +15,10 @@ import (
 
 	"github.com/stellar/go-stellar-sdk/xdr"
 
+	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
+	stellarfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	thelpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -144,16 +149,16 @@ func executeStellarReadContractSmokeTest(
 // ExecuteStellarWriteSuite runs the Stellar write CRE smoke scenario: stands up a
 // Chip test sink, then deploys a receiver + the write workflow and waits on it.
 func ExecuteStellarWriteSuite(t *testing.T, tenv *configuration.TestEnvironment) {
-	stellarChain := mustStellarChainInEnv(t, tenv)
+	stellarChain := thelpers.MustStellarChainInEnv(t, tenv)
 	lggr := framework.L
 
 	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
 	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
-	server := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
+	server := thelpers.StartChipTestSink(t, thelpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+		thelpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
 	})
 
 	ExecuteStellarWriteTest(t, tenv, stellarChain, userLogsCh, baseMessageCh)
@@ -186,7 +191,7 @@ func ExecuteStellarWriteTest(
 	requiredSignatures := (len(workers)-1)/3 + 1
 
 	const workflowName = "stellar-write-workflow"
-	workflowConfig := t_helpers.StellarWriteWorkflowConfig{
+	workflowConfig := thelpers.StellarWriteWorkflowConfig{
 		ChainSelector:      stellarChain.ChainSelector(),
 		WorkflowName:       workflowName,
 		ReceiverContractID: receiverID,
@@ -194,10 +199,10 @@ func ExecuteStellarWriteTest(
 	}
 
 	const workflowFileLocation = "./stellar/stellarwrite/main.go"
-	workflowID := t_helpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+	workflowID := thelpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
 
 	expectedLog := "Stellar write consensus succeeded"
-	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedLog, stellarWorkflowTimeout, t_helpers.WithUserLogWorkflowID(workflowID))
+	thelpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, thelpers.WorkflowEngineInitErrorLog, expectedLog, thelpers.StellarWorkflowTimeout, thelpers.WithUserLogWorkflowID(workflowID))
 
 	// Assert the report was actually delivered on-chain: the receiver's on_report
 	// incremented its report count.
