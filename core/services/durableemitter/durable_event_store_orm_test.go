@@ -114,13 +114,13 @@ func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
 	ctx := t.Context()
 	store := durableemitter.NewPgDurableEventStore(db)
 
-	st, err := store.ObserveDurableQueue(ctx, time.Hour, time.Minute)
+	st, err := store.ObserveDurableQueue(ctx, time.Hour)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), st.Depth)
 
 	_, err = store.Insert(ctx, []byte("payload-bytes"))
 	require.NoError(t, err)
-	st, err = store.ObserveDurableQueue(ctx, time.Hour, time.Minute)
+	st, err = store.ObserveDurableQueue(ctx, time.Hour)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), st.Depth)
 	assert.Equal(t, int64(len("payload-bytes")), st.PayloadBytes)

@@ -93,17 +93,17 @@ plugins:
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "8a87578a3aac306d9b154e8d674c43b4a740971c"
+      gitRef: "2cf965790a71171e1336f6d1d4f5162f2bd39bd1"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "8a87578a3aac306d9b154e8d674c43b4a740971c"
+      gitRef: "2cf965790a71171e1336f6d1d4f5162f2bd39bd1"
       installPath: "."
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
+      gitRef: "d7162a2b15aea2ce861052ebaa2f5ca716a9b60a"
       installPath: "."
 
   capability-solana:
