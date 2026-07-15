@@ -39,6 +39,14 @@ func (d deployEthBalMonWithReceiver) VerifyPreconditions(env cldf.Environment, c
 		if err := validateDeployEthBalMonMCMSInDatastore(env, chainSelector, config.MCMSConfig); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
+		if (chainCfg.ExpectedAuthor != "") != (chainCfg.ExpectedWorkflowName != "") {
+			return fmt.Errorf("chain %d: expectedAuthor and expectedWorkflowName must be set together", chainSelector)
+		}
+		if chainCfg.ExpectedAuthor != "" {
+			if err := validateEthAddress("expectedAuthor", chainCfg.ExpectedAuthor); err != nil {
+				return fmt.Errorf("chain %d: %w", chainSelector, err)
+			}
+		}
 	}
 	return nil
 }
@@ -228,6 +236,19 @@ var DeployEthBalMonWithReceiverSequence = operations.NewSequence(
 			})
 			if err != nil {
 				return DeployEthBalMonWithReceiverSequenceOutput{}, fmt.Errorf("chain %d: setCallAllowed failed: %w", chainSelector, err)
+			}
+
+			// 3b. Optionally lock the AR's inbound identity guard (deployer still owns the AR).
+			if chainCfg.ExpectedAuthor != "" && chainCfg.ExpectedWorkflowName != "" {
+				_, err = operations.ExecuteOperation(b, SetExpectedWorkflowIdentityOperation, deps, SetExpectedWorkflowIdentityOperationInput{
+					ChainSelector:             chainSelector,
+					AutomationReceiverAddress: arAddress,
+					ExpectedAuthor:            chainCfg.ExpectedAuthor,
+					ExpectedWorkflowName:      chainCfg.ExpectedWorkflowName,
+				})
+				if err != nil {
+					return DeployEthBalMonWithReceiverSequenceOutput{}, fmt.Errorf("chain %d: setExpectedWorkflowIdentity failed: %w", chainSelector, err)
+				}
 			}
 
 			// 4. Transfer AR ownership to Timelock (OZ Ownable — single-step, immediate)
