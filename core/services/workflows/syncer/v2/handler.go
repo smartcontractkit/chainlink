@@ -677,6 +677,11 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		} else if !errors.Is(gateErr, limits.ErrorNotAllowed{}) {
 			h.lggr.Warnw("failed to evaluate limit CentralizedWorkflowOwnerVerificationEnabled", "error", gateErr)
 			return nil, gateErr
+		} else {
+			h.lggr.Warnw("skipping centralized workflow owner/orgID verification because the gate is disabled",
+				"source", payload.Source,
+				"workflowOwner", owner,
+			)
 		}
 	}
 
