@@ -8,7 +8,6 @@ import (
 	"io"
 	"maps"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -90,11 +89,7 @@ type eventHandler struct {
 	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
-	// tenantID is the tenant numeric id for the CRE environment. It is sourced from a
-	// job spec (see SetTenantID, wired from the consensus OCR2 plugin) and may be
-	// updated at runtime, so access is atomic. Zero falls back to defaultTenantID.
-	tenantID       atomic.Uint64
-	secretsFetcher v2.SecretsFetcher
+	secretsFetcher         v2.SecretsFetcher
 	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
 	localSecretOverrides map[string]map[string]string
 
@@ -183,21 +178,6 @@ func WithOrgResolver(orgResolver orgresolver.OrgResolver) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.orgResolver = orgResolver
 	}
-}
-
-// WithTenantID sets the tenant numeric id for the CRE environment. A zero value
-// falls back to defaultTenantID.
-func WithTenantID(tenantID uint64) func(*eventHandler) {
-	return func(e *eventHandler) {
-		e.tenantID.Store(tenantID)
-	}
-}
-
-// SetTenantID updates the tenant numeric id for the CRE environment. It is safe for
-// concurrent use and is called at runtime when the owning job spec (consensus OCR2
-// plugin) is applied.
-func (h *eventHandler) SetTenantID(tenantID uint64) {
-	h.tenantID.Store(tenantID)
 }
 
 // WithDebugMode enables OTel tracing when debugMode is true.
