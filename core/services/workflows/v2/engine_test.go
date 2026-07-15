@@ -97,6 +97,43 @@ func TestEngine_Init(t *testing.T) {
 	require.NoError(t, engine.Close())
 }
 
+func TestEngine_RecoversFromModuleExecutePanic(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Once()
+
+	initDoneCh := make(chan error, 1)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Start().Once()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		RunAndReturn(func(context.Context, *sdkpb.ExecuteRequest, host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
+			panic("simulated guest memory panic")
+		}).Once()
+	module.EXPECT().Close().Once()
+
+	require.NoError(t, engine.Start(t.Context()))
+
+	initErr := <-initDoneCh
+	require.Error(t, initErr)
+	require.Contains(t, initErr.Error(), "panicked")
+
+	require.NoError(t, engine.Close())
+}
+
 func TestEngine_DrainSetsStateAndHealth(t *testing.T) {
 	t.Parallel()
 

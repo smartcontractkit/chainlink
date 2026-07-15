@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -160,6 +161,18 @@ func (e *Engine) logger() logger.SugaredLogger {
 	e.lggrMu.RLock()
 	defer e.lggrMu.RUnlock()
 	return e.lggr
+}
+
+// safeModuleExecute runs the workflow Wasm module and converts any panic raised
+// during guest execution into an error.
+func (e *Engine) safeModuleExecute(ctx context.Context, req *sdkpb.ExecuteRequest, executor host.ExecutionHelper) (result *sdkpb.ExecutionResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("workflow module execution panicked: %v", r)
+			e.logger().Errorw("Recovered from panic during workflow module execution", "err", err, "stack", string(debug.Stack()))
+		}
+	}()
+	return e.cfg.Module.Execute(ctx, req, executor)
 }
 
 // setLogger updates the logger in a thread-safe manner.
@@ -434,7 +447,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		return fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 	}
-	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
+	result, err := e.safeModuleExecute(subCtx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
@@ -952,7 +965,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
 	var result *sdkpb.ExecutionResult
-	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
+	result, execErr = e.safeModuleExecute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
 				Id:      tid,
