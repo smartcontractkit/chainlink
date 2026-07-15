@@ -36,17 +36,17 @@ func (t *BridgeTask) HelperSetDependencies(
 	orm bridges.ORM,
 	specId int32,
 	id uuid.UUID,
-	httpClient *http.Client,
-	bridgeConnManager ...BridgeConnManager) {
+	httpClient *http.Client) {
 	t.config = config
 	t.bridgeConfig = bridgeConfig
 	t.orm = orm
 	t.uuid = id
 	t.httpClient = httpClient
 	t.specId = specId
-	if len(bridgeConnManager) > 0 {
-		t.bridgeConnManager = bridgeConnManager[0]
-	}
+}
+
+func (t *BridgeTask) HelperSetBridgeConnManager(bridgeConnManager BridgeConnManager) {
+	t.bridgeConnManager = bridgeConnManager
 }
 
 func (t *HTTPTask) HelperSetDependencies(config Config, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) {

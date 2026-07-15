@@ -168,6 +168,27 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		return Result{Error: err}, runInfo
 	}
 	url := URLParam(bridge.URL)
+	lookupPayload := make(MapParam)
+	maps.Copy(lookupPayload, requestData)
+
+	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
+	defer cancel()
+	if bridge.UseConnectionManager {
+		bridgeConnManager := t.bridgeConnManager
+		if bridgeConnManager == nil {
+			bridgeConnManager = NewBridgeConnManager()
+		}
+		responseBytes, err := bridgeConnManager.GetObservation(bridge, lookupPayload)
+		if err != nil {
+			lggr.Debugw("Bridge task: connection manager request failed",
+				"response", string(responseBytes),
+				"url", url.String(),
+				"error", err,
+			)
+			return Result{Error: err}, RunInfo{IsRetryable: true}
+		}
+		return Result{Value: string(responseBytes)}, runInfo
+	}
 
 	requestDataJSON, err := t.finalizeAndMarshalBridgeRequestData(lggr, vars, inputValues, &requestData, includeInputAtKey)
 	if err != nil {
@@ -177,20 +198,6 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		"requestData", string(requestDataJSON),
 		"url", url.String(),
 	)
-
-	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
-	defer cancel()
-	if bridge.UseConnectionManager {
-		bridgeConnManager := t.bridgeConnManager
-		if bridgeConnManager == nil {
-			bridgeConnManager = NewBridgeConnManager()
-		}
-		responseBytes, err := bridgeConnManager.GetObservation(ctx, lggr, bridge, requestData)
-		if err != nil {
-			return t.resolveBridgeConnManagerFailureOrCache(overtimeCtx, lggr, url, responseBytes, err, cacheTTL)
-		}
-		return Result{Value: string(responseBytes)}, runInfo
-	}
 
 	var cachedResponse bool
 	responseBytes, statusCode, headers, start, finish, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
@@ -403,41 +410,6 @@ func (t *BridgeTask) resolveFailureOrCache(
 	out.body = cachedBytes
 	out.cachedResponse = true
 	return out, nil, nil
-}
-
-func (t *BridgeTask) resolveBridgeConnManagerFailureOrCache(
-	ctx context.Context,
-	lggr logger.Logger,
-	url URLParam,
-	responseBytes []byte,
-	err error,
-	cacheTTL Uint64Param,
-) (Result, RunInfo) {
-	if cacheTTL == 0 {
-		lggr.Debugw("Bridge task: connection manager request failed",
-			"response", string(responseBytes),
-			"url", url.String(),
-			"error", err,
-		)
-		return Result{Error: err}, RunInfo{IsRetryable: err != nil}
-	}
-
-	//nolint:gosec // disable G115
-	cachedBytes, cacheErr := t.orm.GetCachedResponse(ctx, t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
-	if cacheErr != nil {
-		if !errors.Is(cacheErr, sql.ErrNoRows) {
-			lggr.Warnw("Bridge task: connection manager cache fallback failed",
-				"err", cacheErr.Error(),
-				"url", url.String(),
-			)
-		}
-		return Result{Error: err}, RunInfo{IsRetryable: err != nil}
-	}
-	lggr.Debugw("Bridge task: connection manager request failed, falling back to cache",
-		"response", string(cachedBytes),
-		"url", url.String(),
-	)
-	return Result{Value: string(cachedBytes)}, RunInfo{}
 }
 
 func (bt *BridgeTelemetry) resolveStreamID(t *BridgeTask, vars Vars, lggr logger.Logger) {

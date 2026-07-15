@@ -22,7 +22,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -58,17 +57,6 @@ type adapterRequest struct {
 
 type adapterResponseData struct {
 	Result *decimal.Decimal `json:"result"`
-}
-
-type fakeBridgeConnManager struct {
-	callCount atomic.Int32
-	response  []byte
-	err       error
-}
-
-func (f *fakeBridgeConnManager) GetObservation(ctx context.Context, lggr commonlogger.Logger, bridge bridges.BridgeType, requestData pipeline.MapParam) ([]byte, error) {
-	f.callCount.Add(1)
-	return f.response, f.err
 }
 
 // adapterResponse is the HTTP response as defined by the external adapter:
@@ -281,7 +269,7 @@ func TestBridgeTask_Happy(t *testing.T) {
 	assert.NotEqual(t, uuid.Nil, btelem.DotID)
 }
 
-func TestBridgeTask_UsesBridgeConnManagerWhenEnabled(t *testing.T) {
+func TestBridgeTask_UsesBridgeConnManagerHappyPath(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
@@ -303,65 +291,24 @@ func TestBridgeTask_UsesBridgeConnManagerWhenEnabled(t *testing.T) {
 		UseConnectionManager: true,
 	})
 
-	task := pipeline.BridgeTask{
-		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
-		Name:        bridge.Name.String(),
-		RequestData: btcUSDPairing,
-	}
-	manager := &fakeBridgeConnManager{
-		response: []byte(`{"data":{"result":"9700"}}`),
-	}
-	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
-	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
-	require.NoError(t, err)
-	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c, manager)
-
-	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
-
-	assert.False(t, runInfo.IsPending)
-	assert.False(t, runInfo.IsRetryable)
-	require.NoError(t, result.Error)
-	assert.Equal(t, `{"data":{"result":"9700"}}`, result.Value)
-	assert.Equal(t, int32(1), manager.callCount.Load())
-	assert.Equal(t, int32(0), httpCalls.Load())
-}
-
-func TestBridgeTask_UsesBridgeConnManagerCacheFallback(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-
-	var httpCalls atomic.Int32
-	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		httpCalls.Add(1)
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer s1.Close()
-
-	feedURL, err := url.ParseRequestURI(s1.URL)
-	require.NoError(t, err)
-
-	orm := bridges.NewORM(db)
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{
-		URL:                  feedURL.String(),
-		UseConnectionManager: true,
+	manager := pipeline.NewBridgeConnManager()
+	seedable, ok := manager.(interface {
+		PutObservation(bridge bridges.BridgeType, requestData pipeline.MapParam, observation []byte) error
 	})
+	require.True(t, ok)
+	require.NoError(t, seedable.PutObservation(*bridge, pipeline.MapParam(utils.MustUnmarshalToMap(btcUSDPairing)), []byte(`{"data":{"result":"9700"}}`)))
 
 	task := pipeline.BridgeTask{
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 		Name:        bridge.Name.String(),
 		RequestData: btcUSDPairing,
-		CacheTTL:    "10s",
 	}
-	manager := &fakeBridgeConnManager{err: errors.New("connection manager failed")}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
 	specID, err := trORM.CreateSpec(testutils.Context(t), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
 	require.NoError(t, err)
-	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c, manager)
-	require.NoError(t, orm.UpsertBridgeResponse(testutils.Context(t), task.DotID(), specID, []byte(`{"data":{"result":"9700"}}`)))
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
+	task.HelperSetBridgeConnManager(manager)
 
 	result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 
@@ -369,7 +316,6 @@ func TestBridgeTask_UsesBridgeConnManagerCacheFallback(t *testing.T) {
 	assert.False(t, runInfo.IsRetryable)
 	require.NoError(t, result.Error)
 	assert.Equal(t, `{"data":{"result":"9700"}}`, result.Value)
-	assert.Equal(t, int32(1), manager.callCount.Load())
 	assert.Equal(t, int32(0), httpCalls.Load())
 }
 
@@ -392,7 +338,6 @@ func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
 		Name:        bridge.Name.String(),
 		RequestData: btcUSDPairing,
-		CacheTTL:    "30s", // standard duration string format
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
