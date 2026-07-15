@@ -36,7 +36,7 @@ func Test_CRE_V2_Stellar_ReadContract_Regression(t *testing.T) {
 		scenarioEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
 		stellarChain := t_helpers.MustStellarChainInEnv(t, scenarioEnv)
 		logPath := t_helpers.LogFilePath("stellar_regression", t.Name())
-		userLogsCh, baseMessageCh := t_helpers.StartChipTestSinkWithDrain(t, logPath)
+		userLogsCh, baseMessageCh := t_helpers.StartChipTestSinkWithLogging(t, logPath)
 		lggr.Info().Str("log_file", logPath).Msg("Starting Stellar ReadContract regression")
 
 		fixtureID := t_helpers.MustDeployStellarReadFixture(t, stellarChain)

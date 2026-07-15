@@ -47,7 +47,7 @@ func RunReadWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider sdk
 					}
 				}()
 				client := stellar.Client{ChainSelector: cfg.ChainSelector}
-				if cfg.ReadKind == config.ReadKindReadContract {
+				if cfg.ReadKind == config.TestCaseReadContract {
 					return runReadContractBatch(cfg, runtime, client)
 				}
 				return runGetLatestLedger(cfg, runtime, client)

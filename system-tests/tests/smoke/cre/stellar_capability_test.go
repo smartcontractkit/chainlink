@@ -88,20 +88,14 @@ func ExecuteStellarReadContractSmokeTest(
 	vals := []uint32{1, 2, 3}
 	vec := make(xdr.ScVec, len(vals))
 	for i, u := range vals {
-		e, err2 := xdr.NewScVal(xdr.ScValTypeScvU32, xdr.Uint32(u))
-		if err2 != nil {
-			panic(err2)
-		}
-		vec[i] = e
+		vec[i], err = xdr.NewScVal(xdr.ScValTypeScvU32, xdr.Uint32(u))
+		require.NoError(t, err)
 	}
 	vals2 := []uint32{5, 6, 7}
 	vec2 := make(xdr.ScVec, len(vals2))
 	for i, u := range vals2 {
-		e, err2 := xdr.NewScVal(xdr.ScValTypeScvU32, xdr.Uint32(u))
-		if err2 != nil {
-			panic(err2)
-		}
-		vec2[i] = e
+		vec2[i], err = xdr.NewScVal(xdr.ScValTypeScvU32, xdr.Uint32(u))
+		require.NoError(t, err)
 	}
 	steps := []thelpers.StellarReadContractStep{
 		{Name: "get_bool", ContractID: fixtureID, Function: "get_bool", ExpectedResult: marshalScVal(xdr.NewScVal(xdr.ScValTypeScvBool, true))},
@@ -170,7 +164,7 @@ func executeStellarScenarios(t *testing.T, tenv *configuration.TestEnvironment, 
 			scenarioChain := thelpers.MustStellarChainInEnv(t, scenarioEnv)
 
 			logPath := thelpers.LogFilePath("stellar", t.Name())
-			userLogsCh, baseMessageCh := thelpers.StartChipTestSinkWithDrain(t, logPath)
+			userLogsCh, baseMessageCh := thelpers.StartChipTestSinkWithLogging(t, logPath)
 			lggr.Info().Str("scenario", scenario.name).Str("log_file", logPath).Msg("Starting Stellar scenario")
 			scenario.run(t, scenarioEnv, scenarioChain, userLogsCh, baseMessageCh)
 		})

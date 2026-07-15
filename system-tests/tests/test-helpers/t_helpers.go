@@ -1019,11 +1019,13 @@ func MustDeployStellarReadFixture(t *testing.T, stellarChain blockchains.Blockch
 	return fixtureID
 }
 
-// StartChipTestSinkWithDrain starts a Chip test sink that also writes events to logFilePath,
-func StartChipTestSinkWithDrain(t *testing.T, logFilePath string) (<-chan *workflowevents.UserLogs, <-chan *commonevents.BaseMessage) {
+// StartChipTestSinkWithLogging starts a Chip test sink that both writes every event to
+// logFilePath (the ./logs dir is uploaded as a GH artifact) AND returns the user-log /
+// base-message channels for the caller to consume via WatchWorkflowLogs / WaitForUserLog.
+func StartChipTestSinkWithLogging(t *testing.T, logFilePath string) (<-chan *workflowevents.UserLogs, <-chan *commonevents.BaseMessage) {
 	t.Helper()
-	userLogsCh := MakeSinkCh[*workflowevents.UserLogs]()
-	baseMessageCh := MakeSinkCh[*commonevents.BaseMessage]()
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
 
 	server := StartChipTestSink(t, GetLoggingPublishFn(framework.L, userLogsCh, baseMessageCh, logFilePath))
 	t.Cleanup(func() {
@@ -1032,6 +1034,20 @@ func StartChipTestSinkWithDrain(t *testing.T, logFilePath string) (<-chan *workf
 		ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
 	})
 	return userLogsCh, baseMessageCh
+}
+
+// StartLoggingOnlyChipTestSink starts a Chip test sink that only writes events to logFilePath.
+// It passes nil channels to the publish handler (safeSend* treats nil as a no-op), so events
+// are never queued for consumption — there is nothing to drain and Publish never blocks.
+// Use this for tests that assert on external state and only need the event dump for debugging.
+func StartLoggingOnlyChipTestSink(t *testing.T, logFilePath string) {
+	t.Helper()
+	server := StartChipTestSink(t, GetLoggingPublishFn(framework.L, nil, nil, logFilePath))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		ShutdownChipSinkWithDrain(ctx, server)
+	})
 }
 
 func LogFilePath(prefix, suffix string) string {
@@ -1061,15 +1077,4 @@ func SanitizeLogToken(input string) string {
 	}
 
 	return b.String()
-}
-
-func MakeSinkCh[T any]() chan T {
-	c := make(chan T, 1)
-	go func() {
-		//nolint:revive //drain the channel to prevent blocking. Content is processed elsewhere.
-		for range c {
-		}
-	}()
-
-	return c
 }

@@ -71,7 +71,7 @@ func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, t
 			// while still reusing the shared environment cache (sync.Once) for admin sessions.
 			perCaseEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
 			enabledChains := t_helpers.GetEVMEnabledChains(t, perCaseEnv)
-			_, _ = t_helpers.StartChipTestSinkWithDrain(t, evmReadLogFilePath(t, perCaseEnv))
+			t_helpers.StartLoggingOnlyChipTestSink(t, evmReadLogFilePath(t, perCaseEnv))
 
 			for _, bcOutput := range perCaseEnv.CreEnvironment.Blockchains {
 				chainID := bcOutput.CtfOutput().ChainID

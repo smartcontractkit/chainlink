@@ -7,14 +7,14 @@ type TestCase int
 
 const (
 	TestCaseLatestLedger TestCase = iota
-	ReadKindReadContract
+	TestCaseReadContract
 )
 
 func (tc TestCase) String() string {
 	switch tc {
 	case TestCaseLatestLedger:
 		return "latest_ledger"
-	case ReadKindReadContract:
+	case TestCaseReadContract:
 		return "read_contract"
 	default:
 		return fmt.Sprintf("unknown TestCase: %d", int(tc))

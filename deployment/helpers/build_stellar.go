@@ -102,7 +102,7 @@ func buildStellarLocally(ctx context.Context, config BuildStellarConfig) error {
 		cmd.Env = append(os.Environ(), "CARGO_TARGET_DIR="+config.LocalBuild.CargoTargetDir)
 	}
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("buildStellar: %q in %s failed: %w\n%s", cmdArgs, config.LocalBuild.SourceDir, err, out)
+		return fmt.Errorf("buildStellar: %v in %s failed: %w\n%s", cmdArgs, config.LocalBuild.SourceDir, err, out)
 	}
 
 	wasmFileName, err := config.wasmFile()
