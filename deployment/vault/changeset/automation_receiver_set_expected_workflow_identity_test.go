@@ -4,6 +4,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -12,6 +13,7 @@ import (
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/automation-cre/generated/latest/automation_receiver"
 
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
@@ -189,6 +191,25 @@ func TestSetExpectedWorkflowIdentityChangeSet(t *testing.T) {
 	require.Contains(t, prop.Operations[0].Transactions[1].Tags, "setExpectedWorkflowName")
 	require.Equal(t, receiverAddr, prop.Operations[0].Transactions[0].To)
 	require.Equal(t, receiverAddr, prop.Operations[0].Transactions[1].To)
+
+	// Decode the generated calldata to confirm it is exactly
+	// setExpectedAuthor(expectedAuthor) + setExpectedWorkflowName(expectedWorkflowName).
+	arABI, err := automation_receiver.AutomationReceiverMetaData.GetAbi()
+	require.NoError(t, err)
+
+	authorTx := prop.Operations[0].Transactions[0]
+	authorMethod := arABI.Methods["setExpectedAuthor"]
+	require.Equal(t, authorMethod.ID, authorTx.Data[:4])
+	authorArgs, err := authorMethod.Inputs.Unpack(authorTx.Data[4:])
+	require.NoError(t, err)
+	require.Equal(t, common.HexToAddress(testAddr2), authorArgs[0])
+
+	nameTx := prop.Operations[0].Transactions[1]
+	nameMethod := arABI.Methods["setExpectedWorkflowName"]
+	require.Equal(t, nameMethod.ID, nameTx.Data[:4])
+	nameArgs, err := nameMethod.Inputs.Unpack(nameTx.Data[4:])
+	require.NoError(t, err)
+	require.Equal(t, testWorkflowName, nameArgs[0])
 }
 
 func TestSetExpectedWorkflowIdentity_Apply_withoutReceiverInDatastore(t *testing.T) {

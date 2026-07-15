@@ -36,9 +36,6 @@ func (d deployEthBalMonWithReceiver) VerifyPreconditions(env cldf.Environment, c
 		if err := validateEthAddress("forwarderAddress", chainCfg.ForwarderAddress); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
-		if err := validateDeployEthBalMonMCMSInDatastore(env, chainSelector, config.MCMSConfig); err != nil {
-			return fmt.Errorf("chain %d: %w", chainSelector, err)
-		}
 		if (chainCfg.ExpectedAuthor != "") != (chainCfg.ExpectedWorkflowName != "") {
 			return fmt.Errorf("chain %d: expectedAuthor and expectedWorkflowName must be set together", chainSelector)
 		}
@@ -46,6 +43,9 @@ func (d deployEthBalMonWithReceiver) VerifyPreconditions(env cldf.Environment, c
 			if err := validateEthAddress("expectedAuthor", chainCfg.ExpectedAuthor); err != nil {
 				return fmt.Errorf("chain %d: %w", chainSelector, err)
 			}
+		}
+		if err := validateDeployEthBalMonMCMSInDatastore(env, chainSelector, config.MCMSConfig); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
 	}
 	return nil

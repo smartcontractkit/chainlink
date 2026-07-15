@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -61,11 +60,10 @@ func (s setExpectedWorkflowIdentity) Apply(e cldf.Environment, config vaulttypes
 
 	evmChains := e.BlockChains.EVMChains()
 
-	var primaryChain cldf_evm.Chain
-	for chainSelector := range config.Chains {
-		primaryChain = evmChains[chainSelector]
-		break
-	}
+	// deps only carries the deployer key/chain used to build the proposal (the batch itself is
+	// generated per-chain), so any chain works — pick deterministically to keep output reproducible.
+	primaryChainSelector, _ := lowestChainSelector(config.Chains)
+	primaryChain := evmChains[primaryChainSelector]
 
 	deps := VaultDeps{
 		Auth:        primaryChain.DeployerKey,
