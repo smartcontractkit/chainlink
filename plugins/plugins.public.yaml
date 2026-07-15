@@ -46,7 +46,7 @@ plugins:
 
   stellar:
     - moduleURI: "github.com/smartcontractkit/chainlink-stellar"
-      gitRef: "7cee5805f4a205e0cf0d619a213efc7be7f2d4cd"
+      gitRef: "2447ff4b0d5a5a16056ff3ea0bee583c9bd10913"
       installPath: "./cmd/chainlink-stellar"
 
   streams:

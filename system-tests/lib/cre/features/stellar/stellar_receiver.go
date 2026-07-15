@@ -9,7 +9,7 @@ import (
 	"context"
 	"fmt"
 
-	cldfstellar "github.com/smartcontractkit/chainlink-deployments-framework/chain/stellar"
+	stellarcre "github.com/smartcontractkit/chainlink-stellar/deployment/cre"
 
 	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"
 	stellarreceiver "github.com/smartcontractkit/chainlink-stellar/deployment/cre/receiver"
@@ -36,7 +36,7 @@ func DeployStellarTestReceiver(ctx context.Context, chain *stellchain.Blockchain
 	}
 
 	// Source the receiver WASM at deploy time (build or download) — no committed binary.
-	buildCfg, err := stellarBuildConfig(helpers.ReceiverWASMFile)
+	buildCfg, err := stellarBuildConfig(ctx, stellarcre.ReceiverWasm)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve stellar receiver WASM source: %w", err)
 	}
@@ -61,21 +61,4 @@ func StellarReceiverReportCount(ctx context.Context, chain *stellchain.Blockchai
 		return 0, fmt.Errorf("failed to build stellar deployer: %w", err)
 	}
 	return stellarreceiver.ReportCount(ctx, deployer, contractID)
-}
-
-// stellarCldfChain builds the cldf stellar chain from the environment blockchain.
-// NOTE: ToCldfChain() mints a fresh random deployer keypair per call, so callers
-// that need a single funded deployer for multiple ops must not re-derive it.
-func stellarCldfChain(chain *stellchain.Blockchain) (cldfstellar.Chain, error) {
-	cldfChain, err := chain.ToCldfChain()
-	if err != nil {
-		return cldfstellar.Chain{}, fmt.Errorf("failed to build cldf stellar chain (selector %d): %w", chain.ChainSelector(), err)
-	}
-	// RPCChainProvider.Initialize returns *stellar.Chain (pointer); deref to the
-	// value type callers and NewDeployerFromChain expect.
-	sc, ok := cldfChain.(*cldfstellar.Chain)
-	if !ok || sc == nil {
-		return cldfstellar.Chain{}, fmt.Errorf("expected cldf stellar chain, got %T", cldfChain)
-	}
-	return *sc, nil
 }

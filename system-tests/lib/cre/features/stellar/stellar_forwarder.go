@@ -6,12 +6,11 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/rs/zerolog"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	stellarcre "github.com/smartcontractkit/chainlink-stellar/deployment/cre"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	stellarfwd "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -79,7 +78,7 @@ func deployStellarForwarders(
 
 	version := forwarderVersion(creEnv)
 
-	buildCfg, err := stellarBuildConfig(helpers.ForwarderWASMFile)
+	buildCfg, err := stellarBuildConfig(ctx, stellarcre.ForwarderWasm)
 	if err != nil {
 		return fmt.Errorf("failed to resolve stellar forwarder WASM source: %w", err)
 	}
