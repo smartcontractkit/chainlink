@@ -19,7 +19,7 @@ runs:
   using: composite
   steps:
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9
+      uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # master july 2026
       with:
         toolchain: ${{ inputs.rust-toolchain }}
 
@@ -31,7 +31,7 @@ runs:
     # hashes that script so a version bump busts the cache automatically.
     - name: Cache Stellar CLI
       id: cache-stellar
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      uses: actions/cache@v6
       with:
         path: ~/.local/bin/stellar
         key: ${{ runner.os }}-${{ runner.arch }}-stellar-cli-${{ hashFiles('tools/ci/install_stellar') }}
@@ -70,6 +70,10 @@ runs:
         rm -rf "${DEST}"
         # Module cache can be read-only; copy so `stellar contract build` can write targets.
         cp -a "${MODULE_DIR}" "${DEST}"
+        # Go marks module-cache files/dirs read-only (0444/0555) and `cp -a` preserves that,
+        # so the copy inherits read-only perms — cargo then can't write Cargo.lock/target and
+        # fails with "Permission denied". Restore owner-write across the whole tree.
+        chmod -R u+w "${DEST}"
         echo "STELLAR_CONTRACTS_SOURCE_DIR=${DEST}" >> "${GITHUB_ENV}"
         echo "Prepared STELLAR_CONTRACTS_SOURCE_DIR=${DEST}"
 
