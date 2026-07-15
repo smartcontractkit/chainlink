@@ -854,11 +854,16 @@ func Test_observationTuningHelpers(t *testing.T) {
 	assert.Less(t, staleRefreshSkipThreshold(tuningTestT), cacheEntryTTL(tuningTestT))
 	assert.Less(t, staleRefreshSkipThreshold(tuningTestT)+observationLoopPacing(tuningTestT), cacheEntryTTL(tuningTestT))
 
-	assert.Equal(t, cacheEntryTTL(100*time.Millisecond)-staleRefreshSkipThreshold(100*time.Millisecond)-time.Nanosecond, observationLoopPacing(100*time.Millisecond))
-	assert.Equal(t, cacheEntryTTL(500*time.Millisecond)-staleRefreshSkipThreshold(500*time.Millisecond)-time.Nanosecond, observationLoopPacing(500*time.Millisecond))
+	// With num/den = 6/5 the invariant cap (cacheTTL−stale−1ns = 4/5·T−1ns) exceeds raw T/2, so pacing is bounded by
+	// T/observationLoopPacingDivisor (= T/2), not the invariant.
+	assert.Equal(t, 100*time.Millisecond/observationLoopPacingDivisor, observationLoopPacing(100*time.Millisecond))
+	assert.Equal(t, 500*time.Millisecond/observationLoopPacingDivisor, observationLoopPacing(500*time.Millisecond))
 	assert.Equal(t, observationLoopPacingFloor, observationLoopPacing(0))
-	// T/2 exceeds invariant cap; pacing is min(T/2, cacheTTL−stale−1ns); here 30/2=15ms caps to ~12ms−1ns
-	assert.Equal(t, cacheEntryTTL(30*time.Millisecond)-staleRefreshSkipThreshold(30*time.Millisecond)-time.Nanosecond, observationLoopPacing(30*time.Millisecond))
+	// T/2 = 15ms here, still above the floor and below the invariant cap.
+	assert.Equal(t, 30*time.Millisecond/observationLoopPacingDivisor, observationLoopPacing(30*time.Millisecond))
+	// Confirm the invariant cap is no longer the binding constraint (raw T/2 < cacheTTL−stale−1ns).
+	invMax := cacheEntryTTL(100*time.Millisecond) - staleRefreshSkipThreshold(100*time.Millisecond) - time.Nanosecond
+	assert.Greater(t, invMax, 100*time.Millisecond/observationLoopPacingDivisor)
 }
 
 func BenchmarkObserve(b *testing.B) {

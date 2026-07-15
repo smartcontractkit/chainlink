@@ -5,14 +5,14 @@ ctf_version = "0.10.30"
 
 [job_distributor.build_config]
 repository = "https://github.com/smartcontractkit/job-distributor"
-branch = "v0.22.1"
+branch = "v0.28.0"
 dockerfile = "e2e/Dockerfile.e2e"
 docker_ctx = "."
-local_image = "job-distributor:0.22.1"
+local_image = "job-distributor:0.28.0"
 
 [job_distributor.pull_config]
-local_image = "job-distributor:0.22.1"
-ecr_image = "{{.MAIN_ECR}}/job-distributor:0.22.1"
+local_image = "job-distributor:0.28.0"
+ecr_image = "{{.MAIN_ECR}}/job-distributor:0.28.0"
 
 [chip_router.build_config]
 repository = "https://github.com/smartcontractkit/chainlink-testing-framework"

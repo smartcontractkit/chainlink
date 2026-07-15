@@ -1,0 +1,93 @@
+name: Vault Audit Gate
+
+# Ensures every PR carries a `vault-audit` commit status on its latest commit so
+# the required check is always satisfiable:
+#
+#   * PR touches no vault files                -> success ("no vault changes")
+#   * PR touches vault files, never audited    -> pending  (forces first /vault-audit)
+#   * PR touches vault files, already audited  -> carry the last verdict forward
+#                                                 onto the new head commit
+#
+# Re-auditing is the developer's call: a passing audit is carried forward across
+# new commits (merging develop, small fixes, etc.) until someone re-runs
+# /vault-audit. The audit report itself lives in a private cre-docs issue.
+#
+# NOTE: no `paths:` filter — the job must run on every PR/commit so the latest
+# head always has a vault-audit status (a required check is evaluated against the
+# latest commit). Non-vault PRs are short-circuited to success below.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+      contents: read
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Determine whether PR touches vault files
+        id: scope
+        run: |
+          VAULT_RE='^(core/capabilities/vault/|core/services/ocr2/plugins/vault/|core/services/gateway/handlers/vault/|core/services/workflows/v2/secrets\.go|system-tests/tests/smoke/cre/vault_don_test\.go|system-tests/tests/smoke/cre/vault_don_test_helpers\.go|system-tests/lib/cre/vault/)'
+
+          FILES=$(gh api "/repos/${REPO}/pulls/${PR_NUMBER}/files" --paginate --jq '.[].filename')
+          if echo "$FILES" | grep -qE "$VAULT_RE"; then
+            echo "touched=true" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "touched=false" | tee -a "$GITHUB_OUTPUT"
+          fi
+
+      - name: No vault changes — auto-pass
+        if: steps.scope.outputs.touched == 'false'
+        run: |
+          gh api "/repos/${REPO}/statuses/${HEAD_SHA}" \
+            --method POST \
+            -f state=success \
+            -f context="vault-audit" \
+            -f description="No vault code changes — audit not required"
+
+      - name: Carry forward last verdict (or require first audit)
+        if: steps.scope.outputs.touched == 'true'
+        run: |
+          # Walk the PR's commits newest-first and reuse the most recent real
+          # vault-audit verdict (success/failure/error — anything but pending).
+          SHAS=$(gh api "/repos/${REPO}/pulls/${PR_NUMBER}/commits" --paginate --jq '.[].sha' | tac)
+
+          PRIOR_STATE=""
+          PRIOR_DESC=""
+          PRIOR_URL=""
+          for sha in $SHAS; do
+            [ "$sha" = "$HEAD_SHA" ] && continue
+            STATUS=$(gh api "/repos/${REPO}/commits/${sha}/statuses" --paginate \
+              --jq '[.[] | select(.context == "vault-audit")] | first')
+            { [ -z "$STATUS" ] || [ "$STATUS" = "null" ]; } && continue
+            STATE=$(echo "$STATUS" | jq -r '.state')
+            [ "$STATE" = "pending" ] && continue
+            PRIOR_STATE="$STATE"
+            PRIOR_DESC=$(echo "$STATUS" | jq -r '.description // ""')
+            PRIOR_URL=$(echo "$STATUS" | jq -r '.target_url // ""')
+            break
+          done
+
+          if [ -z "$PRIOR_STATE" ]; then
+            gh api "/repos/${REPO}/statuses/${HEAD_SHA}" \
+              --method POST \
+              -f state=pending \
+              -f context="vault-audit" \
+              -f description="Vault audit required — an authorized reviewer must comment /vault-audit"
+          else
+            gh api "/repos/${REPO}/statuses/${HEAD_SHA}" \
+              --method POST \
+              -f state="$PRIOR_STATE" \
+              -f context="vault-audit" \
+              -f description="$PRIOR_DESC" \
+              -f target_url="$PRIOR_URL"
+          fi

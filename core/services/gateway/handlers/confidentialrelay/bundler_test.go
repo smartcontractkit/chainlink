@@ -2,6 +2,7 @@ package confidentialrelay
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -102,10 +103,12 @@ func TestBundler_capabilityExec_forwardsAllResponses(t *testing.T) {
 		"n2": capExecSignedResponse(t, "req-1", resultB, []byte("signer-1")),
 	}
 
-	out, count, err := b.Bundle(req, resps, lggr)
+	summary, err := b.Bundle(req, resps, lggr)
 	require.NoError(t, err)
-	require.Equal(t, 3, count)
-	bundle := decodeCapabilityBundle(t, out)
+	require.Equal(t, 3, summary.Signed())
+	require.Equal(t, 3, summary.Total())
+	require.Equal(t, 0, summary.Error())
+	bundle := decodeCapabilityBundle(t, summary.Response())
 	require.Len(t, bundle.Responses, 3, "every collected response is forwarded; order is not significant")
 }
 
@@ -122,10 +125,10 @@ func TestBundler_capabilityExec_singleResponseIsOneEntry(t *testing.T) {
 		"n0": capExecSignedResponse(t, "req-solo", relaytypes.CapabilityResponseResult{Payload: "x"}, []byte("signer-0")),
 	}
 
-	out, count, err := b.Bundle(req, resps, lggr)
+	summary, err := b.Bundle(req, resps, lggr)
 	require.NoError(t, err)
-	require.Equal(t, 1, count)
-	bundle := decodeCapabilityBundle(t, out)
+	require.Equal(t, 1, summary.Signed())
+	bundle := decodeCapabilityBundle(t, summary.Response())
 	require.Len(t, bundle.Responses, 1)
 }
 
@@ -158,10 +161,14 @@ func TestBundler_skipsTransportErrorsAndUndecodable(t *testing.T) {
 		"n3": capExecSignedResponse(t, "req-err", result, []byte("signer-3")),
 	}
 
-	out, count, err := b.Bundle(req, resps, lggr)
+	summary, err := b.Bundle(req, resps, lggr)
 	require.NoError(t, err)
-	require.Equal(t, 2, count, "transport errors and undecodable results are dropped from the bundle")
-	bundle := decodeCapabilityBundle(t, out)
+	require.Equal(t, 2, summary.Signed(), "transport errors and undecodable results are dropped from the bundle")
+	require.Equal(t, 1, summary.Error())
+	require.Equal(t, 1, summary.Undecodable())
+	require.Equal(t, 4, summary.Total())
+	require.Contains(t, summary.NodeErrorsFormatted(), "n0=node failure")
+	bundle := decodeCapabilityBundle(t, summary.Response())
 	require.Len(t, bundle.Responses, 2)
 }
 
@@ -171,10 +178,11 @@ func TestBundler_emptyResponses(t *testing.T) {
 	b := &bundler{}
 
 	req := capExecRequest(t, "req-empty", validCapParams("wf-1"))
-	out, count, err := b.Bundle(req, map[string]jsonrpc.Response[json.RawMessage]{}, lggr)
+	summary, err := b.Bundle(req, map[string]jsonrpc.Response[json.RawMessage]{}, lggr)
 	require.NoError(t, err)
-	require.Equal(t, 0, count)
-	bundle := decodeCapabilityBundle(t, out)
+	require.Equal(t, 0, summary.Signed())
+	require.Equal(t, 0, summary.Total())
+	bundle := decodeCapabilityBundle(t, summary.Response())
 	require.Empty(t, bundle.Responses)
 }
 
@@ -225,12 +233,12 @@ func TestBundler_secretsGet_forwardsAllResponses(t *testing.T) {
 		"n2": signed([]byte("signer-2")),
 	}
 
-	out, count, err := b.Bundle(req, resps, lggr)
+	summary, err := b.Bundle(req, resps, lggr)
 	require.NoError(t, err)
-	require.Equal(t, 3, count)
+	require.Equal(t, 3, summary.Signed())
 
 	var bundle relaytypes.SignedSecretsResponseBundle
-	require.NoError(t, json.Unmarshal(*out.Result, &bundle))
+	require.NoError(t, json.Unmarshal(*summary.Response().Result, &bundle))
 	require.Len(t, bundle.Responses, 3)
 	require.Equal(t, result, bundle.Responses[0].Result)
 }
@@ -245,7 +253,24 @@ func TestBundler_unknownMethod(t *testing.T) {
 		ID:      "req-x",
 		Method:  "confidential.unknown",
 	}
-	out, _, err := b.Bundle(req, map[string]jsonrpc.Response[json.RawMessage]{}, lggr)
-	require.Nil(t, out)
+	summary, err := b.Bundle(req, map[string]jsonrpc.Response[json.RawMessage]{}, lggr)
+	require.Nil(t, summary)
 	require.ErrorIs(t, err, errUnknownMethod)
+}
+
+func TestSanitizeNodeErrorMessage_Truncates(t *testing.T) {
+	t.Parallel()
+	long := strings.Repeat("a", maxNodeErrorMessageLen+50)
+	got := sanitizeNodeErrorMessage(long)
+	require.Len(t, got, maxNodeErrorMessageLen-1+len(".."))
+	require.True(t, strings.HasSuffix(got, ".."))
+}
+
+func TestBundleSummary_NodeErrorsFormatted_StableOrder(t *testing.T) {
+	t.Parallel()
+	s := &BundleSummary{nodeErrors: map[string]string{
+		"0x0002": "b",
+		"0x0001": "a",
+	}}
+	require.Equal(t, "0x0001=a; 0x0002=b", s.NodeErrorsFormatted())
 }

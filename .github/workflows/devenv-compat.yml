@@ -108,7 +108,7 @@ jobs:
       CTF_LOG_LEVEL: ${{ inputs.ctf-log-level }}
       # JD is required by the local CRE-based tests
       CTF_JD_IMAGE: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
-        secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.22.1"
+        secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.28.0"
       # ChIP Router is required by the local CRE-based tests
       CTF_CHIP_ROUTER_IMAGE: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
         secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
@@ -163,25 +163,6 @@ jobs:
         run: |
           go mod download
 
-      - name: Get CTF version from go.mod
-        shell: bash
-        working-directory: ${{ env.WORKING_DIR }}
-        run: |
-          CTF_VERSION=$(go list -m -json "github.com/smartcontractkit/chainlink-testing-framework/framework" | jq -r .Version)
-          echo "CTF_TAG=framework/$CTF_VERSION" >> "$GITHUB_ENV"
-
-      - name: Install CTF binary
-        working-directory: ${{ env.WORKING_DIR }}
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir -p bin
-          gh release download "${{ env.CTF_TAG }}" --pattern "framework-v*-linux-amd64.tar.gz" --clobber --repo smartcontractkit/chainlink-testing-framework -O ctf.tar.gz
-          tar -xzf ctf.tar.gz
-          mv ctf bin/ctf
-          chmod +x bin/ctf
-
       - name: Connect to Tailscale
         uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4.1.2
         with:
@@ -231,7 +212,7 @@ jobs:
           if [ -n "${NO_GIT_ROLLBACK}" ]; then
             ROLLBACK_FLAG=("${NO_GIT_ROLLBACK}")
           fi
-          ./bin/ctf compat backward \
+          go tool github.com/smartcontractkit/chainlink-testing-framework/framework/cmd compat backward \
             --registry "${REGISTRY}" \
             --buildcmd "${BUILD_CMD}" \
             --envcmd "${ENV_CMD}" \

@@ -16,6 +16,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/automation-cre/generated/latest/automation_receiver"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/eth_balance_monitor_wrapper"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	vaulttypes "github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
@@ -97,7 +98,7 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 	for _, chainOut := range seqOut.Chains {
 		contractsByChain[chainOut.ChainSelector] = chainOut.ContractAddress
 
-		addressRef := ds.AddressRef{
+		ethBalmonAddressRef := ds.AddressRef{
 			ChainSelector: chainOut.ChainSelector,
 			Address:       chainOut.ContractAddress,
 			Type:          ds.ContractType(vaulttypes.EthBalMonContractType),
@@ -123,8 +124,8 @@ func (d deployEthBalMon) Apply(e cldf.Environment, config vaulttypes.DeployEthBa
 			},
 		}
 
-		if err := memoryDataStore.Addresses().Add(addressRef); err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add address ref for chain %d: %w", chainOut.ChainSelector, err)
+		if err := memoryDataStore.Addresses().Add(ethBalmonAddressRef); err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add EthBalanceMonitor address ref for chain %d: %w", chainOut.ChainSelector, err)
 		}
 		if err := memoryDataStore.ContractMetadata().Add(contractMetadata); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to add contract metadata for chain %d: %w", chainOut.ChainSelector, err)
@@ -219,7 +220,7 @@ var DeployEthBalMonSequence = operations.NewSequence(
 				deps,
 				DeployEthBalMonContractInput{
 					ChainSelector:         chainSelector,
-					KeeperRegistryAddress: chainConfig.SetKeeperRegistryAddress,
+					KeeperRegistryAddress: chainConfig.KeeperRegistryAddress,
 					MinWaitPeriodSeconds:  minWait,
 				},
 			)
@@ -227,6 +228,7 @@ var DeployEthBalMonSequence = operations.NewSequence(
 				return DeployEthBalMonSequenceOutput{}, fmt.Errorf("chain %d: deploy operation failed: %w", chainSelector, err)
 			}
 			deployOut := deployReport.Output
+
 			transferReport, err := operations.ExecuteOperation(
 				b,
 				TransferOwnershipOperation,
@@ -255,6 +257,200 @@ var DeployEthBalMonSequence = operations.NewSequence(
 			})
 		}
 		return out, nil
+	},
+)
+
+// ================================================
+// ================================================
+// Deploy AutomationReceiver OPERATION
+// ================================================
+// ================================================
+type DeployAutomationReceiverInput struct {
+	ChainSelector    uint64 `json:"chain_selector"`
+	ForwarderAddress string `json:"forwarder_address"`
+}
+
+type DeployAutomationReceiverOutput struct {
+	ChainSelector             uint64 `json:"chain_selector"`
+	AutomationReceiverAddress string `json:"automation_receiver_address"`
+}
+
+var DeployAutomationReceiverOperation = operations.NewOperation(
+	"deploy-automation-receiver",
+	semver.MustParse("1.0.0"),
+	"Deploy Automation Receiver contract",
+	func(b operations.Bundle, deps VaultDeps, input DeployAutomationReceiverInput) (DeployAutomationReceiverOutput, error) {
+		chain, ok := deps.Environment.BlockChains.EVMChains()[input.ChainSelector]
+		if !ok {
+			return DeployAutomationReceiverOutput{}, fmt.Errorf("chain not found in environment: %d", input.ChainSelector)
+		}
+
+		forwarderAddress := common.HexToAddress(input.ForwarderAddress)
+
+		b.Logger.Infow("Deploying AutomationReceiver",
+			"chainSelector", input.ChainSelector,
+			"forwarderAddress", forwarderAddress.Hex(),
+		)
+
+		automationReceiverAddr, tx, _, err := automation_receiver.DeployAutomationReceiver(
+			chain.DeployerKey,
+			chain.Client,
+			forwarderAddress,
+		)
+		if err != nil {
+			return DeployAutomationReceiverOutput{}, fmt.Errorf("failed to deploy AutomationReceiver: %w", err)
+		}
+
+		if _, err := chain.Confirm(tx); err != nil {
+			return DeployAutomationReceiverOutput{}, fmt.Errorf("failed to confirm AutomationReceiver deploy tx %s: %w", tx.Hash().Hex(), err)
+		}
+
+		b.Logger.Infow("AutomationReceiver deployed successfully",
+			"chainSelector", input.ChainSelector,
+			"contractAddress", automationReceiverAddr.Hex(),
+		)
+
+		return DeployAutomationReceiverOutput{
+			ChainSelector:             input.ChainSelector,
+			AutomationReceiverAddress: automationReceiverAddr.Hex(),
+		}, nil
+	},
+)
+
+// ================================================
+// ================================================
+// SetCallAllowed OPERATION
+// ================================================
+// ================================================
+
+type SetCallAllowedOperationInput struct {
+	ChainSelector             uint64  `json:"chain_selector"`
+	AutomationReceiverAddress string  `json:"automation_receiver_address"`
+	TargetAddress             string  `json:"target_address"`
+	Selector                  [4]byte `json:"selector"`
+	Allowed                   bool    `json:"allowed"`
+}
+
+type SetCallAllowedOperationOutput struct {
+	ChainSelector uint64 `json:"chain_selector"`
+	TxHash        string `json:"tx_hash"`
+}
+
+var SetCallAllowedOperation = operations.NewOperation(
+	"set-call-allowed",
+	semver.MustParse("1.0.0"),
+	"Allow or disallow a (target, selector) pair on AutomationReceiver",
+	func(b operations.Bundle, deps VaultDeps, input SetCallAllowedOperationInput) (SetCallAllowedOperationOutput, error) {
+		chain, ok := deps.Environment.BlockChains.EVMChains()[input.ChainSelector]
+		if !ok {
+			return SetCallAllowedOperationOutput{}, fmt.Errorf("chain not found in environment: %d", input.ChainSelector)
+		}
+
+		receiverAutomationContract, err := automation_receiver.NewAutomationReceiver(
+			common.HexToAddress(input.AutomationReceiverAddress),
+			chain.Client,
+		)
+		if err != nil {
+			return SetCallAllowedOperationOutput{}, fmt.Errorf("failed to instantiate AutomationReceiver at %s: %w", input.AutomationReceiverAddress, err)
+		}
+
+		b.Logger.Infow("Calling setCallAllowed on AutomationReceiver",
+			"chainSelector", input.ChainSelector,
+			"automationReceiverAddress", input.AutomationReceiverAddress,
+			"target", input.TargetAddress,
+			"selector", fmt.Sprintf("0x%x", input.Selector),
+			"allowed", input.Allowed,
+		)
+
+		tx, err := receiverAutomationContract.SetCallAllowed(
+			chain.DeployerKey,
+			common.HexToAddress(input.TargetAddress),
+			input.Selector,
+			input.Allowed,
+		)
+		if err != nil {
+			return SetCallAllowedOperationOutput{}, fmt.Errorf("failed to call setCallAllowed: %w", err)
+		}
+
+		if _, err := chain.Confirm(tx); err != nil {
+			return SetCallAllowedOperationOutput{}, fmt.Errorf("failed to confirm setCallAllowed tx %s: %w", tx.Hash().Hex(), err)
+		}
+
+		b.Logger.Infow("setCallAllowed confirmed",
+			"chainSelector", input.ChainSelector,
+			"txHash", tx.Hash().Hex(),
+		)
+
+		return SetCallAllowedOperationOutput{
+			ChainSelector: input.ChainSelector,
+			TxHash:        tx.Hash().Hex(),
+		}, nil
+	},
+)
+
+// ================================================
+// ================================================
+// Transfer AutomationReceiver Ownership OPERATION
+// ================================================
+// ================================================
+
+type TransferAutomationReceiverOwnershipInput struct {
+	ChainSelector             uint64 `json:"chain_selector"`
+	AutomationReceiverAddress string `json:"automation_receiver_address"`
+	TimelockAddress           string `json:"timelock_address"`
+}
+
+type TransferAutomationReceiverOwnershipOutput struct {
+	ChainSelector uint64 `json:"chain_selector"`
+	TxHash        string `json:"tx_hash"`
+}
+
+var TransferAutomationReceiverOwnershipOperation = operations.NewOperation(
+	"transfer-automation-receiver-ownership",
+	semver.MustParse("1.0.0"),
+	"Transfer AutomationReceiver ownership to Timelock (OZ Ownable single-step)",
+	func(b operations.Bundle, deps VaultDeps, input TransferAutomationReceiverOwnershipInput) (TransferAutomationReceiverOwnershipOutput, error) {
+		chain, ok := deps.Environment.BlockChains.EVMChains()[input.ChainSelector]
+		if !ok {
+			return TransferAutomationReceiverOwnershipOutput{}, fmt.Errorf("chain not found in environment: %d", input.ChainSelector)
+		}
+
+		receiver, err := automation_receiver.NewAutomationReceiver(
+			common.HexToAddress(input.AutomationReceiverAddress),
+			chain.Client,
+		)
+		if err != nil {
+			return TransferAutomationReceiverOwnershipOutput{}, fmt.Errorf("failed to instantiate AutomationReceiver at %s: %w", input.AutomationReceiverAddress, err)
+		}
+
+		b.Logger.Infow("Transferring AutomationReceiver ownership to Timelock",
+			"chainSelector", input.ChainSelector,
+			"automationReceiverAddress", input.AutomationReceiverAddress,
+			"timelockAddress", input.TimelockAddress,
+		)
+
+		tx, err := receiver.TransferOwnership(
+			chain.DeployerKey,
+			common.HexToAddress(input.TimelockAddress),
+		)
+		if err != nil {
+			return TransferAutomationReceiverOwnershipOutput{}, fmt.Errorf("failed to transfer AutomationReceiver ownership: %w", err)
+		}
+
+		if _, err := chain.Confirm(tx); err != nil {
+			return TransferAutomationReceiverOwnershipOutput{}, fmt.Errorf("failed to confirm ownership transfer tx %s: %w", tx.Hash().Hex(), err)
+		}
+
+		b.Logger.Infow("AutomationReceiver ownership transferred successfully",
+			"chainSelector", input.ChainSelector,
+			"timelockAddress", input.TimelockAddress,
+			"txHash", tx.Hash().Hex(),
+		)
+
+		return TransferAutomationReceiverOwnershipOutput{
+			ChainSelector: input.ChainSelector,
+			TxHash:        tx.Hash().Hex(),
+		}, nil
 	},
 )
 
