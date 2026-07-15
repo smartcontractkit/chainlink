@@ -108,6 +108,7 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 }
 
 func TestStandardCapabilities_InitialiseDependenciesRoundTrip(t *testing.T) {
+	t.Parallel()
 	want := core.StandardCapabilitiesDependencies{
 		Config: "test-config",
 	}
@@ -131,7 +132,9 @@ func TestStandardCapabilities_InitialiseDependenciesRoundTrip(t *testing.T) {
 // falls back to the consumer workflow's DON for metering identity and event
 // labels even when the node knows which DON it is serving.
 func TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP(t *testing.T) {
+	t.Parallel()
 	t.Run("nonzero DON ID round-trips when the DON is known", func(t *testing.T) {
+		t.Parallel()
 		const knownDonID = uint32(42)
 		std := NewStandardCapabilities(
 			logger.TestLogger(t),
@@ -148,6 +151,7 @@ func TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP(t *testing.T) {
 	})
 
 	t.Run("zero DON ID is preserved when the host could not resolve one", func(t *testing.T) {
+		t.Parallel()
 		std := NewStandardCapabilities(
 			logger.TestLogger(t),
 			"not/found/path/to/binary",

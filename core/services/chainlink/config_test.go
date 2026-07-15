@@ -582,14 +582,14 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.Metering = toml.Metering{
-		MeterRecordsEnabled:   ptr(true),
-		MeterSnapshotsEnabled: ptr(true),
-		Product:               ptr("cre"),
-		Tenant:                ptr("mainline"),
-		NumericTenantID:       ptr("42"),
-		Environment:           ptr("production"),
-		Zone:                  ptr("wf-zone-a"),
-		NodeID:                ptr("clp-cre-wf-zone-a-1"),
+		MeterRecordsEnabled:   new(true),
+		MeterSnapshotsEnabled: new(true),
+		Product:               new("cre"),
+		Tenant:                new("mainline"),
+		NumericTenantID:       new("42"),
+		Environment:           new("production"),
+		Zone:                  new("wf-zone-a"),
+		NodeID:                new("clp-cre-wf-zone-a-1"),
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: ptr(true),

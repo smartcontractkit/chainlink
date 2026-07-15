@@ -9,7 +9,9 @@ import (
 )
 
 func TestMeteringConfig(t *testing.T) {
+	t.Parallel()
 	t.Run("defaults", func(t *testing.T) {
+		t.Parallel()
 		mc := meteringConfig{s: toml.Metering{}}
 		assert.False(t, mc.MeterRecordsEnabled())
 		assert.False(t, mc.MeterSnapshotsEnabled())
@@ -25,15 +27,16 @@ func TestMeteringConfig(t *testing.T) {
 	})
 
 	t.Run("explicit values", func(t *testing.T) {
+		t.Parallel()
 		mc := meteringConfig{s: toml.Metering{
-			MeterRecordsEnabled:   ptr(true),
-			MeterSnapshotsEnabled: ptr(true),
-			Product:               ptr("cre"),
-			Tenant:                ptr("mainline"),
-			NumericTenantID:       ptr("42"),
-			Environment:           ptr("production"),
-			Zone:                  ptr("wf-zone-a"),
-			NodeID:                ptr("clp-cre-wf-zone-a-1"),
+			MeterRecordsEnabled:   new(true),
+			MeterSnapshotsEnabled: new(true),
+			Product:               new("cre"),
+			Tenant:                new("mainline"),
+			NumericTenantID:       new("42"),
+			Environment:           new("production"),
+			Zone:                  new("wf-zone-a"),
+			NodeID:                new("clp-cre-wf-zone-a-1"),
 		}}
 		assert.True(t, mc.MeterRecordsEnabled())
 		assert.True(t, mc.MeterSnapshotsEnabled())
