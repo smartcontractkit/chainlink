@@ -1,5 +1,4 @@
-# Installs the Soroban toolchain and prepares a writable chainlink-stellar
-# checkout for Local CRE Stellar tests (Aptos-style: compile contracts at runtime).
+# Installs the Soroban toolchain and prepares a chainlink-stellar checkout for Local CRE Stellar tests to compile contracts at runtime.
 name: Setup Stellar CRE contracts
 description: >
   Install Rust + stellar CLI and set STELLAR_CONTRACTS_SOURCE_DIR to a writable
