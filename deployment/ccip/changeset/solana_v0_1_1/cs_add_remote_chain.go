@@ -120,8 +120,8 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 
 	// create proposals for ixns
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -367,8 +367,8 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 
 	// create proposals for ixns
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -565,8 +565,8 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 
 	// create proposals for ixns
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to add remote chains to Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

@@ -30,18 +30,21 @@ import (
 //     makes that inequality fail sooner as TTL decays, so the stream becomes a refresh driver earlier after each write
 //     (higher freshness, more pipeline work); a smaller threshold lengthens the no-driver interval (staler reads, less load).
 //   - Keep staleRefreshSkipThreshold(T)+observationLoopPacing(T) < cacheEntryTTL(T) (same T throughout). With
-//     num/den = 6/4 (= 3/2·T stale) and divisor 2 (raw T/2 pacing), observationLoopPacing caps at (cacheEntryTTL−stale−1ns)
-//     so the strict inequality holds (same cap whenever raw T/divisor would exceed that budget).
+//     num/den = 6/5 (= 6/5·T stale) and divisor 2 (raw T/2 pacing), the invariant cap is (cacheEntryTTL−stale−1ns) =
+//     4/5·T − 1ns, which exceeds raw T/2, so pacing is bounded by T/2 (not the invariant) and the strict inequality
+//     holds with slack (6/5·T + T/2 = 17/10·T < 2·T).
 //
-// Example timings for observationTimeout T = 250ms (cacheTTLMultiplier=2, pacing divisor=2, staleRefresh num/den = 6/4):
+// Example timings for observationTimeout T = 250ms (cacheTTLMultiplier=2, pacing divisor=2, staleRefresh num/den = 6/5):
 //   - cacheEntryTTL = 2·T = 500ms — TTL applied on successful per-pipeline-group AddMany writes.
-//   - staleRefreshSkipThreshold = (6/4)·T = 375ms — a stream in the plugin scope is not a refresh driver while time.Until(expiresAt) > 375ms.
-//   - observationLoopPacing targets T/2 = 125ms and is capped to (2−6/4)·T − 1ns = 125ms − 1ns (≥ observationLoopPacingFloor and ≤ min(T/2, that cap)) — minimum delay between loop iterations after the first (plugin Observe may wake the loop earlier; see loopWakeCh).
+//   - staleRefreshSkipThreshold = (6/5)·T = 300ms — a stream in the plugin scope is not a refresh driver while time.Until(expiresAt) > 300ms.
+//     Steady-state refresh interval per stream = cacheEntryTTL − staleRefreshSkipThreshold = (2 − 6/5)·T = 4/5·T = 200ms.
+//   - observationLoopPacing targets T/2 = 125ms and is bounded by min(T/2, (2−6/5)·T − 1ns) = min(125ms, 200ms − 1ns) = 125ms
+//     (≥ observationLoopPacingFloor) — minimum delay between loop iterations after the first (plugin Observe may wake the loop earlier; see loopWakeCh).
 //   - per-iteration context uses WithTimeout(..., T) = 250ms — ceiling on wall time for one observation loop iteration (pipeline workers run in parallel under that deadline).
 const (
 	cacheTTLMultiplier                     = 2
 	staleRefreshRemainingNumerator   int64 = 6
-	staleRefreshRemainingDenominator int64 = 4
+	staleRefreshRemainingDenominator int64 = 5
 
 	observationLoopPacingFloor   = 10 * time.Millisecond
 	observationLoopPacingDivisor = 2 // pacing targets T/2, capped below by cache invariant
