@@ -5,13 +5,6 @@ go 1.26.4
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
-// Local development replaces for the delta-based metering redesign, kept
-// consistent with the root module. The maintainer drops these and bumps the
-// module pins at merge time.
-replace github.com/smartcontractkit/chainlink-common => ../../chainlink-common
-
-replace github.com/smartcontractkit/chainlink-protos/metering/go => ../../chainlink-protos/metering/go
-
 // chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
 // (pulled in transitively by mcms v0.47.x). Pin to the version the rest of the repo uses.
 replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
