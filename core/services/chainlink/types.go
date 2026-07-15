@@ -28,5 +28,6 @@ type ImportedSecretConfig interface {
 	ImportedEthKeys() coreconfig.ImportableChainKeyLister
 	ImportedSolKeys() coreconfig.ImportableChainKeyLister
 	ImportedAptosKeys() coreconfig.ImportableChainKeyLister
+	ImportedStellarKeys() coreconfig.ImportableChainKeyLister
 	ImportedDKGRecipientKey() coreconfig.ImportableKey
 }

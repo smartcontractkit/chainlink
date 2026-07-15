@@ -1,6 +1,9 @@
 package fakes
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	confidentialhttp "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialhttp"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
@@ -82,4 +87,29 @@ secretsNames:
 	require.True(t, ok)
 	require.Len(t, secrets, 1)
 	assert.Equal(t, "MISSING_ENV_VAR", secrets[0])
+}
+
+func TestDirectConfidentialHTTPAction_Redirects(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/somewhere-else", http.StatusFound)
+	}))
+	t.Cleanup(srv.Close)
+
+	lggr := logger.Test(t)
+	action := NewDirectConfidentialHTTPAction(lggr, filepath.Join(t.TempDir(), "secrets.yaml"))
+
+	input := &confidentialhttp.ConfidentialHTTPRequest{
+		Request: &confidentialhttp.HTTPRequest{
+			Url:    srv.URL,
+			Method: "GET",
+		},
+	}
+
+	result, err := action.SendRequest(context.Background(), commonCap.RequestMetadata{}, input)
+	require.Error(t, err)
+	assert.Equal(t, caperrors.InvalidArgument, err.Code())
+	assert.Contains(t, err.Error(), "redirects are not allowed")
+	assert.Nil(t, result)
 }

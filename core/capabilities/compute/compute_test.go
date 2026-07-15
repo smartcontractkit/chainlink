@@ -1,8 +1,5 @@
 package compute
 
-//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/capabilities/compute/test/simple/cmd
-//go:generate go run ../../internal/testutils/wasmtest/generator/main.go -pkg core/capabilities/compute/test/fetch/cmd
-
 import (
 	"context"
 	"encoding/json"

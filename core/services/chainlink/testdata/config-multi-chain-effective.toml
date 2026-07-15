@@ -350,7 +350,10 @@ AuthHeadersTTL = '0s'
 ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
 ChipIngressBatchEmitterEnabled = true
-DurableEmitterEnabled = false
+DurableEmitterEnabled = true
+DurableEmitterRetransmitBatchSize = 500
+DurableEmitterEventTTL = '1h0m0s'
+DurableEmitterMaxQueuePayloadBytes = 1073741824
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false
@@ -557,7 +560,6 @@ FinalityDepth = 50
 SafeDepth = 0
 FinalityTagEnabled = false
 SafeTagSupported = true
-LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
 LogPollerSkipEmptyBlocks = false
@@ -565,10 +567,9 @@ LogKeepBlocksDepth = 100000
 LogPrunePageSize = 0
 BackupLogPollerBlockDelay = 100
 MinIncomingConfirmations = 3
-MinContractPayment = '0.1 link'
+MinContractPayment = '0.00001 link'
 NonceAutoSync = true
 NoNewHeadsThreshold = '3m0s'
-OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
 LogBroadcasterEnabled = true
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
@@ -614,10 +615,10 @@ TipCapMin = '1 wei'
 
 [EVM.GasEstimator.BlockHistory]
 BatchSize = 25
-BlockHistorySize = 4
+BlockHistorySize = 8
 CheckInclusionBlocks = 12
 CheckInclusionPercentile = 90
-TransactionPercentile = 50
+TransactionPercentile = 60
 
 [EVM.GasEstimator.FeeHistory]
 CacheTimeout = '10s'
