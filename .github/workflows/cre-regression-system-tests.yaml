@@ -118,7 +118,7 @@ jobs:
     # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
     runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{
       github.run_attempt
-      }}/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+      }}/cpu=16/ram=64/family=m6i+m5.*/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     environment:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
       name: integration
