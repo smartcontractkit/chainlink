@@ -22,7 +22,7 @@ Setup:
 
 <constraints>
 - OOM/Out of Disk Space failures are NEVER acceptable.
-- Prefer default `ubuntu-latest`. Use `runs-on` for more resources.
+- Default `ubuntu-latest` (4 cores/16 GB RAM) for smaller jobs. Use `runs-on` for anything needing more resources.
 - Validate runner config via available runners API before use.
 - Use `gh` CLI for workflow execution and PRs.
 - Only change one variable per trial to accurately assess its impact.
