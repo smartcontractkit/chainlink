@@ -1822,10 +1822,10 @@ github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc
 github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1/go.mod h1:wi1QdXqhSJnADt9YRaRtEWomqknLcrdkTS0JotupuOQ=
 github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1 h1:/xvuNFI7DwOoTQnmAdYPDdY+sConn3RgZ2rMy/8AXlo=
 github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1/go.mod h1:lQK+YvR9Ox0ft72k0se7DlA+kujVWyjFQXG3DLbEZ/4=
-github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260714222251-887c274c6b64 h1:dGs6qOPPgepiBsJ0Kq+EZTK6NwVCvrRNei0cf5G3IRc=
-github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260714222251-887c274c6b64/go.mod h1:1UikvX2MSx7FuuXK/sRxLPWjIkC63GWDhIfqJChrBVM=
-github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260714222251-887c274c6b64 h1:8w2inGn4VZTEOC4l0qmsm6OhrWRYGNVBWRwMdb03+eU=
-github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260714222251-887c274c6b64/go.mod h1:uZEMU0BN48tmRP/Hu+RdnM70g17pgAv4s/Nux7asr2U=
+github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260715110321-639a13f1a3c0 h1:r0v/yDDSI7tmdGHgV/zJnAZgqLj3yjryzAlLHL7WfWQ=
+github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260715110321-639a13f1a3c0/go.mod h1:tKo579fgK2jBd9uZtyHlmSBvEnu1K7m0M42G1l3yIXc=
+github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260715110321-639a13f1a3c0 h1:VxxC2f6Y9sVjQyq/1AivQvVVOiqMbJJqvQqqIZxMuxU=
+github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260715110321-639a13f1a3c0/go.mod h1:uZEMU0BN48tmRP/Hu+RdnM70g17pgAv4s/Nux7asr2U=
 github.com/smartcontractkit/chainlink-sui v0.0.0-20260714190119-005bb9a612c3 h1:bI9pXgfGOhS+tPGjPkpos3nuGE/5Xfw8X0MQHi+0EcU=
 github.com/smartcontractkit/chainlink-sui v0.0.0-20260714190119-005bb9a612c3/go.mod h1:6FWUSAXA58d0c9AyOi/1zymX40/67czcDR1SGZt/BKg=
 github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 h1:3R9f6pguDIjei+nKx5dUT9j6fX8urGmlZA7Ad3x9UBs=
