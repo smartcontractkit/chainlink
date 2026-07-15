@@ -70,10 +70,11 @@ func (t *ParallelExecutor) ExecuteTask(ctx context.Context, fn func(ctx context.
 		t.recordSlotUsage(ctx)
 		stopped := !t.IfNotStopped(func() {
 			t.wg.Go(func() {
-				ctxWithStop, _ := t.stopChan.Ctx(ctx)
+				ctxWithStop, cancel := t.stopChan.Ctx(ctx)
 				defer func() {
 					<-t.taskSemaphore
 					t.recordSlotUsage(ctxWithStop)
+					cancel()
 				}()
 				fn(ctxWithStop)
 			})
