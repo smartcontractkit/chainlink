@@ -26,6 +26,9 @@ Setup:
 - Validate runner config via available runners API before use.
 - Use `gh` CLI for workflow execution and PRs.
 - Only change one variable per trial to accurately assess its impact.
+- Always compare Apples to Apples
+   - If looking to optimize speed when caching isn't a factor, ensure that cache hits on one trial do not unfairly advantage it over another trial.
+   - Always document the exact runner configuration used for each trial to maintain reproducibility.
 </constraints>
 
 <resources>
