@@ -63,6 +63,20 @@ func Test_verifyCentralizedOwnerOrgMapping(t *testing.T) {
 		assert.GreaterOrEqual(t, entries[0].Level, zapcore.ErrorLevel)
 	})
 
+	t.Run("empty organization ID fails closed without deriving", func(t *testing.T) {
+		t.Parallel()
+		lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
+
+		err := verifyCentralizedOwnerOrgMapping(lggr, "grpc:my-source:v1", matchingOwner, "", testTenantID)
+
+		require.Error(t, err)
+		require.ErrorIs(t, err, ErrCentralizedOwnerOrgMismatch)
+		// It should not emit the mismatch critical (no derivation happened)...
+		assert.Empty(t, logs.FilterMessage(criticalMismatchMsg).All())
+		// ...but should log the distinct missing-org critical.
+		assert.NotEmpty(t, logs.FilterMessageSnippet("did not provide an organization ID").All())
+	})
+
 	t.Run("configured tenantID is used for derivation", func(t *testing.T) {
 		t.Parallel()
 		lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
@@ -91,7 +105,9 @@ func Test_isCentralizedWorkflowSource(t *testing.T) {
 	t.Parallel()
 
 	assert.True(t, isCentralizedWorkflowSource("grpc:my-source:v1"))
-	assert.True(t, isCentralizedWorkflowSource("file:local:v1"))
+	// The local file source is a dev/test mechanism and is not subject to owner/org
+	// verification.
+	assert.False(t, isCentralizedWorkflowSource("file:local:v1"))
 	assert.False(t, isCentralizedWorkflowSource("contract:123:0xabc"))
 	assert.False(t, isCentralizedWorkflowSource(""))
 }

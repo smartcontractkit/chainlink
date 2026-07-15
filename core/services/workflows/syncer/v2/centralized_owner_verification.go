@@ -35,11 +35,14 @@ func tenantIDFromSettings(ctx context.Context, getter settings.Getter) (uint64, 
 	return tenantID, nil
 }
 
-// isCentralizedWorkflowSource reports whether workflow metadata originated from a
-// centralized / off-chain source (gRPC workflow registry or local file source), as
-// opposed to the on-chain workflow registry contract (source prefix "contract:").
+// isCentralizedWorkflowSource reports whether workflow metadata originated from the
+// centralized (remote) gRPC workflow registry, as opposed to the on-chain workflow
+// registry contract (source prefix "contract:") or the local file source (source
+// prefix "file:"). Owner/org verification only applies to the remote gRPC registry:
+// the file source is an operator-local dev/test mechanism with no organization ID to
+// verify against, and its contents are written by the node operator directly.
 func isCentralizedWorkflowSource(source string) bool {
-	return strings.HasPrefix(source, "grpc:") || strings.HasPrefix(source, "file:")
+	return strings.HasPrefix(source, "grpc:")
 }
 
 // verifyCentralizedOwnerOrgMapping checks that a workflow owner claimed by a
@@ -47,6 +50,20 @@ func isCentralizedWorkflowSource(source string) bool {
 // CRE workflow owners are deterministically derived from (tenantID, orgID) via
 // workflows.GenerateWorkflowOwnerAddress.
 func verifyCentralizedOwnerOrgMapping(lggr logger.Logger, source, ownerHex, orgID string, tenantID uint64) error {
+	if strings.TrimSpace(orgID) == "" {
+		// Verification is enabled but the centralized source provided no organization ID,
+		// so ownership cannot be verified. Fail closed rather than deriving an owner from an
+		// empty org (which would surface as a misleading owner mismatch), and avoid letting a
+		// source bypass verification by simply omitting the organization ID.
+		logger.Sugared(lggr).Criticalw(
+			"centralized workflow source did not provide an organization ID; cannot verify workflow owner",
+			"source", source,
+			"claimedWorkflowOwner", ownerHex,
+			"tenantID", tenantID,
+		)
+		return fmt.Errorf("%w: source=%s claimedOwner=%s: missing organization ID", ErrCentralizedOwnerOrgMismatch, source, ownerHex)
+	}
+
 	derived, err := pkgworkflows.GenerateWorkflowOwnerAddress(strconv.FormatUint(tenantID, 10), orgID)
 	if err != nil {
 		return fmt.Errorf("failed to derive expected workflow owner for centralized source: %w", err)
