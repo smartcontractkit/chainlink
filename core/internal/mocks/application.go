@@ -1084,6 +1084,55 @@ func (_c *Application_JobSpawner_Call) RunAndReturn(run func() job.Spawner) *App
 	return _c
 }
 
+// LPSkipToBlock provides a mock function with given fields: ctx, chainFamily, chainID, blockNumber
+func (_m *Application) LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error {
+	ret := _m.Called(ctx, chainFamily, chainID, blockNumber)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LPSkipToBlock")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, int64) error); ok {
+		r0 = rf(ctx, chainFamily, chainID, blockNumber)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Application_LPSkipToBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LPSkipToBlock'
+type Application_LPSkipToBlock_Call struct {
+	*mock.Call
+}
+
+// LPSkipToBlock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chainFamily string
+//   - chainID string
+//   - blockNumber int64
+func (_e *Application_Expecter) LPSkipToBlock(ctx interface{}, chainFamily interface{}, chainID interface{}, blockNumber interface{}) *Application_LPSkipToBlock_Call {
+	return &Application_LPSkipToBlock_Call{Call: _e.mock.On("LPSkipToBlock", ctx, chainFamily, chainID, blockNumber)}
+}
+
+func (_c *Application_LPSkipToBlock_Call) Run(run func(ctx context.Context, chainFamily string, chainID string, blockNumber int64)) *Application_LPSkipToBlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(int64))
+	})
+	return _c
+}
+
+func (_c *Application_LPSkipToBlock_Call) Return(_a0 error) *Application_LPSkipToBlock_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_LPSkipToBlock_Call) RunAndReturn(run func(context.Context, string, string, int64) error) *Application_LPSkipToBlock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PipelineORM provides a mock function with no fields
 func (_m *Application) PipelineORM() pipeline.ORM {
 	ret := _m.Called()

@@ -41,6 +41,14 @@ func (d deployAutomationReceiver) VerifyPreconditions(env cldf.Environment, conf
 				return fmt.Errorf("chain %d: invalid selector %q: %w", chainSelector, chainCfg.Selector, err)
 			}
 		}
+		if (chainCfg.ExpectedAuthor != "") != (chainCfg.ExpectedWorkflowName != "") {
+			return fmt.Errorf("chain %d: expectedAuthor and expectedWorkflowName must be set together", chainSelector)
+		}
+		if chainCfg.ExpectedAuthor != "" {
+			if err := validateEthAddress("expectedAuthor", chainCfg.ExpectedAuthor); err != nil {
+				return fmt.Errorf("chain %d: %w", chainSelector, err)
+			}
+		}
 	}
 	return nil
 }
@@ -149,6 +157,20 @@ var DeployAutomationReceiverSequence = operations.NewSequence(
 			})
 			if err != nil {
 				return DeployAutomationReceiverSequenceOutput{}, fmt.Errorf("chain %d: setCallAllowed failed: %w", chainSelector, err)
+			}
+
+			// Optionally lock the receiver's inbound identity guard while the deployer still owns
+			// the contract (before ownership is transferred to the Timelock below).
+			if chainCfg.ExpectedAuthor != "" && chainCfg.ExpectedWorkflowName != "" {
+				_, err = operations.ExecuteOperation(b, SetExpectedWorkflowIdentityOperation, deps, SetExpectedWorkflowIdentityOperationInput{
+					ChainSelector:             chainSelector,
+					AutomationReceiverAddress: arAddress,
+					ExpectedAuthor:            chainCfg.ExpectedAuthor,
+					ExpectedWorkflowName:      chainCfg.ExpectedWorkflowName,
+				})
+				if err != nil {
+					return DeployAutomationReceiverSequenceOutput{}, fmt.Errorf("chain %d: setExpectedWorkflowIdentity failed: %w", chainSelector, err)
+				}
 			}
 
 			_, err = operations.ExecuteOperation(b, TransferAutomationReceiverOwnershipOperation, deps, TransferAutomationReceiverOwnershipInput{
