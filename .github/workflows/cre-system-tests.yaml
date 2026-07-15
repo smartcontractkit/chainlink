@@ -106,10 +106,7 @@ jobs:
             "Test_CRE_V2_Aptos_Suite": [
                {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
              ],
-            "Test_CRE_V2_Stellar_Read_LatestLedger": [
-               {"topology":"workflow-gateway-stellar","configs":"configs/workflow-gateway-don-stellar.toml"}
-             ],
-            "Test_CRE_V2_Stellar_Read_Contract": [
+            "Test_CRE_V2_Stellar_Read_Suite": [
                {"topology":"workflow-gateway-stellar","configs":"configs/workflow-gateway-don-stellar.toml"}
              ],
             "Test_CRE_V2_Solana_Write": [

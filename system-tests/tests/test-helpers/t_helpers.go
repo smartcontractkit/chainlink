@@ -767,48 +767,6 @@ func isWorkflowNotFound(err error) bool {
 	return err != nil && strings.Contains(strings.ToLower(err.Error()), "not found")
 }
 
-// DeleteWorkflowFromRegistry eagerly deletes a workflow from the Workflow Registry by name
-// so a passing test can stop the DON from re-running it (e.g. leftover cron fires) before the
-// next case starts, instead of waiting for the t.Cleanup registered by CompileAndDeployWorkflow.
-//
-// It is idempotent: a missing workflow is treated as success, so it composes safely with that
-// cleanup (which is also now not-found-tolerant). It only removes the on-chain registry entry;
-// local artifacts are removed by the cleanup path. Call it AFTER assertions pass so the log sink
-// has drained the workflow's output.
-func DeleteWorkflowFromRegistry(t *testing.T, testEnv *ttypes.TestEnvironment, workflowName string) {
-	t.Helper()
-	testLogger := framework.L
-
-	registryAddr := crecontracts.MustGetAddressRefFromDataStore(
-		testEnv.CreEnvironment.CldfEnvironment.DataStore,
-		testEnv.CreEnvironment.Blockchains[0].ChainSelector(),
-		keystone_changeset.WorkflowRegistry.String(),
-		testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
-		"",
-	)
-	sethClient := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
-
-	deleteWorkflowsMu.Lock()
-	defer deleteWorkflowsMu.Unlock()
-
-	retryErr := retry.Do(func() error {
-		return creworkflow.DeleteWithContract(t.Context(), sethClient, common.HexToAddress(registryAddr.Address), registryAddr.Version, workflowName)
-	}, retry.Attempts(3), retry.Delay(1*time.Second), retry.DelayType(retry.BackOffDelay), retry.RetryIf(func(err error) bool {
-		return strings.Contains(err.Error(), ReentrancySentryOOGError)
-	}), retry.OnRetry(func(n uint, err error) {
-		testLogger.Error().Msgf("Error eagerly deleting workflow '%s': %s", workflowName, err.Error())
-	}))
-
-	if retryErr != nil {
-		if isWorkflowNotFound(retryErr) {
-			testLogger.Info().Msgf("Workflow '%s' already absent from registry (eager delete no-op).", workflowName)
-			return
-		}
-		require.NoError(t, retryErr, "failed to eagerly delete workflow '%s'", workflowName)
-	}
-	testLogger.Info().Msgf("Workflow '%s' eagerly deleted from registry.", workflowName)
-}
-
 func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, workflowName string,
 	workflowConfig *T, workflowFileLocation string,

@@ -59,7 +59,5 @@ func Test_CRE_V2_Stellar_ReadContract_Regression(t *testing.T) {
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, scenarioEnv, lggr, workflowName, &workflowConfig, stellarReadWorkflowFile)
 		t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectLogReadContractBatchOK, t_helpers.StellarWorkflowTimeout, t_helpers.WithUserLogWorkflowID(workflowID))
 		lggr.Info().Int("cases", len(negatives)).Str("expected_log", expectLogReadContractBatchOK).Msg("Stellar ReadContract negative regression passed")
-
-		t_helpers.DeleteWorkflowFromRegistry(t, scenarioEnv, workflowName)
 	})
 }

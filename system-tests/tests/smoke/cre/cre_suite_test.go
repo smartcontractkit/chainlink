@@ -272,22 +272,19 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 }
 
 //nolint:paralleltest // isolate local cre env run
-func Test_CRE_V2_Stellar_Read_LatestLedger(t *testing.T) {
+func Test_CRE_V2_Stellar_Read_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
-	t.Run("StellarReadLatestLedger", func(t *testing.T) {
-		executeStellarScenarios(t, testEnv, []stellarScenario{
-			{name: "Stellar GetLatestLedger", run: ExecuteStellarReadLatestLedgerTest},
-		})
-	})
-}
 
-//nolint:paralleltest // isolate local cre env run
-func Test_CRE_V2_Stellar_Read_Contract(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
-	t.Run("StellarReadContract", func(t *testing.T) {
-		executeStellarScenarios(t, testEnv, []stellarScenario{
-			{name: "Stellar ReadContract", run: ExecuteStellarReadContractSmokeTest},
-		})
+	t.Run("Stellar GetLatestLedger", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarReadLatestLedgerTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
+
+	t.Run("Stellar ReadContract", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarReadContractSmokeTest(t, env, chain, userLogsCh, baseMessageCh)
 	})
 }
 

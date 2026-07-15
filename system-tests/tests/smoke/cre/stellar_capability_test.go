@@ -36,19 +36,8 @@ const (
 	tripleRIDHex  = "abcd"
 )
 
-type stellarScenario struct {
-	name string
-	run  func(
-		t *testing.T,
-		tenv *configuration.TestEnvironment,
-		stellarChain blockchains.Blockchain,
-		userLogsCh <-chan *workflowevents.UserLogs,
-		baseMessageCh <-chan *commonevents.BaseMessage,
-	)
-}
-
-// ExecuteStellarReadLatestLedgerTest exercises GetLatestLedger consensus (its own workflow).
-func ExecuteStellarReadLatestLedgerTest(
+// executeStellarReadLatestLedgerTest exercises GetLatestLedger consensus (its own workflow).
+func executeStellarReadLatestLedgerTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	stellarChain blockchains.Blockchain,
@@ -69,8 +58,8 @@ func ExecuteStellarReadLatestLedgerTest(
 	lggr.Info().Str("expected_log", expectLogLatestLedgerOK).Msg("Stellar GetLatestLedger capability test passed")
 }
 
-// ExecuteStellarReadContractSmokeTest deploys the fixture and runs every happy-path ReadContract case in a single workflow trigger.
-func ExecuteStellarReadContractSmokeTest(
+// executeStellarReadContractSmokeTest deploys the fixture and runs every happy-path ReadContract case in a single workflow trigger.
+func executeStellarReadContractSmokeTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	stellarChain blockchains.Blockchain,
@@ -150,25 +139,25 @@ func ExecuteStellarReadContractSmokeTest(
 	workflowID := thelpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, stellarReadWorkflowFile)
 	thelpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, thelpers.WorkflowEngineInitErrorLog, expectLogReadContractBatchOK, thelpers.StellarWorkflowTimeout, thelpers.WithUserLogWorkflowID(workflowID))
 	lggr.Info().Int("cases", len(steps)).Str("expected_log", expectLogReadContractBatchOK).Msg("Stellar ReadContract capability test passed")
-
-	thelpers.DeleteWorkflowFromRegistry(t, tenv, workflowName)
 }
 
-func executeStellarScenarios(t *testing.T, tenv *configuration.TestEnvironment, scenarios []stellarScenario) {
-	_ = thelpers.MustStellarChainInEnv(t, tenv) // fail fast before spinning scenarios
-	lggr := framework.L
+// setupStellarScenario provisions an isolated per-test context for a Stellar read scenario:
+// its own funded keys (SetupTestEnvironmentWithPerTestKeys), the resolved Stellar chain, and a
+// chip sink capturing that scenario's workflow logs. Call it at the top of each scenario subtest.
+func setupStellarScenario(t *testing.T, tenv *configuration.TestEnvironment) (
+	*configuration.TestEnvironment,
+	blockchains.Blockchain,
+	<-chan *workflowevents.UserLogs,
+	<-chan *commonevents.BaseMessage,
+) {
+	t.Helper()
+	scenarioEnv := thelpers.SetupTestEnvironmentWithPerTestKeys(t, tenv.TestConfig)
+	scenarioChain := thelpers.MustStellarChainInEnv(t, scenarioEnv)
 
-	for _, scenario := range scenarios {
-		t.Run(scenario.name, func(t *testing.T) {
-			scenarioEnv := thelpers.SetupTestEnvironmentWithPerTestKeys(t, tenv.TestConfig)
-			scenarioChain := thelpers.MustStellarChainInEnv(t, scenarioEnv)
-
-			logPath := thelpers.LogFilePath("stellar", t.Name())
-			userLogsCh, baseMessageCh := thelpers.StartChipTestSinkWithLogging(t, logPath)
-			lggr.Info().Str("scenario", scenario.name).Str("log_file", logPath).Msg("Starting Stellar scenario")
-			scenario.run(t, scenarioEnv, scenarioChain, userLogsCh, baseMessageCh)
-		})
-	}
+	logPath := thelpers.LogFilePath("stellar", t.Name())
+	userLogsCh, baseMessageCh := thelpers.StartChipTestSinkWithLogging(t, logPath)
+	framework.L.Info().Str("scenario", t.Name()).Str("log_file", logPath).Msg("Starting Stellar scenario")
+	return scenarioEnv, scenarioChain, userLogsCh, baseMessageCh
 }
 
 // marshalScVal base64-encodes an already-constructed ScVal; panics on error (test-table data).
