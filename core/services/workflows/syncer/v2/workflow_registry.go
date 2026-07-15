@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
@@ -58,10 +60,6 @@ type WorkflowRegistrySyncer interface {
 	// GetAllowlistedRequests returns the latest list of allowlisted requests. This list is fetched periodically
 	// from the workflow registry contract.
 	GetAllowlistedRequests(ctx context.Context) []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
-
-	// SetTenantID sets the tenant numeric id for the CRE environment. It is sourced
-	// from a job spec (the consensus OCR2 plugin config) and may be set at runtime.
-	SetTenantID(tenantID uint64)
 }
 
 // workflowRegistry is the implementation of the WorkflowRegistrySyncer interface.
@@ -124,6 +122,9 @@ type workflowRegistry struct {
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
 	myShardID       uint32
 	shardingEnabled bool
+
+	centralizedOwnerVerificationEnabled limits.GateLimiter
+	settingsGetter                      settings.Getter
 }
 
 type shardRoutingSteadyObserver interface {
@@ -141,7 +142,6 @@ type evtHandler interface {
 
 	Handle(ctx context.Context, event Event) error
 	EmitActivationAbandoned(ctx context.Context, event Event, reason eventsv2.ActivationAbandonReason, activationErr error, retryCount int32) error
-	SetTenantID(tenantID uint64)
 }
 
 type donNotifier interface {
@@ -196,6 +196,14 @@ type AdditionalSourceConfig struct {
 	JWTGenerator nodeauthjwt.JWTGenerator
 }
 
+// WithCentralizedOwnerVerification configures centralized workflow owner/org verification for GRPC sources.
+func WithCentralizedOwnerVerification(gate limits.GateLimiter, getter settings.Getter) Option {
+	return func(wr *workflowRegistry) {
+		wr.centralizedOwnerVerificationEnabled = gate
+		wr.settingsGetter = getter
+	}
+}
+
 // WithAdditionalSources adds additional workflow sources to the registry.
 // Sources are detected by URL scheme:
 //   - file:// prefix -> FileWorkflowSource (reads from local JSON file)
@@ -229,10 +237,12 @@ func WithAdditionalSources(sources []AdditionalSourceConfig) Option {
 			} else {
 				// GRPC source (default)
 				grpcSource, err := NewGRPCWorkflowSource(wr.lggr, GRPCWorkflowSourceConfig{
-					URL:          src.URL,
-					TLSEnabled:   src.TLSEnabled,
-					Name:         src.Name,
-					JWTGenerator: src.JWTGenerator,
+					URL:                                 src.URL,
+					TLSEnabled:                          src.TLSEnabled,
+					Name:                                src.Name,
+					JWTGenerator:                        src.JWTGenerator,
+					CentralizedOwnerVerificationEnabled: wr.centralizedOwnerVerificationEnabled,
+					SettingsGetter:                      wr.settingsGetter,
 				})
 				if err != nil {
 					wr.lggr.Errorw("Failed to create GRPC workflow source",
@@ -488,11 +498,6 @@ func (w *workflowRegistry) abandonActivation(
 	if err := w.handler.EmitActivationAbandoned(ctx, evt.Event, reason, activationErr, activationRetryCountAsInt32(evt.retryCount)); err != nil {
 		w.lggr.Errorw("failed to emit activation abandoned event", "err", err)
 	}
-}
-
-// SetTenantID forwards the tenant id for the CRE environment to the event handler.
-func (w *workflowRegistry) SetTenantID(tenantID uint64) {
-	w.handler.SetTenantID(tenantID)
 }
 
 // toLocalHead converts a chainlink-common Head to our local Head struct

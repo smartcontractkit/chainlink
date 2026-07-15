@@ -3,10 +3,8 @@ package standardcapabilities
 import (
 	"context"
 	"crypto"
-	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
@@ -40,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities/conversions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-	syncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -69,7 +66,6 @@ type Delegate struct {
 	creSettings             core.SettingsBroadcaster
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
-	workflowRegistrySyncer  syncerV2.WorkflowRegistrySyncer
 	initErr                 error
 
 	isNewlyCreatedJob bool
@@ -102,7 +98,6 @@ func NewDelegate(
 	creSettings core.SettingsBroadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
 	localCfg coreconfig.LocalCapabilities,
-	workflowRegistrySyncer syncerV2.WorkflowRegistrySyncer,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	initErr := registerOptionalMockStreamsTrigger(logger, localCfg, registry)
@@ -130,7 +125,6 @@ func NewDelegate(
 		creSettings:             creSettings,
 		ocrConfigService:        ocrConfigService,
 		localCfg:                localCfg,
-		workflowRegistrySyncer:  workflowRegistrySyncer,
 		initErr:                 initErr,
 		selectorOpts:            opts,
 	}
@@ -152,12 +146,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	command := spec.StandardCapabilitiesSpec.Command
 	configJSON := spec.StandardCapabilitiesSpec.Config
-	if d.workflowRegistrySyncer != nil {
-		if tenantID, ok := parseTenantID(configJSON); ok {
-			d.workflowRegistrySyncer.SetTenantID(tenantID)
-			d.logger.Infow("Configured tenant ID from capability job spec", "tenantID", tenantID, "command", command)
-		}
-	}
 
 	if d.localCfg != nil {
 		capabilityID := conversions.GetCapabilityIDFromCommand(command, configJSON)
@@ -178,25 +166,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	// for event labeling. Carrying the DON ID in the job spec would close that
 	// gap; tracked as a follow-up. See CRE-4409.
 	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, spec.StandardCapabilitiesSpec.OracleFactory, 0)
-}
-
-// parseTenantID extracts tenantID from the consensus capability job spec config. It ignores all other fields so it does not
-// interfere with the capability plugin's own use of the config. The second return value is false when tenantID is
-// absent, zero, or the config cannot be parsed.
-func parseTenantID(configJSON string) (uint64, bool) {
-	if strings.TrimSpace(configJSON) == "" {
-		return 0, false
-	}
-	var c struct {
-		TenantID uint64 `json:"tenantID"`
-	}
-	if err := json.Unmarshal([]byte(configJSON), &c); err != nil {
-		return 0, false
-	}
-	if c.TenantID == 0 {
-		return 0, false
-	}
-	return c.TenantID, true
 }
 
 // NewServices builds the per-job services for a Standard Capabilities LOOP.
