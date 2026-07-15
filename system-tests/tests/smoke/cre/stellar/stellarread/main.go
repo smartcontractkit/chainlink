@@ -78,36 +78,60 @@ func runGetLatestLedger(cfg config.Config, runtime sdk.Runtime, client stellar.C
 	return nil, nil
 }
 
+// pendingCase pairs a case with its in-flight ReadContract promise (or an arg-build error
+// captured before dispatch). promise is nil when argErr is set.
+type pendingCase struct {
+	step    config.ReadContractAsserts
+	promise sdk.Promise[*stellar.ReadContractResponse]
+	argErr  error
+}
+
 // runReadContractBatch runs and asserts every case in cfg.Cases within this single trigger.
 func runReadContractBatch(cfg config.Config, runtime sdk.Runtime, client stellar.Client) (any, error) {
 	if len(cfg.Cases) == 0 {
 		runtime.Logger().Info("Stellar ReadContract failed: no cases provided", "workflow", cfg.WorkflowName)
 		return nil, errors.New("no ReadContract cases provided")
 	}
-	for _, step := range cfg.Cases {
-		if err := runReadContractStep(step, cfg.SourceAccount, runtime, client); err != nil {
-			runtime.Logger().Info("Stellar ReadContract case failed", "case", step.Name, "workflow", cfg.WorkflowName, "err", err.Error())
-			return nil, fmt.Errorf("case %q: %w", step.Name, err)
+
+	pending := make([]pendingCase, len(cfg.Cases))
+	for i, step := range cfg.Cases {
+		args, err := buildArgs(step)
+		if err != nil {
+			pending[i] = pendingCase{step: step, argErr: fmt.Errorf("bad args: %w", err)}
+			continue
 		}
-		runtime.Logger().Info("Stellar ReadContract case passed", "case", step.Name, "function", step.Function, "workflow", cfg.WorkflowName)
+		pending[i] = pendingCase{
+			step: step,
+			promise: client.ReadContract(runtime, &stellar.ReadContractRequest{
+				ContractId:    step.ContractID,
+				Function:      step.Function,
+				Args:          args,
+				SourceAccount: cfg.SourceAccount,
+			}),
+		}
+	}
+
+	for _, p := range pending {
+		if err := assertReadContractCase(p); err != nil {
+			runtime.Logger().Info("Stellar ReadContract case failed", "case", p.step.Name, "workflow", cfg.WorkflowName, "err", err.Error())
+			return nil, fmt.Errorf("case %q: %w", p.step.Name, err)
+		}
+		runtime.Logger().Info("Stellar ReadContract case passed", "case", p.step.Name, "function", p.step.Function, "workflow", cfg.WorkflowName)
 	}
 	runtime.Logger().Info(readContractBatchPassedLog, "cases", len(cfg.Cases), "workflow", cfg.WorkflowName)
 	return nil, nil
 }
 
-// runReadContractStep executes one ReadContract call and asserts it against the step's expectation.
-// Returns nil on success, or a descriptive error on any deviation.
-func runReadContractStep(step config.ReadContractAsserts, sourceAccount string, runtime sdk.Runtime, client stellar.Client) error {
-	args, err := buildArgs(step)
-	if err != nil {
-		return fmt.Errorf("bad args: %w", err)
+// assertReadContractCase awaits one dispatched ReadContract call and asserts it against the
+// case's expectation. Returns nil on success, or a descriptive error on any deviation.
+func assertReadContractCase(p pendingCase) error {
+	step := p.step
+	// A bad-args error is a hard failure even for ExpectError cases: it means the test
+	// itself is malformed, not that the contract rejected the call.
+	if p.argErr != nil {
+		return p.argErr
 	}
-	reply, err := client.ReadContract(runtime, &stellar.ReadContractRequest{
-		ContractId:    step.ContractID,
-		Function:      step.Function,
-		Args:          args,
-		SourceAccount: sourceAccount,
-	}).Await()
+	reply, err := p.promise.Await()
 
 	if step.ExpectError {
 		switch {
