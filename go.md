@@ -35,7 +35,6 @@ flowchart LR
 	chainlink-automation --> chainlink-common
 	click chainlink-automation href "https://github.com/smartcontractkit/chainlink-automation"
 	chainlink-ccip --> chainlink-common
-	chainlink-ccip --> chainlink-protos/rmn/v1.6/go
 	click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/chains/evm --> ccip-contract-examples/chains/evm
 	chainlink-ccip/chains/evm --> ccip-owner-contracts
@@ -148,8 +147,6 @@ flowchart LR
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/ring/go
 	click chainlink-protos/ring/go href "https://github.com/smartcontractkit/chainlink-protos"
-	chainlink-protos/rmn/v1.6/go
-	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/storage-service
 	click chainlink-protos/storage-service href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/svr
@@ -270,7 +267,6 @@ flowchart LR
 		 chainlink-protos/op-catalog
 		 chainlink-protos/orchestrator
 		 chainlink-protos/ring/go
-		 chainlink-protos/rmn/v1.6/go
 		 chainlink-protos/storage-service
 		 chainlink-protos/svr
 		 chainlink-protos/workflows/go
@@ -347,7 +343,6 @@ flowchart LR
 	chainlink-canton --> chainlink/deployment
 	click chainlink-canton href "https://github.com/smartcontractkit/chainlink-canton"
 	chainlink-ccip --> chainlink-common
-	chainlink-ccip --> chainlink-protos/rmn/v1.6/go
 	click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/chains/evm --> chainlink-ccv/deployment
 	click chainlink-ccip/chains/evm href "https://github.com/smartcontractkit/chainlink-ccip"
@@ -453,8 +448,6 @@ flowchart LR
 	click chainlink-protos/orchestrator href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/ring/go
 	click chainlink-protos/ring/go href "https://github.com/smartcontractkit/chainlink-protos"
-	chainlink-protos/rmn/v1.6/go
-	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/storage-service
 	click chainlink-protos/storage-service href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/svr
@@ -781,7 +774,6 @@ flowchart LR
 		 chainlink-protos/op-catalog
 		 chainlink-protos/orchestrator
 		 chainlink-protos/ring/go
-		 chainlink-protos/rmn/v1.6/go
 		 chainlink-protos/storage-service
 		 chainlink-protos/svr
 		 chainlink-protos/workflows/go
