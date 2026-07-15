@@ -63,13 +63,16 @@ Setup:
 When the user says stop, or all possible experiments have been exhausted:
 
 * Suggest final recommendations.
-* Summarize all findings (cost + speed + stability changes) per workflow/job as table(s) for PR description.
+* Summarize all findings (cost + speed + stability changes) per workflow/job as table(s) for PR description as below format in raw markdown.
 
+```md
 ## [Workflow/Job Name] Runner Changes
+
 | Approach | Runner | Stability | Runtime | Runtime Delta (Abs/%) | Cost | Cost Delta (Abs/%) |
 |---|---|---|---|---|---|---|
 | Old | [original runner before trials] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
 | New | [new runner] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
+```
 
 * Remove all debugs, and make final edits on a new branch after approval, and ask user to commit.
 * Cleanup all trial branches, logs, and PRs.
