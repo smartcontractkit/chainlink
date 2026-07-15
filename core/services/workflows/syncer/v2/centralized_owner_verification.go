@@ -49,6 +49,16 @@ func isCentralizedWorkflowSource(source string) bool {
 // centralized source is consistent with the organization ID. Legitimate centralized
 // CRE workflow owners are deterministically derived from (tenantID, orgID) via
 // workflows.GenerateWorkflowOwnerAddress.
+//
+// This guards against a malicious centralized (gRPC) source claiming an arbitrary
+// workflow owner - in particular an owner that actually belongs to an on-chain
+// registry account - in order to hijack that owner's identity. Because a valid
+// centralized owner must equal the address derived from (tenantID, orgID), and on-chain
+// owners are arbitrary externally-owned/contract addresses that do not lie in this
+// derived space, the derivation cannot be satisfied for an on-chain owner (doing so
+// would require a keccak preimage). The check therefore confines a centralized source
+// to owners within its own derived namespace, making it infeasible to spoof an on-chain
+// owner through the gRPC source.
 func verifyCentralizedOwnerOrgMapping(lggr logger.Logger, source, ownerHex, orgID string, tenantID uint64) error {
 	if strings.TrimSpace(orgID) == "" {
 		// Verification is enabled but the centralized source provided no organization ID,
