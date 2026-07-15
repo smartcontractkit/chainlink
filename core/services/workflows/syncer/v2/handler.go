@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"maps"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -658,33 +656,9 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	owner := hex.EncodeToString(payload.WorkflowOwner)
 	orgID, err := h.fetchOrganizationID(ctx, owner)
 	if err != nil {
-		h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", owner, "error", err)
+		return nil, fmt.Errorf("failed to fetch organization ID: %w", err)
 	}
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: owner, Workflow: wfID})
-
-	// Defense-in-depth against centralized workflow source owner spoofing:
-	// on-chain sources enforce ownership via msg.sender, but centralized (off-chain)
-	// sources accept an owner claim without any owner-signed proof. For centralized
-	// sources, verify that the claimed owner is the address deterministically derived
-	// from the organization ID that the Linking Service maps it to. A mismatch means
-	// the registry is asserting an owner it cannot prove ownership of (e.g. an on-chain
-	// EOA), so we log a critical error and reject the workflow (fail-closed).
-	if isCentralizedWorkflowSource(payload.Source) {
-		if gateErr := h.engineLimiters.CentralizedWorkflowOwnerVerificationEnabled.AllowErr(ctx); gateErr == nil {
-			if verr := h.verifyCentralizedOwnerOrgMapping(payload.Source, owner, orgID); verr != nil {
-				return nil, verr
-			}
-		} else if !errors.Is(gateErr, limits.ErrorNotAllowed{}) {
-			h.lggr.Warnw("failed to evaluate limit CentralizedWorkflowOwnerVerificationEnabled", "error", gateErr)
-			return nil, gateErr
-		} else {
-			h.lggr.Warnw("skipping centralized workflow owner/orgID verification because the gate is disabled",
-				"source", payload.Source,
-				"workflowOwner", owner,
-			)
-		}
-	}
-
 	// With Workflow Registry contract v2 the BinaryURL and ConfigURL are expected to be identifiers that put through the Storage Service.
 	decodedBinary, config, err := h.workflowArtifactsStore.FetchWorkflowArtifacts(ctx, wfID, payload.BinaryURL, payload.ConfigURL)
 	if err != nil {
@@ -713,87 +687,6 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 	}
 
 	return entry, nil
-}
-
-// defaultTenantID is the fallback tenant numeric id for the CRE environment when none
-// is configured on the job spec. It matches defaultJWTAuthJobSpecTenantID in
-// core/capabilities/vault and cre-platform-graphql's account service.
-const defaultTenantID uint64 = 1
-
-// ErrCentralizedOwnerOrgMismatch is returned when a workflow owner claimed by a
-// centralized (off-chain) source does not match the owner deterministically derived
-// from its Linking Service organization ID. The workflow is rejected: admitting it
-// would let a centralized registry impersonate an owner (e.g. an on-chain EOA) and
-// exfiltrate that owner's Vault secrets.
-var ErrCentralizedOwnerOrgMismatch = errors.New("centralized workflow owner does not match owner derived from its organization ID")
-
-// tenantIDOrDefault returns the tenant id for the CRE environment, falling back to
-// defaultTenantID when the job spec does not configure one.
-func (h *eventHandler) tenantIDOrDefault() uint64 {
-	if v := h.tenantID.Load(); v != 0 {
-		return v
-	}
-	return defaultTenantID
-}
-
-// isCentralizedWorkflowSource reports whether workflow metadata originated from a
-// centralized / off-chain source (the gRPC workflow registry or a local file source),
-// as opposed to the on-chain workflow registry contract (source prefix "contract:").
-// On-chain ownership is enforced by msg.sender; off-chain sources accept an owner
-// claim without on-chain proof and therefore require independent owner<->orgID
-// verification before the workflow is admitted.
-func isCentralizedWorkflowSource(source string) bool {
-	return strings.HasPrefix(source, "grpc:") || strings.HasPrefix(source, "file:")
-}
-
-// verifyCentralizedOwnerOrgMapping checks that a workflow owner claimed by a
-// centralized source is consistent with the organization the Linking Service maps it
-// to. Legitimate centralized CRE workflow owners are deterministically derived from
-// (tenantID, orgID) via workflows.GenerateWorkflowOwnerAddress. This mirrors the
-// derivation in core/capabilities/vault/workflow_owner_derivation.go
-// (DeriveJWTAuthorizedVaultWorkflowOwner) and cre-platform-graphql
-// account_service.GetCreOrganizationInfo, which is also the source of truth the Vault
-// DON authorizes secret access against. A mismatch means the centralized registry is
-// asserting an owner it cannot prove ownership of (for example an on-chain EOA),
-// which indicates data corruption or a malicious registry attempting to hijack
-// another owner's identity and secrets.
-//
-// On a mismatch it logs a critical error and returns ErrCentralizedOwnerOrgMismatch
-// so the caller rejects the workflow (fail-closed). If the orgID cannot be resolved
-// or the derivation fails, verification is skipped (returns nil) rather than blocking
-// legitimate workflows on a transient Linking Service outage.
-func (h *eventHandler) verifyCentralizedOwnerOrgMapping(source, ownerHex, orgID string) error {
-	if orgID == "" {
-		// Without an orgID we cannot derive the expected owner; the resolution failure
-		// was already logged by fetchOrganizationID.
-		h.lggr.Warnw("skipping centralized workflow owner/orgID verification: no organization ID resolved",
-			"source", source, "workflowOwner", ownerHex)
-		return nil
-	}
-
-	tenantID := h.tenantIDOrDefault()
-	derived, err := pkgworkflows.GenerateWorkflowOwnerAddress(strconv.FormatUint(tenantID, 10), orgID)
-	if err != nil {
-		h.lggr.Errorw("failed to derive expected workflow owner for centralized source",
-			"source", source, "workflowOwner", ownerHex, "organizationID", orgID, "error", err)
-		return nil
-	}
-	derivedHex := hex.EncodeToString(derived)
-
-	claimedOwner := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(ownerHex), "0x"))
-	if strings.ToLower(derivedHex) != claimedOwner {
-		logger.Sugared(h.lggr).Criticalw(
-			"centralized workflow owner does not match owner derived from its organization ID: possible data corruption or malicious workflow registry",
-			"source", source,
-			"claimedWorkflowOwner", ownerHex,
-			"organizationID", orgID,
-			"derivedWorkflowOwner", derivedHex,
-			"tenantID", tenantID,
-		)
-		return fmt.Errorf("%w: source=%s claimedOwner=%s organizationID=%s derivedOwner=%s",
-			ErrCentralizedOwnerOrgMismatch, source, ownerHex, orgID, derivedHex)
-	}
-	return nil
 }
 
 // fetchOrganizationID fetches the organization ID for the given workflow owner using the OrgResolver
