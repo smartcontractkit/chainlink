@@ -23,7 +23,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPReorg_BelowFinality_OnSource|Test_CCIPReorg_BelowFinality_OnDest" -timeout 25m -parallel=1 -count=1
+        -- -v -run "Test_CCIPReorg_BelowFinality_OnSource|Test_CCIPReorg_BelowFinality_OnDest" -timeout 25m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1_DEEPER_FINALITY,SIMULATED_2_DEEPER_FINALITY
@@ -45,7 +45,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "Test_CCIPReorg_GreaterThanFinality_OnSource|Test_CCIPReorg_GreaterThanFinality_OnDest" -timeout 25m -parallel=1 -count=1
+        -- -v -run "Test_CCIPReorg_GreaterThanFinality_OnSource|Test_CCIPReorg_GreaterThanFinality_OnDest" -timeout 25m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2,SIMULATED_3
@@ -69,7 +69,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPTokenPriceUpdates$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        -- -v -run "^Test_CCIPTokenPriceUpdates$" -timeout 18m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -95,7 +95,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPGasPriceUpdatesWriteFrequency$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        -- -v -run "^Test_CCIPGasPriceUpdatesWriteFrequency$" -timeout 18m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -120,7 +120,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^Test_CCIPGasPriceUpdatesDeviation$" -timeout 18m -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        -- -v -run "^Test_CCIPGasPriceUpdatesDeviation$" -timeout 18m -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -141,7 +141,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRMN_TwoMessagesOneSourceChainCursed$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_TwoMessagesOneSourceChainCursed$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -167,7 +167,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/test.json \
         --format=github-actions \
-        -- -v -run "^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$" -timeout 30m -parallel=1 -count=1
+        -- -v -run "^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$" -timeout 30m -count=1
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -194,7 +194,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestDeleteCCIPJobs$" -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        -- -v -run "^TestDeleteCCIPJobs$" -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -220,7 +220,7 @@ runner-test-matrix:
         --junitfile=/tmp/junit.xml \
         --jsonfile=/tmp/gotest.log \
         --format=github-actions \
-        -- -v -run "^TestRevokeJobs$" -count=1 -parallel=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+        -- -v -run "^TestRevokeJobs$" -count=1 github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
