@@ -244,16 +244,8 @@ func (s *Services) newSubservices(
 			return nil, fmt.Errorf("could not create org resolver: %w", ierr)
 		}
 		fallbackResolver := orgresolver.NewOrgResolverWithFallback(inner, lggr)
-		// Wrap in a caching resolver so the metering snapshot path
-		// (Meterable.GetUtilization, which is contractually no-network) can
-		// resolve org attribution from memory. This single instance is shared:
-		// the syncer's record path resolves through it too, warming the cache
-		// for snapshots. The caching resolver owns the inner resolver's
-		// lifecycle (its Start/Close drive the inner), so only the caching
-		// resolver is added to the service list.
-		cachingResolver := orgresolver.NewCaching(fallbackResolver, resourcemanager.DefaultSnapshotInterval)
-		s.OrgResolver = cachingResolver
-		srvs = append(srvs, cachingResolver)
+		s.OrgResolver = fallbackResolver
+		srvs = append(srvs, fallbackResolver)
 	} else {
 		lggr.Warn("Skipping orgResolver, no linking service configured")
 	}

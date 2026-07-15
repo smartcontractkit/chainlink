@@ -1054,7 +1054,7 @@ func (h *eventHandler) workflowDeletedEvent(
 // the workflow-spec storage mutation has committed.
 //
 // owner is the workflow owner as stored in durable state; the organization is
-// resolved fail-open at emit time via ResolveOrEmpty and is never persisted.
+// resolved fail-open at emit time and is never persisted.
 // Emission is fail-open and returns no error, so metering can never gate,
 // delay, or fail the storage operation it records.
 //
@@ -1067,7 +1067,14 @@ func (h *eventHandler) emitSpecDelta(ctx context.Context, delta int64, workflowI
 	if h.resourceManager == nil {
 		return
 	}
-	orgID := orgresolver.ResolveOrEmpty(ctx, h.orgResolver, owner, h.lggr)
+	var orgID string
+	if h.orgResolver != nil && owner != "" {
+		if resolved, err := h.orgResolver.Get(ctx, owner); err != nil {
+			h.lggr.Warnw("failed to resolve org ID for metering", "owner", owner, "err", err)
+		} else {
+			orgID = resolved
+		}
+	}
 	// resource_id = workflow_id (the syncer meters one durable spec per workflow).
 	h.resourceManager.EmitDelta(ctx, h.baseIdentity(), eventID, delta, resourcemanager.UtilizationFields{
 		ResourceType: meterResourceType,
@@ -1128,7 +1135,12 @@ func (h *eventHandler) GetUtilization(ctx context.Context) []resourcemanager.Sna
 		if spec == nil {
 			continue
 		}
-		orgID := orgresolver.ResolveOrEmpty(ctx, h.orgResolver, spec.WorkflowOwner, h.lggr)
+		var orgID string
+		if h.orgResolver != nil && spec.WorkflowOwner != "" {
+			if resolved, err := h.orgResolver.Get(ctx, spec.WorkflowOwner); err == nil {
+				orgID = resolved
+			}
+		}
 		entries = append(entries, resourcemanager.SnapshotEntry{
 			Identity: base,
 			Utilizations: []*meteringpb.Utilization{
