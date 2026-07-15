@@ -917,7 +917,7 @@ func (p *triggerPublisher) batchingLoop() {
 
 func (p *triggerPublisher) Close() error {
 	close(p.stopCh)
-	p.wg.Wait()
+
 	if p.ackExecutor != nil {
 		if err := p.ackExecutor.Close(); err != nil {
 			return fmt.Errorf("failed to close ack executor: %w", err)
@@ -928,6 +928,8 @@ func (p *triggerPublisher) Close() error {
 			return fmt.Errorf("failed to close register executor: %w", err)
 		}
 	}
+
+	p.wg.Wait()
 	p.lggr.Info("TriggerPublisher closed")
 	return nil
 }
