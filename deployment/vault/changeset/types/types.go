@@ -118,6 +118,25 @@ const EthBalMonContractType = "EthBalMon"
 // AutomationReceiverContractType
 const AutomationReceiverContractType = "AutomationReceiver"
 
+// SetExpectedWorkflowIdentityChainConfig configures the AutomationReceiver's inbound identity
+// guard on one chain by pinning the workflow owner (author) and name. This is stable across
+// workflow redeploys (unlike the workflow id, which changes on every redeploy), so it only needs
+// to be set once. Both fields are required.
+type SetExpectedWorkflowIdentityChainConfig struct {
+	// ExpectedAuthor is the workflow owner address (hex) allowed to call the receiver.
+	ExpectedAuthor string `json:"expectedAuthor"`
+	// ExpectedWorkflowName is the raw workflow name; the receiver hashes/truncates it internally.
+	ExpectedWorkflowName string `json:"expectedWorkflowName"`
+}
+
+// SetExpectedWorkflowIdentityInput is the input to the setExpectedWorkflowIdentity changeset.
+// Keys are chain selectors; the AutomationReceiver address is resolved from the datastore.
+type SetExpectedWorkflowIdentityInput struct {
+	Chains map[uint64]SetExpectedWorkflowIdentityChainConfig `json:"chains"`
+	// MCMSConfig optionally configures the timelock proposal; when nil, schedule + proposer MCM is used.
+	MCMSConfig *cldfproposalutils.TimelockConfig `json:"mcms_config,omitempty"`
+}
+
 // SetKeeperRegistryChainConfig updates the automation executor/registry EthBalMon forwards work to.
 type SetKeeperRegistryChainConfig struct {
 	// NewKeeperRegistryAddress is the new Chainlink Automation forwarder or KMS executor address (hex).
@@ -188,6 +207,13 @@ type AutomationReceiverChainConfig struct {
 	// Selector is the 4-byte function selector as a hex string (e.g. "0x4b9f5c20").
 	// Defaults to performUpkeep(bytes) if empty.
 	Selector string `json:"selector,omitempty"`
+	// ExpectedAuthor / ExpectedWorkflowName lock the AutomationReceiver's inbound identity
+	// guard at deploy time. The receiver reverts with WorkflowIdentityNotConfigured until an
+	// identity is set, so configuring it here makes the receiver usable right after deploy.
+	// Optional: set BOTH (recommended, stable across workflow redeploys) or leave both empty
+	// to skip identity setup at deploy time.
+	ExpectedAuthor       string `json:"expectedAuthor,omitempty"`
+	ExpectedWorkflowName string `json:"expectedWorkflowName,omitempty"`
 }
 
 // DeployAutomationReceiverInput is the input to the standalone AutomationReceiver deploy changeset.
@@ -202,6 +228,11 @@ type DeployEthBalMonWithReceiverChainConfig struct {
 	// SetMinWaitPeriodSeconds configures the EthBalMon min wait period.
 	// Optional: nil or 0 defaults to 60 seconds.
 	SetMinWaitPeriodSeconds *uint64 `json:"setMinWaitPeriodSeconds,omitempty"`
+	// ExpectedAuthor / ExpectedWorkflowName lock the AutomationReceiver's inbound identity
+	// guard at deploy time (both required together to be effective). Optional: leave both empty
+	// to skip identity setup at deploy time.
+	ExpectedAuthor       string `json:"expectedAuthor,omitempty"`
+	ExpectedWorkflowName string `json:"expectedWorkflowName,omitempty"`
 }
 
 // DeployEthBalMonWithReceiverInput is the input to the combined EthBalMon + AutomationReceiver deploy changeset.
