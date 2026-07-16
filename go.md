@@ -88,8 +88,6 @@ flowchart LR
 	click chainlink-common/keystore href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/chipingress
 	click chainlink-common/pkg/chipingress href "https://github.com/smartcontractkit/chainlink-common"
-	chainlink-common/pkg/monitoring
-	click chainlink-common/pkg/monitoring href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common/keystore
 	chainlink-data-streams --> chainlink-evm/gethwrappers
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
@@ -166,19 +164,20 @@ flowchart LR
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/seth
 	click chainlink-testing-framework/seth href "https://github.com/smartcontractkit/chainlink-testing-framework"
-	chainlink-ton --> chainlink-ccip
-	chainlink-ton --> chainlink-common/pkg/monitoring
-	chainlink-ton --> chainlink-framework/metrics
+	chainlink-ton
 	click chainlink-ton href "https://github.com/smartcontractkit/chainlink-ton"
+	chainlink-ton/cciplib --> chainlink-common
+	click chainlink-ton/cciplib href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-tron/relayer --> chainlink-common
 	click chainlink-tron/relayer href "https://github.com/smartcontractkit/chainlink-tron"
 	chainlink/v2 --> chainlink-aptos/codec
+	chainlink/v2 --> chainlink-ccip
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
 	chainlink/v2 --> chainlink-feeds
 	chainlink/v2 --> chainlink-protos/data-feeds
 	chainlink/v2 --> chainlink-protos/ring/go
 	chainlink/v2 --> chainlink-sui/codec
-	chainlink/v2 --> chainlink-ton
+	chainlink/v2 --> chainlink-ton/cciplib
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
@@ -235,7 +234,6 @@ flowchart LR
 		 chainlink-common
 		 chainlink-common/keystore
 		 chainlink-common/pkg/chipingress
-		 chainlink-common/pkg/monitoring
 	end
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
@@ -290,6 +288,12 @@ flowchart LR
 	end
 	click chainlink-testing-framework-repo href "https://github.com/smartcontractkit/chainlink-testing-framework"
 
+	subgraph chainlink-ton-repo[chainlink-ton]
+		 chainlink-ton
+		 chainlink-ton/cciplib
+	end
+	click chainlink-ton-repo href "https://github.com/smartcontractkit/chainlink-ton"
+
 	subgraph cre-sdk-go-repo[cre-sdk-go]
 		 cre-sdk-go
 		 cre-sdk-go/capabilities/networking/http
@@ -304,7 +308,7 @@ flowchart LR
 	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-aptos-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-sui-repo,chainlink-testing-framework-repo,cre-sdk-go-repo,tdh2-repo outline
+	class chainlink-aptos-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo outline
 ```
 ## All modules
 ```mermaid
@@ -516,6 +520,8 @@ flowchart LR
 	chainlink-ton --> chainlink-common/pkg/monitoring
 	chainlink-ton --> chainlink-framework/metrics
 	click chainlink-ton href "https://github.com/smartcontractkit/chainlink-ton"
+	chainlink-ton/cciplib --> chainlink-common
+	click chainlink-ton/cciplib href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-ton/deployment --> mcms
 	click chainlink-ton/deployment href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-tron/relayer --> chainlink-common
@@ -632,7 +638,7 @@ flowchart LR
 	chainlink/v2 --> chainlink-protos/data-feeds
 	chainlink/v2 --> chainlink-protos/ring/go
 	chainlink/v2 --> chainlink-sui/codec
-	chainlink/v2 --> chainlink-ton
+	chainlink/v2 --> chainlink-ton/cciplib
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
 	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
@@ -672,6 +678,7 @@ flowchart LR
 	mcms --> chainlink-canton
 	mcms --> chainlink-protos/job-distributor
 	mcms --> chainlink-sui
+	mcms --> chainlink-ton
 	mcms --> go-daml
 	click mcms href "https://github.com/smartcontractkit/mcms"
 	quarantine
@@ -832,6 +839,7 @@ flowchart LR
 
 	subgraph chainlink-ton-repo[chainlink-ton]
 		 chainlink-ton
+		 chainlink-ton/cciplib
 		 chainlink-ton/deployment
 	end
 	click chainlink-ton-repo href "https://github.com/smartcontractkit/chainlink-ton"
