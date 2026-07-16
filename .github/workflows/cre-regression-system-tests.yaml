@@ -91,7 +91,7 @@ jobs:
             | map({
                 test_name: .value,
                 test_id: .key,
-                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=32/family=c7i+c8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
+                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
                 configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
               })
           ')
