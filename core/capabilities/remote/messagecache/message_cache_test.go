@@ -42,6 +42,7 @@ func TestMessageCache_InsertReady(t *testing.T) {
 	// not ready again for the same event ID
 	ready, _ = cache.Ready(eventID1, 2, 100, true)
 	require.False(t, ready)
+	require.True(t, cache.WasReady(eventID1))
 }
 
 func TestMessageCache_DeleteOlderThan(t *testing.T) {

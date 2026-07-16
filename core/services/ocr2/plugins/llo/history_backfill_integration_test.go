@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
@@ -120,7 +120,7 @@ func TestIntegration_LLO_history_backfill(t *testing.T) {
 	multiplier := decimal.New(1, 18)
 	expirationWindow := uint32(3600)
 
-	offchainConfig := datastreamsllo.OffchainConfig{
+	offchainConfig := llocommon.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
 		EnableObservationCompression:        true,

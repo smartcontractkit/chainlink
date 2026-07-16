@@ -45,7 +45,7 @@ type server struct {
 	stopCh      services.StopChan
 	wg          sync.WaitGroup
 
-	parallelExecutor *parallelExecutor
+	parallelExecutor *remote.parallelExecutor
 
 	// workflowDONBindingGate, when open, makes each ServerRequest require the
 	// request's Metadata.WorkflowDonID to match the authenticated calling DON.
@@ -172,7 +172,7 @@ func (r *server) Start(ctx context.Context) error {
 		}
 
 		// Initialize parallel executor with the configured max parallel requests
-		r.parallelExecutor = newParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests))
+		r.parallelExecutor = remote.NewParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests), "executable_server")
 
 		r.wg.Go(func() {
 			ticker := time.NewTicker(getServerTickerInterval(cfg))
