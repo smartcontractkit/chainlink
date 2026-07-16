@@ -42,8 +42,8 @@ Setup:
 2. Ask user to approve trials. Check if they want to run them in parallel or sequentially.
 3. New (disposable) branch + commit + push. Message: `cpu=X/ram=Y`. PR title: `[DO NOT MERGE] Trial: <workflow-name>` description: details of trial
 4. Trigger workflow. 
-5. Collect the `workflow_run_id` and run `python3 .github/.agents/skills/right-size-runners/scripts/workflow_monitor.py <run_id> --format json --out-file [trial-name].json` to monitor the run and collect details.
-6. Analyze results, run `python3 .github/.agents/skills/right-size-runners/scripts/workflow_compare.py [trial-1].json [trial-2].json --out-file [trial-1]-[trial-2]-comparison.md` to compare trial results.
+5. Collect the `workflow_run_id` and run `python3 .github/.agents/skills/right-size-runners/scripts/workflow_monitor.py [run_id] --format json --out-file .github/.agents/skills/right-size-runners/trials/[trial-name].json` to monitor the run and collect details.
+6. Analyze results, run `python3 .github/.agents/skills/right-size-runners/scripts/workflow_compare.py .github/.agents/skills/right-size-runners/trials/[trial-1].json .github/.agents/skills/right-size-runners/trials/[trial-2].json --out-file .github/.agents/skills/right-size-runners/trials/[trial-1]-[trial-2]-comparison.md` to compare trial results.
 7. Update the trial log with the results and findings.
 8. Present user with condensed results and ask if they want to run more trials or stop.
 

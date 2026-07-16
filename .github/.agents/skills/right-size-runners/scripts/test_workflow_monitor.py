@@ -78,8 +78,11 @@ class TestWorkflowMonitor(unittest.TestCase):
         self.assertEqual(result['id'], 12345)
         self.assertEqual(mock_urlopen.call_count, 2)
         mock_sleep.assert_called_once_with(1)
-        # Assert progress print was called
-        mock_print.assert_any_call("Workflow run 12345 not found yet. Retrying...", file=sys.stderr)
+        self.assertEqual(mock_print.call_count, 1)
+        args, kwargs = mock_print.call_args
+        self.assertEqual(kwargs.get('file'), sys.stderr)
+        import re
+        self.assertTrue(re.search(r'^\[\d{2}:\d{2}:\d{2}\] Workflow run 12345 not found yet\. Retrying\.\.\.', args[0]))
 
     @patch('urllib.request.urlopen')
     @patch('time.sleep')
@@ -98,25 +101,36 @@ class TestWorkflowMonitor(unittest.TestCase):
     @patch('time.sleep')
     @patch('builtins.print')
     def test_wait_for_completion(self, mock_print, mock_sleep, mock_urlopen):
-        # First check: in_progress, second check: completed
+        # Three checks: in_progress, in_progress, completed
         mock_resp_1 = MagicMock()
         mock_resp_1.read.return_value = b'{"status": "in_progress", "conclusion": null}'
         mock_cm_1 = MagicMock()
         mock_cm_1.__enter__.return_value = mock_resp_1
         
         mock_resp_2 = MagicMock()
-        mock_resp_2.read.return_value = b'{"status": "completed", "conclusion": "success"}'
+        mock_resp_2.read.return_value = b'{"status": "in_progress", "conclusion": null}'
         mock_cm_2 = MagicMock()
         mock_cm_2.__enter__.return_value = mock_resp_2
         
-        mock_urlopen.side_effect = [mock_cm_1, mock_cm_2]
+        mock_resp_3 = MagicMock()
+        mock_resp_3.read.return_value = b'{"status": "completed", "conclusion": "success"}'
+        mock_cm_3 = MagicMock()
+        mock_cm_3.__enter__.return_value = mock_resp_3
+        
+        mock_urlopen.side_effect = [mock_cm_1, mock_cm_2, mock_cm_3]
         
         result = workflow_monitor.wait_for_completion('owner/repo', 12345, 'fake_token', poll_interval=1)
         self.assertEqual(result['conclusion'], 'success')
-        self.assertEqual(mock_urlopen.call_count, 2)
-        mock_sleep.assert_called_once_with(1)
-        # Assert progress print was called
-        mock_print.assert_any_call("Workflow run status: in_progress. Waiting...", file=sys.stderr)
+        self.assertEqual(mock_urlopen.call_count, 3)
+        self.assertEqual(mock_sleep.call_count, 2)
+        
+        # Only prints once for in_progress status
+        self.assertEqual(mock_print.call_count, 1)
+        args, kwargs = mock_print.call_args
+        self.assertEqual(kwargs.get('file'), sys.stderr)
+        
+        import re
+        self.assertTrue(re.search(r'^\[\d{2}:\d{2}:\d{2}\] Workflow run status: in_progress. Waiting...', args[0]))
 
     def test_parse_job_logs_extracted(self):
         # Create a temp directory structure mimicking extracted logs
@@ -190,6 +204,64 @@ class TestWorkflowMonitor(unittest.TestCase):
         self.assertEqual(report["run"]["id"], 12345)
         self.assertEqual(report["logs_dir"], "/tmp/logs-dir")
         self.assertEqual(report["jobs"][0]["metrics"]["Instance Type"], "c6in.4xlarge")
+
+    @patch('workflow_monitor.parse_args')
+    @patch('workflow_monitor.wait_for_run')
+    @patch('workflow_monitor.wait_for_completion')
+    @patch('workflow_monitor.download_logs')
+    @patch('workflow_monitor.parse_job_logs')
+    @patch('workflow_monitor.fetch_jobs')
+    @patch('workflow_monitor.generate_report')
+    @patch('workflow_monitor.log_stderr')
+    @patch('builtins.print')
+    def test_main_with_outfile(self, mock_print, mock_log_stderr, mock_gen_report, mock_fetch_jobs, mock_parse_logs, mock_download, mock_wait_complete, mock_wait_run, mock_parse_args):
+        args = MagicMock()
+        args.run_id = 12345
+        args.repo = "owner/repo"
+        args.token = "fake_token"
+        args.poll_interval = 10
+        args.format = "json"
+        
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            out_file = os.path.join(tmp_dir, "report.json")
+            args.out_file = out_file
+            mock_parse_args.return_value = args
+            mock_gen_report.return_value = '{"fake": "report"}'
+            
+            workflow_monitor.main()
+            
+            mock_print.assert_not_called()
+            self.assertTrue(os.path.exists(out_file))
+            with open(out_file, 'r') as f:
+                self.assertEqual(f.read(), '{"fake": "report"}')
+                
+            mock_log_stderr.assert_any_call(f"Report successfully saved to: {out_file}")
+            mock_log_stderr.assert_any_call(f"Try exploring with: jq . {out_file}")
+
+    @patch('workflow_monitor.parse_args')
+    @patch('workflow_monitor.wait_for_run')
+    @patch('workflow_monitor.wait_for_completion')
+    @patch('workflow_monitor.download_logs')
+    @patch('workflow_monitor.parse_job_logs')
+    @patch('workflow_monitor.fetch_jobs')
+    @patch('workflow_monitor.generate_report')
+    @patch('workflow_monitor.log_stderr')
+    @patch('builtins.print')
+    def test_main_without_outfile(self, mock_print, mock_log_stderr, mock_gen_report, mock_fetch_jobs, mock_parse_logs, mock_download, mock_wait_complete, mock_wait_run, mock_parse_args):
+        args = MagicMock()
+        args.run_id = 12345
+        args.repo = "owner/repo"
+        args.token = "fake_token"
+        args.poll_interval = 10
+        args.format = "json"
+        args.out_file = None
+        mock_parse_args.return_value = args
+        
+        mock_gen_report.return_value = '{"fake": "report"}'
+        
+        workflow_monitor.main()
+        
+        mock_print.assert_called_once_with('{"fake": "report"}')
 
 if __name__ == '__main__':
     unittest.main()

@@ -21,6 +21,10 @@ def parse_args():
     parser.add_argument("--out-file", help="Path to write the output report.")
     return parser.parse_args()
 
+def log_stderr(msg):
+    timestamp = datetime.datetime.now().strftime('%H:%M:%S')
+    print(f"[{timestamp}] {msg}", file=sys.stderr)
+
 def detect_repo():
     try:
         import subprocess
@@ -55,7 +59,7 @@ def wait_for_run(repo, run_id, token, timeout=10, poll_interval=2):
             return fetch_json(url, token)
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                print(f"Workflow run {run_id} not found yet. Retrying...", file=sys.stderr)
+                log_stderr(f"Workflow run {run_id} not found yet. Retrying...")
                 time.sleep(poll_interval)
             else:
                 raise e
@@ -63,12 +67,15 @@ def wait_for_run(repo, run_id, token, timeout=10, poll_interval=2):
 
 def wait_for_completion(repo, run_id, token, poll_interval=5):
     url = f"https://api.github.com/repos/{repo}/actions/runs/{run_id}"
+    last_status = None
     while True:
         run_data = fetch_json(url, token)
         status = run_data.get("status")
         if status == "completed" or run_data.get("conclusion") is not None:
             return run_data
-        print(f"Workflow run status: {status}. Waiting...", file=sys.stderr)
+        if status != last_status:
+            log_stderr(f"Workflow run status: {status}. Waiting...")
+            last_status = status
         time.sleep(poll_interval)
 
 def fetch_jobs(repo, run_id, token):
@@ -346,21 +353,21 @@ def main():
     token = args.token or os.environ.get("GITHUB_TOKEN")
     repo = args.repo or detect_repo()
     
-    print(f"Monitoring workflow run {args.run_id} in {repo}...", file=sys.stderr)
+    log_stderr(f"Monitoring workflow run {args.run_id} in {repo}...")
     
     try:
         run_data = wait_for_run(repo, args.run_id, token)
     except RuntimeError as e:
-        print(f"Error: {e}", file=sys.stderr)
+        log_stderr(f"Error: {e}")
         sys.exit(1)
         
-    print("Workflow run found. Waiting for completion...", file=sys.stderr)
+    log_stderr("Workflow run found. Waiting for completion...")
     run_data = wait_for_completion(repo, args.run_id, token, args.poll_interval)
     
     # Download logs to persistent temp dir
     import tempfile
     log_dir = tempfile.mkdtemp(prefix=f"workflow-logs-{args.run_id}-")
-    print(f"Downloading logs to: {log_dir}...", file=sys.stderr)
+    log_stderr(f"Downloading logs to: {log_dir}...")
     
     metrics = {}
     downloaded = download_logs(repo, args.run_id, token, log_dir)
@@ -371,16 +378,19 @@ def main():
     
     # Generate and print report
     report = generate_report(run_data, jobs, metrics, log_dir, args.format)
-    print(report)
     
     # Write to file if specified
     if args.out_file:
         try:
             with open(args.out_file, 'w', encoding='utf-8') as f:
                 f.write(report)
-            print(f"Report successfully saved to: {args.out_file}", file=sys.stderr)
+            log_stderr(f"Report successfully saved to: {args.out_file}")
+            if args.format == 'json':
+                log_stderr(f"Try exploring with: jq . {args.out_file}")
         except Exception as e:
-            print(f"Error saving report to {args.out_file}: {e}", file=sys.stderr)
+            log_stderr(f"Error saving report to {args.out_file}: {e}")
+    else:
+        print(report)
 
 if __name__ == "__main__":
     main()
