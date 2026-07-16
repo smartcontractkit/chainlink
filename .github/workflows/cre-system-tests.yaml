@@ -107,7 +107,7 @@ jobs:
             "Test_CRE_V2_Aptos_Suite": [
                {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
              ],
-            "Test_CRE_V2_Stellar_Suite": [
+            "Test_CRE_V2_Stellar_Read_Suite": [
                {"topology":"workflow-gateway-stellar","configs":"configs/workflow-gateway-don-stellar.toml"}
              ],
             "Test_CRE_V2_Solana_Write": [
@@ -249,6 +249,12 @@ jobs:
         uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
         with:
           CLI_VERSION: 7.8.0
+
+      - name: Setup Stellar CRE contracts
+        if: ${{ contains(matrix.tests.test_name, 'Stellar') }}
+        uses: ./.github/actions/setup-stellar-cre-contracts
+        with:
+          working-directory: system-tests/lib
 
       - name: Resolve Chainlink image
         id: resolve-chainlink-image

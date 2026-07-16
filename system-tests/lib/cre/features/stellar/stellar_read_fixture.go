@@ -1,0 +1,66 @@
+package stellar
+
+import (
+	"context"
+	"fmt"
+
+	cldfstellar "github.com/smartcontractkit/chainlink-deployments-framework/chain/stellar"
+
+	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"
+	stellarcre "github.com/smartcontractkit/chainlink-stellar/deployment/cre"
+
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
+	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
+)
+
+// DeployStellarReadFixture deploys the CRE read fixture contract and returns its
+// C-address. Used by ReadContract smoke cases (constants, echoes, intentional trap).
+func DeployStellarReadFixture(ctx context.Context, chain *stellchain.Blockchain) (string, error) {
+	stellarChain, err := stellarCldfChain(chain)
+	if err != nil {
+		return "", err
+	}
+	owner := stellarChain.Signer.Address()
+	if fundErr := chain.Fund(ctx, owner, 0); fundErr != nil {
+		return "", fmt.Errorf("failed to fund stellar deployer %s via friendbot: %w", owner, fundErr)
+	}
+	deployer, err := stellardeployment.NewDeployerFromChain(stellarChain)
+	if err != nil {
+		return "", fmt.Errorf("failed to build stellar deployer: %w", err)
+	}
+
+	buildCfg, err := stellarBuildConfig(ctx, stellarcre.ReadFixtureWasm)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve stellar read fixture WASM source: %w", err)
+	}
+	wasm, err := helpers.BuildStellar(ctx, buildCfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to source stellar read fixture WASM: %w", err)
+	}
+
+	var salt [32]byte
+	// Distinct salt from the receiver deploy (all-zero) when both run in one suite.
+	salt[0] = 0x52 // 'R' — distinct from the all-zero receiver salt
+	contractID, err := deployer.DeployContractBytes(ctx, wasm, salt)
+	if err != nil {
+		return "", fmt.Errorf("deploy read fixture wasm: %w", err)
+	}
+	return contractID, nil
+}
+
+// stellarCldfChain builds the cldf stellar chain from the environment blockchain.
+// NOTE: ToCldfChain() mints a fresh random deployer keypair per call, so callers
+// that need a single funded deployer for multiple ops must not re-derive it.
+func stellarCldfChain(chain *stellchain.Blockchain) (cldfstellar.Chain, error) {
+	cldfChain, err := chain.ToCldfChain()
+	if err != nil {
+		return cldfstellar.Chain{}, fmt.Errorf("failed to build cldf stellar chain (selector %d): %w", chain.ChainSelector(), err)
+	}
+	// RPCChainProvider.Initialize returns *stellar.Chain (pointer); deref to the
+	// value type callers and NewDeployerFromChain expect.
+	sc, ok := cldfChain.(*cldfstellar.Chain)
+	if !ok || sc == nil {
+		return cldfstellar.Chain{}, fmt.Errorf("expected cldf stellar chain, got %T", cldfChain)
+	}
+	return *sc, nil
+}

@@ -1374,6 +1374,119 @@ func Test_workflowDeletedEvent_IgnoresErrAlreadyStopped(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func Test_eventHandler_StartsAndStopsWorkflowStore(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	lf := limits.Factory{Logger: lggr}
+	emitter := custmsg.NewLabeler()
+	registry := capabilities.NewRegistry(lggr)
+	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	limiters, err := v2.NewLimiters(lf, nil)
+	require.NoError(t, err)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+	require.NoError(t, err)
+
+	// Short prune interval on a fake clock so pruning is only observable once the store has been
+	// started as a sub-service of the handler.
+	fakeClock := clockwork.NewFakeClock()
+	wfStore := store.NewInMemoryStoreWithPruneConfiguration(lggr, fakeClock, 100*time.Millisecond, time.Hour)
+
+	h, err := NewEventHandler(lggr, wfStore, nil, true, registry, &confidentialrelay.ExecutionHandlers{},
+		NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, &stubWorkflowArtifactsStore{},
+		workflowEncryptionKey, &testDonNotifier{})
+	require.NoError(t, err)
+	// servicetest.Run starts the handler (and its sub-services, including the store) and closes
+	// them on cleanup.
+	servicetest.Run(t, h)
+
+	ctx := t.Context()
+	_, err = wfStore.Add(ctx, nil, "exec-1", "wf-1", store.StatusStarted)
+	require.NoError(t, err)
+	_, err = wfStore.FinishExecution(ctx, "exec-1", store.StatusCompleted)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		fakeClock.Advance(200 * time.Millisecond)
+		_, getErr := wfStore.Get(ctx, "exec-1")
+		return getErr != nil
+	}, 2*time.Second, 10*time.Millisecond)
+}
+
+func Test_tryEngineCleanup_ClosesEngineThenRemovesFromRegistry(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{9}
+	engine := &mockDrainableEngine{}
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", engine))
+
+	h := &eventHandler{
+		lggr:           logger.TestLogger(t),
+		engineRegistry: registry,
+	}
+
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	assert.Equal(t, int32(1), engine.closeCalls.Load())
+	_, ok := registry.Get(workflowID)
+	assert.False(t, ok, "engine should be removed from the registry after a successful close")
+
+	// Cleanup for an already-removed workflow is a no-op and does not close again.
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	assert.Equal(t, int32(1), engine.closeCalls.Load())
+}
+
+func Test_tryEngineCleanup_KeepsEngineInRegistryOnCloseFailure(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{9}
+	engine := &mockDrainableEngine{}
+	engine.CloseErr = assert.AnError
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", engine))
+
+	h := &eventHandler{
+		lggr:           logger.TestLogger(t),
+		engineRegistry: registry,
+	}
+
+	// A failing close leaves the engine in the registry so the cleanup can be retried later.
+	require.Error(t, h.tryEngineCleanup(workflowID))
+	_, ok := registry.Get(workflowID)
+	require.True(t, ok, "engine must remain in the registry so the close can be retried")
+
+	// Once the (spurious) failure clears, the retry succeeds and only then is the engine removed.
+	engine.CloseErr = nil
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	assert.Equal(t, int32(2), engine.closeCalls.Load())
+	_, ok = registry.Get(workflowID)
+	assert.False(t, ok)
+}
+
+func Test_tryEngineCleanup_ToleratesErrAlreadyStopped(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{9}
+	engine := &mockDrainableEngine{}
+	engine.CloseErr = services.ErrAlreadyStopped
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", engine))
+
+	h := &eventHandler{
+		lggr:           logger.TestLogger(t),
+		engineRegistry: registry,
+	}
+
+	// ErrAlreadyStopped means the engine was already closed on a prior attempt; treat it as
+	// success and remove the registry entry.
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	_, ok := registry.Get(workflowID)
+	assert.False(t, ok)
+}
+
 func Test_workflowRegisteredEvent_DrainingEngineNotTreatedAsHealthy(t *testing.T) {
 	t.Parallel()
 
