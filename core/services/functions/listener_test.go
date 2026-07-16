@@ -58,8 +58,6 @@ type FunctionsListenerUniverse struct {
 	logPollerWrapper *evmrelay_mocks.LogPollerWrapper
 }
 
-func ptr[T any](t T) *T { return &t }
-
 var (
 	RequestID            = newRequestID()
 	RequestIDStr         = fmt.Sprintf("0x%x", [32]byte(RequestID))
@@ -78,7 +76,7 @@ var (
 
 func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySec int) *FunctionsListenerUniverse {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
+		c.EVM[0].MinIncomingConfirmations = new(uint32(1))
 	})
 	ethClient := client.NewNullClient(big.NewInt(evmtest.NullClientChainID), logger.TestLogger(t))
 	broadcaster := log_mocks.NewBroadcaster(t)

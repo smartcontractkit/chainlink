@@ -151,7 +151,7 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 					a[i] = solana.PublicKeyFromBytes(val[:])
 				}
 				accounts = a
-			case []interface{}: // LOOP gRPC converts [][32]byte -> []interface{}
+			case []any: // LOOP gRPC converts [][32]byte -> []interface{}
 				a := make([]solana.PublicKey, len(v))
 				for i, elem := range v {
 					bs, ok := elem.([]byte)

@@ -116,8 +116,7 @@ func TestSample(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	samplr := newSampler(lggr, true)
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
@@ -146,8 +145,7 @@ func TestPruningLoop(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	samplr := newSampler(lggr, true)
 	// We need a prune time of at least one second in order to detect outdated entries.

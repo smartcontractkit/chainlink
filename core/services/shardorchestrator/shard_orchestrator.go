@@ -60,11 +60,9 @@ func (o *orchestrator) Start(ctx context.Context) error {
 		o.lggr.Infow("Starting ShardOrchestrator service", "grpcAddr", o.grpcAddr)
 
 		// Start gRPC server in a goroutine
-		o.wg.Add(1)
-		go func() {
-			defer o.wg.Done()
+		o.wg.Go(func() {
 			o.runGRPCServer(ctx)
-		}()
+		})
 
 		o.lggr.Infow("ShardOrchestrator service started", "grpcAddr", o.grpcAddr)
 		return nil
