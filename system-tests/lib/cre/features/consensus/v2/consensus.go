@@ -233,7 +233,11 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 		}
 		if blockchain.IsFamily(chainselectors.FamilySolana) {
 			inputs["chainSelectorSolana"] = blockchain.ChainSelector()
-			break
+			continue
+		}
+		if blockchain.IsFamily(chainselectors.FamilyStellar) {
+			inputs["chainSelectorStellar"] = blockchain.ChainSelector()
+			continue
 		}
 	}
 

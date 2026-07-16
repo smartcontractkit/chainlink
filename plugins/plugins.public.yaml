@@ -46,12 +46,12 @@ plugins:
 
   stellar:
     - moduleURI: "github.com/smartcontractkit/chainlink-stellar"
-      gitRef: "35369348e6326e4a1696712dda37d312fec6e130"
+      gitRef: "887c274c6b64de349aa0d4b76717a9283d7f3961"
       installPath: "./cmd/chainlink-stellar"
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v0.1.15-0.20260707105132-2da5d31f22fc"
+      gitRef: "v1.0.0"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
@@ -118,5 +118,5 @@ plugins:
 
   capability-stellar:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
-      gitRef: "47f3f0da57a121980c3ad366f10e5fbe7bf58998"
+      gitRef: "0b6033b541c34b1e9306bf1584dd355f5a5e7c4f"
       installPath: "."
