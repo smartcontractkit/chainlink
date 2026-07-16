@@ -45,7 +45,7 @@ type server struct {
 	stopCh      services.StopChan
 	wg          sync.WaitGroup
 
-	parallelExecutor *remote.parallelExecutor
+	parallelExecutor *remote.ParallelExecutor
 
 	// workflowDONBindingGate, when open, makes each ServerRequest require the
 	// request's Metadata.WorkflowDonID to match the authenticated calling DON.
