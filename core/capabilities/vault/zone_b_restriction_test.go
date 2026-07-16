@@ -1,0 +1,144 @@
+package vault
+
+import (
+	"context"
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/anypb"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+)
+
+// fakeMetadataRegistry resolves DONByID from an in-memory map, standing in for
+// the node's local capabilities registry view.
+type fakeMetadataRegistry struct {
+	core.UnimplementedCapabilitiesRegistryMetadata
+	dons map[uint32]capabilities.DON
+}
+
+func (f *fakeMetadataRegistry) DONByID(_ context.Context, donID uint32) (capabilities.DON, error) {
+	d, ok := f.dons[donID]
+	if !ok {
+		return capabilities.DON{}, fmt.Errorf("could not find don %d", donID)
+	}
+	return d, nil
+}
+
+const (
+	zoneBDonID = uint32(10)
+	zoneADonID = uint32(20)
+)
+
+func newZoneBTestCapability(t *testing.T, settingsJSON string) *Capability {
+	t.Helper()
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler(lggr, store, clock, expiry)
+
+	reg := coreCapabilities.NewRegistry(lggr)
+	reg.SetLocalRegistry(&fakeMetadataRegistry{dons: map[uint32]capabilities.DON{
+		zoneBDonID: {ID: zoneBDonID, Name: "workflow_1_zone-b", Families: []string{"zone-b"}},
+		zoneADonID: {ID: zoneADonID, Name: "workflow_1_zone-a", Families: []string{"zone-a"}},
+	}})
+
+	getter, err := settings.NewJSONGetter([]byte(settingsJSON))
+	require.NoError(t, err)
+	lf := limits.Factory{Settings: getter}
+
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+	return capability
+}
+
+// allowlistedOwner is the normalized (no 0x, lowercase) form of the workflow
+// owner used across these tests.
+const allowlistedOwner = "1111111111111111111111111111111111111111"
+
+func zoneBGetSecretsRequest(t *testing.T, owner string) capabilities.CapabilityRequest {
+	t.Helper()
+	gsr := &vault.GetSecretsRequest{
+		Requests: []*vault.SecretRequest{
+			{
+				Id:             &vault.SecretIdentifier{Key: "Foo", Namespace: "Bar", Owner: owner},
+				EncryptionKeys: []string{"k"},
+			},
+		},
+	}
+	anyproto, err := anypb.New(gsr)
+	require.NoError(t, err)
+	return capabilities.CapabilityRequest{
+		Payload: anyproto,
+		Method:  vault.MethodGetSecrets,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowOwner:       owner,
+			WorkflowID:          "wf-id",
+			WorkflowExecutionID: "exec-id",
+			ReferenceID:         "ref-id",
+			WorkflowDonID:       zoneBDonID,
+		},
+	}
+}
+
+func TestCapability_Execute_ZoneBRestriction_DeniesNonAllowlistedOwner(t *testing.T) {
+	// Master gate enabled, owner NOT allowlisted (default deny).
+	capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`)
+
+	_, err := capability.Execute(t.Context(), zoneBGetSecretsRequest(t, "0x"+allowlistedOwner))
+	require.Error(t, err)
+	require.ErrorContains(t, err, "zone-b workflow DON may only read vault secrets for allowlisted workflow owners")
+}
+
+func TestCapability_enforceZoneBWorkflowRestriction(t *testing.T) {
+	ctxWithOwner := func(donID uint32, owner string) (context.Context, uint32) {
+		md := capabilities.RequestMetadata{WorkflowOwner: owner, WorkflowDonID: donID}
+		return md.ContextWithCRE(t.Context()), donID
+	}
+
+	t.Run("gate disabled: allows zone-b caller regardless of owner", func(t *testing.T) {
+		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"false"}}`)
+		ctx, donID := ctxWithOwner(zoneBDonID, "0x"+allowlistedOwner)
+		require.NoError(t, capability.zoneBRestrictor.enforce(ctx, donID))
+	})
+
+	t.Run("gate enabled: allows non-zone-b (zone-a) caller", func(t *testing.T) {
+		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`)
+		ctx, donID := ctxWithOwner(zoneADonID, "0xdeadbeef")
+		require.NoError(t, capability.zoneBRestrictor.enforce(ctx, donID))
+	})
+
+	t.Run("gate enabled: denies zone-b caller with non-allowlisted owner", func(t *testing.T) {
+		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`)
+		ctx, donID := ctxWithOwner(zoneBDonID, "0x"+allowlistedOwner)
+		err := capability.zoneBRestrictor.enforce(ctx, donID)
+		require.ErrorContains(t, err, "allowlisted workflow owners")
+	})
+
+	t.Run("gate enabled: allows zone-b caller with allowlisted owner", func(t *testing.T) {
+		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"},"owner":{"`+allowlistedOwner+`":{"PerOwner":{"VaultZoneBGetSecretsAllowed":"true"}}}}`)
+		ctx, donID := ctxWithOwner(zoneBDonID, "0x"+allowlistedOwner)
+		require.NoError(t, capability.zoneBRestrictor.enforce(ctx, donID))
+	})
+
+	t.Run("gate enabled: fails closed for unknown caller DON", func(t *testing.T) {
+		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`)
+		md := capabilities.RequestMetadata{WorkflowOwner: "0x" + allowlistedOwner, WorkflowDonID: 999}
+		err := capability.zoneBRestrictor.enforce(md.ContextWithCRE(t.Context()), 999)
+		require.ErrorContains(t, err, "could not resolve caller workflow DON 999")
+	})
+}
