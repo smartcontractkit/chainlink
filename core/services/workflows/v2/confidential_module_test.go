@@ -345,8 +345,7 @@ func TestConfidentialModule_Tee(t *testing.T) {
 
 	t.Run("disabled gate returns false without querying the capability", func(t *testing.T) {
 		t.Parallel()
-		// No GetExecutable expectation: a disabled gate must short-circuit before the
-		// module ever queries the confidential-workflows capability.
+		// No GetExecutable expectation: a disabled gate must short-circuit before querying.
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 
 		mod := mustNewConfidentialModule(t, capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", limits.NewGateLimiter(false), lggr)
@@ -358,10 +357,8 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		capReg := regmocks.NewCapabilitiesRegistry(t)
 		execCap := capmocks.NewExecutableCapability(t)
 
-		// First lookup: the capability reports no regions (e.g. not yet available on
-		// this node). Second lookup: it now reports a matching region. The module must
-		// re-query rather than permanently caching the first empty result, so it
-		// self-heals once the capability comes up.
+		// First lookup empty, second returns a region: the module must re-query, not
+		// cache the empty result.
 		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
 			Return(execCap, nil).Twice()
 		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).

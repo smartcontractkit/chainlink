@@ -168,22 +168,17 @@ func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeA
 }
 
 func (m *ConfidentialModule) Tee(ctx context.Context, tee *sdkpb.Tee) bool {
-	// If confidential-workflows is disabled by settings, this runner cannot satisfy
-	// the requirement. Returning false surfaces host.ErrRunnerUnavailable upstream so
-	// the engine holds the workflow (and retries) instead of failing initialization.
+	// Disabled by settings: report unsatisfiable (engine defers via
+	// host.ErrRunnerUnavailable) rather than failing init.
 	if err := m.enabledGate.AllowErr(ctx); err != nil {
 		return false
 	}
 	return m.teeProvider(ctx)(tee)
 }
 
-// teeProvider returns a selection function over the confidential-workflows
-// capability's supported TEEs. It caches the selection only once the capability
-// reports at least one supported region; while it reports none (e.g. the capability
-// is not yet available on this node) it re-queries on each call so the module
-// self-heals when the capability comes up. The previous sync.Once cached an empty
-// selection permanently, leaving the workflow broken even after the capability
-// recovered.
+// teeProvider caches only a non-empty TEE selection and otherwise re-queries, so the
+// module self-heals when the capability appears (the old sync.Once cached an empty
+// selection permanently).
 func (m *ConfidentialModule) teeProvider(ctx context.Context) func(*sdkpb.Tee) bool {
 	m.providerMu.Lock()
 	defer m.providerMu.Unlock()
