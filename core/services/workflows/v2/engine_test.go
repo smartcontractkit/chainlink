@@ -2787,6 +2787,13 @@ func (r *updatableRegistry) NodeByPeerID(ctx context.Context, peerID ragetypes.P
 	return r.localRegistry.NodeByPeerID(ctx, peerID)
 }
 
+// DONByID implements the CapabilitiesRegistryMetadata interface
+func (r *updatableRegistry) DONByID(ctx context.Context, donID uint32) (capabilities.DON, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.localRegistry.DONByID(ctx, donID)
+}
+
 // createTestEngineForDonVersionTest creates a real V2 engine for testing DON version updates
 func createTestEngineForDonVersionTest(
 	t *testing.T,
