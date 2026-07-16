@@ -92,7 +92,7 @@ jobs:
                 test_name: .value,
                 test_id: .key,
                 runs_on: (if (.value | test("EVM"))
-                  then "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=r6i+r7i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+                  then "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=m6i+m7i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
                   else "ubuntu-latest"
                   end),
                 configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
