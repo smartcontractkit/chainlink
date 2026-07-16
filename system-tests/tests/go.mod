@@ -635,7 +635,7 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260715130435-1e32cea69af1 // indirect
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260626151909-052e55e62e62
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260715161014-611d8ac32364
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260716150153-cd1826496e2d
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20260423135514-5b1a7565a99c // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260714194015-527495d10a6c // indirect
 	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260714194015-527495d10a6c // indirect
@@ -644,7 +644,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/svr v1.2.0 // indirect
+	github.com/smartcontractkit/chainlink-protos/svr v1.3.0 // indirect
 	github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260714222251-887c274c6b64 // indirect
 	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260714222251-887c274c6b64 // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260713221039-69796c8a78ae // indirect
