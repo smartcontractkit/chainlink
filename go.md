@@ -316,8 +316,6 @@ flowchart LR
 	chainlink-ccip/chains/solana --> chainlink-ccip/chains/solana/gobindings
 	chainlink-ccip/chains/solana --> chainlink-common
 	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
-	chainlink-ccip/chains/solana/deployment
-	click chainlink-ccip/chains/solana/deployment href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/chains/solana/gobindings
 	click chainlink-ccip/chains/solana/gobindings href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-ccip/deployment
@@ -440,10 +438,11 @@ flowchart LR
 	click chainlink-stellar href "https://github.com/smartcontractkit/chainlink-stellar"
 	chainlink-stellar/bindings
 	click chainlink-stellar/bindings href "https://github.com/smartcontractkit/chainlink-stellar"
+	chainlink-sui --> chainlink-aptos
 	chainlink-sui --> chainlink-ccip
 	chainlink-sui --> chainlink-sui/codec
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
-	chainlink-sui/codec --> chainlink-aptos
+	chainlink-sui/codec --> chainlink-common
 	click chainlink-sui/codec href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-sui/deployment --> mcms
 	click chainlink-sui/deployment href "https://github.com/smartcontractkit/chainlink-sui"
@@ -587,6 +586,7 @@ flowchart LR
 	click chainlink/system-tests/tests/smoke/cre/stellar/stellarread href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests/smoke/cre/vaultsecret --> cre-sdk-go/capabilities/scheduler/cron
 	click chainlink/system-tests/tests/smoke/cre/vaultsecret href "https://github.com/smartcontractkit/chainlink"
+	chainlink/v2 --> chainlink-aptos/codec
 	chainlink/v2 --> chainlink-ccv
 	chainlink/v2 --> chainlink-evm/contracts/cre/gobindings
 	chainlink/v2 --> chainlink-feeds
@@ -620,13 +620,6 @@ flowchart LR
 	click cre-sdk-go/capabilities/networking/http href "https://github.com/smartcontractkit/cre-sdk-go"
 	cre-sdk-go/capabilities/scheduler/cron --> cre-sdk-go
 	click cre-sdk-go/capabilities/scheduler/cron href "https://github.com/smartcontractkit/cre-sdk-go"
-	fastcurse-cli/cli --> ccip-contract-examples/chains/evm
-	fastcurse-cli/cli --> ccip-owner-contracts
-	fastcurse-cli/cli --> chainlink-ccip/chains/solana/deployment
-	fastcurse-cli/cli --> chainlink-ccip/deployment
-	fastcurse-cli/cli --> chainlink-protos/op-catalog
-	fastcurse-cli/cli --> chainlink-sui/deployment
-	click fastcurse-cli/cli href "https://github.com/smartcontractkit/fastcurse-cli"
 	freeport
 	click freeport href "https://github.com/smartcontractkit/freeport"
 	go-daml --> freeport
@@ -705,7 +698,6 @@ flowchart LR
 		 chainlink-ccip
 		 chainlink-ccip/chains/evm
 		 chainlink-ccip/chains/solana
-		 chainlink-ccip/chains/solana/deployment
 		 chainlink-ccip/chains/solana/gobindings
 		 chainlink-ccip/deployment
 	end
