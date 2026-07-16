@@ -343,6 +343,39 @@ func TestConfidentialModule_Tee(t *testing.T) {
 		assert.False(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
 	})
 
+	t.Run("disabled gate returns false without querying the capability", func(t *testing.T) {
+		t.Parallel()
+		// No GetExecutable expectation: a disabled gate must short-circuit before the
+		// module ever queries the confidential-workflows capability.
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+
+		mod := mustNewConfidentialModule(t, capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", limits.NewGateLimiter(false), lggr)
+		assert.False(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
+	})
+
+	t.Run("empty response is not cached and re-queries until regions appear", func(t *testing.T) {
+		t.Parallel()
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		// First lookup: the capability reports no regions (e.g. not yet available on
+		// this node). Second lookup: it now reports a matching region. The module must
+		// re-query rather than permanently caching the first empty result, so it
+		// self-heals once the capability comes up.
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Twice()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, nil)}, nil).Once()
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Return(capabilities.CapabilityResponse{Payload: buildRespPayload(t, []*sdkpb.TeeTypeAndRegions{
+				{Type: sdkpb.TeeType_TEE_TYPE_AWS_NITRO, Regions: []string{"us-east-1"}},
+			})}, nil).Once()
+
+		mod := mustNewConfidentialModule(t, capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", limits.NewGateLimiter(true), lggr)
+		assert.False(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
+		assert.True(t, mod.Tee(ctx, anyRegionsTee("us-east-1")))
+	})
+
 	t.Run("capability Execute error returns false", func(t *testing.T) {
 		t.Parallel()
 		capReg := regmocks.NewCapabilitiesRegistry(t)

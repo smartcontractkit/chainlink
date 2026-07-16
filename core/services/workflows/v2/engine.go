@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -348,6 +349,15 @@ func (e *Engine) init(ctx context.Context) {
 
 	err = e.runTriggerSubscriptionPhase(ctx)
 	if err != nil {
+		if errors.Is(err, host.ErrRunnerUnavailable) {
+			// A required runner (e.g. the confidential-workflows TEE runner) is not
+			// yet available on this node, typically a capability still rolling out
+			// across the DON. Hold the workflow and retry on the next sync rather than
+			// treating this as a fatal init failure and error-storming.
+			e.logger().Warnw("Workflow initialization deferred: required runner not yet available", "err", err)
+			e.cfg.Hooks.OnInitialized(err)
+			return
+		}
 		e.logger().Errorw("Workflow Engine initialization failed", "err", err)
 		e.cfg.Hooks.OnInitialized(err)
 		return

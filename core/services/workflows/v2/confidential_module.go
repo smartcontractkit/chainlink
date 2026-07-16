@@ -66,7 +66,7 @@ type ConfidentialModule struct {
 	lggr              logger.Logger
 	requirements      sync.Map
 	restritions       sync.Map
-	infoOnce          sync.Once
+	providerMu        sync.Mutex
 	provider          func(tee *sdkpb.Tee) bool
 	executionHandlers *confidentialrelay.ExecutionHandlers
 	enabledGate       limits.GateLimiter
@@ -168,11 +168,34 @@ func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeA
 }
 
 func (m *ConfidentialModule) Tee(ctx context.Context, tee *sdkpb.Tee) bool {
-	m.infoOnce.Do(func() {
-		m.provider = host.NewProviderFromSelection(m.providedTees(ctx))
-	})
+	// If confidential-workflows is disabled by settings, this runner cannot satisfy
+	// the requirement. Returning false surfaces host.ErrRunnerUnavailable upstream so
+	// the engine holds the workflow (and retries) instead of failing initialization.
+	if err := m.enabledGate.AllowErr(ctx); err != nil {
+		return false
+	}
+	return m.teeProvider(ctx)(tee)
+}
 
-	return m.provider(tee)
+// teeProvider returns a selection function over the confidential-workflows
+// capability's supported TEEs. It caches the selection only once the capability
+// reports at least one supported region; while it reports none (e.g. the capability
+// is not yet available on this node) it re-queries on each call so the module
+// self-heals when the capability comes up. The previous sync.Once cached an empty
+// selection permanently, leaving the workflow broken even after the capability
+// recovered.
+func (m *ConfidentialModule) teeProvider(ctx context.Context) func(*sdkpb.Tee) bool {
+	m.providerMu.Lock()
+	defer m.providerMu.Unlock()
+	if m.provider != nil {
+		return m.provider
+	}
+	tees := m.providedTees(ctx)
+	provider := host.NewProviderFromSelection(tees)
+	if len(tees) > 0 {
+		m.provider = provider
+	}
+	return provider
 }
 
 func loadAndDelete[T any](m *sync.Map, key string) T {
