@@ -110,6 +110,7 @@ override*.toml
 
 # Python venv
 .venv/
+__pycache__/
 
 ocr_soak_report.csv
 

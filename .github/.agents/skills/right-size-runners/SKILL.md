@@ -16,21 +16,6 @@ Setup:
 1. Read workflow. Identify jobs, runners, critical path, and bottlenecks.
 2. Ask to optimize specific job or whole workflow.
 3. Modify workflow for testing (bypass gates, use mock inputs, add `workflow_dispatch`).
-   Add the octometrics monitoring action to jobs for telemetry:
-   ```yaml
-   example-job:
-   name: Example Job
-   runs-on: ubuntu-latest
-   steps:
-      - name: Monitor
-         uses: kalverra/octometrics-action
-         with:
-         job_name: Example Job
-         skip_comment: 'false'
-         env:
-         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # Rest of job here
-   ```
 4. Init or resume trial log at `.github/.agents/skills/right-size-runners/trials/<workflow>.md`.
 5. Run a baseline trial with the current runner configuration to establish a performance and stability benchmark.
 </initialization>
@@ -56,19 +41,11 @@ Setup:
 1. Define trials. Update `<workflow>.md` log.
 2. Ask user to approve trials. Check if they want to run them in parallel or sequentially.
 3. New (disposable) branch + commit + push. Message: `cpu=X/ram=Y`. PR title: `[DO NOT MERGE] Trial: <workflow-name>` description: details of trial
-4. Trigger workflow. Wait in background without polluting context:
-   ```sh
-   gh run watch <run_id> -i 60 --exit-status > /dev/null 2>&1
-   ```
-5. Once background task completes, check final status and get job IDs:
-   ```sh
-   gh run view <run_id> --json conclusion,url,jobs
-   ```
-6. Extract runner telemetry (CPU/RAM). DO NOT fetch full logs! Extract only the "Complete runner" step:
-   ```sh
-   gh run view <run_id> --job <job_id> --log | awk -F'\t' '$2=="Complete runner"{print substr($0, index($0, $3))}'
-   ```
-7. Analyze results. Update trial log. Present summary and propose next steps.
+4. Trigger workflow. 
+5. Collect the `workflow_run_id` and run `python3 .github/.agents/skills/right-size-runners/scripts/workflow_monitor.py <run_id> --format json --out-file [trial-name].json` to monitor the run and collect details.
+6. Analyze results, run `python3 .github/.agents/skills/right-size-runners/scripts/workflow_compare.py [trial-1].json [trial-2].json --out-file [trial-1]-[trial-2]-comparison.md` to compare trial results.
+7. Update the trial log with the results and findings.
+8. Present user with condensed results and ask if they want to run more trials or stop.
 
 <trial-template>
 | Runner | Experiment | Expectation | Branch | Run ID | Commit | Stability | Runtime | Cost | Notes |
