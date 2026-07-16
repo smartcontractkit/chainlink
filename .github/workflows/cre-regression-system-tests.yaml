@@ -72,57 +72,34 @@ jobs:
           ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
 
-      - name: Cache test matrix
-        id: cache-matrix
-        uses: actions/cache@v6
-        with:
-          path: /tmp/test-matrix.json
-          key: regression-test-matrix-${{ hashFiles('system-tests/tests/regression/cre/**') }}
-
-      - name: Set up Go
-        if: steps.cache-matrix.outputs.cache-hit != 'true'
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: system-tests/tests/go.mod
-          cache: true
-
       - name: Define test matrix
         id: define-matrix
         shell: bash
         run: |
-          if [ "${{ steps.cache-matrix.outputs.cache-hit }}" == "true" ]; then
-            tests=$(cat /tmp/test-matrix.json)
-          else
-            cd system-tests/tests
-            test_names=$(go test \
-              github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre \
-              -list . 2>/dev/null | grep '^Test_')
+          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/regression/cre/*_test.go)
 
-            per_test_configs='{
-              "Test_CRE_V2_Stellar_ReadContract_Regression": "configs/workflow-gateway-don-stellar.toml"
-            }'
+          per_test_configs='{
+            "Test_CRE_V2_Stellar_ReadContract_Regression": "configs/workflow-gateway-don-stellar.toml"
+          }'
 
-            tests=$(echo "$test_names" | jq -c -R -s \
-              --argjson run_id "${{ github.run_id }}" \
-              --arg run_attempt "${{ github.run_attempt }}" \
-              --argjson per "$per_test_configs" '
-              split("\n") | map(select(length>0))
-              | to_entries
-              | map({
-                  test_name: .value,
-                  test_id: .key,
-                  runs_on: (if (.value | test("EVM"))
-                    then "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=r6i+r7i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
-                    else "ubuntu-latest"
-                    end),
-                  configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
-                })
-            ')
+          tests=$(echo "$test_names" | jq -c -R -s \
+            --argjson run_id "${{ github.run_id }}" \
+            --arg run_attempt "${{ github.run_attempt }}" \
+            --argjson per "$per_test_configs" '
+            split("\n") | map(select(length>0))
+            | to_entries
+            | map({
+                test_name: .value,
+                test_id: .key,
+                runs_on: (if (.value | test("EVM"))
+                  then "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=r6i+r7i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+                  else "ubuntu-latest"
+                  end),
+                configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
+              })
+          ')
 
-            echo "$tests" > /tmp/test-matrix.json
-          fi
-
-          echo "matrix=$(cat /tmp/test-matrix.json)" | tee -a "${GITHUB_OUTPUT}"
+          echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
   run-system-tests:
     permissions:

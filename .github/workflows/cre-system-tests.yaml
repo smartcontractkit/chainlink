@@ -72,83 +72,61 @@ jobs:
           ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
 
-      - name: Cache test matrix
-        id: cache-matrix
-        uses: actions/cache@v6
-        with:
-          path: /tmp/test-matrix.json
-          key: smoke-test-matrix-${{ hashFiles('system-tests/tests/smoke/cre/**') }}
-
-      - name: Set up Go
-        if: steps.cache-matrix.outputs.cache-hit != 'true'
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: system-tests/tests/go.mod
-          cache: true
-
       - name: Define test matrix
         id: define-matrix
         shell: bash
         run: |
-          if [ "${{ steps.cache-matrix.outputs.cache-hit }}" == "true" ]; then
-            tests=$(cat /tmp/test-matrix.json)
-          else
-            cd system-tests/tests
+          TOPOLOGIES_JSON='[
+            {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
+          ]'
 
-            TOPOLOGIES_JSON='[
-              {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
-            ]'
+          PER_TEST_TOPOLOGIES_JSON='{
+            "Test_CRE_V2_Suite_Bucket_B": [
+               {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
+               {"topology":"workflow-gateway-capabilities-vault-jwt_auth-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"},
+               {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"}
+             ],
+            "Test_CRE_V2_Aptos_Suite": [
+               {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
+             ],
+            "Test_CRE_V2_Stellar_Read_Suite": [
+               {"topology":"workflow-gateway-stellar","configs":"configs/workflow-gateway-don-stellar.toml"}
+             ],
+            "Test_CRE_V2_Solana_Write": [
+               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
+             ],
+            "Test_CRE_V2_Solana_LogTrigger": [
+               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
+             ],
+            "Test_CRE_V2_Solana_Read_Accounts": [
+               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
+             ],
+            "Test_CRE_V2_Sharding": [
+               {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
+             ],
+            "Test_CRE_V2_Module_Cache": [
+               {"topology":"workflow-gateway-cache-test","configs":"configs/workflow-gateway-don-cache-test.toml"}
+             ],
+            "Test_CRE_V2_HTTP_Action_Multi_Gateway": [
+               {"topology":"workflow-gateway-capabilities-multi-gateway","configs":"configs/workflow-gateway-capabilities-multi-gateway-don.toml"}
+             ]
+          }'
 
-            PER_TEST_TOPOLOGIES_JSON='{
-              "Test_CRE_V2_Suite_Bucket_B": [
-                 {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
-                 {"topology":"workflow-gateway-capabilities-vault-jwt_auth-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"},
-                 {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"}
-               ],
-              "Test_CRE_V2_Aptos_Suite": [
-                 {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
-               ],
-              "Test_CRE_V2_Stellar_Read_Suite": [
-                 {"topology":"workflow-gateway-stellar","configs":"configs/workflow-gateway-don-stellar.toml"}
-               ],
-              "Test_CRE_V2_Solana_Write": [
-                 {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
-               ],
-              "Test_CRE_V2_Solana_LogTrigger": [
-                 {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
-               ],
-              "Test_CRE_V2_Solana_Read_Accounts": [
-                 {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
-               ],
-              "Test_CRE_V2_Sharding": [
-                 {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
-               ],
-              "Test_CRE_V2_Module_Cache": [
-                 {"topology":"workflow-gateway-cache-test","configs":"configs/workflow-gateway-don-cache-test.toml"}
-               ],
-              "Test_CRE_V2_HTTP_Action_Multi_Gateway": [
-                 {"topology":"workflow-gateway-capabilities-multi-gateway","configs":"configs/workflow-gateway-capabilities-multi-gateway-don.toml"}
-               ]
-            }'
+          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade)
 
-            test_names=$(go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -list . 2>/dev/null | grep '^Test_' | grep -v Test_Upgrade)
-
-            tests=$(echo "$test_names" | jq -c -R -s \
-              --argjson tops "$TOPOLOGIES_JSON" \
-              --argjson per "$PER_TEST_TOPOLOGIES_JSON" '
-              (split("\n") | map(select(length>0))) as $names
-              | [ $names[] as $name | $tops[] | {test_name:$name} + . ] as $baseAll
-              | ($baseAll | map(select(.test_name as $n | ($per[$n] | type) == "array" | not))) as $base
-              | [ $per | to_entries[] as $e
-                  | $e.value[] | {test_name: $e.key} + .
-                ] as $extra
-              | ($base + $extra)
-              | to_entries
-              | map(.value + {test_id: .key})
-            ')
-
-            echo "$tests" > /tmp/test-matrix.json
-          fi
+          tests=$(echo "$test_names" | jq -c -R -s \
+            --argjson tops "$TOPOLOGIES_JSON" \
+            --argjson per "$PER_TEST_TOPOLOGIES_JSON" '
+            (split("\n") | map(select(length>0))) as $names
+            | [ $names[] as $name | $tops[] | {test_name:$name} + . ] as $baseAll
+            | ($baseAll | map(select(.test_name as $n | ($per[$n] | type) == "array" | not))) as $base
+            | [ $per | to_entries[] as $e
+                | $e.value[] | {test_name: $e.key} + .
+              ] as $extra
+            | ($base + $extra)
+            | to_entries
+            | map(.value + {test_id: .key})
+          ')
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
