@@ -48,6 +48,8 @@ func (m *mockCfgTracing) Mode() string            { return "tls" }
 
 type mockCfgTelemetry struct{}
 
+func (m mockCfgTelemetry) DurableEmitterMaxQueuePayloadBytes() int64 { return 1024 * 1024 }
+
 func (m mockCfgTelemetry) AuthHeadersTTL() time.Duration { return 10 * time.Minute }
 
 func (m mockCfgTelemetry) Enabled() bool { return true }
@@ -71,6 +73,10 @@ func (m mockCfgTelemetry) EmitterExportTimeout() time.Duration { return 1 * time
 func (m mockCfgTelemetry) ChipIngressEndpoint() string { return "example.com/chip-ingress" }
 
 func (m mockCfgTelemetry) DurableEmitterEnabled() bool { return true }
+
+func (m mockCfgTelemetry) DurableEmitterRetransmitBatchSize() int { return 500 }
+
+func (m mockCfgTelemetry) DurableEmitterEventTTL() time.Duration { return time.Hour }
 
 func (m mockCfgTelemetry) ChipIngressInsecureConnection() bool { return false }
 

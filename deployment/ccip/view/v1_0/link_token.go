@@ -7,15 +7,15 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	linkcontracts "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/contracts/link"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
+
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
 )
 
 type LinkTokenView struct {
-	cldfutil.ContractMetaData
+	view.ContractMetaData
 	Decimals uint8            `json:"decimals"`
 	Supply   *big.Int         `json:"supply"`
 	Minters  []common.Address `json:"minters"`
@@ -45,7 +45,7 @@ func GenerateLinkTokenView(lt *link_token.LinkToken) (LinkTokenView, error) {
 	}
 
 	return LinkTokenView{
-		ContractMetaData: cldfutil.ContractMetaData{
+		ContractMetaData: view.ContractMetaData{
 			TypeAndVersion: cldf.TypeAndVersion{
 				Type:    linkcontracts.LinkToken,
 				Version: *semver.MustParse("1.0.0"),

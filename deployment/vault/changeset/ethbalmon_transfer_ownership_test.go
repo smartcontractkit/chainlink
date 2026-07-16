@@ -118,7 +118,7 @@ func TestEthBalMonTransferOwnershipChangeset(t *testing.T) {
 
 	deployCfg := types.DeployEthBalMonInput{
 		Chains: map[uint64]types.DeployEthBalMonChainConfig{
-			selector: {SetKeeperRegistryAddress: testAddr1},
+			selector: {KeeperRegistryAddress: testAddr1},
 		},
 	}
 	deployTask := runtime.ChangesetTask(DeployEthBalMonChangeSet, deployCfg)

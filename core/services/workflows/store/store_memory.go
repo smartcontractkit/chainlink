@@ -189,29 +189,50 @@ func (s *InMemoryStore) pruneExpiredExecutionEntries() {
 		case <-s.chStop:
 			return
 		case <-ticker.Chan():
-			expirationTime := s.clock.Now().Add(-s.maximumExecutionAge)
-			s.mu.Lock()
-			for id, state := range s.idToExecution {
-				if isCompletedStatus(state.Status) {
-					delete(s.idToExecution, id)
-				}
-			}
-
-			// Prune non-terminated executions that are older than the maximum expiration time
-			// This shouldn't be necessary - erring on the side of caution for now as this pruning logic
-			// existed in the old store.
-			var prunedNonTerminatedExecutionIDs []string
-			for id, state := range s.idToExecution {
-				if state.UpdatedAt.Before(expirationTime) {
-					delete(s.idToExecution, id)
-					prunedNonTerminatedExecutionIDs = append(prunedNonTerminatedExecutionIDs, id)
-				}
-			}
-			s.mu.Unlock()
-			if len(prunedNonTerminatedExecutionIDs) > 0 {
-				s.lggr.Warnw("Found and pruned non completed workflow executions older than the maximum execution age",
-					"maximumExecutionAge", s.maximumExecutionAge, "pruned execution ids", prunedNonTerminatedExecutionIDs)
-			}
+			s.pruneCompletedAndExpiredExecutions()
 		}
+	}
+}
+
+// pruneCompletedAndExpiredExecutions removes completed executions and non-completed executions
+// older than maximumExecutionAge. When it prunes anything it rebuilds the map rather than
+// deleting in place, so the old bucket storage becomes eligible for GC: Go maps never shrink
+// after deletes, which strands memory once the store has churned through many executions.
+// See https://100go.co/28-maps-memory-leaks/
+func (s *InMemoryStore) pruneCompletedAndExpiredExecutions() {
+	expirationTime := s.clock.Now().Add(-s.maximumExecutionAge)
+
+	s.mu.Lock()
+	remaining := make(map[string]*WorkflowExecution, len(s.idToExecution))
+	prunedCompletedCount := 0
+	// Non-terminated executions older than the maximum age shouldn't normally exist; we prune
+	// them out of caution, preserving the behaviour of the old store.
+	var prunedExpiredIDs []string
+	for id, state := range s.idToExecution {
+		switch {
+		case isCompletedStatus(state.Status):
+			prunedCompletedCount++
+		case state.UpdatedAt.Before(expirationTime):
+			prunedExpiredIDs = append(prunedExpiredIDs, id)
+		default:
+			remaining[id] = state
+		}
+	}
+	prunedCount := prunedCompletedCount + len(prunedExpiredIDs)
+	if prunedCount > 0 {
+		s.idToExecution = remaining
+	}
+	remainingExecutions := len(s.idToExecution)
+	s.mu.Unlock()
+
+	if prunedCount > 0 {
+		s.lggr.Infow("Pruned workflow execution entries",
+			"prunedCompletedCount", prunedCompletedCount,
+			"prunedExpiredCount", len(prunedExpiredIDs),
+			"remainingExecutions", remainingExecutions)
+	}
+	if len(prunedExpiredIDs) > 0 {
+		s.lggr.Warnw("Found and pruned non completed workflow executions older than the maximum execution age",
+			"maximumExecutionAge", s.maximumExecutionAge, "prunedExecutionIDs", prunedExpiredIDs)
 	}
 }

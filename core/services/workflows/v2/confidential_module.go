@@ -20,7 +20,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -68,6 +67,7 @@ type ConfidentialModule struct {
 	workflowOwner     string
 	workflowName      string
 	workflowTag       string
+	resolveOrgID      func(ctx context.Context, owner string) (string, error)
 	lggr              logger.Logger
 	requirements      sync.Map
 	restritions       sync.Map
@@ -105,9 +105,12 @@ func newConfidentialModuleMetrics(meter metric.Meter) (*confidentialModuleMetric
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
+func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
+	}
+	if resolveOrgID == nil {
+		return nil, errors.New("resolveOrgID must not be nil")
 	}
 	metrics, err := newConfidentialModuleMetrics(beholder.GetMeter())
 	if err != nil {
@@ -122,6 +125,7 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandl
 		workflowOwner:     workflowOwner,
 		workflowName:      workflowName,
 		workflowTag:       workflowTag,
+		resolveOrgID:      resolveOrgID,
 		enabledGate:       enabledGate,
 		lggr:              lggr,
 		metrics:           metrics,
@@ -152,6 +156,11 @@ func (m *ConfidentialModule) Execute(
 	requirements := loadAndDelete[*sdkpb.Requirements](&m.requirements, workflowExecutionID)
 	restrictions := loadAndDelete[*sdkpb.Restrictions](&m.restritions, workflowExecutionID)
 
+	orgID, orgErr := m.resolveOrgID(ctx, m.workflowOwner)
+	if orgErr != nil {
+		m.lggr.Warnw("failed to resolve organization ID", "error", orgErr)
+	}
+
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
 		Execution: &confworkflowtypes.WorkflowExecution{
 			WorkflowId:        m.workflowID,
@@ -159,7 +168,7 @@ func (m *ConfidentialModule) Execute(
 			SdkExecuteRequest: request,
 			Owner:             m.workflowOwner,
 			ExecutionId:       workflowExecutionID,
-			OrgId:             contexts.CREValue(ctx).Org,
+			OrgId:             orgID,
 			Requirements:      requirements,
 			BinaryUrl:         m.binaryURL,
 			Restrictions:      restrictions,
@@ -174,7 +183,7 @@ func (m *ConfidentialModule) Execute(
 		attribute.String(platform.KeyWorkflowName, m.workflowName),
 	)
 	start := time.Now()
-	err := doRequest(ctx, m, workflowExecutionID, "Execute", capInput, capOutput)
+	err := doRequest(ctx, m, workflowExecutionID, "Execute", capInput, capOutput, orgID)
 	m.metrics.executionDuration.Record(ctx, time.Since(start).Milliseconds(), attrs)
 	if err != nil {
 		m.metrics.executionFailures.Add(ctx, 1, attrs)
@@ -195,7 +204,7 @@ func (m *ConfidentialModule) SetRestrictions(executionID string, restrictions *s
 func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeAndRegions {
 	capOutput := &confworkflowtypes.ProvidedTeesResponse{}
 	// use an empty execution ID, it's not during an execution.
-	if err := doRequest(ctx, m, "", "ProvidedTees", &emptypb.Empty{}, capOutput); err != nil {
+	if err := doRequest(ctx, m, "", "ProvidedTees", &emptypb.Empty{}, capOutput, ""); err != nil {
 		m.lggr.Errorf("failed to get regions from confidential-workflows capability, assuming no supported regions: %v", err)
 		return []*sdkpb.TeeTypeAndRegions{}
 	}
@@ -226,7 +235,8 @@ func doRequest[I, O proto.Message](
 	execID string,
 	method string,
 	capInput I,
-	capOutput O) error {
+	capOutput O,
+	orgID string) error {
 	payload, err := anypb.New(capInput)
 	if err != nil {
 		return fmt.Errorf("failed to marshal capability payload: %w", err)
@@ -250,6 +260,7 @@ func doRequest[I, O proto.Message](
 			WorkflowName:        m.workflowName,
 			WorkflowTag:         m.workflowTag,
 			WorkflowExecutionID: execID,
+			OrgID:               orgID,
 		},
 	}
 

@@ -106,6 +106,9 @@ jobs:
             "Test_CRE_V2_Aptos_Suite": [
                {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
              ],
+            "Test_CRE_V2_Stellar_Read_Suite": [
+               {"topology":"workflow-gateway-stellar","configs":"configs/workflow-gateway-don-stellar.toml"}
+             ],
             "Test_CRE_V2_Solana_Write": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
@@ -246,6 +249,12 @@ jobs:
         with:
           CLI_VERSION: 7.8.0
 
+      - name: Setup Stellar CRE contracts
+        if: ${{ contains(matrix.tests.test_name, 'Stellar') }}
+        uses: ./.github/actions/setup-stellar-cre-contracts
+        with:
+          working-directory: system-tests/lib
+
       - name: Resolve Chainlink image
         id: resolve-chainlink-image
         working-directory: .github/scripts
@@ -350,7 +359,7 @@ jobs:
         with:
           jd-image:
             "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
-            }}.amazonaws.com/job-distributor:0.22.1"
+            }}.amazonaws.com/job-distributor:0.28.0"
           chainlink-image: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
