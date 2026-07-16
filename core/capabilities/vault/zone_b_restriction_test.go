@@ -96,6 +96,7 @@ func zoneBGetSecretsRequest(t *testing.T, owner string) capabilities.CapabilityR
 }
 
 func TestCapability_Execute_ZoneBRestriction_DeniesNonAllowlistedOwner(t *testing.T) {
+	t.Parallel()
 	// Master gate enabled, owner NOT allowlisted (default deny).
 	capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`)
 
@@ -105,24 +106,28 @@ func TestCapability_Execute_ZoneBRestriction_DeniesNonAllowlistedOwner(t *testin
 }
 
 func TestCapability_enforceZoneBWorkflowRestriction(t *testing.T) {
+	t.Parallel()
 	ctxWithOwner := func(donID uint32, owner string) (context.Context, uint32) {
 		md := capabilities.RequestMetadata{WorkflowOwner: owner, WorkflowDonID: donID}
 		return md.ContextWithCRE(t.Context()), donID
 	}
 
 	t.Run("gate disabled: allows zone-b caller regardless of owner", func(t *testing.T) {
+		t.Parallel()
 		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"false"}}`)
 		ctx, donID := ctxWithOwner(zoneBDonID, "0x"+allowlistedOwner)
 		require.NoError(t, capability.zoneBRestrictor.enforce(ctx, donID))
 	})
 
 	t.Run("gate enabled: allows non-zone-b (zone-a) caller", func(t *testing.T) {
+		t.Parallel()
 		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`)
 		ctx, donID := ctxWithOwner(zoneADonID, "0xdeadbeef")
 		require.NoError(t, capability.zoneBRestrictor.enforce(ctx, donID))
 	})
 
 	t.Run("gate enabled: denies zone-b caller with non-allowlisted owner", func(t *testing.T) {
+		t.Parallel()
 		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`)
 		ctx, donID := ctxWithOwner(zoneBDonID, "0x"+allowlistedOwner)
 		err := capability.zoneBRestrictor.enforce(ctx, donID)
@@ -130,12 +135,14 @@ func TestCapability_enforceZoneBWorkflowRestriction(t *testing.T) {
 	})
 
 	t.Run("gate enabled: allows zone-b caller with allowlisted owner", func(t *testing.T) {
+		t.Parallel()
 		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"},"owner":{"`+allowlistedOwner+`":{"PerOwner":{"VaultZoneBGetSecretsAllowed":"true"}}}}`)
 		ctx, donID := ctxWithOwner(zoneBDonID, "0x"+allowlistedOwner)
 		require.NoError(t, capability.zoneBRestrictor.enforce(ctx, donID))
 	})
 
 	t.Run("gate enabled: fails closed for unknown caller DON", func(t *testing.T) {
+		t.Parallel()
 		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`)
 		md := capabilities.RequestMetadata{WorkflowOwner: "0x" + allowlistedOwner, WorkflowDonID: 999}
 		err := capability.zoneBRestrictor.enforce(md.ContextWithCRE(t.Context()), 999)

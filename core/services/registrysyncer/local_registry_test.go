@@ -163,6 +163,7 @@ func TestLocalRegistry_DONsForCapability(t *testing.T) {
 }
 
 func TestLocalRegistry_DONByID(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	getPeerID := func() (types.PeerID, error) {
 		return types.PeerID{0: 1}, nil

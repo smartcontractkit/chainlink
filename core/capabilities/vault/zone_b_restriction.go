@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -87,12 +89,10 @@ func (z *zoneBRestrictor) isZoneBWorkflowDON(ctx context.Context, workflowDonID 
 	if err != nil {
 		return false, fmt.Errorf("could not resolve caller workflow DON %d for zone-b vault read restriction: %w", workflowDonID, err)
 	}
-	for _, family := range don.Families {
-		if family == zoneBFamily {
-			return true, nil
-		}
-	}
-	return false, nil
+	// Case-insensitive match: family casing may vary across registry sources.
+	return slices.ContainsFunc(don.Families, func(family string) bool {
+		return strings.EqualFold(family, zoneBFamily)
+	}), nil
 }
 
 func (z *zoneBRestrictor) close() error {
