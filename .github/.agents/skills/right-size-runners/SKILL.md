@@ -16,6 +16,21 @@ Setup:
 1. Read workflow. Identify jobs, runners, critical path, and bottlenecks.
 2. Ask to optimize specific job or whole workflow.
 3. Modify workflow for testing (bypass gates, use mock inputs, add `workflow_dispatch`).
+   Add the octometrics monitoring action to jobs for telemetry:
+   ```yaml
+   example-job:
+   name: Example Job
+   runs-on: ubuntu-latest
+   steps:
+      - name: Monitor
+         uses: kalverra/octometrics-action
+         with:
+         job_name: Example Job
+         skip_comment: 'false'
+         env:
+         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Rest of job here
+   ```
 4. Init or resume trial log at `.github/.agents/skills/right-size-runners/trials/<workflow>.md`.
 5. Run a baseline trial with the current runner configuration to establish a performance and stability benchmark.
 </initialization>
