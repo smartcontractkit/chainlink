@@ -390,6 +390,80 @@ var SetCallAllowedOperation = operations.NewOperation(
 
 // ================================================
 // ================================================
+// SetExpectedWorkflowIdentity OPERATION (direct, deployer-owned)
+// ================================================
+// ================================================
+
+type SetExpectedWorkflowIdentityOperationInput struct {
+	ChainSelector             uint64 `json:"chain_selector"`
+	AutomationReceiverAddress string `json:"automation_receiver_address"`
+	ExpectedAuthor            string `json:"expected_author"`
+	ExpectedWorkflowName      string `json:"expected_workflow_name"`
+}
+
+type SetExpectedWorkflowIdentityOperationOutput struct {
+	ChainSelector uint64 `json:"chain_selector"`
+	AuthorTxHash  string `json:"author_tx_hash"`
+	NameTxHash    string `json:"name_tx_hash"`
+}
+
+// SetExpectedWorkflowIdentityOperation sets expectedAuthor + expectedWorkflowName on the
+// AutomationReceiver directly (deployer is still the owner at this point in the deploy flow,
+// before ownership is transferred to the Timelock). The receiver requires this identity to be
+// configured or it reverts inbound reports with WorkflowIdentityNotConfigured.
+var SetExpectedWorkflowIdentityOperation = operations.NewOperation(
+	"set-expected-workflow-identity",
+	semver.MustParse("1.0.0"),
+	"Set expectedAuthor and expectedWorkflowName on AutomationReceiver (deployer-owned)",
+	func(b operations.Bundle, deps VaultDeps, input SetExpectedWorkflowIdentityOperationInput) (SetExpectedWorkflowIdentityOperationOutput, error) {
+		chain, ok := deps.Environment.BlockChains.EVMChains()[input.ChainSelector]
+		if !ok {
+			return SetExpectedWorkflowIdentityOperationOutput{}, fmt.Errorf("chain not found in environment: %d", input.ChainSelector)
+		}
+
+		receiver, err := automation_receiver.NewAutomationReceiver(
+			common.HexToAddress(input.AutomationReceiverAddress),
+			chain.Client,
+		)
+		if err != nil {
+			return SetExpectedWorkflowIdentityOperationOutput{}, fmt.Errorf("failed to instantiate AutomationReceiver at %s: %w", input.AutomationReceiverAddress, err)
+		}
+
+		b.Logger.Infow("Setting expectedAuthor on AutomationReceiver",
+			"chainSelector", input.ChainSelector,
+			"automationReceiverAddress", input.AutomationReceiverAddress,
+			"expectedAuthor", input.ExpectedAuthor,
+		)
+		authorTx, err := receiver.SetExpectedAuthor(chain.DeployerKey, common.HexToAddress(input.ExpectedAuthor))
+		if err != nil {
+			return SetExpectedWorkflowIdentityOperationOutput{}, fmt.Errorf("failed to call setExpectedAuthor: %w", err)
+		}
+		if _, err := chain.Confirm(authorTx); err != nil {
+			return SetExpectedWorkflowIdentityOperationOutput{}, fmt.Errorf("failed to confirm setExpectedAuthor tx %s: %w", authorTx.Hash().Hex(), err)
+		}
+
+		b.Logger.Infow("Setting expectedWorkflowName on AutomationReceiver",
+			"chainSelector", input.ChainSelector,
+			"expectedWorkflowName", input.ExpectedWorkflowName,
+		)
+		nameTx, err := receiver.SetExpectedWorkflowName(chain.DeployerKey, input.ExpectedWorkflowName)
+		if err != nil {
+			return SetExpectedWorkflowIdentityOperationOutput{}, fmt.Errorf("failed to call setExpectedWorkflowName: %w", err)
+		}
+		if _, err := chain.Confirm(nameTx); err != nil {
+			return SetExpectedWorkflowIdentityOperationOutput{}, fmt.Errorf("failed to confirm setExpectedWorkflowName tx %s: %w", nameTx.Hash().Hex(), err)
+		}
+
+		return SetExpectedWorkflowIdentityOperationOutput{
+			ChainSelector: input.ChainSelector,
+			AuthorTxHash:  authorTx.Hash().Hex(),
+			NameTxHash:    nameTx.Hash().Hex(),
+		}, nil
+	},
+)
+
+// ================================================
+// ================================================
 // Transfer AutomationReceiver Ownership OPERATION
 // ================================================
 // ================================================

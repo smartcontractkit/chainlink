@@ -9,8 +9,9 @@ USAGE:
    chainlink blocks command [command options] [arguments...]
 
 COMMANDS:
-   replay    Replays block data from the given number
-   find-lca  Find latest common block stored in DB and on chain
+   replay            Replays block data from the given number
+   find-lca          Find latest common block stored in DB and on chain
+   lp-skip-to-block  Reposition LogPoller to start processing from the given finalized block number. Note: LogPoller does not guarantee that finalized blocks in the DB and specified block belong to the same chain. LogPoller will remove all unfinalized logs before saving new checkpoint.
 
 OPTIONS:
    --help, -h  show help
