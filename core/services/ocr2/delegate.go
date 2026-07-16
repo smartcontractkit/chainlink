@@ -61,9 +61,10 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
+	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
@@ -1666,7 +1667,7 @@ func (d *Delegate) newServicesLLO(
 		ChannelDefinitionCache:   provider.ChannelDefinitionCache(),
 		RetirementReportCache:    d.retirementReportCache,
 		ShouldRetireCache:        provider.ShouldRetireCache(),
-		RetirementReportCodec:    datastreamsllo.StandardRetirementReportCodec{},
+		RetirementReportCodec:    llocommon.StandardRetirementReportCodec{},
 		PluginMonitoringEndpoint: d.monitoringEndpointGen.GenMultitypeMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID),
 		DonID:                    pluginCfg.DonID,
 		ChainID:                  rid.ChainID,
@@ -1684,7 +1685,7 @@ func (d *Delegate) newServicesLLO(
 		OnchainKeyring:               kr,
 
 		// Enable verbose logging if either Mercury.VerboseLogging is on or OCR2.TraceLogging is on
-		ReportingPluginConfig: datastreamsllo.Config{VerboseLogging: d.cfg.Mercury().VerboseLogging() || d.cfg.OCR2().TraceLogging()},
+		ReportingPluginConfig: llov30.Config{VerboseLogging: d.cfg.Mercury().VerboseLogging() || d.cfg.OCR2().TraceLogging()},
 		NewOCR3DB: func(pluginID int32) ocr3types.Database {
 			return NewDB(d.ds, spec.ID, pluginID, lggr)
 		},

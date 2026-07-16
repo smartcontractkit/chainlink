@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
-	"github.com/smartcontractkit/chainlink-data-streams/llo"
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
+	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -28,10 +28,10 @@ import (
 const adapterLWBAErrorName = "AdapterLWBAError"
 
 type Telemeter interface {
-	EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error)
-	MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- any)
-	GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry
-	GetReportTelemetryCh() chan<- *datastreamsllo.LLOReportTelemetry
+	EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llov30.DSOpts, val llocommon.StreamValue, err error)
+	MakeObservationScopedTelemetryCh(opts llov30.DSOpts, size int) (ch chan<- any)
+	GetOutcomeTelemetryCh() chan<- *llocommon.LLOOutcomeTelemetry
+	GetReportTelemetryCh() chan<- *llocommon.LLOReportTelemetry
 	CaptureEATelemetry() bool
 	CaptureObservationTelemetry() bool
 	TrackSeqNr(digest types.ConfigDigest, seqNr uint64)
@@ -82,10 +82,10 @@ func newTelemeter(params TelemeterParams) *telemeter {
 		sampler:         newSampler(logger.Sugared(params.Logger), params.SampleTelemetry),
 	}
 	if params.CaptureOutcomeTelemetry {
-		t.chOutcomeTelemetry = make(chan *datastreamsllo.LLOOutcomeTelemetry, 100) // only one per round so 100 buffer should be more than enough even for very fast rounds
+		t.chOutcomeTelemetry = make(chan *llocommon.LLOOutcomeTelemetry, 100) // only one per round so 100 buffer should be more than enough even for very fast rounds
 	}
 	if params.CaptureReportTelemetry {
-		t.chReportTelemetry = make(chan *datastreamsllo.LLOReportTelemetry, (2+2)*datastreamsllo.MaxReportCount) // 2 instances+2x size safety buffer
+		t.chReportTelemetry = make(chan *llocommon.LLOReportTelemetry, (2+2)*llocommon.MaxReportCount) // 2 instances+2x size safety buffer
 	}
 	t.Service, t.eng = services.Config{
 		Name:  "LLOTelemeterService",
@@ -128,8 +128,8 @@ type telemeter struct {
 	captureEATelemetry          bool
 	captureObservationTelemetry bool
 	chch                        chan telemetryCollectionContext
-	chOutcomeTelemetry          chan *datastreamsllo.LLOOutcomeTelemetry
-	chReportTelemetry           chan *datastreamsllo.LLOReportTelemetry
+	chOutcomeTelemetry          chan *llocommon.LLOOutcomeTelemetry
+	chReportTelemetry           chan *llocommon.LLOReportTelemetry
 
 	currentSeqNrMu      sync.Mutex
 	currentSeqNr        map[string]uint64
@@ -146,7 +146,7 @@ type telemeter struct {
 	sampler *sampler
 }
 
-func (t *telemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
+func (t *telemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llov30.DSOpts, val llocommon.StreamValue, err error) {
 	if t.Ready() != nil {
 		// This should never happen, telemeter should always be started BEFORE
 		// the oracle and closed AFTER it
@@ -170,7 +170,7 @@ func (t *telemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.Task
 
 type telemetryCollectionContext struct {
 	in   <-chan any
-	opts llo.DSOpts
+	opts llov30.DSOpts
 }
 
 // MakeObservationScopedTelemetryCh reads telem packets from the returned channel and sends them
@@ -182,7 +182,7 @@ type telemetryCollectionContext struct {
 //
 // It is necessary to make a new channel for every Observation call because it
 // closes over DSOpts which is scoped to that call only.
-func (t *telemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) chan<- any {
+func (t *telemeter) MakeObservationScopedTelemetryCh(opts llov30.DSOpts, size int) chan<- any {
 	if !t.captureObservationTelemetry && !t.captureEATelemetry {
 		return nil
 	}
@@ -204,11 +204,11 @@ func (t *telemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) 
 	return ch
 }
 
-func (t *telemeter) GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry {
+func (t *telemeter) GetOutcomeTelemetryCh() chan<- *llocommon.LLOOutcomeTelemetry {
 	return t.chOutcomeTelemetry
 }
 
-func (t *telemeter) GetReportTelemetryCh() chan<- *datastreamsllo.LLOReportTelemetry {
+func (t *telemeter) GetReportTelemetryCh() chan<- *llocommon.LLOReportTelemetry {
 	return t.chReportTelemetry
 }
 
@@ -364,7 +364,7 @@ func (t *telemeter) enqueueTelemetry(digest string, seqNr uint64, typ synchroniz
 	}
 }
 
-func (t *telemeter) prepareObservationTelemetry(p any, opts llo.DSOpts) {
+func (t *telemeter) prepareObservationTelemetry(p any, opts llov30.DSOpts) {
 	var telemType synchronization.TelemetryType
 	var msg proto.Message
 	switch v := p.(type) {
@@ -412,10 +412,10 @@ func (t *telemeter) prepareV3PremiumLegacyTelemetry(d *TelemetryPipeline) {
 		var benchmarkPrice, bidPrice, askPrice int64
 		var bp, bid, ask string
 		switch v := d.val.(type) {
-		case *llo.Decimal:
+		case *llocommon.Decimal:
 			benchmarkPrice = v.Decimal().IntPart()
 			bp = v.Decimal().String()
-		case *llo.Quote:
+		case *llocommon.Quote:
 			benchmarkPrice = v.Benchmark.IntPart()
 			bp = v.Benchmark.String()
 			bidPrice = v.Bid.IntPart()
@@ -472,7 +472,7 @@ func (t *telemeter) TrackSeqNr(digest types.ConfigDigest, seqNr uint64) {
 }
 
 type TelemetryObserve struct {
-	Opts      llo.DSOpts
+	Opts      llov30.DSOpts
 	Telemetry any
 }
 
@@ -480,8 +480,8 @@ type TelemetryPipeline struct {
 	run                          *pipeline.Run
 	trrs                         pipeline.TaskRunResults
 	streamID                     uint32
-	opts                         llo.DSOpts
-	val                          llo.StreamValue
+	opts                         llov30.DSOpts
+	val                          llocommon.StreamValue
 	dpInvariantViolationDetected bool
 }
 
@@ -489,15 +489,15 @@ var NullTelemeter TelemeterService = &nullTelemeter{}
 
 type nullTelemeter struct{}
 
-func (t *nullTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
+func (t *nullTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llov30.DSOpts, val llocommon.StreamValue, err error) {
 }
-func (t *nullTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- any) {
+func (t *nullTelemeter) MakeObservationScopedTelemetryCh(opts llov30.DSOpts, size int) (ch chan<- any) {
 	return nil
 }
-func (t *nullTelemeter) GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry {
+func (t *nullTelemeter) GetOutcomeTelemetryCh() chan<- *llocommon.LLOOutcomeTelemetry {
 	return nil
 }
-func (t *nullTelemeter) GetReportTelemetryCh() chan<- *datastreamsllo.LLOReportTelemetry {
+func (t *nullTelemeter) GetReportTelemetryCh() chan<- *llocommon.LLOReportTelemetry {
 	return nil
 }
 func (t *nullTelemeter) CaptureEATelemetry() bool {
