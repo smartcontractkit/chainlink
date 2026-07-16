@@ -23,7 +23,7 @@ jobs:
           tags: tag:chainlink-gha
       - name: Test Service Connectivity
         env:
-          SERVICE_URL: "https://rane-sot-app-ingress-main-stage.tailec47a7.ts.net/v1/nodes?network=solana-mainnet"
+          SERVICE_URL: "https://rane-sot-app-ingress-main-prod.tailec47a7.ts.net/v1/nodes?network=solana-mainnet"
         run: |
           for i in $(seq 1 50); do
             echo "Request $i/50"
