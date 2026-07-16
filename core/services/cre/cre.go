@@ -1042,8 +1042,7 @@ func newWorkflowRegistrySyncerV2(
 		}
 		shardRoutingSteady = shardownership.NewSteadySignal(shardownership.WithSteadySignalMetrics(steadyMetrics))
 	}
-	// TOML [Metering] is the single authority for the emission gate; the
-	// deleted CL_METER_RECORDS_ENABLED node env var no longer participates.
+
 	meteringCfg := cfg.Metering()
 	meterRecordsEnabled := meteringCfg != nil && meteringCfg.MeterRecordsEnabled()
 	meterSnapshotsEnabled := meteringCfg != nil && meteringCfg.MeterSnapshotsEnabled()
@@ -1056,10 +1055,6 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
 		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
-		// The handler owns this ResourceManager's lifecycle (starts it, registers
-		// itself as the snapshotted Meterable, closes it). A positive
-		// SnapshotInterval enables the periodic absolute-state snapshot loop; the
-		// RM is otherwise a no-op when metering is disabled.
 		syncerV2.WithResourceManager(resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
 			MeterRecordsEnabled:   meterRecordsEnabled,
 			MeterSnapshotsEnabled: meterSnapshotsEnabled,

@@ -22,12 +22,11 @@ func (b *meteringConfig) MeterSnapshotsEnabled() bool {
 	return *b.s.MeterSnapshotsEnabled
 }
 
-// Product defaults to "cre" (resourcemanager.DefaultMeteringProduct) when unset,
-// so the syncer's metering identity matches the capability plugins' fallback and
-// metering can never be enabled with an empty product dimension.
+// Product defaults to "unset" (resourcemanager.DefaultMeteringProduct) when unset,
+// to catch config errors early.
 func (b *meteringConfig) Product() string {
 	if b.s.Product == nil {
-		return "cre"
+		return "unset"
 	}
 	return *b.s.Product
 }

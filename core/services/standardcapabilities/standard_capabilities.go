@@ -106,10 +106,6 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to parse capabilities env file: %w", err)
 		}
-		// Metering identity and the emission gate reach capability LOOPs through
-		// loop.EnvConfig (produced from the node's TOML [Metering] via
-		// EnvConfig.AsCmdEnv), so there is no meter-record env var to pass
-		// through here.
 		cmdFn, opts, err := s.pluginRegistrar.RegisterLOOP(plugins.CmdConfig{
 			ID:  s.log.Name(),
 			Cmd: s.command,

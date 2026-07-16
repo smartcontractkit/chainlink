@@ -931,13 +931,7 @@ Prefixes = ["go_"] # Default
 
 # Metering configures durable resource metering emission and the coarse
 # deployment/node identity dimensions stamped on emitted MeterRecords and
-# MeterSnapshots. This TOML section is the single authority for metering on the
-# core node; there is no environment-variable gate. For capability LOOP plugins
-# the values are forwarded unchanged over the plugin environment
-# (loop.EnvConfig), which is only a child-process transport produced from this
-# config, not a separate gate. Snapshots are emitted on a fixed internal
-# interval and are bucket-aligned (each snapshot timestamp is truncated to the
-# interval) so cross-node snapshot buckets agree.
+# MeterSnapshots.
 [Metering]
 # MeterRecordsEnabled enables durable MeterRecord emission for LOOP plugins.
 MeterRecordsEnabled = false # Default

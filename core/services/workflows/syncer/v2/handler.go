@@ -105,14 +105,7 @@ type eventHandler struct {
 	workflowDonSubscriber  capabilities.DonSubscriber
 	billingClient          metering.BillingClient
 	resourceManager        *resourcemanager.ResourceManager
-	// meterIdentity is the base metering identity for this node's syncer: the
-	// six coarse dimensions (product, tenant, environment, zone, don_id,
-	// node_id) plus service/resource_pool. Per-resource billing fields
-	// (resource_type/resource_id/event_id/org_id/value) are attached at emit/
-	// snapshot time via UtilizationFields. It is populated by WithIdentity in
-	// cre.go; Service/ResourcePool are forced to syncer constants regardless of
-	// the option.
-	meterIdentity resourcemanager.ResourceIdentity
+	meterIdentity          resourcemanager.ResourceIdentity
 	// resolvedDonID holds the workflow DON id once resolved from the don notifier
 	// at start (the engine runs on the workflow DON). It is resolved
 	// asynchronously so node boot is not blocked while waiting for the DON to be
@@ -374,7 +367,6 @@ func NewEventHandler(
 			Service:      meterService,
 			ResourcePool: meterResourcePool,
 		},
-		tracer: noop.NewTracerProvider().Tracer(""), // default to noop, enable via WithDebugMode
 	}
 	metricsInst, metricsErr := newMetrics()
 	if metricsErr != nil {
@@ -407,6 +399,7 @@ func (h *eventHandler) start(ctx context.Context) error {
 		if err := h.resourceManager.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start resource manager: %w", err)
 		}
+		// Register returns a func that unregisters. 
 		h.rmUnregister = h.resourceManager.Register(h)
 		h.resolveWorkflowDonID()
 	}

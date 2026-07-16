@@ -3118,9 +3118,7 @@ type Metering struct {
 	// Zone is the deployment zone dimension, e.g. "wf-zone-a".
 	Zone *string
 	// NodeID is the node's logical name, e.g. "clp-cre-wf-zone-a-1" (NOT the CSA
-	// public key). The billing service uses it to look up the node's CSA key in
-	// the workflow registry; the CSA key itself is attached to events as the
-	// node_csa_key attribute.
+	// public key)
 	NodeID *string
 }
 

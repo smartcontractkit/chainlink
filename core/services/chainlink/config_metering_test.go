@@ -18,7 +18,7 @@ func TestMeteringConfig(t *testing.T) {
 		// Product defaults to "cre" so metering can never be enabled with an
 		// empty product dimension and the syncer identity matches the plugins'
 		// fallback.
-		assert.Equal(t, "cre", mc.Product())
+		assert.Equal(t, "unset", mc.Product())
 		assert.Empty(t, mc.Tenant())
 		assert.Empty(t, mc.NumericTenantID())
 		assert.Empty(t, mc.Environment())
