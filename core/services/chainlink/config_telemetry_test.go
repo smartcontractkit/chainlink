@@ -237,6 +237,28 @@ func TestTelemetryConfig_ChipIngressBatchEmitterEnabled(t *testing.T) {
 	}
 }
 
+func TestTelemetryConfig_DurableEmitterMaxQueuePayloadBytes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  int64
+	}{
+		{"Set", toml.Telemetry{DurableEmitterMaxQueuePayloadBytes: ptr[int64](2048)}, 2048},
+		{"Nil", toml.Telemetry{DurableEmitterMaxQueuePayloadBytes: nil}, 1 << 30}, // Default 1 GiB
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.DurableEmitterMaxQueuePayloadBytes())
+		})
+	}
+}
+
 func ptrDuration(d time.Duration) *config.Duration {
 	return config.MustNewDuration(d)
 }

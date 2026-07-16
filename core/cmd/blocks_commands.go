@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
 	stderrors "errors"
 	"fmt"
 	"net/url"
@@ -49,6 +50,28 @@ func initBlocksSubCmds(s *Shell) []cli.Command {
 				cli.Int64Flag{
 					Name:     "evm-chain-id",
 					Usage:    "Chain ID of the EVM-based blockchain",
+					Required: true,
+				},
+			},
+		},
+		{
+			Name:   "lp-skip-to-block",
+			Usage:  `Reposition LogPoller to start processing from the given finalized block number. Note: LogPoller does not guarantee that finalized blocks in the DB and specified block belong to the same chain. LogPoller will remove all unfinalized logs before saving new checkpoint.`,
+			Action: s.LPSkipToBlock,
+			Flags: []cli.Flag{
+				cli.Int64Flag{
+					Name:     "block-number",
+					Usage:    "Block number to skip to",
+					Required: true,
+				},
+				cli.StringFlag{
+					Name:     "family",
+					Usage:    "Chain family for specified chain-id (currently only evm is supported)",
+					Required: true,
+				},
+				cli.StringFlag{
+					Name:     "chain-id",
+					Usage:    "Chain ID of the blockchain",
 					Required: true,
 				},
 			},
@@ -139,4 +162,47 @@ func (s *Shell) FindLCA(c *cli.Context) (err error) {
 	}()
 
 	return s.renderAPIResponse(resp, &LCAPresenter{}, "Last Common Ancestor")
+}
+
+// LPSkipToBlock repositions LogPoller to start processing from the given block number.
+func (s *Shell) LPSkipToBlock(c *cli.Context) (err error) {
+	blockNumber := c.Int64("block-number")
+	if blockNumber < 2 {
+		return s.errorOut(errors.New("Must pass a value >= 2 in '--block-number' parameter"))
+	}
+
+	if !c.IsSet("family") {
+		return s.errorOut(errors.New("Must set '--family' parameter to specify chain family type"))
+	}
+
+	if !c.IsSet("chain-id") {
+		return s.errorOut(errors.New("Must set '--chain-id' parameter"))
+	}
+
+	request, err := json.Marshal(web.LPSkipToBlockRequest{
+		BlockNumber: blockNumber,
+		Family:      c.String("family"),
+		ChainID:     c.String("chain-id"),
+	})
+	if err != nil {
+		return s.errorOut(err)
+	}
+
+	resp, err := s.HTTP.Post(s.ctx(), "/v2/lp_skip_to_block", bytes.NewReader(request))
+	if err != nil {
+		return s.errorOut(errors.Wrap(err, "failed to send request to reposition LogPoller"))
+	}
+
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			err = stderrors.Join(err, cerr)
+		}
+	}()
+
+	_, err = s.parseResponse(resp)
+	if err != nil {
+		return s.errorOut(err)
+	}
+	fmt.Println("Log poller will start processing from the new block on next tick")
+	return nil
 }

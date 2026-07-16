@@ -26,6 +26,7 @@ tools/clroot/db.sqlite3-wal
 .env*
 .dbenv
 !.github/actions/setup-postgres/.env
+/.github/.agents/skills/right-size-runners/trials/
 .direnv
 .idea
 .vscode/

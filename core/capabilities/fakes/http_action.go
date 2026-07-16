@@ -130,6 +130,9 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 			Response:         httpResponse,
 			ResponseMetadata: commonCap.ResponseMetadata{},
 		}
+		if errors.Is(err, errRedirectsDisabled) {
+			return &responseAndMetadata, caperrors.NewPublicUserError(err, caperrors.InvalidArgument)
+		}
 		return &responseAndMetadata, caperrors.NewPrivateSystemError(err, caperrors.Unknown)
 	}
 	defer resp.Body.Close()
@@ -174,12 +177,21 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	return &responseAndMetadata, nil
 }
 
+// errRedirectsDisabled mirrors the CRE DON's HTTP action capability, which
+// does not permit following redirects (see capabilities/http_action/common/proxy.go).
+var errRedirectsDisabled = errors.New("redirects are not allowed")
+
+func disableRedirects(*http.Request, []*http.Request) error {
+	return errRedirectsDisabled
+}
+
 // newHTTPClient builds the HTTP client used to make the outbound request. When
 // the request carries mTLS auth, the client is configured to present the
 // supplied certificate and private key as a client certificate.
 func newHTTPClient(input *customhttp.Request, timeout time.Duration) (*http.Client, error) {
 	client := &http.Client{
-		Timeout: timeout,
+		Timeout:       timeout,
+		CheckRedirect: disableRedirects,
 	}
 
 	mtls := input.GetMtls()

@@ -51,7 +51,7 @@ plugins:
 
   streams:
     - moduleURI: "github.com/smartcontractkit/chainlink-data-streams"
-      gitRef: "v0.1.15-0.20260522094612-5f9f748bd87a"
+      gitRef: "v0.1.15-0.20260707105132-2da5d31f22fc"
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
@@ -66,7 +66,7 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20260623170329-4577ef4ba0ae"
+      gitRef: "v0.3.4-0.20260715161014-611d8ac32364"
       installPath: "./pkg/cmd/chainlink-evm"
 
   capability-cron:
@@ -93,17 +93,17 @@ plugins:
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
+      gitRef: "2cf965790a71171e1336f6d1d4f5162f2bd39bd1"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
+      gitRef: "2cf965790a71171e1336f6d1d4f5162f2bd39bd1"
       installPath: "."
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
+      gitRef: "d7162a2b15aea2ce861052ebaa2f5ca716a9b60a"
       installPath: "."
 
   capability-solana:
