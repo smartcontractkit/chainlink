@@ -23,8 +23,13 @@ jobs:
           tags: tag:chainlink-gha
       - name: Test Service Connectivity
         env:
-          SERVICE_URL: ${{ secrets.RANE_SOT_URL_SNAPSHOT_V1 }}
+          SERVICE_URL: "https://rane-sot-app-ingress-main-stage.tailec47a7.ts.net/v1/nodes?network=solana-mainnet"
         run: |
-          # Test the endpoint is reachable
-          curl -v ${SERVICE_URL}
+          for i in $(seq 1 50); do
+            echo "Request $i/50"
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" -H "User-Agent: ingress-test" "${SERVICE_URL}"
+            if [ "$i" -lt 50 ]; then
+              sleep 1
+            fi
+          done
           echo "✅ Service is accessible via Tailscale"
