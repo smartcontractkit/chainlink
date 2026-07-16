@@ -12,6 +12,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
@@ -45,6 +46,10 @@ type server struct {
 	wg          sync.WaitGroup
 
 	parallelExecutor *parallelExecutor
+
+	// workflowDONBindingGate, when open, makes each ServerRequest require the
+	// request's Metadata.WorkflowDonID to match the authenticated calling DON.
+	workflowDONBindingGate limits.GateLimiter
 }
 
 type dynamicServerConfig struct {
@@ -73,7 +78,7 @@ type requestAndMsgID struct {
 	messageID string
 }
 
-func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatcher types.Dispatcher, lggr logger.Logger) *server {
+func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatcher types.Dispatcher, workflowDONBindingGate limits.GateLimiter, lggr logger.Logger) *server {
 	return &server{
 		capabilityID:               capabilityID,
 		capMethodName:              methodName,
@@ -83,6 +88,7 @@ func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatch
 		requestIDToRequest:         map[string]requestAndMsgID{},
 		messageIDToRequestIDsCount: map[string]map[string]int{},
 		stopCh:                     make(services.StopChan),
+		workflowDONBindingGate:     workflowDONBindingGate,
 	}
 }
 
@@ -291,7 +297,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		}
 
 		sr, ierr := request.NewServerRequest(cfg.underlying, msg.Method, cfg.capInfo.ID, cfg.localDonInfo.ID, r.peerID,
-			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.lggr)
+			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.workflowDONBindingGate, r.lggr)
 		if ierr != nil {
 			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
 			return

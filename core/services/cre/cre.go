@@ -488,6 +488,7 @@ func (s *Services) newRegistrySyncer(
 		dispatcherWrapper.dispatcher,
 		opts.CapabilitiesRegistry,
 		donNotifier,
+		opts.LimitsFactory,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
