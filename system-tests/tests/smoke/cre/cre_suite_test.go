@@ -272,10 +272,19 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 }
 
 //nolint:paralleltest // isolate local cre env run
-func Test_CRE_V2_Stellar_Suite(t *testing.T) {
+func Test_CRE_V2_Stellar_Read_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
-	t.Run("Stellar", func(t *testing.T) {
-		ExecuteStellarTest(t, testEnv)
+
+	t.Run("Stellar GetLatestLedger", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarReadLatestLedgerTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
+
+	t.Run("Stellar ReadContract", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarReadContractSmokeTest(t, env, chain, userLogsCh, baseMessageCh)
 	})
 }
 

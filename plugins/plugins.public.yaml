@@ -46,7 +46,7 @@ plugins:
 
   stellar:
     - moduleURI: "github.com/smartcontractkit/chainlink-stellar"
-      gitRef: "35369348e6326e4a1696712dda37d312fec6e130"
+      gitRef: "887c274c6b64de349aa0d4b76717a9283d7f3961"
       installPath: "./cmd/chainlink-stellar"
 
   streams:
@@ -66,7 +66,7 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20260623170329-4577ef4ba0ae"
+      gitRef: "v0.3.4-0.20260715161014-611d8ac32364"
       installPath: "./pkg/cmd/chainlink-evm"
 
   capability-cron:
@@ -118,5 +118,5 @@ plugins:
 
   capability-stellar:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
-      gitRef: "47f3f0da57a121980c3ad366f10e5fbe7bf58998"
+      gitRef: "0b6033b541c34b1e9306bf1584dd355f5a5e7c4f"
       installPath: "."

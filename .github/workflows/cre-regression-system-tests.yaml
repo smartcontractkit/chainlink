@@ -94,6 +94,13 @@ jobs:
 
           # generate IDs for each test
           tests=$(echo "$test_names" | jq -R -s --argjson run_id "${{ github.run_id }}" --arg run_attempt "${{ github.run_attempt }}" '
+          # Per-test Local CRE topology overrides (default = workflow-gateway-capabilities).
+          PER_TEST_CONFIGS_JSON='{
+            "Test_CRE_V2_Stellar_ReadContract_Regression": "configs/workflow-gateway-don-stellar.toml"
+          }'
+
+          # generate IDs for each test and attach topology config
+          tests=$(echo "$test_names" | jq -R -s --argjson per "$PER_TEST_CONFIGS_JSON" '
             split("\n") | map(select(length>0))
             | to_entries
             | map({
@@ -103,6 +110,7 @@ jobs:
                   then "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=r6i+r7i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
                   else "ubuntu-latest"
                   end)
+                configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
               })
           ')
 
@@ -194,6 +202,12 @@ jobs:
           go install gotest.tools/gotestsum@v1.12.3
           echo "::endgroup::"
 
+      - name: Setup Stellar CRE contracts
+        if: ${{ contains(matrix.tests.test_name, 'Stellar') }}
+        uses: ./.github/actions/setup-stellar-cre-contracts
+        with:
+          working-directory: system-tests/lib
+
       - name: Resolve Chainlink image
         id: resolve-chainlink-image
         working-directory: .github/scripts
@@ -218,7 +232,7 @@ jobs:
           chainlink-image: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
-          ctf-configs: configs/workflow-gateway-capabilities-don.toml
+          ctf-configs: ${{ matrix.tests.configs }}
           retry-count: "3"
           retry-delay-seconds: "15"
           cleanup-on-error: "false"
@@ -287,7 +301,7 @@ jobs:
         if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
-          name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.topology }}
+          name: test-logs-${{ matrix.tests.test_name }}-${{ matrix.tests.test_id }}
           path: |
             ./system-tests/tests/regression/cre/logs/
             /tmp/gotest.log
