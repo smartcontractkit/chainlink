@@ -146,6 +146,8 @@ type Application interface {
 	FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error)
 	// DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
 	DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error
+	// LPSkipToBlock repositions the LogPoller to start processing from the given block number.
+	LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -381,7 +383,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// Wire DurableEmitter for persistent chip ingress delivery when enabled
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
 		emitterCfg := durableemitter.DefaultConfig()
-		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{}
+		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{
+			MaxQueuePayloadBytes: cfg.Telemetry().DurableEmitterMaxQueuePayloadBytes(),
+		}
 		emitterCfg.InsertBatchSize = 500
 		emitterCfg.InsertBatchWorkers = 6
 		emitterCfg.InsertBatchFlushInterval = 100 * time.Millisecond
@@ -400,10 +404,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		//   - EventTTL MUST exceed the recovery duration, or the backlog EXPIRES
 		//     (rows dropped by the 1-min expiry loop) before it can be delivered — a
 		//     fake "drain". 6h gives a wide margin for the test.
-		emitterCfg.RetransmitAfter = 60 * time.Second // > PublishTimeout/MaxPublishTimeout (20s) + buffering
-		emitterCfg.RetransmitBatchSize = 500          // 500 events/s replayed (interval = 1s)
+		emitterCfg.RetransmitAfter = 60 * time.Second                                        // > PublishTimeout/MaxPublishTimeout (20s) + buffering
+		emitterCfg.RetransmitBatchSize = cfg.Telemetry().DurableEmitterRetransmitBatchSize() // events/s replayed (interval = 1s); default 500, configurable via [Telemetry]
 		emitterCfg.RetransmitInterval = 1 * time.Second
-		emitterCfg.EventTTL = 1 * time.Hour
+		emitterCfg.EventTTL = cfg.Telemetry().DurableEmitterEventTTL() // default 1h, configurable via [Telemetry]
 		emitterCfg.PublishTimeout = 20 * time.Second
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
@@ -1263,6 +1267,7 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 	if err != nil {
 		return nil, err
 	}
+
 	if !app.Config.Feature().LogPoller() {
 		return nil, errors.New("FindLCA is only available if LogPoller is enabled")
 	}
@@ -1277,6 +1282,36 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 	}
 
 	return lca, nil
+}
+
+// LPSkipToBlock repositions the LogPoller to start processing from the given block number.
+func (app *ChainlinkApplication) LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error {
+	if chainFamily != relay.NetworkEVM {
+		return fmt.Errorf("LPSkipToBlock is only supported for %s chain family", relay.NetworkEVM)
+	}
+	if !app.Config.Feature().LogPoller() {
+		return errors.New("LPSkipToBlock is only available if LogPoller is enabled")
+	}
+	if blockNumber < 2 {
+		return fmt.Errorf("invalid skip block number %d, must be >= 2", blockNumber)
+	}
+
+	relayer, err := app.GetRelayers().Get(commontypes.RelayID{
+		Network: chainFamily,
+		ChainID: chainID,
+	})
+	if err != nil {
+		return err
+	}
+	evmService, err := relayer.EVM()
+	if err != nil {
+		return err
+	}
+
+	if err = evmService.LPSkipToBlock(ctx, blockNumber); err != nil {
+		return fmt.Errorf("failed to skip log poller to block %d: %w", blockNumber, err)
+	}
+	return nil
 }
 
 // DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block

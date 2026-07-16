@@ -1,5 +1,15 @@
 # Changelog Chainlink Core
 
+## 2.56.0
+
+### Minor Changes
+
+- [#23043](https://github.com/smartcontractkit/chainlink/pull/23043) [`fe901c7`](https://github.com/smartcontractkit/chainlink/commit/fe901c73df31613b5f3789a672365daf1e64ec30) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22973](https://github.com/smartcontractkit/chainlink/pull/22973) [`389792a`](https://github.com/smartcontractkit/chainlink/commit/389792a9ed6586dea7e04bafd7fe41479a94b30f) - #bugfix Fixed permissions in test db setup script (grant CREATEROLE and repair leftover NOLOGIN pgtdbuser for pgtestdb)
+
 ## 2.55.0
 
 ### Minor Changes

@@ -412,6 +412,7 @@ func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyn
 		w.lggr.Debug("Notifying DON set...")
 		w.workflowDonNotifier.NotifyDonSet(myDON.DON)
 
+		w.warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs)
 		for _, rcd := range remoteCapabilityDONs {
 			w.addRemoteCapabilities(ctx, myDON, rcd, localRegistry)
 		}
@@ -453,6 +454,22 @@ func filterDONsByFamilies(donList []registrysyncer.DON, myDONFamilies []string) 
 		}
 	}
 	return filteredDONs
+}
+
+func (w *launcher) warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs []registrysyncer.DON) {
+	donIDsByCapability := map[string][]uint32{}
+	for _, d := range remoteCapabilityDONs {
+		for capID := range d.CapabilityConfigurations {
+			donIDsByCapability[capID] = append(donIDsByCapability[capID], d.ID)
+		}
+	}
+	for capID, donIDs := range donIDsByCapability {
+		if len(donIDs) > 1 {
+			slices.Sort(donIDs)
+			w.lggr.Warnw("multiple in-family capability DONs host the same capability; only the lowest DON ID will be routed to, check DON family configuration",
+				"capabilityID", capID, "donIDs", donIDs)
+		}
+	}
 }
 
 func donFamiliesOverlap(donA []string, donB []string) bool {
@@ -592,7 +609,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -618,7 +635,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -989,7 +1006,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 			if err != nil {
 				return fmt.Errorf("failed to get signers for executable client: %w", err)
 			}
-			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers)
+			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers, config.RemoteExecutableConfig.MinResponsesToAggregate)
 			if err != nil {
 				w.lggr.Errorw("failed to update client config", "capID", capID, "method", method, "error", err)
 				continue
