@@ -93,6 +93,7 @@ jobs:
           if [ "${{ steps.cache-matrix.outputs.cache-hit }}" == "true" ]; then
             tests=$(cat /tmp/test-matrix.json)
           else
+            cd system-tests/tests
             test_names=$(go test \
               github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre \
               -list . 2>/dev/null | grep '^Test_')

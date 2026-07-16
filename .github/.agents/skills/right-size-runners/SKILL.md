@@ -84,12 +84,12 @@ When the user says stop, or all possible experiments have been exhausted:
 * Summarize all findings (cost + speed + stability changes) per workflow/job as table(s) for PR description as below format in raw markdown.
 
 ```md
-## [Workflow/Job Name] Runner Changes
+### [Workflow/Job Name] Runner Changes
 
 | Approach | Runner | Stability | Runtime | Runtime Delta (Abs/%) | Cost | Cost Delta (Abs/%) |
 |---|---|---|---|---|---|---|
-| Old | [original runner before trials] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
-| New | [new runner] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
+| [Old](https://github.com/link/to/baseline/workflow_run) | [original runner before trials] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
+| [New](https://github.com/link/to/final/workflow_run) | [new runner] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
 ```
 
 * Remove all debugs, and make final edits on a new branch after approval, and ask user to commit.
