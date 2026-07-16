@@ -16,22 +16,25 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -70,12 +73,12 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 	}
 	ab := cldf.NewMemoryAddressBook()
 	// Note we also deploy the cap reg.
-	_, err = deployHomeChain(env.Logger, env, ab, env.BlockChains.EVMChains()[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
+	_, err = deployHomeChain(env.Logger, env, ab, env.ExistingAddresses, env.BlockChains.EVMChains()[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
-		ds, err2 := shared.PopulateDataStore(ab)
+		ds, err2 := populateHomeChainDataStore(env.ExistingAddresses, ab)
 		if err2 != nil {
-			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
 		}
 
 		return cldf.ChangesetOutput{
@@ -84,15 +87,53 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 		}, errors.Join(err, err2)
 	}
 
-	ds, err := shared.PopulateDataStore(ab)
+	ds, err := populateHomeChainDataStore(env.ExistingAddresses, ab)
 	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		return cldf.ChangesetOutput{}, err
 	}
 
 	return cldf.ChangesetOutput{
 		AddressBook: ab,
 		DataStore:   ds,
 	}, nil
+}
+
+func populateHomeChainDataStore(existingAddresses cldf.AddressBook, ab cldf.AddressBook) (*datastore.MemoryDataStore, error) {
+	dsAb := cldf.NewMemoryAddressBook()
+	if existingAddresses != nil {
+		if err := dsAb.Merge(existingAddresses); err != nil {
+			return nil, fmt.Errorf("merge existing addresses for DataStore: %w", err)
+		}
+	}
+	if err := dsAb.Merge(ab); err != nil {
+		return nil, fmt.Errorf("merge new addresses for DataStore: %w", err)
+	}
+	ds, err := shared.PopulateDataStore(dsAb)
+	if err != nil {
+		return nil, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	}
+	return ds, nil
+}
+
+func saveExistingContractIfNeeded(
+	ab cldf.AddressBook,
+	existingAddresses cldf.AddressBook,
+	chainSelector uint64,
+	address common.Address,
+	tv cldf.TypeAndVersion,
+) error {
+	if existingAddresses != nil {
+		addrs, err := existingAddresses.AddressesForChain(chainSelector)
+		if err == nil {
+			if _, exists := addrs[address.Hex()]; exists {
+				return nil
+			}
+		}
+	}
+	if err := ab.Save(chainSelector, address.Hex(), tv); err != nil {
+		return fmt.Errorf("save existing %s to address book: %w", tv.Type, err)
+	}
+	return nil
 }
 
 type DeployHomeChainConfig struct {
@@ -137,6 +178,7 @@ func deployCapReg(
 	lggr logger.Logger,
 	state stateview.CCIPOnChainState,
 	ab cldf.AddressBook,
+	existingAddresses cldf.AddressBook,
 	chain cldf_evm.Chain,
 ) (*cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
 	homeChainState, exists := state.Chains[chain.Selector]
@@ -144,8 +186,12 @@ func deployCapReg(
 		cr := homeChainState.CapabilityRegistry
 		if cr != nil {
 			lggr.Infow("Found CapabilitiesRegistry in chain state", "address", cr.Address().String())
+			tv := cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0)
+			if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, cr.Address(), tv); err != nil {
+				return nil, err
+			}
 			return &cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-				Address: cr.Address(), Contract: cr, Tv: cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0),
+				Address: cr.Address(), Contract: cr, Tv: tv,
 			}, nil
 		}
 	}
@@ -163,6 +209,14 @@ func deployCapReg(
 		lggr.Errorw("Failed to deploy capreg", "chain", chain.String(), "err", err)
 		return nil, err
 	}
+	ctx := chain.DeployerKey.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := shared.WaitForContractCode(ctx, chain.Client, capReg.Address); err != nil {
+		lggr.Errorw("CapabilitiesRegistry code not available after deploy", "chain", chain.String(), "addr", capReg.Address, "err", err)
+		return nil, err
+	}
 	return capReg, nil
 }
 
@@ -170,6 +224,7 @@ func deployHomeChain(
 	lggr logger.Logger,
 	e cldf.Environment,
 	ab cldf.AddressBook,
+	existingAddresses cldf.AddressBook,
 	chain cldf_evm.Chain,
 	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
 	rmnHomeDynamic rmn_home.RMNHomeDynamicConfig,
@@ -182,16 +237,25 @@ func deployHomeChain(
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	// Deploy CapabilitiesRegistry, CCIPHome, RMNHome
-	capReg, err := deployCapReg(lggr, state, ab, chain)
+	capReg, err := deployCapReg(lggr, state, ab, existingAddresses, chain)
 	if err != nil {
 		return nil, err
 	}
 
 	lggr.Infow("deployed/connected to capreg", "addr", capReg.Address)
+	ctx := e.GetContext()
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var ccipHomeAddr common.Address
 	if state.Chains[chain.Selector].CCIPHome != nil {
-		lggr.Infow("CCIPHome already deployed", "addr", state.Chains[chain.Selector].CCIPHome.Address().String())
-		ccipHomeAddr = state.Chains[chain.Selector].CCIPHome.Address()
+		ccipHome := state.Chains[chain.Selector].CCIPHome
+		lggr.Infow("CCIPHome already deployed", "addr", ccipHome.Address().String())
+		tv := cldf.NewTypeAndVersion(shared.CCIPHome, deployment.Version1_6_0)
+		if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, ccipHome.Address(), tv); err != nil {
+			return nil, err
+		}
+		ccipHomeAddr = ccipHome.Address()
 	} else {
 		ccipHome, err := cldf.DeployContract(
 			lggr, chain, ab,
@@ -209,11 +273,19 @@ func deployHomeChain(
 			lggr.Errorw("Failed to deploy CCIPHome", "chain", chain.String(), "err", err)
 			return nil, err
 		}
+		if err := shared.WaitForContractCode(ctx, chain.Client, ccipHome.Address); err != nil {
+			lggr.Errorw("CCIPHome code not available after deploy", "chain", chain.String(), "addr", ccipHome.Address, "err", err)
+			return nil, err
+		}
 		ccipHomeAddr = ccipHome.Address
 	}
 	rmnHome := state.Chains[chain.Selector].RMNHome
-	if state.Chains[chain.Selector].RMNHome != nil {
-		lggr.Infow("RMNHome already deployed", "addr", state.Chains[chain.Selector].RMNHome.Address().String())
+	if rmnHome != nil {
+		lggr.Infow("RMNHome already deployed", "addr", rmnHome.Address().String())
+		tv := cldf.NewTypeAndVersion(shared.RMNHome, deployment.Version1_6_0)
+		if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, rmnHome.Address(), tv); err != nil {
+			return nil, err
+		}
 	} else {
 		rmnHomeContract, err := cldf.DeployContract(
 			lggr, chain, ab,
@@ -232,6 +304,10 @@ func deployHomeChain(
 			return nil, err
 		}
 		rmnHome = rmnHomeContract.Contract
+		if err := shared.WaitForContractCode(ctx, chain.Client, rmnHomeContract.Address); err != nil {
+			lggr.Errorw("RMNHome code not available after deploy", "chain", chain.String(), "addr", rmnHomeContract.Address, "err", err)
+			return nil, err
+		}
 	}
 
 	// considering the RMNHome is recently deployed, there is no digest to overwrite
@@ -490,7 +566,7 @@ func addNodes(
 type RemoveDONsConfig struct {
 	HomeChainSel uint64
 	DonIDs       []uint32
-	MCMS         *proposalutils.TimelockConfig
+	MCMS         *cldfproposalutils.TimelockConfig
 }
 
 func (c RemoveDONsConfig) Validate(homeChain evm.CCIPChainState) error {
@@ -546,7 +622,7 @@ func RemoveDONs(e cldf.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput,
 		return cldf.ChangesetOutput{}, nil
 	}
 
-	batchOperation, err := proposalutils.BatchOperationForChain(cfg.HomeChainSel,
+	batchOperation, err := cldfproposalutils.BatchOperationForChain(cfg.HomeChainSel,
 		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
 		string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
@@ -559,7 +635,7 @@ func RemoveDONs(e cldf.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput,
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		e,
 		timelocks,
 		mcmsContractsByActionPerChain,
@@ -579,7 +655,7 @@ func RemoveDONs(e cldf.Environment, cfg RemoveDONsConfig) (cldf.ChangesetOutput,
 type RemoveNodesConfig struct {
 	HomeChainSel   uint64
 	P2PIDsToRemove [][32]byte
-	MCMSCfg        *proposalutils.TimelockConfig
+	MCMSCfg        *cldfproposalutils.TimelockConfig
 }
 
 func removeNodesPrecondition(env cldf.Environment, c RemoveNodesConfig) error {
@@ -606,7 +682,7 @@ func removeNodesPrecondition(env cldf.Environment, c RemoveNodesConfig) error {
 	if state.Chains[c.HomeChainSel].Timelock == nil {
 		return fmt.Errorf("timelock does not exist for home chain %d", c.HomeChainSel)
 	}
-	err = commoncs.ValidateOwnership(env.GetContext(), c.MCMSCfg != nil,
+	err = mcmschangesets.ValidateOwnership(env.GetContext(), c.MCMSCfg != nil,
 		env.BlockChains.EVMChains()[c.HomeChainSel].DeployerKey.From, state.Chains[c.HomeChainSel].Timelock.Address(),
 		state.Chains[c.HomeChainSel].CapabilityRegistry)
 	if err != nil {
@@ -681,7 +757,7 @@ func removeNodesLogic(env cldf.Environment, c RemoveNodesConfig) (cldf.Changeset
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
-	batchOperation, err := proposalutils.BatchOperationForChain(c.HomeChainSel,
+	batchOperation, err := cldfproposalutils.BatchOperationForChain(c.HomeChainSel,
 		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
 		string(shared.CapabilitiesRegistry), []string{})
 	if err != nil {
@@ -697,11 +773,11 @@ func removeNodesLogic(env cldf.Environment, c RemoveNodesConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, err
 	}
 	inspectors := make(map[uint64]mcmssdk.Inspector)
-	inspectors[c.HomeChainSel], err = proposalutils.McmsInspectorForChain(env, c.HomeChainSel)
+	inspectors[c.HomeChainSel], err = cldfproposalutils.McmsInspectorForChain(env, c.HomeChainSel)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		env,
 		timelocks,
 		mcmContract,
@@ -741,7 +817,7 @@ type AddOrUpdateNopsConfig struct {
 	homeChainSel uint64
 	ExistingNops []capabilities_registry.CapabilitiesRegistryNodeOperator          // existing node operators, will be empty in case of adding new node operators
 	NopUpdates   map[string]capabilities_registry.CapabilitiesRegistryNodeOperator // node operators to add or update, key nop name, will be empty in case of removing node operators
-	MCMSConfig   *proposalutils.TimelockConfig
+	MCMSConfig   *cldfproposalutils.TimelockConfig
 }
 
 func addUpdateOrRemoveNopsPrecondition(env cldf.Environment, c AddOrUpdateNopsConfig) error {
@@ -760,7 +836,7 @@ func addUpdateOrRemoveNopsPrecondition(env cldf.Environment, c AddOrUpdateNopsCo
 	if state.Chains[c.homeChainSel].Timelock == nil {
 		return fmt.Errorf("timelock does not exist for home chain %d", c.homeChainSel)
 	}
-	err = commoncs.ValidateOwnership(env.GetContext(), c.MCMSConfig != nil,
+	err = mcmschangesets.ValidateOwnership(env.GetContext(), c.MCMSConfig != nil,
 		env.BlockChains.EVMChains()[c.homeChainSel].DeployerKey.From, state.Chains[c.homeChainSel].Timelock.Address(),
 		state.Chains[c.homeChainSel].CapabilityRegistry)
 	if err != nil {

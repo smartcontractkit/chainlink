@@ -7,8 +7,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -46,7 +46,7 @@ func TestResolver_GetP2PKeys(t *testing.T) {
 			"results": expectedKeys,
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	testCases := []GQLTestCase{
@@ -95,7 +95,7 @@ func TestResolver_CreateP2PKey(t *testing.T) {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	testCases := []GQLTestCase{
@@ -145,7 +145,7 @@ func TestResolver_DeleteP2PKey(t *testing.T) {
 	}
 
 	peerID, err := p2pkey.MakePeerID(fakeKey.ID())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	d, err := json.Marshal(map[string]any{
 		"deleteP2PKey": map[string]any{
@@ -156,7 +156,7 @@ func TestResolver_DeleteP2PKey(t *testing.T) {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	testCases := []GQLTestCase{

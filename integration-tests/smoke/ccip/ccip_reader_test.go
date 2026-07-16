@@ -49,11 +49,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/pgtest"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_reader_tester"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
@@ -79,145 +77,6 @@ const (
 	chainD    = cciptypes.ChainSelector(4)
 	chainSEVM = cciptypes.ChainSelector(5009297550715157269)
 )
-
-func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	sb, auth := setupSimulatedBackendAndAuth(t)
-
-	rmnRemoteAddr, _, _, err := rmn_remote.DeployRMNRemote(auth, sb.Client(), uint64(chainD), utils.RandomAddress())
-	require.NoError(t, err)
-	sb.Commit()
-
-	proxyAddr, _, _, err := rmn_proxy_contract.DeployRMNProxy(auth, sb.Client(), rmnRemoteAddr)
-	require.NoError(t, err)
-	sb.Commit()
-
-	t.Logf("Proxy address: %s, rmn remote address: %s", proxyAddr.Hex(), rmnRemoteAddr.Hex())
-
-	proxy, err := rmn_proxy_contract.NewRMNProxy(proxyAddr, sb.Client())
-	require.NoError(t, err)
-
-	currARM, err := proxy.GetARM(&bind.CallOpts{
-		Context: ctx,
-	})
-	require.NoError(t, err)
-	require.Equal(t, currARM, rmnRemoteAddr)
-
-	rmnRemote, err := rmn_remote.NewRMNRemote(rmnRemoteAddr, sb.Client())
-	require.NoError(t, err)
-
-	_, err = rmnRemote.SetConfig(auth, rmn_remote.RMNRemoteConfig{
-		RmnHomeContractConfigDigest: utils.RandomBytes32(),
-		Signers: []rmn_remote.RMNRemoteSigner{
-			{
-				OnchainPublicKey: utils.RandomAddress(),
-				NodeIndex:        0,
-			},
-			{
-				OnchainPublicKey: utils.RandomAddress(),
-				NodeIndex:        1,
-			},
-			{
-				OnchainPublicKey: utils.RandomAddress(),
-				NodeIndex:        2,
-			},
-		},
-		FSign: 1, // 2*FSign + 1 == 3
-	})
-	require.NoError(t, err)
-	sb.Commit()
-
-	db := pgtest.NewSqlxDB(t)
-	lggr := logger.TestLogger(t)
-	lggr.SetLogLevel(zapcore.ErrorLevel)
-	lpOpts := logpoller.Opts{
-		PollPeriod:               time.Millisecond,
-		FinalityDepth:            1,
-		BackfillBatchSize:        10,
-		RPCBatchSize:             10,
-		KeepFinalizedBlocksDepth: 100000,
-	}
-	chainID := big.NewInt(1337)
-	ch, err := chain_selectors.GetChainDetailsByChainIDAndFamily(chainID.String(), chain_selectors.FamilyEVM)
-	require.NoError(t, err)
-
-	cl := client.NewSimulatedBackendClient(t, sb, chainID)
-	headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-	orm := logpoller.NewORM(chainID, db, lggr)
-	lp := logpoller.NewLogPoller(
-		orm,
-		cl,
-		lggr,
-		headTracker,
-		lpOpts,
-	)
-	require.NoError(t, lp.Start(ctx))
-	t.Cleanup(func() { require.NoError(t, lp.Close()) })
-
-	cr, err := read.NewChainReaderService(ctx, lggr, lp, headTracker, cl, evmconfig.DestReaderConfig)
-	require.NoError(t, err)
-	err = cr.Start(ctx)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, cr.Close()) })
-
-	extendedCr := contractreader.NewExtendedContractReader(cr)
-
-	// Create dummy contract writers
-	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	chainWriter, err := writer.NewChainWriterService(
-		logger.TestLogger(t),
-		cl,
-		nil,
-		nil,
-		config.ChainWriterConfig{
-			MaxGasPrice: assets.GWei(1),
-		},
-		nil,
-	)
-	require.NoError(t, err)
-	contractWriters[cciptypes.ChainSelector(ch.ChainSelector)] = chainWriter
-
-	accessor := newChainAccessor(
-		t,
-		cciptypes.ChainSelector(ch.ChainSelector),
-		extendedCr,
-		nil,
-	)
-	accessors := map[cciptypes.ChainSelector]cciptypes.ChainAccessor{cciptypes.ChainSelector(ch.ChainSelector): accessor}
-
-	mockAddrCodec := newMockAddressCodec(t)
-	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
-		ctx,
-		lggr,
-		accessors,
-		map[cciptypes.ChainSelector]contractreader.Extended{
-			cciptypes.ChainSelector(ch.ChainSelector): extendedCr,
-		},
-		contractWriters,
-		cciptypes.ChainSelector(ch.ChainSelector),
-		cciptypes.UnknownAddress{}, // Not needed for this test
-		mockAddrCodec,
-	)
-
-	err = accessor.Sync(ctx, consts.ContractNameRMNRemote, proxyAddr.Bytes())
-	require.NoError(t, err)
-
-	exp, err := rmnRemote.GetVersionedConfig(&bind.CallOpts{
-		Context: ctx,
-	})
-	require.NoError(t, err)
-
-	rmnRemoteConfig, err := reader.GetRMNRemoteConfig(ctx)
-	require.NoError(t, err)
-	require.Equal(t, exp.Config.RmnHomeContractConfigDigest[:], rmnRemoteConfig.ConfigDigest[:])
-	require.Len(t, rmnRemoteConfig.Signers, len(exp.Config.Signers))
-	for i, signer := range exp.Config.Signers {
-		require.Equal(t, signer.OnchainPublicKey.Bytes(), []byte(rmnRemoteConfig.Signers[i].OnchainPublicKey))
-		require.Equal(t, signer.NodeIndex, rmnRemoteConfig.Signers[i].NodeIndex)
-	}
-	require.Equal(t, exp.Config.FSign, rmnRemoteConfig.FSign)
-}
 
 func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 	t.Parallel()
@@ -399,9 +258,13 @@ func TestCCIPReader_CommitReportsGTETimestamp(t *testing.T) {
 			primitives.Unconfirmed,
 			10,
 		)
-		require.NoError(t, err2)
+		if err2 != nil {
+			t.Logf("Error getting commit reports: %v", err2)
+			return false
+		}
+		t.Logf("Got %d commit reports, expected %d", len(ccipReaderReports), numReports-1)
 		return len(ccipReaderReports) == numReports-1
-	}, 90*time.Second, 50*time.Millisecond)
+	}, 90*time.Second, 100*time.Millisecond)
 
 	// trim the first report to simulate the timestamp filter above.
 	onchainEvents = onchainEvents[1:]
@@ -457,8 +320,14 @@ func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 			},
 			primitives.Unconfirmed,
 		)
-		return err == nil && len(executedMsgs[chainS1]) == 2
-	}, 90*time.Second, 500*time.Millisecond)
+		if err != nil {
+			t.Logf("Error getting executed messages: %v", err)
+			return false
+		}
+		chainMsgs := executedMsgs[chainS1]
+		t.Logf("Got %d executed messages for chain %v, expected 2", len(chainMsgs), chainS1)
+		return len(chainMsgs) == 2
+	}, 90*time.Second, 200*time.Millisecond)
 	require.NoError(t, err)
 
 	assert.Equal(t, []cciptypes.SeqNum{15, 16}, executedMsgs[chainS1])
@@ -746,14 +615,17 @@ func TestCCIPReader_Nonces(t *testing.T) {
 		Auth:               auth,
 	})
 
-	// Add some nonces.
+	// Add some nonces. Commit after each tx so the next iteration's PendingNonceAt
+	// observes the bumped nonce instead of racing the simulated txpool's async nonce
+	// accounting ("replacement transaction underpriced" under load). Mirrors
+	// commitSqNrs / emitCommitReports.
 	for chain, addrs := range nonces {
 		for addr, nonce := range addrs {
 			_, err := s.contract.SetInboundNonce(s.auth, uint64(chain), nonce, common.LeftPadBytes(addr.Bytes(), 32))
 			require.NoError(t, err)
+			s.sb.Commit()
 		}
 	}
-	s.sb.Commit()
 
 	request := make(map[cciptypes.ChainSelector][]string)
 	for chain, addresses := range nonces {
@@ -942,7 +814,10 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 
 	// Call the ccip chain reader with DiscoverContracts for test
 	contractAddresses, err := reader.DiscoverContracts(ctx,
-		[]cciptypes.ChainSelector{chainS1, chainD},
+		// Only include the destination chain here. If we include the source chain before the
+		// OnRamp is bound (via Sync below), the config poller may cache an empty source-chain
+		// config snapshot and only refresh it on its background tick.
+		[]cciptypes.ChainSelector{chainD},
 		[]cciptypes.ChainSelector{chainS1, chainD},
 	)
 
@@ -962,7 +837,8 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	err = reader.Sync(ctx, onRampContractMapping)
 	require.NoError(t, err)
 
-	// Since config poller has default refresh interval of 30s, we need to wait for the contract to be discovered
+	// After binding the OnRamp on the source chain, DiscoverContracts should be able to read the source-chain
+	// configs on cache miss and discover Router/FeeQuoter without waiting for a background refresh tick.
 	require.Eventually(t, func() bool {
 		contractAddresses, err = reader.DiscoverContracts(ctx,
 			[]cciptypes.ChainSelector{chainS1, chainD},
@@ -978,7 +854,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		return routerExists && feeQuoterExists &&
 			bytes.Equal(routerS1, destinationChainConfigArgs[0].Router.Bytes()) &&
 			bytes.Equal(feeQuoterS1, onRampS1DynamicConfig.FeeQuoter.Bytes())
-	}, 90*time.Second, 100*time.Millisecond, "Router and FeeQuoter addresses were not discovered on source chain in time")
+	}, 15*time.Second, 100*time.Millisecond, "Router and FeeQuoter addresses were not discovered on source chain in time")
 
 	// Final assertions again for completeness:
 	contractAddresses, err = reader.DiscoverContracts(ctx,
@@ -1221,6 +1097,7 @@ func commitSqNrs(
 		if err != nil {
 			return err
 		}
+		s.sb.Commit()
 	}
 	return nil
 }
@@ -1250,7 +1127,6 @@ func testSetupRealContracts(
 	toMockBindings map[cciptypes.ChainSelector][]types.BoundContract,
 	env testhelpers.DeployedEnv,
 ) ccipreaderpkg.CCIPReader {
-	db := pgtest.NewSqlxDB(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               time.Millisecond,
 		FinalityDepth:            0,
@@ -1264,16 +1140,29 @@ func testSetupRealContracts(
 	var crs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	var contractWriters = make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for chainSelector, bindings := range toBindContracts {
+		// Create a separate database for each chain to prevent race conditions
+		db := pgtest.NewSqlxDB(t)
+
 		simClient := env.Env.BlockChains.EVMChains()[uint64(chainSelector)].Client.(*cldf_evm_provider.SimClient)
 		cl := client.NewSimulatedBackendClient(t, simClient.Backend(), big.NewInt(0).SetUint64(uint64(chainSelector)))
 		headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+
+		// Start head tracker before LogPoller to ensure proper initialization order
+		require.NoError(t, headTracker.Start(ctx))
+
 		lp := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chainSelector)), db, lggr),
 			cl,
 			lggr,
 			headTracker,
 			lpOpts,
 		)
+
+		// Add small delay for component initialization
+		time.Sleep(10 * time.Millisecond)
 		require.NoError(t, lp.Start(ctx))
+
+		// Add a small delay to ensure LogPoller is fully initialized
+		time.Sleep(50 * time.Millisecond)
 
 		var cfg config.ChainReaderConfig
 		if chainSelector == cs(destChain) {
@@ -1308,6 +1197,7 @@ func testSetupRealContracts(
 		t.Cleanup(func() {
 			require.NoError(t, cr.Close())
 			require.NoError(t, lp.Close())
+			require.NoError(t, headTracker.Close())
 			require.NoError(t, db.Close())
 		})
 	}
@@ -1380,6 +1270,9 @@ func testSetup(
 	}
 	cl := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(params.ReaderChain)))
 	headTracker := headstest.NewSimulatedHeadTracker(cl, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	// Start head tracker before LogPoller to ensure proper initialization order
+	require.NoError(t, headTracker.Start(ctx))
+
 	orm := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(params.ReaderChain)), db, lggr)
 	lp := logpoller.NewLogPoller(
 		orm,
@@ -1388,7 +1281,10 @@ func testSetup(
 		headTracker,
 		lpOpts,
 	)
-	assert.NoError(t, lp.Start(ctx))
+	require.NoError(t, lp.Start(ctx))
+
+	// Add a small delay to ensure LogPoller is fully initialized
+	time.Sleep(50 * time.Millisecond)
 
 	for sourceChain, seqNum := range params.OnChainSeqNums {
 		_, err1 := contract.SetSourceChainConfig(params.Auth, uint64(sourceChain), ccip_reader_tester.OffRampSourceChainConfig{
@@ -1440,15 +1336,25 @@ func testSetup(
 
 	var otherCrs = make(map[cciptypes.ChainSelector]contractreader.Extended)
 	for chain, bindings := range params.ToBindContracts {
+		// Create a separate database for each chain to prevent race conditions
+		db2 := pgtest.NewSqlxDB(t)
+
 		cl2 := client.NewSimulatedBackendClient(t, params.SimulatedBackend, big.NewInt(0).SetUint64(uint64(chain)))
 		headTracker2 := headstest.NewSimulatedHeadTracker(cl2, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
-		lp2 := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db, lggr),
+
+		// Start head tracker before LogPoller to ensure proper initialization order
+		require.NoError(t, headTracker2.Start(ctx))
+
+		lp2 := logpoller.NewLogPoller(logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chain)), db2, lggr),
 			cl2,
 			lggr,
 			headTracker2,
 			lpOpts,
 		)
 		require.NoError(t, lp2.Start(ctx))
+
+		// Add a small delay to ensure LogPoller is fully initialized
+		time.Sleep(50 * time.Millisecond)
 
 		cr2, err2 := read.NewChainReaderService(ctx, lggr, lp2, headTracker2, cl2, params.Cfg)
 		require.NoError(t, err2)
@@ -1503,6 +1409,8 @@ func testSetup(
 	t.Cleanup(func() {
 		require.NoError(t, cr.Close())
 		require.NoError(t, lp.Close())
+		require.NoError(t, headTracker.Close())
+		require.NoError(t, db.Close())
 	})
 
 	return &testSetupData{

@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
 	"regexp"
 	"slices"
 	"sort"
@@ -26,22 +25,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 )
-
-func UBigInt(i uint64) *big.Int {
-	return new(big.Int).SetUint64(i)
-}
-
-func E18Mult(amount uint64) *big.Int {
-	return new(big.Int).Mul(UBigInt(amount), UBigInt(1e18))
-}
-
-// EDecMult scales amount by the number of decimals
-func EDecMult(amount uint64, decimals int64) *big.Int {
-	return new(big.Int).Mul(
-		UBigInt(amount),
-		new(big.Int).Exp(big.NewInt(10), big.NewInt(decimals), nil),
-	)
-}
 
 type OCRConfig struct {
 	OffchainPublicKey types2.OffchainPublicKey
@@ -429,6 +412,8 @@ func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 		family = chain_selectors.FamilyStarknet
 	case nodev1.ChainType_CHAIN_TYPE_SUI:
 		family = chain_selectors.FamilySui
+	case nodev1.ChainType_CHAIN_TYPE_STELLAR:
+		family = chain_selectors.FamilyStellar
 	case nodev1.ChainType_CHAIN_TYPE_TON:
 		family = chain_selectors.FamilyTon
 	case nodev1.ChainType_CHAIN_TYPE_TRON:
@@ -480,6 +465,8 @@ func detailsToChain(details chain_selectors.ChainDetails) (*nodev1.Chain, error)
 		t = nodev1.ChainType_CHAIN_TYPE_STARKNET
 	case chain_selectors.FamilySui:
 		t = nodev1.ChainType_CHAIN_TYPE_SUI
+	case chain_selectors.FamilyStellar:
+		t = nodev1.ChainType_CHAIN_TYPE_STELLAR
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}

@@ -4,7 +4,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink/devenv/fakes/automation"
 	"github.com/smartcontractkit/chainlink/devenv/fakes/cron"
-	"github.com/smartcontractkit/chainlink/devenv/fakes/directrequest"
 	"github.com/smartcontractkit/chainlink/devenv/fakes/ocr2"
 )
 
@@ -21,9 +20,6 @@ func main() {
 		panic(err)
 	}
 	if err := cron.RegisterRoutes(); err != nil {
-		panic(err)
-	}
-	if err := directrequest.RegisterRoutes(); err != nil {
 		panic(err)
 	}
 	select {}

@@ -9,7 +9,6 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -19,13 +18,6 @@ func Test_ReplayFromBlock(t *testing.T) {
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].ChainID = (*sqlutil.Big)(big.NewInt(5))
 		c.EVM[0].Enabled = ptr(true)
-
-		solCfg := &config.TOMLConfig{
-			ChainID: ptr("devnet"),
-			Enabled: ptr(true),
-		}
-		solCfg.SetDefaults()
-		c.Solana = config.TOMLConfigs{solCfg}
 	})
 
 	client, _ := app.NewShellAndRenderer()
@@ -34,6 +26,7 @@ func Test_ReplayFromBlock(t *testing.T) {
 	flagSetApplyFromAction(client.ReplayFromBlock, set, "")
 
 	t.Run("invalid args", func(t *testing.T) {
+		t.Parallel()
 		// Incorrect block number
 		require.NoError(t, set.Set("block-number", "0"))
 		c := cli.NewContext(nil, set, nil)
@@ -53,17 +46,10 @@ func Test_ReplayFromBlock(t *testing.T) {
 	})
 
 	t.Run("evm replay", func(t *testing.T) {
+		t.Parallel()
 		require.NoError(t, set.Set("block-number", "1"))
 		require.NoError(t, set.Set("chain-id", "5"))
 		require.NoError(t, set.Set("family", "evm"))
-		c := cli.NewContext(nil, set, nil)
-		require.NoError(t, client.ReplayFromBlock(c))
-	})
-
-	t.Run("solana replay", func(t *testing.T) {
-		require.NoError(t, set.Set("block-number", "1"))
-		require.NoError(t, set.Set("chain-id", "devnet"))
-		require.NoError(t, set.Set("family", "solana"))
 		c := cli.NewContext(nil, set, nil)
 		require.NoError(t, client.ReplayFromBlock(c))
 	})
@@ -75,7 +61,7 @@ func Test_FindLCA(t *testing.T) {
 	// ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].ChainID = (*sqlutil.Big)(big.NewInt(5))
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = new(true)
 	})
 
 	client, _ := app.NewShellAndRenderer()
@@ -92,4 +78,37 @@ func Test_FindLCA(t *testing.T) {
 	require.NoError(t, set.Set("evm-chain-id", "5"))
 	c = cli.NewContext(nil, set, nil)
 	require.ErrorContains(t, client.FindLCA(c), "FindLCA is only available if LogPoller is enabled")
+}
+
+func Test_LPSkipToBlock(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Feature.LogPoller = new(true)
+		c.EVM[0].ChainID = (*sqlutil.Big)(big.NewInt(5))
+		c.EVM[0].Enabled = new(true)
+	})
+
+	client, _ := app.NewShellAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	flagSetApplyFromAction(client.LPSkipToBlock, set, "")
+
+	t.Run("invalid args", func(t *testing.T) {
+		t.Parallel()
+		require.NoError(t, set.Set("block-number", "1"))
+		c := cli.NewContext(nil, set, nil)
+		require.ErrorContains(t, client.LPSkipToBlock(c), "Must pass a value >= 2")
+
+		require.NoError(t, set.Set("block-number", "100"))
+		require.NoError(t, set.Set("chain-id", "123"))
+		require.NoError(t, set.Set("family", "evm"))
+		c = cli.NewContext(nil, set, nil)
+		require.ErrorContains(t, client.LPSkipToBlock(c), "relayer does not exist")
+
+		require.NoError(t, set.Set("chain-id", "5"))
+		require.NoError(t, set.Set("family", "solana"))
+		c = cli.NewContext(nil, set, nil)
+		require.ErrorContains(t, client.LPSkipToBlock(c), "only evm is supported")
+	})
 }

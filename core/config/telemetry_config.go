@@ -18,6 +18,11 @@ type Telemetry interface {
 	EmitterExportTimeout() time.Duration
 	ChipIngressEndpoint() string
 	ChipIngressInsecureConnection() bool
+	ChipIngressBatchEmitterEnabled() bool
+	DurableEmitterEnabled() bool
+	DurableEmitterRetransmitBatchSize() int
+	DurableEmitterEventTTL() time.Duration
+	DurableEmitterMaxQueuePayloadBytes() int64
 	HeartbeatInterval() time.Duration
 	LogStreamingEnabled() bool
 	LogLevel() zapcore.Level
@@ -26,4 +31,10 @@ type Telemetry interface {
 	LogExportMaxBatchSize() int
 	LogExportInterval() time.Duration
 	LogMaxQueueSize() int
+	PrometheusBridge() PrometheusBridge
+}
+
+type PrometheusBridge interface {
+	Enabled() bool
+	Prefixes() []string
 }

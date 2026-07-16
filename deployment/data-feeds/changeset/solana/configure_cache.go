@@ -9,8 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/solana/sequence/operation"
 
 	df_cache "github.com/smartcontractkit/chainlink-solana/contracts/generated/data_feeds_cache"
@@ -22,7 +22,7 @@ type Sender struct {
 }
 
 type ConfigureCacheDecimalReportRequest struct {
-	MCMS *proposalutils.TimelockConfig // if set, assumes current ownership is the timelock
+	MCMS *cldfproposalutils.TimelockConfig // if set, assumes current ownership is the timelock
 
 	ChainSel  uint64
 	Qualifier string

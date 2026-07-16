@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -81,7 +82,9 @@ func StartJD(ctx context.Context, lggr zerolog.Logger, jdInput jd.Input, infraIn
 				jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
 			}
 
-			infra.PrintFailedContainerLogs(lggr, 30)
+			if err := framework.PrintFailedContainerLogs(30); err != nil {
+				lggr.Error().Err(err).Msg("failed to print failed Docker container logs")
+			}
 
 			return nil, jdErr
 		}

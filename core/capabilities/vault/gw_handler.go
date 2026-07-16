@@ -2,25 +2,27 @@ package vault
 
 import (
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
+	"sync"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
-	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
 var (
@@ -58,27 +60,76 @@ type gatewayConnector interface {
 	RemoveHandler(ctx context.Context, methods []string) error
 }
 
+// GatewayHandler serves Vault requests received from the gateway on the node side.
 type GatewayHandler struct {
 	services.Service
 	eng *services.Engine
 
-	capRegistry      core.CapabilitiesRegistry
 	secretsService   vaulttypes.SecretsService
 	gatewayConnector gatewayConnector
+	requestProcessor *GatewayVaultRequestProcessor
+	jwtAuthService   services.Service
 	lggr             logger.Logger
 	metrics          *metrics
+
+	mu                    sync.RWMutex
+	cachedMasterPublicKey *tdh2easy.PublicKey
+
+	// TODO add org resolver? https://smartcontract-it.atlassian.net/browse/CRE-1707
 }
 
-func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsService vaulttypes.SecretsService, connector gatewayConnector, lggr logger.Logger) (*GatewayHandler, error) {
+// NewGatewayHandler creates a Vault gateway connector handler with internal auth wiring.
+// Pass a non-nil authorizer only in tests or other cases that need to override the default
+// allowlist/JWT authorization chain.
+func NewGatewayHandler(
+	secretsService vaulttypes.SecretsService,
+	connector gatewayConnector,
+	workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer,
+	lggr logger.Logger,
+	limitsFactory limits.Factory,
+	authorizer Authorizer,
+	auth0 *Auth0Config,
+) (*GatewayHandler, error) {
+	var jwtAuthService services.Service
+	var jwtBasedAuth Authorizer
+	if auth0 != nil {
+		var err error
+		jwtAuthService, err = NewJWTBasedAuth(JWTBasedAuthConfig{
+			IssuerURL: auth0.IssuerURL,
+			Audience:  auth0.Audience,
+			TenantID:  auth0.TenantID,
+		}, limitsFactory, lggr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
+		}
+		jwtBasedAuth = jwtAuthService.(Authorizer)
+	}
+
+	if authorizer == nil {
+		allowListBasedAuth := NewAllowListBasedAuth(lggr, workflowRegistrySyncer)
+		authorizer = NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)
+	}
+
+	requestValidator, err := NewRequestValidatorFromLimitsFactory(limitsFactory)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request validator: %w", err)
+	}
+
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
+	requestProcessor, err := NewGatewayVaultRequestProcessor(requestValidator, authorizer, true, lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gateway vault request processor: %w", err)
+	}
+
 	gh := &GatewayHandler{
-		capRegistry:      capabilitiesRegistry,
 		secretsService:   secretsService,
 		gatewayConnector: connector,
+		requestProcessor: requestProcessor,
+		jwtAuthService:   jwtAuthService,
 		lggr:             lggr.Named(HandlerName),
 		metrics:          metrics,
 	}
@@ -91,6 +142,11 @@ func NewGatewayHandler(capabilitiesRegistry core.CapabilitiesRegistry, secretsSe
 }
 
 func (h *GatewayHandler) start(ctx context.Context) error {
+	if h.jwtAuthService != nil {
+		if err := h.jwtAuthService.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start JWTBasedAuth: %w", err)
+		}
+	}
 	if gwerr := h.gatewayConnector.AddHandler(ctx, h.Methods(), h); gwerr != nil {
 		return fmt.Errorf("failed to add vault handler to connector: %w", gwerr)
 	}
@@ -98,10 +154,15 @@ func (h *GatewayHandler) start(ctx context.Context) error {
 }
 
 func (h *GatewayHandler) close() error {
-	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); gwerr != nil {
-		return fmt.Errorf("failed to remove vault handler from connector: %w", gwerr)
+	var jwtAuthErr error
+	if h.jwtAuthService != nil {
+		jwtAuthErr = h.jwtAuthService.Close()
 	}
-	return nil
+	validatorErr := h.requestProcessor.Close()
+	if gwerr := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); gwerr != nil {
+		return errors.Join(fmt.Errorf("failed to remove vault handler from connector: %w", gwerr), jwtAuthErr, validatorErr)
+	}
+	return errors.Join(jwtAuthErr, validatorErr)
 }
 
 func (h *GatewayHandler) ID(ctx context.Context) (string, error) {
@@ -109,40 +170,106 @@ func (h *GatewayHandler) ID(ctx context.Context) (string, error) {
 }
 
 func (h *GatewayHandler) Methods() []string {
-	return vaulttypes.GetSupportedMethods(h.lggr)
+	return vaulttypes.Methods
+}
+
+func (h *GatewayHandler) requestLogger(req *jsonrpc.Request[json.RawMessage], gatewayID string) logger.Logger {
+	return h.lggr.With("requestID", req.ID, "method", req.Method, "gatewayID", gatewayID)
 }
 
 func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) (err error) {
-	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "req", req, "requestID", req.ID)
+	reqLggr := h.requestLogger(req, gatewayID)
+	reqLggr.Debugw("received message from gateway", "req", req)
 
 	var response *jsonrpc.Response[json.RawMessage]
+	var authResult *AuthResult
+
 	switch req.Method {
-	case vaulttypes.MethodSecretsCreate:
-		response = h.handleSecretsCreate(ctx, gatewayID, req)
-	case vaulttypes.MethodSecretsGet:
-		response = h.handleSecretsGet(ctx, gatewayID, req)
-	case vaulttypes.MethodSecretsUpdate:
-		response = h.handleSecretsUpdate(ctx, gatewayID, req)
-	case vaulttypes.MethodSecretsDelete:
-		response = h.handleSecretsDelete(ctx, gatewayID, req)
-	case vaulttypes.MethodSecretsList:
-		response = h.handleSecretsList(ctx, gatewayID, req)
+	case vaulttypes.MethodSecretsCreate, vaulttypes.MethodSecretsUpdate:
+		publicKey, pkErr := h.getMasterPublicKey(ctx)
+		if pkErr != nil {
+			response = h.gatewayErrorResponse(ctx, gatewayID, req, pkErr)
+			break
+		}
+		authorized, pipelineErr := h.requestProcessor.ProcessRequest(ctx, req, publicKey)
+		if pipelineErr != nil {
+			response = h.gatewayErrorResponse(ctx, gatewayID, req, pipelineErr)
+			break
+		}
+		authResult = authorized.AuthResult
+	case vaulttypes.MethodSecretsDelete, vaulttypes.MethodSecretsList:
+		authorized, pipelineErr := h.requestProcessor.ProcessRequest(ctx, req, nil)
+		if pipelineErr != nil {
+			response = h.gatewayErrorResponse(ctx, gatewayID, req, pipelineErr)
+			break
+		}
+		authResult = authorized.AuthResult
 	case vaulttypes.MethodPublicKeyGet:
 		response = h.handlePublicKeyGet(ctx, gatewayID, req)
 	default:
 		response = h.errorResponse(ctx, gatewayID, req, api.UnsupportedMethodError, errors.New("unsupported method: "+req.Method))
 	}
 
+	if response == nil {
+		switch req.Method {
+		case vaulttypes.MethodSecretsCreate:
+			response = h.handleSecretsCreate(ctx, gatewayID, req)
+		case vaulttypes.MethodSecretsUpdate:
+			response = h.handleSecretsUpdate(ctx, gatewayID, req)
+		case vaulttypes.MethodSecretsDelete:
+			response = h.handleSecretsDelete(ctx, gatewayID, req)
+		case vaulttypes.MethodSecretsList:
+			response = h.handleSecretsList(ctx, gatewayID, req, authResult)
+		}
+	}
+
 	if err = h.gatewayConnector.SendToGateway(ctx, gatewayID, response); err != nil {
-		h.lggr.Errorf("Failed to send message to gateway %s: %v", gatewayID, err)
+		reqLggr.Errorw("Failed to send message to gateway", "error", err)
 		return err
 	}
 
-	h.lggr.Infow("Sent message to gateway", "gatewayID", gatewayID, "resp", response, "requestID", req.ID)
+	reqLggr.Infow("Sent message to gateway", "resp", response)
 	h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("gateway_id", gatewayID),
 	))
 	return nil
+}
+
+func (h *GatewayHandler) getMasterPublicKey(ctx context.Context) (*tdh2easy.PublicKey, error) {
+	h.mu.RLock()
+	if h.cachedMasterPublicKey != nil {
+		cachedCopy := *h.cachedMasterPublicKey
+		h.mu.RUnlock()
+		return &cachedCopy, nil
+	}
+	h.mu.RUnlock()
+
+	publicKey, err := MasterPublicKeyFromSecretsService(ctx, h.secretsService)
+	if err != nil {
+		return nil, err
+	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.cachedMasterPublicKey != nil {
+		cachedCopy := *h.cachedMasterPublicKey
+		return &cachedCopy, nil
+	}
+	h.cachedMasterPublicKey = publicKey
+	cachedCopy := *publicKey
+	return &cachedCopy, nil
+}
+
+func (h *GatewayHandler) gatewayErrorResponse(
+	ctx context.Context,
+	gatewayID string,
+	req *jsonrpc.Request[json.RawMessage],
+	err error,
+) *jsonrpc.Response[json.RawMessage] {
+	if IsInvalidVaultParamsError(err) {
+		return h.errorResponse(ctx, gatewayID, req, api.InvalidParamsError, errors.New("invalid params error: "+err.Error()))
+	}
+	return h.errorResponse(ctx, gatewayID, req, api.HandlerError, err)
 }
 
 func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
@@ -151,8 +278,7 @@ func (h *GatewayHandler) handleSecretsCreate(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 
-	vaultCapRequest.RequestId = req.ID
-
+	h.lggr.Debugw("Processing authorized create secrets request", "request", vaultCapRequest.String())
 	vaultCapResponse, err := h.secretsService.CreateSecrets(ctx, &vaultCapRequest)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
@@ -171,6 +297,7 @@ func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID stri
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 
+	h.lggr.Debugw("Processing authorized update secrets request", "request", vaultCapRequest.String())
 	vaultCapResponse, err := h.secretsService.UpdateSecrets(ctx, &vaultCapRequest)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
@@ -183,57 +310,13 @@ func (h *GatewayHandler) handleSecretsUpdate(ctx context.Context, gatewayID stri
 	return jsonResponse
 }
 
-func (h *GatewayHandler) handleSecretsGet(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
-	var request vaultcommon.GetSecretsRequest
-	if err := json.Unmarshal(*req.Params, &request); err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
-	}
-	encryptionKeys, err := h.getEncryptionKeys(ctx)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
-	}
-	getSecretsRequest := vaultcommon.GetSecretsRequest{}
-	for _, reqItem := range request.Requests {
-		getSecretsRequest.Requests = append(getSecretsRequest.Requests, &vaultcommon.SecretRequest{
-			Id: &vaultcommon.SecretIdentifier{
-				Owner:     reqItem.Id.Owner,
-				Namespace: reqItem.Id.Namespace,
-				Key:       reqItem.Id.Key,
-			},
-			EncryptionKeys: encryptionKeys,
-		})
-	}
-	vaultCapResponse, err := h.secretsService.GetSecrets(ctx, req.ID, &getSecretsRequest)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.FatalError, err)
-	}
-
-	vaultResponseProto := &vaultcommon.GetSecretsResponse{}
-	err = proto.Unmarshal(vaultCapResponse.Payload, vaultResponseProto)
-	if err != nil {
-		h.lggr.Errorf("Debugging: handleSecretsCreate failed to unmarshal response: %s. Payload was: %s", err.Error(), string(vaultCapResponse.Payload))
-		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
-	}
-
-	vaultAPIResponseBytes, err := json.Marshal(vaultResponseProto)
-	if err != nil {
-		return h.errorResponse(ctx, gatewayID, req, api.NodeReponseEncodingError, err)
-	}
-	vaultAPIResponseJSON := json.RawMessage(vaultAPIResponseBytes)
-	return &jsonrpc.Response[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      req.ID,
-		Method:  req.Method,
-		Result:  &vaultAPIResponseJSON,
-	}
-}
-
 func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
 	r := &vaultcommon.DeleteSecretsRequest{}
 	if err := json.Unmarshal(*req.Params, r); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
 
+	h.lggr.Debugw("Processing authorized delete secrets request", "request", r.String())
 	resp, err := h.secretsService.DeleteSecrets(ctx, r)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to delete secrets: %w", err))
@@ -252,12 +335,14 @@ func (h *GatewayHandler) handleSecretsDelete(ctx context.Context, gatewayID stri
 	}
 }
 
-func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
+func (h *GatewayHandler) handleSecretsList(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage], authResult *AuthResult) *jsonrpc.Response[json.RawMessage] {
 	r := &vaultcommon.ListSecretIdentifiersRequest{}
 	if err := json.Unmarshal(*req.Params, r); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.UserMessageParseError, err)
 	}
+	r.Owner = authResult.AuthorizedOwner()
 
+	h.lggr.Debugw("Processing authorized list secrets request", "request", r.String())
 	resp, err := h.secretsService.ListSecretIdentifiers(ctx, r)
 	if err != nil {
 		return h.errorResponse(ctx, gatewayID, req, api.HandlerError, fmt.Errorf("failed to list secret identifiers: %w", err))
@@ -307,7 +392,7 @@ func (h *GatewayHandler) errorResponse(
 	errorCode api.ErrorCode,
 	err error,
 ) *jsonrpc.Response[json.RawMessage] {
-	h.lggr.Errorf("error code: %d, err: %s", errorCode, err.Error())
+	h.requestLogger(req, gatewayID).Errorw("gateway handler error response", "errorCode", errorCode, "error", err)
 	h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("gateway_id", gatewayID),
 		attribute.String("error", errorCode.String()),
@@ -322,26 +407,6 @@ func (h *GatewayHandler) errorResponse(
 			Message: err.Error(),
 		},
 	}
-}
-
-// getEncryptionKeys retrieves the encryption keys of all members in the Workflow DON.
-func (h *GatewayHandler) getEncryptionKeys(ctx context.Context) ([]string, error) {
-	myNode, err := h.capRegistry.LocalNode(ctx)
-	if err != nil {
-		return nil, errors.New("failed to get local node from registry" + err.Error())
-	}
-
-	encryptionKeys := make([]string, 0, len(myNode.WorkflowDON.Members))
-	for _, peerID := range myNode.WorkflowDON.Members {
-		peerNode, err := h.capRegistry.NodeByPeerID(ctx, peerID)
-		if err != nil {
-			return nil, errors.New("failed to get node info for peerID: " + peerID.String() + " - " + err.Error())
-		}
-		encryptionKeys = append(encryptionKeys, hex.EncodeToString(peerNode.EncryptionPublicKey[:]))
-	}
-	// Sort the encryption keys to ensure consistent ordering across all nodes.
-	sort.Strings(encryptionKeys)
-	return encryptionKeys, nil
 }
 
 func toJSONResponse(vaultCapResponse *vaulttypes.Response, method string) (*jsonrpc.Response[json.RawMessage], error) {

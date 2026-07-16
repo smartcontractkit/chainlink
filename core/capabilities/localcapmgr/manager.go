@@ -64,7 +64,9 @@ type localCapabilityManager struct {
 }
 
 // Wraps standardcapabilities.Delegate.NewServices to avoid direct dependency on the Delegate.
-type NewServicesFn func(ctx context.Context, capID string, command string, configJSON string) ([]job.ServiceCtx, error)
+// donID is the authoritative on-chain DON ID this plugin process is being spawned for; it is
+// known here because Reconcile keys desired state by (capID, donID).
+type NewServicesFn func(ctx context.Context, capID string, donID uint32, command string, configJSON string) ([]job.ServiceCtx, error)
 
 func NewLocalCapabilityManager(lggr logger.Logger, localCfg config.LocalCapabilities, newServicesFn NewServicesFn) (LocalCapabilityManager, error) {
 	metrics, err := newMetrics()
@@ -208,7 +210,7 @@ func (m *localCapabilityManager) startCapability(ctx context.Context, info *capa
 	}
 
 	// TODO(CRE-1775): pass also Ocr3Configs and OracleFactoryConfigs if present onchain
-	svcs, err := m.newServicesFn(ctx, info.capID, command, configJSON)
+	svcs, err := m.newServicesFn(ctx, info.capID, info.donID, command, configJSON)
 	if err != nil {
 		return nil, fmt.Errorf("build services for %s: %w", info.capID, err)
 	}

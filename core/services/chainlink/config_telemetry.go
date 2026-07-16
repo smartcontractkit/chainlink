@@ -7,11 +7,25 @@ import (
 
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
+var _ config.Telemetry = (*telemetryConfig)(nil)
+
 const defaultHeartbeatInterval = 1 * time.Second
+
+// Defaults for the durable emitter tuning knobs (mirrored in docs/core.toml).
+const (
+	defaultDurableEmitterRetransmitBatchSize = 500
+	defaultDurableEmitterEventTTL            = 1 * time.Hour
+)
+
+// defaultDurableEmitterMaxQueuePayloadBytes is the denominator used for the
+// durable_emitter.queue.capacity_usage_ratio gauge when the operator does not
+// override it via TOML. 1 GiB gives capacity tracking a sane default ceiling.
+const defaultDurableEmitterMaxQueuePayloadBytes int64 = 1 << 30
 
 type telemetryConfig struct {
 	s toml.Telemetry
@@ -97,6 +111,41 @@ func (b *telemetryConfig) ChipIngressInsecureConnection() bool {
 	return *b.s.ChipIngressInsecureConnection
 }
 
+func (b *telemetryConfig) ChipIngressBatchEmitterEnabled() bool {
+	if b.s.ChipIngressBatchEmitterEnabled == nil {
+		return true
+	}
+	return *b.s.ChipIngressBatchEmitterEnabled
+}
+
+func (b *telemetryConfig) DurableEmitterEnabled() bool {
+	if b.s.DurableEmitterEnabled == nil {
+		return true
+	}
+	return *b.s.DurableEmitterEnabled
+}
+
+func (b *telemetryConfig) DurableEmitterRetransmitBatchSize() int {
+	if b.s.DurableEmitterRetransmitBatchSize == nil {
+		return defaultDurableEmitterRetransmitBatchSize
+	}
+	return *b.s.DurableEmitterRetransmitBatchSize
+}
+
+func (b *telemetryConfig) DurableEmitterEventTTL() time.Duration {
+	if b.s.DurableEmitterEventTTL == nil || b.s.DurableEmitterEventTTL.Duration() <= 0 {
+		return defaultDurableEmitterEventTTL
+	}
+	return b.s.DurableEmitterEventTTL.Duration()
+}
+
+func (b *telemetryConfig) DurableEmitterMaxQueuePayloadBytes() int64 {
+	if b.s.DurableEmitterMaxQueuePayloadBytes == nil {
+		return defaultDurableEmitterMaxQueuePayloadBytes
+	}
+	return *b.s.DurableEmitterMaxQueuePayloadBytes
+}
+
 func (b *telemetryConfig) HeartbeatInterval() time.Duration {
 	if b.s.HeartbeatInterval == nil || b.s.HeartbeatInterval.Duration() <= 0 {
 		return defaultHeartbeatInterval
@@ -163,4 +212,20 @@ func (b *telemetryConfig) LogMaxQueueSize() int {
 		return 2048
 	}
 	return *b.s.LogMaxQueueSize
+}
+
+func (b *telemetryConfig) PrometheusBridge() config.PrometheusBridge {
+	return &prometheusBridgeConfig{b.s.PrometheusBridge}
+}
+
+type prometheusBridgeConfig struct {
+	s toml.PrometheusBridge
+}
+
+func (p *prometheusBridgeConfig) Enabled() bool {
+	return *p.s.Enabled
+}
+
+func (p *prometheusBridgeConfig) Prefixes() []string {
+	return p.s.Prefixes
 }

@@ -10,6 +10,7 @@ import (
 
 var (
 	Config                       = Var("CL_CONFIG")
+	DockerTag                    = Var("CL_DOCKER_TAG")
 	DatabaseAllowSimplePasswords = Var("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
 	IgnorePrereleaseVersionCheck = Var("CL_IGNORE_PRE_RELEASE_VERSION_CHECK")
 	SkipAppVersionCheck          = Var("CL_SKIP_APP_VERSION_CHECK")
@@ -27,16 +28,18 @@ var (
 
 // LOOPP commands and vars
 var (
-	MedianPlugin   = NewPlugin("median")
-	MercuryPlugin  = NewPlugin("mercury")
-	AptosPlugin    = NewPlugin("aptos")
-	EVMPlugin      = NewPlugin("evm")
-	CosmosPlugin   = NewPlugin("cosmos")
-	SolanaPlugin   = NewPlugin("solana")
-	StarknetPlugin = NewPlugin("starknet")
-	TronPlugin     = NewPlugin("tron")
-	TONPlugin      = NewPlugin("ton")
-	SuiPlugin      = NewPlugin("sui")
+	MedianPlugin       = NewPlugin("median")
+	MercuryPlugin      = NewPlugin("mercury")
+	AptosPlugin        = NewPlugin("aptos")
+	EVMPlugin          = NewPlugin("evm")
+	CosmosPlugin       = NewPlugin("cosmos")
+	SolanaPlugin       = NewPlugin("solana")
+	StarknetPlugin     = NewPlugin("starknet")
+	TronPlugin         = NewPlugin("tron")
+	TONPlugin          = NewPlugin("ton")
+	SuiPlugin          = NewPlugin("sui")
+	StellarPlugin      = NewPlugin("stellar")
+	CapabilitiesPlugin = NewPlugin("capabilities")
 	// PrometheusDiscoveryHostName is the externally accessible hostname
 	// published by the node in the `/discovery` endpoint. Generally, it is expected to match
 	// the public hostname of node.

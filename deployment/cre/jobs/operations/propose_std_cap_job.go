@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 type ProposeStandardCapabilityJobDeps struct {
@@ -30,8 +29,9 @@ type ProposeStandardCapabilityJobDeps struct {
 }
 
 type ProposeStandardCapabilityJobInput struct {
-	Domain  string
-	DONName string
+	Domain      string
+	Environment string
+	DONName     string
 
 	// Job is the standard capability job to propose.
 	// If GenerateOracleFactory is true, the OracleFactory field will be ignored and generated.
@@ -72,7 +72,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				{
 					Key:   "environment",
 					Op:    ptypes.SelectorOp_EQ,
-					Value: &deps.Env.Name,
+					Value: &input.Environment,
 				},
 				{
 					Key:   "product",
@@ -82,7 +82,7 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 				{
 					Key:   "type",
 					Op:    ptypes.SelectorOp_EQ,
-					Value: pointer.To(PluginNodeType),
+					Value: new(PluginNodeType),
 				},
 			},
 		}
@@ -144,10 +144,11 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 
 				// 1 spec per node, each spec is unique to the node due to the oracle factory config
 				report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-					Domain:    input.Domain,
-					DONName:   input.DONName,
-					Spec:      spec,
-					JobLabels: jobLabels,
+					Domain:      input.Domain,
+					DONName:     input.DONName,
+					Environment: input.Environment,
+					Spec:        spec,
+					JobLabels:   jobLabels,
 					DONFilters: []offchain.TargetDONFilter{
 						{Key: "p2p_id", Value: ni.PeerID.String()},
 					},
@@ -185,10 +186,11 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 
 			// 1 spec per node, each spec is unique to the node due to the oracle factory config
 			report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-				Domain:    input.Domain,
-				DONName:   input.DONName,
-				Spec:      spec,
-				JobLabels: jobLabels,
+				Domain:      input.Domain,
+				DONName:     input.DONName,
+				Environment: input.Environment,
+				Spec:        spec,
+				JobLabels:   jobLabels,
 				DONFilters: []offchain.TargetDONFilter{
 					{Key: "p2p_id", Value: ni.PeerID.String()},
 				},
@@ -207,7 +209,64 @@ const (
 	evmCapJobNamePrefix = "evm-cap-v2"
 	// evmCapJobNamePrefixOld had to be shortened because of job name character limit
 	evmCapJobNamePrefixOld = "evm-capabilities-v2"
+	solanaCapJobNamePrefix = "solana-cap-v2"
 )
+
+// chainCapJobNameVariants returns the current and optional legacy job name for approved-spec lookup.
+func chainCapJobNameVariants(jobName string) (current, legacy string, ok bool) {
+	switch {
+	case strings.Contains(jobName, evmCapJobNamePrefix):
+		return jobName, strings.Replace(jobName, evmCapJobNamePrefix, evmCapJobNamePrefixOld, 1), true
+	case strings.Contains(jobName, solanaCapJobNamePrefix):
+		return jobName, "", true
+	default:
+		return "", "", false
+	}
+}
+
+// lookupChainCapJobByName looks up a chain-cap job by name on the node and returns the external job ID
+// and whether the job was found with a legacy name variant. Returns empty string and false if no job is found.
+func lookupChainCapJobByName(ctx context.Context, lggr logger.Logger, jobName, nodeID string, oc cldf_offchain.Client) (string, bool, error) {
+	currentName, legacyName, ok := chainCapJobNameVariants(jobName)
+	if !ok {
+		return "", false, nil
+	}
+
+	nodesJobs, _, err := view.ApprovedJobspecs(ctx, lggr, []string{nodeID}, oc)
+	if err != nil {
+		return "", false, fmt.Errorf("failed to fetch approved jobs for node %s: %w", nodeID, err)
+	}
+
+	nodeJobs, ok := nodesJobs[nodeID]
+	if !ok || len(nodeJobs) == 0 {
+		return "", false, nil
+	}
+
+	specFormattedJobName := `name = "` + currentName + `"`
+	var legacyFormattedJobName string
+	if legacyName != "" {
+		legacyFormattedJobName = `name = "` + legacyName + `"`
+	}
+	for _, j := range nodeJobs {
+		hasCurrent := strings.Contains(j.Spec, specFormattedJobName)
+		hasLegacy := legacyFormattedJobName != "" && strings.Contains(j.Spec, legacyFormattedJobName)
+
+		if !hasCurrent && !hasLegacy {
+			continue
+		}
+
+		ji := make(job_types.JobSpecInput)
+		if err = toml.Unmarshal([]byte(j.Spec), &ji); err != nil {
+			return "", false, fmt.Errorf("failed to unmarshal job spec toml for job %s on node %s: %w", jobName, nodeID, err)
+		}
+
+		if s, _ := ji["externalJobID"].(string); s != "" {
+			return s, hasLegacy, nil
+		}
+	}
+
+	return "", false, nil
+}
 
 func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabilityJob, setPerNodeCfg bool, nodeID string, nodeIDToConfig map[string]string, oc cldf_offchain.Client) (string, error) {
 	if setPerNodeCfg {
@@ -218,7 +277,7 @@ func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabil
 		job.Config = customCfg
 	}
 
-	externalJobID, isLegacy, err := lookupEVMJobByName(ctx, lggr, job.JobName, nodeID, oc)
+	externalJobID, isLegacy, err := lookupChainCapJobByName(ctx, lggr, job.JobName, nodeID, oc)
 	if err != nil {
 		return "", err
 	}
@@ -237,46 +296,6 @@ func resolveJob(ctx context.Context, lggr logger.Logger, job pkg.StandardCapabil
 	}
 
 	return spec, nil
-}
-
-// lookupEVMJobByName looks up an EVM job by name and returns the external job ID and whether the job was found with a legacy name.
-// Returns empty string and false if no job is found.
-func lookupEVMJobByName(ctx context.Context, lggr logger.Logger, jobName, nodeID string, oc cldf_offchain.Client) (string, bool, error) {
-	if !strings.Contains(jobName, evmCapJobNamePrefix) {
-		return "", false, nil
-	}
-
-	nodesJobs, _, err := view.ApprovedJobspecs(ctx, lggr, []string{nodeID}, oc)
-	if err != nil {
-		return "", false, fmt.Errorf("failed to fetch approved jobs for node %s: %w", nodeID, err)
-	}
-
-	nodeJobs, ok := nodesJobs[nodeID]
-	if !ok || len(nodeJobs) == 0 {
-		return "", false, nil
-	}
-
-	specFormattedJobName := `name = "` + jobName + `"`
-	legacyFormattedJobName := `name = "` + strings.Replace(jobName, evmCapJobNamePrefix, evmCapJobNamePrefixOld, 1) + `"`
-	for _, j := range nodeJobs {
-		hasPrefix := strings.Contains(j.Spec, specFormattedJobName)
-		hasOldPrefix := strings.Contains(j.Spec, legacyFormattedJobName)
-
-		if !hasPrefix && !hasOldPrefix {
-			continue
-		}
-
-		ji := make(job_types.JobSpecInput)
-		if err = toml.Unmarshal([]byte(j.Spec), &ji); err != nil {
-			return "", false, fmt.Errorf("failed to unmarshal job spec toml for job %s on node %s: %w", jobName, nodeID, err)
-		}
-
-		if s, _ := ji["externalJobID"].(string); s != "" {
-			return s, hasOldPrefix, nil
-		}
-	}
-
-	return "", false, nil
 }
 
 func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, job pkg.StandardCapabilityJob) (*pkg.OracleFactory, error) {
@@ -312,7 +331,7 @@ func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, jo
 
 	evmOCRConfig, ok := nodeInfo.OCRConfigForChainSelector(uint64(contractChainSelector))
 	if !ok {
-		return &pkg.OracleFactory{}, fmt.Errorf("no evm ocr2 config for node %s", nodeInfo.NodeID)
+		return &pkg.OracleFactory{}, fmt.Errorf("no evm ocr2 config for node %s for chain selector %d", nodeInfo.NodeID, contractChainSelector)
 	}
 
 	if job.OCRSigningStrategy == "" {
@@ -348,6 +367,15 @@ func generateOracleFactory(cldEnv cldf.Environment, nodeInfo deployment.Node, jo
 		}
 
 		oracleFactory.OnchainSigningStrategy.Config["solana"] = solanaConfig.KeyBundleID
+	}
+
+	if job.ChainSelectorStellar > 0 {
+		stellarConfig, ok := nodeInfo.OCRConfigForChainSelector(uint64(job.ChainSelectorStellar))
+		if !ok {
+			return &pkg.OracleFactory{}, fmt.Errorf("no stellar ocr2 config for node %s", nodeInfo.NodeID)
+		}
+
+		oracleFactory.OnchainSigningStrategy.Config["stellar"] = stellarConfig.KeyBundleID
 	}
 
 	return oracleFactory, nil

@@ -19,11 +19,11 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
-	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -56,6 +56,13 @@ var _ cctypes.OracleCreator = &pluginOracleCreator{}
 const (
 	defaultCommitGasLimit = 500_000
 	defaultExecGasLimit   = 6_500_000
+
+	// readerWriterCreationTimeout bounds the per-chain contract reader/writer creation,
+	// binding, and startup during oracle creation.
+	// Applied per chain, so it must stay small: a DON can span many chains and the timeout
+	// is spent serially in the worst case. 10s matches the other blockchain-facing timeouts
+	// in defaultLocalConfig and rpctimeout.Default.
+	readerWriterCreationTimeout = 10 * time.Second
 )
 
 // pluginOracleCreator creates oracles that reference plugins running
@@ -77,7 +84,6 @@ type pluginOracleCreator struct {
 	relayers              map[types.RelayID]loop.Relayer
 	addressCodec          ccipcommon.AddressCodec
 	p2pID                 p2pkey.KeyV2
-	metricsCollector      *ObservationMetricsCollector
 }
 
 func NewPluginOracleCreator(
@@ -268,12 +274,12 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 
 	// Initialize the observation metrics collector to wrap OCR3 metrics
-	wrappedRegisterer, err := i.setupObservationMetricsCollector(pluginType, telemetryType, chainSelector)
+	metricsCollector, wrappedRegisterer, err := i.setupObservationMetricsCollector(pluginType, telemetryType, chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup observation metrics collector: %w", err)
 	}
 
-	oracleArgs := libocr3.OCR3OracleArgs[[]byte]{
+	oracleArgs := libocr3.OCR3OracleArgs2[[]byte]{
 		BinaryNetworkEndpointFactory: i.peerWrapper.Peer2,
 		Database:                     i.db,
 		// NOTE: when specifying V2Bootstrappers here we actually do NOT need to run a full bootstrap node!
@@ -298,7 +304,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		),
 		OffchainConfigDigester: ocrimpls.NewConfigDigester(config.ConfigDigest),
 		OffchainKeyring:        keybundle,
-		OnchainKeyring:         onchainKeyring,
+		OnchainKeyring:         ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyring),
 		ReportingPluginFactory: factory,
 	}
 	oracle, err := libocr3.NewOracle(oracleArgs)
@@ -306,15 +312,20 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, err
 	}
 
-	closers := make([]io.Closer, 0, len(extendedReaders)+len(chainWriters)+1)
+	closers := make([]io.Closer, 0, len(contractReaders)+len(chainWriters)+len(ccipProviders)+1)
 	for _, cr := range contractReaders {
 		closers = append(closers, cr)
 	}
 	for _, cw := range chainWriters {
 		closers = append(closers, cw)
 	}
+	for _, p := range ccipProviders {
+		closers = append(closers, p)
+	}
 	// Add metrics collector to closers so it's properly shut down
-	closers = append(closers, i.metricsCollector)
+	closers = append(closers, metricsCollector)
+	// Start the background polling loop after NewOracle so all counters are already registered.
+	metricsCollector.Start(defaultPollingInterval)
 	return newWrappedOracle(oracle, closers), nil
 }
 
@@ -338,21 +349,6 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	var transmitter ocr3types.ContractTransmitter[[]byte]
 	pluginConfig := pluginServices.PluginConfig
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
-		if !i.peerWrapper.IsStarted() {
-			return nil, nil, errors.New("peer wrapper is not started")
-		}
-
-		i.lggr.Infow("creating rmn peer client",
-			"bootstrapperLocators", i.bootstrapperLocators,
-			"deltaRound", publicConfig.DeltaRound)
-
-		rmnPeerClient := rmn.NewPeerClient(
-			i.lggr.Named("RMNPeerClient"),
-			i.peerWrapper.PeerGroupFactory,
-			i.bootstrapperLocators,
-			publicConfig.DeltaRound,
-		)
-
 		factory = commitocr3.NewCommitPluginFactory(
 			commitocr3.CommitPluginFactoryParams{
 				Lggr: i.lggr.
@@ -371,8 +367,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				LOOPPCCIPProviderSupported: pluginServices.CCIPProviderSupported,
 				ExtendedReaders:            extendedReaders,
 				ContractWriters:            chainWriters,
-				RmnPeerClient:              rmnPeerClient,
-				RmnCrypto:                  pluginConfig.RMNCrypto})
+			})
 		factory = promwrapper.NewReportingPluginFactory(
 			factory,
 			i.lggr,
@@ -696,76 +691,87 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	extendedReaders := make(map[cciptypes.ChainSelector]contractreader.Extended)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for relayID, relayer := range i.relayers {
-		chainID := relayID.ChainID
-		relayChainFamily := relayID.Network
-		chainDetails, err1 := chainsel.GetChainDetailsByChainIDAndFamily(chainID, relayChainFamily)
-		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
-		if err1 != nil {
-			return nil, nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
-		}
+		if err := func() error {
+			// Bound each chain's reader/writer creation with its own deadline so an unavailable
+			// chain LOOPP fails fast instead of blocking the launcher context
+			// forever.
+			chainCtx, cancel := context.WithTimeout(ctx, readerWriterCreationTimeout)
+			defer cancel()
 
-		cr, err1 := crcw.GetChainReader(ctx, ccipcommon.ChainReaderProviderOpts{
-			Lggr:            i.lggr,
-			Relayer:         relayer,
-			ChainID:         chainID,
-			DestChainID:     destChainID,
-			HomeChainID:     homeChainID,
-			Ofc:             ofc,
-			ChainSelector:   chainSelector,
-			ChainFamily:     relayChainFamily,
-			DestChainFamily: destChainFamily,
-			Transmitters:    i.transmitters,
-		})
-		if err1 != nil {
-			// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
-			i.lggr.Debugf("skipping creating reader and writers for chain %s, reader creation: %v", chainID, err1)
-			continue
-		}
-
-		if chainID == destChainID && destChainFamily == relayChainFamily {
-			offrampAddress := destAddrStr
-			err2 := cr.Bind(ctx, []types.BoundContract{
-				{
-					Address: offrampAddress,
-					Name:    consts.ContractNameOffRamp,
-				},
-			})
-			if err2 != nil {
-				return nil, nil, nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chainID, offrampAddress, err2)
+			chainID := relayID.ChainID
+			relayChainFamily := relayID.Network
+			chainDetails, err1 := chainsel.GetChainDetailsByChainIDAndFamily(chainID, relayChainFamily)
+			chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
+			if err1 != nil {
+				return fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
 			}
-		}
 
-		if err2 := cr.Start(ctx); err2 != nil {
-			return nil, nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
-		}
+			cr, err1 := crcw.GetChainReader(chainCtx, ccipcommon.ChainReaderProviderOpts{
+				Lggr:            i.lggr,
+				Relayer:         relayer,
+				ChainID:         chainID,
+				DestChainID:     destChainID,
+				HomeChainID:     homeChainID,
+				Ofc:             ofc,
+				ChainSelector:   chainSelector,
+				ChainFamily:     relayChainFamily,
+				DestChainFamily: destChainFamily,
+				Transmitters:    i.transmitters,
+			})
+			if err1 != nil {
+				// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
+				i.lggr.Debugf("skipping creating reader and writers for chain %s, reader creation: %v", chainID, err1)
+				return nil
+			}
 
-		cw, err1 := crcw.GetChainWriter(ctx, ccipcommon.ChainWriterProviderOpts{
-			ChainID:                chainID,
-			Relayer:                relayer,
-			Transmitters:           i.transmitters,
-			ExecBatchGasLimit:      execBatchGasLimit,
-			CommitEvmBatchGasLimit: commitEvmGasLimit,
-			ChainFamily:            relayChainFamily,
-			OfframpProgramAddress:  config.Config.OfframpAddress,
-		})
-		if err1 != nil {
-			// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
-			i.lggr.Debugf("skipping creating chain writer for chain %s, writer creation: %v", chainID, err1)
-			continue
-		}
+			if chainID == destChainID && destChainFamily == relayChainFamily {
+				offrampAddress := destAddrStr
+				err2 := cr.Bind(chainCtx, []types.BoundContract{
+					{
+						Address: offrampAddress,
+						Name:    consts.ContractNameOffRamp,
+					},
+				})
+				if err2 != nil {
+					return fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chainID, offrampAddress, err2)
+				}
+			}
 
-		if err4 := cw.Start(ctx); err4 != nil {
-			return nil, nil, nil, fmt.Errorf("failed to start chain writer for chain %s: %w", chainID, err4)
-		}
+			if err2 := cr.Start(chainCtx); err2 != nil {
+				return fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
+			}
 
-		extendedCr, err := wrapContractReaderInObservedExtended(i.lggr, cr, chainSelector)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to wrap contract reader for chain %s: %w", chainID, err)
-		}
+			cw, err1 := crcw.GetChainWriter(chainCtx, ccipcommon.ChainWriterProviderOpts{
+				ChainID:                chainID,
+				Relayer:                relayer,
+				Transmitters:           i.transmitters,
+				ExecBatchGasLimit:      execBatchGasLimit,
+				CommitEvmBatchGasLimit: commitEvmGasLimit,
+				ChainFamily:            relayChainFamily,
+				OfframpProgramAddress:  config.Config.OfframpAddress,
+			})
+			if err1 != nil {
+				// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
+				i.lggr.Debugf("skipping creating chain writer for chain %s, writer creation: %v", chainID, err1)
+				return nil
+			}
 
-		contractReaders[chainSelector] = cr
-		extendedReaders[chainSelector] = extendedCr
-		chainWriters[chainSelector] = cw
+			if err4 := cw.Start(chainCtx); err4 != nil {
+				return fmt.Errorf("failed to start chain writer for chain %s: %w", chainID, err4)
+			}
+
+			extendedCr, err := wrapContractReaderInObservedExtended(i.lggr, cr, chainSelector)
+			if err != nil {
+				return fmt.Errorf("failed to wrap contract reader for chain %s: %w", chainID, err)
+			}
+
+			contractReaders[chainSelector] = cr
+			extendedReaders[chainSelector] = extendedCr
+			chainWriters[chainSelector] = cw
+			return nil
+		}(); err != nil {
+			return nil, nil, nil, err
+		}
 	}
 	return contractReaders, extendedReaders, chainWriters, nil
 }
@@ -861,21 +867,21 @@ func (i *pluginOracleCreator) setupObservationMetricsCollector(
 	pluginType cctypes.PluginType,
 	telemetryType synchronization.TelemetryType,
 	chainSelector uint64,
-) (prometheus.Registerer, error) {
+) (*ObservationMetricsCollector, prometheus.Registerer, error) {
 	// Get chain details for Beholder labels
 	chainID, err := chainsel.GetChainIDFromSelector(chainSelector)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get chain ID from selector %d: %w", chainSelector, err)
+		return nil, nil, fmt.Errorf("failed to get chain ID from selector %d: %w", chainSelector, err)
 	}
 
 	chainFamily, err := chainsel.GetSelectorFamily(chainSelector)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get chain family from selector %d: %w", chainSelector, err)
+		return nil, nil, fmt.Errorf("failed to get chain family from selector %d: %w", chainSelector, err)
 	}
 
 	networkName, err := chainsel.GetChainNameFromSelector(chainSelector)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get network name from selector %d: %w", chainSelector, err)
+		return nil, nil, fmt.Errorf("failed to get network name from selector %d: %w", chainSelector, err)
 	}
 
 	// Determine the plugin type name for labels
@@ -901,7 +907,7 @@ func (i *pluginOracleCreator) setupObservationMetricsCollector(
 		string(telemetryType), // Use telemetryType (ocr3-ccip-commit or ocr3-ccip-exec)
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Beholder metrics publisher: %w", err)
+		return nil, nil, fmt.Errorf("failed to create Beholder metrics publisher: %w", err)
 	}
 
 	// Define Prometheus constant labels (keep existing format to avoid breaking changes)
@@ -920,14 +926,11 @@ func (i *pluginOracleCreator) setupObservationMetricsCollector(
 		beholderLabels,
 	)
 
-	// Store the collector so we can close it later
-	i.metricsCollector = metricsCollector
-
 	// Create a wrapped registerer that intercepts observation metric registrations
 	// Don't use WrapRegistererWith here as it would wrap the collectors and prevent
 	// us from intercepting Inc() calls on counters. Instead, we'll handle the wrapping
 	// ourselves in the intercepting registerer.
 	wrappedRegisterer := metricsCollector.CreateWrappedRegisterer(prometheus.DefaultRegisterer)
 
-	return wrappedRegisterer, nil
+	return metricsCollector, wrappedRegisterer, nil
 }

@@ -3,11 +3,8 @@ package vault
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -17,12 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
@@ -32,9 +28,9 @@ type Capability struct {
 	clock                clockwork.Clock
 	expiresAfter         time.Duration
 	handler              *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
-	requestAuthorizer    RequestAuthorizer
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
+	lifecycle            *RequestLifecycleTracker
 	*RequestValidator
 }
 
@@ -46,7 +42,7 @@ func (s *Capability) Start(ctx context.Context) error {
 	closeHandler := func() {
 		ierr := s.handler.Close()
 		if ierr != nil {
-			s.lggr.Errorf("error closing vault DON request handler after failed registration: %v", ierr)
+			s.lggr.Errorw("error closing vault DON request handler after failed registration", "err", ierr)
 		}
 	}
 
@@ -70,8 +66,8 @@ func (s *Capability) Close() error {
 		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", ierr))
 	}
 
-	if lerr := s.MaxRequestBatchSizeLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing request batch size limiter: %w", lerr))
+	if lerr := s.RequestValidator.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing request validator: %w", lerr))
 	}
 
 	return err
@@ -94,6 +90,7 @@ func (s *Capability) UnregisterFromWorkflow(_ context.Context, _ capabilities.Un
 }
 
 func (s *Capability) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+	ctx = request.Metadata.ContextWithCRE(ctx)
 	if request.Payload == nil {
 		return capabilities.CapabilityResponse{}, errors.New("capability does not support v1 requests")
 	}
@@ -108,34 +105,25 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, fmt.Errorf("could not unmarshal payload to GetSecretsRequest: %w", err)
 	}
 
-	// Validate the request: we only check that the request contains at least one secret request.
-	// All other validations are done in the plugin and subject to consensus.
-	if len(r.Requests) == 0 {
-		return capabilities.CapabilityResponse{}, errors.New("no secret request specified in request")
+	err = s.ValidateGetSecretsRequest(ctx, r)
+	if err != nil {
+		return capabilities.CapabilityResponse{}, fmt.Errorf("could not validate get secrets request: %w", err)
 	}
 
-	normalizedWorkflowOwner := normalizeOwner(request.Metadata.WorkflowOwner)
 	for idx, req := range r.Requests {
 		if req == nil { // defensive: protobuf strips nil elements, but guard against in-process callers
+			s.lggr.Errorw("get secrets request contains nil secret request", "index", idx)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
 		}
-
-		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizedWorkflowOwner {
+		if req.Id != nil && vaultutils.NormalizeOwner(req.Id.Owner) != vaultutils.NormalizeOwner(request.Metadata.WorkflowOwner) {
+			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", request.Metadata.WorkflowOwner)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
 		}
 	}
 
-	// We need to generate sufficiently unique IDs accounting for two cases:
-	// 1. called during the subscription phase, in which case the executionID will be blank
-	// 2. called during execution, in which case it'll be present.
-	// The reference ID is unique per phase, so we need to differentiate when generating
-	// an ID.
 	md := request.Metadata
-	phaseOrExecution := md.WorkflowExecutionID
-	if phaseOrExecution == "" {
-		phaseOrExecution = "subscription"
-	}
-	id := fmt.Sprintf("%s::%s::%s", md.WorkflowID, phaseOrExecution, md.ReferenceID)
+	id := vaultutils.BuildWorkflowGetSecretsRequestID(md)
+	s.lggr.Debugw("received workflow get secrets request", "requestID", id, "request", r.String())
 
 	resp, err := s.handleRequest(ctx, id, r)
 	if err != nil {
@@ -161,94 +149,49 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 }
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugf("Received Request: %s", request.String())
-	err := s.ValidateCreateSecretsRequest(s.publicKey.Get(), request)
-	if err != nil {
-		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
+	s.lggr.Debugw("received create secrets request", "requestID", request.RequestId, "request", request.String())
+	if err := validateEncryptedSecretsUniformOwners(request.EncryptedSecrets); err != nil {
 		return nil, err
 	}
-	authorized, owner, err := s.authorizeCreateSecrets(ctx, *request) //nolint:govet // The mutex isn't used
-	if !authorized || err != nil {
-		s.lggr.Debugf("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
+	err := s.ValidateCreateSecretsRequest(ctx, s.publicKey.Get(), request, false)
+	if err != nil {
+		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "err", err)
+		return nil, err
 	}
-	if !strings.HasPrefix(request.RequestId, owner) {
-		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Debugf("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
-	}
-	for idx, req := range request.EncryptedSecrets {
-		// Ensure that users cannot access secrets belonging to other owners
-		if req.Id.Owner != owner {
-			s.lggr.Debugf("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Id.Owner, owner)
-			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
-		}
-	}
-	s.lggr.Debugf("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugf("Received Request: %s", request.String())
-	err := s.ValidateUpdateSecretsRequest(s.publicKey.Get(), request)
-	if err != nil {
-		s.lggr.Debugf("RequestId: [%s] failed validation checks: %s", request.RequestId, err.Error())
+	s.lggr.Debugw("received update secrets request", "requestID", request.RequestId, "request", request.String())
+	if err := validateEncryptedSecretsUniformOwners(request.EncryptedSecrets); err != nil {
 		return nil, err
 	}
-	authorized, owner, err := s.authorizeUpdateSecrets(ctx, *request) //nolint:govet // The mutex isn't used
-	if !authorized || err != nil {
-		s.lggr.Debugf("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
+	err := s.ValidateUpdateSecretsRequest(ctx, s.publicKey.Get(), request, false)
+	if err != nil {
+		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "err", err)
+		return nil, err
 	}
-	if !strings.HasPrefix(request.RequestId, owner) {
-		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Debugf("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
-	}
-	for idx, req := range request.EncryptedSecrets {
-		// Ensure that users cannot access secrets belonging to other owners
-		if req.Id.Owner != owner {
-			s.lggr.Debugf("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Id.Owner, owner)
-			return nil, errors.New("secret ID owner: " + req.Id.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
-		}
-	}
-	s.lggr.Debugf("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugf("Received Request: %s", request.String())
-	err := s.ValidateDeleteSecretsRequest(request)
+	s.lggr.Debugw("received delete secrets request", "requestID", request.RequestId, "request", request.String())
+	err := s.ValidateDeleteSecretsRequest(ctx, request)
 	if err != nil {
-		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "request", request.String(), "err", err)
 		return nil, err
 	}
-
-	authorized, owner, err := s.authorizeDeleteSecrets(ctx, *request) //nolint:govet // The mutex isn't used
-	if !authorized || err != nil {
-		s.lggr.Debugf("Request Id[%s] not authorized for owner: %s", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
+	if err := validateSecretIdentifiersUniformOwners(request.Ids); err != nil {
+		s.lggr.Debugw("failed uniform owner checks", "requestID", request.RequestId, "request", request.String(), "err", err)
+		return nil, err
 	}
-	if !strings.HasPrefix(request.RequestId, owner) {
-		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Debugf("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
-	}
-	for idx, req := range request.Ids {
-		// Ensure that users cannot access secrets belonging to other owners
-		if req.Owner != owner {
-			s.lggr.Debugf("Secret ID owner: [%s] does not match authorized owner: [%s]", req.Owner, owner)
-			return nil, errors.New("secret ID owner: " + req.Owner + " does not match authorized owner: " + owner + " at index " + strconv.Itoa(idx))
-		}
-	}
-	s.lggr.Debugf("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugf("Received Request: %s", request.String())
-	if err := s.ValidateGetSecretsRequest(request); err != nil {
-		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+	s.lggr.Debugw("received get secrets request", "requestID", requestID, "request", request.String())
+	if err := s.ValidateGetSecretsRequest(ctx, request); err != nil {
+		s.lggr.Debugw("failed validation checks", "requestID", requestID, "request", request.String(), "err", err)
 		return nil, err
 	}
 
@@ -257,37 +200,18 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 }
 
 func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugf("Received Request: %s", request.String())
-	err := s.ValidateListSecretIdentifiersRequest(request)
+	s.lggr.Debugw("received list secret identifiers request", "requestID", request.RequestId, "request", request.String())
+	err := s.ValidateListSecretIdentifiersRequest(ctx, request)
 	if err != nil {
-		s.lggr.Debugf("Request: [%s] failed validation checks: %s", request.String(), err.Error())
+		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "request", request.String(), "err", err)
 		return nil, err
 	}
-
-	authorized, owner, err := s.authorizeListSecrets(ctx, *request) //nolint:govet // The mutex isn't used
-	if !authorized || err != nil {
-		s.lggr.Debugf("Request ID[%s] not authorized for owner: %s", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " not authorized: " + err.Error())
-	}
-	if !strings.HasPrefix(request.RequestId, owner) {
-		// Gateway should ensure it prefixes request ids with the owner, to ensure request uniqueness
-		s.lggr.Debugf("Request ID: [%s] must start with owner address: [%s]", request.RequestId, owner)
-		return nil, errors.New("request ID: " + request.RequestId + " must start with owner address: " + owner)
-	}
-	// Ensures that users cannot access secrets belonging to other owners
-	request.Owner = owner
-	if request.Owner != owner {
-		s.lggr.Debugf("Secret ID owner: [%s] does not match authorized owner: [%s]", request.Owner, owner)
-		return nil, errors.New("secret ID owner: " + request.Owner + " does not match authorized owner: " + owner)
-	}
-
-	s.lggr.Debugf("Processing authorized and normalized request [%s]", request.String())
 	return s.handleRequest(ctx, request.RequestId, request)
 }
 
 func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetPublicKeyRequest) (*vaultcommon.GetPublicKeyResponse, error) {
 	l := logger.With(s.lggr, "method", "GetPublicKey")
-	l.Debugf("Received Request: GetPublicKeyRequest")
+	l.Debug("received get public key request")
 
 	pubKey := s.publicKey.Get()
 	if pubKey == nil {
@@ -297,7 +221,7 @@ func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetP
 
 	pkb, err := pubKey.Marshal()
 	if err != nil {
-		l.Debugf("could not marshal public key: %s", err.Error())
+		l.Debugw("could not marshal public key", "err", err)
 		return nil, fmt.Errorf("could not marshal public key: %w", err)
 	}
 
@@ -306,11 +230,42 @@ func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetP
 	}, nil
 }
 
-func normalizeOwner(owner string) string {
-	return strings.ToLower(strings.TrimPrefix(owner, "0x"))
+func validateEncryptedSecretsUniformOwners(encryptedSecrets []*vaultcommon.EncryptedSecret) error {
+	var owner string
+	for idx, enc := range encryptedSecrets {
+		if enc == nil || enc.Id == nil {
+			continue
+		}
+		if owner == "" {
+			owner = enc.Id.Owner
+			continue
+		}
+		if vaultutils.NormalizeOwner(enc.Id.Owner) != vaultutils.NormalizeOwner(owner) {
+			return fmt.Errorf("encrypted secret owner at index %d %q does not match batch owner %q", idx, enc.Id.Owner, owner)
+		}
+	}
+	return nil
+}
+
+func validateSecretIdentifiersUniformOwners(ids []*vaultcommon.SecretIdentifier) error {
+	var owner string
+	for idx, id := range ids {
+		if id == nil {
+			continue
+		}
+		if owner == "" {
+			owner = id.Owner
+			continue
+		}
+		if vaultutils.NormalizeOwner(id.Owner) != vaultutils.NormalizeOwner(owner) {
+			return fmt.Errorf("secret identifier owner at index %d %q does not match batch owner %q", idx, id.Owner, owner)
+		}
+	}
+	return nil
 }
 
 func (s *Capability) handleRequest(ctx context.Context, requestID string, request proto.Message) (*vaulttypes.Response, error) {
+	s.lifecycle.RecordReceived(ctx, requestID, s.clock.Now())
 	respCh := make(chan *vaulttypes.Response, 1)
 	s.handler.SendRequest(ctx, &vaulttypes.Request{
 		Payload:      request,
@@ -323,79 +278,19 @@ func (s *Capability) handleRequest(ctx context.Context, requestID string, reques
 	select {
 	case <-ctx.Done():
 		s.lggr.Debugw("request timed out", "requestID", requestID, "error", ctx.Err())
+		s.lifecycle.FinalizeTimeout(ctx, requestID)
 		return nil, ctx.Err()
 	case resp := <-respCh:
 		s.lggr.Debugw("received response for request", "requestID", requestID, "error", resp.Error)
+		respAt := s.clock.Now()
 		if resp.Error != "" {
+			s.lifecycle.FinalizeResponseError(ctx, requestID, respAt, resp.Error)
 			return nil, fmt.Errorf("error processing request %s: %w", requestID, errors.New(resp.Error))
 		}
 
+		s.lifecycle.FinalizeSuccess(ctx, requestID, respAt)
 		return resp, nil
 	}
-}
-
-func (s *Capability) getOriginalRequestID(transformedRequestID string) (string, error) {
-	// The transformed RequestID provided to Vault Nodes is of format <owner>::<user-provided-id>.
-	// However, the RequestAuthorizer expects just the <user-provided-id> as the JSONRequest's ID fields,
-	// since that's what was used by the caller when generating the request digest.
-	requestIDParts := strings.Split(transformedRequestID, vaulttypes.RequestIDSeparator)
-	if len(requestIDParts) != 2 {
-		return "", errors.New("internal error: request ID must be in format <owner>::<user-provided-id>")
-	}
-	return requestIDParts[1], nil
-}
-
-func (s *Capability) authorizeCreateSecrets(ctx context.Context, request vaultcommon.CreateSecretsRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
-	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
-	if err != nil {
-		return false, "", err
-	}
-	request.RequestId = originalRequestID
-
-	return s.isAuthorizedRequest(ctx, &request, originalRequestID, vaulttypes.MethodSecretsCreate)
-}
-
-func (s *Capability) authorizeUpdateSecrets(ctx context.Context, request vaultcommon.UpdateSecretsRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
-	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
-	if err != nil {
-		return false, "", err
-	}
-	request.RequestId = originalRequestID
-	return s.isAuthorizedRequest(ctx, &request, originalRequestID, vaulttypes.MethodSecretsUpdate)
-}
-
-func (s *Capability) authorizeDeleteSecrets(ctx context.Context, request vaultcommon.DeleteSecretsRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
-	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
-	if err != nil {
-		return false, "", err
-	}
-	request.RequestId = originalRequestID
-	return s.isAuthorizedRequest(ctx, &request, originalRequestID, vaulttypes.MethodSecretsDelete)
-}
-
-func (s *Capability) authorizeListSecrets(ctx context.Context, request vaultcommon.ListSecretIdentifiersRequest) (bool, string, error) { //nolint:govet // The mutex isn't used
-	originalRequestID, err := s.getOriginalRequestID(request.RequestId)
-	if err != nil {
-		return false, "", err
-	}
-	request.RequestId = originalRequestID
-	return s.isAuthorizedRequest(ctx, &request, originalRequestID, vaulttypes.MethodSecretsList)
-}
-
-func (s *Capability) isAuthorizedRequest(ctx context.Context, request any, requestID, method string) (bool, string, error) {
-	var params json.RawMessage
-	params, err := json.Marshal(request)
-	if err != nil {
-		return false, "", fmt.Errorf("could not marshal CreateSecretsRequest: %w", err)
-	}
-	s.lggr.Debugw("Authorizing request", "method", method, "requestID", requestID)
-	jsonRequest := jsonrpc.Request[json.RawMessage]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      requestID,
-		Method:  method,
-		Params:  &params,
-	}
-	return s.requestAuthorizer.AuthorizeRequest(ctx, jsonRequest)
 }
 
 func NewCapability(
@@ -403,23 +298,26 @@ func NewCapability(
 	clock clockwork.Clock,
 	expiresAfter time.Duration,
 	handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response],
-	requestAuthorizer RequestAuthorizer,
 	capabilitiesRegistry core.CapabilitiesRegistry,
 	publicKey *LazyPublicKey,
 	limitsFactory limits.Factory,
+	lifecycle *RequestLifecycleTracker,
 ) (*Capability, error) {
-	limiter, err := limits.MakeBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	if lifecycle == nil {
+		return nil, errors.New("vault capability requires a non-nil request lifecycle tracker")
+	}
+	requestValidator, err := NewRequestValidatorFromLimitsFactory(limitsFactory)
 	if err != nil {
-		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
+		return nil, err
 	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
 		clock:                clock,
 		expiresAfter:         expiresAfter,
 		handler:              handler,
-		requestAuthorizer:    requestAuthorizer,
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
-		RequestValidator:     NewRequestValidator(limiter),
+		lifecycle:            lifecycle,
+		RequestValidator:     requestValidator,
 	}, nil
 }

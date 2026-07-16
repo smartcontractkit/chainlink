@@ -4,20 +4,19 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/block-vision/sui-go-sdk/models"
-	"github.com/block-vision/sui-go-sdk/sui"
-
-	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
-	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	sui_module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	sui_ccip_offramp "github.com/smartcontractkit/chainlink-sui/bindings/packages/offramp"
+	cslclient "github.com/smartcontractkit/chainlink-sui/relayer/client"
+	"github.com/smartcontractkit/chainlink-sui/relayer/codec"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -30,6 +29,13 @@ import (
 type SuiAdapter struct {
 	state suistate.CCIPChainState
 	cldf_sui.Chain
+}
+
+// offRampOriginalPkgID returns the original (V1) package ID, which must be used
+// for event queries. In Sui, struct types (including events) always carry the
+// original defining package's ID regardless of which upgraded version emitted them.
+func (a *SuiAdapter) offRampOriginalPkgID() string {
+	return a.state.OffRampAddress
 }
 
 func NewSuiAdapter(chain cldf.BlockChain, env deployment.Environment) Adapter {
@@ -76,7 +82,7 @@ func (a *SuiAdapter) ValidateCommit(t *testing.T, sourceSelector uint64, startBl
 		t,
 		sourceSelector,
 		a.Chain,
-		a.state.OffRampAddress,
+		a.offRampOriginalPkgID(),
 		startBlock,
 		seqNumRange,
 		true,
@@ -89,7 +95,7 @@ func (a *SuiAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBloc
 		t,
 		sourceSelector,
 		a.Chain,
-		a.state.OffRampAddress,
+		a.offRampOriginalPkgID(),
 		startBlock,
 		seqNrs,
 	)
@@ -97,9 +103,14 @@ func (a *SuiAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBloc
 	return executionStates
 }
 
+// suiEventCheckpointBackfill is how many checkpoints behind the current tip the
+// emitter starts scanning when it subscribes, so events emitted just before the
+// subscription (e.g. a commit that landed between send and validation) are not missed.
+const suiEventCheckpointBackfill = uint64(50)
+
 func SuiEventEmitter[T any](
 	t *testing.T,
-	client sui.ISuiAPI,
+	client cslclient.SuiPTBClient,
 	packageID, moduleName, event string,
 	done chan any,
 ) (<-chan struct {
@@ -107,125 +118,140 @@ func SuiEventEmitter[T any](
 	Version string
 }, <-chan error) {
 	startTime := time.Now()
-	t.Logf("[DEBUG] SuiEventEmitter: Starting at %s - will capture ALL historical events plus new ones", startTime.Format(time.RFC3339))
+	t.Logf("[DEBUG] SuiEventEmitter: Starting at %s - polling checkpoints for events", startTime.Format(time.RFC3339))
 	ch := make(chan struct {
 		Event   T
 		Version string
 	}, 200)
 	errChan := make(chan error)
-	limit := uint64(50)                 // Use uint64 directly to avoid conversion
-	seenEvents := make(map[string]bool) // Track all seen event IDs to prevent duplicates
+
+	// The gRPC client does not implement cursor-based event queries (QueryEvents is
+	// "pending gRPC migration"), so we poll checkpoints and filter their events by the
+	// fully-qualified event type, mirroring the relayer's chain_poller.
+	eventType := fmt.Sprintf("%s::%s::%s", packageID, moduleName, event)
 
 	go func() {
 		defer close(ch)
 		defer close(errChan)
 
-		ticker := time.NewTicker(time.Second * 2)
+		ctx := t.Context()
+
+		emitErr := func(err error) {
+			select {
+			case errChan <- err:
+			case <-done:
+			}
+		}
+
+		// Seed the scan position from the current chain tip, backfilling a small window.
+		latest, err := client.GetLatestCheckpoint(ctx)
+		if err != nil {
+			emitErr(fmt.Errorf("failed to get latest checkpoint: %w", err))
+			return
+		}
+		var nextSeq uint64
+		if tip := latest.GetSequenceNumber(); tip > suiEventCheckpointBackfill {
+			nextSeq = tip - suiEventCheckpointBackfill
+		}
+
+		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()
 
 		for {
-			for {
-				// As this can take a few iterations if there are many events, check for done before each request
+			select {
+			case <-done:
+				t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal")
+				return
+			default:
+			}
+
+			latest, err := client.GetLatestCheckpoint(ctx)
+			if err != nil {
+				emitErr(fmt.Errorf("failed to get latest checkpoint: %w", err))
+				return
+			}
+			tip := latest.GetSequenceNumber()
+
+			for seq := nextSeq; seq <= tip; seq++ {
 				select {
 				case <-done:
-					t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal")
 					return
 				default:
 				}
 
-				eventFilter := models.EventFilterByMoveEventType{
-					MoveEventType: fmt.Sprintf("%s::%s::%s", packageID, moduleName, event),
-				}
-
-				events, err := client.SuiXQueryEvents(t.Context(), models.SuiXQueryEventsRequest{
-					SuiEventFilter:  eventFilter,
-					Limit:           limit,
-					DescendingOrder: false,
-				})
+				data, err := client.GetCheckpointData(ctx, seq)
 				if err != nil {
-					t.Logf("[DEBUG] SuiEventEmitter: Query error: %v", err)
-					select {
-					case errChan <- err:
-					case <-done:
-						return
+					if isSuiCheckpointNotFound(err) {
+						// Tip advanced past a checkpoint not yet available; retry next tick.
+						break
 					}
+					emitErr(err)
 					return
 				}
 
-				if len(events.Data) == 0 {
-					// No new events found
-					t.Logf("[DEBUG] SuiEventEmitter: No new events found")
-					break
-				}
-
-				t.Logf("[DEBUG] SuiEventEmitter: Processing %d events", len(events.Data))
-				newEventsCount := 0
-
-				for _, ev := range events.Data {
-					// Create unique event ID combining transaction digest and event sequence
-					eventID := fmt.Sprintf("%s:%s", ev.Id.TxDigest, ev.Id.EventSeq)
-
-					if seenEvents[eventID] {
-						t.Logf("[DEBUG] SuiEventEmitter: Skipping duplicate event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
-						continue // skip duplicates
-					}
-					seenEvents[eventID] = true
-
-					var out T
-					// TODO: Use proper SUI JSON decoder instead of Aptos decoder
-					if err := codec.DecodeAptosJsonValue(ev.ParsedJson, &out); err != nil {
-						t.Logf("[DEBUG] SuiEventEmitter: Decode error for event %s with type %s and transaction module %s at timestamp %s: %v", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err)
-						select {
-						case errChan <- fmt.Errorf("failed to decode event %s with type %s and transaction module %s at timestamp %s: %w", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs, err):
-						case <-done:
-							return
+				for _, tx := range data.Transactions {
+					for _, ev := range tx.GetEvents().GetEvents() {
+						// Sui event struct types always carry the original defining
+						// package's ID, so match on the fully-qualified handle.
+						qualified := strings.Join([]string{ev.GetPackageId(), ev.GetModule(), ev.GetEventType()}, "::")
+						if qualified != eventType {
+							continue
 						}
-						continue
-					}
+						if ev.GetJson() == nil {
+							continue
+						}
 
-					newEventsCount++
-					eventData := struct {
-						Event   T
-						Version string
-					}{
-						Event:   out,
-						Version: ev.Id.EventSeq,
-					}
+						var out T
+						if err := codec.DecodeSuiJsonValue(ev.GetJson().AsInterface(), &out); err != nil {
+							t.Logf("[DEBUG] SuiEventEmitter: Decode error at checkpoint %d: %v (skipping)", seq, err)
+							continue
+						}
 
-					// Non-blocking send to prevent goroutine deadlock
-					select {
-					case ch <- eventData:
-						t.Logf("[DEBUG] SuiEventEmitter: Sent event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
-					case <-done:
-						t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal during send")
-						return
-					default:
-						t.Logf("[WARNING] SuiEventEmitter: Channel full, dropping event %s with type %s and transaction module %s at timestamp %s", eventID, ev.Type, ev.TransactionModule, ev.TimestampMs)
-						// Channel is full, log warning but continue processing
-						// This prevents blocking the entire event loop
+						eventData := struct {
+							Event   T
+							Version string
+						}{
+							Event:   out,
+							Version: strconv.FormatUint(seq, 10),
+						}
+
+						select {
+						case ch <- eventData:
+							t.Logf("[DEBUG] SuiEventEmitter: Sent %s event from checkpoint %d", eventType, seq)
+						case <-done:
+							t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal during send")
+							return
+						default:
+							t.Logf("[WARNING] SuiEventEmitter: Channel full, dropping event at checkpoint %d", seq)
+						}
 					}
 				}
 
-				t.Logf("[DEBUG] SuiEventEmitter: Processed %d new events out of %d total", newEventsCount, len(events.Data))
-
-				// For now, break after processing to avoid infinite loops
-				// TODO: Implement proper cursor-based pagination when SUI SDK supports it
-				if uint64(len(events.Data)) < limit {
-					// Received fewer events than limit, likely no more events available
-					break
-				}
+				nextSeq = seq + 1
 			}
+
 			select {
 			case <-done:
 				t.Logf("[DEBUG] SuiEventEmitter: Stopping due to done signal in ticker loop")
 				return
 			case <-ticker.C:
-				t.Logf("[DEBUG] SuiEventEmitter: Ticker fired, checking for new events")
 				continue
 			}
 		}
 	}()
 	return ch, errChan
+}
+
+// isSuiCheckpointNotFound reports whether err indicates a checkpoint that is not yet
+// available on the fullnode (the tip can advance past the latest indexed checkpoint).
+func isSuiCheckpointNotFound(err error) bool {
+	for err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "not found") {
+			return true
+		}
+		err = errors.Unwrap(err)
+	}
+	return false
 }
 
 func confirmCommitWithExpectedSeqNumRangeSui(
@@ -318,7 +344,7 @@ func confirmExecWithExpectedSeqNrsSui(
 	defer close(done)
 
 	t.Log("[DEBUG] Subscribing to Sui events...", offRampAddress)
-	sink, errChan := SuiEventEmitter[module_offramp.ExecutionStateChanged](t, dest.Client, offRampAddress, "offramp", "ExecutionStateChanged", done)
+	sink, errChan := SuiEventEmitter[sui_module_offramp.ExecutionStateChanged](t, dest.Client, offRampAddress, "offramp", "ExecutionStateChanged", done)
 
 	t.Log("[DEBUG] Event subscription established")
 

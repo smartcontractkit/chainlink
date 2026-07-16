@@ -6,12 +6,12 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/timelock"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 // UpdateTimelockDelaySolana updates the timelock delay for the given solana chains
@@ -42,7 +42,7 @@ func (t UpdateTimelockDelaySolana) VerifyPreconditions(
 		if err != nil {
 			return fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(solChain, addresses)
 		if err != nil {
 			return fmt.Errorf("failed to load MCMS state: %w", err)
 		}
@@ -67,8 +67,8 @@ func (t UpdateTimelockDelaySolana) Apply(
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
-		configPDA := state.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+		mcmState, _ := solstate.MaybeLoadMCMSWithTimelockChainState(solChain, addresses)
+		configPDA := pdasol.GetTimelockConfigPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 		timelockBindings.SetProgramID(mcmState.TimelockProgram)
 		updateDelayIx := timelockBindings.NewUpdateDelayInstruction(mcmState.TimelockSeed, uint64(delay.Seconds()), configPDA, solChain.DeployerKey.PublicKey())
 		ix, err := updateDelayIx.ValidateAndBuild()

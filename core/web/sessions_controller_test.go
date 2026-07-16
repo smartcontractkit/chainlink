@@ -202,5 +202,5 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 		sessions, err := app.AuthenticationProvider().Sessions(ctx, 0, 10)
 		assert.NoError(t, err)
 		return sessions
-	}).Should(gomega.HaveLen(0))
+	}).Should(gomega.BeEmpty())
 }

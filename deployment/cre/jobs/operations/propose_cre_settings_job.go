@@ -16,6 +16,7 @@ type ProposeCRESettingsJobsDeps struct {
 }
 type ProposeCRESettingsJobsInput struct {
 	Domain      string
+	Environment string
 	DONName     string
 	DONFilters  []offchain.TargetDONFilter
 	ExtraLabels map[string]string
@@ -43,11 +44,12 @@ var ProposeCRESettingsJobs = operations.NewOperation[
 		}
 
 		report, err := operations.ExecuteOperation(b, ProposeJobSpec, ProposeJobSpecDeps(deps), ProposeJobSpecInput{
-			Domain:     input.Domain,
-			DONName:    input.DONName,
-			JobLabels:  input.ExtraLabels,
-			DONFilters: input.DONFilters,
-			Spec:       jobSpec,
+			Domain:      input.Domain,
+			Environment: input.Environment,
+			DONName:     input.DONName,
+			JobLabels:   input.ExtraLabels,
+			DONFilters:  input.DONFilters,
+			Spec:        jobSpec,
 		})
 		if err != nil {
 			return ProposeCRESettingsJobsOutput{}, fmt.Errorf("failed to propose cre settings job: %w", err)

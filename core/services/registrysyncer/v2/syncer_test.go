@@ -530,15 +530,15 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 		syncerORM,
 	)
 	require.NoError(t, err)
+	l := &launcher{}
+	syncer.AddListener(l)
+
 	require.NoError(t, syncer.Start(ctx))
 
 	t.Cleanup(func() {
 		syncerORM.Cleanup()
 		require.NoError(t, syncer.Close())
 	})
-
-	l := &launcher{}
-	syncer.AddListener(l)
 
 	// Test that the syncer calls the ORM methods
 	var latestLocalRegistryCalled, addLocalRegistryCalled bool

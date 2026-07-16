@@ -277,12 +277,9 @@ func (g *GRPCWorkflowSource) calculateBackoff(attempt int) time.Duration {
 
 	// Apply jitter (0.5 to 1.5 multiplier) - math/rand/v2 is auto-seeded and concurrent-safe
 	jitter := 0.5 + rand.Float64() //nolint:gosec // G404: weak random is fine for retry jitter
-	backoff = time.Duration(float64(backoff) * jitter)
-
-	// Cap at max delay
-	if backoff > g.retryMaxDelay {
-		backoff = g.retryMaxDelay
-	}
+	backoff = min(
+		// Cap at max delay
+		time.Duration(float64(backoff)*jitter), g.retryMaxDelay)
 
 	return backoff
 }

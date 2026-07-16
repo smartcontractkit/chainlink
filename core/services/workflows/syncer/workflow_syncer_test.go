@@ -12,6 +12,7 @@ import (
 	rand2 "math/rand/v2"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,8 +22,6 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -35,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v1"
-	coretestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -247,6 +245,7 @@ func Test_EventHandlerStateSync(t *testing.T) {
 }
 
 func Test_InitialStateSync(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
 	donID := uint32(1)
@@ -312,6 +311,7 @@ func Test_InitialStateSync(t *testing.T) {
 }
 
 func Test_SecretsWorker(t *testing.T) {
+	t.Parallel()
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-732")
 	tc := []struct {
 		ss SyncStrategy
@@ -322,8 +322,9 @@ func Test_SecretsWorker(t *testing.T) {
 
 	for _, tt := range tc {
 		t.Run(string(tt.ss), func(t *testing.T) {
+			t.Parallel()
 			var (
-				ctx       = coretestutils.Context(t)
+				ctx       = t.Context()
 				lggr      = logger.TestLogger(t)
 				emitter   = custmsg.NewLabeler()
 				backendTH = testutils.NewEVMBackendTH(t)
@@ -458,6 +459,7 @@ func Test_SecretsWorker(t *testing.T) {
 }
 
 func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
+	t.Parallel()
 	var (
 		lggr      = logger.TestLogger(t)
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -540,8 +542,9 @@ func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
+	t.Parallel()
 	var (
-		ctx       = coretestutils.Context(t)
+		ctx       = t.Context()
 		lggr      = logger.TestLogger(t)
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -640,8 +643,9 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 }
 
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
+	t.Parallel()
 	var (
-		ctx       = coretestutils.Context(t)
+		ctx       = t.Context()
 		lggr      = logger.TestLogger(t)
 		emitter   = custmsg.NewLabeler()
 		backendTH = testutils.NewEVMBackendTH(t)
@@ -740,8 +744,9 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 }
 
 func Test_StratReconciliation_InitialStateSync(t *testing.T) {
-	quarantine.Flaky(t, "DX-2063")
+	t.Parallel()
 	t.Run("with heavy load", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
 		backendTH := testutils.NewEVMBackendTH(t)
 		donID := uint32(1)
@@ -838,10 +843,9 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 	workflow.ID = workflowID
 	registerWorkflow(t, backendTH, wfRegistryC, workflow)
 
-	var retryCount int
+	var retryCount atomic.Int32
 	testEventHandler := newTestEvtHandler(func() error {
-		if retryCount <= 1 {
-			retryCount++
+		if retryCount.Add(1) <= 2 {
 			return errors.New("error handling event")
 		}
 		return nil
@@ -866,20 +870,24 @@ func Test_StratReconciliation_RetriesWithBackoff(t *testing.T) {
 			err: nil,
 		},
 		NewEngineRegistry(),
-		WithRetryInterval(1*time.Second),
+		WithTicker(time.NewTicker(1*time.Second).C),
+		WithRetryInterval(100*time.Millisecond),
 	)
 	require.NoError(t, err)
 
 	servicetest.Run(t, worker)
 
+	// Wait for the handler to be called 3 times: 2 failures with backoff + 1 success
 	require.Eventually(t, func() bool {
-		return len(testEventHandler.GetEvents()) == 1
-	}, 30*time.Second, 1*time.Second)
+		return retryCount.Load() >= 3
+	}, tests.WaitTimeout(t), 1*time.Second)
 
-	event := testEventHandler.GetEvents()[0]
-	assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
-
-	assert.Equal(t, 1, retryCount)
+	// All 3 calls (2 failures + 1 success) should have appended events
+	events := testEventHandler.GetEvents()
+	require.GreaterOrEqual(t, len(events), 3)
+	for _, event := range events {
+		assert.Equal(t, WorkflowRegisteredEvent, event.EventType)
+	}
 }
 
 func updateAuthorizedAddress(

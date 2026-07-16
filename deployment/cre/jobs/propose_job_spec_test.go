@@ -11,12 +11,14 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldpipelineinput "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/pipeline/input"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
@@ -42,7 +44,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "valid cron job",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				JobName:     "cron-test",
 				Domain:      "cre",
 				DONName:     "test-don",
@@ -59,7 +61,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "valid http trigger job",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				JobName:     "http-trigger-test",
 				Domain:      "cre",
 				DONName:     "test-don",
@@ -80,7 +82,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "valid http action job",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				JobName:     "http-action-test",
 				Domain:      "cre",
 				DONName:     "test-don",
@@ -101,7 +103,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "valid http action job",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				JobName:     "confidential-http-test",
 				Domain:      "cre",
 				DONName:     "test-don",
@@ -122,7 +124,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "valid evm job",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				JobName:     "evm-test",
 				Domain:      "cre",
 				DONName:     "test-don",
@@ -164,7 +166,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "missing domain",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				Template:    job_types.Cron,
 				Inputs:      job_types.JobSpecInput{},
 			},
@@ -174,7 +176,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "missing don name",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				Domain:      "cre",
 				Template:    job_types.Cron,
 				Inputs:      job_types.JobSpecInput{},
@@ -185,7 +187,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "missing don filters",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				Domain:      "cre",
 				DONName:     "test-don",
 				Template:    job_types.Cron,
@@ -197,7 +199,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "missing job name",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				Domain:      "cre",
 				DONName:     "test-don",
 				DONFilters: []offchain.TargetDONFilter{
@@ -214,7 +216,7 @@ func TestProposeJobSpec_VerifyPreconditions(t *testing.T) {
 		{
 			name: "unsupported template",
 			input: jobs.ProposeJobSpecInput{
-				Environment: "test",
+				Environment: test.EnvironmentName,
 				Domain:      "cre",
 				DONName:     "test-don",
 				JobName:     "cron-test",
@@ -267,7 +269,7 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 	var env cldf.Environment
 
 	base := jobs.ProposeJobSpecInput{
-		Environment: "test",
+		Environment: test.EnvironmentName,
 		Domain:      "cre",
 		DONName:     "test-don",
 		JobName:     "evm-test",
@@ -438,20 +440,88 @@ func TestProposeJobSpec_VerifyPreconditions_EVM(t *testing.T) {
 	}
 }
 
+func TestProposeJobSpec_VerifyPreconditions_Aptos(t *testing.T) {
+	j := jobs.ProposeJobSpec{}
+	var env cldf.Environment
+
+	base := jobs.ProposeJobSpecInput{
+		Environment: test.EnvironmentName,
+		Domain:      "cre",
+		DONName:     "test-don",
+		JobName:     "aptos-test",
+		DONFilters: []offchain.TargetDONFilter{
+			{Key: offchain.FilterKeyDONName, Value: "d"},
+			{Key: "environment", Value: "e"},
+			{Key: "product", Value: offchain.ProductLabel},
+		},
+		Template: job_types.Aptos,
+	}
+
+	validAptosInputs := func() job_types.JobSpecInput {
+		return job_types.JobSpecInput{
+			"command":            "/usr/local/bin/aptos",
+			"config":             `{"chainId":"4","network":"aptos","creForwarderAddress":"0x1111111111111111111111111111111111111111111111111111111111111111"}`,
+			"chainSelectorEVM":   "3379446385462418246",
+			"chainSelectorAptos": "4457093679053095497",
+			"bootstrapPeers": []string{
+				"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+			},
+			"useCapRegOCRConfig": true,
+			"capRegVersion":      "2.0.0",
+		}
+	}
+
+	t.Run("valid aptos spec passes", func(t *testing.T) {
+		in := base
+		in.Inputs = validAptosInputs()
+		require.NoError(t, j.VerifyPreconditions(env, in))
+	})
+
+	type negCase struct {
+		name    string
+		mutate  func(job_types.JobSpecInput)
+		wantEnd string
+	}
+
+	const prefix = "invalid inputs for Aptos job spec: "
+
+	cases := []negCase{
+		{"missing command", func(m job_types.JobSpecInput) { delete(m, "command") }, "command is required and must be a string"},
+		{"missing config", func(m job_types.JobSpecInput) { delete(m, "config") }, "config is required and must be a string"},
+		{"missing chainSelectorEVM", func(m job_types.JobSpecInput) { delete(m, "chainSelectorEVM") }, "chainSelectorEVM is required"},
+		{"missing chainSelectorAptos", func(m job_types.JobSpecInput) { delete(m, "chainSelectorAptos") }, "chainSelectorAptos is required"},
+		{"missing bootstrapPeers", func(m job_types.JobSpecInput) { delete(m, "bootstrapPeers") }, "bootstrapPeers is required"},
+		{"invalid bootstrapPeers", func(m job_types.JobSpecInput) { m["bootstrapPeers"] = []string{"not-a-peer"} }, "bootstrapPeers is invalid"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := base
+			in.Inputs = validAptosInputs()
+			tc.mutate(in.Inputs)
+
+			err := j.VerifyPreconditions(env, in)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), prefix)
+			assert.Contains(t, err.Error(), tc.wantEnd)
+		})
+	}
+}
+
 func TestProposeJobSpec_Apply(t *testing.T) {
-	testEnv := test.SetupEnvV2(t, false)
-	env := testEnv.Env
+	h := test.NewTestHarness(t)
+	env := new(h.Runtime.Environment())
 
 	t.Run("successful cron job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.Cron,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -464,7 +534,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -475,7 +545,7 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -493,14 +563,14 @@ func TestProposeJobSpec_Apply(t *testing.T) {
 
 	t.Run("successful custom-compute job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "custom-compute-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.CustomCompute,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -519,7 +589,7 @@ perSenderBurst = 100
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -530,7 +600,7 @@ perSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -554,14 +624,14 @@ perSenderBurst = 100
 
 	t.Run("successful web-api-trigger job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "web-api-trigger-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.WebAPITrigger,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -573,7 +643,7 @@ perSenderBurst = 100
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -584,7 +654,7 @@ perSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -601,14 +671,14 @@ perSenderBurst = 100
 
 	t.Run("successful web-api-target job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "web-api-target-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.WebAPITarget,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -626,7 +696,7 @@ PerSenderBurst = 100
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -637,7 +707,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -660,14 +730,14 @@ PerSenderBurst = 100
 
 	t.Run("successful log-event-trigger job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "log-event-trigger-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.LogEventTrigger,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -686,7 +756,7 @@ PerSenderBurst = 100
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -697,7 +767,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -720,14 +790,14 @@ PerSenderBurst = 100
 
 	t.Run("successful readcontract job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "readcontract-cap-job",
 			DONName:     test.DONName,
 			Template:    job_types.ReadContract,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -740,7 +810,7 @@ PerSenderBurst = 100
 			},
 		}
 
-		allNodes, err := testEnv.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
+		allNodes, err := h.TestJD.ListNodes(t.Context(), &node.ListNodesRequest{})
 		require.NoError(t, err)
 
 		for _, n := range allNodes.Nodes {
@@ -751,7 +821,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
@@ -764,6 +834,71 @@ PerSenderBurst = 100
 			assert.Contains(t, req.Spec, `command = "/usr/bin/read-contract"`)
 			assert.Contains(t, req.Spec, `config = """{"chainId":1337,"network":"evm"}"""`)
 			assert.Contains(t, req.Spec, `externalJobID = "a-readcontract-job-id"`)
+			assert.NotContains(t, req.Spec, `[oracle_factory]`)
+		}
+	})
+
+	t.Run("successful aptos job distribution includes oracle factory", func(t *testing.T) {
+		chainSelector := h.RegistrySelector
+		ds := datastore.NewMemoryDataStore()
+
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType("CapabilitiesRegistry"),
+			Version:       semver.MustParse("2.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "",
+		})
+		require.NoError(t, err)
+
+		env.DataStore = ds.Seal()
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: test.EnvironmentName,
+			Domain:      "cre",
+			JobName:     "aptos-cap-job",
+			DONName:     test.DONName,
+			Template:    job_types.Aptos,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: test.EnvironmentName},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"command":          "/usr/bin/aptos",
+				"config":           `{"chainId":"4","network":"aptos","creForwarderAddress":"0x1111111111111111111111111111111111111111111111111111111111111111"}`,
+				"chainSelectorEVM": strconv.FormatUint(chainSelector, 10),
+				"chainSelectorAptos": strconv.FormatUint(
+					h.AptosSelector,
+					10,
+				),
+				"bootstrapPeers": []string{
+					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+				},
+				"useCapRegOCRConfig": true,
+				"capRegVersion":      "2.0.0",
+			},
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := h.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		filteredReqs := slices.DeleteFunc(reqs, func(s *job.ProposeJobRequest) bool {
+			return !strings.Contains(s.Spec, `name = "aptos-cap-job"`)
+		})
+		assert.Len(t, filteredReqs, 4)
+
+		for _, req := range filteredReqs {
+			assert.Contains(t, req.Spec, `name = "aptos-cap-job"`)
+			assert.Contains(t, req.Spec, `command = "/usr/bin/aptos"`)
+			assert.Contains(t, req.Spec, `[oracle_factory]`)
+			assert.Contains(t, req.Spec, `enabled = true`)
+			assert.Contains(t, req.Spec, `strategyName = "multi-chain"`)
+			assert.Contains(t, req.Spec, `aptos = "fake_orc_bundle_aptos"`)
 		}
 	})
 
@@ -796,7 +931,7 @@ PerSenderBurst = 100
 
 	t.Run("failed cron job distribution due to not finding nodes", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "cron-cap-job",
 			DONName:     "wrong-don-name",
@@ -838,14 +973,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-bootstrap-job-success",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapOCR3,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 				{Key: "zone", Value: test.Zone},
 			},
@@ -863,7 +998,7 @@ PerSenderBurst = 100
 		require.True(t, ok)
 		assert.Len(t, bootstrapOut.Specs, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.ETHEREUM_TESTNET_SEPOLIA.EvmChainID
@@ -897,7 +1032,7 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-bootstrap-job-wrong-zone",
 			DONName:     test.DONName,
@@ -948,7 +1083,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("successful ocr3 job distribution", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -963,21 +1098,21 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-job",
 			DONName:     test.DONName,
 			Template:    job_types.OCR3,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
 				"templateName":       "worker-ocr3",
 				"contractQualifier":  "ocr3-contract-qualifier",
 				"chainSelectorEVM":   strconv.FormatUint(chainSelector, 10),
-				"chainSelectorAptos": strconv.FormatUint(testEnv.AptosSelector, 10),
+				"chainSelectorAptos": strconv.FormatUint(h.AptosSelector, 10),
 				"bootstrapperOCR3Urls": []string{
 					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
 				},
@@ -988,7 +1123,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.TEST_90000001.EvmChainID
@@ -1013,7 +1148,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("failed ocr3 job distribution", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1028,7 +1163,7 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-job",
 			DONName:     test.DONName,
@@ -1052,14 +1187,14 @@ PerSenderBurst = 100
 
 	t.Run("successful evm job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "capability_evm_1337-1337",
 			DONName:     test.DONName,
 			Template:    job_types.EVM,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1085,7 +1220,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		for _, req := range reqs {
@@ -1129,7 +1264,7 @@ PerSenderBurst = 100
 
 	t.Run("failed evm job distribution due to bad input", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "capability_evm_1337-1337",
 			DONName:     test.DONName,
@@ -1165,14 +1300,14 @@ PerSenderBurst = 100
 	})
 	t.Run("successful http trigger job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "http-trigger-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPTrigger,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1186,7 +1321,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		for _, req := range reqs {
@@ -1204,14 +1339,14 @@ PerSenderBurst = 100
 
 	t.Run("successful http action job distribution", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "http-action-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPAction,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1225,7 +1360,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 		for _, req := range reqs {
 			if !strings.Contains(req.Spec, `name = "http-action-job"`) {
@@ -1242,14 +1377,14 @@ PerSenderBurst = 100
 
 	t.Run("failed http trigger job distribution due to bad input", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "http-trigger-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPTrigger,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1267,14 +1402,14 @@ PerSenderBurst = 100
 
 	t.Run("failed http action job distribution due to bad input", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "http-action-job",
 			DONName:     test.DONName,
 			Template:    job_types.HTTPAction,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1291,13 +1426,13 @@ PerSenderBurst = 100
 
 	t.Run("failed evm job distribution due to bad input", func(t *testing.T) {
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "capability_evm_1337-1337",
 			Template:    job_types.EVM, // if unavailable, use the same template you use for cron but with evm inputs.
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1326,7 +1461,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("successful bootstrap distribution", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1350,14 +1485,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "vault-bootstrappers",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapVault,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1393,7 +1528,7 @@ PerSenderBurst = 100
 			}
 		}
 
-		propJobs, err := testEnv.TestJD.ListProposedJobRequests()
+		propJobs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		foundSet := map[string]bool{}
@@ -1413,20 +1548,20 @@ PerSenderBurst = 100
 	})
 
 	t.Run("unsuccessful bootstrap distribution because contracts don't exist", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "vault-bootstrappers",
 			DONName:     test.DONName,
 			Template:    job_types.BootstrapVault,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1440,10 +1575,10 @@ PerSenderBurst = 100
 	})
 
 	t.Run("successful vault ocr3 job distribution", func(t *testing.T) {
-		testEnv := test.SetupEnvV2(t, false)
-		env := testEnv.Env
+		h2 := test.NewTestHarness(t)
+		env2 := new(h2.Runtime.Environment())
 
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h2.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1464,17 +1599,17 @@ PerSenderBurst = 100
 		})
 		require.NoError(t, err)
 
-		env.DataStore = ds.Seal()
+		env2.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "vault-job",
 			DONName:     test.DONName,
 			Template:    job_types.OCR3,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1489,11 +1624,11 @@ PerSenderBurst = 100
 			},
 		}
 
-		out, err := jobs.ProposeJobSpec{}.Apply(*env, input)
+		out, err := jobs.ProposeJobSpec{}.Apply(*env2, input)
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h2.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.TEST_90000001.EvmChainID
@@ -1514,8 +1649,87 @@ PerSenderBurst = 100
 		}
 	})
 
+	t.Run("successful vault ocr3 job distribution with auth0", func(t *testing.T) {
+		h2 := test.NewTestHarness(t)
+		env2 := new(h2.Runtime.Environment())
+
+		chainSelector := h2.RegistrySelector
+		ds := datastore.NewMemoryDataStore()
+
+		err := ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("1.0.0"),
+			Address:       "0xAb5801a7D398351b8bE11C439e05C5B3259aeC9B",
+			Qualifier:     "vault_1_plugin",
+		})
+		require.NoError(t, err)
+
+		err = ds.Addresses().Add(datastore.AddressRef{
+			ChainSelector: chainSelector,
+			Type:          datastore.ContractType(ocr3.OCR3Capability),
+			Version:       semver.MustParse("1.0.0"),
+			Address:       "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853",
+			Qualifier:     "vault_1_dkg",
+		})
+		require.NoError(t, err)
+
+		env2.DataStore = ds.Seal()
+
+		input := jobs.ProposeJobSpecInput{
+			Environment: test.EnvironmentName,
+			Domain:      "cre",
+			JobName:     "vault-job-auth0",
+			DONName:     test.DONName,
+			Template:    job_types.OCR3,
+			DONFilters: []offchain.TargetDONFilter{
+				{Key: offchain.FilterKeyDONName, Value: test.DONName},
+				{Key: "environment", Value: test.EnvironmentName},
+				{Key: "product", Value: offchain.ProductLabel},
+			},
+			Inputs: job_types.JobSpecInput{
+				"templateName":               "worker-vault",
+				"contractQualifier":          "vault_1_plugin",
+				"dkgContractQualifier":       "vault_1_dkg",
+				"vaultRequestExpiryDuration": "10s",
+				"chainSelectorEVM":           strconv.FormatUint(chainSelector, 10),
+				"bootstrapperOCR3Urls": []string{
+					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
+				},
+				"auth0": pkg.Auth0Config{
+					IssuerURL: "https://example.auth0.com/",
+					Audience:  "https://vault.example.com",
+					TenantID:  3,
+				},
+			},
+		}
+
+		out, err := jobs.ProposeJobSpec{}.Apply(*env2, input)
+		require.NoError(t, err)
+		assert.Len(t, out.Reports, 1)
+
+		reqs, err := h2.TestJD.ListProposedJobRequests()
+		require.NoError(t, err)
+
+		expectedChainID := chainsel.TEST_90000001.EvmChainID
+
+		for _, req := range reqs {
+			if !strings.Contains(req.Spec, `name = "vault-job-auth0"`) {
+				continue
+			}
+			t.Logf("Job Spec:\n%s", req.Spec)
+			assert.Contains(t, req.Spec, `pluginType = "vault-plugin"`)
+			assert.Contains(t, req.Spec, fmt.Sprintf(`chainID = "%d"`, expectedChainID))
+			assert.Contains(t, req.Spec, `dkgContractID = "0xa513E6E4b8f2a923D98304ec87F64353C4D5C853"`)
+			assert.Contains(t, req.Spec, `[pluginConfig.auth0]`)
+			assert.Contains(t, req.Spec, `issuerURL = "https://example.auth0.com/"`)
+			assert.Contains(t, req.Spec, `audience = "https://vault.example.com"`)
+			assert.Contains(t, req.Spec, `tenantID = 3`)
+		}
+	})
+
 	t.Run("successful consensus job distribution", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1530,14 +1744,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-consensus-job",
 			DONName:     test.DONName,
 			Template:    job_types.Consensus,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1554,7 +1768,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.TEST_90000001.EvmChainID
@@ -1581,7 +1795,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("successful consensus job distribution with aptos", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1596,21 +1810,21 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-consensus-job-aptos",
 			DONName:     test.DONName,
 			Template:    job_types.Consensus,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
 				"command":            "consensus",
 				"contractQualifier":  "ocr3-contract-qualifier",
 				"chainSelectorEVM":   strconv.FormatUint(chainSelector, 10),
-				"chainSelectorAptos": strconv.FormatUint(testEnv.AptosSelector, 10),
+				"chainSelectorAptos": strconv.FormatUint(h.AptosSelector, 10),
 				"bootstrapPeers": []string{
 					"12D3KooWHfYFQ8hGttAYbMCevQVESEQhzJAqFZokMVtom8bNxwGq@127.0.0.1:5001",
 				},
@@ -1623,7 +1837,7 @@ PerSenderBurst = 100
 		require.NoError(t, err)
 		assert.Len(t, out.Reports, 1)
 
-		reqs, err := testEnv.TestJD.ListProposedJobRequests()
+		reqs, err := h.TestJD.ListProposedJobRequests()
 		require.NoError(t, err)
 
 		expectedChainID := chainsel.TEST_90000001.EvmChainID
@@ -1650,7 +1864,7 @@ PerSenderBurst = 100
 	})
 
 	t.Run("failed consensus job distribution", func(t *testing.T) {
-		chainSelector := testEnv.RegistrySelector
+		chainSelector := h.RegistrySelector
 		ds := datastore.NewMemoryDataStore()
 
 		err := ds.Addresses().Add(datastore.AddressRef{
@@ -1665,14 +1879,14 @@ PerSenderBurst = 100
 		env.DataStore = ds.Seal()
 
 		input := jobs.ProposeJobSpecInput{
-			Environment: "test",
+			Environment: test.EnvironmentName,
 			Domain:      "cre",
 			JobName:     "ocr3-consensus-job",
 			DONName:     test.DONName,
 			Template:    job_types.Consensus,
 			DONFilters: []offchain.TargetDONFilter{
 				{Key: offchain.FilterKeyDONName, Value: test.DONName},
-				{Key: "environment", Value: "test"},
+				{Key: "environment", Value: test.EnvironmentName},
 				{Key: "product", Value: offchain.ProductLabel},
 			},
 			Inputs: job_types.JobSpecInput{
@@ -1752,4 +1966,133 @@ CallLimit = 1_000`, "invalid inputs for CRE settings job spec: invalid wf abcd: 
 			}
 		})
 	}
+}
+
+func TestProposeJobSpec_GatewayJobYAMLConversion(t *testing.T) {
+	t.Parallel()
+
+	t.Run("service-centric format", func(t *testing.T) {
+		t.Parallel()
+
+		yamlSpec := `
+environment: staging
+domain: cre
+changesets:
+  - job_propose_arbitrary:
+      payload:
+        donName: gateway-don
+        donFilters:
+          - key: don_name
+            value: gateway-don
+          - key: environment
+            value: staging
+          - key: product
+            value: cre
+        jobName: test-gateway-job-svc
+        template: gateway
+        inputs:
+          serviceCentricFormatEnabled: true
+          dons:
+            - name: workflow-don
+              f: 1
+          services:
+            - servicename: workflows
+              handlers:
+                - web-api-capabilities
+                - http-capabilities
+              dons:
+                - workflow-don
+          gatewayRequestTimeoutSec: 10
+          allowedSchemes:
+            - https
+          allowedIPsCIDR:
+            - 10.0.0.0/8
+`
+		var root yaml.Node
+		err := yaml.Unmarshal([]byte(yamlSpec), &root)
+		require.NoError(t, err)
+
+		rootMap, ok := cldpipelineinput.YamlNodeToAny(&root).(map[string]any)
+		require.True(t, ok)
+
+		environment, _ := rootMap["environment"].(string)
+		domain, _ := rootMap["domain"].(string)
+
+		changesetData, err := cldpipelineinput.FindChangesetInData(rootMap["changesets"], "job_propose_arbitrary")
+		require.NoError(t, err)
+
+		changesetMap, ok := changesetData.(map[string]any)
+		require.True(t, ok)
+
+		payload, ok := changesetMap["payload"]
+		require.True(t, ok)
+
+		payloadBytes, err := yaml.Marshal(payload)
+		require.NoError(t, err)
+
+		var parsed jobs.ProposeJobSpecInput
+		err = yaml.Unmarshal(payloadBytes, &parsed)
+		require.NoError(t, err)
+
+		parsed.Environment = environment
+		parsed.Domain = domain
+
+		assert.Equal(t, "staging", parsed.Environment)
+		assert.Equal(t, "cre", parsed.Domain)
+		assert.Equal(t, job_types.Gateway, parsed.Template)
+
+		var gatewayInput operations.ProposeGatewayJobInput
+		err = parsed.Inputs.UnmarshalTo(&gatewayInput)
+		require.NoError(t, err)
+
+		assert.True(t, gatewayInput.ServiceCentricFormatEnabled)
+		require.Len(t, gatewayInput.DONs, 1)
+		assert.Equal(t, "workflow-don", gatewayInput.DONs[0].Name)
+		assert.Equal(t, pkg.Int(1), gatewayInput.DONs[0].F)
+		require.Len(t, gatewayInput.Services, 1)
+		assert.Equal(t, "workflows", gatewayInput.Services[0].ServiceName)
+		assert.Equal(t, []string{"web-api-capabilities", "http-capabilities"}, gatewayInput.Services[0].Handlers)
+		assert.Equal(t, []string{"workflow-don"}, gatewayInput.Services[0].DONs)
+		assert.Equal(t, pkg.Int(10), gatewayInput.GatewayRequestTimeoutSec)
+		assert.Equal(t, []string{"https"}, gatewayInput.AllowedSchemes)
+		assert.Equal(t, []string{"10.0.0.0/8"}, gatewayInput.AllowedIPsCIDR)
+
+		// Build GatewayJob manually; in production member addresses are resolved via JD.
+		gj := pkg.GatewayJob{
+			ServiceCentricFormatEnabled: true,
+			JobName:                     "CRE Gateway",
+			DONs: []pkg.TargetDON{
+				{
+					ID: gatewayInput.DONs[0].Name,
+					F:  int(gatewayInput.DONs[0].F),
+					Members: []pkg.TargetDONMember{
+						{Address: "0xdef456", Name: "mock-node-1 (DON workflow-don)"},
+					},
+				},
+			},
+			Services: []pkg.GatewayServiceConfig{
+				{
+					ServiceName: gatewayInput.Services[0].ServiceName,
+					Handlers:    gatewayInput.Services[0].Handlers,
+					DONs:        gatewayInput.Services[0].DONs,
+				},
+			},
+			RequestTimeoutSec: int(gatewayInput.GatewayRequestTimeoutSec),
+			AllowedSchemes:    gatewayInput.AllowedSchemes,
+			AllowedIPsCIDR:    gatewayInput.AllowedIPsCIDR,
+		}
+
+		require.NoError(t, gj.Validate())
+		assert.True(t, gj.ServiceCentricFormatEnabled)
+		assert.Equal(t, "CRE Gateway", gj.JobName)
+		assert.Equal(t, 10, gj.RequestTimeoutSec)
+		assert.Equal(t, []string{"https"}, gj.AllowedSchemes)
+		assert.Equal(t, []string{"10.0.0.0/8"}, gj.AllowedIPsCIDR)
+		require.Len(t, gj.DONs, 1)
+		assert.Equal(t, "workflow-don", gj.DONs[0].ID)
+		require.Len(t, gj.Services, 1)
+		assert.Equal(t, "workflows", gj.Services[0].ServiceName)
+		assert.Equal(t, []string{"web-api-capabilities", "http-capabilities"}, gj.Services[0].Handlers)
+		assert.Equal(t, []string{"workflow-don"}, gj.Services[0].DONs)
+	})
 }

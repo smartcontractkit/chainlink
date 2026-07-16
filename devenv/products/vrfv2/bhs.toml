@@ -1,0 +1,58 @@
+[[products]]
+name = "vrfv2"
+instances = 1
+
+[[vrfv2]]
+enable_bhs_job = true
+bhs_job_wait_blocks = 2
+bhs_job_lookback_blocks = 20
+bhs_job_poll_period = "1s"
+bhs_job_run_timeout = "30s"
+
+num_tx_keys = 0
+cl_nodes_funding_eth = 5.0
+cl_node_max_gas_price_gwei = 400
+
+minimum_confirmations = 3
+max_gas_limit_coordinator = 2500000
+staleness_seconds = 86400
+gas_after_payment_calculation = 33825
+fallback_wei_per_unit_link = "60000000000000000"
+
+fulfillment_flat_fee_link_ppm_tier_1 = 500
+fulfillment_flat_fee_link_ppm_tier_2 = 500
+fulfillment_flat_fee_link_ppm_tier_3 = 500
+fulfillment_flat_fee_link_ppm_tier_4 = 500
+fulfillment_flat_fee_link_ppm_tier_5 = 500
+reqs_for_tier_2 = 0
+reqs_for_tier_3 = 0
+reqs_for_tier_4 = 0
+reqs_for_tier_5 = 0
+
+vrf_job_forwarding_allowed = false
+vrf_job_estimate_gas_multiplier = 1.1
+vrf_job_batch_fulfillment_enabled = true
+vrf_job_batch_fulfillment_gas_multiplier = 1.15
+vrf_job_poll_period = "1s"
+vrf_job_request_timeout = "24h"
+
+sub_funding_amount_link = 5.0
+
+number_of_words = 3
+callback_gas_limit = 1000000
+randomness_request_count_per_request = 1
+randomness_request_count_per_request_deviation = 0
+random_words_fulfilled_event_timeout = "2m"
+
+wrapper_gas_overhead = 50000
+coordinator_gas_overhead = 52000
+wrapper_premium_percentage = 25
+wrapper_max_number_of_words = 10
+wrapper_consumer_funding_amount_link = 10
+
+batch_callback_gas_limit = 500000
+batch_tx_gas_budget = 2900000
+
+[vrfv2.gas_settings]
+fee_cap_multiplier = 2
+tip_cap_multiplier = 2

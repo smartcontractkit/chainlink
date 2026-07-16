@@ -1,0 +1,98 @@
+name: CL Cluster Node Version Compatibility
+
+on:
+  workflow_dispatch:
+    inputs:
+      refs:
+        description: "Git refs to test, should be used only if automatically detected refs are not enough. Enter multiple refs separated by commas, from oldest to newest."
+        required: false
+        type: string
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # Data Feeds v1 upgrade test
+  # this verifies that all the versions existing in RANE SOT for Data Feeds v1 can be upgraded to the latest version
+  # TODO: disabled for now until we have connectivity
+  # df1-upgrade:
+  #   uses: ./.github/workflows/devenv-compat.yml
+  #   with:
+  #     buildcmd: "just cli"
+  #     envcmd: "cl u env.toml,products/ocr2/basic.toml"
+  #     testcmd: "cl test ocr2 TestSmoke/rounds"
+  #     don-nodes: "5"
+  #     # this is just an example, right now Git tags != ECR tags != RANE's version field
+  #     # that's why we need it for testing purposes
+  #     product: "data-feeds"
+  #     refs: "2.38.0-rc.0,2.38.0-beta.0"
+  #     no-git-rollback: true
+  #     working-directory: "devenv"
+  #     logs-directory: "./devenv/tests/ocr2/logs"
+  #     ctf-log-level: "debug" # trace, debug, info
+  #     strip-image-suffix: "v"
+  #   secrets: inherit
+
+  # Data Feeds v1 cluster compatibility and upgrade test
+  # this verifies that the cluster can be upgraded from last - N version to last version
+  # use it as an example project
+  df1-compat:
+    uses: ./.github/workflows/devenv-compat.yml
+    name: Data Feeds v1 Upgrade Test
+    with:
+      # bash command to build your environment, omit if you are using 'devenv'
+      buildcmd: "just cli"
+      # bash command to spin up your environment and product orchestration
+      envcmd: "cl u env.toml,products/ocr2/basic.toml"
+      # bash command to run the test verifying your product
+      testcmd: "cl test ocr2 TestSmoke/rounds"
+      # number of CL nodes to upgrade with new version
+      upgrade-nodes: "3"
+      # cl node Docker container name template, omit if you are using 'devenv'
+      node-name-template: "don-node%d"
+      # previous versions to test (sorted by tags, SemVer)
+      versions-back: "3"
+      # patterns to exclude specific refs
+      exclude-refs: "beta,rc,ccip"
+      # Git refs to test, should be used only for tool testing purposes.
+      refs: ${{ inputs.refs }}
+      # directory with your developer environment to run buildcmd and envcmd
+      working-directory: "devenv"
+      # directory for executing your tests, to run testcmd
+      logs-directory: "./devenv/logs"
+      # CTF log level
+      ctf-log-level: "debug"
+      # this is needed to remove 'v' from Git tags to match SDLC ECR tags
+      strip-image-suffix: "v"
+    secrets: inherit
+
+  cre-compat:
+    uses: ./.github/workflows/devenv-compat.yml
+    name: CRE Upgrade Test
+    with:
+      # bash command to build your environment, omit if you are using 'devenv'
+      buildcmd: "echo nothing-to-build"
+      # bash command to spin up your environment and product orchestration
+      envcmd: "go run -C ../../core/scripts/cre/environment . env start"
+      # bash command to run the test verifying your product
+      testcmd: "go test -v -run Test_Upgrade_Suite ./smoke/cre"
+      # number of CL nodes to upgrade with new version
+      upgrade-nodes: "3"
+      # cl node Docker container name template, omit if you are using 'devenv'
+      node-name-template: "workflow-node%d"
+      # previous versions to test (sorted by tags, SemVer)
+      versions-back: "3"
+      # patterns to exclude specific refs
+      exclude-refs: "beta,rc,ccip"
+      # Git refs to test, should be used only for tool testing purposes.
+      refs: ${{ inputs.refs }}
+      # directory with your developer environment to run buildcmd and envcmd
+      working-directory: "./system-tests/tests"
+      # directory for executing your tests, to run testcmd
+      logs-directory: "./system-tests/tests/smoke/cre/logs"
+      # CTF log level
+      ctf-log-level: "debug"
+      # this is needed to remove 'v' from Git tags to match SDLC ECR tags
+      strip-image-suffix: "v"
+    secrets: inherit

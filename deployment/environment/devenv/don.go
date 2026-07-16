@@ -148,7 +148,7 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 			node.adminAddr = ""
 			node.labels = append(node.labels, &ptypes.Label{
 				Key:   LabelNodeTypeKey,
-				Value: ptr(LabelNodeTypeValueBootstrap),
+				Value: new(LabelNodeTypeValueBootstrap),
 			})
 		} else {
 			// multi address is not applicable for non-bootstrap nodes
@@ -165,13 +165,13 @@ func NewRegisteredDON(ctx context.Context, nodeInfo []NodeInfo, jd JobDistributo
 
 			node.labels = append(node.labels, &ptypes.Label{
 				Key:   LabelNodeTypeKey,
-				Value: ptr(LabelNodeTypeValuePlugin),
+				Value: new(LabelNodeTypeValuePlugin),
 			})
 
 			for key, val := range info.Labels {
 				node.labels = append(node.labels, &ptypes.Label{
 					Key:   key,
-					Value: ptr(val),
+					Value: new(val),
 				})
 			}
 		}
@@ -575,10 +575,6 @@ func (n *Node) ExportOCR2Keys(id string) (*clclient.OCR2ExportKey, error) {
 		return nil, err
 	}
 	return keys, nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func value[T any](v *T) T {

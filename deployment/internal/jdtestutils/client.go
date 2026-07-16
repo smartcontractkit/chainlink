@@ -16,7 +16,6 @@ import (
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/test"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/utils/nodetestutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 )
@@ -221,7 +220,7 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 	for id, n := range j.asMap() {
 		p2pIDLabel := &ptypes.Label{
 			Key:   "p2p_id",
-			Value: pointer.To(n.Keys.PeerID.String()),
+			Value: new(n.Keys.PeerID.String()),
 		}
 		node := &nodev1.Node{
 			Id:          id,

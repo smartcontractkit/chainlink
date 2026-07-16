@@ -26,25 +26,27 @@ type ProposeGatewayJobInput struct {
 	ServiceCentricFormatEnabled bool              `yaml:"serviceCentricFormatEnabled"`
 	DONs                        []DON             `yaml:"dons"`
 	Services                    []GatewayService  `yaml:"services"`
-	GatewayRequestTimeoutSec    int               `yaml:"gatewayRequestTimeoutSec"`
-	AllowedPorts                []int             `yaml:"allowedPorts"`
+	GatewayRequestTimeoutSec    pkg.Int           `yaml:"gatewayRequestTimeoutSec"`
+	AllowedPorts                []pkg.Int         `yaml:"allowedPorts"`
 	AllowedSchemes              []string          `yaml:"allowedSchemes"`
 	AllowedIPsCIDR              []string          `yaml:"allowedIPsCIDR"`
 	AuthGatewayID               string            `yaml:"authGatewayID"`
+	AuthGatewayIDPrefix         string            `yaml:"authGatewayIDPrefix"`
 	GatewayKeyChainSelector     pkg.ChainSelector `yaml:"gatewayKeyChainSelector"`
 	JobLabels                   map[string]string
 }
 
 type DON struct {
 	Name     string   `yaml:"name"`
-	F        int      `yaml:"f"`
+	F        pkg.Int  `yaml:"f"`
 	Handlers []string `yaml:"handlers"`
 }
 
 type GatewayService struct {
-	ServiceName string   `yaml:"servicename"`
-	Handlers    []string `yaml:"handlers"`
-	DONs        []string `yaml:"dons"`
+	ServiceName string           `yaml:"servicename"`
+	Handlers    []string         `yaml:"handlers"`
+	DONs        []string         `yaml:"dons"`
+	Auth0       *pkg.Auth0Config `yaml:"auth0,omitempty"`
 }
 
 type ProposeGatewayJobDeps struct {
@@ -66,7 +68,7 @@ var ProposeGatewayJob = operations.NewOperation[ProposeGatewayJobInput, ProposeG
 // When ServiceCentricFormatEnabled is true, it derives the set of unique DON names from
 // input.Services; otherwise it uses the don-centric input.DONs list.
 func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input ProposeGatewayJobInput) (ProposeGatewayJobOutput, error) {
-	requestTimeoutSec := input.GatewayRequestTimeoutSec
+	requestTimeoutSec := int(input.GatewayRequestTimeoutSec)
 	if requestTimeoutSec == 0 {
 		requestTimeoutSec = defaultGatewayRequestTimeoutSec
 	}
@@ -79,11 +81,7 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 		}
 		gj = built
 	} else {
-		built, err := buildLegacyFormatJob(deps, input, requestTimeoutSec)
-		if err != nil {
-			return ProposeGatewayJobOutput{}, err
-		}
-		gj = built
+		return ProposeGatewayJobOutput{}, errors.New("ServiceCentricFormatEnabled has to be true - legacy format is no longer supported")
 	}
 
 	if err := gj.Validate(); err != nil {
@@ -172,6 +170,7 @@ func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobI
 			ServiceName: svc.ServiceName,
 			Handlers:    svc.Handlers,
 			DONs:        svc.DONs,
+			Auth0:       svc.Auth0,
 		}
 	}
 
@@ -181,36 +180,11 @@ func buildServiceCentricJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobI
 		DONs:                        dons,
 		Services:                    services,
 		RequestTimeoutSec:           requestTimeoutSec,
-		AllowedPorts:                input.AllowedPorts,
+		AllowedPorts:                toIntSlice(input.AllowedPorts),
 		AllowedSchemes:              input.AllowedSchemes,
 		AllowedIPsCIDR:              input.AllowedIPsCIDR,
 		AuthGatewayID:               input.AuthGatewayID,
-	}, nil
-}
-
-func buildLegacyFormatJob(deps ProposeGatewayJobDeps, input ProposeGatewayJobInput, requestTimeoutSec int) (pkg.GatewayJob, error) {
-	targetDONs := make([]pkg.TargetDON, 0, len(input.DONs))
-	for _, ad := range input.DONs {
-		members, _, err := resolveDONMembers(deps, input, ad.Name)
-		if err != nil {
-			return pkg.GatewayJob{}, err
-		}
-		targetDONs = append(targetDONs, pkg.TargetDON{
-			ID:       ad.Name,
-			F:        ad.F,
-			Members:  members,
-			Handlers: ad.Handlers,
-		})
-	}
-
-	return pkg.GatewayJob{
-		JobName:           "CRE Gateway",
-		TargetDONs:        targetDONs,
-		RequestTimeoutSec: requestTimeoutSec,
-		AllowedPorts:      input.AllowedPorts,
-		AllowedSchemes:    input.AllowedSchemes,
-		AllowedIPsCIDR:    input.AllowedIPsCIDR,
-		AuthGatewayID:     input.AuthGatewayID,
+		AuthGatewayIDPrefix:         input.AuthGatewayIDPrefix,
 	}, nil
 }
 
@@ -286,6 +260,14 @@ func resolveDONMembers(deps ProposeGatewayJobDeps, input ProposeGatewayJobInput,
 
 	f := (len(members) - 1) / 3
 	return members, f, nil
+}
+
+func toIntSlice(vs []pkg.Int) []int {
+	out := make([]int, len(vs))
+	for i, v := range vs {
+		out[i] = int(v)
+	}
+	return out
 }
 
 func parseSelector(sel uint64) (nodev1.ChainType, string, error) {

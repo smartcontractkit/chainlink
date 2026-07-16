@@ -15,6 +15,7 @@ import (
 )
 
 func TestFileWorkflowSource_FileNotExists(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	_, err := NewFileWorkflowSourceWithPath(lggr, "test-file-source", "/nonexistent/path/workflows.json")
 	require.Error(t, err)
@@ -22,6 +23,7 @@ func TestFileWorkflowSource_FileNotExists(t *testing.T) {
 }
 
 func TestFileWorkflowSource_EmptyName(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	tmpDir := t.TempDir()
@@ -35,6 +37,7 @@ func TestFileWorkflowSource_EmptyName(t *testing.T) {
 }
 
 func TestFileWorkflowSource_ListWorkflowMetadata_EmptyFile(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	// Create a temp file
@@ -59,6 +62,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_EmptyFile(t *testing.T) {
 }
 
 func TestFileWorkflowSource_ListWorkflowMetadata_ValidFile(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	// Create workflow ID (32 bytes)
@@ -135,6 +139,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_ValidFile(t *testing.T) {
 }
 
 func TestFileWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	// Create workflow ID (32 bytes)
@@ -196,6 +201,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_MultipleDONFamilies(t *testing.
 }
 
 func TestFileWorkflowSource_ListWorkflowMetadata_PausedWorkflow(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	workflowID := make([]byte, 32)
@@ -242,6 +248,7 @@ func TestFileWorkflowSource_ListWorkflowMetadata_PausedWorkflow(t *testing.T) {
 }
 
 func TestFileWorkflowSource_Name(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	tmpDir := t.TempDir()
@@ -255,6 +262,7 @@ func TestFileWorkflowSource_Name(t *testing.T) {
 }
 
 func TestFileWorkflowSource_Ready(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	tmpDir := t.TempDir()
@@ -273,6 +281,7 @@ func TestFileWorkflowSource_Ready(t *testing.T) {
 }
 
 func TestFileWorkflowSource_InvalidJSON(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	tmpDir := t.TempDir()
@@ -294,6 +303,7 @@ func TestFileWorkflowSource_InvalidJSON(t *testing.T) {
 }
 
 func TestFileWorkflowSource_InvalidWorkflowID(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	owner := make([]byte, 20)

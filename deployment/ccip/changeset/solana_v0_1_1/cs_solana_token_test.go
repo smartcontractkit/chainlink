@@ -7,13 +7,16 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/quarantine"
 	"github.com/stretchr/testify/require"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/runtime"
+
+	linkchangesets "github.com/smartcontractkit/cld-changesets/tokens/link/changesets"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deploylink"
 
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
@@ -22,12 +25,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 func TestSolanaTokenOps(t *testing.T) {
-	quarantine.Flaky(t, "DX-1728")
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1), testhelpers.WithCCIPSolanaContractVersion(changeset_solana.SolanaContractV0_1_1))
 	e := tenv.Env
@@ -187,11 +188,9 @@ func TestDeployLinkToken(t *testing.T) {
 	solLinkTokenPrivKey, _ := solana.NewRandomPrivateKey()
 
 	err = rt.Exec(
-		runtime.ChangesetTask(cldf.CreateLegacyChangeSet(commonchangeset.DeploySolanaLinkToken), commonchangeset.DeploySolanaLinkTokenConfig{
-			ChainSelector: selector,
-			TokenPrivKey:  solLinkTokenPrivKey,
-			TokenDecimals: 9,
-		}),
+		runtime.ChangesetTask(deploylink.DeployLinkTokenChangeset{}, linkchangesets.DeployLinkTokenInput{Solana: map[uint64]linkchangesets.SolanaLinkConfig{
+			selector: {TokenPrivKey: solLinkTokenPrivKey, TokenDecimals: 9},
+		}}),
 	)
 	require.NoError(t, err)
 

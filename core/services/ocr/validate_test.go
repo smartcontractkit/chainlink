@@ -460,7 +460,7 @@ func TestOnChainContractAvailability(t *testing.T) {
 	require.NoError(t, err, "could not decode contract binary")
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.OCR.ConfigLogValidation = testutils.Ptr(true)
+		c.OCR.ConfigLogValidation = new(true)
 	})
 	legacyChain := cltest.NewLegacyChainsWithMockChain(t, client, cfg)
 	jobSpec := fmt.Sprintf(`

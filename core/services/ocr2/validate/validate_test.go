@@ -596,7 +596,7 @@ UpdateInterval="1m"
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
 			c := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.Insecure.OCRDevelopmentMode = testutils.Ptr(false) // tests run with OCRDevelopmentMode by default.
+				c.Insecure.OCRDevelopmentMode = new(false) // tests run with OCRDevelopmentMode by default.
 				if tc.overrides != nil {
 					tc.overrides(c, s)
 				}

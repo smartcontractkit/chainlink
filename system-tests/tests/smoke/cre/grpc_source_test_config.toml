@@ -13,7 +13,7 @@
 # ----- JOB DISTRIBUTOR -----
 [jd]
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
-  image = "job-distributor:0.22.1"
+  image = "job-distributor:0.28.0"
 
 # ----- INFRASTRUCTURE -----
 [infra]
@@ -24,6 +24,7 @@
 [[nodesets]]
   nodes = 4
   name = "workflow"
+  don_family = "test-don-family"
   don_types = ["workflow"]
   override_mode = "all"
   http_port_range_start = 10100
@@ -56,6 +57,7 @@
 [[nodesets]]
   nodes = 1
   name = "bootstrap-gateway"
+  don_family = "test-don-family"
   don_types = ["bootstrap", "gateway"]
   override_mode = "each"
   http_port_range_start = 10300

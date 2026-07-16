@@ -11,9 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/signer_registry"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -22,7 +22,7 @@ var (
 
 type SetNewSignerAddressesConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 	// UpdatesByChain maps chain selector -> (existing signer -> new signer) for per-chain updates.
 	UpdatesByChain map[uint64]map[common.Address]common.Address
 }

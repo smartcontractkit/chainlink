@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -21,13 +20,21 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	vaultcapmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func newTestRequestLifecycleTracker(t *testing.T) *RequestLifecycleTracker {
+	t.Helper()
+	tr, err := NewRequestLifecycleTracker(logger.TestLogger(t))
+	require.NoError(t, err)
+	return tr
+}
 
 func TestCapability_CapabilityCall(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -35,19 +42,22 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "test-owner"
+	owner := "testowner"
 	workflowID := "test-workflow-id"
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
 
-	requestID := fmt.Sprintf("%s::%s::%s", workflowID, workflowExecutionID, referenceID)
+	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+		WorkflowID:          workflowID,
+		WorkflowExecutionID: workflowExecutionID,
+		ReferenceID:         referenceID,
+	})
 
 	sid := &vault.SecretIdentifier{
 		Key:       "Foo",
@@ -133,18 +143,20 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "test-owner"
+	owner := "testowner"
 	workflowID := "test-workflow-id"
 	referenceID := "0"
 
-	requestID := fmt.Sprintf("%s::%s::%s", workflowID, "subscription", referenceID)
+	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+		WorkflowID:  workflowID,
+		ReferenceID: referenceID,
+	})
 
 	sid := &vault.SecretIdentifier{
 		Key:       "Foo",
@@ -222,6 +234,155 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	err = resp.Payload.UnmarshalTo(typedResponse)
 	require.NoError(t, err)
 	assert.True(t, proto.Equal(expectedResponse, typedResponse))
+}
+
+func TestCapability_Execute_GetSecretsRequestValidationFailed(t *testing.T) {
+	workflowOwner := "0x1111111111111111111111111111111111111111"
+	workflowID := "wf-id"
+	execID := "exec-id"
+	refID := "ref-id"
+
+	newCapability := func(t *testing.T) *Capability {
+		t.Helper()
+		lggr := logger.TestLogger(t)
+		clock := clockwork.NewFakeClock()
+		expiry := 10 * time.Second
+		store := requests.NewStore[*vaulttypes.Request]()
+		handler := requests.NewHandler(lggr, store, clock, expiry)
+		reg := coreCapabilities.NewRegistry(lggr)
+		lf := limits.Factory{Settings: cresettings.DefaultGetter}
+		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
+		require.NoError(t, err)
+		servicetest.Run(t, capability)
+		return capability
+	}
+
+	t.Run("rejects batch when request count reaches MaxBatchSize", func(t *testing.T) {
+		capability := newCapability(t)
+		reqs := make([]*vault.SecretRequest, vaulttypes.MaxBatchSize)
+		for i := range reqs {
+			reqs[i] = &vault.SecretRequest{
+				Id: &vault.SecretIdentifier{
+					Key:       fmt.Sprintf("key%d", i),
+					Namespace: "Bar",
+					Owner:     workflowOwner,
+				},
+				EncryptionKeys: []string{"k"},
+			}
+		}
+		gsr := &vault.GetSecretsRequest{Requests: reqs}
+		anyproto, err := anypb.New(gsr)
+		require.NoError(t, err)
+
+		_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+			Payload: anyproto,
+			Method:  vault.MethodGetSecrets,
+			Metadata: capabilities.RequestMetadata{
+				WorkflowOwner:       workflowOwner,
+				WorkflowID:          workflowID,
+				WorkflowExecutionID: execID,
+				ReferenceID:         refID,
+			},
+		})
+		require.Error(t, err)
+		require.ErrorContains(t, err, "could not validate get secrets request")
+		require.ErrorContains(t, err, "request batch size exceeds maximum of")
+	})
+
+	t.Run("rejects key with invalid characters on a later batched item", func(t *testing.T) {
+		capability := newCapability(t)
+		gsr := &vault.GetSecretsRequest{
+			Requests: []*vault.SecretRequest{
+				{
+					Id: &vault.SecretIdentifier{
+						Key:       "Foo",
+						Namespace: "Bar",
+						Owner:     workflowOwner,
+					},
+					EncryptionKeys: []string{"k"},
+				},
+				{
+					Id: &vault.SecretIdentifier{
+						Key:       "bad-key",
+						Namespace: "Bar",
+						Owner:     workflowOwner,
+					},
+					EncryptionKeys: []string{"k"},
+				},
+			},
+		}
+		anyproto, err := anypb.New(gsr)
+		require.NoError(t, err)
+
+		_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+			Payload: anyproto,
+			Method:  vault.MethodGetSecrets,
+			Metadata: capabilities.RequestMetadata{
+				WorkflowOwner:       workflowOwner,
+				WorkflowID:          workflowID,
+				WorkflowExecutionID: execID,
+				ReferenceID:         refID,
+			},
+		})
+		require.Error(t, err)
+		require.ErrorContains(t, err, "could not validate get secrets request")
+		require.ErrorContains(t, err, "invalid secret identifier at index 1")
+		require.ErrorContains(t, err, "must only contain alphanumeric characters")
+	})
+
+	t.Run("rejects key that exceeds configured max length on a later batched item", func(t *testing.T) {
+		getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultIdentifierKeySizeLimit":"3b"}}`))
+		require.NoError(t, err)
+		lf := limits.Factory{Settings: getter}
+
+		lggr := logger.TestLogger(t)
+		clock := clockwork.NewFakeClock()
+		expiry := 10 * time.Second
+		store := requests.NewStore[*vaulttypes.Request]()
+		handler := requests.NewHandler(lggr, store, clock, expiry)
+		reg := coreCapabilities.NewRegistry(lggr)
+		capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
+		require.NoError(t, err)
+		servicetest.Run(t, capability)
+
+		gsr := &vault.GetSecretsRequest{
+			Requests: []*vault.SecretRequest{
+				{
+					Id: &vault.SecretIdentifier{
+						Key:       "abc",
+						Namespace: "Bar",
+						Owner:     workflowOwner,
+					},
+					EncryptionKeys: []string{"k"},
+				},
+				{
+					Id: &vault.SecretIdentifier{
+						Key:       "abcd",
+						Namespace: "Bar",
+						Owner:     workflowOwner,
+					},
+					EncryptionKeys: []string{"k"},
+				},
+			},
+		}
+		anyproto, err := anypb.New(gsr)
+		require.NoError(t, err)
+
+		_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+			Payload: anyproto,
+			Method:  vault.MethodGetSecrets,
+			Metadata: capabilities.RequestMetadata{
+				WorkflowOwner:       workflowOwner,
+				WorkflowID:          workflowID,
+				WorkflowExecutionID: execID,
+				ReferenceID:         refID,
+			},
+		})
+		require.Error(t, err)
+		require.ErrorContains(t, err, "could not validate get secrets request")
+		require.ErrorContains(t, err, "invalid secret identifier at index 1")
+		require.ErrorContains(t, err, "key exceeds maximum length")
+	})
 }
 
 func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
@@ -304,14 +465,17 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 			expiry := 10 * time.Second
 			store := requests.NewStore[*vaulttypes.Request]()
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 			reg := coreCapabilities.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
-			capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+			capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
-			requestID := fmt.Sprintf("%s::%s::%s", "wf-id", "exec-id", "ref-id")
+			requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+				WorkflowID:          "wf-id",
+				WorkflowExecutionID: "exec-id",
+				ReferenceID:         "ref-id",
+			})
 
 			reqs := []*vault.SecretRequest{}
 			for _, s := range tc.secretOwners {
@@ -376,25 +540,292 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 	}
 }
 
+func TestCapability_CapabilityCall_UsesMetadataWorkflowOwner(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lf := limits.Factory{Settings: cresettings.DefaultGetter}
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	workflowOwner := "0xABCDef1234567890abcdef1234567890abcdef12"
+	requestID := "wf-id::exec-id::ref-id"
+	gsr := &vault.GetSecretsRequest{
+		Requests: []*vault.SecretRequest{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     workflowOwner,
+				},
+				EncryptionKeys: []string{"key"},
+			},
+		},
+	}
+
+	anyproto, err := anypb.New(gsr)
+	require.NoError(t, err)
+
+	expectedResponse := &vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{Key: "Foo", Namespace: "Bar", Owner: workflowOwner},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
+				},
+			},
+		},
+	}
+	data, err := proto.Marshal(expectedResponse)
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-t.Context().Done():
+				return
+			default:
+				reqs := store.GetByIDs([]string{requestID})
+				if len(reqs) == 1 {
+					reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: data})
+					return
+				}
+			}
+		}
+	}()
+
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+		Payload: anyproto,
+		Method:  vault.MethodGetSecrets,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowOwner:       workflowOwner,
+			WorkflowID:          "wf-id",
+			WorkflowExecutionID: "exec-id",
+			ReferenceID:         "ref-id",
+		},
+	})
+	require.NoError(t, err)
+	wg.Wait()
+}
+
+func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lf := limits.Factory{Settings: cresettings.DefaultGetter}
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	requestID := "wf-id::exec-id::ref-id"
+	gsr := &vault.GetSecretsRequest{
+		Requests: []*vault.SecretRequest{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     "0xABCDef1234567890abcdef1234567890abcdef12",
+				},
+				EncryptionKeys: []string{"key"},
+			},
+		},
+	}
+
+	anyproto, err := anypb.New(gsr)
+	require.NoError(t, err)
+	responsePayload, err := proto.Marshal(&vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     "owner",
+				},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	var (
+		wg          sync.WaitGroup
+		forward     *vault.GetSecretsRequest
+		forwardedOK bool
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-t.Context().Done():
+				return
+			default:
+				reqs := store.GetByIDs([]string{requestID})
+				if len(reqs) != 1 {
+					continue
+				}
+				payload, ok := reqs[0].Payload.(*vault.GetSecretsRequest)
+				if !ok {
+					return
+				}
+				cloned, ok := proto.Clone(payload).(*vault.GetSecretsRequest)
+				if !ok {
+					return
+				}
+				forward = cloned
+				forwardedOK = true
+				reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: responsePayload})
+				return
+			}
+		}
+	}()
+
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+		Payload: anyproto,
+		Method:  vault.MethodGetSecrets,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowOwner:       "0xABCDef1234567890abcdef1234567890abcdef12",
+			WorkflowID:          "wf-id",
+			WorkflowExecutionID: "exec-id",
+			ReferenceID:         "ref-id",
+		},
+	})
+	require.NoError(t, err)
+	wg.Wait()
+	require.True(t, forwardedOK)
+	require.NotNil(t, forward)
+	assert.True(t, proto.Equal(gsr, forward))
+}
+
+func TestCapability_CapabilityCall_BackfillsGetSecretsWorkflowOwnerFromFirstSecretOwner(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	clock := clockwork.NewFakeClock()
+	expiry := 10 * time.Second
+	store := requests.NewStore[*vaulttypes.Request]()
+	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
+	reg := coreCapabilities.NewRegistry(lggr)
+	lf := limits.Factory{Settings: cresettings.DefaultGetter}
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
+	require.NoError(t, err)
+	servicetest.Run(t, capability)
+
+	requestID := "wf-id::exec-id::ref-id"
+	workflowOwner := "0xABCDef1234567890abcdef1234567890abcdef12"
+	gsr := &vault.GetSecretsRequest{
+		Requests: []*vault.SecretRequest{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     workflowOwner,
+				},
+				EncryptionKeys: []string{"key"},
+			},
+		},
+	}
+
+	anyproto, err := anypb.New(gsr)
+	require.NoError(t, err)
+	responsePayload, err := proto.Marshal(&vault.GetSecretsResponse{
+		Responses: []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{
+					Key:       "Foo",
+					Namespace: "Bar",
+					Owner:     workflowOwner,
+				},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{EncryptedValue: "encrypted-value"},
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	var (
+		wg          sync.WaitGroup
+		forward     *vault.GetSecretsRequest
+		forwardedOK bool
+	)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-t.Context().Done():
+				return
+			default:
+				reqs := store.GetByIDs([]string{requestID})
+				if len(reqs) != 1 {
+					continue
+				}
+				payload, ok := reqs[0].Payload.(*vault.GetSecretsRequest)
+				if !ok {
+					return
+				}
+				cloned, ok := proto.Clone(payload).(*vault.GetSecretsRequest)
+				if !ok {
+					return
+				}
+				forward = cloned
+				forwardedOK = true
+				reqs[0].SendResponse(t.Context(), &vaulttypes.Response{ID: requestID, Payload: responsePayload})
+				return
+			}
+		}
+	}()
+
+	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
+		Payload: anyproto,
+		Method:  vault.MethodGetSecrets,
+		Metadata: capabilities.RequestMetadata{
+			WorkflowOwner:       workflowOwner,
+			WorkflowID:          "wf-id",
+			WorkflowExecutionID: "exec-id",
+			ReferenceID:         "ref-id",
+		},
+	})
+	require.NoError(t, err)
+	wg.Wait()
+	require.True(t, forwardedOK)
+	require.NotNil(t, forward)
+	assert.True(t, proto.Equal(gsr, forward))
+}
+
 func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	clock := clockwork.NewFakeClock()
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "test-owner"
+	owner := "testowner"
 	workflowID := "test-workflow-id"
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
 
-	requestID := fmt.Sprintf("%s::%s::%s", workflowID, workflowExecutionID, referenceID)
+	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+		WorkflowID:          workflowID,
+		WorkflowExecutionID: workflowExecutionID,
+		ReferenceID:         referenceID,
+	})
 
 	sid := &vault.SecretIdentifier{
 		Key:       "Foo",
@@ -457,19 +888,22 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, fakeClock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, fakeClock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, fakeClock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 
-	owner := "test-owner"
+	owner := "testowner"
 	workflowID := "test-workflow-id"
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
 
-	requestID := fmt.Sprintf("%s::%s::%s", workflowID, workflowExecutionID, referenceID)
+	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+		WorkflowID:          workflowID,
+		WorkflowExecutionID: workflowExecutionID,
+		ReferenceID:         referenceID,
+	})
 
 	sid := &vault.SecretIdentifier{
 		Key:       "Foo",
@@ -573,7 +1007,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "CreateSecrets_Missing_Key",
 			response: nil,
-			error:    "secret ID must have key, namespace and owner set",
+			error:    "key cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
@@ -592,9 +1026,12 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name:     "CreateSecrets_Missing_Namespace",
-			response: nil,
-			error:    "secret ID must have key, namespace and owner set",
+			name: "CreateSecrets_EmptyNamespace_Accepted",
+			response: &vaulttypes.Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
@@ -615,7 +1052,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "CreateSecrets_Missing_Owner",
 			response: nil,
-			error:    "secret ID must have key, namespace and owner set",
+			error:    "owner cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.CreateSecretsRequest{
 					RequestId: requestID,
@@ -763,7 +1200,7 @@ func TestCapability_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "secret ID must have key, namespace and owner set at index",
+			error: "key cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
@@ -782,13 +1219,12 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name: "UpdateSecrets_Missing_Namespace",
+			name: "UpdateSecrets_EmptyNamespace_Accepted",
 			response: &vaulttypes.Response{
 				ID:      "response-id",
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "secret ID must have key, namespace and owner set at index",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
@@ -797,7 +1233,7 @@ func TestCapability_CRUD(t *testing.T) {
 							Id: &vault.SecretIdentifier{
 								Key:       "w",
 								Namespace: "",
-								Owner:     "a",
+								Owner:     owner,
 							},
 							EncryptedValue: encryptedSecret,
 						},
@@ -813,7 +1249,7 @@ func TestCapability_CRUD(t *testing.T) {
 				Payload: []byte("hello world"),
 				Format:  "protobuf",
 			},
-			error: "secret ID must have key, namespace and owner set at index",
+			error: "owner cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.UpdateSecretsRequest{
 					RequestId: requestID,
@@ -1013,7 +1449,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "DeleteSecrets_Missing_Owner",
 			response: nil,
-			error:    "secret ID must have key, namespace and owner set at index 0",
+			error:    "owner cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
@@ -1029,9 +1465,12 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name:     "DeleteSecrets_Missing_Namespace",
-			response: nil,
-			error:    "secret ID must have key, namespace and owner set at index 0",
+			name: "DeleteSecrets_EmptyNamespace_Accepted",
+			response: &vaulttypes.Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
@@ -1049,7 +1488,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "DeleteSecrets_Missing_Key",
 			response: nil,
-			error:    "secret ID must have key, namespace and owner set at index 0",
+			error:    "key cannot be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.DeleteSecretsRequest{
 					RequestId: requestID,
@@ -1057,24 +1496,6 @@ func TestCapability_CRUD(t *testing.T) {
 						{
 							Key:       "",
 							Namespace: "namespace",
-							Owner:     "random",
-						},
-					},
-				}
-				return capability.DeleteSecrets(t.Context(), req)
-			},
-		},
-		{
-			name:     "DeleteSecrets_Invalid_Owner",
-			response: nil,
-			error:    "secret ID owner: random does not match authorized owner:",
-			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
-				req := &vault.DeleteSecretsRequest{
-					RequestId: requestID,
-					Ids: []*vault.SecretIdentifier{
-						{
-							Key:       "Foo",
-							Namespace: "Bar",
 							Owner:     "random",
 						},
 					},
@@ -1107,7 +1528,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "ListSecretIdentifiers_OwnerMissing",
 			response: nil,
-			error:    "requestID, owner or namespace must not be empty",
+			error:    "requestID or owner must not be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: requestID,
@@ -1119,7 +1540,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "ListSecretIdentifiers_RequestID_Missing",
 			response: nil,
-			error:    "requestID, owner or namespace must not be empty",
+			error:    "requestID or owner must not be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: "",
@@ -1132,7 +1553,7 @@ func TestCapability_CRUD(t *testing.T) {
 		{
 			name:     "ListSecretIdentifiers_Owner_Missing",
 			response: nil,
-			error:    "requestID, owner or namespace must not be empty",
+			error:    "requestID or owner must not be empty",
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
 					RequestId: "kk",
@@ -1143,13 +1564,16 @@ func TestCapability_CRUD(t *testing.T) {
 			},
 		},
 		{
-			name:     "ListSecretIdentifiers_Namespace_Missing",
-			response: nil,
-			error:    "requestID, owner or namespace must not be empty",
+			name: "ListSecretIdentifiers_EmptyNamespace_Accepted",
+			response: &vaulttypes.Response{
+				ID:      "response-id",
+				Payload: []byte("hello world"),
+				Format:  "protobuf",
+			},
 			call: func(t *testing.T, capability *Capability) (*vaulttypes.Response, error) {
 				req := &vault.ListSecretIdentifiersRequest{
-					RequestId: "kk",
-					Owner:     "owner",
+					RequestId: requestID,
+					Owner:     owner,
 					Namespace: "",
 				}
 				return capability.ListSecretIdentifiers(t.Context(), req)
@@ -1180,11 +1604,9 @@ func TestCapability_CRUD(t *testing.T) {
 			expiry := 10 * time.Second
 			store := requests.NewStore[*vaulttypes.Request]()
 			handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-			requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-			requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, owner, nil).Maybe()
 			reg := coreCapabilities.NewRegistry(lggr)
 			lf := limits.Factory{Settings: cresettings.DefaultGetter}
-			capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk, lf)
+			capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, lf, newTestRequestLifecycleTracker(t))
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
@@ -1230,11 +1652,9 @@ func TestCapability_Lifecycle(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
-	requestAuthorizer.On("AuthorizeRequest", t.Context(), mock.Anything).Return(true, "owner", nil).Maybe()
 	reg := coreCapabilities.NewRegistry(lggr)
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, nil, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, nil, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 
 	_, err = reg.GetExecutable(t.Context(), vault.CapabilityID)
@@ -1262,11 +1682,10 @@ func TestCapability_PublicKeyGet(t *testing.T) {
 	expiry := 10 * time.Second
 	store := requests.NewStore[*vaulttypes.Request]()
 	handler := requests.NewHandler[*vaulttypes.Request, *vaulttypes.Response](lggr, store, clock, expiry)
-	requestAuthorizer := vaultcapmocks.NewRequestAuthorizer(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	lpk := NewLazyPublicKey()
 	lf := limits.Factory{Settings: cresettings.DefaultGetter}
-	capability, err := NewCapability(lggr, clock, expiry, handler, requestAuthorizer, reg, lpk, lf)
+	capability, err := NewCapability(lggr, clock, expiry, handler, reg, lpk, lf, newTestRequestLifecycleTracker(t))
 	require.NoError(t, err)
 	servicetest.Run(t, capability)
 

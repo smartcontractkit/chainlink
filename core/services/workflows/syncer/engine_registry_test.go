@@ -13,9 +13,9 @@ import (
 )
 
 func TestEngineRegistry(t *testing.T) {
+	t.Parallel()
 	var srv services.Service = &fakeService{}
 
-	const id1 = "foo"
 	owner := []byte{1, 2, 3, 4, 5}
 	name := "my-workflow"
 	workflowID := types.WorkflowID([32]byte{0, 1, 2, 3, 4})
@@ -72,6 +72,7 @@ func TestEngineRegistry(t *testing.T) {
 }
 
 func TestEngineRegistry_keyFor(t *testing.T) {
+	t.Parallel()
 	owner := []byte("owner")
 	k := EngineRegistryKey{Owner: owner, Name: "name"}
 	assert.Equal(t, k.keyFor(), fmt.Sprintf("%x-name", owner))

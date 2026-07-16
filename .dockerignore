@@ -11,17 +11,24 @@ tmp/
 contracts/node_modules
 examples/
 
+.changeset/
+.github/
+docs/
+fuzz/
+
 devenv/
 deployment/
 integration/
 integration-scripts/
 integration-tests/
 system-tests/
+testdata/
 
 tools/gethnet/datadir/geth
 tools/clroot/db.bolt
 tools/clroot/*.log
 tools/clroot/tempkeys
+tools/test/
 
 core/sgx/target/
 core/scripts/cre/

@@ -23,12 +23,12 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mlt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagelimitationstest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils/bigint"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -54,7 +54,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 
 	lggr.Debug("Source chain (EVM): ", sourceChain, "Dest chain (Aptos): ", destChain)
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false))
 
 	var (
 		nonce  uint64
@@ -89,7 +89,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 	require.NoError(t, err)
 
 	// mint token and approve to router
-	tx, err = evmLinkToken.Mint(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey, common.BytesToAddress(sender), deployment.E18Mult(10_000))
+	tx, err = evmLinkToken.Mint(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey, common.BytesToAddress(sender), bigint.E18Mult(10_000))
 	_, err = cldf.ConfirmIfNoError(e.Env.BlockChains.EVMChains()[sourceChain], tx, err)
 	require.NoError(t, err)
 
@@ -99,7 +99,7 @@ func Test_CCIP_Messaging_EVM2Aptos(t *testing.T) {
 
 	// Deposit 1 ETH to get WETH
 	wethTransactOpts := *e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey
-	wethTransactOpts.Value = deployment.E18Mult(1)
+	wethTransactOpts.Value = bigint.E18Mult(1)
 	tx, err = wethToken.Deposit(&wethTransactOpts)
 	_, err = cldf.ConfirmIfNoError(e.Env.BlockChains.EVMChains()[sourceChain], tx, err)
 	require.NoError(t, err)
@@ -416,7 +416,7 @@ func Test_CCIP_Messaging_Aptos2EVM(t *testing.T) {
 
 	lggr.Debug("Source chain (Aptos): ", sourceChain, "Dest chain (EVM): ", destChain)
 
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false))
 
 	aptosCallOpts := &aptos_call_opts.CallOpts{}
 

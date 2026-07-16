@@ -77,7 +77,7 @@ func ValidateReadBucketRegistry() error {
 		}
 	}
 
-	for testCase := TestCase(0); testCase < TestCaseLen; testCase++ {
+	for testCase := range TestCaseLen {
 		if _, ok := assignedCases[testCase]; ok {
 			continue
 		}

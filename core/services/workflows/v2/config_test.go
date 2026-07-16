@@ -44,12 +44,12 @@ func TestEngineConfig_Validate(t *testing.T) {
 	t.Parallel()
 	cfg := defaultTestConfig(t, nil)
 
-	t.Run("nil module", func(t *testing.T) {
+	t.Run("nil module", func(t *testing.T) { //nolint:paralleltest // subtests mutate shared config
 		cfg.Module = nil
 		require.Error(t, cfg.Validate())
 	})
 
-	t.Run("success", func(t *testing.T) {
+	t.Run("success", func(t *testing.T) { //nolint:paralleltest // subtests mutate shared config
 		cfg.Module = modulemocks.NewModuleV2(t)
 		require.NoError(t, cfg.Validate())
 		require.NotEqual(t, 0, cfg.LocalLimits.HeartbeatFrequencyMs)
@@ -57,7 +57,7 @@ func TestEngineConfig_Validate(t *testing.T) {
 		require.NotNil(t, cfg.Hooks.OnInitialized)
 	})
 
-	t.Run("empty workflow tag is allowed", func(t *testing.T) {
+	t.Run("empty workflow tag is allowed", func(t *testing.T) { //nolint:paralleltest // subtests mutate shared config
 		cfg.Module = modulemocks.NewModuleV2(t)
 		cfg.WorkflowTag = "" // V1 workflows don't have tags
 		require.NoError(t, cfg.Validate())
@@ -81,26 +81,26 @@ func defaultTestConfig(t *testing.T, cfgFn func(*cresettings.Workflows)) *v2.Eng
 	t.Cleanup(func() { assert.NoError(t, limiters.Close()) })
 
 	return &v2.EngineConfig{
-		Lggr:                              lggr,
-		Module:                            modulemocks.NewModuleV2(t),
-		CapRegistry:                       regmocks.NewCapabilitiesRegistry(t),
-		DonTimeStore:                      dontime.NewStore(dontime.DefaultRequestTimeout),
-		UseLocalTimeProvider:              true,
-		DonSubscriber:                     subscriberMock,
-		ExecutionsStore:                   store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
-		WorkflowID:                        testWorkflowID,
-		WorkflowOwner:                     testWorkflowOwnerA,
-		WorkflowName:                      name,
-		WorkflowTag:                       testWorkflowTagA,
-		WorkflowEncryptionKey:             workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
-		LocalLimits:                       v2.EngineLimits{},
-		LocalLimiters:                     limiters,
-		FeatureFlags:                      featureFlags,
-		GlobalExecutionConcurrencyLimiter: sLimiter,
-		BeholderEmitter:                   &noopBeholderEmitter{},
-		BillingClient:                     metmocks.NewBillingClient(t),
-		WorkflowRegistryAddress:           "0x123",
-		WorkflowRegistryChainSelector:     "11155111", // Sepolia chain ID
+		Lggr:                          lggr,
+		Module:                        modulemocks.NewModuleV2(t),
+		CapRegistry:                   regmocks.NewCapabilitiesRegistry(t),
+		DonTimeStore:                  dontime.NewStore(dontime.DefaultRequestTimeout),
+		UseLocalTimeProvider:          true,
+		DonSubscriber:                 subscriberMock,
+		ExecutionsStore:               store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+		WorkflowID:                    testWorkflowID,
+		WorkflowOwner:                 testWorkflowOwnerA,
+		WorkflowName:                  name,
+		WorkflowTag:                   testWorkflowTagA,
+		WorkflowEncryptionKey:         workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
+		LocalLimits:                   v2.EngineLimits{},
+		LocalLimiters:                 limiters,
+		FeatureFlags:                  featureFlags,
+		GlobalWorkflowLimit:           sLimiter,
+		BeholderEmitter:               &noopBeholderEmitter{},
+		BillingClient:                 metmocks.NewBillingClient(t),
+		WorkflowRegistryAddress:       "0x123",
+		WorkflowRegistryChainSelector: "11155111", // Sepolia chain ID
 	}
 }
 

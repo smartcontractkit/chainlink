@@ -10,13 +10,13 @@ import (
 
 	cr "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v2_0"
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
 )
 
 type fields struct {
-	ContractMetaData types.ContractMetaData
+	ContractMetaData view.ContractMetaData
 	Capabilities     []v2_0.CapabilityView
 	Nodes            []v2_0.NodeView
 	Dons             []v2_0.DonView

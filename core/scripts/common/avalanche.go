@@ -114,7 +114,7 @@ func (n *AvaBlockNonce) UnmarshalText(input []byte) error {
 }
 
 // AvaHeader is a copy of [github.com/ava-labs/coreth/core/types.Header] to avoid importing the whole module.
-// NOTE: latest changes: https://github.com/ava-labs/coreth/blob/48165128c05d486f715a8060ca55b7cb8d51526d/plugin/evm/customtypes/header_ext.go#L171
+// NOTE: latest changes: https://github.com/ava-labs/avalanchego/blob/c1648c292e1ce4de99a5224a10b5b3e79a913aaf/graft/coreth/plugin/evm/customtypes/header_ext.go
 type AvaHeader struct {
 	ParentHash  common.Hash    `json:"parentHash"       gencodec:"required"`
 	UncleHash   common.Hash    `json:"sha3Uncles"       gencodec:"required"`
@@ -155,6 +155,12 @@ type AvaHeader struct {
 
 	// ParentBeaconRoot was added by EIP-4788 and is ignored in legacy headers.
 	ParentBeaconRoot *common.Hash `json:"parentBeaconBlockRoot" rlp:"optional"`
+
+	// TimeMilliseconds was added by Granite and is ignored in legacy headers.
+	TimeMilliseconds *uint64 `json:"timestampMilliseconds" rlp:"optional"`
+
+	// MinDelayExcess was added by Granite and is ignored in legacy headers.
+	MinDelayExcess *uint64 `json:"minDelayExcess" rlp:"optional"`
 }
 
 func (h *AvaHeader) UnmarshalJSON(input []byte) error {
@@ -181,6 +187,8 @@ func (h *AvaHeader) UnmarshalJSON(input []byte) error {
 		BlobGasUsed      *hexutil.Uint64 `json:"blobGasUsed" rlp:"optional"`
 		ExcessBlobGas    *hexutil.Uint64 `json:"excessBlobGas" rlp:"optional"`
 		ParentBeaconRoot *common.Hash    `json:"parentBeaconBlockRoot" rlp:"optional"`
+		TimeMilliseconds *hexutil.Uint64 `json:"timestampMilliseconds" rlp:"optional"`
+		MinDelayExcess   *hexutil.Uint64 `json:"minDelayExcess" rlp:"optional"`
 	}
 	var dec Header
 	if err := json.Unmarshal(input, &dec); err != nil {
@@ -265,6 +273,14 @@ func (h *AvaHeader) UnmarshalJSON(input []byte) error {
 	}
 	if dec.ParentBeaconRoot != nil {
 		h.ParentBeaconRoot = dec.ParentBeaconRoot
+	}
+	if dec.TimeMilliseconds != nil {
+		val := uint64(*dec.TimeMilliseconds)
+		h.TimeMilliseconds = &val
+	}
+	if dec.MinDelayExcess != nil {
+		val := uint64(*dec.MinDelayExcess)
+		h.MinDelayExcess = &val
 	}
 	return nil
 }

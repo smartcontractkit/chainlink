@@ -8,6 +8,8 @@ import (
 	binary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	mcmsSolanaSdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
@@ -19,13 +21,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
 func deployMCMProgram(
-	env cldf.Environment, chainState *state.MCMSWithTimelockStateSolana,
+	env cldf.Environment, chainState *solstate.MCMSWithTimelockState,
 	chain cldf_solana.Chain, addressBook cldf.AddressBook,
 ) error {
 	typeAndVersion := cldf.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
@@ -55,7 +56,7 @@ func deployMCMProgram(
 			return fmt.Errorf("failed to save mcm address: %w", err)
 		}
 
-		err = chainState.SetState(commontypes.ManyChainMultisigProgram, programID, state.PDASeed{})
+		err = chainState.SetState(commontypes.ManyChainMultisigProgram, programID, solstate.PDASeed{})
 		if err != nil {
 			return fmt.Errorf("failed to save onchain state: %w", err)
 		}
@@ -69,7 +70,7 @@ func deployMCMProgram(
 }
 
 func initMCM(
-	env cldf.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType cldf.ContractType,
+	env cldf.Environment, chainState *solstate.MCMSWithTimelockState, contractType cldf.ContractType,
 	chain cldf_solana.Chain, addressBook cldf.AddressBook, mcmConfig *mcmsTypes.Config,
 ) error {
 	if chainState.McmProgram.IsZero() {
@@ -83,8 +84,8 @@ func initMCM(
 		return fmt.Errorf("failed to get mcm state: %w", err)
 	}
 
-	if mcmSeed != (state.PDASeed{}) {
-		mcmConfigPDA := state.GetMCMConfigPDA(mcmProgram, mcmSeed)
+	if mcmSeed != (solstate.PDASeed{}) {
+		mcmConfigPDA := pdasol.GetMCMConfigPDA(mcmProgram, mcmSeed)
 		var data mcmBindings.MultisigConfig
 		err = solanaUtils.GetAccountDataBorshInto(env.GetContext(), chain.Client, mcmConfigPDA, rpc.CommitmentConfirmed, &data)
 		if err == nil {
@@ -105,7 +106,7 @@ func initMCM(
 		return fmt.Errorf("failed to initialize mcm: %w", err)
 	}
 
-	mcmAddress := state.EncodeAddressWithSeed(programID, seed)
+	mcmAddress := solstate.EncodeAddressWithSeed(programID, seed)
 
 	configurer := mcmsSolanaSdk.NewConfigurer(chain.Client, *chain.DeployerKey, mcmsTypes.ChainSelector(chain.Selector))
 	tx, err := configurer.SetConfig(env.GetContext(), mcmAddress, mcmConfig, false)
@@ -127,9 +128,9 @@ func initMCM(
 	return nil
 }
 
-func initializeMCM(e cldf.Environment, chain cldf_solana.Chain, mcmProgram solana.PublicKey, multisigID state.PDASeed) error {
+func initializeMCM(e cldf.Environment, chain cldf_solana.Chain, mcmProgram solana.PublicKey, multisigID solstate.PDASeed) error {
 	var mcmConfig mcmBindings.MultisigConfig
-	err := chain.GetAccountDataBorshInto(e.GetContext(), state.GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
+	err := chain.GetAccountDataBorshInto(e.GetContext(), pdasol.GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
 	if err == nil {
 		e.Logger.Infow("MCM already initialized, skipping initialization", "chain", chain.String())
 		return nil
@@ -153,13 +154,13 @@ func initializeMCM(e cldf.Environment, chain cldf_solana.Chain, mcmProgram solan
 	ix, err := mcmBindings.NewInitializeInstruction(
 		chain.Selector,
 		multisigID,
-		state.GetMCMConfigPDA(mcmProgram, multisigID),
+		pdasol.GetMCMConfigPDA(mcmProgram, multisigID),
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		mcmProgram,
 		programData.Address,
-		state.GetMCMRootMetadataPDA(mcmProgram, multisigID),
-		state.GetMCMExpiringRootAndOpCountPDA(mcmProgram, multisigID),
+		pdasol.GetMCMRootMetadataPDA(mcmProgram, multisigID),
+		pdasol.GetMCMExpiringRootAndOpCountPDA(mcmProgram, multisigID),
 	).ValidateAndBuild()
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
@@ -177,10 +178,10 @@ func initializeMCM(e cldf.Environment, chain cldf_solana.Chain, mcmProgram solan
 	return nil
 }
 
-func randomSeed() state.PDASeed {
+func randomSeed() solstate.PDASeed {
 	const alphabet = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-	seed := state.PDASeed{}
+	seed := solstate.PDASeed{}
 	for i := range seed {
 		seed[i] = alphabet[rand.Intn(len(alphabet))]
 	}

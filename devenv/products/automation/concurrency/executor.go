@@ -77,7 +77,7 @@ func (e *ConcurrentExecutor[ResultType, ResultChannelType, TaskType]) GetErrors(
 // Executor will attempt to distribute the tasks evenly among the executors.
 func (e *ConcurrentExecutor[ResultType, ResultChannelType, TaskType]) ExecuteSimple(concurrency int, repeatTimes int, simpleProcessorFn SimpleTaskProcessorFn[ResultChannelType]) ([]ResultType, error) {
 	dummy := make([]TaskType, repeatTimes)
-	for i := 0; i < repeatTimes; i++ {
+	for i := range repeatTimes {
 		dummy[i] = *new(TaskType)
 	}
 

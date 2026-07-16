@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -63,7 +64,8 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				config_url,
 				created_at,
 				updated_at,
-				spec_type
+				spec_type,
+				attributes
 			) VALUES (
 				:workflow,
 				:config,
@@ -76,7 +78,8 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				:config_url,
 				:created_at,
 				:updated_at,
-				:spec_type
+				:spec_type,
+				:attributes
 			) ON CONFLICT (workflow_id) DO UPDATE
 			SET
 				workflow = EXCLUDED.workflow,
@@ -89,18 +92,22 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				config_url = EXCLUDED.config_url,
 				created_at = EXCLUDED.created_at,
 				updated_at = EXCLUDED.updated_at,
-				spec_type = EXCLUDED.spec_type
+				spec_type = EXCLUDED.spec_type,
+				attributes = EXCLUDED.attributes
 			RETURNING id
 		`
 
-		stmt, err := orm.ds.PrepareNamedContext(ctx, query)
-		if err != nil {
-			return err
+		now := time.Now().UTC()
+		spec.UpdatedAt = now
+		if spec.CreatedAt.IsZero() {
+			spec.CreatedAt = now
 		}
-		defer stmt.Close()
-
-		spec.UpdatedAt = time.Now()
-		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
+		q, args, namedErr := sqlx.Named(query, spec)
+		if namedErr != nil {
+			return namedErr
+		}
+		q = sqlx.Rebind(sqlx.DOLLAR, q)
+		return tx.QueryRowxContext(ctx, q, args...).Scan(&id)
 	})
 
 	return id, err

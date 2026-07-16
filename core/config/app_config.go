@@ -6,6 +6,8 @@ import (
 	"github.com/google/uuid"
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 )
 
 var (
@@ -19,7 +21,6 @@ type AppConfig interface {
 	RootDir() string
 	ShutdownGracePeriod() time.Duration
 	InsecureFastScrypt() bool
-	InsecurePPROFHeap() bool
 	EVMEnabled() bool
 	CosmosEnabled() bool
 	SolanaEnabled() bool
@@ -28,6 +29,7 @@ type AppConfig interface {
 	TronEnabled() bool
 	TONEnabled() bool
 	SuiEnabled() bool
+	StellarEnabled() bool
 
 	Validate() error
 	ValidateDB() error
@@ -42,13 +44,11 @@ type AppConfig interface {
 	Workflows() Workflows
 	Database() Database
 	Feature() Feature
-	FluxMonitor() FluxMonitor
 	Insecure() Insecure
 	JobDistributor() JobDistributor
 	JobPipeline() JobPipeline
-	Keeper() Keeper
 	Log() Log
-	Mercury() Mercury
+	Mercury() de.Mercury
 	OCR() OCR
 	OCR2() OCR2
 	P2P() P2P
@@ -65,6 +65,7 @@ type AppConfig interface {
 	CCV() CCV
 	Billing() Billing
 	BridgeStatusReporter() BridgeStatusReporter
+	JobSpecReporter() JobSpecReporter
 	Sharding() Sharding
 	LOOPP() LOOPP
 }

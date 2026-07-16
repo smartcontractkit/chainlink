@@ -83,25 +83,36 @@ func NewRegistry(lggr logger.Logger) *Registry {
 // interface. It is used when ExternalCapabilitiesRegistry is not available.
 type TestMetadataRegistry struct {
 	core.UnimplementedCapabilitiesRegistryMetadata
+	// WorkflowDONF allows local CRE to override the synthetic workflow DON fault
+	// tolerance for compatibility paths that still expect a multi-signer shape.
+	WorkflowDONF uint8
 }
+
+const (
+	testWorkflowDONID            = 1
+	testWorkflowDONConfigVersion = 1
+)
 
 func (t *TestMetadataRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
 	peerID := p2ptypes.PeerID{}
-	workflowDON := capabilities.DON{
-		ID:            1,
-		ConfigVersion: 1,
+	return capabilities.Node{
+		PeerID:         &peerID,
+		WorkflowDON:    newTestWorkflowDON(peerID, t.WorkflowDONF),
+		CapabilityDONs: []capabilities.DON{},
+	}, nil
+}
+
+func newTestWorkflowDON(peerID p2ptypes.PeerID, faultTolerance uint8) capabilities.DON {
+	return capabilities.DON{
+		ID:            testWorkflowDONID,
+		ConfigVersion: testWorkflowDONConfigVersion,
 		Members: []p2ptypes.PeerID{
 			peerID,
 		},
-		F:                0,
+		F:                faultTolerance,
 		IsPublic:         false,
 		AcceptsWorkflows: true,
 	}
-	return capabilities.Node{
-		PeerID:         &peerID,
-		WorkflowDON:    workflowDON,
-		CapabilityDONs: []capabilities.DON{},
-	}, nil
 }
 
 func (t *TestMetadataRegistry) NodeByPeerID(ctx context.Context, _ p2ptypes.PeerID) (capabilities.Node, error) {

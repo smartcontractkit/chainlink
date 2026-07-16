@@ -5,12 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	aptoscappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/aptos"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
+	stellarcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/stellar"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
@@ -64,9 +68,10 @@ func (r *simpleHasher) Hash(msg *types.MessageBody) ([32]byte, error) {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
 	}
 
-	// Exclude SpendLimits from RequestMetadata to ensure identical requests
-	// with different SpendLimits produce the same hash
+	// Exclude per-node-divergent metadata fields to ensure identical requests
+	// with different values produce the same hash
 	req.Metadata.SpendLimits = nil
+	req.Metadata.ExecutionTimestamp = time.Time{}
 
 	reqBytes, err := pb.MarshalCapabilityRequest(req)
 	if err != nil {
@@ -92,9 +97,10 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 		return [32]byte{}, errors.New("capability request payload is nil")
 	}
 
-	// Exclude SpendLimits from RequestMetadata to ensure identical requests
-	// with different SpendLimits produce the same hash
+	// Exclude per-node-divergent metadata fields to ensure identical requests
+	// with different values produce the same hash
 	req.Metadata.SpendLimits = nil
+	req.Metadata.ExecutionTimestamp = time.Time{}
 	family, familyErr := getWriteReportFamily(msg)
 	if familyErr != nil {
 		return [32]byte{}, familyErr
@@ -130,9 +136,36 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
 		}
+	case writeReportFamilyAptos:
+		var wrReq aptoscappb.WriteReportRequest
+		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
+			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
+		}
+		if wrReq.Report == nil {
+			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
+		}
+
+		wrReq.Report.Sigs = nil // exclude signatures from hash
+		payload, err = anypb.New(&wrReq)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
+		}
+	case writeReportFamilyStellar:
+		var wrReq stellarcappb.WriteReportRequest
+		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
+			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
+		}
+		if wrReq.Report == nil {
+			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
+		}
+
+		wrReq.Report.Sigs = nil // exclude signatures from hash
+		payload, err = anypb.New(&wrReq)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
+		}
 	default:
 		return [32]byte{}, fmt.Errorf("unexpected report family: %s", family)
-
 	}
 
 	req.Payload = payload
@@ -147,8 +180,10 @@ func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]b
 type writeReportFamily string
 
 var (
-	writeReportFamilyEVM    writeReportFamily = "evm"
-	writeReportFamilySolana writeReportFamily = "solana"
+	writeReportFamilyEVM     writeReportFamily = "evm"
+	writeReportFamilySolana  writeReportFamily = "solana"
+	writeReportFamilyAptos   writeReportFamily = "aptos"
+	writeReportFamilyStellar writeReportFamily = "stellar"
 )
 
 func getWriteReportFamily(msg *types.MessageBody) (writeReportFamily, error) {
@@ -162,9 +197,13 @@ func getWriteReportFamily(msg *types.MessageBody) (writeReportFamily, error) {
 		return writeReportFamilyEVM, nil
 	case "solana":
 		return writeReportFamilySolana, nil
+	case "aptos":
+		return writeReportFamilyAptos, nil
+	case "stellar":
+		return writeReportFamilyStellar, nil
 	}
 
-	return "", errors.New("report family is unknown, available families: evm, solana")
+	return "", errors.New("report family is unknown, available families: evm, solana, aptos, stellar")
 }
 
 func NewWriteReportExcludeSignaturesHasher() types.MessageHasher {

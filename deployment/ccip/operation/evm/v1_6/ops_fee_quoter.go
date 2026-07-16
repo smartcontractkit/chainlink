@@ -6,18 +6,17 @@ import (
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 )
 
@@ -40,13 +39,13 @@ type ApplyFeeTokensUpdatesInput struct {
 }
 
 var (
-	DeployFeeQuoterOp = opsutil.NewEVMDeployOperation(
+	DeployFeeQuoterOp = opsutils.NewEVMDeployOperation(
 		"DeployFeeQuoter",
 		semver.MustParse("1.0.0"),
 		"Deploys FeeQuoter 1.6.x contract on the specified evm chain",
 		shared.FeeQuoter,
 		fee_quoter.FeeQuoterMetaData,
-		&opsutil.ContractOpts{
+		&opsutils.ContractOpts{
 			Version:          &deployment.Version1_6_3, // defaults to v1_6_3, but can be overwritten by input params.FeeQuoterOpts
 			EVMBytecode:      common.FromHex(fee_quoter.FeeQuoterBin),
 			ZkSyncVMBytecode: fee_quoter.ZkBytecode,
@@ -77,7 +76,7 @@ var (
 		},
 	)
 
-	FeeQApplyAuthorizedCallerOp = opsutil.NewEVMCallOperation(
+	FeeQApplyAuthorizedCallerOp = opsutils.NewEVMCallOperation(
 		"FeeQApplyAuthorizedCallerOp",
 		semver.MustParse("1.0.0"),
 		"Apply authorized caller to FeeQuoter 1.6 contract on the specified evm chain",
@@ -89,7 +88,7 @@ var (
 		},
 	)
 
-	FeeQuoterApplyDestChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+	FeeQuoterApplyDestChainConfigUpdatesOp = opsutils.NewEVMCallOperation(
 		"FeeQuoterApplyDestChainConfigUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Apply updates to destination chain configs on the FeeQuoter 1.6.0 contract",
@@ -101,7 +100,7 @@ var (
 		},
 	)
 
-	FeeQuoterUpdatePricesOp = opsutil.NewEVMCallOperation(
+	FeeQuoterUpdatePricesOp = opsutils.NewEVMCallOperation(
 		"FeeQuoterUpdatePricesOp",
 		semver.MustParse("1.0.0"),
 		"Update token and gas prices on the FeeQuoter 1.6.0 contract",
@@ -112,7 +111,7 @@ var (
 			return feeQuoter.UpdatePrices(opts, input)
 		},
 	)
-	FeeQuoterApplyTokenTransferFeeCfgOp = opsutil.NewEVMCallOperation(
+	FeeQuoterApplyTokenTransferFeeCfgOp = opsutils.NewEVMCallOperation(
 		"FeeQuoterApplyTokenTransferFeeCfgOp",
 		semver.MustParse("1.0.0"),
 		"Update or Remove token transfer Fee Configs on the FeeQuoter 1.6.0 contract",
@@ -124,7 +123,7 @@ var (
 		},
 	)
 
-	FeeQuoterApplyFeeTokensUpdatesOp = opsutil.NewEVMCallOperation(
+	FeeQuoterApplyFeeTokensUpdatesOp = opsutils.NewEVMCallOperation(
 		"FeeQuoterApplyFeeTokensUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Add or Remove supported fee tokens FeeQuoter 1.6.0 contract",
@@ -136,7 +135,7 @@ var (
 		},
 	)
 
-	FeeQApplyPremiumMultiplierWeiPerEthUpdateOp = opsutil.NewEVMCallOperation(
+	FeeQApplyPremiumMultiplierWeiPerEthUpdateOp = opsutils.NewEVMCallOperation(
 		"FeeQApplyPremiumMultiplierWeiPerEthUpdateOp",
 		semver.MustParse("1.0.0"),
 		"Applies premiumMultiplierWeiPerEth for tokens in FeeQuoter 1.6.0 contract",
@@ -199,26 +198,43 @@ const (
 	EVMFamilySelector   = "2812d52c"
 	SVMFamilySelector   = "1e10bdc4"
 	AptosFamilySelector = "ac77ffec"
+	TVMFamilySelector   = "647e2ba9"
+	SuiFamilySelector   = "c4e05953"
 )
 
+// DefaultFeeQuoterDestChainConfig returns the default FeeQuoter dest chain config.
+// If destChainSelector is provided, family-specific values (ChainFamilySelector,
+// NetworkFeeUSDCents, DefaultTokenFeeUSDCents) are set accordingly.
 func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...uint64) fee_quoter.FeeQuoterDestChainConfig {
-	familySelector, _ := hex.DecodeString(EVMFamilySelector) // evm
+	familySelector, _ := hex.DecodeString(EVMFamilySelector)
+	networkFeeUSDCents := uint32(10)
+	defaultTokenFeeUSDCents := uint16(25)
 	if len(destChainSelector) > 0 {
 		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
 		switch destFamily {
 		case chain_selectors.FamilySolana:
-			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
+			familySelector, _ = hex.DecodeString(SVMFamilySelector)
+			defaultTokenFeeUSDCents = 35
 		case chain_selectors.FamilyAptos:
-			familySelector, _ = hex.DecodeString(AptosFamilySelector) // aptos
+			familySelector, _ = hex.DecodeString(AptosFamilySelector)
+		case chain_selectors.FamilyTon:
+			familySelector, _ = hex.DecodeString(TVMFamilySelector)
+		case chain_selectors.FamilySui:
+			familySelector, _ = hex.DecodeString(SuiFamilySelector)
+		case chain_selectors.FamilyEVM:
+			if isEthereumChain(destChainSelector[0]) {
+				networkFeeUSDCents = 50
+				defaultTokenFeeUSDCents = 150
+			}
 		}
 	}
 	return fee_quoter.FeeQuoterDestChainConfig{
 		IsEnabled:                         configEnabled,
 		MaxNumberOfTokensPerMsg:           10,
 		MaxDataBytes:                      30_000,
-		MaxPerMsgGasLimit:                 3_000_000, // TODO: this needs to be updated based on RMN sig verification per chain?! 220/250K
+		MaxPerMsgGasLimit:                 3_000_000,
 		DestGasOverhead:                   ccipevm.DestGasOverhead,
-		DefaultTokenFeeUSDCents:           25,
+		DefaultTokenFeeUSDCents:           defaultTokenFeeUSDCents,
 		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
 		DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
 		DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
@@ -227,9 +243,15 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 		DestDataAvailabilityMultiplierBps: 1,
 		DefaultTokenDestGasOverhead:       90_000,
 		DefaultTxGasLimit:                 200_000,
-		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
-		NetworkFeeUSDCents:                10,
+		GasMultiplierWeiPerEth:            11e17,
+		NetworkFeeUSDCents:                networkFeeUSDCents,
 		ChainFamilySelector:               [4]byte(familySelector),
 		GasPriceStalenessThreshold:        90000,
 	}
+}
+
+func isEthereumChain(selector uint64) bool {
+	return selector == chain_selectors.ETHEREUM_MAINNET.Selector ||
+		selector == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
+		selector == chain_selectors.ETHEREUM_TESTNET_HOODI.Selector
 }

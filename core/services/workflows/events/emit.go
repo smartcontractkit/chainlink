@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -100,6 +101,32 @@ func EmitWorkflowStatusChangedEventV2(
 	return multiErr
 }
 
+func EmitWorkflowActivationAbandonedV2(
+	ctx context.Context,
+	labels map[string]string,
+	binaryURL string,
+	configURL string,
+	reason eventsv2.ActivationAbandonReason,
+	activationErr error,
+	retryCount int32,
+) error {
+	var errorMessage string
+	if activationErr != nil {
+		errorMessage = activationErr.Error()
+	}
+
+	event := &eventsv2.WorkflowActivationAbandoned{
+		CreInfo:      buildCREMetadataV2(labels),
+		Workflow:     buildWorkflowV2(labels, binaryURL, configURL),
+		Timestamp:    uint64(time.Now().Unix()), //nolint:gosec // G115: unix timestamp is non-negative
+		ErrorMessage: errorMessage,
+		Reason:       reason,
+		RetryCount:   retryCount,
+	}
+
+	return emitProtoMessage(ctx, event)
+}
+
 func EmitExecutionStartedEvent(
 	ctx context.Context,
 	labels map[string]string,
@@ -135,6 +162,57 @@ func EmitExecutionStartedEvent(
 		multiErr = errors.Join(multiErr, err)
 	}
 	return multiErr
+}
+
+// ExecutionProfileStepInput describes timing for a single capability step invocation.
+type ExecutionProfileStepInput struct {
+	StepID       string
+	StartTime    time.Time
+	EndTime      time.Time // zero means use the execution end time
+	CapabilityID string
+	HasError     bool
+}
+
+func buildExecutionProfile(
+	workflowID, executionID string,
+	startTime, endTime time.Time,
+	status string,
+	steps []ExecutionProfileStepInput,
+) *eventsv2.ExecutionProfile {
+	stepProfiles := make([]*eventsv2.ExecutionProfileStep, 0, len(steps))
+	for _, step := range steps {
+		stepEnd := step.EndTime
+		if stepEnd.IsZero() {
+			stepEnd = endTime
+		}
+		stepProfiles = append(stepProfiles, &eventsv2.ExecutionProfileStep{
+			StepID:       step.StepID,
+			StartTime:    step.StartTime.UTC().Format(time.RFC3339Nano),
+			EndTime:      stepEnd.UTC().Format(time.RFC3339Nano),
+			CapabilityID: step.CapabilityID,
+			HasError:     step.HasError,
+		})
+	}
+
+	return &eventsv2.ExecutionProfile{
+		WorkflowID:          workflowID,
+		WorkflowExecutionID: executionID,
+		StartTime:           startTime.UTC().Format(time.RFC3339Nano),
+		EndTime:             endTime.UTC().Format(time.RFC3339Nano),
+		Status:              status,
+		Steps:               stepProfiles,
+	}
+}
+
+func EmitExecutionProfile(
+	ctx context.Context,
+	workflowID, executionID string,
+	startTime, endTime time.Time,
+	status string,
+	steps []ExecutionProfileStepInput,
+) (*eventsv2.ExecutionProfile, error) {
+	profile := buildExecutionProfile(workflowID, executionID, startTime, endTime, status, steps)
+	return profile, emitProtoMessage(ctx, profile)
 }
 
 func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string, execErr error, lggr logger.Logger) error {
@@ -349,9 +427,18 @@ func EmitUserLogs(ctx context.Context, labels map[string]string, logLines []*eve
 	return multiErr
 }
 
+func EmitUserMetric(ctx context.Context, labels map[string]string, metric *eventsv2.WorkflowUserMetric) error {
+	metric.CreInfo = buildCREMetadataV2(labels)
+	metric.Workflow = buildWorkflowKeyV2(labels)
+	metric.Timestamp = time.Now().Format(time.RFC3339)
+
+	return emitProtoMessage(ctx, metric)
+}
+
 // GenerateExecutionID generates a deterministic execution ID from workflowID and triggerEventID
 // hash of (workflowID, triggerEventID)
-// Deprecated: Use GenerateExecutionIDWithTriggerIndex instead.
+//
+// Deprecated: Used only in V1 engine. For V2 use GenerateExecutionIDWithTriggerIndex from common/pkg/workflows/utils.go.
 func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	s := sha256.New()
 	_, err := s.Write([]byte(workflowID))
@@ -360,26 +447,6 @@ func GenerateExecutionID(workflowID, triggerEventID string) (string, error) {
 	}
 
 	_, err = s.Write([]byte(triggerEventID))
-	if err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(s.Sum(nil)), nil
-}
-
-func GenerateExecutionIDWithTriggerIndex(workflowID, triggerEventID string, triggerIndex int) (string, error) {
-	s := sha256.New()
-	_, err := s.Write([]byte(workflowID))
-	if err != nil {
-		return "", err
-	}
-
-	_, err = s.Write([]byte(triggerEventID))
-	if err != nil {
-		return "", err
-	}
-
-	_, err = s.Write([]byte(strconv.Itoa(triggerIndex)))
 	if err != nil {
 		return "", err
 	}
@@ -438,23 +505,44 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	case *eventsv2.WorkflowUserLog:
 		schema = SchemaUserLogsV2
 		entity = "workflows.v2." + WorkflowUserLog
+	case *eventsv2.WorkflowUserMetric:
+		schema = SchemaUserMetricV2
+		entity = "workflows.v2." + WorkflowUserMetric
 	case *eventsv2.WorkflowActivated:
 		schema = SchemaWorkflowActivatedV2
 		entity = "workflows.v2." + WorkflowActivated
+	case *eventsv2.WorkflowActivationAbandoned:
+		schema = SchemaWorkflowActivationAbandonedV2
+		entity = "workflows.v2." + WorkflowActivationAbandoned
 	case *eventsv2.WorkflowPaused:
 		schema = SchemaWorkflowPausedV2
 		entity = "workflows.v2." + WorkflowPaused
 	case *eventsv2.WorkflowDeleted:
 		schema = SchemaWorkflowDeletedV2
 		entity = "workflows.v2." + WorkflowDeleted
+	case *eventsv2.ExecutionProfile:
+		schema = SchemaWorkflowExecutionProfileV2
+		entity = "workflows.v2." + WorkflowExecutionProfile
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}
 
-	return beholder.GetEmitter().Emit(ctx, b,
+	return emitRawMessage(ctx, b, schema, entity)
+}
+
+func emitRawMessage(ctx context.Context, body []byte, schema, entity string) error {
+	if err := beholder.GetEmitter().Emit(ctx, body,
 		"beholder_data_schema", schema, // required
 		"beholder_domain", "platform", // required
-		"beholder_entity", entity) // required
+		"beholder_entity", entity); err != nil { // required
+		return err
+	}
+
+	err := durableemitter.GlobalEmit(ctx, body, "source", "platform", "type", entity)
+	if err != nil && !errors.Is(err, durableemitter.ErrNotInitialized) {
+		return err
+	}
+	return nil
 }
 
 // buildWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).

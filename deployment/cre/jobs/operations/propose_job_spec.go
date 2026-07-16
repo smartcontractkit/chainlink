@@ -22,8 +22,9 @@ type ProposeJobSpecDeps struct {
 }
 
 type ProposeJobSpecInput struct {
-	Domain  string
-	DONName string
+	Domain      string
+	Environment string
+	DONName     string
 
 	Spec string
 
@@ -47,7 +48,7 @@ var ProposeJobSpec = operations.NewOperation[ProposeJobSpecInput, ProposeJobSpec
 			Spec:      input.Spec,
 			Domain:    input.Domain,
 			DONName:   input.DONName,
-			Env:       deps.Env.Name,
+			Env:       input.Environment,
 			JobLabels: input.JobLabels,
 		}
 

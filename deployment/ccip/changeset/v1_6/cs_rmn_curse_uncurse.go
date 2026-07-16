@@ -16,6 +16,9 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	aptosCCIP "github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	aptosOffRamp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/ccip_offramp"
@@ -24,19 +27,20 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/dependency"
-	aptosUtils "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/utils"
+
+	"github.com/smartcontractkit/chainlink-aptos/deployment/ccip/dependency"
+	aptos_ops "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/operation/rmn"
+	aptosUtils "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/utils"
+	aptosstateview "github.com/smartcontractkit/chainlink-aptos/deployment/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	aptos_ops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	aptosstateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -56,7 +60,7 @@ type RMNCurseAction struct {
 type CurseAction func(e cldf.Environment) ([]RMNCurseAction, error)
 
 type RMNCurseConfig struct {
-	MCMS         *proposalutils.TimelockConfig
+	MCMS         *cldfproposalutils.TimelockConfig
 	CurseActions []CurseAction
 	// Use this if you need to include lanes that are not in sourcechain in the offramp. i.e. not yet migrated lane from 1.5
 	IncludeNotConnectedLanes bool
@@ -130,7 +134,7 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 					return fmt.Errorf("chain %s not found in onchain state", targetChain.String())
 				}
 
-				if err := commoncs.ValidateOwnership(e.GetContext(), c.MCMS != nil, targetChain.DeployerKey.From, targetChainState.Timelock.Address(), targetChainState.RMNRemote); err != nil {
+				if err := mcmschangesets.ValidateOwnership(e.GetContext(), c.MCMS != nil, targetChain.DeployerKey.From, targetChainState.Timelock.Address(), targetChainState.RMNRemote); err != nil {
 					return fmt.Errorf("chain %s: %w", targetChain.String(), err)
 				}
 			case chain_selectors.FamilySolana:
@@ -480,9 +484,9 @@ func RMNCurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.ChangesetOu
 	}
 	proposals := partialOut.MCMSTimelockProposals
 	proposals = append(proposals, aptosProposals...)
-	aggProposal, err := proposalutils.AggregateProposalsV2(
+	aggProposal, err := proposeutils.AggregateProposalsV2(
 		e,
-		proposalutils.MCMSStates{
+		proposeutils.MCMSStates{
 			MCMSEVMState:    state.EVMMCMSStateByChain(),
 			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 			MCMSAptosState:  state.AptosMCMSStateByChain(),
@@ -614,9 +618,9 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 	}
 	proposals := partialOut.MCMSTimelockProposals
 	proposals = append(proposals, aptosProposals...)
-	aggProposal, err := proposalutils.AggregateProposalsV2(
+	aggProposal, err := proposeutils.AggregateProposalsV2(
 		e,
-		proposalutils.MCMSStates{
+		proposeutils.MCMSStates{
 			MCMSEVMState:    state.EVMMCMSStateByChain(),
 			MCMSSolanaState: state.SolanaMCMSStateByChain(e),
 			MCMSAptosState:  state.AptosMCMSStateByChain(),

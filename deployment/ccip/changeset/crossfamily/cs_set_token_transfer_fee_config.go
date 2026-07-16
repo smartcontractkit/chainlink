@@ -10,15 +10,14 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	ccip_cs_common "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccip_cs_sol_v0_1_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana_v0_1_1"
 	ccip_cs_evm_v1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	ccip_cs_evm_v1_6_0 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
@@ -41,8 +40,8 @@ var _ cldf.ChangeSetV2[SetTokenTransferFeeConfigInput] = SetTokenTransferFeeConf
 var SetTokenTransferFeeConfig = cldf.CreateChangeSet(setTokenTransferFeeLogic, setTokenTransferFeePrecondition)
 
 var SetTokenTransferFeeLatestSupportedVersions = OptionalVersions{
-	Solana: pointer.To(ccip_cs_sol_v0_1_1.VersionSolanaV0_1_1),
-	Evm:    pointer.To(deployment.Version1_6_0.String()),
+	Solana: new(ccip_cs_sol_v0_1_1.VersionSolanaV0_1_1),
+	Evm:    new(deployment.Version1_6_0.String()),
 }
 
 type OptionalVersions struct {
@@ -66,7 +65,7 @@ type TokenTransferFeeConfigArgs struct {
 type SetTokenTransferFeeConfigInput struct {
 	InputsByChain map[uint64]map[uint64]TokenTransferFeeConfigArgs `json:"inputsByChain"`
 	VersionHints  *OptionalVersions                                `json:"versionHints"`
-	MCMS          *proposalutils.TimelockConfig                    `json:"mcms"`
+	MCMS          *cldfproposalutils.TimelockConfig                `json:"mcms"`
 }
 
 func (cfg SetTokenTransferFeeConfigInput) buildOrchestrateChangesetsConfig(env cldf.Environment) (ccip_cs_common.OrchestrateChangesetsConfig, error) {

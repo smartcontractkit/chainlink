@@ -10,9 +10,9 @@ import (
 	gotoml "github.com/pelletier/go-toml/v2"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	configtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -37,7 +37,7 @@ type Config struct {
 
 	Cosmos RawConfigs `toml:",omitempty"`
 
-	Solana solcfg.TOMLConfigs `toml:",omitempty"`
+	Solana RawConfigs `toml:",omitempty"`
 
 	Starknet RawConfigs `toml:",omitempty"`
 
@@ -48,6 +48,8 @@ type Config struct {
 	TON RawConfigs `toml:",omitempty"`
 
 	Sui RawConfigs `toml:",omitempty"`
+
+	Stellar RawConfigs `toml:",omitempty"`
 }
 
 // RawConfigs is a list of RawConfig.
@@ -334,12 +336,7 @@ func (c *Config) setDefaults() {
 
 	c.Cosmos.SetDefaults()
 
-	for i := range c.Solana {
-		if c.Solana[i] == nil {
-			c.Solana[i] = new(solcfg.TOMLConfig)
-		}
-		c.Solana[i].SetDefaults()
-	}
+	c.Solana.SetDefaults()
 
 	c.Starknet.SetDefaults()
 
@@ -348,6 +345,8 @@ func (c *Config) setDefaults() {
 	c.TON.SetDefaults()
 
 	c.Sui.SetDefaults()
+
+	c.Stellar.SetDefaults()
 }
 
 func (c *Config) SetFrom(f *Config) (err error) {
@@ -361,12 +360,13 @@ func (c *Config) SetFrom(f *Config) (err error) {
 
 	appendErr(c.EVM.SetFrom(&f.EVM), "EVM")
 	appendErr(c.Cosmos.SetFrom(f.Cosmos), "Cosmos")
-	appendErr(c.Solana.SetFrom(&f.Solana), "Solana")
+	appendErr(c.Solana.SetFrom(f.Solana), "Solana")
 	appendErr(c.Starknet.SetFrom(f.Starknet), "Starknet")
 	appendErr(c.Aptos.SetFrom(f.Aptos), "Aptos")
 	appendErr(c.Tron.SetFrom(f.Tron), "Tron")
 	appendErr(c.TON.SetFrom(f.TON), "TON")
 	appendErr(c.Sui.SetFrom(f.Sui), "Sui")
+	appendErr(c.Stellar.SetFrom(f.Stellar), "Stellar")
 
 	_, err = commonconfig.MultiErrorList(err)
 	return err
@@ -417,6 +417,14 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Solana"))
 	}
 
+	if err2 := s.Aptos.SetFrom(&f.Aptos); err2 != nil {
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Aptos"))
+	}
+
+	if err2 := s.Stellar.SetFrom(&f.Stellar); err2 != nil {
+		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "Stellar"))
+	}
+
 	if err2 := s.DKGRecipientKey.SetFrom(&f.DKGRecipientKey); err2 != nil {
 		err = errors.Join(err, commonconfig.NamedMultiErrorList(err2, "DKGRecipientKey"))
 	}
@@ -436,7 +444,7 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 
 func (s *Secrets) setDefaults() {
 	if nil == s.Database.AllowSimplePasswords {
-		s.Database.AllowSimplePasswords = new(bool)
+		s.Database.AllowSimplePasswords = new(false)
 	}
 }
 
@@ -511,8 +519,7 @@ func (s *Secrets) setEnv() error {
 		}
 	}
 	if env.DatabaseAllowSimplePasswords.IsTrue() {
-		s.Database.AllowSimplePasswords = new(bool)
-		*s.Database.AllowSimplePasswords = true
+		s.Database.AllowSimplePasswords = new(true)
 	}
 	if keystorePassword := env.PasswordKeystore.Get(); keystorePassword != "" {
 		s.Password.Keystore = &keystorePassword

@@ -15,12 +15,17 @@ import (
 	"github.com/gagliardetto/solana-go"
 	addresslookuptable "github.com/gagliardetto/solana-go/programs/address-lookup-table"
 	"github.com/gagliardetto/solana-go/rpc"
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	"github.com/stretchr/testify/require"
 
-	tonOps "github.com/smartcontractkit/chainlink-ton/deployment/ccip"
-	tonrouter "github.com/smartcontractkit/chainlink-ton/pkg/ccip/bindings/router"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
@@ -30,7 +35,7 @@ import (
 	solTestTokenPoolV0_1_1 "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/v0_1_1/test_token_pool"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
-	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	ccipsolstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -44,9 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
 
@@ -61,12 +63,12 @@ func TransferOwnershipSolanaV0_1_1(
 	if needTimelockDeployed {
 		*e, _, err = commoncs.ApplyChangesets(t, *e, []commoncs.ConfiguredChangeSet{
 			commoncs.Configure(
-				cldf.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
-				map[uint64]commontypes.MCMSWithTimelockConfigV2{
+				cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
+				map[uint64]cldfproposalutils.MCMSWithTimelockConfig{
 					solSelector: {
-						Canceller:        proposalutils.SingleGroupMCMSV2(t),
-						Proposer:         proposalutils.SingleGroupMCMSV2(t),
-						Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+						Canceller:        cldftesthelpers.SingleGroupMCMS(t),
+						Proposer:         cldftesthelpers.SingleGroupMCMS(t),
+						Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
 						TimelockMinDelay: big.NewInt(0),
 					},
 				},
@@ -79,13 +81,13 @@ func TransferOwnershipSolanaV0_1_1(
 
 	addresses, err := e.ExistingAddresses.AddressesForChain(solSelector)
 	require.NoError(t, err)
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	require.NoError(t, err)
 
 	// Fund signer PDAs for timelock and mcm
 	// If we don't fund, execute() calls will fail with "no funds" errors.
-	timelockSignerPDA = state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	mcmSignerPDA = state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
+	timelockSignerPDA = pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	mcmSignerPDA = pdasol.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
 	err = solutils.FundAccounts(
 		e.GetContext(), chain.Client, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA}, 100,
 	)
@@ -97,7 +99,7 @@ func TransferOwnershipSolanaV0_1_1(
 		commoncs.Configure(
 			cldf.CreateLegacyChangeSet(ccipChangeSetSolanaV0_1_1.TransferCCIPToMCMSWithTimelockSolana),
 			ccipChangeSetSolanaV0_1_1.TransferCCIPToMCMSWithTimelockSolanaConfig{
-				MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
+				MCMSCfg: cldfproposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				ContractsByChain: map[uint64]ccipChangeSetSolanaV0_1_1.CCIPContractsToTransfer{
 					solSelector: contractsToTransfer,
 				},
@@ -390,17 +392,6 @@ func SendRequestV0_1_1(
 		return SendRequestSolV0_1_1(e, state, cfg)
 	case chainsel.FamilyAptos:
 		return SendRequestAptos(e, state, cfg)
-	case chainsel.FamilyTon:
-		tonMsg := cfg.Message.(tonrouter.CCIPSend)
-		seq, raw, err := tonOps.SendCCIPMessage(e, state.TonChains[cfg.SourceChain], cfg.SourceChain, tonMsg)
-		if err != nil {
-			return nil, err
-		}
-
-		return &ccipclient.AnyMsgSentEvent{
-			SequenceNumber: seq,
-			RawEvent:       raw,
-		}, nil
 	default:
 		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}
@@ -543,7 +534,7 @@ func deriveCCIPSendAccounts(
 	askWith := []*solana.AccountMeta{}
 	stage := "Start"
 	tokenIndex := byte(0)
-	routerConfigPDA, _, err := solstate.FindConfigPDA(router)
+	routerConfigPDA, _, err := ccipsolstate.FindConfigPDA(router)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to calculate the router config PDA: %w", err)
 	}

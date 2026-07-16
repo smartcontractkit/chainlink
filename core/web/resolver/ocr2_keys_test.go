@@ -9,7 +9,6 @@ import (
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -65,7 +64,7 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 			"results": expectedBundles,
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	testCases := []GQLTestCase{
@@ -142,7 +141,7 @@ func TestResolver_CreateOCR2KeyBundle(t *testing.T) {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	variables := map[string]any{
@@ -232,7 +231,7 @@ func TestResolver_DeleteOCR2KeyBundle(t *testing.T) {
 			},
 		},
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	expected := string(d)
 
 	gError := errors.New("error")

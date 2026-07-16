@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
@@ -570,7 +571,9 @@ func TestETHTxTask(t *testing.T) {
 			}
 
 			keyStore := keystoremocks.NewEth(t)
+			keyStore.On("EnabledAddressesForChain", mock.Anything, testutils.FixtureChainID).Return([]common.Address{}, nil)
 			txManager := txmmocks.NewMockEvmTxManager(t)
+			servicetest.SetupNoOpMock(txManager)
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.LimitDefault = ptr(defaultGasLimit)

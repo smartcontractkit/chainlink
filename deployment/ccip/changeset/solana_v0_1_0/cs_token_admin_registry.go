@@ -8,6 +8,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use these changesets to register a token admin registry, transfer the admin role, and accept the admin role
@@ -47,7 +47,7 @@ type RegisterTokenConfig struct {
 type RegisterTokenAdminRegistryConfig struct {
 	ChainSelector        uint64
 	RegisterTokenConfigs []RegisterTokenConfig
-	MCMS                 *proposalutils.TimelockConfig
+	MCMS                 *cldfproposalutils.TimelockConfig
 }
 
 func (cfg RegisterTokenAdminRegistryConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -244,7 +244,7 @@ type TrasnferTokenAdminConfig struct {
 type TransferAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector             uint64
 	TransferTokenAdminConfigs []TrasnferTokenAdminConfig
-	MCMS                      *proposalutils.TimelockConfig
+	MCMS                      *cldfproposalutils.TimelockConfig
 }
 
 func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -393,7 +393,7 @@ type AcceptAdminRoleTokenConfig struct {
 type AcceptAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector               uint64
 	AcceptAdminRoleTokenConfigs []AcceptAdminRoleTokenConfig
-	MCMS                        *proposalutils.TimelockConfig
+	MCMS                        *cldfproposalutils.TimelockConfig
 }
 
 func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {
@@ -534,7 +534,7 @@ type SetPoolConfig struct {
 	ChainSelector       uint64
 	SetPoolTokenConfigs []SetPoolTokenConfig
 	WritableIndexes     []uint8
-	MCMS                *proposalutils.TimelockConfig
+	MCMS                *cldfproposalutils.TimelockConfig
 }
 
 func (cfg SetPoolConfig) Validate(e cldf.Environment, chainState solanastateview.CCIPChainState) error {

@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -369,7 +368,7 @@ func Test_DeleteBridgeMutation(t *testing.T) {
 
 	link := assets.Link{}
 	err = json.Unmarshal([]byte(`"1"`), &link)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	mutation := `
 		mutation DeleteBridge($id: ID!) {

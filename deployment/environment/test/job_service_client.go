@@ -243,7 +243,7 @@ func getProposalVersion(proposals []*jobv1.Proposal) int32 {
 	for _, p := range proposals {
 		totalRevisions += p.Revision
 	}
-	return int32(totalRevisions + 1) //nolint:gosec // G115
+	return int32(totalRevisions + 1)
 }
 
 func (j *JobServiceClient) RevokeJob(ctx context.Context, in *jobv1.RevokeJobRequest, opts ...grpc.CallOption) (*jobv1.RevokeJobResponse, error) {

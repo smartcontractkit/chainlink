@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 )
 
 type disallowedExecutionHelper struct {
@@ -48,4 +49,8 @@ func (d disallowedExecutionHelper) EmitUserLog(msg string) error {
 		d.lggr.Warnw("Exceeded max allowed user log messages, dropping")
 	}
 	return nil
+}
+
+func (d disallowedExecutionHelper) EmitUserMetric(_ context.Context, _ *eventsv2.WorkflowUserMetric) error {
+	return errors.New("metric emission is not allowed during this execution")
 }

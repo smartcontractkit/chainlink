@@ -2,6 +2,7 @@ package offchain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -10,8 +11,6 @@ import (
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	nodeapiv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 // labels used in JD to identify nodes and jobs
@@ -32,6 +31,9 @@ const (
 )
 
 func FetchNodesFromJD(ctx context.Context, jd cldf_offchain.Client, filter *nodeapiv1.ListNodesRequest_Filter) (nodes []*nodeapiv1.Node, err error) {
+	if jd == nil {
+		return nil, errors.New("offchain client (JD) is not initialized; ensure JD_GRPC or OFFCHAIN_JD_ENDPOINTS_GRPC is set")
+	}
 	resp, err := jd.ListNodes(ctx, &nodeapiv1.ListNodesRequest{Filter: filter})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list nodes: %w", err)
@@ -75,18 +77,18 @@ func RegisterNode(
 	for _, key := range extraLabelKeys {
 		labels = append(labels, &ptypes.Label{
 			Key:   key,
-			Value: pointer.To(extraLabels[key]),
+			Value: new(extraLabels[key]),
 		})
 	}
 	if isBootstrap {
 		labels = append(labels, &ptypes.Label{
 			Key:   labelNodeTypeKey,
-			Value: pointer.To(labelNodeTypeValueBootstrap),
+			Value: new(labelNodeTypeValueBootstrap),
 		})
 	} else {
 		labels = append(labels, &ptypes.Label{
 			Key:   labelNodeTypeKey,
-			Value: pointer.To(labelNodeTypeValuePlugin),
+			Value: new(labelNodeTypeValuePlugin),
 		})
 	}
 	resp, err := jd.RegisterNode(ctx, &nodeapiv1.RegisterNodeRequest{

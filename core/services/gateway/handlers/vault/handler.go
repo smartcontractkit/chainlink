@@ -1,11 +1,13 @@
 package vault
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"maps"
 	"net/http"
 	"strconv"
@@ -34,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	gwhandlers "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	handlerscommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
 const (
@@ -124,27 +127,29 @@ type capabilitiesRegistry interface {
 }
 
 type aggregator interface {
-	Aggregate(ctx context.Context, l logger.Logger, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
+	Aggregate(ctx context.Context, l logger.Logger, requestID string, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error)
 }
 
 type handler struct {
 	services.StateMachine
-	methodConfig      Config
-	donConfig         *config.DONConfig
-	don               gwhandlers.DON
-	lggr              logger.Logger
-	codec             api.JsonRPCCodec
-	mu                sync.RWMutex
-	stopCh            services.StopChan
-	requestAuthorizer vaultcap.RequestAuthorizer
-	*vaultcap.RequestValidator
+	methodConfig     Config
+	donConfig        *config.DONConfig
+	don              gwhandlers.DON
+	lggr             logger.Logger
+	codec            api.JsonRPCCodec
+	mu               sync.RWMutex
+	stopCh           services.StopChan
+	authorizer       vaultcap.Authorizer
+	jwtAuth          services.Service
+	requestProcessor *vaultcap.GatewayVaultRequestProcessor
 
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
 
-	writeMethodsEnabled limits.GateLimiter
-	activeRequests      map[string]*activeRequest
-	metrics             *metrics
+	writeMethodsEnabled            limits.GateLimiter
+	signedResponseRequestIDEnabled limits.GateLimiter
+	activeRequests                 map[string]*activeRequest
+	metrics                        *metrics
 
 	aggregator aggregator
 
@@ -162,18 +167,48 @@ func (h *handler) Name() string {
 	return h.lggr.Name()
 }
 
+// SecretEntry is the user-facing shape returned by list operations.
 type SecretEntry struct {
 	ID        string `json:"id"`
 	Value     string `json:"value"`
 	CreatedAt int64  `json:"created_at"`
 }
 
+// Config configures the gateway-side Vault handler.
 type Config struct {
 	NodeRateLimiter   ratelimit.RateLimiterConfig `json:"nodeRateLimiter"`
 	RequestTimeoutSec int                         `json:"requestTimeoutSec"`
+	Auth0             *vaultcap.Auth0Config       `json:"auth0,omitempty"`
 }
 
-func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, requestAuthorizer vaultcap.RequestAuthorizer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+// NewHandler creates the gateway-side Vault handler with internal auth wiring.
+func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, workflowRegistrySyncer workflowsyncerv2.WorkflowRegistrySyncer, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
+	var cfg Config
+	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
+	}
+
+	allowListBasedAuth := vaultcap.NewAllowListBasedAuth(lggr, workflowRegistrySyncer)
+	var jwtBasedAuth vaultcap.Authorizer
+	var jwtAuth services.Service
+	if cfg.Auth0 != nil {
+		validator, err := vaultcap.NewJWTBasedAuth(vaultcap.JWTBasedAuthConfig{
+			IssuerURL: cfg.Auth0.IssuerURL,
+			Audience:  cfg.Auth0.Audience,
+			TenantID:  cfg.Auth0.TenantID,
+		}, limitsFactory, lggr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create JWTBasedAuth: %w", err)
+		}
+		jwtBasedAuth = validator
+		jwtAuth = validator
+	}
+	authorizer := vaultcap.NewAuthorizer(allowListBasedAuth, jwtBasedAuth, lggr)
+
+	return newHandlerWithAuthorizer(methodConfig, donConfig, don, capabilitiesRegistry, authorizer, jwtAuth, lggr, clock, limitsFactory)
+}
+
+func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DONConfig, don gwhandlers.DON, capabilitiesRegistry capabilitiesRegistry, authorizer vaultcap.Authorizer, jwtAuth services.Service, lggr logger.Logger, clock clockwork.Clock, limitsFactory limits.Factory) (*handler, error) {
 	var cfg Config
 	if err := json.Unmarshal(methodConfig, &cfg); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal method config: %w", err)
@@ -193,9 +228,9 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
 	}
 
-	limiter, err := limits.MakeBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	requestValidator, err := vaultcap.NewRequestValidatorFromLimitsFactory(limitsFactory)
 	if err != nil {
-		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
+		return nil, err
 	}
 
 	writeMethodsEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.GatewayVaultManagementEnabled)
@@ -203,28 +238,51 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		return nil, fmt.Errorf("could not create vault mgmt limiter: %w", err)
 	}
 
+	requestProcessor, err := vaultcap.NewGatewayVaultRequestProcessor(requestValidator, authorizer, false, lggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gateway vault request processor: %w", err)
+	}
+
+	signedResponseRequestIDEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultSignedResponseRequestIDEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("could not create VaultSignedResponseRequestIDEnabled limiter: %w", err)
+	}
+
 	return &handler{
-		methodConfig:        cfg,
-		donConfig:           donConfig,
-		don:                 don,
-		lggr:                logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
-		requestTimeout:      time.Duration(cfg.RequestTimeoutSec) * time.Second,
-		nodeRateLimiter:     nodeRateLimiter,
-		writeMethodsEnabled: writeMethodsEnabled,
-		activeRequests:      make(map[string]*activeRequest),
-		mu:                  sync.RWMutex{},
-		requestAuthorizer:   requestAuthorizer,
-		stopCh:              make(services.StopChan),
-		metrics:             metrics,
-		aggregator:          &baseAggregator{capabilitiesRegistry: capabilitiesRegistry},
-		clock:               clock,
-		RequestValidator:    vaultcap.NewRequestValidator(limiter),
+		methodConfig:                   cfg,
+		donConfig:                      donConfig,
+		don:                            don,
+		lggr:                           logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
+		requestTimeout:                 time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeRateLimiter:                nodeRateLimiter,
+		writeMethodsEnabled:            writeMethodsEnabled,
+		signedResponseRequestIDEnabled: signedResponseRequestIDEnabled,
+		activeRequests:                 make(map[string]*activeRequest),
+		mu:                             sync.RWMutex{},
+		authorizer:                     authorizer,
+		jwtAuth:                        jwtAuth,
+		stopCh:                         make(services.StopChan),
+		metrics:                        metrics,
+		aggregator: &baseAggregator{
+			capabilitiesRegistry:        capabilitiesRegistry,
+			metrics:                     metrics,
+			donID:                       donConfig.DonId,
+			vaultHandlerDonID:           donConfig.DonId,
+			signedResponseRequestIDGate: signedResponseRequestIDEnabled,
+		},
+		clock:            clock,
+		requestProcessor: requestProcessor,
 	}, nil
 }
 
 func (h *handler) Start(_ context.Context) error {
 	return h.StartOnce("VaultHandler", func() error {
 		h.lggr.Debug("starting vault handler")
+		if h.jwtAuth != nil {
+			if err := h.jwtAuth.Start(context.Background()); err != nil {
+				return fmt.Errorf("failed to start JWTBasedAuth: %w", err)
+			}
+		}
 		go func() {
 			ctx, cancel := h.stopCh.NewCtx()
 			defer cancel()
@@ -252,9 +310,15 @@ func (h *handler) Close() error {
 	return h.StopOnce("VaultHandler", func() error {
 		h.lggr.Debug("closing vault handler")
 		close(h.stopCh)
+		var jwtAuthErr error
+		if h.jwtAuth != nil {
+			jwtAuthErr = h.jwtAuth.Close()
+		}
 		return errors.Join(
+			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
-			h.MaxRequestBatchSizeLimiter.Close(),
+			h.requestProcessor.Close(),
+			h.signedResponseRequestIDEnabled.Close(),
 		)
 	})
 }
@@ -314,11 +378,13 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 	h.mu.RUnlock()
 
 	for _, er := range expiredRequests {
-		var nodeResponses string
-		for nodeKey, nodeResponse := range er.responses {
-			nodeResponses += fmt.Sprintf("%s ---::: %v               ", nodeKey, nodeResponse)
+		responses := er.copiedResponses()
+		var nodeResponses strings.Builder
+		for nodeKey, nodeResponse := range responses {
+			_, _ = fmt.Fprintf(&nodeResponses, "%s ---::: %v               ", nodeKey, nodeResponse)
 		}
-		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New("request expired without getting quorum of responses from nodes. Available responses: "+nodeResponses), []byte(nodeResponses)))
+		nodeResponsesStr := nodeResponses.String()
+		err := h.sendResponse(ctx, er, h.errorResponse(er.req, api.RequestTimeoutError, errors.New("request expired without getting quorum of responses from nodes. Available responses: "+nodeResponsesStr), []byte(nodeResponsesStr)))
 		if err != nil {
 			h.lggr.Errorw("error sending response to user", "requestID", er.req.ID, "error", err)
 		}
@@ -326,7 +392,7 @@ func (h *handler) removeExpiredRequests(ctx context.Context) {
 }
 
 func (h *handler) Methods() []string {
-	return vaulttypes.GetSupportedMethods(h.lggr)
+	return vaulttypes.Methods
 }
 
 func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ gwhandlers.Callback) error {
@@ -343,13 +409,12 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 	}
 
 	h.lggr.Debugw("handling vault request", "method", req.Method, "requestID", req.ID, "request", req)
-	switch req.Method {
-	case vaulttypes.MethodPublicKeyGet:
+	if req.Method == vaulttypes.MethodPublicKeyGet {
 		// Public key requests don't require authorization,
 		// Let's process this request right away.
 		// Note we cache this value quite aggressively so don't need to worry about DoS.
-		publicKeyResponseBytes, _, err := h.getCachedPublicKey()
-		if err != nil {
+		publicKeyResponseBytes, cachedPublicKey := h.getCachedPublicKey()
+		if cachedPublicKey == nil {
 			// Not found in cache. Fetch from nodes.
 			ar, err := h.newActiveRequest(req, callback)
 			if err != nil {
@@ -360,26 +425,27 @@ func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Requ
 		}
 		h.lggr.Debugw("returning cached public key response")
 		return h.handlePublicKeyGetSynchronously(ctx, req, publicKeyResponseBytes, callback)
-
-	case vaulttypes.MethodSecretsGet:
-		h.lggr.Errorw("Get requests not allowed", "requestID", req.ID)
-		return errors.New("get request not allowed")
 	}
 
-	isAuthorized, owner, err := h.requestAuthorizer.AuthorizeRequest(ctx, req)
-	if !isAuthorized {
-		h.lggr.Errorw("request not authorized", "requestID", req.ID, "owner", owner, "reason:", err)
+	if !vaulttypes.IsGatewaySecretsMethod(req.Method) {
+		return h.sendImmediateUserResponse(ctx, req, callback, api.UnsupportedMethodError, errors.New("this method is unsupported: "+req.Method))
+	}
+
+	_, cachedPublicKey := h.getCachedPublicKey()
+	authorized, err := h.requestProcessor.ProcessRequest(ctx, &req, cachedPublicKey)
+	if err != nil {
+		if vaultcap.IsInvalidVaultParamsError(err) {
+			return h.sendImmediateUserResponse(ctx, req, callback, api.InvalidParamsError, err)
+		}
+		h.lggr.Errorw("request not authorized", "method", req.Method, "requestID", req.ID, "hasAuth", req.Auth != "", "error", err)
 		return errors.New("request not authorized: " + err.Error())
 	}
-	// Generate a unique ID for the request.
-	// Prefix request id with owner, to ensure uniqueness across different owners
-	// We do this ourselves to ensure the ID is unique and can't be tampered with by the user.
-	req.ID = owner + vaulttypes.RequestIDSeparator + req.ID
+	authorizedOwner := authorized.AuthResult.AuthorizedOwner()
 
-	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "owner", owner)
-	ar, err := h.newActiveRequest(req, callback)
-	if err != nil {
-		return err
+	h.lggr.Debugw("handling authorized vault request", "method", req.Method, "requestID", req.ID, "authorizedOwner", authorizedOwner)
+	ar, activeRequestErr := h.newActiveRequest(req, callback)
+	if activeRequestErr != nil {
+		return activeRequestErr
 	}
 
 	switch req.Method {
@@ -443,13 +509,13 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	}
 
 	copiedResponses := ar.copiedResponses()
-	resp, err := h.aggregator.Aggregate(ctx, l, copiedResponses, resp)
+	resp, err := h.aggregator.Aggregate(ctx, l, ar.req.ID, copiedResponses, resp)
 	switch {
 	case errors.Is(err, errInsufficientResponsesForQuorum):
 		l.Debugw("aggregating responses, waiting for other nodes...", "error", err)
 		return nil
 	case err != nil:
-		l.Error("quorum unobtainable, returning response to user...", "error", err, "responses", maps.Values(ar.responses))
+		l.Error("quorum unobtainable, returning response to user...", "error", err, "responses", maps.Values(copiedResponses))
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, err, nil))
 	}
 
@@ -463,6 +529,12 @@ func (h *handler) HandleNodeMessage(ctx context.Context, resp *jsonrpc.Response[
 	return h.sendSuccessResponse(ctx, l, ar, resp)
 }
 
+func (h *handler) unmarshal(r io.Reader, to any) error {
+	d := json.NewDecoder(r)
+	d.DisallowUnknownFields()
+	return d.Decode(to)
+}
+
 func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessage], l logger.Logger) {
 	if resp.Result == nil {
 		l.Debugw("no result in public key response, not caching")
@@ -470,7 +542,7 @@ func (h *handler) tryCachePublicKeyResponse(resp *jsonrpc.Response[json.RawMessa
 	}
 
 	r := &vaultcommon.GetPublicKeyResponse{}
-	err := json.Unmarshal(*resp.Result, r)
+	err := h.unmarshal(bytes.NewReader(*resp.Result), r)
 	if err != nil {
 		l.Debugw("failed to unmarshal public key response, not caching", "error", err)
 		return
@@ -539,31 +611,6 @@ func (h *handler) handleSecretsCreate(ctx context.Context, ar *activeRequest) er
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if write methods are enabled: "+err.Error()), nil))
 	}
 
-	createSecretsRequest := &vaultcommon.CreateSecretsRequest{}
-	if err := json.Unmarshal(*ar.req.Params, &createSecretsRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
-	}
-	createSecretsRequest.RequestId = ar.req.ID
-	for _, secretItem := range createSecretsRequest.EncryptedSecrets {
-		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
-			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
-	_, cachedPublicKey, _ := h.getCachedPublicKey()
-	err = h.ValidateCreateSecretsRequest(cachedPublicKey, createSecretsRequest)
-	if err != nil {
-		l.Warnw("failed to validate create secrets request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate create secrets request: %w", err), nil))
-	}
-
-	reqBytes, err := json.Marshal(createSecretsRequest)
-	if err != nil {
-		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
-	}
-
-	ar.req.Params = (*json.RawMessage)(&reqBytes)
-	// At this point, we know that the request is valid, and we can send it to the nodes
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
@@ -579,31 +626,6 @@ func (h *handler) handleSecretsUpdate(ctx context.Context, ar *activeRequest) er
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if write methods are enabled: "+err.Error()), nil))
 	}
 
-	updateSecretsRequest := &vaultcommon.UpdateSecretsRequest{}
-	if err := json.Unmarshal(*ar.req.Params, updateSecretsRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
-	}
-
-	updateSecretsRequest.RequestId = ar.req.ID
-	for _, secretItem := range updateSecretsRequest.EncryptedSecrets {
-		if secretItem != nil && secretItem.Id != nil && secretItem.Id.Namespace == "" {
-			secretItem.Id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
-	_, cachedPublicKey, _ := h.getCachedPublicKey()
-	vaultCapErr := h.ValidateUpdateSecretsRequest(cachedPublicKey, updateSecretsRequest)
-	if vaultCapErr != nil {
-		l.Warnw("failed to validate update secrets request", "error", vaultCapErr)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate update secrets request: %w", vaultCapErr), nil))
-	}
-
-	reqBytes, err := json.Marshal(updateSecretsRequest)
-	if err != nil {
-		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
-	}
-
-	ar.req.Params = (*json.RawMessage)(&reqBytes)
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
@@ -619,99 +641,48 @@ func (h *handler) handleSecretsDelete(ctx context.Context, ar *activeRequest) er
 		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.FatalError, errors.New("error checking if write methods are enabled: "+err.Error()), nil))
 	}
 
-	deleteSecretsRequest := &vaultcommon.DeleteSecretsRequest{}
-	if err := json.Unmarshal(*ar.req.Params, deleteSecretsRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
-	}
-
-	deleteSecretsRequest.RequestId = ar.req.ID
-	for _, id := range deleteSecretsRequest.Ids {
-		if id != nil && id.Namespace == "" {
-			id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
-	err = h.ValidateDeleteSecretsRequest(deleteSecretsRequest)
-	if err != nil {
-		l.Warnw("failed to validate delete secrets request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate delete secrets request: %w", err), nil))
-	}
-
-	reqBytes, err := json.Marshal(deleteSecretsRequest)
-	if err != nil {
-		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
-	}
-
-	ar.req.Params = (*json.RawMessage)(&reqBytes)
-	return h.fanOutToVaultNodes(ctx, l, ar)
-}
-
-func (h *handler) handleSecretsGet(ctx context.Context, ar *activeRequest) error {
-	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
-
-	secretsGetRequest := &vaultcommon.GetSecretsRequest{}
-	if err := json.Unmarshal(*ar.req.Params, &secretsGetRequest); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
-	}
-	for _, getRequest := range secretsGetRequest.Requests {
-		if getRequest.Id != nil && getRequest.Id.Namespace == "" {
-			getRequest.Id.Namespace = vaulttypes.DefaultNamespace
-		}
-	}
-	err := h.ValidateGetSecretsRequest(secretsGetRequest)
-	if err != nil {
-		l.Warnw("failed to validate get secrets request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate get secrets request: %w", err), nil))
-	}
-
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
 func (h *handler) handleSecretsList(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
-
-	req := &vaultcommon.ListSecretIdentifiersRequest{}
-	if err := json.Unmarshal(*ar.req.Params, req); err != nil {
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.UserMessageParseError, err, nil))
-	}
-
-	req.RequestId = ar.req.ID
-	if req.Namespace == "" {
-		req.Namespace = vaulttypes.DefaultNamespace
-	}
-	err := h.ValidateListSecretIdentifiersRequest(req)
-	if err != nil {
-		l.Warnw("failed to validate list secret identifiers request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.InvalidParamsError, fmt.Errorf("failed to validate list secret identifiers request: %w", err), nil))
-	}
-
-	reqBytes, err := json.Marshal(req)
-	if err != nil {
-		l.Errorw("failed to marshal request", "error", err)
-		return h.sendResponse(ctx, ar, h.errorResponse(ar.req, api.NodeReponseEncodingError, fmt.Errorf("failed to marshal request: %w", err), nil))
-	}
-
-	ar.req.Params = (*json.RawMessage)(&reqBytes)
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
-func (h *handler) getCachedPublicKey() ([]byte, *tdh2easy.PublicKey, error) {
+func (h *handler) sendImmediateUserResponse(
+	ctx context.Context,
+	req jsonrpc.Request[json.RawMessage],
+	callback gwhandlers.Callback,
+	errorCode api.ErrorCode,
+	err error,
+) error {
+	switch errorCode {
+	case api.InvalidParamsError, api.UnsupportedMethodError, api.UserMessageParseError:
+		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("don_id", h.donConfig.DonId),
+		))
+	default:
+	}
+	return callback.SendResponse(h.errorResponse(req, errorCode, err, nil))
+}
+
+func (h *handler) getCachedPublicKey() ([]byte, *tdh2easy.PublicKey) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	if h.cachedPublicKeyGetResponse == nil {
-		return nil, nil, errors.New("no cached public key response")
+		return nil, nil
 	}
 	copied := make([]byte, len(h.cachedPublicKeyGetResponse))
 	copy(copied, h.cachedPublicKeyGetResponse)
 	cachedPublicKeyCopy := *h.cachedPublicKeyObject
-	return copied, &cachedPublicKeyCopy, nil
+	return copied, &cachedPublicKeyCopy
 }
 
 func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) error {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 
-	publicKeyResponseBytes, _, err := h.getCachedPublicKey()
-	if err == nil {
+	publicKeyResponseBytes, cachedPublicKey := h.getCachedPublicKey()
+	if cachedPublicKey != nil {
 		l.Debugw("returning cached public key response")
 		return h.sendSuccessResponse(ctx, l, ar, &jsonrpc.Response[json.RawMessage]{
 			Version: jsonrpc.JsonRpcVersion,
@@ -721,7 +692,7 @@ func (h *handler) handlePublicKeyGet(ctx context.Context, ar *activeRequest) err
 		})
 	}
 
-	l.Debugw("cache stale: forwarding request to nodes", "now", h.clock.Now(), "err", err)
+	l.Debugw("cache stale: forwarding request to nodes", "now", h.clock.Now())
 	return h.fanOutToVaultNodes(ctx, l, ar)
 }
 
@@ -782,7 +753,11 @@ func (h *handler) errorResponse(
 		// Intentionally hide the error from the user
 		err = errors.New(errorCode.String())
 	case api.InvalidParamsError:
-		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", string(*req.Params))
+		paramsStr := ""
+		if req.Params != nil {
+			paramsStr = string(*req.Params)
+		}
+		h.lggr.Errorw("invalid params", "requestID", req.ID, "params", paramsStr)
 		err = errors.New("invalid params error: " + err.Error())
 	case api.UnsupportedMethodError:
 		h.lggr.Errorw("unsupported method", "requestID", req.ID, "method", req.Method, "error", err.Error())
@@ -792,7 +767,9 @@ func (h *handler) errorResponse(
 		err = errors.New("user message parse error: " + err.Error())
 	case api.NoError:
 	case api.UnsupportedDONIdError:
+	case api.ConflictError:
 	case api.HandlerError:
+	case api.LimitExceededError:
 	case api.RequestTimeoutError:
 	case api.StaleNodeResponseError:
 		// Unused in this handler
@@ -823,6 +800,8 @@ func (h *handler) sendResponse(ctx context.Context, userRequest *activeRequest, 
 	case api.NodeReponseEncodingError:
 	case api.RequestTimeoutError:
 	case api.HandlerError:
+	case api.ConflictError:
+	case api.LimitExceededError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
 			attribute.String("don_id", h.donConfig.DonId),
 			attribute.String("error", resp.ErrorCode.String()),

@@ -7,10 +7,10 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/proxy_admin"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -24,7 +24,7 @@ type ProxyAdmin struct {
 
 type ProxyAdminChangesetConfig struct {
 	Tokens map[uint64]map[string]ProxyAdmin
-	MCMS   *proposalutils.TimelockConfig
+	MCMS   *cldfproposalutils.TimelockConfig
 }
 
 func (c ProxyAdminChangesetConfig) Validate(e cldf.Environment) error {

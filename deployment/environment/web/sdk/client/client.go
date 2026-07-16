@@ -37,6 +37,8 @@ type Client interface {
 	CancelJobProposalSpec(ctx context.Context, id string) (*generated.CancelJobProposalSpecCancelJobProposalSpecCancelJobProposalSpecSuccessSpecJobProposalSpec, error)
 	RejectJobProposalSpec(ctx context.Context, id string) (*generated.RejectJobProposalSpecResponse, error)
 	UpdateJobProposalSpecDefinition(ctx context.Context, id string, cmd generated.UpdateJobProposalSpecDefinitionInput) (*generated.UpdateJobProposalSpecDefinitionResponse, error)
+	ListPendingJobProposals(ctx context.Context) ([]PendingJobProposal, error)
+	ApproveJobProposalByID(ctx context.Context, proposalID string, force bool) (*JobProposalApprovalSuccessSpec, error)
 }
 
 type client struct {
@@ -403,6 +405,46 @@ func (c *client) login() error {
 	}
 
 	return fmt.Errorf("no set-cookie found in header. Check credentials and scheme. Response code was: %d", res.StatusCode)
+}
+
+// ListPendingJobProposals returns all job proposals whose latest spec has a
+// pending status, across all job distributors registered on the node.
+func (c *client) ListPendingJobProposals(ctx context.Context) ([]PendingJobProposal, error) {
+	resp, err := generated.ListFeedsManagers(ctx, c.gqlClient)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list job distributors: %w", err)
+	}
+	if resp == nil {
+		return nil, errors.New("unexpected nil response from list job distributors")
+	}
+
+	var pending []PendingJobProposal
+	for _, fm := range resp.FeedsManagers.Results {
+		for _, jp := range fm.JobProposals {
+			if jp.LatestSpec.Status == generated.SpecStatusPending {
+				pending = append(pending, PendingJobProposal{
+					ProposalID:       jp.Id,
+					SpecID:           jp.LatestSpec.Id,
+					ProposalStatus:   string(jp.Status),
+					SpecStatus:       string(jp.LatestSpec.Status),
+					Definition:       jp.LatestSpec.Definition,
+					Version:          jp.LatestSpec.Version,
+					JobDistributorID: fm.Id,
+				})
+			}
+		}
+	}
+	return pending, nil
+}
+
+// ApproveJobProposalByID looks up a job proposal by its proposal ID, resolves
+// the latest spec, and approves it.
+func (c *client) ApproveJobProposalByID(ctx context.Context, proposalID string, force bool) (*JobProposalApprovalSuccessSpec, error) {
+	proposal, err := c.GetJobProposal(ctx, proposalID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get job proposal %s: %w", proposalID, err)
+	}
+	return c.ApproveJobProposalSpec(ctx, proposal.LatestSpec.Id, force)
 }
 
 // CreateOCR2KeyBundle creates a new OCR2 key bundle for the specified chain type

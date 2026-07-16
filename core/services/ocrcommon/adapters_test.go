@@ -1,6 +1,7 @@
 package ocrcommon_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -168,6 +170,69 @@ func TestNewOCR3OnchainKeyringMultiChainAdapter(t *testing.T) {
 	// no bundles
 	_, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(map[string]ocr2key.KeyBundle{}, logger.TestLogger(t))
 	require.Error(t, err, "no key bundles provided")
+}
+
+func TestNewOCR3OnchainKeyringMultiChainAdapter_Stellar(t *testing.T) {
+	t.Parallel()
+	evmBundle, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+
+	stellarBundle, err := ocr2key.New(corekeys.Stellar)
+	require.NoError(t, err)
+
+	bundles := map[string]ocr2key.KeyBundle{
+		"evm":     evmBundle,
+		"stellar": stellarBundle,
+	}
+	adapter, err := ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(bundles, logger.TestLogger(t))
+	require.NoError(t, err)
+
+	// A report tagged with keyBundleName "stellar" must be signed by the stellar (ed25519)
+	// bundle and verify against the adapter's multichain public key.
+	info, err := structpb.NewStruct(map[string]any{
+		"keyBundleName": "stellar",
+	})
+	require.NoError(t, err)
+
+	infob, err := proto.Marshal(info)
+	require.NoError(t, err)
+	r := ocr3types.ReportWithInfo[[]byte]{
+		Report: []byte("report"),
+		Info:   infob,
+	}
+
+	sig, err := adapter.Sign(configDigest, seqNr, r)
+	require.NoError(t, err)
+	assert.True(t, adapter.Verify(adapter.PublicKey(), configDigest, seqNr, r, sig))
+
+	// The stellar pubkey must be embedded in the adapter's multichain public key, proving the
+	// stellar bundle is wired into selection.
+	keys, err := ocrcommon.UnmarshalMultichainPublicKey(adapter.PublicKey())
+	require.NoError(t, err)
+	assert.Equal(t, stellarBundle.PublicKey(), keys[string(corekeys.Stellar)])
+}
+
+func TestOCR3OnchainKeyringMultiChainAdapter_Has(t *testing.T) {
+	adapter := newMultichainAdapter(t)
+
+	require.True(t, adapter.Has(adapter.PublicKey()))
+	assert.NotEmpty(t, adapter.DebugIdentifier())
+
+	keys, err := ocrcommon.UnmarshalMultichainPublicKey(adapter.PublicKey())
+	require.NoError(t, err)
+	evmOnly, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
+		"evm": keys["evm"],
+	})
+	require.NoError(t, err)
+	require.True(t, adapter.Has(evmOnly))
+
+	wrongEVM, err := ocrcommon.MarshalMultichainPublicKey(map[string]ocrtypes.OnchainPublicKey{
+		"evm": bytes.Repeat([]byte{0xab}, 32),
+	})
+	require.NoError(t, err)
+	require.False(t, adapter.Has(wrongEVM))
+
+	require.False(t, adapter.Has(nil))
 }
 
 func newMultichainAdapter(t *testing.T) *ocrcommon.OCR3OnchainKeyringMultiChainAdapter {

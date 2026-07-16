@@ -19,7 +19,6 @@ type NodesController interface {
 }
 
 type NetworkScopedNodeStatuser struct {
-	network  string
 	relayers chainlink.RelayerChainInteroperators
 }
 

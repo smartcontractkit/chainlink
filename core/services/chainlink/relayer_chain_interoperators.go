@@ -158,9 +158,9 @@ func InitCosmos(factory RelayerFactory, ks keystore.Cosmos, csaKS keystore.CSA, 
 }
 
 // InitSolana is a option for instantiating Solana relayers
-func InitSolana(factory RelayerFactory, ks keystore.Solana, csaKS keystore.CSA, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
+func InitSolana(factory RelayerFactory, ks keystore.Solana, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
-		solRelayers, err := factory.NewSolana(&keystore.SolanaLooppSigner{Solana: ks}, &keystore.CSASigner{CSA: csaKS}, config)
+		solRelayers, err := factory.NewSolana(&keystore.SolanaLooppSigner{Solana: ks}, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
 		if err != nil {
 			return fmt.Errorf("failed to setup Solana relayer: %w", err)
 		}
@@ -253,6 +253,24 @@ func InitSui(factory RelayerFactory, ks keystore.Sui, csaKS keystore.CSA, chainC
 		relayers, err := factory.NewSui(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
 		if err != nil {
 			return fmt.Errorf("failed to setup sui relayer: %w", err)
+		}
+
+		for id, relayer := range relayers {
+			op.srvs = append(op.srvs, relayer)
+			op.loopRelayers[id] = relayer
+		}
+
+		return nil
+	}
+}
+
+// InitStellar is an option for instantiating Stellar relayers.
+func InitStellar(factory RelayerFactory, ks keystore.Stellar, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) (err error) {
+		loopKs := &keystore.StellarLooppSigner{Stellar: ks}
+		relayers, err := factory.NewStellar(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
+		if err != nil {
+			return fmt.Errorf("failed to setup Stellar relayer: %w", err)
 		}
 
 		for id, relayer := range relayers {

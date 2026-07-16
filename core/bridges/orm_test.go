@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -38,7 +37,7 @@ func TestORM_FindBridges(t *testing.T) {
 		Name: "bridge1",
 		URL:  cltest.WebURL(t, "https://bridge1.com"),
 	}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	assert.NoError(t, orm.CreateBridgeType(ctx, &bt))
 	bt2 := bridges.BridgeType{
 		Name: "bridge2",
@@ -69,7 +68,7 @@ func TestORM_FindBridges(t *testing.T) {
 
 func TestORM_FindBridge(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	_, orm := setupORM(t)
 
@@ -104,11 +103,13 @@ func TestORM_FindBridge(t *testing.T) {
 	}
 }
 func TestORM_UpdateBridgeType(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	_, orm := setupORM(t)
 
+	bridgeName := bridges.BridgeName("bridge-" + uuid.New().String()[:8])
 	firstBridge := &bridges.BridgeType{
-		Name: "UniqueName",
+		Name: bridgeName,
 		URL:  cltest.WebURL(t, "http:/oneurl.com"),
 	}
 
@@ -120,7 +121,7 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 
 	require.NoError(t, orm.UpdateBridgeType(ctx, firstBridge, updateBridge))
 
-	foundbridge, err := orm.FindBridge(ctx, "UniqueName")
+	foundbridge, err := orm.FindBridge(ctx, bridgeName)
 	require.NoError(t, err)
 	require.Equal(t, updateBridge.URL, foundbridge.URL)
 
@@ -138,7 +139,8 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 }
 
 func TestORM_TestCachedResponse(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 	orm := bridges.NewORM(db)
@@ -160,7 +162,8 @@ func TestORM_TestCachedResponse(t *testing.T) {
 }
 
 func TestORM_CreateExternalInitiator(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	_, orm := setupORM(t)
 
 	token := auth.NewToken()
@@ -178,7 +181,8 @@ func TestORM_CreateExternalInitiator(t *testing.T) {
 }
 
 func TestORM_DeleteExternalInitiator(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	_, orm := setupORM(t)
 
 	token := auth.NewToken()

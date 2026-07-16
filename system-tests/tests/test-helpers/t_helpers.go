@@ -17,6 +17,8 @@ package helpers
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -26,17 +28,21 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/solkey"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
@@ -44,19 +50,21 @@ import (
 	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
 	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
 	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
+	aptoswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite/config"
+	aptoswriteroundtrip_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/config"
 	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
+	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
+	solread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
-	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v1/proof-of-reserve/cron-based/types"
-	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/cron/types"
-	porV2types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/v2/proof-of-reserve/cron-based/types"
+	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
+	portypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -68,9 +76,16 @@ import (
 	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
 	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
+	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
 )
 
 const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
+const maxWorkflowNameLen = 64
+
+// defaultDeployMaxParallel is used when CRE_TEST_DEPLOY_MAX_PARALLEL is unset or invalid.
+const defaultDeployMaxParallel = 20
+
+var deleteWorkflowsMu sync.Mutex
 
 /////////////////////////
 // ENVIRONMENT HELPERS //
@@ -120,14 +135,14 @@ func GetEVMEnabledChains(t *testing.T, testEnv *ttypes.TestEnvironment) map[stri
 }
 
 /*
-Starts Beholder
-Recommendation: Use it in tests that need to listen for Beholder messages.
+Starts ChipIngressStack (Kafka listener for workflow messages from the local Chip Ingress stack).
+Recommendation: Use it in tests that need to listen for Chip Ingress stack messages.
 */
-func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
+func StartChipIngressStack(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.TestEnvironment) (context.Context, <-chan proto.Message, <-chan error) {
 	t.Helper()
 
-	beholder, err := NewBeholder(framework.L, testEnv.TestConfig)
-	require.NoError(t, err, "failed to create beholder instance")
+	stack, err := NewChipIngressStack(framework.L, testEnv.TestConfig)
+	require.NoError(t, err, "failed to create chip ingress stack instance")
 
 	// We are interested in UserLogs (successful execution)
 	// or BaseMessage with specific error message (engine initialization failure)
@@ -141,32 +156,32 @@ func StartBeholder(t *testing.T, testLogger zerolog.Logger, testEnv *ttypes.Test
 	}
 
 	timeout := 5 * time.Minute
-	testLogger.Info().Dur("timeout", timeout).Msg("Starting Beholder listener...")
+	testLogger.Info().Dur("timeout", timeout).Msg("Starting Chip Ingress stack listener...")
 	listenerCtx, cancelListener := context.WithTimeout(t.Context(), timeout)
 	t.Cleanup(func() {
 		cancelListener()
-		testLogger.Info().Msg("Beholder listener stopped.")
+		testLogger.Info().Msg("Chip Ingress stack listener stopped.")
 	})
 
-	beholderMsgChan, beholderErrChan := beholder.SubscribeToBeholderMessages(listenerCtx, messageTypes)
+	msgChan, errChan := stack.SubscribeToChipIngressStackMessages(listenerCtx, messageTypes)
 
 	// Fail fast if there is an error from the heartbeat validation subscription
 	select {
-	case err := <-beholderErrChan:
-		require.NoError(t, err, "Beholder subscription failed during initialization")
+	case err := <-errChan:
+		require.NoError(t, err, "Chip Ingress stack subscription failed during initialization")
 	default:
 		// No immediate error, proceed
 	}
 
-	testLogger.Info().Msg("Beholder listener ready")
-	return listenerCtx, beholderMsgChan, beholderErrChan
+	testLogger.Info().Msg("Chip Ingress stack listener ready")
+	return listenerCtx, msgChan, errChan
 }
 
 /*
-Asserts that a specific log message is received from a Beholder within a timeout period.
+Asserts that a specific log message is received from the Chip Ingress stack within a timeout period.
 Returns an error if found in error channel or timeouts if a log message is not received.
 */
-func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error, timeout time.Duration) error {
+func AssertChipIngressStackMessage(ctx context.Context, t *testing.T, expectedLog string, testLogger zerolog.Logger, messageChan <-chan proto.Message, kafkaErrChan <-chan error, timeout time.Duration) error {
 	foundExpectedLog := make(chan bool, 1) // Channel to signal when expected log is found
 	foundErrorLog := make(chan bool, 1)    // Channel to signal when engine initialization failure is detected
 	receivedUserLogs := 0
@@ -185,7 +200,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 						foundErrorLog <- true
 					}
 				case *workflowevents.UserLogs:
-					testLogger.Info().Msg("➡️ Beholder message received in test. Asserting...")
+					testLogger.Info().Msg("➡️ Chip Ingress stack message received in test. Asserting...")
 					receivedUserLogs++
 
 					for _, logLine := range typedMsg.LogLines {
@@ -226,8 +241,8 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 		testLogger.Info().Str("expected_log", expectedLog).Msg("✅ Test completed successfully - found expected user log message!")
 		return nil
 	case <-foundErrorLog:
-		testLogger.Warn().Msg("beholder found engine initialization failure message! (may be expected in negative tests)")
-		return errors.New("beholder message validation completed with error: found engine initialization failure message")
+		testLogger.Warn().Msg("chip ingress stack found engine initialization failure message! (may be expected in negative tests)")
+		return errors.New("chip ingress stack message validation completed with error: found engine initialization failure message")
 	case <-time.After(timeout):
 		testLogger.Error().Str("expected_log", expectedLog).Msg("Timed out waiting for expected user log message")
 		if receivedUserLogs > 0 {
@@ -237,7 +252,7 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 		}
 		require.Failf(t, "Timed out waiting for the expected user log message (or error)", "Expected user log message: '%s' not found after %s", expectedLog, timeout.String())
 	case err := <-kafkaErrChan:
-		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Beholder is running and accessible.")
+		testLogger.Error().Err(err).Msg("Kafka listener encountered an error during execution. Ensure Chip Ingress stack is running and accessible.")
 		require.Fail(t, "Kafka listener failed", err.Error())
 	}
 	return nil
@@ -247,28 +262,45 @@ func AssertBeholderMessage(ctx context.Context, t *testing.T, expectedLog string
 //      CRYPTO HELPERS      //
 //////////////////////////////
 
-// Creates and funds a specified number of new Ethereum addresses on a given chain.
-func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, bcOutput blockchains.Blockchain, fullCldEnvOutput *cre.Environment) ([]common.Address, error) {
+// CreateAndFundAddressesEVM - creates and funds a specified number of new Ethereum addresses on a given chain.
+func CreateAndFundAddressesEVM(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, bcOutput blockchains.Blockchain) ([]common.Address, error) {
+	t.Helper()
+	return createAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput, func() (common.Address, error) {
+		addr, _, err := crecrypto.GenerateNewKeyPair()
+		return addr, err
+	})
+}
+
+// CreateAndFundAddressesSolana - creates and funds a specified number of new Solana addresses on a given chain.
+func CreateAndFundAddressesSolana(t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, bcOutput blockchains.Blockchain) ([]solana.PublicKey, error) {
+	t.Helper()
+	return createAndFundAddresses(t, testLogger, numberOfAddressesToCreate, amountToFund, bcOutput, func() (solana.PublicKey, error) {
+		key, err := solkey.New()
+		return key.PublicKey(), err
+	})
+}
+
+func createAndFundAddresses[T interface{ String() string }](t *testing.T, testLogger zerolog.Logger, numberOfAddressesToCreate int, amountToFund *big.Int, bcOutput blockchains.Blockchain, generateKey func() (T, error)) ([]T, error) {
 	t.Helper()
 
 	testLogger.Info().Msgf("Creating and funding %d addresses...", numberOfAddressesToCreate)
-	addressesToRead := []common.Address{}
+	var addrs []T
 
 	for i := range numberOfAddressesToCreate {
-		addressToRead, _, addrErr := crecrypto.GenerateNewKeyPair()
-		require.NoError(t, addrErr, "failed to generate address to read")
+		addr, addrErr := generateKey()
+		require.NoError(t, addrErr, "failed to generate address")
 		orderNum := i + 1
-		testLogger.Info().Msgf("Generated address #%d: %s", orderNum, addressToRead.Hex())
+		testLogger.Info().Msgf("Generated address #%d: %s", orderNum, addr.String())
 
-		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addressToRead.Hex(), amountToFund.String())
-		if err := bcOutput.Fund(t.Context(), addressToRead.Hex(), amountToFund.Uint64()); err != nil {
+		testLogger.Info().Msgf("Funding address '%s' with amount of '%s' wei", addr.String(), amountToFund.String())
+		if err := bcOutput.Fund(t.Context(), addr.String(), amountToFund.Uint64()); err != nil {
 			return nil, err
 		}
 
-		addressesToRead = append(addressesToRead, addressToRead)
+		addrs = append(addrs, addr)
 	}
 
-	return addressesToRead, nil
+	return addrs, nil
 }
 
 //////////////////////////////
@@ -280,7 +312,10 @@ func CreateAndFundAddresses(t *testing.T, testLogger zerolog.Logger, numberOfAdd
 type WorkflowConfig interface {
 	None |
 		portypes.WorkflowConfig |
-		porV2types.WorkflowConfig |
+		AptosReadWorkflowConfig |
+		StellarReadWorkflowConfig |
+		aptoswrite_config.Config |
+		aptoswriteroundtrip_config.Config |
 		crontypes.WorkflowConfig |
 		HTTPWorkflowConfig |
 		consensus_negative_config.Config |
@@ -292,7 +327,10 @@ type WorkflowConfig interface {
 		http_config.Config |
 		httpaction_smoke_config.Config |
 		httpaction_negative_config.Config |
-		solwrite_config.Config
+		solwrite_config.Config |
+		sollogtrigger_config.Config |
+		vaultsecret_config.Config |
+		solread_config.Config
 }
 
 // None represents an empty workflow configuration
@@ -302,6 +340,20 @@ type None struct{}
 type HTTPWorkflowConfig struct {
 	AuthorizedKey common.Address `json:"authorizedKey"`
 	URL           string         `json:"url"`
+}
+
+type AptosReadWorkflowConfig struct {
+	ChainSelector    uint64 `yaml:"chainSelector"`
+	WorkflowName     string `yaml:"workflowName"`
+	ExpectedCoinName string `yaml:"expectedCoinName"`
+}
+
+// StellarReadWorkflowConfig mirrors the fields of the stellarread workflow's
+// config.Config (system-tests/tests/smoke/cre/stellar/stellarread/config).
+type StellarReadWorkflowConfig struct {
+	ChainSelector     uint64 `yaml:"chainSelector"`
+	WorkflowName      string `yaml:"workflowName"`
+	MinLedgerSequence uint64 `yaml:"minLedgerSequence"`
 }
 
 // WorkflowRegistrationConfig holds configuration for workflow registration
@@ -315,25 +367,27 @@ type WorkflowRegistrationConfig struct {
 	WorkflowRegistryVersion *semver.Version
 	ChainID                 uint64
 	DonID                   uint64
+	DonFamily               string
 	ContainerTargetDir      string
-	Blockchains             []blockchains.Blockchain
+	SethClient              *seth.Client
+	Attributes              []byte
 }
 
 /*
 Creates the necessary workflow artifacts based on WorkflowConfig:
  1. Configuration for a workflow (or no config if typed nil is passed for workflowConfig);
  2. Compiled and compressed workflow WASM file;
- 3. Copies the workflow artifacts to the Docker containers
+ 3. Copies the workflow artifacts to the Docker containers.
 
 It returns the paths to:
  1. the compressed WASM file;
  2. the workflow config file.
 */
-func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowDONs []*cre.Don, workflowConfig *T, workflowFileLocation string) (string, string) {
+func createWorkflowArtifacts[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowDONs []*cre.Don, workflowConfig *T, workflowFileLocation, artifactDir string) (string, string) {
 	t.Helper()
 
-	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig)
-	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflow(t.Context(), workflowFileLocation, workflowName)
+	workflowConfigFilePath := workflowConfigFactory(t, testLogger, workflowName, workflowConfig, artifactDir)
+	compressedWorkflowWasmPath, compileErr := creworkflow.CompileWorkflowToDir(t.Context(), workflowFileLocation, workflowName, artifactDir)
 	require.NoError(t, compileErr, "failed to compile workflow '%s'", workflowFileLocation)
 	testLogger.Info().Msg("Workflow compiled successfully.")
 
@@ -354,7 +408,7 @@ Pass `nil` to skip workflow config file creation.
 
 Returns the path to the workflow config file.
 */
-func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowConfig *T) (filePath string) {
+func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Logger, workflowName string, workflowConfig *T, outputDir string) (filePath string) {
 	t.Helper()
 
 	var workflowConfigFilePath string
@@ -367,96 +421,129 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			testLogger.Info().Msg("Workflow config file is not requested and will not be created.")
 
 		case *portypes.WorkflowConfig:
-			workflowCfgFilePath, configErr := createPoRWorkflowConfigFile(workflowName, cfg)
-			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create PoR workflow config file")
-			testLogger.Info().Msg("PoR workflow config file created.")
-
-		case *porV2types.WorkflowConfig:
 			// Validate and format the feed ID (truncate to 16 bytes / 32 hex chars)
 			cleanID := strings.TrimPrefix(cfg.FeedID, "0x")
 			if len(cleanID) < 32 {
-				require.NoError(t, fmt.Errorf("v2 PoR feed ID must be at least 32 hex characters, got %d", len(cleanID)))
+				require.NoError(t, fmt.Errorf("PoR feed ID must be at least 32 hex characters, got %d", len(cleanID)))
 			}
 			if len(cleanID) > 32 {
 				cleanID = cleanID[:32]
 			}
 			cfg.FeedID = "0x" + cleanID
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
-			require.NoError(t, configErr, "failed to create PoR v2 workflow config file")
-			testLogger.Info().Msg("PoR v2 workflow config file created.")
+			require.NoError(t, configErr, "failed to create PoR workflow config file")
+			testLogger.Info().Msg("PoR workflow config file created.")
+
+		case *AptosReadWorkflowConfig:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create aptos read workflow config file")
+			testLogger.Info().Msg("Aptos read workflow config file created.")
+
+		case *StellarReadWorkflowConfig:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create stellar read workflow config file")
+			testLogger.Info().Msg("Stellar read workflow config file created.")
+
+		case *aptoswrite_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create aptos write workflow config file")
+			testLogger.Info().Msg("Aptos write workflow config file created.")
+
+		case *aptoswriteroundtrip_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create aptos write roundtrip workflow config file")
+			testLogger.Info().Msg("Aptos write roundtrip workflow config file created.")
 
 		case *HTTPWorkflowConfig:
-			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := createHTTPWorkflowConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create HTTP workflow config file")
 			testLogger.Info().Msg("HTTP workflow config file created.")
 
 		case *crontypes.WorkflowConfig:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create Cron workflow config file")
 			testLogger.Info().Msg("Cron workflow config file created.")
 
 		case *consensus_negative_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create consensus workflow config file")
 			testLogger.Info().Msg("Consensus workflow config file created.")
 
 		case *evmread_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmread workflow config file")
 			testLogger.Info().Msg("EVM Read workflow config file created.")
 
 		case *logtrigger_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create logtrigger workflow config file")
 			testLogger.Info().Msg("EVM LogTrigger workflow config file created.")
 
 		case *evmread_negative_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmread-negative workflow config file")
 			testLogger.Info().Msg("EVM Read negative workflow config file created.")
 
 		case *evmwrite_negative_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create evmwrite-negative workflow config file")
 			testLogger.Info().Msg("EVM Write negative workflow config file created.")
 
 		case *logtrigger_negative_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create logtrigger-negative workflow config file")
 			testLogger.Info().Msg("EVM LogTrigger negative workflow config file created.")
 
 		case *http_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create http-negative workflow config file")
 			testLogger.Info().Msg("HTTP negative workflow config file created.")
 
 		case *httpaction_smoke_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create httpaction smoke workflow config file")
 			testLogger.Info().Msg("HTTP Action smoke workflow config file created.")
 
 		case *httpaction_negative_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create httpaction negative workflow config file")
 			testLogger.Info().Msg("HTTP Action negative workflow config file created.")
 		case *solwrite_config.Config:
-			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg)
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create solwrite workflow config file")
 			testLogger.Info().Msg("Solana write workflow config file created.")
+		case *sollogtrigger_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create solana logtrigger workflow config file")
+			testLogger.Info().Msg("Solana log trigger workflow config file created.")
+		case *solread_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create solana read workflow config file")
+			testLogger.Info().Msg("Solana read workflow config file created.")
+		case *vaultsecret_config.Config:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create vaultsecret workflow config file")
+			testLogger.Info().Msg("Vault secret workflow config file created.")
 		default:
 			require.NoError(t, fmt.Errorf("unsupported workflow config type: %T", cfg))
 		}
@@ -464,44 +551,7 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 	return workflowConfigFilePath
 }
 
-/*
-Creates .yaml workflow configuration file.
-It stores the values used by a workflow (main.go),
-(i.e. feedID, read/write contract addresses)
-
-The values are written to types.WorkflowConfig.
-The method returns the absolute path to the created config file.
-*/
-func createPoRWorkflowConfigFile(workflowName string, workflowConfig *portypes.WorkflowConfig) (string, error) {
-	feedIDToUse, fIDerr := validateAndFormatFeedID(workflowConfig)
-	if fIDerr != nil {
-		return "", errors.Wrap(fIDerr, "failed to validate and format feed ID")
-	}
-	workflowConfig.FeedID = feedIDToUse
-
-	return CreateWorkflowYamlConfigFile(workflowName, workflowConfig)
-}
-
-func validateAndFormatFeedID(workflowConfig *portypes.WorkflowConfig) (string, error) {
-	feedID := workflowConfig.FeedID
-
-	// validate and format feed ID to fit 32 bytes
-	cleanFeedID := strings.TrimPrefix(feedID, "0x")
-	feedIDLength := len(cleanFeedID)
-	if feedIDLength < 32 {
-		return "", errors.Errorf("feed ID must be at least 32 characters long, but was %d", feedIDLength)
-	}
-
-	if feedIDLength > 32 {
-		cleanFeedID = cleanFeedID[:32]
-	}
-
-	// override feed ID in workflow config to ensure it is exactly 32 bytes
-	feedIDToUse := "0x" + cleanFeedID
-	return feedIDToUse, nil
-}
-
-func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) (string, error) {
+func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig, outputDir string) (string, error) {
 	testLogger := framework.L
 	mockServerURL := cfg.URL
 	parsedURL, urlErr := url.Parse(mockServerURL)
@@ -521,7 +571,7 @@ func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) 
 	}
 
 	configFileName := fmt.Sprintf("test_http_workflow_config_%s.json", workflowName)
-	configPath := filepath.Join(os.TempDir(), configFileName)
+	configPath := filepath.Join(outputDir, configFileName)
 
 	writeErr := os.WriteFile(configPath, configBytes, 0o644) //nolint:gosec // this is a test file
 	if writeErr != nil {
@@ -534,21 +584,23 @@ func createHTTPWorkflowConfigFile(workflowName string, cfg *HTTPWorkflowConfig) 
 /*
 Creates .yaml workflow configuration file and returns the absolute path to the created config file.
 */
-func CreateWorkflowYamlConfigFile(workflowName string, workflowConfig any) (string, error) {
+func CreateWorkflowYamlConfigFile(workflowName string, workflowConfig any, outputDir string) (string, error) {
 	// Write workflow config to a .yaml file
 	configMarshalled, err := yaml.Marshal(workflowConfig)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to marshal workflow config")
 	}
-	workflowSuffix := "_config.yaml"
-	workflowConfigOutputFile := workflowName + workflowSuffix
+	if mkErr := os.MkdirAll(outputDir, 0o755); mkErr != nil {
+		return "", errors.Wrap(mkErr, "failed to create output directory")
+	}
 
-	// remove the duplicate if it already exists
-	_, statErr := os.Stat(workflowConfigOutputFile)
-	if statErr == nil {
-		if err := os.Remove(workflowConfigOutputFile); err != nil {
-			return "", errors.Wrap(err, "failed to remove existing output file")
-		}
+	workflowConfigFile, tempErr := os.CreateTemp(outputDir, workflowName+"-*_config.yaml")
+	if tempErr != nil {
+		return "", errors.Wrap(tempErr, "failed to create workflow config file")
+	}
+	workflowConfigOutputFile := workflowConfigFile.Name()
+	if closeErr := workflowConfigFile.Close(); closeErr != nil {
+		return "", errors.Wrap(closeErr, "failed to close workflow config file")
 	}
 
 	if err := os.WriteFile(workflowConfigOutputFile, configMarshalled, 0o644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
@@ -574,37 +626,44 @@ func registerWorkflow(ctx context.Context, t *testing.T,
 
 	t.Cleanup(func() {
 		deleteWorkflows(t, wfRegCfg.WorkflowName, wfRegCfg.ConfigFilePath,
-			wfRegCfg.CompressedWasmPath, wfRegCfg.Blockchains,
-			wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryVersion,
+			wfRegCfg.CompressedWasmPath,
+			wfRegCfg.WorkflowRegistryAddr, wfRegCfg.WorkflowRegistryVersion, wfRegCfg.SethClient,
 		)
 	})
 
-	donID := wfRegCfg.DonID
-	workflowName := wfRegCfg.WorkflowName
-	binaryURL := "file://" + wfRegCfg.CompressedWasmPath
-	configURL := ptr.Ptr("file://" + wfRegCfg.ConfigFilePath)
-	containerTargetDir := &wfRegCfg.ContainerTargetDir
-
-	if wfRegCfg.ConfigFilePath == "" {
-		configURL = nil
-	}
-
-	workflowID, registerErr := creworkflow.RegisterWithContract(
-		ctx,
-		sethClient,
-		wfRegCfg.WorkflowRegistryAddr,
-		wfRegCfg.WorkflowRegistryVersion,
-		donID,
-		workflowName,
-		binaryURL,
-		configURL,
-		nil, // no secrets yet
-		containerTargetDir,
-	)
+	workflowID, registerErr := registerWorkflowErr(ctx, wfRegCfg, sethClient)
 	require.NoError(t, registerErr, "failed to register workflow '%s'", wfRegCfg.WorkflowName)
 	testLogger.Info().Msgf("Workflow registered successfully: '%s'", workflowID)
 	return workflowID
 }
+
+// registerWorkflowErr registers a workflow on-chain without test cleanup or require.
+func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConfig, sethClient *seth.Client) (string, error) {
+	var configURL *string
+	if wfRegCfg.ConfigFilePath != "" {
+		u := "file://" + wfRegCfg.ConfigFilePath
+		configURL = &u
+	}
+	binaryURL := "file://" + wfRegCfg.CompressedWasmPath
+	containerTargetDir := &wfRegCfg.ContainerTargetDir
+
+	return creworkflow.RegisterWithContract(
+		ctx,
+		sethClient,
+		wfRegCfg.WorkflowRegistryAddr,
+		wfRegCfg.WorkflowRegistryVersion,
+		wfRegCfg.DonID,
+		wfRegCfg.DonFamily,
+		wfRegCfg.WorkflowName,
+		binaryURL,
+		configURL,
+		nil, // no secrets yet
+		wfRegCfg.Attributes,
+		containerTargetDir,
+	)
+}
+
+const ReentrancySentryOOGError = "ReentrancySentryOOG"
 
 /*
 Deletes workflows from:
@@ -619,9 +678,9 @@ func deleteWorkflows(
 	uniqueWorkflowName string,
 	workflowConfigFilePath string,
 	compressedWorkflowWasmPath string,
-	blockchains []blockchains.Blockchain,
 	workflowRegistryAddress common.Address,
 	version *semver.Version,
+	sethClient *seth.Client,
 ) {
 	t.Helper()
 
@@ -630,33 +689,51 @@ func deleteWorkflows(
 	localEnvErr := creworkflow.RemoveWorkflowArtifactsFromLocalEnv(workflowConfigFilePath, compressedWorkflowWasmPath)
 	require.NoError(t, localEnvErr, "failed to remove workflow artifacts from local environment")
 
-	require.IsType(t, &evm.Blockchain{}, blockchains[0], "expected EVM blockchain type")
-	deleteErr := creworkflow.DeleteWithContract(t.Context(), blockchains[0].(*evm.Blockchain).SethClient, workflowRegistryAddress, version, uniqueWorkflowName)
-	require.NoError(t, deleteErr, "failed to delete workflow '%s'. Please delete/unregister it manually.", uniqueWorkflowName)
+	deleteWorkflowsMu.Lock()
+	defer deleteWorkflowsMu.Unlock()
+
+	retryErr := retry.Do(func() error {
+		return creworkflow.DeleteWithContract(t.Context(), sethClient, workflowRegistryAddress, version, uniqueWorkflowName)
+	}, retry.Attempts(3), retry.Delay(1*time.Second), retry.DelayType(retry.BackOffDelay), retry.RetryIf(func(err error) bool {
+		/**
+		 * NOTE: ReentrancySentryOOG occurs if the EVM hits a gas cliff during the
+		 * ReentrancyGuard cleanup phase (the 63/64ths rule).
+		 * Intermittent failure in simulation is usually due to Cold vs Warm storage
+		 * slot costs. Retrying might work, because the subsequent attempt might benefit from
+		 * warmed storage/access lists, saving ~2,000 gas.
+		 */
+		return strings.Contains(err.Error(), ReentrancySentryOOGError)
+	}), retry.OnRetry(func(n uint, err error) {
+		testLogger.Error().Msgf("Error deleting workflow '%s': %s", uniqueWorkflowName, err.Error())
+	}))
+
+	require.NoError(t, retryErr, "failed to delete workflow '%s'", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
 }
 
 func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, workflowName string,
 	workflowConfig *T, workflowFileLocation string,
+	opts ...CompileAndDeployWorkflowOpt,
 ) string {
 	t.Helper()
+	cfg := compileAndDeployWorkflowCfg{
+		artifactCopyDONTypes: []cre.CapabilityFlag{cre.WorkflowDON},
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
 
 	testLogger.Info().
 		Str("workflow_name", workflowName).
 		Str("workflow_file_location", workflowFileLocation).
 		Msgf("compiling and registering workflow '%s'", workflowName)
+	artifactDir := workflowArtifactsDir(t, testEnv)
 	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 
-	workflowDONs := make([]*cre.Don, 0)
-	for _, don := range testEnv.Dons.List() {
-		if !don.HasFlag(cre.WorkflowDON) {
-			continue
-		}
-		workflowDONs = append(workflowDONs, don)
-	}
+	workflowDONs := selectArtifactTargetDONs(testEnv, cfg.artifactCopyDONTypes)
 
-	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDONs, workflowConfig, workflowFileLocation)
+	compressedWorkflowWasmPath, workflowConfigPath := createWorkflowArtifacts(t, testLogger, workflowName, workflowDONs, workflowConfig, workflowFileLocation, artifactDir)
 	require.NotEmpty(t, compressedWorkflowWasmPath, "failed to find workflow DON in the topology")
 
 	workflowRegistryAddress := crecontracts.MustGetAddressRefFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
@@ -670,10 +747,119 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 		WorkflowRegistryVersion: workflowRegistryAddress.Version,
 		ChainID:                 registryChainSelector,
 		DonID:                   testEnv.Dons.MustWorkflowDON().ID,
+		DonFamily:               testEnv.Dons.MustWorkflowDON().DonFamily,
 		ContainerTargetDir:      creworkflow.DefaultWorkflowTargetDir,
-		Blockchains:             testEnv.CreEnvironment.Blockchains,
+		SethClient:              testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient,
+		Attributes:              cfg.attributes,
 	}
 	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain type")
 	workflowID := registerWorkflow(t.Context(), t, workflowRegConfig, testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient, testLogger)
 	return workflowID
+}
+
+func envVarOrDefault(envVar string, defaultValue int) int {
+	v := strings.TrimSpace(os.Getenv(envVar))
+	if v == "" {
+		return defaultValue
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return defaultValue
+	}
+	return n
+}
+
+type compileAndDeployWorkflowCfg struct {
+	artifactCopyDONTypes []cre.CapabilityFlag
+	attributes           []byte
+}
+
+// CompileAndDeployWorkflowOpt customizes workflow compilation/deployment behavior.
+type CompileAndDeployWorkflowOpt func(*compileAndDeployWorkflowCfg)
+
+// WithArtifactCopyDONTypes sets DON types where workflow artifacts should be copied.
+func WithArtifactCopyDONTypes(donTypes ...cre.CapabilityFlag) CompileAndDeployWorkflowOpt {
+	return func(cfg *compileAndDeployWorkflowCfg) {
+		if len(donTypes) == 0 {
+			return
+		}
+		cfg.artifactCopyDONTypes = append([]cre.CapabilityFlag{}, donTypes...)
+	}
+}
+
+// WithAttributes sets the workflow attributes byte blob (JSON) written to the
+// WorkflowRegistry contract on upsert. The CRE syncer reads this to decide
+// routing (e.g. confidential execution via ConfidentialModule). The input is
+// cloned so later caller mutations don't affect stored config.
+func WithAttributes(attributes []byte) CompileAndDeployWorkflowOpt {
+	return func(cfg *compileAndDeployWorkflowCfg) {
+		cfg.attributes = slices.Clone(attributes)
+	}
+}
+
+func selectArtifactTargetDONs(testEnv *ttypes.TestEnvironment, donTypes []cre.CapabilityFlag) []*cre.Don {
+	if len(donTypes) == 0 {
+		donTypes = []cre.CapabilityFlag{cre.WorkflowDON}
+	}
+	allow := make(map[cre.CapabilityFlag]struct{}, len(donTypes))
+	for _, donType := range donTypes {
+		allow[donType] = struct{}{}
+	}
+
+	targetDONs := make([]*cre.Don, 0)
+	for _, don := range testEnv.Dons.List() {
+		for donType := range allow {
+			if don.HasFlag(donType) {
+				targetDONs = append(targetDONs, don)
+				break
+			}
+		}
+	}
+	return targetDONs
+}
+
+func workflowArtifactsDir(t *testing.T, testEnv *ttypes.TestEnvironment) string {
+	t.Helper()
+	if testEnv.Execution == nil || testEnv.Execution.TestID == "" {
+		dir, err := os.MkdirTemp("", "cre-workflow-artifacts-*")
+		require.NoError(t, err, "failed to create artifacts directory")
+		return dir
+	}
+
+	dir := filepath.Join(os.TempDir(), "cre-workflow-artifacts", testEnv.Execution.TestID)
+	require.NoError(t, os.MkdirAll(dir, 0o755), "failed to create artifacts directory")
+	return dir
+}
+
+func UniqueWorkflowName(testEnv *ttypes.TestEnvironment, baseName string) string {
+	testID := ""
+	if testEnv != nil && testEnv.Execution != nil {
+		testID = testEnv.Execution.TestID
+	}
+	if testID == "" {
+		return truncateWorkflowName(baseName, baseName)
+	}
+	return truncateWorkflowName(fmt.Sprintf("%s-%s", baseName, testID), fmt.Sprintf("%s:%s", baseName, testID))
+}
+
+func truncateWorkflowName(name, uniquenessSeed string) string {
+	if len(name) <= maxWorkflowNameLen {
+		return name
+	}
+
+	sum := sha256.Sum256([]byte(uniquenessSeed))
+	suffix := hex.EncodeToString(sum[:])[:8]
+	prefixLen := maxWorkflowNameLen - len(suffix) - 1 // include hyphen
+	if prefixLen < 1 {
+		return suffix[:maxWorkflowNameLen]
+	}
+	if prefixLen > len(name) {
+		prefixLen = len(name)
+	}
+	return fmt.Sprintf("%s-%s", name[:prefixLen], suffix)
+}
+
+func ParallelEnabled() bool {
+	v := strings.TrimSpace(strings.ToLower(os.Getenv("CRE_TEST_PARALLEL_ENABLED")))
+	return v == "1" || v == "true" || v == "yes"
 }

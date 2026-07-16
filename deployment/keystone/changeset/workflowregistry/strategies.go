@@ -6,15 +6,18 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
@@ -53,7 +56,7 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		return cldf.ChangesetOutput{}, err
 	}
 
-	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
+	op, err := cldfproposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -64,7 +67,7 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 	proposerMCMSes := map[uint64]string{
 		m.ChainSel: m.ContractSet.ProposerMcm.Address().Hex(),
 	}
-	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
+	inspector, err := cldfproposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -72,7 +75,7 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		m.ChainSel: inspector,
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		m.Env,
 		timelocksPerChain,
 		proposerMCMSes,
@@ -113,7 +116,7 @@ type MCMSTransactionV2 struct {
 	Description   string
 	Address       common.Address
 	ChainSel      uint64
-	MCMSContracts *state.MCMSWithTimelockState
+	MCMSContracts *evmstate.MCMSWithTimelockState
 	Env           cldf.Environment
 }
 
@@ -125,7 +128,7 @@ func (m *MCMSTransactionV2) Apply(callFn func(opts *bind.TransactOpts) (*types.T
 		return nil, err
 	}
 
-	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
+	op, err := cldfproposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +139,7 @@ func (m *MCMSTransactionV2) Apply(callFn func(opts *bind.TransactOpts) (*types.T
 	proposerMCMSes := map[uint64]string{
 		m.ChainSel: m.MCMSContracts.ProposerMcm.Address().Hex(),
 	}
-	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
+	inspector, err := cldfproposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +147,7 @@ func (m *MCMSTransactionV2) Apply(callFn func(opts *bind.TransactOpts) (*types.T
 		m.ChainSel: inspector,
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		m.Env,
 		timelocksPerChain,
 		proposerMCMSes,

@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	migration_ops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5"
 
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
+	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 )
 
 type OnRampToFeeQuoterDestChainConfigInput struct {
@@ -83,36 +83,42 @@ var (
 						return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("failed to Execute GetAllFeeTokensOps: %w", err)
 					}
 
+					// Batch-fetch all fee token configs concurrently
+					allFeeTokenCfgsOp, err := operations.ExecuteOperation(
+						b, migration_ops.EVM2EVMOnrampGetAllFeeTokenConfigsOp,
+						migration_ops.MigrateOnRampToFQDeps{
+							Chain: srcChain,
+						},
+						migration_ops.BatchOnRampGetTokenCfgIn{
+							OnRamp:        onRamp1_5,
+							Tokens:        allFeeTokensOp.Output,
+							ChainSelector: chainSel,
+						},
+					)
+					if err != nil {
+						return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("failed to batch-fetch fee token configs on source chain %d: %w", chainSel, err)
+					}
+
 					// add supported fee token config to FeeQuoter
 
 					// This is per token in 1.5.0 onRamp, but in FeeQuoter its per destination chain,
 					// But RDD values are just redundant & can be adjusted by the premium multiplier, so simplified in 1.6 FQ
-					// So we can just use the any token's config (the last one in the loop here)
+					// So we can just use the first enabled token's config in the loop here
 					onRampFeeTokenCfgReport := evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}
 
-					feeTokenPremiumMultipliers := make([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs, len(allFeeTokensOp.Output))
-					for idx, ft := range allFeeTokensOp.Output {
-						feetokenCfgReport, err := operations.ExecuteOperation(
-							b, migration_ops.EVM2EVMOnrampGetFeeTokenConfigOp,
-							migration_ops.MigrateOnRampToFQDeps{
-								Chain: srcChain,
-							},
-							migration_ops.OnRampGetTokenCfgIn{
-								OnRamp:        onRamp1_5,
-								Address:       ft,
-								ChainSelector: chainSel,
-							},
-						)
-						if err != nil {
-							return OnRampToFeeQuoterDestChainConfigOutput{}, fmt.Errorf("failed to Execute GetOnRampGetFeeTokenConfigOps: %w", err)
+					feeTokenPremiumMultipliers := make([]fee_quoter.FeeQuoterPremiumMultiplierWeiPerEthArgs, 0, len(allFeeTokensOp.Output))
+					for _, ft := range allFeeTokensOp.Output {
+						feeTokenCfg := allFeeTokenCfgsOp.Output[ft]
+						if !feeTokenCfg.Enabled {
+							continue // skip disabled fee tokens, same as TTFC loop below
 						}
 
 						// Translate the feeToken PremiumMultiplierCfg to 1.6 FeeQuoter config
 						premiumMultiplierCfg := EVM2EVMOnRampMigratePremiumMultiplierCfg{}
-						premiumMultiplierCfg.TranslateOnrampToFeeQFeePremiumCfg(ft, feetokenCfgReport.Output)
-						feeTokenPremiumMultipliers[idx] = premiumMultiplierCfg.FeeQuoterPremiumMultiplierWeiPerEthArgs
+						premiumMultiplierCfg.TranslateOnrampToFeeQFeePremiumCfg(ft, feeTokenCfg)
+						feeTokenPremiumMultipliers = append(feeTokenPremiumMultipliers, premiumMultiplierCfg.FeeQuoterPremiumMultiplierWeiPerEthArgs)
 						if onRampFeeTokenCfgReport == (evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfig{}) {
-							onRampFeeTokenCfgReport = feetokenCfgReport.Output
+							onRampFeeTokenCfgReport = feeTokenCfg
 						}
 					}
 
@@ -171,28 +177,30 @@ var (
 					if err != nil {
 						return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get all configured tokens from TokenAdminRegistry on source chain %d: %w", chainSel, err)
 					}
+					// Batch-fetch all token transfer fee configs concurrently
 					allTokens := getAllConfiguredTokensOps.Output
+					batchCfgsOp, err := operations.ExecuteOperation(
+						b, migration_ops.EVM2EVMOnrampGetAllTokenTransferFeeConfigsOp,
+						migration_ops.MigrateOnRampToFQDeps{
+							Chain: srcChain,
+						},
+						migration_ops.BatchOnRampGetTokenCfgIn{
+							OnRamp:        onRamp1_5,
+							Tokens:        allTokens,
+							ChainSelector: chainSel,
+						},
+					)
+					if err != nil {
+						return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to batch-fetch token transfer fee configs on source chain %d: %w", chainSel, err)
+					}
 					for _, token := range allTokens {
-						tokenTransferFeeCfgOp, err := operations.ExecuteOperation(
-							b, migration_ops.EVM2EVMOnrampGetTokenTransferFeeConfigOp,
-							migration_ops.MigrateOnRampToFQDeps{
-								Chain: srcChain,
-							},
-							migration_ops.OnRampGetTokenCfgIn{
-								OnRamp:        onRamp1_5,
-								Address:       token,
-								ChainSelector: chainSel,
-							},
-						)
-						if err != nil {
-							return OnRampToFeeQuoterTokenTransferFeeCfgOutput{}, fmt.Errorf("failed to get suported chains for the toksn Pool on source chain %d: %w", chainSel, err)
-						}
-						if !tokenTransferFeeCfgOp.Output.IsEnabled {
+						tokenTransferFeeCfg := batchCfgsOp.Output[token]
+						if !tokenTransferFeeCfg.IsEnabled {
 							continue // skip this token if the transfer fee config is not enabled
 						}
 
 						allTransferTokensAndCfgs = append(allTransferTokensAndCfgs,
-							migrateOnRamp.TranslateOnrampToFeequoterTokenTransferFeeConfig(token, tokenTransferFeeCfgOp.Output),
+							migrateOnRamp.TranslateOnrampToFeequoterTokenTransferFeeConfig(token, tokenTransferFeeCfg),
 						)
 					}
 					tokenTransferFeeConfigsPerDestChain = append(tokenTransferFeeConfigsPerDestChain, fee_quoter.FeeQuoterTokenTransferFeeConfigArgs{

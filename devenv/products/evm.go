@@ -8,9 +8,13 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
+	"github.com/onsi/gomega"
 	pkgerrors "github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,6 +25,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/chainlink/devenv/contracts"
 )
 
 const (
@@ -408,4 +413,78 @@ func InitSeth(rpcURL string, privateKeys []string, chainID *uint64) (*seth.Clien
 	}
 
 	return chainClient, err
+}
+
+// WaitUntilChainHead blocks until the chain head is at least anchorBlock + minBlocksAfterAnchor
+// On Anvil (chainID 1337) it deploys a Counter and spams Increment txs so blocks advance quickly;
+// on other chains it polls block number until the target is reached.
+func WaitUntilChainHead(
+	ctx context.Context,
+	t *testing.T,
+	chainClient *seth.Client,
+	anchorBlock uint64,
+	minBlocksAfterAnchor int,
+	chainID uint64,
+	timeout time.Duration,
+) {
+	t.Helper()
+	require.GreaterOrEqual(t, minBlocksAfterAnchor, 0, "minBlocksAfterAnchor must be non-negative")
+
+	targetBlock := anchorBlock + uint64(minBlocksAfterAnchor) //nolint:gosec // minBlocksAfterAnchor validated non-negative above
+	if chainID != 1337 {
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			blk, err := chainClient.Client.BlockNumber(ctx)
+			if err != nil {
+				return false
+			}
+			return blk >= targetBlock
+		}, timeout, time.Second).Should(gomega.BeTrue(),
+			"timed out waiting for chain to reach block %d", targetBlock)
+		return
+	}
+
+	counter, err := contracts.DeployCounterContract(chainClient)
+	require.NoError(t, err, "failed to deploy counter contract for tx-spam block advancement")
+	err = counter.Reset()
+	require.NoError(t, err, "failed to reset counter contract for tx-spam")
+
+	waitCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	done := make(chan struct{})
+	var eg errgroup.Group
+	eg.Go(func() error {
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-waitCtx.Done():
+				return fmt.Errorf("timeout waiting for chain to reach block %d", targetBlock)
+			case <-ticker.C:
+				blk, bErr := chainClient.Client.BlockNumber(waitCtx)
+				if bErr != nil {
+					continue
+				}
+				if blk >= targetBlock {
+					close(done)
+					return nil
+				}
+			}
+		}
+	})
+	eg.Go(func() error {
+		for {
+			select {
+			case <-done:
+				return nil
+			case <-waitCtx.Done():
+				return fmt.Errorf("timeout while generating txs waiting for block %d", targetBlock)
+			default:
+				if iErr := counter.Increment(); iErr != nil {
+					return iErr
+				}
+			}
+		}
+	})
+	require.NoError(t, eg.Wait(), "failed while waiting for min chain head with tx-spam enabled on chainID=1337")
 }

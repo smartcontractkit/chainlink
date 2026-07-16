@@ -7,8 +7,10 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -23,8 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use these changesets to set the default code version
@@ -66,7 +66,7 @@ type OffRampRefAddressesConfig struct {
 	FeeQuoter          solana.PublicKey
 	AddressLookupTable solana.PublicKey
 	RMNRemote          solana.PublicKey
-	MCMS               *proposalutils.TimelockConfig
+	MCMS               *cldfproposalutils.TimelockConfig
 }
 
 func (cfg OffRampRefAddressesConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -162,8 +162,8 @@ func UpdateOffRampRefAddresses(
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
-		proposal, err := BuildProposalsForTxns(
-			e, config.ChainSelector, "proposal to UpdateOffRampRefAddresses in Solana", config.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, config.ChainSelector, "proposal to UpdateOffRampRefAddresses in Solana", config.MCMS, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -181,11 +181,11 @@ func UpdateOffRampRefAddresses(
 type SetUpgradeAuthorityConfig struct {
 	ChainSelector         uint64
 	NewUpgradeAuthority   solana.PublicKey
-	SetAfterInitialDeploy bool                          // set all of the programs after the initial deploy
-	SetOffRamp            bool                          // offramp not upgraded in place, so may need to set separately
-	SetMCMSPrograms       bool                          // these all deploy at once so just set them all
-	TransferKeys          []solana.PublicKey            // any keys not covered by the above e.g. partner programs
-	MCMS                  *proposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+	SetAfterInitialDeploy bool                              // set all of the programs after the initial deploy
+	SetOffRamp            bool                              // offramp not upgraded in place, so may need to set separately
+	SetMCMSPrograms       bool                              // these all deploy at once so just set them all
+	TransferKeys          []solana.PublicKey                // any keys not covered by the above e.g. partner programs
+	MCMS                  *cldfproposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
 }
 
 func SetUpgradeAuthorityChangeset(
@@ -214,7 +214,7 @@ func SetUpgradeAuthorityChangeset(
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		mcmState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 		}
@@ -260,8 +260,8 @@ func SetUpgradeAuthorityChangeset(
 		}
 	}
 	if len(mcmsTxns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, config.ChainSelector, "proposal to SetUpgradeAuthority in Solana", config.MCMS.MinDelay, mcmsTxns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, config.ChainSelector, "proposal to SetUpgradeAuthority in Solana", config.MCMS, mcmsTxns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -302,7 +302,7 @@ func SetUpgradeAuthority(e *cldf.Environment, programID solana.PublicKey, curren
 type SetFeeAggregatorConfig struct {
 	ChainSelector uint64
 	FeeAggregator string
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 func (cfg SetFeeAggregatorConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -383,8 +383,8 @@ func SetFeeAggregator(e cldf.Environment, cfg SetFeeAggregatorConfig) (cldf.Chan
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to SetFeeAggregator in Solana", cfg.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to SetFeeAggregator in Solana", cfg.MCMS, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -561,7 +561,7 @@ func SetLinkToken(e cldf.Environment, cfg SetLinkTokenConfig) (cldf.ChangesetOut
 type SetDefaultCodeVersionConfig struct {
 	ChainSelector uint64
 	VersionEnum   uint8
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 func (cfg SetDefaultCodeVersionConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -708,8 +708,8 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 	}
 
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to SetDefaultCodeVersion in Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to SetDefaultCodeVersion in Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -724,7 +724,7 @@ func SetDefaultCodeVersion(e cldf.Environment, cfg SetDefaultCodeVersionConfig) 
 type UpdateSvmChainSelectorConfig struct {
 	OldChainSelector uint64
 	NewChainSelector uint64
-	MCMS             *proposalutils.TimelockConfig
+	MCMS             *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpdateSvmChainSelectorConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -835,8 +835,8 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 	}
 
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.OldChainSelector, "proposal to UpdateSvmChainSelector in Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.OldChainSelector, "proposal to UpdateSvmChainSelector in Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -851,7 +851,7 @@ func UpdateSvmChainSelector(e cldf.Environment, cfg UpdateSvmChainSelectorConfig
 type UpdateEnableManualExecutionAfterConfig struct {
 	ChainSelector         uint64
 	EnableManualExecution int64
-	MCMS                  *proposalutils.TimelockConfig
+	MCMS                  *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpdateEnableManualExecutionAfterConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -919,8 +919,8 @@ func UpdateEnableManualExecutionAfter(e cldf.Environment, cfg UpdateEnableManual
 	}
 
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to UpdateEnableManualExecutionAfter in Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to UpdateEnableManualExecutionAfter in Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -943,7 +943,7 @@ type ConfigureCCIPVersionConfig struct {
 	ChainSelector     uint64
 	DestChainSelector uint64
 	Operation         CCIPVersionOp
-	MCMS              *proposalutils.TimelockConfig
+	MCMS              *cldfproposalutils.TimelockConfig
 }
 
 func (cfg ConfigureCCIPVersionConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -1038,8 +1038,8 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 	}
 
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to ConfigureCCIPVersion in Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to ConfigureCCIPVersion in Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -1054,7 +1054,7 @@ func ConfigureCCIPVersion(e cldf.Environment, cfg ConfigureCCIPVersionConfig) (c
 type RemoveOffRampConfig struct {
 	ChainSelector uint64
 	OffRamp       solana.PublicKey
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 func (cfg RemoveOffRampConfig) Validate(e cldf.Environment, state stateview.CCIPOnChainState) error {
@@ -1124,8 +1124,8 @@ func RemoveOffRamp(e cldf.Environment, cfg RemoveOffRampConfig) (cldf.ChangesetO
 	}
 
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to RemoveOffRamp in Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to RemoveOffRamp in Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

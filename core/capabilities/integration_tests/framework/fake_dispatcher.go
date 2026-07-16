@@ -11,13 +11,12 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/libocr/ragep2p/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-
-	"google.golang.org/protobuf/proto"
 )
 
 // FakeRageP2PNetwork backs the dispatchers created for each node in the test and effectively
@@ -131,8 +130,8 @@ func (a *FakeRageP2PNetwork) registerReceiverNode(nodePeerID p2ptypes.PeerID, ca
 
 	node.registerReceiverCh <- &registerReceiverRequest{
 		receiverKey: receiverKey{
-			capabilityId: capabilityID,
-			donId:        capabilityDonID,
+			capabilityID: capabilityID,
+			donID:        capabilityDonID,
 		},
 		receiver: receiver,
 	}
@@ -162,8 +161,8 @@ type brokerNode struct {
 }
 
 type receiverKey struct {
-	capabilityId string
-	donId        uint32
+	capabilityID string
+	donID        uint32
 }
 
 type registerReceiverRequest struct {
@@ -177,9 +176,7 @@ func (a *FakeRageP2PNetwork) newNode() *brokerNode {
 		registerReceiverCh: make(chan *registerReceiverRequest, a.chanBufferSize),
 	}
 
-	a.wg.Add(1)
-	go func() {
-		defer a.wg.Done()
+	a.wg.Go(func() {
 		receivers := make(map[receiverKey]remotetypes.Receiver)
 		for {
 			select {
@@ -187,8 +184,8 @@ func (a *FakeRageP2PNetwork) newNode() *brokerNode {
 				return
 			case msg := <-n.receiveCh:
 				k := receiverKey{
-					capabilityId: msg.CapabilityId,
-					donId:        msg.CapabilityDonId,
+					capabilityID: msg.CapabilityId,
+					donID:        msg.CapabilityDonId,
 				}
 
 				r, ok := receivers[k]
@@ -201,7 +198,7 @@ func (a *FakeRageP2PNetwork) newNode() *brokerNode {
 				receivers[reg.receiverKey] = reg.receiver
 			}
 		}
-	}()
+	})
 	return n
 }
 
@@ -223,8 +220,8 @@ type brokerDispatcher struct {
 }
 
 type key struct {
-	capId string
-	donId uint32
+	capID string
+	donID uint32
 }
 
 func (t *brokerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
@@ -237,20 +234,20 @@ func (t *brokerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Mes
 	return nil
 }
 
-func (t *brokerDispatcher) SetReceiver(capabilityId string, donId uint32, receiver remotetypes.Receiver) error {
+func (t *brokerDispatcher) SetReceiver(capabilityID string, donID uint32, receiver remotetypes.Receiver) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	k := key{capabilityId, donId}
+	k := key{capID: capabilityID, donID: donID}
 	_, ok := t.receivers[k]
 	if ok {
-		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", remote.ErrReceiverExists, capabilityId, donId)
+		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", remote.ErrReceiverExists, capabilityID, donID)
 	}
 	t.receivers[k] = receiver
 
-	t.broker.(*FakeRageP2PNetwork).registerReceiverNode(t.callerPeerID, capabilityId, donId, receiver)
+	t.broker.(*FakeRageP2PNetwork).registerReceiverNode(t.callerPeerID, capabilityID, donID, receiver)
 	return nil
 }
-func (t *brokerDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
+func (t *brokerDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
 
 func (t *brokerDispatcher) SetReceiverForMethod(capabilityID string, donID uint32, method string, receiver remotetypes.Receiver) error {
 	return errors.New("not implemented")

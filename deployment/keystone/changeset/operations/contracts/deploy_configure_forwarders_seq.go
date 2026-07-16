@@ -6,6 +6,10 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
+	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
@@ -20,11 +24,8 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	mcmsOps "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/ops"
-	mcmsSeqs "github.com/smartcontractkit/chainlink/deployment/common/changeset/evm/mcms/seqs"
-	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	contracts2 "github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/operations/contracts"
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
@@ -144,7 +145,7 @@ var DeployConfigureForwardersSeq = operations.NewSequence[DeployConfigureForward
 		// build proposal for transfer ownership to timelock if MCMS is used
 		if input.UseMCMS() {
 			b.Logger.Infof("Building MCMS proposal for ownership transfer to timelock")
-			proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			proposal, err := proposeutils.BuildProposalFromBatchesV2(
 				*deps.Env,
 				timelockAddressByChain, proposerAddressByChain, inspectorPerChain,
 				batches, "Transfer ownership to timelock", *input.MCMSConfig)
@@ -260,12 +261,12 @@ func configureForwarderOp(
 	if err != nil {
 		return fmt.Errorf("configure-forwarders-seq failed: failed to resolve DONs for chain %d: %w", target, err)
 	}
-	forwarderContract, err := crecontracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](as.Addresses(), chain, forwarderAddress.String())
+	forwarderContract, err := crecontracts.GetOwnedContractV2[*forwarder.KeystoneForwarder](as.Addresses(), chain, forwarderAddress.String(), "")
 	if err != nil {
 		return fmt.Errorf("configure-forwarders-seq failed: failed to get KeystoneForwarder contract for chain selector %d: %w", target, err)
 	}
 
-	var mcmsContracts *mcmschangesetstate.MCMSWithTimelockState
+	var mcmsContracts *evmstate.MCMSWithTimelockState
 	if input.MCMSConfig != nil {
 		var mcmsErr error
 		mcmsContracts, mcmsErr = strategies.GetMCMSContracts(*deps.Env, chain.Selector, *input.MCMSConfig)
@@ -320,17 +321,17 @@ func tranferOwnershipOp(
 	batches *[]mcmstypes.BatchOperation,
 	timelockAddr common.Address,
 ) error {
-	_, forwarderOwnableContract, err := mcmsSeqs.LoadOwnableContract(forwarderAddress, chain.Client)
+	_, forwarderOwnableContract, err := changesets.LoadOwnableContract(forwarderAddress, chain.Client)
 	if err != nil {
 		return fmt.Errorf("failed to load ownable contract for chain selector %d: %w", target, err)
 	}
 	// transfer ownership to timelock (we send this on chain directly, does not need to go through MCMS)
-	_, err = operations.ExecuteOperation(b, mcmsOps.OpEVMTransferOwnership,
-		mcmsOps.OpEVMOwnershipDeps{
+	_, err = operations.ExecuteOperation(b, opsevm.OpEVMTransferOwnership,
+		opsevm.OpEVMOwnershipDeps{
 			Chain:    chain,
 			OwnableC: forwarderOwnableContract,
 		},
-		mcmsOps.OpEVMTransferOwnershipInput{
+		opsevm.OpEVMTransferOwnershipInput{
 			ChainSelector:   target,
 			TimelockAddress: timelockAddr,
 			Address:         forwarderAddress,
@@ -340,12 +341,12 @@ func tranferOwnershipOp(
 		return fmt.Errorf("failed to transfer ownership of forwarder to timelock for chain selector %d: %w", target, err)
 	}
 	// accept ownership as timelock (timelock needs to sign this, so we send it through MCMS)
-	acceptOwnershipReport, err := operations.ExecuteOperation(b, mcmsOps.OpEVMAcceptOwnership,
-		mcmsOps.OpEVMOwnershipDeps{
+	acceptOwnershipReport, err := operations.ExecuteOperation(b, opsevm.OpEVMAcceptOwnership,
+		opsevm.OpEVMOwnershipDeps{
 			Chain:    chain,
 			OwnableC: forwarderOwnableContract,
 		},
-		mcmsOps.OpEVMTransferOwnershipInput{
+		opsevm.OpEVMTransferOwnershipInput{
 			ChainSelector:   target,
 			TimelockAddress: timelockAddr,
 			Address:         forwarderAddress,

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
+	sollegacy "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	"github.com/stretchr/testify/require"
 
 	cldfsolana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
@@ -11,7 +12,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 )
@@ -70,13 +70,13 @@ func PreloadAddressBookWithMCMSPrograms(t *testing.T, selector uint64) *cldf.Add
 // GetMCMSStateFromAddressBook retrieves the state of the Solana MCMS contracts on the given chain.
 func GetMCMSStateFromAddressBook(
 	t *testing.T, ab cldf.AddressBook, chain cldfsolana.Chain,
-) *state.MCMSWithTimelockStateSolana {
+) *sollegacy.MCMSWithTimelockState {
 	t.Helper()
 
 	addresses, err := ab.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := sollegacy.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	require.NoError(t, err)
 
 	return mcmState

@@ -1,0 +1,81 @@
+name: Start local CRE environment
+description: >
+  Runs `go run . env start` from the CRE environment CLI with retries; runs `env
+  stop` between attempts on failure.
+
+inputs:
+  jd-image:
+    description: Sets `CTF_JD_IMAGE` for the local CRE environment (job-distributor
+      image ref).
+    required: true
+  chainlink-image:
+    description: Sets `CTF_CHAINLINK_IMAGE` for the local CRE environment (Chainlink
+      node image ref).
+    required: true
+  ctf-configs:
+    description: Sets `CTF_CONFIGS` for the local CRE environment (environment TOML
+      configuration(s) to use).
+    required: true
+  chip-router-image:
+    description: Sets `CTF_CHIP_ROUTER_IMAGE` for the local CRE environment (local
+      CRE Chip Router image ref).
+    required: true
+  retry-count:
+    description: Maximum attempts to start the environment
+    default: "3"
+  retry-delay-seconds:
+    description: Seconds to sleep after cleanup before the next attempt
+    default: "15"
+  cleanup-on-error:
+    description: Value for `env start --cleanup-on-error` (typically false in CI to
+      preserve logs on final failure)
+    default: "false"
+  env-start-extra-args:
+    description: >
+      Optional extra arguments for `env start` (e.g. `--with-contracts-version
+      v1`). Leave empty for default (v2) behavior.
+    default: ""
+  working-directory:
+    description: Directory containing the CRE environment CLI (relative to the workspace)
+    default: core/scripts/cre/environment
+
+runs:
+  using: composite
+  steps:
+    - name: Start local CRE with retries
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        MAX_ATTEMPTS: ${{ inputs.retry-count }}
+        RETRY_DELAY_SECONDS: ${{ inputs.retry-delay-seconds }}
+        CLEANUP_ON_ERROR: ${{ inputs.cleanup-on-error }}
+        ENV_START_EXTRA_ARGS: ${{ inputs.env-start-extra-args }}
+        CTF_JD_IMAGE: ${{ inputs.jd-image }}
+        CTF_CHAINLINK_IMAGE: ${{ inputs.chainlink-image }}
+        CTF_CONFIGS: ${{ inputs.ctf-configs }}
+        CTF_CHIP_ROUTER_IMAGE: ${{ inputs.chip-router-image }}
+      run: |
+        set -u
+        set +e
+        # GitHub invokes bash with errexit (-e); disable it so a failed `env start`
+        # does not abort the script before we can retry.
+        last_exit=1
+        attempt=1
+        while [[ "$attempt" -le "$MAX_ATTEMPTS" ]]; do
+          echo "Starting local CRE (attempt ${attempt}/${MAX_ATTEMPTS})..."
+          # shellcheck disable=SC2086
+          go run . env start ${ENV_START_EXTRA_ARGS} --cleanup-on-error="${CLEANUP_ON_ERROR}"
+          last_exit=$?
+          if [[ "$last_exit" -eq 0 ]]; then
+            exit 0
+          fi
+          echo "env start failed with exit code ${last_exit}"
+          if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
+            echo "Running env stop before retry..."
+            go run . env stop || true
+            sleep "${RETRY_DELAY_SECONDS}"
+          fi
+          attempt=$((attempt + 1))
+        done
+        echo "Error: failed to start local CRE after ${MAX_ATTEMPTS} attempts (last exit code ${last_exit})"
+        exit "${last_exit}"

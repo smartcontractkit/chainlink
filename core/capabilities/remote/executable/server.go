@@ -168,9 +168,7 @@ func (r *server) Start(ctx context.Context) error {
 		// Initialize parallel executor with the configured max parallel requests
 		r.parallelExecutor = newParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests))
 
-		r.wg.Add(1)
-		go func() {
-			defer r.wg.Done()
+		r.wg.Go(func() {
 			ticker := time.NewTicker(getServerTickerInterval(cfg))
 			defer ticker.Stop()
 
@@ -184,7 +182,7 @@ func (r *server) Start(ctx context.Context) error {
 					r.expireRequests()
 				}
 			}
-		}()
+		})
 
 		err := r.parallelExecutor.Start(ctx)
 		if err != nil {
@@ -229,6 +227,8 @@ func (r *server) expireRequests() {
 			if err != nil {
 				r.lggr.Errorw("failed to cancel request", "request", executeReq, "err", err)
 			}
+		}
+		if executeReq.request.Evictable(commoncap.DefaultExecutableRequestTimeout) {
 			delete(r.requestIDToRequest, requestID)
 			delete(r.messageIDToRequestIDsCount, executeReq.messageID)
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocr2plus "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"gopkg.in/guregu/null.v4"
@@ -19,11 +20,12 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -128,7 +130,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		t,
 	)
 
-	notifier, ok := cfg.ContractTransmitter.(TransmitNotifier)
+	notifier, ok := cfg.ContractTransmitter.(transmitter.TransmitNotifier)
 	if ok {
 		notifier.OnTransmit(t.TrackSeqNr)
 	}
@@ -164,7 +166,7 @@ func (d *delegate) Start(ctx context.Context) error {
 				// This is a performance optimization
 			})
 
-			oracle, err := ocr2plus.NewOracle(ocr2plus.OCR3OracleArgs[llotypes.ReportInfo]{
+			oracle, err := ocr2plus.NewOracle(ocr2plus.OCR3OracleArgs2[llotypes.ReportInfo]{
 				BinaryNetworkEndpointFactory: d.cfg.BinaryNetworkEndpointFactory,
 				V2Bootstrappers:              d.cfg.V2Bootstrappers,
 				ContractConfigTracker:        configTracker,
@@ -175,7 +177,7 @@ func (d *delegate) Start(ctx context.Context) error {
 				MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,
 				OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
 				OffchainKeyring:              d.cfg.OffchainKeyring,
-				OnchainKeyring:               d.cfg.OnchainKeyring,
+				OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(d.cfg.OnchainKeyring),
 				ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
 					datastreamsllo.NewPluginFactory(
 						datastreamsllo.PluginFactoryParams{

@@ -3,48 +3,26 @@
 package mocks
 
 import (
+	context "context"
 	big "math/big"
 
-	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-
-	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
-
-	capabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-
-	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
-	context "context"
-
-	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
-
-	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
-
-	jsonserializable "github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
-
-	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-
-	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	logpoller "github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-
-	mock "github.com/stretchr/testify/mock"
-
-	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-
-	plugins "github.com/smartcontractkit/chainlink/v2/plugins"
-
-	services "github.com/smartcontractkit/chainlink/v2/core/services"
-
-	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
-
-	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	txmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-
 	uuid "github.com/google/uuid"
-
-	webhook "github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-
+	sqlutil "github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	logpoller "github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	txmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	bridges "github.com/smartcontractkit/chainlink/v2/core/bridges"
+	capabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
+	audit "github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	services "github.com/smartcontractkit/chainlink/v2/core/services"
+	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
+	keystore "github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	sessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
+	plugins "github.com/smartcontractkit/chainlink/v2/plugins"
+	mock "github.com/stretchr/testify/mock"
 	zapcore "go.uber.org/zap/zapcore"
 )
 
@@ -591,53 +569,6 @@ func (_c *Application_GetDB_Call) RunAndReturn(run func() sqlutil.DataSource) *A
 	return _c
 }
 
-// GetExternalInitiatorManager provides a mock function with no fields
-func (_m *Application) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetExternalInitiatorManager")
-	}
-
-	var r0 webhook.ExternalInitiatorManager
-	if rf, ok := ret.Get(0).(func() webhook.ExternalInitiatorManager); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(webhook.ExternalInitiatorManager)
-		}
-	}
-
-	return r0
-}
-
-// Application_GetExternalInitiatorManager_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetExternalInitiatorManager'
-type Application_GetExternalInitiatorManager_Call struct {
-	*mock.Call
-}
-
-// GetExternalInitiatorManager is a helper method to define mock.On call
-func (_e *Application_Expecter) GetExternalInitiatorManager() *Application_GetExternalInitiatorManager_Call {
-	return &Application_GetExternalInitiatorManager_Call{Call: _e.mock.On("GetExternalInitiatorManager")}
-}
-
-func (_c *Application_GetExternalInitiatorManager_Call) Run(run func()) *Application_GetExternalInitiatorManager_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run()
-	})
-	return _c
-}
-
-func (_c *Application_GetExternalInitiatorManager_Call) Return(_a0 webhook.ExternalInitiatorManager) *Application_GetExternalInitiatorManager_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *Application_GetExternalInitiatorManager_Call) RunAndReturn(run func() webhook.ExternalInitiatorManager) *Application_GetExternalInitiatorManager_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // GetFeedsService provides a mock function with no fields
 func (_m *Application) GetFeedsService() feeds.Service {
 	ret := _m.Called()
@@ -1153,6 +1084,55 @@ func (_c *Application_JobSpawner_Call) RunAndReturn(run func() job.Spawner) *App
 	return _c
 }
 
+// LPSkipToBlock provides a mock function with given fields: ctx, chainFamily, chainID, blockNumber
+func (_m *Application) LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error {
+	ret := _m.Called(ctx, chainFamily, chainID, blockNumber)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LPSkipToBlock")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, int64) error); ok {
+		r0 = rf(ctx, chainFamily, chainID, blockNumber)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Application_LPSkipToBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LPSkipToBlock'
+type Application_LPSkipToBlock_Call struct {
+	*mock.Call
+}
+
+// LPSkipToBlock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - chainFamily string
+//   - chainID string
+//   - blockNumber int64
+func (_e *Application_Expecter) LPSkipToBlock(ctx interface{}, chainFamily interface{}, chainID interface{}, blockNumber interface{}) *Application_LPSkipToBlock_Call {
+	return &Application_LPSkipToBlock_Call{Call: _e.mock.On("LPSkipToBlock", ctx, chainFamily, chainID, blockNumber)}
+}
+
+func (_c *Application_LPSkipToBlock_Call) Run(run func(ctx context.Context, chainFamily string, chainID string, blockNumber int64)) *Application_LPSkipToBlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(int64))
+	})
+	return _c
+}
+
+func (_c *Application_LPSkipToBlock_Call) Return(_a0 error) *Application_LPSkipToBlock_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Application_LPSkipToBlock_Call) RunAndReturn(run func(context.Context, string, string, int64) error) *Application_LPSkipToBlock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // PipelineORM provides a mock function with no fields
 func (_m *Application) PipelineORM() pipeline.ORM {
 	ret := _m.Called()
@@ -1352,65 +1332,6 @@ func (_c *Application_RunJobV2_Call) Return(_a0 int64, _a1 error) *Application_R
 }
 
 func (_c *Application_RunJobV2_Call) RunAndReturn(run func(context.Context, int32, map[string]interface{}) (int64, error)) *Application_RunJobV2_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// RunWebhookJobV2 provides a mock function with given fields: ctx, jobUUID, requestBody, meta
-func (_m *Application) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
-	ret := _m.Called(ctx, jobUUID, requestBody, meta)
-
-	if len(ret) == 0 {
-		panic("no return value specified for RunWebhookJobV2")
-	}
-
-	var r0 int64
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) (int64, error)); ok {
-		return rf(ctx, jobUUID, requestBody, meta)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) int64); ok {
-		r0 = rf(ctx, jobUUID, requestBody, meta)
-	} else {
-		r0 = ret.Get(0).(int64)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) error); ok {
-		r1 = rf(ctx, jobUUID, requestBody, meta)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// Application_RunWebhookJobV2_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RunWebhookJobV2'
-type Application_RunWebhookJobV2_Call struct {
-	*mock.Call
-}
-
-// RunWebhookJobV2 is a helper method to define mock.On call
-//   - ctx context.Context
-//   - jobUUID uuid.UUID
-//   - requestBody string
-//   - meta jsonserializable.JSONSerializable
-func (_e *Application_Expecter) RunWebhookJobV2(ctx interface{}, jobUUID interface{}, requestBody interface{}, meta interface{}) *Application_RunWebhookJobV2_Call {
-	return &Application_RunWebhookJobV2_Call{Call: _e.mock.On("RunWebhookJobV2", ctx, jobUUID, requestBody, meta)}
-}
-
-func (_c *Application_RunWebhookJobV2_Call) Run(run func(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable)) *Application_RunWebhookJobV2_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(uuid.UUID), args[2].(string), args[3].(jsonserializable.JSONSerializable))
-	})
-	return _c
-}
-
-func (_c *Application_RunWebhookJobV2_Call) Return(_a0 int64, _a1 error) *Application_RunWebhookJobV2_Call {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *Application_RunWebhookJobV2_Call) RunAndReturn(run func(context.Context, uuid.UUID, string, jsonserializable.JSONSerializable) (int64, error)) *Application_RunWebhookJobV2_Call {
 	_c.Call.Return(run)
 	return _c
 }

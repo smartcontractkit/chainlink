@@ -208,6 +208,11 @@ func (e *ServerRequest) Expired() bool {
 	return time.Since(e.createdTime) > e.requestTimeout
 }
 
+func (e *ServerRequest) Evictable(minRetention time.Duration) bool {
+	age := time.Since(e.createdTime)
+	return age > e.requestTimeout && age > minRetention
+}
+
 func (e *ServerRequest) Cancel(ctx context.Context, err types.Error, msg string) error {
 	e.mux.Lock()
 	defer e.mux.Unlock()

@@ -8,7 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -16,11 +19,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/rmn_contract"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var _ cldf.ChangeSet[PermaBlessCommitStoreConfig] = PermaBlessCommitStoreChangeset
@@ -62,7 +65,7 @@ type PermaBlessCommitStoreConfigPerDest struct {
 
 type PermaBlessCommitStoreConfig struct {
 	Configs    map[uint64]PermaBlessCommitStoreConfigPerDest
-	MCMSConfig *proposalutils.TimelockConfig
+	MCMSConfig *cldfproposalutils.TimelockConfig
 }
 
 func (c PermaBlessCommitStoreConfig) Validate(env cldf.Environment) error {
@@ -95,7 +98,7 @@ func (c PermaBlessCommitStoreConfig) Validate(env cldf.Environment) error {
 			}
 		}
 
-		if err := commoncs.ValidateOwnership(context.Background(), c.MCMSConfig != nil, env.BlockChains.EVMChains()[destChain].DeployerKey.From, destState.Timelock.Address(), destState.RMN); err != nil {
+		if err := mcmschangesets.ValidateOwnership(context.Background(), c.MCMSConfig != nil, env.BlockChains.EVMChains()[destChain].DeployerKey.From, destState.Timelock.Address(), destState.RMN); err != nil {
 			return fmt.Errorf("failed to validate ownership: %w", err)
 		}
 	}
@@ -153,12 +156,12 @@ func PermaBlessCommitStoreChangeset(env cldf.Environment, c PermaBlessCommitStor
 
 		timelocks[destChain] = destState.Timelock.Address().Hex()
 
-		inspectors[destChain], err = proposalutils.McmsInspectorForChain(env, destChain)
+		inspectors[destChain], err = cldfproposalutils.McmsInspectorForChain(env, destChain)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", destChain, err)
 		}
 
-		batchOperation, err := proposalutils.BatchOperationForChain(destChain, RMN.Address().Hex(), tx.Data(), big.NewInt(0),
+		batchOperation, err := cldfproposalutils.BatchOperationForChain(destChain, RMN.Address().Hex(), tx.Data(), big.NewInt(0),
 			string(shared.RMN), []string{})
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %d: %w", destChain, err)
@@ -174,7 +177,7 @@ func PermaBlessCommitStoreChangeset(env cldf.Environment, c PermaBlessCommitStor
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build mcm addresses per chain: %w", err)
 	}
-	timelockProposal, err := proposalutils.BuildProposalFromBatchesV2(
+	timelockProposal, err := proposeutils.BuildProposalFromBatchesV2(
 		env,
 		timelocks,
 		mcmsContractByChain,

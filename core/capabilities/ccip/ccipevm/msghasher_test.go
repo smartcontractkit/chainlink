@@ -13,13 +13,16 @@ import (
 	"math/rand"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/ethclient/simulated"
+	"github.com/ethereum/go-ethereum/node"
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -199,9 +202,12 @@ type testSetupData struct {
 
 func testSetup(t *testing.T) *testSetupData {
 	transactor := evmtestutils.MustNewSimTransactor(t)
-	simulatedBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
+	b := simulated.NewBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
-	}, 30e6)
+	}, simulated.WithBlockGasLimit(30e6), func(_ *node.Config, ethCfg *ethconfig.Config) {
+		ethCfg.RPCEVMTimeout = 60 * time.Second
+	})
+	simulatedBackend := &backends.SimulatedBackend{Backend: b, Client: b.Client()}
 
 	// Deploy the contract
 	address, _, _, err := message_hasher.DeployMessageHasher(transactor, simulatedBackend)

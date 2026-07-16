@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/stagegen"
@@ -212,12 +213,16 @@ func startBilling(ctx context.Context, cleanupWait time.Duration, setupOutput *e
 				return errors.Wrap(err, fmt.Sprintf("configured chain selector does not exist in the current topology: %d", in.BillingService.ChainSelector))
 			}
 
-			in.BillingService.RPCURL = strings.Replace(selectedChain.Nodes[0].ExternalHTTPUrl, "127.0.0.1", "host.docker.internal", 1)
+			in.BillingService.RPCURL = toDockerHostRPC(selectedChain.Nodes[0].ExternalHTTPUrl)
 		}
 
 		in.BillingService.WorkflowOwners = make([]string, len(setupOutput.WorkflowRegistryConfigurationOutput.WorkflowOwners))
 		for idx, owner := range setupOutput.WorkflowRegistryConfigurationOutput.WorkflowOwners {
 			in.BillingService.WorkflowOwners[idx] = owner.Hex()
+		}
+	} else {
+		if hydrateErr := hydrateBillingFromLocalCREState(in); hydrateErr != nil {
+			return hydrateErr
 		}
 	}
 
@@ -238,4 +243,62 @@ func startBilling(ctx context.Context, cleanupWait time.Duration, setupOutput *e
 	in.BillingService.Output = out
 
 	return in.Store(envconfig.MustBillingStateFileAbsPath(relativePathToRepoRoot))
+}
+
+func hydrateBillingFromLocalCREState(in *envconfig.BillingConfig) error {
+	resolver, err := TryLoadLocalCREStateResolver()
+	if err != nil {
+		return errors.Wrap(err, "failed to load local CRE state")
+	}
+
+	if resolver == nil || in == nil || in.BillingService == nil {
+		return nil
+	}
+
+	if in.BillingService.RPCURL == "" {
+		rpcURL, rpcErr := resolver.RegistryRPC()
+		if rpcErr == nil {
+			in.BillingService.RPCURL = toDockerHostRPC(rpcURL)
+		}
+	}
+
+	if in.BillingService.WorkflowRegistryAddress == "" {
+		addrRef, addrErr := resolver.AddressRef(keystone_changeset.WorkflowRegistry)
+		if addrErr == nil {
+			if in.BillingService.ChainSelector == 0 {
+				in.BillingService.ChainSelector = addrRef.ChainSelector
+			}
+			in.BillingService.WorkflowRegistryAddress = addrRef.Address
+		}
+	}
+
+	if in.BillingService.CapabilitiesRegistryAddress == "" {
+		addrRef, addrErr := resolver.AddressRef(keystone_changeset.CapabilitiesRegistry)
+		if addrErr == nil {
+			in.BillingService.CapabilitiesRegistryAddress = addrRef.Address
+		}
+	}
+
+	if len(in.BillingService.WorkflowOwners) == 0 {
+		workflowRegistryOutput, workflowRegistryErr := resolver.WorkflowRegistryOutput()
+		if workflowRegistryErr != nil {
+			return workflowRegistryErr
+		}
+
+		if workflowRegistryOutput != nil {
+			in.BillingService.WorkflowOwners = workflowRegistryOutput.WorkflowOwnersStrings()
+		}
+	}
+
+	return nil
+}
+
+func toDockerHostRPC(in string) string {
+	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
+	dockerHost = strings.TrimPrefix(dockerHost, "https://")
+
+	out := strings.Replace(in, "127.0.0.1", dockerHost, 1)
+	out = strings.Replace(out, "localhost", dockerHost, 1)
+
+	return out
 }

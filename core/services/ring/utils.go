@@ -9,7 +9,6 @@ import (
 	"github.com/cespare/xxhash/v2"
 )
 
-var errInvalidRing = errors.New("RingOCR invalid ring for consistent hashing")
 var errInvalidMember = errors.New("RingOCR invalid member for consistent hashing")
 
 var ErrNoHealthyShards = errors.New("no healthy shards for routing")

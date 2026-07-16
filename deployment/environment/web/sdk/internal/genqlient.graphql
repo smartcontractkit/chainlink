@@ -105,9 +105,6 @@ fragment JobParts on Job {
         ... on FluxMonitorSpec {
             ...FluxMonitorSpec
         }
-        ... on KeeperSpec {
-            ...KeeperSpec
-        }
         ... on DirectRequestSpec {
             ...DirectRequestSpec
         }
@@ -213,13 +210,6 @@ fragment FluxMonitorSpec on FluxMonitorSpec {
     pollTimerDisabled
     pollTimerPeriod
     threshold
-}
-
-fragment KeeperSpec on KeeperSpec {
-    contractAddress
-    createdAt
-    evmChainID
-    fromAddress
 }
 
 fragment DirectRequestSpec on DirectRequestSpec {

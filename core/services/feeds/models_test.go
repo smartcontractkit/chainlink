@@ -98,36 +98,6 @@ func Test_FromPluginType(t *testing.T) {
 	assert.Equal(t, "unknown", FromPluginTypeInput(PluginTypeUnknown))
 }
 
-func Test_FluxMonitorConfig_Value(t *testing.T) {
-	t.Parallel()
-
-	cfg := FluxMonitorConfig{Enabled: true}
-	want := `{"enabled":true}`
-
-	val, err := cfg.Value()
-	require.NoError(t, err)
-
-	actual, ok := val.([]byte)
-	require.True(t, ok)
-
-	assert.Equal(t, want, string(actual))
-}
-
-func Test_FluxMonitorConfig_Scan(t *testing.T) {
-	t.Parallel()
-
-	var (
-		give = `{"enabled":true}`
-		want = FluxMonitorConfig{Enabled: true}
-	)
-
-	var actual FluxMonitorConfig
-	err := actual.Scan([]byte(give))
-	require.NoError(t, err)
-
-	assert.Equal(t, want, actual)
-}
-
 func Test_OCR1Config_Value(t *testing.T) {
 	t.Parallel()
 

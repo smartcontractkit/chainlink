@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
@@ -46,18 +47,20 @@ var defaultStreamConfig = p2ptypes.StreamConfig{
 
 type launcher struct {
 	services.StateMachine
-	lggr                logger.Logger
+	lggr                logger.SugaredLogger
 	myPeerID            p2ptypes.PeerID
 	peerWrapper         p2ptypes.PeerWrapper
 	dispatcher          remotetypes.Dispatcher
 	cachedShims         cachedShims
 	registry            *Registry
-	subServices         []services.Service
 	workflowDonNotifier DonNotifier
 	don2donSharedPeer   p2ptypes.SharedPeer
 	p2pStreamConfig     p2ptypes.StreamConfig
 	metrics             *launcherMetrics
 	localCapMgr         localcapmgr.LocalCapabilityManager
+
+	muSubServices sync.Mutex
+	subServices   []services.Service
 }
 
 // For V2 capabilities, shims are created once and their config is updated dynamically.
@@ -106,7 +109,7 @@ func NewLauncher(
 		return nil, fmt.Errorf("failed to create launcher metrics: %w", err)
 	}
 	return &launcher{
-		lggr:        logger.Named(lggr, "CapabilitiesLauncher"),
+		lggr:        logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		peerWrapper: peerWrapper,
 		dispatcher:  dispatcher,
 		cachedShims: cachedShims{
@@ -117,7 +120,6 @@ func NewLauncher(
 			executableServers:  make(map[string]executable.Server),
 		},
 		registry:            registry,
-		subServices:         []services.Service{},
 		workflowDonNotifier: workflowDonNotifier,
 		don2donSharedPeer:   don2donSharedPeer,
 		p2pStreamConfig:     p2pStreamConfig,
@@ -223,27 +225,31 @@ func (w *launcher) allDONs(localRegistry *registrysyncer.LocalRegistry) []regist
 }
 
 func (w *launcher) Start(ctx context.Context) error {
-	if w.peerWrapper != nil && w.peerWrapper.GetPeer() != nil {
-		w.myPeerID = w.peerWrapper.GetPeer().ID()
-		return nil
-	}
-	if w.don2donSharedPeer != nil {
-		w.myPeerID = w.don2donSharedPeer.ID()
-		return nil
-	}
-	return errors.New("could not get peer ID from any source")
+	return w.StartOnce("CapabilitiesLauncher", func() error {
+		if w.peerWrapper != nil && w.peerWrapper.GetPeer() != nil {
+			w.myPeerID = w.peerWrapper.GetPeer().ID()
+			return nil
+		}
+		if w.don2donSharedPeer != nil {
+			w.myPeerID = w.don2donSharedPeer.ID()
+			return nil
+		}
+		return errors.New("could not get peer ID from any source")
+	})
 }
 
 func (w *launcher) Close() error {
-	for _, s := range w.subServices {
-		if err := s.Close(); err != nil {
-			w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
+	return w.StopOnce("CapabilitiesLauncher", func() error {
+		for _, s := range w.subServices {
+			if err := s.Close(); err != nil {
+				w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
+			}
 		}
-	}
-	if w.peerWrapper != nil {
-		return w.peerWrapper.GetPeer().UpdateConnections(map[ragetypes.PeerID]p2ptypes.StreamConfig{})
-	}
-	return nil
+		if w.peerWrapper != nil {
+			return w.peerWrapper.GetPeer().UpdateConnections(map[ragetypes.PeerID]p2ptypes.StreamConfig{})
+		}
+		return nil
+	})
 }
 
 // LocalCapabilityManager is initialized after the Launcher is created
@@ -251,12 +257,8 @@ func (w *launcher) SetLocalCapabilityManager(lcm localcapmgr.LocalCapabilityMana
 	w.localCapMgr = lcm
 }
 
-func (w *launcher) Ready() error {
-	return nil
-}
-
 func (w *launcher) HealthReport() map[string]error {
-	return nil
+	return map[string]error{w.Name(): w.Healthy()}
 }
 
 func (w *launcher) Name() string {
@@ -299,7 +301,16 @@ func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *regist
 	return donPairs
 }
 
-func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
+func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) (err error) {
+	if !w.IfNotStopped(func() {
+		err = w.onNewRegistry(ctx, localRegistry)
+	}) {
+		return errors.New("service has been stopped")
+	}
+	return
+}
+
+func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
 	w.lggr.Debug("CapabilitiesLauncher triggered...")
 	w.registry.SetLocalRegistry(localRegistry)
 
@@ -342,9 +353,12 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	for family := range myDONFamiliesSet {
 		myDONFamilies = append(myDONFamilies, family)
 	}
-	w.lggr.Debugw("Found my DON families", "count", len(myDONFamilies), "myDONFamilies", myDONFamilies)
-	w.lggr.Debugw("Found my workflow DONs", "count", len(myWorkflowDONs), "myWorkflowDONs", myWorkflowDONs)
-	w.lggr.Debugw("Found all remote workflow DONs", "count", len(remoteWorkflowDONs), "remoteWorkflowDONs", remoteWorkflowDONs)
+	w.lggr.Debugw("Found my DON families", "count", len(myDONFamilies))
+	w.lggr.Tracew("My DON families", "myDONFamilies", myDONFamilies)
+	w.lggr.Debugw("Found my workflow DONs", "count", len(myWorkflowDONs))
+	w.lggr.Tracew("My workflow DONs", "myWorkflowDONs", myWorkflowDONs)
+	w.lggr.Debugw("Found all remote workflow DONs", "count", len(remoteWorkflowDONs))
+	w.lggr.Tracew("All remote workflow DONs", "remoteWorkflowDONs", remoteWorkflowDONs)
 
 	// Capability DONs (with IsPublic = true) the current node is a part of.
 	// These need server-side shims to expose my own capabilities externally.
@@ -359,14 +373,18 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 			}
 		}
 	}
-	w.lggr.Debugw("Found my capability DONs", "count", len(myCapabilityDONs), "myCapabilityDONs", myCapabilityDONs)
-	w.lggr.Debugw("Found all remote capability DONs", "count", len(remoteCapabilityDONs), "remoteCapabilityDONs", remoteCapabilityDONs)
+	w.lggr.Debugw("Found my capability DONs", "count", len(myCapabilityDONs))
+	w.lggr.Tracew("My capability DONs", "myCapabilityDONs", myCapabilityDONs)
+	w.lggr.Debugw("Found all remote capability DONs", "count", len(remoteCapabilityDONs))
+	w.lggr.Tracew("All remote capability DONs", "remoteCapabilityDONs", remoteCapabilityDONs)
 
 	if len(myDONFamilies) > 0 {
 		remoteWorkflowDONs = filterDONsByFamilies(remoteWorkflowDONs, myDONFamilies)
 		remoteCapabilityDONs = filterDONsByFamilies(remoteCapabilityDONs, myDONFamilies)
-		w.lggr.Debugw("Filtered remote workflow DONs to my families", "count", len(remoteWorkflowDONs), "remoteWorkflowDONs", remoteWorkflowDONs)
-		w.lggr.Debugw("Filtered remote capability DONs to my families", "count", len(remoteCapabilityDONs), "remoteCapabilityDONs", remoteCapabilityDONs)
+		w.lggr.Debugw("Filtered remote workflow DONs to my families", "count", len(remoteWorkflowDONs))
+		w.lggr.Tracew("Filtered remote workflow DONs to my families", "remoteWorkflowDONs", remoteWorkflowDONs)
+		w.lggr.Debugw("Filtered remote capability DONs to my families", "count", len(remoteCapabilityDONs))
+		w.lggr.Tracew("Filtered remote capability DONs to my families", "remoteCapabilityDONs", remoteCapabilityDONs)
 	} else {
 		// legacy / Keystone setting
 		w.lggr.Debug("My node doesn't belong to any DON families. No filtering will be applied.")
@@ -394,6 +412,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 		w.lggr.Debug("Notifying DON set...")
 		w.workflowDonNotifier.NotifyDonSet(myDON.DON)
 
+		w.warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs)
 		for _, rcd := range remoteCapabilityDONs {
 			w.addRemoteCapabilities(ctx, myDON, rcd, localRegistry)
 		}
@@ -418,7 +437,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	}
 	if w.don2donSharedPeer != nil {
 		donPairs := w.donPairsToUpdate(w.myPeerID, localRegistry)
-		err := w.don2donSharedPeer.UpdateConnectionsByDONs(ctx, donPairs, defaultStreamConfig)
+		err := w.don2donSharedPeer.UpdateConnectionsByDONs(ctx, donPairs, w.p2pStreamConfig)
 		if err != nil {
 			return fmt.Errorf("failed to update peer connections: %w", err)
 		}
@@ -435,6 +454,22 @@ func filterDONsByFamilies(donList []registrysyncer.DON, myDONFamilies []string) 
 		}
 	}
 	return filteredDONs
+}
+
+func (w *launcher) warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs []registrysyncer.DON) {
+	donIDsByCapability := map[string][]uint32{}
+	for _, d := range remoteCapabilityDONs {
+		for capID := range d.CapabilityConfigurations {
+			donIDsByCapability[capID] = append(donIDsByCapability[capID], d.ID)
+		}
+	}
+	for capID, donIDs := range donIDsByCapability {
+		if len(donIDs) > 1 {
+			slices.Sort(donIDs)
+			w.lggr.Warnw("multiple in-family capability DONs host the same capability; only the lowest DON ID will be routed to, check DON family configuration",
+				"capabilityID", capID, "donIDs", donIDs)
+		}
+	}
 }
 
 func donFamiliesOverlap(donA []string, donB []string) bool {
@@ -483,7 +518,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 
 	methodConfig := capabilityConfig.CapabilityMethodConfig
 	if methodConfig != nil { // v2 capability - handle via CombinedClient
-		errAdd := w.addRemoteCapabilityV2(ctx, capability.ID, methodConfig, myDON, remoteDON)
+		errAdd := w.addRemoteCapabilityV2(ctx, capability.ID, methodConfig, myDON, remoteDON, localRegistry)
 		if errAdd != nil {
 			return fmt.Errorf("failed to add remote v2 capability %s: %w", capability.ID, errAdd)
 		}
@@ -574,7 +609,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -600,7 +635,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -611,7 +646,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 			return fmt.Errorf("failed to add target shim: %w", err)
 		}
 	default:
-		w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
+		w.lggr.Warnw("unknown capability type, skipping configuration", "capability", capability)
 	}
 
 	return nil
@@ -665,6 +700,8 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 	if err != nil {
 		return fmt.Errorf("failed to start capability: %w", err)
 	}
+	w.muSubServices.Lock()
+	defer w.muSubServices.Unlock()
 	w.subServices = append(w.subServices, cp)
 	return nil
 }
@@ -844,7 +881,7 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, capabilityCo
 			return fmt.Errorf("failed to add server-side receiver for a target capability '%s' - it won't be exposed remotely: %w", cid, err)
 		}
 	default:
-		w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
+		w.lggr.Warnw("unknown capability type, skipping configuration", "capability", capability)
 	}
 	return nil
 }
@@ -875,7 +912,7 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 	if errors.Is(err, remote.ErrReceiverExists) {
 		// If a receiver already exists, let's log the error for debug purposes, but
 		// otherwise short-circuit here. We've handled this capability in a previous iteration.
-		w.lggr.Debugf("receiver already exists for cap ID %s and don ID %d: %s", capID, don.ID, err)
+		w.lggr.Debugw("receiver already exists for capability", "capabilityID", capID, "donID", don.ID, "error", err)
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to set receiver: %w", err)
@@ -886,6 +923,8 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 		return fmt.Errorf("failed to start receiver: %w", err)
 	}
 
+	w.muSubServices.Lock()
+	defer w.muSubServices.Unlock()
 	w.subServices = append(w.subServices, receiver)
 	return nil
 }
@@ -907,7 +946,7 @@ func signersFor(don registrysyncer.DON, localRegistry *registrysyncer.LocalRegis
 }
 
 // Add a V2 capability with multiple methods, using CombinedClient.
-func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON registrysyncer.DON, remoteDON registrysyncer.DON) error {
+func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) error {
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capabilities.CapabilityTypeCombined,
@@ -962,7 +1001,12 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 				Schedule:   transmission.EnumToString(config.RemoteExecutableConfig.TransmissionSchedule),
 				DeltaStage: config.RemoteExecutableConfig.DeltaStage,
 			}
-			err := client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig)
+
+			signers, err := signersFor(remoteDON, localRegistry)
+			if err != nil {
+				return fmt.Errorf("failed to get signers for executable client: %w", err)
+			}
+			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers, config.RemoteExecutableConfig.MinResponsesToAggregate)
 			if err != nil {
 				w.lggr.Errorw("failed to update client config", "capID", capID, "method", method, "error", err)
 				continue
@@ -997,8 +1041,10 @@ func (w *launcher) startNewShim(ctx context.Context, receiver remotetypes.Receiv
 		_ = receiver.Close()
 		return fmt.Errorf("failed to register receiver for capability %s, method %s: %w", capID, method, err)
 	}
-	w.subServices = append(w.subServices, receiver)
 	w.lggr.Debugw("New remote shim started successfully for capability method", "id", capID, "method", method, "donID", donID)
+	w.muSubServices.Lock()
+	defer w.muSubServices.Unlock()
+	w.subServices = append(w.subServices, receiver)
 	return nil
 }
 

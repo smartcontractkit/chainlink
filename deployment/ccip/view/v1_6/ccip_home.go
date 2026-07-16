@@ -7,8 +7,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
@@ -19,8 +17,9 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
 	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -83,7 +82,7 @@ type CCIPHomeVersionedConfig struct {
 }
 
 type CCIPHomeView struct {
-	types.ContractMetaData
+	view.ContractMetaData
 	ChainConfigs       []CCIPHomeChainConfigArgView `json:"chainConfigs"`
 	CapabilityRegistry common.Address               `json:"capabilityRegistry"`
 	Dons               []DonView                    `json:"dons"`
@@ -104,7 +103,7 @@ func GenerateCCIPHomeView(cr *capabilities_registry.CapabilitiesRegistry, ch *cc
 	if ch == nil {
 		return CCIPHomeView{}, errors.New("cannot generate view for nil CCIPHome")
 	}
-	meta, err := types.NewContractMetaData(ch, ch.Address())
+	meta, err := view.NewContractMetaData(ch, ch.Address())
 	if err != nil {
 		return CCIPHomeView{}, fmt.Errorf("failed to generate contract metadata for CCIPHome %s: %w", ch.Address(), err)
 	}
@@ -232,20 +231,7 @@ func populateDecodedOCRParams(config *CCIPHomeOCR3Config, ccipHomeCfg ccip_home.
 	if ccipHomeCfg.ConfigDigest == [32]byte{} {
 		return nil
 	}
-	signers := make([]ocrtypes.OnchainPublicKey, 0)
-	transmitters := make([]ocrtypes.Account, 0)
-	for _, node := range ccipHomeCfg.Config.Nodes {
-		signers = append(signers, node.SignerKey)
-		transmitters = append(transmitters, ocrtypes.Account(node.TransmitterKey))
-	}
-	publicConfig, err := ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{
-		Signers:               signers,
-		Transmitters:          transmitters,
-		F:                     config.FRoleDON,
-		OnchainConfig:         []byte{}, // empty OnChainConfig
-		OffchainConfigVersion: config.OffchainConfigVersion,
-		OffchainConfig:        ccipHomeCfg.Config.OffchainConfig,
-	})
+	publicConfig, err := PublicConfigFromCCIPHome(ccipHomeCfg)
 	if err != nil {
 		return fmt.Errorf("failed to decode offchain config: %w", err)
 	}

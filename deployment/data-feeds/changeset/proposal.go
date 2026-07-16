@@ -6,16 +6,16 @@ import (
 	"time"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
+	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 )
 
 type ProposalData struct {
@@ -32,7 +32,7 @@ func BuildMultiChainProposals(env cldf.Environment, description string, proposal
 	var proposerMCMSes = map[uint64]string{}
 	var inspectorPerChain = map[uint64]sdk.Inspector{}
 	var batches []mcmstypes.BatchOperation
-	mcmsStateCache := make(map[string]map[uint64]*commonchangeset.MCMSWithTimelockState)
+	mcmsStateCache := make(map[string]map[uint64]*evmstate.MCMSWithTimelockState)
 
 	for chainSelector, proposalData := range proposalConfig {
 		var transactions []mcmstypes.Transaction
@@ -40,7 +40,7 @@ func BuildMultiChainProposals(env cldf.Environment, description string, proposal
 			cacheKey := fmt.Sprintf("%d:%s", chainSelector, proposal.timeLockQualifier)
 			// Load MCMS state only if not already cached
 			if _, exists := mcmsStateCache[cacheKey]; !exists {
-				mcmsChainState, err := commonchangeset.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSelector}, proposal.timeLockQualifier)
+				mcmsChainState, err := evmstate.MaybeLoadMCMSWithTimelockStateWithQualifier(env, []uint64{chainSelector}, proposal.timeLockQualifier)
 				if err != nil {
 					return nil, fmt.Errorf("failed to load MCMS contracts for chain %d: %w", chainSelector, err)
 				}
@@ -69,14 +69,14 @@ func BuildMultiChainProposals(env cldf.Environment, description string, proposal
 			Transactions:  transactions,
 		})
 	}
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	proposal, err := proposeutils.BuildProposalFromBatchesV2(
 		env,
 		timelocksPerChain,
 		proposerMCMSes,
 		inspectorPerChain,
 		batches,
 		description,
-		proposalutils.TimelockConfig{MinDelay: minDelay},
+		cldfproposalutils.TimelockConfig{MinDelay: minDelay},
 	)
 	if err != nil {
 		return nil, err

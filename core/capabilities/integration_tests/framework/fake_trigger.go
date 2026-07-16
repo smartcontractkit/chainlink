@@ -129,9 +129,7 @@ func (s *fakeTrigger) RegisterTrigger(ctx context.Context, request capabilities.
 
 	ctxWithCancel, cancel := s.stopCh.NewCtx()
 	s.cancel = cancel
-	s.wg.Add(1)
-	go func() {
-		defer s.wg.Done()
+	s.wg.Go(func() {
 		for {
 			select {
 			case <-ctxWithCancel.Done():
@@ -140,7 +138,7 @@ func (s *fakeTrigger) RegisterTrigger(ctx context.Context, request capabilities.
 				responseCh <- resp
 			}
 		}
-	}()
+	})
 
 	return responseCh, nil
 }

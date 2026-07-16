@@ -438,9 +438,13 @@ func (oi *oidcAuthenticator) CreateSession(ctx context.Context, sr clsessions.Se
 	return session.ID, nil
 }
 
-// ClearNonCurrentSessions removes all oicd_sessions but the id passed in.
+// ClearNonCurrentSessions removes other oidc_sessions for the user tied to sessionID.
 func (oi *oidcAuthenticator) ClearNonCurrentSessions(ctx context.Context, sessionID string) error {
-	_, err := oi.ds.ExecContext(ctx, "DELETE FROM oidc_sessions where id != $1", sessionID)
+	var email string
+	if err := oi.ds.GetContext(ctx, &email, "SELECT user_email FROM oidc_sessions WHERE id = $1", sessionID); err != nil {
+		return err
+	}
+	_, err := oi.ds.ExecContext(ctx, "DELETE FROM oidc_sessions WHERE lower(user_email) = lower($1) AND id != $2", email, sessionID)
 	return err
 }
 

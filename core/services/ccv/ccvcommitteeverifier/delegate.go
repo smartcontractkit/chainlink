@@ -125,7 +125,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("onchain public key does not match signer address in config, want %s, got %s", signingKey.OnChainPublicKey(), decodedCfg.SignerAddress)
 	}
 
-	apiKey, apiSecret, err := getAggregatorSecrets(d.ccvConfig, decodedCfg.VerifierID)
+	aggregatorSecrets, err := BuildAggregatorSecrets(d.ccvConfig, decodedCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get aggregator secrets from secrets toml: %w", err)
 	}
@@ -135,10 +135,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			Named("CCVCommitteeVerificationCoordinator").
 			Named(decodedCfg.VerifierID),
 		decodedCfg,
-		&hmac.ClientConfig{
-			APIKey: apiKey,
-			Secret: apiSecret,
-		},
+		aggregatorSecrets,
 		common.HexToAddress(decodedCfg.SignerAddress).Bytes(),
 		newSignerAdapter(signingKey),
 		legacyChains,
@@ -153,7 +150,34 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	return services, nil
 }
 
-func getAggregatorSecrets(ccvConfig config.CCV, verifierID string) (string, string, error) {
+// BuildAggregatorSecrets resolves one HMAC credential per aggregator the verifier writes to,
+// keyed by AggregatorConnection.SecretName (the key NewVerificationCoordinator looks up). Each
+// aggregator's credential is found in the secrets TOML by matching its SecretName against the
+// entry's VerifierID. A legacy single-aggregator config has an empty SecretName, so its
+// credential is looked up by the job's VerifierID and stored under the "" key.
+func BuildAggregatorSecrets(ccvConfig config.CCV, decodedCfg commit.Config) (map[string]*hmac.ClientConfig, error) {
+	aggregators, err := decodedCfg.ResolvedAggregators()
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve aggregators: %w", err)
+	}
+
+	secrets := make(map[string]*hmac.ClientConfig, len(aggregators))
+	for _, agg := range aggregators {
+		lookupID := agg.SecretName
+		if lookupID == "" {
+			// Legacy single-aggregator config: the secret is keyed by the job's verifier_id.
+			lookupID = decodedCfg.VerifierID
+		}
+		apiKey, apiSecret, err := findAggregatorSecret(ccvConfig, lookupID)
+		if err != nil {
+			return nil, err
+		}
+		secrets[agg.SecretName] = &hmac.ClientConfig{APIKey: apiKey, Secret: apiSecret}
+	}
+	return secrets, nil
+}
+
+func findAggregatorSecret(ccvConfig config.CCV, verifierID string) (string, string, error) {
 	verifierIDs := make([]string, 0, len(ccvConfig.AggregatorSecrets()))
 	for _, secret := range ccvConfig.AggregatorSecrets() {
 		if secret.VerifierID() == verifierID {

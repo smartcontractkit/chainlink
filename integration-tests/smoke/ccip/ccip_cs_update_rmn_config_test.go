@@ -5,8 +5,13 @@ import (
 	"testing"
 	"time"
 
+	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_home"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/rmn_remote"
@@ -16,6 +21,8 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
+	linkchangesets "github.com/smartcontractkit/cld-changesets/link/changesets"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -23,9 +30,8 @@ import (
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_6"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 var (
@@ -204,10 +210,10 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		// This is required because RMNHome is initially owned by the deployer
 		_, err = commonchangeset.Apply(t, e.Env,
 			commonchangeset.Configure(
-				cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-				commonchangeset.TransferToMCMSWithTimelockConfig{
+				cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+				mcmschangesets.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: contractsByChain,
-					MCMSConfig: proposalutils.TimelockConfig{
+					MCMSConfig: cldfproposalutils.TimelockConfig{
 						MinDelay: 0 * time.Second,
 					},
 				},
@@ -223,10 +229,10 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	previousActiveDigest, err := rmnHome.GetActiveDigest(nil)
 	require.NoError(t, err)
 
-	var mcmsConfig *proposalutils.TimelockConfig
+	var mcmsConfig *cldfproposalutils.TimelockConfig
 
 	if tc.useMCMS {
-		mcmsConfig = &proposalutils.TimelockConfig{
+		mcmsConfig = &cldfproposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -345,11 +351,11 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
 	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	mcmsCfg := make(map[uint64]cldfproposalutils.MCMSWithTimelockConfig)
 	var err error
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, c := range e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM)) {
-		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
+		mcmsCfg[c] = cldftesthelpers.SingleGroupTimelockConfig(t)
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: c,
 		})
@@ -357,7 +363,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
 	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+		cldf.CreateLegacyChangeSet(linkchangesets.DeployLinkToken),
 		allChains,
 	), commonchangeset.Configure(
 		cldf.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
@@ -365,7 +371,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			Configs: prereqCfgs,
 		},
 	), commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		cldf.CreateLegacyChangeSet(mcmschangesets.DeployMCMSWithTimelockV2),
 		mcmsCfg,
 	))
 	require.NoError(t, err)
@@ -387,10 +393,10 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	e.Env, err = commonchangeset.Apply(t, e.Env, commonchangeset.Configure(
-		cldf.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2),
-		commonchangeset.TransferToMCMSWithTimelockConfig{
+		cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
+		mcmschangesets.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: contractsByChain,
-			MCMSConfig: proposalutils.TimelockConfig{
+			MCMSConfig: cldfproposalutils.TimelockConfig{
 				MinDelay: 0 * time.Second,
 			},
 		},
@@ -415,7 +421,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		cldf.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 		v1_6.SetRMNRemoteOnRMNProxyConfig{
 			ChainSelectors: allChains,
-			MCMSConfig: &proposalutils.TimelockConfig{
+			MCMSConfig: &cldfproposalutils.TimelockConfig{
 				MinDelay: 0,
 			},
 		},

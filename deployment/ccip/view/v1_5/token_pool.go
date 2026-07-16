@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	v1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
 )
 
 type TokenPoolContract interface {
@@ -108,7 +108,7 @@ func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (v1
 	}
 
 	return v1_5_1.TokenPoolView{
-		ContractMetaData: types.ContractMetaData{
+		ContractMetaData: view.ContractMetaData{
 			TypeAndVersion: typeAndVersion,
 			Address:        pool.Address(),
 			Owner:          owner,

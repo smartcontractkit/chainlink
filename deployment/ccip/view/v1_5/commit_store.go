@@ -3,12 +3,13 @@ package v1_5
 import (
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/commit_store"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 )
 
 type CommitStoreView struct {
-	types.ContractMetaData
+	view.ContractMetaData
 	DynamicConfig              commit_store.CommitStoreDynamicConfig   `json:"dynamicConfig"`
 	ExpectedNextSequenceNumber uint64                                  `json:"expectedNextSequenceNumber"`
 	LatestPriceEpochAndRound   uint64                                  `json:"latestPriceEpochAndRound"`

@@ -75,7 +75,7 @@ var (
 	}, []string{"workflowID", "stepRef"})
 )
 
-var _ capabilities.ActionCapability = (*Compute)(nil)
+var _ capabilities.ExecutableCapability = (*Compute)(nil)
 
 type FetcherFn func(ctx context.Context, req *host.FetchRequest) (*host.FetchResponse, error)
 

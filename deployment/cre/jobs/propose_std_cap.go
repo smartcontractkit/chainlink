@@ -15,11 +15,12 @@ import (
 var _ cldf.ChangeSetV2[ProposeStandardCapabilityJobInput] = ProposeStandardCapabilityJob{}
 
 type ProposeStandardCapabilityJobInput struct {
-	Domain  string `json:"domain" yaml:"domain"`
-	DONName string `json:"donName" yaml:"donName"`
-	JobName string `json:"jobName" yaml:"jobName"`
-	Command string `json:"command" yaml:"command"`
-	Config  string `json:"config" yaml:"config"`
+	Domain      string `json:"domain" yaml:"domain"`
+	Environment string `json:"environment" yaml:"environment"`
+	DONName     string `json:"donName" yaml:"donName"`
+	JobName     string `json:"jobName" yaml:"jobName"`
+	Command     string `json:"command" yaml:"command"`
+	Config      string `json:"config" yaml:"config"`
 
 	ExternalJobID string             `json:"externalJobID" yaml:"externalJobID"` // Optional
 	OracleFactory *pkg.OracleFactory `json:"oracleFactory" yaml:"oracleFactory"` // Optional
@@ -28,6 +29,7 @@ type ProposeStandardCapabilityJobInput struct {
 	ContractQualifier     string            `yaml:"contractQualifier"`                                  // used to fetch the OCR contract address
 	ChainSelectorEVM      pkg.ChainSelector `yaml:"chainSelectorEVM"`                                   // used to fetch OCR EVM configs from nodes
 	ChainSelectorAptos    pkg.ChainSelector `yaml:"chainSelectorAptos"`                                 // used to fetch OCR Aptos configs from nodes - optional
+	ChainSelectorStellar  pkg.ChainSelector `yaml:"chainSelectorStellar"`                               // used to fetch OCR Stellar configs from nodes - optional
 	BootstrapPeers        []string          `yaml:"bootstrapPeers"`                                     // set as value in the oracle factory
 
 	DONFilters  []offchain.TargetDONFilter `json:"donFilters" yaml:"donFilters"`
@@ -58,8 +60,9 @@ func (u ProposeStandardCapabilityJob) Apply(e cldf.Environment, input ProposeSta
 		operations2.ProposeStandardCapabilityJob,
 		operations2.ProposeStandardCapabilityJobDeps{Env: e},
 		operations2.ProposeStandardCapabilityJobInput{
-			Domain:  input.Domain,
-			DONName: input.DONName,
+			Domain:      input.Domain,
+			Environment: input.Environment,
+			DONName:     input.DONName,
 			Job: pkg.StandardCapabilityJob{
 				JobName:               input.JobName,
 				Command:               input.Command,
@@ -70,6 +73,7 @@ func (u ProposeStandardCapabilityJob) Apply(e cldf.Environment, input ProposeSta
 				ContractQualifier:     input.ContractQualifier,
 				ChainSelectorEVM:      input.ChainSelectorEVM,
 				ChainSelectorAptos:    input.ChainSelectorAptos,
+				ChainSelectorStellar:  input.ChainSelectorStellar,
 				BootstrapPeers:        input.BootstrapPeers,
 			},
 			DONFilters:  input.DONFilters,

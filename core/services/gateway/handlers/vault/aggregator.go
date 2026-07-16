@@ -1,37 +1,92 @@
 package vault
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"maps"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
+var errSignedPayloadRequestIDMismatch = errors.New("signed payload request id mismatch")
+
 type baseAggregator struct {
-	capabilitiesRegistry capabilitiesRegistry
+	capabilitiesRegistry        capabilitiesRegistry
+	metrics                     *metrics
+	donID                       string
+	signedResponseRequestIDGate limits.GateLimiter
+	// vaultHandlerDonID scopes registry lookup when several vault DONs exist.
+	//
+	// Source: gateway job TOML [[gatewayConfig.ShardedDONs]] DonName (see deployment/cre/jobs/pkg/gateway_job.go),
+	// loaded as ShardedDONConfig.DonName and passed as DONConfig.DonId (handler_factory.shardedDONsToLegacy;
+	// DonId is a legacy field name for that string, not the on-chain uint32 id).
+	//
+	// Matching: capabilities.DON.Name when non-empty (v2), else decimal capabilities.DON.ID string (v1 sync).
+	vaultHandlerDonID string
 }
 
-func (a *baseAggregator) Aggregate(ctx context.Context, l logger.Logger, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
+func methodSupportsSignedOCRValidation(method string) bool {
+	switch method {
+	case vaulttypes.MethodSecretsCreate,
+		vaulttypes.MethodSecretsUpdate,
+		vaulttypes.MethodSecretsDelete,
+		vaulttypes.MethodSecretsList:
+		return true
+	default:
+		return false
+	}
+}
+
+func (a *baseAggregator) signedResponseRequestIDEnabled(ctx context.Context, l logger.Logger) bool {
+	allowed, err := a.signedResponseRequestIDGate.Limit(ctx)
+	if err != nil {
+		l.Errorw("unexpected error evaluating CRE gate", "gate", "VaultSignedResponseRequestIDEnabled", "error", err)
+		return false
+	}
+	return allowed
+}
+
+func (a *baseAggregator) Aggregate(ctx context.Context, l logger.Logger, requestID string, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	don, err := a.donForVaultCapability(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get DON for vault capability: %w", err)
 	}
 
-	currResp, err = a.validateUsingSignatures(don.DON, don.Nodes, currResp)
-	if err == nil {
-		return currResp, nil
+	if a.signedResponseRequestIDEnabled(ctx, l) {
+		if methodSupportsSignedOCRValidation(currResp.Method) {
+			currResp, err = a.validateUsingSignatures(ctx, l, don.DON, don.Nodes, requestID, currResp, true)
+			if err == nil {
+				return currResp, nil
+			}
+
+			l.Debugw("failed to validate signatures, falling back to quorum aggregation", "error", err)
+		}
+	} else {
+		currResp, err = a.validateUsingSignatures(ctx, l, don.DON, don.Nodes, requestID, currResp, false)
+		if err == nil {
+			return currResp, nil
+		}
+
+		l.Debugw("failed to validate signatures, falling back to quorum aggregation", "error", err)
 	}
 
-	l.Debugw("failed to validate signatures, falling back to quorum aggregation", "error", err)
 	currResp, err = a.validateUsingQuorum(don.DON, resps, l)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate using quorum: %w", err)
@@ -45,15 +100,57 @@ func (a *baseAggregator) donForVaultCapability(ctx context.Context) (*capabiliti
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Support multiple vault capabilities in the capability registry.
-	// For the initial Smartcon deployment there will be exactly one Vault capability
-	// split across both DON families.
-	if len(dons) != 1 {
-		return nil, fmt.Errorf("expected exactly one DON for vault capability, found %d", len(dons))
+	if len(dons) == 0 {
+		return nil, fmt.Errorf("no DON found for vault capability %s", vaultcommon.CapabilityID)
+	}
+	if len(dons) == 1 {
+		don := dons[0]
+		return &don, nil
 	}
 
-	don := dons[0]
-	return &don, nil
+	handlerDonID := strings.TrimSpace(a.vaultHandlerDonID)
+	if handlerDonID == "" {
+		return nil, fmt.Errorf("multiple DONs (%d) host vault capability %s but vault handler DonId is empty; set ShardedDONConfig.DonName so DONConfig.DonId matches the vault DON name or id in the registry (%s)",
+			len(dons), vaultcommon.CapabilityID, summarizeVaultRegistryDONs(dons))
+	}
+
+	var matches []capabilities.DONWithNodes
+	for i := range dons {
+		d := dons[i]
+		if vaultDONMatchesHandlerDonID(&d.DON, handlerDonID) {
+			matches = append(matches, d)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		return nil, fmt.Errorf("multiple DONs (%d) host vault capability %s but none match vault handler DonId %q; registry has %s",
+			len(dons), vaultcommon.CapabilityID, a.vaultHandlerDonID, summarizeVaultRegistryDONs(dons))
+	case 1:
+		d := matches[0]
+		return &d, nil
+	default:
+		return nil, fmt.Errorf("%d DONs match vault handler DonId %q for vault capability %s", len(matches), a.vaultHandlerDonID, vaultcommon.CapabilityID)
+	}
+}
+
+// vaultDONMatchesHandlerDonID reports whether don is the vault DON this handler is configured for.
+// handlerDonID is vaultHandlerDonID (jobspec DonName / DONConfig.DonId); see struct comment.
+func vaultDONMatchesHandlerDonID(don *capabilities.DON, handlerDonID string) bool {
+	if don.Name != "" {
+		return don.Name == handlerDonID
+	}
+	return strconv.FormatUint(uint64(don.ID), 10) == handlerDonID
+}
+
+func summarizeVaultRegistryDONs(dons []capabilities.DONWithNodes) string {
+	var b strings.Builder
+	for i, d := range dons {
+		if i > 0 {
+			b.WriteString("; ")
+		}
+		_, _ = fmt.Fprintf(&b, "name=%q id=%d", d.DON.Name, d.DON.ID)
+	}
+	return b.String()
 }
 
 func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*jsonrpc.Response[json.RawMessage], error) {
@@ -75,8 +172,27 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[str
 		if shaToCount[sha] > maxShaToCount {
 			maxShaToCount = shaToCount[sha]
 		}
-		if shaToCount[sha] >= requiredQuorum {
-			return &r, nil
+	}
+
+	var qualifiedDigests []string
+	for sha, n := range shaToCount {
+		if n >= requiredQuorum {
+			qualifiedDigests = append(qualifiedDigests, sha)
+		}
+	}
+	if len(qualifiedDigests) > 0 {
+		slices.Sort(qualifiedDigests)
+		want := qualifiedDigests[0]
+		for _, k := range slices.Sorted(maps.Keys(resps)) {
+			r := resps[k]
+			sha, err := a.sha(&r)
+			if err != nil {
+				continue
+			}
+			if sha == want {
+				out := r
+				return &out, nil
+			}
 		}
 	}
 
@@ -87,6 +203,12 @@ func (a *baseAggregator) validateUsingQuorum(don capabilities.DON, resps map[str
 	}
 
 	return nil, errInsufficientResponsesForQuorum
+}
+
+func (a *baseAggregator) unmarshal(r io.Reader, to any) error {
+	d := json.NewDecoder(r)
+	d.DisallowUnknownFields()
+	return d.Decode(to)
 }
 
 // sha computes a hash of the response, taking into account that when a response
@@ -131,7 +253,14 @@ func (a *baseAggregator) sha(resp *jsonrpc.Response[json.RawMessage]) (string, e
 	return copied.Digest()
 }
 
-func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []capabilities.Node, resp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
+func (a *baseAggregator) recordSignedPayloadRequestIDMismatch(ctx context.Context) {
+	a.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("don_id", a.donID),
+		attribute.String("error", "signed_payload_request_id_mismatch"),
+	))
+}
+
+func (a *baseAggregator) validateUsingSignatures(ctx context.Context, l logger.Logger, don capabilities.DON, nodes []capabilities.Node, requestID string, resp *jsonrpc.Response[json.RawMessage], validateSignedPayloadRequestID bool) (*jsonrpc.Response[json.RawMessage], error) {
 	if resp.Result == nil {
 		if resp.Error != nil {
 			return nil, errors.New("response has an error, cannot validate signatures. Error: " + resp.Error.Error())
@@ -139,13 +268,8 @@ func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []c
 		return nil, errors.New("response result and error both are is nil: cannot validate signatures")
 	}
 
-	if resp.Method == vaulttypes.MethodSecretsGet {
-		// SecretsGet responses are not signed.
-		return resp, errors.New("cannot validate signatures for Get requests")
-	}
-
 	r := &vaulttypes.SignedOCRResponse{}
-	err := json.Unmarshal(*resp.Result, r)
+	err := a.unmarshal(bytes.NewReader(*resp.Result), r)
 	if err != nil {
 		return nil, err
 	}
@@ -158,6 +282,26 @@ func (a *baseAggregator) validateUsingSignatures(don capabilities.DON, nodes []c
 	err = vaulttypes.ValidateSignatures(r, signers, int(don.F+1))
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate signatures: %w", err)
+	}
+
+	if !validateSignedPayloadRequestID {
+		return resp, nil
+	}
+
+	payloadRequestID, err := vaultutils.SignedPayloadRequestID(resp.Method, r.Payload)
+	if err != nil {
+		l.Errorw("failed to read signed payload request id, discarding response", "requestID", requestID, "method", resp.Method, "error", err)
+		a.recordSignedPayloadRequestIDMismatch(ctx)
+		return nil, fmt.Errorf("%w: %w", errSignedPayloadRequestIDMismatch, err)
+	}
+	// Temporarily tolerate signed OCR reports from vault nodes that have not upgraded to
+	// include requestId in the signed payload. Once all vault nodes are upgraded, the
+	// gateway should start rejecting responses with a missing requestId.
+	// https://smartcontract-it.atlassian.net/browse/CRE-4875
+	if payloadRequestID != "" && payloadRequestID != requestID {
+		logger.Sugared(l).Criticalw("signed payload request id mismatch, discarding response", "requestID", requestID, "signedPayloadRequestID", payloadRequestID, "method", resp.Method)
+		a.recordSignedPayloadRequestIDMismatch(ctx)
+		return nil, errSignedPayloadRequestIDMismatch
 	}
 
 	return resp, nil

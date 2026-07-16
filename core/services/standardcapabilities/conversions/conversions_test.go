@@ -44,6 +44,36 @@ func Test_GetCapabilityIDFromCommand(t *testing.T) {
 			expected: "evm:ChainSelector:5009297550715157269@1.0.0",
 		},
 		{
+			name:     "aptos command with valid config - localnet",
+			command:  "/usr/local/bin/aptos",
+			config:   `{"chainId":"4","network":"aptos"}`,
+			expected: "aptos:ChainSelector:4457093679053095497@1.0.0",
+		},
+		{
+			name:     "aptos command with invalid chainId",
+			command:  "/usr/local/bin/aptos",
+			config:   `{"chainId":"not-a-number","network":"aptos"}`,
+			expected: "",
+		},
+		{
+			name:     "aptos command with unknown chainId",
+			command:  "/usr/local/bin/aptos",
+			config:   `{"chainId":"999999","network":"aptos"}`,
+			expected: "",
+		},
+		{
+			name:     "stellar command with valid config - testnet",
+			command:  "/usr/local/bin/stellar",
+			config:   `{"chainId":"cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472","network":"stellar"}`,
+			expected: "stellar:ChainSelector:4894814558906953166@1.0.0",
+		},
+		{
+			name:     "stellar command with unknown chainId",
+			command:  "/usr/local/bin/stellar",
+			config:   `{"chainId":"deadbeef","network":"stellar"}`,
+			expected: "",
+		},
+		{
 			name:     "evm command with invalid JSON",
 			command:  "/usr/local/bin/evm",
 			config:   `{invalid json}`,
@@ -174,6 +204,26 @@ func Test_GetCommandFromCapabilityID(t *testing.T) {
 			expected:     "evm",
 		},
 		{
+			name:         "aptos localnet capability",
+			capabilityID: "aptos:ChainSelector:4457093679053095497@1.0.0",
+			expected:     "aptos",
+		},
+		{
+			name:         "aptos capability - different version",
+			capabilityID: "aptos:ChainSelector:4457093679053095497@2.0.0",
+			expected:     "aptos",
+		},
+		{
+			name:         "solana capability",
+			capabilityID: "solana:ChainSelector:124615329519749607@1.0.0",
+			expected:     "solana",
+		},
+		{
+			name:         "stellar testnet capability",
+			capabilityID: "stellar:ChainSelector:4894814558906953166@1.0.0",
+			expected:     "stellar",
+		},
+		{
 			name:         "unknown capability",
 			capabilityID: "unknown@1.0.0",
 			expected:     "",
@@ -207,4 +257,16 @@ func Test_roundTrip(t *testing.T) {
 	// EVM round-trip: command base name is preserved
 	evmCapID := GetCapabilityIDFromCommand("/usr/local/bin/evm", `{"chainId": 1}`)
 	assert.Equal(t, "evm", GetCommandFromCapabilityID(evmCapID))
+
+	// Aptos round-trip: command base name is preserved
+	aptosCapID := GetCapabilityIDFromCommand("/usr/local/bin/aptos", `{"chainId":"4","network":"aptos"}`)
+	assert.Equal(t, "aptos", GetCommandFromCapabilityID(aptosCapID))
+
+	// Solana round-trip: command base name is preserved
+	solanaCapID := GetCapabilityIDFromCommand("/usr/local/bin/solana", `{"chainId":"5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d","network":"solana"}`)
+	assert.Equal(t, "solana", GetCommandFromCapabilityID(solanaCapID))
+
+	// Stellar round-trip: command base name is preserved
+	stellarCapID := GetCapabilityIDFromCommand("/usr/local/bin/stellar", `{"chainId":"cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472","network":"stellar"}`)
+	assert.Equal(t, "stellar", GetCommandFromCapabilityID(stellarCapID))
 }

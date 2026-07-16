@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -14,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -31,7 +31,7 @@ func TestSetPoolChangeset_Validations(t *testing.T) {
 		},
 	}, true)
 
-	mcmsConfig := &proposalutils.TimelockConfig{
+	mcmsConfig := &cldfproposalutils.TimelockConfig{
 		MinDelay: 0 * time.Second,
 	}
 
@@ -120,7 +120,7 @@ func TestSetPoolChangeset_Validations(t *testing.T) {
 }
 
 func TestSetPoolChangeset_Execution(t *testing.T) {
-	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*cldfproposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Set pool with MCMS"
 		if mcmsConfig == nil {
 			msg = "Set pool without MCMS"

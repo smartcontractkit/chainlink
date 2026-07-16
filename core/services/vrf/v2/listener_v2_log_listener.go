@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 
@@ -172,14 +173,22 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 	// find request block of earliest unfulfilled request
 	// even if this block is > latest finalized, we use latest finalized as earliest unprocessed
 	// because re-orgs can occur on any unfinalized block.
-	var earliestUnfulfilledBlock = latestBlock.FinalizedBlockNumber
+	finalized := latestBlock.FinalizedBlockNumber
+	if finalized < 0 {
+		lsn.l.Errorw("unexpected negative finalized block number", "finalized", finalized)
+		finalized = 0
+	}
+	earliestU := uint64(finalized)
 	for _, req := range unfulfilled {
-		if req.Raw().BlockNumber < uint64(earliestUnfulfilledBlock) {
-			earliestUnfulfilledBlock = int64(req.Raw().BlockNumber)
+		rb := req.Raw().BlockNumber
+		if rb < earliestU {
+			earliestU = rb
 		}
 	}
-
-	return earliestUnfulfilledBlock, nil
+	if earliestU > uint64(math.MaxInt64) {
+		return math.MaxInt64, nil
+	}
+	return int64(earliestU), nil
 }
 
 func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastProcessedBlock int64) (lastProcessedBlock int64, err error) {
@@ -215,7 +224,12 @@ func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastPro
 	// find request block of earliest unfulfilled request
 	// even if this block is > latest finalized, we use latest finalized as earliest unprocessed
 	// because re-orgs can occur on any unfinalized block.
-	var earliestUnprocessedRequestBlock = latestBlock.FinalizedBlockNumber
+	finalized := latestBlock.FinalizedBlockNumber
+	if finalized < 0 {
+		lsn.l.Errorw("unexpected negative finalized block number", "finalized", finalized)
+		finalized = 0
+	}
+	earliestU := uint64(finalized)
 	for i, req := range unfulfilled {
 		// need to drop requests that have timed out otherwise the earliestUnprocessedRequestBlock
 		// will be unnecessarily far back and our queries will be slower.
@@ -226,12 +240,15 @@ func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastPro
 			)
 			continue
 		}
-		if req.Raw().BlockNumber < uint64(earliestUnprocessedRequestBlock) {
-			earliestUnprocessedRequestBlock = int64(req.Raw().BlockNumber)
+		rb := req.Raw().BlockNumber
+		if rb < earliestU {
+			earliestU = rb
 		}
 	}
-
-	return earliestUnprocessedRequestBlock, nil
+	if earliestU > uint64(math.MaxInt64) {
+		return math.MaxInt64, nil
+	}
+	return int64(earliestU), nil
 }
 
 // pollLogs uses the log poller to poll for the latest VRF logs
@@ -342,13 +359,24 @@ func (lsn *listenerV2) getConfirmedAt(req RandomWordsRequested, nodeMinConfs uin
 	// Take the max(nodeMinConfs, requestedConfs + requestedConfsDelay).
 	// Add the requested confs delay if provided in the jobspec so that we avoid an edge case
 	// where the primary and backup VRF v2 nodes submit a proof at the same time.
-	minConfs := max(uint32(req.MinimumRequestConfirmations())+uint32(lsn.job.VRFSpec.RequestedConfsDelay), nodeMinConfs)
+	delay := lsn.job.VRFSpec.RequestedConfsDelay
+	var delayU32 uint32
+	switch {
+	case delay < 0:
+		delayU32 = 0
+	case delay > math.MaxUint32:
+		delayU32 = math.MaxUint32
+	default:
+		delayU32 = uint32(delay)
+	}
+	minConfs := max(uint32(req.MinimumRequestConfirmations())+delayU32, nodeMinConfs)
 	newConfs := min(
 		// We cap this at 200 because solidity only supports the most recent 256 blocks
 		// in the contract so if it was older than that, fulfillments would start failing
 		// without the blockhash store feeder. We use 200 to give the node plenty of time
 		// to fulfill even on fast chains.
-		uint64(minConfs)*(1<<lsn.respCount[req.RequestID().String()]), 200)
+		uint64(minConfs)*(1<<lsn.respCount[req.RequestID().String()]), 200,
+	)
 	if lsn.respCount[req.RequestID().String()] > 0 {
 		lsn.l.Warnw("Duplicate request found after fulfillment, doubling incoming confirmations",
 			"txHash", req.Raw().TxHash,

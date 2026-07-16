@@ -41,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	clclient "github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	ccipactions "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
@@ -101,7 +100,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, homeChainSel, "homeChainSel should not be empty")
 	feedSel := l.devEnvTestCfg.CCIP.GetFeedChainSelector()
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
-	blockChains, err := devenv.NewChains(lggr, envConfig.Chains)
+	blockChains, err := devenv.NewChains(ctx, lggr, envConfig.Chains)
 	require.NoError(t, err)
 	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.Env)
 	require.NoError(t, err)
@@ -153,13 +152,13 @@ func (l *DeployedLocalDevEnvironment) DeleteJobs(ctx context.Context, jobIDs map
 }
 
 func (l *DeployedLocalDevEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
-	err := ccipactions.SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, isUSDCAttestationMissing)
+	err := SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, isUSDCAttestationMissing)
 	require.NoError(t, err)
 	return l.testEnv.MockAdapter.InternalEndpoint
 }
 
 func (l *DeployedLocalDevEnvironment) MockLBTCAttestationServer(t *testing.T, isAttestationMissing bool) string {
-	err := ccipactions.SetMockServerWithLBTCAttestation(l.testEnv.MockAdapter, isAttestationMissing)
+	err := SetMockServerWithLBTCAttestation(l.testEnv.MockAdapter, isAttestationMissing)
 	require.NoError(t, err)
 	return l.testEnv.MockAdapter.InternalEndpoint
 }

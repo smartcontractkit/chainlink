@@ -72,8 +72,6 @@ func observeRequestSimDuration(jobName string, extJobID uuid.UUID, vrfVersion vr
 	}
 }
 
-func ptr[T any](t T) *T { return &t }
-
 func isProofVerificationError(errMsg string) bool {
 	// See VRF.sol for all these messages
 	// NOTE: it's unclear which of these errors are impossible and which

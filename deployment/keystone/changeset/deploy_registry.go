@@ -89,7 +89,7 @@ func loadCapabilityRegistry(registryChain cldf_evm.Chain, env cldf.Environment, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get address: %w", err)
 	}
-	cr, err = contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](env.DataStore.Addresses(), registryChain, a.Address)
+	cr, err = contracts.GetOwnedContractV2[*capabilities_registry.CapabilitiesRegistry](env.DataStore.Addresses(), registryChain, a.Address, a.Qualifier)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get owned contract: %w", err)
 	}

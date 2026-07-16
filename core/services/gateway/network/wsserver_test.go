@@ -11,10 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/mock"
-
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/quarantine"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -71,11 +68,7 @@ func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
 	t.Parallel()
 	_, _, urlStr := startNewWSServer(t, 100_000)
 
-	longString := "abcdefgh"
-	for range 6 {
-		longString += longString
-	}
-	authHeader := base64.StdEncoding.EncodeToString([]byte(longString))
+	authHeader := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte("abcdefgh"), 64))
 	resp := sendRequestWithHeader(t, urlStr, network.WsServerHandshakeAuthHeaderName, authHeader)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
@@ -127,7 +120,6 @@ func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 }
 
 func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
-	quarantine.Flaky(t, "DX-1752")
 	t.Parallel()
 	_, acceptor, urlStr := startNewWSServer(t, 10_000)
 

@@ -2,6 +2,8 @@ package job_test
 
 import (
 	"context"
+	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -9,6 +11,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -17,10 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-
+	evmrelayer "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -31,12 +35,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	coreevmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -66,10 +73,11 @@ func clearDB(t *testing.T, db *sqlx.DB) {
 
 type relayGetter struct {
 	r *evmrelayer.Relayer
+	c legacyevm.Chain
 }
 
 func (g *relayGetter) Get(id types.RelayID) (loop.Relayer, error) {
-	return evmrelayer.NewLegacyAdapter(g.r), nil
+	return coreevmrelayer.NewLegacyAdapter(g.r, g.c), nil
 }
 
 func (g *relayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
@@ -92,13 +100,15 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
-	ethClient := cltest.NewEthMocksWithDefaultChain(t)
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("ConfiguredChainID").Return(testutils.FixtureChainID).Maybe()
 	ethClient.On("CallContext", mock.Anything, mock.Anything, "eth_getBlockByNumber", mock.Anything, false).
 		Run(func(args mock.Arguments) {
 			head := args.Get(1).(**evmtypes.Head)
 			*head = cltest.Head(10)
 		}).
 		Return(nil).Maybe()
+	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(0), nil).Maybe()
 
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		DB:             db,
@@ -130,7 +140,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	})
 
 	t.Run("starts and stops job services when jobs are added and removed", func(t *testing.T) {
-		jobA := cltest.MakeDirectRequestJobSpec(t)
+		cronJobTmp, cronErr := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
+		require.NoError(t, cronErr)
+		jobA := &cronJobTmp
 		jobB := makeOCRJobSpec(t, address, bridge.Name.String(), bridge2.Name.String())
 
 		lggr := logger.TestLogger(t)
@@ -284,7 +296,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
 		})
-		lp := &lpmocks.LogPoller{}
+		lp := lpmocks.NewLogPoller(t)
+		servicetest.SetupNoOpMock(lp)
 
 		csaKeystore := &keystore.CSASigner{CSA: keyStore.CSA()}
 		testopts := evmtest.TestChainOpts{
@@ -313,6 +326,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		testRelayGetter := &relayGetter{
 			r: evmRelayer,
+			c: chain,
 		}
 
 		jobOCR2Keeper := makeOCR2Keeper21JobSpec(t, keyStore, address, chain.ID())
@@ -329,6 +343,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
 			jobOCR2Keeper.Type: delegateOCR2,
 		}, lggr, nil)
+		servicetest.Run(t, spawner)
 
 		ctx := testutils.Context(t)
 		err = spawner.CreateJob(ctx, nil, jobOCR2Keeper)
@@ -344,9 +359,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		require.NoError(t, err)
 
 		lp.AssertNumberOfCalls(t, "UnregisterFilter", 6)
-
-		lp.On("Close").Return(nil).Once()
-		spawner.Close()
 	})
 }
 

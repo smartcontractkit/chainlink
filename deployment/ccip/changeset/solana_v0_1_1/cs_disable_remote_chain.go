@@ -7,6 +7,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
@@ -19,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 // use this changeset to disable a remote chain on solana
@@ -28,7 +28,7 @@ var _ cldf.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
 type DisableRemoteChainConfig struct {
 	ChainSelector uint64
 	RemoteChains  []uint64 // the remote chain selectors to disable
-	MCMS          *proposalutils.TimelockConfig
+	MCMS          *cldfproposalutils.TimelockConfig
 }
 
 func (cfg DisableRemoteChainConfig) Validate(e cldf.Environment) error {
@@ -95,8 +95,8 @@ func DisableRemoteChain(e cldf.Environment, cfg DisableRemoteChainConfig) (cldf.
 
 	// create proposals for ixns
 	if len(txns) > 0 {
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to disable remote chains in Solana", cfg.MCMS.MinDelay, txns)
+		proposal, err := BuildProposalsForTxnsWithConfig(
+			e, cfg.ChainSelector, "proposal to disable remote chains in Solana", cfg.MCMS, txns)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

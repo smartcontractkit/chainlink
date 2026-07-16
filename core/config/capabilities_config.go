@@ -1,6 +1,8 @@
 package config
 
 import (
+	"time"
+
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -33,7 +35,9 @@ type CapabilitiesWorkflowRegistry interface {
 	RelayID() types.RelayID
 	SyncStrategy() string
 	MaxConcurrency() int
+	MaxActivationRetries() int
 	WorkflowStorage() WorkflowStorage
+	ModuleCache() ModuleCache
 	AdditionalSources() []AdditionalWorkflowSource
 }
 
@@ -41,6 +45,15 @@ type WorkflowStorage interface {
 	ArtifactStorageHost() string
 	URL() string
 	TLSEnabled() bool
+}
+
+type ModuleCache interface {
+	Enabled() bool
+	DiskMonitorEnabled() bool
+	IdleEviction() bool
+	IdleTimeout() time.Duration
+	MaxLoaded() int
+	CacheDir() string
 }
 
 // AdditionalWorkflowSource represents a single additional workflow metadata source
@@ -63,6 +76,7 @@ type GatewayConnector interface {
 
 type ConnectorGateway interface {
 	ID() string
+	DonID() string
 	URL() string
 }
 

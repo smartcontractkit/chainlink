@@ -10,16 +10,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm/v1_5_1"
 	ccipseq "github.com/smartcontractkit/chainlink/deployment/ccip/sequence/evm/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/evm"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -112,7 +112,7 @@ type FastTransferWithdrawPoolFeesConfig struct {
 	ContractVersion semver.Version
 	Withdrawals     map[uint64]common.Address // chainSelector -> recipient address
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (c FastTransferWithdrawPoolFeesConfig) Validate(env cldf.Environment) error {
@@ -166,7 +166,7 @@ type FastTransferUpdateLaneConfigConfig struct {
 	ContractVersion semver.Version
 	Updates         map[uint64](map[uint64]UpdateLaneConfig)
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (c FastTransferUpdateLaneConfigConfig) Validate(env cldf.Environment) error {
@@ -259,7 +259,7 @@ type FastTransferFillerAllowlistConfig struct {
 	ContractVersion semver.Version
 	Updates         map[uint64]FillerAllowlistConfig
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (c FastTransferFillerAllowlistConfig) Validate(env cldf.Environment) error {
@@ -354,7 +354,7 @@ func fastTransferUpdateLaneConfigLogic(env cldf.Environment, c FastTransferUpdat
 	}
 
 	// Build the sequence input for multi-chain updates
-	updatesByChain := make(map[uint64]opsutil.EVMCallInput[ccipops.UpdateDestChainConfigInput])
+	updatesByChain := make(map[uint64]opsutils.EVMCallInput[ccipops.UpdateDestChainConfigInput])
 
 	for sourceChainSelector, updates := range c.Updates {
 		pool, err := bindings.GetFastTransferTokenPoolContract(env, c.TokenSymbol, c.ContractType, c.ContractVersion, sourceChainSelector)
@@ -402,7 +402,7 @@ func fastTransferUpdateLaneConfigLogic(env cldf.Environment, c FastTransferUpdat
 			})
 		}
 
-		updatesByChain[sourceChainSelector] = opsutil.EVMCallInput[ccipops.UpdateDestChainConfigInput]{
+		updatesByChain[sourceChainSelector] = opsutils.EVMCallInput[ccipops.UpdateDestChainConfigInput]{
 			Address:       pool.Address(),
 			ChainSelector: sourceChainSelector,
 			CallInput: ccipops.UpdateDestChainConfigInput{
@@ -419,7 +419,7 @@ func fastTransferUpdateLaneConfigLogic(env cldf.Environment, c FastTransferUpdat
 	}
 
 	seqReport, err := operations.ExecuteSequence(env.OperationsBundle, ccipseq.FastTransferTokenPoolUpdateDestChainConfigSequence, env.BlockChains.EVMChains(), seqInput)
-	return opsutil.AddEVMCallSequenceToCSOutput(
+	return opsutils.AddEVMCallSequenceToCSOutput(
 		env,
 		cldf.ChangesetOutput{},
 		seqReport,
@@ -445,7 +445,7 @@ func fastTransferUpdateFillerAllowlistLogic(env cldf.Environment, c FastTransfer
 	}
 
 	// Build the sequence input for multi-chain updates
-	updatesByChain := make(map[uint64]opsutil.EVMCallInput[ccipops.UpdateFillerAllowlistInput])
+	updatesByChain := make(map[uint64]opsutils.EVMCallInput[ccipops.UpdateFillerAllowlistInput])
 
 	for sourceChainSelector, update := range c.Updates {
 		pool, err := bindings.GetFastTransferTokenPoolContract(env, c.TokenSymbol, c.ContractType, c.ContractVersion, sourceChainSelector)
@@ -453,7 +453,7 @@ func fastTransferUpdateFillerAllowlistLogic(env cldf.Environment, c FastTransfer
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get fast transfer token pool contract for %s token on chain %d: %w", c.TokenSymbol, sourceChainSelector, err)
 		}
 
-		updatesByChain[sourceChainSelector] = opsutil.EVMCallInput[ccipops.UpdateFillerAllowlistInput]{
+		updatesByChain[sourceChainSelector] = opsutils.EVMCallInput[ccipops.UpdateFillerAllowlistInput]{
 			Address:       pool.Address(),
 			ChainSelector: sourceChainSelector,
 			CallInput: ccipops.UpdateFillerAllowlistInput{
@@ -471,7 +471,7 @@ func fastTransferUpdateFillerAllowlistLogic(env cldf.Environment, c FastTransfer
 	}
 
 	seqReport, err := operations.ExecuteSequence(env.OperationsBundle, ccipseq.FastTransferTokenPoolUpdateFillerAllowlistSequence, env.BlockChains.EVMChains(), seqInput)
-	return opsutil.AddEVMCallSequenceToCSOutput(
+	return opsutils.AddEVMCallSequenceToCSOutput(
 		env,
 		cldf.ChangesetOutput{},
 		seqReport,
@@ -497,7 +497,7 @@ func fastTransferWithdrawPoolFeesLogic(env cldf.Environment, c FastTransferWithd
 	}
 
 	// Build the sequence input for multi-chain withdrawals
-	withdrawalsByChain := make(map[uint64]opsutil.EVMCallInput[ccipops.WithdrawPoolFeesInput])
+	withdrawalsByChain := make(map[uint64]opsutils.EVMCallInput[ccipops.WithdrawPoolFeesInput])
 
 	for chainSelector, recipient := range c.Withdrawals {
 		pool, err := bindings.GetFastTransferTokenPoolContract(env, c.TokenSymbol, c.ContractType, c.ContractVersion, chainSelector)
@@ -505,7 +505,7 @@ func fastTransferWithdrawPoolFeesLogic(env cldf.Environment, c FastTransferWithd
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get fast transfer token pool contract for %s token on chain %d: %w", c.TokenSymbol, chainSelector, err)
 		}
 
-		withdrawalsByChain[chainSelector] = opsutil.EVMCallInput[ccipops.WithdrawPoolFeesInput]{
+		withdrawalsByChain[chainSelector] = opsutils.EVMCallInput[ccipops.WithdrawPoolFeesInput]{
 			Address:       pool.Address(),
 			ChainSelector: chainSelector,
 			CallInput: ccipops.WithdrawPoolFeesInput{
@@ -526,7 +526,7 @@ func fastTransferWithdrawPoolFeesLogic(env cldf.Environment, c FastTransferWithd
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to execute fast transfer token pool withdraw pool fees sequence: %w", err)
 	}
 
-	return opsutil.AddEVMCallSequenceToCSOutput(
+	return opsutils.AddEVMCallSequenceToCSOutput(
 		env,
 		cldf.ChangesetOutput{},
 		seqReport,

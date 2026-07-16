@@ -14,11 +14,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 )
 
 type mockLogPoller struct {
@@ -33,7 +33,7 @@ func (m *mockLogPoller) UnregisterFilter(ctx context.Context, name string) error
 func makeSampleTransmissions(n int) []*mercurytransmitter.Transmission {
 	transmissions := make([]*mercurytransmitter.Transmission, n)
 	for i := range n {
-		transmissions[i] = makeSampleTransmission(uint64(i), "http://example.com/foo") //nolint:gosec // G115 don't care in test code
+		transmissions[i] = makeSampleTransmission(uint64(i), "http://example.com/foo")
 	}
 	return transmissions
 }
@@ -55,7 +55,8 @@ func makeSampleTransmission(seqNr uint64, sURL string) *mercurytransmitter.Trans
 }
 
 func Test_Cleanup(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 
 	lp := &mockLogPoller{}
 	ds := pgtest.NewSqlxDB(t)
@@ -67,7 +68,7 @@ func Test_Cleanup(t *testing.T) {
 	chainSelector := uint64(3)
 
 	// add some channel definitions
-	cdcorm := NewChainScopedORM(ds, chainSelector)
+	cdcorm := llo.NewChainScopedORM(ds, chainSelector)
 	{
 		err := cdcorm.StoreChannelDefinitions(ctx, addr1, donID1, 1, json.RawMessage(`{}`), 1, 1)
 		require.NoError(t, err)
@@ -95,9 +96,11 @@ func Test_Cleanup(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("unregisters filter", func(t *testing.T) {
+		t.Parallel()
 		assert.Equal(t, []string{"OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:1"}, lp.unregisteredFilterNames)
 	})
 	t.Run("removes channel definitions", func(t *testing.T) {
+		t.Parallel()
 		pd, err := cdcorm.LoadChannelDefinitions(ctx, addr1, donID1)
 		require.NoError(t, err)
 		assert.Nil(t, pd)
@@ -106,6 +109,7 @@ func Test_Cleanup(t *testing.T) {
 		assert.NotNil(t, pd)
 	})
 	t.Run("does not remove transmissions", func(t *testing.T) {
+		t.Parallel()
 		trs, err := torm1.Get(ctx, srvURL1, 10, 0)
 		require.NoError(t, err)
 		assert.Len(t, trs, 1)
@@ -123,16 +127,17 @@ func Test_Cleanup(t *testing.T) {
 }
 
 func Test_StaleTransmissionReaper(t *testing.T) {
+	t.Parallel()
 	ds := pgtest.NewSqlxDB(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	const n = 13
 
 	transmissions := makeSampleTransmissions(n)
 	torm := mercurytransmitter.NewORM(ds, 1)
-	err := torm.Insert(testutils.Context(t), transmissions)
+	err := torm.Insert(t.Context(), transmissions)
 	require.NoError(t, err)
 	pgtest.MustExec(t, ds, `
 UPDATE llo_mercury_transmit_queue
@@ -156,10 +161,11 @@ WHERE transmission_hash IN (
 }
 
 func Test_OrphanedTransmissionReaper(t *testing.T) {
+	t.Parallel()
 	ds := pgtest.NewSqlxDB(t)
-	lggr := logger.TestLogger(t)
+	lggr := logger.Test(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	const n = 13
 
@@ -171,7 +177,7 @@ func Test_OrphanedTransmissionReaper(t *testing.T) {
 	// add transmissions from a DON not present in ocr2 specs
 	transmissions := makeSampleTransmissions(n)
 	torm := mercurytransmitter.NewORM(ds, 1)
-	err := torm.Insert(testutils.Context(t), transmissions)
+	err := torm.Insert(t.Context(), transmissions)
 	require.NoError(t, err)
 
 	d, err := tr.reap(ctx, n, "orphaned")
@@ -179,7 +185,7 @@ func Test_OrphanedTransmissionReaper(t *testing.T) {
 	assert.Equal(t, int64(n), d)
 
 	torm2 := mercurytransmitter.NewORM(ds, 2)
-	err = torm2.Insert(testutils.Context(t), transmissions)
+	err = torm2.Insert(t.Context(), transmissions)
 	require.NoError(t, err)
 
 	d, err = tr.reap(ctx, n, "orphaned")

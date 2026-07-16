@@ -3,6 +3,7 @@ package remote_test
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,8 @@ const (
 )
 
 func TestValidateMessage(t *testing.T) {
+	t.Parallel()
+
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -96,18 +99,22 @@ func signBody(t *testing.T, senderPrivKey ed25519.PrivateKey, body *remotetypes.
 }
 
 func TestToPeerID(t *testing.T) {
+	t.Parallel()
+
 	id, err := remote.ToPeerID([]byte("12345678901234567890123456789012"))
 	require.NoError(t, err)
 	require.Equal(t, "12D3KooWD8QYTQVYjB6oog4Ej8PcPpqTrPRnxLQap8yY8KUQRVvq", id.String())
 }
 
 func TestSanitizeLogString(t *testing.T) {
+	t.Parallel()
+
 	require.Equal(t, "hello", remote.SanitizeLogString("hello"))
 	require.Equal(t, "[UNPRINTABLE] 0a", remote.SanitizeLogString("\n"))
 
-	longString := ""
+	var longString strings.Builder
 	for range 100 {
-		longString += "aa-aa-aa-"
+		longString.WriteString("aa-aa-aa-")
 	}
-	require.Equal(t, longString[:256]+" [TRUNCATED]", remote.SanitizeLogString(longString))
+	require.Equal(t, longString.String()[:256]+" [TRUNCATED]", remote.SanitizeLogString(longString.String()))
 }

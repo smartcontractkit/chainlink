@@ -6,7 +6,7 @@ import (
 
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -120,7 +120,7 @@ func TestResolver_GlobalLogLevel(t *testing.T) {
 
 	var warnLvl zapcore.Level
 	err := warnLvl.UnmarshalText([]byte("warn"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "globalLogLevel"),
@@ -170,7 +170,7 @@ func TestResolver_SetGlobalLogLevel(t *testing.T) {
 
 	var errorLvl zapcore.Level
 	err := errorLvl.UnmarshalText([]byte("error"))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	gError := errors.New("error")
 

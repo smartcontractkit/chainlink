@@ -8,10 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 
-	hybrid_external "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
-
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
+	hybrid_external "github.com/smartcontractkit/chainlink/deployment/ccip/shared/bindings/hybrid_with_external_minter_fast_transfer_token_pool"
 )
 
 // GroupUpdate represents a group update for a specific remote chain
@@ -28,7 +27,7 @@ type UpdateGroupsInput struct {
 
 var (
 	// HybridWithExternalMinterTokenPoolUpdateGroupsOp updates groups on hybrid token pool contracts
-	HybridWithExternalMinterTokenPoolUpdateGroupsOp = opsutil.NewEVMCallOperation(
+	HybridWithExternalMinterTokenPoolUpdateGroupsOp = opsutils.NewEVMCallOperation(
 		"HybridWithExternalMinterTokenPoolUpdateGroupsOp",
 		semver.MustParse("1.0.0"),
 		"Update groups on HybridWithExternalMinter token pool contract",

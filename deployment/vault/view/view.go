@@ -7,8 +7,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/vault/changeset/types"
 )
@@ -18,7 +16,6 @@ var _ cldf.ViewStateV2 = Vault
 type VaultView struct {
 	TimelockBalances     map[uint64]*types.TimelockNativeBalanceInfo `json:"timelock_balances"`
 	WhitelistedAddresses map[uint64][]changeset.WhitelistEntry       `json:"whitelisted_addresses"`
-	MCMSWithTimelock     map[uint64]v1_0.MCMSWithTimelockView        `json:"mcms_with_timelock,omitempty"`
 }
 
 func (v *VaultView) MarshalJSON() ([]byte, error) {
@@ -52,7 +49,6 @@ func Vault(e cldf.Environment, _ json.Marshaler) (json.Marshaler, error) {
 func GenerateVaultView(e cldf.Environment, chainSelectors []uint64) (*VaultView, error) {
 	view := &VaultView{
 		WhitelistedAddresses: make(map[uint64][]changeset.WhitelistEntry),
-		MCMSWithTimelock:     make(map[uint64]v1_0.MCMSWithTimelockView),
 	}
 
 	balances, err := changeset.GetTimelockBalances(e, chainSelectors)
@@ -66,22 +62,6 @@ func GenerateVaultView(e cldf.Environment, chainSelectors []uint64) (*VaultView,
 		return nil, fmt.Errorf("failed to get whitelisted addresses: %w", err)
 	}
 	view.WhitelistedAddresses = addresses
-
-	mcmsStates, err := state.MaybeLoadMCMSWithTimelockStateDataStore(e, chainSelectors)
-	if err != nil {
-		e.Logger.Warnf("Failed to load MCMS state (this may be expected if MCMS is not deployed): %v", err)
-	} else {
-		for chainSelector, mcmsState := range mcmsStates {
-			if mcmsState != nil {
-				mcmsView, err := mcmsState.GenerateMCMSWithTimelockView()
-				if err != nil {
-					e.Logger.Warnf("Failed to generate MCMS view for chain %d: %v", chainSelector, err)
-				} else {
-					view.MCMSWithTimelock[chainSelector] = mcmsView
-				}
-			}
-		}
-	}
 
 	return view, nil
 }

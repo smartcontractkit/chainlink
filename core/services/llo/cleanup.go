@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo"
+	"github.com/smartcontractkit/chainlink-evm/pkg/llo/channeldefinitions"
 )
 
 type LogPoller interface {
@@ -21,10 +21,10 @@ type LogPoller interface {
 
 func Cleanup(ctx context.Context, lp LogPoller, addr common.Address, donID uint32, ds sqlutil.DataSource, chainSelector uint64) error {
 	if (addr != common.Address{} && donID > 0) {
-		if err := lp.UnregisterFilter(ctx, types.ChannelDefinitionCacheFilterName(addr, donID)); err != nil {
+		if err := lp.UnregisterFilter(ctx, channeldefinitions.ChannelDefinitionCacheFilterName(addr, donID)); err != nil {
 			return fmt.Errorf("failed to unregister filter: %w", err)
 		}
-		orm := NewChainScopedORM(ds, chainSelector)
+		orm := llo.NewChainScopedORM(ds, chainSelector)
 		if err := orm.CleanupChannelDefinitions(ctx, addr, donID); err != nil {
 			return fmt.Errorf("failed to cleanup channel definitions: %w", err)
 		}

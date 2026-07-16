@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -25,10 +26,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/beholderhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/otelhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/promhealth"
 	commoncresettings "github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -36,21 +41,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
+	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-	"github.com/smartcontractkit/chainlink-evm/pkg/mercury"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
-	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
-	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -62,19 +61,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
-	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
-	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/headreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus"
-
+	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -82,11 +80,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -113,7 +112,6 @@ type Application interface {
 
 	GetCapabilitiesRegistry() *capabilities.Registry
 
-	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	GetRelayers() RelayerChainInteroperators
 	GetLoopRegistry() *plugins.LoopRegistry
 	GetLoopRegistrarConfig() plugins.RegistrarConfig
@@ -128,7 +126,6 @@ type Application interface {
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
-	RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error)
 	ResumeJobV2(ctx context.Context, taskID uuid.UUID, result pipeline.Result) error
 	// Testing only
 	RunJobV2(ctx context.Context, jobID int32, meta map[string]any) (int64, error)
@@ -149,40 +146,40 @@ type Application interface {
 	FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error)
 	// DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
 	DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error
+	// LPSkipToBlock repositions the LogPoller to start processing from the given block number.
+	LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	relayers                 *CoreRelayerChainInteroperators
-	jobORM                   job.ORM
-	jobSpawner               job.Spawner
-	pipelineORM              pipeline.ORM
-	pipelineRunner           pipeline.Runner
-	bridgeORM                bridges.ORM
-	localAdminUsersORM       sessions.BasicAdminUsersORM
-	authenticationProvider   sessions.AuthenticationProvider // Note: this will be OIDC instance
-	txmStorageService        txmgr.EvmTxStore
-	FeedsService             feeds.Service
-	webhookJobRunner         webhook.JobRunner
-	Config                   GeneralConfig
-	KeyStore                 keystore.Master
-	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	SessionReaper            *utils.SleeperTask
-	shutdownOnce             sync.Once
-	srvcs                    []services.ServiceCtx
-	HealthChecker            services.Checker
-	logger                   logger.SugaredLogger
-	AuditLogger              audit.AuditLogger
-	closeLogger              func() error
-	ds                       sqlutil.DataSource
-	secretGenerator          SecretGenerator
-	profiler                 *pyroscope.Profiler
-	loopRegistry             *plugins.LoopRegistry
-	loopRegistrarConfig      plugins.RegistrarConfig
-	capabilitiesRegistry     *capabilities.Registry
-	shardOrchestratorClient  shardorchestrator.ClientInterface
+	relayers                *CoreRelayerChainInteroperators
+	jobORM                  job.ORM
+	jobSpawner              job.Spawner
+	pipelineORM             pipeline.ORM
+	pipelineRunner          pipeline.Runner
+	bridgeORM               bridges.ORM
+	localAdminUsersORM      sessions.BasicAdminUsersORM
+	authenticationProvider  sessions.AuthenticationProvider // Note: this will be OIDC instance
+	txmStorageService       txmgr.EvmTxStore
+	FeedsService            feeds.Service
+	Config                  GeneralConfig
+	KeyStore                keystore.Master
+	SessionReaper           *utils.SleeperTask
+	shutdownOnce            sync.Once
+	srvcs                   []services.ServiceCtx
+	HealthChecker           services.Checker
+	logger                  logger.SugaredLogger
+	AuditLogger             audit.AuditLogger
+	closeLogger             func() error
+	ds                      sqlutil.DataSource
+	secretGenerator         SecretGenerator
+	profiler                *pyroscope.Profiler
+	loopRegistry            *plugins.LoopRegistry
+	loopRegistrarConfig     plugins.RegistrarConfig
+	capabilitiesRegistry    *capabilities.Registry
+	shardOrchestratorClient shardorchestrator.ClientInterface
 
 	started     bool
 	startStopMu sync.Mutex
@@ -192,26 +189,26 @@ type ApplicationOpts struct {
 	// CREOpts is the options for the CRE services
 	cre.Opts
 
-	Config                   GeneralConfig
-	Logger                   logger.Logger
-	Registerer               prometheus.Registerer
-	DS                       sqlutil.DataSource
-	KeyStore                 keystore.Master
-	AuditLogger              audit.AuditLogger
-	CloseLogger              func() error
-	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	Version                  string
-	VersionTag               string
-	RestrictedHTTPClient     *http.Client
-	UnrestrictedHTTPClient   *http.Client
-	SecretGenerator          SecretGenerator
-	GRPCOpts                 loop.GRPCOpts
-	MercuryPool              wsrpc.Pool
-	RetirementReportCache    retirement.RetirementReportCache
-	LLOTransmissionReaper    services.ServiceCtx
-	NewOracleFactoryFn       standardcapabilities.NewOracleFactoryFn
-	EVMFactoryConfigFn       func(*EVMFactoryConfig)
-	DonTimeStore             *dontime.Store
+	Config                 GeneralConfig
+	Logger                 logger.Logger
+	Registerer             prometheus.Registerer
+	DS                     sqlutil.DataSource
+	KeyStore               keystore.Master
+	AuditLogger            audit.AuditLogger
+	CloseLogger            func() error
+	Version                string
+	VersionTag             string
+	DockerTag              string
+	RestrictedHTTPClient   *http.Client
+	UnrestrictedHTTPClient *http.Client
+	SecretGenerator        SecretGenerator
+	GRPCOpts               loop.GRPCOpts
+	MercuryPool            wsrpc.Pool
+	RetirementReportCache  retirement.RetirementReportCache
+	LLOTransmissionReaper  services.ServiceCtx
+	NewOracleFactoryFn     standardcapabilities.NewOracleFactoryFn
+	EVMFactoryConfigFn     func(*EVMFactoryConfig)
+	DonTimeStore           *dontime.Store
 }
 
 // NewApplication initializes a new store if one is not already
@@ -223,21 +220,26 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	var srvcs []services.ServiceCtx
 
 	heartbeat := NewHeartbeat(NewHeartbeatConfig(opts))
-	srvcs = append(srvcs, &heartbeat)
+	nodePlatformBuildInfo := NewNodePlatformBuildInfoService(NewNodePlatformBuildInfoConfig(opts))
+	srvcs = append(srvcs, &heartbeat, &nodePlatformBuildInfo)
 
 	auditLogger := opts.AuditLogger
 	cfg := opts.Config
-	externalInitiatorManager := opts.ExternalInitiatorManager
 	globalLogger := logger.Sugared(opts.Logger)
 	keyStore := opts.KeyStore
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
+	meter := beholder.GetMeter()
 
 	mailMon := mailbox.NewMonitor(cfg.AppID().String(), globalLogger.Named("Mailbox"))
 
 	if opts.CapabilitiesRegistry == nil {
 		// for tests only, in prod Registry should always be set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
+	}
+
+	if opts.ExecutionHandlers == nil {
+		opts.ExecutionHandlers = &confidentialrelay.ExecutionHandlers{}
 	}
 
 	if opts.DonTimeStore == nil {
@@ -276,7 +278,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
 	atomicSettings := loop.NewAtomicSettings(commoncresettings.DefaultGetter)
 	limitsFactory := limits.Factory{
-		Meter:    beholder.GetMeter(),
+		Meter:    meter,
 		Logger:   globalLogger.Named("Limits"),
 		Settings: atomicSettings,
 	}
@@ -287,7 +289,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to build Beholder auth: %w", err)
 	}
 	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(),
-		cfg.Database(), cfg.Mercury(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
+		cfg.Database(), cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(),
+		beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
 
 	relayerFactory := RelayerFactory{
 		Logger:                opts.Logger,
@@ -326,11 +329,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		initOps = append(initOps, InitCosmos(relayerFactory, keyStore.Cosmos(), keyStore.CSA(), cfg.CosmosConfigs()))
 	}
 	if cfg.SolanaEnabled() {
-		solanaCfg := SolanaFactoryConfig{
-			TOMLConfigs: cfg.SolanaConfigs(),
-			DS:          opts.DS,
-		}
-		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), keyStore.CSA(), solanaCfg))
+		initOps = append(initOps, InitSolana(relayerFactory, keyStore.Solana(), keyStore.CSA(), cfg.SolanaConfigs()))
 	}
 	if cfg.StarkNetEnabled() {
 		initOps = append(initOps, InitStarknet(relayerFactory, keyStore.StarkNet(), keyStore.CSA(), cfg.StarknetConfigs()))
@@ -346,6 +345,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	if cfg.SuiEnabled() {
 		initOps = append(initOps, InitSui(relayerFactory, keyStore.Sui(), keyStore.CSA(), cfg.SuiConfigs()))
+	}
+	if cfg.StellarEnabled() {
+		initOps = append(initOps, InitStellar(relayerFactory, keyStore.Stellar(), keyStore.CSA(), cfg.StellarConfigs()))
 	}
 
 	relayChainInterops, err := NewCoreRelayerChainInteroperators(initOps...)
@@ -378,6 +380,61 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(csaSigner, csaPubKey)
 
+	// Wire DurableEmitter for persistent chip ingress delivery when enabled
+	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
+		emitterCfg := durableemitter.DefaultConfig()
+		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{
+			MaxQueuePayloadBytes: cfg.Telemetry().DurableEmitterMaxQueuePayloadBytes(),
+		}
+		emitterCfg.InsertBatchSize = 500
+		emitterCfg.InsertBatchWorkers = 6
+		emitterCfg.InsertBatchFlushInterval = 100 * time.Millisecond
+		emitterCfg.DeleteBatchSize = 500
+		emitterCfg.DeleteBatchWorkers = 6
+		emitterCfg.DeleteBatchFlushInterval = 100 * time.Millisecond
+		// Recovery profile: retransmit replays the post-outage backlog while the
+		// primary path keeps delivering live emits — both feed the same BatchEmitter,
+		// which has ample headroom (BatchSize × MaxConcurrentSends) for live + backlog.
+		//   - RetransmitInterval = 1s, so RetransmitBatchSize is literally the backlog
+		//     replay rate in events/s. Keep it below BatchEmitter capacity minus the
+		//     live rate, so live emits are never starved out of the buffer.
+		//   - RetransmitAfter MUST exceed delivery latency so an in-flight event is
+		//     never re-queued (the real storm guard — the rate itself is safe because
+		//     MaxConcurrentSends bounds actual downstream load).
+		//   - EventTTL MUST exceed the recovery duration, or the backlog EXPIRES
+		//     (rows dropped by the 1-min expiry loop) before it can be delivered — a
+		//     fake "drain". 6h gives a wide margin for the test.
+		emitterCfg.RetransmitAfter = 60 * time.Second                                        // > PublishTimeout/MaxPublishTimeout (20s) + buffering
+		emitterCfg.RetransmitBatchSize = cfg.Telemetry().DurableEmitterRetransmitBatchSize() // events/s replayed (interval = 1s); default 500, configurable via [Telemetry]
+		emitterCfg.RetransmitInterval = 1 * time.Second
+		emitterCfg.EventTTL = cfg.Telemetry().DurableEmitterEventTTL() // default 1h, configurable via [Telemetry]
+		emitterCfg.PublishTimeout = 20 * time.Second
+		durableCfg := durableemitter.SetupConfig{
+			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
+			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
+			Auth: durableemitter.AuthConfig{
+				AuthHeaders:      beholderAuthHeaders,
+				AuthHeadersTTL:   cfg.Telemetry().AuthHeadersTTL(),
+				AuthPublicKeyHex: csaPubKeyHex,
+				AuthKeySigner:    csaKeystore,
+			},
+			RetransmitEnabled:  true, // host process owns retransmit
+			EmitterConfig:      &emitterCfg,
+			Meter:              meter,
+			MaxPublishTimeout:  10 * time.Second, // batch emitter rpc timeout
+			BatchSize:          1000,
+			BatchInterval:      100 * time.Millisecond,
+			MaxConcurrentSends: 8,
+			MessageBufferSize:  50_000,
+		}
+		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
+		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
+		if setupErr != nil {
+			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", setupErr)
+		}
+		srvcs = append(srvcs, durableEmitter)
+	}
+
 	creServices, err := cre.NewServices(
 		globalLogger,
 		opts.DS,
@@ -387,12 +444,14 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		peerWrapper,
 		cre.Opts{
 			CapabilitiesRegistry:    opts.CapabilitiesRegistry,
+			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
 			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
 			CapabilitiesPeerWrapper: opts.CapabilitiesPeerWrapper,
 			FetcherFunc:             opts.FetcherFunc,
 			FetcherFactoryFn:        opts.FetcherFactoryFn,
 			BillingClient:           opts.BillingClient,
 			LinkingClient:           opts.LinkingClient,
+			Meter:                   meter,
 			StorageClient:           opts.StorageClient,
 			DonTimeStore:            opts.DonTimeStore,
 			LimitsFactory:           limitsFactory,
@@ -532,6 +591,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, workflowORM)
 
+	nodePlatformJobInfo := NewNodePlatformJobInfoService(NewNodePlatformJobInfoConfig(opts, jobORM, relayChainInterops))
+	srvcs = append(srvcs, &nodePlatformJobInfo)
+
 	promReporter := headreporter.NewLegacyEVMPrometheusReporter(opts.DS, legacyEVMChains)
 	evmChainIDs := make([]*big.Int, len(cfg.EVMConfigs()))
 	for i, chain := range cfg.EVMConfigs() {
@@ -557,20 +619,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	var (
 		delegates = map[job.Type]job.Delegate{
-			job.DirectRequest: directrequest.NewDelegate(
-				globalLogger,
-				pipelineRunner,
-				pipelineORM,
-				legacyEVMChains,
-				mailMon),
-			job.Keeper: keeper.NewDelegate(
-				cfg,
-				opts.DS,
-				jobORM,
-				pipelineRunner,
-				globalLogger,
-				legacyEVMChains,
-				mailMon),
+			job.DirectRequest: &job.DeprecatedDelegate{Type: job.DirectRequest},
 			job.VRF: vrf.NewDelegate(
 				opts.DS,
 				keyStore,
@@ -579,10 +628,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				legacyEVMChains,
 				globalLogger,
 				mailMon),
-			job.Webhook: webhook.NewDelegate(
-				pipelineRunner,
-				externalInitiatorManager,
-				globalLogger),
+			job.Webhook: &job.DeprecatedDelegate{Type: job.Webhook},
 			job.Cron: cron.NewDelegate(
 				pipelineRunner,
 				globalLogger),
@@ -625,7 +671,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				relayChainInterops.LegacyEVMChains().Slice(),
 			),
 		}
-		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
 	)
 
 	delegates[job.Workflow] = workflows.NewDelegate(
@@ -639,21 +684,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		workflows.WithWorkflowRegistry(cfg.Capabilities().WorkflowRegistry().Address(), cfg.Capabilities().WorkflowRegistry().ChainID()),
 	)
 
-	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
-	if !cfg.EVMConfigs().RPCEnabled() {
-		delegates[job.FluxMonitor] = &job.NullDelegate{Type: job.FluxMonitor}
-	} else {
-		delegates[job.FluxMonitor] = fluxmonitorv2.NewDelegate(
-			cfg,
-			keyStore.Eth(),
-			jobORM,
-			pipelineORM,
-			pipelineRunner,
-			opts.DS,
-			legacyEVMChains,
-			globalLogger,
-		)
-	}
+	// FluxMonitor has been removed; use a deprecated delegate so existing jobs
+	// surface a visible error in the UI rather than silently doing nothing.
+	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
 	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings)
 
@@ -734,6 +767,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				RetirementReportCache:          opts.RetirementReportCache,
 				GatewayConnectorServiceWrapper: creServices.GatewayConnectorWrapper,
 				WorkflowRegistrySyncer:         creServices.WorkflowRegistrySyncer,
+				OrgResolver:                    creServices.OrgResolver,
 				LimitsFactory:                  limitsFactory,
 				OCRConfigService:               creServices.OCRConfigService,
 			},
@@ -778,9 +812,16 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, bridgeStatusReporter)
 
-	healthCfg := commonsrv.HealthCheckerConfig{Ver: static.Version, Sha: static.Sha}
+	healthCfg := commonsrv.HealthCheckerConfig{
+		Ver: static.Version,
+		Sha: static.Sha,
+	}
 	healthCfg = promhealth.ConfigureHooks(healthCfg)
-	healthCfg, err = otelhealth.ConfigureHooks(healthCfg, beholder.GetMeter())
+	healthCfg, err = beholderhealth.ConfigureHooks(healthCfg, opts.Logger, beholder.GetEmitter())
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure health checker beholder hooks: %w", err)
+	}
+	healthCfg, err = otelhealth.ConfigureHooks(healthCfg, meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure health checker otel hooks: %w", err)
 	}
@@ -798,8 +839,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	var feedsService feeds.Service
+	var feedsORM feeds.ORM
 	if cfg.Feature().FeedsManager() {
-		feedsORM := feeds.NewORM(opts.DS, globalLogger)
+		feedsORM = feeds.NewORM(opts.DS, globalLogger)
 		feedsService = feeds.NewService(
 			feedsORM,
 			jobORM,
@@ -822,6 +864,19 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		feedsService = &feeds.NullService{}
 	}
 
+	hostname, _ := os.Hostname()
+	jobSpecReporter := jobspec.NewJobSpecReporter(
+		cfg.JobSpecReporter(),
+		jobSpawner,
+		feedsORM,
+		beholder.GetEmitter(),
+		csaPubKeyHex,
+		static.Version,
+		hostname,
+		globalLogger,
+	)
+	srvcs = append(srvcs, jobSpecReporter)
+
 	for _, s := range srvcs {
 		if s == nil {
 			panic("service unexpectedly nil")
@@ -832,32 +887,30 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 
 	return &ChainlinkApplication{
-		relayers:                 relayChainInterops,
-		jobORM:                   jobORM,
-		jobSpawner:               jobSpawner,
-		pipelineRunner:           pipelineRunner,
-		pipelineORM:              pipelineORM,
-		bridgeORM:                bridgeORM,
-		localAdminUsersORM:       localAdminUsersORM,
-		authenticationProvider:   authenticationProvider,
-		txmStorageService:        txmORM,
-		FeedsService:             feedsService,
-		Config:                   cfg,
-		webhookJobRunner:         webhookJobRunner,
-		KeyStore:                 keyStore,
-		SessionReaper:            sessionReaper,
-		ExternalInitiatorManager: externalInitiatorManager,
-		HealthChecker:            healthChecker,
-		logger:                   globalLogger,
-		AuditLogger:              auditLogger,
-		closeLogger:              opts.CloseLogger,
-		secretGenerator:          opts.SecretGenerator,
-		profiler:                 profiler,
-		loopRegistry:             loopRegistry,
-		loopRegistrarConfig:      loopRegistrarConfig,
-		capabilitiesRegistry:     opts.CapabilitiesRegistry,
-		ds:                       opts.DS,
-		shardOrchestratorClient:  shardOrchestratorClient,
+		relayers:                relayChainInterops,
+		jobORM:                  jobORM,
+		jobSpawner:              jobSpawner,
+		pipelineRunner:          pipelineRunner,
+		pipelineORM:             pipelineORM,
+		bridgeORM:               bridgeORM,
+		localAdminUsersORM:      localAdminUsersORM,
+		authenticationProvider:  authenticationProvider,
+		txmStorageService:       txmORM,
+		FeedsService:            feedsService,
+		Config:                  cfg,
+		KeyStore:                keyStore,
+		SessionReaper:           sessionReaper,
+		HealthChecker:           healthChecker,
+		logger:                  globalLogger,
+		AuditLogger:             auditLogger,
+		closeLogger:             opts.CloseLogger,
+		secretGenerator:         opts.SecretGenerator,
+		profiler:                profiler,
+		loopRegistry:            loopRegistry,
+		loopRegistrarConfig:     loopRegistrarConfig,
+		capabilitiesRegistry:    opts.CapabilitiesRegistry,
+		ds:                      opts.DS,
+		shardOrchestratorClient: shardOrchestratorClient,
 
 		srvcs: srvcs,
 	}, nil
@@ -1036,10 +1089,6 @@ func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
 	return app.txmStorageService
 }
 
-func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {
-	return app.ExternalInitiatorManager
-}
-
 func (app *ChainlinkApplication) GetCapabilitiesRegistry() *capabilities.Registry {
 	return app.capabilitiesRegistry
 }
@@ -1069,10 +1118,6 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 	}
 
 	return app.jobSpawner.DeleteJob(ctx, nil, jobID)
-}
-
-func (app *ChainlinkApplication) RunWebhookJobV2(ctx context.Context, jobUUID uuid.UUID, requestBody string, meta jsonserializable.JSONSerializable) (int64, error) {
-	return app.webhookJobRunner.RunJob(ctx, jobUUID, requestBody, meta)
 }
 
 // Only used for local testing, not supported by the UI.
@@ -1222,6 +1267,7 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 	if err != nil {
 		return nil, err
 	}
+
 	if !app.Config.Feature().LogPoller() {
 		return nil, errors.New("FindLCA is only available if LogPoller is enabled")
 	}
@@ -1236,6 +1282,36 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 	}
 
 	return lca, nil
+}
+
+// LPSkipToBlock repositions the LogPoller to start processing from the given block number.
+func (app *ChainlinkApplication) LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error {
+	if chainFamily != relay.NetworkEVM {
+		return fmt.Errorf("LPSkipToBlock is only supported for %s chain family", relay.NetworkEVM)
+	}
+	if !app.Config.Feature().LogPoller() {
+		return errors.New("LPSkipToBlock is only available if LogPoller is enabled")
+	}
+	if blockNumber < 2 {
+		return fmt.Errorf("invalid skip block number %d, must be >= 2", blockNumber)
+	}
+
+	relayer, err := app.GetRelayers().Get(commontypes.RelayID{
+		Network: chainFamily,
+		ChainID: chainID,
+	})
+	if err != nil {
+		return err
+	}
+	evmService, err := relayer.EVM()
+	if err != nil {
+		return err
+	}
+
+	if err = evmService.LPSkipToBlock(ctx, blockNumber); err != nil {
+		return fmt.Errorf("failed to skip log poller to block %d: %w", blockNumber, err)
+	}
+	return nil
 }
 
 // DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"strconv"
@@ -61,8 +62,38 @@ func TestLoad(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
-		_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-		require.NoError(t, cErr)
+		scanErr := framework.StreamCTFContainerLogsFanout(
+			framework.LogStreamConsumer{
+				Name: "scan-logs",
+				Consume: func(logStreams map[string]io.ReadCloser) error {
+					return products.ScanLogsFromStreams(framework.L, products.DefaultSettings(), logStreams)
+				},
+			},
+			framework.LogStreamConsumer{
+				Name: "print-panic-logs",
+				Consume: func(logStreams map[string]io.ReadCloser) error {
+					_ = framework.CheckContainersForPanicsFromStreams(logStreams, 100)
+					return nil
+				},
+			},
+		)
+
+		if t.Failed() {
+			saveErr := framework.StreamCTFContainerLogsFanout(
+				framework.LogStreamConsumer{
+					Name: "save-container-logs",
+					Consume: func(logStreams map[string]io.ReadCloser) error {
+						_, saveErr := framework.SaveContainerLogsFromStreams(fmt.Sprintf("%s-%d", framework.DefaultCTFLogsDir, time.Now().UnixNano()), logStreams)
+						return saveErr
+					},
+				},
+			)
+			if saveErr != nil {
+				framework.L.Error().Err(saveErr).Msg("failed to save Docker container logs")
+			}
+		}
+		// check scanErr only after saving logs to ensure we don't miss any errors
+		require.NoError(t, scanErr, "failed to save Docker container logs")
 	})
 
 	for _, tc := range testCases {
@@ -77,15 +108,6 @@ func TestLoad(t *testing.T) {
 			fmt.Println("------ TEST CONFIGURATION ------")
 			fmt.Print(string(tcStr))
 			fmt.Println("--------------------------------")
-
-			// dangerous: takes a lot of time, if test runs for a long time
-			// t.Cleanup(func() {
-			// 	err := products.ScanLogs(l, products.DefaultSettings())
-			// 	require.NoError(t, err, "Found concerning logs in Chainlink Node logs")
-
-			// 	_, cErr := framework.SaveContainerLogs(fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name()))
-			// 	require.NoError(t, cErr)
-			// })
 
 			outputFile := "../../env-out.toml"
 			in, err := de.LoadOutput[de.Cfg](outputFile)
@@ -302,14 +324,35 @@ func TestLoad(t *testing.T) {
 			startTimeTestEx := time.Now()
 			l.Info().Str("START_TIME", startTimeTestEx.String()).Msg("Test execution started")
 
+			preLoadCounters := make([]*big.Int, len(consumerContracts))
+			for i := range consumerContracts {
+				c, err := consumerContracts[i].Counter(t.Context())
+				require.NoError(t, err, "failed to read pre-load counter")
+				preLoadCounters[i] = new(big.Int).Set(c)
+			}
+
 			l.Info().Msg("Starting load generators")
 			_, err = p.Run(true)
 			require.NoError(t, err, "Error running load generators")
 
 			l.Info().Msg("Finished load generators")
 			l.Info().Str("STOP_WAIT_TIME", StopWaitTime.String()).Msg("Waiting for upkeeps to be performed")
-			time.Sleep(StopWaitTime)
-			l.Info().Msg("Finished waiting 60s for upkeeps to be performed")
+			// Poll until all upkeeps have been performed by checking that each
+			// consumer counter has increased past the pre-load baseline.
+			require.Eventually(t, func() bool {
+				for i := range consumerContracts {
+					counter, err := consumerContracts[i].Counter(t.Context())
+					if err != nil {
+						l.Error().Err(err).Msg("Failed to get counter")
+						return false
+					}
+					if counter.Cmp(preLoadCounters[i]) <= 0 {
+						return false
+					}
+				}
+				return true
+			}, StopWaitTime, time.Second*5)
+			l.Info().Msg("All upkeeps confirmed performed after load")
 			endTimeTestEx := time.Now()
 			testExDuration := endTimeTestEx.Sub(startTimeTestEx)
 			l.Info().

@@ -21,11 +21,11 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/feestest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils/bigint"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -58,7 +58,7 @@ func setupNewFeeToken(
 	require.NoError(t, err)
 
 	// mint token and approve to router
-	tx, err = token.Mint(deployer, deployer.From, deployment.E18Mult(10_000))
+	tx, err = token.Mint(deployer, deployer.From, bigint.E18Mult(10_000))
 	_, err = cldf.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
@@ -192,8 +192,8 @@ func Test_CCIPFees(t *testing.T) {
 		tenv,
 		sourceChain,
 		destChain,
-		deployment.E18Mult(10_000),
-		deployment.E18Mult(10_000),
+		bigint.E18Mult(10_000),
+		bigint.E18Mult(10_000),
 	)
 
 	// Ensure capreg logs are up to date.
@@ -212,7 +212,7 @@ func Test_CCIPFees(t *testing.T) {
 			[]router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
-					Amount: deployment.E18Mult(2),
+					Amount: bigint.E18Mult(2),
 				},
 			},
 			srcToken,
@@ -235,7 +235,7 @@ func Test_CCIPFees(t *testing.T) {
 			[]router.ClientEVMTokenAmount{
 				{
 					Token:  dstToken.Address(),
-					Amount: deployment.E18Mult(2),
+					Amount: bigint.E18Mult(2),
 				},
 			},
 			// note the order of src and dest is reversed here
@@ -259,7 +259,7 @@ func Test_CCIPFees(t *testing.T) {
 			[]router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
-					Amount: deployment.E18Mult(2),
+					Amount: bigint.E18Mult(2),
 				},
 			},
 			srcToken,
@@ -281,7 +281,7 @@ func Test_CCIPFees(t *testing.T) {
 			[]router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
-					Amount: deployment.E18Mult(2),
+					Amount: bigint.E18Mult(2),
 				},
 			},
 			srcToken,
@@ -308,7 +308,7 @@ func Test_CCIPFees(t *testing.T) {
 			TokenAmounts: []router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
-					Amount: deployment.E18Mult(100_000_000),
+					Amount: bigint.E18Mult(100_000_000),
 				},
 			},
 			FeeToken:  feeToken,

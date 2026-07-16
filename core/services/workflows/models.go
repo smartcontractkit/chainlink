@@ -102,7 +102,6 @@ type step struct {
 	workflows.Vertex
 	capability capabilities.ExecutableCapability
 	info       capabilities.CapabilityInfo
-	config     *values.Map
 }
 
 type triggerCapability struct {

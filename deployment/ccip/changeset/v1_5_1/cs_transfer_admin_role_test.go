@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -18,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -35,7 +35,7 @@ func TestTransferAdminRoleChangeset_Validations(t *testing.T) {
 		},
 	}, true)
 
-	mcmsConfig := &proposalutils.TimelockConfig{
+	mcmsConfig := &cldfproposalutils.TimelockConfig{
 		MinDelay: 0 * time.Second,
 	}
 
@@ -140,7 +140,7 @@ func TestTransferAdminRoleChangeset_Validations(t *testing.T) {
 }
 
 func TestTransferAdminRoleChangeset_Execution(t *testing.T) {
-	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*cldfproposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Transfer admin role with MCMS"
 		if mcmsConfig == nil {
 			msg = "Transfer admin role without MCMS"
@@ -261,7 +261,7 @@ func TestTransferAdminRoleChangesetV2_EmptyConfigReturnsError(t *testing.T) {
 func TestTransferAdminRoleChangesetV2_ExecutionWithMCMS(t *testing.T) {
 	t.Parallel()
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	tokenAddressA := utils.RandomAddress()
@@ -418,7 +418,7 @@ func TestTransferAdminRoleChangesetV2_ExecutionWithoutMCMS(t *testing.T) {
 func TestTransferAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 	t.Parallel()
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, _, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	token1 := utils.RandomAddress()
@@ -459,7 +459,7 @@ func TestTransferAdminRoleChangesetV2_MultipleTokensPerChain(t *testing.T) {
 func TestTransferAdminRoleChangesetV2_Validations(t *testing.T) {
 	t.Parallel()
 
-	mcmsConfig := &proposalutils.TimelockConfig{MinDelay: 0 * time.Second}
+	mcmsConfig := &cldfproposalutils.TimelockConfig{MinDelay: 0 * time.Second}
 	e, selectorA, selectorB, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
 	tokenAddress := utils.RandomAddress()

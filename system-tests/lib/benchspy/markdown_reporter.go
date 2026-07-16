@@ -62,17 +62,17 @@ func createBarChart(
 	}
 
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("\n## %s\n\n", title))
+	fmt.Fprintf(&b, "\n## %s\n\n", title)
 	b.WriteString("| Date       | Value |\n")
 	b.WriteString("| --- | --- |\n")
 
 	for i := 0; i < len(dates) && i < len(values); i++ {
 		scaledValue := values[i] / scaleFactor
-		b.WriteString(fmt.Sprintf("| %s | %-15s %.3f%s |\n",
+		fmt.Fprintf(&b, "| %s | %-15s %.3f%s |\n",
 			dates[i].Format("2006-01-02"),
 			bar(values[i], maxValue, 15, "█"),
 			scaledValue,
-			unitLabel))
+			unitLabel)
 	}
 
 	return b.String()
@@ -126,12 +126,12 @@ func createMultiSeriesBarChart(
 	scaleFactors []float64,
 ) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("\n## %s\n\n", title))
+	fmt.Fprintf(&b, "\n## %s\n\n", title)
 	b.WriteString("| Date |")
 
 	// Add header row with metric names
 	for _, name := range metricNames {
-		b.WriteString(fmt.Sprintf(" %s |", name))
+		fmt.Fprintf(&b, " %s |", name)
 	}
 	b.WriteString("\n")
 
@@ -144,7 +144,7 @@ func createMultiSeriesBarChart(
 
 	// Add data rows
 	for i := range dates {
-		b.WriteString(fmt.Sprintf("| %s |", dates[i].Format("2006-01-02 15:04:05")))
+		fmt.Fprintf(&b, "| %s |", dates[i].Format("2006-01-02 15:04:05"))
 
 		for j := range metricNames {
 			if i < len(metricValues[j]) {
@@ -156,10 +156,10 @@ func createMultiSeriesBarChart(
 				if j < len(unitLabels) {
 					unitLabel = unitLabels[j]
 				}
-				b.WriteString(fmt.Sprintf(" %s %.3f%s |",
+				fmt.Fprintf(&b, " %s %.3f%s |",
 					bar(metricValues[j][i], maxValues[j], 10, "█"),
 					value,
-					unitLabel))
+					unitLabel)
 			} else {
 				b.WriteString(" N/A |")
 			}
@@ -296,8 +296,6 @@ func generateGroupedCharts(dates []time.Time, runs []report, runMetrics []map[st
 		return ""
 	}
 
-	var content string
-
 	// Group metrics by their configured group
 	groupedMetrics := make(map[string][]string)
 	for metricName, config := range metricConfigs {
@@ -313,12 +311,13 @@ func generateGroupedCharts(dates []time.Time, runs []report, runMetrics []map[st
 	}
 
 	// Process each defined group
+	var content strings.Builder
 	for groupName, groupMetrics := range groupedMetrics {
-		content += processMetricGroup(groupName, groupMetrics, dates, runs,
-			runMetrics, metricMaxValues, ungroupedMetrics, metricConfigs)
+		content.WriteString(processMetricGroup(groupName, groupMetrics, dates, runs,
+			runMetrics, metricMaxValues, ungroupedMetrics, metricConfigs))
 	}
 
-	return content
+	return content.String()
 }
 
 // processMetricGroup processes a single metric group to generate a chart
@@ -382,8 +381,6 @@ func generateUngroupedCharts(dates []time.Time, runs []report, runMetrics []map[
 		return ""
 	}
 
-	var content string
-
 	// Identify ungrouped metrics
 	ungroupedMetrics := make(map[string]bool)
 	for metricName := range runMetrics[0] {
@@ -393,6 +390,7 @@ func generateUngroupedCharts(dates []time.Time, runs []report, runMetrics []map[
 	}
 
 	// Create individual charts for ungrouped metrics
+	var content strings.Builder
 	for metricName := range ungroupedMetrics {
 		values := make([]float64, len(runs))
 		for i := range runs {
@@ -407,15 +405,15 @@ func generateUngroupedCharts(dates []time.Time, runs []report, runMetrics []map[
 			scaleFactor = config.ScaleFactor
 		}
 
-		content += createBarChart(
+		content.WriteString(createBarChart(
 			"Metric: "+metricName,
 			dates,
 			values,
 			metricMaxValues[metricName],
 			unitLabel,
 			scaleFactor,
-		)
+		))
 	}
 
-	return content
+	return content.String()
 }

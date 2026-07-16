@@ -16,21 +16,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
 
-type errPossiblyInsufficientFunds struct{}
+type possiblyInsufficientFundsError struct{}
 
-func (errPossiblyInsufficientFunds) Error() string {
+func (possiblyInsufficientFundsError) Error() string {
 	return "Simulation errored, possibly insufficient funds. Request will remain unprocessed until funds are available"
 }
 
-type errBlockhashNotInStore struct{}
+type blockhashNotInStoreError struct{}
 
-func (errBlockhashNotInStore) Error() string {
+func (blockhashNotInStoreError) Error() string {
 	return "Blockhash not in store"
 }
 
-type errProofVerificationFailed struct{}
+type proofVerificationFailedError struct{}
 
-func (errProofVerificationFailed) Error() string {
+func (proofVerificationFailedError) Error() string {
 	return "Proof verification failed"
 }
 
@@ -191,7 +191,7 @@ func (lsn *listenerV2) processBatch(
 				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
 			return
 		}
-		txMetaSubID = ptr(subID.Uint64())
+		txMetaSubID = new(subID.Uint64())
 	case vrfcommon.V2Plus:
 		payload, err = batchCoordinatorV2PlusABI.Pack("fulfillRandomWords", ToV2PlusProofs(batch.proofs), ToV2PlusCommitments(batch.commitments))
 		if err != nil {
@@ -200,7 +200,7 @@ func (lsn *listenerV2) processBatch(
 				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
 			return
 		}
-		txMetaGlobalSubID = ptr(subID.String())
+		txMetaGlobalSubID = new(subID.String())
 	default:
 		panic("batch version should be v2 or v2plus")
 	}

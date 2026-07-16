@@ -104,7 +104,7 @@ func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req
 
 // syncMetadata aggregates the authorized keys and workflow selectors from the WorkflowMetadataAggregator and updates the local cache.
 // Should be called periodically to keep the authorized keys up to date.
-func (h *WorkflowMetadataHandler) syncMetadata() {
+func (h *WorkflowMetadataHandler) syncMetadata(ctx context.Context) {
 	metadata, err := h.agg.Aggregate()
 	if err != nil {
 		h.lggr.Errorw("Failed to aggregate auth data", "error", err)
@@ -143,7 +143,7 @@ func (h *WorkflowMetadataHandler) syncMetadata() {
 
 	if len(h.workflowIDToRef) == 0 && len(workflowIDToRef) > 0 {
 		latencyMs := time.Since(h.startTime).Milliseconds()
-		h.metrics.RecordMetadataSyncStartupLatency(context.Background(), latencyMs, h.lggr)
+		h.metrics.RecordMetadataSyncStartupLatency(ctx, latencyMs, h.lggr)
 	}
 	// Log all registered workflow IDs
 	workflowIDs := make([]string, 0, len(workflowIDToRef))
@@ -155,7 +155,7 @@ func (h *WorkflowMetadataHandler) syncMetadata() {
 	h.authorizedKeys = authorizedKeys
 	h.workflowRefToID = workflowRefToID
 	h.workflowIDToRef = workflowIDToRef
-	h.metrics.RecordLoadedMetadataSize(context.Background(), int64(len(h.workflowIDToRef)), h.lggr)
+	h.metrics.RecordLoadedMetadataSize(ctx, int64(len(h.workflowIDToRef)), h.lggr)
 }
 
 // sendMetadataPullRequest sends a request to all nodes in the DON to pull the latest metadata.
@@ -231,7 +231,7 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		h.runTicker(time.Duration(h.config.MetadataPullIntervalMs)*time.Millisecond, func() {
+		h.runTicker(time.Duration(h.config.MetadataPullIntervalMs)*time.Millisecond, func(ctx context.Context) {
 			err2 := h.sendMetadataPullRequest()
 			if err2 != nil {
 				h.lggr.Errorw("Failed to send pull request", "error", err2)
@@ -239,28 +239,30 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 		})
 		h.runTicker(time.Duration(h.config.MetadataAggregationIntervalMs)*time.Millisecond, h.syncMetadata)
 
-		h.runTicker(h.jwtCache.cleanupPeriod, func() {
+		h.runTicker(h.jwtCache.cleanupPeriod, func(ctx context.Context) {
 			now := time.Now()
 			expiredCount := h.jwtCache.cleanupOldEntries(now.Add(-h.jwtCache.cleanupPeriod))
-			h.metrics.IncrementJwtCacheCleanUpCount(context.Background(), int64(expiredCount), h.lggr)
-			h.metrics.RecordJwtCacheSize(context.Background(), int64(len(h.jwtCache.cache)), h.lggr)
+			h.metrics.IncrementJwtCacheCleanUpCount(ctx, int64(expiredCount), h.lggr)
+			h.metrics.RecordJwtCacheSize(ctx, int64(len(h.jwtCache.cache)), h.lggr)
 			h.lggr.Debugw("Workflow execution cache cleanup completed", "expired_entries", expiredCount, "remaining_entries", len(h.jwtCache.cache))
 		})
 		return nil
 	})
 }
 
-func (h *WorkflowMetadataHandler) runTicker(period time.Duration, fn func()) {
+func (h *WorkflowMetadataHandler) runTicker(period time.Duration, fn func(ctx context.Context)) {
 	h.wg.Add(1)
 	go func() {
 		defer h.wg.Done()
+		ctx, cancel := h.stopCh.NewCtx()
+		defer cancel()
 		ticker := time.NewTicker(period)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				fn()
-			case <-h.stopCh:
+				fn(ctx)
+			case <-ctx.Done():
 				return
 			}
 		}

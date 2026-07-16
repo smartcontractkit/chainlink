@@ -16,7 +16,9 @@ CL_LOOPINSTALL_OUTPUT_DIR ?=
 LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
 LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
-GOLANGCI_LINT_VERSION = "v2.5.0"
+GOLANGCI_LINT_VERSION = "v2.11.4"
+# Pin path so `make generate` does not pick up a different mockery (e.g. v3) from PATH.
+MOCKERY_BIN ?= $(shell GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" ]; then echo "$$GOBIN/mockery"; else echo "$$(go env GOPATH)/bin/mockery"; fi)
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -102,11 +104,9 @@ install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins
 		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.testing.yaml; \
 	fi
 
-
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins
 	go install -ldflags="-s" \
-		./plugins/cmd/chainlink-evm \
 		./plugins/cmd/chainlink-medianpoc \
 		./plugins/cmd/chainlink-ocr3-capability \
 		./plugins/cmd/capabilities/log-event-trigger
@@ -115,6 +115,7 @@ install-plugins-local: ## Build & install local plugins
 install-plugins: install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
 
 .PHONY: docker ## Build the chainlink docker image
+docker: DOCKER_TAG=develop
 docker:
 	@if ([ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] || [ "$(CL_INSTALL_TESTING_PLUGINS)" = "true" ]) && [ -z "$(GITHUB_TOKEN)" ]; then \
 		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
@@ -124,19 +125,22 @@ docker:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	--build-arg CL_IS_PROD_BUILD=$(CL_IS_PROD_BUILD) \
 	$(PRIVATE_PLUGIN_ARGS) \
 	-f core/chainlink.Dockerfile . \
-	-t chainlink:develop \
+	-t chainlink:$(DOCKER_TAG) \
 	--load
 
 .PHONY: docker-ccip ## Build the chainlink docker image
+docker-ccip: DOCKER_TAG=latest
 docker-ccip:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
-	-f core/chainlink.Dockerfile . -t chainlink-ccip:latest
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
+	-f core/chainlink.Dockerfile . -t chainlink-ccip:$(DOCKER_TAG)
 
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
@@ -146,6 +150,7 @@ docker-ccip:
 # Define a comma variable for use in $(eval) (needed for the PRIVATE_PLUGIN_ARGS)
 comma := ,
 .PHONY: docker-plugins ## Build the EXPERIMENTAL chainlink-plugins docker image
+docker-plugins: DOCKER_TAG=latest
 docker-plugins:
 	@if ([ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] || [ "$(CL_INSTALL_TESTING_PLUGINS)" = "true" ]) && [ -z "$(GITHUB_TOKEN)" ]; then \
 		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true or CL_INSTALL_TESTING_PLUGINS=true"; \
@@ -155,11 +160,12 @@ docker-plugins:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg VERSION_TAG=$(VERSION_TAG) \
+	--build-arg CL_AUTO_DOCKER_TAG=$(DOCKER_TAG) \
 	--build-arg CL_INSTALL_TESTING_PLUGINS=$(CL_INSTALL_TESTING_PLUGINS) \
 	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
 	$(PRIVATE_PLUGIN_ARGS) \
 	-f plugins/chainlink.Dockerfile . \
-	-t chainlink-plugins:latest
+	-t chainlink-plugins:$(DOCKER_TAG)
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend
@@ -169,7 +175,7 @@ operator-ui: ## Fetch the frontend
 generate: codecgen mockery protoc gomods modgraph ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
 	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
-	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
+	find . -type f -name .mockery.yaml -execdir $(MOCKERY_BIN) \; ## Execute mockery for all .mockery.yaml files (see mockery target: v2)
 
 .PHONY: rm-mocked
 rm-mocked:
@@ -257,16 +263,41 @@ lint-fix: gomods ## Run golangci-lint with --fix for all modules
 
 .PHONY: modgraph
 modgraph:
-	go install github.com/jmank88/modgraph@v0.1.1
+	go install github.com/jmank88/modgraph@v0.1.4
 	./tools/bin/modgraph > go.md
 
 .PHONY: test-short
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
+TOOLS_TEST_BIN = tools/test/.bin/test
+TOOLS_TEST_SRCS = $(shell find tools/test -name "*.go" -not -path "*/.bin/*" 2>/dev/null)
+
+$(TOOLS_TEST_BIN): $(TOOLS_TEST_SRCS) tools/test/go.mod tools/test/go.sum
+	@go -C tools/test build -o .bin/test .
+
+.PHONY: test
+test: $(TOOLS_TEST_BIN) ## Run the testing harness. E.g. make test ARGS="./core/..."
+	@if [ -z "$(strip $(ARGS))" ]; then \
+		$(TOOLS_TEST_BIN) -h; \
+	else \
+		$(TOOLS_TEST_BIN) $(ARGS); \
+	fi
+
 .PHONY: gocs
 gocs: ## Run gocs to generate changeset markdown files.
 	go run github.com/smartcontractkit/gocs/cmd/gocs@v0.2.0
+
+.PHONY: dependabot
+ifndef DEPENDABOT_SEVERITY
+DEPENDABOT_SEVERITY := "critical,high"
+endif
+dependabot: gomods
+	gh api --paginate -H "Accept: application/vnd.github+json" --method GET \
+	  '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' \
+	  --jq '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
+	  go tool dependabot && \
+	gomods tidy
 
 help:
 	@echo ""

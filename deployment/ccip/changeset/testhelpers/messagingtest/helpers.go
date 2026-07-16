@@ -104,18 +104,8 @@ type TestCaseOutput struct {
 }
 
 func getLatestNonce(tc TestCase) uint64 {
-	family, err := chain_selectors.GetSelectorFamily(tc.DestChain)
-	require.NoError(tc.T, err)
-
-	var latestNonce uint64
-	switch family {
-	case chain_selectors.FamilyTon:
-		// No nonce management on Ton, just return the test value
-		return *tc.Nonce
-	}
-
 	destAdapter := tc.DeployedEnv.Adapters[tc.DestChain]
-	latestNonce, err = destAdapter.GetInboundNonce(tc.T.Context(), tc.Sender, tc.SourceChain)
+	latestNonce, err := destAdapter.GetInboundNonce(tc.T.Context(), tc.Sender, tc.SourceChain)
 	require.NoError(tc.T, err)
 	return latestNonce
 }
@@ -199,7 +189,6 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		// check that the message was emitted
 		var expectedSeqNums []uint64
 		for i := range tc.NumberOfMessages {
-			//nolint:gosec // disable G115
 			expectedSeqNums = append(expectedSeqNums, nextSeqNum+uint64(i))
 		}
 		iter, err := tc.OnchainState.MustGetEVMChainState(tc.SourceChain).OnRamp.FilterCCIPMessageSent(
@@ -256,7 +245,15 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// we need to replay missed logs
 	if !tc.Replayed {
 		require.NotNil(tc.T, tc.DeployedEnv)
-		testhelpers.SleepAndReplay(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
+		destFamily, err := chain_selectors.GetSelectorFamily(tc.DestChain)
+		require.NoError(tc.T, err)
+		if destFamily == chain_selectors.FamilySui {
+			// Sui replay is a no-op in nodetestutils; only EVM log replay matters. Use
+			// SleepReplayAndSettle because ReplayAsync returns before the poller finishes.
+			SleepReplayAndSettle(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain)
+		} else {
+			SleepReplayAndSettle(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
+		}
 		out.Replayed = true
 	}
 
@@ -323,4 +320,12 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Logf("skipping validation of sent message")
 	}
 	return
+}
+
+// SleepReplayAndSettle sleeps, replays logs, then sleeps again. EVM replay uses ReplayAsync and
+// returns before the log poller finishes ingesting CCIPMessageSent; the post-replay wait gives
+// the DON time to OCR-commit and transmit to the destination (required for Sui offramp polling).
+func SleepReplayAndSettle(t *testing.T, env cldf.Environment, duration time.Duration, chainSelectors ...uint64) {
+	testhelpers.SleepAndReplay(t, env, duration, chainSelectors...)
+	time.Sleep(duration)
 }

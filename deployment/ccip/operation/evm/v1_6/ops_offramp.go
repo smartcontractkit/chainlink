@@ -12,18 +12,18 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 var (
-	DeployOffRampOp = opsutil.NewEVMDeployOperation(
+	DeployOffRampOp = opsutils.NewEVMDeployOperation(
 		"DeployOffRamp",
 		semver.MustParse("1.0.0"),
 		"Deploys OffRamp 1.6 contract on the specified evm chain",
 		shared.OffRamp,
 		offramp.OffRampMetaData,
-		&opsutil.ContractOpts{
+		&opsutils.ContractOpts{
 			Version:          &deployment.Version1_6_0,
 			EVMBytecode:      common.FromHex(offramp.OffRampBin),
 			ZkSyncVMBytecode: offramp.ZkBytecode,
@@ -47,7 +47,7 @@ var (
 		},
 	)
 
-	OffRampApplySourceChainConfigUpdatesOp = opsutil.NewEVMCallOperation(
+	OffRampApplySourceChainConfigUpdatesOp = opsutils.NewEVMCallOperation(
 		"OffRampApplySourceChainConfigUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Applies updates to source chain configurations stored on the OffRamp contract",

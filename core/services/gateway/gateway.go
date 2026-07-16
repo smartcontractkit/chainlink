@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -83,26 +82,17 @@ func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFacto
 		return nil, err
 	}
 
-	var handlerMap map[string]handlers.Handler
-	var serviceNameToDonID map[string]string
-	var serviceToMultiHandler map[string]handlers.Handler
-
-	if len(cfg.Services) > 0 || len(cfg.ShardedDONs) > 0 {
-		lggr.Infow("setting up gateway from config", "nServices", len(cfg.Services), "nShardedDONs", len(cfg.ShardedDONs))
-		var err error
-		serviceToMultiHandler, err = setupFromNewConfig(cfg, handlerFactory, connMgr, lggr)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		lggr.Warnw("using legacy config", "nDons", len(cfg.Dons))
-		var err error
-		handlerMap, serviceNameToDonID, err = setupFromLegacyConfig(cfg, handlerFactory, connMgr)
-		if err != nil {
-			return nil, err
-		}
+	if len(cfg.Services) == 0 || len(cfg.ShardedDONs) == 0 {
+		return nil, errors.New("no services or DONs configured - Gateway has to use service-based configuration")
 	}
-	return NewGateway(codec, httpServer, handlerMap, serviceNameToDonID, serviceToMultiHandler, connMgr, gMetrics, lggr), nil
+
+	lggr.Infow("setting up gateway from config", "nServices", len(cfg.Services), "nShardedDONs", len(cfg.ShardedDONs))
+	serviceToMultiHandler, err := setupFromNewConfig(cfg, handlerFactory, connMgr, lggr)
+	if err != nil {
+		return nil, err
+	}
+
+	return NewGateway(codec, httpServer, nil, nil, serviceToMultiHandler, connMgr, gMetrics, lggr), nil
 }
 
 // setupFromNewConfig creates handlers using the new Services/ShardedDONs config format.
@@ -174,71 +164,6 @@ func setupFromNewConfig(
 	}
 
 	return serviceToMultiHandler, nil
-}
-
-// setupFromLegacyConfig creates handlers using the legacy Dons config format.
-// Returns handlerMap (DON ID -> handler) and serviceNameToDonID map.
-func setupFromLegacyConfig(
-	cfg *config.GatewayConfig,
-	handlerFactory HandlerFactory,
-	connMgr ConnectionManager,
-) (map[string]handlers.Handler, map[string]string, error) {
-	handlerMap := make(map[string]handlers.Handler)
-	serviceNameToDonID := make(map[string]string)
-
-	for _, donConfig := range cfg.Dons {
-		_, ok := handlerMap[donConfig.DonId]
-		if ok {
-			return nil, nil, fmt.Errorf("duplicate DON ID %s", donConfig.DonId)
-		}
-		donConnMgr := connMgr.DONConnectionManager(donConfig.DonId)
-		if donConnMgr == nil {
-			return nil, nil, fmt.Errorf("connection manager ID %s not found", donConfig.DonId)
-		}
-		for idx, nodeConfig := range donConfig.Members {
-			donConfig.Members[idx].Address = strings.ToLower(nodeConfig.Address)
-			if !common.IsHexAddress(nodeConfig.Address) {
-				return nil, nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
-			}
-		}
-
-		// Convert old-style handler config to the new style
-		var hdlrs []config.Handler
-		if donConfig.HandlerName != "" {
-			hdlrs = append(hdlrs, config.Handler{
-				Name:   donConfig.HandlerName,
-				Config: donConfig.HandlerConfig,
-			})
-		}
-		hdlrs = append(hdlrs, donConfig.Handlers...)
-
-		shardedDON := config.ShardedDONConfig{
-			DonName: donConfig.DonId,
-			F:       donConfig.F,
-			Shards:  []config.Shard{{Nodes: donConfig.Members}},
-		}
-
-		handler, err := NewMultiHandler(handlerFactory, hdlrs, []config.ShardedDONConfig{shardedDON}, [][]handlers.DON{{donConnMgr}})
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create multi-handler for DON %s: %w", donConfig.DonId, err)
-		}
-
-		handlerMap[donConfig.DonId] = handler
-
-		for _, h := range hdlrs {
-			if h.ServiceName != "" {
-				_, ok := serviceNameToDonID[h.ServiceName]
-				if ok {
-					return nil, nil, fmt.Errorf("duplicate service name %s for DON ID %s", h.ServiceName, donConfig.DonId)
-				}
-				serviceNameToDonID[h.ServiceName] = donConfig.DonId
-			}
-		}
-
-		donConnMgr.SetHandler("", handler)
-	}
-
-	return handlerMap, serviceNameToDonID, nil
 }
 
 func NewGateway(codec api.Codec, httpServer gw_net.HTTPServer, handlers map[string]handlers.Handler, serviceNameToDonID map[string]string, serviceToMultiHandler map[string]handlers.Handler, connMgr ConnectionManager, gMetrics *monitoring.GatewayMetrics, lggr logger.Logger) Gateway {

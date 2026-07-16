@@ -87,6 +87,7 @@ func (c *OCR3ContractTransmitterAdapter) FromAccount(ctx context.Context) (ocrty
 }
 
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
+var _ ocr3types.OnchainKeyring2[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
 
 func MarshalMultichainKeyBundle(ost map[string]ocr2key.KeyBundle) (ocrtypes.OnchainPublicKey, error) {
 	pubKeys := map[string]ocrtypes.OnchainPublicKey{}
@@ -183,6 +184,34 @@ func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, lg
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublicKey {
 	return a.publicKey
+}
+
+// Has returns true if every chain public key in k matches this adapter (k may be a subset of supported chains).
+func (a *OCR3OnchainKeyringMultiChainAdapter) Has(k ocrtypes.OnchainPublicKey) bool {
+	if len(k) == 0 {
+		return false
+	}
+	keys, err := UnmarshalMultichainPublicKey(k)
+	if err != nil {
+		return bytes.Equal(k, a.publicKey)
+	}
+	if len(keys) == 0 {
+		return false
+	}
+	for chainName, pubKey := range keys {
+		kb, ok := a.keyBundles[chainName]
+		if !ok {
+			return false
+		}
+		if !bytes.Equal(pubKey, kb.PublicKey()) {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *OCR3OnchainKeyringMultiChainAdapter) DebugIdentifier() string {
+	return fmt.Sprintf("%x", a.publicKey)
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) getKeyBundleFromInfo(info []byte) (string, ocr2key.KeyBundle, error) {

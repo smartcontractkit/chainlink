@@ -1,3 +1,5 @@
+//go:build integration
+
 package functions_test
 
 import (
@@ -5,8 +7,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/quarantine"
 
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	utils "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/integration_tests/v1/internal"
@@ -22,8 +22,7 @@ var (
 	batchSize         = 8
 )
 
-func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
-	quarantine.Flaky(t, "DX-1804")
+func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) { //nolint:paralleltest // runs serially: spins up full chain + nodes, parallel would spike DB/resource usage
 	// simulated chain with all contracts
 	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
 	defer stop()
@@ -36,8 +35,8 @@ func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 		MaxQueryLengthBytes:       10_000,
 		MaxObservationLengthBytes: 15_000,
 		MaxReportLengthBytes:      15_000,
-		MaxRequestBatchSize:       uint32(batchSize),
-		MaxReportTotalCallbackGas: uint32(maxTotalReportGas),
+		MaxRequestBatchSize:       uint32(batchSize),         //nolint:gosec // G115 fixed test constant, no overflow
+		MaxReportTotalCallbackGas: uint32(maxTotalReportGas), //nolint:gosec // G115 fixed test constant, no overflow
 		DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
 		UniqueReports:             true,
 	}
@@ -45,12 +44,12 @@ func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 	// config for oracle contract
 	utils.SetOracleConfig(t, b, owner, active.Contract, oracleIdentities, batchSize, &pluginConfig)
 
-	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
+	subscriptionID := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
 	commit()
-	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, nil, subscriptionId, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, nil, subscriptionID, 1*time.Minute)
 }
 
-func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *testing.T) {
+func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *testing.T) { //nolint:paralleltest // runs serially: spins up full chain + nodes, parallel would spike DB/resource usage
 	// simulated chain with all contracts
 	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
 	defer stop()
@@ -63,8 +62,8 @@ func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *
 		MaxQueryLengthBytes:       10_000,
 		MaxObservationLengthBytes: 15_000,
 		MaxReportLengthBytes:      15_000,
-		MaxRequestBatchSize:       uint32(batchSize),
-		MaxReportTotalCallbackGas: uint32(maxTotalReportGas),
+		MaxRequestBatchSize:       uint32(batchSize),         //nolint:gosec // G115 fixed test constant, no overflow
+		MaxReportTotalCallbackGas: uint32(maxTotalReportGas), //nolint:gosec // G115 fixed test constant, no overflow
 		DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
 		UniqueReports:             true,
 		ThresholdPluginConfig: &functionsConfig.ThresholdReportingPluginConfig{
@@ -82,13 +81,12 @@ func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *
 	// config for oracle contract
 	utils.SetOracleConfig(t, b, owner, active.Contract, oracleIdentities, batchSize, &pluginConfig)
 
-	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
+	subscriptionID := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
 	commit()
-	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionID, 1*time.Minute)
 }
 
-func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
-	quarantine.Flaky(t, "DX-1808")
+func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) { //nolint:paralleltest // runs serially: spins up full chain + nodes, parallel would spike DB/resource usage
 	// simulated chain with all contracts
 	owner, b, commit, stop, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
 	defer stop()
@@ -101,8 +99,8 @@ func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 		MaxQueryLengthBytes:       10_000,
 		MaxObservationLengthBytes: 15_000,
 		MaxReportLengthBytes:      15_000,
-		MaxRequestBatchSize:       uint32(batchSize),
-		MaxReportTotalCallbackGas: uint32(maxTotalReportGas),
+		MaxRequestBatchSize:       uint32(batchSize),         //nolint:gosec // G115 fixed test constant, no overflow
+		MaxReportTotalCallbackGas: uint32(maxTotalReportGas), //nolint:gosec // G115 fixed test constant, no overflow
 		DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
 		UniqueReports:             true,
 		ThresholdPluginConfig: &functionsConfig.ThresholdReportingPluginConfig{
@@ -121,12 +119,12 @@ func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 	utils.SetOracleConfig(t, b, owner, active.Contract, oracleIdentities, batchSize, &pluginConfig)
 	utils.SetOracleConfig(t, b, owner, proposed.Contract, oracleIdentities, batchSize, &pluginConfig)
 
-	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
-	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
+	subscriptionID := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
+	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionID, 1*time.Minute)
 
 	// upgrade and send requests again
 	_, err := routerContract.UpdateContracts(owner)
 	require.NoError(t, err)
 	commit()
-	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionID, 1*time.Minute)
 }

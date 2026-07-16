@@ -26,8 +26,8 @@ type DeployCCIPOutput struct {
 	NodeIDs     []string
 }
 
-func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput) (*cldf.Environment, error) {
-	blockChains, err := devenv.NewChains(lggr, output.Chains)
+func NewDeployEnvironmentFromCribOutput(ctx context.Context, lggr logger.Logger, output DeployOutput) (*cldf.Environment, error) {
+	blockChains, err := devenv.NewChains(ctx, lggr, output.Chains)
 	if err != nil {
 		return nil, err
 	}

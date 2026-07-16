@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -24,18 +26,21 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -49,7 +54,15 @@ type ORM interface {
 // has completed initialization (including trigger subscriptions). For v2 engines, this is wired to
 // the OnInitialized lifecycle hook. For v1 legacy DAG engines, nil is sent immediately after engine
 // creation since they don't support async initialization hooks.
-type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error)
+type engineFactoryFn func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
+
+type DrainableService interface {
+	Drain() bool
+	ActiveExecutions() int32
+	DrainStartedAt() (time.Time, bool)
+}
+
+var ErrDrainInProgress = errors.New("drain in progress")
 
 // eventHandler is a handler for WorkflowRegistryEvent events.  Each event type has a corresponding method that handles the event.
 type eventHandler struct {
@@ -60,6 +73,7 @@ type eventHandler struct {
 
 	workflowStore          store.Store
 	capRegistry            core.CapabilitiesRegistry
+	executionHandlers      *confidentialrelay.ExecutionHandlers
 	donTimeStore           *dontime.Store
 	useLocalTimeProvider   bool
 	engineRegistry         *EngineRegistry
@@ -76,6 +90,13 @@ type eventHandler struct {
 	billingClient          metering.BillingClient
 	orgResolver            orgresolver.OrgResolver
 	secretsFetcher         v2.SecretsFetcher
+	// localSecretOverrides is keyed by owner address; values are secret id -> secret value
+	localSecretOverrides map[string]map[string]string
+
+	moduleLRU           *ModuleLRU
+	moduleStore         artifacts.SerialisedModuleStore
+	cacheMetrics        *CacheMetrics
+	moduleEngineVersion string
 
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
@@ -88,7 +109,17 @@ type eventHandler struct {
 
 	// tracer is the OTel tracer for this handler. It's a noop tracer when debug mode is disabled.
 	tracer trace.Tracer
+
+	shardOrchestratorClient shardorchestrator.ClientInterface
+	shardingEnabled         bool
+	myShardID               uint32
+	shardRoutingSteady      *shardownership.SteadySignal
+
+	metrics *metrics
 }
+
+// EventHandlerOption is a functional option for configuring an eventHandler.
+type EventHandlerOption = func(*eventHandler)
 
 func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
 	return func(e *eventHandler) {
@@ -106,7 +137,7 @@ func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 
 func WithStaticEngine(engine services.Service) func(*eventHandler) {
 	return func(e *eventHandler) {
-		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ string, _ []byte, _ []byte, initDone chan<- error) (services.Service, error) {
+		e.engineFactory = func(_ context.Context, _ string, _ string, _ types.WorkflowName, _ string, _ []byte, _ []byte, _ string, initDone chan<- error) (services.Service, error) {
 			// For static engines (used in tests), signal immediate initialization success
 			if initDone != nil {
 				initDone <- nil
@@ -119,6 +150,20 @@ func WithStaticEngine(engine services.Service) func(*eventHandler) {
 func WithBillingClient(client metering.BillingClient) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.billingClient = client
+	}
+}
+
+func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingEnabled bool, shardID uint32) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardOrchestratorClient = client
+		e.shardingEnabled = shardingEnabled
+		e.myShardID = shardID
+	}
+}
+
+func WithShardRoutingSteady(signal *shardownership.SteadySignal) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardRoutingSteady = signal
 	}
 }
 
@@ -158,13 +203,50 @@ func WithSecretsFetcher(sf v2.SecretsFetcher) func(*eventHandler) {
 	}
 }
 
-func WithLocalSecrets(lggr logger.Logger, secrets map[string]string) func(*eventHandler) {
+// WithLocalSecretOverrides wires [CRE.LocalSecretOverrides]: per-workflow-owner name->secret map
+func WithLocalSecretOverrides(lggr logger.Logger, perOwner map[string]map[string]string) func(*eventHandler) {
 	return func(e *eventHandler) {
-		if len(secrets) == 0 {
+		if len(perOwner) == 0 {
 			return
 		}
-		lggr.Warnw("Local secrets override is active, vault capability will not be used for secrets", "numSecrets", len(secrets))
-		e.secretsFetcher = v2.NewLocalSecretsFetcher(secrets)
+		e.localSecretOverrides = make(map[string]map[string]string, len(perOwner))
+		for k, m := range perOwner {
+			e.localSecretOverrides[k] = maps.Clone(m)
+		}
+		owners := make([]string, 0, len(e.localSecretOverrides))
+		for owner := range e.localSecretOverrides {
+			owners = append(owners, owner)
+		}
+		lggr.Warnw("Per-owner local secret overrides are active; vault is used for secret IDs not listed under each owner",
+			"numOwners", len(e.localSecretOverrides),
+			"owners", owners)
+	}
+}
+
+func WithModuleLRU(lru *ModuleLRU) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.moduleLRU = lru
+	}
+}
+
+func WithModuleStore(store artifacts.SerialisedModuleStore) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.moduleStore = store
+	}
+}
+
+func WithModuleCacheMetrics(cm *CacheMetrics) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.cacheMetrics = cm
+	}
+}
+
+// WithModuleEngineVersion sets the engine version tag persisted alongside cached module
+// binaries and compared on reload. Reloads from an older version are rejected with a log
+// and a metric, ensuring process upgrades never reuse ABI-incompatible binaries.
+func WithModuleEngineVersion(v string) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.moduleEngineVersion = v
 	}
 }
 
@@ -183,6 +265,7 @@ func NewEventHandler(
 	donTimeStore *dontime.Store,
 	useLocalTimeProvider bool,
 	capRegistry core.CapabilitiesRegistry,
+	executionHandlers *confidentialrelay.ExecutionHandlers,
 	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	engineLimiters *v2.EngineLimiters,
@@ -211,6 +294,7 @@ func NewEventHandler(
 		lggr:                   lggr,
 		workflowStore:          workflowStore,
 		capRegistry:            capRegistry,
+		executionHandlers:      executionHandlers,
 		donTimeStore:           donTimeStore,
 		useLocalTimeProvider:   useLocalTimeProvider,
 		engineRegistry:         engineRegistry,
@@ -224,22 +308,45 @@ func NewEventHandler(
 		workflowDonSubscriber:  workflowDonSubscriber,
 		tracer:                 noop.NewTracerProvider().Tracer(""), // default to noop, enable via WithDebugMode
 	}
+	metricsInst, metricsErr := newMetrics()
+	if metricsErr != nil {
+		return nil, fmt.Errorf("new metrics: %w", metricsErr)
+	}
+	eh.metrics = metricsInst
 	eh.engineFactory = eh.engineFactoryFn
 	for _, o := range opts {
 		o(eh)
 	}
 
 	eh.Service, eh.eng = services.Config{
-		Name:  "EventHandler",
+		Name: "EventHandler",
+		// The workflow store is started and stopped alongside the handler.
+		NewSubServices: func(logger.Logger) []services.Service {
+			if eh.workflowStore == nil {
+				return nil
+			}
+			return []services.Service{eh.workflowStore}
+		},
+		Start: eh.start,
 		Close: eh.close,
 	}.NewServiceEngine(lggr)
 
 	return eh, nil
 }
 
+func (h *eventHandler) start(_ context.Context) error {
+	if h.moduleLRU != nil {
+		h.moduleLRU.Start()
+	}
+	return nil
+}
+
 func (h *eventHandler) close() error {
+	if h.moduleLRU != nil {
+		h.moduleLRU.Close()
+	}
 	es := h.engineRegistry.PopAll()
-	cs := []io.Closer{}
+	cs := make([]io.Closer, 0, len(es)+1)
 	cs = append(cs, h.engineLimiters)
 	for _, e := range es {
 		cs = append(cs, e)
@@ -294,13 +401,14 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err2 != nil {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
 		err = h.workflowActivatedEvent(ctx, payload)
 		if err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)
+			h.lggr.Errorw("failed to handle workflow activated event", "error", err, "workflowID", wfID)
+			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", customerFacingError(err)), h.lggr)
 			return err
 		}
 
@@ -341,8 +449,12 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 
-		if err := h.workflowPausedEvent(ctx, payload); err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
+		if err = h.workflowPausedEvent(ctx, payload); err != nil {
+			if errors.Is(err, ErrDrainInProgress) {
+				logCustMsg(ctx, cma, fmt.Sprintf("workflow pause deferred: %v", err), h.lggr)
+			} else {
+				logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
+			}
 			return err
 		}
 
@@ -395,8 +507,12 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 
-		if herr := h.workflowDeletedEvent(ctx, payload); herr != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", herr), h.lggr)
+		if herr = h.workflowDeletedEvent(ctx, payload); herr != nil {
+			if errors.Is(herr, ErrDrainInProgress) {
+				logCustMsg(ctx, cma, fmt.Sprintf("workflow deletion deferred: %v", herr), h.lggr)
+			} else {
+				logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", herr), h.lggr)
+			}
 			return herr
 		}
 
@@ -475,12 +591,24 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// We know we need an engine, let's make sure that there isn't already one running for this workflow ID.
 	prevEngine, ok := h.engineRegistry.Get(payload.WorkflowID)
 	if ok && prevEngine.Ready() == nil && spec.Status == job.WorkflowSpecStatusActive {
+		drainable, isDrainable := prevEngine.Service.(DrainableService)
+		isDraining := false
+		if isDrainable {
+			_, isDraining = drainable.DrainStartedAt()
+		}
+		if isDrainable && isDraining {
+			h.lggr.Infow("engine is draining, replacing with a new engine", "workflowID", payload.WorkflowID.Hex())
+		}
+
 		// This is the happy-path, we're done.
-		return nil
+		if !isDrainable || !isDraining {
+			return nil
+		}
 	}
 
 	// Any other case ->
 	// - engine in registry, but service isn't running
+	// - engine in registry and service is running, but it's draining and must be replaced
 	// - state isn't active
 	// Let's clean up and recreate
 
@@ -513,8 +641,11 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 
 	wfID := payload.WorkflowID.Hex()
 	owner := hex.EncodeToString(payload.WorkflowOwner)
-
-	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: owner, Workflow: wfID})
+	orgID, err := h.fetchOrganizationID(ctx, owner)
+	if err != nil {
+		h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", owner, "error", err)
+	}
+	ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: owner, Workflow: wfID})
 
 	// With Workflow Registry contract v2 the BinaryURL and ConfigURL are expected to be identifiers that put through the Storage Service.
 	decodedBinary, config, err := h.workflowArtifactsStore.FetchWorkflowArtifacts(ctx, wfID, payload.BinaryURL, payload.ConfigURL)
@@ -536,6 +667,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		SpecType:      job.WASMFile,
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
+		Attributes:    payload.Attributes,
 	}
 
 	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, entry); err != nil {
@@ -566,7 +698,7 @@ func (h *eventHandler) fetchOrganizationID(ctx context.Context, workflowOwner st
 	return organizationID, nil
 }
 
-func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, initDone chan<- error) (services.Service, error) {
+func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
 	lggr := logger.Named(h.lggr, "WorkflowEngine.Module")
 	lggr = logger.With(lggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
 	var sdkName string
@@ -574,12 +706,18 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	labeler := h.emitter
 	h.emitterMu.RUnlock()
 	moduleConfig := &host.ModuleConfig{
-		Logger:                       lggr,
-		Labeler:                      labeler,
-		MemoryLimiter:                h.engineLimiters.WASMMemorySize,
-		MaxCompressedBinaryLimiter:   h.engineLimiters.WASMCompressedBinarySize,
-		MaxDecompressedBinaryLimiter: h.engineLimiters.WASMBinarySize,
-		MaxResponseSizeLimiter:       h.engineLimiters.ExecutionResponse,
+		Logger:                               lggr,
+		Labeler:                              labeler,
+		MemoryLimiter:                        h.engineLimiters.WASMMemorySize,
+		MaxCompressedBinaryLimiter:           h.engineLimiters.WASMCompressedBinarySize,
+		MaxDecompressedBinaryLimiter:         h.engineLimiters.WASMBinarySize,
+		MaxResponseSizeLimiter:               h.engineLimiters.ExecutionResponse,
+		PendingCallsLimiter:                  h.engineLimiters.CapabilityConcurrency,
+		EnableUserMetricsLimiter:             h.engineLimiters.UserMetricEnabled,
+		MaxUserMetricPayloadLimiter:          h.engineLimiters.UserMetricPayload,
+		MaxUserMetricNameLengthLimiter:       h.engineLimiters.UserMetricNameLength,
+		MaxUserMetricLabelsPerMetricLimiter:  h.engineLimiters.UserMetricLabelsPerMetric,
+		MaxUserMetricLabelValueLengthLimiter: h.engineLimiters.UserMetricLabelValueLength,
 		SdkLabeler: func(name string) {
 			sdkName = name
 			h.emitterMu.Lock()
@@ -588,18 +726,19 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 		},
 	}
 
-	h.lggr.Debugf("Creating module for workflowID %s", workflowID)
+	h.lggr.Debugw("Creating module for workflowID", "workflowID", workflowID)
 
 	module, err := host.NewModule(ctx, moduleConfig, binary, host.WithDeterminism())
 	if err != nil {
-		return nil, fmt.Errorf("could not instantiate module: %w", err)
+		return nil, err
 	}
-	h.lggr.Debugf("Finished creating module for workflowID %s", workflowID)
+
+	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
-		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow sdk spec: %w", err)
+		sdkSpec, specErr := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
+		if specErr != nil {
+			return nil, fmt.Errorf("failed to get workflow sdk spec: %w", specErr)
 		}
 
 		// WorkflowRegistry V2 contract does not contain secrets
@@ -621,63 +760,66 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 			RateLimiter:    h.ratelimiter,
 			WorkflowLimits: h.workflowLimits,
 
-			BillingClient: h.billingClient,
+			BillingClient:           h.billingClient,
+			ShardOrchestratorClient: h.shardOrchestratorClient,
+			ShardingEnabled:         h.shardingEnabled,
+			MyShardID:               h.myShardID,
+			ShardRoutingSteady:      h.shardRoutingSteady,
 		}
 		return workflows.NewEngine(ctx, cfg)
 	}
 
 	// V2 aka "NoDAG"
-	cfg := &v2.EngineConfig{
-		Lggr:                  h.lggr,
-		Module:                module,
-		WorkflowConfig:        config,
-		CapRegistry:           h.capRegistry,
-		DonSubscriber:         h.workflowDonSubscriber,
-		UseLocalTimeProvider:  h.useLocalTimeProvider,
-		DonTimeStore:          h.donTimeStore,
-		ExecutionsStore:       h.workflowStore,
-		WorkflowID:            workflowID,
-		WorkflowOwner:         owner,
-		WorkflowName:          name,
-		WorkflowTag:           tag,
-		WorkflowEncryptionKey: h.workflowEncryptionKey,
-
-		LocalLimits:                       v2.EngineLimits{}, // all defaults
-		LocalLimiters:                     h.engineLimiters,
-		FeatureFlags:                      h.featureFlags,
-		GlobalExecutionConcurrencyLimiter: h.workflowLimits,
-
-		BeholderEmitter: func() custmsg.MessageEmitter {
-			h.emitterMu.RLock()
-			defer h.emitterMu.RUnlock()
-			return h.emitter
-		}(),
-		BillingClient: h.billingClient,
-
-		WorkflowRegistryAddress:       h.workflowRegistryAddress,
-		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
-		OrgResolver:                   h.orgResolver,
-		DebugMode:                     h.debugMode,
-		SecretsFetcher:                h.secretsFetcher,
-		SdkName:                       sdkName,
+	// Wrap the local WASM module in a RequirementSelectingModule that routes
+	// triggers with a TEE requirement to the ConfidentialModule (which delegates
+	// to the confidential-workflows capability and runs the WASM inside the
+	// enclave). Triggers without a TEE requirement continue to run locally.
+	binaryHash := v2.ComputeBinaryHash(binary)
+	confLggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
+	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
+	confidential, err := v2.NewConfidentialModule(h.capRegistry, h.executionHandlers, binaryURL, binaryHash, workflowID, owner, name.String(), tag, h.fetchOrganizationID, h.engineLimiters.ConfidentialWorkflowsEnabled, confLggr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create confidential module: %w", err)
 	}
+	engineModule := h.createEngineModule(ctx, workflowID, binary, moduleConfig, module)
+	selectingModule := generichost.NewRequirementSelectingModule(
+		generichost.ModuleAndHandler{Module: engineModule},
+		[]generichost.ModuleAndHandler{{
+			Module:              confidential,
+			RequirementsHandler: generichost.RequirementsHandler{Tee: confidential.Tee},
+		}},
+	)
+	cfg := h.newV2EngineConfig(selectingModule, workflowID, owner, tag, sdkName, name, config)
 
-	// Wire the initDone channel to the OnInitialized lifecycle hook.
-	// This will be called when the engine completes initialization (including trigger subscriptions).
-	// We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
-	if initDone != nil {
-		existingHook := cfg.Hooks.OnInitialized
-		cfg.Hooks.OnInitialized = func(err error) {
-			// Signal completion to the handler first
-			initDone <- err
-			// Then call any existing hook (e.g., from tests)
-			if existingHook != nil {
-				existingHook(err)
-			}
+	h.wireInitDoneHook(cfg, initDone)
+
+	return v2.NewEngine(cfg)
+}
+
+func (h *eventHandler) createEngineModule(
+	ctx context.Context,
+	workflowID string,
+	binary []byte,
+	moduleConfig *host.ModuleConfig,
+	module generichost.Module,
+) generichost.Module {
+	engineModule := module
+	if h.moduleLRU != nil && h.moduleStore != nil {
+		storeStart := time.Now()
+		storeErr := h.moduleStore.StoreModule(workflowID, binary, h.moduleEngineVersion)
+		if h.metrics != nil {
+			h.metrics.recordModuleStore(ctx, time.Since(storeStart), storeErr == nil)
+		}
+		if storeErr != nil {
+			h.lggr.Warnw("Failed to cache module binary to disk, LRU eviction disabled for this workflow", "workflowID", workflowID, "err", storeErr)
+		} else {
+			evictable := NewEvictableModule(module, moduleConfig, h.moduleStore, workflowID, h.moduleEngineVersion, nil, h.cacheMetrics, int64(len(binary)), host.WithDeterminism())
+			h.moduleLRU.Register(workflowID, evictable)
+			engineModule = evictable
 		}
 	}
 
-	return v2.NewEngine(cfg)
+	return engineModule
 }
 
 // workflowPausedEvent handles the WorkflowPausedEvent event type. This method must remain idempotent.
@@ -698,9 +840,31 @@ func (h *eventHandler) workflowDeletedEvent(
 	// closed.
 	// At the same time, popping the engine should occur last to allow deletes to be retried if any of the
 	// prior steps fail.
+	workflowID := payload.WorkflowID.Hex()
 	e, ok := h.engineRegistry.Get(payload.WorkflowID)
+	var drainable DrainableService
+	var isDrainable bool
 	if ok {
-		if innerErr := e.Close(); innerErr != nil {
+		if drainable, isDrainable = e.Service.(DrainableService); isDrainable {
+			if started := drainable.Drain(); started {
+				h.lggr.Infow("initiated drain for workflow engine", "workflowID", workflowID)
+				if h.metrics != nil {
+					h.metrics.incrementDrainStarted(ctx)
+				}
+			}
+
+			if active := drainable.ActiveExecutions(); active > 0 {
+				if h.metrics != nil {
+					h.metrics.incrementDeleteDeferred(ctx, "drain_in_progress")
+				}
+				h.lggr.Infow("workflow deletion deferred: active executions still running",
+					"workflowID", workflowID,
+					"activeExecutions", active)
+				return fmt.Errorf("%w: %d active executions still running", ErrDrainInProgress, active)
+			}
+		}
+
+		if innerErr := e.Close(); innerErr != nil && !errors.Is(innerErr, services.ErrAlreadyStopped) {
 			return fmt.Errorf("failed to close workflow engine: %w", innerErr)
 		}
 	}
@@ -709,30 +873,59 @@ func (h *eventHandler) workflowDeletedEvent(
 		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
 	}
 
+	h.cleanupModuleCache(payload.WorkflowID.Hex())
+
 	_, err := h.engineRegistry.Pop(payload.WorkflowID)
 	if errors.Is(err, ErrNotFound) {
 		return nil
 	}
-	return err
+	if err != nil {
+		return err
+	}
+
+	if isDrainable {
+		startedAt, exists := drainable.DrainStartedAt()
+		if exists && h.metrics != nil {
+			h.metrics.recordDrainCompleted(ctx, time.Since(startedAt))
+		}
+	}
+	return nil
 }
 
 // tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
 // workflow engine is not running.
 func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 	e, ok := h.engineRegistry.Get(workflowID)
-	if ok {
-		// Stop the engine
-		if err := e.Close(); err != nil {
-			return fmt.Errorf("failed to close workflow engine: %w", err)
-		}
+	if !ok {
+		return nil
+	}
 
-		// Remove the engine from the registry
-		_, err := h.engineRegistry.Pop(workflowID)
-		if err != nil {
-			return fmt.Errorf("failed to remove workflow engine: %w", err)
-		}
+	// Close the engine, then remove it from the registry only once cleanup has succeeded. The
+	// registry entry is what tells us this workflow still needs cleanup, so if a step fails we
+	// leave it in place and return the error, allowing a future attempt to retry in case the
+	// failure was spurious. Close is idempotent, so ErrAlreadyStopped means the engine was
+	// already closed on a prior attempt and is treated as success rather than a failure.
+	if err := e.Close(); err != nil && !errors.Is(err, services.ErrAlreadyStopped) {
+		return fmt.Errorf("failed to close workflow engine: %w", err)
+	}
+
+	h.cleanupModuleCache(workflowID.Hex())
+
+	if _, err := h.engineRegistry.Pop(workflowID); err != nil {
+		return fmt.Errorf("failed to remove workflow engine: %w", err)
 	}
 	return nil
+}
+
+func (h *eventHandler) cleanupModuleCache(workflowID string) {
+	if h.moduleLRU != nil {
+		h.moduleLRU.Deregister(workflowID)
+	}
+	if h.moduleStore != nil {
+		if err := h.moduleStore.DeleteModule(workflowID); err != nil {
+			h.lggr.Warnw("Failed to delete cached module binary", "workflowID", workflowID, "err", err)
+		}
+	}
 }
 
 // tryEngineCreate attempts to create a new workflow engine, start it, and register it with the engine registry.
@@ -755,8 +948,10 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 
 	decodedBinary, err := hex.DecodeString(spec.Workflow)
 	if err != nil {
-		return fmt.Errorf("failed to decode workflow spec binary: %w", err)
+		return nonRetryable(fmt.Errorf("failed to decode workflow spec binary: %w", err))
 	}
+	// Free the hex-encoded binary string as it is not needed beyond this decode
+	spec.Workflow = ""
 
 	// Workflow Registry version >2 no longer handles secrets
 	secretsURL := ""
@@ -765,41 +960,34 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	// Workflow ID should match what is generated from the stored artifacts
 	ownerBytes, err := hex.DecodeString(spec.WorkflowOwner)
 	if err != nil {
-		return fmt.Errorf("failed to decode owner: %w", err)
+		return nonRetryable(fmt.Errorf("failed to decode owner: %w", err))
 	}
-	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, []byte(spec.Config), secretsURL)
+	configBytes := []byte(spec.Config)
+	hash, err := pkgworkflows.GenerateWorkflowID(ownerBytes, spec.WorkflowName, decodedBinary, configBytes, secretsURL)
 	if err != nil {
 		return fmt.Errorf("failed to generate workflow id: %w", err)
 	}
 	wid, err := types.WorkflowIDFromHex(spec.WorkflowID)
 	if err != nil {
-		return fmt.Errorf("invalid workflow id: %w", err)
+		return nonRetryable(fmt.Errorf("invalid workflow id: %w", err))
 	}
 	if !types.WorkflowID(hash).Equal(wid) {
-		return fmt.Errorf("workflowID mismatch: %x != %x", hash, wid)
+		return nonRetryable(fmt.Errorf("workflowID mismatch: %x != %x", hash, wid))
 	}
 
 	// Start a new WorkflowEngine instance, and add it to local engine registry
 	workflowName, err := types.NewWorkflowName(spec.WorkflowName)
 	if err != nil {
-		return fmt.Errorf("invalid workflow name: %w", err)
+		return nonRetryable(fmt.Errorf("invalid workflow name: %w", err))
 	}
 
 	// Create a channel to receive the initialization result.
 	// This allows us to wait for the engine to complete initialization (including trigger subscriptions)
 	// before emitting the workflowActivated event, ensuring the event accurately reflects deployment status.
 	initDone := make(chan error, 1)
+	var engine services.Service
 
-	engine, err := h.engineFactory(
-		ctx,
-		spec.WorkflowID,
-		spec.WorkflowOwner,
-		workflowName,
-		spec.WorkflowTag,
-		[]byte(spec.Config),
-		decodedBinary,
-		initDone,
-	)
+	engine, err = h.engineFactory(ctx, spec.WorkflowID, spec.WorkflowOwner, workflowName, spec.WorkflowTag, configBytes, decodedBinary, spec.BinaryURL, initDone)
 	if err != nil {
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
@@ -820,10 +1008,6 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	case initErr := <-initDone:
 		if initErr != nil {
 			// Engine initialization failed (e.g., trigger subscription failed)
-			// TODO (cre-1482) add logic to mark a deployment as failed to avoid churn.
-			// Currently, failed deployments will be retried on each poll cycle (with exponential backoff).
-			// If the failure is due to user error (e.g., invalid trigger config), this causes unnecessary retries.
-			// Consider marking the workflow spec as "failed" in the database and requiring workflow redeployment.
 			if closeErr := engine.Close(); closeErr != nil {
 				h.lggr.Errorw("failed to close engine after initialization failure", "error", closeErr, "workflowID", spec.WorkflowID)
 			}
@@ -856,12 +1040,143 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	return nil
 }
 
+func (h *eventHandler) overrideFetcherForOwner(owner string) v2.SecretsFetcher {
+	if h.localSecretOverrides == nil {
+		return nil
+	}
+	key, err := v2.LocalSecretOverrideOwnerKey(owner)
+	if err != nil {
+		h.lggr.Errorw("invalid workflow owner for local secret overrides", "owner", owner, "err", err)
+		return nil
+	}
+	overrides := h.localSecretOverrides[key]
+	if len(overrides) == 0 {
+		return nil
+	}
+	return v2.NewLocalSecretsFetcher(owner, overrides)
+}
+
+// newV2EngineConfig builds the common EngineConfig shared by both the normal
+// WASM engine and the confidential engine paths. Caller supplies the module.
+func (h *eventHandler) newV2EngineConfig(
+	module host.ModuleV2,
+	workflowID, owner, tag, sdkName string,
+	name types.WorkflowName,
+	config []byte,
+) *v2.EngineConfig {
+	return &v2.EngineConfig{
+		Lggr:                  h.lggr,
+		Module:                module,
+		WorkflowConfig:        config,
+		CapRegistry:           h.capRegistry,
+		DonSubscriber:         h.workflowDonSubscriber,
+		UseLocalTimeProvider:  h.useLocalTimeProvider,
+		DonTimeStore:          h.donTimeStore,
+		ExecutionsStore:       h.workflowStore,
+		WorkflowID:            workflowID,
+		WorkflowOwner:         owner,
+		WorkflowName:          name,
+		WorkflowTag:           tag,
+		WorkflowEncryptionKey: h.workflowEncryptionKey,
+
+		LocalLimits:         v2.EngineLimits{}, // all defaults
+		LocalLimiters:       h.engineLimiters,
+		FeatureFlags:        h.featureFlags,
+		GlobalWorkflowLimit: h.workflowLimits,
+
+		BeholderEmitter: func() custmsg.MessageEmitter {
+			h.emitterMu.RLock()
+			defer h.emitterMu.RUnlock()
+			return h.emitter
+		}(),
+		BillingClient: h.billingClient,
+
+		WorkflowRegistryAddress:       h.workflowRegistryAddress,
+		WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
+		OrgResolver:                   h.orgResolver,
+		SecretsFetcher:                h.secretsFetcher,
+		OverrideFetcher:               h.overrideFetcherForOwner(owner),
+		DebugMode:                     h.debugMode,
+		SdkName:                       sdkName,
+
+		ShardOrchestratorClient: h.shardOrchestratorClient,
+		ShardingEnabled:         h.shardingEnabled,
+		MyShardID:               h.myShardID,
+		ShardRoutingSteady:      h.shardRoutingSteady,
+	}
+}
+
+// wireInitDoneHook wires the initDone channel to the OnInitialized lifecycle hook.
+// This will be called when the engine completes initialization (including trigger subscriptions).
+// We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
+func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- error) {
+	if initDone == nil {
+		return
+	}
+	existingHook := cfg.Hooks.OnInitialized
+	cfg.Hooks.OnInitialized = func(err error) {
+		// Signal completion to the handler first
+		initDone <- err
+		// Then call any existing hook (e.g., from tests)
+		if existingHook != nil {
+			existingHook(err)
+		}
+	}
+}
+
 // logCustMsg emits a custom message to the external sink and logs an error if that fails.
 func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log logger.Logger) {
 	err := cma.Emit(ctx, msg)
 	if err != nil {
 		logger.Helper(log, 1).Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 	}
+}
+
+func (h *eventHandler) EmitActivationAbandoned(
+	ctx context.Context,
+	event Event,
+	reason eventsv2.ActivationAbandonReason,
+	activationErr error,
+	retryCount int32,
+) error {
+	if event.Name != WorkflowActivated || h == nil || h.emitter == nil {
+		return nil
+	}
+
+	payload, ok := event.Data.(WorkflowActivatedEvent)
+	if !ok {
+		return newHandlerTypeError(event.Data)
+	}
+
+	wfID := payload.WorkflowID.Hex()
+	wfOwner := hex.EncodeToString(payload.WorkflowOwner)
+	orgID, ferr := h.fetchOrganizationID(ctx, wfOwner)
+	if ferr != nil {
+		h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", ferr)
+	}
+
+	h.emitterMu.RLock()
+	cma := h.emitter.With(
+		platform.KeyWorkflowID, wfID,
+		platform.KeyWorkflowName, payload.WorkflowName,
+		platform.KeyWorkflowOwner, wfOwner,
+		platform.KeyWorkflowTag, payload.WorkflowTag,
+		platform.KeyOrganizationID, orgID,
+		platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
+		platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
+		platform.KeyWorkflowSource, payload.Source,
+	)
+	h.emitterMu.RUnlock()
+
+	return events.EmitWorkflowActivationAbandonedV2(
+		ctx,
+		cma.Labels(),
+		payload.BinaryURL,
+		payload.ConfigURL,
+		reason,
+		customerFacingError(activationErr),
+		retryCount,
+	)
 }
 
 func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
@@ -880,6 +1195,20 @@ func (h *eventHandler) ensureCapRegistryReady(ctx context.Context) error {
 			}
 			return nil
 		})
+}
+
+// customerFacingError returns a deterministic, user-actionable error for beholder emission.
+// Internal errors (e.g. ArtifactFetchError with per-node signed URLs) are replaced with a
+// clean message so that workflow-service can aggregate error_message across nodes.
+func customerFacingError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var fetchErr *types.ArtifactFetchError
+	if errors.As(err, &fetchErr) {
+		return errors.New(fetchErr.CustomerError())
+	}
+	return err
 }
 
 func newHandlerTypeError(data any) error {

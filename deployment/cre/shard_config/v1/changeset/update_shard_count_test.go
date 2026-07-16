@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 
-	shard_config "github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/shardconfig/generated/v1_0_0/shard_config"
+	shard_config "github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/dev/generated/latest/shard_config"
 )
 
 func TestUpdateShardCount(t *testing.T) {
@@ -49,7 +49,7 @@ func TestUpdateShardCount(t *testing.T) {
 	shardConfigRef := datastore.NewAddressRefKey(
 		selector,
 		datastore.ContractType(contracts.ShardConfig),
-		semver.MustParse("1.0.0"),
+		semver.MustParse("1.0.0-dev"),
 		"test-shard-config",
 	)
 

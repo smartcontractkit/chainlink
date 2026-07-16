@@ -10,8 +10,12 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	solstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
+	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 
@@ -24,8 +28,6 @@ import (
 	solanastateview "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/solana"
 	"github.com/smartcontractkit/chainlink/deployment/utils/solutils"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	solBinary "github.com/gagliardetto/binary"
@@ -75,7 +77,7 @@ type DeployChainContractsConfig struct {
 	BurnMintTokenPoolMetadata    string
 	LockReleaseTokenPoolMetadata string
 	// if specified, the mcms contracts will be deployed and initialized if they are not already deployed
-	MCMSWithTimelockConfig *types.MCMSWithTimelockConfigV2
+	MCMSWithTimelockConfig *cldfproposalutils.MCMSWithTimelockConfig
 }
 
 type ChainContractParams struct {
@@ -107,7 +109,7 @@ type UpgradeConfig struct {
 	SpillAddress     solana.PublicKey
 	UpgradeAuthority solana.PublicKey
 	// MCMS config must be set for upgrades and offramp redeploys (to configure the fee quoter after redeploy)
-	MCMS *proposalutils.TimelockConfig
+	MCMS *cldfproposalutils.TimelockConfig
 }
 
 func (cfg UpgradeConfig) Validate(e cldf.Environment, chainSelector uint64) error {
@@ -592,7 +594,7 @@ func deployChainContractsSolana(
 	if err != nil {
 		return batches, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return batches, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
@@ -907,11 +909,11 @@ func generateUpgradeTxns(
 	if err != nil {
 		return txns, fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
 	}
-	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	timelockSignerPDA := pdasol.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	// if we're not upgrading via timelock, execute the raw ixns
 	if config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
 		bufferSize, err := GetSolProgramSize(&e, chain, bufferProgram)

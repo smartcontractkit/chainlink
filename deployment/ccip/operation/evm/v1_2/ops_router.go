@@ -9,8 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/common/opsutils"
 )
 
 type DeployRouterInput struct {
@@ -26,13 +26,13 @@ type RouterApplyRampUpdatesOpInput struct {
 }
 
 var (
-	DeployRouter = opsutil.NewEVMDeployOperation(
+	DeployRouter = opsutils.NewEVMDeployOperation(
 		"DeployRouter",
 		semver.MustParse("1.0.0"),
 		"Deploys Router 1.2 contract on the specified evm chain",
 		shared.Router,
 		router.RouterMetaData,
-		&opsutil.ContractOpts{
+		&opsutils.ContractOpts{
 			Version:          &deployment.Version1_2_0,
 			EVMBytecode:      common.FromHex(router.RouterBin),
 			ZkSyncVMBytecode: router.RouterZkBytecode,
@@ -42,13 +42,13 @@ var (
 		},
 	)
 
-	DeployTestRouter = opsutil.NewEVMDeployOperation(
+	DeployTestRouter = opsutils.NewEVMDeployOperation(
 		"DeployTestRouter",
 		semver.MustParse("1.0.0"),
 		"Deploys TestRouter 1.2 contract on the specified evm chain",
 		shared.TestRouter,
 		router.RouterMetaData,
-		&opsutil.ContractOpts{
+		&opsutils.ContractOpts{
 			Version:          &deployment.Version1_2_0,
 			EVMBytecode:      common.FromHex(router.RouterBin),
 			ZkSyncVMBytecode: router.RouterZkBytecode,
@@ -58,7 +58,7 @@ var (
 		},
 	)
 
-	RouterApplyRampUpdatesOp = opsutil.NewEVMCallOperation(
+	RouterApplyRampUpdatesOp = opsutils.NewEVMCallOperation(
 		"RouterApplyRampUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Updates OnRamps and OffRamps on the Router contract",
@@ -70,7 +70,7 @@ var (
 		},
 	)
 
-	UpdateWrappedNativeAddressOnRouterOp = opsutil.NewEVMCallOperation(
+	UpdateWrappedNativeAddressOnRouterOp = opsutils.NewEVMCallOperation(
 		"UpdateWrappedNativeAddressOnRouterOp",
 		semver.MustParse("1.0.0"),
 		"Updates Wrapped Native token address on Router contract for a chain",

@@ -10,8 +10,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/quarantine"
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
@@ -26,11 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
-	quarantine.Flaky(t, "DX-1741")
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -58,7 +58,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			evmChain2 := evmChains[1]
 			evmState, err := stateview.LoadOnchainState(e)
 			require.NoError(t, err)
-			var mcmsConfig *proposalutils.TimelockConfig
+			var mcmsConfig *cldfproposalutils.TimelockConfig
 			if tc.mcmsEnabled {
 				_, _ = testhelpers.TransferOwnershipSolanaV0_1_0(t, &e, solChain, true,
 					ccipChangesetSolana.CCIPContractsToTransfer{
@@ -66,7 +66,7 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 						FeeQuoter: true,
 						OffRamp:   true,
 					})
-				mcmsConfig = &proposalutils.TimelockConfig{
+				mcmsConfig = &cldfproposalutils.TimelockConfig{
 					MinDelay: 1 * time.Second,
 				}
 				testhelpers.TransferToTimelock(t, tenv, evmState, []uint64{evmChain1, evmChain2}, false)
@@ -149,11 +149,11 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 			// if MCMS is enabled, we need to run the proposal
 			if tc.mcmsEnabled {
 				for _, prop := range out.MCMSTimelockProposals {
-					mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop, false)
+					mcmProp := cldftesthelpers.SignMCMSTimelockProposal(t, e, &prop, false)
 					// return the error so devs can ensure expected reversions
-					err = proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
+					err = cldftesthelpers.ExecuteMCMSProposalV2(t, e, mcmProp)
 					require.NoError(t, err)
-					err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+					err = cldftesthelpers.ExecuteMCMSTimelockProposalV2(t, e, &prop)
 					require.NoError(t, err)
 				}
 			}

@@ -10,8 +10,6 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-
-	"github.com/smartcontractkit/chainlink/deployment/helpers/pointer"
 )
 
 // ProposeJobRequest contains parameters for proposing a job to nodes in JD.
@@ -76,7 +74,7 @@ func ProposeJob(ctx context.Context, req ProposeJobRequest) error {
 		selectors = append(selectors, &ptypes.Selector{
 			Key:   key,
 			Op:    ptypes.SelectorOp_EQ,
-			Value: pointer.To(value),
+			Value: new(value),
 		})
 	}
 	selectors = append(selectors, req.ExtraSelectors...)

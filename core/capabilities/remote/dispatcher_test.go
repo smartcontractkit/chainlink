@@ -3,6 +3,7 @@ package remote_test
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -12,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types/mocks"
 
@@ -80,8 +80,10 @@ func (c testConfig) SendToSharedPeer() bool {
 }
 
 func TestDispatcher_CleanStartClose(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	peer := mocks.NewPeer(t)
 	recvCh := make(<-chan p2ptypes.Message)
 	peer.On("Receive", mock.Anything).Return(recvCh)
@@ -99,8 +101,10 @@ func TestDispatcher_CleanStartClose(t *testing.T) {
 }
 
 func TestDispatcher_Receive(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -144,8 +148,10 @@ func TestDispatcher_Receive(t *testing.T) {
 }
 
 func TestDispatcher_ReceiveForMethod(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -196,8 +202,10 @@ func TestDispatcher_ReceiveForMethod(t *testing.T) {
 }
 
 func TestDispatcher_RespondWithError(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -230,8 +238,10 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 }
 
 func TestDispatcher_ReceiveFromBothPeers(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	privKey1, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -271,8 +281,10 @@ func TestDispatcher_ReceiveFromBothPeers(t *testing.T) {
 }
 
 func TestDispatcher_SendToSharedPeer(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	_, peerID1 := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 
@@ -299,6 +311,71 @@ func TestDispatcher_SendToSharedPeer(t *testing.T) {
 	require.NoError(t, dispatcher.Send(peerID1, &remotetypes.MessageBody{}))
 	// mocks expect Sign() and Send()
 
+	require.NoError(t, dispatcher.Close())
+}
+
+// panicOnFirstReceiver panics on the first Receive call and records all
+// subsequent messages so tests can assert the goroutine survived.
+type panicOnFirstReceiver struct {
+	mu       sync.Mutex
+	calls    int
+	received chan *remotetypes.MessageBody
+}
+
+func newPanicOnFirstReceiver() *panicOnFirstReceiver {
+	return &panicOnFirstReceiver{received: make(chan *remotetypes.MessageBody, 10)}
+}
+
+func (r *panicOnFirstReceiver) Receive(_ context.Context, msg *remotetypes.MessageBody) {
+	r.mu.Lock()
+	r.calls++
+	call := r.calls
+	r.mu.Unlock()
+	if call == 1 {
+		panic("deliberate panic from receiver")
+	}
+	r.received <- msg
+}
+
+// TestDispatcher_ReceiverPanicDoesNotKillLoop verifies that a panic inside a
+// receiver's Receive() method is caught by the recover() wrapper in the
+// dispatcher goroutine and does not prevent subsequent messages from being
+// delivered to the same receiver.
+func TestDispatcher_ReceiverPanicDoesNotKillLoop(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	ctx := t.Context()
+	privKey1, peerID1 := newKeyPair(t)
+	_, peerID2 := newKeyPair(t)
+
+	peer := mocks.NewPeer(t)
+	recvCh := make(chan p2ptypes.Message)
+	peer.On("Receive", mock.Anything).Return((<-chan p2ptypes.Message)(recvCh))
+	peer.On("ID", mock.Anything).Return(peerID2)
+	wrapper := mocks.NewPeerWrapper(t)
+	wrapper.On("GetPeer").Return(peer)
+	signer := mocks.NewSigner(t)
+	signer.EXPECT().Initialize().Return(nil)
+	registry := commonMocks.NewCapabilitiesRegistry(t)
+
+	dispatcher, err := remote.NewDispatcher(newTestConfig(false), wrapper, nil, signer, registry, lggr)
+	require.NoError(t, err)
+	require.NoError(t, dispatcher.Start(ctx))
+
+	rcv := newPanicOnFirstReceiver()
+	err = dispatcher.SetReceiver(capID1, donID1, rcv)
+	require.NoError(t, err)
+
+	// First message triggers the panic; the goroutine must survive.
+	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
+	// Second message must still be delivered.
+	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload2))
+
+	m := <-rcv.received
+	require.Equal(t, payload2, string(m.Payload))
+
+	dispatcher.RemoveReceiver(capID1, donID1)
 	require.NoError(t, dispatcher.Close())
 }
 

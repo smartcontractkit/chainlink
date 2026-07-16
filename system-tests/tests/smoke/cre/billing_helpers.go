@@ -74,6 +74,8 @@ func loadBillingStackCache(relativePathToRepoRoot string) (*config.BillingConfig
 	return c, nil
 }
 
+var _ = startBillingStackIfIsNotRunning
+
 func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, environmentDir string, testEnv *ttypes.TestEnvironment) error {
 	if !config.BillingStateFileExists(relativePathToRepoRoot) {
 		priceURL := setupFakeBillingPriceProvider(t, testEnv.Config.Fake)

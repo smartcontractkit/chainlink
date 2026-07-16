@@ -133,6 +133,7 @@ func TestConfigureForwarders(t *testing.T) {
 					WFDonName:        "test-wf-don",
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
+					Qualifier:        te.ForwarderQualifier(),
 				}
 
 				var chainToExclude uint64
@@ -179,6 +180,7 @@ func TestConfigureForwarders(t *testing.T) {
 					WFDonName:        "test-wf-don",
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
+					Qualifier:        te.ForwarderQualifier(),
 					MCMSConfig: &crecontracts.MCMSConfig{
 						MinDelay: 0,
 						TimelockQualifierPerChain: map[uint64]string{

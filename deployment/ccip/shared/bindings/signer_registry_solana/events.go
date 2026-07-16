@@ -5,6 +5,7 @@ package signer_registry_solana
 
 import (
 	"fmt"
+
 	binary "github.com/gagliardetto/binary"
 )
 
