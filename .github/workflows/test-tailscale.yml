@@ -3,7 +3,6 @@ run-name: Test internal service connectivity
 
 on:
   push:
-  workflow_dispatch:
 
 jobs:
   connect-sot:
