@@ -18,10 +18,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-data-streams/llo"
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
+	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -42,10 +42,10 @@ type delegate struct {
 	services.StateMachine
 
 	cfg          DelegateConfig
-	reportCodecs map[llotypes.ReportFormat]datastreamsllo.ReportCodec
+	reportCodecs map[llotypes.ReportFormat]llocommon.ReportCodec
 
-	src   datastreamsllo.ShouldRetireCache
-	ds    datastreamsllo.DataSource
+	src   llov30.ShouldRetireCache
+	ds    llov30.DataSource
 	telem telem.TelemeterService
 
 	oracles []Closer
@@ -64,10 +64,10 @@ type DelegateConfig struct {
 
 	// LLO
 	ChannelDefinitionCache   llotypes.ChannelDefinitionCache
-	ReportingPluginConfig    datastreamsllo.Config
+	ReportingPluginConfig    llov30.Config
 	RetirementReportCache    retirement.RetirementReportCache
-	RetirementReportCodec    datastreamsllo.RetirementReportCodec
-	ShouldRetireCache        datastreamsllo.ShouldRetireCache
+	RetirementReportCodec    llocommon.RetirementReportCodec
+	ShouldRetireCache        llov30.ShouldRetireCache
 	PluginMonitoringEndpoint telemetry.MultitypeMonitoringEndpoint
 	DonID                    uint32
 	ChainID                  string
@@ -179,8 +179,8 @@ func (d *delegate) Start(ctx context.Context) error {
 				OffchainKeyring:              d.cfg.OffchainKeyring,
 				OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(d.cfg.OnchainKeyring),
 				ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
-					datastreamsllo.NewPluginFactory(
-						datastreamsllo.PluginFactoryParams{
+					llov30.NewPluginFactory(
+						llov30.PluginFactoryParams{
 							Config:                           d.cfg.ReportingPluginConfig,
 							PredecessorRetirementReportCache: psrrc,
 							ShouldRetireCache:                d.src,
@@ -188,7 +188,7 @@ func (d *delegate) Start(ctx context.Context) error {
 							ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
 							DataSource:                       d.ds,
 							Logger:                           logger.Named(lggr, "ReportingPlugin"),
-							OnchainConfigCodec:               llo.EVMOnchainConfigCodec{},
+							OnchainConfigCodec:               llocommon.EVMOnchainConfigCodec{},
 							ReportCodecs:                     d.reportCodecs,
 							OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
 							ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),

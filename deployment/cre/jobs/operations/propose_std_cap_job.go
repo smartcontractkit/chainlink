@@ -208,8 +208,9 @@ var ProposeStandardCapabilityJob = operations.NewSequence[
 const (
 	evmCapJobNamePrefix = "evm-cap-v2"
 	// evmCapJobNamePrefixOld had to be shortened because of job name character limit
-	evmCapJobNamePrefixOld = "evm-capabilities-v2"
-	solanaCapJobNamePrefix = "solana-cap-v2"
+	evmCapJobNamePrefixOld  = "evm-capabilities-v2"
+	solanaCapJobNamePrefix  = "solana-cap-v2"
+	stellarCapJobNamePrefix = "stellar-cap-v2"
 )
 
 // chainCapJobNameVariants returns the current and optional legacy job name for approved-spec lookup.
@@ -218,6 +219,8 @@ func chainCapJobNameVariants(jobName string) (current, legacy string, ok bool) {
 	case strings.Contains(jobName, evmCapJobNamePrefix):
 		return jobName, strings.Replace(jobName, evmCapJobNamePrefix, evmCapJobNamePrefixOld, 1), true
 	case strings.Contains(jobName, solanaCapJobNamePrefix):
+		return jobName, "", true
+	case strings.Contains(jobName, stellarCapJobNamePrefix):
 		return jobName, "", true
 	default:
 		return "", "", false

@@ -123,7 +123,6 @@ func TestTransfersController_CreateSuccess_From_WithRelayer(t *testing.T) {
 	require.NoError(t, err)
 	app.EXPECT().GetAuditLogger().Return(auditLogger).Once()
 
-	gin.SetMode(gin.TestMode)
 	ctrl := &web.EVMTransfersController{App: app}
 
 	r := gin.New()
@@ -172,7 +171,6 @@ func TestTransfersController_CreateFail_NoLegacyNoRelayer(t *testing.T) {
 
 	request := models.SendEtherRequest{EVMChainID: sqlutil.New(chainC)}
 
-	gin.SetMode(gin.TestMode)
 	ctrl := &web.EVMTransfersController{App: app}
 
 	r := gin.New()
