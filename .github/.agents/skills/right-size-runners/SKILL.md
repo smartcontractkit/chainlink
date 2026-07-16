@@ -22,7 +22,7 @@ Setup:
 
 <constraints>
 - OOM/Out of Disk Space failures are NEVER acceptable.
-- Prefer default `ubuntu-latest`. Use `runs-on` for more resources.
+- Prefer default `ubuntu-latest` (4core, 16GB RAM). Use `runs-on` for anything more powerful.
 - Validate runner config via available runners API before use.
 - Use `gh` CLI for workflow execution and PRs.
 - Only change one variable per trial to accurately assess its impact.
@@ -41,19 +41,11 @@ Setup:
 1. Define trials. Update `<workflow>.md` log.
 2. Ask user to approve trials. Check if they want to run them in parallel or sequentially.
 3. New (disposable) branch + commit + push. Message: `cpu=X/ram=Y`. PR title: `[DO NOT MERGE] Trial: <workflow-name>` description: details of trial
-4. Trigger workflow. Wait in background without polluting context:
-   ```sh
-   gh run watch <run_id> -i 60 --exit-status > /dev/null 2>&1
-   ```
-5. Once background task completes, check final status and get job IDs:
-   ```sh
-   gh run view <run_id> --json conclusion,url,jobs
-   ```
-6. Extract runner telemetry (CPU/RAM). DO NOT fetch full logs! Extract only the "Complete runner" step:
-   ```sh
-   gh run view <run_id> --job <job_id> --log | awk -F'\t' '$2=="Complete runner"{print substr($0, index($0, $3))}'
-   ```
-7. Analyze results. Update trial log. Present summary and propose next steps.
+4. Trigger workflow. 
+5. Collect the `workflow_run_id` and run `python3 .github/.agents/skills/right-size-runners/scripts/workflow_monitor.py [run_id] --format json --out-file .github/.agents/skills/right-size-runners/trials/[trial-name].json` to monitor the run and collect details.
+6. Analyze results, run `python3 .github/.agents/skills/right-size-runners/scripts/workflow_compare.py .github/.agents/skills/right-size-runners/trials/[trial-1].json .github/.agents/skills/right-size-runners/trials/[trial-2].json --out-file .github/.agents/skills/right-size-runners/trials/[trial-1]-[trial-2]-comparison.md` to compare trial results.
+7. Update the trial log with the results and findings.
+8. Present user with condensed results and ask if they want to run more trials or stop.
 
 <trial-template>
 | Runner | Experiment | Expectation | Branch | Run ID | Commit | Stability | Runtime | Cost | Notes |
@@ -69,12 +61,12 @@ When the user says stop, or all possible experiments have been exhausted:
 * Summarize all findings (cost + speed + stability changes) per workflow/job as table(s) for PR description as below format in raw markdown.
 
 ```md
-## [Workflow/Job Name] Runner Changes
+### [Workflow/Job Name] Runner Changes
 
 | Approach | Runner | Stability | Runtime | Runtime Delta (Abs/%) | Cost | Cost Delta (Abs/%) |
 |---|---|---|---|---|---|---|
-| Old | [original runner before trials] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
-| New | [new runner] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
+| [Old](https://github.com/link/to/baseline/workflow_run) | [original runner before trials] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
+| [New](https://github.com/link/to/final/workflow_run) | [new runner] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
 ```
 
 * Remove all debugs, and make final edits on a new branch after approval, and ask user to commit.
