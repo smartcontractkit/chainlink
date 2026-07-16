@@ -26,12 +26,9 @@ def detect_repo():
         import subprocess
         res = subprocess.run(['git', 'remote', 'get-url', 'origin'], capture_output=True, text=True, check=True)
         url = res.stdout.strip()
-        if 'github.com' in url:
-            part = url.split('github.com')[-1]
-            part = part.lstrip(':/')
-            if part.endswith('.git'):
-                part = part[:-4]
-            return part
+        match = re.search(r'github\.com[:/]([^/]+/[^/]+?)(?:\.git)?$', url)
+        if match:
+            return match.group(1)
     except Exception:
         pass
     return "smartcontractkit/chainlink"

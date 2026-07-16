@@ -12,7 +12,32 @@ import sys
 import workflow_monitor
 
 class TestWorkflowMonitor(unittest.TestCase):
-    
+
+    @patch('subprocess.run')
+    def test_detect_repo_git(self, mock_run):
+        mock_response = MagicMock()
+        mock_run.return_value = mock_response
+
+        # SSH format
+        mock_response.stdout = "git@github.com:smartcontractkit/chainlink.git\n"
+        self.assertEqual(workflow_monitor.detect_repo(), "smartcontractkit/chainlink")
+
+        # HTTPS format
+        mock_response.stdout = "https://github.com/smartcontractkit/chainlink.git\n"
+        self.assertEqual(workflow_monitor.detect_repo(), "smartcontractkit/chainlink")
+
+        # HTTPS without .git
+        mock_response.stdout = "https://github.com/smartcontractkit/chainlink\n"
+        self.assertEqual(workflow_monitor.detect_repo(), "smartcontractkit/chainlink")
+
+        # Malicious subdomain containing github.com
+        mock_response.stdout = "https://github.com.attacker.com/smartcontractkit/chainlink.git\n"
+        self.assertEqual(workflow_monitor.detect_repo(), "smartcontractkit/chainlink")
+
+        # Fallback on subprocess error
+        mock_run.side_effect = Exception("git command failed")
+        self.assertEqual(workflow_monitor.detect_repo(), "smartcontractkit/chainlink")
+
     @patch('urllib.request.urlopen')
     def test_fetch_json_success(self, mock_urlopen):
         mock_response = MagicMock()
