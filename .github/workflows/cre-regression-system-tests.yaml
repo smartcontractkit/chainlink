@@ -60,8 +60,7 @@ on:
 
 jobs:
   define-test-matrix:
-    runs-on: runs-on=${{ github.run_id
-      }}/cpu=8/ram=32/family=m6i+m7i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
@@ -73,11 +72,15 @@ jobs:
           ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
 
-      - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+      - name: Cache test matrix
+        id: cache-matrix
+        uses: actions/cache@v6
+        with:
+          path: /tmp/test-matrix.json
+          key: regression-test-matrix-${{ hashFiles('system-tests/tests/regression/cre/**') }}
 
       - name: Set up Go
-        id: setup-go
+        if: steps.cache-matrix.outputs.cache-hit != 'true'
         uses: actions/setup-go@v7
         with:
           go-version-file: system-tests/tests/go.mod
@@ -86,36 +89,39 @@ jobs:
       - name: Define test matrix
         id: define-matrix
         shell: bash
-        working-directory: system-tests/tests
         run: |
-          test_names=$(go test \
-          github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre \
-           -list . | grep -v 'ok' | grep -v '^$')
+          if [ "${{ steps.cache-matrix.outputs.cache-hit }}" == "true" ]; then
+            tests=$(cat /tmp/test-matrix.json)
+          else
+            test_names=$(go test \
+              github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre \
+              -list . 2>/dev/null | grep '^Test_')
 
-          # generate IDs for each test
-          tests=$(echo "$test_names" | jq -R -s --argjson run_id "${{ github.run_id }}" --arg run_attempt "${{ github.run_attempt }}" '
-          # Per-test Local CRE topology overrides (default = workflow-gateway-capabilities).
-          PER_TEST_CONFIGS_JSON='{
-            "Test_CRE_V2_Stellar_ReadContract_Regression": "configs/workflow-gateway-don-stellar.toml"
-          }'
+            per_test_configs='{
+              "Test_CRE_V2_Stellar_ReadContract_Regression": "configs/workflow-gateway-don-stellar.toml"
+            }'
 
-          # generate IDs for each test and attach topology config
-          tests=$(echo "$test_names" | jq -R -s --argjson per "$PER_TEST_CONFIGS_JSON" '
-            split("\n") | map(select(length>0))
-            | to_entries
-            | map({
-                test_name: .value,
-                test_id: .key,
-                runs_on: (if (.value | test("EVM"))
-                  then "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=r6i+r7i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
-                  else "ubuntu-latest"
-                  end)
-                configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
-              })
-          ')
+            tests=$(echo "$test_names" | jq -c -R -s \
+              --argjson run_id "${{ github.run_id }}" \
+              --arg run_attempt "${{ github.run_attempt }}" \
+              --argjson per "$per_test_configs" '
+              split("\n") | map(select(length>0))
+              | to_entries
+              | map({
+                  test_name: .value,
+                  test_id: .key,
+                  runs_on: (if (.value | test("EVM"))
+                    then "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=r6i+r7i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+                    else "ubuntu-latest"
+                    end),
+                  configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
+                })
+            ')
 
-          tests=$(echo "$tests" | jq -c .)
-          echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
+            echo "$tests" > /tmp/test-matrix.json
+          fi
+
+          echo "matrix=$(cat /tmp/test-matrix.json)" | tee -a "${GITHUB_OUTPUT}"
 
   run-system-tests:
     permissions:
