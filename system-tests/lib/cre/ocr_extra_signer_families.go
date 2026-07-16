@@ -18,6 +18,8 @@ func OCRExtraSignerFamilies(blockchains []blockchains.Blockchain) []string {
 			familiesSet[chainselectors.FamilyAptos] = struct{}{}
 		case blockchain.IsFamily(chainselectors.FamilySolana):
 			familiesSet[chainselectors.FamilySolana] = struct{}{}
+		case blockchain.IsFamily(chainselectors.FamilyStellar):
+			familiesSet[chainselectors.FamilyStellar] = struct{}{}
 		}
 	}
 
@@ -32,7 +34,10 @@ func OCRExtraSignerFamilies(blockchains []blockchains.Blockchain) []string {
 
 func OCRExtraSignerFamiliesForFamily(family string) []string {
 	switch family {
-	case chainselectors.FamilyAptos, chainselectors.FamilySolana:
+	case chainselectors.FamilyAptos, chainselectors.FamilySolana, chainselectors.FamilyStellar:
+		// Stellar's Soroban CRE forwarder verifies ed25519 report signatures, so
+		// the write path opts into the FamilyStellar extra signer family (backed by
+		// deployment/cre/ocr3/config.go). Reads don't call the forwarder.
 		return []string{family}
 	default:
 		return nil
