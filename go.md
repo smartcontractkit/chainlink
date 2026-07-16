@@ -2,25 +2,6 @@
 ## Main module
 ```mermaid
 flowchart LR
-  subgraph chains
-    chainlink-aptos
-    chainlink-cosmos
-    chainlink-evm
-    chainlink-solana
-    chainlink-starknet/relayer
-    chainlink-tron/relayer
-  end
-
-  subgraph products
-    chainlink-automation
-    chainlink-data-streams
-    chainlink-feeds
-    chainlink-functions
-    chainlink-vrf
-  end
-
-  classDef group stroke-dasharray:6,fill:none;
-  class chains,products group
 
 	ccip-contract-examples/chains/evm
 	click ccip-contract-examples/chains/evm href "https://github.com/smartcontractkit/ccip-contract-examples"
@@ -313,25 +294,6 @@ flowchart LR
 ## All modules
 ```mermaid
 flowchart LR
-  subgraph chains
-    chainlink-aptos
-    chainlink-cosmos
-    chainlink-evm
-    chainlink-solana
-    chainlink-starknet/relayer
-    chainlink-tron/relayer
-  end
-
-  subgraph products
-    chainlink-automation
-    chainlink-data-streams
-    chainlink-feeds
-    chainlink-functions
-    chainlink-vrf
-  end
-
-  classDef group stroke-dasharray:6,fill:none;
-  class chains,products group
 
 	ccip-contract-examples/chains/evm --> chainlink-ccip
 	click ccip-contract-examples/chains/evm href "https://github.com/smartcontractkit/ccip-contract-examples"
