@@ -67,7 +67,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0
           ref: ${{ inputs.git-ref || github.sha }}
 
       - name: Resolve checked out SHA
