@@ -566,7 +566,9 @@ func (h *eventHandler) workflowRegisteredEvent(
 		}
 
 		spec = newSpec
-	case spec.WorkflowID != payload.WorkflowID.Hex():
+	case spec.WorkflowID != payload.WorkflowID.Hex() ||
+		spec.WorkflowOwner != hex.EncodeToString(payload.WorkflowOwner) ||
+		spec.WorkflowName != payload.WorkflowName:
 		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
 		if innerErr != nil {
 			return innerErr
