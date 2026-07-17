@@ -448,12 +448,12 @@ jobs:
       # --- CCIP test code ---
       - name: Compile CCIP tests
         working-directory: integration-tests
-        timeout-minutes: 10
+        timeout-minutes: 15
         run: |
           echo "Downloading CCIP modules..."
           go mod download
-          echo "Compiling CCIP tests (parallelism limited to avoid OOM)..."
-          go test -run=^# -p 4 ./smoke/ccip/...
+          echo "Compiling CCIP tests (serial to avoid linker OOM)..."
+          go test -run=^# -p 1 -parallel 1 -ldflags="-s -w" ./smoke/ccip/...
           echo "CCIP compilation complete."
 
   run-core-cre-e2e-tests-setup:
