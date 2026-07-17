@@ -568,7 +568,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 			// id (e.g. a WorkflowDeleted deferred via ErrDrainInProgress that was superseded by the workflow being
 			// re-activated before drain completed) so the end-of-loop invariant check does not fire.
 			case true:
-				wantKey, keyErr := ReconcileKey(wfMeta.Owner, wfMeta.WorkflowName, wfMeta.Tag)
+				wantKey, keyErr := ReconcileKey(wfMeta.Owner, wfMeta.WorkflowName)
 				if keyErr != nil {
 					return nil, fmt.Errorf("failed to compute reconcile key: %w", keyErr)
 				}

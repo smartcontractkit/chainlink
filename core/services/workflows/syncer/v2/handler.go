@@ -1016,7 +1016,7 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	}
 
 	// Engine is fully initialized, add to registry with source tracking and identity fingerprint
-	reconcileKey, err := ReconcileKey(ownerBytes, spec.WorkflowName, spec.WorkflowTag)
+	reconcileKey, err := ReconcileKey(ownerBytes, spec.WorkflowName)
 	if err != nil {
 		return fmt.Errorf("failed to compute reconcile key: %w", err)
 	}

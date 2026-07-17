@@ -17,7 +17,7 @@ var ErrAlreadyExists = errors.New("attempting to register duplicate engine")
 type ServiceWithMetadata struct {
 	WorkflowID types.WorkflowID
 	Source     string // Which source this workflow came from (e.g., "ContractWorkflowSource", "GRPCWorkflowSource")
-	// ReconcileKey fingerprints the on-chain record (owner/name/tag) the engine was started for.
+	// ReconcileKey fingerprints the on-chain record (owner/name) the engine was started for.
 	// Empty when the engine was registered without identity metadata (e.g. via Add).
 	ReconcileKey string
 	services.Service
@@ -31,8 +31,8 @@ type engineEntry struct {
 }
 
 // ReconcileKey fingerprints the workflow record identity that a WorkflowID is expected to map to.
-func ReconcileKey(owner []byte, name, tag string) (string, error) {
-	h, err := hashutil.BytesOfBytesKeccak([][]byte{owner, []byte(name), []byte(tag)})
+func ReconcileKey(owner []byte, name string) (string, error) {
+	h, err := hashutil.BytesOfBytesKeccak([][]byte{owner, []byte(name)})
 	if err != nil {
 		return "", err
 	}

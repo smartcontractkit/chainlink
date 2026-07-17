@@ -193,7 +193,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		tag := "tag1"
 
 		er := NewEngineRegistry()
-		victimKey, err := ReconcileKey(victimOwner, wfName, tag)
+		victimKey, err := ReconcileKey(victimOwner, wfName)
 		require.NoError(t, err)
 		require.NoError(t, er.AddWithReconcileKey(wfID, "TestSource", victimKey, &mockService{}))
 
@@ -232,7 +232,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Equal(t, WorkflowDeletedEvent{WorkflowID: wfID, Source: "TestSource"}, events[0].Data)
 	})
 
-	t.Run("SameIDMatchingIdentity_NoOpDespiteBenignChanges", func(t *testing.T) {
+	t.Run("SameIDMatchingIdentity_NoOpRegardlessOfTag", func(t *testing.T) {
 		t.Parallel()
 		lggr := logger.TestLogger(t)
 		ctx := t.Context()
@@ -241,10 +241,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		wfID := [32]byte{1}
 		owner := []byte{1}
 		wfName := "wf name 1"
-		tag := "tag1"
 
 		er := NewEngineRegistry()
-		key, err := ReconcileKey(owner, wfName, tag)
+		key, err := ReconcileKey(owner, wfName)
 		require.NoError(t, err)
 		require.NoError(t, er.AddWithReconcileKey(wfID, "TestSource", key, &mockService{}))
 
@@ -268,7 +267,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 				WorkflowName: wfName,
 				BinaryURL:    "b1",
 				ConfigURL:    "c1",
-				Tag:          tag,
+				Tag:          "tag1",
 				Attributes:   []byte{7, 7, 7},
 				DonFamily:    "A",
 			},
