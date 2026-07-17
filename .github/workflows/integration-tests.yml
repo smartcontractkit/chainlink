@@ -348,6 +348,101 @@ jobs:
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           cache-scope: ${{ matrix.image.cache-scope }}
 
+  build-test-code:
+    name: Build Test Code
+    needs:
+      [
+        labels,
+        enforce-ctf-version,
+        run-core-cre-e2e-tests-setup,
+        run-ccip-v1-6-e2e-tests-setup,
+      ]
+    runs-on: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
+    environment:
+      name: integration
+      deployment: false
+    if: >-
+      ${{
+        needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' ||
+        needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+      }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        uses: runs-on/action@bdccf4a8c118feaa74578d6fb51012875a860567 # v2.2.0
+
+      - name: Checkout the repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ env.CHAINLINK_REF }}
+
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
+      # --- CRE test code ---
+      # Cache keys match cre-system-tests.yaml's setup-go@v7 (go-version-file + cache: true)
+      - name: Set up Go (CRE)
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: system-tests/tests/go.mod
+          cache: true
+
+      - name: Compile CRE tests
+        working-directory: system-tests/tests
+        run: |
+          go env -w GOPRIVATE=github.com/smartcontractkit/*
+          go mod download
+          go test -run=^# ./smoke/cre/... ./regression/cre/...
+
+      # --- CCIP test code ---
+      # Cache keys match ctf-setup-go's format: <os>-e2e-tests-gomod-<hash> / <os>-e2e-tests-gobuild-<hash>
+      - name: Set up Go (CCIP)
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: integration-tests/go.mod
+          cache: false
+
+      - name: Set go cache dirs
+        id: go-cache-dir
+        shell: bash
+        run: |
+          echo "gomodcache=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+          echo "gobuildcache=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache CCIP Go modules
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.go-cache-dir.outputs.gomodcache }}
+          key: ${{ runner.os }}-e2e-tests-gomod-${{ hashFiles('integration-tests/go.mod') }}
+          restore-keys: |
+            ${{ runner.os }}-e2e-tests-gomod-
+
+      - name: Cache CCIP Go builds
+        uses: actions/cache@v6
+        with:
+          path: ${{ steps.go-cache-dir.outputs.gobuildcache }}
+          key: ${{ runner.os }}-e2e-tests-gobuild-${{ hashFiles('integration-tests/go.mod') }}
+          restore-keys: |
+            ${{ runner.os }}-e2e-tests-gobuild-
+
+      - name: Compile CCIP tests
+        working-directory: integration-tests
+        run: |
+          go env -w GOPRIVATE=github.com/smartcontractkit/*
+          go mod download
+          go test -run=^# ./smoke/ccip/...
+
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup
     runs-on: ubuntu-latest
@@ -423,7 +518,7 @@ jobs:
 
   run-core-cre-e2e-tests:
     name: Run Core CRE E2E Tests
-    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, build-test-code, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
       checks: write
@@ -441,7 +536,7 @@ jobs:
 
   run-core-cre-e2e-regression-tests:
     name: Run Core CRE E2E Regression Tests
-    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, build-test-code, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
       checks: write
@@ -512,8 +607,56 @@ jobs:
             echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
           fi
 
+  load-ccip-test-config:
+    name: Load CCIP Test Config
+    needs: [run-ccip-v1-6-e2e-tests-setup]
+    runs-on: ubuntu-latest
+    if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+    permissions:
+      contents: read
+    outputs:
+      docker-matrix: ${{ steps.set-docker-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ env.CHAINLINK_REF }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Install citool
+        shell: bash
+        run: |
+          go install github.com/smartcontractkit/chainlink-testing-framework/tools/citool@9dd72293a108a7bc75f04c66fe5fb2e392f288e5 # 2025-11-25
+
+      - name: Generate Docker Tests Matrix
+        id: set-docker-matrix
+        shell: bash
+        env:
+          TEST_PATH: .github/e2e-tests.yml
+          TEST_TRIGGER: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.test-trigger }}
+        run: |
+          MATRIX_JSON=$(citool filter --file "${{ github.workspace }}/$TEST_PATH" --test-env-type 'docker' --workflow "$TEST_TRIGGER")
+          echo "Docker tests:"
+          echo "$MATRIX_JSON" | jq
+          echo "matrix=$MATRIX_JSON" >> "$GITHUB_OUTPUT"
+
   run-ccip-v1-6-e2e-tests:
-    needs: [run-ccip-v1-6-e2e-tests-setup, build-chainlink, changes, labels]
+    needs:
+      [
+        run-ccip-v1-6-e2e-tests-setup,
+        build-chainlink,
+        build-test-code,
+        load-ccip-test-config,
+        changes,
+        labels,
+      ]
     name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
     permissions:
       actions: read
@@ -522,17 +665,20 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9c49ffcf252efbedd7ec280e1993ba29dcbc9443 # 2026-04-28
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@e7916db83404feba9b238598c8973825654396b1 # DEBUG: Checking new flow
     with:
       workflow_name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       test_trigger: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.test-trigger }}
+      custom_test_list_json: ${{ needs.load-ccip-test-config.outputs.docker-matrix }}
       upload_cl_node_coverage_artifact: true
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       quarantine: "true"
+      skip_image_build: true
+      cache_builds: "true"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -563,6 +709,7 @@ jobs:
     needs:
       [
         build-chainlink,
+        build-test-code,
         run-ccip-v1-6-e2e-tests,
         run-core-cre-e2e-tests,
         run-core-cre-e2e-regression-tests,
@@ -635,4 +782,19 @@ jobs:
             exit 1
           elif [[ "${JOB_RESULT}" == "skipped" ]]; then
             echo "::warning::Chainlink image build was skipped."
+          fi
+
+      - name: Fail the job if test code failed to compile
+        if: always()
+        env:
+          JOB_RESULT: ${{ needs.build-test-code.result }}
+        run: |
+          if [[ "${JOB_RESULT}" == "failure" ]]; then
+            echo "::error::Test code compilation failed."
+            exit 1
+          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
+            echo "::error::Test code compilation was cancelled."
+            exit 1
+          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
+            echo "::warning::Test code compilation was skipped."
           fi
