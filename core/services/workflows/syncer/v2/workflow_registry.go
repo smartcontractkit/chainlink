@@ -516,7 +516,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	workflowsSeen := make(map[string]bool, len(workflowMetadata))
 	for _, wfMeta := range workflowMetadata {
 		id := wfMeta.WorkflowID.Hex()
-		engineFound := w.engineRegistry.Contains(wfMeta.WorkflowID)
+		runningEngine, engineFound := w.engineRegistry.Get(wfMeta.WorkflowID)
 
 		switch wfMeta.Status {
 		case WorkflowStatusActive:
@@ -568,6 +568,13 @@ func (w *workflowRegistry) generateReconciliationEvents(
 			// id (e.g. a WorkflowDeleted deferred via ErrDrainInProgress that was superseded by the workflow being
 			// re-activated before drain completed) so the end-of-loop invariant check does not fire.
 			case true:
+				wantKey, keyErr := ReconcileKey(wfMeta.Owner, wfMeta.WorkflowName)
+				if keyErr != nil {
+					return nil, fmt.Errorf("failed to compute reconcile key: %w", keyErr)
+				}
+				if runningEngine.ReconcileKey != "" && runningEngine.ReconcileKey != wantKey {
+					break
+				}
 				workflowsSeen[id] = true
 				delete(pendingEvents, id)
 			}

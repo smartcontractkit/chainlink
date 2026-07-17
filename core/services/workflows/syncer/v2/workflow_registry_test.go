@@ -181,6 +181,104 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Equal(t, expectedActivatedEvent, events[1].Data)
 	})
 
+	t.Run("RetiredIDReusedByDifferentRecord_TearsDownStaleEngine", func(t *testing.T) {
+		t.Parallel()
+		lggr := logger.TestLogger(t)
+		ctx := t.Context()
+		workflowDonNotifier := capabilities.NewDonNotifier()
+
+		wfID := [32]byte{1}
+		victimOwner := []byte{1}
+		wfName := "wf name 1"
+		tag := "tag1"
+
+		er := NewEngineRegistry()
+		victimKey, err := ReconcileKey(victimOwner, wfName)
+		require.NoError(t, err)
+		require.NoError(t, er.AddWithReconcileKey(wfID, "TestSource", victimKey, &mockService{}))
+
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			"",
+			"test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID:   wfID,
+				Owner:        []byte{9},
+				Status:       uint8(0),
+				WorkflowName: wfName,
+				BinaryURL:    "b1",
+				ConfigURL:    "c1",
+				Tag:          tag,
+				Attributes:   []byte{},
+				DonFamily:    "A",
+			},
+		}
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
+		require.NoError(t, err)
+
+		require.Len(t, events, 1)
+		require.Equal(t, WorkflowDeleted, events[0].Name)
+		require.Equal(t, WorkflowDeletedEvent{WorkflowID: wfID, Source: "TestSource"}, events[0].Data)
+	})
+
+	t.Run("SameIDMatchingIdentity_NoOpRegardlessOfTag", func(t *testing.T) {
+		t.Parallel()
+		lggr := logger.TestLogger(t)
+		ctx := t.Context()
+		workflowDonNotifier := capabilities.NewDonNotifier()
+
+		wfID := [32]byte{1}
+		owner := []byte{1}
+		wfName := "wf name 1"
+
+		er := NewEngineRegistry()
+		key, err := ReconcileKey(owner, wfName)
+		require.NoError(t, err)
+		require.NoError(t, er.AddWithReconcileKey(wfID, "TestSource", key, &mockService{}))
+
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			"",
+			"test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID:   wfID,
+				Owner:        owner,
+				Status:       uint8(0),
+				WorkflowName: wfName,
+				BinaryURL:    "b1",
+				ConfigURL:    "c1",
+				Tag:          "tag1",
+				Attributes:   []byte{7, 7, 7},
+				DonFamily:    "A",
+			},
+		}
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
+		require.NoError(t, err)
+		require.Empty(t, events)
+	})
+
 	t.Run("WorkflowDeletedEvent", func(t *testing.T) {
 		t.Parallel()
 		lggr := logger.TestLogger(t)

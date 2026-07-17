@@ -1,10 +1,12 @@
 package v2
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -15,13 +17,26 @@ var ErrAlreadyExists = errors.New("attempting to register duplicate engine")
 type ServiceWithMetadata struct {
 	WorkflowID types.WorkflowID
 	Source     string // Which source this workflow came from (e.g., "ContractWorkflowSource", "GRPCWorkflowSource")
+	// ReconcileKey fingerprints the on-chain record (owner/name) the engine was started for.
+	// Empty when the engine was registered without identity metadata (e.g. via Add).
+	ReconcileKey string
 	services.Service
 }
 
 // engineEntry holds the engine and its associated source for internal storage
 type engineEntry struct {
-	engine services.Service
-	source string
+	engine       services.Service
+	source       string
+	reconcileKey string
+}
+
+// ReconcileKey fingerprints the workflow record identity that a WorkflowID is expected to map to.
+func ReconcileKey(owner []byte, name string) (string, error) {
+	h, err := hashutil.BytesOfBytesKeccak([][]byte{owner, []byte(name)})
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h[:]), nil
 }
 
 type EngineRegistry struct {
@@ -37,14 +52,20 @@ func NewEngineRegistry() *EngineRegistry {
 
 // Add adds an engine to the registry with its source.
 func (r *EngineRegistry) Add(workflowID types.WorkflowID, source string, engine services.Service) error {
+	return r.AddWithReconcileKey(workflowID, source, "", engine)
+}
+
+// AddWithReconcileKey adds an engine to the registry with its source and identity fingerprint.
+func (r *EngineRegistry) AddWithReconcileKey(workflowID types.WorkflowID, source, reconcileKey string, engine services.Service) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, found := r.engines[workflowID]; found {
 		return ErrAlreadyExists
 	}
 	r.engines[workflowID] = engineEntry{
-		engine: engine,
-		source: source,
+		engine:       engine,
+		source:       source,
+		reconcileKey: reconcileKey,
 	}
 	return nil
 }
@@ -58,9 +79,10 @@ func (r *EngineRegistry) Get(workflowID types.WorkflowID) (ServiceWithMetadata, 
 		return ServiceWithMetadata{}, false
 	}
 	return ServiceWithMetadata{
-		WorkflowID: workflowID,
-		Source:     entry.source,
-		Service:    entry.engine,
+		WorkflowID:   workflowID,
+		Source:       entry.source,
+		ReconcileKey: entry.reconcileKey,
+		Service:      entry.engine,
 	}, true
 }
 
