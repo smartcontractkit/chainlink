@@ -80,15 +80,15 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.106
 	github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260714122420-7b2200a59a79
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260625091148-e5618f5682ee
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260715130435-1e32cea69af1
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260415165642-49f23e4d76cc
-	github.com/smartcontractkit/chainlink-ccv v0.1.1-0.20260715132147-59df1b138100
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260716145814-1749e165da7c
+	github.com/smartcontractkit/chainlink-ccv v0.1.1-0.20260716164331-d938b371c5d6
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260716194407-93eeb23b3f6b
 	github.com/smartcontractkit/chainlink-common/keystore v1.2.1-0.20260623104656-f39eba3e2bc6
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260626151909-052e55e62e62
-	github.com/smartcontractkit/chainlink-data-streams v0.1.15-0.20260707105132-2da5d31f22fc
+	github.com/smartcontractkit/chainlink-data-streams v1.0.0
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260715161014-611d8ac32364
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260512150409-b4068bf735e6
@@ -106,7 +106,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260630073003-fb8da7229930
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260714120433-7667cad5ff5c
-	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260629213843-c52e07523035
+	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260715200135-39296e69ee4e
 	github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260625132924-dcceeb57cf3c
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
@@ -355,7 +355,6 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-rules v0.0.0-20260505131349-78e491b80735 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
-	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.2.0 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
@@ -412,7 +411,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.4 // indirect
 	golang.org/x/arch v0.11.0 // indirect
-	golang.org/x/net v0.56.0 // indirect
+	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect

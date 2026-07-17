@@ -22,11 +22,11 @@ func Test_ReplayFromBlock(t *testing.T) {
 
 	client, _ := app.NewShellAndRenderer()
 
-	set := flag.NewFlagSet("test", 0)
-	flagSetApplyFromAction(client.ReplayFromBlock, set, "")
-
 	t.Run("invalid args", func(t *testing.T) {
 		t.Parallel()
+		set := flag.NewFlagSet("test", 0)
+		flagSetApplyFromAction(client.ReplayFromBlock, set, "")
+
 		// Incorrect block number
 		require.NoError(t, set.Set("block-number", "0"))
 		c := cli.NewContext(nil, set, nil)
@@ -47,6 +47,9 @@ func Test_ReplayFromBlock(t *testing.T) {
 
 	t.Run("evm replay", func(t *testing.T) {
 		t.Parallel()
+		set := flag.NewFlagSet("test", 0)
+		flagSetApplyFromAction(client.ReplayFromBlock, set, "")
+
 		require.NoError(t, set.Set("block-number", "1"))
 		require.NoError(t, set.Set("chain-id", "5"))
 		require.NoError(t, set.Set("family", "evm"))

@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	donconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
-	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -309,10 +309,11 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Funding Chainlink nodes")))
 
 	fundingPerChainFamilyForEachNode := map[string]uint64{
-		chainselectors.FamilyEVM:    10000000000000000, // 0.01 ETH
-		chainselectors.FamilySolana: 50_000_000_000,    // 50 SOL
-		chainselectors.FamilyTron:   100_000_000,       // 100 TRX in SUN
-		chainselectors.FamilyAptos:  1_000_000_000_000, // 1,000 APT (octas) for local devnet sender accounts
+		chainselectors.FamilyEVM:     10000000000000000, // 0.01 ETH
+		chainselectors.FamilySolana:  50_000_000_000,    // 50 SOL
+		chainselectors.FamilyTron:    100_000_000,       // 100 TRX in SUN
+		chainselectors.FamilyAptos:   1_000_000_000_000, // 1,000 APT (octas) for local devnet sender accounts
+		chainselectors.FamilyStellar: 1_000_000_000,     // 100 XLM
 	}
 
 	fErr := FundNodes(

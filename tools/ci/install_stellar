@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+# Installs the stellar-cli release binary into a user-writable directory (no sudo).
+# The tarball is verified against a pinned SHA256 before extraction. stellar/stellar-cli
+# does not publish per-asset checksum files, so SHASUM is a trust-on-first-use value:
+# computed once from the release artifact and pinned here, then verified on every run.
+# Bump VERSION + SHASUM together when upgrading (the cache key hashes this file).
+
+set -euo pipefail
+
+VERSION=25.1.0
+SHASUM=e6fac619b2ae9b3ecb843a9e8e3bfc94dce79e0b73c63cb1cbbd08682bb0a0ba
+ARCH=x86_64-unknown-linux-gnu
+DEST="${HOME}/.local/bin"
+
+TARBALL="stellar-cli-${VERSION}-${ARCH}.tar.gz"
+URL="https://github.com/stellar/stellar-cli/releases/download/v${VERSION}/${TARBALL}"
+
+# All downloads/extraction happen inside a scratch dir so a mid-run failure never
+# leaves an unverified tarball in the checkout, and the script is CWD-independent.
+TMP="$(mktemp -d)"
+trap 'rm -rf "${TMP}"' EXIT
+cd "${TMP}"
+
+echo "Installing stellar-cli@${VERSION}"
+curl -sSfL --retry 3 --retry-delay 2 --retry-connrefused "${URL}" --output "${TARBALL}"
+
+echo "Verifying checksum of ${TARBALL}"
+echo "${SHASUM}  ${TARBALL}" | sha256sum --check
+
+tar xzf "${TARBALL}"
+mkdir -p "${DEST}"
+mv stellar "${DEST}/stellar"
+chmod +x "${DEST}/stellar"
+
+"${DEST}/stellar" --version

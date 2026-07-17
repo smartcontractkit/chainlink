@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
@@ -136,7 +136,7 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 		}
 		return strings.Join(traits, samplerDelimiter), nanosToSec(m.ObservationTimestamp), nil
 	case synchronization.LLOOutcome:
-		m, ok := msg.(*llo.LLOOutcomeTelemetry)
+		m, ok := msg.(*llocommon.LLOOutcomeTelemetry)
 		if !ok || m == nil {
 			return "", 0, errors.New("invalid telemetry type, expected LLOOutcomeTelemetry")
 		}
@@ -146,7 +146,7 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 		}
 		return strings.Join(traits, samplerDelimiter), nanosToSec(int64(m.ObservationTimestampNanoseconds)), nil //nolint:gosec // G115
 	case synchronization.LLOReport:
-		m, ok := msg.(*llo.LLOReportTelemetry)
+		m, ok := msg.(*llocommon.LLOReportTelemetry)
 		if !ok || m == nil {
 			return "", 0, errors.New("invalid telemetry type, expected LLOReportTelemetry")
 		}
