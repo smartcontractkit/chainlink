@@ -396,27 +396,11 @@ jobs:
           aws-role-duration-seconds: "1800"
           set-git-config: "true"
 
-      # --- CRE test code ---
-      # Cache keys match cre-system-tests.yaml's setup-go@v7 (go-version-file + cache: true)
-      - name: Set up Go (CRE)
+      # Single Go setup — both modules use go 1.26.4
+      - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version-file: system-tests/tests/go.mod
-          cache: true
-
-      - name: Compile CRE tests
-        working-directory: system-tests/tests
-        run: |
-          go env -w GOPRIVATE=github.com/smartcontractkit/*
-          go mod download
-          go test -run=^# ./smoke/cre/... ./regression/cre/...
-
-      # --- CCIP test code ---
-      # Cache keys match ctf-setup-go's format: <os>-e2e-tests-gomod-<hash> / <os>-e2e-tests-gobuild-<hash>
-      - name: Set up Go (CCIP)
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: integration-tests/go.mod
+          go-version-file: go.mod
           cache: false
 
       - name: Set go cache dirs
@@ -426,28 +410,51 @@ jobs:
           echo "gomodcache=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
           echo "gobuildcache=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache CCIP Go modules
+      # Combined cache key covers both CRE and CCIP modules
+      - name: Cache Go modules
         uses: actions/cache@v6
         with:
           path: ${{ steps.go-cache-dir.outputs.gomodcache }}
-          key: ${{ runner.os }}-e2e-tests-gomod-${{ hashFiles('integration-tests/go.mod') }}
+          key: ${{ runner.os }}-test-code-gomod-${{ hashFiles('integration-tests/go.mod', 'system-tests/tests/go.mod') }}
           restore-keys: |
+            ${{ runner.os }}-test-code-gomod-
             ${{ runner.os }}-e2e-tests-gomod-
+            ${{ runner.os }}-go-gomod-
 
-      - name: Cache CCIP Go builds
+      - name: Cache Go builds
         uses: actions/cache@v6
         with:
           path: ${{ steps.go-cache-dir.outputs.gobuildcache }}
-          key: ${{ runner.os }}-e2e-tests-gobuild-${{ hashFiles('integration-tests/go.mod') }}
+          key: ${{ runner.os }}-test-code-gobuild-${{ hashFiles('integration-tests/go.mod', 'system-tests/tests/go.mod') }}
           restore-keys: |
+            ${{ runner.os }}-test-code-gobuild-
             ${{ runner.os }}-e2e-tests-gobuild-
 
+      - name: Set GOPRIVATE
+        shell: bash
+        run: go env -w GOPRIVATE=github.com/smartcontractkit/*
+
+      # --- CRE test code ---
+      - name: Compile CRE tests
+        working-directory: system-tests/tests
+        timeout-minutes: 10
+        run: |
+          echo "Downloading CRE modules..."
+          go mod download
+          echo "Compiling CRE tests..."
+          go test -run=^# ./smoke/cre/... ./regression/cre/...
+          echo "CRE compilation complete."
+
+      # --- CCIP test code ---
       - name: Compile CCIP tests
         working-directory: integration-tests
+        timeout-minutes: 10
         run: |
-          go env -w GOPRIVATE=github.com/smartcontractkit/*
+          echo "Downloading CCIP modules..."
           go mod download
+          echo "Compiling CCIP tests..."
           go test -run=^# ./smoke/ccip/...
+          echo "CCIP compilation complete."
 
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup
