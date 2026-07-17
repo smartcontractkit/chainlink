@@ -201,7 +201,7 @@ func testFastPathRemoteExecutableCapability(ctx context.Context, t *testing.T, u
 	for i := range numWorkflowPeers {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		workflowNode := executable.NewClient(capInfo.ID, "", workflowPeerDispatcher, lggr)
-		err := workflowNode.SetConfig(capInfo, workflowDonInfo, workflowNodeTimeout, nil, nil, cfg.factory)
+		err := workflowNode.SetConfig(capInfo, workflowDonInfo, workflowNodeTimeout, nil, nil, 0, cfg.factory)
 		require.NoError(t, err)
 		servicetest.Run(t, workflowNode)
 		broker.RegisterReceiverNode(workflowPeers[i], workflowNode)
