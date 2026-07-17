@@ -193,7 +193,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		tag := "tag1"
 
 		er := NewEngineRegistry()
-		require.NoError(t, er.AddWithReconcileKey(wfID, "TestSource", ReconcileKey(victimOwner, wfName, tag), &mockService{}))
+		victimKey, err := ReconcileKey(victimOwner, wfName, tag)
+		require.NoError(t, err)
+		require.NoError(t, er.AddWithReconcileKey(wfID, "TestSource", victimKey, &mockService{}))
 
 		wr, err := NewWorkflowRegistry(
 			lggr,
@@ -242,7 +244,9 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		tag := "tag1"
 
 		er := NewEngineRegistry()
-		require.NoError(t, er.AddWithReconcileKey(wfID, "TestSource", ReconcileKey(owner, wfName, tag), &mockService{}))
+		key, err := ReconcileKey(owner, wfName, tag)
+		require.NoError(t, err)
+		require.NoError(t, er.AddWithReconcileKey(wfID, "TestSource", key, &mockService{}))
 
 		wr, err := NewWorkflowRegistry(
 			lggr,

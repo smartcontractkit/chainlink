@@ -1,13 +1,12 @@
 package v2
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -32,16 +31,12 @@ type engineEntry struct {
 }
 
 // ReconcileKey fingerprints the workflow record identity that a WorkflowID is expected to map to.
-// Fields are length-delimited so distinct tuples cannot collide across field boundaries.
-func ReconcileKey(owner []byte, name, tag string) string {
-	h := sha256.New()
-	var lenBuf [8]byte
-	for _, part := range [][]byte{owner, []byte(name), []byte(tag)} {
-		binary.BigEndian.PutUint64(lenBuf[:], uint64(len(part)))
-		_, _ = h.Write(lenBuf[:])
-		_, _ = h.Write(part)
+func ReconcileKey(owner []byte, name, tag string) (string, error) {
+	h, err := hashutil.BytesOfBytesKeccak([][]byte{owner, []byte(name), []byte(tag)})
+	if err != nil {
+		return "", err
 	}
-	return hex.EncodeToString(h.Sum(nil))
+	return hex.EncodeToString(h[:]), nil
 }
 
 type EngineRegistry struct {

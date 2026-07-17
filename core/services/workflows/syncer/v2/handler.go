@@ -1016,7 +1016,10 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 	}
 
 	// Engine is fully initialized, add to registry with source tracking and identity fingerprint
-	reconcileKey := ReconcileKey(ownerBytes, spec.WorkflowName, spec.WorkflowTag)
+	reconcileKey, err := ReconcileKey(ownerBytes, spec.WorkflowName, spec.WorkflowTag)
+	if err != nil {
+		return fmt.Errorf("failed to compute reconcile key: %w", err)
+	}
 	if err := h.engineRegistry.AddWithReconcileKey(wid, source, reconcileKey, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
