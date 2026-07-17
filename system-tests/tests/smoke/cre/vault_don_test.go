@@ -621,10 +621,18 @@ func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonReques
 
 	statusCode, body := sendVaultRequestToGatewayWithHeaders(t, gwURL, requestBody, headers)
 
-	// Under burst load the gateway can return 503 "Request timed out" when it gives up relaying the
-	// response, even though the DON has already processed the request. Tolerate that here — the goal
-	// of this subtest is to drive concurrent load for the docker-log batching assertions below, not
-	// to verify per-request response payloads.
+	// Under burst load the gateway may have already forwarded the request to the DON before the
+	// response was lost or a retry arrived. The replay guard then rejects the duplicate with
+	// "request was already authorized previously". This can appear either as a 200 OK JSON-RPC error
+	// or as a 400 Bad Request from the gateway. Tolerate any of these replay-guard outcomes here —
+	// the goal of this subtest is to drive concurrent load for the docker-log batching assertions
+	// below, not to verify per-request response payloads.
+	var parsed jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	if jsonErr := json.Unmarshal(body, &parsed); jsonErr == nil && parsed.Error != nil && strings.Contains(parsed.Error.Message, "request was already authorized previously") {
+		framework.L.Info().Str("requestID", requestID).Msg("vault create returned replay-guard error after retry; DON processed the original request — treating as success")
+		return
+	}
+
 	if statusCode == http.StatusServiceUnavailable && bytes.Contains(body, []byte("Request timed out")) {
 		framework.L.Info().Str("requestID", requestID).Msg("vault create gateway-to-DON timeout; treating as success for batching load test")
 		return
@@ -636,7 +644,6 @@ func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonReques
 	}
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK; body=%s", string(body))
 
-	var parsed jsonrpc.Response[vaulttypes.SignedOCRResponse]
 	require.NoError(t, json.Unmarshal(body, &parsed), "failed to unmarshal gateway response")
 	require.Nil(t, parsed.Error, "gateway returned error: %v", parsed.Error)
 	require.Equal(t, requestID, parsed.ID)

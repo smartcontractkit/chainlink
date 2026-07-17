@@ -13,9 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"google.golang.org/protobuf/proto"
+
 	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -51,15 +53,28 @@ func TestCapability_Execute_UsesFastPathWhenGateEnabled(t *testing.T) {
 	requestID := fmt.Sprintf("%s::%s::%s", "wf", "exec", "ref")
 	go func() {
 		time.Sleep(10 * time.Millisecond)
+		// The OCR plugin drains pending requests before serving them; simulate that here so
+		// Complete finds the request in the in-flight map.
+		_ = buf.Drain()
+		vaultResp := &vault.GetSecretsResponse{
+			Responses: []*vault.SecretResponse{{
+				Id: &vault.SecretIdentifier{Owner: owner, Namespace: "main", Key: "k"},
+				Result: &vault.SecretResponse_Data{
+					Data: &vault.SecretData{EncryptedValue: "secret"},
+				},
+			}},
+		}
+		payload, err := proto.Marshal(vaultResp)
+		require.NoError(t, err)
 		buf.Complete(requestID, &vaulttypes.Response{
 			ID:      requestID,
-			Payload: []byte("payload"),
+			Payload: payload,
 			Format:  FastPathResponseFormat,
 		})
 	}()
 
 	_, err = capability.Execute(context.Background(), capabilities.CapabilityRequest{
-		Method: vaulttypes.MethodSecretsGet,
+		Method:  vaulttypes.MethodSecretsGet,
 		Payload: anyproto,
 		Metadata: capabilities.RequestMetadata{
 			WorkflowOwner:       owner,

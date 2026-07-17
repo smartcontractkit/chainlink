@@ -132,6 +132,14 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				}
 				ExecuteVaultJWTDisabledTest(t, fixture)
 			})
+			if isVaultFastPathGetSecretsEnabledTopology(topology) {
+				t.Run("fast_path_getsecrets_assertions", func(t *testing.T) {
+					if parallelEnabled {
+						t.Parallel()
+					}
+					ExecuteVaultFastPathAssertions(t, fixture, fixture.TestEnv)
+				})
+			}
 		})
 	case suite_config.SuiteScenarioCronChipIngressStack:
 		t.Run("Cron Beholder - "+topology, func(t *testing.T) {

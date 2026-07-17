@@ -24,8 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/vaultshare"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/vaultshare"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -1008,11 +1008,8 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 			if err != nil {
 				return fmt.Errorf("failed to get signers for executable client: %w", err)
 			}
-		var aggregatorFactory executable.AggregatorFactory
-		if strings.HasPrefix(info.ID, "vault@") && method == vault.MethodGetSecrets {
-			aggregatorFactory = vaultshare.NewAggregatorFactory(int(remoteDON.DON.F))
-		}
-		err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers, config.RemoteExecutableConfig.MinResponsesToAggregate, aggregatorFactory)
+			aggregatorFactory := aggregatorFactoryForExecutableClient(info.ID, method, int(remoteDON.DON.F))
+			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers, config.RemoteExecutableConfig.MinResponsesToAggregate, aggregatorFactory)
 			if err != nil {
 				w.lggr.Errorw("failed to update client config", "capID", capID, "method", method, "error", err)
 				continue
@@ -1034,6 +1031,16 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 		if err2 := w.registry.Add(ctx, cc); err2 != nil {
 			return fmt.Errorf("failed to add CombinedClient for capability %s to registry: %w", capID, err2)
 		}
+	}
+	return nil
+}
+
+// aggregatorFactoryForExecutableClient returns an aggregator factory for fast-path vault
+// GetSecrets requests. It is extracted so the wiring decision can be unit-tested independently of
+// the full launcher setup.
+func aggregatorFactoryForExecutableClient(capID, method string, remoteDONF int) executable.AggregatorFactory {
+	if strings.HasPrefix(capID, "vault@") && method == vault.MethodGetSecrets {
+		return vaultshare.NewAggregatorFactory(remoteDONF)
 	}
 	return nil
 }
