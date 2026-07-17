@@ -147,6 +147,8 @@ COPY --from=build-remote-plugins /tmp/lib /usr/lib/
 
 WORKDIR /home/${CHAINLINK_USER}
 
+RUN mkdir -p workflows && touch registry.json
+
 # Explicitly set the cache dir. Needed so both root and non-root user has an explicit location.
 ENV XDG_CACHE_HOME=/home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
