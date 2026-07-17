@@ -370,6 +370,12 @@ jobs:
       contents: read
       id-token: write
     steps:
+      - name: Set tar default options
+        shell: bash
+        # Do not overwrite existing files when extracting cache archives.
+        # Both CRE (setup-go cache) and CCIP (actions/cache) restore to the same GOMODCACHE.
+        run: echo "TAR_OPTIONS=--skip-old-files" >> $GITHUB_ENV
+
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@bdccf4a8c118feaa74578d6fb51012875a860567 # v2.2.0
 
