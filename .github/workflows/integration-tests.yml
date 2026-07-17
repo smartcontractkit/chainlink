@@ -441,8 +441,8 @@ jobs:
         run: |
           echo "Downloading CRE modules..."
           go mod download
-          echo "Compiling CRE tests..."
-          go test -run=^# ./smoke/cre/... ./regression/cre/...
+          echo "Compiling CRE tests (parallelism limited to avoid OOM)..."
+          go test -run=^# -p 4 ./smoke/cre/... ./regression/cre/...
           echo "CRE compilation complete."
 
       # --- CCIP test code ---
@@ -452,8 +452,8 @@ jobs:
         run: |
           echo "Downloading CCIP modules..."
           go mod download
-          echo "Compiling CCIP tests..."
-          go test -run=^# ./smoke/ccip/...
+          echo "Compiling CCIP tests (parallelism limited to avoid OOM)..."
+          go test -run=^# -p 4 ./smoke/ccip/...
           echo "CCIP compilation complete."
 
   run-core-cre-e2e-tests-setup:
