@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
@@ -131,7 +132,7 @@ func TestLauncher(t *testing.T) {
 			nil,
 			dispatcher,
 			registry,
-			&mockDonNotifier{},
+			&mockDonNotifier{}, limits.Factory{},
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -180,7 +181,7 @@ func TestLauncher(t *testing.T) {
 			nil,
 			dispatcher,
 			registry,
-			&mockDonNotifier{},
+			&mockDonNotifier{}, limits.Factory{},
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -224,7 +225,7 @@ func TestLauncher(t *testing.T) {
 			nil,
 			dispatcher,
 			registry,
-			&mockDonNotifier{},
+			&mockDonNotifier{}, limits.Factory{},
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -247,7 +248,7 @@ func TestLauncher(t *testing.T) {
 			nil,
 			dispatcher,
 			registry,
-			&mockDonNotifier{},
+			&mockDonNotifier{}, limits.Factory{},
 		)
 		require.NoError(t, err)
 		require.NoError(t, launcher.Start(t.Context()))
@@ -328,7 +329,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 		nil,
 		dispatcher,
 		registry,
-		&mockDonNotifier{},
+		&mockDonNotifier{}, limits.Factory{},
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -424,7 +425,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 		nil,
 		dispatcher,
 		registry,
-		&mockDonNotifier{},
+		&mockDonNotifier{}, limits.Factory{},
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -482,7 +483,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 		nil,
 		dispatcher,
 		registry,
-		&mockDonNotifier{},
+		&mockDonNotifier{}, limits.Factory{},
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -543,7 +544,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 		nil,
 		dispatcher,
 		registry,
-		&mockDonNotifier{},
+		&mockDonNotifier{}, limits.Factory{},
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -613,7 +614,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 		nil,
 		dispatcher,
 		registry,
-		&mockDonNotifier{},
+		&mockDonNotifier{}, limits.Factory{},
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -676,7 +677,7 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 		nil,
 		dispatcher,
 		registry,
-		&mockDonNotifier{},
+		&mockDonNotifier{}, limits.Factory{},
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -735,7 +736,7 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	tt := NewTestTopology(pid, 4, 4)
 	wfDONID, capDONID, mixedDONID := registrysyncer.DonID(7), registrysyncer.DonID(12), registrysyncer.DonID(33)
 	localRegistry := tt.MakeLocalRegistry(uint32(wfDONID), uint32(capDONID), uint32(mixedDONID), RandomUTF8BytesWord(), fullTriggerCapID)
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Times(3)
@@ -817,7 +818,7 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	addDON(localRegistry, capDONZoneBID, uint32(0), uint8(1), true, false, capabilityDonNodesZoneB, []string{"zone-b"}, 1, [][32]byte{triggerCapID})
 	addCapabilityToDON(localRegistry, capDONZoneBID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Once()
@@ -883,7 +884,7 @@ func TestLauncher_ShardedCapabilityRoutingByFamily(t *testing.T) {
 		nil,
 		dispatcher,
 		registry,
-		&mockDonNotifier{},
+		&mockDonNotifier{}, limits.Factory{},
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -939,7 +940,7 @@ func TestLauncher_DonPairsToUpdate_ShardedFamilies(t *testing.T) {
 	addDON(localRegistry, sharedCapDONID, uint32(0), uint8(1), true, false, sharedCapNodes, []string{"zone-a"}, 1, [][32]byte{capIDHash})
 	addCapabilityToDON(localRegistry, sharedCapDONID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Once()
@@ -978,7 +979,7 @@ func TestLauncher_ShardedCapability_PhaseA_AllCapsInCommonFamily(t *testing.T) {
 	addDON(localRegistry, capShard1ID, uint32(0), uint8(1), true, false, capShard1Nodes, []string{"zone-a"}, 1, [][32]byte{RandomUTF8BytesWord()})
 	addCapabilityToDON(localRegistry, capShard1ID, fullTargetID, capabilities.CapabilityTypeTarget, cfg)
 
-	launcher, err := NewLauncher(lggr, wrapper, nil, nil, dispatcher, registry, &mockDonNotifier{})
+	launcher, err := NewLauncher(lggr, wrapper, nil, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
@@ -1016,7 +1017,7 @@ func TestLauncher_DonPairsToUpdate_CapShardPairsOnlyWithWorkflowShard(t *testing
 	addDON(localRegistry, capShard0ID, uint32(0), uint8(1), true, false, capShard0Nodes, []string{"zone-a_shard-0"}, 1, [][32]byte{RandomUTF8BytesWord()})
 	addCapabilityToDON(localRegistry, capShard0ID, "write-chain_evm_1@1.0.0", capabilities.CapabilityTypeTarget, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Once()
@@ -1055,7 +1056,7 @@ func TestLauncher_DonPairsToUpdate_BootstrapConnectsIsolatedCapShard(t *testing.
 	addDON(localRegistry, capShard1ID, uint32(0), uint8(1), true, false, capShard1Nodes, []string{"zone-a_shard-1"}, 1, [][32]byte{RandomUTF8BytesWord()})
 	addCapabilityToDON(localRegistry, capShard1ID, "write-chain_evm_1@1.0.0", capabilities.CapabilityTypeTarget, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{})
+	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 
 	// bootstrapPID is a member of no DON and therefore of no shard family.
@@ -1166,7 +1167,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 		nil,
 		dispatcher,
 		registry,
-		&mockDonNotifier{},
+		&mockDonNotifier{}, limits.Factory{},
 	)
 	require.NoError(t, err)
 	launcher.p2pStreamConfig = customStreamConfig
@@ -1320,7 +1321,7 @@ func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 		nil,
 		dispatcher,
 		registry,
-		&mockDonNotifier{},
+		&mockDonNotifier{}, limits.Factory{},
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
@@ -1436,7 +1437,7 @@ func TestLauncher_OnNewRegistry_CallsLocalCapabilityManagerReconcile(t *testing.
 		nil,
 		dispatcher,
 		registry,
-		&mockDonNotifier{},
+		&mockDonNotifier{}, limits.Factory{},
 	)
 	require.NoError(t, err)
 	launcher.SetLocalCapabilityManager(mockLCM)
@@ -1479,7 +1480,7 @@ func TestLauncher_OnNewRegistry_NilLocalCapabilityManager(t *testing.T) {
 		nil,
 		dispatcher,
 		registry,
-		&mockDonNotifier{},
+		&mockDonNotifier{}, limits.Factory{},
 	)
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))

@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -61,6 +63,11 @@ type launcher struct {
 	metrics             *launcherMetrics
 	localCapMgr         localcapmgr.LocalCapabilityManager
 
+	// workflowDONBindingGate is shared by all executable capability servers; when
+	// open they reject requests whose Metadata.WorkflowDonID does not match the
+	// authenticated calling DON.
+	workflowDONBindingGate limits.GateLimiter
+
 	muSubServices sync.Mutex
 	subServices   []services.Service
 }
@@ -91,6 +98,7 @@ func NewLauncher(
 	dispatcher remotetypes.Dispatcher,
 	registry *Registry,
 	workflowDonNotifier DonNotifier,
+	limitsFactory limits.Factory,
 ) (*launcher, error) {
 	p2pStreamConfig := defaultStreamConfig
 	if streamConfig != nil {
@@ -110,6 +118,10 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create launcher metrics: %w", err)
 	}
+	workflowDONBindingGate, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.RemoteExecutableWorkflowDONBindingEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workflow DON binding gate limiter: %w", err)
+	}
 	return &launcher{
 		lggr:        logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		peerWrapper: peerWrapper,
@@ -121,11 +133,12 @@ func NewLauncher(
 			executableClients:  make(map[string]executable.Client),
 			executableServers:  make(map[string]executable.Server),
 		},
-		registry:            registry,
-		workflowDonNotifier: workflowDonNotifier,
-		don2donSharedPeer:   don2donSharedPeer,
-		p2pStreamConfig:     p2pStreamConfig,
-		metrics:             metrics,
+		registry:               registry,
+		workflowDonNotifier:    workflowDonNotifier,
+		don2donSharedPeer:      don2donSharedPeer,
+		p2pStreamConfig:        p2pStreamConfig,
+		metrics:                metrics,
+		workflowDONBindingGate: workflowDONBindingGate,
 	}, nil
 }
 
@@ -245,6 +258,11 @@ func (w *launcher) Close() error {
 		for _, s := range w.subServices {
 			if err := s.Close(); err != nil {
 				w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
+			}
+		}
+		if w.workflowDONBindingGate != nil {
+			if err := w.workflowDONBindingGate.Close(); err != nil {
+				w.lggr.Errorw("failed to close workflow DON binding gate limiter", "error", err)
 			}
 		}
 		if w.peerWrapper != nil {
@@ -803,6 +821,7 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, capabilityCo
 					"", // empty method name for v1
 					myPeerID,
 					w.dispatcher,
+					w.workflowDONBindingGate,
 					w.lggr,
 				)
 				w.cachedShims.executableServers[shimKey] = server
@@ -851,6 +870,7 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, capabilityCo
 					"", // empty method name for v1
 					myPeerID,
 					w.dispatcher,
+					w.workflowDONBindingGate,
 					w.lggr,
 				)
 				w.cachedShims.executableServers[shimKey] = server
@@ -1119,6 +1139,7 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 					method,
 					myPeerID,
 					w.dispatcher,
+					w.workflowDONBindingGate,
 					w.lggr,
 				)
 				// add to cachedShims later, only after startNewShim succeeds
