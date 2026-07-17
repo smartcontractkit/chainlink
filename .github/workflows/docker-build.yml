@@ -49,9 +49,9 @@ jobs:
         shell: bash
         env:
           SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id
-            }}/cpu=8/ram=16/family=c7g/volume=80gb/spot=false/image=ubuntu24-full-arm64
+            }}/cpu=16/ram=64/family=m7g/spot=false/image=ubuntu24-full-arm64/extras=s3-cache+tmpfs
           SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id
-            }}/cpu=8/ram=16/family=c7a/volume=80gb/spot=false/image=ubuntu24-full-x64
+            }}/cpu=16/ram=64/family=m6i+m7i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
           GH_RUNNER_LABEL_ARM64: ubuntu-24.04-arm
           GH_RUNNER_LABEL_AMD64: ubuntu-24.04
         run: |
@@ -67,7 +67,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0
           ref: ${{ inputs.git-ref || github.sha }}
 
       - name: Resolve checked out SHA
@@ -101,6 +100,7 @@ jobs:
         COMMIT_SHA=${{ needs.init.outputs.checked-out-sha }}
         VERSION_TAG=${{ needs.init.outputs.version-tag }}
       docker-manifest-sign: true
+      docker-cache-behaviour: "enable"
       git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -136,6 +136,7 @@ jobs:
         CL_INSTALL_PRIVATE_PLUGINS=true
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
+      docker-cache-behaviour: "enable"
       git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -172,6 +173,7 @@ jobs:
         CL_INSTALL_TESTING_PLUGINS=true
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins-testing"
+      docker-cache-behaviour: "enable"
       git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -208,6 +210,7 @@ jobs:
         CL_CHAIN_DEFAULTS=/ccip-config
         CL_SOLANA_CMD=
       docker-manifest-sign: true
+      docker-cache-behaviour: "enable"
       git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -244,6 +247,7 @@ jobs:
         CL_CHAIN_DEFAULTS=/ccip-config
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
+      docker-cache-behaviour: "enable"
       git-sha: ${{ needs.init.outputs.checked-out-sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
