@@ -40,19 +40,21 @@ func NewAggregatorFactory(f int) request.AggregatorFactory {
 }
 
 type Aggregator struct {
-	threshold      int
-	maxResponses   int
-	responseCount  int
-	errorCount     map[string]int
-	peerResponses  map[p2ptypes.PeerID]*vaultcommon.GetSecretsResponse
+	threshold       int
+	maxResponses    int
+	responseCount   int
+	errorCount      map[string]int
+	peerResponses   map[p2ptypes.PeerID]*vaultcommon.GetSecretsResponse
+	vaultErrorsByKey map[string]map[string]int
 }
 
 func NewAggregator(threshold, maxResponses int) *Aggregator {
 	return &Aggregator{
-		threshold:     threshold,
-		maxResponses:  maxResponses,
-		errorCount:    make(map[string]int),
-		peerResponses: make(map[p2ptypes.PeerID]*vaultcommon.GetSecretsResponse),
+		threshold:        threshold,
+		maxResponses:     maxResponses,
+		errorCount:       make(map[string]int),
+		peerResponses:    make(map[p2ptypes.PeerID]*vaultcommon.GetSecretsResponse),
+		vaultErrorsByKey: make(map[string]map[string]int),
 	}
 }
 
@@ -64,7 +66,7 @@ func (a *Aggregator) OnResponse(peerID p2ptypes.PeerID, msg *types.MessageBody) 
 			return nil, errors.New(msg.ErrorMsg)
 		}
 		if a.responseCount >= a.maxResponses {
-			return nil, ErrFastPathReconstruction
+			return nil, a.maybeConsensusError()
 		}
 		return nil, nil
 	}
@@ -76,7 +78,7 @@ func (a *Aggregator) OnResponse(peerID p2ptypes.PeerID, msg *types.MessageBody) 
 	if resp.Payload == nil {
 		a.responseCount++
 		if a.responseCount >= a.maxResponses {
-			return nil, ErrFastPathReconstruction
+			return nil, a.maybeConsensusError()
 		}
 		return nil, nil
 	}
@@ -86,12 +88,30 @@ func (a *Aggregator) OnResponse(peerID p2ptypes.PeerID, msg *types.MessageBody) 
 		return nil, fmt.Errorf("failed to unmarshal vault GetSecretsResponse: %w", err)
 	}
 
+	// Count vault-level errors per secret so that a consensus "not found" can be returned
+	// instead of the generic fast-path reconstruction error.
+	for _, sr := range vaultResp.Responses {
+		if sr == nil || sr.Id == nil {
+			continue
+		}
+		if errMsg := sr.GetError(); errMsg != "" {
+			key := secretKey(sr.Id)
+			if a.vaultErrorsByKey[key] == nil {
+				a.vaultErrorsByKey[key] = make(map[string]int)
+			}
+			a.vaultErrorsByKey[key][errMsg]++
+			if a.vaultErrorsByKey[key][errMsg] >= a.threshold {
+				return nil, errors.New(errMsg)
+			}
+		}
+	}
+
 	a.peerResponses[peerID] = vaultResp
 	a.responseCount++
 
 	if len(a.peerResponses) < a.threshold {
 		if a.responseCount >= a.maxResponses {
-			return nil, ErrFastPathReconstruction
+			return nil, a.maybeConsensusError()
 		}
 		return nil, nil
 	}
@@ -99,7 +119,7 @@ func (a *Aggregator) OnResponse(peerID p2ptypes.PeerID, msg *types.MessageBody) 
 	merged, err := mergeGetSecretsResponses(a.peerResponses)
 	if err != nil {
 		if a.responseCount >= a.maxResponses {
-			return nil, ErrFastPathReconstruction
+			return nil, a.maybeConsensusError()
 		}
 		return nil, nil
 	}
@@ -112,7 +132,23 @@ func (a *Aggregator) OnResponse(peerID p2ptypes.PeerID, msg *types.MessageBody) 
 }
 
 func (a *Aggregator) OnTimeout() (*commoncap.CapabilityResponse, error) {
-	return nil, ErrFastPathReconstruction
+	return nil, a.maybeConsensusError()
+}
+
+func (a *Aggregator) maybeConsensusError() error {
+	for errMsg, count := range a.errorCount {
+		if count >= a.threshold {
+			return errors.New(errMsg)
+		}
+	}
+	for _, errorsByMsg := range a.vaultErrorsByKey {
+		for errMsg, count := range errorsByMsg {
+			if count >= a.threshold {
+				return errors.New(errMsg)
+			}
+		}
+	}
+	return ErrFastPathReconstruction
 }
 
 func mergeGetSecretsResponses(peerResponses map[p2ptypes.PeerID]*vaultcommon.GetSecretsResponse) (*vaultcommon.GetSecretsResponse, error) {
