@@ -15,6 +15,7 @@ var (
 )
 
 func TestCreateStreamJob(t *testing.T) {
+	t.Parallel()
 	jobConfigData := StreamJobSpecData{
 		FeedName: "BTC/USD",
 		StreamID: 1,
@@ -26,6 +27,7 @@ func TestCreateStreamJob(t *testing.T) {
 }
 
 func TestCreateLLOJob(t *testing.T) {
+	t.Parallel()
 	u, err := url.Parse("https://crib-henry-keystone-node1.main.stage.cldev.sh")
 	if err != nil {
 		t.Fatal(err)
@@ -47,6 +49,7 @@ func TestCreateLLOJob(t *testing.T) {
 }
 
 func TestCreateLLOBootstrapJob(t *testing.T) {
+	t.Parallel()
 	jobConfigData := LLOBootstrapJobSpecData{
 		DonID:                             streamsTriggerDonID,
 		ConfiguratorAddress:               configuratorAddress,

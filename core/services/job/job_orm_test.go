@@ -1042,7 +1042,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("test LLO CSA key validation", func(t *testing.T) {
+	t.Run("test LLO CSA key validation", func(t *testing.T) { //nolint:paralleltest // same instance
 		ctx := testutils.Context(t)
 		jb.OCR2OracleSpec.PluginType = types.LLO
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
