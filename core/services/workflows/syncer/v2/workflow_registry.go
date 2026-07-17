@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
@@ -120,6 +122,9 @@ type workflowRegistry struct {
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
 	myShardID       uint32
 	shardingEnabled bool
+
+	centralizedOwnerVerificationEnabled limits.GateLimiter
+	settingsGetter                      settings.Getter
 }
 
 type shardRoutingSteadyObserver interface {
@@ -191,6 +196,14 @@ type AdditionalSourceConfig struct {
 	JWTGenerator nodeauthjwt.JWTGenerator
 }
 
+// WithCentralizedOwnerVerification configures centralized workflow owner/org verification for GRPC sources.
+func WithCentralizedOwnerVerification(gate limits.GateLimiter, getter settings.Getter) Option {
+	return func(wr *workflowRegistry) {
+		wr.centralizedOwnerVerificationEnabled = gate
+		wr.settingsGetter = getter
+	}
+}
+
 // WithAdditionalSources adds additional workflow sources to the registry.
 // Sources are detected by URL scheme:
 //   - file:// prefix -> FileWorkflowSource (reads from local JSON file)
@@ -224,10 +237,12 @@ func WithAdditionalSources(sources []AdditionalSourceConfig) Option {
 			} else {
 				// GRPC source (default)
 				grpcSource, err := NewGRPCWorkflowSource(wr.lggr, GRPCWorkflowSourceConfig{
-					URL:          src.URL,
-					TLSEnabled:   src.TLSEnabled,
-					Name:         src.Name,
-					JWTGenerator: src.JWTGenerator,
+					URL:                                 src.URL,
+					TLSEnabled:                          src.TLSEnabled,
+					Name:                                src.Name,
+					JWTGenerator:                        src.JWTGenerator,
+					CentralizedOwnerVerificationEnabled: wr.centralizedOwnerVerificationEnabled,
+					SettingsGetter:                      wr.settingsGetter,
 				})
 				if err != nil {
 					wr.lggr.Errorw("Failed to create GRPC workflow source",

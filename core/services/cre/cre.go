@@ -1110,6 +1110,7 @@ func newWorkflowRegistrySyncerV2(
 
 	registryOpts := []syncerV2.Option{
 		syncerV2.WithAdditionalSources(addSourceConfigs),
+		syncerV2.WithCentralizedOwnerVerification(engineLimiters.CentralizedWorkflowOwnerVerificationEnabled, lf.Settings),
 		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
 		syncerV2.WithMaxConcurrency(wfReg.MaxConcurrency()),
 		syncerV2.WithMaxActivationRetries(wfReg.MaxActivationRetries()),
