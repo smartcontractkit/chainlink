@@ -326,6 +326,26 @@ func resolveProgram(
 	}
 }
 
+// shouldInitialize reports whether a program needs initializing: either it was freshly deployed in
+// this run, or its config account does not yet exist (recovering from a prior run that deployed the
+// program but failed before initializing it). Existence is checked with GetAccountInfo rather than
+// borsh-decoding, so a config account written by a different program version is recognised as
+// "already initialized" instead of triggering a re-init that fails with "account already in use".
+func shouldInitialize(e cldf.Environment, chain cldf_solana.Chain, justDeployed bool, configPDA solana.PublicKey) (bool, error) {
+	if justDeployed {
+		return true, nil
+	}
+	_, err := chain.Client.GetAccountInfo(e.GetContext(), configPDA)
+	switch {
+	case err == nil:
+		return false, nil
+	case errors.Is(err, solRpc.ErrNotFound):
+		return true, nil
+	default:
+		return false, fmt.Errorf("failed to check config account %s: %w", configPDA, err)
+	}
+}
+
 func deployChainContractsSolana(
 	e cldf.Environment,
 	chain cldf_solana.Chain,
@@ -448,24 +468,45 @@ func deployChainContractsSolana(
 	})
 
 	// INITIALIZE
-	// Only programs that were freshly deployed in this run need initializing. We track that in
-	// memory (the *JustDeployed flags from the deploy pass) instead of reading each config account,
-	// so a program left untouched by this run — e.g. RMN remote during a fee-quoter-only upgrade —
-	// is never re-initialized, even when its on-chain config was written by a different program
-	// version whose layout the pinned gobindings can't decode.
-	if fqJustDeployed {
+	// A program is initialized when it was freshly deployed in this run, or when its config account
+	// does not yet exist (recovering from a prior run that deployed the program but failed before
+	// initializing it). shouldInitialize checks account existence without borsh-decoding, so a
+	// program left untouched by this run — e.g. RMN remote during a fee-quoter-only upgrade — is
+	// recognised as already initialized instead of triggering a re-init, even when its on-chain
+	// config was written by a different program version whose layout the pinned gobindings can't
+	// decode. The config PDAs derived here are reused when building the lookup table below.
+	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
+	initFeeQuoter, err := shouldInitialize(e, chain, fqJustDeployed, feeQuoterConfigPDA)
+	if err != nil {
+		return batches, err
+	}
+	if initFeeQuoter {
 		if err := initializeFeeQuoter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress, offRampAddress, params.FeeQuoterParams); err != nil {
 			return batches, err
 		}
+	} else {
+		e.Logger.Infow("Fee quoter already initialized, skipping initialization", "chain", chain.String())
 	}
 
-	if routerJustDeployed {
+	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
+	initRouter, err := shouldInitialize(e, chain, routerJustDeployed, routerConfigPDA)
+	if err != nil {
+		return batches, err
+	}
+	if initRouter {
 		if err := initializeRouter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress, rmnRemoteAddress); err != nil {
 			return batches, err
 		}
+	} else {
+		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
 	}
 
-	if offRampJustDeployed {
+	offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
+	initOffRamp, err := shouldInitialize(e, chain, offRampJustDeployed, offRampConfigPDA)
+	if err != nil {
+		return batches, err
+	}
+	if initOffRamp {
 		table, err := solCommonUtil.SetupLookupTable(
 			e.GetContext(),
 			chain.Client,
@@ -486,12 +527,21 @@ func deployChainContractsSolana(
 		if err := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, rmnRemoteAddress, offRampAddress, table, params.OffRampParams); err != nil {
 			return batches, err
 		}
+	} else {
+		e.Logger.Infow("Offramp already initialized, skipping initialization", "chain", chain.String())
 	}
 
-	if rmnJustDeployed {
+	rmnRemoteConfigPDA, _, _ := solState.FindRMNRemoteConfigPDA(rmnRemoteAddress)
+	initRMNRemote, err := shouldInitialize(e, chain, rmnJustDeployed, rmnRemoteConfigPDA)
+	if err != nil {
+		return batches, err
+	}
+	if initRMNRemote {
 		if err := initializeRMNRemote(e, chain, rmnRemoteAddress, ccipRouterProgram); err != nil {
 			return batches, err
 		}
+	} else {
+		e.Logger.Infow("RMN remote already initialized, skipping initialization", "chain", chain.String())
 	}
 
 	// TOKEN POOLS DEPLOY
@@ -661,19 +711,16 @@ func deployChainContractsSolana(
 	}
 
 	// LOOKUP TABLE
-	// off ramp
-	offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
+	// off ramp (offRampConfigPDA, feeQuoterConfigPDA, routerConfigPDA and rmnRemoteConfigPDA are
+	// derived in the INITIALIZE blocks above and reused here)
 	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
 	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
 	// fee quoter
-	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 	linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)
 	wsolFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.WSOL, feeQuoterAddress)
 	// router
-	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
 	feeBillingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(ccipRouterProgram)
 	// rmn remote
-	rmnRemoteConfigPDA, _, _ := solState.FindRMNRemoteConfigPDA(rmnRemoteAddress)
 	rmnRemoteCursePDA, _, _ := solState.FindRMNRemoteCursesPDA(rmnRemoteAddress)
 	lookupTableKeys := []solana.PublicKey{
 		// offramp
