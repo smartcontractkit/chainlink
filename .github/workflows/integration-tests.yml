@@ -527,7 +527,7 @@ jobs:
       - changes
       - run-core-cre-e2e-tests-setup
       - run-ccip-v1-6-e2e-tests-setup
-    runs-on: runs-on=${{ github.run_id }}-compile/cpu=16/memory=32/family=c7i+c8i/spot=false/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}-compile/cpu=16/memory=64/family=c7i+c8i/spot=false/extras=s3-cache+tmpfs
     continue-on-error: true
     environment:
       name: integration
@@ -626,7 +626,7 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@b19166a1909e0e98b74d4c2ba77b480ce5104ce0 # trial/compile-tests-parallel
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@514b11677bfbb427e5d6e16b06198b5947832699 # trial/compile-tests-parallel
     with:
       workflow_name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
