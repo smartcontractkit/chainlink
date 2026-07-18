@@ -626,7 +626,7 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9c49ffcf252efbedd7ec280e1993ba29dcbc9443 # 2026-04-28
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@44cbd2445132736ad060ed91bb41ae2c9b52360a # 2026-07-18
     with:
       workflow_name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
