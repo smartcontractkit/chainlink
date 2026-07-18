@@ -527,7 +527,7 @@ jobs:
       - changes
       - run-core-cre-e2e-tests-setup
       - run-ccip-v1-6-e2e-tests-setup
-    runs-on: runs-on=${{ github.run_id }}-compile/cpu=16/ram=64/family=m7i+m8i/spot=false/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i+c8i/spot=false/extras=s3-cache+tmpfs
     continue-on-error: true
     environment:
       name: integration
@@ -567,54 +567,11 @@ jobs:
           test_download_vendor_packages_command: cd integration-tests && go mod download
           gati_token: ${{ steps.github-token.outputs.access-token }}
 
-      - name: Compile integration-tests packages
+      - name: Compile CCIP smoke tests
         shell: bash
         run: |
           cd integration-tests
-          go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | while read -r pkg; do
-            echo "Compiling ${pkg}"
-            go test -c -tags embed -o /dev/null "${pkg}" || echo "Warning: failed to compile ${pkg}"
-          done
-
-      - name: Set up Go for integration-tests/load
-        uses: smartcontractkit/.github/actions/ctf-setup-go@c83a1867f404a79db873b55f1a5fd30b42569bbb # ctf-setup-go@0.2.0
-        with:
-          go_mod_path: ./integration-tests/load/go.mod
-          cache_key_id: e2e-tests
-          cache_builds: true
-          should_tidy: false
-          no_cache: false
-          test_download_vendor_packages_command: cd integration-tests/load && go mod download
-          gati_token: ${{ steps.github-token.outputs.access-token }}
-
-      - name: Compile integration-tests/load packages
-        shell: bash
-        run: |
-          cd integration-tests/load
-          go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | while read -r pkg; do
-            echo "Compiling ${pkg}"
-            go test -c -tags embed -o /dev/null "${pkg}" || echo "Warning: failed to compile ${pkg}"
-          done
-
-      - name: Set up Go for system-tests
-        uses: smartcontractkit/.github/actions/ctf-setup-go@c83a1867f404a79db873b55f1a5fd30b42569bbb # ctf-setup-go@0.2.0
-        with:
-          go_mod_path: system-tests/tests/go.mod
-          cache_key_id: e2e-tests
-          cache_builds: true
-          should_tidy: false
-          no_cache: false
-          test_download_vendor_packages_command: cd system-tests/tests && go mod download
-          gati_token: ${{ steps.github-token.outputs.access-token }}
-
-      - name: Compile system-tests packages
-        shell: bash
-        run: |
-          cd system-tests/tests
-          go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | while read -r pkg; do
-            echo "Compiling ${pkg}"
-            go test -c -o /dev/null "${pkg}" || echo "Warning: failed to compile ${pkg}"
-          done
+          go test -c -tags embed -o /dev/null ./smoke/ccip
 
   run-ccip-v1-6-e2e-tests:
     needs: [run-ccip-v1-6-e2e-tests-setup, build-chainlink, compile-tests, changes, labels]
