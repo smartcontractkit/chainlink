@@ -143,7 +143,7 @@ jobs:
 
       - name: Set up Go
         id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@ctf-setup-go/0.2.0
+        uses: smartcontractkit/.github/actions/ctf-setup-go@c83a1867f404a79db873b55f1a5fd30b42569bbb # ctf-setup-go@0.2.0
         with:
           go_mod_path: system-tests/tests/go.mod
           cache_key_id: e2e-tests
