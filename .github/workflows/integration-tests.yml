@@ -423,7 +423,7 @@ jobs:
 
   run-core-cre-e2e-tests:
     name: Run Core CRE E2E Tests
-    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, compile-tests, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
       checks: write
@@ -441,7 +441,7 @@ jobs:
 
   run-core-cre-e2e-regression-tests:
     name: Run Core CRE E2E Regression Tests
-    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, compile-tests, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
       checks: write
@@ -512,8 +512,112 @@ jobs:
             echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
           fi
 
+  compile-tests:
+    name: Compile Tests
+    if: >-
+      ${{
+        github.actor != 'dependabot[bot]' &&
+        (
+          needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' ||
+          needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+        )
+      }}
+    needs:
+      - labels
+      - changes
+      - run-core-cre-e2e-tests-setup
+      - run-ccip-v1-6-e2e-tests-setup
+    runs-on: ${{ needs.labels.outputs.builder-runner-label-core || 'ubuntu22.04-8cores-32GB' }}
+    continue-on-error: true
+    environment:
+      name: integration
+      deployment: false
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        uses: runs-on/action@bdccf4a8c118feaa74578d6fb51012875a860567 # v2.2.0
+
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
+      - name: Checkout the repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ env.CHAINLINK_REF }}
+
+      - name: Set up Go for integration-tests
+        uses: smartcontractkit/.github/actions/ctf-setup-go@ctf-setup-go/0.2.0
+        with:
+          go_mod_path: ./integration-tests/go.mod
+          cache_key_id: e2e-tests
+          cache_builds: true
+          should_tidy: false
+          no_cache: false
+          test_download_vendor_packages_command: cd integration-tests && go mod download
+          gati_token: ${{ steps.github-token.outputs.access-token }}
+
+      - name: Compile integration-tests packages
+        shell: bash
+        run: |
+          cd integration-tests
+          go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | while read -r pkg; do
+            echo "Compiling ${pkg}"
+            go test -c -tags embed -o /dev/null "${pkg}" || echo "Warning: failed to compile ${pkg}"
+          done
+
+      - name: Set up Go for integration-tests/load
+        uses: smartcontractkit/.github/actions/ctf-setup-go@ctf-setup-go/0.2.0
+        with:
+          go_mod_path: ./integration-tests/load/go.mod
+          cache_key_id: e2e-tests
+          cache_builds: true
+          should_tidy: false
+          no_cache: false
+          test_download_vendor_packages_command: cd integration-tests/load && go mod download
+          gati_token: ${{ steps.github-token.outputs.access-token }}
+
+      - name: Compile integration-tests/load packages
+        shell: bash
+        run: |
+          cd integration-tests/load
+          go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | while read -r pkg; do
+            echo "Compiling ${pkg}"
+            go test -c -tags embed -o /dev/null "${pkg}" || echo "Warning: failed to compile ${pkg}"
+          done
+
+      - name: Set up Go for system-tests
+        uses: smartcontractkit/.github/actions/ctf-setup-go@ctf-setup-go/0.2.0
+        with:
+          go_mod_path: system-tests/tests/go.mod
+          cache_key_id: e2e-tests
+          cache_builds: true
+          should_tidy: false
+          no_cache: false
+          test_download_vendor_packages_command: cd system-tests/tests && go mod download
+          gati_token: ${{ steps.github-token.outputs.access-token }}
+
+      - name: Compile system-tests packages
+        shell: bash
+        run: |
+          cd system-tests/tests
+          go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | while read -r pkg; do
+            echo "Compiling ${pkg}"
+            go test -c -o /dev/null "${pkg}" || echo "Warning: failed to compile ${pkg}"
+          done
+
   run-ccip-v1-6-e2e-tests:
-    needs: [run-ccip-v1-6-e2e-tests-setup, build-chainlink, changes, labels]
+    needs: [run-ccip-v1-6-e2e-tests-setup, build-chainlink, compile-tests, changes, labels]
     name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
     permissions:
       actions: read
@@ -533,6 +637,7 @@ jobs:
       use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       quarantine: "true"
+      cache_builds: "true"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

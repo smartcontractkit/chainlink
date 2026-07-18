@@ -143,10 +143,13 @@ jobs:
 
       - name: Set up Go
         id: setup-go
-        uses: actions/setup-go@v7
+        uses: smartcontractkit/.github/actions/ctf-setup-go@ctf-setup-go/0.2.0
         with:
-          go-version-file: system-tests/tests/go.mod
-          cache: true
+          go_mod_path: system-tests/tests/go.mod
+          cache_key_id: e2e-tests
+          cache_builds: true
+          should_tidy: false
+          no_cache: false
 
       # Required to pull private ECR images such as Job Distributor (main) and Chip Ingress (main),
       # and also the Chainlink image when inputs.ecr is "sdlc".
