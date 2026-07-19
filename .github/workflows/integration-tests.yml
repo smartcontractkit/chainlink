@@ -528,7 +528,7 @@ jobs:
       - changes
       - run-core-cre-e2e-tests-setup
       - run-ccip-v1-6-e2e-tests-setup
-    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i-flex/spot=co/root-volume-size=60/extras=s3-cache
+    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i-flex/spot=co/root-volume-size=120/extras=s3-cache
     environment:
       name: integration
       deployment: false
