@@ -423,7 +423,7 @@ jobs:
 
   run-core-cre-e2e-tests:
     name: Run Core CRE E2E Tests
-    needs: [build-chainlink, compile-tests, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
       checks: write
@@ -441,7 +441,7 @@ jobs:
 
   run-core-cre-e2e-regression-tests:
     name: Run Core CRE E2E Regression Tests
-    needs: [build-chainlink, compile-tests, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
       checks: write
@@ -518,10 +518,7 @@ jobs:
     if: >-
       ${{
         github.actor != 'dependabot[bot]' &&
-        (
-          needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' ||
-          needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
-        )
+        needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
       }}
     needs:
       - labels
