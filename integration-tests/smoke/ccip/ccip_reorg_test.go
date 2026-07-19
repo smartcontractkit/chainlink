@@ -486,13 +486,7 @@ func checkFinalityViolations(
 // waitForLogPollerFilters waits for log poller filters to be registered
 func waitForLogPollerFilters(l logging.Logger) {
 	l.Info().Msg("Waiting for log poller filters to get registered")
-	waitDuration := 10 * time.Second
-	if envDuration := os.Getenv("LOG_POLLER_WAIT_DURATION"); envDuration != "" {
-		if d, err := time.ParseDuration(envDuration); err == nil {
-			waitDuration = d
-		}
-	}
-	time.Sleep(waitDuration)
+	time.Sleep(30 * time.Second) // Consider making duration configurable if needed
 }
 
 // waitForBlockNumber waits until chain reaches target block number

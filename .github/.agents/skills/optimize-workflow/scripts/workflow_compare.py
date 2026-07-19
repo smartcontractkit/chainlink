@@ -135,16 +135,24 @@ def compare_metrics(metric1, metric2):
     return f"avg: {avg1} -> {avg2}"
 
 def normalize_name(name):
+    if not name:
+        return ""
     name = name.lower()
-    name = name.replace('/', '_')
-    name = re.sub(r'\s+', '', name)
-    name = name.replace('...', '')
-    return name.rstrip('.')
+    return re.sub(r'[^a-z0-9]', '', name)
 
 def matches_job_name(name1, name2):
     a = normalize_name(name1)
     b = normalize_name(name2)
-    return a.startswith(b) or b.startswith(a)
+    if not a or not b:
+        return False
+    return (
+        a.startswith(b)
+        or b.startswith(a)
+        or a.endswith(b)
+        or b.endswith(a)
+        or ((len(a) > 10 and len(b) > 10) and (a in b or b in a))
+    )
+
 
 def generate_comparison(data1, data2):
     run1 = data1.get("run", {})
