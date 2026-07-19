@@ -199,7 +199,7 @@ MigrateOnStartup = true
 
 [OCR2]
 Enabled = true
-ContractPollInterval = '5s'
+ContractPollInterval = '1s'
 
 [OCR]
 Enabled = false
@@ -215,7 +215,7 @@ DeltaReconcile = '5s'
 """
 
 CommonChainConfigTOML = """
-LogPollInterval = '500ms'
+LogPollInterval = '200ms'
 [Transactions]
 ForwardersEnabled = false
 [GasEstimator]
