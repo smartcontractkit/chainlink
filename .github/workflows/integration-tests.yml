@@ -255,6 +255,7 @@ jobs:
         enforce-ctf-version,
         run-core-cre-e2e-tests-setup,
         run-ccip-v1-6-e2e-tests-setup,
+        compile-tests,
       ]
     permissions:
       id-token: write
@@ -328,6 +329,21 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ env.CHAINLINK_REF }}
 
+      - name: Download Prebuilt Chainlink Binary
+        if: steps.explain.outputs.build-image == 'true'
+        uses: actions/download-artifact@v7
+        with:
+          name: chainlink-binary
+          path: ./bin/
+        continue-on-error: true
+
+      - name: Make Binary Executable
+        if: steps.explain.outputs.build-image == 'true'
+        run: |
+          if [ -f ./bin/chainlink ]; then
+            chmod +x ./bin/chainlink
+          fi
+
       - name: Build Chainlink Image
         if: steps.explain.outputs.build-image == 'true'
         uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
@@ -341,6 +357,7 @@ jobs:
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           docker-additional-build-args: |
             CL_IS_PROD_BUILD=false
+            USE_PREBUILT=true
           # go-get-overrides is empty when inputs.evm-ref is unset so ctf-build-image skips an unnecessary setup-go / go mod tidy.
           go-get-overrides: >-
             ${{ inputs.evm-ref && format('chainlink-evm={0}', inputs.evm-ref) || '' }}
@@ -514,11 +531,11 @@ jobs:
 
   compile-tests:
     name: Compile Tests
-    continue-on-error: true
     if: >-
       ${{
         github.actor != 'dependabot[bot]' &&
-        needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+        (needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
+         needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true')
       }}
     needs:
       - labels
@@ -553,22 +570,72 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ env.CHAINLINK_REF }}
 
-      - name: Set up Go for integration-tests
-        uses: smartcontractkit/.github/actions/ctf-setup-go@c72002bfd3be05bd5cdf5d4d0019d7d7dd932769 # DEBUG: compileRunFanOut
+      - name: Set up Go for compilation
+        uses: smartcontractkit/.github/actions/ctf-setup-go@c72002bfd3be05bd5cdf5d4d0019d7d7dd932769
         with:
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: e2e-tests
+          go_mod_path: ./go.mod
+          cache_key_id: compile-all
           cache_builds: true
           should_tidy: false
           no_cache: false
-          test_download_vendor_packages_command: cd integration-tests && go mod download
           gati_token: ${{ steps.github-token.outputs.access-token }}
 
-      - name: Compile CCIP smoke tests
+      - name: Download dependencies in parallel
         shell: bash
+        env:
+          SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
+          SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
         run: |
-          cd integration-tests
-          go test -c -tags embed -o /dev/null ./smoke/ccip
+          go mod download &
+          p1=$!
+
+          if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
+            (cd integration-tests && go mod download) &
+            p2=$!
+          fi
+
+          if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
+            (cd system-tests/tests && go mod download) &
+            p3=$!
+          fi
+
+          for p in $p1 $p2 $p3; do
+            [ -n "$p" ] && wait "$p"
+          done
+
+      - name: Build Chainlink binary and compile tests in parallel
+        shell: bash
+        env:
+          SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
+          SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
+        run: |
+          mkdir -p bin
+
+          echo "Starting parallel compilation tasks on 32-core runner..."
+          
+          (GOBIN=$(pwd)/bin make install-chainlink) &
+          p1=$!
+
+          if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
+            (cd integration-tests && go test -c -tags embed -o /dev/null ./smoke/ccip) &
+            p2=$!
+          fi
+
+          if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
+            (cd system-tests/tests && go test -c -o /dev/null ./smoke/cre/... && go test -c -o /dev/null ./regression/cre/...) &
+            p3=$!
+          fi
+
+          for p in $p1 $p2 $p3; do
+            [ -n "$p" ] && wait "$p"
+          done
+
+      - name: Upload Chainlink binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: chainlink-binary
+          path: bin/chainlink
+          retention-days: 1
 
   run-ccip-v1-6-e2e-tests:
     needs:
