@@ -123,6 +123,7 @@ func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
 }
 
 func TestPgDurableEventStore_BatchDelete(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
