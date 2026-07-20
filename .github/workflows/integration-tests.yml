@@ -239,8 +239,8 @@ jobs:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
           # include unique label (core/plugins) to ensure jobs are not competing for the same runner
-          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=16/memory=32/family=c7i+c8i/spot=co/extras=s3-cache+tmpfs
-          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=16/memory=32/family=c7i+c8i/spot=co/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32/memory=64/family=c7i+c8i/spot=co/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32/memory=64/family=c7i+c8i/spot=co/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
@@ -275,24 +275,14 @@ jobs:
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
             cache-scope: core
-            # todo: optimize this conditional
-            any-should-run: >-
-              ${{
-                needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
-                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
-              }}
+            any-should-run: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' }}
 
           - name: (plugins)
             runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-8cores-32GB' }}
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
             cache-scope: plugins
-            # todo: optimize this conditional
-            any-should-run: >-
-              ${{
-                needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
-                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
-              }}
+            any-should-run: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@bdccf4a8c118feaa74578d6fb51012875a860567 # v2.2.0
@@ -485,13 +475,10 @@ jobs:
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # Run CCIP v1.6 E2E Tests on PRs if relevant changes or label "run-e2e-tests" present
+            # CCIP v1.6 E2E Tests run on merge queue (merge_group), not on PRs
             echo "workflow-name=Run CCIP v1.6 E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
             echo "test-trigger=PR E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
-
-            if [[ "${CONTAINS_CHANGES}" == 'true' || "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' ]]; then
-              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-            fi
+            echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
             # Run CCIP v1.6 E2E Tests in the merge queue, if there are relevant changes
@@ -532,7 +519,7 @@ jobs:
       - changes
       - run-core-cre-e2e-tests-setup
       - run-ccip-v1-6-e2e-tests-setup
-    runs-on: runs-on=${{ github.run_id }}-compile/cpu=16/ram=32/family=c7i-flex+c8i-flex/spot=co/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}-compile/cpu=8/ram=16/family=c7i-flex+c8i-flex/spot=co/extras=s3-cache+tmpfs
     environment:
       name: integration
       deployment: false
@@ -596,14 +583,14 @@ jobs:
           SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
           SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
         run: |
-          echo "Starting parallel test compilation tasks on 32-core runner..."
-
           if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
+            echo "Compiling CCIP v1.6 E2E tests..."
             (cd integration-tests && go test -c -tags embed -o /dev/null ./smoke/ccip) &
             p1=$!
           fi
 
           if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
+            echo "Compiling Core CRE E2E tests..."
             (cd system-tests/tests && go test -c -o /dev/null ./smoke/cre/... && go test -c -o /dev/null ./regression/cre/...) &
             p2=$!
           fi
