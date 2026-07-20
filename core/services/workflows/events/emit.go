@@ -218,8 +218,7 @@ func EmitExecutionProfile(
 
 // ErrorClassification attributes a failed workflow execution to its root cause:
 // the user's workflow (code, config, or a returned error) vs the platform
-// (timeouts, unavailable capabilities, internal engine errors). It maps to the
-// v2 ClassifiedExecutionStatus enum on the emitted event.
+// (timeouts, unavailable capabilities, internal engine errors).
 type ErrorClassification int
 
 const (
