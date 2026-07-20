@@ -59,7 +59,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1
-	github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260715114609-2447ff4b0d5a
+	github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260720184056-7032d76f3bb0
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260713221039-69796c8a78ae
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260713221039-69796c8a78ae
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6-0.20260708113039-95f97b2d25e9
@@ -457,7 +457,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260716141634-c0cc05ed05d8 // indirect
-	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260715114609-2447ff4b0d5a // indirect
+	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260720184056-7032d76f3bb0 // indirect
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260714120433-7667cad5ff5c // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5 // indirect
