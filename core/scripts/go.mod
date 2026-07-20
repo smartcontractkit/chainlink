@@ -87,7 +87,7 @@ require (
 	cosmossdk.io/x/tx v0.13.7 // indirect
 	dario.cat/mergo v1.0.2 // indirect
 	filippo.io/bigmod v0.1.0 // indirect
-	filippo.io/edwards25519 v1.1.1 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
 	filippo.io/nistec v0.0.4 // indirect
 	github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4 // indirect
 	github.com/99designs/keyring v1.2.1 // indirect
@@ -444,7 +444,7 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/pressly/goose/v3 v3.26.0 // indirect
+	github.com/pressly/goose/v3 v3.27.1 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
@@ -570,7 +570,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.49.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.68.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.67.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0 // indirect
 	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.19.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.19.0 // indirect

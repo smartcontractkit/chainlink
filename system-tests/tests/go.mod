@@ -137,7 +137,7 @@ require (
 	github.com/moby/moby/api v1.54.2 // indirect
 	github.com/oapi-codegen/runtime v1.1.2 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
-	github.com/pressly/goose/v3 v3.27.0 // indirect
+	github.com/pressly/goose/v3 v3.27.1 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
@@ -590,7 +590,7 @@ require (
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.68.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.67.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0 // indirect
 	go.opentelemetry.io/otel v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.19.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.19.0 // indirect
