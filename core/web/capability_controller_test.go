@@ -29,7 +29,6 @@ func TestCapabilityController_ExecuteCapability_MissingBody(t *testing.T) {
 	controller := web.CapabilityController{App: mockApp}
 
 	var err error
-	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request, err = http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", nil)
@@ -50,7 +49,6 @@ func TestCapabilityController_ExecuteCapability_RegistryNotInitialized(t *testin
 
 	controller := web.CapabilityController{App: mockApp}
 
-	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	reqJSON, err := json.Marshal(requestBody)
@@ -69,7 +67,6 @@ func TestCapabilityController_ExecuteCapability_MissingRequiredFields(t *testing
 
 	controller := web.CapabilityController{App: mockApp}
 
-	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 
@@ -102,7 +99,6 @@ func TestCapabilityController_ExecuteCapability(t *testing.T) {
 
 	controller := web.CapabilityController{App: mockApp}
 
-	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 

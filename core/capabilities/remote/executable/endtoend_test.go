@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
@@ -268,7 +269,7 @@ func setupRemoteExecutableHarness(t *testing.T, underlying commoncap.ExecutableC
 	for i := range numCapabilityPeers {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, lggr)
+		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, limits.NewGateLimiter(false), lggr)
 		cfg := &commoncap.RemoteExecutableConfig{
 			RequestHashExcludedAttributes: []string{},
 			RequestTimeout:                capabilityNodeResponseTimeout,

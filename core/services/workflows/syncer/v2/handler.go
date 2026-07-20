@@ -566,7 +566,9 @@ func (h *eventHandler) workflowRegisteredEvent(
 		}
 
 		spec = newSpec
-	case spec.WorkflowID != payload.WorkflowID.Hex():
+	case spec.WorkflowID != payload.WorkflowID.Hex() ||
+		spec.WorkflowOwner != hex.EncodeToString(payload.WorkflowOwner) ||
+		spec.WorkflowName != payload.WorkflowName:
 		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
 		if innerErr != nil {
 			return innerErr
@@ -1015,8 +1017,12 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		}
 	}
 
-	// Engine is fully initialized, add to registry with source tracking
-	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
+	// Engine is fully initialized, add to registry with source tracking and identity fingerprint
+	reconcileKey, err := ReconcileKey(ownerBytes, spec.WorkflowName)
+	if err != nil {
+		return fmt.Errorf("failed to compute reconcile key: %w", err)
+	}
+	if err := h.engineRegistry.AddWithReconcileKey(wid, source, reconcileKey, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}

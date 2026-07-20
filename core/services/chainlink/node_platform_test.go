@@ -161,7 +161,7 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 					OCR2OracleSpec: &job.OCR2OracleSpec{
 						Relay:         "evm",
 						ChainID:       "2",
-						PluginType:    commontypes.Mercury,
+						PluginType:    commontypes.LLO,
 						TransmitterID: null.StringFrom("0x4444444444444444444444444444444444444444"),
 					},
 				},

@@ -66,12 +66,12 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20260715161014-611d8ac32364"
+      gitRef: "v0.3.4-0.20260716150153-cd1826496e2d"
       installPath: "./pkg/cmd/chainlink-evm"
 
   capability-cron:
     - moduleURI: "github.com/smartcontractkit/capabilities/cron"
-      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
+      gitRef: "97712be3d2280e4f5e146dde9844c5a87e309c5f"
       installPath: "."
       flags: "-tags timetzdata"
 
@@ -82,7 +82,7 @@ plugins:
 
   capability-consensus:
     - moduleURI: "github.com/smartcontractkit/capabilities/consensus"
-      gitRef: "792fd475a9c294b61fa90b9dd23388da2827f093"
+      gitRef: "97712be3d2280e4f5e146dde9844c5a87e309c5f"
       installPath: "."
 
   capability-workflowevent:
@@ -93,12 +93,12 @@ plugins:
 
   capability-httpaction:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_action"
-      gitRef: "2cf965790a71171e1336f6d1d4f5162f2bd39bd1"
+      gitRef: "97712be3d2280e4f5e146dde9844c5a87e309c5f"
       installPath: "."
 
   capability-httptrigger:
     - moduleURI: "github.com/smartcontractkit/capabilities/http_trigger"
-      gitRef: "2cf965790a71171e1336f6d1d4f5162f2bd39bd1"
+      gitRef: "97712be3d2280e4f5e146dde9844c5a87e309c5f"
       installPath: "."
 
   capability-evm:
