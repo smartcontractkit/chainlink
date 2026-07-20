@@ -226,9 +226,9 @@ func doRequest[I, O proto.Message](
 		return fmt.Errorf("failed to read RemoteExecutableWorkflowDONBindingEnabled setting: %w", err)
 	}
 	if bindingEnabled {
-		localNode, err := m.capRegistry.LocalNode(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to get local node for confidential-workflows request metadata: %w", err)
+		localNode, lnErr := m.capRegistry.LocalNode(ctx)
+		if lnErr != nil {
+			return fmt.Errorf("failed to get local node for confidential-workflows request metadata: %w", lnErr)
 		}
 		metadata.WorkflowDonID = localNode.WorkflowDON.ID
 	}

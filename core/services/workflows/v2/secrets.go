@@ -136,9 +136,9 @@ func (s *secretsFetcher) vaultGetSecretsMetadata(ctx context.Context, callbackID
 		return capabilities.RequestMetadata{}, fmt.Errorf("failed to read RemoteExecutableWorkflowDONBindingEnabled setting: %w", err)
 	}
 	if bindingEnabled {
-		localNode, err := s.capRegistry.LocalNode(ctx)
-		if err != nil {
-			return capabilities.RequestMetadata{}, fmt.Errorf("failed to get local node for vault request metadata: %w", err)
+		localNode, lnErr := s.capRegistry.LocalNode(ctx)
+		if lnErr != nil {
+			return capabilities.RequestMetadata{}, fmt.Errorf("failed to get local node for vault request metadata: %w", lnErr)
 		}
 		metadata.WorkflowDonID = localNode.WorkflowDON.ID
 	}
