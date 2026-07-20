@@ -44,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
-	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -582,7 +581,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	var (
 		pipelineORM    = pipeline.NewORM(opts.DS, globalLogger, cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(opts.DS)
-		mercuryORM     = mercury.NewORM(opts.DS)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(opts.DS, globalLogger)
@@ -749,7 +747,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				Ds:                             opts.DS,
 				JobORM:                         jobORM,
 				BridgeORM:                      bridgeORM,
-				MercuryORM:                     mercuryORM,
 				PipelineRunner:                 pipelineRunner,
 				StreamRegistry:                 streamRegistry,
 				PeerWrapper:                    peerWrapper,

@@ -118,10 +118,10 @@ func deleteKeyExportFile(t *testing.T) {
 func TestShell_ReplayBlocks(t *testing.T) {
 	t.Parallel()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 	})
 	client, _ := app.NewShellAndRenderer()
 
@@ -156,7 +156,7 @@ func TestShell_CreateExternalInitiator(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := testutils.Context(t)
 			app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+				c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 			})
 			client, _ := app.NewShellAndRenderer()
 
@@ -195,7 +195,7 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+				c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 			})
 			client, _ := app.NewShellAndRenderer()
 
@@ -220,7 +220,7 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 	})
 	client, r := app.NewShellAndRenderer()
 
@@ -246,7 +246,7 @@ func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 	})
 	client, r := app.NewShellAndRenderer()
 
@@ -541,12 +541,12 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	ctx := testutils.Context(t)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
-		c.EVM[0].Enabled = ptr(true)
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V2.Enabled = ptr(true)
+		c.EVM[0].Enabled = new(true)
+		c.OCR.Enabled = new(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 	}, func(opts *startOptions) {
 		opts.FlagsAndDeps = append(opts.FlagsAndDeps, cltest.DefaultP2PKey)
 	})

@@ -39,7 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury"
@@ -228,7 +228,7 @@ type OCRConfig struct {
 }
 
 func makeDefaultOCRConfig() *OCRConfig {
-	defaultOnchainConfig, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Encode(datastreamsllo.OnchainConfig{
+	defaultOnchainConfig, err := (&llocommon.EVMOnchainConfigCodec{}).Encode(llocommon.OnchainConfig{
 		Version:                 1,
 		PredecessorConfigDigest: nil,
 	})
@@ -257,7 +257,7 @@ func makeDefaultOCRConfig() *OCRConfig {
 
 func WithPredecessorConfigDigest(predecessorConfigDigest ocr2types.ConfigDigest) OCRConfigOption {
 	return func(cfg *OCRConfig) {
-		onchainConfig, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Encode(datastreamsllo.OnchainConfig{
+		onchainConfig, err := (&llocommon.EVMOnchainConfigCodec{}).Encode(llocommon.OnchainConfig{
 			Version:                 1,
 			PredecessorConfigDigest: &predecessorConfigDigest,
 		})
@@ -268,7 +268,7 @@ func WithPredecessorConfigDigest(predecessorConfigDigest ocr2types.ConfigDigest)
 	}
 }
 
-func WithOffchainConfig(offchainConfig datastreamsllo.OffchainConfig) OCRConfigOption {
+func WithOffchainConfig(offchainConfig llocommon.OffchainConfig) OCRConfigOption {
 	return func(cfg *OCRConfig) {
 		offchainConfigEncoded, err := offchainConfig.Encode()
 		if err != nil {
@@ -321,7 +321,7 @@ func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.Onch
 	return
 }
 
-func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, inOffchainConfig datastreamsllo.OffchainConfig) ocr2types.ConfigDigest {
+func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, inOffchainConfig llocommon.OffchainConfig) ocr2types.ConfigDigest {
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateConfig(t, WithOracles(oracles), WithOffchainConfig(inOffchainConfig))
 
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
@@ -368,7 +368,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	donIDPadded := llo.DonIDToBytes32(donID)
 	var isProduction bool
 	{
-		cfg, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Decode(onchainConfig)
+		cfg, err := (&llocommon.EVMOnchainConfigCodec{}).Decode(onchainConfig)
 		require.NoError(t, err)
 		isProduction = cfg.PredecessorConfigDigest == nil
 	}
@@ -416,7 +416,7 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	t.Parallel()
-	offchainConfigs := []datastreamsllo.OffchainConfig{
+	offchainConfigs := []llocommon.OffchainConfig{
 		{
 			ProtocolVersion:                     0,
 			DefaultMinReportIntervalNanoseconds: 0,
@@ -434,7 +434,7 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	}
 }
 
-func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreamsllo.OffchainConfig) {
+func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig llocommon.OffchainConfig) {
 	testStartTimeStamp := time.Now()
 	multiplier := decimal.New(1, 18)
 	expirationWindow := time.Hour / time.Second
@@ -656,7 +656,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_multi_formats(t *testing.T) {
 	t.Parallel()
-	offchainConfigs := []datastreamsllo.OffchainConfig{
+	offchainConfigs := []llocommon.OffchainConfig{
 		{
 			ProtocolVersion:                     0,
 			DefaultMinReportIntervalNanoseconds: 0,
@@ -674,7 +674,7 @@ func TestIntegration_LLO_multi_formats(t *testing.T) {
 	}
 }
 
-func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig datastreamsllo.OffchainConfig) {
+func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig llocommon.OffchainConfig) {
 	testStartTimeStamp := time.Now()
 	expirationWindow := uint32(3600)
 
@@ -1101,9 +1101,9 @@ stonk_price_timestamped_missing_indicated_time [type=merge left="{}" right="{\\"
 dp -> missing_provider_indicated_time_parse -> missing_provider_indicated_time;
 dp -> stonk_price_parse -> stonk_price_timestamped_missing_indicated_time;
 `, bridgeName, marketStatusStreamID,
-			datastreamsllo.LLOStreamValue_TimestampedStreamValue, timestampedStonkPriceStreamID,
-			datastreamsllo.LLOStreamValue_TimestampedStreamValue, nullTimestampPriceStreamID,
-			datastreamsllo.LLOStreamValue_TimestampedStreamValue, missingTimestampPriceStreamID,
+			llocommon.LLOStreamValue_TimestampedStreamValue, timestampedStonkPriceStreamID,
+			llocommon.LLOStreamValue_TimestampedStreamValue, nullTimestampPriceStreamID,
+			llocommon.LLOStreamValue_TimestampedStreamValue, missingTimestampPriceStreamID,
 		)
 
 		benchmarkPricePipeline := fmt.Sprintf(`
@@ -1435,7 +1435,7 @@ func TestIntegration_LLO_stress_test_V1(t *testing.T) {
 
 	// PROTOCOL CONFIGURATION
 	ocrConfigOpts := []OCRConfigOption{
-		WithOffchainConfig(datastreamsllo.OffchainConfig{
+		WithOffchainConfig(llocommon.OffchainConfig{
 			ProtocolVersion:                     1,
 			DefaultMinReportIntervalNanoseconds: uint64(defaultMinReportInterval),
 			EnableObservationCompression:        true,
@@ -1557,7 +1557,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		// mercurytransmitter addr => count of reports
 		cnts := map[string]int{}
 		// mercurytransmitter addr => channel ID => reports
-		m := map[string]map[uint32][]datastreamsllo.Report{}
+		m := map[string]map[uint32][]llocommon.Report{}
 
 		for {
 			pckt, err := receiveWithTimeout(t, packets, reportTimeout)
@@ -1568,12 +1568,12 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			req := pckt.req
 
 			assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-			_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+			_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 			require.NoError(t, err)
 
 			cm, exists := m[addr.String()]
 			if !exists {
-				cm = make(map[uint32][]datastreamsllo.Report)
+				cm = make(map[uint32][]llocommon.Report)
 				m[addr.String()] = cm
 			}
 			cm[r.ChannelID] = append(cm[r.ChannelID], r)
@@ -1613,7 +1613,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					assert.Equal(t, blueDigest, r.ConfigDigest)
 					assert.False(t, r.Specimen)
 					assert.Len(t, r.Values, 1)
-					assert.Equal(t, "2976.39", r.Values[0].(*datastreamsllo.Decimal).String())
+					assert.Equal(t, "2976.39", r.Values[0].(*llocommon.Decimal).String())
 
 					if i > 0 {
 						if rs[i-1].SeqNr+1 != r.SeqNr {
@@ -1671,7 +1671,7 @@ func TestIntegration_LLO_transmit_errors(t *testing.T) {
 
 	// PROTOCOL CONFIGURATION
 	// TODO: test both
-	offchainConfig := datastreamsllo.OffchainConfig{
+	offchainConfig := llocommon.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(50 * time.Millisecond),
 	}
@@ -1778,13 +1778,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 				req := pckt.req
 
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				assert.Equal(t, blueDigest, r.ConfigDigest)
 				assert.False(t, r.Specimen)
 				assert.Len(t, r.Values, 1)
-				assert.Equal(t, "2976.39", r.Values[0].(*datastreamsllo.Decimal).String())
+				assert.Equal(t, "2976.39", r.Values[0].(*llocommon.Decimal).String())
 
 				m[addr.String()]++
 				finished := 0
@@ -1827,14 +1827,14 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 
 	// starting offchainConfig, the test will handle
 	// blue green for ProtocolVersion and EnableObservationCompression changes
-	offchainConfig := datastreamsllo.OffchainConfig{
+	offchainConfig := llocommon.OffchainConfig{
 		ProtocolVersion:                     0,
 		DefaultMinReportIntervalNanoseconds: 0,
 		EnableObservationCompression:        false}
 	testIntegrationLLOBlueGreenLifecycle(t, offchainConfig)
 }
 
-func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastreamsllo.OffchainConfig) {
+func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig llocommon.OffchainConfig) {
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)
 
@@ -1914,7 +1914,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		var blueDigest ocr2types.ConfigDigest
 		var greenDigest ocr2types.ConfigDigest
 
-		allReports := make(map[types.ConfigDigest][]datastreamsllo.Report)
+		allReports := make(map[types.ConfigDigest][]llocommon.Report)
 		// start off with blue=production, green=staging (specimen reports)
 		{
 			// Set config on configurator
@@ -1929,7 +1929,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -1937,7 +1937,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				assert.Equal(t, blueDigest, r.ConfigDigest)
 				assert.False(t, r.Specimen)
 				assert.Len(t, r.Values, 1)
-				assert.Equal(t, "2976.39", r.Values[0].(*datastreamsllo.Decimal).String())
+				assert.Equal(t, "2976.39", r.Values[0].(*llocommon.Decimal).String())
 				break
 			}
 		}
@@ -1955,13 +1955,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
 				if r.Specimen {
 					assert.Len(t, r.Values, 1)
-					assert.Equal(t, "2976.39", r.Values[0].(*datastreamsllo.Decimal).String())
+					assert.Equal(t, "2976.39", r.Values[0].(*llocommon.Decimal).String())
 
 					assert.Equal(t, greenDigest, r.ConfigDigest)
 					break
@@ -1980,7 +1980,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -2071,7 +2071,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					break
 				}
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -2094,7 +2094,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -2118,7 +2118,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -2159,7 +2159,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				require.NoError(t, err)
 				req := pckt.req
 				assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 				require.NoError(t, err)
 
 				allReports[r.ConfigDigest] = append(allReports[r.ConfigDigest], r)
@@ -2170,11 +2170,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 				if r.ChannelID == 2 {
 					assert.Len(t, r.Values, 1)
-					assert.Equal(t, "13.25", r.Values[0].(*datastreamsllo.Decimal).String())
+					assert.Equal(t, "13.25", r.Values[0].(*llocommon.Decimal).String())
 					break
 				}
 				assert.Len(t, r.Values, 1)
-				assert.Equal(t, "2976.39", r.Values[0].(*datastreamsllo.Decimal).String())
+				assert.Equal(t, "2976.39", r.Values[0].(*llocommon.Decimal).String())
 			}
 		}
 		t.Run("deleting the jobs turns off oracles and cleans up resources", func(t *testing.T) {
@@ -2189,7 +2189,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 	t.Parallel()
 
-	offchainConfig := datastreamsllo.OffchainConfig{
+	offchainConfig := llocommon.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
 		EnableObservationCompression:        true,
@@ -2294,7 +2294,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		)
 
 		// Track reports by channel ID
-		reportsByChannel := make(map[uint32][]datastreamsllo.Report)
+		reportsByChannel := make(map[uint32][]llocommon.Report)
 		lastReportTimeByChannel := make(map[uint32]time.Time)
 
 		// Helper function to wait for reports from specific channels
@@ -2315,7 +2315,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
 					continue
 				}
-				_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+				_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 				if err != nil {
 					continue
 				}
@@ -2382,9 +2382,9 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				assert.Equal(t, digest, report.ConfigDigest)
 				assert.False(t, report.Specimen)
 				if channelID == 3 {
-					assert.Equal(t, "13.25", report.Values[0].(*datastreamsllo.Decimal).String())
+					assert.Equal(t, "13.25", report.Values[0].(*llocommon.Decimal).String())
 				} else {
-					assert.Equal(t, "2976.39", report.Values[0].(*datastreamsllo.Decimal).String())
+					assert.Equal(t, "2976.39", report.Values[0].(*llocommon.Decimal).String())
 				}
 			}
 		})
@@ -2555,7 +2555,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					}
 					req := pckt.req
 					if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
-						_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+						_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 						if err == nil && tombstonedChannels[r.ChannelID] {
 							seenTombstonedChannels[r.ChannelID] = true
 						}
@@ -2617,11 +2617,11 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 				req := pckt.req
 				if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
-					_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+					_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 					if err == nil && r.ChannelID == 10 {
 						// Check if it has linkStream value (13.25) - owner's configuration
 						// It might still have ethStream value (2976.39) initially, but should eventually switch
-						value := r.Values[0].(*datastreamsllo.Decimal).String()
+						value := r.Values[0].(*llocommon.Decimal).String()
 						if value == "13.25" {
 							foundOwnerReport = true
 						}
@@ -2678,7 +2678,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				}
 				req := pckt.req
 				if req.ReportFormat == uint32(llotypes.ReportFormatJSON) {
-					_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+					_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 					if err == nil && r.ChannelID == 11 {
 						foundChannel11Report = true
 					}
@@ -2702,7 +2702,7 @@ func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) 
 		streamIDTombstone = uint32(191)
 	)
 
-	offchainConfig := datastreamsllo.OffchainConfig{
+	offchainConfig := llocommon.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
 		EnableObservationCompression:        true,
@@ -2806,7 +2806,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
 			return len(seenChannels) == 2
 		}
-		_, _, r, _, errDecode := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+		_, _, r, _, errDecode := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 		if errDecode != nil {
 			return len(seenChannels) == 2
 		}
@@ -2852,7 +2852,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
 				continue
 			}
-			_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+			_, _, r, _, err := (llocommon.JSONReportCodec{}).UnpackDecode(req.Payload)
 			if err == nil && tombstonedChannel[r.ChannelID] {
 				sawTombstoned = true
 				break

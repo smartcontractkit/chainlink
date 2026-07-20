@@ -60,7 +60,7 @@ func TestTelemetryConfig_CACertFile(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  string
 	}{
-		{"CACertFileSet", toml.Telemetry{CACertFile: ptr("test.pem")}, "test.pem"},
+		{"CACertFileSet", toml.Telemetry{CACertFile: new("test.pem")}, "test.pem"},
 		{"CACertFileNil", toml.Telemetry{CACertFile: nil}, ""},
 	}
 
@@ -78,7 +78,7 @@ func TestTelemetryConfig_OtelExporterGRPCEndpoint(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  string
 	}{
-		{"EndpointSet", toml.Telemetry{Endpoint: ptr("localhost:4317")}, "localhost:4317"},
+		{"EndpointSet", toml.Telemetry{Endpoint: new("localhost:4317")}, "localhost:4317"},
 		{"EndpointNil", toml.Telemetry{Endpoint: nil}, ""},
 	}
 
@@ -133,7 +133,7 @@ func TestTelemetryConfig_TraceSampleRatio(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  float64
 	}{
-		{"TraceSampleRatioSet", toml.Telemetry{TraceSampleRatio: ptrFloat(0.5)}, 0.5},
+		{"TraceSampleRatioSet", toml.Telemetry{TraceSampleRatio: new(0.5)}, 0.5},
 	}
 
 	for _, tt := range tests {
@@ -150,8 +150,8 @@ func TestTelemetryConfig_EmitterBatchProcessor(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  bool
 	}{
-		{"EmitterBatchProcessorTrue", toml.Telemetry{EmitterBatchProcessor: ptr(true)}, true},
-		{"EmitterBatchProcessorFalse", toml.Telemetry{EmitterBatchProcessor: ptr(false)}, false},
+		{"EmitterBatchProcessorTrue", toml.Telemetry{EmitterBatchProcessor: new(true)}, true},
+		{"EmitterBatchProcessorFalse", toml.Telemetry{EmitterBatchProcessor: new(false)}, false},
 	}
 
 	for _, tt := range tests {
@@ -187,9 +187,9 @@ func TestTelemetryConfig_ChipIngressEndpoint(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  string
 	}{
-		{"ChipIngressEndpointSet", toml.Telemetry{ChipIngressEndpoint: ptr("localhost:8080")}, "localhost:8080"},
+		{"ChipIngressEndpointSet", toml.Telemetry{ChipIngressEndpoint: new("localhost:8080")}, "localhost:8080"},
 		{"ChipIngressEndpointNil", toml.Telemetry{ChipIngressEndpoint: nil}, ""},
-		{"ChipIngressEndpointEmpty", toml.Telemetry{ChipIngressEndpoint: ptr("")}, ""},
+		{"ChipIngressEndpointEmpty", toml.Telemetry{ChipIngressEndpoint: new("")}, ""},
 	}
 
 	for _, tt := range tests {
@@ -206,8 +206,8 @@ func TestTelemetryConfig_ChipIngressInsecureConnection(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  bool
 	}{
-		{"ChipIngressInsecureConnectionTrue", toml.Telemetry{ChipIngressInsecureConnection: ptr(true)}, true},
-		{"ChipIngressInsecureConnectionFalse", toml.Telemetry{ChipIngressInsecureConnection: ptr(false)}, false},
+		{"ChipIngressInsecureConnectionTrue", toml.Telemetry{ChipIngressInsecureConnection: new(true)}, true},
+		{"ChipIngressInsecureConnectionFalse", toml.Telemetry{ChipIngressInsecureConnection: new(false)}, false},
 	}
 
 	for _, tt := range tests {
@@ -225,8 +225,8 @@ func TestTelemetryConfig_ChipIngressBatchEmitterEnabled(t *testing.T) {
 		expected  bool
 	}{
 		{"DefaultNil", toml.Telemetry{ChipIngressBatchEmitterEnabled: nil}, true},
-		{"ExplicitTrue", toml.Telemetry{ChipIngressBatchEmitterEnabled: ptr(true)}, true},
-		{"ExplicitFalse", toml.Telemetry{ChipIngressBatchEmitterEnabled: ptr(false)}, false},
+		{"ExplicitTrue", toml.Telemetry{ChipIngressBatchEmitterEnabled: new(true)}, true},
+		{"ExplicitFalse", toml.Telemetry{ChipIngressBatchEmitterEnabled: new(false)}, false},
 	}
 
 	for _, tt := range tests {
@@ -245,7 +245,7 @@ func TestTelemetryConfig_DurableEmitterMaxQueuePayloadBytes(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  int64
 	}{
-		{"Set", toml.Telemetry{DurableEmitterMaxQueuePayloadBytes: ptr[int64](2048)}, 2048},
+		{"Set", toml.Telemetry{DurableEmitterMaxQueuePayloadBytes: new(int64(2048))}, 2048},
 		{"Nil", toml.Telemetry{DurableEmitterMaxQueuePayloadBytes: nil}, 1 << 30}, // Default 1 GiB
 	}
 
@@ -261,10 +261,6 @@ func TestTelemetryConfig_DurableEmitterMaxQueuePayloadBytes(t *testing.T) {
 
 func ptrDuration(d time.Duration) *config.Duration {
 	return config.MustNewDuration(d)
-}
-
-func ptrFloat(f float64) *float64 {
-	return &f
 }
 
 func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
@@ -292,8 +288,8 @@ func TestTelemetryConfig_LogStreamingEnabled(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  bool
 	}{
-		{"LogStreamingEnabledTrue", toml.Telemetry{LogStreamingEnabled: ptr(true)}, true},
-		{"LogStreamingEnabledFalse", toml.Telemetry{LogStreamingEnabled: ptr(false)}, false},
+		{"LogStreamingEnabledTrue", toml.Telemetry{LogStreamingEnabled: new(true)}, true},
+		{"LogStreamingEnabledFalse", toml.Telemetry{LogStreamingEnabled: new(false)}, false},
 	}
 
 	for _, tt := range tests {
@@ -310,12 +306,12 @@ func TestTelemetryConfig_LogLevel(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  zapcore.Level
 	}{
-		{"LogLevelSet", toml.Telemetry{LogLevel: ptr("debug")}, zapcore.DebugLevel},
-		{"LogLevelInfo", toml.Telemetry{LogLevel: ptr("info")}, zapcore.InfoLevel},
-		{"LogLevelWarn", toml.Telemetry{LogLevel: ptr("warn")}, zapcore.WarnLevel},
-		{"LogLevelError", toml.Telemetry{LogLevel: ptr("error")}, zapcore.ErrorLevel},
+		{"LogLevelSet", toml.Telemetry{LogLevel: new("debug")}, zapcore.DebugLevel},
+		{"LogLevelInfo", toml.Telemetry{LogLevel: new("info")}, zapcore.InfoLevel},
+		{"LogLevelWarn", toml.Telemetry{LogLevel: new("warn")}, zapcore.WarnLevel},
+		{"LogLevelError", toml.Telemetry{LogLevel: new("error")}, zapcore.ErrorLevel},
 		{"LogLevelNil", toml.Telemetry{LogLevel: nil}, zapcore.InfoLevel},
-		{"LogLevelInvalid", toml.Telemetry{LogLevel: ptr("invalid")}, zapcore.InfoLevel},
+		{"LogLevelInvalid", toml.Telemetry{LogLevel: new("invalid")}, zapcore.InfoLevel},
 	}
 
 	for _, tt := range tests {
@@ -332,8 +328,8 @@ func TestTelemetryConfig_LogBatchProcessor(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  bool
 	}{
-		{"LogBatchProcessorTrue", toml.Telemetry{LogBatchProcessor: ptr(true)}, true},
-		{"LogBatchProcessorFalse", toml.Telemetry{LogBatchProcessor: ptr(false)}, false},
+		{"LogBatchProcessorTrue", toml.Telemetry{LogBatchProcessor: new(true)}, true},
+		{"LogBatchProcessorFalse", toml.Telemetry{LogBatchProcessor: new(false)}, false},
 		{"LogBatchProcessorNil", toml.Telemetry{LogBatchProcessor: nil}, true}, // Default value
 	}
 
@@ -368,7 +364,7 @@ func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  int
 	}{
-		{"LogExportMaxBatchSizeSet", toml.Telemetry{LogExportMaxBatchSize: ptrInt(512)}, 512},
+		{"LogExportMaxBatchSizeSet", toml.Telemetry{LogExportMaxBatchSize: new(512)}, 512},
 		{"LogExportMaxBatchSizeNil", toml.Telemetry{LogExportMaxBatchSize: nil}, 512}, // Default value
 	}
 
@@ -378,10 +374,6 @@ func TestTelemetryConfig_LogExportMaxBatchSize(t *testing.T) {
 			assert.Equal(t, tt.expected, tc.LogExportMaxBatchSize())
 		})
 	}
-}
-
-func ptrInt(i int) *int {
-	return &i
 }
 
 func TestTelemetryConfig_LogExportInterval(t *testing.T) {
@@ -408,7 +400,7 @@ func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
 		telemetry toml.Telemetry
 		expected  int
 	}{
-		{"LogMaxQueueSizeSet", toml.Telemetry{LogMaxQueueSize: ptrInt(2048)}, 2048},
+		{"LogMaxQueueSizeSet", toml.Telemetry{LogMaxQueueSize: new(2048)}, 2048},
 		{"LogMaxQueueSizeNil", toml.Telemetry{LogMaxQueueSize: nil}, 2048}, // Default value
 	}
 

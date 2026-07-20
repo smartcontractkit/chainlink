@@ -92,7 +92,7 @@ func makeNonMedianOCR2Job() job.Job {
 		ContractID:             "0xabcdef1234567890",
 		Relay:                  "evm",
 		ChainID:                "1",
-		PluginType:             commontypes.Mercury,
+		PluginType:             commontypes.LLO,
 		TransmitterID:          null.StringFrom("0x2222222222222222222222222222222222222222"),
 		RelayConfig:            job.JSONConfig{"chainID": "1"},
 		PluginConfig:           job.JSONConfig{},
@@ -304,7 +304,7 @@ func TestBuildEvent_NonMedianOCR2Job(t *testing.T) {
 
 	ev := requireSingleJobSpecEvent(t, observer)
 	require.NotNil(t, ev.Ocr2OracleSpec)
-	assert.Equal(t, "mercury", ev.Ocr2OracleSpec.PluginType)
+	assert.Equal(t, "llo", ev.Ocr2OracleSpec.PluginType)
 	assert.Nil(t, ev.Ocr2OracleSpec.MedianPluginConfig)
 	assert.NotEmpty(t, ev.Ocr2OracleSpec.RelayConfigJson)
 }

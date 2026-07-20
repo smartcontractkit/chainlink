@@ -105,11 +105,9 @@ func (a *arbiter) Start(ctx context.Context) error {
 		}
 
 		// Start gRPC server in a goroutine
-		a.wg.Add(1)
-		go func() {
-			defer a.wg.Done()
+		a.wg.Go(func() {
 			a.runGRPCServer(ctx)
-		}()
+		})
 
 		a.lggr.Infow("Arbiter service started",
 			"grpcAddr", a.grpcAddr,

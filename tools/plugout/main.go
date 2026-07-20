@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -234,12 +235,7 @@ func discoverPluginVersions(path string) (map[string]string, error) {
 }
 
 func contains(slice []string, item string) bool {
-	for _, v := range slice {
-		if v == item {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(slice, item)
 }
 
 // moduleSubdir returns the path within the repo after the "host/org/repo" prefix.

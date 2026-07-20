@@ -402,9 +402,7 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	sendResponseTimeout := time.Duration(defaultSendResponseTimeoutMs) * time.Millisecond
 
 	// send response to node async
-	h.wg.Add(1)
-	go func() {
-		defer h.wg.Done()
+	h.wg.Go(func() {
 		// not cancelled when parent is cancelled to ensure the goroutine can finish
 		baseCtx := context.WithoutCancel(ctx)
 		httpCtx, httpCancel := context.WithTimeout(baseCtx, timeout)
@@ -431,7 +429,7 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 			l.Errorw("error sending response to node", "err", err, "nodeAddr", nodeAddr, "requestID", requestID)
 			h.metrics.IncrementActionCapabilityFailures(ctx, nodeAddr, h.lggr)
 		}
-	}()
+	})
 	return nil
 }
 
@@ -454,9 +452,7 @@ func (h *gatewayHandler) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to start HTTP auth handler: %w", err)
 		}
-		h.wg.Add(1)
-		go func() {
-			defer h.wg.Done()
+		h.wg.Go(func() {
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
 			for {
@@ -467,7 +463,7 @@ func (h *gatewayHandler) Start(ctx context.Context) error {
 					return
 				}
 			}
-		}()
+		})
 		return nil
 	})
 }

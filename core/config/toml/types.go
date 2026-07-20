@@ -2826,9 +2826,7 @@ func (c *CapabilityNodeConfig) setFrom(f *CapabilityNodeConfig) {
 		if c.Config == nil {
 			c.Config = make(map[string]string)
 		}
-		for k, v := range f.Config {
-			c.Config[k] = v
-		}
+		maps.Copy(c.Config, f.Config)
 	}
 }
 

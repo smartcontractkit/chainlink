@@ -70,6 +70,15 @@ func (c *MessageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, 
 	return false, nil
 }
 
+// WasReady reports whether Ready has already returned true for eventID (once=true path).
+func (c *MessageCache[EventID, PeerID]) WasReady(eventID EventID) bool {
+	ev, ok := c.events[eventID]
+	if !ok {
+		return false
+	}
+	return ev.wasReady
+}
+
 func (c *MessageCache[EventID, PeerID]) Delete(eventID EventID) {
 	delete(c.events, eventID)
 }
