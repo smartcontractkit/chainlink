@@ -122,7 +122,8 @@ jobs:
             "Test_CRE_V2_Solana_Read_Accounts": "cpu=16/ram=64",
             "Test_CRE_V2_Beholder_Suite": "cpu=16/ram=64",
             "Test_CRE_V2_Solana_LogTrigger": "cpu=16/ram=64",
-            "Test_CRE_V2_EVM_Write_LogTrigger": "cpu=16/ram=64"
+            "Test_CRE_V2_EVM_Write_LogTrigger": "cpu=16/ram=64",
+            "Test_CRE_V2_Solana_Write": "cpu=16/ram=64"
           }'
 
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade)

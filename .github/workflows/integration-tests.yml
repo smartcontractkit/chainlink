@@ -341,6 +341,7 @@ jobs:
           aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          free-disk-space: "false"
           docker-additional-build-args: |
             CL_IS_PROD_BUILD=false
           # go-get-overrides is empty when inputs.evm-ref is unset so ctf-build-image skips an unnecessary setup-go / go mod tidy.
