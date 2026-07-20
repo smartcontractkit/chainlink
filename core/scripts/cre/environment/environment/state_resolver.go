@@ -2,6 +2,7 @@ package environment
 
 import (
 	"fmt"
+	"maps"
 	"os"
 
 	"github.com/pelletier/go-toml/v2"
@@ -58,9 +59,7 @@ func NewLocalCREStateResolver(configPath string) (*LocalCREStateResolver, error)
 
 func toCapabilityConfigMap(in map[string]cre.CapabilityConfig) map[cre.CapabilityFlag]cre.CapabilityConfig {
 	out := make(map[cre.CapabilityFlag]cre.CapabilityConfig, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
+	maps.Copy(out, in)
 
 	return out
 }

@@ -48,10 +48,10 @@ func TestGenerateNopsView(t *testing.T) {
 			Labels: []*ptypes.Label{
 				{
 					Key:   "role",
-					Value: ptr("tester")},
+					Value: new("tester")},
 				{
 					Key:   "p2p",
-					Value: ptr(p2pIDs[i])},
+					Value: new(p2pIDs[i])},
 			},
 		}
 		deploymentNodes = append(deploymentNodes, node)
@@ -145,8 +145,4 @@ func (s *customJDService) ListNodes(ctx context.Context, req *nodev1.ListNodesRe
 		return nil, s.listNodesError
 	}
 	return s.NodeServiceClient.ListNodes(ctx, req, opts...)
-}
-
-func ptr[T any](t T) *T {
-	return &t
 }

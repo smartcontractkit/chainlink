@@ -1931,10 +1931,7 @@ func waitForSuiRPCSyncWithOptions(t *testing.T, suiChain sui.Chain, timeout time
 	if err != nil {
 		t.Logf("waitForSuiRPCSync: failed to read initial checkpoint seq (%v); falling back to fixed sleep", err)
 		// Use context-aware sleep instead of fixed sleep
-		fallbackSleep := 5 * time.Second
-		if timeout/2 < fallbackSleep {
-			fallbackSleep = timeout / 2
-		}
+		fallbackSleep := min(timeout/2, 5*time.Second)
 		select {
 		case <-time.After(fallbackSleep):
 			return

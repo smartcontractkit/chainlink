@@ -29,36 +29,36 @@ import (
 func NewBaseConfig() *chainlink.Config {
 	return &chainlink.Config{
 		Core: toml.Core{
-			RootDir: ptr.Ptr("/home/chainlink"),
+			RootDir: new("/home/chainlink"),
 			Database: toml.Database{
-				MaxIdleConns:     ptr.Ptr(int64(20)),
-				MaxOpenConns:     ptr.Ptr(int64(40)),
-				MigrateOnStartup: ptr.Ptr(true),
+				MaxIdleConns:     new(int64(20)),
+				MaxOpenConns:     new(int64(40)),
+				MigrateOnStartup: new(true),
 			},
 			Log: toml.Log{
 				Level:       ptr.Ptr(toml.LogLevel(zapcore.DebugLevel)),
-				JSONConsole: ptr.Ptr(true),
+				JSONConsole: new(true),
 				File: toml.LogFile{
 					MaxSize: ptr.Ptr(utils.FileSize(0)),
 				},
 			},
 			WebServer: toml.WebServer{
-				AllowOrigins:   ptr.Ptr("*"),
+				AllowOrigins:   new("*"),
 				HTTPPort:       ptr.Ptr[uint16](6688),
-				SecureCookies:  ptr.Ptr(false),
+				SecureCookies:  new(false),
 				SessionTimeout: commonconfig.MustNewDuration(time.Hour * 999),
 				TLS: toml.WebServerTLS{
 					HTTPSPort: ptr.Ptr[uint16](0),
 				},
 				RateLimit: toml.WebServerRateLimit{
-					Authenticated:   ptr.Ptr(int64(2000)),
-					Unauthenticated: ptr.Ptr(int64(100)),
+					Authenticated:   new(int64(2000)),
+					Unauthenticated: new(int64(100)),
 				},
 			},
 			Feature: toml.Feature{
-				LogPoller:    ptr.Ptr(true),
-				FeedsManager: ptr.Ptr(true),
-				UICSAKeys:    ptr.Ptr(true),
+				LogPoller:    new(true),
+				FeedsManager: new(true),
+				UICSAKeys:    new(true),
 			},
 			P2P: toml.P2P{},
 		},
@@ -97,7 +97,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork, commonChainConfig *evmcfg
 
 		for i := range urlCount {
 			node := &evmcfg.Node{
-				Name: ptr.Ptr(fmt.Sprintf("%s-%d", network.Name, i)),
+				Name: new(fmt.Sprintf("%s-%d", network.Name, i)),
 			}
 			// Assign HTTP URL if available
 			if i < len(network.HTTPURLs) {
@@ -135,7 +135,7 @@ func WithKeySpecificMaxGasPrice(addresses []string, maxGasPriceGWei int64) NodeC
 	var keySpecicifArr []evmcfg.KeySpecific
 	for _, addr := range addresses {
 		keySpecicifArr = append(keySpecicifArr, evmcfg.KeySpecific{
-			Key: ptr.Ptr(types.EIP55Address(addr)),
+			Key: new(types.EIP55Address(addr)),
 			GasEstimator: evmcfg.KeySpecificGasEstimator{
 				PriceMax: est,
 			},
@@ -182,7 +182,7 @@ func BuildChainlinkNodeConfig(nets []blockchain.EVMNetwork, nodeConfig, commonCh
 
 	// we need unique id for each node for OTEL tracing
 	if tomlCfg.Tracing.Enabled != nil && *tomlCfg.Tracing.Enabled {
-		tomlCfg.Tracing.NodeID = ptr.Ptr(ksuid.New().String())
+		tomlCfg.Tracing.NodeID = new(ksuid.New().String())
 	}
 
 	tomlStr, err := tomlCfg.TOMLString()
