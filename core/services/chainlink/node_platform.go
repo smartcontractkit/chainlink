@@ -452,7 +452,7 @@ func (b *nodeSubmitterAddressBuilder) addOCR2SubmitterAddresses(jb job.Job) {
 
 func isOnChainOCR2Plugin(pluginType commontypes.OCR2PluginType) bool {
 	switch pluginType {
-	case commontypes.Mercury, commontypes.LLO:
+	case commontypes.LLO:
 		return false
 	default:
 		return true
