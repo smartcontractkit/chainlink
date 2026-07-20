@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
@@ -410,4 +411,31 @@ func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
 			assert.Equal(t, tt.expected, tc.LogMaxQueueSize())
 		})
 	}
+}
+
+func TestTelemetryConfig_MetricCardinalityLimit(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  int
+	}{
+		{"MetricCardinalityLimitSet", toml.Telemetry{MetricCardinalityLimit: new(500)}, 500},
+		{"MetricCardinalityLimitZero", toml.Telemetry{MetricCardinalityLimit: new(0)}, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.MetricCardinalityLimit())
+		})
+	}
+
+	t.Run("MetricCardinalityLimitDefaultFromCore", func(t *testing.T) {
+		t.Parallel()
+		defaults := docs.CoreDefaults()
+		tc := telemetryConfig{s: defaults.Telemetry}
+		assert.Equal(t, 100000, tc.MetricCardinalityLimit())
+	})
 }
