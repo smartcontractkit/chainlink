@@ -98,10 +98,10 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 
 	testCases := []testCase{
 		{
-			name:                  "mercury plugin should just return transmitterID",
-			pluginType:            types.Mercury,
-			transmitterID:         null.StringFrom("Mercury transmitterID"),
-			expectedTransmitterID: "Mercury transmitterID",
+			name:                  "llo plugin should just return transmitterID",
+			pluginType:            types.LLO,
+			transmitterID:         null.StringFrom("LLO transmitterID"),
+			expectedTransmitterID: "LLO transmitterID",
 		},
 		{
 			name:          "when transmitterID is not defined, it should validate that sending keys are defined",

@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
@@ -120,6 +122,9 @@ type workflowRegistry struct {
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
 	myShardID       uint32
 	shardingEnabled bool
+
+	centralizedOwnerVerificationEnabled limits.GateLimiter
+	settingsGetter                      settings.Getter
 }
 
 type shardRoutingSteadyObserver interface {
@@ -191,6 +196,14 @@ type AdditionalSourceConfig struct {
 	JWTGenerator nodeauthjwt.JWTGenerator
 }
 
+// WithCentralizedOwnerVerification configures centralized workflow owner/org verification for GRPC sources.
+func WithCentralizedOwnerVerification(gate limits.GateLimiter, getter settings.Getter) Option {
+	return func(wr *workflowRegistry) {
+		wr.centralizedOwnerVerificationEnabled = gate
+		wr.settingsGetter = getter
+	}
+}
+
 // WithAdditionalSources adds additional workflow sources to the registry.
 // Sources are detected by URL scheme:
 //   - file:// prefix -> FileWorkflowSource (reads from local JSON file)
@@ -224,10 +237,12 @@ func WithAdditionalSources(sources []AdditionalSourceConfig) Option {
 			} else {
 				// GRPC source (default)
 				grpcSource, err := NewGRPCWorkflowSource(wr.lggr, GRPCWorkflowSourceConfig{
-					URL:          src.URL,
-					TLSEnabled:   src.TLSEnabled,
-					Name:         src.Name,
-					JWTGenerator: src.JWTGenerator,
+					URL:                                 src.URL,
+					TLSEnabled:                          src.TLSEnabled,
+					Name:                                src.Name,
+					JWTGenerator:                        src.JWTGenerator,
+					CentralizedOwnerVerificationEnabled: wr.centralizedOwnerVerificationEnabled,
+					SettingsGetter:                      wr.settingsGetter,
 				})
 				if err != nil {
 					wr.lggr.Errorw("Failed to create GRPC workflow source",
@@ -516,7 +531,11 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	workflowsSeen := make(map[string]bool, len(workflowMetadata))
 	for _, wfMeta := range workflowMetadata {
 		id := wfMeta.WorkflowID.Hex()
-		engineFound := w.engineRegistry.Contains(wfMeta.WorkflowID)
+		runningEngine, engineFound := w.engineRegistry.Get(wfMeta.WorkflowID)
+		// Reconciliation for a source may only take destructive action (evict/stop) on engines that source
+		// owns. An engine matching only by a reused/colliding WorkflowID belongs to another source and is
+		// reconciled there, so it must not be torn down from here.
+		ownedByThisSource := engineFound && runningEngine.Source == sourceName
 
 		switch wfMeta.Status {
 		case WorkflowStatusActive:
@@ -568,6 +587,15 @@ func (w *workflowRegistry) generateReconciliationEvents(
 			// id (e.g. a WorkflowDeleted deferred via ErrDrainInProgress that was superseded by the workflow being
 			// re-activated before drain completed) so the end-of-loop invariant check does not fire.
 			case true:
+				if ownedByThisSource && runningEngine.ReconcileKey != "" {
+					wantKey, keyErr := ReconcileKey(wfMeta.Owner, wfMeta.WorkflowName)
+					if keyErr != nil {
+						return nil, fmt.Errorf("failed to compute reconcile key: %w", keyErr)
+					}
+					if runningEngine.ReconcileKey != wantKey {
+						break
+					}
+				}
 				workflowsSeen[id] = true
 				delete(pendingEvents, id)
 			}
@@ -585,6 +613,14 @@ func (w *workflowRegistry) generateReconciliationEvents(
 					delete(pendingEvents, id)
 				}
 			case true:
+				// A paused record from another source must not stop this source's engine (a colliding/reused ID);
+				// mirror the not-found path's pending cleanup and skip.
+				if !ownedByThisSource {
+					if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature != signature {
+						delete(pendingEvents, id)
+					}
+					break
+				}
 				// Will be handled in the event handler as a deleted event and will clear the DB workflow spec.
 				workflowsSeen[id] = true
 

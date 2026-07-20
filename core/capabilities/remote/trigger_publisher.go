@@ -348,9 +348,12 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		// that check may pass in time, so once=true prevents duplicate RegisterTrigger calls for the same trigger.
 		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
 		if !ready {
-			p.mu.Unlock()
+			// Read cache state before unlocking; the register executor goroutine may
+			// mutate messageCache (Delete on system error) concurrently under p.mu.
 			peersReceived := len(p.messageCache.Peers(key))
-			if p.messageCache.WasReady(key) {
+			wasReady := p.messageCache.WasReady(key)
+			p.mu.Unlock()
+			if wasReady {
 				p.lggr.Debugw("quorum already met; ignoring duplicate registration message",
 					"workflowId", req.Metadata.WorkflowID, "triggerID", req.TriggerID,
 					"peersReceived", peersReceived, "minRequired", minRequired)
