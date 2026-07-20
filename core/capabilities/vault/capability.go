@@ -322,7 +322,7 @@ func NewCapability(
 	if err != nil {
 		return nil, err
 	}
-	zoneBRestrictor, err := newZoneBRestrictor(limitsFactory, capabilitiesRegistry)
+	zoneBRestrictor, err := newZoneBRestrictor(lggr, limitsFactory, capabilitiesRegistry)
 	if err != nil {
 		return nil, err
 	}

@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -22,6 +24,7 @@ const zoneBFamily = "zone-b"
 // is resolved authoritatively from the node's own capabilities registry view,
 // never from caller-supplied metadata.
 type zoneBRestrictor struct {
+	lggr                 logger.Logger
 	capabilitiesRegistry core.CapabilitiesRegistry
 	// restrictEnabled is the master gate. When open, GetSecrets reads from a
 	// zone-b workflow DON are restricted to allowlisted workflow owners.
@@ -29,9 +32,17 @@ type zoneBRestrictor struct {
 	// ownerAllowed is the owner-scoped allowlist gate consulted only for zone-b
 	// callers when the master gate is open.
 	ownerAllowed limits.GateLimiter
+
+	// zoneCacheMu guards zoneCache.
+	zoneCacheMu sync.RWMutex
+	// zoneCache holds the last successfully-resolved zone-b membership per
+	// WorkflowDonID. It is the fallback when the capabilities registry view is
+	// transiently unavailable, so a registry blip does not fail every vault read
+	// DON-wide (see isZoneBWorkflowDON).
+	zoneCache map[uint32]bool
 }
 
-func newZoneBRestrictor(limitsFactory limits.Factory, capabilitiesRegistry core.CapabilitiesRegistry) (*zoneBRestrictor, error) {
+func newZoneBRestrictor(lggr logger.Logger, limitsFactory limits.Factory, capabilitiesRegistry core.CapabilitiesRegistry) (*zoneBRestrictor, error) {
 	restrictEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultZoneBWorkflowGetSecretsRestrictEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create zone-b restrict gate limiter: %w", err)
@@ -44,9 +55,11 @@ func newZoneBRestrictor(limitsFactory limits.Factory, capabilitiesRegistry core.
 		return nil, errors.New("zone-b restrictor requires non-nil gate limiters")
 	}
 	return &zoneBRestrictor{
+		lggr:                 logger.Named(lggr, "ZoneBRestrictor"),
 		capabilitiesRegistry: capabilitiesRegistry,
 		restrictEnabled:      restrictEnabled,
 		ownerAllowed:         ownerAllowed,
+		zoneCache:            make(map[uint32]bool),
 	}, nil
 }
 
@@ -87,12 +100,38 @@ func (z *zoneBRestrictor) enforce(ctx context.Context, workflowDonID uint32) err
 func (z *zoneBRestrictor) isZoneBWorkflowDON(ctx context.Context, workflowDonID uint32) (bool, error) {
 	don, err := z.capabilitiesRegistry.DONByID(ctx, workflowDonID)
 	if err != nil {
+		// The registry view can be transiently unavailable (e.g. not yet synced
+		// after startup, or nil mid-update: DONByID returns "metadataRegistry
+		// information not available"). That error is not specific to zone-b
+		// callers, so failing closed here would block every vault GetSecrets read
+		// DON-wide. Fall back to the last successfully-resolved membership for this
+		// DON; only a never-before-resolved DON fails closed.
+		if cached, ok := z.cachedZoneMembership(workflowDonID); ok {
+			z.lggr.Warnw("capabilities registry lookup failed; using cached zone-b membership",
+				"workflowDonID", workflowDonID, "isZoneB", cached, "err", err)
+			return cached, nil
+		}
 		return false, fmt.Errorf("could not resolve caller workflow DON %d for zone-b vault read restriction: %w", workflowDonID, err)
 	}
 	// Case-insensitive match: family casing may vary across registry sources.
-	return slices.ContainsFunc(don.Families, func(family string) bool {
+	isZoneB := slices.ContainsFunc(don.Families, func(family string) bool {
 		return strings.EqualFold(family, zoneBFamily)
-	}), nil
+	})
+	z.storeZoneMembership(workflowDonID, isZoneB)
+	return isZoneB, nil
+}
+
+func (z *zoneBRestrictor) cachedZoneMembership(workflowDonID uint32) (bool, bool) {
+	z.zoneCacheMu.RLock()
+	defer z.zoneCacheMu.RUnlock()
+	isZoneB, ok := z.zoneCache[workflowDonID]
+	return isZoneB, ok
+}
+
+func (z *zoneBRestrictor) storeZoneMembership(workflowDonID uint32, isZoneB bool) {
+	z.zoneCacheMu.Lock()
+	defer z.zoneCacheMu.Unlock()
+	z.zoneCache[workflowDonID] = isZoneB
 }
 
 func (z *zoneBRestrictor) close() error {

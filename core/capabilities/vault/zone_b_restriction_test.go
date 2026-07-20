@@ -2,7 +2,9 @@ package vault
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,6 +42,9 @@ func (f *fakeMetadataRegistry) DONByID(_ context.Context, donID uint32) (capabil
 const (
 	zoneBDonID = uint32(10)
 	zoneADonID = uint32(20)
+	// zoneBMixedCaseDonID is a zone-b DON whose registry family casing differs
+	// from the zoneBFamily constant, guarding the case-insensitive match.
+	zoneBMixedCaseDonID = uint32(30)
 )
 
 func newZoneBTestCapability(t *testing.T, settingsJSON string) *Capability {
@@ -52,8 +57,9 @@ func newZoneBTestCapability(t *testing.T, settingsJSON string) *Capability {
 
 	reg := coreCapabilities.NewRegistry(lggr)
 	reg.SetLocalRegistry(&fakeMetadataRegistry{dons: map[uint32]capabilities.DON{
-		zoneBDonID: {ID: zoneBDonID, Name: "workflow_1_zone-b", Families: []string{"zone-b"}},
-		zoneADonID: {ID: zoneADonID, Name: "workflow_1_zone-a", Families: []string{"zone-a"}},
+		zoneBDonID:          {ID: zoneBDonID, Name: "workflow_1_zone-b", Families: []string{"zone-b"}},
+		zoneADonID:          {ID: zoneADonID, Name: "workflow_1_zone-a", Families: []string{"zone-a"}},
+		zoneBMixedCaseDonID: {ID: zoneBMixedCaseDonID, Name: "workflow_1_zone-b_mixed", Families: []string{"Zone-B"}},
 	}})
 
 	getter, err := settings.NewJSONGetter([]byte(settingsJSON))
@@ -148,4 +154,74 @@ func TestCapability_enforceZoneBWorkflowRestriction(t *testing.T) {
 		err := capability.zoneBRestrictor.enforce(md.ContextWithCRE(t.Context()), 999)
 		require.ErrorContains(t, err, "could not resolve caller workflow DON 999")
 	})
+
+	// MUST-3: guards the case-insensitive family match. If isZoneBWorkflowDON
+	// regressed to an exact (==) comparison, a "Zone-B" family would be treated
+	// as non-zone-b and this caller would be allowed, failing this test.
+	t.Run("gate enabled: denies zone-b caller identified by case-insensitive family match", func(t *testing.T) {
+		t.Parallel()
+		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`)
+		ctx, donID := ctxWithOwner(zoneBMixedCaseDonID, "0x"+allowlistedOwner)
+		err := capability.zoneBRestrictor.enforce(ctx, donID)
+		require.ErrorContains(t, err, "allowlisted workflow owners")
+	})
+}
+
+// toggleableMetadataRegistry resolves DONByID from an in-memory map but can be
+// switched to return the same "information not available" error the real
+// registry surfaces while its local view is nil/mid-sync.
+type toggleableMetadataRegistry struct {
+	core.UnimplementedCapabilitiesRegistryMetadata
+	dons map[uint32]capabilities.DON
+	fail atomic.Bool
+}
+
+func (f *toggleableMetadataRegistry) DONByID(_ context.Context, donID uint32) (capabilities.DON, error) {
+	if f.fail.Load() {
+		return capabilities.DON{}, errors.New("metadataRegistry information not available")
+	}
+	d, ok := f.dons[donID]
+	if !ok {
+		return capabilities.DON{}, fmt.Errorf("could not find don %d", donID)
+	}
+	return d, nil
+}
+
+// MUST-2: a transient capabilities registry outage must not fail every vault
+// read DON-wide. Once a DON's zone membership has been resolved, a subsequent
+// registry lookup failure falls back to the cached value instead of erroring;
+// a DON never resolved before still fails closed.
+func TestZoneBRestrictor_RegistryOutageUsesCachedMembership(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+	reg := coreCapabilities.NewRegistry(lggr)
+	fake := &toggleableMetadataRegistry{dons: map[uint32]capabilities.DON{
+		zoneADonID: {ID: zoneADonID, Name: "workflow_1_zone-a", Families: []string{"zone-a"}},
+		zoneBDonID: {ID: zoneBDonID, Name: "workflow_1_zone-b", Families: []string{"zone-b"}},
+	}}
+	reg.SetLocalRegistry(fake)
+
+	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`))
+	require.NoError(t, err)
+	z, err := newZoneBRestrictor(lggr, limits.Factory{Settings: getter}, reg)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, z.close()) })
+
+	zoneACtx := func() context.Context {
+		md := capabilities.RequestMetadata{WorkflowOwner: "0xdeadbeef", WorkflowDonID: zoneADonID}
+		return md.ContextWithCRE(t.Context())
+	}
+
+	// Warm the cache while the registry is healthy: zone-a caller is allowed.
+	require.NoError(t, z.enforce(zoneACtx(), zoneADonID))
+
+	// Registry goes dark. The zone-a caller was resolved before, so the cached
+	// (non-zone-b) membership is used and the read is still allowed.
+	fake.fail.Store(true)
+	require.NoError(t, z.enforce(zoneACtx(), zoneADonID))
+
+	// A DON never resolved before the outage still fails closed.
+	md := capabilities.RequestMetadata{WorkflowOwner: "0x" + allowlistedOwner, WorkflowDonID: zoneBDonID}
+	err = z.enforce(md.ContextWithCRE(t.Context()), zoneBDonID)
+	require.ErrorContains(t, err, "could not resolve caller workflow DON")
 }
