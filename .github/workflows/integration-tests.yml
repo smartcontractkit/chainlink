@@ -514,11 +514,11 @@ jobs:
 
   compile-tests:
     name: Compile Tests
-    continue-on-error: true
     if: >-
       ${{
         github.actor != 'dependabot[bot]' &&
-        needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+        (needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
+         needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true')
       }}
     needs:
       - labels
@@ -553,22 +553,57 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ env.CHAINLINK_REF }}
 
-      - name: Set up Go for integration-tests
+      - name: Set up Go for compilation
         uses: smartcontractkit/.github/actions/ctf-setup-go@c72002bfd3be05bd5cdf5d4d0019d7d7dd932769 # DEBUG: compileRunFanOut
         with:
           go_mod_path: ./integration-tests/go.mod
-          cache_key_id: e2e-tests
+          cache_key_id: compile-tests
           cache_builds: true
           should_tidy: false
           no_cache: false
-          test_download_vendor_packages_command: cd integration-tests && go mod download
           gati_token: ${{ steps.github-token.outputs.access-token }}
 
-      - name: Compile CCIP smoke tests
+      - name: Download test dependencies
         shell: bash
+        env:
+          SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
+          SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
         run: |
-          cd integration-tests
-          go test -c -tags embed -o /dev/null ./smoke/ccip
+          if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
+            (cd integration-tests && go mod download) &
+            p1=$!
+          fi
+
+          if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
+            (cd system-tests/tests && go mod download) &
+            p2=$!
+          fi
+
+          for p in $p1 $p2; do
+            [ -n "$p" ] && wait "$p"
+          done
+
+      - name: Compile E2E tests
+        shell: bash
+        env:
+          SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
+          SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
+        run: |
+          echo "Starting parallel test compilation tasks on 32-core runner..."
+
+          if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
+            (cd integration-tests && go test -c -tags embed -o /dev/null ./smoke/ccip) &
+            p1=$!
+          fi
+
+          if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
+            (cd system-tests/tests && go test -c -o /dev/null ./smoke/cre/... && go test -c -o /dev/null ./regression/cre/...) &
+            p2=$!
+          fi
+
+          for p in $p1 $p2; do
+            [ -n "$p" ] && wait "$p"
+          done
 
   run-ccip-v1-6-e2e-tests:
     needs:
