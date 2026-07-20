@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -642,57 +641,7 @@ func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confi
 	if execution.GetWorkflowId() != params.WorkflowID {
 		return fmt.Errorf("workflow_id not authorized: request %q vs signed %q", params.WorkflowID, execution.GetWorkflowId())
 	}
-
-	// The signed WorkflowExecution also carries the secret restrictions the workflow declared.
-	// The enclave enforces them, but the relay is the security boundary and re-checks so a
-	// breached enclave cannot fetch secrets the workflow never authorized.
-	return verifySecretsWithinRestrictions(execution.GetRestrictions(), params.Secrets)
-}
-
-// verifySecretsWithinRestrictions enforces that every requested secret is permitted by the
-// workflow's declared secret restrictions. A secret is permitted when it matches an exact
-// restriction (id and namespace) or a prefixed restriction (namespace and key prefix), and the
-// number of requested secrets does not exceed MaxSecrets. When no secret restrictions are set
-// the workflow declared no limit, so all secrets are allowed.
-func verifySecretsWithinRestrictions(restrictions *sdkpb.Restrictions, secrets []confidentialrelaytypes.SecretIdentifier) error {
-	secretRestrictions := restrictions.GetSecrets()
-	if secretRestrictions == nil {
-		return nil
-	}
-
-	if len(secrets) > int(secretRestrictions.GetMaxSecrets()) {
-		return fmt.Errorf("requested %d secrets, exceeds the workflow's limit of %d", len(secrets), secretRestrictions.GetMaxSecrets())
-	}
-
-	exact := make(map[confidentialrelaytypes.SecretIdentifier]struct{})
-	var prefixes []*sdkpb.SecretPrefixRestriction
-	for _, sr := range secretRestrictions.GetRestrictions() {
-		switch v := sr.GetRestriction().(type) {
-		case *sdkpb.SecretRestriction_ExactSecret:
-			exact[confidentialrelaytypes.SecretIdentifier{Key: v.ExactSecret.GetId(), Namespace: v.ExactSecret.GetNamespace()}] = struct{}{}
-		case *sdkpb.SecretRestriction_PrefixedSecret:
-			prefixes = append(prefixes, v.PrefixedSecret)
-		}
-	}
-
-	for _, s := range secrets {
-		if !secretAllowedByRestrictions(s, exact, prefixes) {
-			return fmt.Errorf("secret %q in namespace %q not permitted by workflow restrictions", s.Key, s.Namespace)
-		}
-	}
 	return nil
-}
-
-func secretAllowedByRestrictions(s confidentialrelaytypes.SecretIdentifier, exact map[confidentialrelaytypes.SecretIdentifier]struct{}, prefixes []*sdkpb.SecretPrefixRestriction) bool {
-	if _, ok := exact[s]; ok {
-		return true
-	}
-	for _, p := range prefixes {
-		if p.GetNamespace() == s.Namespace && strings.HasPrefix(s.Key, p.GetPrefix()) {
-			return true
-		}
-	}
-	return false
 }
 
 func (h *Handler) jsonResponse(req *jsonrpc.Request[json.RawMessage], result any) *jsonrpc.Response[json.RawMessage] {
