@@ -278,14 +278,8 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				return errors.Errorf("forwarding is not currently supported for %s jobs", jb.OCR2OracleSpec.PluginType)
 			}
 
-			if jb.OCR2OracleSpec.PluginType == types.Mercury {
-				if jb.OCR2OracleSpec.FeedID == nil {
-					return errors.New("feed ID is required for mercury plugin type")
-				}
-			} else {
-				if jb.OCR2OracleSpec.FeedID != nil {
-					return errors.New("feed ID is not currently supported for non-mercury jobs")
-				}
+			if jb.OCR2OracleSpec.FeedID != nil {
+				return errors.New("feed ID is not currently supported for OCR2 jobs")
 			}
 
 			if jb.OCR2OracleSpec.PluginType == types.Median {
@@ -354,11 +348,9 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				}
 			}
 
-			// Check if primary transmitter address is used as secondary somewhere else, don't check for mercury as it uses CSA keys for transmitters
-			if jb.OCR2OracleSpec.PluginType != types.Mercury {
-				if checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(jb.OCR2OracleSpec.TransmitterID.String), evmkeystore.TXMv2) {
-					return errors.Errorf("key %s cannot be a (primary) transmitter address because it's used a secondary transmitter address in another job", jb.OCR2OracleSpec.TransmitterID.String)
-				}
+			// Check if primary transmitter address is used as secondary somewhere else
+			if checkIfKeyHasLock(ctx, tx.keyStore.Eth(), common.HexToAddress(jb.OCR2OracleSpec.TransmitterID.String), evmkeystore.TXMv2) {
+				return errors.Errorf("key %s cannot be a (primary) transmitter address because it's used a secondary transmitter address in another job", jb.OCR2OracleSpec.TransmitterID.String)
 			}
 
 			specID, err := tx.insertOCR2OracleSpec(ctx, jb.OCR2OracleSpec)
@@ -616,7 +608,7 @@ func (o *orm) insertGatewaySpec(ctx context.Context, spec *GatewaySpec) (specID 
 // ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
 func ValidateKeyStoreMatch(ctx context.Context, spec *OCR2OracleSpec, keyStore keystore.Master, key string) (err error) {
 	switch spec.PluginType {
-	case types.Mercury, types.LLO:
+	case types.LLO:
 		_, err = keyStore.CSA().Get(key)
 		if err != nil {
 			err = errors.Errorf("no CSA key matching: %q", key)

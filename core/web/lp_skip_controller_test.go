@@ -112,7 +112,6 @@ func TestLPSkipController_LPSkipToBlock_HappyPath(t *testing.T) {
 
 	controller := web.LPSkipController{App: mockApp}
 
-	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 

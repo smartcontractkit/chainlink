@@ -18,6 +18,7 @@ import (
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -130,6 +131,10 @@ type ServerRequest struct {
 	requestTimeout   time.Duration
 	capMethodName    string
 
+	// workflowDONBindingGate, when open, requires the request's
+	// Metadata.WorkflowDonID to match the authenticated calling DON.
+	workflowDONBindingGate limits.GateLimiter
+
 	mux  sync.Mutex
 	lggr logger.Logger
 
@@ -139,8 +144,13 @@ type ServerRequest struct {
 func NewServerRequest(capability capabilities.ExecutableCapability, method string, capabilityID string, capabilityDonID uint32,
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
-	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string, lggr logger.Logger) (*ServerRequest, error) {
+	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string,
+	workflowDONBindingGate limits.GateLimiter, lggr logger.Logger) (*ServerRequest, error) {
 	lggr = logger.With(logger.Named(lggr, "ServerRequest"), "requestID", requestID) // cap ID and method name included in the parent logger
+
+	if workflowDONBindingGate == nil {
+		return nil, errors.New("workflowDONBindingGate must not be nil")
+	}
 
 	m, err := newSrMetrics(capabilityID, callingDon.ID)
 	if err != nil {
@@ -161,6 +171,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 		method:                  method,
 		requestTimeout:          requestTimeout,
 		capMethodName:           capMethodName,
+		workflowDONBindingGate:  workflowDONBindingGate,
 		lggr:                    lggr,
 		metrics:                 m,
 	}, nil
@@ -227,7 +238,7 @@ func (e *ServerRequest) Cancel(ctx context.Context, err types.Error, msg string)
 	return nil
 }
 
-type executeFn func(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability, payload []byte) ([]byte, error)
+type executeFn func(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability, payload []byte, callingDonID uint32, workflowDONBindingGate limits.GateLimiter) ([]byte, error)
 
 func (e *ServerRequest) executeRequest(ctx context.Context, msg *types.MessageBody, method executeFn) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
@@ -235,7 +246,7 @@ func (e *ServerRequest) executeRequest(ctx context.Context, msg *types.MessageBo
 
 	success := false
 	start := time.Now()
-	responsePayload, err := method(ctxWithTimeout, e.lggr, e.capability, msg.Payload)
+	responsePayload, err := method(ctxWithTimeout, e.lggr, e.capability, msg.Payload, e.callingDon.ID, e.workflowDONBindingGate)
 	if err != nil {
 		e.setError(types.Error_INTERNAL_ERROR, err.Error())
 	} else {
@@ -332,13 +343,29 @@ func (e *ServerRequest) sendResponse(ctx context.Context, requester p2ptypes.Pee
 	return nil
 }
 
-func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability, payload []byte) ([]byte, error) {
+func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability, payload []byte, callingDonID uint32, workflowDONBindingGate limits.GateLimiter) ([]byte, error) {
 	capabilityRequest, err := pb.UnmarshalCapabilityRequest(payload)
 	if err != nil {
 		lggr.Errorw("failed to unmarshal capability request", "err", err)
 
 		// Do not include the unmarshal error in the response as it may contain sensitive information
 		return nil, errors.New("failed to unmarshal capability request")
+	}
+
+	// When enabled, bind the caller-supplied WorkflowDonID to the authenticated
+	// calling DON so it cannot be spoofed. All F+1 aggregated requests share this
+	// payload (WorkflowDonID is part of the request hash), so a single check here
+	// covers the quorum. The gate is guaranteed non-nil by NewServerRequest.
+	enabled, gerr := workflowDONBindingGate.Limit(ctx)
+	if gerr != nil {
+		lggr.Errorw("failed to evaluate workflow DON binding gate", "err", gerr)
+		return nil, errors.New("failed to evaluate workflow DON binding gate")
+	}
+	if enabled && capabilityRequest.Metadata.WorkflowDonID != callingDonID {
+		lggr.Errorw("workflow DON ID in request metadata does not match calling DON",
+			"metadataWorkflowDonID", capabilityRequest.Metadata.WorkflowDonID, "callingDonID", callingDonID)
+		return nil, fmt.Errorf("workflow DON ID %d in request metadata does not match calling DON ID %d",
+			capabilityRequest.Metadata.WorkflowDonID, callingDonID)
 	}
 
 	lggr = logger.With(lggr, "metadata", capabilityRequest.Metadata)
