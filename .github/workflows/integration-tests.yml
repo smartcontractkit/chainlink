@@ -190,6 +190,7 @@ jobs:
                 - "!deployment/**"
                 - "**/*ccip*"
                 - "**/*ccip*/**"
+                - ".github/e2e-tests.yml"
 
   labels:
     name: Get PR labels and set runner labels
@@ -423,7 +424,7 @@ jobs:
 
   run-core-cre-e2e-tests:
     name: Run Core CRE E2E Tests
-    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup, compile-tests]
     permissions:
       actions: read
       checks: write
@@ -441,7 +442,7 @@ jobs:
 
   run-core-cre-e2e-regression-tests:
     name: Run Core CRE E2E Regression Tests
-    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup, compile-tests]
     permissions:
       actions: read
       checks: write
@@ -477,12 +478,11 @@ jobs:
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # Run CCIP v1.6 E2E Tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
+            # Run CCIP v1.6 E2E Tests on PRs if relevant changes or label "run-e2e-tests" present
             echo "workflow-name=Run CCIP v1.6 E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
             echo "test-trigger=PR E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
 
-            if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' ]]; then
-              # only run if the PR has the label "run-e2e-tests"
+            if [[ "${CONTAINS_CHANGES}" == 'true' || "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' ]]; then
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
             fi
 
@@ -525,7 +525,7 @@ jobs:
       - changes
       - run-core-cre-e2e-tests-setup
       - run-ccip-v1-6-e2e-tests-setup
-    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i-flex/spot=co/root-volume-size=120/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}-compile/cpu=16/ram=32/family=c7i-flex+c8i-flex/spot=co/extras=s3-cache+tmpfs
     environment:
       name: integration
       deployment: false
