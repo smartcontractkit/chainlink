@@ -275,7 +275,11 @@ jobs:
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
             cache-scope: core
-            any-should-run: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' }}
+            any-should-run: >-
+              ${{
+                needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+              }}
 
           - name: (plugins)
             runner: ${{ needs.labels.outputs.builder-runner-label-plugins || 'ubuntu22.04-8cores-32GB' }}
