@@ -517,6 +517,10 @@ func (w *workflowRegistry) generateReconciliationEvents(
 	for _, wfMeta := range workflowMetadata {
 		id := wfMeta.WorkflowID.Hex()
 		runningEngine, engineFound := w.engineRegistry.Get(wfMeta.WorkflowID)
+		// Reconciliation for a source may only take destructive action (evict/stop) on engines that source
+		// owns. An engine matching only by a reused/colliding WorkflowID belongs to another source and is
+		// reconciled there, so it must not be torn down from here.
+		ownedByThisSource := engineFound && runningEngine.Source == sourceName
 
 		switch wfMeta.Status {
 		case WorkflowStatusActive:
@@ -568,7 +572,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 			// id (e.g. a WorkflowDeleted deferred via ErrDrainInProgress that was superseded by the workflow being
 			// re-activated before drain completed) so the end-of-loop invariant check does not fire.
 			case true:
-				if runningEngine.Source == sourceName && runningEngine.ReconcileKey != "" {
+				if ownedByThisSource && runningEngine.ReconcileKey != "" {
 					wantKey, keyErr := ReconcileKey(wfMeta.Owner, wfMeta.WorkflowName)
 					if keyErr != nil {
 						return nil, fmt.Errorf("failed to compute reconcile key: %w", keyErr)
@@ -594,8 +598,9 @@ func (w *workflowRegistry) generateReconciliationEvents(
 					delete(pendingEvents, id)
 				}
 			case true:
-				// A paused record from another source must not stop this source's engine (a colliding/reused ID)
-				if runningEngine.Source != sourceName {
+				// A paused record from another source must not stop this source's engine (a colliding/reused ID);
+				// mirror the not-found path's pending cleanup and skip.
+				if !ownedByThisSource {
 					if _, ok := pendingEvents[id]; ok && pendingEvents[id].signature != signature {
 						delete(pendingEvents, id)
 					}
