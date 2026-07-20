@@ -519,7 +519,7 @@ jobs:
       - changes
       - run-core-cre-e2e-tests-setup
       - run-ccip-v1-6-e2e-tests-setup
-    runs-on: runs-on=${{ github.run_id }}-compile/cpu=8/ram=16/family=c7i-flex+c8i-flex/spot=co/extras=s3-cache+tmpfs
+    runs-on: runs-on=${{ github.run_id }}-compile/cpu=8/ram=32/family=m7i+m8i/spot=co/extras=s3-cache+tmpfs
     environment:
       name: integration
       deployment: false
