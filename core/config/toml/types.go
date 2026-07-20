@@ -2996,7 +2996,7 @@ type Telemetry struct {
 	LogExportInterval                  *commonconfig.Duration
 	LogMaxQueueSize                    *int
 
-	MetricViewsAttributeDenylist []string
+	MetricViewsDenyAttributes []string
 
 	PrometheusBridge PrometheusBridge `toml:",omitempty"`
 }
@@ -3074,8 +3074,8 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.LogMaxQueueSize; v != nil {
 		b.LogMaxQueueSize = v
 	}
-	if v := f.MetricViewsAttributeDenylist; v != nil {
-		b.MetricViewsAttributeDenylist = v
+	if v := f.MetricViewsDenyAttributes; v != nil {
+		b.MetricViewsDenyAttributes = v
 	}
 	b.PrometheusBridge.setFrom(&f.PrometheusBridge)
 }

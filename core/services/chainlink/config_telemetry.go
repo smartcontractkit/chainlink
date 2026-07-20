@@ -214,8 +214,8 @@ func (b *telemetryConfig) LogMaxQueueSize() int {
 	return *b.s.LogMaxQueueSize
 }
 
-func (b *telemetryConfig) MetricViewsAttributeDenylist() []string {
-	return b.s.MetricViewsAttributeDenylist
+func (b *telemetryConfig) MetricViewsDenyAttributes() []string {
+	return b.s.MetricViewsDenyAttributes
 }
 
 func (b *telemetryConfig) PrometheusBridge() config.PrometheusBridge {

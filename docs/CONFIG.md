@@ -2405,7 +2405,7 @@ LogExportTimeout = '1s' # Default
 LogExportMaxBatchSize = 512 # Default
 LogExportInterval = '1s' # Default
 LogMaxQueueSize = 2048 # Default
-MetricViewsAttributeDenylist = ['event_id'] # Default
+MetricViewsDenyAttributes = ['event_id'] # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2554,11 +2554,11 @@ LogMaxQueueSize = 2048 # Default
 ```
 LogMaxQueueSize sets the maximum queue size used by the batcher
 
-### MetricViewsAttributeDenylist
+### MetricViewsDenyAttributes
 ```toml
-MetricViewsAttributeDenylist = ['event_id'] # Default
+MetricViewsDenyAttributes = ['event_id'] # Default
 ```
-MetricViewsAttributeDenylist lists attribute keys dropped before export (e.g. event_id).
+MetricViewsDenyAttributes lists attribute keys dropped before export (e.g. event_id).
 Empty disables default Beholder metric attribute deny views.
 
 ## Telemetry.ResourceAttributes
