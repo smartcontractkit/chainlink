@@ -94,6 +94,7 @@ jobs:
       general-changes: ${{ steps.changes.outputs.general_changes }}
       core-changes: ${{ steps.changes.outputs.core_changes }}
       cre-changes: ${{ steps.changes.outputs.cre_changes }}
+      ccip-changes: ${{ steps.changes.outputs.ccip_changes }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v7
@@ -110,7 +111,6 @@ jobs:
               - '.github/workflows/integration-tests.yml'
               - '.github/workflows/run-e2e-tests-reusable-workflow.yml'
               - '.github/workflows/cre-system-tests.yaml'
-              - '.github/e2e-tests.yml'
               - 'GNUmakefile'
               - 'core/chainlink.Dockerfile'
               - 'plugins/chainlink.Dockerfile'
@@ -128,6 +128,13 @@ jobs:
               - 'system-tests/**'
               - 'plugins/plugins.private.yaml'
               - 'plugins/plugins.public.yaml'
+            ccip_changes:
+              - '.github/workflows/integration-tests.yml'
+              - '.github/workflows/run-e2e-tests-reusable-workflow.yml'
+              - '.github/e2e-tests.yml'
+              - '.github/actions/**'
+              - 'integration-tests/**'
+              - 'core/capabilities/ccip/**'
 
       - name: Decide which tests to run (rollout-only)
         # To validate that this properly tests, we will run this beside the dorny/paths-filter actions
@@ -474,7 +481,7 @@ jobs:
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.ccip-changes == 'true' }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
