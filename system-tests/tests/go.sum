@@ -1824,10 +1824,10 @@ github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260714222251-887c274c6b
 github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260714222251-887c274c6b64/go.mod h1:1UikvX2MSx7FuuXK/sRxLPWjIkC63GWDhIfqJChrBVM=
 github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260714222251-887c274c6b64 h1:8w2inGn4VZTEOC4l0qmsm6OhrWRYGNVBWRwMdb03+eU=
 github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260714222251-887c274c6b64/go.mod h1:uZEMU0BN48tmRP/Hu+RdnM70g17pgAv4s/Nux7asr2U=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20260713221039-69796c8a78ae h1:0vPX7KjVbdMLImLfeKXNDir0qswAwwQOMDAB/ciVPq8=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20260713221039-69796c8a78ae/go.mod h1:6FWUSAXA58d0c9AyOi/1zymX40/67czcDR1SGZt/BKg=
-github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260714120433-7667cad5ff5c h1:WNSgjUqEqAgT4uJvVYvTdP7OrQO5ockm50Kvb/CBa2M=
-github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260714120433-7667cad5ff5c/go.mod h1:pSW9q0/YqQE5R65Z/2zsyD9c50JZf+yRJJvN6Jo3LCU=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20260714190119-005bb9a612c3 h1:bI9pXgfGOhS+tPGjPkpos3nuGE/5Xfw8X0MQHi+0EcU=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20260714190119-005bb9a612c3/go.mod h1:6FWUSAXA58d0c9AyOi/1zymX40/67czcDR1SGZt/BKg=
+github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260714190119-005bb9a612c3 h1:9Iqv2HmF53U3HPFyS3B3RtAjcGqt0wqZ41PY6N1Xiz8=
+github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260714190119-005bb9a612c3/go.mod h1:pSW9q0/YqQE5R65Z/2zsyD9c50JZf+yRJJvN6Jo3LCU=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6-0.20260708113039-95f97b2d25e9 h1:wZI7WwMuK+GHUIY38HTgEZU6wdBaH9jaiBLPAmJSfxQ=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6-0.20260708113039-95f97b2d25e9/go.mod h1:nyOjn4ADJGqRMe3+4ZXSV+J/7nWb1H2Vx8Qk57eLRYA=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4 h1:bGicxBPndwy9NeB79n+CgyNxA8aeWoMudC84krz6QGM=
