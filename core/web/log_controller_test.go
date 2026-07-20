@@ -35,7 +35,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Log.Level = ptr(toml.LogLevel(zapcore.WarnLevel))
-		c.Database.LogQueries = ptr(true)
+		c.Database.LogQueries = new(true)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg)

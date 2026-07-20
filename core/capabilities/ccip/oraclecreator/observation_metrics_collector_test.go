@@ -232,9 +232,9 @@ func TestWrappedCounter_ConcurrentIncrements(t *testing.T) {
 	const incrementsPerGoroutine = 100
 	done := make(chan bool, numGoroutines)
 
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		go func() {
-			for j := 0; j < incrementsPerGoroutine; j++ {
+			for range incrementsPerGoroutine {
 				baseCounter.Inc()
 			}
 			done <- true
@@ -242,7 +242,7 @@ func TestWrappedCounter_ConcurrentIncrements(t *testing.T) {
 	}
 
 	// Wait for all goroutines
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		<-done
 	}
 

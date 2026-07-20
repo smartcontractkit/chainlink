@@ -43,10 +43,7 @@ func (f fakeNodePlatformJobReader) FindJobs(_ context.Context, offset, limit int
 		return nil, len(f.jobs), nil
 	}
 
-	end := offset + limit
-	if end > len(f.jobs) {
-		end = len(f.jobs)
-	}
+	end := min(offset+limit, len(f.jobs))
 	return f.jobs[offset:end], len(f.jobs), nil
 }
 

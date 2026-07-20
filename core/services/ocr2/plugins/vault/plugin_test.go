@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -552,9 +553,7 @@ func assertPendingQueueItemsContain(t *testing.T, gotItems [][]byte, expected ma
 	t.Helper()
 
 	remaining := make(map[string]proto.Message, len(expected))
-	for id, payload := range expected {
-		remaining[id] = payload
-	}
+	maps.Copy(remaining, expected)
 
 	var total int
 	for _, got := range gotItems {
@@ -6287,7 +6286,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 							{
 								EncryptionKey: pks,
-								Shares: []string{strings.Repeat("1", 1000)},
+								Shares:        []string{strings.Repeat("1", 1000)},
 							},
 						},
 					},
@@ -7840,7 +7839,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		payloads := make([][]byte, maxConcurrentBlobBroadcasts*2+1)
 		ids := make([][]string, len(payloads))
 		for i := range payloads {
-			payloads[i] = []byte(fmt.Sprintf("payload-%d", i))
+			payloads[i] = fmt.Appendf(nil, "payload-%d", i)
 			ids[i] = []string{fmt.Sprintf("req-%d", i)}
 		}
 
@@ -7886,7 +7885,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 			done <- broadcastResult{payloads: result, err: err}
 		}()
 
-		for i := 0; i < maxConcurrentBlobBroadcasts; i++ {
+		for i := range maxConcurrentBlobBroadcasts {
 			select {
 			case <-started:
 			case <-time.After(time.Second):
