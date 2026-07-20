@@ -15,7 +15,7 @@ Prompt user if missing:
 
 Setup:
 1. Analyze workflow: identify jobs, runners, step dependencies, critical path, caching, and bottlenecks.
-2. Identify structural optimizations:
+2. Identify structural optimizations, including but not limited to:
    - Parallelize sequential steps/jobs (e.g., matrix builds).
    - Add/fix caching (e.g., go modules, cargo, npm, docker layers).
    - Move checks/lints before compilation/tests to fail early.
@@ -23,7 +23,7 @@ Setup:
 3. Permitted scope: High freedom. OK to introduce breaking edits to internal `smartcontractkit` actions/workflows to improve speed/simplicity.
 4. Ask user to target: specific job, whole workflow runner config, or workflow structure.
 5. Setup test workflow (bypass gates, mock inputs, add `workflow_dispatch`).
-6. Init/resume trial log: `.github/.agents/skills/optimize-workflow/trials/<workflow>.md`.
+6. Init/resume trial log: `.github/.agents/skills/optimize-workflow/trials/[workflow]/trial-log.md`.
 7. Run baseline trial with current configuration to benchmark.
 </initialization>
 
@@ -55,9 +55,9 @@ Setup:
    - PR body: Details of configuration. Include before-after Mermaid diagram showing structural flow.
 4. Trigger workflow.
 5. Monitor run:
-   `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py [run_id] --format json --out-file .github/.agents/skills/optimize-workflow/trials/[trial-name].json`
+   `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py [run_id] --format json --out-file .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name].json`
 6. Compare trials:
-   `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py .github/.agents/skills/optimize-workflow/trials/[trial-1].json .github/.agents/skills/optimize-workflow/trials/[trial-2].json --out-file .github/.agents/skills/optimize-workflow/trials/[trial-1]-[trial-2]-comparison.md`
+   `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1].json .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-2].json --out-file .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1]-[trial-2]-comparison.md`
 7. Update trial log. Include updated before-after diagram if structural changes occurred.
 8. Show condensed results. Prompt for more trials or stop.
 

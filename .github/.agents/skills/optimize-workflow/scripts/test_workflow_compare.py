@@ -88,5 +88,23 @@ class TestWorkflowCompare(unittest.TestCase):
         self.assertIn("-0:00:40", report) # duration delta
         self.assertIn("-$0.0200", report) # cost delta
 
+    def test_normalize_name(self):
+        self.assertEqual(workflow_compare.normalize_name("build"), "build")
+        self.assertEqual(workflow_compare.normalize_name("build-job"), "buildjob")
+        
+        name = "Run CCIP v1.6 E2E Tests For Workflow Dispatch / smoke/ccip/ccip_reorg_test.go:GreaterThanFinalityTests"
+        expected = "runccipv16e2etestsworkflowdispatchsmokeccipccipreorgtestgogreaterthanfinalitytests"
+        self.assertEqual(workflow_compare.normalize_name(name), expected)
+
+    def test_matches_job_name(self):
+        api_name = "Run CCIP v1.6 E2E Tests For Workflow Dispatch / smoke/ccip/ccip_reorg_test.go:GreaterThanFinalityTests"
+        log_job_name = "Run CCIP v1.6 E2E Tests For Workflow Dispatch _ smoke_ccip_ccip_reorg_test.goGreaterThanFinalityTests"
+        self.assertTrue(workflow_compare.matches_job_name(api_name, log_job_name))
+        
+        # Test suffix or path basename matching
+        api_name_path = "Run CCIP v1.6 E2E Tests / smoke/ccip/ccip_reorg_test.go:GreaterThanFinalityTests"
+        log_job_name_suffix = "smoke_ccip_ccip_reorg_test.goGreaterThanFinalityTests"
+        self.assertTrue(workflow_compare.matches_job_name(api_name_path, log_job_name_suffix))
+
 if __name__ == '__main__':
     unittest.main()

@@ -423,7 +423,7 @@ jobs:
 
   run-core-cre-e2e-tests:
     name: Run Core CRE E2E Tests
-    needs: [build-chainlink, compile-tests, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
       checks: write
@@ -441,7 +441,7 @@ jobs:
 
   run-core-cre-e2e-regression-tests:
     name: Run Core CRE E2E Regression Tests
-    needs: [build-chainlink, compile-tests, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
     permissions:
       actions: read
       checks: write
@@ -518,17 +518,14 @@ jobs:
     if: >-
       ${{
         github.actor != 'dependabot[bot]' &&
-        (
-          needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' ||
-          needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
-        )
+        needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
       }}
     needs:
       - labels
       - changes
       - run-core-cre-e2e-tests-setup
       - run-ccip-v1-6-e2e-tests-setup
-    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i-flex/spot=co/root-volume-size=120/extras=s3-cache
+    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i-flex/spot=co/root-volume-size=120/extras=s3-cache+tmpfs
     environment:
       name: integration
       deployment: false

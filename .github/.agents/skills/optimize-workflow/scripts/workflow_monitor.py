@@ -207,16 +207,24 @@ def format_duration(start_str, end_str):
         return "N/A"
 
 def normalize_name(name):
+    if not name:
+        return ""
     name = name.lower()
-    name = name.replace('/', '_')
-    name = re.sub(r'\s+', '', name)
-    name = name.replace('...', '')
-    return name.rstrip('.')
+    return re.sub(r'[^a-z0-9]', '', name)
 
 def matches_job_name(api_name, log_job_name):
     a = normalize_name(api_name)
     b = normalize_name(log_job_name)
-    return a.startswith(b) or b.startswith(a)
+    if not a or not b:
+        return False
+    return (
+        a.startswith(b)
+        or b.startswith(a)
+        or a.endswith(b)
+        or b.endswith(a)
+        or ((len(a) > 10 and len(b) > 10) and (a in b or b in a))
+    )
+
 
 def generate_report(run_data, jobs, metrics, log_dir, format_type):
     start_time = run_data.get("run_started_at") or run_data.get("created_at")
