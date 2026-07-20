@@ -15,9 +15,6 @@ plugins:
 
   sui:
     - moduleURI: "github.com/smartcontractkit/chainlink-sui"
-      # IMP: consult chainlink-sui team before updating this version
-      # Must track the gRPC-migrated chainlink-sui used in go.mod, otherwise the DON runs a
-      # pre-migration relayer (no gRPC ChainPoller) and never observes Sui source events.
       gitRef: "v0.0.0-20260707125635-abec997b6eae"
       installPath: "./relayer/cmd/chainlink-sui"
 
