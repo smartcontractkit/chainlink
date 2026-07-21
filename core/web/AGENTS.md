@@ -1,17 +1,26 @@
-# Agent Instructions: Gin Concurrency & Data Race Prevention in core/web
+# Gin Concurrency & Data Race Prevention
 
-## Critical Rule: Do NOT call `gin.CreateTestContext()` or `gin.SetMode()` in tests
+<intent>
+Prevent race conditions in core/web unit tests caused by global Gin mode mutations.
+</intent>
 
-1. **Never call `gin.CreateTestContext()` or `gin.SetMode()` inside individual unit tests.**
-2. **Use `gin.New()` and `engine.ServeHTTP(w, req)`** to test controller handlers:
-   ```go
-   w := httptest.NewRecorder()
-   engine := gin.New()
-   engine.POST("/endpoint", controller.Handler)
+<rules>
+<rule name="no-test-context-or-mode">
+Never call gin.CreateTestContext() or gin.SetMode() in unit tests. TestMain() in main_test.go sets test mode once globally.
+</rule>
 
-   req, err := http.NewRequestWithContext(t.Context(), "POST", "/endpoint", body)
-   require.NoError(t, err)
+<rule name="handler-test-pattern">
+Test handlers with gin.New() and engine.ServeHTTP():
 
-   engine.ServeHTTP(w, req)
-   ```
-3. `TestMain()` in [main_test.go](file:///Users/adamhamrick/Projects/chainlink/core/web/main_test.go) sets `gin.SetMode(gin.TestMode)` once before parallel tests execute.
+```go
+w := httptest.NewRecorder()
+engine := gin.New()
+engine.POST("/endpoint", controller.Handler)
+
+req, err := http.NewRequestWithContext(t.Context(), "POST", "/endpoint", body)
+require.NoError(t, err)
+
+engine.ServeHTTP(w, req)
+```
+</rule>
+</rules>
