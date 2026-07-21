@@ -531,6 +531,8 @@ jobs:
     needs:
       - labels
       - changes
+      - run-ccip-v1-6-e2e-tests-setup
+      - run-core-cre-e2e-tests-setup
     runs-on: runs-on=${{ github.run_id }}-compile/cpu=8/ram=32/family=c7i+c8i+m7i+m8i/spot=co/extras=s3-cache
     environment:
       name: integration
