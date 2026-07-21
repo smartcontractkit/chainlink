@@ -94,7 +94,7 @@ func (m mockCfgTelemetry) ChipIngressSendTimeout() time.Duration { return 10 * t
 
 func (m mockCfgTelemetry) ChipIngressDrainTimeout() time.Duration { return 10 * time.Second }
 
-func (m mockCfgTelemetry) ChipIngressMaxGRPCRequestSize() uint { return 10485760 }
+func (m mockCfgTelemetry) ChipIngressMaxGRPCRequestSize() int { return 10485760 }
 
 func (m mockCfgTelemetry) HeartbeatInterval() time.Duration {
 	return 5 * time.Second
@@ -279,5 +279,5 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 100*time.Millisecond, envCfg.ChipIngressSendInterval)
 	require.Equal(t, 10*time.Second, envCfg.ChipIngressSendTimeout)
 	require.Equal(t, 10*time.Second, envCfg.ChipIngressDrainTimeout)
-	require.Equal(t, uint(10485760), envCfg.ChipIngressMaxGRPCRequestSize)
+	require.Equal(t, 10485760, envCfg.ChipIngressMaxGRPCRequestSize)
 }

@@ -569,7 +569,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ChipIngressSendInterval:            commoncfg.MustNewDuration(500 * time.Millisecond),
 		ChipIngressSendTimeout:             commoncfg.MustNewDuration(10 * time.Second),
 		ChipIngressDrainTimeout:            commoncfg.MustNewDuration(30 * time.Second),
-		ChipIngressMaxGRPCRequestSize:      new(uint(10485760)),
+		ChipIngressMaxGRPCRequestSize:      new(10485760),
 		DurableEmitterEnabled:              new(false),
 		DurableEmitterRetransmitBatchSize:  new(500),
 		DurableEmitterEventTTL:             commoncfg.MustNewDuration(1 * time.Hour),

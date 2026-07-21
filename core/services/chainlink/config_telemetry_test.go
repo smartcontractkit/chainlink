@@ -377,9 +377,9 @@ func TestTelemetryConfig_ChipIngressMaxGRPCRequestSize(t *testing.T) {
 	tests := []struct {
 		name      string
 		telemetry toml.Telemetry
-		expected  uint
+		expected  int
 	}{
-		{"ChipIngressMaxGRPCRequestSizeSet", toml.Telemetry{ChipIngressMaxGRPCRequestSize: ptrUint(10485760)}, 10485760},
+		{"ChipIngressMaxGRPCRequestSizeSet", toml.Telemetry{ChipIngressMaxGRPCRequestSize: new(10485760)}, 10485760},
 		{"ChipIngressMaxGRPCRequestSizeNil", toml.Telemetry{ChipIngressMaxGRPCRequestSize: nil}, 0},
 	}
 	for _, tt := range tests {

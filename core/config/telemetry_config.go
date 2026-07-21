@@ -25,7 +25,7 @@ type Telemetry interface {
 	ChipIngressSendInterval() time.Duration
 	ChipIngressSendTimeout() time.Duration
 	ChipIngressDrainTimeout() time.Duration
-	ChipIngressMaxGRPCRequestSize() uint
+	ChipIngressMaxGRPCRequestSize() int
 	DurableEmitterEnabled() bool
 	DurableEmitterRetransmitBatchSize() int
 	DurableEmitterEventTTL() time.Duration

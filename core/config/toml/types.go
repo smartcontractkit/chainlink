@@ -2989,7 +2989,7 @@ type Telemetry struct {
 	ChipIngressSendInterval            *commonconfig.Duration
 	ChipIngressSendTimeout             *commonconfig.Duration
 	ChipIngressDrainTimeout            *commonconfig.Duration
-	ChipIngressMaxGRPCRequestSize      *uint
+	ChipIngressMaxGRPCRequestSize      *int
 	DurableEmitterEnabled              *bool
 	DurableEmitterRetransmitBatchSize  *int
 	DurableEmitterEventTTL             *commonconfig.Duration
@@ -3137,7 +3137,7 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	if v := b.ChipIngressDrainTimeout; v != nil && v.Duration() <= 0 {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressDrainTimeout", Value: v.Duration(), Msg: "must be greater than 0"})
 	}
-	if v := b.ChipIngressMaxGRPCRequestSize; v != nil && *v == 0 {
+	if v := b.ChipIngressMaxGRPCRequestSize; v != nil && *v <= 0 {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxGRPCRequestSize", Value: *v, Msg: "must be greater than 0"})
 	}
 	return err

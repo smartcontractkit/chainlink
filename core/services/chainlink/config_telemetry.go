@@ -160,7 +160,7 @@ func (b *telemetryConfig) ChipIngressDrainTimeout() time.Duration {
 	return b.s.ChipIngressDrainTimeout.Duration()
 }
 
-func (b *telemetryConfig) ChipIngressMaxGRPCRequestSize() uint {
+func (b *telemetryConfig) ChipIngressMaxGRPCRequestSize() int {
 	if b.s.ChipIngressMaxGRPCRequestSize == nil {
 		return 0
 	}
