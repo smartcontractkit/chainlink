@@ -129,6 +129,7 @@ type handler struct {
 
 	globalNodeRateLimiter limits.RateLimiter
 	perNodeRateLimiters   map[string]limits.RateLimiter
+	userRateLimiter       limits.RateLimiter
 	requestTimeout        time.Duration
 
 	activeRequests map[string]*activeRequest
@@ -171,6 +172,14 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		perNodeRateLimiters[member.Address] = rl
 	}
 
+	// userRateLimiter bounds inbound user requests before they are fanned out to the
+	// DON. Without it, a single unauthenticated request amplifies into per-node
+	// attestation work; the limiters above only guard node responses.
+	userRateLimiter, err := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayUserRate)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user rate limiter: %w", err)
+	}
+
 	metrics, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
@@ -183,6 +192,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		requestTimeout:        time.Duration(cfg.RequestTimeoutSec) * time.Second,
 		globalNodeRateLimiter: globalNodeRateLimiter,
 		perNodeRateLimiters:   perNodeRateLimiters,
+		userRateLimiter:       userRateLimiter,
 		activeRequests:        make(map[string]*activeRequest),
 		mu:                    sync.RWMutex{},
 		stopCh:                make(services.StopChan),
@@ -223,6 +233,9 @@ func (h *handler) Close() error {
 		}
 		for _, rl := range h.perNodeRateLimiters {
 			err = errors.Join(err, rl.Close())
+		}
+		if h.userRateLimiter != nil {
+			err = errors.Join(err, h.userRateLimiter.Close())
 		}
 		return err
 	})
@@ -272,6 +285,13 @@ func (h *handler) HandleLegacyUserMessage(_ context.Context, _ *api.Message, _ g
 }
 
 func (h *handler) HandleJSONRPCUserMessage(ctx context.Context, req jsonrpc.Request[json.RawMessage], callback gwhandlers.Callback) error {
+	// Shed load before any fan-out. Each forwarded request costs every DON node an
+	// attestation verification and a capabilities-registry lookup, so throttling here
+	// caps that amplification for unauthenticated ingress.
+	if !h.userRateLimiter.Allow(ctx) {
+		h.lggr.Debugw("user request rate limited", "requestID", req.ID)
+		return errors.New("request rate limit exceeded")
+	}
 	if req.ID == "" {
 		return errors.New("request ID cannot be empty")
 	}

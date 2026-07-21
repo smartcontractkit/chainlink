@@ -700,6 +700,47 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	require.Error(t, err) // Should timeout
 }
 
+func TestConfidentialRelayHandler_RateLimitedUserIngress(t *testing.T) {
+	t.Parallel()
+	handlerConfig := Config{RequestTimeoutSec: 30}
+	methodConfig, err := json.Marshal(handlerConfig)
+	require.NoError(t, err)
+
+	lggr := logger.Test(t)
+	don := mocks.NewDON(t)
+	// F=0 single-node DON so a passing request fans out to exactly one node.
+	donConfig := &config.DONConfig{
+		DonId:   "test_relay_don",
+		F:       0,
+		Members: []config.NodeConfig{nodeOne},
+	}
+	clock := clockwork.NewFakeClock()
+	limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
+	h, err := NewHandler(methodConfig, donConfig, don, lggr, clock, limitsFactory)
+	require.NoError(t, err)
+	// Burst of 1 with a negligible refill rate: the first ingress request passes,
+	// the next is rejected before any fan-out to nodes.
+	h.userRateLimiter = limits.GlobalRateLimiter(rate.Limit(0.001), 1)
+
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+
+	params := json.RawMessage(`{"workflow_id":"wf1"}`)
+
+	// First request consumes the burst allowance and fans out.
+	cb1 := common.NewCallback()
+	req1 := jsonrpc.Request[json.RawMessage]{ID: "req-1", Method: MethodCapabilityExec, Params: &params}
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req1, cb1))
+
+	// Second request is rate limited at ingress and never reaches the DON.
+	cb2 := common.NewCallback()
+	req2 := jsonrpc.Request[json.RawMessage]{ID: "req-2", Method: MethodCapabilityExec, Params: &params}
+	err = h.HandleJSONRPCUserMessage(t.Context(), req2, cb2)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "rate limit")
+
+	don.AssertNumberOfCalls(t, "SendToNode", 1)
+}
+
 func TestConfidentialRelayHandler_LateNodeResponse(t *testing.T) {
 	t.Parallel()
 	h, cb, _, _ := setupHandler(t, 4)
