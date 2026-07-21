@@ -111,6 +111,23 @@ func TestCapability_Execute_ZoneBRestriction_DeniesNonAllowlistedOwner(t *testin
 	require.ErrorContains(t, err, "zone-b workflow DON may only read vault secrets for allowlisted workflow owners")
 }
 
+// MUST-2: exercises the allow path through Execute() rather than calling
+// enforce() directly, covering the CRE-context population wiring. An allowlisted
+// zone-b owner must pass the gate; with no OCR oracle in this unit test the
+// request then blocks in handleRequest until the context deadline, so we assert
+// it got past the gate (no zone-b denial) and reached the handler (timeout).
+func TestCapability_Execute_ZoneBRestriction_AllowsAllowlistedOwner(t *testing.T) {
+	t.Parallel()
+	capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"},"owner":{"`+allowlistedOwner+`":{"PerOwner":{"VaultZoneBGetSecretsAllowed":"true"}}}}`)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+	defer cancel()
+	_, err := capability.Execute(ctx, zoneBGetSecretsRequest(t, "0x"+allowlistedOwner))
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), "zone-b workflow DON may only read vault secrets for allowlisted workflow owners")
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
 func TestCapability_enforceZoneBWorkflowRestriction(t *testing.T) {
 	t.Parallel()
 	ctxWithOwner := func(donID uint32, owner string) (context.Context, uint32) {
