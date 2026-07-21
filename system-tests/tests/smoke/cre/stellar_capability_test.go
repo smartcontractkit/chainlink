@@ -1,8 +1,10 @@
 package cre
 
 import (
+	"context"
 	"encoding/hex"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -13,7 +15,10 @@ import (
 
 	"github.com/stellar/go-stellar-sdk/xdr"
 
+	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
+	stellarfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	thelpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -141,6 +146,77 @@ func executeStellarReadContractSmokeTest(
 	lggr.Info().Int("cases", len(steps)).Str("expected_log", expectLogReadContractBatchOK).Msg("Stellar ReadContract capability test passed")
 }
 
+// ExecuteStellarWriteSuite runs the Stellar write CRE smoke scenario: stands up a
+// Chip test sink, then deploys a receiver + the write workflow and waits on it.
+func ExecuteStellarWriteSuite(t *testing.T, tenv *configuration.TestEnvironment) {
+	stellarChain := thelpers.MustStellarChainInEnv(t, tenv)
+	lggr := framework.L
+
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+	server := thelpers.StartChipTestSink(t, thelpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		thelpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+	})
+
+	ExecuteStellarWriteTest(t, tenv, stellarChain, userLogsCh, baseMessageCh)
+}
+
+// ExecuteStellarWriteTest deploys a CRE receiver + a workflow that generates an
+// ed25519 OCR report and submits it via WriteReport through the Soroban CRE
+// forwarder, then asserts the receiver recorded the report on-chain.
+func ExecuteStellarWriteTest(
+	t *testing.T,
+	tenv *configuration.TestEnvironment,
+	stellarChain blockchains.Blockchain,
+	userLogsCh <-chan *workflowevents.UserLogs,
+	baseMessageCh <-chan *commonevents.BaseMessage,
+) {
+	lggr := framework.L
+	ctx := context.Background()
+
+	concreteChain, ok := stellarChain.(*stellchain.Blockchain)
+	require.True(t, ok, "expected concrete *stellar.Blockchain, got %T", stellarChain)
+
+	receiverID, err := stellarfeature.DeployStellarTestReceiver(ctx, concreteChain)
+	require.NoError(t, err, "failed to deploy Stellar CRE test receiver")
+	lggr.Info().Str("receiver", receiverID).Msg("Deployed Stellar CRE test receiver")
+
+	writeDon := stellarWriteDon(t, tenv)
+	workers, err := writeDon.Workers()
+	require.NoError(t, err, "failed to list Stellar DON workers")
+	require.NotEmpty(t, workers, "Stellar DON has no worker nodes")
+	requiredSignatures := (len(workers)-1)/3 + 1
+
+	const workflowName = "stellar-write-workflow"
+	workflowConfig := thelpers.StellarWriteWorkflowConfig{
+		ChainSelector:      stellarChain.ChainSelector(),
+		WorkflowName:       workflowName,
+		ReceiverContractID: receiverID,
+		RequiredSignatures: requiredSignatures,
+	}
+
+	const workflowFileLocation = "./stellar/stellarwrite/main.go"
+	workflowID := thelpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+	expectedLog := "Stellar write consensus succeeded"
+	thelpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, thelpers.WorkflowEngineInitErrorLog, expectedLog, thelpers.StellarWorkflowTimeout, thelpers.WithUserLogWorkflowID(workflowID))
+
+	// Assert the report was actually delivered on-chain: the receiver's on_report
+	// incremented its report count.
+	require.Eventually(t, func() bool {
+		n, cErr := stellarfeature.StellarReceiverReportCount(ctx, concreteChain, receiverID)
+		if cErr != nil {
+			lggr.Warn().Err(cErr).Msg("stellar receiver report_count query failed; retrying")
+			return false
+		}
+		return n > 0
+	}, 2*time.Minute, 5*time.Second, "Stellar receiver did not record any report")
+	lggr.Info().Str("expected_log", expectedLog).Msg("Stellar write capability test passed")
+}
+
 // setupStellarScenario provisions an isolated per-test context for a Stellar read scenario:
 // its own funded keys (SetupTestEnvironmentWithPerTestKeys), the resolved Stellar chain, and a
 // chip sink capturing that scenario's workflow logs. Call it at the top of each scenario subtest.
@@ -170,4 +246,21 @@ func marshalScVal(v xdr.ScVal, err error) string {
 		panic(err)
 	}
 	return b
+}
+
+// stellarWriteDon returns the DON hosting the Stellar capability (the one whose
+// workers submit reports). It keys off the capability flag rather than the chain
+// ID like findAptosDonForChain does: Stellar (and Solana) chain IDs are strings
+// (network passphrase / genesis hashes), so the framework deliberately excludes
+// them from the numeric chain-capability index that GetEnabledChainIDsForCapability
+// reads (see NodeSet.ValidateChainCapabilities), scoping them via
+// supported_stellar_chains instead. DonsWithFlag is the same accessor the Stellar
+// feature uses to resolve DONs.
+func stellarWriteDon(t *testing.T, tenv *configuration.TestEnvironment) *crelib.Don {
+	t.Helper()
+	require.NotNil(t, tenv.Dons, "test environment DON metadata is required")
+
+	dons := tenv.Dons.DonsWithFlag(crelib.StellarCapability)
+	require.NotEmpty(t, dons, "could not find a DON hosting the Stellar capability")
+	return dons[0]
 }

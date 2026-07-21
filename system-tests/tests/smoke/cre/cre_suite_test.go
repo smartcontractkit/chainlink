@@ -288,6 +288,14 @@ func Test_CRE_V2_Stellar_Read_Suite(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // isolate local cre env run
+func Test_CRE_V2_Stellar_Write_Suite(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
+	t.Run("StellarWrite", func(t *testing.T) {
+		ExecuteStellarWriteSuite(t, testEnv)
+	})
+}
+
 func Test_CRE_V2_Module_Cache(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-cache-test.toml"))
 
