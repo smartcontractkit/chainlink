@@ -218,7 +218,7 @@ class TestWorkflowMonitor(unittest.TestCase):
     @patch('builtins.print')
     def test_main_writes_reports(self, mock_print, mock_log_stderr, mock_gen_report, mock_fetch_jobs, mock_parse_logs, mock_download, mock_wait_complete, mock_wait_run, mock_get_trials_dir, mock_parse_args):
         with tempfile.TemporaryDirectory() as tmp_dir:
-            mock_get_trials_dir.return_value = os.path.join(tmp_dir, "trials")
+            mock_get_trials_dir.return_value = tmp_dir
             args = MagicMock()
             args.run_id = 12345
             args.trial_name = "baseline-12345"
@@ -236,7 +236,7 @@ class TestWorkflowMonitor(unittest.TestCase):
 
             workflow_monitor.main()
 
-            expected_output_dir = os.path.join(tmp_dir, "trials", "integration-tests.yml", "baseline-12345")
+            expected_output_dir = os.path.join(tmp_dir, "integration-tests.yml", "baseline-12345")
             expected_logs_dir = os.path.join(expected_output_dir, "logs")
             expected_json = os.path.join(expected_output_dir, "report.json")
             expected_md = os.path.join(expected_output_dir, "report.md")

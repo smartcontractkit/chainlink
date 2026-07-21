@@ -1,5 +1,8 @@
 import unittest
 import json
+import os
+import tempfile
+from unittest.mock import patch, MagicMock
 import workflow_compare
 
 class TestWorkflowCompare(unittest.TestCase):
@@ -105,6 +108,98 @@ class TestWorkflowCompare(unittest.TestCase):
         api_name_path = "Run CCIP v1.6 E2E Tests / smoke/ccip/ccip_reorg_test.go:GreaterThanFinalityTests"
         log_job_name_suffix = "smoke_ccip_ccip_reorg_test.goGreaterThanFinalityTests"
         self.assertTrue(workflow_compare.matches_job_name(api_name_path, log_job_name_suffix))
+
+    def _make_trial_dir(self, trials_dir, workflow, trial, report_data):
+        workflow_dir = os.path.join(trials_dir, workflow)
+        trial_dir = os.path.join(workflow_dir, trial)
+        os.makedirs(trial_dir, exist_ok=True)
+        report_path = os.path.join(trial_dir, "report.json")
+        with open(report_path, 'w', encoding='utf-8') as f:
+            json.dump(report_data, f)
+        return report_path
+
+    def test_resolve_trial_by_path(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            trials_dir = tmp_dir
+            path = self._make_trial_dir(trials_dir, "wf", "t1", {"run": {"id": 1}})
+            workflow, trial, resolved = workflow_compare.resolve_trial(trials_dir, "wf/t1")
+            self.assertEqual(workflow, "wf")
+            self.assertEqual(trial, "t1")
+            self.assertEqual(resolved, path)
+
+    def test_resolve_trial_by_search(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            trials_dir = tmp_dir
+            path = self._make_trial_dir(trials_dir, "wf", "t1", {"run": {"id": 1}})
+            workflow, trial, resolved = workflow_compare.resolve_trial(trials_dir, "t1")
+            self.assertEqual(workflow, "wf")
+            self.assertEqual(trial, "t1")
+            self.assertEqual(resolved, path)
+
+    def test_resolve_trial_legacy(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            trials_dir = tmp_dir
+            workflow_dir = os.path.join(trials_dir, "wf")
+            os.makedirs(workflow_dir, exist_ok=True)
+            legacy_path = os.path.join(workflow_dir, "t1.json")
+            with open(legacy_path, 'w', encoding='utf-8') as f:
+                json.dump({"run": {"id": 1}}, f)
+            workflow, trial, resolved = workflow_compare.resolve_trial(trials_dir, "t1")
+            self.assertEqual(workflow, "wf")
+            self.assertEqual(trial, "t1")
+            self.assertEqual(resolved, legacy_path)
+
+    def test_resolve_trial_not_found(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            trials_dir = tmp_dir
+            os.makedirs(trials_dir, exist_ok=True)
+            with self.assertRaises(FileNotFoundError):
+                workflow_compare.resolve_trial(trials_dir, "missing")
+
+    @patch('workflow_compare.parse_args')
+    @patch('workflow_compare.get_trials_dir')
+    def test_main_creates_comparison(self, mock_get_trials_dir, mock_parse_args):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            trials_dir = tmp_dir
+            mock_get_trials_dir.return_value = trials_dir
+
+            data1 = {"run": {"id": 100, "runtime": "0:10:00", "status": "completed", "conclusion": "success"}, "jobs": []}
+            data2 = {"run": {"id": 101, "runtime": "0:09:00", "status": "completed", "conclusion": "success"}, "jobs": []}
+            self._make_trial_dir(trials_dir, "wf", "before", data1)
+            self._make_trial_dir(trials_dir, "wf", "after", data2)
+
+            args = MagicMock()
+            args.trial_before = "before"
+            args.trial_after = "after"
+            mock_parse_args.return_value = args
+
+            workflow_compare.main()
+
+            out_file = os.path.join(trials_dir, "wf", "before-after-comparison.md")
+            self.assertTrue(os.path.exists(out_file))
+            with open(out_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            self.assertIn("# Workflow Trial Comparison", content)
+            self.assertIn("100", content)
+            self.assertIn("101", content)
+
+    @patch('workflow_compare.parse_args')
+    @patch('workflow_compare.get_trials_dir')
+    def test_main_different_workflows_error(self, mock_get_trials_dir, mock_parse_args):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            trials_dir = tmp_dir
+            mock_get_trials_dir.return_value = trials_dir
+            self._make_trial_dir(trials_dir, "wf1", "t1", {"run": {"id": 1}, "jobs": []})
+            self._make_trial_dir(trials_dir, "wf2", "t2", {"run": {"id": 2}, "jobs": []})
+
+            args = MagicMock()
+            args.trial_before = "t1"
+            args.trial_after = "t2"
+            mock_parse_args.return_value = args
+
+            with self.assertRaises(SystemExit) as cm:
+                workflow_compare.main()
+            self.assertEqual(cm.exception.code, 1)
 
 if __name__ == '__main__':
     unittest.main()

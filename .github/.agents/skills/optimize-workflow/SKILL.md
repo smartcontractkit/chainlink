@@ -23,7 +23,7 @@ Setup:
 3. Permitted scope: High freedom. OK to introduce breaking edits to internal `smartcontractkit` actions/workflows to improve speed/simplicity.
 4. Ask user to target: specific job, whole workflow runner config, or workflow structure.
 5. Setup test workflow (bypass gates, mock inputs, add `workflow_dispatch`).
-6. Init/resume trials log: `.github/.agents/skills/optimize-workflow/trials/[workflow]/summary.md`.
+6. Init/resume trials log: `.github/.agents/skills/optimize-workflow/[workflow]/summary.md`.
 7. Run/find/ask for a baseline trial with current configuration to benchmark against.
 </initialization>
 
@@ -40,6 +40,17 @@ Setup:
 - Document runner config and structure layout in each trial to ensure reproducibility.
 </constraints>
 
+<tools>
+Always use these scripts to gather data on workflow runs. Only use `gh` CLI if these don't give all necessary info.
+
+- See/monitor a workflow: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py [run_id] [trial-name]`
+   - Creates `.github/.agents/skills/optimize-workflow/[workflow]/[trial-name]/report.json`
+   - Creates `.github/.agents/skills/optimize-workflow/[workflow]/[trial-name]/report.md`
+   - Extracts runner logs to `.github/.agents/skills/optimize-workflow/[workflow]/[trial-name]/logs/`
+- Compare trials: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py [trial-1] [trial-2]`
+   - Creates `.github/.agents/skills/optimize-workflow/[workflow]/[trial-1]-[trial-2]-comparison.md`
+</tools>
+
 <resources>
 - [runs-on docs](https://runs-on.com/docs/)
 - [available runners](https://go.runs-on.com/api)
@@ -51,13 +62,8 @@ Setup:
 2. User approves trials and execution method (parallel vs sequential).
 3. Commit + push to new disposable branch, `trial/[trial-name]`.
 4. Trigger workflow.
-5. Monitor run:
-   `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py [run_id] [trial-name]`
-   - Creates `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/report.json`
-   - Creates `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/report.md`
-   - Extracts runner logs to `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/logs/`
-6. Compare trials:
-   `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1]/report.json .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-2]/report.json --out-file .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1]-[trial-2]-comparison.md`
+5. Monitor workflow run with `workflow_monitor.py` script in background session. Stop agent turn and notify when script complete.
+6. Compare trials with `workflow_compare.py` script
 7. Update trial log. Include updated before-after diagram if structural changes occurred.
 8. Show condensed results. Prompt for more trials or stop.
 
