@@ -18,10 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 )
 
+const ForwarderContract datastore.ContractType = "StellarForwarder"
+
 const (
-	ForwarderContract         datastore.ContractType = "StellarForwarder"
-	DefaultForwarderQualifier                        = "stellar_forwarder"
-	DefaultForwarderVersion                          = "1.0.0"
+	DefaultForwarderQualifier = "stellar_forwarder"
+	DefaultForwarderVersion   = "1.0.0"
 )
 
 var _ cldf.ChangeSetV2[*ConfigureForwarderRequest] = ConfigureForwarders{}
