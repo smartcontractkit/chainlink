@@ -9,7 +9,7 @@ disable-model-invocation: true
 2. Setup baseline:
    - Analyze target workflow (runners, caching, bottlenecks, critical path).
    - Setup test workflow (add `workflow_dispatch`, mock inputs if needed).
-   - Init/resume trial log: `.github/.agents/skills/optimize-workflow/[workflow]/summary.md`.
+   - Init/resume trial log: `.github/.agents/skills/optimize-workflow/trials/[workflow]/summary.md`.
    - Record baseline trial run.
 </initialization>
 

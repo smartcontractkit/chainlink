@@ -39,7 +39,7 @@ def detect_repo():
 
 def get_trials_dir():
     # Trial directories live directly inside the optimize-workflow skill directory.
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'trials'))
 
 
 def sanitize_dir_name(name):
