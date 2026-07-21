@@ -1308,7 +1308,7 @@ type EthereumLogIterator interface{ Next() bool }
 func GetLogs(t *testing.T, rv any, logs EthereumLogIterator) []any {
 	v := reflect.ValueOf(rv)
 	require.True(t, rv == nil ||
-		v.Kind() == reflect.Ptr && v.Elem().Kind() == reflect.Slice,
+		v.Kind() == reflect.Pointer && v.Elem().Kind() == reflect.Slice,
 		"must pass a slice to receive logs")
 	var e reflect.Value
 	if rv != nil {
@@ -1317,7 +1317,7 @@ func GetLogs(t *testing.T, rv any, logs EthereumLogIterator) []any {
 	var irv []any
 	for logs.Next() {
 		log := reflect.Indirect(reflect.ValueOf(logs)).FieldByName("Event")
-		if v.Kind() == reflect.Ptr {
+		if v.Kind() == reflect.Pointer {
 			e.Set(reflect.Append(e, log))
 		}
 		irv = append(irv, log.Interface())

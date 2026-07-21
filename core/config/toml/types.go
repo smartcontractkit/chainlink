@@ -2826,9 +2826,7 @@ func (c *CapabilityNodeConfig) setFrom(f *CapabilityNodeConfig) {
 		if c.Config == nil {
 			c.Config = make(map[string]string)
 		}
-		for k, v := range f.Config {
-			c.Config[k] = v
-		}
+		maps.Copy(c.Config, f.Config)
 	}
 }
 
@@ -2998,6 +2996,8 @@ type Telemetry struct {
 	LogExportInterval                  *commonconfig.Duration
 	LogMaxQueueSize                    *int
 
+	MetricCardinalityLimit *int
+
 	PrometheusBridge PrometheusBridge `toml:",omitempty"`
 }
 
@@ -3073,6 +3073,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.LogMaxQueueSize; v != nil {
 		b.LogMaxQueueSize = v
+	}
+	if v := f.MetricCardinalityLimit; v != nil {
+		b.MetricCardinalityLimit = v
 	}
 	b.PrometheusBridge.setFrom(&f.PrometheusBridge)
 }

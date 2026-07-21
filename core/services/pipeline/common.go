@@ -26,24 +26,24 @@ import (
 )
 
 const (
-	BlockHeaderFeederJobType       string = "blockheaderfeeder"
-	BlockhashStoreJobType          string = "blockhashstore"
-	BootstrapJobType               string = "bootstrap"
-	CRESettings                    string = "cresettings"
-	CronJobType                    string = "cron"
-	CCIPJobType                    string = "ccip"
-	CCVCommitteeVerifierJobType    string = "ccvcommitteeverifier"
-	CCVExecutorJobType             string = "ccvexecutor"
-	DirectRequestJobType           string = "directrequest"
-	FluxMonitorJobType             string = "fluxmonitor"
-	GatewayJobType            string = "gateway"
-	OffchainReporting2JobType string = "offchainreporting2"
-	OffchainReportingJobType       string = "offchainreporting"
-	StreamJobType                  string = "stream"
-	VRFJobType                     string = "vrf"
-	WebhookJobType                 string = "webhook"
-	WorkflowJobType                string = "workflow"
-	StandardCapabilitiesJobType    string = "standardcapabilities"
+	BlockHeaderFeederJobType    string = "blockheaderfeeder"
+	BlockhashStoreJobType       string = "blockhashstore"
+	BootstrapJobType            string = "bootstrap"
+	CRESettings                 string = "cresettings"
+	CronJobType                 string = "cron"
+	CCIPJobType                 string = "ccip"
+	CCVCommitteeVerifierJobType string = "ccvcommitteeverifier"
+	CCVExecutorJobType          string = "ccvexecutor"
+	DirectRequestJobType        string = "directrequest"
+	FluxMonitorJobType          string = "fluxmonitor"
+	GatewayJobType              string = "gateway"
+	OffchainReporting2JobType   string = "offchainreporting2"
+	OffchainReportingJobType    string = "offchainreporting"
+	StreamJobType               string = "stream"
+	VRFJobType                  string = "vrf"
+	WebhookJobType              string = "webhook"
+	WorkflowJobType             string = "workflow"
+	StandardCapabilitiesJobType string = "standardcapabilities"
 )
 
 type (
@@ -141,7 +141,10 @@ type Result struct {
 
 // OutputDB dumps a single result output for a pipeline_run or pipeline_task_run
 func (result Result) OutputDB() jsonserializable.JSONSerializable {
-	return jsonserializable.JSONSerializable{Val: result.Value, Valid: !(result.Value == nil || (reflect.ValueOf(result.Value).Kind() == reflect.Ptr && reflect.ValueOf(result.Value).IsNil()))}
+	return jsonserializable.JSONSerializable{
+		Val:   result.Value,
+		Valid: result.Value != nil && (reflect.ValueOf(result.Value).Kind() != reflect.Pointer || !reflect.ValueOf(result.Value).IsNil()),
+	}
 }
 
 // ErrorDB dumps a single result error for a pipeline_task_run
@@ -349,11 +352,11 @@ const (
 )
 
 var (
-	stringType     = reflect.TypeOf("")
-	bytesType      = reflect.TypeOf([]byte(nil))
-	bytes20Type    = reflect.TypeOf([20]byte{})
-	int32Type      = reflect.TypeOf(int32(0))
-	nullUint32Type = reflect.TypeOf(cnull.Uint32{})
+	stringType     = reflect.TypeFor[string]()
+	bytesType      = reflect.TypeFor[[]byte]()
+	bytes20Type    = reflect.TypeFor[[20]byte]()
+	int32Type      = reflect.TypeFor[int32]()
+	nullUint32Type = reflect.TypeFor[cnull.Uint32]()
 )
 
 func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) (_ Task, err error) {

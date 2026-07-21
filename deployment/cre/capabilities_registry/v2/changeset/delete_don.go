@@ -3,6 +3,7 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
@@ -34,10 +35,8 @@ func (d DeleteDONs) VerifyPreconditions(_ cldf.Environment, cfg DeleteDONsInput)
 	if len(cfg.DonNames) == 0 {
 		return errors.New("must provide at least one DON name")
 	}
-	for _, n := range cfg.DonNames {
-		if n == "" {
-			return errors.New("donNames cannot contain an empty string")
-		}
+	if slices.Contains(cfg.DonNames, "") {
+		return errors.New("donNames cannot contain an empty string")
 	}
 	return nil
 }

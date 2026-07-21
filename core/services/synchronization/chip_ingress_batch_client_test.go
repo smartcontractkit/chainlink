@@ -125,7 +125,7 @@ func TestChipIngressBatchClient_MultipleBatches(t *testing.T) {
 
 	testCtx := testutils.Context(t)
 	// Send multiple messages to trigger multiple batches
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		chipIngressClient.Send(testCtx, telemPayload)
 		if i%3 == 0 {
 			time.Sleep(sendInterval * 2) // Allow batch to be sent
@@ -246,7 +246,7 @@ func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
 
 	testCtx := testutils.Context(t)
 	// Send multiple messages with same contract and type - should reuse worker
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		chipIngressClient.Send(testCtx, telemPayload)
 	}
 

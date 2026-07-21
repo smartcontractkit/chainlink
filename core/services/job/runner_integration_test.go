@@ -59,7 +59,7 @@ func TestRunner(t *testing.T) {
 	require.NoError(t, keyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		kb, err := keyStore.OCR().Create(ctx)
 		require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestRunner(t *testing.T) {
 		c.OCR.TransmitterAddress = &taddress
 		c.OCR2.DatabaseTimeout = commonconfig.MustNewDuration(time.Second)
 		c.OCR2.ContractTransmitterTransmitTimeout = commonconfig.MustNewDuration(time.Second)
-		c.Insecure.OCRDevelopmentMode = ptr(true)
+		c.Insecure.OCRDevelopmentMode = new(true)
 	})
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
@@ -566,9 +566,9 @@ answer1      [type=median index=0];
 
 		for _, tc := range testCases {
 			config = configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.P2P.V2.Enabled = ptr(true)
+				c.P2P.V2.Enabled = new(true)
 				c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
-				c.OCR.CaptureEATelemetry = ptr(tc.specCaptureEATelemetry)
+				c.OCR.CaptureEATelemetry = new(tc.specCaptureEATelemetry)
 			})
 
 			legacyChains2 := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
@@ -791,7 +791,6 @@ func TestRunner_WebhookJobRemoved(t *testing.T) {
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-
 	var (
 		eiName    = "substrate-ei"
 		eiSpec    = map[string]any{"foo": "bar"}
@@ -849,5 +848,3 @@ observationSource = """
 
 	cltest.DeleteJobViaWeb(t, app, job.ID)
 }
-
-func ptr[T any](t T) *T { return &t }

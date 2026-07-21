@@ -3,6 +3,7 @@ package operations
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -34,7 +35,7 @@ type JDRegisterNodeOpInput struct {
 
 type JDRegisterNodeOpOutput struct {
 	Error string `json:"error,omitempty" yaml:"error,omitempty"` // empty if no error
-	Node  JDNode `json:"node,omitempty" yaml:"node,omitempty"`   // non-nil if success
+	Node  JDNode `json:"node" yaml:"node,omitempty"`             // non-nil if success
 }
 
 // JDRegisterNodeOp registers a node with Job Distributor.
@@ -121,9 +122,7 @@ func registerNodeImpl(deps JDRegisterNodeOpDeps, input JDRegisterNodeOpInput) (*
 	if input.P2PID != "" {
 		labels["p2p_id"] = input.P2PID
 	}
-	for k, v := range input.Labels {
-		labels[k] = v
-	}
+	maps.Copy(labels, input.Labels)
 	nodeID, err := offchain.RegisterNode(
 		deps.Env.GetContext(),
 		deps.Env.Offchain,

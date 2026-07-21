@@ -229,7 +229,7 @@ ds1 -> div_by_ds2 -> multiply;
 	finalResult := trrs[3]
 
 	require.NoError(t, finalResult.Result.Error)
-	require.Equal(t, reflect.TypeOf(decimal.Decimal{}), reflect.TypeOf(finalResult.Result.Value))
+	require.Equal(t, reflect.TypeFor[decimal.Decimal](), reflect.TypeOf(finalResult.Result.Value))
 
 	assert.Equal(t, "1000012.34", finalResult.Result.Value.(decimal.Decimal).String())
 }

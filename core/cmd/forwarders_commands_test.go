@@ -68,7 +68,7 @@ func TestShell_TrackEVMForwarder(t *testing.T) {
 	id := newRandChainID()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].ChainID = id
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = new(true)
 	})
 	client, r := app.NewShellAndRenderer()
 
@@ -113,7 +113,7 @@ func TestShell_TrackEVMForwarder_BadAddress(t *testing.T) {
 	id := newRandChainID()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].ChainID = id
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = new(true)
 	})
 	client, _ := app.NewShellAndRenderer()
 
@@ -132,7 +132,7 @@ func TestShell_DeleteEVMForwarders_MissingFwdId(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = new(true)
 	})
 	client, _ := app.NewShellAndRenderer()
 

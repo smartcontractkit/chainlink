@@ -477,7 +477,7 @@ require (
 	github.com/slack-go/slack v0.23.1 // indirect
 	github.com/smartcontractkit/ccip-contract-examples/chains/evm v0.0.0-20260129135848-c86808ba5cb9 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
-	github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260714122420-7b2200a59a79 // indirect
+	github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260716230027-bd85997bc03c // indirect
 	github.com/smartcontractkit/chainlink-aptos/deployment v0.0.0-20260706100550-d43558069754 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-canton v0.0.0-20260615233851-4e78e7c23a58 // indirect
@@ -512,13 +512,13 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260716141634-c0cc05ed05d8 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1 // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260714190119-005bb9a612c3 // indirect
-	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260714190119-005bb9a612c3 // indirect
+	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 // indirect
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260714190119-005bb9a612c3 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260629213843-c52e07523035 // indirect
-	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260715200135-39296e69ee4e // indirect
+	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260716214810-db5ecc877490 // indirect
 	github.com/smartcontractkit/chainlink-ton/deployment v0.0.0-20260601214705-1ab0adfd785f // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/cld-changesets v0.5.0 // indirect

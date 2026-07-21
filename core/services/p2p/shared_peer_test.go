@@ -32,9 +32,9 @@ func TestDon2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.P2P.V2.Enabled = ptr(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
-		c.P2P.PeerID = ptr(k.PeerID())
+		c.P2P.PeerID = new(k.PeerID())
 	})
 	pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), db, logger.TestLogger(t))
 
@@ -164,5 +164,3 @@ func (m *mockStream) Close() error {
 	close(m.msgCh)
 	return nil
 }
-
-func ptr[T any](t T) *T { return &t }

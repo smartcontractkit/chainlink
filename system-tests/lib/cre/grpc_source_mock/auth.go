@@ -96,10 +96,10 @@ func NewJWTAuthInterceptor(authProvider NodeAuthProvider) grpc.UnaryServerInterc
 
 	return func(
 		ctx context.Context,
-		req interface{},
+		req any,
 		info *grpc.UnaryServerInfo,
 		handler grpc.UnaryHandler,
-	) (interface{}, error) {
+	) (any, error) {
 		// Extract token from metadata using the shared token extractor
 		token, err := nodeauthgrpc.ExtractBearerToken(ctx)
 		if err != nil {

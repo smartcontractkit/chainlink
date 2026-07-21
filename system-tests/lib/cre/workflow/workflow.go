@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -481,9 +482,7 @@ func UpdateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 			if wrapErr != nil {
 				return errors.Wrap(wrapErr, "failed to wrap vault capability config values")
 			}
-			for k, v := range newValues.Underlying {
-				base.Underlying[k] = v
-			}
+			maps.Copy(base.Underlying, newValues.Underlying)
 			existingCfg.DefaultConfig = chainlinkvalues.ProtoMap(base)
 
 			configBytes, marshalErr := proto.Marshal(existingCfg)
@@ -537,7 +536,7 @@ func WaitForVaultConfigPropagation(ctx context.Context, dbPort, nodeCount int) e
 	defer cancel()
 
 	pending := make(map[int]struct{}, nodeCount)
-	for i := 0; i < nodeCount; i++ {
+	for i := range nodeCount {
 		pending[i] = struct{}{}
 	}
 
