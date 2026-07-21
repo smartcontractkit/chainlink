@@ -165,6 +165,20 @@ func TestCapability_enforceZoneBWorkflowRestriction(t *testing.T) {
 		err := capability.zoneBRestrictor.enforce(ctx, donID)
 		require.ErrorContains(t, err, "allowlisted workflow owners")
 	})
+
+	// MUST-4: the allowlist is keyed by the normalized owner (0x stripped,
+	// lowercased), while callers supply the standard "0x"-prefixed, possibly
+	// mixed-case address. If owner matching regressed to a bare string compare,
+	// this allowlisted caller would be denied. Uses a hex owner with letters in
+	// mixed case so both the 0x-strip and the lowercasing are exercised.
+	t.Run("gate enabled: allowlist match normalizes 0x prefix and case of caller owner", func(t *testing.T) {
+		t.Parallel()
+		const mixedCaseOwner = "AbCdEf0000000000000000000000000000000001"
+		const normalizedOwner = "abcdef0000000000000000000000000000000001"
+		capability := newZoneBTestCapability(t, `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"},"owner":{"`+normalizedOwner+`":{"PerOwner":{"VaultZoneBGetSecretsAllowed":"true"}}}}`)
+		ctx, donID := ctxWithOwner(zoneBDonID, "0x"+mixedCaseOwner)
+		require.NoError(t, capability.zoneBRestrictor.enforce(ctx, donID))
+	})
 }
 
 // toggleableMetadataRegistry resolves DONByID from an in-memory map but can be
