@@ -44,11 +44,11 @@ Setup:
 Always use these scripts to gather data on workflow runs. Only use `gh` CLI if these don't give all necessary info.
 
 - See/monitor a workflow: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py [run_id] [trial-name]`
-   - Creates `.github/.agents/skills/optimize-workflow/[workflow]/[trial-name]/report.json`
-   - Creates `.github/.agents/skills/optimize-workflow/[workflow]/[trial-name]/report.md`
-   - Extracts runner logs to `.github/.agents/skills/optimize-workflow/[workflow]/[trial-name]/logs/`
+   - Creates `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/report.json`
+   - Creates `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/report.md`
+   - Extracts runner logs to `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/logs/`
 - Compare trials: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py [trial-1] [trial-2]`
-   - Creates `.github/.agents/skills/optimize-workflow/[workflow]/[trial-1]-[trial-2]-comparison.md`
+   - Creates `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1]-[trial-2]-comparison.md`
 </tools>
 
 <resources>
