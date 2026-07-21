@@ -9,8 +9,11 @@ import (
 	stderrors "errors"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -67,6 +70,7 @@ func init() {
 	RootCmd.AddCommand(statusCmd)
 	RootCmd.AddCommand(diffCmd)
 	RootCmd.AddCommand(serveCmd)
+	RootCmd.PersistentPreRun = trackCommandPreRun
 }
 
 var applyCmd = &cobra.Command{
@@ -139,7 +143,24 @@ func init() {
 
 // Run is the entry point called from main.go.
 func Run() {
+	var trackOnce sync.Once
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		trackOnce.Do(func() { trackCommandResult("interrupted") })
+		os.Exit(0)
+	}()
+
 	err := RootCmd.Execute()
+	trackOnce.Do(func() {
+		if err != nil {
+			trackCommandResult("error")
+		} else {
+			trackCommandResult("success")
+		}
+	})
 	if err == nil {
 		return
 	}
