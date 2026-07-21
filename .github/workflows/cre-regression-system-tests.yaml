@@ -92,7 +92,9 @@ jobs:
             "Test_CRE_V2_EVM_EstimateGas_Invalid_To_Address_Regression": "cpu=16/ram=64",
             "Test_CRE_V2_EVM_HeaderByNumber_Invalid_Block_Regression": "cpu=16/ram=64",
             "Test_CRE_V2_EVM_FilterLogs_Invalid_Addresses_Regression": "cpu=16/ram=64",
-            "Test_CRE_V2_EVM_GetTransactionByHash_Invalid_Hash_Regression": "cpu=16/ram=64"
+            "Test_CRE_V2_EVM_GetTransactionByHash_Invalid_Hash_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_HTTP_Action_CRUD_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_Stellar_ReadContract_Regression": "cpu=16/ram=64"
           }'
 
           tests=$(echo "$test_names" | jq -c -R -s \

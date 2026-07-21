@@ -115,11 +115,12 @@ jobs:
           PER_TEST_RUNNERS_JSON='{
             "Test_CRE_V2_EVM_Read_StateQueries": "cpu=16/ram=64",
             "Test_CRE_V2_Suite_Bucket_A": "cpu=16/ram=64",
-            "Test_CRE_V2_Suite_Bucket_B": "cpu=32/ram=64",
+            "Test_CRE_V2_Suite_Bucket_B": "cpu=16/ram=64",
             "Test_CRE_V2_EVM_Read_TxArtifacts": "cpu=16/ram=64",
             "Test_CRE_V2_Suite_Bucket_C": "cpu=16/ram=64",
             "Test_CRE_V2_Sharding": "cpu=16/ram=64",
             "Test_CRE_V2_Aptos_Suite": "cpu=16/ram=64",
+            "Test_CRE_V2_Stellar_Read_Suite": "cpu=16/ram=64",
             "Test_CRE_V2_Solana_Read_Accounts": "cpu=16/ram=64",
             "Test_CRE_V2_Beholder_Suite": "cpu=16/ram=64",
             "Test_CRE_V2_Solana_LogTrigger": "cpu=16/ram=64",
