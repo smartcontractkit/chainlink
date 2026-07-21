@@ -16,6 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
@@ -70,12 +72,13 @@ type ConfidentialModule struct {
 	provider          func(tee *sdkpb.Tee) bool
 	executionHandlers *confidentialrelay.ExecutionHandlers
 	enabledGate       limits.GateLimiter
+	creSettingsGetter settings.Getter
 }
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
+func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, creSettingsGetter settings.Getter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
 	}
@@ -93,6 +96,7 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandl
 		workflowTag:       workflowTag,
 		resolveOrgID:      resolveOrgID,
 		enabledGate:       enabledGate,
+		creSettingsGetter: creSettingsGetter,
 		lggr:              lggr,
 	}, nil
 }
@@ -204,19 +208,37 @@ func doRequest[I, O proto.Message](
 
 	config, _ := anypb.New(&emptypb.Empty{})
 
+	metadata := capabilities.RequestMetadata{
+		WorkflowID:          m.workflowID,
+		WorkflowOwner:       m.workflowOwner,
+		WorkflowName:        m.workflowName,
+		WorkflowTag:         m.workflowTag,
+		WorkflowExecutionID: execID,
+		OrgID:               orgID,
+	}
+	// When the WorkflowDonID binding gate is enabled, the remote executable
+	// capability server rejects requests whose RequestMetadata.WorkflowDonID
+	// does not match the authenticated calling DON. Set it to the calling
+	// (local) workflow DON ID so the request is accepted. Any failure here must
+	// fail the whole call rather than silently sending a zero WorkflowDonID.
+	bindingEnabled, err := cresettings.Default.RemoteExecutableWorkflowDONBindingEnabled.GetOrDefault(ctx, m.creSettingsGetter)
+	if err != nil {
+		return fmt.Errorf("failed to read RemoteExecutableWorkflowDONBindingEnabled setting: %w", err)
+	}
+	if bindingEnabled {
+		localNode, lnErr := m.capRegistry.LocalNode(ctx)
+		if lnErr != nil {
+			return fmt.Errorf("failed to get local node for confidential-workflows request metadata: %w", lnErr)
+		}
+		metadata.WorkflowDonID = localNode.WorkflowDON.ID
+	}
+
 	capReq := capabilities.CapabilityRequest{
 		Payload:       payload,
 		ConfigPayload: config,
 		Method:        method,
 		CapabilityId:  confidentialWorkflowsCapabilityID,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          m.workflowID,
-			WorkflowOwner:       m.workflowOwner,
-			WorkflowName:        m.workflowName,
-			WorkflowTag:         m.workflowTag,
-			WorkflowExecutionID: execID,
-			OrgID:               orgID,
-		},
+		Metadata:      metadata,
 	}
 
 	capResp, err := executable.Execute(ctx, capReq)
