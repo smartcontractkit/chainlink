@@ -257,12 +257,7 @@ jobs:
       name: integration
       deployment: false
     runs-on: ${{ matrix.image.runner }}
-    needs:
-      [
-        labels,
-        enforce-ctf-version,
-        changes,
-      ]
+    needs: [labels, enforce-ctf-version, changes]
     permissions:
       id-token: write
       contents: read
@@ -565,7 +560,7 @@ jobs:
           ref: ${{ env.CHAINLINK_REF }}
 
       - name: Set up Go for compilation
-        uses: smartcontractkit/.github/actions/ctf-setup-go@c72002bfd3be05bd5cdf5d4d0019d7d7dd932769 # DEBUG: compileRunFanOut
+        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
           go_mod_path: ./integration-tests/go.mod
           cache_key_id: compile-tests
@@ -633,7 +628,7 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c72002bfd3be05bd5cdf5d4d0019d7d7dd932769 # DEBUG: compileRunFanOut
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@run-e2e-tests/v1
     with:
       workflow_name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}

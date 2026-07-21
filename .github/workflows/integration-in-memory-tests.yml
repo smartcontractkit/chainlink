@@ -101,7 +101,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.run-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c72002bfd3be05bd5cdf5d4d0019d7d7dd932769 # DEBUG: compileRunFanOut
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@run-e2e-tests/v1
     with:
       workflow_name: Run CCIP Integration Tests For PR
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
@@ -133,7 +133,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'merge_group' && needs.changes.outputs.run-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@c72002bfd3be05bd5cdf5d4d0019d7d7dd932769 # DEBUG: compileRunFanOut
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@run-e2e-tests/v1
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
