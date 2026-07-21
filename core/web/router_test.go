@@ -18,6 +18,8 @@ import (
 )
 
 func TestTokenAuthRequired_NoCredentials(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
@@ -36,6 +38,8 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
+	t.Parallel()
+
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(t.Context()))
 
@@ -51,6 +55,8 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
@@ -84,6 +90,8 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
@@ -117,6 +125,8 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 }
 
 func TestSessions_RateLimited(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
@@ -146,6 +156,8 @@ func TestSessions_RateLimited(t *testing.T) {
 }
 
 func TestRouter_LargePOSTBody(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
@@ -166,6 +178,8 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 }
 
 func TestRouter_GinHelmetHeaders(t *testing.T) {
+	t.Parallel()
+
 	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))

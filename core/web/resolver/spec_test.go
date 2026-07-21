@@ -520,6 +520,8 @@ func TestResolver_OCR2Spec(t *testing.T) {
 }
 
 func TestResolver_VRFSpec(t *testing.T) {
+	t.Parallel()
+
 	var (
 		id = int32(1)
 	)
@@ -630,6 +632,8 @@ func TestResolver_VRFSpec(t *testing.T) {
 }
 
 func TestResolver_WebhookSpec(t *testing.T) {
+	t.Parallel()
+
 	var (
 		id = int32(1)
 	)
@@ -678,6 +682,8 @@ func TestResolver_WebhookSpec(t *testing.T) {
 }
 
 func TestResolver_BlockhashStoreSpec(t *testing.T) {
+	t.Parallel()
+
 	var (
 		id = int32(1)
 	)
@@ -783,6 +789,8 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 }
 
 func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
+	t.Parallel()
+
 	var (
 		id = int32(1)
 	)
@@ -884,6 +892,8 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 }
 
 func TestResolver_BootstrapSpec(t *testing.T) {
+	t.Parallel()
+
 	var (
 		id = int32(1)
 	)
@@ -956,6 +966,8 @@ func TestResolver_BootstrapSpec(t *testing.T) {
 }
 
 func TestResolver_WorkflowSpec(t *testing.T) {
+	t.Parallel()
+
 	var (
 		id = int32(1)
 	)
@@ -1010,6 +1022,8 @@ func TestResolver_WorkflowSpec(t *testing.T) {
 }
 
 func TestResolver_GatewaySpec(t *testing.T) {
+	t.Parallel()
+
 	var (
 		id = int32(1)
 	)
@@ -1068,6 +1082,8 @@ func TestResolver_GatewaySpec(t *testing.T) {
 }
 
 func TestResolver_StandardCapabilitiesSpec(t *testing.T) {
+	t.Parallel()
+
 	var (
 		id = int32(1)
 	)
@@ -1125,6 +1141,8 @@ func TestResolver_StandardCapabilitiesSpec(t *testing.T) {
 }
 
 func TestResolver_StreamSpec(t *testing.T) {
+	t.Parallel()
+
 	var (
 		id1      = int32(1)
 		id2      = int32(2)

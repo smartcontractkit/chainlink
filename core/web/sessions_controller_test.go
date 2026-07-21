@@ -44,6 +44,8 @@ func TestSessionsController_Create(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := t.Context()
 			body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, test.email, test.password)
 			request, err := http.NewRequestWithContext(ctx, "POST", app.Server.URL+"/sessions", bytes.NewBufferString(body))
@@ -148,6 +150,8 @@ func TestSessionsController_Destroy(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := t.Context()
 			cookie := cltest.MustGenerateSessionCookie(t, test.sessionID)
 			request, err := http.NewRequestWithContext(ctx, "DELETE", app.Server.URL+"/sessions", nil)

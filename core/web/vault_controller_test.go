@@ -40,6 +40,8 @@ func setupVaultControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore
 }
 
 func TestVaultController_VerifyDKGResult_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()
@@ -96,6 +98,8 @@ func TestVaultController_VerifyDKGResult_HappyPath(t *testing.T) {
 }
 
 func TestVaultController_VerifyDKGResult_WrongKey(t *testing.T) {
+	t.Parallel()
+
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()
@@ -157,6 +161,8 @@ func TestVaultController_VerifyDKGResult_WrongKey(t *testing.T) {
 }
 
 func TestVaultController_VerifyDKGResult_CantFindResultForInstanceID(t *testing.T) {
+	t.Parallel()
+
 	client, _, _ := setupVaultControllerTests(t)
 
 	bdata, err := json.Marshal(web.VerifyDKGResultRequest{
@@ -171,6 +177,8 @@ func TestVaultController_VerifyDKGResult_CantFindResultForInstanceID(t *testing.
 }
 
 func TestVaultController_VerifyDKGResult_MissingInstanceIDOrPublicKey(t *testing.T) {
+	t.Parallel()
+
 	client, _, _ := setupVaultControllerTests(t)
 
 	bdata, err := json.Marshal(web.VerifyDKGResultRequest{
@@ -193,6 +201,8 @@ func TestVaultController_VerifyDKGResult_MissingInstanceIDOrPublicKey(t *testing
 }
 
 func TestVaultController_ExportDKGResult(t *testing.T) {
+	t.Parallel()
+
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()

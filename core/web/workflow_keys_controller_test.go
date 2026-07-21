@@ -28,6 +28,8 @@ func setupWorkflowKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, k
 }
 
 func TestWorkflowKeysController_Index_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, keyStore := setupWorkflowKeysControllerTests(t)
 	keys, err := keyStore.Workflow().GetAll()
 	require.NoError(t, err)

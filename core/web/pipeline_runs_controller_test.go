@@ -72,6 +72,8 @@ func TestPipelineRunsController_RunExistingWebhookJobRejected(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	url := url.URL{Path: "/v2/pipeline/runs"}
@@ -100,6 +102,8 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs")
@@ -123,6 +127,8 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_Pagination(t *testing.T) {
+	t.Parallel()
+
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs?page=1&size=1")
@@ -145,6 +151,8 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 }
 
 func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs/" + strconv.FormatInt(runIDs[0], 10))
@@ -175,7 +183,7 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 }
 
 func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64) {
-	t.Parallel()
+	t.Helper()
 	ctx := t.Context()
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)

@@ -12,6 +12,8 @@ import (
 )
 
 func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
+	t.Parallel()
+
 	app, client, _, jID, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	description := "job spec error description"
@@ -48,9 +50,11 @@ func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
 }
 
 func TestPipelineJobSpecErrorsController_Delete_NotFound(t *testing.T) {
+	t.Parallel()
+
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
-	resp, cleanup := client.Delete("/v2/pipeline/job_spec_errors/1")
+	resp, cleanup := client.Delete("/v2/pipeline/job_spec_errors/99999")
 	defer cleanup()
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be not found")
