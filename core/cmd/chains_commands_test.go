@@ -23,9 +23,9 @@ func TestShell_IndexEVMChains(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 	})
 	client, r := app.NewShellAndRenderer()
 

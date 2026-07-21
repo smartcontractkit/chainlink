@@ -801,18 +801,14 @@ func (r *runner) scheduleUnfinishedRuns() {
 
 	var wgRunsDone sync.WaitGroup
 	err := r.orm.GetUnfinishedRuns(ctx, now, func(run Run) error {
-		wgRunsDone.Add(1)
-
-		go func() {
-			defer wgRunsDone.Done()
-
+		wgRunsDone.Go(func() {
 			_, err := r.Run(ctx, &run, false, nil)
 			if ctx.Err() != nil {
 				return
 			} else if err != nil {
 				r.lggr.Errorw("Pipeline run init job resumption failed", "err", err)
 			}
-		}()
+		})
 
 		return nil
 	})

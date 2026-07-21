@@ -46,7 +46,7 @@ func TestEmit(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver 
 	})
 
 	t.Run(events.WorkflowExecutionFinished, func(t *testing.T) { //nolint:paralleltest // shares beholder observer
-		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "status", executionID, nil, nil))
+		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "status", executionID, nil, events.ErrorClassificationUnspecified, nil))
 		require.Len(t, labels, 1)
 
 		msgs := beholderObserver.Messages(t, "beholder_entity", "workflows.v1."+events.WorkflowExecutionFinished)
@@ -60,7 +60,7 @@ func TestEmit(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver 
 
 	t.Run(events.WorkflowExecutionFinished+"_with_error", func(t *testing.T) { //nolint:paralleltest // shares beholder observer
 		testErr := errors.New("something went wrong")
-		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "errored", executionID, testErr, nil))
+		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "errored", executionID, testErr, events.ErrorClassificationSystem, nil))
 
 		v2Msgs := beholderObserver.Messages(t, "beholder_entity", "workflows.v2."+events.WorkflowExecutionFinished)
 		require.NotEmpty(t, v2Msgs)
@@ -70,6 +70,7 @@ func TestEmit(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver 
 		require.NoError(t, proto.Unmarshal(v2Msgs[len(v2Msgs)-1].Body, &v2Event))
 		assert.Equal(t, "something went wrong", v2Event.Error)
 		assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED, v2Event.Status)
+		assert.Equal(t, eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_SYSTEM_ERROR, v2Event.ClassifiedStatus)
 	})
 
 	t.Run(events.CapabilityExecutionStarted, func(t *testing.T) { //nolint:paralleltest // shares beholder observer

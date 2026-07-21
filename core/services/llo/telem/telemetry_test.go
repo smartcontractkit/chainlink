@@ -304,13 +304,13 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 			Name:                   "test-bridge-1",
 			RequestData:            []byte(`foo`),
 			ResponseData:           []byte(`bar`),
-			ResponseError:          ptr("test error"),
+			ResponseError:          new("test error"),
 			ResponseStatusCode:     200,
 			RequestStartTimestamp:  time.Unix(1, 1),
 			RequestFinishTimestamp: time.Unix(2, 1),
 			LocalCacheHit:          true,
 			SpecID:                 3,
-			StreamID:               ptr(uint32(135)),
+			StreamID:               new(uint32(135)),
 			DotID:                  "ds1",
 		}
 		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
@@ -357,7 +357,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 			StreamValueType:       1,
 			StreamValueBinary:     []byte{0x01, 0x02, 0x03},
 			StreamValueText:       "stream value text",
-			ObservationError:      ptr("test error"),
+			ObservationError:      new("test error"),
 			ObservationTimestamp:  time.Unix(1, 1).UnixNano(),
 			ObservationFinishedAt: time.Unix(2, 1).UnixNano(),
 			SeqNr:                 42,
@@ -783,7 +783,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 		receivedChannels := make([]uint32, 0, 3)
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			tLog := <-m.chTypedLogs
 			assert.Equal(t, synchronization.LLOReport, tLog.telemType)
 			decoded := &llocommon.LLOReportTelemetry{}
@@ -852,9 +852,9 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 		require.NotNil(t, ch)
 
 		transmittingSeqNrs := make([]uint64, 0, secondsCovered)
-		for s := 0; s < secondsCovered; s++ {
+		for s := range secondsCovered {
 			secStart := time.Unix(baseObservationUnix+int64(s), 0).UnixNano()
-			for i := 0; i < outcomesPerSecond; i++ {
+			for i := range outcomesPerSecond {
 				seqNr := baseSeqNr + uint64(s*outcomesPerSecond+i)
 				// Spread observation timestamps within the same wall-clock
 				// second (different nanos, same second bucket).
@@ -885,7 +885,7 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 		// We expect one outcome telemetry per wall-clock second (sampler
 		// admits the first survivor per second bucket).
 		received := make([]uint64, 0, secondsCovered)
-		for i := 0; i < secondsCovered; i++ {
+		for i := range secondsCovered {
 			select {
 			case tLog := <-m.chTypedLogs:
 				assert.Equal(t, synchronization.LLOOutcome, tLog.telemType)
@@ -925,9 +925,9 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 		require.NotNil(t, ch)
 
 		transmittingSeqNrs := make([]uint64, 0, secondsCovered)
-		for s := 0; s < secondsCovered; s++ {
+		for s := range secondsCovered {
 			secStart := time.Unix(baseObservationUnix+int64(s), 0).UnixNano()
-			for i := 0; i < outcomesPerSecond; i++ {
+			for i := range outcomesPerSecond {
 				seqNr := baseSeqNr + uint64(s*outcomesPerSecond+i)
 				obsTs := uint64(secStart + int64(i)*int64(10*time.Millisecond))
 				ch <- &llocommon.LLOOutcomeTelemetry{
@@ -953,7 +953,7 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 
 		// Without sampling, every transmit produces telemetry — one per second
 		// (since only one seqNr per second transmits).
-		for i := 0; i < secondsCovered; i++ {
+		for i := range secondsCovered {
 			select {
 			case tLog := <-m.chTypedLogs:
 				assert.Equal(t, synchronization.LLOOutcome, tLog.telemType)
@@ -1011,9 +1011,9 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 
 		transmittingSeqNrs := make([]uint64, 0, secondsCovered)
 		expectedBufferEntries := 0
-		for s := 0; s < secondsCovered; s++ {
+		for s := range secondsCovered {
 			secStart := time.Unix(baseObservationUnix+int64(s), 0).UnixNano()
-			for i := 0; i < seqNrsPerSecond; i++ {
+			for i := range seqNrsPerSecond {
 				seqNr := baseSeqNr + uint64(s*seqNrsPerSecond+i)
 				obsTs := uint64(secStart + int64(i)*int64(10*time.Millisecond))
 				// Each seqNr emits a report per channel — mimics the
@@ -1051,7 +1051,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 		// first survivor per (channelId, second) fingerprint).
 		expected := secondsCovered * len(channels)
 		seen := make(map[uint32]int)
-		for i := 0; i < expected; i++ {
+		for i := range expected {
 			select {
 			case tLog := <-m.chTypedLogs:
 				assert.Equal(t, synchronization.LLOReport, tLog.telemType)
@@ -1093,9 +1093,9 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 
 		transmittingSeqNrs := make([]uint64, 0, secondsCovered)
 		expectedBufferEntries := 0
-		for s := 0; s < secondsCovered; s++ {
+		for s := range secondsCovered {
 			secStart := time.Unix(baseObservationUnix+int64(s), 0).UnixNano()
-			for i := 0; i < seqNrsPerSecond; i++ {
+			for i := range seqNrsPerSecond {
 				seqNr := baseSeqNr + uint64(s*seqNrsPerSecond+i)
 				obsTs := uint64(secStart + int64(i)*int64(10*time.Millisecond))
 				for _, channelID := range channels {
@@ -1128,7 +1128,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 		// Without sampling, every report at a transmitting seqNr flushes.
 		// One transmitting seqNr per second × len(channels) reports per seqNr.
 		expected := secondsCovered * len(channels)
-		for i := 0; i < expected; i++ {
+		for i := range expected {
 			select {
 			case tLog := <-m.chTypedLogs:
 				assert.Equal(t, synchronization.LLOReport, tLog.telemType)
@@ -1185,7 +1185,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 		tm.TrackSeqNr(cd, opts.SeqNr())
 
 		received := make(map[uint32]struct{})
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			select {
 			case tLog := <-m.chTypedLogs:
 				decoded := &llocommon.LLOReportTelemetry{}
@@ -1199,5 +1199,3 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 			"each per-channel report should be admitted (distinct sampler fingerprints)")
 	})
 }
-
-func ptr[T any](t T) *T { return &t }

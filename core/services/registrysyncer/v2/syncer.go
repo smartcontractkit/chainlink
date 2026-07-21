@@ -160,16 +160,12 @@ func buildV2ContractReaderConfig() config.ChainReaderConfig {
 
 func (s *registrySyncer) Start(ctx context.Context) error {
 	return s.StartOnce("RegistrySyncer", func() error {
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
+		s.wg.Go(func() {
 			s.syncLoop()
-		}()
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
+		})
+		s.wg.Go(func() {
 			s.updateStateLoop()
-		}()
+		})
 		return nil
 	})
 }
