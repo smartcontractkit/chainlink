@@ -786,4 +786,6 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 // merged upstream yet.
 replace github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.3.1-0.20260410131411-8c2f3bdae9db
 
-replace github.com/starknet-io/starknet-p2pspecs => ../../../starknet-p2pspecs-stub
+exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
+
+replace github.com/starknet-io/starknet-p2pspecs => github.com/NethermindEth/juno v0.15.11

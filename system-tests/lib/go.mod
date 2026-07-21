@@ -622,4 +622,4 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 // yet, so we pin to v0.1.0 which has both the old aliases and the new compression API.
 replace github.com/moby/go-archive v0.2.0 => github.com/moby/go-archive v0.1.0
 
-replace github.com/starknet-io/starknet-p2pspecs => ../../../starknet-p2pspecs-stub
+exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000

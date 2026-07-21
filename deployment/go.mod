@@ -577,4 +577,4 @@ require (
 // gotron-sdk is not longer maintained
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
 
-replace github.com/starknet-io/starknet-p2pspecs => ../../starknet-p2pspecs-stub
+exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
