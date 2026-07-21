@@ -24,6 +24,7 @@ import (
 )
 
 func TestCapabilityController_ExecuteCapability_MissingBody(t *testing.T) {
+	t.Parallel()
 	mockApp := appmocks.NewApplication(t)
 
 	controller := web.CapabilityController{App: mockApp}
@@ -41,6 +42,7 @@ func TestCapabilityController_ExecuteCapability_MissingBody(t *testing.T) {
 }
 
 func TestCapabilityController_ExecuteCapability_RegistryNotInitialized(t *testing.T) {
+	t.Parallel()
 	mockApp := appmocks.NewApplication(t)
 	requestBody := web.CapabilityRequestOuter{
 		CapabilityName:    "test-capability",
@@ -65,6 +67,7 @@ func TestCapabilityController_ExecuteCapability_RegistryNotInitialized(t *testin
 }
 
 func TestCapabilityController_ExecuteCapability_MissingRequiredFields(t *testing.T) {
+	t.Parallel()
 	mockApp := appmocks.NewApplication(t)
 	mockApp.EXPECT().GetCapabilitiesRegistry().Return(nil)
 
@@ -84,6 +87,7 @@ func TestCapabilityController_ExecuteCapability_MissingRequiredFields(t *testing
 }
 
 func TestCapabilityController_ExecuteCapability(t *testing.T) {
+	t.Parallel()
 	mockApp := appmocks.NewApplication(t)
 	mockRegistry := registrymock.NewCapabilitiesRegistry(t)
 	mockApp.EXPECT().GetCapabilitiesRegistry().Return(&capabilities.Registry{

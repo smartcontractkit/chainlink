@@ -23,19 +23,6 @@ import (
 func TestValidateExternalInitiator(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
-	orm := bridges.NewORM(db)
-
-	url := cltest.WebURL(t, "https://a.web.url")
-
-	//  Add duplicate
-	exi := bridges.ExternalInitiator{
-		Name: "duplicate",
-		URL:  &url,
-	}
-
-	require.NoError(t, orm.CreateExternalInitiator(t.Context(), &exi))
-
 	tests := []struct {
 		name      string
 		input     string
@@ -52,9 +39,19 @@ func TestValidateExternalInitiator(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
-			var exr bridges.ExternalInitiatorRequest
+			db := pgtest.NewSqlxDB(t)
+			orm := bridges.NewORM(db)
 
+			url := cltest.WebURL(t, "https://a.web.url")
+			exi := bridges.ExternalInitiator{
+				Name: "duplicate",
+				URL:  &url,
+			}
+			require.NoError(t, orm.CreateExternalInitiator(ctx, &exi))
+
+			var exr bridges.ExternalInitiatorRequest
 			require.NoError(t, json.Unmarshal([]byte(test.input), &exr))
 			result := web.ValidateExternalInitiator(ctx, &exr, orm)
 
@@ -250,6 +247,7 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
+			t.Parallel()
 			resp, cleanup := client.Delete(test.URL)
 			t.Cleanup(cleanup)
 			assert.Equal(t, http.StatusText(http.StatusNotFound), http.StatusText(resp.StatusCode))

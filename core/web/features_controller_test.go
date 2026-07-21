@@ -15,6 +15,7 @@ import (
 )
 
 func Test_FeaturesController_List(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		csa := true
 		c.Feature.UICSAKeys = &csa

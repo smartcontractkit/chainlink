@@ -16,6 +16,7 @@ import (
 )
 
 func TestOCRKeysController_Index_HappyPath(t *testing.T) {
+	t.Parallel()
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 
 	keys, _ := OCRKeyStore.GetAll()
@@ -33,6 +34,7 @@ func TestOCRKeysController_Index_HappyPath(t *testing.T) {
 }
 
 func TestOCRKeysController_Create_HappyPath(t *testing.T) {
+	t.Parallel()
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 
 	keys, _ := OCRKeyStore.GetAll()
@@ -60,6 +62,7 @@ func TestOCRKeysController_Create_HappyPath(t *testing.T) {
 }
 
 func TestOCRKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
+	t.Parallel()
 	client, _ := setupOCRKeysControllerTests(t)
 
 	nonExistentOCRKeyID := "eb81f4a35033ac8dd68b9d33a039a713d6fd639af6852b81f47ffeda1c95de54"
@@ -69,6 +72,7 @@ func TestOCRKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
 }
 
 func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 
@@ -86,14 +90,14 @@ func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
 }
 
 func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.OCR) {
-	t.Parallel()
 	ctx := t.Context()
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 
-	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
+	_, err := app.KeyStore.OCR().Create(ctx)
+	require.NoError(t, err)
 
 	return client, app.GetKeyStore().OCR()
 }

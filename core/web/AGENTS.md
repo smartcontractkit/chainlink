@@ -2,14 +2,6 @@
 
 ## Critical Rule: Do NOT call `gin.CreateTestContext()` or `gin.SetMode()` in tests
 
-### Problem
-
-`gin.CreateTestContext()` internally calls `gin.SetMode(gin.TestMode)` on every invocation.
-`gin.SetMode()` mutates the global un-synchronized package variable `gin.mode`.
-When tests run in parallel with `t.Parallel()`, calling `gin.CreateTestContext()` or `gin.SetMode()` causes a Go **DATA RACE** with concurrent router initialization or handler calls reading `gin.mode` (e.g., via `gin.IsDebugging()`).
-
-### Solution
-
 1. **Never call `gin.CreateTestContext()` or `gin.SetMode()` inside individual unit tests.**
 2. **Use `gin.New()` and `engine.ServeHTTP(w, req)`** to test controller handlers:
    ```go

@@ -29,6 +29,7 @@ func setupDKGRecipientKeysControllerTests(t *testing.T) (cltest.HTTPClientCleane
 }
 
 func TestDKGRecipientKeysController_Index_HappyPath(t *testing.T) {
+	t.Parallel()
 	client, keyStore := setupDKGRecipientKeysControllerTests(t)
 	keys, err := keyStore.DKGRecipient().GetAll()
 	require.NoError(t, err)

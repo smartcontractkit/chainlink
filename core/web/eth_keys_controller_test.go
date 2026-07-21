@@ -218,7 +218,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(ethBalanceInt, nil)
 	linkBalance := assets.NewLinkFromJuels(42)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
-	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
+	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 
 	client := app.NewHTTPClient(nil)
 

@@ -117,6 +117,7 @@ func TestGuiAssets_AssetsFS(t *testing.T) {
 	handler := web.ServeGzippedAssets("/fixtures/operator_ui/", efs, logger.TestLogger(t))
 
 	t.Run("it get exact assets if Accept-Encoding is not specified", func(t *testing.T) {
+		t.Parallel()
 		engine := gin.New()
 		engine.GET("/fixtures/operator_ui/*filepath", handler)
 
@@ -136,6 +137,7 @@ func TestGuiAssets_AssetsFS(t *testing.T) {
 	})
 
 	t.Run("it respects Accept-Encoding header", func(t *testing.T) {
+		t.Parallel()
 		engine := gin.New()
 		engine.GET("/fixtures/operator_ui/*filepath", handler)
 

@@ -107,6 +107,7 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.Description, func(t *testing.T) {
+			t.Parallel()
 			app := cltest.NewApplicationEVMDisabled(t)
 			require.NoError(t, app.Start(t.Context()))
 			client := app.NewHTTPClient(nil)

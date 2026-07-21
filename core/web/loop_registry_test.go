@@ -57,6 +57,7 @@ func (m *mockLoopImpl) run() {
 }
 
 func TestLoopRegistry(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = new(true)
@@ -98,6 +99,7 @@ func TestLoopRegistry(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	t.Run("discovery endpoint", func(t *testing.T) {
+		t.Parallel()
 		// under the covers this is routing thru the app into loop registry
 		resp, cleanup := client.Get("/discovery")
 		t.Cleanup(cleanup)
@@ -120,6 +122,7 @@ func TestLoopRegistry(t *testing.T) {
 	})
 
 	t.Run("plugin metrics OK", func(t *testing.T) {
+		t.Parallel()
 		// plugin name `mockLoopImpl` matches key in PluginConfigs
 		resp, cleanup := client.Get(expectedLooppEndPoint)
 		t.Cleanup(cleanup)
@@ -137,6 +140,7 @@ func TestLoopRegistry(t *testing.T) {
 	})
 
 	t.Run("core metrics OK", func(t *testing.T) {
+		t.Parallel()
 		// core node metrics endpoint
 		resp, cleanup := client.Get(expectedCoreEndPoint)
 		t.Cleanup(cleanup)
@@ -148,6 +152,7 @@ func TestLoopRegistry(t *testing.T) {
 	})
 
 	t.Run("no existent plugin metrics ", func(t *testing.T) {
+		t.Parallel()
 		// request plugin that doesn't exist
 		resp, cleanup := client.Get("/plugins/noexist/metrics")
 		t.Cleanup(cleanup)

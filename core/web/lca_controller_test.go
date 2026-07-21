@@ -14,6 +14,7 @@ import (
 )
 
 func TestLCAController_FindLCA(t *testing.T) {
+	t.Parallel()
 	cfg := configtest.NewTestGeneralConfig(t)
 	ec := setupEthClientForControllerTests(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)

@@ -42,6 +42,7 @@ import (
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
+	t.Parallel()
 	var (
 		contractAddress = cltest.NewEIP55Address()
 	)
@@ -74,6 +75,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			ctx := t.Context()
 			ta, client := setupJobsControllerTests(t)
 
@@ -108,6 +110,7 @@ func mustInt32FromString(t *testing.T, s string) int32 {
 }
 
 func TestJobController_Create_HappyPath(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetDB())
@@ -348,6 +351,7 @@ targets:
 	for _, tc := range tt {
 		c := tc
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			nameAndExternalJobID := uuid.New().String()
 			toml := c.tomlTemplate(nameAndExternalJobID)
 			t.Log("Job toml:", toml)
@@ -363,6 +367,7 @@ targets:
 }
 
 func TestJobsController_Create_WebhookSpec(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(t.Context()))
 
@@ -385,6 +390,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 var webhookSpecTemplate string
 
 func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(t.Context()))
 
@@ -405,6 +411,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 }
 
 func TestJobsController_Index_HappyPath(t *testing.T) {
+	t.Parallel()
 	_, client, ocrJobSpecFromFile, _, cronJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	url := url.URL{Path: "/v2/jobs"}
@@ -427,6 +434,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
+	t.Parallel()
 	_, client, ocrJobSpecFromFile, jobID, cronJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)))
@@ -471,6 +479,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Show_InvalidID(t *testing.T) {
+	t.Parallel()
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/uuidLikeString")
@@ -479,6 +488,7 @@ func TestJobsController_Show_InvalidID(t *testing.T) {
 }
 
 func TestJobsController_Show_NonExistentID(t *testing.T) {
+	t.Parallel()
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/999999999")
@@ -488,6 +498,7 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 }
 
 func TestJobsController_Update_HappyPath(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = new(true)
@@ -554,6 +565,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Update_NonExistentID(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = new(true)
