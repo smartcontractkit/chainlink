@@ -146,7 +146,7 @@ jobs:
             | to_entries
             | map(.value + {
                 test_id: .key,
-                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/\( ($per_runners[.value.test_name]) // "cpu=8/ram=32" )/family=c7i+c8i+m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/\( ($per_runners[.value.test_name]) // "cpu=8/ram=32" )/family=c7i+c8i+m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache"
               })
           ')
 
