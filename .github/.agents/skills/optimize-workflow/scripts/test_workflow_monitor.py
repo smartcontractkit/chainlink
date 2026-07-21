@@ -206,6 +206,42 @@ class TestWorkflowMonitor(unittest.TestCase):
         self.assertEqual(report["logs_dir"], "/tmp/logs-dir")
         self.assertEqual(report["jobs"][0]["metrics"]["Instance Type"], "c6in.4xlarge")
 
+    def test_parse_duration_seconds(self):
+        start = "2026-07-16T17:16:00Z"
+        end = "2026-07-16T17:18:30Z"
+        self.assertEqual(workflow_monitor.parse_duration_seconds(start, end), 150)
+        self.assertEqual(workflow_monitor.parse_duration_seconds(None, end), 0)
+
+    def test_generate_report_json_includes_seconds_and_slowest_jobs(self):
+        run_data = {"id": 12345, "status": "completed", "conclusion": "success", "run_started_at": "2026-07-16T17:00:00Z", "updated_at": "2026-07-16T17:10:00Z"}
+        jobs = [
+            {"name": "fast_job", "status": "completed", "conclusion": "success", "started_at": "2026-07-16T17:00:00Z", "completed_at": "2026-07-16T17:01:00Z"},
+            {"name": "slow_job", "status": "completed", "conclusion": "success", "started_at": "2026-07-16T17:00:00Z", "completed_at": "2026-07-16T17:05:00Z"}
+        ]
+        report_str = workflow_monitor.generate_report(run_data, jobs, {}, "/tmp/logs", "json")
+        report = json.loads(report_str)
+
+        self.assertEqual(report["run"]["runtime_seconds"], 600)
+        self.assertEqual(report["run"]["avg_job_duration_seconds"], 180)
+        self.assertEqual(report["jobs"][0]["duration_seconds"], 60)
+        self.assertEqual(report["jobs"][1]["duration_seconds"], 300)
+
+        # Check slowest_jobs array is pre-sorted descending
+        self.assertEqual(len(report["slowest_jobs"]), 2)
+        self.assertEqual(report["slowest_jobs"][0]["name"], "slow_job")
+        self.assertEqual(report["slowest_jobs"][0]["duration_seconds"], 300)
+        self.assertTrue(report["slowest_jobs"][0]["is_outlier"])
+
+
+    def test_generate_report_markdown_includes_longest_jobs_summary(self):
+        run_data = {"id": 12345, "status": "completed", "conclusion": "success", "run_started_at": "2026-07-16T17:00:00Z", "updated_at": "2026-07-16T17:10:00Z"}
+        jobs = [
+            {"name": "slow_job", "status": "completed", "conclusion": "success", "started_at": "2026-07-16T17:00:00Z", "completed_at": "2026-07-16T17:05:00Z"}
+        ]
+        report = workflow_monitor.generate_report(run_data, jobs, {}, "/tmp/logs", "markdown")
+        self.assertIn("## Longest Jobs (Bottlenecks)", report)
+        self.assertIn("slow_job", report)
+
     @patch('workflow_monitor.parse_args')
     @patch('workflow_monitor.get_trials_dir')
     @patch('workflow_monitor.wait_for_run')

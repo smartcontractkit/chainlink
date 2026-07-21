@@ -215,6 +215,17 @@ def parse_job_logs(log_dir):
     results = {k: v for k, v in results.items() if v}
     return results
 
+def parse_duration_seconds(start_str, end_str):
+    if not start_str or not end_str:
+        return 0
+    try:
+        start = datetime.datetime.strptime(start_str.replace("Z", ""), "%Y-%m-%dT%H:%M:%S")
+        end = datetime.datetime.strptime(end_str.replace("Z", ""), "%Y-%m-%dT%H:%M:%S")
+        delta = end - start
+        return int(delta.total_seconds())
+    except Exception:
+        return 0
+
 def format_duration(start_str, end_str):
     if not start_str or not end_str:
         return "N/A"
@@ -253,13 +264,25 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
     start_time = run_data.get("run_started_at") or run_data.get("created_at")
     end_time = run_data.get("updated_at")
     total_runtime = format_duration(start_time, end_time)
+    total_runtime_sec = parse_duration_seconds(start_time, end_time)
 
     if format_type == "json":
         jobs_json = []
+        slowest = []
+        durations = []
+        for job in jobs:
+            job_dur_sec = parse_duration_seconds(job.get("started_at"), job.get("completed_at"))
+            if job_dur_sec > 0:
+                durations.append(job_dur_sec)
+
+        avg_dur_sec = int(sum(durations) / len(durations)) if durations else 0
+
         for job in jobs:
             job_dur = format_duration(job.get("started_at"), job.get("completed_at"))
+            job_dur_sec = parse_duration_seconds(job.get("started_at"), job.get("completed_at"))
             labels_list = job.get("labels", [])
             runner_name = job.get("runner_name") or "Unknown"
+            is_outlier = job_dur_sec > (1.5 * avg_dur_sec) if avg_dur_sec > 0 else False
             
             # Find metrics
             job_name = job.get('name', '')
@@ -285,18 +308,33 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
                 "started_at": job.get("started_at"),
                 "completed_at": job.get("completed_at"),
                 "duration": job_dur,
+                "duration_seconds": job_dur_sec,
+                "is_outlier": is_outlier,
                 "metrics": job_metrics or {}
             }
             jobs_json.append(job_entry)
-            
+            slowest.append({
+                "name": job.get("name"),
+                "duration": job_dur,
+                "duration_seconds": job_dur_sec,
+                "is_outlier": is_outlier,
+                "status": job.get("status"),
+                "conclusion": job.get("conclusion")
+            })
+
+        slowest.sort(key=lambda x: x["duration_seconds"], reverse=True)
+
         report_data = {
             "run": {
                 "id": run_data.get("id"),
                 "status": run_data.get("status"),
                 "conclusion": run_data.get("conclusion"),
-                "runtime": total_runtime
+                "runtime": total_runtime,
+                "runtime_seconds": total_runtime_sec,
+                "avg_job_duration_seconds": avg_dur_sec
             },
             "logs_dir": log_dir,
+            "slowest_jobs": slowest[:10],
             "jobs": jobs_json
         }
         return json.dumps(report_data, indent=2)
@@ -310,8 +348,26 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
             f"- **Runtime**: `{total_runtime}`",
             f"- **Logs Directory**: `{log_dir}`",
             "",
-            "## Jobs Summary"
+            "## Longest Jobs (Bottlenecks)"
         ]
+
+        # Calculate durations and sort jobs descending
+        sorted_jobs = []
+        for j in jobs:
+            dur_sec = parse_duration_seconds(j.get("started_at"), j.get("completed_at"))
+            sorted_jobs.append((dur_sec, j))
+        sorted_jobs.sort(key=lambda x: x[0], reverse=True)
+
+        lines.append("| Job Name | Duration | Status | Conclusion | Runner |")
+        lines.append("| --- | --- | --- | --- | --- |")
+        for dur_sec, j in sorted_jobs[:10]:
+            dur_str = format_duration(j.get("started_at"), j.get("completed_at"))
+            labels_list = j.get("labels", [])
+            labels_str = ", ".join(labels_list) if labels_list else "None"
+            lines.append(f"| {j.get('name')} | `{dur_str}` | `{j.get('status')}` | `{j.get('conclusion')}` | `{labels_str}` |")
+
+        lines.append("\n## Jobs Summary")
+
         for job in jobs:
             job_dur = format_duration(job.get("started_at"), job.get("completed_at"))
             labels_list = job.get("labels", [])
