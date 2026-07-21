@@ -560,6 +560,7 @@ jobs:
           ref: ${{ env.CHAINLINK_REF }}
 
       - name: Set up Go for compilation
+        id: setup-go
         uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
           go_mod_path: ./integration-tests/go.mod
@@ -570,6 +571,7 @@ jobs:
           gati_token: ${{ steps.github-token.outputs.access-token }}
 
       - name: Download test dependencies
+        if: steps.setup-go.outputs.cache-hit != 'true'
         shell: bash
         env:
           SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
@@ -590,6 +592,7 @@ jobs:
           done
 
       - name: Compile E2E tests
+        if: steps.setup-go.outputs.cache-hit != 'true'
         shell: bash
         env:
           SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
