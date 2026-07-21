@@ -19,6 +19,13 @@ type Telemetry interface {
 	ChipIngressEndpoint() string
 	ChipIngressInsecureConnection() bool
 	ChipIngressBatchEmitterEnabled() bool
+	ChipIngressBufferSize() uint
+	ChipIngressMaxBatchSize() uint
+	ChipIngressMaxConcurrentSends() int
+	ChipIngressSendInterval() time.Duration
+	ChipIngressSendTimeout() time.Duration
+	ChipIngressDrainTimeout() time.Duration
+	ChipIngressMaxGRPCRequestSize() uint
 	DurableEmitterEnabled() bool
 	DurableEmitterRetransmitBatchSize() int
 	DurableEmitterEventTTL() time.Duration

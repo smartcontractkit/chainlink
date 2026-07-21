@@ -263,6 +263,133 @@ func ptrDuration(d time.Duration) *config.Duration {
 	return config.MustNewDuration(d)
 }
 
+func ptrUint(u uint) *uint {
+	return &u
+}
+
+func ptrInt(i int) *int {
+	return &i
+}
+
+func TestTelemetryConfig_ChipIngressBufferSize(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  uint
+	}{
+		{"ChipIngressBufferSizeSet", toml.Telemetry{ChipIngressBufferSize: ptrUint(1000)}, 1000},
+		{"ChipIngressBufferSizeNil", toml.Telemetry{ChipIngressBufferSize: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressBufferSize())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressMaxBatchSize(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  uint
+	}{
+		{"ChipIngressMaxBatchSizeSet", toml.Telemetry{ChipIngressMaxBatchSize: ptrUint(500)}, 500},
+		{"ChipIngressMaxBatchSizeNil", toml.Telemetry{ChipIngressMaxBatchSize: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressMaxBatchSize())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressMaxConcurrentSends(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  int
+	}{
+		{"ChipIngressMaxConcurrentSendsSet", toml.Telemetry{ChipIngressMaxConcurrentSends: ptrInt(10)}, 10},
+		{"ChipIngressMaxConcurrentSendsNil", toml.Telemetry{ChipIngressMaxConcurrentSends: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressMaxConcurrentSends())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressSendInterval(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"ChipIngressSendIntervalSet", toml.Telemetry{ChipIngressSendInterval: ptrDuration(100 * time.Millisecond)}, 100 * time.Millisecond},
+		{"ChipIngressSendIntervalNil", toml.Telemetry{ChipIngressSendInterval: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressSendInterval())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressSendTimeout(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"ChipIngressSendTimeoutSet", toml.Telemetry{ChipIngressSendTimeout: ptrDuration(3 * time.Second)}, 3 * time.Second},
+		{"ChipIngressSendTimeoutNil", toml.Telemetry{ChipIngressSendTimeout: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressSendTimeout())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressDrainTimeout(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"ChipIngressDrainTimeoutSet", toml.Telemetry{ChipIngressDrainTimeout: ptrDuration(10 * time.Second)}, 10 * time.Second},
+		{"ChipIngressDrainTimeoutNil", toml.Telemetry{ChipIngressDrainTimeout: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressDrainTimeout())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressMaxGRPCRequestSize(t *testing.T) {
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  uint
+	}{
+		{"ChipIngressMaxGRPCRequestSizeSet", toml.Telemetry{ChipIngressMaxGRPCRequestSize: ptrUint(10485760)}, 10485760},
+		{"ChipIngressMaxGRPCRequestSizeNil", toml.Telemetry{ChipIngressMaxGRPCRequestSize: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressMaxGRPCRequestSize())
+		})
+	}
+}
+
 func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
 	tests := []struct {
 		name      string

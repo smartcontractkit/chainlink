@@ -82,6 +82,20 @@ func (m mockCfgTelemetry) ChipIngressInsecureConnection() bool { return false }
 
 func (m mockCfgTelemetry) ChipIngressBatchEmitterEnabled() bool { return false }
 
+func (m mockCfgTelemetry) ChipIngressBufferSize() uint { return 1000 }
+
+func (m mockCfgTelemetry) ChipIngressMaxBatchSize() uint { return 500 }
+
+func (m mockCfgTelemetry) ChipIngressMaxConcurrentSends() int { return 10 }
+
+func (m mockCfgTelemetry) ChipIngressSendInterval() time.Duration { return 100 * time.Millisecond }
+
+func (m mockCfgTelemetry) ChipIngressSendTimeout() time.Duration { return 10 * time.Second }
+
+func (m mockCfgTelemetry) ChipIngressDrainTimeout() time.Duration { return 10 * time.Second }
+
+func (m mockCfgTelemetry) ChipIngressMaxGRPCRequestSize() uint { return 10485760 }
+
 func (m mockCfgTelemetry) HeartbeatInterval() time.Duration {
 	return 5 * time.Second
 }
@@ -259,4 +273,11 @@ func TestLoopRegistry_Register(t *testing.T) {
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 	require.False(t, envCfg.ChipIngressBatchEmitterEnabled)
+	require.Equal(t, uint(1000), envCfg.ChipIngressBufferSize)
+	require.Equal(t, uint(500), envCfg.ChipIngressMaxBatchSize)
+	require.Equal(t, 10, envCfg.ChipIngressMaxConcurrentSends)
+	require.Equal(t, 100*time.Millisecond, envCfg.ChipIngressSendInterval)
+	require.Equal(t, 10*time.Second, envCfg.ChipIngressSendTimeout)
+	require.Equal(t, 10*time.Second, envCfg.ChipIngressDrainTimeout)
+	require.Equal(t, uint(10485760), envCfg.ChipIngressMaxGRPCRequestSize)
 }
