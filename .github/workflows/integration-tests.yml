@@ -516,22 +516,18 @@ jobs:
             echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
           fi
 
+  # Sole writer for the `compile-tests` build cache consumed (restore-only) by the
+  # CRE smoke + regression matrices in cre-system-tests.yaml / cre-regression-system-tests.yaml.
+  # CCIP is intentionally NOT warmed here: run-e2e-tests.yml uses a different cache_key_id
+  # (`e2e-tests`) that this namespace cannot reach, and it self-warms across runs.
   compile-tests:
-    name: Compile Tests
+    name: Compile CRE Tests
     if: >-
       ${{
         github.actor != 'dependabot[bot]' &&
-        (github.event_name == 'workflow_dispatch' ||
-         needs.changes.outputs.general-changes == 'true' ||
-         needs.changes.outputs.core-changes == 'true' ||
-         needs.changes.outputs.cre-changes == 'true' ||
-         needs.changes.outputs.ccip-changes == 'true' ||
-         needs.labels.outputs.run-e2e-tests-label-found == 'true')
+        needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
       }}
     needs:
-      - labels
-      - changes
-      - run-ccip-v1-6-e2e-tests-setup
       - run-core-cre-e2e-tests-setup
     runs-on: runs-on=${{ github.run_id }}-compile/cpu=8/ram=32/family=c7i+c8i+m7i+m8i/spot=co/extras=s3-cache
     environment:
@@ -565,7 +561,9 @@ jobs:
         id: setup-go
         uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
-          go_mod_path: ./integration-tests/go.mod
+          # Key the cache on the CRE go.mod so a CRE dependency bump refreshes the
+          # warmed cache (the readers restore this same cache_key_id via prefix fallback).
+          go_mod_path: ./system-tests/tests/go.mod
           cache_key_id: compile-tests
           cache_builds: true
           cache_restore_only: "false"
@@ -573,59 +571,19 @@ jobs:
           no_cache: false
           gati_token: ${{ steps.github-token.outputs.access-token }}
 
-      - name: Download test dependencies
-        if: steps.setup-go.outputs.cache-hit != 'true'
+      # No cache-hit short-circuit: ctf-setup-go@v0.4.0 exposes no `cache-hit` output,
+      # and this job's purpose is to (re)populate the shared build cache regardless.
+      - name: Compile Core CRE E2E tests
         shell: bash
-        env:
-          SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
-          SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
         run: |
-          if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
-            (cd integration-tests && go mod download) &
-            p1=$!
-          fi
-
-          if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
-            (cd system-tests/tests && go mod download) &
-            p2=$!
-          fi
-
-          for p in $p1 $p2; do
-            [ -n "$p" ] && wait "$p"
-          done
-
-      - name: Compile E2E tests
-        if: steps.setup-go.outputs.cache-hit != 'true'
-        shell: bash
-        env:
-          SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
-          SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
-        run: |
-          if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
-            echo "Compiling CCIP v1.6 E2E tests..."
-            (cd integration-tests && go test -c -tags embed -o /dev/null ./smoke/ccip) &
-            p1=$!
-          fi
-
-          if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
-            echo "Compiling Core CRE E2E tests..."
-            (cd system-tests/tests && go test -c -o /dev/null ./smoke/cre/... && go test -c -o /dev/null ./regression/cre/...) &
-            p2=$!
-          fi
-
-          for p in $p1 $p2; do
-            [ -n "$p" ] && wait "$p"
-          done
+          cd system-tests/tests
+          go mod download
+          go test -c -o /dev/null ./smoke/cre/...
+          go test -c -o /dev/null ./regression/cre/...
 
   run-ccip-v1-6-e2e-tests:
     needs:
-      [
-        run-ccip-v1-6-e2e-tests-setup,
-        build-chainlink,
-        compile-tests,
-        changes,
-        labels,
-      ]
+      [run-ccip-v1-6-e2e-tests-setup, build-chainlink, changes, labels]
     name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
     permissions:
       actions: read
