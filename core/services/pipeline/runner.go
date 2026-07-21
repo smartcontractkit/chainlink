@@ -135,7 +135,7 @@ func NewRunner(
 		lggr:                   lggr,
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
-		bridgeConnManager:      NewBridgeConnManager(),
+		bridgeConnManager:      NewBridgeConnManager(lggr),
 	}
 
 	r.runReaperWorker = commonutils.NewSleeperTask(

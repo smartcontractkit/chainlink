@@ -294,8 +294,13 @@ func TestBridgeTask_UsesBridgeConnManagerHappyPath(t *testing.T) {
 	manager := pipeline.NewBridgeConnManager()
 	seedable, ok := manager.(interface {
 		PutObservation(bridge bridges.BridgeType, requestData pipeline.MapParam, observation []byte) error
+		DisableEAConnDialingForTest()
 	})
 	require.True(t, ok)
+	// This test seeds the cache directly and asserts no HTTP calls are made; the
+	// bridge URL points at a plain httptest server, not a streams-adapter, so real
+	// EAConn dialing must be disabled to avoid flaky cross-protocol traffic.
+	seedable.DisableEAConnDialingForTest()
 	require.NoError(t, seedable.PutObservation(*bridge, pipeline.MapParam(utils.MustUnmarshalToMap(btcUSDPairing)), []byte(`{"data":{"result":"9700"}}`)))
 
 	task := pipeline.BridgeTask{
