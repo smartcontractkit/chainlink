@@ -574,6 +574,16 @@ jobs:
           no_cache: false
           gati_token: ${{ steps.github-token.outputs.access-token }}
 
+      - name: Set up Go for system tests
+        uses: smartcontractkit/.github/actions/ctf-setup-go@c72002bfd3be05bd5cdf5d4d0019d7d7dd932769 # DEBUG: compileRunFanOut
+        with:
+          go_mod_path: ./system-tests/tests/go.mod
+          cache_key_id: compile-tests
+          cache_builds: true
+          should_tidy: false
+          no_cache: false
+          gati_token: ${{ steps.github-token.outputs.access-token }}
+
       - name: Download test dependencies
         shell: bash
         env:
@@ -608,11 +618,13 @@ jobs:
 
           if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
             echo "Compiling Core CRE E2E tests..."
-            (cd system-tests/tests && go test -c -o /dev/null ./smoke/cre/... && go test -c -o /dev/null ./regression/cre/...) &
+            (cd system-tests/tests && go test -c -o /dev/null ./smoke/cre/...) &
             p2=$!
+            (cd system-tests/tests && go test -c -o /dev/null ./regression/cre/...) &
+            p3=$!
           fi
 
-          for p in $p1 $p2; do
+          for p in $p1 $p2 $p3; do
             [ -n "$p" ] && wait "$p"
           done
 
