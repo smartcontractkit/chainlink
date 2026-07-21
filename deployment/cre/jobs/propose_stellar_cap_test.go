@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
-	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
 	tenv "github.com/smartcontractkit/chainlink/deployment/environment/test"
@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	testStellarOCRQualifier = "stellar-ocr-qualifier"
-	testStellarFwdQualifier = "test-stellar-fwd-qualifier"
+	testStellarOCRQualifier     = "stellar-ocr-qualifier"
+	testStellarFwdQualifier     = "test-stellar-fwd-qualifier"
 	testStellarForwarderAddress = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
 )
 
@@ -68,7 +68,7 @@ func seedStellarAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel, s
 	}))
 	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
 		ChainSelector: stellarSel,
-		Type:          pkg.StellarForwarderType,
+		Type:          stellar.ForwarderContract,
 		Version:       semver.MustParse("1.0.0"),
 		Address:       testStellarForwarderAddress,
 		Qualifier:     testStellarFwdQualifier,
@@ -108,7 +108,7 @@ func TestProposeStellarCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 	stellarSel := chainsel.STELLAR_LOCALNET.Selector
 
 	ds := datastore.NewMemoryDataStore()
-	seedStellarAddresses(t, ds, ocrSel)
+	seedStellarAddresses(t, ds, ocrSel, stellarSel)
 	env.DataStore = ds.Seal()
 
 	in := freshStellarBase(ocrSel, stellarSel)
@@ -180,11 +180,8 @@ type stellarCapTestSetup struct {
 func setupStellarCapTest(t *testing.T) stellarCapTestSetup {
 	t.Helper()
 
-	// TODO seed ocr3 no?
-	// The harness deploys the CapabilitiesRegistry itself (at test.RegistryQualifier);
-	// the Apply input below points OCRContractQualifier at it. No addresses are seeded.
 	ds := datastore.NewMemoryDataStore()
-	seedStellarAddresses(t, ds, test.DefaultRegistrySelector, chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector, chainsel.STELLAR_LOCALNET.Selector)
+	seedStellarAddresses(t, ds, chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector, chainsel.STELLAR_LOCALNET.Selector)
 
 	h := test.NewTestHarness(t, test.WithDatastore(ds))
 	env := h.Runtime.Environment()

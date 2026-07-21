@@ -207,7 +207,7 @@ func ExecuteStellarWriteTest(
 	// Assert the report was actually delivered on-chain: the receiver's on_report
 	// incremented its report count.
 	require.Eventually(t, func() bool {
-		n, cErr := stellarfeature.StellarReceiverReportCount(ctx, concreteChain, receiverID)
+		n, cErr := stellarfeature.ReceiverReportCount(ctx, concreteChain, receiverID)
 		if cErr != nil {
 			lggr.Warn().Err(cErr).Msg("stellar receiver report_count query failed; retrying")
 			return false

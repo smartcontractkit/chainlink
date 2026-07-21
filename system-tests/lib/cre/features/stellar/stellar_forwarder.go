@@ -6,6 +6,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/rs/zerolog"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	stellarcre "github.com/smartcontractkit/chainlink-stellar/deployment/cre"
 

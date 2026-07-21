@@ -49,9 +49,9 @@ func DeployStellarTestReceiver(ctx context.Context, chain *stellchain.Blockchain
 	return stellarreceiver.DeployReceiver(ctx, deployer, wasm, salt)
 }
 
-// StellarReceiverReportCount reads the receiver's report_count (read-only simulate,
+// ReceiverReportCount reads the receiver's report_count (read-only simulate,
 // no funding needed) so the write test can assert a report was delivered on-chain.
-func StellarReceiverReportCount(ctx context.Context, chain *stellchain.Blockchain, contractID string) (uint32, error) {
+func ReceiverReportCount(ctx context.Context, chain *stellchain.Blockchain, contractID string) (uint32, error) {
 	stellarChain, err := stellarCldfChain(chain)
 	if err != nil {
 		return 0, err
