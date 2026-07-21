@@ -443,6 +443,22 @@ func toDons(input cre.ConfigureCapabilityRegistryInput) (*dons, error) {
 }
 
 func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabilityRegistryInput) (CapabilityRegistry, error) {
+	capReg, err := ExecuteConfigureCapabilitiesRegistry(input)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: remove this once the race condition is fixed (CRE-2684)
+	if waitErr := waitForWorkflowWorkersCapabilityRegistrySync(ctx, input); waitErr != nil {
+		return nil, errors.Wrap(waitErr, "failed waiting for workflow nodes to sync capability registry state")
+	}
+
+	return capReg, nil
+}
+
+// ExecuteConfigureCapabilitiesRegistry runs the CapReg v2 configure sequence and
+// returns the registry binding. It does not wait for nodes to sync the registry.
+func ExecuteConfigureCapabilitiesRegistry(input cre.ConfigureCapabilityRegistryInput) (CapabilityRegistry, error) {
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "input validation failed")
 	}
@@ -474,14 +490,7 @@ func ConfigureCapabilityRegistry(ctx context.Context, input cre.ConfigureCapabil
 		return nil, errors.Wrap(cErr, "failed to get capabilities registry contract")
 	}
 
-	capReg := newCapabilityRegistry(capRegContract.Contract)
-
-	// TODO: remove this once the race condition is fixed (CRE-2684)
-	if waitErr := waitForWorkflowWorkersCapabilityRegistrySync(ctx, input); waitErr != nil {
-		return nil, errors.Wrap(waitErr, "failed waiting for workflow nodes to sync capability registry state")
-	}
-
-	return capReg, nil
+	return newCapabilityRegistry(capRegContract.Contract), nil
 }
 
 type DonInfo struct {

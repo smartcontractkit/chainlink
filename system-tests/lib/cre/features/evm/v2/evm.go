@@ -14,6 +14,7 @@ import (
 
 	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
@@ -326,7 +327,7 @@ func createJobs(
 
 			evmKeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM] // we can always expect evm bundle key id present since evm is the registry chain
 			if !ok {
-				return errors.New("failed to get key bundle id for evm family")
+				return fmt.Errorf("failed to get key bundle id for evm family for node %s", workerNode.Name)
 			}
 
 			bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"), bootstrap.Host, cre.OCRPeeringPort)}
@@ -348,7 +349,7 @@ func createJobs(
 
 			workerInput := cre_jobs.ProposeJobSpecInput{
 				Domain:      offchain.ProductLabel,
-				Environment: cre.EnvironmentName,
+				Environment: creEnv.CldfEnvironment.Name,
 				DONName:     don.Name,
 				JobName:     fmt.Sprintf("evm-worker-%d", chainID),
 				ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
@@ -375,6 +376,9 @@ func createJobs(
 					"useCapRegOCRConfig": true,
 					"capRegVersion":      capRegVersion.String(),
 				},
+			}
+			if creEnv.FreshExternalJobIDs {
+				workerInput.Inputs["externalJobID"] = uuid.NewString()
 			}
 
 			workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)

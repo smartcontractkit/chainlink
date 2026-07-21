@@ -173,8 +173,9 @@ func TestWriteArtifacts_WritesAsciiAndMarkdown_RemovesLegacyJSON(t *testing.T) {
 	require.True(t, os.IsNotExist(statErr))
 }
 
+//go:fix inline
 func ptrUint64(v uint64) *uint64 {
-	return &v
+	return new(v)
 }
 
 func rowByCapability(rows []capabilityMatrixRow, capability string) (capabilityMatrixRow, bool) {

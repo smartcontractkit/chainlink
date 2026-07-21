@@ -1513,6 +1513,11 @@ type Environment struct {
 	ContractVersions      map[ContractType]*semver.Version
 	Provider              infra.Provider
 	// CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
+
+	// FreshExternalJobIDs, when true, tells job-proposing Feature files to
+	// generate a random externalJobID for every job instead of the default
+	// deterministic one. Off by default so local-CRE's behavior is unchanged.
+	FreshExternalJobIDs bool
 }
 
 func (e *Environment) RegistryChain() (blockchains.Blockchain, error) {

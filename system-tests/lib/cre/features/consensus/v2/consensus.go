@@ -9,6 +9,7 @@ import (
 	"text/template"
 
 	"dario.cat/mergo"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -236,10 +237,13 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 			break
 		}
 	}
+	if creEnv.FreshExternalJobIDs {
+		inputs["externalJobID"] = uuid.NewString()
+	}
 
 	input := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
-		Environment: cre.EnvironmentName,
+		Environment: creEnv.CldfEnvironment.Name,
 		DONName:     don.Name,
 		JobName:     "consensus-worker",
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},

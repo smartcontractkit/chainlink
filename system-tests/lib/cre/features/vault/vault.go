@@ -14,6 +14,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -326,7 +327,7 @@ func createJobs(
 
 	workerInput := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
-		Environment: cre.EnvironmentName,
+		Environment: creEnv.CldfEnvironment.Name,
 		DONName:     don.Name,
 		JobName:     "vault-worker",
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
@@ -344,6 +345,9 @@ func createJobs(
 	}
 	if auth0Config.Auth0 != nil {
 		workerInput.Inputs["auth0"] = auth0Config.Auth0
+	}
+	if creEnv.FreshExternalJobIDs {
+		workerInput.Inputs["externalJobID"] = uuid.NewString()
 	}
 
 	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
