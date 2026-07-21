@@ -8,6 +8,7 @@ import (
 	cepb "github.com/cloudevents/sdk-go/binding/format/protobuf/v2/pb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/chipingress"
@@ -23,6 +24,38 @@ func (noopChipIngressPublisher) Publish(ctx context.Context, event *cepb.CloudEv
 
 func (noopChipIngressPublisher) PublishBatch(ctx context.Context, batch *pb.CloudEventBatch, opts ...grpc.CallOption) (*pb.PublishResponse, error) {
 	return &pb.PublishResponse{}, nil
+}
+
+type partialChipIngressPublisher struct {
+	resp *pb.PublishResponse
+}
+
+func (p partialChipIngressPublisher) Publish(ctx context.Context, event *cepb.CloudEvent, opts ...grpc.CallOption) (*pb.PublishResponse, error) {
+	return &pb.PublishResponse{}, nil
+}
+
+func (p partialChipIngressPublisher) PublishBatch(ctx context.Context, batch *pb.CloudEventBatch, opts ...grpc.CallOption) (*pb.PublishResponse, error) {
+	return p.resp, nil
+}
+
+func (p partialChipIngressPublisher) Ping(ctx context.Context, req *pb.EmptyRequest, opts ...grpc.CallOption) (*pb.PingResponse, error) {
+	return &pb.PingResponse{}, nil
+}
+
+func (p partialChipIngressPublisher) StreamEvents(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[pb.StreamEventsRequest, pb.StreamEventsResponse], error) {
+	return nil, nil
+}
+
+func (p partialChipIngressPublisher) RegisterSchema(ctx context.Context, req *pb.RegisterSchemaRequest, opts ...grpc.CallOption) (*pb.RegisterSchemaResponse, error) {
+	return &pb.RegisterSchemaResponse{}, nil
+}
+
+func (p partialChipIngressPublisher) Close() error {
+	return nil
+}
+
+func (p partialChipIngressPublisher) RegisterSchemas(ctx context.Context, schemas ...*pb.Schema) (map[string]int, error) {
+	return nil, nil
 }
 
 func (noopChipIngressPublisher) Ping(ctx context.Context, req *pb.EmptyRequest, opts ...grpc.CallOption) (*pb.PingResponse, error) {
@@ -43,6 +76,124 @@ func (noopChipIngressPublisher) Close() error {
 
 func (noopChipIngressPublisher) RegisterSchemas(ctx context.Context, schemas ...*pb.Schema) (map[string]int, error) {
 	return nil, nil
+}
+
+func TestChipIngressBatchWorker_Send_PartialDelivery(t *testing.T) {
+	t.Parallel()
+	// Verify that Send groups per-event errors into a single WARN log line
+	// (partial delivery, transactionEnabled=false).
+	partialResp := &pb.PublishResponse{
+		Results: []*pb.PublishResult{
+			{
+				EventId: "evt-1",
+				Error: &pb.PublishError{
+					ErrorCode: pb.PublishErrorCode_PUBLISH_ERROR_CODE_VALIDATION_FAILED,
+					Reason:    "schema not found",
+				},
+			},
+			{
+				EventId: "evt-2",
+				Error: &pb.PublishError{
+					ErrorCode: pb.PublishErrorCode_PUBLISH_ERROR_CODE_VALIDATION_FAILED,
+					Reason:    "schema not found",
+				},
+			},
+		},
+	}
+	publisher := partialChipIngressPublisher{resp: partialResp}
+
+	lggr, observed := logger.TestLoggerObserved(t, zap.WarnLevel)
+	chTelemetry := make(chan TelemPayload, 5)
+	worker := NewChipIngressBatchWorker(
+		2,
+		time.Second,
+		publisher,
+		chTelemetry,
+		"0xabc",
+		OCR,
+		lggr,
+		true,
+	)
+
+	chTelemetry <- TelemPayload{
+		Telemetry:     []byte("payload1"),
+		TelemType:     OCR,
+		ContractID:    "0xabc",
+		Domain:        "data-feeds",
+		Entity:        "ocr.v1.telemetry",
+		ChainSelector: 7700,
+		Network:       "EVM",
+		ChainID:       "1",
+	}
+	chTelemetry <- TelemPayload{
+		Telemetry:     []byte("payload2"),
+		TelemType:     OCR,
+		ContractID:    "0xabc",
+		Domain:        "data-feeds",
+		Entity:        "ocr.v1.telemetry",
+		ChainSelector: 7700,
+		Network:       "EVM",
+		ChainID:       "1",
+	}
+
+	require.NotPanics(t, func() { worker.Send(t.Context()) })
+	assert.Empty(t, chTelemetry)
+
+	// Two failed events must produce exactly one grouped WARN log line.
+	logs := observed.FilterMessage("chip ingress partial delivery errors")
+	require.Equal(t, 1, logs.Len(), "expected exactly one grouped log line for 2 failed events")
+	assert.Equal(t, zap.WarnLevel, logs.All()[0].Level)
+}
+
+func TestChipIngressBatchWorker_Send_PartialDeliveryThrottled(t *testing.T) {
+	t.Parallel()
+	// A persistent partial-delivery condition (e.g. missing schema) must not log on every
+	// Send call - it should follow the same backoff cadence as logBufferFullWithExpBackoff.
+	singleFailureResp := &pb.PublishResponse{
+		Results: []*pb.PublishResult{
+			{
+				EventId: "evt-1",
+				Error: &pb.PublishError{
+					ErrorCode: pb.PublishErrorCode_PUBLISH_ERROR_CODE_SCHEMA_MISSING,
+					Reason:    "schema not found",
+				},
+			},
+		},
+	}
+	publisher := partialChipIngressPublisher{resp: singleFailureResp}
+
+	lggr, observed := logger.TestLoggerObserved(t, zap.WarnLevel)
+	chTelemetry := make(chan TelemPayload, 1)
+	worker := NewChipIngressBatchWorker(
+		1,
+		time.Second,
+		publisher,
+		chTelemetry,
+		"0xabc",
+		OCR,
+		lggr,
+		true,
+	)
+
+	payload := TelemPayload{
+		Telemetry:     []byte("payload"),
+		TelemType:     OCR,
+		ContractID:    "0xabc",
+		Domain:        "data-feeds",
+		Entity:        "ocr.v1.telemetry",
+		ChainSelector: 7700,
+		Network:       "EVM",
+		ChainID:       "1",
+	}
+
+	// Drop counts after each send: 1, 2, 3. Backoff logs at 1 and 2 (powers of two), not at 3.
+	for range 3 {
+		chTelemetry <- payload
+		require.NotPanics(t, func() { worker.Send(t.Context()) })
+	}
+
+	logs := observed.FilterMessage("chip ingress partial delivery errors")
+	assert.Equal(t, 2, logs.Len(), "expected the third consecutive failure to be throttled")
 }
 
 func TestChipIngressBatchWorker_BuildCloudEventBatch(t *testing.T) {
