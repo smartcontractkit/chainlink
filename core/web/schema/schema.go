@@ -1,5 +1,4 @@
 // Package schema is used to read schema files
-//
 package schema
 
 import (
