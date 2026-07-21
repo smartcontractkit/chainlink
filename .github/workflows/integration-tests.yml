@@ -568,6 +568,7 @@ jobs:
           go_mod_path: ./integration-tests/go.mod
           cache_key_id: compile-tests
           cache_builds: true
+          cache_restore_only: "false"
           should_tidy: false
           no_cache: false
           gati_token: ${{ steps.github-token.outputs.access-token }}
