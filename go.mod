@@ -432,3 +432,7 @@ tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
 
 replace github.com/olekukonko/tablewriter => github.com/olekukonko/tablewriter v0.0.5
+
+// Exclude Juno's placeholder dependency. It is only intended to be resolved via
+// Juno's local replace directive and is not used directly by chainlink
+exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000

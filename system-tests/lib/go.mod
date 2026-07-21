@@ -621,3 +621,7 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 // docker/cli@v28.5.x still uses. docker/compose has not migrated to docker/cli v29
 // yet, so we pin to v0.1.0 which has both the old aliases and the new compression API.
 replace github.com/moby/go-archive v0.2.0 => github.com/moby/go-archive v0.1.0
+
+// Exclude Juno's placeholder dependency. It is only intended to be resolved via
+// Juno's local replace directive and is not used directly by chainlink
+exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
