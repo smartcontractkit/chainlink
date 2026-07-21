@@ -187,12 +187,10 @@ func (f *toggleableMetadataRegistry) DONByID(_ context.Context, donID uint32) (c
 	return d, nil
 }
 
-// MUST-2: a transient capabilities registry outage must not fail every vault
-// read DON-wide. Once a DON's zone membership has been resolved, a subsequent
-// registry lookup failure falls back to the cached value instead of erroring;
-// a DON never resolved before still fails closed.
-func TestZoneBRestrictor_RegistryOutageUsesCachedMembership(t *testing.T) {
-	t.Parallel()
+// newOutageTestRestrictor builds a zone-b restrictor backed by a toggleable
+// registry so tests can warm the cache and then simulate a registry outage.
+func newOutageTestRestrictor(t *testing.T, settingsJSON string) (*zoneBRestrictor, *toggleableMetadataRegistry) {
+	t.Helper()
 	lggr := logger.TestLogger(t)
 	reg := coreCapabilities.NewRegistry(lggr)
 	fake := &toggleableMetadataRegistry{dons: map[uint32]capabilities.DON{
@@ -201,27 +199,61 @@ func TestZoneBRestrictor_RegistryOutageUsesCachedMembership(t *testing.T) {
 	}}
 	reg.SetLocalRegistry(fake)
 
-	getter, err := settings.NewJSONGetter([]byte(`{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`))
+	getter, err := settings.NewJSONGetter([]byte(settingsJSON))
 	require.NoError(t, err)
 	z, err := newZoneBRestrictor(lggr, limits.Factory{Settings: getter}, reg)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, z.close()) })
+	return z, fake
+}
 
-	zoneACtx := func() context.Context {
+// MUST-2: a transient capabilities registry outage must not fail every vault
+// read DON-wide. Once a DON's zone membership has been resolved, a subsequent
+// registry lookup failure falls back to the cached value instead of erroring;
+// a DON never resolved before still fails closed. Crucially, the cached value
+// preserves the security decision in both directions: a cached zone-b DON stays
+// denied during the outage rather than slipping through.
+func TestZoneBRestrictor_RegistryOutageUsesCachedMembership(t *testing.T) {
+	t.Parallel()
+	const restrictEnabled = `{"global":{"VaultZoneBWorkflowGetSecretsRestrictEnabled":"true"}}`
+
+	t.Run("cached zone-a membership survives outage (still allowed)", func(t *testing.T) {
+		t.Parallel()
+		z, fake := newOutageTestRestrictor(t, restrictEnabled)
 		md := capabilities.RequestMetadata{WorkflowOwner: "0xdeadbeef", WorkflowDonID: zoneADonID}
-		return md.ContextWithCRE(t.Context())
-	}
+		ctx := md.ContextWithCRE(t.Context())
 
-	// Warm the cache while the registry is healthy: zone-a caller is allowed.
-	require.NoError(t, z.enforce(zoneACtx(), zoneADonID))
+		// Warm the cache while healthy: zone-a caller is allowed.
+		require.NoError(t, z.enforce(ctx, zoneADonID))
+		// Outage: cached (non-zone-b) membership keeps the read allowed.
+		fake.fail.Store(true)
+		require.NoError(t, z.enforce(ctx, zoneADonID))
+	})
 
-	// Registry goes dark. The zone-a caller was resolved before, so the cached
-	// (non-zone-b) membership is used and the read is still allowed.
-	fake.fail.Store(true)
-	require.NoError(t, z.enforce(zoneACtx(), zoneADonID))
+	t.Run("cached zone-b membership survives outage (still denied)", func(t *testing.T) {
+		t.Parallel()
+		z, fake := newOutageTestRestrictor(t, restrictEnabled)
+		md := capabilities.RequestMetadata{WorkflowOwner: "0x" + allowlistedOwner, WorkflowDonID: zoneBDonID}
+		ctx := md.ContextWithCRE(t.Context())
 
-	// A DON never resolved before the outage still fails closed.
-	md := capabilities.RequestMetadata{WorkflowOwner: "0x" + allowlistedOwner, WorkflowDonID: zoneBDonID}
-	err = z.enforce(md.ContextWithCRE(t.Context()), zoneBDonID)
-	require.ErrorContains(t, err, "could not resolve caller workflow DON")
+		// Warm the cache while healthy: zone-b + non-allowlisted owner is denied,
+		// and the zone-b membership is cached.
+		require.ErrorContains(t, z.enforce(ctx, zoneBDonID), "allowlisted workflow owners")
+
+		// Outage: the cached zone-b membership must still be enforced. The caller
+		// is denied via the allowlist, not allowed through by a resolve failure.
+		fake.fail.Store(true)
+		err := z.enforce(ctx, zoneBDonID)
+		require.ErrorContains(t, err, "allowlisted workflow owners")
+		require.NotContains(t, err.Error(), "could not resolve caller workflow DON")
+	})
+
+	t.Run("DON never resolved before outage fails closed", func(t *testing.T) {
+		t.Parallel()
+		z, fake := newOutageTestRestrictor(t, restrictEnabled)
+		fake.fail.Store(true)
+		md := capabilities.RequestMetadata{WorkflowOwner: "0x" + allowlistedOwner, WorkflowDonID: zoneBDonID}
+		err := z.enforce(md.ContextWithCRE(t.Context()), zoneBDonID)
+		require.ErrorContains(t, err, "could not resolve caller workflow DON")
+	})
 }
