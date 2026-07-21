@@ -178,6 +178,11 @@ func (d *Deployer) buildNodeSetForDON(
 		CapabilityConfigs:            capConfigs,
 		ExposesRemoteCapabilities:    don.ExposesRemoteCaps,
 		RegistryBasedLaunchAllowlist: append([]string(nil), don.RegistryBasedAllowlist...),
+		// A workflow DON's don_family is its own name; the gateway node set(s)
+		// serving it (see newGatewayNodeSet) are given the same value via
+		// desired.GatewayDONFor, so GatewayConnectorsForDonFamily/
+		// GatewayServiceConfigsForGateway pair them correctly.
+		DonFamily: don.Name,
 	}, nodeNames, nil
 }
 
@@ -281,6 +286,13 @@ func newGatewayNodeSet(
 		DONTypes:           []string{"gateway"},
 		SupportedEVMChains: append([]uint64(nil), supportedEVMChains...),
 		GatewayDonID:       gatewayDonID,
+		// gatewayDonID here is the workflow DON name this gateway serves
+		// (desired.GatewayDONFor), not an on-chain ID. Using it as don_family
+		// matches the served workflow DON's own don_family (its DON name, set
+		// in buildNodeSetForDON), which is how system-tests' pairing logic
+		// (GatewayConnectorsForDonFamily/GatewayServiceConfigsForGateway)
+		// wires gateway connector config into the workflow DON's node TOML.
+		DonFamily: gatewayDonID,
 	}
 }
 
@@ -307,6 +319,10 @@ func newBootstrapOnlyNodeSet(
 		CapabilityConfigs:            capConfigs,
 		ExposesRemoteCapabilities:    don.ExposesRemoteCaps,
 		RegistryBasedLaunchAllowlist: append([]string(nil), don.RegistryBasedAllowlist...),
+		// Bootstrap DONs are excluded from don_family gateway pairing (they're
+		// neither a gateway nor a workflow DON per topology_don_family.go), so
+		// this only needs to be non-empty to satisfy NewDonMetadata.
+		DonFamily: don.Name,
 	}
 }
 

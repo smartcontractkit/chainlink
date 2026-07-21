@@ -66,6 +66,7 @@ func testWorkflowBootstrapTopology(t *testing.T) *cre.Topology {
 		Capabilities:       []string{"cron", "consensus", "don-time"},
 		DONTypes:           []string{"workflow"},
 		SupportedEVMChains: []uint64{1337},
+		DonFamily:          "workflow",
 	}
 
 	bootstrapDon := &domain.DON{Name: "bootstrap", DONTypes: []string{"bootstrap"}}
@@ -95,6 +96,7 @@ func testSingleWorkerTopology(t *testing.T) *cre.Topology {
 		Capabilities:       []string{"cron", "consensus", "don-time"},
 		DONTypes:           []string{"workflow"},
 		SupportedEVMChains: []uint64{1337},
+		DonFamily:          "workflow",
 	}
 	bootstrapDon := &domain.DON{Name: "bootstrap", DONTypes: []string{"bootstrap"}}
 	bootstrapNS := newBootstrapOnlyNodeSet(
@@ -181,6 +183,7 @@ func TestBuildTopology_IncludesBootstrapOnlyDON(t *testing.T) {
 		Capabilities:       []string{"cron", "consensus", "don-time"},
 		DONTypes:           []string{"workflow"},
 		SupportedEVMChains: []uint64{1337},
+		DonFamily:          "workflow",
 	}
 
 	bootstrapDon := &domain.DON{Name: "bootstrap", DONTypes: []string{"bootstrap"}}
