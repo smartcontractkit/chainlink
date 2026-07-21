@@ -42,6 +42,6 @@ func TestMetricViews_getSecretsDurationBuckets(t *testing.T) {
 	data, ok := rm.ScopeMetrics[0].Metrics[0].Data.(metricdata.Histogram[int64])
 	require.True(t, ok)
 	require.Len(t, data.DataPoints, 1)
+	// 7 boundaries produce 8 Prometheus buckets (including the implicit +Inf).
 	assert.Equal(t, wantBoundaries, data.DataPoints[0].Bounds)
-	assert.Len(t, data.DataPoints[0].Bounds, 7, "expected 7 boundaries (8 Prometheus buckets including +Inf)")
 }
