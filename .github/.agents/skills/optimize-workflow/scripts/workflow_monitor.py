@@ -14,11 +14,10 @@ import io
 def parse_args():
     parser = argparse.ArgumentParser(description="Monitor GitHub Actions Workflow Run")
     parser.add_argument("run_id", type=int, help="GitHub Actions Workflow Run ID")
+    parser.add_argument("trial_name", help="Trial name used to create the output directory.")
     parser.add_argument("--repo", help="GitHub repository (owner/repo). Auto-detected if not specified.")
     parser.add_argument("--token", help="GitHub token. Defaults to GITHUB_TOKEN env var.")
     parser.add_argument("--poll-interval", type=int, default=10, help="Interval (seconds) to poll workflow run progress.")
-    parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format. Defaults to markdown.")
-    parser.add_argument("--out-file", help="Path to write the output report.")
     return parser.parse_args()
 
 def log_stderr(msg):
@@ -36,6 +35,29 @@ def detect_repo():
     except Exception:
         pass
     return "smartcontractkit/chainlink"
+
+
+def get_trials_dir():
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'trials'))
+
+
+def sanitize_dir_name(name):
+    if not name:
+        return "unknown"
+    name = name.replace('/', '_').replace('\\', '_')
+    while '..' in name:
+        name = name.replace('..', '_')
+    return name.strip()
+
+
+def derive_workflow_name(run_data):
+    path = run_data.get('path')
+    if path:
+        name = os.path.basename(path)
+    else:
+        name = run_data.get('name') or 'unknown'
+    return sanitize_dir_name(name)
+
 
 def get_headers(token):
     headers = {
@@ -360,45 +382,63 @@ def main():
     args = parse_args()
     token = args.token or os.environ.get("GITHUB_TOKEN")
     repo = args.repo or detect_repo()
-    
+    trial_name = sanitize_dir_name(args.trial_name)
+
     log_stderr(f"Monitoring workflow run {args.run_id} in {repo}...")
-    
+
     try:
         run_data = wait_for_run(repo, args.run_id, token)
     except RuntimeError as e:
         log_stderr(f"Error: {e}")
         sys.exit(1)
-        
+
+    workflow_name = derive_workflow_name(run_data)
+    trials_dir = get_trials_dir()
+    output_dir = os.path.join(trials_dir, workflow_name, trial_name)
+    logs_dir = os.path.join(output_dir, "logs")
+
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(logs_dir, exist_ok=True)
+    except Exception as e:
+        log_stderr(f"Error creating output directories: {e}")
+        sys.exit(1)
+
     log_stderr("Workflow run found. Waiting for completion...")
     run_data = wait_for_completion(repo, args.run_id, token, args.poll_interval)
-    
-    # Download logs to persistent temp dir
-    import tempfile
-    log_dir = tempfile.mkdtemp(prefix=f"workflow-logs-{args.run_id}-")
-    log_stderr(f"Downloading logs to: {log_dir}...")
-    
+
+    log_stderr(f"Downloading logs to: {logs_dir}...")
     metrics = {}
-    downloaded = download_logs(repo, args.run_id, token, log_dir)
+    downloaded = download_logs(repo, args.run_id, token, logs_dir)
     if downloaded:
-        metrics = parse_job_logs(log_dir)
-            
+        metrics = parse_job_logs(logs_dir)
+
     jobs = fetch_jobs(repo, args.run_id, token)
-    
-    # Generate and print report
-    report = generate_report(run_data, jobs, metrics, log_dir, args.format)
-    
-    # Write to file if specified
-    if args.out_file:
-        try:
-            with open(args.out_file, 'w', encoding='utf-8') as f:
-                f.write(report)
-            log_stderr(f"Report successfully saved to: {args.out_file}")
-            if args.format == 'json':
-                log_stderr(f"Try exploring with: jq . {args.out_file}")
-        except Exception as e:
-            log_stderr(f"Error saving report to {args.out_file}: {e}")
-    else:
-        print(report)
+
+    json_path = os.path.join(output_dir, "report.json")
+    md_path = os.path.join(output_dir, "report.md")
+
+    try:
+        json_report = generate_report(run_data, jobs, metrics, logs_dir, "json")
+        with open(json_path, 'w', encoding='utf-8') as f:
+            f.write(json_report)
+        log_stderr(f"JSON report saved to: {json_path}")
+    except Exception as e:
+        log_stderr(f"Error saving JSON report: {e}")
+
+    try:
+        md_report = generate_report(run_data, jobs, metrics, logs_dir, "markdown")
+        with open(md_path, 'w', encoding='utf-8') as f:
+            f.write(md_report)
+        log_stderr(f"Markdown report saved to: {md_path}")
+    except Exception as e:
+        log_stderr(f"Error saving Markdown report: {e}")
+
+    print(f"workflow: {workflow_name}")
+    print(f"trial: {trial_name}")
+    print(f"json: {json_path}")
+    print(f"markdown: {md_path}")
+    print(f"logs: {logs_dir}")
 
 if __name__ == "__main__":
     main()

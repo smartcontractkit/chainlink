@@ -23,8 +23,8 @@ Setup:
 3. Permitted scope: High freedom. OK to introduce breaking edits to internal `smartcontractkit` actions/workflows to improve speed/simplicity.
 4. Ask user to target: specific job, whole workflow runner config, or workflow structure.
 5. Setup test workflow (bypass gates, mock inputs, add `workflow_dispatch`).
-6. Init/resume trial log: `.github/.agents/skills/optimize-workflow/trials/[workflow]/trial-log.md`.
-7. Run baseline trial with current configuration to benchmark.
+6. Init/resume trials log: `.github/.agents/skills/optimize-workflow/trials/[workflow]/summary.md`.
+7. Run/find/ask for a baseline trial with current configuration to benchmark against.
 </initialization>
 
 <constraints>
@@ -49,15 +49,15 @@ Setup:
 <loop>
 1. Define trials. Update `<workflow>.md` log.
 2. User approves trials and execution method (parallel vs sequential).
-3. Push to new disposable branch.
-   - Commit message: `cpu=X/ram=Y` or `struct/[caching|parallel|ordering|simplify]`
-   - PR title: `[DO NOT MERGE] Trial: <workflow-name>`
-   - PR body: Details of configuration. Include before-after Mermaid diagram showing structural flow.
+3. Commit + push to new disposable branch, `trial/[trial-name]`.
 4. Trigger workflow.
 5. Monitor run:
-   `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py [run_id] --format json --out-file .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name].json`
+   `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py [run_id] [trial-name]`
+   - Creates `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/report.json`
+   - Creates `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/report.md`
+   - Extracts runner logs to `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/logs/`
 6. Compare trials:
-   `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1].json .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-2].json --out-file .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1]-[trial-2]-comparison.md`
+   `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1]/report.json .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-2]/report.json --out-file .github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1]-[trial-2]-comparison.md`
 7. Update trial log. Include updated before-after diagram if structural changes occurred.
 8. Show condensed results. Prompt for more trials or stop.
 

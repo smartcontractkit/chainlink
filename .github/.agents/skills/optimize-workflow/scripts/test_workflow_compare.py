@@ -93,7 +93,7 @@ class TestWorkflowCompare(unittest.TestCase):
         self.assertEqual(workflow_compare.normalize_name("build-job"), "buildjob")
         
         name = "Run CCIP v1.6 E2E Tests For Workflow Dispatch / smoke/ccip/ccip_reorg_test.go:GreaterThanFinalityTests"
-        expected = "runccipv16e2etestsworkflowdispatchsmokeccipccipreorgtestgogreaterthanfinalitytests"
+        expected = "runccipv16e2etestsforworkflowdispatchsmokeccipccipreorgtestgogreaterthanfinalitytests"
         self.assertEqual(workflow_compare.normalize_name(name), expected)
 
     def test_matches_job_name(self):
