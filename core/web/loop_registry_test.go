@@ -14,13 +14,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/freeport"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -58,7 +57,7 @@ func (m *mockLoopImpl) run() {
 }
 
 func TestLoopRegistry(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = new(true)
 		c.P2P.V2.Enabled = new(true)
@@ -81,7 +80,7 @@ func TestLoopRegistry(t *testing.T) {
 	}
 
 	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	// register a mock loop
 	loop, err := app.GetLoopRegistry().Register("mockLoopImpl")
@@ -110,7 +109,7 @@ func TestLoopRegistry(t *testing.T) {
 		var got []*targetgroup.Group
 		require.NoError(t, json.Unmarshal(b, &got))
 
-		gotLabels := make([]model.LabelSet, 0)
+		gotLabels := make([]model.LabelSet, 0, len(got))
 		for _, ls := range got {
 			gotLabels = append(gotLabels, ls.Labels)
 		}

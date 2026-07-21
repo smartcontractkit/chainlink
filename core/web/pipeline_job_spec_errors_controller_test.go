@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
@@ -17,11 +16,11 @@ func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
 
 	description := "job spec error description"
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.JobORM().RecordError(ctx, jID, description))
 
 	// FindJob -> find error
-	j, err := app.JobORM().FindJob(testutils.Context(t), jID)
+	j, err := app.JobORM().FindJob(t.Context(), jID)
 	require.NoError(t, err)
 	t.Log(j.JobSpecErrors)
 	require.GreaterOrEqual(t, len(j.JobSpecErrors), 1) // second 'got nil head' error may have occurred also
@@ -40,7 +39,7 @@ func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusNoContent)
 
 	// FindJob -> error is gone
-	j, err = app.JobORM().FindJob(testutils.Context(t), j.ID)
+	j, err = app.JobORM().FindJob(t.Context(), j.ID)
 	require.NoError(t, err)
 	for i := range j.JobSpecErrors {
 		jse := j.JobSpecErrors[i]

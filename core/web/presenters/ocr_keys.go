@@ -32,7 +32,7 @@ func NewOCRKeysBundleResource(key ocrkey.KeyV2) *OCRKeysBundleResource {
 }
 
 func NewOCRKeysBundleResources(keys []ocrkey.KeyV2) []OCRKeysBundleResource {
-	rs := []OCRKeysBundleResource{}
+	rs := make([]OCRKeysBundleResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewOCRKeysBundleResource(key))
 	}
@@ -67,7 +67,7 @@ func NewOCR2KeysBundleResource(key ocr2key.KeyBundle) *OCR2KeysBundleResource {
 }
 
 func NewOCR2KeysBundleResources(keys []ocr2key.KeyBundle) []OCR2KeysBundleResource {
-	rs := []OCR2KeysBundleResource{}
+	rs := make([]OCR2KeysBundleResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewOCR2KeysBundleResource(key))
 	}

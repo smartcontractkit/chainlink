@@ -13,14 +13,14 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -29,6 +29,7 @@ import (
 // Specs are only embedded on the job and are not fetchable by its own id, so
 // we test the spec resolvers by fetching a job by id.
 func TestResolver_CronSpec(t *testing.T) {
+	t.Parallel()
 	var (
 		id = int32(1)
 	)
@@ -83,6 +84,7 @@ func TestResolver_CronSpec(t *testing.T) {
 }
 
 func TestResolver_DirectRequestSpec(t *testing.T) {
+	t.Parallel()
 	var (
 		id               = int32(1)
 		requesterAddress = common.HexToAddress("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
@@ -149,6 +151,7 @@ func TestResolver_DirectRequestSpec(t *testing.T) {
 }
 
 func TestResolver_FluxMonitorSpec(t *testing.T) {
+	t.Parallel()
 	var (
 		id = int32(1)
 	)
@@ -298,6 +301,7 @@ func TestResolver_FluxMonitorSpec(t *testing.T) {
 }
 
 func TestResolver_OCRSpec(t *testing.T) {
+	t.Parallel()
 	var (
 		id = int32(1)
 	)
@@ -395,6 +399,7 @@ func TestResolver_OCRSpec(t *testing.T) {
 }
 
 func TestResolver_OCR2Spec(t *testing.T) {
+	t.Parallel()
 	var (
 		id = int32(1)
 	)

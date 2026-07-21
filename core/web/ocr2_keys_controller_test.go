@@ -5,16 +5,16 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestOCR2KeysController_Index_HappyPath(t *testing.T) {
@@ -57,16 +57,16 @@ func TestOCR2KeysController_Create_HappyPath(t *testing.T) {
 
 			resource := presenters.OCR2KeysBundleResource{}
 			err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
-			var ids []string
+			ids := make([]string, 0, len(keys))
 			for _, key := range keys {
 				ids = append(ids, key.ID())
 			}
 			require.Contains(t, ids, resource.ID)
 
 			_, err = OCRKeyStore.Get(resource.ID)
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		})
 	}
 }
@@ -81,7 +81,7 @@ func TestOCR2KeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
 }
 
 func TestOCR2KeysController_Delete_HappyPath(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	client, OCRKeyStore := setupOCR2KeysControllerTests(t)
 
 	keys, _ := OCRKeyStore.GetAll()
@@ -91,7 +91,7 @@ func TestOCR2KeysController_Delete_HappyPath(t *testing.T) {
 	response, cleanup := client.Delete("/v2/keys/ocr2/" + key.ID())
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	assert.Error(t, utils.JustError(OCRKeyStore.Get(key.ID())))
+	require.Error(t, utils.JustError(OCRKeyStore.Get(key.ID())))
 
 	keys, _ = OCRKeyStore.GetAll()
 	assert.Len(t, keys, initialLength)
@@ -99,10 +99,10 @@ func TestOCR2KeysController_Delete_HappyPath(t *testing.T) {
 
 func setupOCR2KeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.OCR2) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 
 	require.NoError(t, app.KeyStore.OCR2().Add(ctx, cltest.DefaultOCR2Key))

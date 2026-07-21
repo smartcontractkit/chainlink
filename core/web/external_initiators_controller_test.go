@@ -7,18 +7,17 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/manyminds/api2go/jsonapi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/manyminds/api2go/jsonapi"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestValidateExternalInitiator(t *testing.T) {
@@ -35,7 +34,7 @@ func TestValidateExternalInitiator(t *testing.T) {
 		URL:  &url,
 	}
 
-	assert.NoError(t, orm.CreateExternalInitiator(testutils.Context(t), &exi))
+	require.NoError(t, orm.CreateExternalInitiator(t.Context(), &exi))
 
 	tests := []struct {
 		name      string
@@ -53,10 +52,10 @@ func TestValidateExternalInitiator(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			var exr bridges.ExternalInitiatorRequest
 
-			assert.NoError(t, json.Unmarshal([]byte(test.input), &exr))
+			require.NoError(t, json.Unmarshal([]byte(test.input), &exr))
 			result := web.ValidateExternalInitiator(ctx, &exr, orm)
 
 			cltest.AssertError(t, test.wantError, result)
@@ -71,7 +70,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 		}))
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -101,7 +100,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	var links jsonapi.Links
 	var eis []presenters.ExternalInitiatorResource
 	err = web.ParsePaginatedResponse(body, &eis, &links)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
@@ -118,7 +117,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 
 	eis = []presenters.ExternalInitiatorResource{}
 	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &eis, &links)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Empty(t, links["next"])
 	assert.NotEmpty(t, links["prev"])
 
@@ -137,7 +136,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 		}))
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -164,7 +163,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 		}))
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -191,7 +190,7 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 		}))
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -209,12 +208,12 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 		}))
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	exi := bridges.ExternalInitiator{
 		Name: "abracadabra",
 	}
-	err := app.BridgeORM().CreateExternalInitiator(testutils.Context(t), &exi)
+	err := app.BridgeORM().CreateExternalInitiator(t.Context(), &exi)
 	require.NoError(t, err)
 
 	client := app.NewHTTPClient(nil)
@@ -231,7 +230,7 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 		}))
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 

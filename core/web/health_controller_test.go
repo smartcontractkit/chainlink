@@ -46,7 +46,7 @@ func TestHealthController_Readyz(t *testing.T) {
 			healthChecker.On("Close").Return(nil).Once()
 
 			app.HealthChecker = healthChecker
-			require.NoError(t, app.Start(testutils.Context(t)))
+			require.NoError(t, app.Start(t.Context()))
 
 			client := app.NewHTTPClient(nil)
 			resp, cleanup := client.Get("/readyz")
@@ -82,7 +82,7 @@ func TestHealthController_Health_status(t *testing.T) {
 			healthChecker.On("Close").Return(nil).Once()
 
 			app.HealthChecker = healthChecker
-			require.NoError(t, app.Start(testutils.Context(t)))
+			require.NoError(t, app.Start(t.Context()))
 
 			client := app.NewHTTPClient(nil)
 			resp, cleanup := client.Get("/health")
@@ -136,7 +136,7 @@ func TestHealthController_Health_body(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(cfg *chainlink.Config, secrets *chainlink.Secrets) {})
 			app := cltest.NewApplicationWithConfigAndKey(t, cfg)
-			require.NoError(t, app.Start(testutils.Context(t)))
+			require.NoError(t, app.Start(t.Context()))
 
 			client := app.NewHTTPClient(nil)
 			resp, cleanup := client.Get(tc.path, tc.headers)

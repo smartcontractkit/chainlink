@@ -7,15 +7,14 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 //go:embed fixtures/operator_ui/assets
@@ -25,7 +24,7 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
@@ -43,7 +42,7 @@ func TestGuiAssets_DefaultIndexHtml_OK(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			req, err := http.NewRequestWithContext(testutils.Context(t), "GET", app.Server.URL+tc.path, nil)
+			req, err := http.NewRequestWithContext(t.Context(), "GET", app.Server.URL+tc.path, nil)
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)
@@ -56,7 +55,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
@@ -75,7 +74,7 @@ func TestGuiAssets_DefaultIndexHtml_NotFound(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			req, err := http.NewRequestWithContext(testutils.Context(t), "GET", app.Server.URL+tc.path, nil)
+			req, err := http.NewRequestWithContext(t.Context(), "GET", app.Server.URL+tc.path, nil)
 			require.NoError(t, err)
 			resp, err := client.Do(req)
 			require.NoError(t, err)
@@ -89,14 +88,14 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 
 	config := configtest.NewGeneralConfig(t, nil)
 	app := cltest.NewApplicationWithConfig(t, config)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	// Make calls equal to the rate limit
 	rateLimit := 20
 	for range rateLimit {
-		req, err := http.NewRequestWithContext(testutils.Context(t), "GET", app.Server.URL+"/", nil)
+		req, err := http.NewRequestWithContext(t.Context(), "GET", app.Server.URL+"/", nil)
 		require.NoError(t, err)
 		resp, err := client.Do(req)
 		require.NoError(t, err)
@@ -104,7 +103,7 @@ func TestGuiAssets_DefaultIndexHtml_RateLimited(t *testing.T) {
 	}
 
 	// Last request fails
-	req, err := http.NewRequestWithContext(testutils.Context(t), "GET", app.Server.URL+"/", nil)
+	req, err := http.NewRequestWithContext(t.Context(), "GET", app.Server.URL+"/", nil)
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)

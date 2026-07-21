@@ -51,7 +51,7 @@ func NewJobProposalSpec(spec *feeds.JobProposalSpec) *JobProposalSpecResolver {
 
 // NewJobProposalSpecs creates a slice of JobProposalSpecResolvers.
 func NewJobProposalSpecs(specs []feeds.JobProposalSpec) []*JobProposalSpecResolver {
-	var resolvers []*JobProposalSpecResolver
+	resolvers := make([]*JobProposalSpecResolver, 0, len(specs))
 
 	for i := range specs {
 		resolvers = append(resolvers, NewJobProposalSpec(&specs[i]))

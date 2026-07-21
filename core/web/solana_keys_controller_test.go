@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -27,7 +27,7 @@ func TestSolanaKeysController_Index_HappyPath(t *testing.T) {
 
 	resources := []presenters.SolanaKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resources)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	require.Len(t, resources, len(keys))
 
@@ -39,7 +39,7 @@ func TestSolanaKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 	keyStore := app.GetKeyStore()
 
@@ -52,7 +52,7 @@ func TestSolanaKeysController_Create_HappyPath(t *testing.T) {
 
 	resource := presenters.SolanaKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, keys[0].ID(), resource.ID)
 	assert.Equal(t, keys[0].PublicKeyStr(), resource.PubKey)
@@ -74,7 +74,7 @@ func TestSolanaKeysController_Delete_NonExistentSolanaKeyID(t *testing.T) {
 
 func TestSolanaKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	client, keyStore := setupSolanaKeysControllerTests(t)
 
@@ -85,7 +85,7 @@ func TestSolanaKeysController_Delete_HappyPath(t *testing.T) {
 	response, cleanup := client.Delete("/v2/keys/solana/" + key.ID())
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	assert.Error(t, utils.JustError(keyStore.Solana().Get(key.ID())))
+	require.Error(t, utils.JustError(keyStore.Solana().Get(key.ID())))
 
 	keys, _ = keyStore.Solana().GetAll()
 	assert.Len(t, keys, initialLength)
@@ -93,7 +93,7 @@ func TestSolanaKeysController_Delete_HappyPath(t *testing.T) {
 
 func setupSolanaKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(ctx))

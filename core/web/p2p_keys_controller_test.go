@@ -4,16 +4,16 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestP2PKeysController_Index_HappyPath(t *testing.T) {
@@ -28,7 +28,7 @@ func TestP2PKeysController_Index_HappyPath(t *testing.T) {
 
 	resources := []presenters.P2PKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resources)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	require.Len(t, resources, len(keys))
 
@@ -41,7 +41,7 @@ func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 	keyStore := app.GetKeyStore()
 
@@ -54,7 +54,7 @@ func TestP2PKeysController_Create_HappyPath(t *testing.T) {
 
 	resource := presenters.P2PKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, keys[0].ID(), resource.ID)
 	assert.Equal(t, keys[0].PublicKeyHex(), resource.PubKey)
@@ -90,7 +90,7 @@ func TestP2PKeysController_Delete_InvalidPeerID(t *testing.T) {
 
 func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	client, keyStore := setupP2PKeysControllerTests(t)
 
@@ -101,7 +101,7 @@ func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 	response, cleanup := client.Delete("/v2/keys/p2p/" + key.ID())
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	assert.Error(t, utils.JustError(keyStore.P2P().Get(key.PeerID())))
+	require.Error(t, utils.JustError(keyStore.P2P().Get(key.PeerID())))
 
 	keys, _ = keyStore.P2P().GetAll()
 	assert.Len(t, keys, initialLength)
@@ -109,7 +109,7 @@ func TestP2PKeysController_Delete_HappyPath(t *testing.T) {
 
 func setupP2PKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(ctx))
