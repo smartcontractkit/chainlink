@@ -26,6 +26,7 @@ tools/clroot/db.sqlite3-wal
 .env*
 .dbenv
 !.github/actions/setup-postgres/.env
+/.github/.agents/skills/right-size-runners/trials/
 .direnv
 .idea
 .vscode/
@@ -109,6 +110,7 @@ override*.toml
 
 # Python venv
 .venv/
+__pycache__/
 
 ocr_soak_report.csv
 
@@ -118,6 +120,7 @@ vendor/*
 contracts/lcov.info
 contracts/out/
 /cache
+/.wasm-cache/
 
 # Used by plugins/chainlink.prebuilt.Dockerfile
 /bin/

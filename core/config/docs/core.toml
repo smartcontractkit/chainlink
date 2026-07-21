@@ -6,6 +6,14 @@ InsecureFastScrypt = false # Default
 # Deprecated: no effect. Always enabled.
 InsecurePPROFHeap = true # Default
 # RootDir is the Chainlink node's root directory. This is the default directory for logging, database backups, cookies, and other misc Chainlink node files. Chainlink nodes will always ensure this directory has 700 permissions because it might contain sensitive data.
+#
+# Official prod Docker images run as UID:GID 14933:14933 (user `chainlink`). A non-deterministic GID mismatch is a common cause of read/write errors on bind mounts in Docker/Compose.
+#
+# RootDir '/home/chainlink' and '~/.chainlink' (which resolves to
+# '/home/chainlink/.chainlink') are valid. Choose one and align any persistence mounts to that path. '/home/chainlink' is often preferred because '.chainlink' is hidden by default.
+#
+# Do not bind-mount over '/home/chainlink' — it replaces the entire home directory and causes permission failures. Mount config and secrets at separate paths (e.g. '/run/secrets/config.toml', '/configs/...') and pass them via CLI flags
+# ('-c', '-s', '-a', '-p').
 RootDir = '~/.chainlink' # Default
 # ShutdownGracePeriod is the maximum time allowed to shut down gracefully. If exceeded, the node will terminate immediately to avoid being SIGKILLed.
 ShutdownGracePeriod = '5s' # Default
@@ -523,6 +531,8 @@ MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
 # MaxConcurrency controls the maximum number of concurrent event handlers in the workflow registry syncer.
 MaxConcurrency = 12 # Default
+# MaxActivationRetries is the number of failed load/initialization attempts before the syncer stops retrying an active workflow. 0 disables the limit.
+MaxActivationRetries = 100 # Default
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
 # URL is the location for the workflow storage service to be communicated with.
@@ -880,7 +890,14 @@ ChipIngressInsecureConnection = false # Default
 # When false, events are sent individually (legacy behavior).
 ChipIngressBatchEmitterEnabled = true # Default
 # DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
-DurableEmitterEnabled = false # Default
+DurableEmitterEnabled = true # Default
+# DurableEmitterRetransmitBatchSize is the number of pending events the durable emitter replays per retransmit tick.
+DurableEmitterRetransmitBatchSize = 500 # Default
+# DurableEmitterEventTTL is how long an undelivered event is retained before the durable emitter expires it (older events are dropped).
+DurableEmitterEventTTL = '1h0m0s' # Default
+# DurableEmitterMaxQueuePayloadBytes is the byte ceiling used as the denominator for the durable emitter's
+# queue capacity_usage_ratio metric. Defaults to 1 GiB.
+DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default
 # LogLevel sets the log level for telemetry streaming (debug, info, warn, error, crit, panic, fatal)
@@ -897,6 +914,8 @@ LogExportMaxBatchSize = 512 # Default
 LogExportInterval = '1s' # Default
 # LogMaxQueueSize sets the maximum queue size used by the batcher
 LogMaxQueueSize = 2048 # Default
+# MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
+MetricCardinalityLimit = 100000 # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]
@@ -969,6 +988,10 @@ DebugMode = false # Default
 [CRE.ConfidentialRelay]
 # Enabled controls whether the confidential relay gateway handler should be configured.
 Enabled = false # Default
+# TrustEnclaves relaxes TEE attestation validation so the relay trusts fake (non-Nitro) enclaves. intended only for tests.
+TrustEnclaves = false # Default
+# RequireBFTQuorum selects the relay's signature quorum.
+RequireBFTQuorum = false # Default
 
 # Sharding holds settings for node sharding configuration.
 [Sharding]

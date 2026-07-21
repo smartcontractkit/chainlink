@@ -106,10 +106,14 @@ func (c *creConfig) Linking() config.CRELinking {
 }
 
 type confidentialRelayConfig struct {
-	enabled bool
+	enabled          bool
+	trustEnclaves    bool
+	requireBFTQuorum bool
 }
 
-func (cr *confidentialRelayConfig) Enabled() bool { return cr.enabled }
+func (cr *confidentialRelayConfig) Enabled() bool          { return cr.enabled }
+func (cr *confidentialRelayConfig) TrustEnclaves() bool    { return cr.trustEnclaves }
+func (cr *confidentialRelayConfig) RequireBFTQuorum() bool { return cr.requireBFTQuorum }
 
 func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay == nil {
@@ -119,7 +123,15 @@ func (c *creConfig) ConfidentialRelay() config.CREConfidentialRelay {
 	if c.c.ConfidentialRelay.Enabled != nil {
 		enabled = *c.c.ConfidentialRelay.Enabled
 	}
-	return &confidentialRelayConfig{enabled: enabled}
+	trustEnclaves := false
+	if c.c.ConfidentialRelay.TrustEnclaves != nil {
+		trustEnclaves = *c.c.ConfidentialRelay.TrustEnclaves
+	}
+	requireBFTQuorum := false
+	if c.c.ConfidentialRelay.RequireBFTQuorum != nil {
+		requireBFTQuorum = *c.c.ConfidentialRelay.RequireBFTQuorum
+	}
+	return &confidentialRelayConfig{enabled: enabled, trustEnclaves: trustEnclaves, requireBFTQuorum: requireBFTQuorum}
 }
 
 func (c *creConfig) LocalSecretOverrides() map[string]map[string]string {

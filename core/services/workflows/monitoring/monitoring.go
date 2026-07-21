@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 
-	monutils "github.com/smartcontractkit/chainlink/v2/core/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
@@ -52,6 +51,10 @@ type EngineMetrics struct {
 	workflowExecutionFailedCounter    metric.Int64Counter
 	workflowExecutionStartedCounter   metric.Int64Counter
 	workflowExecutionSucceededCounter metric.Int64Counter
+	// workflowExecutionFinishedCounter counts every terminal execution outcome
+	// (completed, error, timeout). Use with a status attribute so a single series
+	// family can serve as both numerator and denominator without vector(0) joins.
+	workflowExecutionFinishedCounter metric.Int64Counter
 
 	getSecretsDuration metric.Int64Histogram
 
@@ -76,6 +79,10 @@ type EngineMetrics struct {
 	triggerQueueToExecutionStartSeconds metric.Float64Histogram
 	triggerPayloadBytes                 metric.Int64Histogram
 	executionSemaphoreWaitSeconds       metric.Float64Histogram
+
+	donTimeCallsCounter    metric.Int64Counter
+	donTimeTimeoutsCounter metric.Int64Counter
+	donTimeErrorsCounter   metric.Int64Counter
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -181,6 +188,14 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowExecutionSucceededCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_execution_succeeded_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow execution succeeded counter: %w", err)
+	}
+
+	em.workflowExecutionFinishedCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_workflow_execution_finished_count",
+		metric.WithDescription("Count of workflow executions that reached a terminal status (completed, error, or timeout)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow execution finished counter: %w", err)
 	}
 
 	// Deprecated: use the gauge below
@@ -401,6 +416,30 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register execution semaphore wait histogram: %w", err)
 	}
 
+	em.donTimeCallsCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_dontime_calls_total",
+		metric.WithDescription("Total GetDONTime calls made by the workflow engine"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register don time calls counter: %w", err)
+	}
+
+	em.donTimeTimeoutsCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_dontime_timeouts_total",
+		metric.WithDescription("GetDONTime calls that timed out waiting for a response"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register don time timeouts counter: %w", err)
+	}
+
+	em.donTimeErrorsCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_dontime_errors_total",
+		metric.WithDescription("GetDONTime calls that failed without DON consensus recovery"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register don time errors counter: %w", err)
+	}
+
 	return em, nil
 }
 
@@ -502,12 +541,12 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowLimitPerOwnerCounter(ctx contex
 }
 
 func (c WorkflowsMetricLabeler) IncrementRegisterTriggerFailureCounter(ctx context.Context) {
-	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerWorkflowStarterErrorCounter(ctx context.Context) {
-	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerWorkflowStarterErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
@@ -642,6 +681,13 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionStartedCounter(ctx con
 	c.em.workflowExecutionStartedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
+// IncrementWorkflowExecutionFinishedCounter increments the terminal-outcome counter.
+// status should be one of store.StatusCompleted, store.StatusErrored, or store.StatusTimeout.
+func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionFinishedCounter(ctx context.Context, status string) {
+	otelLabels := append(beholder.OtelAttributes(c.Labels).AsStringAttributes(), attribute.String("status", status))
+	c.em.workflowExecutionFinishedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
 func (c WorkflowsMetricLabeler) IncrementExecutionTimestampAssignedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.executionTimestampAssignedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
@@ -742,4 +788,19 @@ func (c WorkflowsMetricLabeler) RecordTriggerPayloadBytes(ctx context.Context, n
 func (c WorkflowsMetricLabeler) RecordExecutionSemaphoreWaitSeconds(ctx context.Context, waitSeconds float64) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.executionSemaphoreWaitSeconds.Record(ctx, waitSeconds, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementDonTimeCallsCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.donTimeCallsCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementDonTimeTimeoutsCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.donTimeTimeoutsCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+func (c WorkflowsMetricLabeler) IncrementDonTimeErrorsCounter(ctx context.Context) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	c.em.donTimeErrorsCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

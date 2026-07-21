@@ -12,6 +12,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_reorg_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP v1.6 Tests
@@ -33,6 +34,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_reorg_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs
     triggers:
       - Nightly E2E Tests
       - Push E2E CCIP v1.6 Tests
@@ -54,6 +56,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_token_price_updates_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs
     triggers:
       - PR E2E CCIP v1.6 Tests
       - Merge Queue E2E CCIP v1.6 Tests
@@ -79,6 +82,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_gas_price_updates_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs
     triggers:
       - PR E2E CCIP v1.6 Tests
       - Merge Queue E2E CCIP v1.6 Tests
@@ -103,6 +107,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_gas_price_updates_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs
     triggers:
       - PR E2E CCIP v1.6 Tests
       - Merge Queue E2E CCIP v1.6 Tests
@@ -127,11 +132,9 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
-    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs
     triggers:
-      - Nightly E2E Tests
-      - Push E2E CCIP v1.6 Tests
-      - Workflow Dispatch E2E CCIP v1.6 Tests
+      # Push/Nightly triggers removed: test consistently times out after 30m (RMN curse-revocation flake). Re-add once fixed.
     test_cmd: |
       cd smoke/ccip && \
       gotestsum \
@@ -152,7 +155,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-16cores-64GB
-    runs_on_self_hosted: runs-on/cpu=32/ram=128/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs
     triggers:
       - PR E2E CCIP v1.6 Tests
       - Nightly E2E Tests
@@ -178,6 +181,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_jobspec_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs
     triggers:
       - PR E2E CCIP v1.6 Tests
       - Merge Queue E2E CCIP v1.6 Tests
@@ -203,6 +207,7 @@ runner-test-matrix:
     path: integration-tests/smoke/ccip/ccip_jobspec_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
+    runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m7i+m8i/extras=s3-cache+tmpfs
     triggers:
       - PR E2E CCIP v1.6 Tests
       - Merge Queue E2E CCIP v1.6 Tests
@@ -222,4 +227,5 @@ runner-test-matrix:
       E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
     test_go_project_path: integration-tests
+    free_disk_space: true
   # END: CCIPv1.6 tests

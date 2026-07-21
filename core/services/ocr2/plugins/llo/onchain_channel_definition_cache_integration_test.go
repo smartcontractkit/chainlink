@@ -223,11 +223,11 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	cdc := channeldefinitions.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 0, channeldefinitions.WithLogPollInterval(100*time.Millisecond))
 	servicetest.Run(t, cdc)
 
-	t.Run("before any logs, returns empty Definitions", func(t *testing.T) {
+	t.Run("before any logs, returns empty Definitions", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		assert.Empty(t, cdc.Definitions(llotypes.ChannelDefinitions{}))
 	})
 
-	t.Run("with sha mismatch, should not update", func(t *testing.T) {
+	t.Run("with sha mismatch, should not update", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		// clear the log messages
 		t.Cleanup(func() { observedLogs.TakeAll() })
 
@@ -251,7 +251,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		assert.Empty(t, cdc.Definitions(llotypes.ChannelDefinitions{}))
 	})
 
-	t.Run("after correcting sha with new channel definitions set on-chain, but with invalid JSON at url, should not update", func(t *testing.T) {
+	t.Run("after correcting sha with new channel definitions set on-chain, but with invalid JSON at url, should not update", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		// clear the log messages before waiting for new ones
 		observedLogs.TakeAll()
 
@@ -273,7 +273,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		assert.Empty(t, cdc.Definitions(llotypes.ChannelDefinitions{}))
 	})
 
-	t.Run("if server returns 404, should not update", func(t *testing.T) {
+	t.Run("if server returns 404, should not update", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		// clear the log messages before waiting for new ones
 		observedLogs.TakeAll()
 
@@ -294,7 +294,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			"err", "(status 404): not found")
 	})
 
-	t.Run("if server starts returning empty body, still does not update", func(t *testing.T) {
+	t.Run("if server starts returning empty body, still does not update", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		// clear the log messages before waiting for new ones
 		observedLogs.TakeAll()
 
@@ -311,7 +311,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			"Error while fetching channel definitions", "err", "failed to fetch channel definitions: SHA3 mismatch for channel definitions")
 	})
 
-	t.Run("when URL starts returning valid JSON, updates even without needing new logs", func(t *testing.T) {
+	t.Run("when URL starts returning valid JSON, updates even without needing new logs", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		// clear the log messages before waiting for new ones
 		observedLogs.TakeAll()
 
@@ -345,11 +345,11 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		assert.Equal(t, sampleDefinitions, cdc.Definitions(llotypes.ChannelDefinitions{}))
 
-		t.Run("latest channel definitions are persisted", func(t *testing.T) {
+		t.Run("latest channel definitions are persisted", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			// Wait for initial persistence to complete (persistLoop periodically persists source definitions)
 			var prevOutcome *llotypes2.PersistedDefinitions
 			require.Eventually(t, func() bool {
-				loaded, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
+				loaded, err := orm.LoadChannelDefinitions(t.Context(), configStoreAddress, donID)
 				if err != nil || loaded == nil {
 					return false
 				}
@@ -370,7 +370,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			// Wait for persistence to complete after calling Definitions() with previous outcome
 			var pd *llotypes2.PersistedDefinitions
 			require.Eventually(t, func() bool {
-				loaded, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
+				loaded, err := orm.LoadChannelDefinitions(t.Context(), configStoreAddress, donID)
 				if err != nil || loaded == nil {
 					return false
 				}
@@ -399,7 +399,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			assert.GreaterOrEqual(t, pd.Version, prevOutcome.Version, "version should be >= previous outcome version")
 		})
 
-		t.Run("new cdc with same config should load from DB", func(t *testing.T) {
+		t.Run("new cdc with same config should load from DB", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 			// fromBlock far in the future to ensure logs are not used
 			cdc2 := channeldefinitions.NewChannelDefinitionCache(logger.NullLogger, orm, client, lp, configStoreAddress, donID, 1000)
 			servicetest.Run(t, cdc2)
@@ -407,14 +407,14 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			// The cache loads source definitions (map[uint32]types.SourceDefinition) from the database
 			// Definitions(prev) merges the loaded source definitions from c.definitions.Sources with prev
 			// Since source definitions are loaded from DB for a new cache, it should merge them with prev
-			loaded, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
+			loaded, err := orm.LoadChannelDefinitions(t.Context(), configStoreAddress, donID)
 			require.NoError(t, err)
 			require.NotNil(t, loaded)
 			require.Equal(t, sampleDefinitions, extractChannelDefinitions(loaded.Definitions))
 		})
 	})
 
-	t.Run("new log with invalid channel definitions URL does not affect old channel definitions", func(t *testing.T) {
+	t.Run("new log with invalid channel definitions URL does not affect old channel definitions", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		// clear the log messages
 		observedLogs.TakeAll()
 		{
@@ -427,7 +427,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		testutils.WaitForLogMessageWithField(t, observedLogs, "Error while fetching channel definitions", "err", "invalid URI for request")
 	})
 
-	t.Run("new valid definitions set on-chain, should update", func(t *testing.T) {
+	t.Run("new valid definitions set on-chain, should update", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		// clear the log messages before waiting for new ones
 		observedLogs.TakeAll()
 
@@ -483,11 +483,11 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		assert.Equal(t, sampleDefinitions, cdc.Definitions(llotypes.ChannelDefinitions{}))
 	})
 
-	t.Run("latest channel definitions are persisted and overwrite previous value", func(t *testing.T) {
+	t.Run("latest channel definitions are persisted and overwrite previous value", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		// Wait for initial persistence to complete (persistLoop periodically persists source definitions)
 		var prev *llotypes2.PersistedDefinitions
 		require.Eventually(t, func() bool {
-			loaded, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
+			loaded, err := orm.LoadChannelDefinitions(t.Context(), configStoreAddress, donID)
 			if err != nil || loaded == nil {
 				return false
 			}
@@ -509,7 +509,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		// Wait for persistence to complete after calling Definitions() with previous outcome
 		var pd *llotypes2.PersistedDefinitions
 		require.Eventually(t, func() bool {
-			loaded, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
+			loaded, err := orm.LoadChannelDefinitions(t.Context(), configStoreAddress, donID)
 			if err != nil || loaded == nil {
 				return false
 			}
@@ -538,7 +538,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		assert.GreaterOrEqual(t, pd.Version, prev.Version, "version should be >= previous outcome version")
 	})
 
-	t.Run("migration from SingleChannelDefinitionsFormat to MultiChannelDefinitionsFormat preserves metadata", func(t *testing.T) {
+	t.Run("migration from SingleChannelDefinitionsFormat to MultiChannelDefinitionsFormat preserves metadata", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		migrationDonID := rand.Uint32()
 		migrationVersion := uint32(1)
 		migrationBlockNum := int64(1)
@@ -574,7 +574,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		`, configStoreAddress, migrationChainSelector, migrationDonID, oldFormatJSON, migrationBlockNum, migrationVersion, channeldefinitions.SingleChannelDefinitionsFormat)
 
 		// Verify old format data in database
-		oldPD, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, migrationDonID)
+		oldPD, err := orm.LoadChannelDefinitions(t.Context(), configStoreAddress, migrationDonID)
 		require.NoError(t, err)
 		require.NotNil(t, oldPD)
 		assert.Equal(t, migrationChainSelector, oldPD.ChainSelector)
@@ -649,7 +649,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		var migratedPD *llotypes2.PersistedDefinitions
 		require.Eventually(t, func() bool {
 			var loaded *llotypes2.PersistedDefinitions
-			if loaded, err = orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, migrationDonID); err != nil || loaded == nil {
+			if loaded, err = orm.LoadChannelDefinitions(t.Context(), configStoreAddress, migrationDonID); err != nil || loaded == nil {
 				return false
 			}
 			// Check that format has been migrated
@@ -752,7 +752,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 	require.NoError(t, utils.JustError(configStoreContract.SetChannelAdder(steve, donID, adder2ID, true)))
 	backend.Commit()
 
-	t.Run("adder can add new channels", func(t *testing.T) {
+	t.Run("adder can add new channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		adder1Definitions := llotypes.ChannelDefinitions{
@@ -801,7 +801,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		assert.Equal(t, adder1Definitions[101], defs[101])
 	})
 
-	t.Run("adder cannot overwrite existing owner channels", func(t *testing.T) {
+	t.Run("adder cannot overwrite existing owner channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		// Owner sets channel definitions first
@@ -878,7 +878,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 			"channelID", "200")
 	})
 
-	t.Run("adder cannot overwrite existing adder channels", func(t *testing.T) {
+	t.Run("adder cannot overwrite existing adder channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		// First adder adds a channel
@@ -956,7 +956,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 			"channelID", "300")
 	})
 
-	t.Run("adder cannot tombstone channels", func(t *testing.T) {
+	t.Run("adder cannot tombstone channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		// Adder tries to add a channel with Tombstone: true
@@ -998,7 +998,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 			"channelID", "400")
 	})
 
-	t.Run("owner can overwrite adder channels", func(t *testing.T) {
+	t.Run("owner can overwrite adder channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		// Adder adds a channel first
@@ -1076,7 +1076,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		assert.Equal(t, ownerDefs[500].Streams, defs[500].Streams, "channel 500 should have owner's streams")
 	})
 
-	t.Run("owner cannot implicitly remove channels", func(t *testing.T) {
+	t.Run("owner cannot implicitly remove channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		// Start with channels from owner and adders
@@ -1191,7 +1191,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		}, 5*time.Second, 100*time.Millisecond, "channel 600, 601 and 602 should still be present")
 	})
 
-	t.Run("owner can remove channels explicitly", func(t *testing.T) {
+	t.Run("owner can remove channels explicitly", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		// Start with channels from owner and adders
@@ -1251,7 +1251,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		}, 5*time.Second, 100*time.Millisecond, "channel 600 should be removed, 601 and 602 should still be present")
 	})
 
-	t.Run("owner drops tombstoned channels by omitting them from new definitions", func(t *testing.T) {
+	t.Run("owner drops tombstoned channels by omitting them from new definitions", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		// At this point channel 600 is tombstoned in the owner source definitions
@@ -1322,7 +1322,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 	//
 	// Depends on prior subtests in this test (owner tombstone + omit flow); do not run in
 	// isolation with go test -run matching only this subtest name.
-	t.Run("dropped tombstoned channel stays out of merged outcome after cache update", func(t *testing.T) {
+	t.Run("dropped tombstoned channel stays out of merged outcome after cache update", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		prevSimulatingOCROutcome := llotypes.ChannelDefinitions{
@@ -1372,7 +1372,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		require.Contains(t, mergedAgain, llotypes.ChannelID(602))
 
 		require.Eventually(t, func() bool {
-			loaded, err := orm.LoadChannelDefinitions(testutils.Context(t), configStoreAddress, donID)
+			loaded, err := orm.LoadChannelDefinitions(t.Context(), configStoreAddress, donID)
 			if err != nil || loaded == nil {
 				return false
 			}
@@ -1393,7 +1393,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 			"persisted owner source definitions should not list channel 600 after owner omitted it from the cache")
 	})
 
-	t.Run("multiple adders can add different channels", func(t *testing.T) {
+	t.Run("multiple adders can add different channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		// Adder1 adds channels
@@ -1475,7 +1475,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		assert.Equal(t, adder2Defs[701].Streams, defs[701].Streams, "channel 701 should have adder2's streams")
 	})
 
-	t.Run("adder limit enforcement", func(t *testing.T) {
+	t.Run("adder limit enforcement", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		// Create definitions with more than MaxChannelsPerAdder (100) channels
@@ -1526,7 +1526,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		require.Equal(t, channeldefinitions.MaxChannelsPerAdder, addedDefinitionsCount)
 	})
 
-	t.Run("deterministic processing order", func(t *testing.T) {
+	t.Run("deterministic processing order", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
 		observedLogs.TakeAll()
 
 		// Add definitions from owner and adders at different block numbers

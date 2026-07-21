@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -30,9 +29,11 @@ func (m *mockService) Ready() error { return nil }
 func (m *mockService) Name() string { return "svc" }
 
 func Test_generateReconciliationEvents(t *testing.T) {
+	t.Parallel()
 	t.Run("WorkflowRegisteredEvent", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// No engines are in the workflow registry
@@ -94,8 +95,9 @@ func Test_generateReconciliationEvents(t *testing.T) {
 	})
 
 	t.Run("WorkflowUpdatedEvent", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
@@ -161,8 +163,9 @@ func Test_generateReconciliationEvents(t *testing.T) {
 	})
 
 	t.Run("WorkflowDeletedEvent", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
@@ -208,8 +211,9 @@ func Test_generateReconciliationEvents(t *testing.T) {
 	})
 
 	t.Run("No change", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// No engines are in the workflow registry
@@ -280,8 +284,9 @@ func Test_generateReconciliationEvents(t *testing.T) {
 	})
 
 	t.Run("A paused workflow doesn't start a new workflow", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// No engines are in the workflow registry
@@ -330,8 +335,9 @@ func Test_generateReconciliationEvents(t *testing.T) {
 	})
 
 	t.Run("A paused workflow deletes a running workflow", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
@@ -392,8 +398,9 @@ func Test_generateReconciliationEvents(t *testing.T) {
 	})
 
 	t.Run("pending delete events are handled when workflow metadata no longer exists", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
@@ -449,8 +456,9 @@ func Test_generateReconciliationEvents(t *testing.T) {
 	})
 
 	t.Run("pending create events are handled when workflow metadata no longer exists", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		er := NewEngineRegistry()
@@ -511,8 +519,9 @@ func Test_generateReconciliationEvents(t *testing.T) {
 	})
 
 	t.Run("delete events are handled before any other events", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
@@ -568,8 +577,9 @@ func Test_generateReconciliationEvents(t *testing.T) {
 	})
 
 	t.Run("reconciles with a pending event if it has the same signature", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
@@ -653,8 +663,9 @@ func Test_generateReconciliationEvents(t *testing.T) {
 	})
 
 	t.Run("removes pending event if different signature", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry
@@ -734,8 +745,9 @@ func Test_generateReconciliationEvents(t *testing.T) {
 	})
 
 	t.Run("removes pending event if the workflow ID changed", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.TestLogger(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		donID := uint32(1)
 		workflowDonNotifier := capabilities.NewDonNotifier()
 		// Engine already in the workflow registry

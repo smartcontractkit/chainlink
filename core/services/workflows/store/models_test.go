@@ -11,6 +11,7 @@ import (
 )
 
 func TestWorkflowExecution_DeepCopy(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 	inputs, err := values.NewMap(map[string]int{})
 	require.NoError(t, err)

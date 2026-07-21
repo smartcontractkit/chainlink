@@ -26,6 +26,22 @@ func recipientAddressesFromERC20Transfers(transfers []types.ERC20Transfer) []str
 	return addresses
 }
 
+// lowestChainSelector returns the smallest chain-selector key in chains, and false when the map
+// is empty. Map iteration order is not deterministic in Go, so callers that only need a single
+// representative chain (e.g. to build deps / pick a deployer key) use this instead of grabbing an
+// arbitrary key, keeping changeset output reproducible for the same input.
+func lowestChainSelector[V any](chains map[uint64]V) (uint64, bool) {
+	var lowest uint64
+	found := false
+	for sel := range chains {
+		if !found || sel < lowest {
+			lowest = sel
+			found = true
+		}
+	}
+	return lowest, found
+}
+
 func GetContractAddress(ds any, chainSelector uint64, contractType cldf.ContractType) (string, error) {
 	if ds == nil {
 		return "", errors.New("datastore is nil")

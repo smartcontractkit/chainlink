@@ -24,7 +24,7 @@ type WhitelistConfig struct {
 	ExtraAllowedIPsCIDR []string
 }
 
-func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, gatewayServiceConfigs []cre.GatewayServiceConfig, whitelistConfig WhitelistConfig) error {
+func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, topology *cre.Topology, gatewayServiceConfigs []cre.GatewayServiceConfig, whitelistConfig WhitelistConfig) error {
 	specs := make(map[string][]string)
 
 	if !dons.RequiresGateway() {
@@ -36,6 +36,9 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 		if !ok {
 			return fmt.Errorf("could not find gateway node with UUID %s in DON topology", config.NodeUUID)
 		}
+
+		// Gateway worker job: only register workflow DONs in the same don_family as this gateway nodeset.
+		services := topology.GatewayServiceConfigsForGateway(gatewayNode.DON.Name, gatewayServiceConfigs)
 
 		workerInput := cre_jobs.ProposeJobSpecInput{
 			Domain:      offchain.ProductLabel,
@@ -53,7 +56,7 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 				"gatewayKeyChainSelector":     creEnv.RegistryChainSelector,
 				"authGatewayID":               config.AuthGatewayID,
 				"serviceCentricFormatEnabled": true,
-				"services":                    gatewayServiceConfigs,
+				"services":                    services,
 			},
 		}
 		if creEnv.FreshExternalJobIDs {

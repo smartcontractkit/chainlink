@@ -1,3 +1,5 @@
+//go:build integration
+
 package v2_test
 
 import (
@@ -283,9 +285,9 @@ func fulfillVRFReq(t *testing.T,
 	require.NoError(t, err)
 
 	ec := th.uni.backend
-	chainID, err := th.uni.backend.Client().ChainID(testutils.Context(t))
+	chainID, err := th.uni.backend.Client().ChainID(t.Context())
 	require.NoError(t, err)
-	chainService, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String()) //nolint:staticcheck // TODO: migrate to relayer interface
 	require.NoError(t, err)
 	chain, ok := chainService.(legacyevm.Chain)
 	require.True(t, ok)
@@ -302,7 +304,7 @@ func fulfillVRFReq(t *testing.T,
 			metadata.ForceFulfillmentAttempt = forceFulfilmentAttempt
 		}
 	}
-	etx, err := chain.TxManager().CreateTransaction(testutils.Context(t), txmgr.TxRequest{
+	etx, err := chain.TxManager().CreateTransaction(t.Context(), txmgr.TxRequest{
 		FromAddress:    th.key1.EIP55Address.Address(),
 		ToAddress:      th.uni.rootContractAddress,
 		EncodedPayload: b,
@@ -353,14 +355,14 @@ func fulfilBatchVRFReq(t *testing.T,
 	require.NoError(t, err)
 
 	ec := th.uni.backend
-	chainID, err := th.uni.backend.Client().ChainID(testutils.Context(t))
+	chainID, err := th.uni.backend.Client().ChainID(t.Context())
 	require.NoError(t, err)
-	chainService, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := th.app.GetRelayers().LegacyEVMChains().Get(chainID.String()) //nolint:staticcheck // TODO: migrate to relayer interface
 	require.NoError(t, err)
 	chain, ok := chainService.(legacyevm.Chain)
 	require.True(t, ok)
 
-	etx, err := chain.TxManager().CreateTransaction(testutils.Context(t), txmgr.TxRequest{
+	etx, err := chain.TxManager().CreateTransaction(t.Context(), txmgr.TxRequest{
 		FromAddress:    th.key1.EIP55Address.Address(),
 		ToAddress:      th.uni.batchCoordinatorContractAddress,
 		EncodedPayload: b,
@@ -422,7 +424,7 @@ func createVRFJobsNew(
 	chainID *big.Int,
 	gasLanePrices ...*assets.Wei,
 ) (jobs []job.Job, vrfKeyIDs []string) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.Len(t, gasLanePrices, len(fromKeys), "must provide one gas lane price for each set of from addresses, got %d for %d sets", len(gasLanePrices), len(fromKeys))
 	// Create separate jobs for each gas lane and register their keys
 	for i, keys := range fromKeys {
@@ -620,7 +622,7 @@ func newRevertTxnTH(t *testing.T,
 	// Fund gas lanes.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
 	sendEth(t, ownerKey, uni.backend, key2.Address, 10)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	// Create VRF job using key1 and key2 on the same gas lane.
 	jbs, vrfKeyIDs := createVRFJobsNew(

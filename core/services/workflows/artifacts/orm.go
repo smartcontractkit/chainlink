@@ -216,14 +216,14 @@ func (orm *orm) GetSecretsURLHash(owner, secretsURL []byte) ([]byte, error) {
 func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
 	var id int64
 	err := sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
-		txErr := tx.QueryRowxContext(
+		_, txErr := tx.ExecContext(
 			ctx,
 			`DELETE FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id != $3`,
 			spec.WorkflowOwner,
 			spec.WorkflowName,
 			spec.WorkflowID,
-		).Scan(nil)
-		if txErr != nil && !errors.Is(txErr, sql.ErrNoRows) {
+		)
+		if txErr != nil {
 			return fmt.Errorf("failed to clean up previous workflow specs: %w", txErr)
 		}
 
@@ -309,15 +309,15 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 			return fmt.Errorf("failed to create workflow secrets: %w", txErr)
 		}
 
-		txErr = tx.QueryRowxContext(
+		_, queryErr := tx.ExecContext(
 			ctx,
 			`DELETE FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id != $3`,
 			spec.WorkflowOwner,
 			spec.WorkflowName,
 			spec.WorkflowID,
-		).Scan(nil)
-		if txErr != nil && !errors.Is(txErr, sql.ErrNoRows) {
-			return fmt.Errorf("failed to clean up previous workflow specs: %w", txErr)
+		)
+		if queryErr != nil {
+			return fmt.Errorf("failed to clean up previous workflow specs: %w", queryErr)
 		}
 
 		spec.SecretsID = sql.NullInt64{Int64: sid, Valid: true}

@@ -22,6 +22,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
@@ -151,6 +152,7 @@ type Secrets struct {
 	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	Solana     SolKeys                  `toml:",omitempty"` // choose Solana as the TOML field name to align with relayer config convention
 	Aptos      AptosKeys                `toml:",omitempty"` // choose Aptos as the TOML field name to align with relayer config convention
+	Stellar    StellarKeys              `toml:",omitempty"` // choose Stellar as the TOML field name to align with relayer config convention
 
 	P2PKey          P2PKey          `toml:",omitempty"`
 	DKGRecipientKey DKGRecipientKey `toml:",omitempty"`
@@ -166,16 +168,6 @@ type SolKeys struct {
 type SolKey struct {
 	JSON     *models.Secret
 	ID       *string
-	Password *models.Secret
-}
-
-type AptosKeys struct {
-	Keys []*AptosKey
-}
-
-type AptosKey struct {
-	JSON     *models.Secret
-	ID       *uint64
 	Password *models.Secret
 }
 
@@ -260,6 +252,16 @@ func (e *SolKey) ValidateConfig() (err error) {
 	return err
 }
 
+type AptosKeys struct {
+	Keys []*AptosKey
+}
+
+type AptosKey struct {
+	JSON     *models.Secret
+	ID       *uint64
+	Password *models.Secret
+}
+
 func (a *AptosKeys) SetFrom(f *AptosKeys) error {
 	err := a.validateMerge(f)
 	if err != nil {
@@ -334,6 +336,95 @@ func (p *AptosKey) ValidateConfig() (err error) {
 	if p.ID != nil {
 		if _, ok := chain_selectors.AptosChainIdToChainSelector()[*p.ID]; !ok {
 			err = errors.Join(err, configutils.ErrInvalid{Name: "ID", Value: p.ID, Msg: "invalid chain id"})
+		}
+	}
+	return err
+}
+
+type StellarKeys struct {
+	Keys []*StellarKey
+}
+
+type StellarKey struct {
+	JSON     *commonconfig.SecretString
+	ID       *string
+	Password *commonconfig.SecretString
+}
+
+func (s *StellarKeys) SetFrom(f *StellarKeys) error {
+	err := s.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if f == nil || len(f.Keys) == 0 {
+		return nil
+	}
+	s.Keys = make([]*StellarKey, len(f.Keys))
+	copy(s.Keys, f.Keys)
+	return nil
+}
+
+func (s *StellarKeys) validateMerge(f *StellarKeys) (err error) {
+	have := make(map[string]struct{})
+	if s != nil && f != nil {
+		for _, stellarKey := range s.Keys {
+			have[*stellarKey.ID] = struct{}{}
+		}
+		for _, stellarKey := range f.Keys {
+			if _, ok := have[*stellarKey.ID]; ok {
+				err = errors.Join(err, configutils.ErrOverride{Name: "StellarKeys: " + *stellarKey.ID})
+			}
+		}
+	}
+	return err
+}
+
+func (s *StellarKeys) ValidateConfig() (err error) {
+	for i, stellarKey := range s.Keys {
+		if err2 := stellarKey.ValidateConfig(); err2 != nil {
+			err = errors.Join(err, configutils.ErrInvalid{Name: fmt.Sprintf("StellarKeys[%d]", i), Value: stellarKey, Msg: "invalid StellarKey"})
+		}
+	}
+	return err
+}
+
+func (s *StellarKey) SetFrom(f *StellarKey) (err error) {
+	err = s.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		s.JSON = v
+	}
+	if v := f.ID; v != nil {
+		s.ID = v
+	}
+	if v := f.Password; v != nil {
+		s.Password = v
+	}
+	return nil
+}
+
+func (s *StellarKey) validateMerge(f *StellarKey) (err error) {
+	if s.JSON != nil && f.JSON != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "JSON"})
+	}
+	if s.ID != nil && f.ID != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "ID"})
+	}
+	if s.Password != nil && f.Password != nil {
+		err = errors.Join(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (s *StellarKey) ValidateConfig() (err error) {
+	if (s.JSON != nil) != (s.Password != nil) || (s.Password != nil) != (s.ID != nil) {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "StellarKey", Value: s.JSON, Msg: "all fields must be nil or non-nil"})
+	}
+	if s.ID != nil {
+		if _, err2 := chain_selectors.StellarNameFromChainId(*s.ID); err2 != nil {
+			err = errors.Join(err, configutils.ErrInvalid{Name: "ID", Value: s.ID, Msg: "invalid chain id"})
 		}
 	}
 	return err
@@ -1957,6 +2048,12 @@ type WorkflowFetcherConfig struct {
 // validating enclave attestations and proxying capability requests.
 type ConfidentialRelayConfig struct {
 	Enabled *bool `toml:",omitempty"`
+	// TrustEnclaves relaxes TEE attestation validation so the relay trusts
+	// fake (non-Nitro) enclaves. INSECURE; intended only for tests/E2E that run
+	// against the fake enclave environment.
+	TrustEnclaves *bool `toml:",omitempty"`
+	// RequireBFTQuorum selects the required signature quorum.
+	RequireBFTQuorum *bool `toml:",omitempty"`
 }
 
 // LinkingConfig holds the configuration for connecting to the CRE linking service
@@ -2019,6 +2116,12 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		}
 		if v := f.ConfidentialRelay.Enabled; v != nil {
 			c.ConfidentialRelay.Enabled = v
+		}
+		if v := f.ConfidentialRelay.TrustEnclaves; v != nil {
+			c.ConfidentialRelay.TrustEnclaves = v
+		}
+		if v := f.ConfidentialRelay.RequireBFTQuorum; v != nil {
+			c.ConfidentialRelay.RequireBFTQuorum = v
 		}
 	}
 }
@@ -2390,6 +2493,7 @@ type WorkflowRegistry struct {
 	MaxConfigSize           *utils.FileSize
 	SyncStrategy            *string
 	MaxConcurrency          *int
+	MaxActivationRetries    *int
 	WorkflowStorage         WorkflowStorage
 	ModuleCache             ModuleCache
 	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
@@ -2430,6 +2534,10 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.MaxConcurrency != nil {
 		r.MaxConcurrency = f.MaxConcurrency
+	}
+
+	if f.MaxActivationRetries != nil {
+		r.MaxActivationRetries = f.MaxActivationRetries
 	}
 
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
@@ -2718,9 +2826,7 @@ func (c *CapabilityNodeConfig) setFrom(f *CapabilityNodeConfig) {
 		if c.Config == nil {
 			c.Config = make(map[string]string)
 		}
-		for k, v := range f.Config {
-			c.Config[k] = v
-		}
+		maps.Copy(c.Config, f.Config)
 	}
 }
 
@@ -2865,27 +2971,32 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled                        *bool
-	CACertFile                     *string
-	Endpoint                       *string
-	InsecureConnection             *bool
-	ResourceAttributes             map[string]string `toml:",omitempty"`
-	TraceSampleRatio               *float64
-	EmitterBatchProcessor          *bool
-	EmitterExportTimeout           *commonconfig.Duration
-	AuthHeadersTTL                 *commonconfig.Duration
-	ChipIngressEndpoint            *string
-	ChipIngressInsecureConnection  *bool
-	ChipIngressBatchEmitterEnabled *bool
-	DurableEmitterEnabled          *bool
-	HeartbeatInterval              *commonconfig.Duration
-	LogLevel                       *string
-	LogStreamingEnabled            *bool
-	LogBatchProcessor              *bool
-	LogExportTimeout               *commonconfig.Duration
-	LogExportMaxBatchSize          *int
-	LogExportInterval              *commonconfig.Duration
-	LogMaxQueueSize                *int
+	Enabled                            *bool
+	CACertFile                         *string
+	Endpoint                           *string
+	InsecureConnection                 *bool
+	ResourceAttributes                 map[string]string `toml:",omitempty"`
+	TraceSampleRatio                   *float64
+	EmitterBatchProcessor              *bool
+	EmitterExportTimeout               *commonconfig.Duration
+	AuthHeadersTTL                     *commonconfig.Duration
+	ChipIngressEndpoint                *string
+	ChipIngressInsecureConnection      *bool
+	ChipIngressBatchEmitterEnabled     *bool
+	DurableEmitterEnabled              *bool
+	DurableEmitterRetransmitBatchSize  *int
+	DurableEmitterEventTTL             *commonconfig.Duration
+	DurableEmitterMaxQueuePayloadBytes *int64
+	HeartbeatInterval                  *commonconfig.Duration
+	LogLevel                           *string
+	LogStreamingEnabled                *bool
+	LogBatchProcessor                  *bool
+	LogExportTimeout                   *commonconfig.Duration
+	LogExportMaxBatchSize              *int
+	LogExportInterval                  *commonconfig.Duration
+	LogMaxQueueSize                    *int
+
+	MetricCardinalityLimit *int
 
 	PrometheusBridge PrometheusBridge `toml:",omitempty"`
 }
@@ -2930,6 +3041,15 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.DurableEmitterEnabled; v != nil {
 		b.DurableEmitterEnabled = v
 	}
+	if v := f.DurableEmitterRetransmitBatchSize; v != nil {
+		b.DurableEmitterRetransmitBatchSize = v
+	}
+	if v := f.DurableEmitterEventTTL; v != nil {
+		b.DurableEmitterEventTTL = v
+	}
+	if v := f.DurableEmitterMaxQueuePayloadBytes; v != nil {
+		b.DurableEmitterMaxQueuePayloadBytes = v
+	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v
 	}
@@ -2953,6 +3073,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.LogMaxQueueSize; v != nil {
 		b.LogMaxQueueSize = v
+	}
+	if v := f.MetricCardinalityLimit; v != nil {
+		b.MetricCardinalityLimit = v
 	}
 	b.PrometheusBridge.setFrom(&f.PrometheusBridge)
 }

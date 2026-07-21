@@ -12,6 +12,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable/request"
@@ -44,7 +45,11 @@ type server struct {
 	stopCh      services.StopChan
 	wg          sync.WaitGroup
 
-	parallelExecutor *parallelExecutor
+	parallelExecutor *remote.ParallelExecutor
+
+	// workflowDONBindingGate, when open, makes each ServerRequest require the
+	// request's Metadata.WorkflowDonID to match the authenticated calling DON.
+	workflowDONBindingGate limits.GateLimiter
 }
 
 type dynamicServerConfig struct {
@@ -73,7 +78,7 @@ type requestAndMsgID struct {
 	messageID string
 }
 
-func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatcher types.Dispatcher, lggr logger.Logger) *server {
+func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatcher types.Dispatcher, workflowDONBindingGate limits.GateLimiter, lggr logger.Logger) *server {
 	return &server{
 		capabilityID:               capabilityID,
 		capMethodName:              methodName,
@@ -83,6 +88,7 @@ func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatch
 		requestIDToRequest:         map[string]requestAndMsgID{},
 		messageIDToRequestIDsCount: map[string]map[string]int{},
 		stopCh:                     make(services.StopChan),
+		workflowDONBindingGate:     workflowDONBindingGate,
 	}
 }
 
@@ -166,11 +172,9 @@ func (r *server) Start(ctx context.Context) error {
 		}
 
 		// Initialize parallel executor with the configured max parallel requests
-		r.parallelExecutor = newParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests))
+		r.parallelExecutor = remote.NewParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests), "executable_server")
 
-		r.wg.Add(1)
-		go func() {
-			defer r.wg.Done()
+		r.wg.Go(func() {
 			ticker := time.NewTicker(getServerTickerInterval(cfg))
 			defer ticker.Stop()
 
@@ -184,7 +188,7 @@ func (r *server) Start(ctx context.Context) error {
 					r.expireRequests()
 				}
 			}
-		}()
+		})
 
 		err := r.parallelExecutor.Start(ctx)
 		if err != nil {
@@ -293,7 +297,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		}
 
 		sr, ierr := request.NewServerRequest(cfg.underlying, msg.Method, cfg.capInfo.ID, cfg.localDonInfo.ID, r.peerID,
-			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.lggr)
+			callingDon, messageID, r.dispatcher, cfg.remoteExecutableConfig.RequestTimeout, r.capMethodName, r.workflowDONBindingGate, r.lggr)
 		if ierr != nil {
 			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
 			return

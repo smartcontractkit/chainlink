@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
@@ -254,7 +253,7 @@ func SetupNewChain(
 				HomeChainSelector: homeChain,
 				NewChain:          newChainDefinition,
 				RemoteChains:      remoteChainsDefinition,
-				TestRouter:        pointer.ToBool(false),
+				TestRouter:        new(false),
 				MCMSConfig: &cldfproposalutils.TimelockConfig{
 					MinDelay:   0 * time.Second,
 					MCMSAction: mcmstypes.TimelockActionSchedule,

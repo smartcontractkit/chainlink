@@ -63,6 +63,67 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	gwURL := fixture.GatewayURL.String()
 	vaultPublicKey := fixture.VaultPublicKey
 
+	t.Run("allowlist_delete_batch_at_limit", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		namespaces := make([]string, vaulttypes.MaxBatchSize)
+		for i := range namespaces {
+			namespaces[i] = fmt.Sprintf("batch%d", i)
+		}
+		secretID := uniqueVaultSecretID("deletebatchlimit")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-delete-batch-limit", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
+		executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, secretID, owner, gwURL, namespaces)
+		executeVaultSecretsDeleteBatchOnlyWithAuth(t, auth, secretID, owner, owner, gwURL, namespaces)
+	})
+
+	t.Run("allowlist_create_batch_at_limit", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		namespaces := make([]string, vaulttypes.MaxBatchSize)
+		for i := range namespaces {
+			namespaces[i] = fmt.Sprintf("createbatch%d", i)
+		}
+		secretID := uniqueVaultSecretID("createbatchlimit")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-create-batch-limit", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
+		executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, secretID, owner, gwURL, namespaces)
+	})
+
+	t.Run("allowlist_update_batch_at_limit", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		namespaces := make([]string, vaulttypes.MaxBatchSize)
+		for i := range namespaces {
+			namespaces[i] = fmt.Sprintf("updatebatch%d", i)
+		}
+		secretID := uniqueVaultSecretID("updatebatchlimit")
+		createEnc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-update-batch-limit-create", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		updateEnc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-update-batch-limit-update", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
+		executeVaultSecretsCreateWithAuth(t, auth, createEnc, secretID, owner, gwURL, namespaces)
+		executeVaultSecretsUpdateBatchOnlyWithAuth(t, auth, updateEnc, secretID, owner, owner, gwURL, namespaces)
+	})
+
 	t.Run("allowlist_rejects_create_when_identifier_owner_mismatch", func(t *testing.T) {
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		authorizedOwner := sc.MustGetRootKeyAddress().Hex()
@@ -77,6 +138,22 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		require.NoError(t, err)
 		auth := newAllowlistVaultRequestAuth(authorizedOwner, sc, wfReg)
 		executeVaultSecretsCreateOwnerMismatchRejectedTest(t, auth, authorizedOwner, mismatchedOwner, encryptedSecret, secretID, gwURL)
+	})
+
+	t.Run("allowlist_rejects_update_when_identifier_owner_mismatch", func(t *testing.T) {
+		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		authorizedOwner := sc.MustGetRootKeyAddress().Hex()
+		mismatchedOwner := common.HexToAddress("0x000000000000000000000000000000000000dEaD").Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		secretID := uniqueVaultSecretID("allowlistupdateownermismatch")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-allowlist-update-owner-mismatch", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		auth := newAllowlistVaultRequestAuth(authorizedOwner, sc, wfReg)
+		executeVaultSecretsUpdateOwnerMismatchRejectedTest(t, auth, authorizedOwner, mismatchedOwner, encryptedSecret, secretID, gwURL, "main")
 	})
 
 	t.Run("allowlist_crud_with_workflow_owner_identity", func(t *testing.T) {
@@ -211,8 +288,8 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	gwURL := gatewayURL.String()
 	derivedJWTWorkflowOwner := mustDeriveJWTVaultWorkflowOwner(t, orgID)
 	derivedJWTWorkflowOwnerAddr := common.HexToAddress(derivedJWTWorkflowOwner)
-	jwtAuth := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner)
 	vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+	jwtAuth := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, false)
 	workflowOwnerAddress := common.HexToAddress(workflowOwner)
 
 	t.Run("jwt_crud_with_workflow_owner", func(t *testing.T) {
@@ -221,21 +298,73 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		enc, err := vaultutils.EncryptSecretWithWorkflowOwner(createValue, vaultParsedPublicKey, derivedJWTWorkflowOwnerAddr)
 		require.NoError(t, err)
 
-		executeVaultJWTSecretsCreateTest(t, issuer, enc, secretID, orgID, derivedJWTWorkflowOwner, gwURL, []string{"main", "alt"})
+		executeVaultJWTSecretsCreateTest(t, issuer, vaultParsedPublicKey, enc, secretID, orgID, derivedJWTWorkflowOwner, gwURL, []string{"main", "alt"})
 		// WASM workflows run under the registry EOA workflow owner while JWT-backed secrets live under
 		// the derived JWT workflow owner partition; accessibility for JWT-backed rows is asserted via Gateway SecretsList instead.
-		executeVaultJWTSecretsListTest(t, issuer, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "main")
-		executeVaultJWTSecretsListTest(t, issuer, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "alt")
-		executeVaultJWTSecretsDeleteTest(t, issuer, secretID, orgID, derivedJWTWorkflowOwner, gwURL, []string{"main", "alt"})
-		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "main")
-		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "alt")
+		executeVaultJWTSecretsListTest(t, issuer, vaultParsedPublicKey, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "main")
+		executeVaultJWTSecretsListTest(t, issuer, vaultParsedPublicKey, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "alt")
+		executeVaultJWTSecretsDeleteTest(t, issuer, vaultParsedPublicKey, secretID, orgID, derivedJWTWorkflowOwner, gwURL, []string{"main", "alt"})
+		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, vaultParsedPublicKey, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "main")
+		executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, vaultParsedPublicKey, secretID, orgID, derivedJWTWorkflowOwner, gwURL, "alt")
+	})
+
+	t.Run("jwt_digest_verified_after_prepare_user_jsonrpc_request", func(t *testing.T) {
+		// End-to-end coverage for gateway ordering: prepareUserVaultRequest (PrepareUserJSONRPCRequest)
+		// runs before JWTBasedAuth digest verification. Minting against a different body must fail.
+		secretID := uniqueVaultSecretID("jwtdigestorder")
+		createValue := "secret-jwt-digest-order"
+		enc, err := vaultutils.EncryptSecretWithWorkflowOwner(createValue, vaultParsedPublicKey, derivedJWTWorkflowOwnerAddr)
+		require.NoError(t, err)
+
+		uniqueRequestID := uuid.New().String()
+		secretsCreateRequest := vault_helpers.CreateSecretsRequest{
+			RequestId:        uniqueRequestID,
+			EncryptedSecrets: buildEncryptedSecrets(secretID, derivedJWTWorkflowOwner, enc, []string{"main"}),
+		}
+		jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
+		prepareVaultUserJSONRPCRequestLikeGateway(t, &jsonRequest, vaultParsedPublicKey, false)
+		jsonRequest.Auth = mintVaultJWTDigestForPreparedRequest(t, issuer, &jsonRequest, orgID, nil)
+
+		jsonResponse := sendVaultSignedOCRRequestToGateway(t, gwURL, jsonRequest, uniqueRequestID)
+		require.Equal(t, uniqueRequestID, jsonResponse.ID)
+		require.Nil(t, jsonResponse.Error)
+		require.Equal(t, vaulttypes.MethodSecretsCreate, jsonResponse.Method)
+
+		tamperedDigestSource := jsonRequest
+		tamperedDigestSource.ID = uuid.New().String()
+		jsonRequest.Auth = mintVaultJWTDigestForPreparedRequest(t, issuer, &tamperedDigestSource, orgID, nil)
+		digestMismatchResponse := sendVaultJWTRequestToGatewayExpectError(t, gwURL, jsonRequest, http.StatusBadRequest)
+		require.Equal(t, uniqueRequestID, digestMismatchResponse.ID)
+		require.NotNil(t, digestMismatchResponse.Error)
+		require.Contains(t, digestMismatchResponse.Error.Error(), "request not authorized")
+		require.Contains(t, digestMismatchResponse.Error.Error(), "request digest mismatch")
 	})
 
 	t.Run("jwt_rejected_when_identifier_owner_does_not_match_authorized_owner", func(t *testing.T) {
 		secretID := uniqueVaultSecretID("jwtownermismatch")
 		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-owner-mismatch", vaultParsedPublicKey, derivedJWTWorkflowOwnerAddr)
 		require.NoError(t, err)
-		executeVaultSecretsCreateOwnerMismatchRejectedTest(t, jwtAuth, derivedJWTWorkflowOwner, workflowOwner, encryptedSecret, secretID, gwURL)
+		jwtAuthSkipLabel := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, true)
+		executeVaultSecretsCreateOwnerMismatchRejectedTest(t, jwtAuthSkipLabel, derivedJWTWorkflowOwner, workflowOwner, encryptedSecret, secretID, gwURL)
+	})
+
+	t.Run("jwt_rejected_when_list_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		jwtAuthSkipLabel := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, true)
+		executeVaultSecretsListOwnerMismatchRejectedTest(t, jwtAuthSkipLabel, derivedJWTWorkflowOwner, workflowOwner, gwURL, "main")
+	})
+
+	t.Run("jwt_rejected_when_delete_identifier_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwtdeleteownermismatch")
+		jwtAuthSkipLabel := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, true)
+		executeVaultSecretsDeleteOwnerMismatchRejectedTest(t, jwtAuthSkipLabel, derivedJWTWorkflowOwner, workflowOwner, secretID, gwURL, "main")
+	})
+
+	t.Run("jwt_rejected_when_update_identifier_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		secretID := uniqueVaultSecretID("jwtupdateownermismatch")
+		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-update-owner-mismatch", vaultParsedPublicKey, derivedJWTWorkflowOwnerAddr)
+		require.NoError(t, err)
+		jwtAuthSkipLabel := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, true)
+		executeVaultSecretsUpdateOwnerMismatchRejectedTest(t, jwtAuthSkipLabel, derivedJWTWorkflowOwner, workflowOwner, encryptedSecret, secretID, gwURL, "main")
 	})
 
 	t.Run("jwt_rejected_when_ciphertext_label_is_linked_workflow_owner_but_identifier_owner_is_jwt_derived", func(t *testing.T) {
@@ -249,7 +378,7 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 			EncryptedSecrets: buildEncryptedSecrets(secretID, derivedJWTWorkflowOwner, encryptedSecret, []string{"main"}),
 		}
 		jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
-		jwtAuth.apply(t, &jsonRequest)
+		newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, true).apply(t, &jsonRequest)
 
 		jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gwURL, jsonRequest, http.StatusBadRequest)
 		require.Equal(t, uniqueRequestID, jsonResponse.ID)
@@ -314,7 +443,7 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 			executeVaultSecretsDeleteWithAuth(t, allowlistAuth, allowlistSecretID, workflowOwner, gwURL, []string{"main"})
 			executeVaultSecretsDeleteWithAuth(t, jwtAuth, jwtSecretID, derivedJWTWorkflowOwner, gwURL, []string{"main"})
 			waitForVaultWorkflowPhase(t, workflowID, "mixed-deleted", ulCh, bmCh)
-			executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, jwtSecretID, orgID, derivedJWTWorkflowOwner, gwURL, "main")
+			executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, vaultParsedPublicKey, jwtSecretID, orgID, derivedJWTWorkflowOwner, gwURL, "main")
 		})
 
 		t.Run("jwt_must_not_flip_allowlisted_secret_via_same_key_string", func(t *testing.T) {
@@ -348,7 +477,7 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 			executeVaultSecretsDeleteWithAuth(t, allowlistAuth, sharedKey, workflowOwner, gwURL, []string{"main"})
 			// `sharedKey` only ever existed under the allowlisted workflow owner; JWT-targeted deletes use the
 			// derived-owner partition where this key was never written, so a JWT delete cleanup would falsely fail.
-			executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, sharedKey, orgID, derivedJWTWorkflowOwner, gwURL, "main")
+			executeVaultJWTSecretsListAbsentFromNamespace(t, issuer, vaultParsedPublicKey, sharedKey, orgID, derivedJWTWorkflowOwner, gwURL, "main")
 		})
 	})
 
@@ -357,7 +486,7 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-derived-only", vaultParsedPublicKey, derivedJWTWorkflowOwnerAddr)
 		require.NoError(t, err)
 
-		derivedAuth := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner)
+		derivedAuth := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, false)
 		executeVaultSecretsCreateWithAuth(t, derivedAuth, encryptedSecret, secretID, derivedJWTWorkflowOwner, gwURL, []string{"main"})
 		executeVaultSecretsListWithAuth(t, derivedAuth, []string{secretID}, derivedJWTWorkflowOwner, gwURL, "main")
 		executeVaultSecretsDeleteWithAuth(t, derivedAuth, secretID, derivedJWTWorkflowOwner, gwURL, []string{"main"})
@@ -456,7 +585,7 @@ func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixtu
 		for i, st := range secretTests {
 			t.Run(fmt.Sprintf("secret_%d", i), func(t *testing.T) {
 				t.Parallel()
-				sendConcurrentVaultCreate(t, gwURL, st.requestID, st.jsonRequest, expectedResponseOwner, namespaces)
+				sendConcurrentVaultCreate(t, gwURL, st.requestID, st.jsonRequest, owner, expectedResponseOwner, namespaces)
 			})
 		}
 	})
@@ -478,7 +607,7 @@ func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixtu
 // vault's replay guard rejects with "request was already authorized previously". That error proves the
 // original request was accepted and processed, so we treat it as success — there is no later response
 // payload to validate when this path fires.
-func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonRequest jsonrpc.Request[json.RawMessage], expectedResponseOwner string, namespaces []string) {
+func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonRequest jsonrpc.Request[json.RawMessage], authorizedOwner, expectedResponseOwner string, namespaces []string) {
 	t.Helper()
 
 	authToken := jsonRequest.Auth
@@ -500,17 +629,19 @@ func sendConcurrentVaultCreate(t *testing.T, gwURL, requestID string, jsonReques
 		framework.L.Info().Str("requestID", requestID).Msg("vault create gateway-to-DON timeout; treating as success for batching load test")
 		return
 	}
+	// Replay guard can arrive on a non-200 HTTP status after a retried gateway call; check before StatusOK.
+	if bytes.Contains(body, []byte("request was already authorized previously")) {
+		framework.L.Info().Str("requestID", requestID).Msg("vault create returned replay-guard error after retry; DON processed the original request — treating as success")
+		return
+	}
 	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK; body=%s", string(body))
 
 	var parsed jsonrpc.Response[vaulttypes.SignedOCRResponse]
 	require.NoError(t, json.Unmarshal(body, &parsed), "failed to unmarshal gateway response")
-	if parsed.Error != nil && strings.Contains(parsed.Error.Message, "request was already authorized previously") {
-		framework.L.Info().Str("requestID", requestID).Msg("vault create returned replay-guard error after retry; DON processed the original request — treating as success")
-		return
-	}
 	require.Nil(t, parsed.Error, "gateway returned error: %v", parsed.Error)
 	require.Equal(t, requestID, parsed.ID)
 	require.Equal(t, vaulttypes.MethodSecretsCreate, parsed.Method)
+	requireSignedPayloadRequestID(t, vaulttypes.MethodSecretsCreate, requestID, authorizedOwner, parsed.Result.Payload)
 	var createResp vault_helpers.CreateSecretsResponse
 	require.NoError(t, protojson.Unmarshal(parsed.Result.Payload, &createResp), "failed to decode CreateSecretsResponse")
 	require.Len(t, createResp.Responses, len(namespaces), "Expected one item in the response per namespace")
@@ -746,7 +877,18 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 }
 
 func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
 	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
+}
+
+func TestVaultJSONOmitUnpopulatedEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
+	require.False(t, cresettings.Default.VaultJSONOmitUnpopulatedEnabled.DefaultValue)
+}
+
+func TestVaultSignedResponseRequestIDEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
+	require.False(t, cresettings.Default.VaultSignedResponseRequestIDEnabled.DefaultValue)
 }
 
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
@@ -832,6 +974,7 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 // the exact JSON-RPC params wire body (canonical json.Marshal / jsonrpc.Request), matching what
 // the gateway verifies—without relying on deprecated top-level identity fields inside params.
 func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
+	t.Parallel()
 	issuer, err := vault.NewTestJWTIssuer()
 	require.NoError(t, err)
 	t.Cleanup(func() {
@@ -839,18 +982,10 @@ func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
 	})
 
 	derivedOwner := mustDeriveJWTVaultWorkflowOwner(t, "org-123")
-	params, err := json.Marshal(vault_helpers.CreateSecretsRequest{
+	params, err := json.Marshal(vault_helpers.ListSecretIdentifiersRequest{
 		RequestId: "req-1",
-		EncryptedSecrets: []*vault_helpers.EncryptedSecret{
-			{
-				Id: &vault_helpers.SecretIdentifier{
-					Key:       "9838",
-					Namespace: "main",
-					Owner:     derivedOwner,
-				},
-				EncryptedValue: "cipher+/==",
-			},
-		},
+		Namespace: "main",
+		Owner:     derivedOwner,
 	})
 	require.NoError(t, err)
 
@@ -858,10 +993,10 @@ func TestMustMintVaultJWTForRequest_UsesRawRequestDigest(t *testing.T) {
 	req := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
 		ID:      "req-1",
-		Method:  vaulttypes.MethodSecretsCreate,
+		Method:  vaulttypes.MethodSecretsList,
 		Params:  &rawParams,
 	}
-	req.Auth = mustMintVaultJWTForRequest(t, issuer, req, "org-123")
+	req.Auth = mustMintVaultJWTForRequest(t, issuer, &req, "org-123", nil, false)
 
 	outboundReq := outboundRequestWithoutAuth(req)
 	requestDigest, err := outboundReq.Digest()

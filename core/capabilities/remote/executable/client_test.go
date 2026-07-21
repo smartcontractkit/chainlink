@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/synctest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -34,9 +34,11 @@ const (
 )
 
 func Test_Client_DonTopologies(t *testing.T) {
+	t.Parallel()
+
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CAPPL-322")
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_OneAtATime,
@@ -59,6 +61,7 @@ func Test_Client_DonTopologies(t *testing.T) {
 
 	var methods []func(caller commoncap.ExecutableCapability)
 
+	methods = make([]func(caller commoncap.ExecutableCapability), 0, 1)
 	methods = append(methods, func(caller commoncap.ExecutableCapability) {
 		executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 		if assert.NoError(t, err) {
@@ -85,8 +88,10 @@ func Test_Client_DonTopologies(t *testing.T) {
 }
 
 func Test_Client_TransmissionSchedules(t *testing.T) {
+	t.Parallel()
+
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-104")
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		if assert.NoError(t, responseError) {
@@ -113,14 +118,16 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 			if assert.NoError(t, err2) {
 				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
 			}
-		})
+		},
+	)
 	testClient(t, 10, responseTimeOut, 10, 3,
 		capability, func(caller commoncap.ExecutableCapability) {
 			executeInputs, err2 := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 			if assert.NoError(t, err2) {
 				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
 			}
-		})
+		},
+	)
 
 	transmissionSchedule, err = values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_AllAtOnce,
@@ -144,76 +151,92 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 		})
 }
 
-func Test_Client_TimesOutIfInsufficientCapabilityPeerResponses(t *testing.T) {
-	ctx := testutils.Context(t)
+func Test_Client_ResponseAggregationGrace(t *testing.T) {
+	t.Parallel()
+	const (
+		requestTimeout         = 500 * time.Millisecond
+		capabilityExecuteDelay = 2 * time.Second
+	)
 
-	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		assert.ErrorIs(t, responseError, executable.ErrRequestExpired)
-	}
-
-	// Peers respond after requestTimeout; quorum (F+1=4) is still theoretically reachable.
-	capability := &TestSlowExecutionCapability{
-		workflowIDToPause: map[string]time.Duration{
-			workflowID1: 2 * time.Second,
+	for _, tc := range []struct {
+		name               string
+		numWorkflowPeers   int
+		numCapabilityPeers int
+		capabilityDonF     uint8
+		responseTest       func(t *testing.T, response commoncap.CapabilityResponse, responseError error)
+	}{
+		// Client cancels at requestTimeout + responseAggregationGrace (~10.5s).
+		// Ten workflow peers force clientTestServer to wait for the full workflow DON
+		// and block the broker during Execute; quorum (F+1=4) is theoretically
+		// reachable but responses arrive after the grace window.
+		{
+			name:               "TimesOutWhenMockBlockingExceedsGrace",
+			numWorkflowPeers:   10,
+			numCapabilityPeers: 10,
+			capabilityDonF:     3,
+			responseTest:       assertClientRequestExpired,
 		},
-	}
+		// capabilityExecuteDelay exceeds requestTimeout but fits within
+		// requestTimeout + responseAggregationGrace.
+		// Use a single workflow peer so the mock cap server executes as soon as it
+		// receives one request; with multiple workflow peers the mock waits for all
+		// peers and blocks the test broker while executing, which exceeds the grace window.
+		{
+			name:               "WaitsForResponsesWithinGrace",
+			numWorkflowPeers:   1,
+			numCapabilityPeers: 4,
+			capabilityDonF:     3,
+			responseTest:       assertClientResponseWithDelay,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				ctx := t.Context()
 
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "10ms",
-	})
-	require.NoError(t, err)
+				capability := &TestSlowExecutionCapability{
+					workflowIDToPause: map[string]time.Duration{
+						workflowID1: capabilityExecuteDelay,
+					},
+				}
 
-	testClient(t, 10, 500*time.Millisecond, 10, 3,
-		capability,
-		func(caller commoncap.ExecutableCapability) {
-			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			if assert.NoError(t, err) {
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-			}
+				transmissionSchedule, err := values.NewMap(map[string]any{
+					"schedule":   transmission.Schedule_AllAtOnce,
+					"deltaStage": "10ms",
+				})
+				require.NoError(t, err)
+
+				executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
+				require.NoError(t, err)
+
+				testClient(t, tc.numWorkflowPeers, requestTimeout, tc.numCapabilityPeers, tc.capabilityDonF,
+					capability,
+					func(caller commoncap.ExecutableCapability) {
+						executeMethod(ctx, caller, transmissionSchedule, executeInputs, tc.responseTest, t)
+					},
+				)
+			})
 		})
+	}
 }
 
-func Test_Client_WaitsForResponsesWithinAggregationGrace(t *testing.T) {
-	ctx := testutils.Context(t)
-	requestTimeout := 500 * time.Millisecond
+func assertClientRequestExpired(t *testing.T, _ commoncap.CapabilityResponse, responseError error) {
+	assert.ErrorIs(t, responseError, executable.ErrRequestExpired)
+}
 
-	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
-		require.NoError(t, responseError)
+func assertClientResponseWithDelay(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+	if assert.NoError(t, responseError) {
 		mp, err := response.Value.Unwrap()
-		require.NoError(t, err)
-		assert.Equal(t, "2s", mp.(map[string]any)["response"].(string))
+		if assert.NoError(t, err) {
+			assert.Equal(t, (2 * time.Second).String(), mp.(map[string]any)["response"].(string))
+		}
 	}
-
-	// Capability execution exceeds requestTimeout (500ms) but completes within
-	// requestTimeout + defaultResponseAggregationGrace (10s).
-	// Use a single workflow peer so the mock cap server executes as soon as it
-	// receives one request; with multiple workflow peers the mock waits for all
-	// peers and blocks the test broker while executing, which exceeds the grace window.
-	capability := &TestSlowExecutionCapability{
-		workflowIDToPause: map[string]time.Duration{
-			workflowID1: 2 * time.Second,
-		},
-	}
-
-	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
-		"deltaStage": "10ms",
-	})
-	require.NoError(t, err)
-
-	testClient(t, 1, requestTimeout, 4, 3,
-		capability,
-		func(caller commoncap.ExecutableCapability) {
-			executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
-			if assert.NoError(t, err) {
-				executeMethod(ctx, caller, transmissionSchedule, executeInputs, responseTest, t)
-			}
-		})
 }
 
 func Test_Client_ConsensusFailedIfInsufficientCapabilityPeerResponses(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		var capErr caperrors.Error
@@ -243,7 +266,9 @@ func Test_Client_ConsensusFailedIfInsufficientCapabilityPeerResponses(t *testing
 }
 
 func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
 		assert.ErrorIs(t, responseError, executable.ErrContextDoneBeforeResponseQuorum)
@@ -267,9 +292,7 @@ func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
 		})
 }
 
-func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout time.Duration,
-	numCapabilityPeers int, capabilityDonF uint8, underlying commoncap.ExecutableCapability,
-	method func(caller commoncap.ExecutableCapability)) {
+func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout time.Duration, numCapabilityPeers int, capabilityDonF uint8, underlying commoncap.ExecutableCapability, method func(caller commoncap.ExecutableCapability)) {
 	lggr := logger.Test(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
@@ -315,7 +338,7 @@ func testClient(t *testing.T, numWorkflowPeers int, workflowNodeResponseTimeout 
 	for i := range numWorkflowPeers {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		caller := executable.NewClient(capInfo.ID, "", workflowPeerDispatcher, lggr)
-		err := caller.SetConfig(capInfo, workflowDonInfo, workflowNodeResponseTimeout, nil, nil)
+		err := caller.SetConfig(capInfo, workflowDonInfo, workflowNodeResponseTimeout, nil, nil, 0)
 		require.NoError(t, err)
 		servicetest.Run(t, caller)
 		broker.RegisterReceiverNode(workflowPeers[i], caller)
@@ -443,17 +466,28 @@ func (t *clientTestServer) sendResponse(messageID string, responseErr error,
 	}
 }
 
-func TestClient_SetConfig(t *testing.T) {
-	lggr := logger.Test(t)
-	capabilityID := "test_capability@1.0.0"
+type clientSetConfigTestFixture struct {
+	Client interface {
+		SetConfig(commoncap.CapabilityInfo, commoncap.DON, time.Duration, *transmission.TransmissionConfig, [][]byte, uint32) error
+		Info(context.Context) (commoncap.CapabilityInfo, error)
+		Start(context.Context) error
+		Close() error
+	}
+	ValidCapInfo commoncap.CapabilityInfo
+	ValidDonInfo commoncap.DON
+	ValidTimeout time.Duration
+	CapabilityID string
+}
 
-	// Create broker and dispatcher like other tests
+func newClientSetConfigTestFixture(t *testing.T) clientSetConfigTestFixture {
+	t.Helper()
+
+	capabilityID := "test_capability@1.0.0"
 	broker := newTestAsyncMessageBroker(t, 100)
 	peerID := NewP2PPeerID(t)
 	dispatcher := broker.NewDispatcherForNode(peerID)
-	client := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
+	client := executable.NewClient(capabilityID, "execute", dispatcher, logger.Test(t))
 
-	// Create valid test data
 	validDonInfo := commoncap.DON{
 		ID:      1,
 		Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
@@ -467,54 +501,77 @@ func TestClient_SetConfig(t *testing.T) {
 		DON:            &validDonInfo,
 	}
 
-	validTimeout := 30 * time.Second
+	return clientSetConfigTestFixture{
+		Client:       client,
+		ValidCapInfo: validCapInfo,
+		ValidDonInfo: validDonInfo,
+		ValidTimeout: 30 * time.Second,
+		CapabilityID: capabilityID,
+	}
+}
+
+func TestClient_SetConfig(t *testing.T) {
+	t.Parallel()
 
 	t.Run("successful config set", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := newClientSetConfigTestFixture(t)
+
 		transmissionConfig := &transmission.TransmissionConfig{
 			Schedule:   transmission.Schedule_OneAtATime,
 			DeltaStage: 10 * time.Millisecond,
 		}
 
-		err := client.SetConfig(validCapInfo, validDonInfo, validTimeout, transmissionConfig, nil)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, transmissionConfig, nil, 0)
 		require.NoError(t, err)
 
-		// Verify config was set
-		info, err := client.Info(t.Context())
+		info, err := fixture.Client.Info(t.Context())
 		require.NoError(t, err)
-		assert.Equal(t, validCapInfo.ID, info.ID)
+		assert.Equal(t, fixture.ValidCapInfo.ID, info.ID)
 	})
 
 	t.Run("mismatched capability ID", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := newClientSetConfigTestFixture(t)
+
 		invalidCapInfo := commoncap.CapabilityInfo{
 			ID:             "different_capability@1.0.0",
 			CapabilityType: commoncap.CapabilityTypeAction,
 		}
 
-		err := client.SetConfig(invalidCapInfo, validDonInfo, validTimeout, nil, nil)
+		err := fixture.Client.SetConfig(invalidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "capability info provided does not match the client's capabilityID")
 		assert.Contains(t, err.Error(), "different_capability@1.0.0 != test_capability@1.0.0")
 	})
 
 	t.Run("empty DON members", func(t *testing.T) {
+		t.Parallel()
+
+		fixture := newClientSetConfigTestFixture(t)
+
 		invalidDonInfo := commoncap.DON{
 			ID:      1,
 			Members: []p2ptypes.PeerID{},
 			F:       0,
 		}
 
-		err := client.SetConfig(validCapInfo, invalidDonInfo, validTimeout, nil, nil)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, invalidDonInfo, fixture.ValidTimeout, nil, nil, 0)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "empty localDonInfo provided")
 	})
 
 	t.Run("successful config update", func(t *testing.T) {
-		// Set initial config
+		t.Parallel()
+
+		fixture := newClientSetConfigTestFixture(t)
+
 		initialTimeout := 10 * time.Second
-		err := client.SetConfig(validCapInfo, validDonInfo, initialTimeout, nil, nil)
+		err := fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, initialTimeout, nil, nil, 0)
 		require.NoError(t, err)
 
-		// Replace with new config
 		newTimeout := 60 * time.Second
 		newDonInfo := commoncap.DON{
 			ID:      2,
@@ -522,73 +579,56 @@ func TestClient_SetConfig(t *testing.T) {
 			F:       1,
 		}
 
-		err = client.SetConfig(validCapInfo, newDonInfo, newTimeout, nil, nil)
+		err = fixture.Client.SetConfig(fixture.ValidCapInfo, newDonInfo, newTimeout, nil, nil, 0)
 		require.NoError(t, err)
 
-		// Verify the config was completely replaced
-		info, err := client.Info(t.Context())
+		info, err := fixture.Client.Info(t.Context())
 		require.NoError(t, err)
-		assert.Equal(t, validCapInfo.ID, info.ID)
+		assert.Equal(t, fixture.ValidCapInfo.ID, info.ID)
 	})
 }
 
 func TestClient_SetConfig_StartClose(t *testing.T) {
-	ctx := testutils.Context(t)
-	lggr := logger.Test(t)
-	capabilityID := "test_capability@1.0.0"
-
-	// Create broker and dispatcher like other tests
-	broker := newTestAsyncMessageBroker(t, 100)
-	peerID := NewP2PPeerID(t)
-	dispatcher := broker.NewDispatcherForNode(peerID)
-	client := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
-
-	validDonInfo := commoncap.DON{
-		ID:      1,
-		Members: []p2ptypes.PeerID{NewP2PPeerID(t)},
-		F:       0,
-	}
-
-	validCapInfo := commoncap.CapabilityInfo{
-		ID:             capabilityID,
-		CapabilityType: commoncap.CapabilityTypeAction,
-		Description:    "Test capability",
-		DON:            &validDonInfo,
-	}
-
-	validTimeout := 30 * time.Second
+	t.Parallel()
 
 	t.Run("start fails without config", func(t *testing.T) {
-		clientWithoutConfig := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
-		err := clientWithoutConfig.Start(ctx)
+		t.Parallel()
+
+		fixture := newClientSetConfigTestFixture(t)
+
+		err := fixture.Client.Start(t.Context())
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "config not set - call SetConfig() before Start()")
 	})
 
 	t.Run("start succeeds after config set", func(t *testing.T) {
-		require.NoError(t, client.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil))
-		require.NoError(t, client.Start(ctx))
-		require.NoError(t, client.Close())
+		t.Parallel()
+
+		fixture := newClientSetConfigTestFixture(t)
+		ctx := t.Context()
+
+		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0))
+		require.NoError(t, fixture.Client.Start(ctx))
+		require.NoError(t, fixture.Client.Close())
 	})
 
 	t.Run("config can be updated after start", func(t *testing.T) {
-		// Create a fresh client for this test since services can only be started once
-		freshClient := executable.NewClient(capabilityID, "execute", dispatcher, lggr)
+		t.Parallel()
 
-		// Set initial config and start
-		require.NoError(t, freshClient.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil))
-		require.NoError(t, freshClient.Start(ctx))
+		fixture := newClientSetConfigTestFixture(t)
+		ctx := t.Context()
 
-		// Update config while running
-		validCapInfo.Description = "new description"
-		require.NoError(t, freshClient.SetConfig(validCapInfo, validDonInfo, validTimeout, nil, nil))
+		require.NoError(t, fixture.Client.SetConfig(fixture.ValidCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0))
+		require.NoError(t, fixture.Client.Start(ctx))
 
-		// Verify config was updated
-		info, err := freshClient.Info(ctx)
+		newCapInfo := fixture.ValidCapInfo
+		newCapInfo.Description = "new description"
+		require.NoError(t, fixture.Client.SetConfig(newCapInfo, fixture.ValidDonInfo, fixture.ValidTimeout, nil, nil, 0))
+
+		info, err := fixture.Client.Info(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, validCapInfo.Description, info.Description)
+		assert.Equal(t, newCapInfo.Description, info.Description)
 
-		// Clean up
-		require.NoError(t, freshClient.Close())
+		require.NoError(t, fixture.Client.Close())
 	})
 }

@@ -26,11 +26,14 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/beholderhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/otelhealth"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/promhealth"
 	commoncresettings "github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -41,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
-	"github.com/smartcontractkit/chainlink-data-streams/mercury"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
@@ -143,6 +145,8 @@ type Application interface {
 	FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error)
 	// DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
 	DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error
+	// LPSkipToBlock repositions the LogPoller to start processing from the given block number.
+	LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -231,6 +235,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if opts.CapabilitiesRegistry == nil {
 		// for tests only, in prod Registry should always be set at this point
 		opts.CapabilitiesRegistry = capabilities.NewRegistry(globalLogger)
+	}
+
+	if opts.ExecutionHandlers == nil {
+		opts.ExecutionHandlers = &confidentialrelay.ExecutionHandlers{}
 	}
 
 	if opts.DonTimeStore == nil {
@@ -337,6 +345,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if cfg.SuiEnabled() {
 		initOps = append(initOps, InitSui(relayerFactory, keyStore.Sui(), keyStore.CSA(), cfg.SuiConfigs()))
 	}
+	if cfg.StellarEnabled() {
+		initOps = append(initOps, InitStellar(relayerFactory, keyStore.Stellar(), keyStore.CSA(), cfg.StellarConfigs()))
+	}
 
 	relayChainInterops, err := NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
@@ -368,8 +379,35 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	jwtGenerator := nodeauthjwt.NewNodeJWTGenerator(csaSigner, csaPubKey)
 
-	// Wire DurableEmitter for persistent chip ingress delivery when enabled.
+	// Wire DurableEmitter for persistent chip ingress delivery when enabled
 	if cfg.Telemetry().DurableEmitterEnabled() && cfg.Telemetry().ChipIngressEndpoint() != "" {
+		emitterCfg := durableemitter.DefaultConfig()
+		emitterCfg.Metrics = &durableemitter.DurableEmitterMetricsConfig{
+			MaxQueuePayloadBytes: cfg.Telemetry().DurableEmitterMaxQueuePayloadBytes(),
+		}
+		emitterCfg.InsertBatchSize = 500
+		emitterCfg.InsertBatchWorkers = 6
+		emitterCfg.InsertBatchFlushInterval = 100 * time.Millisecond
+		emitterCfg.DeleteBatchSize = 500
+		emitterCfg.DeleteBatchWorkers = 6
+		emitterCfg.DeleteBatchFlushInterval = 100 * time.Millisecond
+		// Recovery profile: retransmit replays the post-outage backlog while the
+		// primary path keeps delivering live emits — both feed the same BatchEmitter,
+		// which has ample headroom (BatchSize × MaxConcurrentSends) for live + backlog.
+		//   - RetransmitInterval = 1s, so RetransmitBatchSize is literally the backlog
+		//     replay rate in events/s. Keep it below BatchEmitter capacity minus the
+		//     live rate, so live emits are never starved out of the buffer.
+		//   - RetransmitAfter MUST exceed delivery latency so an in-flight event is
+		//     never re-queued (the real storm guard — the rate itself is safe because
+		//     MaxConcurrentSends bounds actual downstream load).
+		//   - EventTTL MUST exceed the recovery duration, or the backlog EXPIRES
+		//     (rows dropped by the 1-min expiry loop) before it can be delivered — a
+		//     fake "drain". 6h gives a wide margin for the test.
+		emitterCfg.RetransmitAfter = 60 * time.Second                                        // > PublishTimeout/MaxPublishTimeout (20s) + buffering
+		emitterCfg.RetransmitBatchSize = cfg.Telemetry().DurableEmitterRetransmitBatchSize() // events/s replayed (interval = 1s); default 500, configurable via [Telemetry]
+		emitterCfg.RetransmitInterval = 1 * time.Second
+		emitterCfg.EventTTL = cfg.Telemetry().DurableEmitterEventTTL() // default 1h, configurable via [Telemetry]
+		emitterCfg.PublishTimeout = 20 * time.Second
 		durableCfg := durableemitter.SetupConfig{
 			Endpoint:           cfg.Telemetry().ChipIngressEndpoint(),
 			InsecureConnection: cfg.Telemetry().ChipIngressInsecureConnection(),
@@ -379,7 +417,14 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				AuthPublicKeyHex: csaPubKeyHex,
 				AuthKeySigner:    csaKeystore,
 			},
-			RetransmitEnabled: true, // host process owns retransmit
+			RetransmitEnabled:  true, // host process owns retransmit
+			EmitterConfig:      &emitterCfg,
+			Meter:              meter,
+			MaxPublishTimeout:  10 * time.Second, // batch emitter rpc timeout
+			BatchSize:          1000,
+			BatchInterval:      100 * time.Millisecond,
+			MaxConcurrentSends: 8,
+			MessageBufferSize:  50_000,
 		}
 		pgStore := durableemitter.NewPgDurableEventStore(opts.DS)
 		durableEmitter, setupErr := durableemitter.Setup(pgStore, durableCfg, globalLogger)
@@ -398,6 +443,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		peerWrapper,
 		cre.Opts{
 			CapabilitiesRegistry:    opts.CapabilitiesRegistry,
+			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
 			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
 			CapabilitiesPeerWrapper: opts.CapabilitiesPeerWrapper,
 			FetcherFunc:             opts.FetcherFunc,
@@ -535,7 +581,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	var (
 		pipelineORM    = pipeline.NewORM(opts.DS, globalLogger, cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(opts.DS)
-		mercuryORM     = mercury.NewORM(opts.DS)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(opts.DS, globalLogger)
@@ -702,7 +747,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				Ds:                             opts.DS,
 				JobORM:                         jobORM,
 				BridgeORM:                      bridgeORM,
-				MercuryORM:                     mercuryORM,
 				PipelineRunner:                 pipelineRunner,
 				StreamRegistry:                 streamRegistry,
 				PeerWrapper:                    peerWrapper,
@@ -765,8 +809,15 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	)
 	srvcs = append(srvcs, bridgeStatusReporter)
 
-	healthCfg := commonsrv.HealthCheckerConfig{Ver: static.Version, Sha: static.Sha}
+	healthCfg := commonsrv.HealthCheckerConfig{
+		Ver: static.Version,
+		Sha: static.Sha,
+	}
 	healthCfg = promhealth.ConfigureHooks(healthCfg)
+	healthCfg, err = beholderhealth.ConfigureHooks(healthCfg, opts.Logger, beholder.GetEmitter())
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure health checker beholder hooks: %w", err)
+	}
 	healthCfg, err = otelhealth.ConfigureHooks(healthCfg, meter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure health checker otel hooks: %w", err)
@@ -1213,6 +1264,7 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 	if err != nil {
 		return nil, err
 	}
+
 	if !app.Config.Feature().LogPoller() {
 		return nil, errors.New("FindLCA is only available if LogPoller is enabled")
 	}
@@ -1227,6 +1279,36 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 	}
 
 	return lca, nil
+}
+
+// LPSkipToBlock repositions the LogPoller to start processing from the given block number.
+func (app *ChainlinkApplication) LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error {
+	if chainFamily != relay.NetworkEVM {
+		return fmt.Errorf("LPSkipToBlock is only supported for %s chain family", relay.NetworkEVM)
+	}
+	if !app.Config.Feature().LogPoller() {
+		return errors.New("LPSkipToBlock is only available if LogPoller is enabled")
+	}
+	if blockNumber < 2 {
+		return fmt.Errorf("invalid skip block number %d, must be >= 2", blockNumber)
+	}
+
+	relayer, err := app.GetRelayers().Get(commontypes.RelayID{
+		Network: chainFamily,
+		ChainID: chainID,
+	})
+	if err != nil {
+		return err
+	}
+	evmService, err := relayer.EVM()
+	if err != nil {
+		return err
+	}
+
+	if err = evmService.LPSkipToBlock(ctx, blockNumber); err != nil {
+		return fmt.Errorf("failed to skip log poller to block %d: %w", blockNumber, err)
+	}
+	return nil
 }
 
 // DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block

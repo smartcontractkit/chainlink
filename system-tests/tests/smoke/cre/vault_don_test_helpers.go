@@ -30,6 +30,8 @@ import (
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
@@ -72,27 +74,36 @@ func mustDeriveJWTVaultWorkflowOwner(t *testing.T, orgID string) string {
 func FetchVaultPublicKey(t *testing.T, gatewayURL string) (publicKey string) {
 	framework.L.Info().Msg("Fetching Vault Public Key...")
 
-	uniqueRequestID := uuid.New().String()
+	var (
+		httpResponseBody []byte
+		uniqueRequestID  string
+	)
 
-	getPublicKeyRequest := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
-		Version: jsonrpc.JsonRpcVersion,
-		ID:      uniqueRequestID,
-		Method:  vaulttypes.MethodPublicKeyGet,
-		Params:  &vault_helpers.GetPublicKeyRequest{},
-	}
-	requestBody, err := json.Marshal(getPublicKeyRequest)
-	require.NoError(t, err, "failed to marshal public key request")
-
+	// Each retry must use a fresh JSON-RPC request ID. The gateway deduplicates by ID and
+	// returns "request ID already exists" when Eventually reuses the same body, so a single
+	// non-200 first attempt would fail every subsequent poll until timeout.
 	require.Eventually(t, func() bool {
-		statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-		return statusCode == http.StatusOK
+		uniqueRequestID = uuid.New().String()
+		getPublicKeyRequest := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      uniqueRequestID,
+			Method:  vaulttypes.MethodPublicKeyGet,
+			Params:  &vault_helpers.GetPublicKeyRequest{},
+		}
+		requestBody, err := json.Marshal(getPublicKeyRequest)
+		require.NoError(t, err, "failed to marshal public key request")
+		statusCode, body := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+		if statusCode != http.StatusOK {
+			return false
+		}
+		httpResponseBody = body
+		return true
 	}, time.Second*120, time.Second*5)
-	statusCode, httpResponseBody := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-	require.Equal(t, http.StatusOK, statusCode, "Gateway endpoint should respond with 200 OK")
+	require.NotEmpty(t, httpResponseBody, "expected a successful public key response")
 
 	framework.L.Info().Msg("Checking jsonResponse structure...")
 	var jsonResponse jsonrpc.Response[vault_helpers.GetPublicKeyResponse]
-	err = json.Unmarshal(httpResponseBody, &jsonResponse)
+	err := json.Unmarshal(httpResponseBody, &jsonResponse)
 	require.NoError(t, err, "failed to unmarshal GetPublicKeyResponse")
 	framework.L.Info().Msgf("JSON Body: %v", jsonResponse)
 	if jsonResponse.Error != nil {
@@ -327,7 +338,9 @@ func mustVaultGatewayURL(t *testing.T, testEnv *ttypes.TestEnvironment) *url.URL
 
 	framework.L.Info().Msg("Getting gateway configuration...")
 	require.NotEmpty(t, testEnv.Dons.GatewayConnectors.Configurations, "expected at least one gateway configuration")
-	gatewayURL, err := url.Parse(testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Protocol + "://" + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Host + ":" + strconv.Itoa(testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.ExternalPort) + testEnv.Dons.GatewayConnectors.Configurations[0].Incoming.Path)
+	connector := testEnv.Dons.GatewayConnectors.Configurations[0]
+	require.NotNil(t, connector.GatewayConfiguration, "gateway connector config is nil")
+	gatewayURL, err := url.Parse(connector.ExternalHTTPURL(testEnv.CreEnvironment.Provider))
 	require.NoError(t, err, "failed to parse gateway URL")
 	framework.L.Info().Msgf("Gateway URL: %s", gatewayURL.String())
 	return gatewayURL
@@ -344,13 +357,63 @@ func newAllowlistVaultRequestAuth(requestOwner string, sethClient *seth.Client, 
 
 // newJWTVaultRequestAuth builds auth for Vault JWT requests. derivedWorkflowOwner must equal
 // mustDeriveJWTVaultWorkflowOwner(orgID) — it is used as SecretIdentifier.Owner for all operations.
-func newJWTVaultRequestAuth(issuer *stvault.TestJWTIssuer, orgID, derivedWorkflowOwner string) vaultRequestAuth {
+// publicKey mirrors the gateway handler's cached vault public key for ValidateStructureBeforeAuth;
+// when nil, label validation is skipped (structure validation still runs).
+// skipLabelValidation mints the JWT without enforcing ciphertext label binding locally; use only for
+// negative tests that expect the gateway to reject owner/label mismatches during prepare.
+func newJWTVaultRequestAuth(issuer *stvault.TestJWTIssuer, orgID, derivedWorkflowOwner string, publicKey *tdh2easy.PublicKey, skipLabelValidation bool) vaultRequestAuth {
 	return vaultRequestAuth{
 		requestOwner: derivedWorkflowOwner,
 		authorize: func(t *testing.T, req *jsonrpc.Request[json.RawMessage]) {
-			req.Auth = mustMintVaultJWTForRequest(t, issuer, *req, orgID)
+			req.Auth = mustMintVaultJWTForRequest(t, issuer, req, orgID, publicKey, skipLabelValidation)
 		},
 	}
+}
+
+// prepareVaultUserJSONRPCRequestLikeGateway runs the same pre-authorization validation the public
+// gateway handler performs before JWT digest verification.
+func prepareVaultUserJSONRPCRequestLikeGateway(t *testing.T, req *jsonrpc.Request[json.RawMessage], publicKey *tdh2easy.PublicKey, skipLabelValidation bool) {
+	t.Helper()
+
+	validator, err := vaultjwt.NewRequestValidatorFromLimitsFactory(limits.Factory{Settings: cresettings.DefaultGetter})
+	require.NoError(t, err, "failed to create vault request validator")
+
+	require.NotNil(t, req.Params, "request params must not be nil")
+	skipLabel := skipLabelValidation || publicKey == nil
+
+	switch req.Method {
+	case vaulttypes.MethodSecretsCreate:
+		var createReq vault_helpers.CreateSecretsRequest
+		require.NoError(t, json.Unmarshal(*req.Params, &createReq))
+		if createReq.RequestId == "" {
+			createReq.RequestId = req.ID
+		}
+		err = validator.ValidateCreateSecretsRequest(t.Context(), publicKey, &createReq, skipLabel)
+	case vaulttypes.MethodSecretsUpdate:
+		var updateReq vault_helpers.UpdateSecretsRequest
+		require.NoError(t, json.Unmarshal(*req.Params, &updateReq))
+		if updateReq.RequestId == "" {
+			updateReq.RequestId = req.ID
+		}
+		err = validator.ValidateUpdateSecretsRequest(t.Context(), publicKey, &updateReq, skipLabel)
+	case vaulttypes.MethodSecretsDelete:
+		var deleteReq vault_helpers.DeleteSecretsRequest
+		require.NoError(t, json.Unmarshal(*req.Params, &deleteReq))
+		if deleteReq.RequestId == "" {
+			deleteReq.RequestId = req.ID
+		}
+		err = validator.ValidateDeleteSecretsRequest(t.Context(), &deleteReq)
+	case vaulttypes.MethodSecretsList:
+		var listReq vault_helpers.ListSecretIdentifiersRequest
+		require.NoError(t, json.Unmarshal(*req.Params, &listReq))
+		if listReq.RequestId == "" {
+			listReq.RequestId = req.ID
+		}
+		err = validator.ValidateListSecretIdentifiersRequest(t.Context(), &listReq)
+	default:
+		t.Fatalf("unsupported gateway vault method for validation: %s", req.Method)
+	}
+	require.NoError(t, err, "failed to prepare vault JSON-RPC request")
 }
 
 func (a vaultRequestAuth) apply(t *testing.T, req *jsonrpc.Request[json.RawMessage]) {
@@ -404,7 +467,38 @@ func buildSecretIdentifiers(secretID, owner string, namespaces []string) []*vaul
 	return identifiers
 }
 
-func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage]) jsonrpc.Response[vaulttypes.SignedOCRResponse] {
+// requireSignedPayloadRequestID asserts the vault OCR signed payload carries the gateway
+// request ID inside the signed bytes. The gateway prefixes authorizedOwner to the user
+// request ID (owner::requestID) before forwarding to the vault DON; OCR signs that value.
+// JSON-RPC response ID is stripped back to the user request ID and is not signature-covered.
+func requireSignedPayloadRequestID(t *testing.T, method, userRequestID, authorizedOwner string, payload json.RawMessage) {
+	t.Helper()
+
+	require.NotEmpty(t, userRequestID)
+	require.NotEmpty(t, payload)
+
+	signedRequestID, err := vaultutils.SignedPayloadRequestID(method, payload)
+	require.NoError(t, err)
+	if signedRequestID == "" {
+		// VaultSignedResponseRequestIDEnabled is off on vault nodes; skip until the gate is enabled in the test stack.
+		return
+	}
+
+	expectedSuffix := vaulttypes.RequestIDSeparator + userRequestID
+	require.True(t, strings.HasSuffix(signedRequestID, expectedSuffix),
+		"signed payload requestId %q should end with gateway user request ID suffix %q", signedRequestID, expectedSuffix)
+
+	if authorizedOwner != "" {
+		require.Equal(t, authorizedOwner+expectedSuffix, signedRequestID,
+			"signed payload requestId must match gateway-prefixed request ID")
+		return
+	}
+
+	ownerPrefix := strings.TrimSuffix(signedRequestID, expectedSuffix)
+	require.NotEmpty(t, ownerPrefix, "signed payload requestId should include gateway authorized owner prefix")
+}
+
+func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], authorizedOwner string) jsonrpc.Response[vaulttypes.SignedOCRResponse] {
 	t.Helper()
 
 	authToken := jsonRequest.Auth
@@ -438,6 +532,8 @@ func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonReq
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
 
+	requireSignedPayloadRequestID(t, jsonRequest.Method, jsonRequest.ID, authorizedOwner, jsonResponse.Result.Payload)
+
 	return jsonResponse
 }
 
@@ -467,7 +563,7 @@ func executeVaultSecretsCreateWithAuthExpectOwnersAndIdentifierOwner(t *testing.
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	if jsonResponse.ID == "" {
 		framework.L.Warn().Str("requestID", uniqueRequestID).Msg("vault create: gateway-to-DON timeout, skipping response validation; state verified by subsequent assertions")
 		return ""
@@ -537,6 +633,42 @@ func tryJWTSignedVaultSecretsUpdate(t *testing.T, jwtAuth vaultRequestAuth, iden
 	framework.L.Info().Msgf("tryJWTSignedVaultSecretsUpdate HTTP status=%d body=%s", statusCode, string(body))
 }
 
+func executeVaultSecretsUpdateBatchOnlyWithAuth(t *testing.T, auth vaultRequestAuth, encryptedSecret, secretID, identifierOwner, expectedResponseOwner, gatewayURL string, namespaces []string) {
+	t.Helper()
+
+	require.Len(t, namespaces, vaulttypes.MaxBatchSize, "update batch-at-limit smoke test expects exactly MaxBatchSize namespaces")
+
+	encryptedSecrets := buildEncryptedSecrets(secretID, identifierOwner, encryptedSecret, namespaces)
+	uniqueRequestID := uuid.New().String()
+	secretsUpdateRequest := vault_helpers.UpdateSecretsRequest{
+		RequestId:        uniqueRequestID,
+		EncryptedSecrets: encryptedSecrets,
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsUpdate, &secretsUpdateRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.Equal(t, vaulttypes.MethodSecretsUpdate, jsonResponse.Method)
+
+	updateSecretsResponse := vault_helpers.UpdateSecretsResponse{}
+	err := protojson.Unmarshal(jsonResponse.Result.Payload, &updateSecretsResponse)
+	require.NoError(t, err, "failed to decode payload into UpdateSecretsResponse proto")
+	require.Len(t, updateSecretsResponse.Responses, len(namespaces))
+
+	updateRespByNs := make(map[string]*vault_helpers.UpdateSecretResponse, len(namespaces))
+	for _, r := range updateSecretsResponse.GetResponses() {
+		updateRespByNs[r.GetId().GetNamespace()] = r
+	}
+	for _, namespace := range namespaces {
+		result, ok := updateRespByNs[namespace]
+		require.True(t, ok, "missing update response for namespace %s", namespace)
+		require.Empty(t, result.GetError())
+		require.Equal(t, secretID, result.GetId().Key)
+		require.Equal(t, expectedResponseOwner, result.GetId().Owner)
+	}
+}
+
 func executeVaultSecretsUpdateWithAuthAndIdentifierOwner(t *testing.T, auth vaultRequestAuth, identifierOwner, encryptedSecret, secretID, expectedResponseOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
@@ -561,7 +693,7 @@ func executeVaultSecretsUpdateWithAuthAndIdentifierOwner(t *testing.T, auth vaul
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsUpdate, &secretsUpdateRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	if jsonResponse.ID == "" {
 		framework.L.Warn().Str("requestID", uniqueRequestID).Msg("vault update: gateway-to-DON timeout, skipping response validation")
 		return
@@ -614,7 +746,7 @@ func executeVaultSecretsListWithAuthAndOwner(t *testing.T, auth vaultRequestAuth
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	if jsonResponse.ID == "" {
 		framework.L.Warn().Str("requestID", uniqueRequestID).Msg("vault list: gateway-to-DON timeout, skipping response validation")
 		return
@@ -639,10 +771,10 @@ func executeVaultSecretsListWithAuthAndOwner(t *testing.T, auth vaultRequestAuth
 	}
 }
 
-func executeVaultJWTSecretsListAbsentFromNamespace(t *testing.T, issuer *stvault.TestJWTIssuer, absentKey, orgID, derivedWorkflowOwner, gatewayURL, namespace string) {
+func executeVaultJWTSecretsListAbsentFromNamespace(t *testing.T, issuer *stvault.TestJWTIssuer, publicKey *tdh2easy.PublicKey, absentKey, orgID, derivedWorkflowOwner, gatewayURL, namespace string) {
 	t.Helper()
 
-	auth := newJWTVaultRequestAuth(issuer, orgID, derivedWorkflowOwner)
+	auth := newJWTVaultRequestAuth(issuer, orgID, derivedWorkflowOwner, publicKey, false)
 
 	framework.L.Info().Msgf("Listing secrets expecting key %q absent (namespace=%s)...", absentKey, namespace)
 
@@ -655,7 +787,7 @@ func executeVaultJWTSecretsListAbsentFromNamespace(t *testing.T, issuer *stvault
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	if jsonResponse.ID == "" {
 		framework.L.Warn().Str("requestID", uniqueRequestID).Msg("vault JWT list absent: gateway-to-DON timeout, skipping response validation")
 		return
@@ -683,6 +815,42 @@ func executeVaultSecretsDeleteWithAuth(t *testing.T, auth vaultRequestAuth, secr
 	executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t, auth, auth.requestOwner, secretID, expectedResponseOwner, gatewayURL, namespaces)
 }
 
+func executeVaultSecretsDeleteBatchOnlyWithAuth(t *testing.T, auth vaultRequestAuth, secretID, identifierOwner, expectedResponseOwner, gatewayURL string, namespaces []string) {
+	t.Helper()
+
+	require.Len(t, namespaces, vaulttypes.MaxBatchSize, "delete batch-at-limit smoke test expects exactly MaxBatchSize namespaces")
+
+	deleteIDs := buildSecretIdentifiers(secretID, identifierOwner, namespaces)
+	uniqueRequestID := uuid.New().String()
+	secretsDeleteRequest := vault_helpers.DeleteSecretsRequest{
+		RequestId: uniqueRequestID,
+		Ids:       deleteIDs,
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsDelete, &secretsDeleteRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.Equal(t, vaulttypes.MethodSecretsDelete, jsonResponse.Method)
+
+	deleteSecretsResponse := vault_helpers.DeleteSecretsResponse{}
+	err := protojson.Unmarshal(jsonResponse.Result.Payload, &deleteSecretsResponse)
+	require.NoError(t, err, "failed to decode payload into DeleteSecretResponse proto")
+	require.Len(t, deleteSecretsResponse.Responses, len(namespaces))
+
+	deleteRespByNs := make(map[string]*vault_helpers.DeleteSecretResponse, len(namespaces))
+	for _, r := range deleteSecretsResponse.GetResponses() {
+		deleteRespByNs[r.GetId().GetNamespace()] = r
+	}
+	for _, namespace := range namespaces {
+		result, ok := deleteRespByNs[namespace]
+		require.True(t, ok, "missing delete response for namespace %s", namespace)
+		require.True(t, result.Success, result.Error)
+		require.Equal(t, expectedResponseOwner, result.Id.Owner)
+		require.Equal(t, secretID, result.Id.Key)
+	}
+}
+
 func executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t *testing.T, auth vaultRequestAuth, identifierOwner, secretID, expectedResponseOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
@@ -704,7 +872,7 @@ func executeVaultSecretsDeleteWithAuthAndIdentifierOwner(t *testing.T, auth vaul
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsDelete, &secretsDeleteRequest)
 	auth.apply(t, &jsonRequest)
 
-	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest)
+	jsonResponse := sendVaultSignedOCRRequestToGateway(t, gatewayURL, jsonRequest, auth.requestOwner)
 	if jsonResponse.ID == "" {
 		framework.L.Warn().Str("requestID", uniqueRequestID).Msg("vault delete: gateway-to-DON timeout, skipping response validation")
 		return
@@ -744,36 +912,33 @@ func executeVaultAllowListSecretsCreateTest(t *testing.T, encryptedSecret, secre
 	executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, secretID, expectedResponseOwner, gatewayURL, namespaces)
 }
 
-func executeVaultJWTSecretsCreateTest(t *testing.T, issuer *stvault.TestJWTIssuer, encryptedSecret, secretID, orgID, derivedWorkflowOwner, gatewayURL string, namespaces []string) {
+func executeVaultJWTSecretsCreateTest(t *testing.T, issuer *stvault.TestJWTIssuer, publicKey *tdh2easy.PublicKey, encryptedSecret, secretID, orgID, derivedWorkflowOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
-	auth := newJWTVaultRequestAuth(issuer, orgID, derivedWorkflowOwner)
+	auth := newJWTVaultRequestAuth(issuer, orgID, derivedWorkflowOwner, publicKey, false)
 	executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, secretID, derivedWorkflowOwner, gatewayURL, namespaces)
 }
 
-func executeVaultJWTSecretsListTest(t *testing.T, issuer *stvault.TestJWTIssuer, secretID, orgID, derivedWorkflowOwner, gatewayURL, namespace string) {
+func executeVaultJWTSecretsListTest(t *testing.T, issuer *stvault.TestJWTIssuer, publicKey *tdh2easy.PublicKey, secretID, orgID, derivedWorkflowOwner, gatewayURL, namespace string) {
 	t.Helper()
 
-	auth := newJWTVaultRequestAuth(issuer, orgID, derivedWorkflowOwner)
+	auth := newJWTVaultRequestAuth(issuer, orgID, derivedWorkflowOwner, publicKey, false)
 	executeVaultSecretsListWithAuth(t, auth, []string{secretID}, derivedWorkflowOwner, gatewayURL, namespace)
 }
 
-func executeVaultJWTSecretsDeleteTest(t *testing.T, issuer *stvault.TestJWTIssuer, secretID, orgID, derivedWorkflowOwner, gatewayURL string, namespaces []string) {
+func executeVaultJWTSecretsDeleteTest(t *testing.T, issuer *stvault.TestJWTIssuer, publicKey *tdh2easy.PublicKey, secretID, orgID, derivedWorkflowOwner, gatewayURL string, namespaces []string) {
 	t.Helper()
 
-	auth := newJWTVaultRequestAuth(issuer, orgID, derivedWorkflowOwner)
+	auth := newJWTVaultRequestAuth(issuer, orgID, derivedWorkflowOwner, publicKey, false)
 	executeVaultSecretsDeleteWithAuth(t, auth, secretID, derivedWorkflowOwner, gatewayURL, namespaces)
 }
 
-func mustMintVaultJWTForRequest(t *testing.T, issuer *stvault.TestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID string) string {
-	t.Helper()
-	return mustMintVaultJWTForRequestWithExtraClaims(t, issuer, req, orgID, nil)
-}
-
-func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *stvault.TestJWTIssuer, req jsonrpc.Request[json.RawMessage], orgID string, extraClaims map[string]any) string {
+// mintVaultJWTDigestForPreparedRequest signs a JWT for an already-prepared request without re-running
+// ValidateStructureBeforeAuth. Callers must prepare first when exercising gateway ordering explicitly.
+func mintVaultJWTDigestForPreparedRequest(t *testing.T, issuer *stvault.TestJWTIssuer, req *jsonrpc.Request[json.RawMessage], orgID string, extraClaims map[string]any) string {
 	t.Helper()
 
-	outboundReq := outboundRequestWithoutAuth(req)
+	outboundReq := outboundRequestWithoutAuth(*req)
 	requestDigest, err := outboundReq.Digest()
 	require.NoError(t, err, "failed to compute request digest")
 
@@ -800,9 +965,65 @@ func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *stvault.Tes
 	return token
 }
 
+func mustMintVaultJWTForRequest(t *testing.T, issuer *stvault.TestJWTIssuer, req *jsonrpc.Request[json.RawMessage], orgID string, publicKey *tdh2easy.PublicKey, skipLabelValidation bool) string {
+	t.Helper()
+	return mustMintVaultJWTForRequestWithExtraClaims(t, issuer, req, orgID, nil, publicKey, skipLabelValidation)
+}
+
+func mustMintVaultJWTForRequestWithExtraClaims(t *testing.T, issuer *stvault.TestJWTIssuer, req *jsonrpc.Request[json.RawMessage], orgID string, extraClaims map[string]any, publicKey *tdh2easy.PublicKey, skipLabelValidation bool) string {
+	t.Helper()
+
+	prepareVaultUserJSONRPCRequestLikeGateway(t, req, publicKey, skipLabelValidation)
+	return mintVaultJWTDigestForPreparedRequest(t, issuer, req, orgID, extraClaims)
+}
+
 // executeVaultSecretsCreateOwnerMismatchRejectedTest sends a create request whose
 // SecretIdentifier.Owner does not match the authenticated workflow owner and expects
-// gateway authorization rejection (owner binding in the composite Authorizer).
+// gateway rejection. ValidateStructureBeforeAuth may reject at the params layer (label vs
+// identifier owner) before AuthorizeRequest enforces owner binding.
+func executeVaultSecretsListOwnerMismatchRejectedTest(
+	t *testing.T,
+	auth vaultRequestAuth,
+	authorizedOwner, mismatchedOwner, gatewayURL, namespace string,
+) {
+	t.Helper()
+
+	uniqueRequestID := uuid.New().String()
+	secretsListRequest := vault_helpers.ListSecretIdentifiersRequest{
+		RequestId: uniqueRequestID,
+		Owner:     mismatchedOwner,
+		Namespace: namespace,
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsList, &secretsListRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.NotNil(t, jsonResponse.Error)
+	assertVaultOwnerMismatchRejected(t, jsonResponse, authorizedOwner, mismatchedOwner)
+}
+
+func executeVaultSecretsDeleteOwnerMismatchRejectedTest(
+	t *testing.T,
+	auth vaultRequestAuth,
+	authorizedOwner, mismatchedOwner, secretID, gatewayURL, namespace string,
+) {
+	t.Helper()
+
+	uniqueRequestID := uuid.New().String()
+	secretsDeleteRequest := vault_helpers.DeleteSecretsRequest{
+		RequestId: uniqueRequestID,
+		Ids:       buildSecretIdentifiers(secretID, mismatchedOwner, []string{namespace}),
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsDelete, &secretsDeleteRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.NotNil(t, jsonResponse.Error)
+	assertVaultOwnerMismatchRejected(t, jsonResponse, authorizedOwner, mismatchedOwner)
+}
+
 func executeVaultSecretsCreateOwnerMismatchRejectedTest(
 	t *testing.T,
 	auth vaultRequestAuth,
@@ -821,10 +1042,52 @@ func executeVaultSecretsCreateOwnerMismatchRejectedTest(
 	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
 	require.Equal(t, uniqueRequestID, jsonResponse.ID)
 	require.NotNil(t, jsonResponse.Error)
-	require.Contains(t, jsonResponse.Error.Error(), "request not authorized")
-	require.Contains(t, jsonResponse.Error.Error(), "does not match authorized workflow owner")
-	require.Contains(t, jsonResponse.Error.Error(), mismatchedIdentifierOwner)
-	require.Contains(t, jsonResponse.Error.Error(), authorizedOwner)
+	assertVaultOwnerMismatchRejected(t, jsonResponse, authorizedOwner, mismatchedIdentifierOwner)
+}
+
+func executeVaultSecretsUpdateOwnerMismatchRejectedTest(
+	t *testing.T,
+	auth vaultRequestAuth,
+	authorizedOwner, mismatchedIdentifierOwner, encryptedSecret, secretID, gatewayURL, namespace string,
+) {
+	t.Helper()
+
+	uniqueRequestID := uuid.New().String()
+	secretsUpdateRequest := vault_helpers.UpdateSecretsRequest{
+		RequestId:        uniqueRequestID,
+		EncryptedSecrets: buildEncryptedSecrets(secretID, mismatchedIdentifierOwner, encryptedSecret, []string{namespace}),
+	}
+	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsUpdate, &secretsUpdateRequest)
+	auth.apply(t, &jsonRequest)
+
+	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
+	require.Equal(t, uniqueRequestID, jsonResponse.ID)
+	require.NotNil(t, jsonResponse.Error)
+	assertVaultOwnerMismatchRejected(t, jsonResponse, authorizedOwner, mismatchedIdentifierOwner)
+}
+
+func assertVaultOwnerMismatchRejected(
+	t *testing.T,
+	jsonResponse jsonrpc.Response[json.RawMessage],
+	authorizedOwner, mismatchedIdentifierOwner string,
+) {
+	t.Helper()
+
+	errMsg := jsonResponse.Error.Error()
+	errLower := strings.ToLower(errMsg)
+	authorizedNorm := strings.ToLower(common.HexToAddress(authorizedOwner).Hex()[2:])
+	mismatchedNorm := strings.ToLower(common.HexToAddress(mismatchedIdentifierOwner).Hex()[2:])
+	require.Contains(t, errLower, mismatchedNorm, "rejection should reference mismatched identifier owner")
+	require.Contains(t, errLower, authorizedNorm, "rejection should reference authorized owner")
+
+	switch {
+	case strings.Contains(errMsg, "doesn't have owner as the label"):
+		require.Equal(t, jsonrpc.ErrInvalidParams, jsonResponse.Error.Code)
+	case strings.Contains(errMsg, "request not authorized"):
+		require.Contains(t, errMsg, "does not match authorized workflow owner")
+	default:
+		require.Fail(t, "unexpected owner-mismatch rejection", "error=%q", errMsg)
+	}
 }
 
 func sendVaultJWTRequestToGatewayExpectError(t *testing.T, gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], wantStatus int) jsonrpc.Response[json.RawMessage] {
@@ -896,7 +1159,7 @@ func executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(
 		}},
 	}
 	jsonRequest := newVaultJSONRequest(t, uniqueRequestID, vaulttypes.MethodSecretsCreate, &secretsCreateRequest)
-	jsonRequest.Auth = mustMintVaultJWTForRequestWithExtraClaims(t, issuer, jsonRequest, orgID, extraClaims)
+	jsonRequest.Auth = mustMintVaultJWTForRequestWithExtraClaims(t, issuer, &jsonRequest, orgID, extraClaims, mustVaultPublicKey(t, vaultPublicKey), false)
 
 	jsonResponse := sendVaultJWTRequestToGatewayExpectError(t, gatewayURL, jsonRequest, http.StatusBadRequest)
 	require.Equal(t, uniqueRequestID, jsonResponse.ID)

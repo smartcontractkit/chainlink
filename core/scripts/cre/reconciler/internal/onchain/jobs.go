@@ -127,7 +127,7 @@ func (d *Deployer) buildCLNodeOutput(ctx context.Context, nodeName string, cv *d
 func (d *Deployer) runPostEnvStartup(ctx context.Context, desired *domain.DesiredState, creEnv *cre.Environment, topology *cre.Topology, dons *cre.Dons) error {
 	if desired.NeedsGateway() {
 		d.log.Info().Msg("J1a: Creating gateway jobs")
-		if err := gateway.CreateJobs(ctx, creEnv, dons, topology.GatewayServiceConfigs, gateway.WhitelistConfig{
+		if err := gateway.CreateJobs(ctx, creEnv, dons, topology, topology.GatewayServiceConfigs, gateway.WhitelistConfig{
 			ExtraAllowedIPsCIDR: []string{AllowAllIPsCIDR},
 		}); err != nil {
 			return errors.Wrap(err, "failed to create gateway jobs")

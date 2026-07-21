@@ -9,9 +9,19 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
+)
+
+// Contract semver values are fixed in code, aligned with EVM job propose:
+// EVM uses KeystoneForwarder@1.0.0 and OCR3Capability@1.0.0 (see pkg.GetKeystoneForwarderCapabilityAddressRefKey).
+// Solana reads use CapabilitiesRegistry@2.0.0 for CapReg-backed oracle factory (see pkg.GetCapRegAddressRefKey).
+const (
+	solanaForwarderVersion = "1.0.0"
+	solanaCapRegVersion    = "2.0.0"
+	stellarCapRegVersion   = "2.0.0"
 )
 
 type commonCapFields struct {
@@ -66,6 +76,14 @@ type resolvedAddresses struct {
 	ForwarderAddress string
 }
 
+func resolveCapRegAddress(e cldf.Environment, ocrChainSelector uint64, qualifier string) error {
+	addrRefKey := pkg.GetCapRegAddressRefKey(ocrChainSelector, qualifier, solanaCapRegVersion)
+	if _, err := e.DataStore.Addresses().Get(addrRefKey); err != nil {
+		return fmt.Errorf("failed to get CapabilitiesRegistry address for ref key %s: %w", addrRefKey, err)
+	}
+	return nil
+}
+
 func resolveContractAddresses(
 	e cldf.Environment,
 	ocrChainSelector uint64,
@@ -88,17 +106,15 @@ func resolveContractAddresses(
 }
 
 // resolveSolanaForwarderAddresses loads the Solana CRE forwarder program id and state account
-// from the datastore (same refs as cre/forwarder/solana deploy). versionStr defaults to "1.0.0" when empty.
-func resolveSolanaForwarderAddresses(e cldf.Environment, chainSelector uint64, qualifier, versionStr string) (programAddr, stateAddr string, err error) {
+// from the datastore (same refs as cre/forwarder/solana deploy). Version is fixed at 1.0.0,
+// aligned with EVM KeystoneForwarder@1.0.0 in pkg.GetKeystoneForwarderCapabilityAddressRefKey.
+func resolveSolanaForwarderAddresses(e cldf.Environment, chainSelector uint64, qualifier string) (programAddr, stateAddr string, err error) {
 	if qualifier == "" {
 		return "", "", errors.New("cre forwarder qualifier is required")
 	}
-	if versionStr == "" {
-		versionStr = "1.0.0"
-	}
-	v, err := semver.NewVersion(versionStr)
+	v, err := semver.NewVersion(solanaForwarderVersion)
 	if err != nil {
-		return "", "", fmt.Errorf("invalid forwarder version %q: %w", versionStr, err)
+		return "", "", fmt.Errorf("invalid forwarder version %q: %w", solanaForwarderVersion, err)
 	}
 
 	progRef := pkg.GetSolanaForwarderProgramRefKey(chainSelector, v, qualifier)

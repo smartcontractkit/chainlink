@@ -234,6 +234,10 @@ func (c *capabilitiesWorkflowRegistry) MaxConcurrency() int {
 	return *c.c.MaxConcurrency
 }
 
+func (c *capabilitiesWorkflowRegistry) MaxActivationRetries() int {
+	return *c.c.MaxActivationRetries
+}
+
 func (c *capabilitiesWorkflowRegistry) WorkflowStorage() config.WorkflowStorage {
 	return &workflowStorage{
 		c: c.c.WorkflowStorage,

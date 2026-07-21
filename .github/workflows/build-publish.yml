@@ -175,8 +175,8 @@ jobs:
 
   deploy:
     name: "Deploy"
-    needs: [checks, docker-ccip]
-    # We are only deploying CCIP pre-releases and skipping hotfix deployments for now.
+    needs: [checks, docker-ccip, docker-core]
+    # Pre-release deploys (CCIP beta/RC, CRE RC). Hotfix deployments skipped for now.
     if: needs.checks.outputs.is-pre-release == 'true' &&
       needs.checks.outputs.is-hotfix == 'false'
     runs-on: ubuntu-latest
@@ -218,13 +218,48 @@ jobs:
           products: |
             ccip-prereleases-prod-testnet
 
+      - name: Deploy CRE RC
+        if: needs.checks.outputs.prerelease-phase == 'rc'
+        uses: ./.github/actions/deploy-image
+        with:
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
+          oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+          oci-repository-url: public.ecr.aws/chainlink/chainlink
+          pr-close-enabled: false
+          pr-labels: ""
+          products: |
+            cre-mainline-staging_zone-a
+            cre-mainline-staging_zone-b
+            cre-mainline-prod_zone-a
+            cre-mainline-prod_zone-b
+            cre-mainline-prod_zone-global
+            cre-mainline-prod_testnet-group-1
+            cre-mainline-prod_testnet-group-2
+            cre-mainline-prod_testnet-group-3
+            cre-mainline-prod_testnet-group-4
+            cre-df-staging_zone-a
+            cre-df-staging_zone-b
+            cre-df-prod_zone-a
+            cre-df-prod_zone-b
+            cre-bcm-prod_zone-a-group-1
+            cre-bcm-prod_zone-a-group-2
+            cre-bcm-prod_zone-a-group-3
+            cre-bcm-prod_zone-a-group-4
+            cre-bcm-prod_zone-b-group-1
+            cre-bcm-prod_zone-b-group-2
+            cre-bcm-prod_zone-b-group-3
+            cre-reliability
+
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.
   slack-notify:
     permissions:
       contents: read
-    if: always() && (needs.docker-core.result == 'success' ||
-      needs.docker-ccip.result == 'success')
+    if: always() && needs.docker-core.result == 'success' &&
+      needs.docker-ccip.result == 'success'
     needs: [checks, docker-core, docker-ccip]
     uses: ./.github/workflows/release-notifications.yml
     secrets: inherit

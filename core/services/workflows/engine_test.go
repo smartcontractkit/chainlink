@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
@@ -40,7 +41,6 @@ import (
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -216,7 +216,7 @@ func newTestEngineWithYAMLSpec(t *testing.T, reg *coreCap.Registry, spec string,
 	sdkSpec, err := (&job.WorkflowSpec{
 		Workflow: spec,
 		SpecType: job.YamlSpec,
-	}).SDKSpec(testutils.Context(t))
+	}).SDKSpec(t.Context())
 	require.NoError(t, err)
 
 	eng, testHooks, err := newTestEngine(t, reg, sdkSpec, opts...)
@@ -288,7 +288,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	if cfg.Store == nil {
 		cfg.Store = store.NewInMemoryStore(logger.TestLogger(t), clock)
 	}
-	eng, err := NewEngine(testutils.Context(t), cfg)
+	eng, err := NewEngine(t.Context(), cfg)
 	return eng, &testHooks{initSuccessful: initSuccessful, initFailed: initFailed, executionFinished: executionFinished, rateLimited: rateLimited}, err
 }
 
@@ -692,10 +692,10 @@ targets:
 	})
 }
 
-func TestEngineWithHardcodedWorkflow(t *testing.T) {
-	ctx := testutils.Context(t)
+func TestEngineWithHardcodedWorkflow(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver is not thread-safe
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
-	beholderTester := tests.Beholder(t)
+	beholderTester := beholdertest.NewObserver(t)
 	mBillingClient := new(mocks.BillingClient)
 
 	trigger, cr := mockTrigger(t)
@@ -864,11 +864,12 @@ func (m *mc) UnregisterFromWorkflow(ctx context.Context, request capabilities.Un
 }
 
 func TestEngine_WriteStepHasZeroStepTimeout(t *testing.T) {
+	t.Parallel()
 	cmd := "core/services/workflows/test/zerotimeout/cmd"
 
 	ctx := t.Context()
 	log := logger.TestLogger(t)
-	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
+	binaryB := wasmtest.GetTestBinary(t, cmd, true)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,
@@ -1069,9 +1070,11 @@ func mockTarget(id string) *mockCapability {
 }
 
 func TestEngine_RateLimit(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	t.Run("per user rate limit", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+		ctx := t.Context()
 		reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 		trigger, _ := mockTrigger(t)
@@ -1127,7 +1130,8 @@ func TestEngine_RateLimit(t *testing.T) {
 	})
 
 	t.Run("global rate limit", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+		ctx := t.Context()
 		reg := coreCap.NewRegistry(lggr)
 
 		trigger, _ := mockTrigger(t)
@@ -1183,7 +1187,8 @@ func TestEngine_RateLimit(t *testing.T) {
 	})
 
 	t.Run("global workflow limit", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+		ctx := t.Context()
 		reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 		trigger, _ := mockTrigger(t)
@@ -1236,7 +1241,8 @@ func TestEngine_RateLimit(t *testing.T) {
 	})
 
 	t.Run("per owner workflow limit", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+		ctx := t.Context()
 		reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 		trigger, _ := mockTrigger(t)
@@ -1294,11 +1300,12 @@ func TestEngine_RateLimit(t *testing.T) {
 	// workflow owner is capped at two running workflows, but the default per owner
 	// limit is one workflow.
 	t.Run("override per owner workflow limit", func(t *testing.T) {
+		t.Parallel()
 		externalWFOwner := "external-workflow-owner"
 		overrides := map[string]int32{
 			externalWFOwner: 2,
 		}
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 		trigger, _ := mockTrigger(t)
@@ -1361,7 +1368,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, _ := mockTrigger(t)
@@ -1385,7 +1392,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 
 func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, _ := mockTrigger(t)
@@ -1475,7 +1482,7 @@ func mockAction(t *testing.T) (*mockCapability, values.Value) {
 
 func TestEngine_MultiStepDependencies(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, tr := mockTrigger(t)
@@ -1562,7 +1569,7 @@ targets:
 
 func TestEngine_WrapsTargets(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, _ := mockTrigger(t)
@@ -1608,7 +1615,7 @@ func TestEngine_WrapsTargets(t *testing.T) {
 
 func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, _ := mockTrigger(t)
@@ -1700,7 +1707,8 @@ targets:
 `
 
 func TestEngine_PassthroughInterpolation(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, _ := mockTrigger(t)
@@ -1748,6 +1756,7 @@ func TestEngine_PassthroughInterpolation(t *testing.T) {
 }
 
 func TestEngine_Error(t *testing.T) {
+	t.Parallel()
 	err := errors.New("some error")
 	tests := []struct {
 		name   string
@@ -1802,6 +1811,7 @@ func TestEngine_Error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			e := &workflowError{
 				labels: tt.labels,
 				err:    tt.err,
@@ -1815,8 +1825,9 @@ func TestEngine_Error(t *testing.T) {
 }
 
 func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
+	t.Parallel()
 	var (
-		ctx            = testutils.Context(t)
+		ctx            = t.Context()
 		writeID        = "write_polygon-testnet-mumbai@1.0.0"
 		gotConfig      = values.EmptyMap()
 		wantConfigKeys = []string{"deltaStage", "schedule", "address", "params", "abi"}
@@ -1944,8 +1955,9 @@ targets:
 // TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence tests that the engine merges the
 // workflow config with the CR config correctly, with the CR config taking precedence.
 func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T) {
+	t.Parallel()
 	var (
-		ctx              = testutils.Context(t)
+		ctx              = t.Context()
 		actionID         = "custom-compute@1.0.0"
 		giveTimeout      = 300 * time.Millisecond
 		giveTickInterval = 100 * time.Millisecond
@@ -2026,7 +2038,8 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 }
 
 func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, _ := mockTrigger(t)
@@ -2077,6 +2090,7 @@ func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
 }
 
 func TestEngine_MultiBranchExecution(t *testing.T) {
+	t.Parallel()
 	// This workflow describes 2 branches in the workflow graph.
 	// A -> B -> C
 	// A -> D -> E
@@ -2147,7 +2161,7 @@ targets:
       params: ["$(report)"]
       abi: "receive(report bytes)"
 `
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, _ := mockTrigger(t)
@@ -2194,9 +2208,10 @@ func basicTestTrigger(t *testing.T) *mockTriggerCapability {
 }
 
 func TestEngine_WithCustomComputeStep(t *testing.T) {
+	t.Parallel()
 	cmd := "core/services/workflows/test/wasm/legacy/cmd"
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	cfg := compute.Config{
@@ -2234,7 +2249,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	trigger := basicTestTrigger(t)
 	require.NoError(t, reg.Add(ctx, trigger))
 
-	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
+	binaryB := wasmtest.GetTestBinary(t, cmd, true)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,
@@ -2269,9 +2284,10 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 }
 
 func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
+	t.Parallel()
 	cmd := "core/services/workflows/test/break/cmd"
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	log := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	cfg := compute.Config{
@@ -2308,7 +2324,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	trigger := basicTestTrigger(t)
 	require.NoError(t, reg.Add(ctx, trigger))
 
-	binaryB := wasmtest.CreateTestBinary(t, cmd, true)
+	binaryB := wasmtest.GetTestBinary(t, cmd, true)
 
 	spec, err := host.GetWorkflowSpec(
 		ctx,
@@ -2389,7 +2405,8 @@ targets:
 `
 
 func TestEngine_FetchesSecrets(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, _ := mockTrigger(t)
@@ -2421,6 +2438,7 @@ func TestEngine_FetchesSecrets(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, action))
 
 	t.Run("successfully fetches secrets", func(t *testing.T) {
+		t.Parallel()
 		eng, testHooks := newTestEngineWithYAMLSpec(
 			t,
 			reg,
@@ -2454,7 +2472,8 @@ func TestEngine_FetchesSecrets(t *testing.T) {
 }
 
 func TestEngine_CloseHappensOnlyIfWorkflowHasBeenRegistered(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, _ := mockTrigger(t)
@@ -2504,7 +2523,8 @@ func TestEngine_CloseHappensOnlyIfWorkflowHasBeenRegistered(t *testing.T) {
 }
 
 func TestEngine_CloseUnregisterFails_NotFound(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 
 	trigger, _ := mockTrigger(t)
@@ -2588,6 +2608,7 @@ func (t mockRuntimeTrigger) UnregisterTrigger(ctx context.Context, request capab
 }
 
 func TestMerge(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name             string
 		baseConfig       map[string]any
@@ -2660,12 +2681,13 @@ func TestMerge(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(st *testing.T) {
+			st.Parallel()
 			bc, err := values.NewMap(tc.baseConfig)
-			require.NoError(t, err)
+			require.NoError(st, err)
 			got := merge(bc, tc.capabilityConfig)
 			gotMap, err := got.Unwrap()
-			require.NoError(t, err)
-			assert.Equal(t, tc.expectedConfig, gotMap)
+			require.NoError(st, err)
+			assert.Equal(st, tc.expectedConfig, gotMap)
 		})
 	}
 }
@@ -2673,9 +2695,10 @@ func TestMerge(t *testing.T) {
 // Test_stepUpdateManager ensures that the manager is concurrency safe by sending concurrent
 // requests to send and remove a given execution ID.
 func Test_stepUpdateManager(t *testing.T) {
+	t.Parallel()
 	var (
 		wg             sync.WaitGroup
-		ctx            = testutils.Context(t)
+		ctx            = t.Context()
 		wantExecutions = 99
 		wantSends      = wantExecutions * 2
 		buffLen        = wantSends // worst case scenario all sends go to one channel
@@ -2701,32 +2724,26 @@ func Test_stepUpdateManager(t *testing.T) {
 	for range wantSends {
 		eid := executionIDs[rand.IntN(len(executionIDs))]
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			_ = mgr.send(ctx, eid, store.WorkflowExecutionStep{
 				ExecutionID: eid,
 			})
-		}()
+		})
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			mgr.remove(eid)
-		}()
+		})
 	}
 
 	wg.Wait()
 }
 
-func TestEngine_ConcurrentExecutions(t *testing.T) {
+func TestEngine_ConcurrentExecutions(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver is not thread-safe
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-397")
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
-	beholderTester := tests.Beholder(t)
+	beholderTester := beholdertest.NewObserver(t)
 
 	trigger1, cr1 := mockTrigger(t)
 	require.NoError(t, reg.Add(ctx, trigger1))
@@ -2953,7 +2970,7 @@ targets:
 		sdkSpec, err := (&job.WorkflowSpec{
 			Workflow: testWorkflow,
 			SpecType: job.YamlSpec,
-		}).SDKSpec(testutils.Context(t))
+		}).SDKSpec(t.Context())
 		require.NoError(t, err)
 
 		_, _, err = newTestEngine(t, reg, sdkSpec, func(cfg *Config) {

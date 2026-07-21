@@ -123,7 +123,6 @@ func TestTransfersController_CreateSuccess_From_WithRelayer(t *testing.T) {
 	require.NoError(t, err)
 	app.EXPECT().GetAuditLogger().Return(auditLogger).Once()
 
-	gin.SetMode(gin.TestMode)
 	ctrl := &web.EVMTransfersController{App: app}
 
 	r := gin.New()
@@ -172,7 +171,6 @@ func TestTransfersController_CreateFail_NoLegacyNoRelayer(t *testing.T) {
 
 	request := models.SendEtherRequest{EVMChainID: sqlutil.New(chainC)}
 
-	gin.SetMode(gin.TestMode)
 	ctrl := &web.EVMTransfersController{App: app}
 
 	r := gin.New()
@@ -249,7 +247,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 	})
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)
@@ -411,8 +409,8 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil)
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].GasEstimator.EIP1559DynamicFees = new(true)
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 		c.EVM[0].ChainID = (*sqlutil.Big)(testutils.FixtureChainID)
 		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
 		// Testing triggers requires committing transactions and does not work with transactional tests

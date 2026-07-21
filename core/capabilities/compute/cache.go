@@ -57,11 +57,9 @@ func newModuleCache(clock clockwork.Clock, tick, timeout time.Duration, evictAft
 }
 
 func (mc *moduleCache) start() {
-	mc.wg.Add(1)
-	go func() {
-		defer mc.wg.Done()
+	mc.wg.Go(func() {
 		mc.reapLoop()
-	}()
+	})
 }
 
 func (mc *moduleCache) close() {

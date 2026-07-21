@@ -72,7 +72,7 @@ func TestChipIngressBatchWorker_BuildCloudEventBatch(t *testing.T) {
 	}
 
 	// enqueue more payloads than maxBatchSize to ensure batching occurs
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		chTelemetry <- payload
 	}
 

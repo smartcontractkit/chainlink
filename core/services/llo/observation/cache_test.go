@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 )
 
 type mockStreamValue struct {
@@ -45,8 +45,8 @@ func (m *mockStreamValue) UnmarshalText(data []byte) error {
 	return nil
 }
 
-func (m *mockStreamValue) Type() llo.LLOStreamValue_Type {
-	return llo.LLOStreamValue_TimestampedStreamValue
+func (m *mockStreamValue) Type() llocommon.LLOStreamValue_Type {
+	return llocommon.LLOStreamValue_TimestampedStreamValue
 }
 
 func TestNewCache(t *testing.T) {
@@ -89,7 +89,7 @@ func TestCache_AddMany(t *testing.T) {
 		cache := NewCache(0)
 		defer cache.Close()
 		ttl := time.Second
-		values := map[llotypes.StreamID]llo.StreamValue{
+		values := map[llotypes.StreamID]llocommon.StreamValue{
 			1: &mockStreamValue{value: []byte{1}},
 			2: &mockStreamValue{value: []byte{2}},
 			3: &mockStreamValue{value: []byte{3}},
@@ -106,7 +106,7 @@ func TestCache_AddMany(t *testing.T) {
 		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
-		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{}, time.Second)
+		cache.AddMany(map[llotypes.StreamID]llocommon.StreamValue{}, time.Second)
 		val, _ := cache.Get(1)
 		assert.Nil(t, val)
 	})
@@ -115,7 +115,7 @@ func TestCache_AddMany(t *testing.T) {
 		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
-		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
+		cache.AddMany(map[llotypes.StreamID]llocommon.StreamValue{
 			42: &mockStreamValue{value: []byte{42}},
 		}, time.Minute)
 		got, _ := cache.Get(42)
@@ -127,7 +127,7 @@ func TestCache_AddMany(t *testing.T) {
 		cache := NewCache(0)
 		defer cache.Close()
 		cache.Add(1, &mockStreamValue{value: []byte{0}}, time.Second)
-		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
+		cache.AddMany(map[llotypes.StreamID]llocommon.StreamValue{
 			1: &mockStreamValue{value: []byte{100}},
 		}, time.Second)
 		got, _ := cache.Get(1)
@@ -141,13 +141,13 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 		t.Parallel()
 		cache := NewCache(0)
 		defer cache.Close()
-		cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
+		cache.AddMany(map[llotypes.StreamID]llocommon.StreamValue{
 			1: &mockStreamValue{value: []byte{1}},
 			2: &mockStreamValue{value: []byte{2}},
 			3: &mockStreamValue{value: []byte{3}},
 		}, time.Second)
 
-		streamValues := llo.StreamValues{1: nil, 2: nil, 3: nil}
+		streamValues := llocommon.StreamValues{1: nil, 2: nil, 3: nil}
 		cache.UpdateStreamValues(streamValues)
 
 		assert.Equal(t, &mockStreamValue{value: []byte{1}}, streamValues[1])
@@ -161,7 +161,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 		defer cache.Close()
 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
 
-		streamValues := llo.StreamValues{1: nil, 2: nil, 99: nil}
+		streamValues := llocommon.StreamValues{1: nil, 2: nil, 99: nil}
 		cache.UpdateStreamValues(streamValues)
 
 		assert.Equal(t, &mockStreamValue{value: []byte{1}}, streamValues[1])
@@ -174,7 +174,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 		cache := NewCache(0)
 		defer cache.Close()
 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Second)
-		streamValues := llo.StreamValues{}
+		streamValues := llocommon.StreamValues{}
 		cache.UpdateStreamValues(streamValues)
 		assert.Empty(t, streamValues)
 	})
@@ -186,7 +186,7 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 		cache.Add(1, &mockStreamValue{value: []byte{1}}, time.Nanosecond*100)
 		time.Sleep(time.Millisecond)
 
-		streamValues := llo.StreamValues{1: nil}
+		streamValues := llocommon.StreamValues{1: nil}
 		cache.UpdateStreamValues(streamValues)
 		assert.Nil(t, streamValues[1])
 	})
@@ -197,23 +197,23 @@ func TestCache_UpdateStreamValues(t *testing.T) {
 		defer cache.Close()
 		cache.Add(1, &mockStreamValue{value: []byte{100}}, time.Second)
 
-		streamValues := llo.StreamValues{1: &mockStreamValue{value: []byte{0}}}
+		streamValues := llocommon.StreamValues{1: &mockStreamValue{value: []byte{0}}}
 		cache.UpdateStreamValues(streamValues)
 		assert.Equal(t, &mockStreamValue{value: []byte{100}}, streamValues[1])
 	})
 }
 
-func TestCache_UpdateStreamValues_RecordsHitEntryAge(t *testing.T) {
+func TestCache_UpdateStreamValues_RecordsHitEntryAge(t *testing.T) { //nolint:paralleltest // resets package-level prometheus metrics
 	promCacheHitEntryAgeMs.Reset()
 	promCacheHitCount.Reset()
 
 	cache := NewCache(0)
 	defer cache.Close()
-	cache.AddMany(map[llotypes.StreamID]llo.StreamValue{
+	cache.AddMany(map[llotypes.StreamID]llocommon.StreamValue{
 		1: &mockStreamValue{value: []byte{1}},
 	}, time.Hour)
 
-	streamValues := llo.StreamValues{1: nil}
+	streamValues := llocommon.StreamValues{1: nil}
 	cache.UpdateStreamValues(streamValues)
 
 	var m io_prometheus_client.Metric
@@ -232,9 +232,9 @@ func TestCache_Add_Get(t *testing.T) {
 	tests := []struct {
 		name      string
 		streamID  llotypes.StreamID
-		value     llo.StreamValue
+		value     llocommon.StreamValue
 		ttl       time.Duration
-		wantValue llo.StreamValue
+		wantValue llocommon.StreamValue
 		beforeGet func(cache *Cache)
 	}{
 		{
@@ -334,7 +334,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 			defer wg.Done()
 			for j := range numOperations {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, time.Second)
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id % 256)}}, time.Second)
 			}
 		}(i)
 	}
@@ -345,7 +345,7 @@ func TestCache_ConcurrentAccess(t *testing.T) {
 		for j := range numOperations {
 			streamID := i*numOperations + j
 			val, _ := cache.Get(streamID)
-			assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, val)
+			assert.Equal(t, &mockStreamValue{value: []byte{byte(i % 256)}}, val)
 		}
 	}
 }
@@ -366,7 +366,7 @@ func TestCache_ConcurrentReadWrite(t *testing.T) {
 			defer wg.Done()
 			for j := range numOperations {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, time.Second)
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id % 256)}}, time.Second)
 			}
 		}(i)
 	}
@@ -401,7 +401,7 @@ func TestCache_ConcurrentAddGet(t *testing.T) {
 			defer wg.Done()
 			for j := range numOperations {
 				streamID := id*numOperations + j
-				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id)}}, time.Second)
+				cache.Add(streamID, &mockStreamValue{value: []byte{byte(id % 256)}}, time.Second)
 			}
 		}(i)
 	}
@@ -435,10 +435,10 @@ func TestCache_ConcurrentAddMany(t *testing.T) {
 		go func(id uint32) {
 			defer wg.Done()
 			for b := range numBatches {
-				batch := make(map[llotypes.StreamID]llo.StreamValue, batchSize)
+				batch := make(map[llotypes.StreamID]llocommon.StreamValue, batchSize)
 				for j := range batchSize {
 					streamID := id*numBatches*batchSize + b*batchSize + j
-					batch[streamID] = &mockStreamValue{value: []byte{byte(id)}}
+					batch[streamID] = &mockStreamValue{value: []byte{byte(id % 256)}}
 				}
 				cache.AddMany(batch, time.Second)
 			}
@@ -451,7 +451,7 @@ func TestCache_ConcurrentAddMany(t *testing.T) {
 			for j := range batchSize {
 				streamID := i*numBatches*batchSize + b*batchSize + j
 				val, _ := cache.Get(streamID)
-				assert.Equal(t, &mockStreamValue{value: []byte{byte(i)}}, val)
+				assert.Equal(t, &mockStreamValue{value: []byte{byte(i % 256)}}, val)
 			}
 		}
 	}
@@ -473,7 +473,7 @@ func TestCache_ConcurrentAddManyUpdateStreamValues(t *testing.T) {
 		go func(id uint32) {
 			defer wg.Done()
 			for iter := range numIterations {
-				batch := make(map[llotypes.StreamID]llo.StreamValue, batchSize)
+				batch := make(map[llotypes.StreamID]llocommon.StreamValue, batchSize)
 				for j := range batchSize {
 					streamID := id*batchSize + j
 					batch[streamID] = &mockStreamValue{value: []byte{byte(iter)}}
@@ -487,7 +487,7 @@ func TestCache_ConcurrentAddManyUpdateStreamValues(t *testing.T) {
 		go func(id uint32) {
 			defer wg.Done()
 			for range numIterations {
-				sv := make(llo.StreamValues, batchSize)
+				sv := make(llocommon.StreamValues, batchSize)
 				for j := range batchSize {
 					sv[id*batchSize+j] = nil
 				}

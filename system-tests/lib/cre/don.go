@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	stellarbc "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -114,6 +115,7 @@ type Don struct {
 	ID         uint64 `toml:"id" json:"id"`
 	F          uint8  `toml:"f" json:"f"` // max faulty nodes
 	ShardIndex uint   `toml:"shard_index" json:"shard_index"`
+	DonFamily  string `toml:"don_family" json:"don_family"` // propagated from DonMetadata for feature PostEnvStartup scoping
 
 	Nodes []*Node `toml:"nodes" json:"nodes"`
 
@@ -129,6 +131,7 @@ func (d *Don) Metadata() *DonMetadata {
 		ID:                d.ID,
 		Flags:             d.Flags,
 		ShardIndex:        d.ShardIndex,
+		DonFamily:         d.DonFamily,
 		NodesMetadata:     make([]*NodeMetadata, len(d.Nodes)),
 		CapabilityConfigs: d.capabilityConfigs,
 		// caution: missing NodeSet field, since we don't have it here
@@ -238,6 +241,7 @@ func NewDON(ctx context.Context, donMetadata *DonMetadata, ctfNodes []*clnode.Ou
 		ID:                   donMetadata.ID,
 		Flags:                donMetadata.Flags,
 		ShardIndex:           donMetadata.ShardIndex,
+		DonFamily:            donMetadata.DonFamily,
 		capabilityConfigs:    donMetadata.ns.CapabilityConfigs,
 		chainCapabilityIndex: donMetadata.ns.chainCapabilityIndex,
 	}
@@ -509,6 +513,26 @@ func CreateJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 			// Deployment parsing prefers AccountAddressPublicKey for Aptos chain configs.
 			// Mirror transmitter into this field so OCRConfigForChainSelector always resolves it.
 			accountAddrPubKey = account
+		case chainselectors.FamilyStellar:
+			// Stellar chainID is a string network id
+			stellarChain, ok := chain.(*stellarbc.Blockchain)
+			if !ok {
+				return fmt.Errorf("expected stellar blockchain, got %T", chain)
+			}
+			chainIDStr = stellarChain.StellarChainID()
+			stellarKey, ok := n.Keys.Stellar[chainIDStr]
+			if ok {
+				account = stellarKey.Account
+			} else {
+				accounts, fetchErr := n.Clients.GQLClient.FetchKeys(ctx, strings.ToUpper(chain.ChainFamily()))
+				if fetchErr != nil {
+					return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainFamily(), fetchErr)
+				}
+				if len(accounts) == 0 {
+					return fmt.Errorf("failed to fetch account address for node %s and chain %s", n.Name, chain.ChainFamily())
+				}
+				account = accounts[0]
+			}
 		default:
 			return fmt.Errorf("unsupported chainType %v", chain.ChainFamily())
 		}
@@ -929,9 +953,18 @@ func FindDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockcha
 			hasSolanaChainEnabled = slices.Contains(donMetadata.SolanaChains(), solChain.SolanaChainID)
 		}
 
+		hasStellarChainEnabled := false
+		if bc.IsFamily(chainselectors.FamilyStellar) {
+			stellarChain, ok := bc.(*stellarbc.Blockchain)
+			if !ok {
+				return nil, fmt.Errorf("expected stellar blockchain, got %T", bc)
+			}
+			hasStellarChainEnabled = slices.Contains(donMetadata.StellarChains(), stellarChain.StellarChainID())
+		}
+
 		// Keep legacy EVM/Solana behavior, and also include chains that are explicitly
-		// referenced by chain-scoped capabilities (e.g. aptos-4).
-		if !hasEVMChainEnabled && !hasChainCapabilityEnabled && !hasSolanaChainEnabled {
+		// referenced by chain-scoped capabilities (e.g. aptos-4) or supported Stellar chains.
+		if !hasEVMChainEnabled && !hasChainCapabilityEnabled && !hasSolanaChainEnabled && !hasStellarChainEnabled {
 			continue
 		}
 

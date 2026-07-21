@@ -332,7 +332,7 @@ func TestFetch_ConcurrentDifferentKeys_RunInParallel(t *testing.T) {
 		wg.Add(n)
 
 		start := time.Now()
-		for i := 0; i < n; i++ {
+		for i := range n {
 			go func(idx int) {
 				defer wg.Done()
 				req := createTestRequest("GET", fmt.Sprintf("https://example.com/parallel/%d", idx))
@@ -369,7 +369,7 @@ func TestFetch_ConcurrentSameKey_Deduplicated(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(n)
 
-		for i := 0; i < n; i++ {
+		for range n {
 			go func() {
 				defer wg.Done()
 				fetchFn := func() gateway_common.OutboundHTTPResponse {
@@ -467,7 +467,7 @@ func TestFetch_PanicInFetchFn_PropagatedToAllWaiters(t *testing.T) {
 		var wg sync.WaitGroup
 		wg.Add(n)
 
-		for i := 0; i < n; i++ {
+		for range n {
 			go func() {
 				defer wg.Done()
 				defer func() {

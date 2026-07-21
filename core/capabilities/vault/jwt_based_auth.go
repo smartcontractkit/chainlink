@@ -299,7 +299,7 @@ func (v *jwtBasedAuth) validateToken(ctx context.Context, tokenString string) (*
 		return nil, err
 	}
 
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 		if _, methodOK := token.Method.(*jwt.SigningMethodRSA); !methodOK {
 			return nil, fmt.Errorf("%w: unsupported alg %v", ErrInvalidToken, token.Header["alg"])
 		}
@@ -361,7 +361,7 @@ func extractVaultClaims(claims jwt.MapClaims) (*JWTClaims, error) {
 }
 
 func extractTenantNumericIDFromClaims(claims jwt.MapClaims) (uint64, error) {
-	var raw interface{}
+	var raw any
 	ok := false
 	if v, exists := claims[ClaimChainlinkTenantID]; exists && v != nil {
 		raw, ok = v, true
@@ -378,7 +378,7 @@ func extractTenantNumericIDFromClaims(claims jwt.MapClaims) (uint64, error) {
 	return id, nil
 }
 
-func parseJWTUnsignedIntegerClaim(raw interface{}) (uint64, error) {
+func parseJWTUnsignedIntegerClaim(raw any) (uint64, error) {
 	switch v := raw.(type) {
 	case string:
 		s := strings.TrimSpace(v)
@@ -412,13 +412,13 @@ func extractAuthorizationDetails(claims jwt.MapClaims) (workflowOwner, requestDi
 		return "", "", ErrMissingRequestDigest
 	}
 
-	details, ok := rawDetails.([]interface{})
+	details, ok := rawDetails.([]any)
 	if !ok {
 		return "", "", fmt.Errorf("%w: authorization_details must be an array", ErrInvalidToken)
 	}
 
 	for _, rawDetail := range details {
-		detail, ok := rawDetail.(map[string]interface{})
+		detail, ok := rawDetail.(map[string]any)
 		if !ok {
 			continue
 		}

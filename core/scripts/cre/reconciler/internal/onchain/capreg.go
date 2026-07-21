@@ -207,4 +207,3 @@ func verifyCapRegNodeInfo(
 	}
 	return nil
 }
-

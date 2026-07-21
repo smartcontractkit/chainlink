@@ -1,14 +1,14 @@
 package auth
 
 import (
+	"crypto/sha3"
 	"encoding/hex"
 	"fmt"
+	"hash"
 
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -55,7 +55,7 @@ func hashInput(ta *Token, salt string) []byte {
 // HashedSecret generates a hashed password for an external initiator
 // authentication
 func HashedSecret(ta *Token, salt string) (string, error) {
-	hasher := sha3.New256()
+	hasher := hash.Hash(sha3.New256())
 	_, err := hasher.Write(hashInput(ta, salt))
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "error writing external initiator authentication to hasher")

@@ -470,7 +470,6 @@ func (d *DeployerGroup) enactDeployer() (cldf.ChangesetOutput, error) {
 	for _, c := range contexts {
 		g := errgroup.Group{}
 		for selector, txs := range c.transactions {
-			selector, txs := selector, txs
 			g.Go(func() error {
 				for _, tx := range txs {
 					if evmTx, ok := tx.(EvmDescribedTransaction); ok {

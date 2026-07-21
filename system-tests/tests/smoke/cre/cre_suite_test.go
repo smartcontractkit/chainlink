@@ -7,9 +7,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
+
 	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
-	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
@@ -267,6 +268,23 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-aptos.toml"))
 	t.Run("Aptos", func(t *testing.T) {
 		ExecuteAptosTest(t, testEnv)
+	})
+}
+
+//nolint:paralleltest // isolate local cre env run
+func Test_CRE_V2_Stellar_Read_Suite(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
+
+	t.Run("Stellar GetLatestLedger", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarReadLatestLedgerTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
+
+	t.Run("Stellar ReadContract", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarReadContractSmokeTest(t, env, chain, userLogsCh, baseMessageCh)
 	})
 }
 

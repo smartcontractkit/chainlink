@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/jonboulle/clockwork"
@@ -16,10 +15,10 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
@@ -67,24 +66,8 @@ func (s *Capability) Close() error {
 		err = errors.Join(err, fmt.Errorf("error closing vault DON request handler: %w", ierr))
 	}
 
-	if lerr := s.MaxRequestBatchSizeLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing request batch size limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxCiphertextLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing ciphertext size limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxIdentifierKeyLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing identifier key length limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxIdentifierOwnerLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing identifier owner length limiter: %w", lerr))
-	}
-
-	if lerr := s.MaxIdentifierNamespaceLengthLimiter.Close(); lerr != nil {
-		err = errors.Join(err, fmt.Errorf("error closing identifier namespace length limiter: %w", lerr))
+	if lerr := s.RequestValidator.Close(); lerr != nil {
+		err = errors.Join(err, fmt.Errorf("error closing request validator: %w", lerr))
 	}
 
 	return err
@@ -132,26 +115,15 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 			s.lggr.Errorw("get secrets request contains nil secret request", "index", idx)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("nil secret request at index %d", idx)
 		}
-		if req.Id != nil && normalizeOwner(req.Id.Owner) != normalizeOwner(request.Metadata.WorkflowOwner) {
+		if req.Id != nil && vaultutils.NormalizeOwner(req.Id.Owner) != vaultutils.NormalizeOwner(request.Metadata.WorkflowOwner) {
 			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", request.Metadata.WorkflowOwner)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
 		}
 	}
 
-	// We need to generate sufficiently unique IDs accounting for two cases:
-	// 1. called during the subscription phase, in which case the executionID will be blank
-	// 2. called during execution, in which case it'll be present.
-	// The reference ID is unique per phase, so we need to differentiate when generating
-	// an ID.
 	md := request.Metadata
-	phaseOrExecution := md.WorkflowExecutionID
-	if phaseOrExecution == "" {
-		phaseOrExecution = "subscription"
-	}
-	id := fmt.Sprintf("%s::%s::%s", md.WorkflowID, phaseOrExecution, md.ReferenceID)
-
-	// Workflow DON reads populate secret identifiers explicitly; OCR paths do not rely on legacy
-	// top-level protobuf identity fields.
+	id := vaultutils.BuildWorkflowGetSecretsRequestID(md)
+	s.lggr.Debugw("received workflow get secrets request", "requestID", id, "request", r.String())
 
 	resp, err := s.handleRequest(ctx, id, r)
 	if err != nil {
@@ -177,7 +149,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 }
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received create secrets request", "request", request.String())
+	s.lggr.Debugw("received create secrets request", "requestID", request.RequestId, "request", request.String())
 	if err := validateEncryptedSecretsUniformOwners(request.EncryptedSecrets); err != nil {
 		return nil, err
 	}
@@ -190,7 +162,7 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 }
 
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received update secrets request", "request", request.String())
+	s.lggr.Debugw("received update secrets request", "requestID", request.RequestId, "request", request.String())
 	if err := validateEncryptedSecretsUniformOwners(request.EncryptedSecrets); err != nil {
 		return nil, err
 	}
@@ -203,7 +175,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 }
 
 func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received delete secrets request", "request", request.String())
+	s.lggr.Debugw("received delete secrets request", "requestID", request.RequestId, "request", request.String())
 	err := s.ValidateDeleteSecretsRequest(ctx, request)
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "request", request.String(), "err", err)
@@ -217,7 +189,7 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 }
 
 func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received get secrets request", "request", request.String())
+	s.lggr.Debugw("received get secrets request", "requestID", requestID, "request", request.String())
 	if err := s.ValidateGetSecretsRequest(ctx, request); err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", requestID, "request", request.String(), "err", err)
 		return nil, err
@@ -228,7 +200,7 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 }
 
 func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received list secret identifiers request", "request", request.String())
+	s.lggr.Debugw("received list secret identifiers request", "requestID", request.RequestId, "request", request.String())
 	err := s.ValidateListSecretIdentifiersRequest(ctx, request)
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "request", request.String(), "err", err)
@@ -258,10 +230,6 @@ func (s *Capability) GetPublicKey(ctx context.Context, request *vaultcommon.GetP
 	}, nil
 }
 
-func normalizeOwner(owner string) string {
-	return strings.ToLower(strings.TrimPrefix(owner, "0x"))
-}
-
 func validateEncryptedSecretsUniformOwners(encryptedSecrets []*vaultcommon.EncryptedSecret) error {
 	var owner string
 	for idx, enc := range encryptedSecrets {
@@ -272,7 +240,7 @@ func validateEncryptedSecretsUniformOwners(encryptedSecrets []*vaultcommon.Encry
 			owner = enc.Id.Owner
 			continue
 		}
-		if normalizeOwner(enc.Id.Owner) != normalizeOwner(owner) {
+		if vaultutils.NormalizeOwner(enc.Id.Owner) != vaultutils.NormalizeOwner(owner) {
 			return fmt.Errorf("encrypted secret owner at index %d %q does not match batch owner %q", idx, enc.Id.Owner, owner)
 		}
 	}
@@ -289,7 +257,7 @@ func validateSecretIdentifiersUniformOwners(ids []*vaultcommon.SecretIdentifier)
 			owner = id.Owner
 			continue
 		}
-		if normalizeOwner(id.Owner) != normalizeOwner(owner) {
+		if vaultutils.NormalizeOwner(id.Owner) != vaultutils.NormalizeOwner(owner) {
 			return fmt.Errorf("secret identifier owner at index %d %q does not match batch owner %q", idx, id.Owner, owner)
 		}
 	}
@@ -338,25 +306,9 @@ func NewCapability(
 	if lifecycle == nil {
 		return nil, errors.New("vault capability requires a non-nil request lifecycle tracker")
 	}
-	limiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultRequestBatchSizeLimit)
+	requestValidator, err := NewRequestValidatorFromLimitsFactory(limitsFactory)
 	if err != nil {
-		return nil, fmt.Errorf("could not create request batch size limiter: %w", err)
-	}
-	ciphertextLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.PerOwner.VaultCiphertextSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create ciphertext size limiter: %w", err)
-	}
-	idKeyLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierKeySizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create identifier key length limiter: %w", err)
-	}
-	idOwnerLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierOwnerSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create identifier owner length limiter: %w", err)
-	}
-	idNamespaceLengthLimiter, err := limits.MakeUpperBoundLimiter(limitsFactory, cresettings.Default.VaultIdentifierNamespaceSizeLimit)
-	if err != nil {
-		return nil, fmt.Errorf("could not create identifier namespace length limiter: %w", err)
+		return nil, err
 	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
@@ -366,6 +318,6 @@ func NewCapability(
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
 		lifecycle:            lifecycle,
-		RequestValidator:     NewRequestValidator(limiter, ciphertextLimiter, idKeyLengthLimiter, idOwnerLengthLimiter, idNamespaceLengthLimiter),
+		RequestValidator:     requestValidator,
 	}, nil
 }

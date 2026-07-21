@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -112,10 +113,10 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assert.NotNil(t, typedRP.cfg.PublicKey)
 	assert.NotNil(t, typedRP.cfg.PrivateKeyShare)
 	assertLimit(t, 100, typedRP.cfg.MaxSecretsPerOwner)
-	assertLimit(t, 2000, typedRP.cfg.MaxCiphertextLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierKeyLengthBytes)
+	assertLimit(t, 2000, typedRP.validator.MaxCiphertextLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierOwnerLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierNamespaceLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierKeyLengthLimiter)
 
 	infoObject, ok := info.(ocr3_1types.ReportingPluginInfo1)
 	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
@@ -159,10 +160,10 @@ func TestPlugin_ReportingPluginFactory_UsesDefaultsIfNotProvidedInOffchainConfig
 	assertLimit(t, cresettings.Default.VaultPluginBatchSizeLimit.DefaultValue, typedRP.cfg.MaxBatchSize)
 	assertLimit(t, cresettings.Default.VaultPendingQueueWriteSizeLimit.DefaultValue, typedRP.cfg.MaxPendingQueueWriteSize)
 	assertLimit(t, 2, typedRP.cfg.MaxSecretsPerOwner)
-	assertLimit(t, 2000, typedRP.cfg.MaxCiphertextLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierOwnerLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierNamespaceLengthBytes)
-	assertLimit(t, 64, typedRP.cfg.MaxIdentifierKeyLengthBytes)
+	assertLimit(t, 2000, typedRP.validator.MaxCiphertextLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierOwnerLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierNamespaceLengthLimiter)
+	assertLimit(t, 64, typedRP.validator.MaxIdentifierKeyLengthLimiter)
 
 	infoObject, ok = info.(ocr3_1types.ReportingPluginInfo1)
 	assert.True(t, ok, "ReportingPluginInfo not of type ReportingPluginInfo1")
@@ -552,9 +553,7 @@ func assertPendingQueueItemsContain(t *testing.T, gotItems [][]byte, expected ma
 	t.Helper()
 
 	remaining := make(map[string]proto.Message, len(expected))
-	for id, payload := range expected {
-		remaining[id] = payload
-	}
+	maps.Copy(remaining, expected)
 
 	var total int
 	for _, got := range gotItems {
@@ -1842,6 +1841,60 @@ func TestPlugin_Observation_CreateSecretsRequest_DisallowsDuplicateRequests(t *t
 	assert.Contains(t, resp.GetError(), "duplicate request for secret identifier")
 }
 
+func TestPlugin_Observation_GetSecretsRequest_DisallowsDuplicateRequests(t *testing.T) {
+	t.Parallel()
+	r := newTestReportingPlugin(t, withMaxIdentifierLengths(30, 30, 30), withOnchainCfg(4, 1))
+
+	seqNr := uint64(1)
+	rdr := &kv{m: make(map[string]response)}
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	p := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{Id: id, EncryptionKeys: []string{"00"}},
+			{Id: id, EncryptionKeys: []string{"00"}},
+		},
+	}
+	anyp, err := anypb.New(p)
+	require.NoError(t, err)
+	require.NoError(t, newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anyp},
+		},
+	))
+
+	data, err := r.Observation(t.Context(), seqNr, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	require.Len(t, obs.Observations, 1)
+	o := obs.Observations[0]
+
+	require.Equal(t, vaultcommon.RequestType_GET_SECRETS, o.RequestType)
+	require.True(t, proto.Equal(o.GetGetSecretsRequest(), p))
+
+	resp := o.GetGetSecretsResponse()
+	require.Len(t, resp.Responses, 2)
+	require.True(t, proto.Equal(id, resp.Responses[0].Id))
+	require.Contains(t, resp.Responses[0].GetError(), "duplicate request for secret identifier")
+	require.True(t, proto.Equal(id, resp.Responses[1].Id))
+	require.Contains(t, resp.Responses[1].GetError(), "duplicate request for secret identifier")
+
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observation: data},
+		rdr,
+		&blobber{},
+	)
+	require.ErrorContains(t, err, "duplicate response found for item owner::main::secret")
+}
+
 func TestPlugin_StateTransition_CreateSecretsRequest_CorrectlyTracksLimits(t *testing.T) {
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
@@ -2661,6 +2714,16 @@ type observation struct {
 	resp proto.Message
 }
 
+func writeGetSecretsPendingQueueItem(t *testing.T, kv *kv, obsID string, req *vaultcommon.GetSecretsRequest) {
+	t.Helper()
+	anyp, err := anypb.New(req)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, kv).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{{Id: obsID, Item: anyp}},
+	)
+	require.NoError(t, err)
+}
+
 func marshalObservations(t *testing.T, observations ...observation) []byte {
 	obs := &vaultcommon.Observations{
 		Observations: []*vaultcommon.Observation{},
@@ -2780,7 +2843,7 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 
 	assert.Empty(t, os.Outcomes, 0)
 
-	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for id").Len())
+	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for requestID").Len())
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *testing.T) {
@@ -2820,6 +2883,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 	require.LessOrEqual(t, len(ciphertextBytes), 2000)
 	encryptedValue := hex.EncodeToString(ciphertextBytes)
 
+	kvStore := &kv{m: make(map[string]response)}
+
 	// Create 10 observations from different observers, each with a distinct decryption share.
 	aos := make([]types.AttributedObservation, numObservers)
 	for i := range numObservers {
@@ -2829,7 +2894,6 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 		}
 	}
 
-	kvStore := &kv{m: make(map[string]response)}
 	reportPrecursor, err := r.StateTransition(
 		t.Context(),
 		1,
@@ -2909,7 +2973,8 @@ func TestPlugin_ValidateObservations_InvalidObservations(t *testing.T) {
 
 	require.ErrorContains(t, err, "failed to unmarshal observations")
 
-	// Invalid observation -- a single observation set has observations for multiple request ids
+	// Invalid observation -- duplicate observations for the same request id
+	writeGetSecretsPendingQueueItem(t, kv, vaulttypes.KeyFor(id1), req)
 	correctResp := &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
 			{
@@ -2994,7 +3059,7 @@ func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testin
 		kv,
 		nil,
 	)
-	require.ErrorContains(t, err, "is not present in the pending queue")
+	require.ErrorContains(t, err, "no GetSecrets request found in pending queue")
 
 	resp := &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
@@ -3136,7 +3201,7 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 
 	assert.Empty(t, os.Outcomes)
 
-	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for id").Len())
+	assert.Equal(t, 1, observed.FilterMessage("insufficient observations found for requestID").Len())
 }
 
 func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
@@ -3213,10 +3278,12 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 		Namespace: "main",
 		Key:       "secret",
 	}
+	encKey := "my-encryption-key"
 	req := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{
 			{
-				Id: id,
+				Id:             id,
+				EncryptionKeys: []string{encKey},
 			},
 		},
 	}
@@ -3336,10 +3403,12 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testin
 		Namespace: "main",
 		Key:       "secret",
 	}
+	encKey := "my-encryption-key"
 	req := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{
 			{
-				Id: id,
+				Id:             id,
+				EncryptionKeys: []string{encKey},
 			},
 		},
 	}
@@ -3460,10 +3529,12 @@ func TestPlugin_StateTransition_GetSecretsRequest_CapsSharesAtTwoFPlusOne(t *tes
 		Namespace: "main",
 		Key:       "secret",
 	}
+	encKey := "my-encryption-key"
 	req := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{
 			{
-				Id: id,
+				Id:             id,
+				EncryptionKeys: []string{encKey},
 			},
 		},
 	}
@@ -3548,8 +3619,10 @@ func TestPlugin_StateTransition_GetSecretsRequest_DoesNotCapSharesWhenOptimizati
 		Namespace: "main",
 		Key:       "secret",
 	}
+	encKey := "my-encryption-key"
+	kvStore := &kv{m: make(map[string]response)}
 	req := &vaultcommon.GetSecretsRequest{
-		Requests: []*vaultcommon.SecretRequest{{Id: id}},
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
 	}
 	makeResp := func(share string) *vaultcommon.GetSecretsResponse {
 		return &vaultcommon.GetSecretsResponse{
@@ -3579,7 +3652,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_DoesNotCapSharesWhenOptimizati
 			{Observer: 2, Observation: types.Observation(marshalObservations(t, observation{id, req, makeResp("share-3")}))},
 			{Observer: 3, Observation: types.Observation(marshalObservations(t, observation{id, req, makeResp("share-4")}))},
 		},
-		&kv{m: make(map[string]response)},
+		kvStore,
 		nil,
 	)
 	require.NoError(t, err)
@@ -3599,7 +3672,9 @@ func TestPlugin_StateTransition_GetSecretsRequest_OmitsOutcomeRequestWhenOptimiz
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled())
 
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
-	req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id}}}
+	encKey := "my-encryption-key"
+	kvStore := &kv{m: make(map[string]response)}
+	req := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}}}
 	resp := &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
 			{
@@ -3626,7 +3701,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_OmitsOutcomeRequestWhenOptimiz
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
 		},
-		&kv{m: make(map[string]response)},
+		kvStore,
 		nil,
 	)
 	require.NoError(t, err)
@@ -3969,7 +4044,7 @@ func TestPlugin_Reports(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled(), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -3986,7 +4061,9 @@ func TestPlugin_Reports(t *testing.T) {
 		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
+	signedResp := proto.Clone(resp).(*vaultcommon.CreateSecretsResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o1.ReportWithInfo.Report))
 
@@ -4003,6 +4080,69 @@ func TestPlugin_Reports(t *testing.T) {
 	err = proto.Unmarshal(o2.ReportWithInfo.Report, o2r)
 	require.NoError(t, err)
 	assert.True(t, proto.Equal(resp2, o2r))
+}
+
+func TestPlugin_Reports_JSONReportOmitUnpopulated(t *testing.T) {
+	t.Parallel()
+
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "secret",
+	}
+	resp := &vaultcommon.CreateSecretsResponse{
+		Responses: []*vaultcommon.CreateSecretResponse{
+			{
+				Id:      id,
+				Success: true,
+				Error:   "",
+			},
+		},
+	}
+	os := &vaultcommon.Outcomes{
+		Outcomes: []*vaultcommon.Outcome{
+			{
+				Id:          vaulttypes.KeyFor(id),
+				RequestType: vaultcommon.RequestType_CREATE_SECRETS,
+				Response: &vaultcommon.Outcome_CreateSecretsResponse{
+					CreateSecretsResponse: resp,
+				},
+			},
+		},
+	}
+	osb, err := proto.Marshal(os)
+	require.NoError(t, err)
+
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	t.Run("json omit unpopulated enabled omits empty fields", func(t *testing.T) {
+		t.Parallel()
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled())
+		rs, err := r.Reports(t.Context(), uint64(1), osb)
+		require.NoError(t, err)
+		require.Len(t, rs, 1)
+
+		expectedBytes, err := vaultutils.ToCanonicalJSON(resp, true)
+		require.NoError(t, err)
+		assert.Equal(t, expectedBytes, []byte(rs[0].ReportWithInfo.Report))
+		assert.NotContains(t, string(rs[0].ReportWithInfo.Report), `"error":""`)
+	})
+
+	t.Run("json omit unpopulated disabled keeps empty fields", func(t *testing.T) {
+		t.Parallel()
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+		rs, err := r.Reports(t.Context(), uint64(1), osb)
+		require.NoError(t, err)
+		require.Len(t, rs, 1)
+
+		expectedBytes, err := vaultutils.ToCanonicalJSON(resp, false)
+		require.NoError(t, err)
+		assert.Equal(t, expectedBytes, []byte(rs[0].ReportWithInfo.Report))
+		assert.Contains(t, string(rs[0].ReportWithInfo.Report), `"error":""`)
+	})
 }
 
 func TestPlugin_Observation_UpdateSecretsRequest_SecretIdentifierInvalid(t *testing.T) {
@@ -4564,7 +4704,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled(), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -4581,7 +4721,9 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
+	signedResp := proto.Clone(resp).(*vaultcommon.UpdateSecretsResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -4958,7 +5100,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled(), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -4975,7 +5117,9 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
+	signedResp := proto.Clone(resp).(*vaultcommon.DeleteSecretsResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -5300,7 +5444,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled(), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -5317,7 +5461,9 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp)
+	signedResp := proto.Clone(resp).(*vaultcommon.ListSecretIdentifiersResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -6055,7 +6201,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 						EncryptedValue: "encrypted-value",
 						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 							{
-								EncryptionKey: "my-encryption-key",
+								EncryptionKey: pks,
 								BinaryShares:  [][]byte{[]byte("encrypted-binary-share")},
 							},
 						},
@@ -6139,7 +6285,8 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 						EncryptedValue: "encrypted-value",
 						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 							{
-								Shares: []string{strings.Repeat("1", 1000)},
+								EncryptionKey: pks,
+								Shares:        []string{strings.Repeat("1", 1000)},
 							},
 						},
 					},
@@ -6176,8 +6323,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 	)
 	require.ErrorContains(t, err, "invalid observation: share provided exceeds maximum size allowed")
 
-	// More responses than requests in the original GetSecretsRequest is now valid because
-	// request content is no longer included in the observation — validation is response-only.
+	// More responses than requests is invalid; request and response counts must match.
 	resp = &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
 			{
@@ -6218,10 +6364,9 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 		rdr,
 		bf,
 	)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "GetSecrets request and response must have the same number of items")
 
-	// An empty EncryptedShares list is now valid because the per-key cross-check against
-	// the request's EncryptionKeys is no longer performed.
+	// Empty EncryptedShares on a data response is invalid when the pending-queue request has EncryptionKeys.
 	resp = &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
 			{
@@ -6259,10 +6404,23 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 		rdr,
 		bf,
 	)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "expected 1 encrypted share entries")
 
-	// Batch limit is now enforced on the response count, not the request count.
 	rBatchLimited := newTestReportingPlugin(t, withMaxRequestBatchSize(1), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	reqTwo := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{
+			{Id: id, EncryptionKeys: []string{pks}},
+			{Id: &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret2"}, EncryptionKeys: []string{pks}},
+		},
+	}
+	anypTwo, err := anypb.New(reqTwo)
+	require.NoError(t, err)
+	require.NoError(t, newTestWriteStore(t, rdr).WritePendingQueue(t.Context(),
+		[]*vaultcommon.StoredPendingQueueItem{
+			{Id: "request-1", Item: anypTwo},
+		},
+	))
 
 	resp = &vaultcommon.GetSecretsResponse{
 		Responses: []*vaultcommon.SecretResponse{
@@ -6346,7 +6504,10 @@ func TestPlugin_ValidateObservation_GetSecrets_MismatchedResponseOwnerRejected(t
 		},
 	}
 
-	require.NoError(t, r.validateObservation(t.Context(), obs))
+	pendingGetSecretsByID := map[string]*vaultcommon.GetSecretsRequest{
+		"request-1": obs.GetGetSecretsRequest(),
+	}
+	require.NoError(t, r.validateObservation(t.Context(), obs, pendingGetSecretsByID))
 }
 
 func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {
@@ -6459,8 +6620,7 @@ func TestPlugin_ValidateObservation_NilSecretIdentifier(t *testing.T) {
 		expectError bool
 	}{
 		{
-			// The request is no longer included in GetSecrets observations, so a nil Id
-			// in the request field does not cause a validation error.
+			// Pending-queue request identifiers are not re-validated here; only response IDs are.
 			name: "GetSecrets request with nil Id passes",
 			obs: &vaultcommon.Observation{
 				Id:          "request-1",
@@ -6956,9 +7116,8 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 		}
 	}
 
-	// makeGetSecretsObs puts the identifier only in the request; the response always uses validID.
-	// Since GetSecrets observations no longer include the request, identifier validation on the
-	// request side is not performed — all these cases pass regardless of the request ID.
+	// makeGetSecretsObs puts the identifier in the pending-queue request; the response uses validID.
+	// Request-side identifier validation is not performed in validateGetSecretsObservation.
 	makeGetSecretsObs := func(id *vaultcommon.SecretIdentifier) *vaultcommon.Observation {
 		req := &vaultcommon.GetSecretsRequest{
 			Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{"key"}}},
@@ -6979,8 +7138,6 @@ func TestPlugin_ValidateObservation_SecretIdentifierValidation(t *testing.T) {
 
 	tests := []testCase{
 		// --- GetSecrets ---
-		// Request identifiers are not validated for GetSecrets (request is not included in the
-		// observation). All cases pass regardless of the identifier in the request.
 		{
 			name:      "GetSecrets valid identifier passes",
 			obs:       makeGetSecretsObs(validID),
@@ -7469,10 +7626,12 @@ func TestPlugin_ValidateObservation_RequestBatchLimit(t *testing.T) {
 			)
 			rdr := &kv{m: make(map[string]response)}
 
+			obsItem := makeObservation(t, tc.reqType, tc.batchSize)
+			if tc.reqType == vaultcommon.RequestType_GET_SECRETS {
+				writeGetSecretsPendingQueueItem(t, rdr, obsItem.Id, obsItem.GetGetSecretsRequest())
+			}
 			obs := &vaultcommon.Observations{
-				Observations: []*vaultcommon.Observation{
-					makeObservation(t, tc.reqType, tc.batchSize),
-				},
+				Observations: []*vaultcommon.Observation{obsItem},
 			}
 			ob := protoMarshal(t, obs)
 
@@ -7680,7 +7839,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		payloads := make([][]byte, maxConcurrentBlobBroadcasts*2+1)
 		ids := make([][]string, len(payloads))
 		for i := range payloads {
-			payloads[i] = []byte(fmt.Sprintf("payload-%d", i))
+			payloads[i] = fmt.Appendf(nil, "payload-%d", i)
 			ids[i] = []string{fmt.Sprintf("req-%d", i)}
 		}
 
@@ -7726,7 +7885,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 			done <- broadcastResult{payloads: result, err: err}
 		}()
 
-		for i := 0; i < maxConcurrentBlobBroadcasts; i++ {
+		for i := range maxConcurrentBlobBroadcasts {
 			select {
 			case <-started:
 			case <-time.After(time.Second):

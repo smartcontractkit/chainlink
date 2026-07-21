@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -110,19 +111,27 @@ func createTestProtoWorkflow(name string, family string) *pb.WorkflowMetadata {
 	}
 }
 
+func grpcTestSourceConfig(name string) GRPCWorkflowSourceConfig {
+	return GRPCWorkflowSourceConfig{
+		Name:                                name,
+		CentralizedOwnerVerificationEnabled: limits.NewGateLimiter(false),
+	}
+}
+
 func TestGRPCWorkflowSource_NewGRPCWorkflowSource_EmptyURL(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
-	_, err := NewGRPCWorkflowSource(lggr, GRPCWorkflowSourceConfig{
-		Name: "test-source",
-		URL:  "",
-	})
+	cfg := grpcTestSourceConfig("test-source")
+	cfg.URL = ""
+	_, err := NewGRPCWorkflowSource(lggr, cfg)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "GRPC URL is required")
 }
 
 func TestGRPCWorkflowSource_NewGRPCWorkflowSource_EmptyName(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	_, err := NewGRPCWorkflowSource(lggr, GRPCWorkflowSourceConfig{
@@ -134,7 +143,19 @@ func TestGRPCWorkflowSource_NewGRPCWorkflowSource_EmptyName(t *testing.T) {
 	assert.Contains(t, err.Error(), "source name is required")
 }
 
+func TestGRPCWorkflowSourceWithClient_NilGate(t *testing.T) {
+	t.Parallel()
+	lggr := logger.TestLogger(t)
+
+	_, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
+		Name: "test-source",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "CentralizedOwnerVerificationEnabled gate is required")
+}
+
 func TestGRPCWorkflowSourceWithClient_EmptyName(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	_, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
@@ -146,6 +167,7 @@ func TestGRPCWorkflowSourceWithClient_EmptyName(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -156,9 +178,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 		},
 	}
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
-		Name: "test-source",
-	})
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, grpcTestSourceConfig("test-source"))
 	require.NoError(t, err)
 
 	don := capabilities.DON{
@@ -178,6 +198,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Success(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_Pagination(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -190,10 +211,9 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Pagination(t *testing.T) {
 		},
 	}
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
-		Name:     "test-source",
-		PageSize: 2, // Small page size to test pagination
-	})
+	cfg := grpcTestSourceConfig("test-source")
+	cfg.PageSize = 2 // Small page size to test pagination
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, cfg)
 	require.NoError(t, err)
 
 	don := capabilities.DON{
@@ -210,6 +230,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_Pagination(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_InvalidWorkflow(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -226,9 +247,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_InvalidWorkflow(t *testing.T) {
 		},
 	}
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
-		Name: "test-source",
-	})
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, grpcTestSourceConfig("test-source"))
 	require.NoError(t, err)
 
 	don := capabilities.DON{
@@ -245,6 +264,7 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_InvalidWorkflow(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Retry_Unavailable(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -260,12 +280,11 @@ func TestGRPCWorkflowSource_Retry_Unavailable(t *testing.T) {
 		},
 	}
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
-		Name:           "test-source",
-		MaxRetries:     2,
-		RetryBaseDelay: 1 * time.Millisecond, // Fast retries for testing
-		RetryMaxDelay:  10 * time.Millisecond,
-	})
+	cfg := grpcTestSourceConfig("test-source")
+	cfg.MaxRetries = 2
+	cfg.RetryBaseDelay = 1 * time.Millisecond // Fast retries for testing
+	cfg.RetryMaxDelay = 10 * time.Millisecond
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, cfg)
 	require.NoError(t, err)
 
 	don := capabilities.DON{
@@ -282,6 +301,7 @@ func TestGRPCWorkflowSource_Retry_Unavailable(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Retry_ResourceExhausted(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -295,11 +315,10 @@ func TestGRPCWorkflowSource_Retry_ResourceExhausted(t *testing.T) {
 		},
 	}
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
-		Name:           "test-source",
-		MaxRetries:     2,
-		RetryBaseDelay: 1 * time.Millisecond,
-	})
+	cfg := grpcTestSourceConfig("test-source")
+	cfg.MaxRetries = 2
+	cfg.RetryBaseDelay = 1 * time.Millisecond
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, cfg)
 	require.NoError(t, err)
 
 	don := capabilities.DON{
@@ -314,6 +333,7 @@ func TestGRPCWorkflowSource_Retry_ResourceExhausted(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Retry_MaxExceeded(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -322,11 +342,10 @@ func TestGRPCWorkflowSource_Retry_MaxExceeded(t *testing.T) {
 		err: status.Error(codes.Unavailable, "server unavailable"),
 	}
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
-		Name:           "test-source",
-		MaxRetries:     2,
-		RetryBaseDelay: 1 * time.Millisecond,
-	})
+	cfg := grpcTestSourceConfig("test-source")
+	cfg.MaxRetries = 2
+	cfg.RetryBaseDelay = 1 * time.Millisecond
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, cfg)
 	require.NoError(t, err)
 
 	don := capabilities.DON{
@@ -341,6 +360,7 @@ func TestGRPCWorkflowSource_Retry_MaxExceeded(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Retry_NonRetryable(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
@@ -348,11 +368,10 @@ func TestGRPCWorkflowSource_Retry_NonRetryable(t *testing.T) {
 		err: status.Error(codes.InvalidArgument, "bad request"),
 	}
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
-		Name:           "test-source",
-		MaxRetries:     2,
-		RetryBaseDelay: 1 * time.Millisecond,
-	})
+	cfg := grpcTestSourceConfig("test-source")
+	cfg.MaxRetries = 2
+	cfg.RetryBaseDelay = 1 * time.Millisecond
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, cfg)
 	require.NoError(t, err)
 
 	don := capabilities.DON{
@@ -366,13 +385,13 @@ func TestGRPCWorkflowSource_Retry_NonRetryable(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Backoff_Jitter(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
-		Name:           "test-source",
-		RetryBaseDelay: 100 * time.Millisecond,
-		RetryMaxDelay:  2 * time.Second,
-	})
+	cfg := grpcTestSourceConfig("test-source")
+	cfg.RetryBaseDelay = 100 * time.Millisecond
+	cfg.RetryMaxDelay = 2 * time.Second
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, cfg)
 	require.NoError(t, err)
 
 	// Test backoff calculation
@@ -395,6 +414,7 @@ func TestGRPCWorkflowSource_Backoff_Jitter(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ContextCancellation(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx, cancel := context.WithCancel(t.Context())
 
@@ -403,11 +423,10 @@ func TestGRPCWorkflowSource_ContextCancellation(t *testing.T) {
 		err: status.Error(codes.Unavailable, "server unavailable"),
 	}
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
-		Name:           "test-source",
-		MaxRetries:     5, // High retry count
-		RetryBaseDelay: 100 * time.Millisecond,
-	})
+	cfg := grpcTestSourceConfig("test-source")
+	cfg.MaxRetries = 5 // High retry count
+	cfg.RetryBaseDelay = 100 * time.Millisecond
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, cfg)
 	require.NoError(t, err)
 
 	don := capabilities.DON{
@@ -427,12 +446,11 @@ func TestGRPCWorkflowSource_ContextCancellation(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ConfigDefaults(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	// Name is required, but other config options have defaults
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
-		Name: "test-source",
-	})
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, grpcTestSourceConfig("test-source"))
 	require.NoError(t, err)
 
 	// Verify defaults are applied for non-required fields
@@ -444,11 +462,10 @@ func TestGRPCWorkflowSource_ConfigDefaults(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Ready(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
-		Name: "test-source",
-	})
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, grpcTestSourceConfig("test-source"))
 	require.NoError(t, err)
 
 	// Initially ready
@@ -461,12 +478,11 @@ func TestGRPCWorkflowSource_Ready(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_ListWorkflowMetadata_NotReady(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
-		Name: "test-source",
-	})
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, grpcTestSourceConfig("test-source"))
 	require.NoError(t, err)
 
 	// Close the source to make it not ready
@@ -484,13 +500,12 @@ func TestGRPCWorkflowSource_ListWorkflowMetadata_NotReady(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Close(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	mockClient := &mockGRPCClient{}
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, GRPCWorkflowSourceConfig{
-		Name: "test-source",
-	})
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, mockClient, grpcTestSourceConfig("test-source"))
 	require.NoError(t, err)
 
 	// Initially ready
@@ -507,17 +522,17 @@ func TestGRPCWorkflowSource_Close(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_Name(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
-		Name: "my-custom-source",
-	})
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, grpcTestSourceConfig("my-custom-source"))
 	require.NoError(t, err)
 
 	assert.Equal(t, "my-custom-source", source.Name())
 }
 
 func TestGRPCWorkflowSource_Name_Required(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
 	// Empty name should return an error
@@ -527,11 +542,10 @@ func TestGRPCWorkflowSource_Name_Required(t *testing.T) {
 }
 
 func TestGRPCWorkflowSource_syntheticHead(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 
-	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, GRPCWorkflowSourceConfig{
-		Name: "test-source",
-	})
+	source, err := NewGRPCWorkflowSourceWithClient(lggr, &mockGRPCClient{}, grpcTestSourceConfig("test-source"))
 	require.NoError(t, err)
 
 	head := source.syntheticHead()

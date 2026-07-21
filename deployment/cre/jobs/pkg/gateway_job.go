@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"time"
 
@@ -67,13 +68,25 @@ type GatewayJob struct {
 	DONs     []TargetDON
 	Services []GatewayServiceConfig
 
-	JobName           string
-	RequestTimeoutSec int
-	AllowedPorts      []int
-	AllowedSchemes    []string
-	AllowedIPsCIDR    []string
-	AuthGatewayID     string
-	ExternalJobID     string
+	JobName             string
+	RequestTimeoutSec   int
+	AllowedPorts        []int
+	AllowedSchemes      []string
+	AllowedIPsCIDR      []string
+	AuthGatewayID       string
+	AuthGatewayIDPrefix string
+	ExternalJobID       string
+}
+
+func (g GatewayJob) authGatewayIDForNode(gatewayNodeIdx int) string {
+	if g.AuthGatewayID != "" {
+		return g.AuthGatewayID
+	}
+	prefix := g.AuthGatewayIDPrefix
+	if prefix == "" {
+		prefix = "gateway-node-"
+	}
+	return prefix + strconv.Itoa(gatewayNodeIdx)
 }
 
 func (g GatewayJob) Validate() error {
@@ -120,13 +133,7 @@ func (g GatewayJob) Validate() error {
 
 	if g.ServiceCentricFormatEnabled {
 		for _, svc := range g.Services {
-			hasVaultHandler := false
-			for _, h := range svc.Handlers {
-				if h == GatewayHandlerTypeVault {
-					hasVaultHandler = true
-					break
-				}
-			}
+			hasVaultHandler := slices.Contains(svc.Handlers, GatewayHandlerTypeVault)
 			if svc.Auth0 != nil {
 				if !hasVaultHandler {
 					return fmt.Errorf("service %q configures auth0 but does not expose the vault handler", svc.ServiceName)
@@ -153,7 +160,7 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 	requestTimeout := time.Duration(g.RequestTimeoutSec) * time.Second
 	connCfg := connectionManagerConfig{
 		AuthChallengeLen:          10,
-		AuthGatewayID:             "gateway-node-" + strconv.Itoa(gatewayNodeIdx),
+		AuthGatewayID:             g.authGatewayIDForNode(gatewayNodeIdx),
 		AuthTimestampToleranceSec: 5,
 		HeartbeatIntervalSec:      20,
 	}
@@ -190,10 +197,6 @@ func (g GatewayJob) Resolve(gatewayNodeIdx int) (string, error) {
 	if len(g.AllowedIPsCIDR) > 0 {
 		httpCfg.AllowedIPsCIDR = g.AllowedIPsCIDR
 	}
-	if g.AuthGatewayID != "" {
-		connCfg.AuthGatewayID = g.AuthGatewayID
-	}
-
 	var gwConfig any
 	if g.ServiceCentricFormatEnabled {
 		shardedDONs, services, err := g.buildServicesAndShardedDONs()

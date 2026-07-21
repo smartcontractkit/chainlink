@@ -1,3 +1,5 @@
+//go:build integration
+
 package keystone
 
 import (
@@ -24,19 +26,21 @@ import (
 	reporttypes "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/types"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 )
 
 func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
-	testTransmissionSchedule(t, "2s", "allAtOnce")
+	t.Parallel()
+	testTransmissionSchedule(t, "100ms", "allAtOnce")
 }
 
 func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
-	testTransmissionSchedule(t, "2s", "oneAtATime")
+	t.Parallel()
+	testTransmissionSchedule(t, "100ms", "oneAtATime")
 }
 
 func Test_AllAtOnceZeroDelta_SubmitsDuplicateForwarderTxs(t *testing.T) {
+	t.Parallel()
 	rawDBURL, ok := os.LookupEnv("CL_DATABASE_URL")
 	if !ok {
 		t.Skip("CL_DATABASE_URL is required for this integration test")
@@ -118,7 +122,7 @@ func Test_AllAtOnceZeroDelta_SubmitsDuplicateForwarderTxs(t *testing.T) {
 		}
 		observedTxCount.Store(txCount)
 		return txCount > 1
-	}, 20*time.Second, 500*time.Millisecond, "expected duplicate forwarder tx submissions for one execution")
+	}, 20*time.Second, 100*time.Millisecond, "expected duplicate forwarder tx submissions for one execution")
 
 	// TODO: @ilija42 Expected behavior after fix: exactly one forwarder transaction should be submitted for a single execution.
 	// require.EqualValues(

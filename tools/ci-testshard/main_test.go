@@ -53,7 +53,7 @@ func TestListReturnsPartitionWithoutOverlap(t *testing.T) {
 	input := "pkg/a\npkg/b\npkg/c\npkg/d\n"
 
 	seen := make(map[string]struct{})
-	for shardIndex := 0; shardIndex < 4; shardIndex++ {
+	for shardIndex := range 4 {
 		packages := runListForTest(t, input, 4, shardIndex)
 		for _, pkg := range packages {
 			if _, exists := seen[pkg]; exists {
@@ -96,7 +96,7 @@ func TestListProducesDeterministicOutput(t *testing.T) {
 func TestListCanProduceEmptyShard(t *testing.T) {
 	input := "pkg/a\npkg/b\n"
 	foundEmpty := false
-	for shardIndex := 0; shardIndex < 10; shardIndex++ {
+	for shardIndex := range 10 {
 		if output := runListOutputForTest(t, input, 10, shardIndex); output == "" {
 			foundEmpty = true
 			break
@@ -119,7 +119,7 @@ func TestListAndVerifyAgreeOnPartition(t *testing.T) {
 	input := strings.Join(inputPackages, "\n") + "\n"
 	seen := make(map[string]struct{}, len(inputPackages))
 
-	for shardIndex := 0; shardIndex < 4; shardIndex++ {
+	for shardIndex := range 4 {
 		for _, pkg := range runListForTest(t, input, 4, shardIndex) {
 			if _, exists := seen[pkg]; exists {
 				t.Fatalf("package %s appeared in multiple shards", pkg)
@@ -232,7 +232,7 @@ func TestExtraPositionalArgsFail(t *testing.T) {
 
 func TestLargePackageListParses(t *testing.T) {
 	var builder strings.Builder
-	for i := 0; i < 500; i++ {
+	for i := range 500 {
 		fmt.Fprintf(&builder, "pkg/%03d\n", i)
 	}
 

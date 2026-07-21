@@ -424,10 +424,7 @@ func (t *RequestLifecycleTracker) emitLatenciesAndRounds(ctx context.Context, tr
 		if !ok || at.IsZero() {
 			return
 		}
-		ms := at.Sub(base).Milliseconds()
-		if ms < 0 {
-			ms = 0
-		}
+		ms := max(at.Sub(base).Milliseconds(), 0)
 		t.metrics.stageLatencyMs.Record(ctx, ms, t.attrs(attribute.String("stage", stage)))
 	}
 
@@ -448,10 +445,7 @@ func (t *RequestLifecycleTracker) emitLatenciesAndRounds(ctx context.Context, tr
 		if !ok {
 			return
 		}
-		delta := uint64SeqDeltaToInt64(seq, tr.blobBroadcastingSeq)
-		if delta < 0 {
-			delta = 0
-		}
+		delta := max(uint64SeqDeltaToInt64(seq, tr.blobBroadcastingSeq), 0)
 		t.metrics.roundDelta.Record(ctx, delta, t.attrs(attribute.String("stage", stage)))
 	}
 
@@ -491,9 +485,9 @@ func uint64SeqDeltaToInt64(a, b uint64) int64 {
 	return -int64(d)
 }
 
-func traceLogFields(tr *requestLifecycleTrace) []interface{} {
+func traceLogFields(tr *requestLifecycleTrace) []any {
 	baseSeq, baseOK := tr.blobBroadcastingSeq, tr.hasBlobBroadcasting
-	return []interface{}{
+	return []any{
 		"receivedAt", tr.receivedAt,
 		"blob_broadcasting", tr.hasBlobBroadcasting, "blob_broadcasting_at", tr.blobBroadcastingAt, "blob_broadcasting_seq", tr.blobBroadcastingSeq,
 		"blob_broadcasted", tr.hasBlobBroadcasted, "blob_broadcasted_at", tr.blobBroadcastedAt, "blob_broadcasted_seq", tr.blobBroadcastedSeq,

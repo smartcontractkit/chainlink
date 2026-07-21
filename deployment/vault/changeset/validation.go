@@ -281,11 +281,11 @@ func ValidateDeployEthBalMonConfig(ctx context.Context, env cldf.Environment, cf
 		if err := validateChainSelector(chainSelector, env); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
-		if err := validateEthAddress("setKeeperRegistryAddress", chainCfg.SetKeeperRegistryAddress); err != nil {
+		if err := validateEthAddress("keeperRegistryAddress", chainCfg.KeeperRegistryAddress); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
 		}
-		if common.HexToAddress(chainCfg.SetKeeperRegistryAddress) == (common.Address{}) {
-			return fmt.Errorf("chain %d: setKeeperRegistryAddress cannot be zero address", chainSelector)
+		if common.HexToAddress(chainCfg.KeeperRegistryAddress) == (common.Address{}) {
+			return fmt.Errorf("chain %d: keeperRegistryAddress cannot be zero address", chainSelector)
 		}
 		if err := validateDeployEthBalMonMCMSInDatastore(env, chainSelector, cfg.MCMSConfig); err != nil {
 			return fmt.Errorf("chain %d: %w", chainSelector, err)
@@ -448,6 +448,20 @@ func ValidateEthBalMonTransferOwnershipConfig(ctx context.Context, env cldf.Envi
 		}
 		if common.HexToAddress(chainConfig.NewOwner) == (common.Address{}) {
 			return fmt.Errorf("chain %d: newOwner address cannot be zero address", chainSelector)
+		}
+	}
+
+	return nil
+}
+
+func ValidateEthBalMonAcceptOwnershipConfig(ctx context.Context, env cldf.Environment, cfg types.EthBalMonAcceptOwnershipInput) error {
+	if len(cfg.Chains) == 0 {
+		return errors.New("no chains provided")
+	}
+
+	for _, chainSelector := range cfg.Chains {
+		if _, ok := env.BlockChains.EVMChains()[chainSelector]; !ok {
+			return fmt.Errorf("chain not found in environment: %d", chainSelector)
 		}
 	}
 

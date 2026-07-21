@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -52,7 +53,11 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
 
-	requestID := fmt.Sprintf("%s::%s::%s", workflowID, workflowExecutionID, referenceID)
+	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+		WorkflowID:          workflowID,
+		WorkflowExecutionID: workflowExecutionID,
+		ReferenceID:         referenceID,
+	})
 
 	sid := &vault.SecretIdentifier{
 		Key:       "Foo",
@@ -92,9 +97,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-t.Context().Done():
@@ -111,7 +114,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 				}
 			}
 		}
-	}()
+	})
 
 	resp, err := capability.Execute(t.Context(), capabilities.CapabilityRequest{
 		Payload: anyproto,
@@ -148,7 +151,10 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	workflowID := "test-workflow-id"
 	referenceID := "0"
 
-	requestID := fmt.Sprintf("%s::%s::%s", workflowID, "subscription", referenceID)
+	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+		WorkflowID:  workflowID,
+		ReferenceID: referenceID,
+	})
 
 	sid := &vault.SecretIdentifier{
 		Key:       "Foo",
@@ -188,9 +194,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-t.Context().Done():
@@ -207,7 +211,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 				}
 			}
 		}
-	}()
+	})
 
 	resp, err := capability.Execute(t.Context(), capabilities.CapabilityRequest{
 		Payload: anyproto,
@@ -463,7 +467,11 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
-			requestID := fmt.Sprintf("%s::%s::%s", "wf-id", "exec-id", "ref-id")
+			requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+				WorkflowID:          "wf-id",
+				WorkflowExecutionID: "exec-id",
+				ReferenceID:         "ref-id",
+			})
 
 			reqs := []*vault.SecretRequest{}
 			for _, s := range tc.secretOwners {
@@ -485,9 +493,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 
 			if !tc.shouldReject {
 				var wg sync.WaitGroup
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+				wg.Go(func() {
 					for {
 						select {
 						case <-t.Context().Done():
@@ -503,7 +509,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 							}
 						}
 					}
-				}()
+				})
 				defer wg.Wait()
 			}
 
@@ -572,9 +578,7 @@ func TestCapability_CapabilityCall_UsesMetadataWorkflowOwner(t *testing.T) {
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-t.Context().Done():
@@ -587,7 +591,7 @@ func TestCapability_CapabilityCall_UsesMetadataWorkflowOwner(t *testing.T) {
 				}
 			}
 		}
-	}()
+	})
 
 	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
 		Payload: anyproto,
@@ -652,9 +656,7 @@ func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.
 		forward     *vault.GetSecretsRequest
 		forwardedOK bool
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-t.Context().Done():
@@ -678,7 +680,7 @@ func TestCapability_CapabilityCall_ForwardsRequestGetSecretsIdentity(t *testing.
 				return
 			}
 		}
-	}()
+	})
 
 	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
 		Payload: anyproto,
@@ -747,9 +749,7 @@ func TestCapability_CapabilityCall_BackfillsGetSecretsWorkflowOwnerFromFirstSecr
 		forward     *vault.GetSecretsRequest
 		forwardedOK bool
 	)
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-t.Context().Done():
@@ -773,7 +773,7 @@ func TestCapability_CapabilityCall_BackfillsGetSecretsWorkflowOwnerFromFirstSecr
 				return
 			}
 		}
-	}()
+	})
 
 	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
 		Payload: anyproto,
@@ -809,7 +809,11 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
 
-	requestID := fmt.Sprintf("%s::%s::%s", workflowID, workflowExecutionID, referenceID)
+	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+		WorkflowID:          workflowID,
+		WorkflowExecutionID: workflowExecutionID,
+		ReferenceID:         referenceID,
+	})
 
 	sid := &vault.SecretIdentifier{
 		Key:       "Foo",
@@ -830,9 +834,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-t.Context().Done():
@@ -849,7 +851,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 				}
 			}
 		}
-	}()
+	})
 
 	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
 		Payload: anyproto,
@@ -883,7 +885,11 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
 
-	requestID := fmt.Sprintf("%s::%s::%s", workflowID, workflowExecutionID, referenceID)
+	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+		WorkflowID:          workflowID,
+		WorkflowExecutionID: workflowExecutionID,
+		ReferenceID:         referenceID,
+	})
 
 	sid := &vault.SecretIdentifier{
 		Key:       "Foo",
@@ -904,9 +910,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-t.Context().Done():
@@ -919,7 +923,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 				}
 			}
 		}
-	}()
+	})
 
 	_, err = capability.Execute(t.Context(), capabilities.CapabilityRequest{
 		Payload: anyproto,
@@ -1593,9 +1597,7 @@ func TestCapability_CRUD(t *testing.T) {
 			wait := func() {}
 			if tc.error == "" {
 				var wg sync.WaitGroup
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
+				wg.Go(func() {
 					for {
 						select {
 						case <-t.Context().Done():
@@ -1609,7 +1611,7 @@ func TestCapability_CRUD(t *testing.T) {
 							}
 						}
 					}
-				}()
+				})
 				wait = wg.Wait
 			}
 

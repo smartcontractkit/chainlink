@@ -297,6 +297,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/replay_from_block/:number", auth.RequiresRunRole(rc.ReplayFromBlock))
 		lcaC := LCAController{app}
 		authv2.GET("/find_lca", auth.RequiresRunRole(lcaC.FindLCA))
+		lpSkipC := LPSkipController{app}
+		authv2.POST("/lp_skip_to_block", auth.RequiresRunRole(lpSkipC.LPSkipToBlock))
 
 		if build.IsDev() {
 			capContr := CapabilityController{app}
@@ -360,6 +362,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 			{"cosmos", NewCosmosKeysController(app)},
 			{"starknet", NewStarkNetKeysController(app)},
 			{"aptos", NewAptosKeysController(app)},
+			{"stellar", NewStellarKeysController(app)},
 			{"tron", NewTronKeysController(app)},
 			{"sui", NewSuiKeysController(app)},
 			{"ton", NewTONKeysController(app)},

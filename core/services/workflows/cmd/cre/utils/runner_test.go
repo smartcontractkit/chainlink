@@ -22,7 +22,7 @@ func TestRunner(t *testing.T) {
 		t.Parallel()
 
 		// Build before deadline; WASM compile can exceed 5s under CI load.
-		binary := wasmtest.CreateTestBinary(t, filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false)
+		binary := wasmtest.GetTestBinary(t, filepath.Join("core/services/workflows/cmd/cre/examples/v2", "empty"), false)
 
 		duration := 5 * time.Second
 		ctx, cancel := context.WithDeadline(t.Context(), time.Now().Add(duration))
