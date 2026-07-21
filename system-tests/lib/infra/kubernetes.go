@@ -142,7 +142,7 @@ func GenerateKubernetesNodeSetOutput(infraInput *Provider, nodeSetName string, n
 	// Generate instance names for all nodes
 	instanceNames := GenerateNodeInstanceNames(nodeSetName, nodeMetadataRoles)
 
-	for i := 0; i < nodeCount; i++ {
+	for i := range nodeCount {
 		serviceName := instanceNames[i]
 		namespace := ""
 		if infraInput.Kubernetes != nil {

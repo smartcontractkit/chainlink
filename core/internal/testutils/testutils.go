@@ -244,12 +244,3 @@ func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
 }
-
-// Ptr takes pointer of anything
-//
-// Deprecated: use new()
-//
-//go:fix inline
-func Ptr[T any](v T) *T {
-	return new(v)
-}

@@ -31,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/bnm_registrar"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/lnr_registrar"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/test_token"
-	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -39,12 +38,12 @@ import (
 	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
+	"github.com/smartcontractkit/chainlink-aptos/codec"
 	aptoscs "github.com/smartcontractkit/chainlink-aptos/deployment/ccip"
 	"github.com/smartcontractkit/chainlink-aptos/deployment/ccip/config"
 	shared "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/shared"
 	aptosstate "github.com/smartcontractkit/chainlink-aptos/deployment/state"
 	aptostypes "github.com/smartcontractkit/chainlink-aptos/deployment/types"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"

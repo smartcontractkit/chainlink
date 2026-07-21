@@ -27,7 +27,7 @@ func (j CRESettingsJob) ResolveJob() (string, error) {
 	}
 
 	shaSum := sha256.Sum256([]byte(j.Settings))
-	data := map[string]interface{}{
+	data := map[string]any{
 		"ExternalJobID": externalJobUUID,
 		"Hash":          hex.EncodeToString(shaSum[:]),
 		"Settings":      j.Settings,
