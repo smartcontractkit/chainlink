@@ -29,7 +29,7 @@ func innermostUserFrameFromGoStack(stack []byte) string {
 	if len(stack) == 0 {
 		return ""
 	}
-	for _, line := range strings.Split(string(stack), "\n") {
+	for line := range strings.SplitSeq(string(stack), "\n") {
 		m := goStackFileLine.FindStringSubmatch(line)
 		if len(m) != 3 {
 			continue
@@ -83,7 +83,7 @@ func errorLocationFromWrappedErrors(err error) string {
 // fmt.Sprintf("%%+v", frame) also prints the qualified function name on a separate line.
 func formatPkgErrorsFrameFileLine(fr pkgerrors.Frame) string {
 	raw := fmt.Sprintf("%+v", fr)
-	for _, ln := range strings.Split(raw, "\n") {
+	for ln := range strings.SplitSeq(raw, "\n") {
 		t := strings.TrimSpace(ln)
 		if pkgErrFramePathLine.MatchString(t) {
 			return t

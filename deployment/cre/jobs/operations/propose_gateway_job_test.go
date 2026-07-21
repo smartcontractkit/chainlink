@@ -202,10 +202,6 @@ func TestProposeGatewayJob(t *testing.T) {
 	}
 }
 
-func createString(x string) *string {
-	return &x
-}
-
 var nodes = []*nodev1.Node{
 	// Product: CRE
 	{
@@ -217,26 +213,26 @@ var nodes = []*nodev1.Node{
 		Labels: []*ptypes.Label{
 			{
 				Key:   "don",
-				Value: createString("bootstrappers_virtual_don"),
+				Value: new("bootstrappers_virtual_don"),
 			},
 			{
 				Key:   "environment",
-				Value: createString("staging"),
+				Value: new("staging"),
 			},
 			{
 				Key:   "p2p_id",
-				Value: createString("12D3Koo-1"),
+				Value: new("12D3Koo-1"),
 			},
 			{
 				Key:   "product",
-				Value: createString("cre"),
+				Value: new("cre"),
 			},
 			{
 				Key:   "zone",
-				Value: createString("zone-b"),
+				Value: new("zone-b"),
 			},
 		},
-		WorkflowKey: createString("wfk1"),
+		WorkflowKey: new("wfk1"),
 		P2PKeyBundles: []*nodev1.P2PKeyBundle{
 			{
 				PeerId:    "p2p_12D3Koo-1",
@@ -256,30 +252,30 @@ var nodes = []*nodev1.Node{
 		Labels: []*ptypes.Label{
 			{
 				Key:   "don-workflow_1_zone-b",
-				Value: createString(""),
+				Value: new(""),
 			},
 			{
 				Key:   "environment",
-				Value: createString("staging"),
+				Value: new("staging"),
 			},
 			{
 				Key:   "p2p_id",
-				Value: createString("12D3Koo-2"),
+				Value: new("12D3Koo-2"),
 			},
 			{
 				Key:   "product",
-				Value: createString("cre"),
+				Value: new("cre"),
 			},
 			{
 				Key:   "type",
-				Value: createString("plugin"),
+				Value: new("plugin"),
 			},
 			{
 				Key:   "zone",
-				Value: createString("zone-b"),
+				Value: new("zone-b"),
 			},
 		},
-		WorkflowKey: createString("wfk2"),
+		WorkflowKey: new("wfk2"),
 		P2PKeyBundles: []*nodev1.P2PKeyBundle{
 			{
 				PeerId:    "p2p_12D3Koo-2",
@@ -299,26 +295,26 @@ var nodes = []*nodev1.Node{
 		Labels: []*ptypes.Label{
 			{
 				Key:   "don",
-				Value: createString("bootstrappers_virtual_don"),
+				Value: new("bootstrappers_virtual_don"),
 			},
 			{
 				Key:   "environment",
-				Value: createString("staging"),
+				Value: new("staging"),
 			},
 			{
 				Key:   "p2p_id",
-				Value: createString("12D3Koo-3"),
+				Value: new("12D3Koo-3"),
 			},
 			{
 				Key:   "product",
-				Value: createString("cre"),
+				Value: new("cre"),
 			},
 			{
 				Key:   "zone",
-				Value: createString("zone-b"),
+				Value: new("zone-b"),
 			},
 		},
-		WorkflowKey: createString("wfk3"),
+		WorkflowKey: new("wfk3"),
 		P2PKeyBundles: []*nodev1.P2PKeyBundle{
 			{
 				PeerId:    "p2p_12D3Koo-3",
@@ -338,30 +334,30 @@ var nodes = []*nodev1.Node{
 		Labels: []*ptypes.Label{
 			{
 				Key:   "don-chain_capabilities_zone-b",
-				Value: createString(""),
+				Value: new(""),
 			},
 			{
 				Key:   "environment",
-				Value: createString("staging"),
+				Value: new("staging"),
 			},
 			{
 				Key:   "p2p_id",
-				Value: createString("12D3Koo-4"),
+				Value: new("12D3Koo-4"),
 			},
 			{
 				Key:   "product",
-				Value: createString("cre"),
+				Value: new("cre"),
 			},
 			{
 				Key:   "type",
-				Value: createString("plugin"),
+				Value: new("plugin"),
 			},
 			{
 				Key:   "zone",
-				Value: createString("zone-b"),
+				Value: new("zone-b"),
 			},
 		},
-		WorkflowKey: createString("wfk4"),
+		WorkflowKey: new("wfk4"),
 		P2PKeyBundles: []*nodev1.P2PKeyBundle{
 			{
 				PeerId:    "p2p_12D3Koo-4",
@@ -381,26 +377,26 @@ var nodes = []*nodev1.Node{
 		Labels: []*ptypes.Label{
 			{
 				Key:   "don-gateway_1_zone-b",
-				Value: createString(""),
+				Value: new(""),
 			},
 			{
 				Key:   "environment",
-				Value: createString("staging"),
+				Value: new("staging"),
 			},
 			{
 				Key:   "p2p_id",
-				Value: createString("12D3Koo-5"),
+				Value: new("12D3Koo-5"),
 			},
 			{
 				Key:   "product",
-				Value: createString("cre"),
+				Value: new("cre"),
 			},
 			{
 				Key:   "zone",
-				Value: createString("zone-b"),
+				Value: new("zone-b"),
 			},
 		},
-		WorkflowKey: createString("wfk5"),
+		WorkflowKey: new("wfk5"),
 		P2PKeyBundles: []*nodev1.P2PKeyBundle{
 			{
 				PeerId:    "p2p_12D3Koo-5",
@@ -421,26 +417,26 @@ var nodes = []*nodev1.Node{
 		Labels: []*ptypes.Label{
 			{
 				Key:   "don",
-				Value: createString("bootstrappers_virtual_don"),
+				Value: new("bootstrappers_virtual_don"),
 			},
 			{
 				Key:   "environment",
-				Value: createString("staging"),
+				Value: new("staging"),
 			},
 			{
 				Key:   "p2p_id",
-				Value: createString("12D3Koo-6"),
+				Value: new("12D3Koo-6"),
 			},
 			{
 				Key:   "product",
-				Value: createString("other"),
+				Value: new("other"),
 			},
 			{
 				Key:   "zone",
-				Value: createString("zone-b"),
+				Value: new("zone-b"),
 			},
 		},
-		WorkflowKey: createString("wfk6"),
+		WorkflowKey: new("wfk6"),
 		P2PKeyBundles: []*nodev1.P2PKeyBundle{
 			{
 				PeerId:    "p2p_12D3Koo-6",
@@ -460,30 +456,30 @@ var nodes = []*nodev1.Node{
 		Labels: []*ptypes.Label{
 			{
 				Key:   "don-workflow_1_zone-b",
-				Value: createString(""),
+				Value: new(""),
 			},
 			{
 				Key:   "environment",
-				Value: createString("staging"),
+				Value: new("staging"),
 			},
 			{
 				Key:   "p2p_id",
-				Value: createString("12D3Koo-7"),
+				Value: new("12D3Koo-7"),
 			},
 			{
 				Key:   "product",
-				Value: createString("other"),
+				Value: new("other"),
 			},
 			{
 				Key:   "type",
-				Value: createString("plugin"),
+				Value: new("plugin"),
 			},
 			{
 				Key:   "zone",
-				Value: createString("zone-b"),
+				Value: new("zone-b"),
 			},
 		},
-		WorkflowKey: createString("wfk7"),
+		WorkflowKey: new("wfk7"),
 		P2PKeyBundles: []*nodev1.P2PKeyBundle{
 			{
 				PeerId:    "p2p_12D3Koo-7",
@@ -503,26 +499,26 @@ var nodes = []*nodev1.Node{
 		Labels: []*ptypes.Label{
 			{
 				Key:   "don",
-				Value: createString("bootstrappers_virtual_don"),
+				Value: new("bootstrappers_virtual_don"),
 			},
 			{
 				Key:   "environment",
-				Value: createString("staging"),
+				Value: new("staging"),
 			},
 			{
 				Key:   "p2p_id",
-				Value: createString("12D3Koo-8"),
+				Value: new("12D3Koo-8"),
 			},
 			{
 				Key:   "product",
-				Value: createString("other"),
+				Value: new("other"),
 			},
 			{
 				Key:   "zone",
-				Value: createString("zone-b"),
+				Value: new("zone-b"),
 			},
 		},
-		WorkflowKey: createString("wfk8"),
+		WorkflowKey: new("wfk8"),
 		P2PKeyBundles: []*nodev1.P2PKeyBundle{
 			{
 				PeerId:    "p2p_12D3Koo-8",
@@ -542,30 +538,30 @@ var nodes = []*nodev1.Node{
 		Labels: []*ptypes.Label{
 			{
 				Key:   "don-chain_capabilities_zone-b",
-				Value: createString(""),
+				Value: new(""),
 			},
 			{
 				Key:   "environment",
-				Value: createString("staging"),
+				Value: new("staging"),
 			},
 			{
 				Key:   "p2p_id",
-				Value: createString("12D3Koo-9"),
+				Value: new("12D3Koo-9"),
 			},
 			{
 				Key:   "product",
-				Value: createString("other"),
+				Value: new("other"),
 			},
 			{
 				Key:   "type",
-				Value: createString("plugin"),
+				Value: new("plugin"),
 			},
 			{
 				Key:   "zone",
-				Value: createString("zone-b"),
+				Value: new("zone-b"),
 			},
 		},
-		WorkflowKey: createString("wfk9"),
+		WorkflowKey: new("wfk9"),
 		P2PKeyBundles: []*nodev1.P2PKeyBundle{
 			{
 				PeerId:    "p2p_12D3Koo-9",
@@ -585,26 +581,26 @@ var nodes = []*nodev1.Node{
 		Labels: []*ptypes.Label{
 			{
 				Key:   "don-gateway_1_zone-b",
-				Value: createString(""),
+				Value: new(""),
 			},
 			{
 				Key:   "environment",
-				Value: createString("staging"),
+				Value: new("staging"),
 			},
 			{
 				Key:   "p2p_id",
-				Value: createString("12D3Koo-10"),
+				Value: new("12D3Koo-10"),
 			},
 			{
 				Key:   "product",
-				Value: createString("other"),
+				Value: new("other"),
 			},
 			{
 				Key:   "zone",
-				Value: createString("zone-b"),
+				Value: new("zone-b"),
 			},
 		},
-		WorkflowKey: createString("wfk10"),
+		WorkflowKey: new("wfk10"),
 		P2PKeyBundles: []*nodev1.P2PKeyBundle{
 			{
 				PeerId:    "p2p_12D3Koo-10",
@@ -638,9 +634,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-1@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_1",
 	},
 	{
@@ -663,9 +659,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-1@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_1",
 	},
 	{
@@ -688,9 +684,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-1@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_2",
 	},
 	{
@@ -713,9 +709,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-1@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_2",
 	}, {
 		Chain: &nodev1.Chain{
@@ -737,9 +733,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-3@cl-cre-chain-capabilities-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_3",
 	},
 	{
@@ -762,9 +758,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-3@cl-cre-chain-capabilities-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_3",
 	}, {
 		Chain: &nodev1.Chain{
@@ -786,9 +782,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-3@cl-cre-chain-capabilities-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_4",
 	},
 	{
@@ -811,9 +807,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-3@cl-cre-chain-capabilities-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_4",
 	},
 	{
@@ -827,7 +823,7 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle: &nodev1.OCR1Config_OCRKeyBundle{},
 		},
 		Ocr2Config:              &nodev1.OCR2Config{},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_5",
 	}, {
 		Chain: &nodev1.Chain{
@@ -849,9 +845,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-6@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_6",
 	},
 	{
@@ -874,9 +870,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-6@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_6",
 	}, {
 		Chain: &nodev1.Chain{
@@ -898,9 +894,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-6@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_7",
 	},
 	{
@@ -923,9 +919,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-6@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_7",
 	}, {
 		Chain: &nodev1.Chain{
@@ -947,9 +943,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-8@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_8",
 	},
 	{
@@ -972,9 +968,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-8@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_8",
 	}, {
 		Chain: &nodev1.Chain{
@@ -996,9 +992,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-8@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_9",
 	},
 	{
@@ -1021,9 +1017,9 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle:     &nodev1.OCR2Config_OCRKeyBundle{},
 			Multiaddr:        "12D3Koo-8@cl-cre-one-zone-b-bt-0:5001",
 			Plugins:          &nodev1.OCR2Config_Plugins{},
-			ForwarderAddress: createString(""),
+			ForwarderAddress: new(""),
 		},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_9",
 	},
 	{
@@ -1037,7 +1033,7 @@ var chainConfigs = []*nodev1.ChainConfig{
 			OcrKeyBundle: &nodev1.OCR1Config_OCRKeyBundle{},
 		},
 		Ocr2Config:              &nodev1.OCR2Config{},
-		AccountAddressPublicKey: createString(""),
+		AccountAddressPublicKey: new(""),
 		NodeId:                  "node_10",
 	},
 }
