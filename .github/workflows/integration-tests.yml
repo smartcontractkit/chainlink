@@ -239,8 +239,8 @@ jobs:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
           # include unique label (core/plugins) to ensure jobs are not competing for the same runner
-          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32/memory=64/family=c7i+c8i/spot=co/extras=s3-cache+tmpfs
-          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32/memory=64/family=c7i+c8i/spot=co/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=32/memory=64/family=c7i+c8i+c6i+m7i/spot=co/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=32/memory=64/family=c7i+c8i+c6i+m7i/spot=co/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
@@ -261,8 +261,7 @@ jobs:
       [
         labels,
         enforce-ctf-version,
-        run-core-cre-e2e-tests-setup,
-        run-ccip-v1-6-e2e-tests-setup,
+        changes,
       ]
     permissions:
       id-token: write
@@ -277,8 +276,12 @@ jobs:
             cache-scope: core
             any-should-run: >-
               ${{
-                needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
-                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+                github.event_name == 'workflow_dispatch' ||
+                needs.changes.outputs.general-changes == 'true' ||
+                needs.changes.outputs.core-changes == 'true' ||
+                needs.changes.outputs.cre-changes == 'true' ||
+                needs.changes.outputs.ccip-changes == 'true' ||
+                needs.labels.outputs.run-e2e-tests-label-found == 'true'
               }}
 
           - name: (plugins)
@@ -286,7 +289,14 @@ jobs:
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
             cache-scope: plugins
-            any-should-run: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' }}
+            any-should-run: >-
+              ${{
+                github.event_name == 'workflow_dispatch' ||
+                needs.changes.outputs.general-changes == 'true' ||
+                needs.changes.outputs.core-changes == 'true' ||
+                needs.changes.outputs.cre-changes == 'true' ||
+                needs.labels.outputs.run-e2e-tests-label-found == 'true'
+              }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@bdccf4a8c118feaa74578d6fb51012875a860567 # v2.2.0
@@ -516,14 +526,16 @@ jobs:
     if: >-
       ${{
         github.actor != 'dependabot[bot]' &&
-        (needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
-         needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true')
+        (github.event_name == 'workflow_dispatch' ||
+         needs.changes.outputs.general-changes == 'true' ||
+         needs.changes.outputs.core-changes == 'true' ||
+         needs.changes.outputs.cre-changes == 'true' ||
+         needs.changes.outputs.ccip-changes == 'true' ||
+         needs.labels.outputs.run-e2e-tests-label-found == 'true')
       }}
     needs:
       - labels
       - changes
-      - run-core-cre-e2e-tests-setup
-      - run-ccip-v1-6-e2e-tests-setup
     runs-on: runs-on=${{ github.run_id }}-compile/cpu=8/ram=32/family=m7i+m8i/spot=co/extras=s3-cache
     environment:
       name: integration
