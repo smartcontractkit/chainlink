@@ -5,88 +5,72 @@ disable-model-invocation: true
 ---
 
 <initialization>
-Prompt user if missing:
-1. Workflow to optimize.
-2. Priorities (default: stability > speed > cost).
-3. "Speed" definition (e.g., cache hits vs raw execution).
-4. "Stability" definition (e.g., are flaky tests acceptable?).
-5. Spot setting (infer via scenarios, do not ask directly). [runs-on spot reference](https://runs-on.com/docs/costs/spot-pricing/)
-6. Acceptable structural changes (e.g., job splitting, caching, lint reorganization, trigger optimizations).
-
-Setup:
-1. Analyze workflow: identify jobs, runners, step dependencies, critical path, caching, and bottlenecks.
-2. Identify structural optimizations, including but not limited to:
-   - Parallelize sequential steps/jobs (e.g., matrix builds).
-   - Add/fix caching (e.g., go modules, cargo, npm, docker layers).
-   - Move checks/lints before compilation/tests to fail early.
-   - Refactor triggers/scope.
-3. Permitted scope: High freedom. OK to introduce breaking edits to internal `smartcontractkit` actions/workflows to improve speed/simplicity.
-4. Ask user to target: specific job, whole workflow runner config, or workflow structure.
-5. Setup test workflow (bypass gates, mock inputs, add `workflow_dispatch`).
-6. Init/resume trials log: `.github/.agents/skills/optimize-workflow/[workflow]/summary.md`.
-7. Run/find/ask for a baseline trial with current configuration to benchmark against.
+1. Confirm missing inputs: target workflow, scope (job, runner, or structure), priorities (default: stability > speed > cost).
+2. Setup baseline:
+   - Analyze target workflow (runners, caching, bottlenecks, critical path).
+   - Setup test workflow (add `workflow_dispatch`, mock inputs if needed).
+   - Init/resume trial log: `.github/.agents/skills/optimize-workflow/[workflow]/summary.md`.
+   - Record baseline trial run.
 </initialization>
 
+<git_workflow>
+To prevent `.git/index.lock` and branch lock conflicts:
+- Do NOT checkout local trial branches (`git checkout -b`).
+- Push trial commits directly from working branch to remote trial refs:
+  `git push -f origin HEAD:refs/heads/trial/[trial-name]`
+- Delete remote trial branches on cleanup: `git push origin --delete trial/[trial-name]`
+</git_workflow>
+
 <constraints>
-- No OOM or Out of Disk Space failures allowed.
-- Prefer default `ubuntu-latest`. Use `runs-on` only for larger runner requirements.
-  - Note: `runs-on` with `tmpfs` enabled can cause silent OOMs (not visible in memory metrics) under high disk load. Toggle `tmpfs` off if unexplained OOMs occur, and evaluate speed/cost impact.
-- Verify runner configuration via available runners API before use.
-- Validate workflow YAML syntax (e.g., `actionlint` or dry-run) before committing.
-- Maintain semantic correctness. OK to break internal `smartcontractkit` action/workflow interfaces for speed/simplicity.
-- Use `gh` CLI for runs and PRs.
-- Change only one variable per trial.
-- Ensure fair comparison: cache status must be identical across trials compared for speed.
-- Document runner config and structure layout in each trial to ensure reproducibility.
+- **Git**: Direct ref pushes only. No local branch switching during trials.
+- **Runners**: Prefer `ubuntu-latest`. Use `runs-on` for larger runners (verify API first).
+- **Scope**: One change per trial. Ensure cache status is identical across trials compared for speed. OK to refactor internal `smartcontractkit` actions/workflows.
+- **Validation**: Lint YAML (`actionlint` or dry-run) before pushing.
+- **Tools**: Use `gh` CLI and workflow scripts for monitoring/comparisons.
 </constraints>
 
 <tools>
-Always use these scripts to gather data on workflow runs. Only use `gh` CLI if these don't give all necessary info.
-
-- See/monitor a workflow: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py [run_id] [trial-name]`
-   - Creates `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/report.json`
-   - Creates `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/report.md`
-   - Extracts runner logs to `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/logs/`
-- Compare trials: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py [trial-1] [trial-2]`
-   - Creates `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1]-[trial-2]-comparison.md`
+- Monitor: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py [run_id] [trial-name]`
+  - Outputs `report.json`, `report.md`, and runner logs to `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/`
+- Compare: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py [trial-1] [trial-2]`
+  - Outputs `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1]-[trial-2]-comparison.md`
 </tools>
 
 <resources>
-- [runs-on docs](https://runs-on.com/docs/)
+- [runs-on docs](https://runs-on.com/docs/) | [spot pricing](https://runs-on.com/docs/costs/spot-pricing/)
 - [available runners](https://go.runs-on.com/api)
-- [GitHub Action docs](https://docs.github.com/en/actions)
+- [GitHub Actions docs](https://docs.github.com/en/actions)
 </resources>
 
 <loop>
-1. Define trials. Update `<workflow>.md` log.
-2. User approves trials and execution method (parallel vs sequential).
-3. Commit + push to new disposable branch, `trial/[trial-name]`.
-4. Trigger workflow.
-5. Monitor workflow run with `workflow_monitor.py` script in background session. Stop agent turn and notify when script complete.
-6. Compare trials with `workflow_compare.py` script
-7. Update trial log. Include updated before-after diagram if structural changes occurred.
-8. Show condensed results. Prompt for more trials or stop.
+1. Define single-variable trial and prompt for user approval.
+2. Push commit to remote trial ref: `git push -f origin HEAD:refs/heads/trial/[trial-name]`.
+3. Trigger run via `gh workflow run --ref trial/[trial-name]`.
+4. Monitor run with `workflow_monitor.py` script.
+5. Compare with `workflow_compare.py` against baseline/previous trial.
+6. Update trial log in `summary.md`. Include before/after diagram if structure changed.
+7. Present condensed result to user; prompt for next trial or completion.
 
 <trial-template>
 | Runner | Structure | Experiment | Expectation | Branch | Run ID | Commit | Stability | Runtime | Cost | Notes |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `config` | `default / cached / parallel` | What's tested | Expected result | `branch` | `run-id` | `sha` | Pass/Fail/Flaky | mm:ss | $ | Findings |
+| `config` | `cached/parallel` | Tested change | Expected impact | `trial/...` | `id` | `sha` | Pass/Fail | mm:ss | $ | Notes |
 </trial-template>
 </loop>
 
 <complete trigger="User stops loop or all trials done">
 1. Recommend final configuration.
-2. Add PR summary table and before-after Mermaid diagrams:
+2. Output PR summary table and before/after Mermaid diagrams:
 
 ```md
 ### [Workflow/Job Name] Runner & Structure Changes
 
 | Approach | Runner | Structure | Stability | Runtime | Runtime Delta (Abs/%) | Cost | Cost Delta (Abs/%) |
 |---|---|---|---|---|---|---|---|
-| [Old](https://github.com/link/to/baseline/workflow_run) | [original runner] | [original structure] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
-| [New](https://github.com/link/to/final/workflow_run) | [new runner] | [new structure] | Pass/Fail/Flaky | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
+| [Old](link) | [runner] | [structure] | Pass/Fail | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
+| [New](link) | [runner] | [structure] | Pass/Fail | mm:ss | +0:00 (+0%) | $ | +$ (+0%) |
 ```
 
-3. Clean debug lines. Make final approved edits on a new branch. Ask user to commit.
-4. Delete trial branches, logs, and PRs.
+3. Clean up debug code. Make final edits on working branch. Ask user to commit.
+4. Delete remote trial branches (`git push origin --delete trial/[trial-name]`) and temporary files.
 </complete>
