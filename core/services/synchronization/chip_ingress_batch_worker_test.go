@@ -6,6 +6,7 @@ import (
 	"time"
 
 	cepb "github.com/cloudevents/sdk-go/binding/format/protobuf/v2/pb"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -80,8 +81,11 @@ func (noopChipIngressPublisher) RegisterSchemas(ctx context.Context, schemas ...
 
 func TestChipIngressBatchWorker_Send_PartialDelivery(t *testing.T) {
 	t.Parallel()
-	// Verify that Send groups per-event errors into a single WARN log line
-	// (partial delivery, transactionEnabled=false).
+	// Verify that Send records per-event partial-delivery errors as metrics without
+	// logging: partial delivery is a per-event, often persistent condition (e.g. missing
+	// schema), so logging it would spam at fleet-wide volume. The
+	// ChipIngressPartialDeliveryDropped metric (telemetry_type, error_code) is the
+	// intended signal.
 	partialResp := &pb.PublishResponse{
 		Results: []*pb.PublishResult{
 			{
@@ -136,64 +140,17 @@ func TestChipIngressBatchWorker_Send_PartialDelivery(t *testing.T) {
 		ChainID:       "1",
 	}
 
+	code := pb.PublishErrorCode_PUBLISH_ERROR_CODE_VALIDATION_FAILED.String()
+	before := testutil.ToFloat64(ChipIngressPartialDeliveryDropped.WithLabelValues(string(OCR), code))
+
 	require.NotPanics(t, func() { worker.Send(t.Context()) })
 	assert.Empty(t, chTelemetry)
 
-	// Two failed events must produce exactly one grouped WARN log line.
-	logs := observed.FilterMessage("chip ingress partial delivery errors")
-	require.Equal(t, 1, logs.Len(), "expected exactly one grouped log line for 2 failed events")
-	assert.Equal(t, zap.WarnLevel, logs.All()[0].Level)
-}
-
-func TestChipIngressBatchWorker_Send_PartialDeliveryThrottled(t *testing.T) {
-	t.Parallel()
-	// A persistent partial-delivery condition (e.g. missing schema) must not log on every
-	// Send call - it should follow the same backoff cadence as logBufferFullWithExpBackoff.
-	singleFailureResp := &pb.PublishResponse{
-		Results: []*pb.PublishResult{
-			{
-				EventId: "evt-1",
-				Error: &pb.PublishError{
-					ErrorCode: pb.PublishErrorCode_PUBLISH_ERROR_CODE_SCHEMA_MISSING,
-					Reason:    "schema not found",
-				},
-			},
-		},
-	}
-	publisher := partialChipIngressPublisher{resp: singleFailureResp}
-
-	lggr, observed := logger.TestLoggerObserved(t, zap.WarnLevel)
-	chTelemetry := make(chan TelemPayload, 1)
-	worker := NewChipIngressBatchWorker(
-		1,
-		time.Second,
-		publisher,
-		chTelemetry,
-		"0xabc",
-		OCR,
-		lggr,
-		true,
-	)
-
-	payload := TelemPayload{
-		Telemetry:     []byte("payload"),
-		TelemType:     OCR,
-		ContractID:    "0xabc",
-		Domain:        "data-feeds",
-		Entity:        "ocr.v1.telemetry",
-		ChainSelector: 7700,
-		Network:       "EVM",
-		ChainID:       "1",
-	}
-
-	// Drop counts after each send: 1, 2, 3. Backoff logs at 1 and 2 (powers of two), not at 3.
-	for range 3 {
-		chTelemetry <- payload
-		require.NotPanics(t, func() { worker.Send(t.Context()) })
-	}
+	after := testutil.ToFloat64(ChipIngressPartialDeliveryDropped.WithLabelValues(string(OCR), code))
+	assert.Equal(t, float64(2), after-before, "expected both failed events to increment the metric")
 
 	logs := observed.FilterMessage("chip ingress partial delivery errors")
-	assert.Equal(t, 2, logs.Len(), "expected the third consecutive failure to be throttled")
+	assert.Zero(t, logs.Len(), "partial delivery drops must not be logged")
 }
 
 func TestChipIngressBatchWorker_BuildCloudEventBatch(t *testing.T) {

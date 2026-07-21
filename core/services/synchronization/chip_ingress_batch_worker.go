@@ -30,7 +30,6 @@ type chipIngressBatchWorker struct {
 	logging          bool
 	lggr             logger.Logger
 	dropMessageCount atomic.Uint32
-	partialDropCount atomic.Uint32
 }
 
 // NewChipIngressBatchWorker returns a worker for a given contractID that can send
@@ -80,35 +79,17 @@ func (cw *chipIngressBatchWorker) Send(ctx context.Context) {
 
 	// Inspect per-event results for partial delivery errors. When transaction_enabled=false
 	// (the default), the server can accept some events while rejecting others.
-	// Group by error code so a large batch with many failures produces one log line.
-	var partialDrops int
-	byCode := map[string]int{}
+	//
+	// This is intentionally not logged: it's a per-event, often persistent server-side
+	// condition (e.g. missing schema) that would otherwise WARN on every send interval
+	// (as low as 500ms) for as long as it lasts. ChipIngressPartialDeliveryDropped
+	// (telemetry_type, error_code) is the intended signal for alerting/investigation.
 	for _, result := range resp.GetResults() {
 		if e := result.GetError(); e != nil {
 			code := e.GetErrorCode().String()
-			byCode[code]++
-			partialDrops++
 			TelemetryClientMessagesDropped.WithLabelValues(chipIngress, string(cw.telemType)).Inc()
 			ChipIngressPartialDeliveryDropped.WithLabelValues(string(cw.telemType), code).Inc()
 		}
-	}
-	if partialDrops > 0 {
-		// Partial delivery is often caused by a persistent condition (missing/misconfigured
-		// schema), which would otherwise re-trigger this WARN on every send interval
-		// (as low as 500ms) for as long as the condition lasts. Throttle with the same
-		// exponential-then-linear backoff used by logBufferFullWithExpBackoff.
-		count := cw.partialDropCount.Add(uint32(partialDrops))
-		if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
-			cw.lggr.Warnw("chip ingress partial delivery errors",
-				"dropped", partialDrops,
-				"totalDropped", count,
-				"by_code", byCode,
-				"telemType", cw.telemType,
-				"contractID", cw.contractID,
-			)
-		}
-	} else {
-		cw.partialDropCount.Store(0)
 	}
 
 	TelemetryClientMessagesSent.WithLabelValues(chipIngress, string(cw.telemType)).Inc()
