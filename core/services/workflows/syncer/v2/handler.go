@@ -566,7 +566,9 @@ func (h *eventHandler) workflowRegisteredEvent(
 		}
 
 		spec = newSpec
-	case spec.WorkflowID != payload.WorkflowID.Hex():
+	case spec.WorkflowID != payload.WorkflowID.Hex() ||
+		spec.WorkflowOwner != hex.EncodeToString(payload.WorkflowOwner) ||
+		spec.WorkflowName != payload.WorkflowName:
 		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
 		if innerErr != nil {
 			return innerErr
@@ -777,7 +779,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	binaryHash := v2.ComputeBinaryHash(binary)
 	confLggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
-	confidential, err := v2.NewConfidentialModule(h.capRegistry, h.executionHandlers, binaryURL, binaryHash, workflowID, owner, name.String(), tag, h.fetchOrganizationID, h.engineLimiters.ConfidentialWorkflowsEnabled, confLggr)
+	confidential, err := v2.NewConfidentialModule(h.capRegistry, h.executionHandlers, binaryURL, binaryHash, workflowID, owner, name.String(), tag, h.fetchOrganizationID, h.engineLimiters.ConfidentialWorkflowsEnabled, h.engineLimiters.Settings, confLggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create confidential module: %w", err)
 	}
@@ -1015,8 +1017,12 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		}
 	}
 
-	// Engine is fully initialized, add to registry with source tracking
-	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
+	// Engine is fully initialized, add to registry with source tracking and identity fingerprint
+	reconcileKey, err := ReconcileKey(ownerBytes, spec.WorkflowName)
+	if err != nil {
+		return fmt.Errorf("failed to compute reconcile key: %w", err)
+	}
+	if err := h.engineRegistry.AddWithReconcileKey(wid, source, reconcileKey, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}

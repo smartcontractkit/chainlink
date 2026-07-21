@@ -62,12 +62,12 @@ func Test_Stream(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	t.Run("errors with empty pipeline", func(t *testing.T) {
-		jbInvalid := job.Job{StreamID: ptr(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: ``}}
+		jbInvalid := job.Job{StreamID: new(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: ``}}
 		_, err := newMultiStreamPipeline(lggr, jbInvalid, runner, nil)
 		require.EqualError(t, err, "unparseable pipeline: empty pipeline")
 	})
 
-	jb := job.Job{StreamID: ptr(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: `
+	jb := job.Job{StreamID: new(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: `
 succeed             [type=memo value=42 streamID=124];
 succeed;
 	`}}

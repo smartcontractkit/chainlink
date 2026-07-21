@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"slices"
 
@@ -496,24 +497,18 @@ func convertOCR3ByteFieldsToHex(configCopy map[string]any) {
 func (cc CapabilitiesConfiguration) MarshalJSON() ([]byte, error) {
 	// Deep-copy config so we don't mutate the original map.
 	configCopy := make(map[string]any, len(cc.Config))
-	for k, v := range cc.Config {
-		configCopy[k] = v
-	}
+	maps.Copy(configCopy, cc.Config)
 	convertOCR3ByteFieldsToHex(configCopy)
 	if len(cc.decodedOCR3) > 0 {
 		if ocr3CfgsRaw, ok := configCopy["ocr3Configs"]; ok {
 			if ocr3Cfgs, ok := ocr3CfgsRaw.(map[string]any); ok {
 				ocr3CfgsCopy := make(map[string]any, len(ocr3Cfgs))
-				for k, v := range ocr3Cfgs {
-					ocr3CfgsCopy[k] = v
-				}
+				maps.Copy(ocr3CfgsCopy, ocr3Cfgs)
 				for key, oracleConfig := range cc.decodedOCR3 {
 					if entry, ok := ocr3CfgsCopy[key]; ok {
 						if entryMap, ok := entry.(map[string]any); ok {
 							merged := make(map[string]any, len(entryMap)+1)
-							for k, v := range entryMap {
-								merged[k] = v
-							}
+							maps.Copy(merged, entryMap)
 							merged["decodedOffchainConfig"] = oracleConfig
 							ocr3CfgsCopy[key] = merged
 						}

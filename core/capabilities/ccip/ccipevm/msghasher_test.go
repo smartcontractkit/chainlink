@@ -8,7 +8,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"os"
+
 	"math/big"
 	"math/rand"
 	"strings"
@@ -464,7 +465,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		// onramp address: 0x89559ce6904d4c4b0f6aab9065ad02b1ed531be4
 		// sequence numbers 386 to 419.
 		var msgs []cciptypes.Message
-		data, err := ioutil.ReadFile("msgs_test_vector.json")
+		data, err := os.ReadFile("msgs_test_vector.json")
 		require.NoError(t, err)
 
 		err = json.Unmarshal(data, &msgs)

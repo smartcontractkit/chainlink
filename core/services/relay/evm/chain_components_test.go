@@ -167,7 +167,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 								GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 									"DW": {
 										Name:  "someDW",
-										Index: ptr(0),
+										Index: new(0),
 									},
 								},
 							},
@@ -195,7 +195,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 								GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 									"DW": {
 										Name:  "someDW",
-										Index: ptr(0),
+										Index: new(0),
 										Type:  "abcdefg",
 									},
 								},
@@ -489,7 +489,7 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 
 	clconfig := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
-		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+		c.EVM[0].GasEstimator.EIP1559DynamicFees = new(true)
 	})
 
 	clconfig.EVMConfigs()[0].GasEstimator.PriceMax = assets.GWei(100)
@@ -516,5 +516,3 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 	h.txm = chain.TxManager()
 	return h.txm
 }
-
-func ptr[T any](v T) *T { return &v }

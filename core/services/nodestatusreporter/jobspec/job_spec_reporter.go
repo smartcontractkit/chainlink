@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -171,11 +170,11 @@ func (s *Service) buildEvent(ctx context.Context, jb job.Job, trigger events.Emi
 	}
 
 	if jb.GasLimit.Valid {
-		event.GasLimit = proto.Uint32(jb.GasLimit.Uint32)
+		event.GasLimit = new(jb.GasLimit.Uint32)
 	}
 	if jb.StreamID != nil {
 		sid := *jb.StreamID
-		event.StreamId = proto.Uint32(sid)
+		event.StreamId = new(sid)
 	}
 
 	if jb.PipelineSpec != nil {
@@ -313,13 +312,13 @@ func buildOCR2OracleSpecInfo(spec *job.OCR2OracleSpec) (*events.OCR2OracleSpecIn
 	}
 
 	if spec.FeedID != nil {
-		info.FeedId = proto.String(spec.FeedID.Hex())
+		info.FeedId = new(spec.FeedID.Hex())
 	}
 	if spec.TransmitterID.Valid {
-		info.TransmitterId = proto.String(spec.TransmitterID.String)
+		info.TransmitterId = new(spec.TransmitterID.String)
 	}
 	if spec.OCRKeyBundleID.Valid {
-		info.OcrKeyBundleId = proto.String(spec.OCRKeyBundleID.String)
+		info.OcrKeyBundleId = new(spec.OCRKeyBundleID.String)
 	}
 
 	if spec.Relay == "evm" {
@@ -359,22 +358,22 @@ func buildEVMRelayConfig(relayConfigJSON []byte, chainID, transmitterID string) 
 		SendingKeys:            cfg.SendingKeys,
 	}
 	if cfg.FromBlock != nil {
-		evmProto.FromBlock = proto.Uint64(*cfg.FromBlock)
+		evmProto.FromBlock = new(*cfg.FromBlock)
 	}
 	if cfg.EnableDualTransmission != nil {
-		evmProto.EnableDualTransmission = proto.Bool(*cfg.EnableDualTransmission)
+		evmProto.EnableDualTransmission = new(*cfg.EnableDualTransmission)
 	}
 	if cfg.EnableTriggerCapability != nil {
-		evmProto.EnableTriggerCapability = proto.Bool(*cfg.EnableTriggerCapability)
+		evmProto.EnableTriggerCapability = new(*cfg.EnableTriggerCapability)
 	}
 	if cfg.LLODonID != nil {
-		evmProto.LloDonId = proto.Uint64(*cfg.LLODonID)
+		evmProto.LloDonId = new(*cfg.LLODonID)
 	}
 	if cfg.FeedID != nil {
-		evmProto.FeedId = proto.String(*cfg.FeedID)
+		evmProto.FeedId = new(*cfg.FeedID)
 	}
 	if cfg.ProviderType != nil {
-		evmProto.ProviderType = proto.String(*cfg.ProviderType)
+		evmProto.ProviderType = new(*cfg.ProviderType)
 	}
 	return evmProto, nil
 }

@@ -121,7 +121,7 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 	method = strings.ToUpper(method)
 
 	// Prepare template data from loaded secrets
-	templateData := make(map[string]interface{})
+	templateData := make(map[string]any)
 	for k, v := range fh.secretsConfig.SecretsNames {
 		if len(v) == 1 {
 			templateData[k] = v[0]

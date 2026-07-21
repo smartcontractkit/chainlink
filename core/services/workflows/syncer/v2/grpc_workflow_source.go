@@ -16,6 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/grpcsource"
 	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
@@ -53,6 +55,9 @@ type GRPCWorkflowSource struct {
 	retryMaxDelay  time.Duration
 	mu             sync.RWMutex
 	ready          bool
+
+	centralizedOwnerVerificationEnabled limits.GateLimiter
+	settingsGetter                      settings.Getter
 }
 
 // GRPCWorkflowSourceConfig holds configuration for creating a GRPCWorkflowSource.
@@ -73,6 +78,10 @@ type GRPCWorkflowSourceConfig struct {
 	RetryBaseDelay time.Duration
 	// RetryMaxDelay is the maximum delay between retries (default: 5s)
 	RetryMaxDelay time.Duration
+	// CentralizedOwnerVerificationEnabled gates owner/org verification for centralized sources.
+	CentralizedOwnerVerificationEnabled limits.GateLimiter
+	// SettingsGetter resolves cresettings such as TenantID.
+	SettingsGetter settings.Getter
 }
 
 // NewGRPCWorkflowSource creates a new GRPC-based workflow source.
@@ -111,6 +120,9 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 	if cfg.Name == "" {
 		return nil, errors.New("source name is required")
 	}
+	if cfg.CentralizedOwnerVerificationEnabled == nil {
+		return nil, errors.New("CentralizedOwnerVerificationEnabled gate is required")
+	}
 
 	pageSize := cfg.PageSize
 	if pageSize <= 0 {
@@ -133,14 +145,16 @@ func newGRPCWorkflowSourceWithClient(lggr logger.Logger, client grpcClient, cfg 
 	}
 
 	return &GRPCWorkflowSource{
-		lggr:           logger.Named(lggr, cfg.Name),
-		client:         client,
-		name:           cfg.Name,
-		pageSize:       pageSize,
-		maxRetries:     maxRetries,
-		retryBaseDelay: retryBaseDelay,
-		retryMaxDelay:  retryMaxDelay,
-		ready:          true,
+		lggr:                                logger.Named(lggr, cfg.Name),
+		client:                              client,
+		name:                                cfg.Name,
+		pageSize:                            pageSize,
+		maxRetries:                          maxRetries,
+		retryBaseDelay:                      retryBaseDelay,
+		retryMaxDelay:                       retryMaxDelay,
+		ready:                               true,
+		centralizedOwnerVerificationEnabled: cfg.CentralizedOwnerVerificationEnabled,
+		settingsGetter:                      cfg.SettingsGetter,
 	}, nil
 }
 
@@ -170,7 +184,7 @@ func (g *GRPCWorkflowSource) ListWorkflowMetadata(ctx context.Context, don capab
 
 		// Convert workflows to views, skipping invalid ones
 		for _, wf := range workflows {
-			view, err := g.toWorkflowMetadataView(wf)
+			view, err := g.toWorkflowMetadataView(ctx, wf)
 			if err != nil {
 				g.lggr.Warnw("Failed to parse workflow metadata, skipping",
 					"workflowName", wf.GetWorkflowName(),
@@ -319,7 +333,7 @@ func (g *GRPCWorkflowSource) Close() error {
 }
 
 // toWorkflowMetadataView converts a protobuf WorkflowMetadata to a WorkflowMetadataView.
-func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (WorkflowMetadataView, error) {
+func (g *GRPCWorkflowSource) toWorkflowMetadataView(ctx context.Context, wf *pb.WorkflowMetadata) (WorkflowMetadataView, error) {
 	// Validate workflow ID length
 	workflowIDBytes := wf.GetWorkflowId()
 	if len(workflowIDBytes) != 32 {
@@ -341,6 +355,19 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 	// Map proto status enum to internal representation
 	statusVal := GRPCStatusToInternal(wf.GetStatus(), g.lggr)
 
+	source := g.SourceIdentifier()
+	if err := maybeVerifyCentralizedOwnerOrgMapping(
+		ctx,
+		g.lggr,
+		source,
+		ownerStr,
+		wf.GetOrganizationId(),
+		g.centralizedOwnerVerificationEnabled,
+		g.settingsGetter,
+	); err != nil {
+		return WorkflowMetadataView{}, err
+	}
+
 	return WorkflowMetadataView{
 		WorkflowID:   workflowID,
 		Owner:        ownerBytes,
@@ -352,7 +379,7 @@ func (g *GRPCWorkflowSource) toWorkflowMetadataView(wf *pb.WorkflowMetadata) (Wo
 		Tag:          wf.GetTag(),
 		Attributes:   attributes,
 		DonFamily:    wf.GetDonFamily(),
-		Source:       g.SourceIdentifier(),
+		Source:       source,
 	}, nil
 }
 

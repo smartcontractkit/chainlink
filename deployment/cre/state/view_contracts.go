@@ -47,9 +47,7 @@ func GenerateCREChainView(
 	}
 
 	if contracts.CapabilitiesRegistry != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for addr, capabilitiesRegistry := range contracts.CapabilitiesRegistry {
 				select {
 				case <-ctx.Done():
@@ -68,7 +66,7 @@ func GenerateCREChainView(
 					outMu.Unlock()
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

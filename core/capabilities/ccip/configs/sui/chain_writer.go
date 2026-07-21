@@ -32,8 +32,8 @@ func GetChainWriterConfig(publicKeyStr string) (types.ChainWriterConfig, error) 
 						PTBCommands: []types.ChainWriterPTBCommand{
 							{
 								Type:     types.SuiPTBCommandMoveCall,
-								ModuleId: strPtr("offramp"),
-								Function: strPtr("commit"),
+								ModuleId: new("offramp"),
+								Function: new("commit"),
 								Params: []types.SuiFunctionParam{
 									{
 										Name:     "ref",
@@ -77,8 +77,8 @@ func GetChainWriterConfig(publicKeyStr string) (types.ChainWriterConfig, error) 
 						PTBCommands: []types.ChainWriterPTBCommand{
 							{
 								Type:     types.SuiPTBCommandMoveCall,
-								ModuleId: strPtr("offramp"),
-								Function: strPtr("init_execute"),
+								ModuleId: new("offramp"),
+								Function: new("init_execute"),
 								Params: []types.SuiFunctionParam{
 									{
 										Name:      "ref",
@@ -116,8 +116,8 @@ func GetChainWriterConfig(publicKeyStr string) (types.ChainWriterConfig, error) 
 							},
 							{
 								Type:     types.SuiPTBCommandMoveCall,
-								ModuleId: strPtr("offramp"),
-								Function: strPtr("finish_execute"),
+								ModuleId: new("offramp"),
+								Function: new("finish_execute"),
 								Params: []types.SuiFunctionParam{
 									{
 										Name:      "ref",
@@ -151,6 +151,8 @@ func GetChainWriterConfig(publicKeyStr string) (types.ChainWriterConfig, error) 
 }
 
 // Helper function to convert a string to a string pointer
+//
+//go:fix inline
 func strPtr(s string) *string {
-	return &s
+	return new(s)
 }
