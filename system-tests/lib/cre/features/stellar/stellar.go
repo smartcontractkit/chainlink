@@ -35,8 +35,8 @@ func (s *Stellar) Flag() cre.CapabilityFlag {
 }
 
 func (s *Stellar) PreEnvStartup(
-	_ context.Context,
-	_ zerolog.Logger,
+	ctx context.Context,
+	testLogger zerolog.Logger,
 	don *cre.DonMetadata,
 	_ *cre.Topology,
 	creEnv *cre.Environment,
@@ -95,13 +95,19 @@ func (s *Stellar) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	if extractStellarFromEnv(creEnv) == nil {
+	stellarChain := extractStellarFromEnv(creEnv)
+	if stellarChain == nil {
 		return errors.New("no stellar blockchain found in environment")
 	}
 
 	nodeSet, err := nodeSetForDON(dons, don.Name)
 	if err != nil {
 		return err
+	}
+
+	consensusDons := dons.DonsWithFlag(cre.ConsensusCapability)
+	if len(consensusDons) == 0 {
+		return errors.New("no consensus DON found in environment")
 	}
 
 	if cfgErr := configureStellarForwarders(ctx, testLogger, creEnv, consensusDons[0], stellarChain); cfgErr != nil {
