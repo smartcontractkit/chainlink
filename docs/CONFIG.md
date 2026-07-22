@@ -2412,6 +2412,7 @@ LogExportTimeout = '1s' # Default
 LogExportMaxBatchSize = 512 # Default
 LogExportInterval = '1s' # Default
 LogMaxQueueSize = 2048 # Default
+MetricCardinalityLimit = 100000 # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2601,6 +2602,12 @@ LogExportInterval sets the maximum duration between batched exports
 LogMaxQueueSize = 2048 # Default
 ```
 LogMaxQueueSize sets the maximum queue size used by the batcher
+
+### MetricCardinalityLimit
+```toml
+MetricCardinalityLimit = 100000 # Default
+```
+MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
 
 ## Telemetry.ResourceAttributes
 ```toml

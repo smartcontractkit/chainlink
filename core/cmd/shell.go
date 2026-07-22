@@ -172,7 +172,8 @@ func newBeholderClient(
 		LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
 		// Due to OpenTelemetry semantics, histogram bucket boundaries must be set
 		// when the Beholder client is constructed.
-		MetricViews: metricViews(),
+		MetricViews:            metricViews(),
+		MetricCardinalityLimit: cfgTelemetry.MetricCardinalityLimit(),
 	}
 
 	if cfgTracing.Enabled() {

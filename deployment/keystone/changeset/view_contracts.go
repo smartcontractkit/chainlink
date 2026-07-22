@@ -72,9 +72,7 @@ func GenerateKeystoneChainView(
 	}
 
 	if contracts.CapabilitiesRegistry != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for addr, capabilitiesRegistry := range contracts.CapabilitiesRegistry {
 				select {
 				case <-ctx.Done():
@@ -93,13 +91,11 @@ func GenerateKeystoneChainView(
 					outMu.Unlock()
 				}
 			}
-		}()
+		})
 	}
 
 	if contracts.OCR3 != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for addr, ocr3Cap := range contracts.OCR3 {
 				select {
 				case <-ctx.Done():
@@ -124,14 +120,12 @@ func GenerateKeystoneChainView(
 					outMu.Unlock()
 				}
 			}
-		}()
+		})
 	}
 
 	// Process the workflow registry and print if WorkflowRegistryError errors.
 	if contracts.WorkflowRegistry != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for addr, workflowRegistry := range contracts.WorkflowRegistry {
 				select {
 				case <-ctx.Done():
@@ -150,13 +144,11 @@ func GenerateKeystoneChainView(
 					outMu.Unlock()
 				}
 			}
-		}()
+		})
 	}
 
 	if contracts.Forwarder != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for _, fwr := range contracts.Forwarder {
 				fwrCopy := fwr
 				fwrAddr := fwrCopy.Address().String()
@@ -197,7 +189,7 @@ func GenerateKeystoneChainView(
 					}
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -277,10 +269,7 @@ func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder, 
 	// for the `SetConfig` events.
 	// If no deployment block is available, it will start from 0.
 	for start := startBlock; start <= latestBlock; start += batchSize {
-		end := start + batchSize - 1
-		if end > latestBlock {
-			end = latestBlock
-		}
+		end := min(start+batchSize-1, latestBlock)
 
 		configIterator, configSetErr := f.FilterConfigSet(&bind.FilterOpts{
 			Start:   start,

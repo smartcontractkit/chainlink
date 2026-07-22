@@ -7,23 +7,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
-	"github.com/stretchr/testify/require"
-	"k8s.io/utils/ptr"
-
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
-	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
+	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/deployergroup"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -326,7 +321,7 @@ func TestDeployerGroupWithTimelockAddressQualifier(t *testing.T) {
 	}
 	// Create a MCMS config for deployment with qualifier for the selected chain
 	cfg := cldftesthelpers.SingleGroupTimelockConfig(t)
-	cfg.Qualifier = ptr.To(linktokenOwnerQualifier)
+	cfg.Qualifier = new(linktokenOwnerQualifier)
 	mcmsCfg[chain] = cfg
 
 	// Deploy a new MCMS with qualifier and transfer the ownership of the link token to it

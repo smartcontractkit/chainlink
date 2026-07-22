@@ -57,7 +57,7 @@ func (f *fakeOffchainClient) ListNodes(_ context.Context, in *nodev1.ListNodesRe
 		for _, sel := range in.Filter.Selectors {
 			if sel.Key == "p2p_id" && sel.Op == ptypes.SelectorOp_IN && sel.Value != nil {
 				wantP2P = make(map[string]bool)
-				for _, v := range strings.Split(*sel.Value, ",") {
+				for v := range strings.SplitSeq(*sel.Value, ",") {
 					wantP2P[v] = true
 				}
 			}

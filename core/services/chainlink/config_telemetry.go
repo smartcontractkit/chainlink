@@ -263,6 +263,10 @@ func (b *telemetryConfig) LogMaxQueueSize() int {
 	return *b.s.LogMaxQueueSize
 }
 
+func (b *telemetryConfig) MetricCardinalityLimit() int {
+	return *b.s.MetricCardinalityLimit
+}
+
 func (b *telemetryConfig) PrometheusBridge() config.PrometheusBridge {
 	return &prometheusBridgeConfig{b.s.PrometheusBridge}
 }

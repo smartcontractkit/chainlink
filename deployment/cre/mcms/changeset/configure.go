@@ -16,7 +16,7 @@ type CsMCMSConfigure struct{}
 var _ cldf.ChangeSetV2[ConfigureChangesetInput] = CsMCMSConfigure{}
 
 type ContractConfiguration struct {
-	Config cldfproposalutils.MCMSWithTimelockConfig `json:"config,omitempty" yaml:"config,omitempty"`
+	Config cldfproposalutils.MCMSWithTimelockConfig `json:"config" yaml:"config,omitempty"`
 }
 
 // MCMSConfigureChangesetInput is the input for the set MCMS configuration changeset.

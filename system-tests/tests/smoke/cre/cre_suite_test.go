@@ -97,6 +97,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			} else if isVaultOptimizationsEnabledTopology(topology) {
 				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
+			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
+				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
+				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
 

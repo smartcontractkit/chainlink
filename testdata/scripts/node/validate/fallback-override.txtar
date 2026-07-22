@@ -527,6 +527,7 @@ LogExportTimeout = '1s'
 LogExportMaxBatchSize = 512
 LogExportInterval = '1s'
 LogMaxQueueSize = 2048
+MetricCardinalityLimit = 100000
 
 [Telemetry.PrometheusBridge]
 Enabled = false
