@@ -115,7 +115,7 @@ jobs:
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
   run-system-tests:
-    name: ${{ matrix.tests.test_name }} (${{ matrix.tests.topology }})
+    name: ${{ matrix.tests.test_name }} ${{ matrix.tests.topology != '' && format(' ({0})', matrix.tests.topology) || '' }}
     permissions:
       contents: read
       id-token: write

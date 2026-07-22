@@ -613,7 +613,7 @@ jobs:
               echo "Compiling CCIP tests in parallel..."
               cd "$GITHUB_WORKSPACE/integration-tests"
               go mod download
-              go test -c -ldflags="-s -w" -o ./bin/ccip-smoke.test ./smoke/ccip
+              go test -c -tags embed -ldflags="-s -w" -o ./bin/ccip-smoke.test ./smoke/ccip
             ) &
             ccip_pid=$!
           fi
