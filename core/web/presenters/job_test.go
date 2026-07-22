@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/lib/pq"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
@@ -19,12 +18,14 @@ import (
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	evmassets "github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestJob(t *testing.T) {
+	t.Parallel()
 	// Used in multiple tests
 	timestamp := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	contractAddress, err := types.NewEIP55Address("0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba")

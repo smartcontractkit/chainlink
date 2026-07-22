@@ -14,6 +14,7 @@ import (
 )
 
 func Test_FeedsManagers(t *testing.T) {
+	t.Parallel()
 	var (
 		query = `
 			query GetFeedsManagers {
@@ -87,6 +88,7 @@ func Test_FeedsManagers(t *testing.T) {
 }
 
 func Test_FeedsManager(t *testing.T) {
+	t.Parallel()
 	var (
 		mgrID = int64(1)
 		query = `
@@ -161,6 +163,7 @@ func Test_FeedsManager(t *testing.T) {
 }
 
 func Test_CreateFeedsManager(t *testing.T) {
+	t.Parallel()
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"
@@ -334,6 +337,7 @@ func Test_CreateFeedsManager(t *testing.T) {
 }
 
 func Test_UpdateFeedsManager(t *testing.T) {
+	t.Parallel()
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"
@@ -463,6 +467,7 @@ func Test_UpdateFeedsManager(t *testing.T) {
 }
 
 func Test_EnableFeedsManager(t *testing.T) {
+	t.Parallel()
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"
@@ -570,6 +575,7 @@ func Test_EnableFeedsManager(t *testing.T) {
 }
 
 func Test_DisableFeedsManager(t *testing.T) {
+	t.Parallel()
 	var (
 		mgrID     = int64(1)
 		name      = "manager1"

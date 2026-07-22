@@ -13,6 +13,7 @@ import (
 )
 
 func TestP2PKeyResource(t *testing.T) {
+	t.Parallel()
 	key := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 	peerID := key.PeerID()
 	peerIDStr := peerID.String()

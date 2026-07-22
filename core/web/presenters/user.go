@@ -11,7 +11,7 @@ type UserResource struct {
 	JAID
 	Email             string            `json:"email"`
 	Role              sessions.UserRole `json:"role"`
-	HasActiveApiToken string            `json:"hasActiveApiToken"`
+	HasActiveAPIToken string            `json:"hasActiveApiToken"`
 	CreatedAt         time.Time         `json:"createdAt"`
 	UpdatedAt         time.Time         `json:"updatedAt"`
 }
@@ -33,14 +33,14 @@ func NewUserResource(u sessions.User) *UserResource {
 		JAID:              NewJAID(u.Email),
 		Email:             u.Email,
 		Role:              u.Role,
-		HasActiveApiToken: hasToken,
+		HasActiveAPIToken: hasToken,
 		CreatedAt:         u.CreatedAt,
 		UpdatedAt:         u.UpdatedAt,
 	}
 }
 
 func NewUserResources(users []sessions.User) []UserResource {
-	us := []UserResource{}
+	us := make([]UserResource, 0, len(users))
 	for _, user := range users {
 		us = append(us, *NewUserResource(user))
 	}

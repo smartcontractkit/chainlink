@@ -19,6 +19,7 @@ import (
 // so we test the job error resolvers by fetching a job by id.
 
 func TestResolver_JobErrors(t *testing.T) {
+	t.Parallel()
 	var (
 		id      = int32(1)
 		errorID = int64(200)

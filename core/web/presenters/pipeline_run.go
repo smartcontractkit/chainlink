@@ -6,6 +6,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -15,6 +16,7 @@ type PipelineRunResource struct {
 	JAID
 	Outputs []*string `json:"outputs"`
 	// XXX: Here for backwards compatibility, can be removed later
+	//
 	// Deprecated: Errors
 	Errors       []*string                         `json:"errors"`
 	AllErrors    []*string                         `json:"allErrors"`
@@ -33,7 +35,7 @@ func (r PipelineRunResource) GetName() string {
 
 func NewPipelineRunResource(pr pipeline.Run, lggr logger.Logger) PipelineRunResource {
 	lggr = lggr.Named("PipelineRunResource")
-	var trs []PipelineTaskRunResource
+	trs := make([]PipelineTaskRunResource, 0, len(pr.PipelineTaskRuns))
 	for i := range pr.PipelineTaskRuns {
 		trs = append(trs, NewPipelineTaskRunResource(pr.PipelineTaskRuns[i]))
 	}
@@ -96,7 +98,7 @@ func NewPipelineTaskRunResource(tr pipeline.TaskRun) PipelineTaskRunResource {
 }
 
 func NewPipelineRunResources(prs []pipeline.Run, lggr logger.Logger) []PipelineRunResource {
-	var out []PipelineRunResource
+	out := make([]PipelineRunResource, 0, len(prs))
 
 	for _, pr := range prs {
 		out = append(out, NewPipelineRunResource(pr, lggr))

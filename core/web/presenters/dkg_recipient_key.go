@@ -22,7 +22,7 @@ func NewDKGRecipientKeyResource(key dkgrecipientkey.Key) *DKGRecipientKeyResourc
 }
 
 func NewDKGRecipientKeyResources(keys []dkgrecipientkey.Key) []DKGRecipientKeyResource {
-	rs := []DKGRecipientKeyResource{}
+	rs := make([]DKGRecipientKeyResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewDKGRecipientKeyResource(key))
 	}

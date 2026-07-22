@@ -5,25 +5,25 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/manyminds/api2go/jsonapi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/manyminds/api2go/jsonapi"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestTransactionsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
 
 	db := app.GetDB()
@@ -69,7 +69,7 @@ func TestTransactionsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
 
 	client := app.NewHTTPClient(nil)
@@ -82,7 +82,7 @@ func TestTransactionsController_Show_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
 
 	txStore := txmgrtest.NewTestTxStore(t, app.GetDB())
@@ -116,7 +116,7 @@ func TestTransactionsController_Show_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
 
 	txStore := txmgrtest.NewTestTxStore(t, app.GetDB())

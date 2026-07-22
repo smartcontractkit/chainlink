@@ -70,10 +70,10 @@ func NewEthTxResourceFromAttempt(txa txmgr.TxAttempt) EthTxResource {
 	}
 
 	if tx.Sequence != nil {
-		r.Nonce = strconv.FormatUint(uint64(*tx.Sequence), 10)
+		r.Nonce = strconv.FormatInt(int64(*tx.Sequence), 10)
 	}
 	if txa.BroadcastBeforeBlockNum != nil {
-		r.SentAt = strconv.FormatUint(uint64(*txa.BroadcastBeforeBlockNum), 10)
+		r.SentAt = strconv.FormatInt(*txa.BroadcastBeforeBlockNum, 10)
 	}
 	return r
 }
