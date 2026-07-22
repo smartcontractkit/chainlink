@@ -433,3 +433,5 @@ tool github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
 
 replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
+
+replace github.com/smartcontractkit/chainlink-protos/cre/impl => ../chainlink-protos/cre/impl
