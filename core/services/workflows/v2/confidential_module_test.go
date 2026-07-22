@@ -673,7 +673,7 @@ func TestConfidentialModule_InterfaceMethods(t *testing.T) {
 
 func mustNewConfidentialModule(t *testing.T, capRegistry *regmocks.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) *ConfidentialModule {
 	t.Helper()
-	m, err := NewConfidentialModule(capRegistry, executionHandlers, binaryURL, binaryHash, workflowID, workflowOwner, workflowName, workflowTag, func(context.Context, string) (string, error) { return "org-test", nil }, enabledGate, lggr)
+	m, err := NewConfidentialModule(capRegistry, executionHandlers, binaryURL, binaryHash, workflowID, workflowOwner, workflowName, workflowTag, func(context.Context, string) (string, error) { return "org-test", nil }, enabledGate, nil, lggr)
 	require.NoError(t, err)
 	return m
 }
@@ -681,6 +681,6 @@ func mustNewConfidentialModule(t *testing.T, capRegistry *regmocks.CapabilitiesR
 func TestNewConfidentialModule_NilGate(t *testing.T) {
 	t.Parallel()
 	capReg := regmocks.NewCapabilitiesRegistry(t)
-	_, err := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", func(context.Context, string) (string, error) { return "org-test", nil }, nil, logger.Test(t))
+	_, err := NewConfidentialModule(capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner", "name", "tag", func(context.Context, string) (string, error) { return "org-test", nil }, nil, nil, logger.Test(t))
 	require.Error(t, err)
 }

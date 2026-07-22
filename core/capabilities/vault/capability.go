@@ -31,6 +31,7 @@ type Capability struct {
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
 	lifecycle            *RequestLifecycleTracker
+	zoneBRestrictor      *zoneBRestrictor
 	*RequestValidator
 }
 
@@ -70,6 +71,10 @@ func (s *Capability) Close() error {
 		err = errors.Join(err, fmt.Errorf("error closing request validator: %w", lerr))
 	}
 
+	if lerr := s.zoneBRestrictor.close(); lerr != nil {
+		err = errors.Join(err, lerr)
+	}
+
 	return err
 }
 
@@ -97,6 +102,13 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 
 	if request.Method != vaulttypes.MethodSecretsGet {
 		return capabilities.CapabilityResponse{}, errors.New("unsupported method: can only call GetSecrets via capability interface")
+	}
+
+	// Reject GetSecrets reads from a restricted zone-b workflow DON before the
+	// request enters the OCR queue, so non-allowlisted owners get a deterministic
+	// rejection and zone-a / gateway paths are unaffected.
+	if err := s.zoneBRestrictor.enforce(ctx, request.Metadata.WorkflowDonID); err != nil {
+		return capabilities.CapabilityResponse{}, err
 	}
 
 	r := &vaultcommon.GetSecretsRequest{}
@@ -310,6 +322,13 @@ func NewCapability(
 	if err != nil {
 		return nil, err
 	}
+	zoneBRestrictor, err := newZoneBRestrictor(lggr, limitsFactory, capabilitiesRegistry)
+	if err != nil {
+		return nil, err
+	}
+	if zoneBRestrictor == nil {
+		return nil, errors.New("vault capability requires a non-nil zone-b restrictor")
+	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
 		clock:                clock,
@@ -318,6 +337,7 @@ func NewCapability(
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
 		lifecycle:            lifecycle,
+		zoneBRestrictor:      zoneBRestrictor,
 		RequestValidator:     requestValidator,
 	}, nil
 }
