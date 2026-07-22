@@ -63,6 +63,7 @@ func TestToCanonicalJSON_OmitsEmptyFields(t *testing.T) {
 		withEmptyFields, err := ToCanonicalJSON(msg, false)
 		require.NoError(t, err)
 		assert.JSONEq(t, `{
+			"requestId":"",
 			"responses":[{"id":{"owner":"owner","namespace":"main","key":"secret1"},"success":true,"error":""}]
 		}`, string(withEmptyFields))
 
@@ -83,7 +84,7 @@ func TestToCanonicalJSON_OmitsEmptyFields(t *testing.T) {
 
 		withEmptyFields, err := ToCanonicalJSON(msg, false)
 		require.NoError(t, err)
-		assert.JSONEq(t, `{"responses":[]}`, string(withEmptyFields))
+		assert.JSONEq(t, `{"requestId":"","responses":[]}`, string(withEmptyFields))
 
 		canonicalJSON, err := ToCanonicalJSON(msg, true)
 		require.NoError(t, err)
@@ -100,7 +101,7 @@ func TestToCanonicalJSON_OmitsEmptyFields(t *testing.T) {
 
 		withEmptyFields, err := ToCanonicalJSON(msg, false)
 		require.NoError(t, err)
-		assert.JSONEq(t, `{"responses":[]}`, string(withEmptyFields))
+		assert.JSONEq(t, `{"requestId":"","responses":[]}`, string(withEmptyFields))
 
 		canonicalJSON, err := ToCanonicalJSON(msg, true)
 		require.NoError(t, err)
