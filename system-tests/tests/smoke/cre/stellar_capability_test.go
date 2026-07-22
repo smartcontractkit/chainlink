@@ -146,28 +146,10 @@ func executeStellarReadContractSmokeTest(
 	lggr.Info().Int("cases", len(steps)).Str("expected_log", expectLogReadContractBatchOK).Msg("Stellar ReadContract capability test passed")
 }
 
-// ExecuteStellarWriteSuite runs the Stellar write CRE smoke scenario: stands up a
-// Chip test sink, then deploys a receiver + the write workflow and waits on it.
-func ExecuteStellarWriteSuite(t *testing.T, tenv *configuration.TestEnvironment) {
-	stellarChain := thelpers.MustStellarChainInEnv(t, tenv)
-	lggr := framework.L
-
-	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
-	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
-	server := thelpers.StartChipTestSink(t, thelpers.GetPublishFn(lggr, userLogsCh, baseMessageCh))
-	t.Cleanup(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		thelpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
-	})
-
-	ExecuteStellarWriteTest(t, tenv, stellarChain, userLogsCh, baseMessageCh)
-}
-
 // ExecuteStellarWriteTest deploys a CRE receiver + a workflow that generates an
 // ed25519 OCR report and submits it via WriteReport through the Soroban CRE
 // forwarder, then asserts the receiver recorded the report on-chain.
-func ExecuteStellarWriteTest(
+func executeStellarWriteTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
 	stellarChain blockchains.Blockchain,
