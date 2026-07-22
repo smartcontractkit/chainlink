@@ -51,6 +51,7 @@ type StandardCapabilities struct {
 
 	wg           sync.WaitGroup
 	readyChan    chan struct{}
+	readyErr 	 error
 	stopChan     services.StopChan
 	startTimeout time.Duration
 }
@@ -114,6 +115,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 
 			if err = s.capabilitiesLoop.WaitCtx(cctx); err != nil {
 				s.log.Errorf("error waiting for standard capabilities service to start: %v", err)
+				s.readyErr = fmt.Errorf("error waiting for standard capabilities service to start: %w", err)
 				return
 			}
 
@@ -132,12 +134,14 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 			}
 			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)
+				s.readyErr = ...
 				return
 			}
 
 			capabilityInfos, err := s.capabilitiesLoop.Service.Infos(cctx)
 			if err != nil {
 				s.log.Errorf("error getting standard capabilities service info: %v", err)
+				s.readyErr = ...
 				return
 			}
 
@@ -156,7 +160,7 @@ func (s *StandardCapabilities) Ready() error {
 	}
 	select {
 	case <-s.readyChan:
-		return nil
+		return s.readyErr
 	case <-s.stopChan:
 		return ErrServiceStopped
 	default:
@@ -168,7 +172,7 @@ func (s *StandardCapabilities) Ready() error {
 func (s *StandardCapabilities) Await(ctx context.Context) error {
 	select {
 	case <-s.readyChan:
-		return nil
+		return s.readyErr
 	case <-s.stopChan:
 		return ErrServiceStopped
 	case <-ctx.Done():
