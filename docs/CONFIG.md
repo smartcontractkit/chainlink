@@ -2393,6 +2393,13 @@ AuthHeadersTTL = '0s' # Default
 ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 ChipIngressBatchEmitterEnabled = true # Default
+ChipIngressBufferSize = 10000 # Default
+ChipIngressMaxBatchSize = 1000 # Default
+ChipIngressMaxConcurrentSends = 10 # Default
+ChipIngressSendInterval = '500ms' # Default
+ChipIngressSendTimeout = '10s' # Default
+ChipIngressDrainTimeout = '30s' # Default
+ChipIngressMaxGRPCRequestSize = 10485760 # Default
 DurableEmitterEnabled = true # Default
 DurableEmitterRetransmitBatchSize = 500 # Default
 DurableEmitterEventTTL = '1h0m0s' # Default
@@ -2480,6 +2487,48 @@ ChipIngressBatchEmitterEnabled = true # Default
 ```
 ChipIngressBatchEmitterEnabled enables batching for chip-ingress events.
 When false, events are sent individually (legacy behavior).
+
+### ChipIngressBufferSize
+```toml
+ChipIngressBufferSize = 10000 # Default
+```
+ChipIngressBufferSize is the in-memory queue size for chip-ingress events.
+
+### ChipIngressMaxBatchSize
+```toml
+ChipIngressMaxBatchSize = 1000 # Default
+```
+ChipIngressMaxBatchSize is the max events per PublishBatch RPC.
+
+### ChipIngressMaxConcurrentSends
+```toml
+ChipIngressMaxConcurrentSends = 10 # Default
+```
+ChipIngressMaxConcurrentSends limits parallel PublishBatch calls.
+
+### ChipIngressSendInterval
+```toml
+ChipIngressSendInterval = '500ms' # Default
+```
+ChipIngressSendInterval is the max wait before flushing an incomplete batch.
+
+### ChipIngressSendTimeout
+```toml
+ChipIngressSendTimeout = '10s' # Default
+```
+ChipIngressSendTimeout is the per-RPC timeout for PublishBatch.
+
+### ChipIngressDrainTimeout
+```toml
+ChipIngressDrainTimeout = '30s' # Default
+```
+ChipIngressDrainTimeout is the max shutdown wait to flush queued events.
+
+### ChipIngressMaxGRPCRequestSize
+```toml
+ChipIngressMaxGRPCRequestSize = 10485760 # Default
+```
+ChipIngressMaxGRPCRequestSize is the max serialized PublishBatch request size in bytes. Batches exceeding this are split before send (min 1 MiB enforced by batch client).
 
 ### DurableEmitterEnabled
 ```toml

@@ -2983,6 +2983,13 @@ type Telemetry struct {
 	ChipIngressEndpoint                *string
 	ChipIngressInsecureConnection      *bool
 	ChipIngressBatchEmitterEnabled     *bool
+	ChipIngressBufferSize              *uint
+	ChipIngressMaxBatchSize            *uint
+	ChipIngressMaxConcurrentSends      *int
+	ChipIngressSendInterval            *commonconfig.Duration
+	ChipIngressSendTimeout             *commonconfig.Duration
+	ChipIngressDrainTimeout            *commonconfig.Duration
+	ChipIngressMaxGRPCRequestSize      *int
 	DurableEmitterEnabled              *bool
 	DurableEmitterRetransmitBatchSize  *int
 	DurableEmitterEventTTL             *commonconfig.Duration
@@ -3037,6 +3044,27 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.ChipIngressBatchEmitterEnabled; v != nil {
 		b.ChipIngressBatchEmitterEnabled = v
+	}
+	if v := f.ChipIngressBufferSize; v != nil {
+		b.ChipIngressBufferSize = v
+	}
+	if v := f.ChipIngressMaxBatchSize; v != nil {
+		b.ChipIngressMaxBatchSize = v
+	}
+	if v := f.ChipIngressMaxConcurrentSends; v != nil {
+		b.ChipIngressMaxConcurrentSends = v
+	}
+	if v := f.ChipIngressSendInterval; v != nil {
+		b.ChipIngressSendInterval = v
+	}
+	if v := f.ChipIngressSendTimeout; v != nil {
+		b.ChipIngressSendTimeout = v
+	}
+	if v := f.ChipIngressDrainTimeout; v != nil {
+		b.ChipIngressDrainTimeout = v
+	}
+	if v := f.ChipIngressMaxGRPCRequestSize; v != nil {
+		b.ChipIngressMaxGRPCRequestSize = v
 	}
 	if v := f.DurableEmitterEnabled; v != nil {
 		b.DurableEmitterEnabled = v
@@ -3095,6 +3123,27 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	}
 	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
+	}
+	if v := b.ChipIngressBufferSize; v != nil && *v == 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressBufferSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressMaxBatchSize; v != nil && *v == 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxBatchSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressMaxConcurrentSends; v != nil && *v <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxConcurrentSends", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressSendInterval; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressSendInterval", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressSendTimeout; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressSendTimeout", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressDrainTimeout; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressDrainTimeout", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressMaxGRPCRequestSize; v != nil && *v <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxGRPCRequestSize", Value: *v, Msg: "must be greater than 0"})
 	}
 	return err
 }

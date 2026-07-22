@@ -118,6 +118,55 @@ func (b *telemetryConfig) ChipIngressBatchEmitterEnabled() bool {
 	return *b.s.ChipIngressBatchEmitterEnabled
 }
 
+func (b *telemetryConfig) ChipIngressBufferSize() uint {
+	if b.s.ChipIngressBufferSize == nil {
+		return 0
+	}
+	return *b.s.ChipIngressBufferSize
+}
+
+func (b *telemetryConfig) ChipIngressMaxBatchSize() uint {
+	if b.s.ChipIngressMaxBatchSize == nil {
+		return 0
+	}
+	return *b.s.ChipIngressMaxBatchSize
+}
+
+func (b *telemetryConfig) ChipIngressMaxConcurrentSends() int {
+	if b.s.ChipIngressMaxConcurrentSends == nil {
+		return 0
+	}
+	return *b.s.ChipIngressMaxConcurrentSends
+}
+
+func (b *telemetryConfig) ChipIngressSendInterval() time.Duration {
+	if b.s.ChipIngressSendInterval == nil {
+		return 0
+	}
+	return b.s.ChipIngressSendInterval.Duration()
+}
+
+func (b *telemetryConfig) ChipIngressSendTimeout() time.Duration {
+	if b.s.ChipIngressSendTimeout == nil {
+		return 0
+	}
+	return b.s.ChipIngressSendTimeout.Duration()
+}
+
+func (b *telemetryConfig) ChipIngressDrainTimeout() time.Duration {
+	if b.s.ChipIngressDrainTimeout == nil {
+		return 0
+	}
+	return b.s.ChipIngressDrainTimeout.Duration()
+}
+
+func (b *telemetryConfig) ChipIngressMaxGRPCRequestSize() int {
+	if b.s.ChipIngressMaxGRPCRequestSize == nil {
+		return 0
+	}
+	return *b.s.ChipIngressMaxGRPCRequestSize
+}
+
 func (b *telemetryConfig) DurableEmitterEnabled() bool {
 	if b.s.DurableEmitterEnabled == nil {
 		return true
