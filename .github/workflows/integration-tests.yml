@@ -214,6 +214,7 @@ jobs:
       skip-e2e-regression-label-found: ${{ steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
     steps:
       - name: Get PR Labels (runs-on-opt-out)
+        if: github.event_name == 'pull_request'
         id: label-runs-on-opt-out
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
         with:
@@ -530,7 +531,7 @@ jobs:
     needs:
       - run-core-cre-e2e-tests-setup
       - run-ccip-v1-6-e2e-tests-setup
-    runs-on: runs-on=${{ github.run_id }}-compile/cpu=8/ram=32/family=c7i+c8i+m7i+m8i/spot=co/extras=s3-cache
+    runs-on: runs-on=${{ github.run_id }}-compile/cpu=16/ram=32/family=c7i+c8i/spot=co/volume=100GB/extras=s3-cache
     environment:
       name: integration
       deployment: false
@@ -573,26 +574,62 @@ jobs:
 
       # No cache-hit short-circuit: ctf-setup-go@v0.4.0 exposes no `cache-hit` output,
       # and this job's purpose is to (re)populate the shared build cache regardless.
-      - name: Compile CRE and CCIP E2E tests
+      - name: Compile E2E tests
         shell: bash
         env:
           SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
           SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
         run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/.gotmp"
+          export GOTMPDIR="$GITHUB_WORKSPACE/.gotmp"
+
+          mkdir -p "$GITHUB_WORKSPACE/system-tests/tests/bin"
+          mkdir -p "$GITHUB_WORKSPACE/integration-tests/bin"
+
+          cre_pid=""
+          ccip_pid=""
+
           if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
-            echo "Compiling CRE tests..."
-            cd "$GITHUB_WORKSPACE/system-tests/tests"
-            go mod download
-            go test -c -o /dev/null ./smoke/cre/...
-            go test -c -o /dev/null ./regression/cre/...
+            (
+              set -euo pipefail
+              echo "Compiling CRE tests and CLI in parallel..."
+              cd "$GITHUB_WORKSPACE/system-tests/tests"
+              go mod download
+              go test -c -ldflags="-s -w" -o ./bin/cre-smoke.test ./smoke/cre &
+              p1=$!
+              go test -c -ldflags="-s -w" -o ./bin/cre-regression.test ./regression/cre &
+              p2=$!
+              (cd "$GITHUB_WORKSPACE/core/scripts/cre/environment" && go build -ldflags="-s -w" -o "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" .) &
+              p3=$!
+              wait "$p1" && wait "$p2" && wait "$p3"
+            ) &
+            cre_pid=$!
           fi
 
           if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
-            echo "Compiling CCIP tests..."
-            cd "$GITHUB_WORKSPACE/integration-tests"
-            go mod download
-            go test -c -o /dev/null ./smoke/ccip/...
+            (
+              set -euo pipefail
+              echo "Compiling CCIP tests in parallel..."
+              cd "$GITHUB_WORKSPACE/integration-tests"
+              go mod download
+              go test -c -ldflags="-s -w" -o ./bin/ccip-smoke.test ./smoke/ccip
+            ) &
+            ccip_pid=$!
           fi
+
+          if [ -n "$cre_pid" ]; then wait "$cre_pid"; fi
+          if [ -n "$ccip_pid" ]; then wait "$ccip_pid"; fi
+
+          rm -rf "$GITHUB_WORKSPACE/.gotmp"
+
+      - name: Cache Pre-Compiled Test Binaries in S3
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            system-tests/tests/bin/
+            integration-tests/bin/
+          key: test-binaries-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
 
   run-ccip-v1-6-e2e-tests:
     needs:
@@ -611,8 +648,9 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@run-e2e-tests/v1
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@ac273a6ede039d6f5ebb90e3b2dabaeef379ff81 # DEBUG: Run binaries
     with:
+      skip_image_build: true
       workflow_name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
@@ -623,7 +661,6 @@ jobs:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       quarantine: "true"
       cache_builds: "true"
-      cache_key_id: "integration-tests-v1"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
