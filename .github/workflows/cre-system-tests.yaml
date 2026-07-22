@@ -199,9 +199,9 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: system-tests/tests/bin/
-          key: test-binaries-${{ inputs.chainlink_version || github.sha }}
+          key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
           restore-keys: |
-            test-binaries-
+            test-binaries-cre-
 
       # Required to pull Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) private images
       - name: Configure AWS Credentials

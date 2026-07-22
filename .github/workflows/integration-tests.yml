@@ -623,13 +623,17 @@ jobs:
 
           rm -rf "$GITHUB_WORKSPACE/.gotmp"
 
-      - name: Cache Pre-Compiled Test Binaries in S3
+      - name: Cache Pre-Compiled CRE Test Binaries in S3
         uses: actions/cache/save@v6
         with:
-          path: |
-            system-tests/tests/bin/
-            integration-tests/bin/
-          key: test-binaries-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+          path: system-tests/tests/bin/
+          key: test-binaries-cre-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+
+      - name: Cache Pre-Compiled CCIP Test Binaries in S3
+        uses: actions/cache/save@v6
+        with:
+          path: integration-tests/bin/
+          key: test-binaries-ccip-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
 
   run-ccip-v1-6-e2e-tests:
     needs:

@@ -171,9 +171,9 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: system-tests/tests/bin/
-          key: test-binaries-${{ inputs.chainlink_version || github.sha }}
+          key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
           restore-keys: |
-            test-binaries-
+            test-binaries-cre-
 
       # Required to pull private ECR images such as Job Distributor (main) and Chip Ingress (main),
       # and also the Chainlink image when inputs.ecr is "sdlc".
