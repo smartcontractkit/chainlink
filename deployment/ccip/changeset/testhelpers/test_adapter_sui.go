@@ -13,17 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	sui_module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
-	sui_ccip_offramp "github.com/smartcontractkit/chainlink-sui/bindings/packages/offramp"
-	cslclient "github.com/smartcontractkit/chainlink-sui/relayer/client"
-	"github.com/smartcontractkit/chainlink-sui/relayer/codec"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	sui_module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
+	sui_ccip_offramp "github.com/smartcontractkit/chainlink-sui/bindings/packages/offramp"
+	"github.com/smartcontractkit/chainlink-sui/codec"
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
+	cslclient "github.com/smartcontractkit/chainlink-sui/relayer/client"
 )
 
 type SuiAdapter struct {

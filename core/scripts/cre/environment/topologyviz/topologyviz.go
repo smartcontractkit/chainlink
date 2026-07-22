@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -292,7 +293,7 @@ func summarizeDON(ns *cre.NodeSet) DONSummary {
 	donTypes := append([]string{}, ns.DONTypes...)
 	sort.Strings(donTypes)
 	evmChains := append([]uint64{}, ns.EVMChains()...)
-	sort.Slice(evmChains, func(i, j int) bool { return evmChains[i] < evmChains[j] })
+	slices.Sort(evmChains)
 	solChains := append([]string{}, ns.SupportedSolChains...)
 	sort.Strings(solChains)
 

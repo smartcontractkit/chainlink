@@ -48,7 +48,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 	chainId := sqlutil.New(testutils.NewRandomEVMChainID())
 	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM = toml.EVMConfigs{
-			{ChainID: chainId, Enabled: ptr(true), Chain: toml.Defaults(chainId)},
+			{ChainID: chainId, Enabled: new(true), Chain: toml.Defaults(chainId)},
 		}
 	})
 
@@ -85,7 +85,7 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 	chainId := sqlutil.New(testutils.NewRandomEVMChainID())
 	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM = toml.EVMConfigs{
-			{ChainID: chainId, Enabled: ptr(true), Chain: toml.Defaults(chainId)},
+			{ChainID: chainId, Enabled: new(true), Chain: toml.Defaults(chainId)},
 		}
 	})
 

@@ -54,7 +54,7 @@ UPDATE ` + triggerPendingEventsTable + `
 SET last_sent_at = $3, attempts = $4
 WHERE trigger_id = $1 AND event_id = $2
 `
-	var lastSent interface{}
+	var lastSent any
 	if !lastSentAt.IsZero() {
 		lastSent = lastSentAt
 	}

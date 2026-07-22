@@ -57,12 +57,13 @@ import (
 )
 
 const (
-	vaultDefaultConfigPath               = "/configs/workflow-gateway-capabilities-don.toml"
-	vaultJWTAuthEnabledConfigPath        = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
-	vaultOptimizationsEnabledConfigPath  = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
-	vaultIncludeInvalidEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-include-invalid-enabled.toml"
-	vaultStallPurgeConfigPath            = "/configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"
-	vaultJWTIssuerListenAddr             = "0.0.0.0:18123"
+	vaultDefaultConfigPath                   = "/configs/workflow-gateway-capabilities-don.toml"
+	vaultJWTAuthEnabledConfigPath            = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
+	vaultOptimizationsEnabledConfigPath      = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
+	vaultWorkflowDONBindingEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-workflow-don-binding-enabled.toml"
+	vaultIncludeInvalidEnabledConfigPath     = "/configs/workflow-gateway-capabilities-don-vault-include-invalid-enabled.toml"
+	vaultStallPurgeConfigPath                = "/configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"
+	vaultJWTIssuerListenAddr                 = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
 	vaultJWTTestTenantID uint64 = 1
@@ -318,6 +319,12 @@ func getVaultStallPurgeTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultStallPurgeConfigPath)
 }
 
+func getVaultWorkflowDONBindingEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultWorkflowDONBindingEnabledConfigPath)
+}
+
 func isVaultJWTAuthEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-jwt_auth-enabled")
 }
@@ -332,6 +339,10 @@ func isVaultIncludeInvalidEnabledTopology(topologyName string) bool {
 
 func isVaultStallPurgeTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-stall-purge")
+}
+
+func isVaultWorkflowDONBindingEnabledTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-workflow-don-binding-enabled")
 }
 
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {

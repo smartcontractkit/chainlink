@@ -69,7 +69,7 @@ func TestState_Concurrency(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Run concurrent writes and reads
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		wg.Add(3)
 
 		// Writer goroutine - SetCurrentReplicas

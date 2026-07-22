@@ -13,16 +13,13 @@ import (
 
 	aptos_ccip_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
-	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
+	"github.com/smartcontractkit/chainlink-aptos/codec"
 	aptosstate "github.com/smartcontractkit/chainlink-aptos/deployment/state"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type AptosAdapter struct {

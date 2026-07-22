@@ -468,7 +468,7 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 	// The pending allocation "workflow-123" should be included in observation
 	now := time.Now()
 	aos := make([]types.AttributedObservation, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		pbObs := &ringpb.Observation{
 			ShardStatus: toShardStatus(map[uint32]bool{0: false, 1: false, 2: false}),
 			WorkflowIds: []string{"workflow-123"},

@@ -103,6 +103,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			} else if isVaultStallPurgeTopology(topology) {
 				vaultConfig = getVaultStallPurgeTestConfig(t)
 				allowlistSubtestName = "pending_queue_stall_purge"
+			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
+				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
+				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
 

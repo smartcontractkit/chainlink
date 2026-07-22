@@ -102,9 +102,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 			return fmt.Errorf("error starting standard capabilities service: %w", err)
 		}
 
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
+		s.wg.Go(func() {
 			defer close(s.readyChan)
 
 			if s.startTimeout == 0 {
@@ -144,7 +142,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 			}
 
 			s.log.Info("Started standard capabilities", "command", s.command, "capabilities", capabilityInfos)
-		}()
+		})
 
 		return nil
 	})

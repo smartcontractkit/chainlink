@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"errors"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -40,10 +41,8 @@ func NewSigningKeystore(addressToKey map[string]*ecdsa.PrivateKey, addresses []e
 }
 
 func (s *SigningKeystore) CheckEnabled(ctx context.Context, address common.Address) error {
-	for _, addr := range s.addresses {
-		if addr == address {
-			return nil
-		}
+	if slices.Contains(s.addresses, address) {
+		return nil
 	}
 	return errors.New("not enabled")
 }

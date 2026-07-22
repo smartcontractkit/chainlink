@@ -139,7 +139,7 @@ func Test_convertToETHABIBytes_Errors(t *testing.T) {
 		{"0xasdfasdfasdfasdfasdfsadfasdfasdfasdfasdf", "invalid hex"},
 	} {
 		t.Run(fmt.Sprintf("%T,%s", tt.val, tt.errStr), func(t *testing.T) {
-			a := reflect.TypeOf([20]byte{})
+			a := reflect.TypeFor[[20]byte]()
 			b := reflect.ValueOf(tt.val)
 			_, err := convertToETHABIBytes(a, b, 20)
 			require.Error(t, err)

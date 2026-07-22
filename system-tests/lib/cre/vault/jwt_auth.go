@@ -10,6 +10,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"net"
 	"net/http"
@@ -355,9 +356,7 @@ func SignTestJWT(privateKey *rsa.PrivateKey, claims JWTTokenClaims) (string, err
 	if claims.JWTID != "" {
 		tokenClaims["jti"] = claims.JWTID
 	}
-	for key, value := range claims.ExtraClaims {
-		tokenClaims[key] = value
-	}
+	maps.Copy(tokenClaims, claims.ExtraClaims)
 
 	token := jwt.NewWithClaims(jwt.SigningMethodRS256, tokenClaims)
 	token.Header["kid"] = claims.KeyID

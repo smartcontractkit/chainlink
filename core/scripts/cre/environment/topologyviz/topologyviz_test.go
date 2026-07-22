@@ -68,15 +68,15 @@ func TestBuildCapabilityMatrix_RemoteAndChainRendering(t *testing.T) {
 		{
 			Name: "capabilities",
 			Capabilities: []CapabilityPlacement{
-				{RawFlag: "read-contract-2337", BaseFlag: "read-contract", RemoteFrom: true, ChainID: ptrUint64(2337)},
-				{RawFlag: "read-contract-1337", BaseFlag: "read-contract", RemoteFrom: true, ChainID: ptrUint64(1337)},
-				{RawFlag: "read-contract-1337", BaseFlag: "read-contract", RemoteFrom: true, ChainID: ptrUint64(1337)},
+				{RawFlag: "read-contract-2337", BaseFlag: "read-contract", RemoteFrom: true, ChainID: new(uint64(2337))},
+				{RawFlag: "read-contract-1337", BaseFlag: "read-contract", RemoteFrom: true, ChainID: new(uint64(1337))},
+				{RawFlag: "read-contract-1337", BaseFlag: "read-contract", RemoteFrom: true, ChainID: new(uint64(1337))},
 			},
 		},
 		{
 			Name: "workflow",
 			Capabilities: []CapabilityPlacement{
-				{RawFlag: "read-contract-1337", BaseFlag: "read-contract", RemoteFrom: false, ChainID: ptrUint64(1337)},
+				{RawFlag: "read-contract-1337", BaseFlag: "read-contract", RemoteFrom: false, ChainID: new(uint64(1337))},
 			},
 		},
 	})
@@ -171,10 +171,6 @@ func TestWriteArtifacts_WritesAsciiAndMarkdown_RemovesLegacyJSON(t *testing.T) {
 	_, statErr := os.Stat(legacyJSONPath)
 	require.Error(t, statErr)
 	require.True(t, os.IsNotExist(statErr))
-}
-
-func ptrUint64(v uint64) *uint64 {
-	return &v
 }
 
 func rowByCapability(rows []capabilityMatrixRow, capability string) (capabilityMatrixRow, bool) {

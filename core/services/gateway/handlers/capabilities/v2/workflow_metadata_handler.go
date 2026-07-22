@@ -251,9 +251,7 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 }
 
 func (h *WorkflowMetadataHandler) runTicker(period time.Duration, fn func(ctx context.Context)) {
-	h.wg.Add(1)
-	go func() {
-		defer h.wg.Done()
+	h.wg.Go(func() {
 		ctx, cancel := h.stopCh.NewCtx()
 		defer cancel()
 		ticker := time.NewTicker(period)
@@ -266,7 +264,7 @@ func (h *WorkflowMetadataHandler) runTicker(period time.Duration, fn func(ctx co
 				return
 			}
 		}
-	}()
+	})
 }
 
 func (h *WorkflowMetadataHandler) validateAuthMetadata(metadata gateway.WorkflowMetadata) error {

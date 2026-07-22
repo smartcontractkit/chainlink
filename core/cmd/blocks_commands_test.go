@@ -17,7 +17,7 @@ func Test_ReplayFromBlock(t *testing.T) {
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].ChainID = (*sqlutil.Big)(big.NewInt(5))
-		c.EVM[0].Enabled = ptr(true)
+		c.EVM[0].Enabled = new(true)
 	})
 
 	client, _ := app.NewShellAndRenderer()

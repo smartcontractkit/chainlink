@@ -4,6 +4,7 @@ import (
 	"context"
 	stderrors "errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"strings"
 	"time"
@@ -106,13 +107,9 @@ func setForwarderAddress(cfg *corechainlink.Config, chainID, forwarderAddress st
 		workflow := make(map[string]any)
 		switch existing := raw["Workflow"].(type) {
 		case map[string]any:
-			for k, v := range existing {
-				workflow[k] = v
-			}
+			maps.Copy(workflow, existing)
 		case corechainlink.RawConfig:
-			for k, v := range existing {
-				workflow[k] = v
-			}
+			maps.Copy(workflow, existing)
 		case nil:
 		default:
 			return fmt.Errorf("unexpected Aptos workflow config type %T", existing)
