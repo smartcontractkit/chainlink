@@ -19,16 +19,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
-	cre_offchain "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
-	offchain_ops "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain/changeset/operations"
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
-	stellarbc "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -41,7 +31,16 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	cre_offchain "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
+	offchain_ops "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain/changeset/operations"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	stellarbc "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 
 const (
