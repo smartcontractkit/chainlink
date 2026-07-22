@@ -661,10 +661,9 @@ jobs:
       test_trigger: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.test-trigger }}
       upload_cl_node_coverage_artifact: true
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
-      use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
+      use-self-hosted-runners: true
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       quarantine: "true"
-      cache_builds: "true"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
