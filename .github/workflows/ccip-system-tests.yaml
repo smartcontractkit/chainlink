@@ -224,6 +224,7 @@ jobs:
           E2E_RMN_RAGEPROXY_VERSION: ${{ matrix.tests.rmn_rageproxy_version || '' }}
           E2E_RMN_AFN2PROXY_VERSION: ${{ matrix.tests.rmn_afn2proxy_version || '' }}
           CHAINLINK_IMAGE: ${{ steps.resolve-chainlink-image.outputs.chainlink_image }}
+          E2E_TEST_CHAINLINK_IMAGE: ${{ steps.resolve-chainlink-image.outputs.chainlink_image }}
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_version || github.sha }}
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
         run: |
