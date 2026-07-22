@@ -700,6 +700,12 @@ func (r *ReportingPlugin) shouldPurgePendingQueue(ctx context.Context) bool {
 	if stallThreshold == 0 {
 		return false
 	}
+	// The pending queue must never be purged with fewer than 2f+1 stall
+	// signals, regardless of the configured stall threshold.
+	if stallThreshold < 2*int(r.onchainCfg.F)+1 {
+		stallThreshold = 2*int(r.onchainCfg.F) + 1
+	}
+
 	stalledObservationCount := r.pendingQueueStallTracker.count
 	return stalledObservationCount >= stallThreshold
 }
@@ -721,6 +727,8 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 
 	obspb := &vaultcommon.Observations{}
 
+	r.pendingQueueStallTracker.record(seqNr)
+
 	// First, generate a random nonce that we'll use to sort the observations.
 	// Each node generates a nonce indepedently, to be concatenated later on.
 	nonce, ierr := generateRandomNonce()
@@ -728,8 +736,6 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		return nil, fmt.Errorf("could not generate nonce for observation: %w", ierr)
 	}
 	obspb.SortNonce = nonce
-
-	r.pendingQueueStallTracker.record(seqNr)
 
 	if shouldPurge := r.shouldPurgePendingQueue(ctx); shouldPurge {
 		obspb.PendingQueueStallSignal = vaultcommon.PendingQueueStallSignal_PENDING_QUEUE_STALL_SIGNAL_STALLED
@@ -1652,7 +1658,6 @@ func (r *ReportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, a
 		return true, nil
 	}
 
-	headID := pendingQueueItems[0].Id
 	pendingIDs := map[string]bool{}
 	for _, item := range pendingQueueItems {
 		pendingIDs[item.Id] = true
@@ -1670,14 +1675,12 @@ func (r *ReportingPlugin) ObservationQuorum(ctx context.Context, seqNr uint64, a
 		coverage := observerOkCoverage(obs, pendingIDs)
 		coverages = append(coverages, coverage)
 		coverageByObserver[observer] = coverage
-		for _, itemObs := range obs.Observations {
-			if itemObs.Id != headID {
-				continue
-			}
+		if len(obs.Observations) > 0 {
+			headObs := obs.Observations[0]
 			switch {
-			case observationContributionIsErr(itemObs):
+			case observationContributionIsErr(headObs):
 				errCount++
-			case observationContributionIsOk(itemObs):
+			case observationContributionIsOk(headObs):
 				okCount++
 			}
 		}
