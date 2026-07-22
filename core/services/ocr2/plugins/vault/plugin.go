@@ -702,8 +702,8 @@ func (r *ReportingPlugin) shouldPurgePendingQueue(ctx context.Context) bool {
 	}
 	// The pending queue must never be purged with fewer than 2f+1 stall
 	// signals, regardless of the configured stall threshold.
-	if stallThreshold < 2*int(r.onchainCfg.F)+1 {
-		stallThreshold = 2*int(r.onchainCfg.F) + 1
+	if stallThreshold < 2*r.onchainCfg.F+1 {
+		stallThreshold = 2*r.onchainCfg.F + 1
 	}
 
 	stalledObservationCount := r.pendingQueueStallTracker.count
