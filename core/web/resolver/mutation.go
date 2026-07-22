@@ -14,12 +14,12 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
-	"github.com/smartcontractkit/chainlink-common/pkg/assets"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
@@ -82,7 +82,7 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 	btr := &bridges.BridgeTypeRequest{
 		Name:                   bridges.BridgeName(args.Input.Name),
 		URL:                    webURL,
-		Confirmations:          uint32(args.Input.Confirmations),
+		Confirmations:          uint32(max(0, args.Input.Confirmations)),
 		MinimumContractPayment: minContractPayment,
 	}
 
@@ -477,7 +477,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 	btr := &bridges.BridgeTypeRequest{
 		Name:                   bridges.BridgeName(args.Input.Name),
 		URL:                    webURL,
-		Confirmations:          uint32(args.Input.Confirmations),
+		Confirmations:          uint32(max(0, args.Input.Confirmations)),
 		MinimumContractPayment: minContractPayment,
 	}
 
@@ -1076,7 +1076,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	config := r.App.GetConfig()
 	switch jbt {
 	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(config, r.App.GetRelayers().LegacyEVMChains(), args.Input.TOML)
+		jb, err = ocr.ValidatedOracleSpecToml(config, r.App.GetRelayers().LegacyEVMChains(), args.Input.TOML) //nolint:staticcheck // LegacyEVMChains is deprecated but refactoring to new relayer interface requires larger architectural changes
 		if !config.OCR().Enabled() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}

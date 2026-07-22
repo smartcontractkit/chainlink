@@ -3,13 +3,11 @@ package auth
 import (
 	"context"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-gonic/gin"
-
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 

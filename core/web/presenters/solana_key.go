@@ -25,7 +25,7 @@ func NewSolanaKeyResource(key solkey.Key) *SolanaKeyResource {
 }
 
 func NewSolanaKeyResources(keys []solkey.Key) []SolanaKeyResource {
-	rs := []SolanaKeyResource{}
+	rs := make([]SolanaKeyResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewSolanaKeyResource(key))
 	}

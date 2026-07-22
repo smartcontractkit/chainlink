@@ -15,7 +15,7 @@ func NewAptosKey(key aptoskey.Key) *AptosKeyResolver {
 }
 
 func NewAptosKeys(keys []aptoskey.Key) []*AptosKeyResolver {
-	var resolvers []*AptosKeyResolver
+	resolvers := make([]*AptosKeyResolver, 0, len(keys))
 
 	for _, k := range keys {
 		resolvers = append(resolvers, NewAptosKey(k))

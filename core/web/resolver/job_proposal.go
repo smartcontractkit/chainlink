@@ -54,7 +54,7 @@ func NewJobProposal(jp *feeds.JobProposal) *JobProposalResolver {
 }
 
 func NewJobProposals(jps []feeds.JobProposal) []*JobProposalResolver {
-	var resolvers []*JobProposalResolver
+	resolvers := make([]*JobProposalResolver, 0, len(jps))
 
 	for i := range jps {
 		resolvers = append(resolvers, NewJobProposal(&jps[i]))

@@ -15,7 +15,7 @@ func NewCosmosKey(key cosmoskey.Key) *CosmosKeyResolver {
 }
 
 func NewCosmosKeys(keys []cosmoskey.Key) []*CosmosKeyResolver {
-	var resolvers []*CosmosKeyResolver
+	resolvers := make([]*CosmosKeyResolver, 0, len(keys))
 
 	for _, k := range keys {
 		resolvers = append(resolvers, NewCosmosKey(k))

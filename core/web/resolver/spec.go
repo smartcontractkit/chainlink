@@ -1,6 +1,7 @@
 package resolver
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/graph-gophers/graphql-go"
@@ -224,6 +225,9 @@ func (r *DirectRequestSpecResolver) EVMChainID() *string {
 // MinIncomingConfirmations resolves the spec's min incoming confirmations.
 func (r *DirectRequestSpecResolver) MinIncomingConfirmations() int32 {
 	if r.spec.MinIncomingConfirmations.Valid {
+		if r.spec.MinIncomingConfirmations.Uint32 > math.MaxInt32 {
+			return math.MaxInt32
+		}
 		return int32(r.spec.MinIncomingConfirmations.Uint32)
 	}
 
@@ -314,9 +318,9 @@ func (r *FluxMonitorSpecResolver) IdleTimerPeriod() string {
 // MinPayment resolves the spec's min payment.
 func (r *FluxMonitorSpecResolver) MinPayment() *string {
 	if r.spec.MinPayment != nil {
-		min := r.spec.MinPayment.String()
+		minPayment := r.spec.MinPayment.String()
 
-		return &min
+		return &minPayment
 	}
 	return nil
 }
@@ -596,6 +600,9 @@ type VRFSpecResolver struct {
 
 // MinIncomingConfirmations resolves the spec's min incoming confirmations.
 func (r *VRFSpecResolver) MinIncomingConfirmations() int32 {
+	if r.spec.MinIncomingConfirmations > math.MaxInt32 {
+		return math.MaxInt32
+	}
 	return int32(r.spec.MinIncomingConfirmations)
 }
 
@@ -646,6 +653,12 @@ func (r *VRFSpecResolver) PublicKey() string {
 // RequestedConfsDelay resolves the spec's requested conf delay.
 func (r *VRFSpecResolver) RequestedConfsDelay() int32 {
 	// GraphQL doesn't support 64 bit integers, so we have to cast.
+	if r.spec.RequestedConfsDelay > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if r.spec.RequestedConfsDelay < math.MinInt32 {
+		return math.MinInt32
+	}
 	return int32(r.spec.RequestedConfsDelay)
 }
 
@@ -680,6 +693,9 @@ func (r *VRFSpecResolver) CustomRevertsPipelineEnabled() *bool {
 
 // ChunkSize resolves the spec's chunk size.
 func (r *VRFSpecResolver) ChunkSize() int32 {
+	if r.spec.ChunkSize > math.MaxInt32 {
+		return math.MaxInt32
+	}
 	return int32(r.spec.ChunkSize)
 }
 
