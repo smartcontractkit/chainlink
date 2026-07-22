@@ -261,12 +261,15 @@ jobs:
 
           if [ -f "./bin/cre-regression.test" ]; then
             echo "Using precompiled binary"
-            gotestsum \
-              --jsonfile=/tmp/gotest-regression.log \
-              --junitfile=/tmp/junit-report-regression.xml \
-              --format=github-actions \
-              --raw-command -- \
-              go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre ./bin/cre-regression.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1
+            (
+              cd regression/cre && \
+              gotestsum \
+                --jsonfile=/tmp/gotest-regression.log \
+                --junitfile=/tmp/junit-report-regression.xml \
+                --format=github-actions \
+                --raw-command -- \
+                go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre ../../bin/cre-regression.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1
+            )
           else
             echo "No precompiled binary found. Building from scratch..."
             gotestsum \

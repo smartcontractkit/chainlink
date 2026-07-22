@@ -396,12 +396,15 @@ jobs:
           echo "Starting test: '${TEST_NAME}'"
           if [ -f "./bin/cre-smoke.test" ]; then
             echo "Using precompiled binary"
-            gotestsum \
-              --jsonfile=/tmp/gotest.log \
-              --junitfile=/tmp/junit-report.xml \
-              --format=github-actions \
-              --raw-command -- \
-              go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre ./bin/cre-smoke.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL_COUNT}"
+            (
+              cd smoke/cre && \
+              gotestsum \
+                --jsonfile=/tmp/gotest.log \
+                --junitfile=/tmp/junit-report.xml \
+                --format=github-actions \
+                --raw-command -- \
+                go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre ../../bin/cre-smoke.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL_COUNT}"
+            )
           else
             echo "No precompiled binary found. Building from scratch..."
             gotestsum \
