@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gin-gonic/gin"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -18,13 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	commontxmgr "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/gin-gonic/gin"
 )
 
 // EVMTransfersController can send LINK tokens to another address
@@ -175,7 +175,7 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain legacyevm.Chain, fromAd
 	return nil
 }
 
-func FindTxAttempt(ctx context.Context, timeout time.Duration, etx txmgr.Tx, FindTxWithAttempts func(context.Context, int64) (txmgr.Tx, error)) (attempt txmgr.TxAttempt, err error) {
+func FindTxAttempt(ctx context.Context, timeout time.Duration, etx txmgr.Tx, findTxWithAttempts func(context.Context, int64) (txmgr.Tx, error)) (attempt txmgr.TxAttempt, err error) {
 	recheckTime := time.Second
 	tick := time.After(0)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -185,7 +185,7 @@ func FindTxAttempt(ctx context.Context, timeout time.Duration, etx txmgr.Tx, Fin
 		case <-ctx.Done():
 			return attempt, fmt.Errorf("%w - tx may still have been broadcast", ctx.Err())
 		case <-tick:
-			etx, err = FindTxWithAttempts(ctx, etx.ID)
+			etx, err = findTxWithAttempts(ctx, etx.ID)
 			if err != nil {
 				return attempt, fmt.Errorf("failed to find transaction: %w", err)
 			}

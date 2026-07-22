@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -114,14 +115,14 @@ func GetLatestSpecByJobProposalID(ctx context.Context, jpID string) (*feeds.JobP
 		return nil, errors.Wrapf(ErrInvalidType, "Result : %T", result)
 	}
 
-	max := specs[0]
+	maxSpec := specs[0]
 	for _, spec := range specs {
-		if spec.Version > max.Version {
-			max = spec
+		if spec.Version > maxSpec.Version {
+			maxSpec = spec
 		}
 	}
 
-	return &max, nil
+	return &maxSpec, nil
 }
 
 // GetJobProposalsByFeedsManagerID fetches the job proposals by feeds manager ID.

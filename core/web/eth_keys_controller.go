@@ -10,21 +10,22 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 // ETHKeysController manages account keys
@@ -344,7 +345,7 @@ func (ekc *ETHKeysController) setEthBalance(bal *big.Int) presenters.NewETHKeyOp
 // queries the EthClient for the ETH balance at the address associated with state
 func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.State) *big.Int {
 	chainID := state.EVMChainID.ToInt()
-	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String()) //nolint:staticcheck // LegacyEVMChains is deprecated but refactoring to new relayer interface requires larger architectural changes
 	if err != nil {
 		ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "err", err)
 		return nil
@@ -372,7 +373,7 @@ func (ekc *ETHKeysController) setLinkBalance(bal *commonassets.Link) presenters.
 // queries the EthClient for the LINK balance at the address associated with state
 func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.State) *commonassets.Link {
 	chainID := state.EVMChainID.ToInt()
-	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String()) //nolint:staticcheck // LegacyEVMChains is deprecated but refactoring to new relayer interface requires larger architectural changes
 	if err != nil {
 		ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		return nil
@@ -401,7 +402,7 @@ func (ekc *ETHKeysController) setKeyMaxGasPriceWei(price *assets.Wei) presenters
 
 func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddress common.Address) *assets.Wei {
 	chainID := state.EVMChainID.ToInt()
-	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String()) //nolint:staticcheck // LegacyEVMChains is deprecated but refactoring to new relayer interface requires larger architectural changes
 	if err != nil {
 		ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		return nil
@@ -417,7 +418,7 @@ func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddres
 // getChain is a convenience wrapper to retrieve a chain for a given request
 // and call the corresponding API response error function for 400, 404 and 500 results
 func (ekc *ETHKeysController) getChain(c *gin.Context, chainIDstr string) (chain legacyevm.Chain, ok bool) {
-	chain, err := getChain(ekc.app.GetRelayers().LegacyEVMChains(), chainIDstr)
+	chain, err := getChain(ekc.app.GetRelayers().LegacyEVMChains(), chainIDstr) //nolint:staticcheck // LegacyEVMChains is deprecated but refactoring to new relayer interface requires larger architectural changes
 	if err != nil {
 		if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) {
 			jsonAPIError(c, http.StatusBadRequest, err)

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
@@ -210,7 +209,7 @@ func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *Te
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
 	app := cltest.NewApplicationWithConfig(t, cfg)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
 
 	client := app.NewHTTPClient(nil)
@@ -220,6 +219,3 @@ func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *Te
 		client: client,
 	}
 }
-
-//go:fix inline
-func ptr[T any](t T) *T { return new(t) }

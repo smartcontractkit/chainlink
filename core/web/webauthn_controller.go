@@ -17,7 +17,7 @@ import (
 
 // WebAuthnController manages registers new keys as well as authentication
 // with those keys
-type WebAuthnController struct {
+type WebAuthnController struct { //nolint:revive // WebAuthnController stutters in package web but renaming type breaks package naming conventions across controllers
 	App                          chainlink.Application
 	inProgressRegistrationsStore *sessions.WebAuthnSessionStore
 }
@@ -41,7 +41,7 @@ func (w *WebAuthnController) BeginRegistration(c *gin.Context) {
 	uwas, err := orm.GetUserWebAuthn(ctx, user.Email)
 	if err != nil {
 		w.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %+v", err)
-		jsonAPIError(c, http.StatusInternalServerError, errors.New("Unable to register key"))
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("unable to register key"))
 		return
 	}
 
@@ -64,7 +64,7 @@ func (w *WebAuthnController) FinishRegistration(c *gin.Context) {
 	user, ok := auth.GetAuthenticatedUser(c)
 	if !ok {
 		logger.Sugared(w.App.GetLogger()).AssumptionViolationf("failed to obtain current user from context")
-		jsonAPIError(c, http.StatusInternalServerError, errors.New("Unable to register key"))
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("unable to register key"))
 		return
 	}
 
@@ -72,7 +72,7 @@ func (w *WebAuthnController) FinishRegistration(c *gin.Context) {
 	uwas, err := orm.GetUserWebAuthn(ctx, user.Email)
 	if err != nil {
 		w.App.GetLogger().Errorf("failed to obtain current user MFA tokens: error in GetUserWebAuthn: %s", err)
-		jsonAPIError(c, http.StatusInternalServerError, errors.New("Unable to register key"))
+		jsonAPIError(c, http.StatusInternalServerError, errors.New("unable to register key"))
 		return
 	}
 

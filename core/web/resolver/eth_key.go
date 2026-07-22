@@ -6,11 +6,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
 
-	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
+	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
@@ -30,7 +30,7 @@ func NewETHKey(key ETHKey) *ETHKeyResolver {
 }
 
 func NewETHKeys(keys []ETHKey) []*ETHKeyResolver {
-	var resolvers []*ETHKeyResolver
+	resolvers := make([]*ETHKeyResolver, 0, len(keys))
 
 	for _, k := range keys {
 		resolvers = append(resolvers, NewETHKey(k))

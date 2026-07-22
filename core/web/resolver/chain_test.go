@@ -12,14 +12,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	evmtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/testutils"
 )
 
 func TestResolver_Chains(t *testing.T) {
+	t.Parallel()
 	var (
 		chainID = *sqlutil.NewI(1)
 		query   = `
@@ -141,6 +142,7 @@ ResendAfterThreshold = '1h0m0s'
 }
 
 func TestResolver_Chain(t *testing.T) {
+	t.Parallel()
 	var (
 		chainID = *sqlutil.NewI(1)
 		query   = `

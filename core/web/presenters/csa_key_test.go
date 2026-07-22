@@ -12,6 +12,7 @@ import (
 )
 
 func TestCSAKeyResource(t *testing.T) {
+	t.Parallel()
 	keyV2, err := csakey.NewV2()
 	require.NoError(t, err)
 

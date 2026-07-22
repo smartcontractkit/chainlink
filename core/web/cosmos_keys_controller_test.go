@@ -4,15 +4,15 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCosmosKeysController_Index_HappyPath(t *testing.T) {
@@ -27,7 +27,7 @@ func TestCosmosKeysController_Index_HappyPath(t *testing.T) {
 
 	resources := []presenters.CosmosKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resources)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	require.Len(t, resources, len(keys))
 
@@ -39,7 +39,7 @@ func TestCosmosKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
 	client := app.NewHTTPClient(nil)
 	keyStore := app.GetKeyStore()
@@ -53,7 +53,7 @@ func TestCosmosKeysController_Create_HappyPath(t *testing.T) {
 
 	resource := presenters.CosmosKeyResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, keys[0].ID(), resource.ID)
 	assert.Equal(t, keys[0].PublicKeyStr(), resource.PubKey)
@@ -75,7 +75,7 @@ func TestCosmosKeysController_Delete_NonExistentCosmosKeyID(t *testing.T) {
 
 func TestCosmosKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	client, keyStore := setupCosmosKeysControllerTests(t)
 
@@ -86,7 +86,7 @@ func TestCosmosKeysController_Delete_HappyPath(t *testing.T) {
 	response, cleanup := client.Delete("/v2/keys/cosmos/" + key.ID())
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	assert.Error(t, utils.JustError(keyStore.Cosmos().Get(key.ID())))
+	require.Error(t, utils.JustError(keyStore.Cosmos().Get(key.ID())))
 
 	keys, _ = keyStore.Cosmos().GetAll()
 	assert.Len(t, keys, initialLength)
@@ -94,7 +94,7 @@ func TestCosmosKeysController_Delete_HappyPath(t *testing.T) {
 
 func setupCosmosKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(ctx))

@@ -21,7 +21,7 @@ func NewFeedsManager(mgr feeds.FeedsManager) *FeedsManagerResolver {
 }
 
 func NewFeedsManagers(mgrs []feeds.FeedsManager) []*FeedsManagerResolver {
-	var resolvers []*FeedsManagerResolver
+	resolvers := make([]*FeedsManagerResolver, 0, len(mgrs))
 	for _, mgr := range mgrs {
 		resolvers = append(resolvers, NewFeedsManager(mgr))
 	}
@@ -171,7 +171,7 @@ func (r *CreateFeedsManagerPayloadResolver) ToDuplicateFeedsManagerError() (*Dup
 
 func (r *CreateFeedsManagerPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
 	if r.inputErrs != nil {
-		var errs []*InputErrorResolver
+		errs := make([]*InputErrorResolver, 0, len(r.inputErrs))
 
 		for path, message := range r.inputErrs {
 			errs = append(errs, NewInputError(path, message))
@@ -265,7 +265,7 @@ func (r *UpdateFeedsManagerPayloadResolver) ToUpdateFeedsManagerSuccess() (*Upda
 
 func (r *UpdateFeedsManagerPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
 	if r.inputErrs != nil {
-		var errs []*InputErrorResolver
+		errs := make([]*InputErrorResolver, 0, len(r.inputErrs))
 
 		for path, message := range r.inputErrs {
 			errs = append(errs, NewInputError(path, message))

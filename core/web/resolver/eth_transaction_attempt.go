@@ -4,6 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
@@ -16,7 +17,7 @@ func NewEthTransactionAttempt(attmpt txmgr.TxAttempt) *EthTransactionAttemptReso
 }
 
 func NewEthTransactionsAttempts(results []txmgr.TxAttempt) []*EthTransactionAttemptResolver {
-	var resolver []*EthTransactionAttemptResolver
+	resolver := make([]*EthTransactionAttemptResolver, 0, len(results))
 
 	for _, tx := range results {
 		resolver = append(resolver, NewEthTransactionAttempt(tx))
