@@ -18,22 +18,28 @@ runner-test-matrix:
       - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
-      if [ -f "integration-tests/bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./integration-tests/bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_BelowFinality_OnSource$" -test.timeout 25m -test.parallel=1 -test.count=1
-      elif [ -f "./bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_BelowFinality_OnSource$" -test.timeout 25m -test.parallel=1 -test.count=1
+      if [ -f "./bin/ccip-smoke.test" ]; then
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_BelowFinality_OnSource$" -test.timeout 25m -test.parallel=1 -test.count=1
+        )
+      elif [ -f "integration-tests/bin/ccip-smoke.test" ]; then
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../../integration-tests/bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_BelowFinality_OnSource$" -test.timeout 25m -test.parallel=1 -test.count=1
+        )
       else
-        cd integration-tests/smoke/ccip && \
+        cd smoke/ccip && \
         gotestsum \
           --junitfile=/tmp/junit.xml \
           --jsonfile=/tmp/gotest.log \
@@ -56,22 +62,28 @@ runner-test-matrix:
       - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
-      if [ -f "integration-tests/bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./integration-tests/bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_BelowFinality_OnDest$" -test.timeout 25m -test.parallel=1 -test.count=1
-      elif [ -f "./bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_BelowFinality_OnDest$" -test.timeout 25m -test.parallel=1 -test.count=1
+      if [ -f "./bin/ccip-smoke.test" ]; then
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_BelowFinality_OnDest$" -test.timeout 25m -test.parallel=1 -test.count=1
+        )
+      elif [ -f "integration-tests/bin/ccip-smoke.test" ]; then
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../../integration-tests/bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_BelowFinality_OnDest$" -test.timeout 25m -test.parallel=1 -test.count=1
+        )
       else
-        cd integration-tests/smoke/ccip && \
+        cd smoke/ccip && \
         gotestsum \
           --junitfile=/tmp/junit.xml \
           --jsonfile=/tmp/gotest.log \
@@ -94,22 +106,28 @@ runner-test-matrix:
       - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
-      if [ -f "integration-tests/bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./integration-tests/bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_GreaterThanFinality_OnSource$" -test.timeout 25m -test.parallel=1 -test.count=1
-      elif [ -f "./bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_GreaterThanFinality_OnSource$" -test.timeout 25m -test.parallel=1 -test.count=1
+      if [ -f "./bin/ccip-smoke.test" ]; then
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_GreaterThanFinality_OnSource$" -test.timeout 25m -test.parallel=1 -test.count=1
+        )
+      elif [ -f "integration-tests/bin/ccip-smoke.test" ]; then
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../../integration-tests/bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_GreaterThanFinality_OnSource$" -test.timeout 25m -test.parallel=1 -test.count=1
+        )
       else
-        cd integration-tests/smoke/ccip && \
+        cd smoke/ccip && \
         gotestsum \
           --junitfile=/tmp/junit.xml \
           --jsonfile=/tmp/gotest.log \
@@ -132,22 +150,28 @@ runner-test-matrix:
       - Push E2E CCIP v1.6 Tests
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
-      if [ -f "integration-tests/bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./integration-tests/bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_GreaterThanFinality_OnDest$" -test.timeout 25m -test.parallel=1 -test.count=1
-      elif [ -f "./bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_GreaterThanFinality_OnDest$" -test.timeout 25m -test.parallel=1 -test.count=1
+      if [ -f "./bin/ccip-smoke.test" ]; then
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_GreaterThanFinality_OnDest$" -test.timeout 25m -test.parallel=1 -test.count=1
+        )
+      elif [ -f "integration-tests/bin/ccip-smoke.test" ]; then
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../../integration-tests/bin/ccip-smoke.test -test.v -test.run "^Test_CCIPReorg_GreaterThanFinality_OnDest$" -test.timeout 25m -test.parallel=1 -test.count=1
+        )
       else
-        cd integration-tests/smoke/ccip && \
+        cd smoke/ccip && \
         gotestsum \
           --junitfile=/tmp/junit.xml \
           --jsonfile=/tmp/gotest.log \
@@ -199,19 +223,25 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       if [ -f "./bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./bin/ccip-smoke.test -test.v -test.run "^Test_CCIPGasPriceUpdatesWriteFrequency$" -test.timeout 18m -test.parallel=1 -test.count=1
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../bin/ccip-smoke.test -test.v -test.run "^Test_CCIPGasPriceUpdatesWriteFrequency$" -test.timeout 18m -test.parallel=1 -test.count=1
+        )
       elif [ -f "integration-tests/bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./integration-tests/bin/ccip-smoke.test -test.v -test.run "^Test_CCIPGasPriceUpdatesWriteFrequency$" -test.timeout 18m -test.parallel=1 -test.count=1
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../../integration-tests/bin/ccip-smoke.test -test.v -test.run "^Test_CCIPGasPriceUpdatesWriteFrequency$" -test.timeout 18m -test.parallel=1 -test.count=1
+        )
       else
         cd smoke/ccip && \
         gotestsum \
@@ -288,19 +318,25 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       if [ -f "./bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/test.json \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./bin/ccip-smoke.test -test.v -test.run "^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$" -test.timeout 30m -test.parallel=1 -test.count=1
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/test.json \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../bin/ccip-smoke.test -test.v -test.run "^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$" -test.timeout 30m -test.parallel=1 -test.count=1
+        )
       elif [ -f "integration-tests/bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/test.json \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./integration-tests/bin/ccip-smoke.test -test.v -test.run "^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$" -test.timeout 30m -test.parallel=1 -test.count=1
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/test.json \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../../integration-tests/bin/ccip-smoke.test -test.v -test.run "^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$" -test.timeout 30m -test.parallel=1 -test.count=1
+        )
       else
         cd smoke/ccip && \
         gotestsum \
@@ -330,19 +366,25 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       if [ -f "./bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./bin/ccip-smoke.test -test.v -test.run "^TestDeleteCCIPJobs$" -test.parallel=1 -test.count=1
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../bin/ccip-smoke.test -test.v -test.run "^TestDeleteCCIPJobs$" -test.parallel=1 -test.count=1
+        )
       elif [ -f "integration-tests/bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./integration-tests/bin/ccip-smoke.test -test.v -test.run "^TestDeleteCCIPJobs$" -test.parallel=1 -test.count=1
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../../integration-tests/bin/ccip-smoke.test -test.v -test.run "^TestDeleteCCIPJobs$" -test.parallel=1 -test.count=1
+        )
       else
         cd smoke/ccip && \
         gotestsum \
@@ -371,19 +413,25 @@ runner-test-matrix:
       - Workflow Dispatch E2E CCIP v1.6 Tests
     test_cmd: |
       if [ -f "./bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./bin/ccip-smoke.test -test.v -test.run "^TestRevokeJobs$" -test.parallel=1 -test.count=1
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../bin/ccip-smoke.test -test.v -test.run "^TestRevokeJobs$" -test.parallel=1 -test.count=1
+        )
       elif [ -f "integration-tests/bin/ccip-smoke.test" ]; then
-        gotestsum \
-          --junitfile=/tmp/junit.xml \
-          --jsonfile=/tmp/gotest.log \
-          --format=github-actions \
-          --raw-command -- \
-          go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ./integration-tests/bin/ccip-smoke.test -test.v -test.run "^TestRevokeJobs$" -test.parallel=1 -test.count=1
+        (
+          cd smoke/ccip && \
+          gotestsum \
+            --junitfile=/tmp/junit.xml \
+            --jsonfile=/tmp/gotest.log \
+            --format=github-actions \
+            --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../../integration-tests/bin/ccip-smoke.test -test.v -test.run "^TestRevokeJobs$" -test.parallel=1 -test.count=1
+        )
       else
         cd smoke/ccip && \
         gotestsum \

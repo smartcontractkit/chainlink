@@ -633,7 +633,7 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: integration-tests/bin/
-          key: test-binaries-ccip-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+          key: test-binaries-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
 
   run-ccip-v1-6-e2e-tests:
     needs:
