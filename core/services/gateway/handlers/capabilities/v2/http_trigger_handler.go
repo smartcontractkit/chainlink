@@ -444,8 +444,13 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 	if err != nil {
 		return err
 	}
+
+	d, err := resp.Digest()
+	if err != nil {
+		h.lggr.Debugw("could not calculate digest for resp", "requestID", resp.ID)
+	}
 	if aggResp == nil {
-		h.lggr.Debugw("Not enough responses to aggregate", "requestID", resp.ID, "nodeAddress", nodeAddr)
+		h.lggr.Debugw("Not enough responses to aggregate", "requestID", resp.ID, "nodeAddress", nodeAddr, "resp", resp, "digest", d)
 		return nil
 	}
 	rawResp, err := json.Marshal(aggResp)
