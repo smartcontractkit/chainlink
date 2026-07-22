@@ -8,6 +8,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
@@ -320,4 +321,24 @@ func classifyContributions(obs []*vaultcommon.Observation) (ok []*vaultcommon.Ob
 		}
 	}
 	return ok, err
+}
+
+// validateEncryptedShareSize validates the structure and size limit of a single
+// encrypted share entry. Returns nil if the share is valid.
+func (r *ReportingPlugin) validateEncryptedShareSize(ctx context.Context, es *vaultcommon.EncryptedShares) error {
+	if err := validateEncryptedSharesEntry(es); err != nil {
+		return err
+	}
+	shareSize, err := encryptedShareSizeForLimit(es)
+	if err != nil {
+		return err
+	}
+	if err := r.cfg.MaxShareLengthBytes.Check(ctx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
+		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
+		if errors.As(err, &errBoundLimited) {
+			return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
+		}
+		return errors.New("failed to check share size")
+	}
+	return nil
 }

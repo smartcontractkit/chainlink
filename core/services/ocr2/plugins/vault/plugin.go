@@ -1795,6 +1795,7 @@ func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommo
 	}
 }
 
+
 // validateGetSecretsResponseShares checks TDH2 share labels and per-share size
 // limits for every GetSecrets response carrying data. Called by both
 // validateGetSecretsObservation (legacy) and validateGetSecretsContribution
@@ -1817,16 +1818,8 @@ func (r *ReportingPlugin) validateGetSecretsResponseShares(ctx context.Context, 
 		// TODO orgID https://smartcontractkit-it.atlassian.net/browse/CRE-1707
 		innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
 		for _, ds := range d.GetEncryptedDecryptionKeyShares() {
-			shareSize, err := encryptedShareSizeForLimit(ds)
-			if err != nil {
+			if err := r.validateEncryptedShareSize(innerCtx, ds); err != nil {
 				return err
-			}
-			if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
-				var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-				if errors.As(err, &errBoundLimited) {
-					return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
-				}
-				return errors.New("failed to check share size")
 			}
 		}
 	}
@@ -2396,61 +2389,15 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader 
 			key := vaulttypes.KeyFor(rsp.Id)
 			mergedResp, ok := idToAggResponse[key]
 			if !ok {
-				resp := &vaultcommon.SecretResponse{
+				idToAggResponse[key] = &vaultcommon.SecretResponse{
 					Id:     rsp.Id,
 					Result: rsp.Result,
 				}
-				idToAggResponse[key] = resp
 				continue
 			}
 
 			if rsp.GetData() != nil {
-				data := mergedResp.GetData()
-
-				if len(data.EncryptedDecryptionKeyShares) == 0 {
-					data.EncryptedDecryptionKeyShares = []*vaultcommon.EncryptedShares{}
-				}
-
-				keyToShares := map[string]*vaultcommon.EncryptedShares{}
-				for _, s := range data.EncryptedDecryptionKeyShares {
-					keyToShares[s.EncryptionKey] = s
-				}
-
-				// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
-				innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
-				for _, existing := range rsp.GetData().EncryptedDecryptionKeyShares {
-					if !includeInvalid {
-						if err := validateEncryptedSharesEntry(existing); err != nil {
-							// This should not happen because we validate against this in ValidateObservation.
-							r.lggr.Errorw("exactly 1 share must be provided in the response, skipping", "id", rsp.Id)
-							continue
-						}
-						shareSize, err := encryptedShareSizeForLimit(existing)
-						if err != nil {
-							r.lggr.Errorw("could not measure share size, skipping", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
-							continue
-						}
-						if err := r.cfg.MaxShareLengthBytes.Check(innerCtx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
-							var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-							if errors.As(err, &errBoundLimited) {
-								r.lggr.Errorw("share exceeds max allowed size, skipping...", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
-							} else {
-								r.lggr.Errorw("could not check max allowed share size, skipping...", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
-							}
-							continue
-						}
-					}
-
-					if shares, ok := keyToShares[existing.EncryptionKey]; ok {
-						appendEncryptedShareEntry(shares, existing)
-					} else {
-						// This shouldn't happen -- this is because we're aggregating
-						// requests that have a matching sha (excluding the decryption share).
-						// Accordingly, we can assume that the request has been made with the same
-						// set of encryption keys.
-						r.lggr.Errorw("unexpected encryption key in response", "id", rsp.Id, "encryptionKey", existing.EncryptionKey)
-					}
-				}
+				r.aggregateGetSecretsShares(ctx, includeInvalid, mergedResp, rsp)
 			}
 		}
 	}
@@ -2464,6 +2411,44 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader 
 		GetSecretsResponse: &vaultcommon.GetSecretsResponse{
 			Responses: sortedResponses,
 		},
+	}
+}
+
+func (r *ReportingPlugin) aggregateGetSecretsShares(
+	ctx context.Context,
+	includeInvalid bool,
+	mergedResp *vaultcommon.SecretResponse,
+	rsp *vaultcommon.SecretResponse,
+) {
+	data := mergedResp.GetData()
+	if len(data.EncryptedDecryptionKeyShares) == 0 {
+		data.EncryptedDecryptionKeyShares = []*vaultcommon.EncryptedShares{}
+	}
+
+	keyToShares := map[string]*vaultcommon.EncryptedShares{}
+	for _, s := range data.EncryptedDecryptionKeyShares {
+		keyToShares[s.EncryptionKey] = s
+	}
+
+	// TODO orgID https://smartcontractkit-it.atlassian.net/browse/CRE-1707
+	innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
+	for _, existing := range rsp.GetData().EncryptedDecryptionKeyShares {
+		if !includeInvalid {
+			if err := r.validateEncryptedShareSize(innerCtx, existing); err != nil {
+				r.lggr.Errorw("share failed validation during aggregation, skipping", "id", rsp.Id, "encryptionKey", existing.EncryptionKey, "err", err)
+				continue
+			}
+		}
+
+		if shares, ok := keyToShares[existing.EncryptionKey]; ok {
+			appendEncryptedShareEntry(shares, existing)
+		} else {
+			// This shouldn't happen -- this is because we're aggregating
+			// requests that have a matching sha (excluding the decryption share).
+			// Accordingly, we can assume that the request has been made with the same
+			// set of encryption keys.
+			r.lggr.Errorw("unexpected encryption key in response", "id", rsp.Id, "encryptionKey", existing.EncryptionKey)
+		}
 	}
 }
 
