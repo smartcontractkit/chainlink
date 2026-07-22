@@ -294,7 +294,6 @@ func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 		t.Parallel()
 		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
 		executeStellarWriteTest(t, env, chain, userLogsCh, baseMessageCh)
-
 	})
 }
 
