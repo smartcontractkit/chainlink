@@ -167,6 +167,14 @@ jobs:
           cache_builds: true
           cache_restore_only: "true"
 
+      - name: Restore Pre-Compiled Test Binaries from S3 Cache
+        uses: actions/cache/restore@v6
+        with:
+          path: system-tests/tests/bin/
+          key: test-binaries-${{ inputs.chainlink_version || github.sha }}
+          restore-keys: |
+            test-binaries-
+
       # Required to pull private ECR images such as Job Distributor (main) and Chip Ingress (main),
       # and also the Chainlink image when inputs.ecr is "sdlc".
       - name: Configure AWS Credentials
@@ -251,13 +259,24 @@ jobs:
           echo "Starting test: '${TEST_NAME}'"
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
 
-          gotestsum \
-            --jsonfile=/tmp/gotest-regression.log \
-            --junitfile=/tmp/junit-report-regression.xml \
-            --format=github-actions \
-            -- \
-            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 \
-            github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
+          if [ -f "./bin/cre-regression.test" ]; then
+            echo "Using precompiled binary"
+            gotestsum \
+              --jsonfile=/tmp/gotest-regression.log \
+              --junitfile=/tmp/junit-report-regression.xml \
+              --format=github-actions \
+              --raw-command -- \
+              go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre ./bin/cre-regression.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1
+          else
+            echo "No precompiled binary found. Building from scratch..."
+            gotestsum \
+              --jsonfile=/tmp/gotest-regression.log \
+              --junitfile=/tmp/junit-report-regression.xml \
+              --format=github-actions \
+              -- \
+              -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 \
+              github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
+          fi
 
           exit_code="$?"
           if [ "$exit_code" -eq 0 ]; then
