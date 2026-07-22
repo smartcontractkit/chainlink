@@ -38,6 +38,7 @@ func (s stubCapabilities) ExternalRegistry() config.CapabilitiesExternalRegistry
 func (s stubCapabilities) WorkflowRegistry() config.CapabilitiesWorkflowRegistry { return nil }
 func (s stubCapabilities) GatewayConnector() config.GatewayConnector             { return nil }
 func (s stubCapabilities) Local() config.LocalCapabilities                       { return nil }
+func (s stubCapabilities) Proxy() config.CapabilitiesProxy                       { return nil }
 
 // stubConfig is a minimal cre.Config whose .P2P() returns a configurable stubP2P. Other
 // methods return nil because confidentialRelayPeerID does not read them.

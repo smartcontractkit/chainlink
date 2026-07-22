@@ -34,6 +34,7 @@ CAP_SPECS=(
   "http_action:http_action:"
   "http_trigger:http_trigger:"
   "chain_capabilities/evm:evm:"
+  "main:main:"
 )
 
 LCRE="${LCRE:-$HOME/go/src/github.com/smartcontractkit/cre-cli/cre}"

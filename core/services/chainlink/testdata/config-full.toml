@@ -372,6 +372,11 @@ BinaryPathOverride = '/opt/chainlink/binaries/http_action'
 allowedPorts = '443,8443'
 proxyMode = 'gateway'
 
+[Capabilities.Proxy]
+Enabled = false
+Command = '/opt/chainlink/binaries/cre-p2p-proxy'
+Port = 50051
+
 [Telemetry]
 Enabled = true
 CACertFile = 'cert-file'

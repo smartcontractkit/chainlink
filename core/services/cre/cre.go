@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 
+	creproxy "github.com/smartcontractkit/chainlink-protos/cre/impl/proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
@@ -562,7 +563,7 @@ func (w *dispatcherWrapper) newSubservices(
 ) ([]commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 
-	if !capCfg.Peering().Enabled() && !capCfg.SharedPeering().Enabled() {
+	if !capCfg.Peering().Enabled() && !capCfg.SharedPeering().Enabled() && !capCfg.Proxy().Enabled() {
 		opts.CapabilitiesRegistry.SetLocalRegistry(newLocalTestMetadataRegistry(capCfg.Local()))
 		return nil, nil
 	}
@@ -582,7 +583,35 @@ func (w *dispatcherWrapper) newSubservices(
 		signer = p2pmain.NewSigner(keyStore.P2P(), capCfg.Peering().PeerID())
 	}
 
-	if capCfg.SharedPeering().Enabled() {
+	if capCfg.Proxy().Enabled() {
+		// Route DON-to-DON through the p2p proxy: back the shared peer with the
+		// proxy's PeerGroup client instead of the local singleton peer.
+		if !cfg.P2P().Enabled() {
+			return nil, errors.New("top-level P2P must be enabled in order to use the p2p proxy")
+		}
+		proxyAddr := fmt.Sprintf("localhost:%d", capCfg.Proxy().Port())
+		pgClient, perr := creproxy.NewProxyPeerGroupFactory(proxyAddr)
+		if perr != nil {
+			return nil, fmt.Errorf("failed to create proxy peer group factory: %w", perr)
+		}
+		key, kerr := keyStore.P2P().GetOrFirst(cfg.P2P().PeerID())
+		if kerr != nil {
+			return nil, fmt.Errorf("failed to get p2p key for proxy shared peer: %w", kerr)
+		}
+		bootstrappers := capCfg.SharedPeering().Bootstrappers()
+		if len(bootstrappers) == 0 {
+			bootstrappers = cfg.P2P().V2().DefaultBootstrappers()
+		}
+		w.don2DonSharedPeer = p2pmain.NewDon2DonSharedPeerWithPeerGroupFactory(
+			p2pmain.NewProxyBackedPeerGroupFactory(pgClient),
+			p2ptypes.PeerID(key.PeerID()),
+			bootstrappers,
+			lggr,
+		)
+		subs = append(subs, w.don2DonSharedPeer)
+
+		signer = p2pmain.NewSigner(keyStore.P2P(), cfg.P2P().PeerID())
+	} else if capCfg.SharedPeering().Enabled() {
 		if !cfg.P2P().Enabled() {
 			return nil, errors.New("top-level P2P must be enabled in order to use SharedPeering")
 		}

@@ -26,6 +26,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -47,6 +49,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	creproxy "github.com/smartcontractkit/chainlink-protos/cre/impl/proxy"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -574,6 +577,20 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, loopRegistry.Register, loopRegistry.Unregister)
 
+	// When the CRE p2p proxy is enabled, launch the proxy binary as a LOOP. It
+	// serves the OCR and DON-to-DON proxy gRPC that the clients (wired below and
+	// in the CRE) connect to.
+	if cfg.Capabilities().Proxy().Enabled() {
+		proxyCmdFn, proxyGRPCOpts, rerr := loopRegistrarConfig.RegisterLOOP(plugins.CmdConfig{
+			ID:  "cre-p2p-proxy",
+			Cmd: cfg.Capabilities().Proxy().Command(),
+		})
+		if rerr != nil {
+			return nil, fmt.Errorf("failed to register p2p proxy LOOP: %w", rerr)
+		}
+		srvcs = append(srvcs, loop.NewEmptyService(globalLogger, proxyGRPCOpts, proxyCmdFn))
+	}
+
 	var (
 		delegates = map[job.Type]job.Delegate{
 			job.DirectRequest: &job.DeprecatedDelegate{Type: job.DirectRequest},
@@ -647,6 +664,22 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings)
 
+	// When the CRE p2p proxy is enabled, route capability OCR networking through
+	// the proxy's BinaryNetworkEndpoint client instead of the local OCR peer.
+	var ocrProxyEndpointFactory ocrtypes.BinaryNetworkEndpointFactory
+	if cfg.Capabilities().Proxy().Enabled() {
+		proxyAddr := fmt.Sprintf("localhost:%d", cfg.Capabilities().Proxy().Port())
+		var peerIDStr string
+		if pid, perr := creServices.GetPeerID(); perr == nil {
+			peerIDStr = pid.String()
+		}
+		proxyFactory, perr := creproxy.NewProxyEndpointFactory(peerIDStr, proxyAddr)
+		if perr != nil {
+			return nil, fmt.Errorf("failed to create proxy OCR endpoint factory: %w", perr)
+		}
+		ocrProxyEndpointFactory = proxyFactory
+	}
+
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,
@@ -666,6 +699,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		atomicSettings,
 		creServices.OCRConfigService,
 		cfg.Capabilities().Local(),
+		ocrProxyEndpointFactory,
 	)
 	delegates[job.StandardCapabilities] = stdcapDelegate
 	if creServices.SetDelegatesDeps != nil {

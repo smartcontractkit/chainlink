@@ -88,6 +88,16 @@ type Capabilities interface {
 	WorkflowRegistry() CapabilitiesWorkflowRegistry
 	GatewayConnector() GatewayConnector
 	Local() LocalCapabilities
+	Proxy() CapabilitiesProxy
+}
+
+// CapabilitiesProxy configures the out-of-process p2p proxy. When Enabled, the
+// node launches the proxy binary as a LOOP and routes OCR and DON-to-DON
+// networking through the proxy's gRPC on Port instead of the local libocr peer.
+type CapabilitiesProxy interface {
+	Enabled() bool
+	Command() string
+	Port() uint16
 }
 
 // LocalCapabilities provides configuration for registry-based capability launching.

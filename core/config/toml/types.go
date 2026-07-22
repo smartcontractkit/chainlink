@@ -2658,6 +2658,29 @@ type Capabilities struct {
 	WorkflowRegistry WorkflowRegistry         `toml:",omitempty"`
 	GatewayConnector GatewayConnector         `toml:",omitempty"`
 	Local            LocalCapabilities        `toml:",omitempty"`
+	Proxy            CapabilitiesProxy        `toml:",omitempty"`
+}
+
+// CapabilitiesProxy configures an out-of-process p2p proxy. When Enabled, the
+// node launches the proxy binary (Command) as a LOOP and routes its OCR and
+// DON-to-DON networking through the proxy's gRPC on Port instead of the local
+// libocr peer.
+type CapabilitiesProxy struct {
+	Enabled *bool   `toml:",omitempty"`
+	Command *string `toml:",omitempty"`
+	Port    *uint16 `toml:",omitempty"`
+}
+
+func (c *CapabilitiesProxy) setFrom(f *CapabilitiesProxy) {
+	if f.Enabled != nil {
+		c.Enabled = f.Enabled
+	}
+	if f.Command != nil {
+		c.Command = f.Command
+	}
+	if f.Port != nil {
+		c.Port = f.Port
+	}
 }
 
 // LocalCapabilities configures registry-based capability launching.
@@ -2692,6 +2715,7 @@ func (c *Capabilities) setFrom(f *Capabilities) {
 	c.Dispatcher.setFrom(&f.Dispatcher)
 	c.GatewayConnector.setFrom(&f.GatewayConnector)
 	c.Local.setFrom(&f.Local)
+	c.Proxy.setFrom(&f.Proxy)
 }
 
 func (l *LocalCapabilities) setFrom(f *LocalCapabilities) {

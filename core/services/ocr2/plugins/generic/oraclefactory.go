@@ -42,6 +42,9 @@ type oracleFactory struct {
 	ethKeystore            keystore.Eth
 	ocrConfigService       capregconfig.OCRConfigService
 	capabilityID           string // Capability ID for registry-based config lookup
+	// binaryNetworkEndpointFactory, when set, is used instead of the local
+	// peerWrapper's Peer2 (e.g. an out-of-process p2p proxy client).
+	binaryNetworkEndpointFactory ocrtypes.BinaryNetworkEndpointFactory
 }
 
 type OracleFactoryParams struct {
@@ -61,24 +64,28 @@ type OracleFactoryParams struct {
 	// between registry-based and legacy contract-based config.
 	OCRConfigService capregconfig.OCRConfigService
 	CapabilityID     string
+	// BinaryNetworkEndpointFactory, when set, overrides the local peer's Peer2
+	// so OCR networking is routed through it (e.g. the p2p proxy client).
+	BinaryNetworkEndpointFactory ocrtypes.BinaryNetworkEndpointFactory
 }
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {
 	return &oracleFactory{
-		database:               OracleFactoryDB(params.JobID, params.Logger),
-		jobID:                  params.JobID,
-		jobName:                params.JobName,
-		jobORM:                 params.JobORM,
-		kb:                     params.KB,
-		lggr:                   params.Logger,
-		config:                 params.Config,
-		onchainSigningStrategy: params.OnchainSigningStrategy,
-		peerWrapper:            params.PeerWrapper,
-		relayerSet:             params.RelayerSet,
-		ocrKeystore:            params.OcrKeystore,
-		ethKeystore:            params.EthKeystore,
-		ocrConfigService:       params.OCRConfigService,
-		capabilityID:           params.CapabilityID,
+		database:                     OracleFactoryDB(params.JobID, params.Logger),
+		jobID:                        params.JobID,
+		jobName:                      params.JobName,
+		jobORM:                       params.JobORM,
+		kb:                           params.KB,
+		lggr:                         params.Logger,
+		config:                       params.Config,
+		onchainSigningStrategy:       params.OnchainSigningStrategy,
+		peerWrapper:                  params.PeerWrapper,
+		relayerSet:                   params.RelayerSet,
+		ocrKeystore:                  params.OcrKeystore,
+		ethKeystore:                  params.EthKeystore,
+		ocrConfigService:             params.OCRConfigService,
+		capabilityID:                 params.CapabilityID,
+		binaryNetworkEndpointFactory: params.BinaryNetworkEndpointFactory,
 	}, nil
 }
 
@@ -94,8 +101,14 @@ func AdjustLocalConfigForRegistryBasedConfig(lc ocrtypes.LocalConfig) ocrtypes.L
 func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (core.Oracle, error) {
 	of.lggr.Debugw("Creating new oracle from oracle factory using config", "config", of.config, "capabilityID", of.capabilityID)
 
-	if !of.peerWrapper.IsStarted() {
-		return nil, errors.New("peer wrapper not started")
+	// Determine the binary network endpoint factory: use the injected one (e.g.
+	// the p2p proxy client) if provided, otherwise the local peer's Peer2.
+	binaryNetworkEndpointFactory := of.binaryNetworkEndpointFactory
+	if binaryNetworkEndpointFactory == nil {
+		if !of.peerWrapper.IsStarted() {
+			return nil, errors.New("peer wrapper not started")
+		}
+		binaryNetworkEndpointFactory = of.peerWrapper.Peer2
 	}
 
 	relayerSetRelayer, err := of.relayerSet.Get(ctx, types.RelayID{Network: "evm", ChainID: of.config.ChainID})
@@ -181,7 +194,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		LocalConfig:                  AdjustLocalConfigForRegistryBasedConfig(args.LocalConfig),
 		ContractTransmitter:          NewContractTransmitter(of.config.TransmitterID, args.ContractTransmitter),
 		ReportingPluginFactory:       args.ReportingPluginFactoryService,
-		BinaryNetworkEndpointFactory: of.peerWrapper.Peer2,
+		BinaryNetworkEndpointFactory: binaryNetworkEndpointFactory,
 		V2Bootstrappers:              bootstrapPeers,
 		Database:                     of.database,
 		Logger: ocrcommon.NewOCRWrapper(of.lggr, true, func(ctx context.Context, msg string) {
