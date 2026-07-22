@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -30,6 +31,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
@@ -270,7 +273,16 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	// forwards the Workflow-DON-signed compute requests (a 2*F+1 quorum), whose PublicData
 	// names the authorized owner. A TEE breach passes attestation but cannot forge a Workflow
 	// DON quorum over a different owner (PRIV-433).
-	if err = h.verifyWorkflowAuthorization(localNode.WorkflowDON, params); err != nil {
+	execution, err := h.verifyWorkflowAuthorization(localNode.WorkflowDON, params)
+	if err != nil {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
+	}
+
+	// Filter the requested secrets against the workflow's pre-hook restrictions carried in
+	// the same signed WorkflowExecution (PRIV-537). The enclave enforces these itself, so a
+	// violation reaching the relay implies a breached TEE: reject the whole request rather
+	// than serving a partial result.
+	if err = enforceSecretsRestrictions(execution.GetRestrictions(), params.Secrets); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
@@ -592,9 +604,12 @@ func (h *Handler) verifyAttestationHash(ctx context.Context, attestationB64 stri
 //
 // All failures here are client errors: the request is unauthorized. The caller fetches the
 // Workflow DON (a server-side concern) and passes it in, so registry failures stay internal.
-func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confidentialrelaytypes.SecretsRequestParams) error {
+//
+// On success it returns the quorum-verified WorkflowExecution so the caller can enforce
+// further signed fields (the pre-hook restrictions, PRIV-537) without re-verifying.
+func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confidentialrelaytypes.SecretsRequestParams) (*confidentialworkflow.WorkflowExecution, error) {
 	if len(params.SignedComputeRequests) == 0 {
-		return errors.New("missing signed compute requests")
+		return nil, errors.New("missing signed compute requests")
 	}
 
 	// Match the enclave's own quorum. With requireBFTQuorum the relay demands a
@@ -613,7 +628,7 @@ func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confi
 	signers := make(map[string]struct{})
 	for _, scr := range params.SignedComputeRequests {
 		if scr.Hash() != hash {
-			return errors.New("forwarded signed compute requests do not share one compute request")
+			return nil, errors.New("forwarded signed compute requests do not share one compute request")
 		}
 		for _, member := range don.Members {
 			if ed25519.Verify(ed25519.PublicKey(member[:]), payload, scr.Signature) {
@@ -623,25 +638,86 @@ func (h *Handler) verifyWorkflowAuthorization(don capabilities.DON, params confi
 		}
 	}
 	if len(signers) < threshold {
-		return fmt.Errorf("insufficient Workflow DON signatures: %d unique signers, need %d", len(signers), threshold)
+		return nil, fmt.Errorf("insufficient Workflow DON signatures: %d unique signers, need %d", len(signers), threshold)
 	}
 
 	// The signed request authorizes a specific owner and workflow; the secrets request must
 	// match both, or a breached enclave could fetch another owner's secrets.
 	var execution confidentialworkflow.WorkflowExecution
 	if err := proto.Unmarshal(params.SignedComputeRequests[0].PublicData, &execution); err != nil {
-		return fmt.Errorf("failed to unmarshal workflow execution from public data: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal workflow execution from public data: %w", err)
 	}
 	if !common.IsHexAddress(params.Owner) || !common.IsHexAddress(execution.GetOwner()) {
-		return errors.New("invalid owner address")
+		return nil, errors.New("invalid owner address")
 	}
 	if common.HexToAddress(execution.GetOwner()) != common.HexToAddress(params.Owner) {
-		return fmt.Errorf("owner not authorized: request %q vs signed %q", params.Owner, execution.GetOwner())
+		return nil, fmt.Errorf("owner not authorized: request %q vs signed %q", params.Owner, execution.GetOwner())
 	}
 	if execution.GetWorkflowId() != params.WorkflowID {
-		return fmt.Errorf("workflow_id not authorized: request %q vs signed %q", params.WorkflowID, execution.GetWorkflowId())
+		return nil, fmt.Errorf("workflow_id not authorized: request %q vs signed %q", params.WorkflowID, execution.GetWorkflowId())
+	}
+	// Bind the quorum to this execution. The pre-hook restrictions are per-execution, so
+	// accepting a signed request from an older execution of the same workflow would let a
+	// breached enclave replay a looser restriction set.
+	if execution.GetExecutionId() != params.ExecutionID {
+		return nil, fmt.Errorf("execution_id not authorized: request %q vs signed %q", params.ExecutionID, execution.GetExecutionId())
+	}
+	return &execution, nil
+}
+
+// enforceSecretsRestrictions is the relay-side check of the workflow's pre-hook secret
+// restrictions (PRIV-537). The restrictions come from the quorum-verified WorkflowExecution,
+// so a breached enclave cannot loosen them. Membership semantics mirror chainlink-common's
+// in-TEE executionRestrictions wrapper; the counting budgets (max_secrets as a running
+// budget, per-prefix decrements) stay in-TEE because the relay serves each request
+// statelessly, so only the membership rules and zero-budget denials are enforceable here.
+//
+// A nil Restrictions or nil Secrets means the workflow declared no secret restrictions:
+// allowed. Namespaces are normalized ("" -> "main") on both sides before matching, so an
+// empty-namespace request cannot slip past a "main"-namespace rule or vice versa.
+func enforceSecretsRestrictions(r *sdkpb.Restrictions, secrets []confidentialrelaytypes.SecretIdentifier) error {
+	sr := r.GetSecrets()
+	if sr == nil {
+		return nil
+	}
+	for _, s := range secrets {
+		if !secretAllowed(sr, s) {
+			return fmt.Errorf("secret %q in namespace %q denied by workflow pre-hook restrictions",
+				s.Key, vaulttypes.NormalizeNamespace(s.Namespace))
+		}
 	}
 	return nil
+}
+
+// secretAllowed mirrors the in-TEE wrapper's reserveSecret membership rules: a zero
+// MaxSecrets denies everything, an exact (id, namespace) entry or a namespace+prefix rule
+// admits, and a matching prefix rule with a zero budget denies even alongside an exact
+// match (the wrapper short-circuits the same way).
+func secretAllowed(sr *sdkpb.SecretsRestritions, s confidentialrelaytypes.SecretIdentifier) bool {
+	if sr.GetMaxSecrets() == 0 {
+		return false
+	}
+	ns := vaulttypes.NormalizeNamespace(s.Namespace)
+	exact := false
+	prefixMatched := false
+	for _, rr := range sr.GetRestrictions() {
+		switch v := rr.GetRestriction().(type) {
+		case *sdkpb.SecretRestriction_ExactSecret:
+			e := v.ExactSecret
+			if e.GetId() == s.Key && vaulttypes.NormalizeNamespace(e.GetNamespace()) == ns {
+				exact = true
+			}
+		case *sdkpb.SecretRestriction_PrefixedSecret:
+			p := v.PrefixedSecret
+			if vaulttypes.NormalizeNamespace(p.GetNamespace()) == ns && strings.HasPrefix(s.Key, p.GetPrefix()) {
+				if p.GetMaxSecrets() == 0 {
+					return false
+				}
+				prefixMatched = true
+			}
+		}
+	}
+	return exact || prefixMatched
 }
 
 func (h *Handler) jsonResponse(req *jsonrpc.Request[json.RawMessage], result any) *jsonrpc.Response[json.RawMessage] {

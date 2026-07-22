@@ -258,8 +258,9 @@ func signedComputeRequestsForParams(t *testing.T, params confidentialrelaytypes.
 	t.Helper()
 	privs, _ := testWorkflowDONKeys()
 	publicData, err := proto.Marshal(&confidentialworkflow.WorkflowExecution{
-		Owner:      params.Owner,
-		WorkflowId: params.WorkflowID,
+		Owner:       params.Owner,
+		WorkflowId:  params.WorkflowID,
+		ExecutionId: params.ExecutionID,
 	})
 	require.NoError(t, err)
 	cr := confidentialrelaytypes.ComputeRequest{PublicData: publicData}
@@ -831,18 +832,19 @@ func TestTranslateVaultResponse_HexShares(t *testing.T) {
 func TestVerifyWorkflowAuthorization(t *testing.T) {
 	t.Parallel()
 	const (
-		owner      = "0xab5801a7d398351b8be11c439e05c5b3259aec9b"
-		workflowID = "wf-secrets-1"
+		owner       = "0xab5801a7d398351b8be11c439e05c5b3259aec9b"
+		workflowID  = "wf-secrets-1"
+		executionID = "0000000000000000000000000000000000000000000000000000000000000001"
 	)
 	privs, _ := testWorkflowDONKeys()
 	// The DON members are the public keys of privs; F=testEnclaveF => 2*F+1 = 3 quorum.
 	don := capabilities.DON{Members: testWorkflowDONMembers(), F: testEnclaveF}
 
-	// signedReqs builds compute requests naming o/wf, each signed by one of the given keys
-	// over the shared request hash.
-	signedReqs := func(t *testing.T, o, wf string, signers []ed25519.PrivateKey) []confidentialrelaytypes.SignedComputeRequest {
+	// signedReqs builds compute requests naming o/wf/eid, each signed by one of the given
+	// keys over the shared request hash.
+	signedReqs := func(t *testing.T, o, wf, eid string, signers []ed25519.PrivateKey) []confidentialrelaytypes.SignedComputeRequest {
 		t.Helper()
-		publicData, err := proto.Marshal(&confidentialworkflow.WorkflowExecution{Owner: o, WorkflowId: wf})
+		publicData, err := proto.Marshal(&confidentialworkflow.WorkflowExecution{Owner: o, WorkflowId: wf, ExecutionId: eid})
 		require.NoError(t, err)
 		cr := confidentialrelaytypes.ComputeRequest{PublicData: publicData}
 		payload := confidentialrelaytypes.SignedComputeRequestSignaturePayload(cr.Hash())
@@ -853,58 +855,76 @@ func TestVerifyWorkflowAuthorization(t *testing.T) {
 		return out
 	}
 
-	// validParams: 2*F+1 = 3 distinct DON signers over a compute request naming owner/workflow.
+	// validParams: 2*F+1 = 3 distinct DON signers over a compute request naming
+	// owner/workflow/execution.
 	validParams := func(t *testing.T) confidentialrelaytypes.SecretsRequestParams {
 		t.Helper()
 		return confidentialrelaytypes.SecretsRequestParams{
 			WorkflowID:            workflowID,
 			Owner:                 owner,
-			SignedComputeRequests: signedReqs(t, owner, workflowID, privs[:3]),
+			ExecutionID:           executionID,
+			SignedComputeRequests: signedReqs(t, owner, workflowID, executionID, privs[:3]),
 		}
 	}
 
 	h := newTestHandler(t, &mockCapRegistry{}, &mockGatewayConnector{})
+	verify := func(params confidentialrelaytypes.SecretsRequestParams) error {
+		_, err := h.verifyWorkflowAuthorization(don, params)
+		return err
+	}
 
 	t.Run("valid 2F+1 quorum", func(t *testing.T) {
 		t.Parallel()
-		require.NoError(t, h.verifyWorkflowAuthorization(don, validParams(t)))
+		execution, err := h.verifyWorkflowAuthorization(don, validParams(t))
+		require.NoError(t, err)
+		require.Equal(t, workflowID, execution.GetWorkflowId())
 	})
 
 	t.Run("missing signed compute requests", func(t *testing.T) {
 		t.Parallel()
 		params := validParams(t)
 		params.SignedComputeRequests = nil
-		require.ErrorContains(t, h.verifyWorkflowAuthorization(don, params), "missing signed compute requests")
+		require.ErrorContains(t, verify(params), "missing signed compute requests")
 	})
 
 	t.Run("insufficient signers for quorum", func(t *testing.T) {
 		t.Parallel()
 		params := validParams(t)
 		// Only 2 signers; F=1 requires 2*1+1 = 3.
-		params.SignedComputeRequests = signedReqs(t, owner, workflowID, privs[:2])
-		require.ErrorContains(t, h.verifyWorkflowAuthorization(don, params), "insufficient Workflow DON signatures")
+		params.SignedComputeRequests = signedReqs(t, owner, workflowID, executionID, privs[:2])
+		require.ErrorContains(t, verify(params), "insufficient Workflow DON signatures")
 	})
 
 	t.Run("signers not in Workflow DON", func(t *testing.T) {
 		t.Parallel()
 		stranger := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0xfe}, ed25519.SeedSize))
 		params := validParams(t)
-		params.SignedComputeRequests = signedReqs(t, owner, workflowID, []ed25519.PrivateKey{stranger, stranger, stranger})
-		require.ErrorContains(t, h.verifyWorkflowAuthorization(don, params), "insufficient Workflow DON signatures")
+		params.SignedComputeRequests = signedReqs(t, owner, workflowID, executionID, []ed25519.PrivateKey{stranger, stranger, stranger})
+		require.ErrorContains(t, verify(params), "insufficient Workflow DON signatures")
 	})
 
 	t.Run("owner mismatch", func(t *testing.T) {
 		t.Parallel()
 		params := validParams(t)
 		params.Owner = "0x0000000000000000000000000000000000000002"
-		require.ErrorContains(t, h.verifyWorkflowAuthorization(don, params), "owner not authorized")
+		require.ErrorContains(t, verify(params), "owner not authorized")
 	})
 
 	t.Run("workflow id mismatch", func(t *testing.T) {
 		t.Parallel()
 		params := validParams(t)
 		params.WorkflowID = "wf-other"
-		require.ErrorContains(t, h.verifyWorkflowAuthorization(don, params), "workflow_id not authorized")
+		require.ErrorContains(t, verify(params), "workflow_id not authorized")
+	})
+
+	t.Run("execution id mismatch rejects replay of another execution", func(t *testing.T) {
+		t.Parallel()
+		params := validParams(t)
+		// A quorum signed for a different execution of the same workflow/owner must not
+		// authorize this one: its pre-hook restrictions may be looser.
+		params.SignedComputeRequests = signedReqs(t, owner, workflowID,
+			"00000000000000000000000000000000000000000000000000000000000000ff", privs[:3])
+		require.ErrorContains(t, verify(params), "execution_id not authorized")
 	})
 
 	t.Run("forwarded requests disagree on compute request", func(t *testing.T) {
@@ -914,6 +934,93 @@ func TestVerifyWorkflowAuthorization(t *testing.T) {
 			ComputeRequest: confidentialrelaytypes.ComputeRequest{PublicData: []byte("different")},
 			Signature:      []byte("irrelevant"),
 		})
-		require.ErrorContains(t, h.verifyWorkflowAuthorization(don, params), "do not share one compute request")
+		require.ErrorContains(t, verify(params), "do not share one compute request")
+	})
+}
+
+func TestEnforceSecretsRestrictions(t *testing.T) {
+	t.Parallel()
+
+	exact := func(id, ns string) *sdkpb.SecretRestriction {
+		return &sdkpb.SecretRestriction{Restriction: &sdkpb.SecretRestriction_ExactSecret{
+			ExactSecret: &sdkpb.Secret{Id: id, Namespace: ns},
+		}}
+	}
+	prefixed := func(prefix, ns string, maxSecrets int32) *sdkpb.SecretRestriction {
+		return &sdkpb.SecretRestriction{Restriction: &sdkpb.SecretRestriction_PrefixedSecret{
+			PrefixedSecret: &sdkpb.SecretPrefixRestriction{Prefix: prefix, Namespace: ns, MaxSecrets: maxSecrets},
+		}}
+	}
+	restrictions := func(maxSecrets int32, rr ...*sdkpb.SecretRestriction) *sdkpb.Restrictions {
+		return &sdkpb.Restrictions{Secrets: &sdkpb.SecretsRestritions{Restrictions: rr, MaxSecrets: maxSecrets}}
+	}
+	secrets := func(ids ...confidentialrelaytypes.SecretIdentifier) []confidentialrelaytypes.SecretIdentifier {
+		return ids
+	}
+	apiKey := confidentialrelaytypes.SecretIdentifier{Key: "API_KEY", Namespace: "main"}
+
+	t.Run("nil restrictions allows everything", func(t *testing.T) {
+		t.Parallel()
+		require.NoError(t, enforceSecretsRestrictions(nil, secrets(apiKey)))
+	})
+
+	t.Run("restrictions without secrets section allows everything", func(t *testing.T) {
+		t.Parallel()
+		require.NoError(t, enforceSecretsRestrictions(&sdkpb.Restrictions{}, secrets(apiKey)))
+	})
+
+	t.Run("exact match allows", func(t *testing.T) {
+		t.Parallel()
+		require.NoError(t, enforceSecretsRestrictions(restrictions(-1, exact("API_KEY", "main")), secrets(apiKey)))
+	})
+
+	t.Run("unlisted secret denied", func(t *testing.T) {
+		t.Parallel()
+		err := enforceSecretsRestrictions(restrictions(-1, exact("API_KEY", "main")),
+			secrets(confidentialrelaytypes.SecretIdentifier{Key: "OTHER", Namespace: "main"}))
+		require.ErrorContains(t, err, `secret "OTHER" in namespace "main" denied by workflow pre-hook restrictions`)
+	})
+
+	t.Run("one unlisted secret rejects the batch", func(t *testing.T) {
+		t.Parallel()
+		err := enforceSecretsRestrictions(restrictions(-1, exact("API_KEY", "main")),
+			secrets(apiKey, confidentialrelaytypes.SecretIdentifier{Key: "OTHER", Namespace: "main"}))
+		require.ErrorContains(t, err, "denied by workflow pre-hook restrictions")
+	})
+
+	t.Run("prefix match allows", func(t *testing.T) {
+		t.Parallel()
+		require.NoError(t, enforceSecretsRestrictions(restrictions(-1, prefixed("API_", "main", -1)), secrets(apiKey)))
+	})
+
+	t.Run("prefix in other namespace denied", func(t *testing.T) {
+		t.Parallel()
+		err := enforceSecretsRestrictions(restrictions(-1, prefixed("API_", "other", -1)), secrets(apiKey))
+		require.ErrorContains(t, err, "denied by workflow pre-hook restrictions")
+	})
+
+	t.Run("zero max_secrets denies everything", func(t *testing.T) {
+		t.Parallel()
+		err := enforceSecretsRestrictions(restrictions(0, exact("API_KEY", "main")), secrets(apiKey))
+		require.ErrorContains(t, err, "denied by workflow pre-hook restrictions")
+	})
+
+	t.Run("zero-budget prefix denies even alongside an exact match", func(t *testing.T) {
+		t.Parallel()
+		// Mirrors the in-TEE wrapper: a matching prefix rule with an exhausted budget
+		// short-circuits to deny before the exact match is considered.
+		err := enforceSecretsRestrictions(restrictions(-1, exact("API_KEY", "main"), prefixed("API_", "main", 0)), secrets(apiKey))
+		require.ErrorContains(t, err, "denied by workflow pre-hook restrictions")
+	})
+
+	t.Run("empty namespace normalizes to main on the request side", func(t *testing.T) {
+		t.Parallel()
+		require.NoError(t, enforceSecretsRestrictions(restrictions(-1, exact("API_KEY", "main")),
+			secrets(confidentialrelaytypes.SecretIdentifier{Key: "API_KEY", Namespace: ""})))
+	})
+
+	t.Run("empty namespace normalizes to main on the restriction side", func(t *testing.T) {
+		t.Parallel()
+		require.NoError(t, enforceSecretsRestrictions(restrictions(-1, exact("API_KEY", "")), secrets(apiKey)))
 	})
 }
