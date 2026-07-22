@@ -9,12 +9,9 @@ import (
 	"context"
 	"fmt"
 
-	stellarcre "github.com/smartcontractkit/chainlink-stellar/deployment/cre"
+	"github.com/smartcontractkit/chainlink/deployment/cre/stellar"
+	stellarartifacts "github.com/smartcontractkit/chainlink/deployment/cre/stellar"
 
-	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"
-	stellarreceiver "github.com/smartcontractkit/chainlink-stellar/deployment/cre/receiver"
-
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 )
 
@@ -30,23 +27,14 @@ func DeployStellarTestReceiver(ctx context.Context, chain *stellchain.Blockchain
 	if fundErr := chain.Fund(ctx, owner, 0); fundErr != nil {
 		return "", fmt.Errorf("failed to fund stellar deployer %s via friendbot: %w", owner, fundErr)
 	}
-	deployer, err := stellardeployment.NewDeployerFromChain(stellarChain)
-	if err != nil {
-		return "", fmt.Errorf("failed to build stellar deployer: %w", err)
-	}
 
-	// Source the receiver WASM at deploy time (build or download) — no committed binary.
-	buildCfg, err := stellarBuildConfig(ctx, stellarcre.ReceiverWasm)
+	buildCfg, err := stellarBuildConfig(ctx, stellarartifacts.ReceiverWasm)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve stellar receiver WASM source: %w", err)
 	}
-	wasm, err := helpers.BuildStellar(ctx, buildCfg)
-	if err != nil {
-		return "", fmt.Errorf("failed to source stellar receiver WASM: %w", err)
-	}
 
 	var salt [32]byte
-	return stellarreceiver.DeployReceiver(ctx, deployer, wasm, salt)
+	return stellar.DeployReceiverForChain(ctx, stellarChain, buildCfg, salt)
 }
 
 // ReceiverReportCount reads the receiver's report_count (read-only simulate,
@@ -56,9 +44,5 @@ func ReceiverReportCount(ctx context.Context, chain *stellchain.Blockchain, cont
 	if err != nil {
 		return 0, err
 	}
-	deployer, err := stellardeployment.NewDeployerFromChain(stellarChain)
-	if err != nil {
-		return 0, fmt.Errorf("failed to build stellar deployer: %w", err)
-	}
-	return stellarreceiver.ReportCount(ctx, deployer, contractID)
+	return stellar.ReportCountForChain(ctx, stellarChain, contractID)
 }

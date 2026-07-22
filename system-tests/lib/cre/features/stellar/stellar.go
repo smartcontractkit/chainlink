@@ -110,11 +110,11 @@ func (s *Stellar) PostEnvStartup(
 		return errors.New("no consensus DON found in environment")
 	}
 
-	if cfgErr := configureStellarForwarders(ctx, testLogger, creEnv, consensusDons[0], stellarChain); cfgErr != nil {
+	if cfgErr := configureStellarForwarders(testLogger, creEnv, consensusDons[0], stellarChain); cfgErr != nil {
 		return errors.Wrap(cfgErr, "failed to configure stellar CRE forwarder")
 	}
 
-	if authErr := authorizeStellarForwarderTransmitters(ctx, testLogger, creEnv, don, stellarChain); authErr != nil {
+	if authErr := authorizeStellarForwarderTransmitters(testLogger, creEnv, don, stellarChain); authErr != nil {
 		return errors.Wrap(authErr, "failed to authorize stellar forwarder transmitters")
 	}
 

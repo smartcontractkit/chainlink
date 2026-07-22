@@ -46,7 +46,6 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260716141634-c0cc05ed05d8
-	github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260721074545-ef8526aebfcf
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6-0.20260708113039-95f97b2d25e9
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
@@ -482,6 +481,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.3.0 // indirect
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1 // indirect
+	github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260721074545-ef8526aebfcf // indirect
 	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260721074545-ef8526aebfcf // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260714190119-005bb9a612c3 // indirect
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 // indirect

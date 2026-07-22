@@ -8,10 +8,10 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	stellarcre "github.com/smartcontractkit/chainlink-stellar/deployment/cre"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	stellarfwd "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
+	"github.com/smartcontractkit/chainlink/deployment/cre/stellar"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -79,7 +79,7 @@ func deployStellarForwarders(
 
 	version := forwarderVersion(creEnv)
 
-	buildCfg, err := stellarBuildConfig(ctx, stellarcre.ForwarderWasm)
+	buildCfg, err := stellarBuildConfig(ctx, stellar.ForwarderWasm)
 	if err != nil {
 		return fmt.Errorf("failed to resolve stellar forwarder WASM source: %w", err)
 	}
@@ -117,7 +117,6 @@ func deployStellarForwarders(
 // configureStellarForwarders configures the deployed forwarder with the
 // consensus DON's ed25519 signer set. Mirrors features/evm/v2 configureEVMForwarders.
 func configureStellarForwarders(
-	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
 	consensusDon *cre.Don,
@@ -159,7 +158,6 @@ func configureStellarForwarders(
 // must be authorized or report() reverts with UnauthorizedForwarder. Uses the
 // capability DON (the one hosting the Stellar worker / submitting reports).
 func authorizeStellarForwarderTransmitters(
-	ctx context.Context,
 	testLogger zerolog.Logger,
 	creEnv *cre.Environment,
 	don *cre.Don,
