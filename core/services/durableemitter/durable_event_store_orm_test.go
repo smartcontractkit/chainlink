@@ -123,12 +123,13 @@ func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
 }
 
 func TestPgDurableEventStore_BatchDelete(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
 	store := durableemitter.NewPgDurableEventStore(db)
 
-	var ids []int64
+	ids := make([]int64, 0, 3)
 	for i := range 3 {
 		id, err := store.Insert(ctx, fmt.Appendf(nil, "payload-%d", i))
 		require.NoError(t, err)
