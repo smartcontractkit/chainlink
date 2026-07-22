@@ -516,19 +516,20 @@ jobs:
             echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
           fi
 
-  # Sole writer for the `compile-tests` build cache consumed (restore-only) by the
-  # CRE smoke + regression matrices in cre-system-tests.yaml / cre-regression-system-tests.yaml.
-  # CCIP is intentionally NOT warmed here: run-e2e-tests.yml uses a different cache_key_id
-  # (`e2e-tests`) that this namespace cannot reach, and it self-warms across runs.
+  # Central writer for the unified `integration-tests-v1` build cache consumed (restore-only) by
+  # CRE smoke + regression matrices and CCIP test suites.
+  # Keyed on go.sum hash to optimize parallel PR cache hits (Strategy A + B + C).
   compile-tests:
-    name: Compile CRE Tests
+    name: Compile CRE & CCIP Tests
     if: >-
       ${{
         github.actor != 'dependabot[bot]' &&
-        needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+        (needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' ||
+         needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true')
       }}
     needs:
       - run-core-cre-e2e-tests-setup
+      - run-ccip-v1-6-e2e-tests-setup
     runs-on: runs-on=${{ github.run_id }}-compile/cpu=8/ram=32/family=c7i+c8i+m7i+m8i/spot=co/extras=s3-cache
     environment:
       name: integration
@@ -561,29 +562,47 @@ jobs:
         id: setup-go
         uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
-          # Key the cache on the CRE go.mod so a CRE dependency bump refreshes the
-          # warmed cache (the readers restore this same cache_key_id via prefix fallback).
+          # Key the cache on go.sum hash; restore-only on PRs to eliminate upload overhead and cache thrashing.
           go_mod_path: ./system-tests/tests/go.mod
-          cache_key_id: compile-tests
+          cache_key_id: integration-tests-v1
           cache_builds: true
-          cache_restore_only: "false"
+          cache_restore_only: ${{ github.ref_name != 'develop' }}
           should_tidy: false
           no_cache: false
           gati_token: ${{ steps.github-token.outputs.access-token }}
 
       # No cache-hit short-circuit: ctf-setup-go@v0.4.0 exposes no `cache-hit` output,
       # and this job's purpose is to (re)populate the shared build cache regardless.
-      - name: Compile Core CRE E2E tests
+      - name: Compile CRE and CCIP E2E tests
         shell: bash
+        env:
+          SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
+          SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
         run: |
-          cd system-tests/tests
-          go mod download
-          go test -c -o /dev/null ./smoke/cre/...
-          go test -c -o /dev/null ./regression/cre/...
+          if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
+            echo "Compiling CRE tests..."
+            cd "$GITHUB_WORKSPACE/system-tests/tests"
+            go mod download
+            go test -c -o /dev/null ./smoke/cre/...
+            go test -c -o /dev/null ./regression/cre/...
+          fi
+
+          if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
+            echo "Compiling CCIP tests..."
+            cd "$GITHUB_WORKSPACE/integration-tests"
+            go mod download
+            go test -c -o /dev/null ./smoke/ccip/...
+          fi
 
   run-ccip-v1-6-e2e-tests:
     needs:
-      [run-ccip-v1-6-e2e-tests-setup, build-chainlink, changes, labels]
+      [
+        run-ccip-v1-6-e2e-tests-setup,
+        build-chainlink,
+        changes,
+        labels,
+        compile-tests,
+      ]
     name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
     permissions:
       actions: read
@@ -604,6 +623,7 @@ jobs:
       ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       quarantine: "true"
       cache_builds: "true"
+      cache_key_id: "integration-tests-v1"
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
