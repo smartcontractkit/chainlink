@@ -107,11 +107,9 @@ func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	monitorCtx, monitorCancel := context.WithCancel(ctx)
 	ms := &monitorState{}
 	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		monitorReExecutions(monitorCtx, t, state, destChain, ms)
-	}()
+	})
 
 	t.Run("data message to eoa", func(t *testing.T) {
 		out = mt.Run(

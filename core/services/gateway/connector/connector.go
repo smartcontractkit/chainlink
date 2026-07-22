@@ -57,6 +57,7 @@ type gatewayConnector struct {
 	clock       clockwork.Clock
 	nodeAddress []byte
 	signer      Signer
+	handlersMu  sync.RWMutex
 	handlers    map[string]core.GatewayConnectorHandler
 	gateways    map[string]*gatewayState
 	urlToId     map[string]string
@@ -153,6 +154,8 @@ func (c *gatewayConnector) AddHandler(ctx context.Context, methods []string, han
 	if handler == nil {
 		return errors.New("cannot add a nil handler")
 	}
+	c.handlersMu.Lock()
+	defer c.handlersMu.Unlock()
 	for _, method := range methods {
 		if _, exists := c.handlers[method]; exists {
 			return fmt.Errorf("handler for method %s already exists", method)
@@ -166,6 +169,8 @@ func (c *gatewayConnector) AddHandler(ctx context.Context, methods []string, han
 }
 
 func (c *gatewayConnector) RemoveHandler(ctx context.Context, methods []string) error {
+	c.handlersMu.Lock()
+	defer c.handlersMu.Unlock()
 	for _, method := range methods {
 		_, exists := c.handlers[method]
 		if !exists {
@@ -269,7 +274,9 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.ID, "err", err)
 				break
 			}
+			c.handlersMu.RLock()
 			handler, exists := c.handlers[req.Method]
+			c.handlersMu.RUnlock()
 			if !exists {
 				c.lggr.Errorw("no handler for method", "id", gatewayState.config.ID, "method", req.Method)
 				break

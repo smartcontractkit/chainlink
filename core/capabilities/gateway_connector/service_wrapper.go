@@ -3,6 +3,7 @@ package gatewayconnector
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -95,7 +96,7 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 		configuredNodeAddress := common.HexToAddress(nodeAddress)
 		err := e.keystore.CheckEnabled(ctx, configuredNodeAddress)
 		if err != nil {
-			return err
+			return fmt.Errorf("gateway connector keystore check failed (chainID %s): %w", e.chainID, err)
 		}
 
 		translated := connector.ConnectorConfig{}.From(conf)
