@@ -1795,7 +1795,6 @@ func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommo
 	}
 }
 
-
 // validateGetSecretsResponseShares checks TDH2 share labels and per-share size
 // limits for every GetSecrets response carrying data. Called by both
 // validateGetSecretsObservation (legacy) and validateGetSecretsContribution
