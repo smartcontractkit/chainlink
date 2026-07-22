@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/stellar"
-
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 )
 
