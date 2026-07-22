@@ -569,4 +569,4 @@ replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlin
 // to be removed after https://github.com/doyensec/safeurl/pull/11 is merged
 replace github.com/doyensec/safeurl => github.com/cedric-cordenier/safeurl v0.0.0-20260525105509-613a4d94ca55
 
-replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260721212531-dc23bb271beb
+replace github.com/smartcontractkit/chainlink-sui => github.com/smartcontractkit/chainlink-sui v0.0.0-20260722165728-7a830b8800c6
