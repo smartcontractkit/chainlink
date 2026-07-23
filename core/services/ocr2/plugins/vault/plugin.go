@@ -401,6 +401,12 @@ func (t *pendingQueueStallTracker) record(seqNr uint64) int {
 	return t.count
 }
 
+func (t *pendingQueueStallTracker) getCount() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.count
+}
+
 func countPendingQueueStallSignals(aos []types.AttributedObservation) int {
 	count := 0
 	for _, ao := range aos {
@@ -706,7 +712,7 @@ func (r *ReportingPlugin) shouldPurgePendingQueue(ctx context.Context) bool {
 		stallThreshold = 2*r.onchainCfg.F + 1
 	}
 
-	stalledObservationCount := r.pendingQueueStallTracker.count
+	stalledObservationCount := r.pendingQueueStallTracker.getCount()
 	return stalledObservationCount >= stallThreshold
 }
 
@@ -745,7 +751,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 		}
 		r.metrics.trackPendingQueueStallSignal(ctx)
 		l.Warnw("pending queue stall threshold reached; signaling queue purge",
-			"observationCount", r.pendingQueueStallTracker.count,
+			"observationCount", r.pendingQueueStallTracker.getCount(),
 		)
 		return types.Observation(obsb), nil
 	}
