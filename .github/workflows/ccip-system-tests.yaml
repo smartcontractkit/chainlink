@@ -66,12 +66,6 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.chainlink_version || github.sha }}
-          persist-credentials: false
-
       - name: Define test matrix
         id: define-matrix
         shell: bash
@@ -81,10 +75,9 @@ jobs:
             {"test_name":"Test_CCIPReorg_BelowFinality_OnDest","timeout":"25m","selected_network":"SIMULATED_1_DEEPER_FINALITY,SIMULATED_2_DEEPER_FINALITY"},
             {"test_name":"Test_CCIPReorg_GreaterThanFinality_OnSource","timeout":"25m","selected_network":"SIMULATED_1,SIMULATED_2,SIMULATED_3"},
             {"test_name":"Test_CCIPReorg_GreaterThanFinality_OnDest","timeout":"25m","selected_network":"SIMULATED_1,SIMULATED_2,SIMULATED_3"},
-            {"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency","timeout":"18m","selected_network":"SIMULATED_1,SIMULATED_2"},
+            {"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency","timeout":"18m","selected_network":"SIMULATED_1,SIMULATED_2","runner_spec":"cpu=4/ram=16"},
             {"test_name":"TestRMN_GlobalCurseTwoMessagesOnTwoLanes","timeout":"30m","selected_network":"SIMULATED_1,SIMULATED_2","rmn_rageproxy_version":"master-amd6416f5d86","rmn_afn2proxy_version":"master-amd64-10b42b2"},
-            {"test_name":"TestDeleteCCIPJobs","timeout":"25m","selected_network":"SIMULATED_1,SIMULATED_2"},
-            {"test_name":"TestRevokeJobs","timeout":"25m","selected_network":"SIMULATED_1,SIMULATED_2"}
+            {"test_name":"TestDeleteCCIPJobs|TestRevokeJobs","timeout":"50m","selected_network":"SIMULATED_1,SIMULATED_2","runner_spec":"cpu=4/ram=16","job_timeout":60}
           ]'
 
           tests=$(echo "$TESTS_JSON" | jq -c \
@@ -92,7 +85,7 @@ jobs:
             --arg run_attempt "${{ github.run_attempt }}" '
             to_entries | map(.value + {
               test_id: .key,
-              runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=r7i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+              runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/\(.value.runner_spec // "cpu=8/ram=64")/\(.value.runner_spec // "family=r6i+r7i+r8i")/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
             })
           ')
 
@@ -113,14 +106,15 @@ jobs:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
       name: integration
       deployment: false
-    timeout-minutes: 45
+    timeout-minutes: ${{ matrix.tests.job_timeout || 45 }}
     env:
       ENABLE_AUTO_QUARANTINE: "true"
       INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
       E2E_JD_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor
       E2E_RMN_RAGEPROXY_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/rageproxy
       E2E_RMN_AFN2PROXY_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/afn2proxy
-      E2E_FAST_FILLER_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/ccip-fast-transfer-filler
+      CHAINLINK_IMAGE: ${{ inputs.ecr == 'public' && format('public.ecr.aws/{0}', inputs.chainlink_image_repository_path) || format('{0}.dkr.ecr.{1}.amazonaws.com/{2}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.QA_AWS_REGION, inputs.chainlink_image_repository_path) }}
+      E2E_TEST_CHAINLINK_IMAGE: ${{ inputs.ecr == 'public' && format('public.ecr.aws/{0}', inputs.chainlink_image_repository_path) || format('{0}.dkr.ecr.{1}.amazonaws.com/{2}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.QA_AWS_REGION, inputs.chainlink_image_repository_path) }}
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
@@ -178,29 +172,23 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Cache gotestsum
+        id: cache-gotestsum
+        uses: actions/cache@v6
+        with:
+          path: ~/go/bin/gotestsum
+          key: gotestsum-1.13.0
+
       - name: Set up gotestsum
         shell: bash
         run: |
-          echo "::group::Install gotestsum"
-          go install gotest.tools/gotestsum@v1.13.0
-          echo "::endgroup::"
-
-      - name: Resolve Chainlink image
-        id: resolve-chainlink-image
-        working-directory: .github/scripts
-        shell: bash
-        env:
-          CHAINLINK_IMAGE_REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
-          CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
-          ECR_TYPE: ${{ inputs.ecr }}
-          AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-        run: |
-          resolved_image="$(bash resolve-chainlink-image.sh)"
-          echo "$resolved_image"
-          # Strip :tag — CTF framework appends E2E_TEST_CHAINLINK_VERSION separately
-          chainlink_image="${resolved_image%:*}"
-          echo "chainlink_image=${chainlink_image}" >> "${GITHUB_OUTPUT}"
+          if [ -f ~/go/bin/gotestsum ]; then
+            echo "Using cached gotestsum"
+          else
+            echo "::group::Install gotestsum"
+            go install gotest.tools/gotestsum@v1.13.0
+            echo "::endgroup::"
+          fi
 
       - name: Run CCIP smoke tests
         id: run-tests
@@ -215,8 +203,6 @@ jobs:
           CCIP_V16_TEST_ENV: "docker"
           E2E_RMN_RAGEPROXY_VERSION: ${{ matrix.tests.rmn_rageproxy_version || '' }}
           E2E_RMN_AFN2PROXY_VERSION: ${{ matrix.tests.rmn_afn2proxy_version || '' }}
-          CHAINLINK_IMAGE: ${{ steps.resolve-chainlink-image.outputs.chainlink_image }}
-          E2E_TEST_CHAINLINK_IMAGE: ${{ steps.resolve-chainlink-image.outputs.chainlink_image }}
           E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_version || github.sha }}
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
         run: |

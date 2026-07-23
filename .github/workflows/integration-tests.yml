@@ -634,14 +634,7 @@ jobs:
           key: test-binaries-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
 
   run-ccip-v1-6-e2e-tests:
-    needs:
-      [
-        run-ccip-v1-6-e2e-tests-setup,
-        build-chainlink,
-        changes,
-        labels,
-        compile-tests,
-      ]
+    needs: [run-ccip-v1-6-e2e-tests-setup, build-chainlink, compile-tests]
     name: Run CCIP v1.6 E2E Tests
     permissions:
       actions: read
@@ -670,62 +663,38 @@ jobs:
         run-core-cre-e2e-regression-tests,
       ]
     steps:
-      - name: Fail the job if CCIP v1.6 E2E tests were not successful
+      - name: Check all E2E test results
         if: always()
         env:
-          JOB_RESULT: ${{ needs.run-ccip-v1-6-e2e-tests.result }}
+          CCIP_RESULT: ${{ needs.run-ccip-v1-6-e2e-tests.result }}
+          CRE_RESULT: ${{ needs.run-core-cre-e2e-tests.result }}
+          CRE_REGRESSION_RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
+          BUILD_RESULT: ${{ needs.build-chainlink.result }}
         run: |
-          if [[ "${JOB_RESULT}" == "failure" ]]; then
-            echo "::error::CCIP v1.6 E2E tests failed."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
-            echo "::error::CCIP v1.6 E2E tests were cancelled."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
-            echo "::warning::CCIP v1.6 E2E tests were skipped."
-          fi
+          check_result() {
+            local name="$1" result="$2"
+            case "${result}" in
+              failure)
+                echo "::error::${name} failed."
+                return 1
+                ;;
+              cancelled)
+                echo "::error::${name} cancelled."
+                return 1
+                ;;
+              skipped)
+                echo "::warning::${name} skipped."
+                ;;
+            esac
+            return 0
+          }
 
-      - name: Fail the job if core CRE tests were not successful
-        if: always()
-        env:
-          JOB_RESULT: ${{ needs.run-core-cre-e2e-tests.result }}
-        run: |
-          if [[ "${JOB_RESULT}" == "failure" ]]; then
-            echo "::error::Core CRE E2E tests failed."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
-            echo "::error::Core CRE E2E tests were cancelled."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
-            echo "::warning::Core CRE E2E tests were skipped."
-          fi
+          failed=0
+          check_result "CCIP v1.6 E2E tests" "${CCIP_RESULT}" || failed=1
+          check_result "Core CRE E2E tests" "${CRE_RESULT}" || failed=1
+          check_result "Core CRE E2E regression tests" "${CRE_REGRESSION_RESULT}" || failed=1
+          check_result "Chainlink image build" "${BUILD_RESULT}" || failed=1
 
-      - name: Fail the job if core CRE regression tests were not successful
-        if: always()
-        env:
-          JOB_RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
-        run: |
-          if [[ "${JOB_RESULT}" == "failure" ]]; then
-            echo "::error::Core CRE E2E regression tests failed."
+          if [[ "$failed" -eq 1 ]]; then
             exit 1
-          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
-            echo "::error::Core CRE E2E regression tests were cancelled."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
-            echo "::warning::Core CRE E2E regression tests were skipped."
-          fi
-
-      - name: Fail the job if Chainlink image was cancelled or failed to build
-        if: always()
-        env:
-          JOB_RESULT: ${{ needs.build-chainlink.result }}
-        run: |
-          if [[ "${JOB_RESULT}" == "failure" ]]; then
-            echo "::error::Chainlink image build failed."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
-            echo "::error::Chainlink image build was cancelled."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
-            echo "::warning::Chainlink image build was skipped."
           fi

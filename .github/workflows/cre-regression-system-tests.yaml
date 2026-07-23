@@ -131,6 +131,7 @@ jobs:
       BILLING_PLATFORM_SERVICE_IMAGE:
         ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
         secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.45.0
+      CHAINLINK_IMAGE_FULL: ${{ inputs.ecr == 'public' && format('public.ecr.aws/{0}:{1}', inputs.chainlink_image_repository_path, inputs.chainlink_image_tag) || format('{0}.dkr.ecr.{1}.amazonaws.com/{2}:{3}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.QA_AWS_REGION, inputs.chainlink_image_repository_path, inputs.chainlink_image_tag) }}
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
@@ -187,12 +188,23 @@ jobs:
         env:
           AWS_REGION: us-east-1
 
+      - name: Cache gotestsum
+        id: cache-gotestsum
+        uses: actions/cache@v6
+        with:
+          path: ~/go/bin/gotestsum
+          key: gotestsum-1.13.0
+
       - name: Set up gotestsum
         shell: bash
         run: |
-          echo "::group::Install gotestsum"
-          go install gotest.tools/gotestsum@v1.12.3
-          echo "::endgroup::"
+          if [ -f ~/go/bin/gotestsum ]; then
+            echo "Using cached gotestsum"
+          else
+            echo "::group::Install gotestsum"
+            go install gotest.tools/gotestsum@v1.13.0
+            echo "::endgroup::"
+          fi
 
       - name: Setup Stellar CRE contracts
         if: ${{ contains(matrix.tests.test_name, 'Stellar') }}
@@ -200,28 +212,13 @@ jobs:
         with:
           working-directory: system-tests/lib
 
-      - name: Resolve Chainlink image
-        id: resolve-chainlink-image
-        working-directory: .github/scripts
-        shell: bash
-        env:
-          ECR_TYPE: ${{ inputs.ecr }}
-          CHAINLINK_IMAGE_REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
-          CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
-          AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-        run: |
-          resolved_image="$(bash resolve-chainlink-image.sh)"
-          echo "$resolved_image"
-          echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
-
       - name: Start local CRE${{ matrix.tests.cre_version }}
         id: start-local-cre
         uses: ./.github/actions/start-local-cre-environment
         with:
           jd-image: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.28.0"
-          chainlink-image: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
+          chainlink-image: "${{ env.CHAINLINK_IMAGE_FULL }}"
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           ctf-configs: ${{ matrix.tests.configs }}
