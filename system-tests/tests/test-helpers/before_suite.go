@@ -345,9 +345,7 @@ func createEnvironmentIfNotExists(ctx context.Context, relativePathToRepoRoot, e
 	if !envconfig.LocalCREStateFileExists(relativePathToRepoRoot) {
 		framework.L.Info().Str("CTF_CONFIGS", os.Getenv("CTF_CONFIGS")).Str("local CRE state file", envconfig.MustLocalCREStateFileAbsPath(relativePathToRepoRoot)).Msg("Local CRE state file does not exist, starting environment...")
 
-		args := make([]string, 0, len(flags)+2)
-		args = append(args, "env", "start")
-		args = append(args, flags...)
+		args := append([]string{"env", "create"}, flags...)
 
 		cmd := resolveCreEnvCommand(ctx, relativePathToRepoRoot, environmentDir, args...)
 		cmd.Stdout = os.Stdout
