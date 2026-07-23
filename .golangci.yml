@@ -215,10 +215,14 @@ issues:
   max-same-issues: 0
 formatters:
   enable:
-    - goimports
+    - gci
   settings:
-    goimports:
-      local-prefixes:
-        - github.com/smartcontractkit/chainlink
+    gci:
+      custom-order: true
+      sections:
+        - standard
+        - default
+        - prefix(github.com/smartcontractkit/)
+        - prefix(github.com/smartcontractkit/chainlink/)
   exclusions:
     generated: lax

@@ -17,7 +17,6 @@ import (
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -82,8 +81,8 @@ TendermintURL = 'http://tender.mint'
 
 			controller := setupCosmosChainsControllerTestV2(t, chainlink.RawConfig{
 				"ChainID":            validID,
-				"FallbackGasPrice":   ptr(decimal.RequireFromString("9.999")),
-				"GasLimitMultiplier": ptr(decimal.RequireFromString("1.55555")),
+				"FallbackGasPrice":   new(decimal.RequireFromString("9.999")),
+				"GasLimitMultiplier": new(decimal.RequireFromString("1.55555")),
 				"Nodes": []map[string]any{{
 					"Name":          "primary",
 					"TendermintURL": "http://tender.mint",
@@ -137,7 +136,7 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 
 	chainA := chainlink.RawConfig{
 		"ChainID":          "a" + cosmostest.RandomChainID(),
-		"FallbackGasPrice": ptr(decimal.RequireFromString("9.999")),
+		"FallbackGasPrice": new(decimal.RequireFromString("9.999")),
 		"Nodes": []map[string]any{{
 			"Name":          "primary",
 			"TendermintURL": "http://tender.mint",
@@ -146,7 +145,7 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 
 	chainB := chainlink.RawConfig{
 		"ChainID":            "b" + cosmostest.RandomChainID(),
-		"GasLimitMultiplier": ptr(decimal.RequireFromString("1.55555")),
+		"GasLimitMultiplier": new(decimal.RequireFromString("1.55555")),
 		"Nodes": []map[string]any{{
 			"Name":          "primary",
 			"TendermintURL": "http://tender.mint",
@@ -206,7 +205,7 @@ func setupCosmosChainsControllerTestV2(t *testing.T, cfgs ...chainlink.RawConfig
 		c.EVM = nil
 	})
 	app := cltest.NewApplicationWithConfig(t, cfg)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
 
 	client := app.NewHTTPClient(nil)
@@ -421,7 +420,7 @@ func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...chainlink.RawConfig
 		c.EVM = nil
 	})
 	app := cltest.NewApplicationWithConfig(t, cfg)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 

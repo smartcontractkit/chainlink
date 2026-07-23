@@ -15,7 +15,7 @@ func NewSolanaKey(key solkey.Key) *SolanaKeyResolver {
 }
 
 func NewSolanaKeys(keys []solkey.Key) []*SolanaKeyResolver {
-	var resolvers []*SolanaKeyResolver
+	resolvers := make([]*SolanaKeyResolver, 0, len(keys))
 
 	for _, k := range keys {
 		resolvers = append(resolvers, NewSolanaKey(k))

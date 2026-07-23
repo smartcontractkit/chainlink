@@ -6,10 +6,7 @@ import (
 
 	cldfstellar "github.com/smartcontractkit/chainlink-deployments-framework/chain/stellar"
 
-	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"
-	stellarcre "github.com/smartcontractkit/chainlink-stellar/deployment/cre"
-
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
+	"github.com/smartcontractkit/chainlink/deployment/cre/stellar"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 )
 
@@ -24,28 +21,16 @@ func DeployStellarReadFixture(ctx context.Context, chain *stellchain.Blockchain)
 	if fundErr := chain.Fund(ctx, owner, 0); fundErr != nil {
 		return "", fmt.Errorf("failed to fund stellar deployer %s via friendbot: %w", owner, fundErr)
 	}
-	deployer, err := stellardeployment.NewDeployerFromChain(stellarChain)
-	if err != nil {
-		return "", fmt.Errorf("failed to build stellar deployer: %w", err)
-	}
 
-	buildCfg, err := stellarBuildConfig(ctx, stellarcre.ReadFixtureWasm)
+	buildCfg, err := stellarBuildConfig(ctx, stellar.ReadFixtureWasm)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve stellar read fixture WASM source: %w", err)
-	}
-	wasm, err := helpers.BuildStellar(ctx, buildCfg)
-	if err != nil {
-		return "", fmt.Errorf("failed to source stellar read fixture WASM: %w", err)
 	}
 
 	var salt [32]byte
 	// Distinct salt from the receiver deploy (all-zero) when both run in one suite.
 	salt[0] = 0x52 // 'R' — distinct from the all-zero receiver salt
-	contractID, err := deployer.DeployContractBytes(ctx, wasm, salt)
-	if err != nil {
-		return "", fmt.Errorf("deploy read fixture wasm: %w", err)
-	}
-	return contractID, nil
+	return stellar.DeployReadFixtureForChain(ctx, stellarChain, buildCfg, salt)
 }
 
 // stellarCldfChain builds the cldf stellar chain from the environment blockchain.

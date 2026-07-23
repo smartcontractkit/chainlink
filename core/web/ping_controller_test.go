@@ -5,23 +5,21 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPingController_Show_APICredentials(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -34,7 +32,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 
 func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
@@ -43,10 +41,10 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 		AccessKey: "abracadabra",
 		Secret:    "opensesame",
 	}
-	eir_url := cltest.WebURL(t, "http://localhost:8888")
+	eirURL := cltest.WebURL(t, "http://localhost:8888")
 	eir := &bridges.ExternalInitiatorRequest{
 		Name: uuid.New().String(),
-		URL:  &eir_url,
+		URL:  &eirURL,
 	}
 
 	ei, err := bridges.NewExternalInitiator(eia, eir)
@@ -74,7 +72,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 func TestPingController_Show_NoCredentials(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
 

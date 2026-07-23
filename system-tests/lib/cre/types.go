@@ -25,6 +25,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
+	ks_stellar "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -99,6 +100,7 @@ func NewContractVersionsProvider(overrides map[ContractType]*semver.Version) *co
 			keystone_changeset.KeystoneForwarder.String():    semver.MustParse("1.0.0"),
 			ks_sol.ForwarderContract.String():                semver.MustParse("1.0.0"),
 			ks_sol.ForwarderState.String():                   semver.MustParse("1.0.0"),
+			ks_stellar.ForwarderContract.String():            semver.MustParse(ks_stellar.DefaultForwarderVersion),
 		},
 	}
 	maps.Copy(cvp.contracts, overrides)

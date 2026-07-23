@@ -4,19 +4,18 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func setupWorkflowKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(ctx))
@@ -29,6 +28,8 @@ func setupWorkflowKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, k
 }
 
 func TestWorkflowKeysController_Index_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, keyStore := setupWorkflowKeysControllerTests(t)
 	keys, err := keyStore.Workflow().GetAll()
 	require.NoError(t, err)
