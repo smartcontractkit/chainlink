@@ -124,7 +124,7 @@ jobs:
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        uses: runs-on/action@bdccf4a8c118feaa74578d6fb51012875a860567 # v2.2.0
 
       - name: Checkout
         uses: actions/checkout@v7

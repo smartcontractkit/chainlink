@@ -83,14 +83,10 @@ ARG CL_IS_PROD_BUILD=true
 ARG GO_GCFLAGS
 ARG COMMIT_SHA
 ARG VERSION_TAG
-ARG USE_PREBUILT=false
 
 RUN --mount=type=cache,target=/root/.cache/go-build,id=go-build-chainlink \
     mkdir -p /gobins && \
-    if [ "$USE_PREBUILT" = "true" ] && [ -f ./bin/chainlink ]; then \
-          echo "Using prebuilt chainlink binary" && \
-          cp ./bin/chainlink /gobins/chainlink; \
-    elif [ "$CL_IS_PROD_BUILD" = "false" ]; then \
+    if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
           GOBIN=/gobins make install-chainlink-dev; \
     else \
           GOBIN=/gobins make install-chainlink; \

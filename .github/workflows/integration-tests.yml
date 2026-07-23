@@ -592,7 +592,13 @@ jobs:
               p2=$!
               (cd "$GITHUB_WORKSPACE/core/scripts/cre/environment" && go build -ldflags="-s -w" -o "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" .) &
               p3=$!
-              wait "$p1" && wait "$p2" && wait "$p3"
+              wait "$p1"; p1_exit=$?
+              wait "$p2"; p2_exit=$?
+              wait "$p3"; p3_exit=$?
+              if [[ "$p1_exit" -ne 0 || "$p2_exit" -ne 0 || "$p3_exit" -ne 0 ]]; then
+                echo "Compilation failed (cre-smoke=$p1_exit, cre-regression=$p2_exit, cre-env=$p3_exit)" >&2
+                exit 1
+              fi
             ) &
             cre_pid=$!
           fi
@@ -614,12 +620,14 @@ jobs:
           rm -rf "$GITHUB_WORKSPACE/.gotmp"
 
       - name: Cache Pre-Compiled CRE Test Binaries
+        if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
         uses: actions/cache/save@v6
         with:
           path: system-tests/tests/bin/
           key: test-binaries-cre-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
 
       - name: Cache Pre-Compiled CCIP Test Binaries
+        if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
         uses: actions/cache/save@v6
         with:
           path: integration-tests/bin/
