@@ -178,8 +178,13 @@ func TestAddressSliceParam_UnmarshalPipelineParam(t *testing.T) {
 		{"[]interface{} with []byte", []any{[]byte(addr1.String()), []byte(addr2.String())}, expected, nil},
 		{"nil", nil, pipeline.AddressSliceParam(nil), nil},
 
+		// #21768: a single literal address (not a JSON array) must be accepted.
+		{"single literal address string", "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef", pipeline.AddressSliceParam{addr1}, nil},
+		{"single literal address []byte", []byte("0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"), pipeline.AddressSliceParam{addr1}, nil},
+
 		{"bad json", `[ "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" "0xcafebabecafebabecafebabecafebabecafebabe" ]`, nil, pipeline.ErrBadInput},
 		{"[]interface{} with bad types", []any{123, true}, nil, pipeline.ErrBadInput},
+		{"garbage string", "not-an-address", nil, pipeline.ErrBadInput},
 	}
 
 	for _, test := range tests {
@@ -190,6 +195,49 @@ func TestAddressSliceParam_UnmarshalPipelineParam(t *testing.T) {
 			if test.expected != nil {
 				require.Equal(t, test.expected, p)
 			}
+		})
+	}
+}
+
+// TestAddressSliceParam_ResolveFromGetterChain_Issue21768 drives the exact
+// getter chain the ethtx task uses to resolve its `from` field (see
+// task.eth_tx.go: From(VarExpr, JSONWithVarExprs, NonemptyString, nil)). It
+// uses the real exported resolver functions with no mocks, DB, or stubs, so it
+// pins down the #21768 regression at the layer where the bug actually lived:
+// a literal address like "0x8829..." was decoded by json.Decoder as the number
+// 0, surfaced as int64(0), and rejected downstream as "cannot convert int64".
+func TestAddressSliceParam_ResolveFromGetterChain_Issue21768(t *testing.T) {
+	t.Parallel()
+
+	addr := common.HexToAddress("0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c")
+	vars := pipeline.NewVarsFrom(map[string]any{
+		"fromAddr":  addr,
+		"fromAddrs": []common.Address{addr},
+	})
+
+	tests := []struct {
+		name     string
+		from     string
+		expected pipeline.AddressSliceParam
+	}{
+		{"literal address (regression #21768)", "0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c", pipeline.AddressSliceParam{addr}},
+		{"literal address with surrounding spaces", "  0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c  ", pipeline.AddressSliceParam{addr}},
+		{"json array (already worked)", `[ "0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c" ]`, pipeline.AddressSliceParam{addr}},
+		{"json array with var expr", `[ $(fromAddr) ]`, pipeline.AddressSliceParam{addr}},
+		{"variable expression slice", "$(fromAddrs)", pipeline.AddressSliceParam{addr}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var fromAddrs pipeline.AddressSliceParam
+			err := pipeline.ResolveParam(&fromAddrs, pipeline.From(
+				pipeline.VarExpr(test.from, vars),
+				pipeline.JSONWithVarExprs(test.from, vars, false),
+				pipeline.NonemptyString(test.from),
+				nil,
+			))
+			require.NoError(t, err)
+			require.Equal(t, test.expected, fromAddrs)
 		})
 	}
 }

@@ -3,7 +3,9 @@ package pipeline
 import (
 	"bytes"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -132,6 +134,15 @@ func JSONWithVarExprs(jsExpr string, vars Vars, allowErrors bool) GetterFunc {
 		jd.UseNumber()
 		if err := jd.Decode(&val); err != nil {
 			return nil, errors.Wrapf(ErrBadInput, "while unmarshalling JSON: %v; js: %s", err, string(replaced))
+		}
+		// Reject inputs the decoder only partially consumed. json.Decoder reads a
+		// single JSON value from the stream and silently ignores trailing bytes,
+		// so an Ethereum address like "0x8829..." decodes as the JSON number 0
+		// with the rest discarded. We signal ErrParameterEmpty (not ErrBadInput)
+		// so ResolveParam falls through to the next getter (e.g. NonemptyString),
+		// letting a literal address be handled as intended. See issue #21768.
+		if _, err := jd.Token(); !stderrors.Is(err, io.EOF) {
+			return nil, errors.Wrapf(ErrParameterEmpty, "input is not a single JSON value; js: %s", string(replaced))
 		}
 		reinterpreted, err := jsonserializable.ReinterpretJSONNumbers(val)
 		if err != nil {

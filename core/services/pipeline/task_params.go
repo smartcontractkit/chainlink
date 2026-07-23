@@ -666,14 +666,16 @@ func (s *AddressSliceParam) UnmarshalPipelineParam(val any) error {
 	case []common.Address:
 		asp = v
 	case string:
-		err := json.Unmarshal([]byte(v), &asp)
-		if err != nil {
-			return errors.Wrapf(ErrBadInput, "AddressSliceParam: %v", err)
-		}
+		return s.UnmarshalPipelineParam([]byte(v))
 	case []byte:
-		err := json.Unmarshal(v, &asp)
-		if err != nil {
-			return errors.Wrapf(ErrBadInput, "AddressSliceParam: %v", err)
+		if err := json.Unmarshal(v, &asp); err != nil {
+			// Not a JSON array. Fall back to a single literal address, e.g.
+			// `from="0x8829..."`, which is not valid JSON on its own. See #21768.
+			var addr AddressParam
+			if aerr := addr.UnmarshalPipelineParam(v); aerr != nil {
+				return errors.Wrapf(ErrBadInput, "AddressSliceParam: %v", err)
+			}
+			asp = append(asp, common.Address(addr))
 		}
 	case []any:
 		for _, a := range v {

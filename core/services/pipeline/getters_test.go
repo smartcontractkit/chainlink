@@ -95,6 +95,17 @@ func TestGetters_JSONWithVarExprs(t *testing.T) {
 		{`{ "$(foo.bar)": $(zet) }`, "value", 123, pipeline.ErrBadInput, false},
 		{`{ "x": { "__chainlink_key_path__": 0 } }`, "", nil, pipeline.ErrBadInput, false},
 		{`{ "e": $(err)`, "e", nil, pipeline.ErrBadInput, false},
+		// #21768: inputs the JSON decoder only partially consumes must be
+		// rejected as ErrParameterEmpty so ResolveParam falls through to the
+		// next getter (e.g. NonemptyString). A literal Ethereum address reads
+		// as the JSON number 0 with the trailing characters silently dropped.
+		{`0x52908400098527886E0F7030069857D2E4169EE7`, "", nil, pipeline.ErrParameterEmpty, false},
+		{`0xdeadbeef`, "", nil, pipeline.ErrParameterEmpty, false},
+		{`123abc`, "", nil, pipeline.ErrParameterEmpty, false},
+		{`0 0`, "", nil, pipeline.ErrParameterEmpty, false},
+		{`{"a":1} extra`, "", nil, pipeline.ErrParameterEmpty, false},
+		{`[1,2] junk`, "", nil, pipeline.ErrParameterEmpty, false},
+		{`true false`, "", nil, pipeline.ErrParameterEmpty, false},
 	}
 
 	for _, test := range tests {
