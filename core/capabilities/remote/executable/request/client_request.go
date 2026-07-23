@@ -12,8 +12,6 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -22,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -524,7 +523,7 @@ func (c *ClientRequest) hasValidAttestation(resp commoncap.CapabilityResponse) b
 		return false
 	}
 
-	// report_attestation.go in libocr only ever collects F+1 signatures before declaring a report complete 
+	// report_attestation.go in libocr only ever collects F+1 signatures before declaring a report complete
 	// (it stops as soon as it has one signature past the DON's F threshold). That means an OCRAttestation
 	// can never carry more than F+1 signatures, regardless of how the capability DON is configured.
 	// When requiredResponseConfirmations (driven by minResponsesToAggregate) is set above F+1, verifyAttestation
