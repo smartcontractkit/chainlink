@@ -10,13 +10,12 @@ import (
 	cldfjd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
+	griddleinfra "github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
 	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
-	griddleinfra "github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
 )
 
 // buildDonsForJobs constructs cre.Dons with live node clients for PostEnvStartup

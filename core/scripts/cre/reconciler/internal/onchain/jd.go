@@ -11,11 +11,11 @@ import (
 
 	cldfjd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	webclient "github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
 	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 )
 
 func (d *Deployer) jdChainConfigSummary(desired *domain.DesiredState, topology *cre.Topology, state *domain.StateFile) string {

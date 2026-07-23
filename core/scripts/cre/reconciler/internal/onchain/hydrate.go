@@ -9,10 +9,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 )
 
 func validateDiscoveredEVMAddresses(

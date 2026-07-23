@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 

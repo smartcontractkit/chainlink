@@ -14,12 +14,12 @@ import (
 	"github.com/rs/zerolog"
 
 	cldfjd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	griddleinfra "github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/jobs"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 // K8sAPI is the narrow Kubernetes surface the on-chain engine needs — a subset of

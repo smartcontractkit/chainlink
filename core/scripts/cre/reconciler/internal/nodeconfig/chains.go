@@ -9,10 +9,9 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v3"
 
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 // managedLayerName is the configuration layer reconciler itself writes

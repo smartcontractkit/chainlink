@@ -6,9 +6,10 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )

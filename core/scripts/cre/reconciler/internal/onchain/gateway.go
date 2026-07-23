@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"slices"
 
-	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	griddleinfra "github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
+	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
 func (d *Deployer) storeGatewayConnectors(desired *domain.DesiredState, cv *domain.ChartValues, state *domain.StateFile, topology *cre.Topology) {

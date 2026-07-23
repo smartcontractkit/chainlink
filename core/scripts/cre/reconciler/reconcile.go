@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/discovery"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"

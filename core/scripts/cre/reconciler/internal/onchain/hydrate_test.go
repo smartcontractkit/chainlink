@@ -6,11 +6,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 )
 
 func TestValidateDiscoveredEVMAddresses_Pass(t *testing.T) {

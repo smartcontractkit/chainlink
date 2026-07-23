@@ -9,12 +9,12 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldflogger "github.com/smartcontractkit/chainlink-deployments-framework/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 )
 
 func (d *Deployer) configureWorkflowReg(

@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_evm_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm/provider/rpcclient"
@@ -28,13 +27,12 @@ import (
 	cldflogger "github.com/smartcontractkit/chainlink-deployments-framework/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
+	griddleinfra "github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
 	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	creevm "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
-	griddleinfra "github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
 )
 
 // buildCldfEnv creates a cldf.Environment with an EVM chain provider for the

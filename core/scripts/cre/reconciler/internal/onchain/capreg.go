@@ -9,6 +9,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain"
+
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -16,8 +18,6 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 )
 
 func (d *Deployer) configureCapReg(
