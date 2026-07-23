@@ -328,6 +328,18 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ env.CHAINLINK_REF }}
 
+      - name: Restore Docker Build Cache
+        if: steps.explain.outputs.build-image == 'true'
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-docker-build-plugins-${{ matrix.image.cache-scope }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-docker-build-plugins-${{ matrix.image.cache-scope }}-${{ github.ref_name }}-
+            ${{ runner.os }}-docker-build-plugins-${{ matrix.image.cache-scope }}-develop-
+
       - name: Build Chainlink Image
         if: steps.explain.outputs.build-image == 'true'
         uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
@@ -347,6 +359,15 @@ jobs:
           gati-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           cache-scope: ${{ matrix.image.cache-scope }}
+
+      - name: Save Docker Build Cache
+        if: steps.explain.outputs.build-image == 'true' && always()
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-docker-build-plugins-${{ matrix.image.cache-scope }}-${{ github.sha }}
 
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup
