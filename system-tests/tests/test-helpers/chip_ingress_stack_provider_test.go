@@ -11,6 +11,8 @@ import (
 )
 
 func TestResolveCreEnvCommand(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 
 	tests := []struct {
@@ -38,15 +40,17 @@ func TestResolveCreEnvCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			tmpDir := t.TempDir()
 			environmentDir := filepath.Join(tmpDir, "core", "scripts", "cre", "environment")
-			require.NoError(t, os.MkdirAll(environmentDir, 0755))
+			require.NoError(t, os.MkdirAll(environmentDir, 0700))
 
 			if tt.createBinary {
 				binDir := filepath.Join(tmpDir, "system-tests", "tests", "bin")
-				require.NoError(t, os.MkdirAll(binDir, 0755))
+				require.NoError(t, os.MkdirAll(binDir, 0700))
 				binPath := filepath.Join(binDir, "cre-env")
-				require.NoError(t, os.WriteFile(binPath, []byte("#!/bin/sh\necho ok"), 0755))
+				require.NoError(t, os.WriteFile(binPath, []byte("#!/bin/sh\necho ok"), 0600))
 			}
 
 			cmd := resolveCreEnvCommand(ctx, tmpDir, environmentDir, tt.inputArgs...)
