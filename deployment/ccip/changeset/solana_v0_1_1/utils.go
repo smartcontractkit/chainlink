@@ -161,6 +161,18 @@ func mcmSeedForAction(mcmState *solstate.MCMSWithTimelockState, action mcmsTypes
 // BuildProposalsForTxnsWithConfig wraps the given Solana transactions in a single batch and
 // builds an MCMS timelock proposal, honoring the MCMS action (schedule/bypass/cancel) in
 // mcmsCfg and selecting the matching signer group.
+// appendBatchOperation appends txns as a single MCMS batch operation for the given chain selector.
+// It is a no-op when txns is empty, mirroring the len>0 guard that callers used to inline.
+func appendBatchOperation(batches []mcmsTypes.BatchOperation, chainSelector uint64, txns []mcmsTypes.Transaction) []mcmsTypes.BatchOperation {
+	if len(txns) == 0 {
+		return batches
+	}
+	return append(batches, mcmsTypes.BatchOperation{
+		ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+		Transactions:  txns,
+	})
+}
+
 func BuildProposalsForTxnsWithConfig(
 	e cldf.Environment,
 	chainSelector uint64,
