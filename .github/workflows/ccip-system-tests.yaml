@@ -85,7 +85,7 @@ jobs:
             --arg run_attempt "${{ github.run_attempt }}" '
             to_entries | map(.value + {
               test_id: .key,
-              runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/\(.value.runner_spec // "cpu=8/ram=64")/\(.value.runner_spec // "family=r6i+r7i+r8i")/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+              runs_on: ("runs-on=\($run_id)-\(.key)-\($run_attempt)/" + (.value.runner_spec // "cpu=8/ram=64") + "/family=r6i+r7i+r8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs")
             })
           ')
 
