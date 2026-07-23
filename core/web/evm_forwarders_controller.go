@@ -11,9 +11,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/forwarders"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
@@ -82,7 +82,7 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 	}
 
 	filterCleanup := func(tx sqlutil.DataSource, evmChainID int64, addr common.Address) error {
-		chainService, err2 := cc.App.GetRelayers().LegacyEVMChains().Get(big.NewInt(evmChainID).String())
+		chainService, err2 := cc.App.GetRelayers().LegacyEVMChains().Get(big.NewInt(evmChainID).String()) //nolint:staticcheck // LegacyEVMChains is deprecated but refactoring to new relayer interface requires larger architectural changes
 		if err2 != nil {
 			// If the chain id doesn't even exist, or logpoller is disabled, then there isn't any filter to clean up.  Returning an error
 			// here could be dangerous as it would make it impossible to delete a forwarder with an invalid chain id

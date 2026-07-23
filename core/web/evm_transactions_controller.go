@@ -4,12 +4,12 @@ import (
 	"database/sql"
 	"net/http"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 // TransactionsController displays Ethereum transactions requests.

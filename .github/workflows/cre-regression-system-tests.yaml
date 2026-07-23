@@ -82,16 +82,32 @@ jobs:
             "Test_CRE_V2_Stellar_ReadContract_Regression": "configs/workflow-gateway-don-stellar.toml"
           }'
 
+          per_test_runners='{
+            "Test_CRE_V2_EVM_BalanceAt_Invalid_Address_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_EVM_CallContract_Invalid_Balance_Reader_Contract_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_EVM_FilterLogs_Invalid_ToBlock_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_EVM_CallContract_Invalid_Addr_To_Read_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_EVM_GetTransactionReceipt_Invalid_Hash_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_EVM_FilterLogs_Invalid_FromBlock_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_EVM_EstimateGas_Invalid_To_Address_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_EVM_HeaderByNumber_Invalid_Block_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_EVM_FilterLogs_Invalid_Addresses_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_EVM_GetTransactionByHash_Invalid_Hash_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_HTTP_Action_CRUD_Regression": "cpu=16/ram=64",
+            "Test_CRE_V2_Stellar_ReadContract_Regression": "cpu=16/ram=64"
+          }'
+
           tests=$(echo "$test_names" | jq -c -R -s \
             --argjson run_id "${{ github.run_id }}" \
             --arg run_attempt "${{ github.run_attempt }}" \
-            --argjson per "$per_test_configs" '
+            --argjson per "$per_test_configs" \
+            --argjson per_runners "$per_test_runners" '
             split("\n") | map(select(length>0))
             | to_entries
             | map({
                 test_name: .value,
                 test_id: .key,
-                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
+                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/\( ($per_runners[.value]) // "cpu=8/ram=32" )/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
                 configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
               })
           ')
@@ -99,6 +115,7 @@ jobs:
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
   run-system-tests:
+    name: ${{ matrix.tests.test_name }} ${{ matrix.tests.topology != '' && format(' ({0})', matrix.tests.topology) || '' }}
     permissions:
       contents: read
       id-token: write
@@ -143,10 +160,20 @@ jobs:
 
       - name: Set up Go
         id: setup-go
-        uses: actions/setup-go@v7
+        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
-          go-version-file: system-tests/tests/go.mod
-          cache: true
+          go_mod_path: system-tests/tests/go.mod
+          cache_key_id: compile-tests
+          cache_builds: true
+          cache_restore_only: "true"
+
+      - name: Restore Pre-Compiled Test Binaries from S3 Cache
+        uses: actions/cache/restore@v6
+        with:
+          path: system-tests/tests/bin/
+          key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
+          restore-keys: |
+            test-binaries-cre-
 
       # Required to pull private ECR images such as Job Distributor (main) and Chip Ingress (main),
       # and also the Chainlink image when inputs.ecr is "sdlc".
@@ -232,13 +259,27 @@ jobs:
           echo "Starting test: '${TEST_NAME}'"
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
 
-          gotestsum \
-            --jsonfile=/tmp/gotest-regression.log \
-            --junitfile=/tmp/junit-report-regression.xml \
-            --format=github-actions \
-            -- \
-            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 \
-            github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
+          if [ -f "./bin/cre-regression.test" ]; then
+            echo "Using precompiled binary"
+            (
+              cd regression/cre && \
+              gotestsum \
+                --jsonfile=/tmp/gotest-regression.log \
+                --junitfile=/tmp/junit-report-regression.xml \
+                --format=github-actions \
+                --raw-command -- \
+                go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre ../../bin/cre-regression.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1
+            )
+          else
+            echo "No precompiled binary found. Building from scratch..."
+            gotestsum \
+              --jsonfile=/tmp/gotest-regression.log \
+              --junitfile=/tmp/junit-report-regression.xml \
+              --format=github-actions \
+              -- \
+              -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 \
+              github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
+          fi
 
           exit_code="$?"
           if [ "$exit_code" -eq 0 ]; then

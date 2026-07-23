@@ -7,15 +7,15 @@ import (
 	"net/http"
 	"regexp"
 
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -50,7 +50,7 @@ type ExternalInitiatorsController struct {
 func (eic *ExternalInitiatorsController) Index(c *gin.Context, size, page, offset int) {
 	ctx := c.Request.Context()
 	eis, count, err := eic.App.BridgeORM().ExternalInitiators(ctx, offset, size)
-	var resources []presenters.ExternalInitiatorResource
+	resources := make([]presenters.ExternalInitiatorResource, 0, len(eis))
 	for _, ei := range eis {
 		resources = append(resources, presenters.NewExternalInitiatorResource(ei))
 	}

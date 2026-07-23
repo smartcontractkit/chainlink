@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
@@ -100,7 +101,7 @@ func NewVRFKeysPayloadResolver(keys []vrfkey.KeyV2) *VRFKeysPayloadResolver {
 }
 
 func (r *VRFKeysPayloadResolver) Results() []VRFKeyResolver {
-	var results []VRFKeyResolver
+	results := make([]VRFKeyResolver, 0, len(r.keys))
 	for _, k := range r.keys {
 		results = append(results, NewVRFKeyResolver(k))
 	}

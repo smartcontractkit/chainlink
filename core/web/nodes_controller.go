@@ -71,7 +71,7 @@ func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 		nodes, count, err = relayers.NodeStatuses(ctx, offset, size, rid)
 	}
 
-	var resources []R
+	resources := make([]R, 0, len(nodes))
 	for _, node := range nodes {
 		res := n.newResource(node)
 		resources = append(resources, res)

@@ -12,6 +12,7 @@ import (
 )
 
 func TestUserResource(t *testing.T) {
+	t.Parallel()
 	var (
 		ts = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	)

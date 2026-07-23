@@ -225,7 +225,9 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 	}
 
 	// Add non-EVM OCR selectors when present so consensus can select the correct
-	// offchain key bundle path for report generation.
+	// onchain key bundle when signing reports. Each selector drives an entry in the
+	// consensus job's onchainSigningStrategy.Config (name -> keyBundleID); without it
+	// the multi-chain keyring has no bundle for that family and report signing fails.
 	for _, blockchain := range creEnv.Blockchains {
 		if blockchain.IsFamily(chainselectors.FamilyAptos) {
 			inputs["chainSelectorAptos"] = blockchain.ChainSelector()

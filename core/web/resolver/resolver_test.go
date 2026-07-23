@@ -13,11 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	evmConfigMocks "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	evmMonMocks "github.com/smartcontractkit/chainlink-evm/pkg/monitor/mocks"
+
 	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -177,7 +177,7 @@ func RunGQLTests(t *testing.T, testCases []GQLTestCase) {
 			t.Parallel()
 
 			f := setupFramework(t)
-			ctx := loader.InjectDataloader(testutils.Context(t), f.App)
+			ctx := loader.InjectDataloader(t.Context(), f.App)
 
 			if tc.authenticated {
 				ctx = f.withAuthenticatedUser(ctx)

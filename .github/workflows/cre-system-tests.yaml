@@ -89,7 +89,7 @@ jobs:
             "Test_CRE_V2_Aptos_Suite": [
                {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
              ],
-            "Test_CRE_V2_Stellar_Read_Suite": [
+            "Test_CRE_V2_Stellar_Suite": [
                {"topology":"workflow-gateway-stellar","configs":"configs/workflow-gateway-don-stellar.toml"}
              ],
             "Test_CRE_V2_Solana_Write": [
@@ -112,11 +112,30 @@ jobs:
              ]
           }'
 
+          PER_TEST_RUNNERS_JSON='{
+            "Test_CRE_V2_EVM_Read_StateQueries": "cpu=16/ram=64",
+            "Test_CRE_V2_Suite_Bucket_A": "cpu=16/ram=64",
+            "Test_CRE_V2_Suite_Bucket_B": "cpu=16/ram=64",
+            "Test_CRE_V2_EVM_Read_TxArtifacts": "cpu=16/ram=64",
+            "Test_CRE_V2_Suite_Bucket_C": "cpu=16/ram=64",
+            "Test_CRE_V2_Sharding": "cpu=16/ram=64",
+            "Test_CRE_V2_Aptos_Suite": "cpu=16/ram=64",
+            "Test_CRE_V2_Stellar_Read_Suite": "cpu=16/ram=64",
+            "Test_CRE_V2_Solana_Read_Accounts": "cpu=16/ram=64",
+            "Test_CRE_V2_Beholder_Suite": "cpu=16/ram=64",
+            "Test_CRE_V2_Solana_LogTrigger": "cpu=16/ram=64",
+            "Test_CRE_V2_EVM_Write_LogTrigger": "cpu=16/ram=64",
+            "Test_CRE_V2_Solana_Write": "cpu=16/ram=64"
+          }'
+
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade)
 
           tests=$(echo "$test_names" | jq -c -R -s \
+            --argjson run_id "${{ github.run_id }}" \
+            --arg run_attempt "${{ github.run_attempt }}" \
             --argjson tops "$TOPOLOGIES_JSON" \
-            --argjson per "$PER_TEST_TOPOLOGIES_JSON" '
+            --argjson per "$PER_TEST_TOPOLOGIES_JSON" \
+            --argjson per_runners "$PER_TEST_RUNNERS_JSON" '
             (split("\n") | map(select(length>0))) as $names
             | [ $names[] as $name | $tops[] | {test_name:$name} + . ] as $baseAll
             | ($baseAll | map(select(.test_name as $n | ($per[$n] | type) == "array" | not))) as $base
@@ -125,12 +144,16 @@ jobs:
               ] as $extra
             | ($base + $extra)
             | to_entries
-            | map(.value + {test_id: .key})
+            | map(.value + {
+                test_id: .key,
+                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/\( ($per_runners[.value.test_name]) // "cpu=8/ram=32" )/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+              })
           ')
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
   run-system-tests:
+    name: ${{ matrix.tests.test_name }} ${{ matrix.tests.topology != '' && format(' ({0})', matrix.tests.topology) || '' }}
     permissions:
       contents: read
       id-token: write
@@ -141,9 +164,7 @@ jobs:
     needs: [define-test-matrix]
     # we need a `test_id` and `run_attempt` here to stop runner stealing
     # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
-    runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{
-      github.run_attempt
-      }}/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: ${{ matrix.tests.runs_on }}
     environment:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
       name: integration
@@ -167,10 +188,20 @@ jobs:
 
       - name: Set up Go
         id: setup-go
-        uses: actions/setup-go@v7
+        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
-          go-version-file: system-tests/tests/go.mod
-          cache: true
+          go_mod_path: system-tests/tests/go.mod
+          cache_key_id: compile-tests
+          cache_builds: true
+          cache_restore_only: "true"
+
+      - name: Restore Pre-Compiled Test Binaries from S3 Cache
+        uses: actions/cache/restore@v6
+        with:
+          path: system-tests/tests/bin/
+          key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
+          restore-keys: |
+            test-binaries-cre-
 
       # Required to pull Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) private images
       - name: Configure AWS Credentials
@@ -363,13 +394,27 @@ jobs:
             }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
         run: |
           echo "Starting test: '${TEST_NAME}'"
-          gotestsum \
-            --jsonfile=/tmp/gotest.log \
-            --junitfile=/tmp/junit-report.xml \
-            --format=github-actions \
-            -- \
-            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel="${PARALLEL_COUNT}" \
-            github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
+          if [ -f "./bin/cre-smoke.test" ]; then
+            echo "Using precompiled binary"
+            (
+              cd smoke/cre && \
+              gotestsum \
+                --jsonfile=/tmp/gotest.log \
+                --junitfile=/tmp/junit-report.xml \
+                --format=github-actions \
+                --raw-command -- \
+                go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre ../../bin/cre-smoke.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL_COUNT}"
+            )
+          else
+            echo "No precompiled binary found. Building from scratch..."
+            gotestsum \
+              --jsonfile=/tmp/gotest.log \
+              --junitfile=/tmp/junit-report.xml \
+              --format=github-actions \
+              -- \
+              -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel="${PARALLEL_COUNT}" \
+              github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
+          fi
 
           exit_code="$?"
           if [ "$exit_code" -eq 0 ]; then

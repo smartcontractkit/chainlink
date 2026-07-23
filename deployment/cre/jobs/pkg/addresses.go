@@ -4,7 +4,9 @@ import (
 	"github.com/Masterminds/semver/v3"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
+	stellarforwarder "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
 )
 
 func GetOCR3CapabilityAddressRefKey(chainSel uint64, qualifier string) datastore.AddressRefKey {
@@ -37,6 +39,15 @@ func GetSolanaForwarderProgramRefKey(chainSel uint64, version *semver.Version, q
 
 func GetSolanaForwarderStateRefKey(chainSel uint64, version *semver.Version, qualifier string) datastore.AddressRefKey {
 	return datastore.NewAddressRefKey(chainSel, SolanaForwarderStateType, version, qualifier)
+}
+
+func GetStellarForwarderAddressRefKey(chainSel uint64, qualifier string) datastore.AddressRefKey {
+	return datastore.NewAddressRefKey(
+		chainSel,
+		stellarforwarder.ForwarderContract,
+		semver.MustParse(stellarforwarder.DefaultForwarderVersion),
+		qualifier,
+	)
 }
 
 func GetCapRegAddressRefKey(chainSel uint64, qualifier string, version string) datastore.AddressRefKey {

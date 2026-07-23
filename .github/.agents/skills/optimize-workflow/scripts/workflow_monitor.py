@@ -14,11 +14,10 @@ import io
 def parse_args():
     parser = argparse.ArgumentParser(description="Monitor GitHub Actions Workflow Run")
     parser.add_argument("run_id", type=int, help="GitHub Actions Workflow Run ID")
+    parser.add_argument("trial_name", help="Trial name used to create the output directory.")
     parser.add_argument("--repo", help="GitHub repository (owner/repo). Auto-detected if not specified.")
     parser.add_argument("--token", help="GitHub token. Defaults to GITHUB_TOKEN env var.")
     parser.add_argument("--poll-interval", type=int, default=10, help="Interval (seconds) to poll workflow run progress.")
-    parser.add_argument("--format", choices=["markdown", "json"], default="markdown", help="Output format. Defaults to markdown.")
-    parser.add_argument("--out-file", help="Path to write the output report.")
     return parser.parse_args()
 
 def log_stderr(msg):
@@ -36,6 +35,30 @@ def detect_repo():
     except Exception:
         pass
     return "smartcontractkit/chainlink"
+
+
+def get_trials_dir():
+    # Trial directories live directly inside the optimize-workflow skill directory.
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'trials'))
+
+
+def sanitize_dir_name(name):
+    if not name:
+        return "unknown"
+    name = name.replace('/', '_').replace('\\', '_')
+    while '..' in name:
+        name = name.replace('..', '_')
+    return name.strip()
+
+
+def derive_workflow_name(run_data):
+    path = run_data.get('path')
+    if path:
+        name = os.path.basename(path)
+    else:
+        name = run_data.get('name') or 'unknown'
+    return sanitize_dir_name(name)
+
 
 def get_headers(token):
     headers = {
@@ -192,6 +215,17 @@ def parse_job_logs(log_dir):
     results = {k: v for k, v in results.items() if v}
     return results
 
+def parse_duration_seconds(start_str, end_str):
+    if not start_str or not end_str:
+        return 0
+    try:
+        start = datetime.datetime.strptime(start_str.replace("Z", ""), "%Y-%m-%dT%H:%M:%S")
+        end = datetime.datetime.strptime(end_str.replace("Z", ""), "%Y-%m-%dT%H:%M:%S")
+        delta = end - start
+        return int(delta.total_seconds())
+    except Exception:
+        return 0
+
 def format_duration(start_str, end_str):
     if not start_str or not end_str:
         return "N/A"
@@ -207,28 +241,48 @@ def format_duration(start_str, end_str):
         return "N/A"
 
 def normalize_name(name):
+    if not name:
+        return ""
     name = name.lower()
-    name = name.replace('/', '_')
-    name = re.sub(r'\s+', '', name)
-    name = name.replace('...', '')
-    return name.rstrip('.')
+    return re.sub(r'[^a-z0-9]', '', name)
 
 def matches_job_name(api_name, log_job_name):
     a = normalize_name(api_name)
     b = normalize_name(log_job_name)
-    return a.startswith(b) or b.startswith(a)
+    if not a or not b:
+        return False
+    return (
+        a.startswith(b)
+        or b.startswith(a)
+        or a.endswith(b)
+        or b.endswith(a)
+        or ((len(a) > 10 and len(b) > 10) and (a in b or b in a))
+    )
+
 
 def generate_report(run_data, jobs, metrics, log_dir, format_type):
     start_time = run_data.get("run_started_at") or run_data.get("created_at")
     end_time = run_data.get("updated_at")
     total_runtime = format_duration(start_time, end_time)
+    total_runtime_sec = parse_duration_seconds(start_time, end_time)
 
     if format_type == "json":
         jobs_json = []
+        slowest = []
+        durations = []
+        for job in jobs:
+            job_dur_sec = parse_duration_seconds(job.get("started_at"), job.get("completed_at"))
+            if job_dur_sec > 0:
+                durations.append(job_dur_sec)
+
+        avg_dur_sec = int(sum(durations) / len(durations)) if durations else 0
+
         for job in jobs:
             job_dur = format_duration(job.get("started_at"), job.get("completed_at"))
+            job_dur_sec = parse_duration_seconds(job.get("started_at"), job.get("completed_at"))
             labels_list = job.get("labels", [])
             runner_name = job.get("runner_name") or "Unknown"
+            is_outlier = job_dur_sec > (1.5 * avg_dur_sec) if avg_dur_sec > 0 else False
             
             # Find metrics
             job_name = job.get('name', '')
@@ -254,18 +308,33 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
                 "started_at": job.get("started_at"),
                 "completed_at": job.get("completed_at"),
                 "duration": job_dur,
+                "duration_seconds": job_dur_sec,
+                "is_outlier": is_outlier,
                 "metrics": job_metrics or {}
             }
             jobs_json.append(job_entry)
-            
+            slowest.append({
+                "name": job.get("name"),
+                "duration": job_dur,
+                "duration_seconds": job_dur_sec,
+                "is_outlier": is_outlier,
+                "status": job.get("status"),
+                "conclusion": job.get("conclusion")
+            })
+
+        slowest.sort(key=lambda x: x["duration_seconds"], reverse=True)
+
         report_data = {
             "run": {
                 "id": run_data.get("id"),
                 "status": run_data.get("status"),
                 "conclusion": run_data.get("conclusion"),
-                "runtime": total_runtime
+                "runtime": total_runtime,
+                "runtime_seconds": total_runtime_sec,
+                "avg_job_duration_seconds": avg_dur_sec
             },
             "logs_dir": log_dir,
+            "slowest_jobs": slowest[:10],
             "jobs": jobs_json
         }
         return json.dumps(report_data, indent=2)
@@ -279,8 +348,26 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
             f"- **Runtime**: `{total_runtime}`",
             f"- **Logs Directory**: `{log_dir}`",
             "",
-            "## Jobs Summary"
+            "## Longest Jobs (Bottlenecks)"
         ]
+
+        # Calculate durations and sort jobs descending
+        sorted_jobs = []
+        for j in jobs:
+            dur_sec = parse_duration_seconds(j.get("started_at"), j.get("completed_at"))
+            sorted_jobs.append((dur_sec, j))
+        sorted_jobs.sort(key=lambda x: x[0], reverse=True)
+
+        lines.append("| Job Name | Duration | Status | Conclusion | Runner |")
+        lines.append("| --- | --- | --- | --- | --- |")
+        for dur_sec, j in sorted_jobs[:10]:
+            dur_str = format_duration(j.get("started_at"), j.get("completed_at"))
+            labels_list = j.get("labels", [])
+            labels_str = ", ".join(labels_list) if labels_list else "None"
+            lines.append(f"| {j.get('name')} | `{dur_str}` | `{j.get('status')}` | `{j.get('conclusion')}` | `{labels_str}` |")
+
+        lines.append("\n## Jobs Summary")
+
         for job in jobs:
             job_dur = format_duration(job.get("started_at"), job.get("completed_at"))
             labels_list = job.get("labels", [])
@@ -352,45 +439,63 @@ def main():
     args = parse_args()
     token = args.token or os.environ.get("GITHUB_TOKEN")
     repo = args.repo or detect_repo()
-    
+    trial_name = sanitize_dir_name(args.trial_name)
+
     log_stderr(f"Monitoring workflow run {args.run_id} in {repo}...")
-    
+
     try:
         run_data = wait_for_run(repo, args.run_id, token)
     except RuntimeError as e:
         log_stderr(f"Error: {e}")
         sys.exit(1)
-        
+
+    workflow_name = derive_workflow_name(run_data)
+    trials_dir = get_trials_dir()
+    output_dir = os.path.join(trials_dir, workflow_name, trial_name)
+    logs_dir = os.path.join(output_dir, "logs")
+
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        os.makedirs(logs_dir, exist_ok=True)
+    except Exception as e:
+        log_stderr(f"Error creating output directories: {e}")
+        sys.exit(1)
+
     log_stderr("Workflow run found. Waiting for completion...")
     run_data = wait_for_completion(repo, args.run_id, token, args.poll_interval)
-    
-    # Download logs to persistent temp dir
-    import tempfile
-    log_dir = tempfile.mkdtemp(prefix=f"workflow-logs-{args.run_id}-")
-    log_stderr(f"Downloading logs to: {log_dir}...")
-    
+
+    log_stderr(f"Downloading logs to: {logs_dir}...")
     metrics = {}
-    downloaded = download_logs(repo, args.run_id, token, log_dir)
+    downloaded = download_logs(repo, args.run_id, token, logs_dir)
     if downloaded:
-        metrics = parse_job_logs(log_dir)
-            
+        metrics = parse_job_logs(logs_dir)
+
     jobs = fetch_jobs(repo, args.run_id, token)
-    
-    # Generate and print report
-    report = generate_report(run_data, jobs, metrics, log_dir, args.format)
-    
-    # Write to file if specified
-    if args.out_file:
-        try:
-            with open(args.out_file, 'w', encoding='utf-8') as f:
-                f.write(report)
-            log_stderr(f"Report successfully saved to: {args.out_file}")
-            if args.format == 'json':
-                log_stderr(f"Try exploring with: jq . {args.out_file}")
-        except Exception as e:
-            log_stderr(f"Error saving report to {args.out_file}: {e}")
-    else:
-        print(report)
+
+    json_path = os.path.join(output_dir, "report.json")
+    md_path = os.path.join(output_dir, "report.md")
+
+    try:
+        json_report = generate_report(run_data, jobs, metrics, logs_dir, "json")
+        with open(json_path, 'w', encoding='utf-8') as f:
+            f.write(json_report)
+        log_stderr(f"JSON report saved to: {json_path}")
+    except Exception as e:
+        log_stderr(f"Error saving JSON report: {e}")
+
+    try:
+        md_report = generate_report(run_data, jobs, metrics, logs_dir, "markdown")
+        with open(md_path, 'w', encoding='utf-8') as f:
+            f.write(md_report)
+        log_stderr(f"Markdown report saved to: {md_path}")
+    except Exception as e:
+        log_stderr(f"Error saving Markdown report: {e}")
+
+    print(f"workflow: {workflow_name}")
+    print(f"trial: {trial_name}")
+    print(f"json: {json_path}")
+    print(f"markdown: {md_path}")
+    print(f"logs: {logs_dir}")
 
 if __name__ == "__main__":
     main()

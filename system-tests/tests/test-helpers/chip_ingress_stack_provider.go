@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +30,7 @@ const (
 	defaultErrorBufferSize   = 100
 
 	// Kafka timings
-	chipIngressStackStartTimeout   = 2 * time.Minute  // timeout for starting Chip Ingress stack
+	chipIngressStackStartTimeout   = 5 * time.Minute  // timeout for starting Chip Ingress stack
 	maxConsumerConnectivityTimeout = 60 * time.Second // max timeout before Kafka consumer reconnection
 	kafkaSessionTimeoutMs          = 20000            // keep it high enough to let Chip Ingress stack messages incoming
 	messageReadInterval            = 50 * time.Millisecond
@@ -82,6 +83,27 @@ func NewChipIngressStack(lggr zerolog.Logger, testConfig *configuration.TestConf
 	return &ChipIngressStack{cfg: chipConfig, lggr: lggr}, nil
 }
 
+// creEnvBinaryName is the precompiled CRE environment binary built by the CI compile-tests job.
+const creEnvBinaryName = "cre-env"
+
+// resolveCreEnvCommand returns the command to run the CRE environment tool.
+// If a precompiled binary exists at <relativePathToRepoRoot>/system-tests/tests/bin/cre-env,
+// it is used instead of "go run ." to avoid recompilation overhead.
+func resolveCreEnvCommand(ctx context.Context, relativePathToRepoRoot, environmentDir string, args ...string) *exec.Cmd {
+	binaryPath := filepath.Join(relativePathToRepoRoot, "system-tests", "tests", "bin", creEnvBinaryName)
+	if _, err := os.Stat(binaryPath); err == nil {
+		framework.L.Info().Str("binary", binaryPath).Msg("Using precompiled cre-env binary")
+		cmd := exec.CommandContext(ctx, binaryPath, args...)
+		cmd.Dir = environmentDir
+		return cmd
+	}
+	framework.L.Info().Msg("No precompiled cre-env binary found, falling back to go run")
+	goArgs := append([]string{"run", "."}, args...)
+	cmd := exec.CommandContext(ctx, "go", goArgs...)
+	cmd.Dir = environmentDir
+	return cmd
+}
+
 // startChipIngressStackIfNotRunning starts the Chip Ingress stack if it's not already running.
 func startChipIngressStackIfNotRunning(relativePathToRepoRoot, environmentDir string) error {
 	if config.ChipIngressStateFileExists(relativePathToRepoRoot) {
@@ -93,8 +115,7 @@ func startChipIngressStackIfNotRunning(relativePathToRepoRoot, environmentDir st
 	ctx, cancel := context.WithTimeout(context.Background(), chipIngressStackStartTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "chip-ingress-stack", "start")
-	cmd.Dir = environmentDir
+	cmd := resolveCreEnvCommand(ctx, relativePathToRepoRoot, environmentDir, "env", "chip-ingress-stack", "start")
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 
 	if err := cmd.Run(); err != nil {
@@ -118,8 +139,7 @@ func StopChipIngressStack(relativePathToRepoRoot, environmentDir string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), chipIngressStackStartTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "go", "run", ".", "env", "chip-ingress-stack", "stop")
-	cmd.Dir = environmentDir
+	cmd := resolveCreEnvCommand(ctx, relativePathToRepoRoot, environmentDir, "env", "chip-ingress-stack", "stop")
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 
 	if err := cmd.Run(); err != nil {

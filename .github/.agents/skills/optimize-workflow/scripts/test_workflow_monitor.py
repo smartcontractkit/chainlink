@@ -6,6 +6,7 @@ import tempfile
 import zipfile
 import json
 import urllib.error
+import urllib.request
 import sys
 
 # Import the stub module
@@ -205,40 +206,44 @@ class TestWorkflowMonitor(unittest.TestCase):
         self.assertEqual(report["logs_dir"], "/tmp/logs-dir")
         self.assertEqual(report["jobs"][0]["metrics"]["Instance Type"], "c6in.4xlarge")
 
-    @patch('workflow_monitor.parse_args')
-    @patch('workflow_monitor.wait_for_run')
-    @patch('workflow_monitor.wait_for_completion')
-    @patch('workflow_monitor.download_logs')
-    @patch('workflow_monitor.parse_job_logs')
-    @patch('workflow_monitor.fetch_jobs')
-    @patch('workflow_monitor.generate_report')
-    @patch('workflow_monitor.log_stderr')
-    @patch('builtins.print')
-    def test_main_with_outfile(self, mock_print, mock_log_stderr, mock_gen_report, mock_fetch_jobs, mock_parse_logs, mock_download, mock_wait_complete, mock_wait_run, mock_parse_args):
-        args = MagicMock()
-        args.run_id = 12345
-        args.repo = "owner/repo"
-        args.token = "fake_token"
-        args.poll_interval = 10
-        args.format = "json"
-        
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            out_file = os.path.join(tmp_dir, "report.json")
-            args.out_file = out_file
-            mock_parse_args.return_value = args
-            mock_gen_report.return_value = '{"fake": "report"}'
-            
-            workflow_monitor.main()
-            
-            mock_print.assert_not_called()
-            self.assertTrue(os.path.exists(out_file))
-            with open(out_file, 'r') as f:
-                self.assertEqual(f.read(), '{"fake": "report"}')
-                
-            mock_log_stderr.assert_any_call(f"Report successfully saved to: {out_file}")
-            mock_log_stderr.assert_any_call(f"Try exploring with: jq . {out_file}")
+    def test_parse_duration_seconds(self):
+        start = "2026-07-16T17:16:00Z"
+        end = "2026-07-16T17:18:30Z"
+        self.assertEqual(workflow_monitor.parse_duration_seconds(start, end), 150)
+        self.assertEqual(workflow_monitor.parse_duration_seconds(None, end), 0)
+
+    def test_generate_report_json_includes_seconds_and_slowest_jobs(self):
+        run_data = {"id": 12345, "status": "completed", "conclusion": "success", "run_started_at": "2026-07-16T17:00:00Z", "updated_at": "2026-07-16T17:10:00Z"}
+        jobs = [
+            {"name": "fast_job", "status": "completed", "conclusion": "success", "started_at": "2026-07-16T17:00:00Z", "completed_at": "2026-07-16T17:01:00Z"},
+            {"name": "slow_job", "status": "completed", "conclusion": "success", "started_at": "2026-07-16T17:00:00Z", "completed_at": "2026-07-16T17:05:00Z"}
+        ]
+        report_str = workflow_monitor.generate_report(run_data, jobs, {}, "/tmp/logs", "json")
+        report = json.loads(report_str)
+
+        self.assertEqual(report["run"]["runtime_seconds"], 600)
+        self.assertEqual(report["run"]["avg_job_duration_seconds"], 180)
+        self.assertEqual(report["jobs"][0]["duration_seconds"], 60)
+        self.assertEqual(report["jobs"][1]["duration_seconds"], 300)
+
+        # Check slowest_jobs array is pre-sorted descending
+        self.assertEqual(len(report["slowest_jobs"]), 2)
+        self.assertEqual(report["slowest_jobs"][0]["name"], "slow_job")
+        self.assertEqual(report["slowest_jobs"][0]["duration_seconds"], 300)
+        self.assertTrue(report["slowest_jobs"][0]["is_outlier"])
+
+
+    def test_generate_report_markdown_includes_longest_jobs_summary(self):
+        run_data = {"id": 12345, "status": "completed", "conclusion": "success", "run_started_at": "2026-07-16T17:00:00Z", "updated_at": "2026-07-16T17:10:00Z"}
+        jobs = [
+            {"name": "slow_job", "status": "completed", "conclusion": "success", "started_at": "2026-07-16T17:00:00Z", "completed_at": "2026-07-16T17:05:00Z"}
+        ]
+        report = workflow_monitor.generate_report(run_data, jobs, {}, "/tmp/logs", "markdown")
+        self.assertIn("## Longest Jobs (Bottlenecks)", report)
+        self.assertIn("slow_job", report)
 
     @patch('workflow_monitor.parse_args')
+    @patch('workflow_monitor.get_trials_dir')
     @patch('workflow_monitor.wait_for_run')
     @patch('workflow_monitor.wait_for_completion')
     @patch('workflow_monitor.download_logs')
@@ -247,21 +252,71 @@ class TestWorkflowMonitor(unittest.TestCase):
     @patch('workflow_monitor.generate_report')
     @patch('workflow_monitor.log_stderr')
     @patch('builtins.print')
-    def test_main_without_outfile(self, mock_print, mock_log_stderr, mock_gen_report, mock_fetch_jobs, mock_parse_logs, mock_download, mock_wait_complete, mock_wait_run, mock_parse_args):
-        args = MagicMock()
-        args.run_id = 12345
-        args.repo = "owner/repo"
-        args.token = "fake_token"
-        args.poll_interval = 10
-        args.format = "json"
-        args.out_file = None
-        mock_parse_args.return_value = args
+    def test_main_writes_reports(self, mock_print, mock_log_stderr, mock_gen_report, mock_fetch_jobs, mock_parse_logs, mock_download, mock_wait_complete, mock_wait_run, mock_get_trials_dir, mock_parse_args):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            mock_get_trials_dir.return_value = tmp_dir
+            args = MagicMock()
+            args.run_id = 12345
+            args.trial_name = "baseline-12345"
+            args.repo = "owner/repo"
+            args.token = "fake_token"
+            args.poll_interval = 10
+            mock_parse_args.return_value = args
+
+            mock_wait_run.return_value = {"id": 12345, "path": ".github/workflows/integration-tests.yml"}
+            mock_wait_complete.return_value = {"id": 12345}
+            mock_gen_report.return_value = '{"fake": "report"}'
+            mock_download.return_value = True
+            mock_parse_logs.return_value = {}
+            mock_fetch_jobs.return_value = []
+
+            workflow_monitor.main()
+
+            expected_output_dir = os.path.join(tmp_dir, "integration-tests.yml", "baseline-12345")
+            expected_logs_dir = os.path.join(expected_output_dir, "logs")
+            expected_json = os.path.join(expected_output_dir, "report.json")
+            expected_md = os.path.join(expected_output_dir, "report.md")
+
+            self.assertTrue(os.path.isdir(expected_output_dir))
+            self.assertTrue(os.path.isdir(expected_logs_dir))
+            mock_download.assert_called_once_with("owner/repo", 12345, "fake_token", expected_logs_dir)
+            mock_gen_report.assert_any_call({"id": 12345}, [], {}, expected_logs_dir, "json")
+            mock_gen_report.assert_any_call({"id": 12345}, [], {}, expected_logs_dir, "markdown")
+            self.assertTrue(os.path.exists(expected_json))
+            self.assertTrue(os.path.exists(expected_md))
+            with open(expected_json, 'r') as f:
+                self.assertEqual(f.read(), '{"fake": "report"}')
+            with open(expected_md, 'r') as f:
+                self.assertEqual(f.read(), '{"fake": "report"}')
+
+    def test_sanitize_dir_name(self):
+        self.assertEqual(workflow_monitor.sanitize_dir_name("foo/bar"), "foo_bar")
+        self.assertEqual(workflow_monitor.sanitize_dir_name("a\\b"), "a_b")
+        self.assertEqual(workflow_monitor.sanitize_dir_name(".."), "_")
+        self.assertEqual(workflow_monitor.sanitize_dir_name("  my trial  "), "my trial")
+
+    def test_derive_workflow_name(self):
+        self.assertEqual(workflow_monitor.derive_workflow_name({"path": ".github/workflows/integration-tests.yml"}), "integration-tests.yml")
+        self.assertEqual(workflow_monitor.derive_workflow_name({"name": "My Workflow"}), "My Workflow")
+        self.assertEqual(workflow_monitor.derive_workflow_name({}), "unknown")
+
+    def test_normalize_name(self):
+        self.assertEqual(workflow_monitor.normalize_name("build"), "build")
+        self.assertEqual(workflow_monitor.normalize_name("build-job"), "buildjob")
         
-        mock_gen_report.return_value = '{"fake": "report"}'
+        name = "Run CCIP v1.6 E2E Tests For Workflow Dispatch / smoke/ccip/ccip_reorg_test.go:GreaterThanFinalityTests"
+        expected = "runccipv16e2etestsforworkflowdispatchsmokeccipccipreorgtestgogreaterthanfinalitytests"
+        self.assertEqual(workflow_monitor.normalize_name(name), expected)
+
+    def test_matches_job_name(self):
+        api_name = "Run CCIP v1.6 E2E Tests For Workflow Dispatch / smoke/ccip/ccip_reorg_test.go:GreaterThanFinalityTests"
+        log_job_name = "Run CCIP v1.6 E2E Tests For Workflow Dispatch _ smoke_ccip_ccip_reorg_test.goGreaterThanFinalityTests"
+        self.assertTrue(workflow_monitor.matches_job_name(api_name, log_job_name))
         
-        workflow_monitor.main()
-        
-        mock_print.assert_called_once_with('{"fake": "report"}')
+        # Test suffix or path basename matching
+        api_name_path = "Run CCIP v1.6 E2E Tests / smoke/ccip/ccip_reorg_test.go:GreaterThanFinalityTests"
+        log_job_name_suffix = "smoke_ccip_ccip_reorg_test.goGreaterThanFinalityTests"
+        self.assertTrue(workflow_monitor.matches_job_name(api_name_path, log_job_name_suffix))
 
 if __name__ == '__main__':
     unittest.main()

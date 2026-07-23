@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
@@ -25,8 +26,9 @@ import (
 )
 
 const (
-	testStellarOCRQualifier = "stellar-ocr-qualifier"
-	testStellarFwdQualifier = "test-stellar-fwd-qualifier"
+	testStellarOCRQualifier     = "stellar-ocr-qualifier"
+	testStellarFwdQualifier     = "test-stellar-fwd-qualifier"
+	testStellarForwarderAddress = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
 )
 
 func minimalStellarCapInput(nodeID string) jobs.StellarCapabilityInput {
@@ -50,11 +52,11 @@ func seedStellarOCR3(t *testing.T, ds *datastore.MemoryDataStore, ocrSel uint64)
 	}))
 }
 
-// seedStellarAddresses seeds the OCR3 contract + CapabilitiesRegistry for the
+// seedStellarAddresses seeds the OCR3 contract + CapabilitiesRegistry + forwarders for the
 // VerifyPreconditions tests, which run against a bare MemoryDataStore (no harness), so
 // resolveCapRegAddress needs the registry present. No forwarder address is seeded: the
 // Stellar cap proposal no longer resolves a deployed forwarder from the datastore.
-func seedStellarAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel uint64) {
+func seedStellarAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel, stellarSel uint64) {
 	t.Helper()
 	seedStellarOCR3(t, ds, ocrSel)
 	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
@@ -63,6 +65,13 @@ func seedStellarAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel ui
 		Version:       semver.MustParse("2.0.0"),
 		Address:       "0x2222222222222222222222222222222222222222",
 		Qualifier:     testStellarOCRQualifier,
+	}))
+	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: stellarSel,
+		Type:          stellar.ForwarderContract,
+		Version:       semver.MustParse("1.0.0"),
+		Address:       testStellarForwarderAddress,
+		Qualifier:     testStellarFwdQualifier,
 	}))
 }
 
@@ -99,7 +108,7 @@ func TestProposeStellarCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 	stellarSel := chainsel.STELLAR_LOCALNET.Selector
 
 	ds := datastore.NewMemoryDataStore()
-	seedStellarAddresses(t, ds, ocrSel)
+	seedStellarAddresses(t, ds, ocrSel, stellarSel)
 	env.DataStore = ds.Seal()
 
 	in := freshStellarBase(ocrSel, stellarSel)
@@ -114,7 +123,7 @@ func TestProposeStellarCapJobSpec_VerifyPreconditions_requiredFields(t *testing.
 	stellarSel := chainsel.STELLAR_LOCALNET.Selector
 
 	ds := datastore.NewMemoryDataStore()
-	seedStellarAddresses(t, ds, ocrSel)
+	seedStellarAddresses(t, ds, ocrSel, stellarSel)
 	env.DataStore = ds.Seal()
 
 	base := freshStellarBase(ocrSel, stellarSel)
@@ -171,9 +180,8 @@ type stellarCapTestSetup struct {
 func setupStellarCapTest(t *testing.T) stellarCapTestSetup {
 	t.Helper()
 
-	// The harness deploys the CapabilitiesRegistry itself (at test.RegistryQualifier);
-	// the Apply input below points OCRContractQualifier at it. No addresses are seeded.
 	ds := datastore.NewMemoryDataStore()
+	seedStellarAddresses(t, ds, chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector, chainsel.STELLAR_LOCALNET.Selector)
 
 	h := test.NewTestHarness(t, test.WithDatastore(ds))
 	env := h.Runtime.Environment()

@@ -1,15 +1,76 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import os
 import re
 import sys
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Compare GitHub Actions Workflow Run Trials")
-    parser.add_argument("file1", help="Path to base JSON report file (Trial 1)")
-    parser.add_argument("file2", help="Path to new JSON report file (Trial 2)")
-    parser.add_argument("--out-file", help="Path to write the output markdown report.")
+    parser.add_argument("trial_before", help="Name of the base trial (or workflow/trial path)")
+    parser.add_argument("trial_after", help="Name of the new trial (or workflow/trial path)")
     return parser.parse_args()
+
+
+def get_trials_dir():
+    # Trial directories live directly inside the optimize-workflow skill directory.
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'trials'))
+
+
+def sanitize_dir_name(name):
+    if not name:
+        return "unknown"
+    name = name.replace('/', '_').replace('\\', '_')
+    while '..' in name:
+        name = name.replace('..', '_')
+    return name.strip()
+
+
+def split_workflow_trial(trial_input):
+    parts = trial_input.replace('\\', '/').split('/')
+    if len(parts) == 2:
+        return sanitize_dir_name(parts[0]), sanitize_dir_name(parts[1])
+    return None, None
+
+
+def find_report(trials_dir, workflow_name, trial_name):
+    trial_dir = os.path.join(trials_dir, workflow_name, trial_name)
+    report_path = os.path.join(trial_dir, "report.json")
+    if os.path.isfile(report_path):
+        return report_path
+    legacy_path = os.path.join(trials_dir, workflow_name, f"{trial_name}.json")
+    if os.path.isfile(legacy_path):
+        return legacy_path
+    return None
+
+
+def search_trial(trials_dir, trial_name):
+    safe_name = sanitize_dir_name(trial_name)
+    candidates = []
+    for entry in os.listdir(trials_dir):
+        workflow_dir = os.path.join(trials_dir, entry)
+        if not os.path.isdir(workflow_dir):
+            continue
+        report_path = find_report(trials_dir, entry, safe_name)
+        if report_path:
+            candidates.append((entry, report_path))
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(candidates) > 1:
+        workflows = [c[0] for c in candidates]
+        raise ValueError(f"Trial {trial_name!r} found in multiple workflows: {workflows}")
+    raise FileNotFoundError(f"Could not find report for trial {trial_name!r} under {trials_dir}")
+
+
+def resolve_trial(trials_dir, trial_input):
+    workflow_name, trial_name = split_workflow_trial(trial_input)
+    if workflow_name is not None:
+        report_path = find_report(trials_dir, workflow_name, trial_name)
+        if not report_path:
+            raise FileNotFoundError(f"Could not find report for {trial_input!r}")
+        return workflow_name, trial_name, report_path
+    workflow_name, report_path = search_trial(trials_dir, trial_input)
+    return workflow_name, sanitize_dir_name(trial_input), report_path
 
 def load_report(filepath):
     with open(filepath, 'r', encoding='utf-8') as f:
@@ -135,16 +196,24 @@ def compare_metrics(metric1, metric2):
     return f"avg: {avg1} -> {avg2}"
 
 def normalize_name(name):
+    if not name:
+        return ""
     name = name.lower()
-    name = name.replace('/', '_')
-    name = re.sub(r'\s+', '', name)
-    name = name.replace('...', '')
-    return name.rstrip('.')
+    return re.sub(r'[^a-z0-9]', '', name)
 
 def matches_job_name(name1, name2):
     a = normalize_name(name1)
     b = normalize_name(name2)
-    return a.startswith(b) or b.startswith(a)
+    if not a or not b:
+        return False
+    return (
+        a.startswith(b)
+        or b.startswith(a)
+        or a.endswith(b)
+        or b.endswith(a)
+        or ((len(a) > 10 and len(b) > 10) and (a in b or b in a))
+    )
+
 
 def generate_comparison(data1, data2):
     run1 = data1.get("run", {})
@@ -249,23 +318,38 @@ def generate_comparison(data1, data2):
 
 def main():
     args = parse_args()
+    trials_dir = get_trials_dir()
+
     try:
-        data1 = load_report(args.file1)
-        data2 = load_report(args.file2)
+        workflow1, trial1, path1 = resolve_trial(trials_dir, args.trial_before)
+        workflow2, trial2, path2 = resolve_trial(trials_dir, args.trial_after)
+    except Exception as e:
+        print(f"Error locating trial reports: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    if workflow1 != workflow2:
+        print(f"Error: trials must belong to the same workflow (found {workflow1!r} and {workflow2!r})", file=sys.stderr)
+        sys.exit(1)
+
+    try:
+        data1 = load_report(path1)
+        data2 = load_report(path2)
     except Exception as e:
         print(f"Error loading JSON reports: {e}", file=sys.stderr)
         sys.exit(1)
-        
+
     report = generate_comparison(data1, data2)
     print(report)
-    
-    if args.out_file:
-        try:
-            with open(args.out_file, 'w', encoding='utf-8') as f:
-                f.write(report)
-            print(f"Comparison report saved to: {args.out_file}", file=sys.stderr)
-        except Exception as e:
-            print(f"Error saving report to {args.out_file}: {e}", file=sys.stderr)
+
+    out_dir = os.path.join(trials_dir, workflow1)
+    os.makedirs(out_dir, exist_ok=True)
+    out_file = os.path.join(out_dir, f"{trial1}-{trial2}-comparison.md")
+    try:
+        with open(out_file, 'w', encoding='utf-8') as f:
+            f.write(report)
+        print(f"Comparison report saved to: {out_file}", file=sys.stderr)
+    except Exception as e:
+        print(f"Error saving report to {out_file}: {e}", file=sys.stderr)
 
 if __name__ == "__main__":
     main()

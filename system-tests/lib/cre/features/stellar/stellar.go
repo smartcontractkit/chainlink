@@ -35,8 +35,8 @@ func (s *Stellar) Flag() cre.CapabilityFlag {
 }
 
 func (s *Stellar) PreEnvStartup(
-	_ context.Context,
-	_ zerolog.Logger,
+	ctx context.Context,
+	testLogger zerolog.Logger,
 	don *cre.DonMetadata,
 	_ *cre.Topology,
 	creEnv *cre.Environment,
@@ -70,6 +70,10 @@ func (s *Stellar) PreEnvStartup(
 		UseCapRegOCRConfig: true,
 	}}
 
+	if deployErr := deployStellarForwarders(ctx, testLogger, creEnv, stellarChain); deployErr != nil {
+		return nil, fmt.Errorf("failed to deploy stellar CRE forwarder: %w", deployErr)
+	}
+
 	capabilityToExtraSignerFamilies := make(map[string][]string, len(capabilities))
 	ocrConfigs := map[string]*ocr3.OracleConfig{}
 	for _, capability := range capabilities {
@@ -91,13 +95,27 @@ func (s *Stellar) PostEnvStartup(
 	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
-	if extractStellarFromEnv(creEnv) == nil {
+	stellarChain := extractStellarFromEnv(creEnv)
+	if stellarChain == nil {
 		return errors.New("no stellar blockchain found in environment")
 	}
 
 	nodeSet, err := nodeSetForDON(dons, don.Name)
 	if err != nil {
 		return err
+	}
+
+	consensusDons := dons.DonsWithFlag(cre.ConsensusCapability)
+	if len(consensusDons) == 0 {
+		return errors.New("no consensus DON found in environment")
+	}
+
+	if cfgErr := configureStellarForwarders(testLogger, creEnv, consensusDons[0], stellarChain); cfgErr != nil {
+		return errors.Wrap(cfgErr, "failed to configure stellar CRE forwarder")
+	}
+
+	if authErr := authorizeStellarForwarderTransmitters(testLogger, creEnv, don, stellarChain); authErr != nil {
+		return errors.Wrap(authErr, "failed to authorize stellar forwarder transmitters")
 	}
 
 	specs, err := proposeStellarStandardCapabilityJobs(ctx, don, dons, creEnv, nodeSet)
