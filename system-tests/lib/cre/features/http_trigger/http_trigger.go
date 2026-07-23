@@ -7,6 +7,7 @@ import (
 	"text/template"
 
 	"dario.cat/mergo"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -140,7 +141,7 @@ func (o *HTTPTrigger) PostEnvStartup(
 
 	workerInput := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
-		Environment: cre.EnvironmentName,
+		Environment: creEnv.CldfEnvironment.Name,
 		DONName:     don.Name,
 		JobName:     "http-trigger-worker",
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
@@ -152,6 +153,9 @@ func (o *HTTPTrigger) PostEnvStartup(
 			"command": command,
 			"config":  configStr,
 		},
+	}
+	if creEnv.FreshExternalJobIDs {
+		workerInput.Inputs["externalJobID"] = uuid.NewString()
 	}
 
 	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)

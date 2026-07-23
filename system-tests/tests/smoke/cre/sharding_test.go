@@ -91,10 +91,13 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	}
 
 	testLogger.Info().Msg("Calling SetupSharding to deploy contracts and create Ring jobs...")
+	topology, tErr := cre.NewTopology(testEnv.Config.NodeSets, *testEnv.Config.Infra, testEnv.Config.CapabilityConfigs)
+	require.NoError(t, tErr, "Failed to recreate topology")
+
 	err = sharding.SetupSharding(t.Context(), sharding.SetupShardingInput{
 		Logger:   testLogger,
 		CreEnv:   testEnv.CreEnvironment,
-		Topology: nil,
+		Topology: topology,
 		Dons:     testEnv.Dons,
 	})
 	if err != nil {
