@@ -36,7 +36,7 @@ func TestDon2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = ptr(k.PeerID())
 	})
-	pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), db, logger.TestLogger(t))
+	pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), db, "", logger.TestLogger(t))
 
 	require.NoError(t, pw.Start(t.Context()))
 	defer pw.Close()
@@ -61,7 +61,7 @@ func TestDon2DonSharedPeer_ErrorOnNilSingletonPeerWrapper(t *testing.T) {
 }
 
 func TestDon2DonSharedPeer_UpdateConnectionsByDONs(t *testing.T) {
-	pw := ocrcommon.NewSingletonPeerWrapper(nil, nil, nil, nil, logger.TestLogger(t)) // nils are ok, we won't Start() it
+	pw := ocrcommon.NewSingletonPeerWrapper(nil, nil, nil, nil, "", logger.TestLogger(t)) // nils are ok, we won't Start() it
 	_, myPeerID := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
 	_, peerID3 := newKeyPair(t)

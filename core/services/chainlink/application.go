@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,8 +26,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
-
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
@@ -49,7 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	creproxy "github.com/smartcontractkit/chainlink-protos/cre/impl/proxy"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -356,7 +354,14 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if err2 := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
 			return nil, fmt.Errorf("invalid P2P config: %w", err2)
 		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, globalLogger)
+		// When the CRE p2p proxy is enabled, the peer wrapper delegates all rage
+		// networking to the out-of-process proxy at this address instead of
+		// running a local libocr peer.
+		proxyAddr := ""
+		if cfg.Capabilities().Proxy().Enabled() {
+			proxyAddr = fmt.Sprintf("localhost:%d", cfg.Capabilities().Proxy().Port())
+		}
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, proxyAddr, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	}
 
@@ -581,9 +586,24 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// serves the OCR and DON-to-DON proxy gRPC that the clients (wired below and
 	// in the CRE) connect to.
 	if cfg.Capabilities().Proxy().Enabled() {
+		// The launched process does not inherit our environment, so pass the proxy
+		// its config explicitly: addresses as CLI args, secrets via env. It gets
+		// its P2P key from the shared DB keystore table itself (via
+		// CL_DATABASE_URL + CL_PASSWORD_KEYSTORE); we do not export the key here.
+		proxyDBURL := cfg.Database().URL()
 		proxyCmdFn, proxyGRPCOpts, rerr := loopRegistrarConfig.RegisterLOOP(plugins.CmdConfig{
 			ID:  "cre-p2p-proxy",
 			Cmd: cfg.Capabilities().Proxy().Command(),
+			Args: []string{
+				"--listen-addresses=" + strings.Join(cfg.P2P().V2().ListenAddresses(), ","),
+				fmt.Sprintf("--proxy-listen-address=:%d", cfg.Capabilities().Proxy().Port()),
+			},
+			Env: []string{
+				// Sourced from resolved config, not os.Getenv: the node may receive
+				// these via secrets TOML / password file rather than env.
+				"CL_DATABASE_URL=" + proxyDBURL.String(),
+				"CL_PASSWORD_KEYSTORE=" + cfg.Password().Keystore(),
+			},
 		})
 		if rerr != nil {
 			return nil, fmt.Errorf("failed to register p2p proxy LOOP: %w", rerr)
@@ -664,22 +684,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings)
 
-	// When the CRE p2p proxy is enabled, route capability OCR networking through
-	// the proxy's BinaryNetworkEndpoint client instead of the local OCR peer.
-	var ocrProxyEndpointFactory ocrtypes.BinaryNetworkEndpointFactory
-	if cfg.Capabilities().Proxy().Enabled() {
-		proxyAddr := fmt.Sprintf("localhost:%d", cfg.Capabilities().Proxy().Port())
-		var peerIDStr string
-		if pid, perr := creServices.GetPeerID(); perr == nil {
-			peerIDStr = pid.String()
-		}
-		proxyFactory, perr := creproxy.NewProxyEndpointFactory(peerIDStr, proxyAddr)
-		if perr != nil {
-			return nil, fmt.Errorf("failed to create proxy OCR endpoint factory: %w", perr)
-		}
-		ocrProxyEndpointFactory = proxyFactory
-	}
-
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,
@@ -699,7 +703,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		atomicSettings,
 		creServices.OCRConfigService,
 		cfg.Capabilities().Local(),
-		ocrProxyEndpointFactory,
 	)
 	delegates[job.StandardCapabilities] = stdcapDelegate
 	if creServices.SetDelegatesDeps != nil {

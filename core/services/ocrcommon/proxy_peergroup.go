@@ -1,20 +1,21 @@
-package p2p
+package ocrcommon
 
 import (
 	"fmt"
 
 	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/networking"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	creproxy "github.com/smartcontractkit/chainlink-protos/cre/impl/proxy"
 )
 
-// NewProxyBackedPeerGroupFactory adapts the p2p proxy client's
-// creproxy.PeerGroupFactory to a libocr networking.PeerGroupFactory, so it can
-// back Don2DonSharedPeer in place of the local rage peer. The method sets are
-// identical; this only bridges the (structurally equal) types.
-func NewProxyBackedPeerGroupFactory(inner creproxy.PeerGroupFactory) networking.PeerGroupFactory {
+// newProxyBackedPeerGroupFactory adapts the p2p proxy client's
+// creproxy.PeerGroupFactory to a libocr networking.PeerGroupFactory, so the
+// SingletonPeerWrapper can expose it as PeerGroupFactory when delegating to the
+// proxy. The method sets are identical; this only bridges the (structurally
+// equal) types.
+func newProxyBackedPeerGroupFactory(inner creproxy.PeerGroupFactory) ocrnetworking.PeerGroupFactory {
 	return proxyPeerGroupFactory{inner: inner}
 }
 
@@ -22,7 +23,7 @@ type proxyPeerGroupFactory struct {
 	inner creproxy.PeerGroupFactory
 }
 
-func (a proxyPeerGroupFactory) NewPeerGroup(configDigest ocr2types.ConfigDigest, peerIDs []string, bootstrappers []commontypes.BootstrapperLocator) (networking.PeerGroup, error) {
+func (a proxyPeerGroupFactory) NewPeerGroup(configDigest ocr2types.ConfigDigest, peerIDs []string, bootstrappers []commontypes.BootstrapperLocator) (ocrnetworking.PeerGroup, error) {
 	bs := make([]creproxy.BootstrapperInfo, len(bootstrappers))
 	for i, b := range bootstrappers {
 		bs[i] = creproxy.BootstrapperInfo{PeerID: b.PeerID, Addrs: b.Addrs}
@@ -38,8 +39,8 @@ type proxyPeerGroup struct {
 	inner creproxy.PeerGroup
 }
 
-func (a proxyPeerGroup) NewStream(remotePeerID string, args networking.NewStreamArgs) (networking.Stream, error) {
-	a1, ok := args.(networking.NewStreamArgs1)
+func (a proxyPeerGroup) NewStream(remotePeerID string, args ocrnetworking.NewStreamArgs) (ocrnetworking.Stream, error) {
+	a1, ok := args.(ocrnetworking.NewStreamArgs1)
 	if !ok {
 		return nil, fmt.Errorf("unsupported NewStreamArgs type %T", args)
 	}

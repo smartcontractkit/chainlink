@@ -39,7 +39,7 @@
   nodes = 4
   name = "workflow"
   don_types = ["workflow"]
-  override_mode = "all"
+  override_mode = "each"
   http_port_range_start = 10100
 
   # even though this DON is not using any capability for chain with ID 2337 we still need it to be connected to it,
@@ -56,7 +56,9 @@
     image = "postgres:12.0"
     port = 13000
 
- [[nodesets.node_specs]]
+ # override_mode = "each": one block per node, in order node0, node1, node2, node3.
+  # Nodes 2 and 3 route OCR + DON-to-DON through the p2p proxy.
+  [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
       image = "cre-node:dev"
@@ -64,12 +66,43 @@
       # image = "chainlink-tmp:latest"
       user_config_overrides = ""
 
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "cre-node:dev"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "cre-node:dev"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = '''
+[Capabilities.Proxy]
+Enabled = true
+Command = '/usr/local/bin/main'
+Port = 50051
+'''
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "cre-node:dev"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = '''
+[Capabilities.Proxy]
+Enabled = true
+Command = '/usr/local/bin/main'
+Port = 50051
+'''
+
 [[nodesets]]
   nodes = 4
   name = "capabilities"
   don_types = ["capabilities"]
   exposes_remote_capabilities = true
-  override_mode = "all"
+  override_mode = "each"
   http_port_range_start = 10200
 
   # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
@@ -83,6 +116,8 @@
     image = "postgres:12.0"
     port = 13100
 
+  # override_mode = "each": one block per node, in order node0, node1, node2, node3.
+  # Nodes 2 and 3 route OCR + DON-to-DON through the p2p proxy.
   [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
@@ -90,6 +125,37 @@
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
       user_config_overrides = ""
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "cre-node:dev"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = ""
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "cre-node:dev"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = '''
+[Capabilities.Proxy]
+Enabled = true
+Command = '/usr/local/bin/main'
+Port = 50051
+'''
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "cre-node:dev"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      user_config_overrides = '''
+[Capabilities.Proxy]
+Enabled = true
+Command = '/usr/local/bin/main'
+Port = 50051
+'''
 
 [[nodesets]]
   nodes = 1

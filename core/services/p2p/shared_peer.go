@@ -82,44 +82,18 @@ func NewDon2DonSharedPeer(singletonPeerWrapper *ocrcommon.SingletonPeerWrapper, 
 	return sp
 }
 
-// NewDon2DonSharedPeerWithPeerGroupFactory builds a Don2DonSharedPeer backed by
-// an externally provided PeerGroupFactory (e.g. the p2p proxy client) and peer
-// ID, rather than the local singleton peer wrapper.
-func NewDon2DonSharedPeerWithPeerGroupFactory(pgFactory networking.PeerGroupFactory, myID ragetypes.PeerID, bootstrappers []ocrcommontypes.BootstrapperLocator, lggr logger.Logger) *don2DonSharedPeer {
-	sp := &don2DonSharedPeer{
-		pgFactory:       pgFactory,
-		myID:            myID,
-		bootstrappers:   bootstrappers,
-		recvCh:          make(chan p2ptypes.Message, defaultRecvChSize),
-		discoveryGroups: make(map[string]networking.PeerGroup),
-		remotePeers:     make(map[ragetypes.PeerID]*remotePeer),
-		lggr:            logger.Named(lggr, "Don2DonSharedPeer"),
-	}
-	sp.Service, sp.srvcEng = services.Config{
-		Name:  "Don2DonSharedPeer",
-		Start: sp.start,
-		Close: sp.close,
-	}.NewServiceEngine(sp.lggr)
-	return sp
-}
-
 func (sp *don2DonSharedPeer) start(ctx context.Context) error {
 	sp.lggr.Info("Starting Don2DonSharedPeer ...")
-	// When pgFactory is already set (e.g. an out-of-process proxy client), use it
-	// directly. Otherwise resolve it from the local singleton peer wrapper, which
-	// must have been started first.
-	if sp.pgFactory == nil {
-		if sp.singletonPeerWrapper == nil {
-			return errors.New("field SingletonPeerWrapper is not set")
-		}
-		sp.pgFactory = sp.singletonPeerWrapper.PeerGroupFactory
-		if sp.pgFactory == nil {
-			return errors.New("PeerGroupFactory is not set in SingletonPeerWrapper. It's possible that SingletonPeerWrapper was not started before Don2DonSharedPeer or somehow failed to initialize")
-		}
-		sp.myID = ragetypes.PeerID(sp.singletonPeerWrapper.PeerID)
+	if sp.singletonPeerWrapper == nil {
+		return errors.New("field SingletonPeerWrapper is not set")
 	}
+	sp.pgFactory = sp.singletonPeerWrapper.PeerGroupFactory
+	if sp.pgFactory == nil {
+		return errors.New("PeerGroupFactory is not set in SingletonPeerWrapper. It's possible that SingletonPeerWrapper was not started before Don2DonSharedPeer or somehow failed to initialize")
+	}
+	sp.myID = ragetypes.PeerID(sp.singletonPeerWrapper.PeerID)
 	if (sp.myID == ragetypes.PeerID{}) {
-		return errors.New("PeerID is not set. Was the peer started before Don2DonSharedPeer?")
+		return errors.New("PeerID is not set in SingletonPeerWrapper. Was it started before Don2DonSharedPeer?")
 	}
 	myIDStr := sp.myID.String()
 	for _, bootstrapper := range sp.bootstrappers {

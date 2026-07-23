@@ -10,8 +10,6 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
@@ -70,9 +68,6 @@ type Delegate struct {
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
 	initErr                 error
-	// ocrBinaryNetworkEndpointFactory, when set, routes OCR networking through it
-	// (e.g. the p2p proxy client) instead of the local OCR peer.
-	ocrBinaryNetworkEndpointFactory ocrtypes.BinaryNetworkEndpointFactory
 
 	isNewlyCreatedJob bool
 }
@@ -104,7 +99,6 @@ func NewDelegate(
 	creSettings core.SettingsBroadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
 	localCfg coreconfig.LocalCapabilities,
-	ocrBinaryNetworkEndpointFactory ocrtypes.BinaryNetworkEndpointFactory,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	initErr := registerOptionalMockStreamsTrigger(logger, localCfg, registry)
@@ -113,28 +107,27 @@ func NewDelegate(
 	}
 
 	return &Delegate{
-		logger:                          logger,
-		ds:                              ds,
-		jobORM:                          jobORM,
-		registry:                        registry,
-		cfg:                             cfg,
-		monitoringEndpointGen:           monitoringEndpointGen,
-		pipelineRunner:                  pipelineRunner,
-		relayers:                        relayers,
-		isNewlyCreatedJob:               false,
-		gatewayConnectorWrapper:         gatewayConnectorWrapper,
-		ks:                              ks,
-		getPeerID:                       getPeerID,
-		ocrPeerWrapper:                  ocrPeerWrapper,
-		newOracleFactoryFn:              newOracleFactoryFn,
-		computeFetcherFactoryFn:         fetcherFactoryFn,
-		orgResolver:                     orgResolver,
-		creSettings:                     creSettings,
-		ocrConfigService:                ocrConfigService,
-		localCfg:                        localCfg,
-		initErr:                         initErr,
-		ocrBinaryNetworkEndpointFactory: ocrBinaryNetworkEndpointFactory,
-		selectorOpts:                    opts,
+		logger:                  logger,
+		ds:                      ds,
+		jobORM:                  jobORM,
+		registry:                registry,
+		cfg:                     cfg,
+		monitoringEndpointGen:   monitoringEndpointGen,
+		pipelineRunner:          pipelineRunner,
+		relayers:                relayers,
+		isNewlyCreatedJob:       false,
+		gatewayConnectorWrapper: gatewayConnectorWrapper,
+		ks:                      ks,
+		getPeerID:               getPeerID,
+		ocrPeerWrapper:          ocrPeerWrapper,
+		newOracleFactoryFn:      newOracleFactoryFn,
+		computeFetcherFactoryFn: fetcherFactoryFn,
+		orgResolver:             orgResolver,
+		creSettings:             creSettings,
+		ocrConfigService:        ocrConfigService,
+		localCfg:                localCfg,
+		initErr:                 initErr,
+		selectorOpts:            opts,
 	}
 }
 
@@ -270,20 +263,19 @@ func (d *Delegate) NewServices(
 		}
 
 		oracleFactory, err = generic.NewOracleFactory(generic.OracleFactoryParams{
-			Logger:                       log,
-			JobORM:                       d.jobORM,
-			JobID:                        jobID,
-			JobName:                      jobName,
-			KB:                           ocrEvmKeyBundle,
-			Config:                       oracleFactoryConfig,
-			OnchainSigningStrategy:       oracleFactoryConfig.OnchainSigning,
-			PeerWrapper:                  d.ocrPeerWrapper,
-			RelayerSet:                   relayerSet,
-			OcrKeystore:                  d.ks.OCR2(),
-			EthKeystore:                  d.ks.Eth(),
-			OCRConfigService:             d.ocrConfigService,
-			CapabilityID:                 capabilityID,
-			BinaryNetworkEndpointFactory: d.ocrBinaryNetworkEndpointFactory,
+			Logger:                 log,
+			JobORM:                 d.jobORM,
+			JobID:                  jobID,
+			JobName:                jobName,
+			KB:                     ocrEvmKeyBundle,
+			Config:                 oracleFactoryConfig,
+			OnchainSigningStrategy: oracleFactoryConfig.OnchainSigning,
+			PeerWrapper:            d.ocrPeerWrapper,
+			RelayerSet:             relayerSet,
+			OcrKeystore:            d.ks.OCR2(),
+			EthKeystore:            d.ks.Eth(),
+			OCRConfigService:       d.ocrConfigService,
+			CapabilityID:           capabilityID,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
