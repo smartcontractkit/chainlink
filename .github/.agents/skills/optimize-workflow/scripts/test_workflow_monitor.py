@@ -242,6 +242,54 @@ class TestWorkflowMonitor(unittest.TestCase):
         self.assertIn("## Longest Jobs (Bottlenecks)", report)
         self.assertIn("slow_job", report)
 
+    def test_generate_report_cost_display_markdown(self):
+        run_data = {"id": 12345, "status": "completed", "conclusion": "success", "run_started_at": "2026-07-16T17:00:00Z", "updated_at": "2026-07-16T17:10:00Z"}
+        jobs = [
+            {"name": "job_a", "status": "completed", "conclusion": "success", "started_at": "2026-07-16T17:00:00Z", "completed_at": "2026-07-16T17:02:00Z"},
+            {"name": "job_b", "status": "completed", "conclusion": "success", "started_at": "2026-07-16T17:00:00Z", "completed_at": "2026-07-16T17:03:00Z"}
+        ]
+        metrics = {
+            "job_a": {"Cost": "$0.0179"},
+            "job_b": {"Cost": "$0.0200"}
+        }
+        report = workflow_monitor.generate_report(run_data, jobs, metrics, "/tmp/logs", "markdown")
+        self.assertIn("- **Total Cost**: `$0.0379`", report)
+        self.assertIn("| Job Name | Duration | Cost | Status | Conclusion | Runner |", report)
+        self.assertIn("| job_a | `0:02:00` | `$0.0179` | `completed` | `success` | `None` |", report)
+        self.assertIn("- **Cost**: `$0.0179`", report)
+        self.assertIn("- **Cost**: `$0.0200`", report)
+
+    def test_generate_report_cost_display_json(self):
+        run_data = {"id": 12345, "status": "completed", "conclusion": "success", "run_started_at": "2026-07-16T17:00:00Z", "updated_at": "2026-07-16T17:10:00Z"}
+        jobs = [
+            {"name": "job_a", "status": "completed", "conclusion": "success", "started_at": "2026-07-16T17:00:00Z", "completed_at": "2026-07-16T17:02:00Z"},
+            {"name": "job_b", "status": "completed", "conclusion": "success", "started_at": "2026-07-16T17:00:00Z", "completed_at": "2026-07-16T17:03:00Z"}
+        ]
+        metrics = {
+            "job_a": {"Cost": "$0.0179"},
+            "job_b": {"Cost": "$0.0200"}
+        }
+        report_str = workflow_monitor.generate_report(run_data, jobs, metrics, "/tmp/logs", "json")
+        report = json.loads(report_str)
+
+        self.assertEqual(report["run"]["total_cost"], "$0.0379")
+        self.assertEqual(report["jobs"][0]["cost"], "$0.0179")
+        self.assertEqual(report["jobs"][1]["cost"], "$0.0200")
+        self.assertEqual(report["slowest_jobs"][0]["cost"], "$0.0200")
+
+    def test_generate_report_cost_display_na_when_no_metrics(self):
+        run_data = {"id": 12345, "status": "completed", "conclusion": "success", "run_started_at": "2026-07-16T17:00:00Z", "updated_at": "2026-07-16T17:10:00Z"}
+        jobs = [
+            {"name": "job_a", "status": "completed", "conclusion": "success", "started_at": "2026-07-16T17:00:00Z", "completed_at": "2026-07-16T17:02:00Z"}
+        ]
+        report_md = workflow_monitor.generate_report(run_data, jobs, {}, "/tmp/logs", "markdown")
+        self.assertIn("- **Total Cost**: `N/A`", report_md)
+        self.assertIn("- **Cost**: `N/A`", report_md)
+
+        report_json = json.loads(workflow_monitor.generate_report(run_data, jobs, {}, "/tmp/logs", "json"))
+        self.assertEqual(report_json["run"]["total_cost"], "N/A")
+        self.assertEqual(report_json["jobs"][0]["cost"], "N/A")
+
     @patch('workflow_monitor.parse_args')
     @patch('workflow_monitor.get_trials_dir')
     @patch('workflow_monitor.wait_for_run')

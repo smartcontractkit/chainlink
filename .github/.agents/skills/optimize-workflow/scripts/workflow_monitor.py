@@ -260,11 +260,43 @@ def matches_job_name(api_name, log_job_name):
     )
 
 
+def find_job_metrics(job_name, metrics):
+    if not job_name or not metrics:
+        return None
+    for k, v in metrics.items():
+        if normalize_name(job_name) == normalize_name(k):
+            return v
+    for k, v in metrics.items():
+        if matches_job_name(job_name, k):
+            return v
+    return None
+
+def get_job_cost(job_metrics):
+    if job_metrics and "Cost" in job_metrics:
+        return job_metrics["Cost"]
+    return "N/A"
+
 def generate_report(run_data, jobs, metrics, log_dir, format_type):
     start_time = run_data.get("run_started_at") or run_data.get("created_at")
     end_time = run_data.get("updated_at")
     total_runtime = format_duration(start_time, end_time)
     total_runtime_sec = parse_duration_seconds(start_time, end_time)
+
+    # Compute workflow total cost
+    total_cost_val = 0.0
+    has_cost_data = False
+    for job in jobs:
+        jm = find_job_metrics(job.get('name', ''), metrics)
+        c_str = get_job_cost(jm)
+        if c_str != "N/A":
+            try:
+                val = float(c_str.replace('$', '').strip())
+                total_cost_val += val
+                has_cost_data = True
+            except ValueError:
+                pass
+
+    total_workflow_cost = f"${total_cost_val:.4f}" if has_cost_data else "N/A"
 
     if format_type == "json":
         jobs_json = []
@@ -284,18 +316,9 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
             runner_name = job.get("runner_name") or "Unknown"
             is_outlier = job_dur_sec > (1.5 * avg_dur_sec) if avg_dur_sec > 0 else False
             
-            # Find metrics
             job_name = job.get('name', '')
-            job_metrics = None
-            for k, v in metrics.items():
-                if normalize_name(job_name) == normalize_name(k):
-                    job_metrics = v
-                    break
-            if not job_metrics:
-                for k, v in metrics.items():
-                    if matches_job_name(job_name, k):
-                        job_metrics = v
-                        break
+            job_metrics = find_job_metrics(job_name, metrics)
+            job_cost = get_job_cost(job_metrics)
                         
             job_entry = {
                 "name": job.get("name"),
@@ -309,6 +332,7 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
                 "completed_at": job.get("completed_at"),
                 "duration": job_dur,
                 "duration_seconds": job_dur_sec,
+                "cost": job_cost,
                 "is_outlier": is_outlier,
                 "metrics": job_metrics or {}
             }
@@ -317,6 +341,7 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
                 "name": job.get("name"),
                 "duration": job_dur,
                 "duration_seconds": job_dur_sec,
+                "cost": job_cost,
                 "is_outlier": is_outlier,
                 "status": job.get("status"),
                 "conclusion": job.get("conclusion")
@@ -331,6 +356,7 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
                 "conclusion": run_data.get("conclusion"),
                 "runtime": total_runtime,
                 "runtime_seconds": total_runtime_sec,
+                "total_cost": total_workflow_cost,
                 "avg_job_duration_seconds": avg_dur_sec
             },
             "logs_dir": log_dir,
@@ -346,6 +372,7 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
             f"- **Status**: `{run_data.get('status')}`",
             f"- **Conclusion**: `{run_data.get('conclusion')}`",
             f"- **Runtime**: `{total_runtime}`",
+            f"- **Total Cost**: `{total_workflow_cost}`",
             f"- **Logs Directory**: `{log_dir}`",
             "",
             "## Longest Jobs (Bottlenecks)"
@@ -358,18 +385,23 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
             sorted_jobs.append((dur_sec, j))
         sorted_jobs.sort(key=lambda x: x[0], reverse=True)
 
-        lines.append("| Job Name | Duration | Status | Conclusion | Runner |")
-        lines.append("| --- | --- | --- | --- | --- |")
+        lines.append("| Job Name | Duration | Cost | Status | Conclusion | Runner |")
+        lines.append("| --- | --- | --- | --- | --- | --- |")
         for dur_sec, j in sorted_jobs[:10]:
             dur_str = format_duration(j.get("started_at"), j.get("completed_at"))
+            jm = find_job_metrics(j.get('name', ''), metrics)
+            c_str = get_job_cost(jm)
             labels_list = j.get("labels", [])
             labels_str = ", ".join(labels_list) if labels_list else "None"
-            lines.append(f"| {j.get('name')} | `{dur_str}` | `{j.get('status')}` | `{j.get('conclusion')}` | `{labels_str}` |")
+            lines.append(f"| {j.get('name')} | `{dur_str}` | `{c_str}` | `{j.get('status')}` | `{j.get('conclusion')}` | `{labels_str}` |")
 
         lines.append("\n## Jobs Summary")
 
         for job in jobs:
             job_dur = format_duration(job.get("started_at"), job.get("completed_at"))
+            job_name = job.get('name', '')
+            job_metrics = find_job_metrics(job_name, metrics)
+            job_cost = get_job_cost(job_metrics)
             labels_list = job.get("labels", [])
             labels_str = ", ".join(labels_list) if labels_list else "None"
             runner_name = job.get("runner_name") or "Unknown"
@@ -381,19 +413,7 @@ def generate_report(run_data, jobs, metrics, log_dir, format_type):
             lines.append(f"- **Start**: `{job.get('started_at')}`")
             lines.append(f"- **End**: `{job.get('completed_at')}`")
             lines.append(f"- **Duration**: `{job_dur}`")
-            
-            # Look up job metrics
-            job_name = job.get('name', '')
-            job_metrics = None
-            for k, v in metrics.items():
-                if normalize_name(job_name) == normalize_name(k):
-                    job_metrics = v
-                    break
-            if not job_metrics:
-                for k, v in metrics.items():
-                    if matches_job_name(job_name, k):
-                        job_metrics = v
-                        break
+            lines.append(f"- **Cost**: `{job_cost}`")
                         
             if job_metrics:
                 lines.append("- **Runner Details**:")
