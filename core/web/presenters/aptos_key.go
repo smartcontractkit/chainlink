@@ -25,7 +25,7 @@ func NewAptosKeyResource(key aptoskey.Key) *AptosKeyResource {
 }
 
 func NewAptosKeyResources(keys []aptoskey.Key) []AptosKeyResource {
-	rs := []AptosKeyResource{}
+	rs := make([]AptosKeyResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewAptosKeyResource(key))
 	}

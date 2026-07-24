@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -522,9 +521,9 @@ func StartChainlinkNodes(
 			cfg.NodeConfig.ChainConfigTOMLByChainID,
 		)
 		if registryConfig.Contract != (common.Address{}) {
-			toml.Capabilities.ExternalRegistry.NetworkID = ptr.Ptr(registryConfig.NetworkType)
-			toml.Capabilities.ExternalRegistry.ChainID = ptr.Ptr(strconv.FormatUint(registryConfig.EVMChainID, 10))
-			toml.Capabilities.ExternalRegistry.Address = ptr.Ptr(registryConfig.Contract.String())
+			toml.Capabilities.ExternalRegistry.NetworkID = new(registryConfig.NetworkType)
+			toml.Capabilities.ExternalRegistry.ChainID = new(strconv.FormatUint(registryConfig.EVMChainID, 10))
+			toml.Capabilities.ExternalRegistry.Address = new(registryConfig.Contract.String())
 		}
 
 		if err != nil {
@@ -727,7 +726,7 @@ func CreateChainConfigFromNetworks(
 		// if private keys are provided, use the first private key as deployer key
 		// otherwise it will try to load the private key from KMS
 		if len(networkPvtKeys[chainId]) > 0 {
-			pvtKey = ptr.Ptr(networkPvtKeys[chainId][0])
+			pvtKey = new(networkPvtKeys[chainId][0])
 		}
 		require.NoError(t, chainCfg.SetDeployerKey(pvtKey), "Error setting deployer key")
 		var additionalPvtKeys []string

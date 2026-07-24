@@ -16,7 +16,7 @@ import (
 type Nonce [8]byte
 
 var (
-	nonceT = reflect.TypeOf(Nonce{})
+	nonceT = reflect.TypeFor[Nonce]()
 )
 
 func (n Nonce) String() string {

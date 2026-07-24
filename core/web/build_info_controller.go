@@ -3,10 +3,10 @@ package web
 import (
 	"net/http"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
-
-	"github.com/gin-gonic/gin"
 )
 
 // BuildVersonController has the build_info endpoint.

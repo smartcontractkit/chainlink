@@ -192,7 +192,7 @@ func getBootstrapURLs(dons *cre.Dons) ([]string, error) {
 func createRingJobs(ctx context.Context, creEnv *cre.Environment, shardLeaderDON *cre.Don, dons *cre.Dons, ringOCR3Addr, shardConfigAddr common.Address, bootstrapURLs []string) error {
 	ringJobInput := ring_ops.ProposeRingJobInput{
 		Domain:           offchain.ProductLabel,
-		EnvName:          cre.EnvironmentName,
+		EnvName:          creEnv.CldfEnvironment.Name,
 		DONName:          shardLeaderDON.Name,
 		JobName:          "ring-capability",
 		ContractAddress:  ringOCR3Addr.Hex(),

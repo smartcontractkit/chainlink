@@ -319,6 +319,7 @@ type WorkflowConfig interface {
 		portypes.WorkflowConfig |
 		AptosReadWorkflowConfig |
 		StellarReadWorkflowConfig |
+		StellarWriteWorkflowConfig |
 		aptoswrite_config.Config |
 		aptoswriteroundtrip_config.Config |
 		crontypes.WorkflowConfig |
@@ -399,6 +400,17 @@ type StellarReadContractStep struct {
 	ArgReportIDHex            string   `yaml:"argReportIDHex"`
 	ExpectedResult            string   `yaml:"expectedResult"`
 	ExpectError               bool     `yaml:"expectError"`
+}
+
+// StellarWriteWorkflowConfig mirrors the fields of the stellarwrite workflow's
+// config.Config (system-tests/tests/smoke/cre/stellar/stellarwrite/config).
+type StellarWriteWorkflowConfig struct {
+	ChainSelector      uint64 `yaml:"chainSelector"`
+	WorkflowName       string `yaml:"workflowName"`
+	ReceiverContractID string `yaml:"receiverContractID"`
+	ReportPayloadHex   string `yaml:"reportPayloadHex"`
+	RequiredSignatures int    `yaml:"requiredSignatures"`
+	ExpectFailure      bool   `yaml:"expectFailure"`
 }
 
 // WorkflowRegistrationConfig holds configuration for workflow registration
@@ -491,6 +503,12 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create stellar read workflow config file")
 			testLogger.Info().Msg("Stellar read workflow config file created.")
+
+		case *StellarWriteWorkflowConfig:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create stellar write workflow config file")
+			testLogger.Info().Msg("Stellar write workflow config file created.")
 
 		case *aptoswrite_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)

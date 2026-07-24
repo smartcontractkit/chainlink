@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -22,7 +23,7 @@ type SolanaTransfersController struct {
 	App chainlink.Application
 }
 
-var ErrSolanaNotEnabled = errChainDisabled{name: "Solana", tomlKey: "Solana.Enabled"}
+var ErrSolanaNotEnabled = chainDisabledError{name: "Solana", tomlKey: "Solana.Enabled"}
 
 // Create sends SOL and other native coins from the Chainlink's account to a specified address.
 func (tc *SolanaTransfersController) Create(c *gin.Context) {

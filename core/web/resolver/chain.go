@@ -16,7 +16,7 @@ func NewChain(chain chainlink.NetworkChainStatus) *ChainResolver {
 }
 
 func NewChains(chains []chainlink.NetworkChainStatus) []*ChainResolver {
-	var resolvers []*ChainResolver
+	resolvers := make([]*ChainResolver, 0, len(chains))
 	for _, c := range chains {
 		resolvers = append(resolvers, NewChain(c))
 	}

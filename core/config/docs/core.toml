@@ -889,6 +889,20 @@ ChipIngressInsecureConnection = false # Default
 # ChipIngressBatchEmitterEnabled enables batching for chip-ingress events.
 # When false, events are sent individually (legacy behavior).
 ChipIngressBatchEmitterEnabled = true # Default
+# ChipIngressBufferSize is the in-memory queue size for chip-ingress events.
+ChipIngressBufferSize = 10000 # Default
+# ChipIngressMaxBatchSize is the max events per PublishBatch RPC.
+ChipIngressMaxBatchSize = 1000 # Default
+# ChipIngressMaxConcurrentSends limits parallel PublishBatch calls.
+ChipIngressMaxConcurrentSends = 10 # Default
+# ChipIngressSendInterval is the max wait before flushing an incomplete batch.
+ChipIngressSendInterval = '500ms' # Default
+# ChipIngressSendTimeout is the per-RPC timeout for PublishBatch.
+ChipIngressSendTimeout = '10s' # Default
+# ChipIngressDrainTimeout is the max shutdown wait to flush queued events.
+ChipIngressDrainTimeout = '30s' # Default
+# ChipIngressMaxGRPCRequestSize is the max serialized PublishBatch request size in bytes. Batches exceeding this are split before send (min 1 MiB enforced by batch client).
+ChipIngressMaxGRPCRequestSize = 10485760 # Default
 # DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
 DurableEmitterEnabled = true # Default
 # DurableEmitterRetransmitBatchSize is the number of pending events the durable emitter replays per retransmit tick.
@@ -917,6 +931,8 @@ LogMaxQueueSize = 2048 # Default
 # MetricViewsDenyAttributes lists attribute keys dropped before export (e.g. event_id).
 # Empty disables default Beholder metric attribute deny views.
 MetricViewsDenyAttributes = ['event_id'] # Default
+# MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
+MetricCardinalityLimit = 100000 # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]

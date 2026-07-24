@@ -1,6 +1,8 @@
 package resolver
 
 import (
+	"math"
+
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -19,7 +21,7 @@ func NewJobError(specError job.SpecError) *JobErrorResolver {
 }
 
 func NewJobErrors(specErrors []job.SpecError) []*JobErrorResolver {
-	var resolvers []*JobErrorResolver
+	resolvers := make([]*JobErrorResolver, 0, len(specErrors))
 	for _, e := range specErrors {
 		resolvers = append(resolvers, NewJobError(e))
 	}
@@ -39,6 +41,9 @@ func (r *JobErrorResolver) Description() string {
 
 // Occurrences resolves the job error's number of occurrences.
 func (r *JobErrorResolver) Occurrences() int32 {
+	if r.specError.Occurrences > math.MaxInt32 {
+		return math.MaxInt32
+	}
 	return int32(r.specError.Occurrences)
 }
 

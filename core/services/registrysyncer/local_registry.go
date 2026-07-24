@@ -352,6 +352,17 @@ func (l *LocalRegistry) nodesForDON(ctx context.Context, don capabilities.DON) (
 	return nodes, nil
 }
 
+func (l *LocalRegistry) DONByID(ctx context.Context, donID uint32) (capabilities.DON, error) {
+	if err := l.ensureNotEmpty(); err != nil {
+		return capabilities.DON{}, err
+	}
+	d, ok := l.IDsToDONs[DonID(donID)]
+	if !ok {
+		return capabilities.DON{}, fmt.Errorf("could not find don %d", donID)
+	}
+	return d.DON, nil
+}
+
 func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
 	err := l.ensureNotEmpty()
 	if err != nil {
