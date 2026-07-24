@@ -64,6 +64,9 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	vaultPublicKey := fixture.VaultPublicKey
 
 	t.Run("allowlist_delete_batch_at_limit", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		owner := sc.MustGetRootKeyAddress().Hex()
 		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
@@ -84,6 +87,9 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	})
 
 	t.Run("allowlist_create_batch_at_limit", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		owner := sc.MustGetRootKeyAddress().Hex()
 		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
@@ -103,6 +109,9 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	})
 
 	t.Run("allowlist_update_batch_at_limit", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		owner := sc.MustGetRootKeyAddress().Hex()
 		wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
@@ -125,6 +134,9 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	})
 
 	t.Run("allowlist_rejects_create_when_identifier_owner_mismatch", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		authorizedOwner := sc.MustGetRootKeyAddress().Hex()
 		mismatchedOwner := common.HexToAddress("0x000000000000000000000000000000000000dEaD").Hex()
@@ -141,6 +153,9 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 	})
 
 	t.Run("allowlist_rejects_update_when_identifier_owner_mismatch", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
 		authorizedOwner := sc.MustGetRootKeyAddress().Hex()
 		mismatchedOwner := common.HexToAddress("0x000000000000000000000000000000000000dEaD").Hex()
@@ -245,6 +260,9 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 
 	if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
 		t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
 			ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
 		})
 	}
@@ -309,6 +327,9 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	})
 
 	t.Run("jwt_digest_verified_after_prepare_user_jsonrpc_request", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		// End-to-end coverage for gateway ordering: prepareUserVaultRequest (PrepareUserJSONRPCRequest)
 		// runs before JWTBasedAuth digest verification. Minting against a different body must fail.
 		secretID := uniqueVaultSecretID("jwtdigestorder")
@@ -341,6 +362,9 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	})
 
 	t.Run("jwt_rejected_when_identifier_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		secretID := uniqueVaultSecretID("jwtownermismatch")
 		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-owner-mismatch", vaultParsedPublicKey, derivedJWTWorkflowOwnerAddr)
 		require.NoError(t, err)
@@ -349,17 +373,26 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	})
 
 	t.Run("jwt_rejected_when_list_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		jwtAuthSkipLabel := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, true)
 		executeVaultSecretsListOwnerMismatchRejectedTest(t, jwtAuthSkipLabel, derivedJWTWorkflowOwner, workflowOwner, gwURL, "main")
 	})
 
 	t.Run("jwt_rejected_when_delete_identifier_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		secretID := uniqueVaultSecretID("jwtdeleteownermismatch")
 		jwtAuthSkipLabel := newJWTVaultRequestAuth(issuer, orgID, derivedJWTWorkflowOwner, vaultParsedPublicKey, true)
 		executeVaultSecretsDeleteOwnerMismatchRejectedTest(t, jwtAuthSkipLabel, derivedJWTWorkflowOwner, workflowOwner, secretID, gwURL, "main")
 	})
 
 	t.Run("jwt_rejected_when_update_identifier_owner_does_not_match_authorized_owner", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		secretID := uniqueVaultSecretID("jwtupdateownermismatch")
 		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-update-owner-mismatch", vaultParsedPublicKey, derivedJWTWorkflowOwnerAddr)
 		require.NoError(t, err)
@@ -368,6 +401,9 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	})
 
 	t.Run("jwt_rejected_when_ciphertext_label_is_linked_workflow_owner_but_identifier_owner_is_jwt_derived", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		secretID := uniqueVaultSecretID("jwtreject")
 		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-wrong-label", vaultParsedPublicKey, workflowOwnerAddress)
 		require.NoError(t, err)
@@ -392,6 +428,9 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		// workflow owner for the org_id + tenant_id claim pair. Cross-channel mutation is unsupported.
 
 		t.Run("parallel_independent_crud", func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
 			allowlistSecretID := uniqueVaultSecretID("mixedallowlist")
 			jwtSecretID := uniqueVaultSecretID("mixedjwt")
 			allowlistCreateValue := "secret-mixed-allowlist-create"
@@ -447,6 +486,9 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		})
 
 		t.Run("jwt_must_not_flip_allowlisted_secret_via_same_key_string", func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
 			sharedKey := uniqueVaultSecretID("mixedcrosskey")
 			allowlistValue := "secret-mixed-cross-allowlist"
 			jwtCrossValue := "secret-mixed-cross-jwt-attempt"
@@ -482,6 +524,9 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	})
 
 	t.Run("jwt_without_workflow_owner_claim_uses_derived_workflow_owner", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		secretID := uniqueVaultSecretID("jwtorgonly")
 		encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-jwt-derived-only", vaultParsedPublicKey, derivedJWTWorkflowOwnerAddr)
 		require.NoError(t, err)
@@ -493,6 +538,9 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	})
 
 	t.Run("jwt_rejected_when_vault_secret_management_claim_false", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		executeVaultJWTSecretsCreateUnauthorizedWithExtraClaimsTest(t, issuer, vaultPublicKey, orgID, gwURL,
 			map[string]any{vaultcap.ClaimVaultSecretManagementEnabled: "false"},
 			vaultcap.ErrVaultSecretManagementNotEnabled.Error(),
@@ -510,10 +558,16 @@ func ExecuteVaultJWTDisabledTest(t *testing.T, fixture *vaultScenarioFixture) {
 	gwURL := gatewayURL.String()
 
 	t.Run("jwt_with_workflow_owner_rejected_when_jwt_auth_disabled", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, gwURL, "JWTBasedAuth is disabled")
 	})
 
 	t.Run("jwt_without_workflow_owner_rejected_when_jwt_auth_disabled", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
 		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, gwURL, "JWTBasedAuth is disabled")
 	})
 }

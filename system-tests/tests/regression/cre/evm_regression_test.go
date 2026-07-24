@@ -253,7 +253,7 @@ func EVMReadFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegative
 			baseMessageCh,
 			t_helpers.WorkflowEngineInitErrorLog,
 			evmNegativeTest.expectedError,
-			2*time.Minute,
+			30*time.Second,
 			t_helpers.WithUserLogWorkflowID(workflowID),
 		)
 		testLogger.Info().Msgf("EVM Read Fail test successfully completed for test case %s and chain %s", evmNegativeTest.name, chainID)
@@ -317,7 +317,7 @@ func EVMLogTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNe
 			testLogger,
 			baseMessageCh,
 			t_helpers.WorkflowEngineInitErrorLog,
-			2*time.Minute,
+			30*time.Second,
 			t_helpers.WithBaseMessageWorkflowID(workflowID),
 			t_helpers.WithBaseMessageLabelContains("err", evmNegativeTest.expectedError),
 		)
@@ -418,7 +418,7 @@ func EVMWriteFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, evmNegativ
 			baseMessageCh,
 			t_helpers.WorkflowEngineInitErrorLog,
 			evmNegativeTest.expectedError,
-			2*time.Minute,
+			30*time.Second,
 			t_helpers.WithUserLogWorkflowID(workflowID),
 		)
 		testLogger.Info().Msg("EVM Write Regression test successfully completed")

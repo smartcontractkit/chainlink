@@ -150,7 +150,7 @@ func HTTPTriggerFailsTest(t *testing.T, testEnv *ttypes.TestEnvironment, httpNeg
 		testLogger,
 		baseMessageCh,
 		t_helpers.WorkflowEngineInitErrorLog,
-		2*time.Minute,
+		30*time.Second,
 		t_helpers.WithBaseMessageWorkflowID(workflowID),
 		t_helpers.WithBaseMessageLabelContains("err", httpNegativeTest.expectedError),
 	)
@@ -182,7 +182,7 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 	// Retry logic to wait for workflow to be loaded, then expect auth failure
 	var authFailureDetected bool
 	tick := t_helpers.DefaultPollInterval
-	timeout := 3 * time.Minute
+	timeout := 45 * time.Second
 
 	require.Eventually(t, func() bool {
 		// Create HTTP trigger request with unauthorized key
