@@ -25,11 +25,10 @@ import (
 	aptosbind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	aptosdatafeeds "github.com/smartcontractkit/chainlink-aptos/bindings/data_feeds"
 	aptosplatformsecondary "github.com/smartcontractkit/chainlink-aptos/bindings/platform_secondary"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"

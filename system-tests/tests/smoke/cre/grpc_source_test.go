@@ -13,16 +13,13 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
-
 	"gopkg.in/yaml.v3"
-
-	workflowsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/privateregistry"
+	workflowsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	grpcsourcemock "github.com/smartcontractkit/chainlink/system-tests/lib/cre/grpc_source_mock"

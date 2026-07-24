@@ -13,9 +13,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	testutils "github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	testutils "github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 

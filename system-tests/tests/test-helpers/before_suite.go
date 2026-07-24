@@ -54,9 +54,9 @@ type preFundedKey struct {
 }
 
 type sharedEnvironmentEntry struct {
-	once sync.Once
-	env  *ttypes.TestEnvironment
-	err  error
+	once    sync.Once
+	env     *ttypes.TestEnvironment
+	err     error
 	keyPool chan *preFundedKey
 }
 
@@ -161,7 +161,7 @@ func getOrCreateSharedEnvironmentEntry(t *testing.T, tconf *ttypes.TestConfig, f
 
 		numKeys := 24
 		var signers []common.Address
-		for i := 0; i < numKeys; i++ {
+		for range numKeys {
 			addr, priv, kerr := crecrypto.GenerateNewKeyPair()
 			require.NoError(t, kerr, "failed to generate key pair")
 			entry.keyPool <- &preFundedKey{addr: addr, priv: priv}
