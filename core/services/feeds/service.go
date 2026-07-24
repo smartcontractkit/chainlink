@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+	"github.com/smartcontractkit/chainlink/v2/core/services/capabilityrunner"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
@@ -1061,6 +1062,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 					return fmt.Errorf("failed while checking for existing gateway job: %w", txerr)
 				}
 			case job.CRESettings,
+				job.CapabilityRunner,
 				job.Stream,
 				job.CCVCommitteeVerifier,
 				job.CCVExecutor,
@@ -1480,6 +1482,8 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 		js, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(spec)
 	case job.CRESettings:
 		js, err = cresettings.ValidatedCRESettingsSpec(spec)
+	case job.CapabilityRunner:
+		js, err = capabilityrunner.ValidatedCapabilityRunnerSpec(spec)
 	default:
 		return nil, errors.Errorf("unknown job type: %s", jobType)
 	}

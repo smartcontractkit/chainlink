@@ -61,6 +61,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/capabilityrunner"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
@@ -276,7 +277,12 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to marshal cre settings TOML: %w", err)
 	}
 	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
-	atomicSettings := loop.NewAtomicSettings(commoncresettings.DefaultGetter)
+	atomicSettings := &loop.AtomicSettings{}
+	atomicSettings.SetGetter(commoncresettings.DefaultGetter)
+	// Capability runner binaries have no RPC surface, so they read settings off
+	// the filesystem. One wrapper for the node, constructed here alongside the
+	// broadcaster it wraps, so there is a single writer for the dumped file.
+	fileBackedSettings := capabilityrunner.NewFileBackedSettings(globalLogger, atomicSettings, capabilityrunner.SettingsPath())
 	limitsFactory := limits.Factory{
 		Meter:    meter,
 		Logger:   globalLogger.Named("Limits"),
@@ -737,6 +743,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
 	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings)
+	delegates[job.CapabilityRunner] = capabilityrunner.NewDelegate(globalLogger, loopRegistrarConfig, fileBackedSettings)
 
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	stdcapDelegate := standardcapabilities.NewDelegate(

@@ -364,6 +364,12 @@ func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
 				return fmt.Errorf("failed to create CRESettingsSpec for jobSpec: %w", err)
 			}
 			jb.CRESettingsSpecID = &specID
+		case CapabilityRunner:
+			specID, err := tx.insertCapabilityRunnerSpec(ctx, jb.CapabilityRunnerSpec)
+			if err != nil {
+				return fmt.Errorf("failed to create CapabilityRunnerSpec for jobSpec: %w", err)
+			}
+			jb.CapabilityRunnerSpecID = &specID
 		case Cron:
 			specID, err := tx.insertCronSpec(ctx, jb.CronSpec)
 			if err != nil {
@@ -553,6 +559,10 @@ func (o *orm) insertCRESettingsSpec(ctx context.Context, spec *CRESettingsSpec) 
 	return o.prepareQuerySpecID(ctx, `INSERT INTO cre_settings_specs (settings, hash, created_at, updated_at) VALUES (:settings, :hash, NOW(), NOW()) RETURNING id;`, spec)
 }
 
+func (o *orm) insertCapabilityRunnerSpec(ctx context.Context, spec *CapabilityRunnerSpec) (specID int32, err error) {
+	return o.prepareQuerySpecID(ctx, `INSERT INTO capability_runner_specs (command, args, created_at, updated_at) VALUES (:command, :args, NOW(), NOW()) RETURNING id;`, spec)
+}
+
 func (o *orm) insertCronSpec(ctx context.Context, spec *CronSpec) (specID int32, err error) {
 	return o.prepareQuerySpecID(ctx, `INSERT INTO cron_specs (cron_schedule, evm_chain_id, created_at, updated_at)
 			VALUES (:cron_schedule, :evm_chain_id, NOW(), NOW())
@@ -705,18 +715,18 @@ func (o *orm) InsertJob(ctx context.Context, job *Job) error {
 		// if job has id, emplace otherwise insert with a new id.
 		if job.ID == 0 {
 			query = `INSERT INTO jobs (name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-				cre_settings_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
+				cre_settings_spec_id, capability_runner_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
                 workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, ccv_committee_verifier_spec_id, ccv_executor_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-				:cre_settings_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
+				:cre_settings_spec_id, :capability_runner_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
 				:workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :ccv_committee_verifier_spec_id, :ccv_executor_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		} else {
 			query = `INSERT INTO jobs (id, name, stream_id, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
-			cre_settings_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
+			cre_settings_spec_id, capability_runner_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id,
                   workflow_spec_id, standard_capabilities_spec_id, ccip_spec_id, ccv_committee_verifier_spec_id, ccv_executor_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:id, :name, :stream_id, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
-				:cre_settings_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
+				:cre_settings_spec_id, :capability_runner_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id,
 				:workflow_spec_id, :standard_capabilities_spec_id, :ccip_spec_id, :ccv_committee_verifier_spec_id, :ccv_executor_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 		}
@@ -745,6 +755,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 		OffchainReporting:    `DELETE FROM ocr_oracle_specs WHERE id IN (SELECT ocr_oracle_spec_id FROM deleted_jobs)`,
 		OffchainReporting2:   `DELETE FROM ocr2_oracle_specs WHERE id IN (SELECT ocr2_oracle_spec_id FROM deleted_jobs)`,
 		CRESettings:          `DELETE FROM cre_settings_specs WHERE id IN (SELECT cre_settings_spec_id FROM deleted_jobs)`,
+		CapabilityRunner:     `DELETE FROM capability_runner_specs WHERE id IN (SELECT capability_runner_spec_id FROM deleted_jobs)`,
 		Cron:                 `DELETE FROM cron_specs WHERE id IN (SELECT cron_spec_id FROM deleted_jobs)`,
 		VRF:                  `DELETE FROM vrf_specs WHERE id IN (SELECT vrf_spec_id FROM deleted_jobs)`,
 		Webhook:              `DELETE FROM webhook_specs WHERE id IN (SELECT webhook_spec_id FROM deleted_jobs)`,
@@ -775,6 +786,7 @@ func (o *orm) DeleteJob(ctx context.Context, id int32, jobType Type) error {
 				ocr_oracle_spec_id,
 				ocr2_oracle_spec_id,
 				cre_settings_spec_id,
+				capability_runner_spec_id,
 				cron_spec_id,
 				flux_monitor_spec_id,
 				vrf_spec_id,
@@ -1479,6 +1491,7 @@ func (o *orm) loadAllJobTypes(ctx context.Context, job *Job) error {
 		o.loadJobType(ctx, job, "OCROracleSpec", "ocr_oracle_specs", job.OCROracleSpecID),
 		o.loadJobType(ctx, job, "OCR2OracleSpec", "ocr2_oracle_specs", job.OCR2OracleSpecID),
 		o.loadJobType(ctx, job, "CRESettingsSpec", "cre_settings_specs", job.CRESettingsSpecID),
+		o.loadJobType(ctx, job, "CapabilityRunnerSpec", "capability_runner_specs", job.CapabilityRunnerSpecID),
 		o.loadJobType(ctx, job, "CronSpec", "cron_specs", job.CronSpecID),
 		o.loadJobType(ctx, job, "WebhookSpec", "webhook_specs", job.WebhookSpecID),
 		o.loadVRFJob(ctx, job, job.VRFSpecID),

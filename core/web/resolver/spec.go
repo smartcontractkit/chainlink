@@ -173,6 +173,14 @@ func (r *SpecResolver) ToCRESettingsSpec() (*CRESettingsSpecResolver, bool) {
 	return &CRESettingsSpecResolver{spec: *r.j.CRESettingsSpec}, true
 }
 
+func (r *SpecResolver) ToCapabilityRunnerSpec() (*CapabilityRunnerSpecResolver, bool) {
+	if r.j.Type != job.CapabilityRunner {
+		return nil, false
+	}
+
+	return &CapabilityRunnerSpecResolver{spec: *r.j.CapabilityRunnerSpec}, true
+}
+
 type CronSpecResolver struct {
 	spec job.CronSpec
 }
@@ -1192,4 +1200,28 @@ func (r *CRESettingsSpecResolver) Settings() string {
 
 func (r *CRESettingsSpecResolver) Hash() string {
 	return r.spec.Hash
+}
+
+type CapabilityRunnerSpecResolver struct {
+	spec job.CapabilityRunnerSpec
+}
+
+func (r *CapabilityRunnerSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+func (r *CapabilityRunnerSpecResolver) UpdatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.UpdatedAt}
+}
+
+func (r *CapabilityRunnerSpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(r.spec.ID))
+}
+
+func (r *CapabilityRunnerSpecResolver) Command() string {
+	return r.spec.Command
+}
+
+func (r *CapabilityRunnerSpecResolver) Args() []string {
+	return r.spec.Args
 }

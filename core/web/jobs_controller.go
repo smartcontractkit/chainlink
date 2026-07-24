@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/capabilityrunner"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -240,6 +241,8 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 		return jb, http.StatusUnprocessableEntity, errors.New("job type webhook has been removed and is no longer supported")
 	case job.CRESettings:
 		jb, err = cresettings.ValidatedCRESettingsSpec(tomlString)
+	case job.CapabilityRunner:
+		jb, err = capabilityrunner.ValidatedCapabilityRunnerSpec(tomlString)
 	case job.Cron:
 		jb, err = cron.ValidatedCronSpec(tomlString)
 	case job.VRF:
