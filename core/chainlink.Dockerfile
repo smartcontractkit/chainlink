@@ -19,9 +19,11 @@ COPY plugins/scripts/setup_git_auth.sh ./plugins/scripts/
 # empty (the default), go mod download uses the public module proxy as usual.
 ARG CL_GOPRIVATE=""
 ENV GOPRIVATE="${CL_GOPRIVATE}" \
-    GOCACHE=/go-cache \
+    GOCACHE=/root/.cache/go-build \
     GOMODCACHE=/go/pkg/mod
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
     set -e && \
     export GIT_CONFIG_GLOBAL=/tmp/gitconfig-go-mod-download && \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
@@ -37,7 +39,9 @@ COPY . .
 
 # Stage: Delve debugger (no source needed, branches from deps-base)
 FROM deps-base AS build-delve
-RUN go install github.com/go-delve/delve/cmd/dlv@v1.24.2
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go install github.com/go-delve/delve/cmd/dlv@v1.24.2
 
 # Stage: Remote plugins — only manifest YAMLs, no source tree.
 # Cached as long as go.mod/go.sum and plugin manifests are unchanged,
@@ -57,6 +61,8 @@ COPY plugins/scripts/ ./plugins/scripts/
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
     GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
     set -e && \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     ./plugins/scripts/setup_git_auth.sh && \
@@ -75,7 +81,9 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
 
 # Stage: Local plugins (needs source tree for ./plugins/cmd/...)
 FROM deps AS build-local-plugins
-RUN mkdir -p /gobins && \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    mkdir -p /gobins && \
     GOBIN=/gobins make install-plugins-local
 
 # Stage: Chainlink binary (needs source tree)
@@ -84,7 +92,9 @@ ARG COMMIT_SHA
 ARG VERSION_TAG
 ARG CL_IS_PROD_BUILD=true
 
-RUN mkdir -p /gobins && \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    mkdir -p /gobins && \
     if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
           GOBIN=/gobins make install-chainlink-dev; \
       else \
