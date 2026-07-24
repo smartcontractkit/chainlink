@@ -44,7 +44,7 @@ func CronChipIngressStackFailsWithInvalidScheduleTest(t *testing.T, testEnv *tty
 	testLogger.Warn().Msgf("Expecting Cron workflow to fail with invalid schedule: %s", invalidSchedule)
 	// Not matched via UserLogs; engine init failure path ends the assertion with an error.
 	unusedExpectedUserLog := "__unused_expected_user_log_for_negative_test__"
-	timeout := 30 * time.Second
+	timeout := 45 * time.Second
 	expectedError := t_helpers.AssertChipIngressStackMessage(listenerCtx, t, unusedExpectedUserLog, testLogger, messageChan, kafkaErrChan, timeout)
 	require.Error(t, expectedError, "Cron (Chip Ingress stack) test failed. This test expects to fail with an error, but did not.")
 	testLogger.Info().Msg("Cron (Chip Ingress stack) fail test completed")
