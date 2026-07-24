@@ -472,9 +472,7 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 func (h *httpTriggerHandler) Start(ctx context.Context) error {
 	return h.StartOnce("HTTPTriggerHandler", func() error {
 		h.lggr.Info("Starting HTTPTriggerHandler")
-		h.wg.Add(1)
-		go func() {
-			defer h.wg.Done()
+		h.wg.Go(func() {
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
 			for {
@@ -485,7 +483,7 @@ func (h *httpTriggerHandler) Start(ctx context.Context) error {
 					return
 				}
 			}
-		}()
+		})
 		return nil
 	})
 }

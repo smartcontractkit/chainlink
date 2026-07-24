@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"math/big"
 	"regexp"
 	"sync"
@@ -144,9 +145,7 @@ func (a *onchainAllowlist) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("update frequency: %w", err)
 		}
-		a.closeWait.Add(1)
-		go func() {
-			defer a.closeWait.Done()
+		a.closeWait.Go(func() {
 			// update immediately after start to populate the allowlist without waiting UpdateFrequencySec seconds
 			updateOnce()
 			ticker := time.NewTicker(updateFrequency)
@@ -159,7 +158,7 @@ func (a *onchainAllowlist) Start(ctx context.Context) error {
 					updateOnce()
 				}
 			}
-		}()
+		})
 		return nil
 	})
 }
@@ -345,9 +344,7 @@ func (a *onchainAllowlist) updateAllowedSendersBatch(
 	}
 
 	snapshot := make(map[common.Address]struct{}, len(currentAllowedSenderList))
-	for k, v := range currentAllowedSenderList {
-		snapshot[k] = v
-	}
+	maps.Copy(snapshot, currentAllowedSenderList)
 	a.allowlist.Store(&snapshot)
 	a.lggr.Infow("allowlist updated in batches successfully", "len", len(currentAllowedSenderList))
 

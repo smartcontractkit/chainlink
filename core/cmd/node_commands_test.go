@@ -31,18 +31,18 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 
 	chainID := newRandChainID()
 	node1 := configtoml.Node{
-		Name:     ptr("Test node 1"),
+		Name:     new("Test node 1"),
 		WSURL:    config.MustParseURL("ws://localhost:8546"),
 		HTTPURL:  config.MustParseURL("http://localhost:8546"),
-		SendOnly: ptr(false),
-		Order:    ptr(int32(15)),
+		SendOnly: new(false),
+		Order:    new(int32(15)),
 	}
 	node2 := configtoml.Node{
-		Name:     ptr("Test node 2"),
+		Name:     new("Test node 2"),
 		WSURL:    config.MustParseURL("ws://localhost:8547"),
 		HTTPURL:  config.MustParseURL("http://localhost:8547"),
-		SendOnly: ptr(false),
-		Order:    ptr(int32(36)),
+		SendOnly: new(false),
+		Order:    new(int32(36)),
 	}
 	chain := configtoml.EVMConfig{
 		ChainID: chainID,
@@ -93,4 +93,3 @@ func TestShell_IndexEVMNodes(t *testing.T) {
 	assert.Contains(t, renderLines[14], "State")
 	assert.Contains(t, renderLines[14], n2.State)
 }
-

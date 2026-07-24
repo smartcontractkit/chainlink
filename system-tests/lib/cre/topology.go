@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	OCRPeeringPort          = 5001
+	OCRPeeringPort          = 6689
 	CapabilitiesPeeringPort = 6690
 )
 

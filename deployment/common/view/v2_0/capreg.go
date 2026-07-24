@@ -7,24 +7,23 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 	"slices"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/capabilities_registry/v2/changeset/pkg"
 	creocr3 "github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-
-	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
 )
 
 type CapabilityRegistryViewV2 struct {
-	commoncldchangesets.ContractMetaData
+	view.ContractMetaData
 	Capabilities []CapabilityView `json:"capabilities,omitempty"`
 	Nodes        []NodeView       `json:"nodes,omitempty"`
 	Nops         []NopView        `json:"nops,omitempty"`
@@ -33,7 +32,7 @@ type CapabilityRegistryViewV2 struct {
 
 // CapabilityRegistryView is a high-fidelity view of the capabilities registry contract.
 type CapabilityRegistryView struct {
-	commoncldchangesets.ContractMetaData
+	view.ContractMetaData
 	Capabilities []CapabilityView `json:"capabilities,omitempty"`
 	Nodes        []NodeView       `json:"nodes,omitempty"`
 	Nops         []NopView        `json:"nops,omitempty"`
@@ -45,7 +44,7 @@ type CapabilityRegistryView struct {
 func (v *CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 	// Alias to avoid recursive calls
 	type Alias struct {
-		commoncldchangesets.ContractMetaData
+		view.ContractMetaData
 		Capabilities    []CapabilityView      `json:"capabilities,omitempty"`
 		Nodes           []NodeView            `json:"nodes,omitempty"`
 		Nops            []NopView             `json:"nops,omitempty"`
@@ -72,7 +71,7 @@ func (v *CapabilityRegistryView) MarshalJSON() ([]byte, error) {
 func (v *CapabilityRegistryView) UnmarshalJSON(data []byte) error {
 	// Alias to avoid recursive calls
 	type Alias struct {
-		commoncldchangesets.ContractMetaData
+		view.ContractMetaData
 		Capabilities    []CapabilityView      `json:"capabilities,omitempty"`
 		Nodes           []NodeView            `json:"nodes,omitempty"`
 		Nops            []NopView             `json:"nops,omitempty"`
@@ -139,7 +138,7 @@ func (e *ExtendedCapabilityRegistry) GetDONsSimple(opts *bind.CallOpts) ([]capab
 
 // GenerateCapabilityRegistryView generates a CapRegView from a CapabilitiesRegistry contract.
 func GenerateCapabilityRegistryView(capReg *ExtendedCapabilityRegistry) (CapabilityRegistryView, error) {
-	tv, err := commoncldchangesets.NewContractMetaData(capReg, capReg.Address())
+	tv, err := view.NewContractMetaData(capReg, capReg.Address())
 	if err != nil {
 		return CapabilityRegistryView{}, err
 	}
@@ -498,24 +497,18 @@ func convertOCR3ByteFieldsToHex(configCopy map[string]any) {
 func (cc CapabilitiesConfiguration) MarshalJSON() ([]byte, error) {
 	// Deep-copy config so we don't mutate the original map.
 	configCopy := make(map[string]any, len(cc.Config))
-	for k, v := range cc.Config {
-		configCopy[k] = v
-	}
+	maps.Copy(configCopy, cc.Config)
 	convertOCR3ByteFieldsToHex(configCopy)
 	if len(cc.decodedOCR3) > 0 {
 		if ocr3CfgsRaw, ok := configCopy["ocr3Configs"]; ok {
 			if ocr3Cfgs, ok := ocr3CfgsRaw.(map[string]any); ok {
 				ocr3CfgsCopy := make(map[string]any, len(ocr3Cfgs))
-				for k, v := range ocr3Cfgs {
-					ocr3CfgsCopy[k] = v
-				}
+				maps.Copy(ocr3CfgsCopy, ocr3Cfgs)
 				for key, oracleConfig := range cc.decodedOCR3 {
 					if entry, ok := ocr3CfgsCopy[key]; ok {
 						if entryMap, ok := entry.(map[string]any); ok {
 							merged := make(map[string]any, len(entryMap)+1)
-							for k, v := range entryMap {
-								merged[k] = v
-							}
+							maps.Copy(merged, entryMap)
 							merged["decodedOffchainConfig"] = oracleConfig
 							ocr3CfgsCopy[key] = merged
 						}

@@ -155,6 +155,13 @@ func newBeholderClient(
 		ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
 		ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
 		ChipIngressBatchEmitterEnabled: cfgTelemetry.ChipIngressBatchEmitterEnabled(),
+		ChipIngressBufferSize:          cfgTelemetry.ChipIngressBufferSize(),
+		ChipIngressMaxBatchSize:        cfgTelemetry.ChipIngressMaxBatchSize(),
+		ChipIngressMaxConcurrentSends:  cfgTelemetry.ChipIngressMaxConcurrentSends(),
+		ChipIngressSendInterval:        cfgTelemetry.ChipIngressSendInterval(),
+		ChipIngressSendTimeout:         cfgTelemetry.ChipIngressSendTimeout(),
+		ChipIngressDrainTimeout:        cfgTelemetry.ChipIngressDrainTimeout(),
+		ChipIngressMaxGRPCRequestSize:  cfgTelemetry.ChipIngressMaxGRPCRequestSize(),
 		ChipIngressLogger:              lggr,
 		LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
 		LogLevel:                       cfgTelemetry.LogLevel(),
@@ -165,7 +172,8 @@ func newBeholderClient(
 		LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
 		// Due to OpenTelemetry semantics, histogram bucket boundaries must be set
 		// when the Beholder client is constructed.
-		MetricViews: metricViews(),
+		MetricViews:            metricViews(),
+		MetricCardinalityLimit: cfgTelemetry.MetricCardinalityLimit(),
 	}
 
 	if cfgTracing.Enabled() {

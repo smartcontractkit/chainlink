@@ -10,15 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 	"github.com/smartcontractkit/smdkg/dkgocr/tdh2shim"
 	"github.com/smartcontractkit/smdkg/dummydkg"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -26,7 +25,7 @@ import (
 
 func setupVaultControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master, vault.ORM) {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(ctx))
@@ -41,6 +40,8 @@ func setupVaultControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore
 }
 
 func TestVaultController_VerifyDKGResult_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()
@@ -97,6 +98,8 @@ func TestVaultController_VerifyDKGResult_HappyPath(t *testing.T) {
 }
 
 func TestVaultController_VerifyDKGResult_WrongKey(t *testing.T) {
+	t.Parallel()
+
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()
@@ -158,6 +161,8 @@ func TestVaultController_VerifyDKGResult_WrongKey(t *testing.T) {
 }
 
 func TestVaultController_VerifyDKGResult_CantFindResultForInstanceID(t *testing.T) {
+	t.Parallel()
+
 	client, _, _ := setupVaultControllerTests(t)
 
 	bdata, err := json.Marshal(web.VerifyDKGResultRequest{
@@ -172,6 +177,8 @@ func TestVaultController_VerifyDKGResult_CantFindResultForInstanceID(t *testing.
 }
 
 func TestVaultController_VerifyDKGResult_MissingInstanceIDOrPublicKey(t *testing.T) {
+	t.Parallel()
+
 	client, _, _ := setupVaultControllerTests(t)
 
 	bdata, err := json.Marshal(web.VerifyDKGResultRequest{
@@ -194,6 +201,8 @@ func TestVaultController_VerifyDKGResult_MissingInstanceIDOrPublicKey(t *testing
 }
 
 func TestVaultController_ExportDKGResult(t *testing.T) {
+	t.Parallel()
+
 	client, keystore, orm := setupVaultControllerTests(t)
 
 	keys, err := keystore.DKGRecipient().GetAll()

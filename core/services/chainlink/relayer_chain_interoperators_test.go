@@ -36,32 +36,32 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 	newConfig := func() chainlink.GeneralConfig {
 		return configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			node1_1 := toml.Node{
-				Name:              ptr("Test node chain1:1"),
+				Name:              new("Test node chain1:1"),
 				WSURL:             commonconfig.MustParseURL("ws://localhost:8546"),
 				HTTPURL:           commonconfig.MustParseURL("http://localhost:8546"),
-				SendOnly:          ptr(false),
-				Order:             ptr(int32(15)),
-				IsLoadBalancedRPC: ptr[bool](false),
+				SendOnly:          new(false),
+				Order:             new(int32(15)),
+				IsLoadBalancedRPC: new(false),
 			}
 			node1_2 := toml.Node{
-				Name:              ptr("Test node chain1:2"),
+				Name:              new("Test node chain1:2"),
 				WSURL:             commonconfig.MustParseURL("ws://localhost:8547"),
 				HTTPURL:           commonconfig.MustParseURL("http://localhost:8547"),
-				SendOnly:          ptr(false),
-				Order:             ptr(int32(36)),
-				IsLoadBalancedRPC: ptr[bool](false),
+				SendOnly:          new(false),
+				Order:             new(int32(36)),
+				IsLoadBalancedRPC: new(false),
 			}
 			node2_1 := toml.Node{
-				Name:              ptr("Test node chain2:1"),
+				Name:              new("Test node chain2:1"),
 				WSURL:             commonconfig.MustParseURL("ws://localhost:8547"),
 				HTTPURL:           commonconfig.MustParseURL("http://localhost:8547"),
-				SendOnly:          ptr(false),
-				Order:             ptr(int32(11)),
-				IsLoadBalancedRPC: ptr[bool](false),
+				SendOnly:          new(false),
+				Order:             new(int32(11)),
+				IsLoadBalancedRPC: new(false),
 			}
 			c.EVM[0] = &toml.EVMConfig{
 				ChainID: evmChainID1,
-				Enabled: ptr(true),
+				Enabled: new(true),
 				Chain:   toml.Defaults(evmChainID1),
 				Nodes:   toml.EVMNodes{&node1_1, &node1_2},
 			}
@@ -69,7 +69,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			c.EVM = append(c.EVM, &toml.EVMConfig{
 				ChainID: evmChainID2,
 				Chain:   toml.Defaults(id2),
-				Enabled: ptr(true),
+				Enabled: new(true),
 				Nodes:   toml.EVMNodes{&node2_1},
 			})
 		})
@@ -289,5 +289,3 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		assert.ErrorIs(t, err, errBadFunc)
 	})
 }
-
-func ptr[T any](t T) *T { return &t }

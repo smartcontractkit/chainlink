@@ -141,7 +141,7 @@ func TestParseExtraDataMap_LOOPConvertedTypes(t *testing.T) {
 		"AccountIsWritableBitmap":  int64(6),       // LOOP: uint64 -> int64
 		"AllowOutOfOrderExecution": true,
 		"TokenReceiver":            receiver, // LOOP: [32]byte -> []byte
-		"Accounts": []interface{}{ // LOOP: [][32]byte -> []interface{}
+		"Accounts": []any{ // LOOP: [][32]byte -> []interface{}
 			account1,
 			account2,
 		},
@@ -194,7 +194,7 @@ func TestParseExtraDataMap_InvalidTypes(t *testing.T) {
 
 	t.Run("Accounts element wrong length", func(t *testing.T) {
 		input := map[string]any{
-			"Accounts": []interface{}{
+			"Accounts": []any{
 				[]byte{0x01, 0x02}, // not 32 bytes
 			},
 		}
@@ -204,7 +204,7 @@ func TestParseExtraDataMap_InvalidTypes(t *testing.T) {
 
 	t.Run("Accounts element wrong type", func(t *testing.T) {
 		input := map[string]any{
-			"Accounts": []interface{}{
+			"Accounts": []any{
 				"not bytes",
 			},
 		}

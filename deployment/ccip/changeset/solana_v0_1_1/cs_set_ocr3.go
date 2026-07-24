@@ -166,10 +166,7 @@ func SetOCR3ConfigSolana(e cldf.Environment, cfg v1_6.SetOCR3OffRampConfig) (cld
 				if err != nil {
 					return cldf.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 				}
-				batches = append(batches, mcmsTypes.BatchOperation{
-					ChainSelector: mcmsTypes.ChainSelector(remote),
-					Transactions:  []mcmsTypes.Transaction{*tx},
-				})
+				batches = appendBatchOperation(batches, remote, []mcmsTypes.Transaction{*tx})
 			}
 		}
 	}

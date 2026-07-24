@@ -116,9 +116,10 @@ type EngineLimiters struct {
 	UserMetricLabelsPerMetric  limits.BoundLimiter[int]
 	UserMetricLabelValueLength limits.BoundLimiter[int]
 
-	ExecutionTimestampsEnabled   limits.GateLimiter
-	ConfidentialWorkflowsEnabled limits.GateLimiter
-	DONTimeRequestTimeout        limits.TimeLimiter
+	ExecutionTimestampsEnabled                  limits.GateLimiter
+	ConfidentialWorkflowsEnabled                limits.GateLimiter
+	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
+	DONTimeRequestTimeout                       limits.TimeLimiter
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -270,6 +271,10 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
+	l.CentralizedWorkflowOwnerVerificationEnabled, err = limits.MakeGateLimiter(lf, cresettings.Default.CentralizedWorkflowOwnerVerificationEnabled)
+	if err != nil {
+		return
+	}
 	l.DONTimeRequestTimeout, err = lf.MakeTimeLimiter(cfg.DONTime.RequestTimeout)
 	if err != nil {
 		return
@@ -313,6 +318,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.SecretsCalls,
 		l.ExecutionTimestampsEnabled,
 		l.ConfidentialWorkflowsEnabled,
+		l.CentralizedWorkflowOwnerVerificationEnabled,
 		l.DONTimeRequestTimeout,
 	}
 	var errs error
@@ -356,6 +362,7 @@ func (l *EngineLimiters) Close() error {
 		l.SecretsCalls,
 		l.ExecutionTimestampsEnabled,
 		l.ConfidentialWorkflowsEnabled,
+		l.CentralizedWorkflowOwnerVerificationEnabled,
 		l.DONTimeRequestTimeout,
 	)
 }

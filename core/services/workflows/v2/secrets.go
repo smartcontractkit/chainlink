@@ -119,19 +119,35 @@ func keyFor(owner, namespace, id string) string {
 	return fmt.Sprintf("%s::%s::%s", owner, namespace, id)
 }
 
-func (s *secretsFetcher) vaultGetSecretsMetadata(ctx context.Context, callbackID int64) capabilities.RequestMetadata {
+func (s *secretsFetcher) vaultGetSecretsMetadata(ctx context.Context, callbackID int64) (capabilities.RequestMetadata, error) {
 	metadata := capabilities.RequestMetadata{
 		WorkflowOwner:       s.workflowOwner,
 		WorkflowName:        s.workflowName,
 		WorkflowExecutionID: sha(s.phaseID, strconv.FormatInt(callbackID, 10)),
 		ReferenceID:         strconv.FormatInt(callbackID, 10),
 	}
+	// When the WorkflowDonID binding gate is enabled, the remote executable
+	// capability server rejects requests whose RequestMetadata.WorkflowDonID
+	// does not match the authenticated calling DON. Set it to the calling
+	// (local) workflow DON ID so the request is accepted. Any failure here must
+	// fail the whole call rather than silently sending a zero WorkflowDonID.
+	bindingEnabled, err := cresettings.Default.RemoteExecutableWorkflowDONBindingEnabled.GetOrDefault(ctx, s.creSettingsGetter)
+	if err != nil {
+		return capabilities.RequestMetadata{}, fmt.Errorf("failed to read RemoteExecutableWorkflowDONBindingEnabled setting: %w", err)
+	}
+	if bindingEnabled {
+		localNode, lnErr := s.capRegistry.LocalNode(ctx)
+		if lnErr != nil {
+			return capabilities.RequestMetadata{}, fmt.Errorf("failed to get local node for vault request metadata: %w", lnErr)
+		}
+		metadata.WorkflowDonID = localNode.WorkflowDON.ID
+	}
 	if propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, s.creSettingsGetter); propagateOrgIDMeta && s.orgID != "" {
 		metadata.OrgID = s.orgID
 		// WorkflowID is under this gate because we previously skipped setting workflowID on SecretsFetcher entirely. Now setting it safely.
 		metadata.WorkflowID = s.workflowID
 	}
-	return metadata
+	return metadata, nil
 }
 
 func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecretsRequest) ([]*sdkpb.SecretResponse, error) {
@@ -144,7 +160,10 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	if request != nil {
 		callbackID = int64(request.CallbackId)
 	}
-	metadata := s.vaultGetSecretsMetadata(ctx, callbackID)
+	metadata, err := s.vaultGetSecretsMetadata(ctx, callbackID)
+	if err != nil {
+		return nil, err
+	}
 	vaultRequestID := vaultutils.BuildWorkflowGetSecretsRequestID(metadata)
 	s.lggr.Debugw("get secrets request received", "vaultRequestID", vaultRequestID, "metadata", metadata)
 	s.callCounter.mu.Lock()
@@ -285,7 +304,10 @@ func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSe
 	if err != nil {
 		return nil, fmt.Errorf("failed to get encryption keys: %w", err)
 	}
-	metadata := s.vaultGetSecretsMetadata(ctx, int64(request.CallbackId))
+	metadata, err := s.vaultGetSecretsMetadata(ctx, int64(request.CallbackId))
+	if err != nil {
+		return nil, err
+	}
 	vaultRequestID := vaultutils.BuildWorkflowGetSecretsRequestID(metadata)
 	vp := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0),

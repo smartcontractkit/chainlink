@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -552,9 +553,7 @@ func assertPendingQueueItemsContain(t *testing.T, gotItems [][]byte, expected ma
 	t.Helper()
 
 	remaining := make(map[string]proto.Message, len(expected))
-	for id, payload := range expected {
-		remaining[id] = payload
-	}
+	maps.Copy(remaining, expected)
 
 	var total int
 	for _, got := range gotItems {
@@ -4045,7 +4044,7 @@ func TestPlugin_Reports(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled())
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled(), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -4062,7 +4061,9 @@ func TestPlugin_Reports(t *testing.T) {
 		RequestType: vaultcommon.RequestType_CREATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp, true)
+	signedResp := proto.Clone(resp).(*vaultcommon.CreateSecretsResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o1.ReportWithInfo.Report))
 
@@ -4703,7 +4704,7 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled())
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled(), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -4720,7 +4721,9 @@ func TestPlugin_Reports_UpdateSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_UPDATE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp, true)
+	signedResp := proto.Clone(resp).(*vaultcommon.UpdateSecretsResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -5097,7 +5100,7 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled())
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled(), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -5114,7 +5117,9 @@ func TestPlugin_Reports_DeleteSecretsRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_DELETE_SECRETS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp, true)
+	signedResp := proto.Clone(resp).(*vaultcommon.DeleteSecretsResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -5439,7 +5444,7 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled())
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultJSONOmitUnpopulatedEnabled(), withVaultSignedResponseRequestIDEnabled())
 
 	rs, err := r.Reports(t.Context(), uint64(1), osb)
 	require.NoError(t, err)
@@ -5456,7 +5461,9 @@ func TestPlugin_Reports_ListSecretIdentifiersRequest(t *testing.T) {
 		RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS,
 	}, info1))
 
-	expectedBytes, err := vaultutils.ToCanonicalJSON(resp, true)
+	signedResp := proto.Clone(resp).(*vaultcommon.ListSecretIdentifiersResponse)
+	signedResp.RequestId = vaulttypes.KeyFor(id)
+	expectedBytes, err := vaultutils.ToCanonicalJSON(signedResp, true)
 	require.NoError(t, err)
 	assert.Equal(t, expectedBytes, []byte(o.ReportWithInfo.Report))
 }
@@ -6279,7 +6286,7 @@ func TestPlugin_ValidateObservation_GetSecretsRequest(t *testing.T) {
 						EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{
 							{
 								EncryptionKey: pks,
-								Shares: []string{strings.Repeat("1", 1000)},
+								Shares:        []string{strings.Repeat("1", 1000)},
 							},
 						},
 					},
@@ -7832,7 +7839,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 		payloads := make([][]byte, maxConcurrentBlobBroadcasts*2+1)
 		ids := make([][]string, len(payloads))
 		for i := range payloads {
-			payloads[i] = []byte(fmt.Sprintf("payload-%d", i))
+			payloads[i] = fmt.Appendf(nil, "payload-%d", i)
 			ids[i] = []string{fmt.Sprintf("req-%d", i)}
 		}
 
@@ -7878,7 +7885,7 @@ func TestPlugin_broadcastBlobPayloads(t *testing.T) {
 			done <- broadcastResult{payloads: result, err: err}
 		}()
 
-		for i := 0; i < maxConcurrentBlobBroadcasts; i++ {
+		for i := range maxConcurrentBlobBroadcasts {
 			select {
 			case <-started:
 			case <-time.After(time.Second):

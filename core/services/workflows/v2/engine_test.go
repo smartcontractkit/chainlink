@@ -1,8 +1,5 @@
 package v2_test
 
-//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd
-//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/with_config
-//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/with_secrets
 import (
 	"context"
 	"crypto/ed25519"
@@ -2788,6 +2785,13 @@ func (r *updatableRegistry) NodeByPeerID(ctx context.Context, peerID ragetypes.P
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.localRegistry.NodeByPeerID(ctx, peerID)
+}
+
+// DONByID implements the CapabilitiesRegistryMetadata interface
+func (r *updatableRegistry) DONByID(ctx context.Context, donID uint32) (capabilities.DON, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.localRegistry.DONByID(ctx, donID)
 }
 
 // createTestEngineForDonVersionTest creates a real V2 engine for testing DON version updates

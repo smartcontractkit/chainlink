@@ -15,8 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
@@ -63,6 +64,7 @@ type ConfidentialModule struct {
 	workflowOwner     string
 	workflowName      string
 	workflowTag       string
+	resolveOrgID      func(ctx context.Context, owner string) (string, error)
 	lggr              logger.Logger
 	requirements      sync.Map
 	restritions       sync.Map
@@ -70,14 +72,18 @@ type ConfidentialModule struct {
 	provider          func(tee *sdkpb.Tee) bool
 	executionHandlers *confidentialrelay.ExecutionHandlers
 	enabledGate       limits.GateLimiter
+	creSettingsGetter settings.Getter
 }
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) (*ConfidentialModule, error) {
+func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, creSettingsGetter settings.Getter, lggr logger.Logger) (*ConfidentialModule, error) {
 	if enabledGate == nil {
 		return nil, errors.New("enabledGate must not be nil")
+	}
+	if resolveOrgID == nil {
+		return nil, errors.New("resolveOrgID must not be nil")
 	}
 	return &ConfidentialModule{
 		capRegistry:       capRegistry,
@@ -88,7 +94,9 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandl
 		workflowOwner:     workflowOwner,
 		workflowName:      workflowName,
 		workflowTag:       workflowTag,
+		resolveOrgID:      resolveOrgID,
 		enabledGate:       enabledGate,
+		creSettingsGetter: creSettingsGetter,
 		lggr:              lggr,
 	}, nil
 }
@@ -117,6 +125,11 @@ func (m *ConfidentialModule) Execute(
 	requirements := loadAndDelete[*sdkpb.Requirements](&m.requirements, workflowExecutionID)
 	restrictions := loadAndDelete[*sdkpb.Restrictions](&m.restritions, workflowExecutionID)
 
+	orgID, orgErr := m.resolveOrgID(ctx, m.workflowOwner)
+	if orgErr != nil {
+		m.lggr.Warnw("failed to resolve organization ID", "error", orgErr)
+	}
+
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
 		Execution: &confworkflowtypes.WorkflowExecution{
 			WorkflowId:        m.workflowID,
@@ -124,7 +137,7 @@ func (m *ConfidentialModule) Execute(
 			SdkExecuteRequest: request,
 			Owner:             m.workflowOwner,
 			ExecutionId:       workflowExecutionID,
-			OrgId:             contexts.CREValue(ctx).Org,
+			OrgId:             orgID,
 			Requirements:      requirements,
 			BinaryUrl:         m.binaryURL,
 			Restrictions:      restrictions,
@@ -132,7 +145,7 @@ func (m *ConfidentialModule) Execute(
 	}
 
 	capOutput := &confworkflowtypes.ConfidentialWorkflowResponse{}
-	if err := doRequest(ctx, m, helper.GetWorkflowExecutionID(), "Execute", capInput, capOutput); err != nil {
+	if err := doRequest(ctx, m, helper.GetWorkflowExecutionID(), "Execute", capInput, capOutput, orgID); err != nil {
 		return nil, err
 	}
 
@@ -150,7 +163,7 @@ func (m *ConfidentialModule) SetRestrictions(executionID string, restrictions *s
 func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeAndRegions {
 	capOutput := &confworkflowtypes.ProvidedTeesResponse{}
 	// use an empty execution ID, it's not during an execution.
-	if err := doRequest(ctx, m, "", "ProvidedTees", &emptypb.Empty{}, capOutput); err != nil {
+	if err := doRequest(ctx, m, "", "ProvidedTees", &emptypb.Empty{}, capOutput, ""); err != nil {
 		m.lggr.Errorf("failed to get regions from confidential-workflows capability, assuming no supported regions: %v", err)
 		return []*sdkpb.TeeTypeAndRegions{}
 	}
@@ -181,7 +194,8 @@ func doRequest[I, O proto.Message](
 	execID string,
 	method string,
 	capInput I,
-	capOutput O) error {
+	capOutput O,
+	orgID string) error {
 	payload, err := anypb.New(capInput)
 	if err != nil {
 		return fmt.Errorf("failed to marshal capability payload: %w", err)
@@ -194,18 +208,37 @@ func doRequest[I, O proto.Message](
 
 	config, _ := anypb.New(&emptypb.Empty{})
 
+	metadata := capabilities.RequestMetadata{
+		WorkflowID:          m.workflowID,
+		WorkflowOwner:       m.workflowOwner,
+		WorkflowName:        m.workflowName,
+		WorkflowTag:         m.workflowTag,
+		WorkflowExecutionID: execID,
+		OrgID:               orgID,
+	}
+	// When the WorkflowDonID binding gate is enabled, the remote executable
+	// capability server rejects requests whose RequestMetadata.WorkflowDonID
+	// does not match the authenticated calling DON. Set it to the calling
+	// (local) workflow DON ID so the request is accepted. Any failure here must
+	// fail the whole call rather than silently sending a zero WorkflowDonID.
+	bindingEnabled, err := cresettings.Default.RemoteExecutableWorkflowDONBindingEnabled.GetOrDefault(ctx, m.creSettingsGetter)
+	if err != nil {
+		return fmt.Errorf("failed to read RemoteExecutableWorkflowDONBindingEnabled setting: %w", err)
+	}
+	if bindingEnabled {
+		localNode, lnErr := m.capRegistry.LocalNode(ctx)
+		if lnErr != nil {
+			return fmt.Errorf("failed to get local node for confidential-workflows request metadata: %w", lnErr)
+		}
+		metadata.WorkflowDonID = localNode.WorkflowDON.ID
+	}
+
 	capReq := capabilities.CapabilityRequest{
 		Payload:       payload,
 		ConfigPayload: config,
 		Method:        method,
 		CapabilityId:  confidentialWorkflowsCapabilityID,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          m.workflowID,
-			WorkflowOwner:       m.workflowOwner,
-			WorkflowName:        m.workflowName,
-			WorkflowTag:         m.workflowTag,
-			WorkflowExecutionID: execID,
-		},
+		Metadata:      metadata,
 	}
 
 	capResp, err := executable.Execute(ctx, capReq)

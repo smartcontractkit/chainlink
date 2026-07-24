@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"context"
+	"math"
 
 	"github.com/graph-gophers/graphql-go"
 
@@ -21,7 +22,7 @@ func NewJob(app chainlink.Application, j job.Job) *JobResolver {
 }
 
 func NewJobs(app chainlink.Application, jobs []job.Job) []*JobResolver {
-	var resolvers []*JobResolver
+	resolvers := make([]*JobResolver, 0, len(jobs))
 	for _, j := range jobs {
 		resolvers = append(resolvers, NewJob(app, j))
 	}
@@ -74,6 +75,9 @@ func (r *JobResolver) ObservationSource() string {
 
 // SchemaVersion resolves the job's schema version.
 func (r *JobResolver) SchemaVersion() int32 {
+	if r.j.SchemaVersion > math.MaxInt32 {
+		return math.MaxInt32
+	}
 	return int32(r.j.SchemaVersion)
 }
 
@@ -81,6 +85,10 @@ func (r *JobResolver) SchemaVersion() int32 {
 func (r *JobResolver) GasLimit() *int32 {
 	if !r.j.GasLimit.Valid {
 		return nil
+	}
+	if r.j.GasLimit.Uint32 > math.MaxInt32 {
+		v := int32(math.MaxInt32)
+		return &v
 	}
 	v := int32(r.j.GasLimit.Uint32)
 	return &v

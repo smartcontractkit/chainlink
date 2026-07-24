@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"dario.cat/mergo"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -105,7 +106,7 @@ func createJobs(
 
 	workerInput := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
-		Environment: cre.EnvironmentName,
+		Environment: creEnv.CldfEnvironment.Name,
 		DONName:     don.Name,
 		JobName:     "don-time-worker",
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
@@ -120,6 +121,9 @@ func createJobs(
 			"templateName":         "don-time",
 			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
 		},
+	}
+	if creEnv.FreshExternalJobIDs {
+		workerInput.Inputs["externalJobID"] = uuid.NewString()
 	}
 
 	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)

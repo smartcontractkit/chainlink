@@ -514,7 +514,6 @@ func fundAdditionalKeys(lggr logger.Logger, e cldf.Environment, destChains []uin
 
 	g := new(errgroup.Group)
 	for sel, addresses := range addressMap {
-		sel, addresses := sel, addresses
 		g.Go(func() error {
 			return crib.SendFundsToAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, fundingAmount, sel)
 		})
@@ -584,7 +583,6 @@ func reclaimFunds(lggr logger.Logger, e cldf.Environment, addressesByChain map[u
 	}
 	g := new(errgroup.Group)
 	for sel, addresses := range addressesByChain {
-		sel, addresses := sel, addresses
 		g.Go(func() error {
 			return removeFundsFromAccounts(e.GetContext(), lggr, e.BlockChains.EVMChains()[sel], addresses, returnAddress, sel)
 		})

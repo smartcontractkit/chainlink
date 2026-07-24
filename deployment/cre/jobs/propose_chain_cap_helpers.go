@@ -9,6 +9,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -20,6 +21,8 @@ import (
 const (
 	solanaForwarderVersion = "1.0.0"
 	solanaCapRegVersion    = "2.0.0"
+	stellarCapRegVersion   = "2.0.0"
+	stellarForwarderVersion = "1.0.0"
 )
 
 type commonCapFields struct {
@@ -128,6 +131,18 @@ func resolveSolanaForwarderAddresses(e cldf.Environment, chainSelector uint64, q
 	}
 
 	return prog.Address, state.Address, nil
+}
+
+func resolveStellarForwarderAddress(e cldf.Environment, chainSelector uint64, qualifier string) (string, error) {
+	if qualifier == "" {
+		return "", errors.New("cre forwarder qualifier is required")
+	}
+	refKey := pkg.GetStellarForwarderAddressRefKey(chainSelector, qualifier)
+	ref, err := e.DataStore.Addresses().Get(refKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to get Stellar forwarder for ref key %s: %w", refKey, err)
+	}
+	return ref.Address, nil
 }
 
 func validateOverrideNetwork(got, expected, nodeID string) error {

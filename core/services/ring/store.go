@@ -197,9 +197,7 @@ func (s *Store) SetShardHealth(shardID uint32, healthy bool) {
 func (s *Store) SetAllShardHealth(health map[uint32]bool) {
 	s.mu.Lock()
 	s.shardHealth = make(map[uint32]bool)
-	for k, v := range health {
-		s.shardHealth[k] = v
-	}
+	maps.Copy(s.shardHealth, health)
 
 	// Uninitialized store must wait for OCR consensus before serving requests
 	if s.currentState == nil {

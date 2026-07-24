@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"dario.cat/mergo"
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -254,7 +255,7 @@ func createJobs(
 
 			workerInput := cre_jobs.ProposeJobSpecInput{
 				Domain:      offchain.ProductLabel,
-				Environment: cre.EnvironmentName,
+				Environment: creEnv.CldfEnvironment.Name,
 				DONName:     don.Name,
 				JobName:     "solana-worker-" + chainID,
 				ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
@@ -271,6 +272,9 @@ func createJobs(
 					"useCapRegOCRConfig": true,
 					"capRegVersion":      capRegVersion.String(),
 				},
+			}
+			if creEnv.FreshExternalJobIDs {
+				workerInput.Inputs["externalJobID"] = uuid.NewString()
 			}
 
 			workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)

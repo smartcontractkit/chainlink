@@ -108,7 +108,7 @@ type mockAggregator struct {
 	err error
 }
 
-func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
+func (m *mockAggregator) Aggregate(_ context.Context, _ logger.Logger, _ string, _ map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -230,9 +230,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			ID:     expectedRequestID,
 			Result: (*json.RawMessage)(&resultBytes),
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
 			assert.NoError(t, err2)
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
@@ -242,7 +240,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Len(t, secretsResponse.Result.Responses, 1, "Should have one encrypted secret in response")
 			assert.Equal(t, createSecretsRequest.EncryptedSecrets[0].Id.Key, secretsResponse.Result.Responses[0].Id.Key, "Secret ID should match")
 			assert.True(t, secretsResponse.Result.Responses[0].Success, "Success should be true")
-		}()
+		})
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
 		require.NoError(t, err)
@@ -472,9 +470,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&emptyParams),
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
 			assert.NoError(t, err2)
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
@@ -483,7 +479,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "encrypted secret must not be nil at index 1")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
-		}()
+		})
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
 		require.NoError(t, err)
@@ -516,9 +512,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&emptyParams),
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
 			assert.NoError(t, err2)
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
@@ -527,7 +521,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "key cannot be empty")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
-		}()
+		})
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
 		require.NoError(t, err)
@@ -578,9 +572,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		resultBytes, err = json.Marshal(responseData)
 		require.NoError(t, err)
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
 			assert.NoError(t, err2)
 			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
@@ -588,7 +580,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.True(t, proto.Equal(secretsResponse.Result, responseData), "Response data should match")
-		}()
+		})
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
 		require.NoError(t, err)
@@ -618,9 +610,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&reqDataBytes),
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
 			assert.NoError(t, err2)
 			var secretsResponse jsonrpc.Response[vaultcommon.DeleteSecretsResponse]
@@ -629,7 +619,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "secret ID must not be nil at index 1")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
-		}()
+		})
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
 		require.NoError(t, err)
@@ -777,9 +767,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			},
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resp, err2 := callback.Wait(t.Context())
 			assert.NoError(t, err2)
 			var secretsResponse jsonrpc.Response[vaultcommon.ListSecretIdentifiersResponse]
@@ -787,7 +775,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.NoError(t, err2)
 			assert.Equal(t, validJSONRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Equal(t, response.Error, secretsResponse.Error, "Response error should match")
-		}()
+		})
 
 		err = h.HandleJSONRPCUserMessage(t.Context(), validJSONRequest, callback)
 		require.NoError(t, err)
@@ -808,9 +796,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&params),
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resp, err := callback.Wait(t.Context())
 			assert.NoError(t, err)
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
@@ -819,7 +805,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Equal(t, unsupportedMethodRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "unsupported method(vault.unsupported.method)")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.UnsupportedMethodError), secretsResponse.Error.Code, "Error code should match")
-		}()
+		})
 
 		err := h.HandleJSONRPCUserMessage(t.Context(), unsupportedMethodRequest, callback)
 		require.NoError(t, err)
@@ -838,9 +824,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: &json.RawMessage{},
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resp, err := callback.Wait(t.Context())
 			assert.NoError(t, err)
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
@@ -849,7 +833,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Equal(t, emptyParamsRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "invalid params error: failed to validate create secrets request")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
-		}()
+		})
 
 		err := h.HandleJSONRPCUserMessage(t.Context(), emptyParamsRequest, callback)
 		require.NoError(t, err)
@@ -869,9 +853,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: &invalidParams,
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resp, err := callback.Wait(t.Context())
 			assert.NoError(t, err)
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
@@ -880,7 +862,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Equal(t, invalidParamsRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Equal(t, "invalid params error: failed to validate create secrets request: request batch must contain at least 1 item", secretsResponse.Error.Message, "Error message should match")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
-		}()
+		})
 
 		err := h.HandleJSONRPCUserMessage(t.Context(), invalidParamsRequest, callback)
 		require.NoError(t, err)
@@ -938,9 +920,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			Params: (*json.RawMessage)(&params),
 		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			resp, err := callback.Wait(t.Context())
 			assert.NoError(t, err)
 			var secretsResponse jsonrpc.Response[vaultcommon.CreateSecretsResponse]
@@ -949,7 +929,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 			assert.Equal(t, jsonRequest.ID, secretsResponse.ID, "Request ID should match")
 			assert.Contains(t, secretsResponse.Error.Message, "invalid params error: failed to validate create secrets request", "Error message should match")
 			assert.Equal(t, api.ToJSONRPCErrorCode(api.InvalidParamsError), secretsResponse.Error.Code, "Error code should match")
-		}()
+		})
 
 		err := h.HandleJSONRPCUserMessage(t.Context(), jsonRequest, callback)
 		require.NoError(t, err)
@@ -1002,8 +982,9 @@ func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknow
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
-		capabilitiesRegistry: mcr,
-		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
+		capabilitiesRegistry:        mcr,
+		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
+		signedResponseRequestIDGate: limits.NewGateLimiter(true),
 	}
 
 	ocrContext, err := hex.DecodeString("000ec4f6a2ba011e909eccf64628855b848e08876a1edd938a1372a9e51adff100000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000000")
@@ -1077,8 +1058,9 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
-		capabilitiesRegistry: mcr,
-		vaultHandlerDonID:    h.(*handler).donConfig.DonId,
+		capabilitiesRegistry:        mcr,
+		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
+		signedResponseRequestIDGate: limits.NewGateLimiter(true),
 	}
 
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)

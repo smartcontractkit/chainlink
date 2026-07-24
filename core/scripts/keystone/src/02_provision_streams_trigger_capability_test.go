@@ -9,49 +9,56 @@ import (
 )
 
 var (
-	chainID         = int64(123456)
-	feedID          = fmt.Sprintf("%x", [32]byte{0: 1})
-	feedName        = "BTC/USD"
-	verifierAddress = fmt.Sprintf("0x%x", [20]byte{0: 7})
+	chainID             = int64(123456)
+	configuratorAddress = fmt.Sprintf("0x%x", [20]byte{0: 7})
+	configStoreAddress  = fmt.Sprintf("0x%x", [20]byte{0: 8})
 )
 
-func TestCreateMercuryV3Job(t *testing.T) {
-	ocrKeyBundleID := "ocr_key_bundle_id"
-	nodeCSAKey := "node_csa_key"
-	bridgeName := "bridge_name"
-	linkFeedID := fmt.Sprintf("%x", [32]byte{0: 2})
-	nativeFeedID := fmt.Sprintf("%x", [32]byte{0: 3})
+func TestCreateStreamJob(t *testing.T) {
+	t.Parallel()
+	jobConfigData := StreamJobSpecData{
+		FeedName: "BTC/USD",
+		StreamID: 1,
+		Bridge:   "bridge_name",
+	}
+	_, output := createStreamJob(jobConfigData)
+
+	snaps.MatchSnapshot(t, output)
+}
+
+func TestCreateLLOJob(t *testing.T) {
+	t.Parallel()
 	u, err := url.Parse("https://crib-henry-keystone-node1.main.stage.cldev.sh")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	jobConfigData := MercuryV3JobSpecData{
-		BootstrapHost:   u.Hostname(),
-		VerifierAddress: verifierAddress,
-		OCRKeyBundleID:  ocrKeyBundleID,
-		NodeCSAKey:      nodeCSAKey,
-		Bridge:          bridgeName,
-		FeedName:        feedName,
-		FeedID:          feedID,
-		LinkFeedID:      linkFeedID,
-		NativeFeedID:    nativeFeedID,
-		ChainID:         chainID,
+	jobConfigData := LLOJobSpecData{
+		DonID:                             streamsTriggerDonID,
+		BootstrapHost:                     u.Hostname(),
+		ConfiguratorAddress:               configuratorAddress,
+		ChannelDefinitionsContractAddress: configStoreAddress,
+		ChannelDefinitionsFromBlock:       channelDefinitionsFromBlock,
+		NodeCSAKey:                        "node_csa_key",
+		OCRKeyBundleID:                    "ocr_key_bundle_id",
+		ChainID:                           chainID,
 	}
-	_, output := createMercuryV3OracleJob(jobConfigData)
+	_, output := createLLOJob(jobConfigData)
 
 	snaps.MatchSnapshot(t, output)
 }
 
-func TestCreateMercuryBootstrapJob(t *testing.T) {
-	jobConfigData := MercuryV3BootstrapJobSpecData{
-		FeedName:        feedName,
-		FeedID:          feedID,
-		ChainID:         chainID,
-		VerifierAddress: verifierAddress,
+func TestCreateLLOBootstrapJob(t *testing.T) {
+	t.Parallel()
+	jobConfigData := LLOBootstrapJobSpecData{
+		DonID:                             streamsTriggerDonID,
+		ConfiguratorAddress:               configuratorAddress,
+		ChannelDefinitionsContractAddress: configStoreAddress,
+		ChannelDefinitionsFromBlock:       channelDefinitionsFromBlock,
+		ChainID:                           chainID,
 	}
 
-	_, output := createMercuryV3BootstrapJob(jobConfigData)
+	_, output := createLLOBootstrapJob(jobConfigData)
 
 	snaps.MatchSnapshot(t, output)
 }

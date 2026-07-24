@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
@@ -61,6 +60,7 @@ func (u userFindSuccesser) FindUserByAPIToken(ctx context.Context, token string)
 }
 
 func TestAuthenticateByToken_Success(t *testing.T) {
+	t.Parallel()
 	user := cltest.MustRandomUser(t)
 	key, secret := uuid.New().String(), uuid.New().String()
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
@@ -87,6 +87,7 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 }
 
 func TestAuthenticateByToken_AuthFailed(t *testing.T) {
+	t.Parallel()
 	authr := userFindFailer{err: auth.ErrorAuthFailed}
 
 	called := false
@@ -108,6 +109,7 @@ func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 }
 
 func TestAuthenticateByToken_RejectsBlankAccessKey(t *testing.T) {
+	t.Parallel()
 	user := cltest.MustRandomUser(t)
 	key, secret := "", uuid.New().String()
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
@@ -134,6 +136,7 @@ func TestAuthenticateByToken_RejectsBlankAccessKey(t *testing.T) {
 }
 
 func TestRequireAuth_NoneRequired(t *testing.T) {
+	t.Parallel()
 	called := false
 	var authr webauth.Authenticator
 
@@ -153,6 +156,7 @@ func TestRequireAuth_NoneRequired(t *testing.T) {
 }
 
 func TestRequireAuth_AuthFailed(t *testing.T) {
+	t.Parallel()
 	called := false
 	var authr webauth.Authenticator
 	router := gin.New()
@@ -171,6 +175,7 @@ func TestRequireAuth_AuthFailed(t *testing.T) {
 }
 
 func TestRequireAuth_LastAuthSuccess(t *testing.T) {
+	t.Parallel()
 	called := false
 	var authr webauth.Authenticator
 	router := gin.New()
@@ -189,6 +194,7 @@ func TestRequireAuth_LastAuthSuccess(t *testing.T) {
 }
 
 func TestRequireAuth_Error(t *testing.T) {
+	t.Parallel()
 	called := false
 	var authr webauth.Authenticator
 	router := gin.New()
@@ -351,8 +357,9 @@ var routesRolesMap = [...]routeRules{
 // Iterate over the above routesRolesMap and assert each path is wrapped and
 // the user role is enforced with the correct middleware
 func TestRBAC_Routemap_Admin(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
@@ -389,8 +396,9 @@ func TestRBAC_Routemap_Admin(t *testing.T) {
 }
 
 func TestRBAC_Routemap_Edit(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
@@ -423,12 +431,13 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 			defer cleanup()
 
 			// If this route allows up to an edit role, don't expect an unauthorized response
-			if route.EditAllowed || route.editMinimalAllowed || route.viewOnlyAllowed {
+			switch {
+			case route.EditAllowed || route.editMinimalAllowed || route.viewOnlyAllowed:
 				assert.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
 				assert.NotEqual(t, http.StatusForbidden, resp.StatusCode)
-			} else if !route.EditAllowed {
+			case !route.EditAllowed:
 				assert.Equal(t, http.StatusForbidden, resp.StatusCode)
-			} else {
+			default:
 				assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 			}
 		}()
@@ -436,8 +445,9 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 }
 
 func TestRBAC_Routemap_Run(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
@@ -470,12 +480,13 @@ func TestRBAC_Routemap_Run(t *testing.T) {
 			defer cleanup()
 
 			// If this route allows up to an edit minimal role, don't expect an unauthorized response
-			if route.editMinimalAllowed || route.viewOnlyAllowed {
+			switch {
+			case route.editMinimalAllowed || route.viewOnlyAllowed:
 				assert.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
 				assert.NotEqual(t, http.StatusForbidden, resp.StatusCode)
-			} else if !route.EditAllowed {
+			case !route.EditAllowed:
 				assert.Equal(t, http.StatusForbidden, resp.StatusCode)
-			} else {
+			default:
 				assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 			}
 		}()
@@ -483,8 +494,9 @@ func TestRBAC_Routemap_Run(t *testing.T) {
 }
 
 func TestRBAC_Routemap_ViewOnly(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
@@ -497,6 +509,7 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 	// Assert all view only routes
 	for i, route := range routesRolesMap {
 		t.Run(fmt.Sprintf("%d-%s-%s", i, route.verb, route.path), func(t *testing.T) {
+			t.Parallel()
 			var resp *http.Response
 			var cleanup func()
 
@@ -517,12 +530,13 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 			defer cleanup()
 
 			// If this route only allows view only, don't expect an unauthorized response
-			if route.viewOnlyAllowed {
+			switch {
+			case route.viewOnlyAllowed:
 				assert.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
 				assert.NotEqual(t, http.StatusForbidden, resp.StatusCode)
-			} else if !route.EditAllowed {
+			case !route.EditAllowed:
 				assert.Equal(t, http.StatusForbidden, resp.StatusCode)
-			} else {
+			default:
 				assert.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 			}
 		})
@@ -530,7 +544,7 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 }
 
 func mustRequest(t *testing.T, method, url string, body io.Reader) *http.Request {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	require.NoError(t, err)
 	return req

@@ -17,6 +17,7 @@ import (
 )
 
 func TestEVMForwarderResource(t *testing.T) {
+	t.Parallel()
 	var (
 		ID        = int64(1)
 		address   = utils.RandomAddress()

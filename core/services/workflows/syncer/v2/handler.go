@@ -319,7 +319,14 @@ func NewEventHandler(
 	}
 
 	eh.Service, eh.eng = services.Config{
-		Name:  "EventHandler",
+		Name: "EventHandler",
+		// The workflow store is started and stopped alongside the handler.
+		NewSubServices: func(logger.Logger) []services.Service {
+			if eh.workflowStore == nil {
+				return nil
+			}
+			return []services.Service{eh.workflowStore}
+		},
 		Start: eh.start,
 		Close: eh.close,
 	}.NewServiceEngine(lggr)
@@ -559,7 +566,9 @@ func (h *eventHandler) workflowRegisteredEvent(
 		}
 
 		spec = newSpec
-	case spec.WorkflowID != payload.WorkflowID.Hex():
+	case spec.WorkflowID != payload.WorkflowID.Hex() ||
+		spec.WorkflowOwner != hex.EncodeToString(payload.WorkflowOwner) ||
+		spec.WorkflowName != payload.WorkflowName:
 		newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
 		if innerErr != nil {
 			return innerErr
@@ -770,7 +779,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	binaryHash := v2.ComputeBinaryHash(binary)
 	confLggr := logger.Named(h.lggr, "WorkflowEngine.ConfidentialModule")
 	confLggr = logger.With(confLggr, "workflowID", workflowID, "workflowName", name, "workflowOwner", owner)
-	confidential, err := v2.NewConfidentialModule(h.capRegistry, h.executionHandlers, binaryURL, binaryHash, workflowID, owner, name.String(), tag, h.engineLimiters.ConfidentialWorkflowsEnabled, confLggr)
+	confidential, err := v2.NewConfidentialModule(h.capRegistry, h.executionHandlers, binaryURL, binaryHash, workflowID, owner, name.String(), tag, h.fetchOrganizationID, h.engineLimiters.ConfidentialWorkflowsEnabled, h.engineLimiters.Settings, confLggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create confidential module: %w", err)
 	}
@@ -889,19 +898,23 @@ func (h *eventHandler) workflowDeletedEvent(
 // workflow engine is not running.
 func (h *eventHandler) tryEngineCleanup(workflowID types.WorkflowID) error {
 	e, ok := h.engineRegistry.Get(workflowID)
-	if ok {
-		// Stop the engine
-		if err := e.Close(); err != nil {
-			return fmt.Errorf("failed to close workflow engine: %w", err)
-		}
+	if !ok {
+		return nil
+	}
 
-		h.cleanupModuleCache(workflowID.Hex())
+	// Close the engine, then remove it from the registry only once cleanup has succeeded. The
+	// registry entry is what tells us this workflow still needs cleanup, so if a step fails we
+	// leave it in place and return the error, allowing a future attempt to retry in case the
+	// failure was spurious. Close is idempotent, so ErrAlreadyStopped means the engine was
+	// already closed on a prior attempt and is treated as success rather than a failure.
+	if err := e.Close(); err != nil && !errors.Is(err, services.ErrAlreadyStopped) {
+		return fmt.Errorf("failed to close workflow engine: %w", err)
+	}
 
-		// Remove the engine from the registry
-		_, err := h.engineRegistry.Pop(workflowID)
-		if err != nil {
-			return fmt.Errorf("failed to remove workflow engine: %w", err)
-		}
+	h.cleanupModuleCache(workflowID.Hex())
+
+	if _, err := h.engineRegistry.Pop(workflowID); err != nil {
+		return fmt.Errorf("failed to remove workflow engine: %w", err)
 	}
 	return nil
 }
@@ -1004,8 +1017,12 @@ func (h *eventHandler) tryEngineCreate(ctx context.Context, spec *job.WorkflowSp
 		}
 	}
 
-	// Engine is fully initialized, add to registry with source tracking
-	if err := h.engineRegistry.Add(wid, source, engine); err != nil {
+	// Engine is fully initialized, add to registry with source tracking and identity fingerprint
+	reconcileKey, err := ReconcileKey(ownerBytes, spec.WorkflowName)
+	if err != nil {
+		return fmt.Errorf("failed to compute reconcile key: %w", err)
+	}
+	if err := h.engineRegistry.AddWithReconcileKey(wid, source, reconcileKey, engine); err != nil {
 		if closeErr := engine.Close(); closeErr != nil {
 			return fmt.Errorf("failed to close workflow engine: %w during invariant violation: %w", closeErr, err)
 		}

@@ -102,10 +102,10 @@ func extractOAuthScopesFromClaims(claims jwt.MapClaims) []string {
 	if raw, ok := claims["scope"]; ok {
 		switch v := raw.(type) {
 		case string:
-			for _, part := range strings.Fields(v) {
+			for part := range strings.FieldsSeq(v) {
 				add(part)
 			}
-		case []interface{}:
+		case []any:
 			for _, item := range v {
 				if s, ok := item.(string); ok {
 					add(s)
@@ -121,7 +121,7 @@ func extractOAuthScopesFromClaims(claims jwt.MapClaims) []string {
 	// Auth0 API Authorization often emits custom permissions as a string array claim.
 	if raw, ok := claims["permissions"]; ok {
 		switch v := raw.(type) {
-		case []interface{}:
+		case []any:
 			for _, item := range v {
 				if s, ok := item.(string); ok {
 					add(s)

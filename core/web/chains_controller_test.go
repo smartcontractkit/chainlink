@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
@@ -39,17 +38,17 @@ func Test_EVMChainsController_Show(t *testing.T) {
 			name:    "success",
 			want: &toml.EVMConfig{
 				ChainID: validID,
-				Enabled: ptr(true),
+				Enabled: new(true),
 				Chain: toml.Defaults(nil, &toml.Chain{
 					GasEstimator: toml.GasEstimator{
-						EIP1559DynamicFees: ptr(true),
+						EIP1559DynamicFees: new(true),
 						BlockHistory: toml.BlockHistoryEstimator{
-							BlockHistorySize: ptr[uint16](50),
+							BlockHistorySize: new(uint16(50)),
 						},
 					},
-					RPCBlockQueryDelay:       ptr[uint16](23),
-					MinIncomingConfirmations: ptr[uint32](12),
-					LinkContractAddress:      ptr(types.EIP55AddressFromAddress(testutils.NewAddress())),
+					RPCBlockQueryDelay:       new(uint16(23)),
+					MinIncomingConfirmations: new(uint32(12)),
+					LinkContractAddress:      new(types.EIP55AddressFromAddress(testutils.NewAddress())),
 				}),
 			},
 			wantStatusCode: http.StatusOK,
@@ -115,27 +114,27 @@ func Test_EVMChainsController_Index(t *testing.T) {
 		{
 			ChainID: sqlutil.New(chainIDs[1]),
 			Chain: toml.Defaults(nil, &toml.Chain{
-				RPCBlockQueryDelay: ptr[uint16](13),
+				RPCBlockQueryDelay: new(uint16(13)),
 				GasEstimator: toml.GasEstimator{
-					EIP1559DynamicFees: ptr(true),
+					EIP1559DynamicFees: new(true),
 					BlockHistory: toml.BlockHistoryEstimator{
-						BlockHistorySize: ptr[uint16](1),
+						BlockHistorySize: new(uint16(1)),
 					},
 				},
-				MinIncomingConfirmations: ptr[uint32](120),
+				MinIncomingConfirmations: new(uint32(120)),
 			}),
 		},
 		{
 			ChainID: sqlutil.New(chainIDs[2]),
 			Chain: toml.Defaults(nil, &toml.Chain{
-				RPCBlockQueryDelay: ptr[uint16](5),
+				RPCBlockQueryDelay: new(uint16(5)),
 				GasEstimator: toml.GasEstimator{
-					EIP1559DynamicFees: ptr(false),
+					EIP1559DynamicFees: new(false),
 					BlockHistory: toml.BlockHistoryEstimator{
-						BlockHistorySize: ptr[uint16](2),
+						BlockHistorySize: new(uint16(2)),
 					},
 				},
-				MinIncomingConfirmations: ptr[uint32](30),
+				MinIncomingConfirmations: new(uint32(30)),
 			}),
 		},
 	}
@@ -210,7 +209,7 @@ func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *Te
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
 	app := cltest.NewApplicationWithConfig(t, cfg)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
 
 	client := app.NewHTTPClient(nil)
@@ -220,5 +219,3 @@ func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *Te
 		client: client,
 	}
 }
-
-func ptr[T any](t T) *T { return &t }

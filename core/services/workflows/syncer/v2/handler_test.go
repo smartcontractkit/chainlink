@@ -1,7 +1,5 @@
 package v2
 
-//go:generate go run ../../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/without_tee
-//go:generate go run ../../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/with_tee
 import (
 	"context"
 	"encoding/base64"
@@ -757,6 +755,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 					BinaryHash:        v2.ComputeBinaryHash(binary),
 					SdkExecuteRequest: executeRequest,
 					Owner:             hex.EncodeToString(wfOwner),
+					OrgId:             testOrgID,
 					BinaryUrl:         binaryURL,
 					Requirements:      &sdk.Requirements{Tee: &sdk.Tee{Item: &sdk.Tee_AnyRegions{}}},
 				},
@@ -779,6 +778,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 
 		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
+			withTestOrgResolver(),
 		)
 		require.NoError(t, err)
 		servicetest.Run(t, h)
@@ -868,6 +868,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 
 		h, err := NewEventHandler(lggr, wfStore, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, er, emitter, limiters, featureFlags, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
+			withTestOrgResolver(),
 		)
 		require.NoError(t, err)
 		servicetest.Run(t, h)
@@ -932,6 +933,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		er := NewEngineRegistry()
 		opts := []func(*eventHandler){
 			WithEngineRegistry(er),
+			withTestOrgResolver(),
 		}
 		if tc.engineFactoryFn != nil {
 			opts = append(opts, WithEngineFactoryFn(tc.engineFactoryFn))
@@ -1106,6 +1108,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		h, err := NewEventHandler(lggr, store, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, artifactStore, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(mockEngineFactory),
+			withTestOrgResolver(),
 		)
 		require.NoError(t, err)
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
@@ -1261,6 +1264,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		h, err := NewEventHandler(lggr, store, nil, true, registry, &confidentialrelay.ExecutionHandlers{}, NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, mockAS, workflowEncryptionKey, &testDonNotifier{},
 			WithEngineRegistry(er),
 			WithEngineFactoryFn(mockEngineFactory),
+			withTestOrgResolver(),
 		)
 		require.NoError(t, err)
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: hex.EncodeToString(wfOwner), Workflow: wfIDString})
@@ -1376,6 +1380,119 @@ func Test_workflowDeletedEvent_IgnoresErrAlreadyStopped(t *testing.T) {
 	assert.False(t, ok)
 }
 
+func Test_eventHandler_StartsAndStopsWorkflowStore(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	lf := limits.Factory{Logger: lggr}
+	emitter := custmsg.NewLabeler()
+	registry := capabilities.NewRegistry(lggr)
+	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
+	limiters, err := v2.NewLimiters(lf, nil)
+	require.NoError(t, err)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200}, lf)
+	require.NoError(t, err)
+
+	// Short prune interval on a fake clock so pruning is only observable once the store has been
+	// started as a sub-service of the handler.
+	fakeClock := clockwork.NewFakeClock()
+	wfStore := store.NewInMemoryStoreWithPruneConfiguration(lggr, fakeClock, 100*time.Millisecond, time.Hour)
+
+	h, err := NewEventHandler(lggr, wfStore, nil, true, registry, &confidentialrelay.ExecutionHandlers{},
+		NewEngineRegistry(), emitter, limiters, nil, rl, workflowLimits, &stubWorkflowArtifactsStore{},
+		workflowEncryptionKey, &testDonNotifier{})
+	require.NoError(t, err)
+	// servicetest.Run starts the handler (and its sub-services, including the store) and closes
+	// them on cleanup.
+	servicetest.Run(t, h)
+
+	ctx := t.Context()
+	_, err = wfStore.Add(ctx, nil, "exec-1", "wf-1", store.StatusStarted)
+	require.NoError(t, err)
+	_, err = wfStore.FinishExecution(ctx, "exec-1", store.StatusCompleted)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		fakeClock.Advance(200 * time.Millisecond)
+		_, getErr := wfStore.Get(ctx, "exec-1")
+		return getErr != nil
+	}, 2*time.Second, 10*time.Millisecond)
+}
+
+func Test_tryEngineCleanup_ClosesEngineThenRemovesFromRegistry(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{9}
+	engine := &mockDrainableEngine{}
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", engine))
+
+	h := &eventHandler{
+		lggr:           logger.TestLogger(t),
+		engineRegistry: registry,
+	}
+
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	assert.Equal(t, int32(1), engine.closeCalls.Load())
+	_, ok := registry.Get(workflowID)
+	assert.False(t, ok, "engine should be removed from the registry after a successful close")
+
+	// Cleanup for an already-removed workflow is a no-op and does not close again.
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	assert.Equal(t, int32(1), engine.closeCalls.Load())
+}
+
+func Test_tryEngineCleanup_KeepsEngineInRegistryOnCloseFailure(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{9}
+	engine := &mockDrainableEngine{}
+	engine.CloseErr = assert.AnError
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", engine))
+
+	h := &eventHandler{
+		lggr:           logger.TestLogger(t),
+		engineRegistry: registry,
+	}
+
+	// A failing close leaves the engine in the registry so the cleanup can be retried later.
+	require.Error(t, h.tryEngineCleanup(workflowID))
+	_, ok := registry.Get(workflowID)
+	require.True(t, ok, "engine must remain in the registry so the close can be retried")
+
+	// Once the (spurious) failure clears, the retry succeeds and only then is the engine removed.
+	engine.CloseErr = nil
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	assert.Equal(t, int32(2), engine.closeCalls.Load())
+	_, ok = registry.Get(workflowID)
+	assert.False(t, ok)
+}
+
+func Test_tryEngineCleanup_ToleratesErrAlreadyStopped(t *testing.T) {
+	t.Parallel()
+
+	workflowID := types.WorkflowID{9}
+	engine := &mockDrainableEngine{}
+	engine.CloseErr = services.ErrAlreadyStopped
+	registry := NewEngineRegistry()
+	require.NoError(t, registry.Add(workflowID, "test-source", engine))
+
+	h := &eventHandler{
+		lggr:           logger.TestLogger(t),
+		engineRegistry: registry,
+	}
+
+	// ErrAlreadyStopped means the engine was already closed on a prior attempt; treat it as
+	// success and remove the registry entry.
+	require.NoError(t, h.tryEngineCleanup(workflowID))
+	_, ok := registry.Get(workflowID)
+	assert.False(t, ok)
+}
+
 func Test_workflowRegisteredEvent_DrainingEngineNotTreatedAsHealthy(t *testing.T) {
 	t.Parallel()
 
@@ -1410,6 +1527,34 @@ func Test_workflowRegisteredEvent_DrainingEngineNotTreatedAsHealthy(t *testing.T
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "could not clean up old engine")
 	assert.Equal(t, int32(1), drainable.closeCalls.Load())
+}
+
+// testOrgResolver is a test double for orgresolver.OrgResolver.
+type testOrgResolver struct {
+	orgID string
+	err   error
+}
+
+func (m *testOrgResolver) Get(context.Context, string) (string, error) {
+	return m.orgID, m.err
+}
+
+func (m *testOrgResolver) Start(context.Context) error { return nil }
+
+func (m *testOrgResolver) Close() error { return nil }
+
+func (m *testOrgResolver) HealthReport() map[string]error {
+	return map[string]error{"TestOrgResolver": nil}
+}
+
+func (m *testOrgResolver) Name() string { return "TestOrgResolver" }
+
+func (m *testOrgResolver) Ready() error { return nil }
+
+const testOrgID = "test-org"
+
+func withTestOrgResolver() func(*eventHandler) {
+	return WithOrgResolver(&testOrgResolver{orgID: testOrgID})
 }
 
 // mockLinkingService implements the LinkingServiceServer interface for testing
