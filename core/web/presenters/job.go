@@ -518,6 +518,22 @@ func NewCRESettingsSpec(spec *job.CRESettingsSpec) *CRESettingsSpec {
 	}
 }
 
+type CapabilityRunnerSpec struct {
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+	Command   string    `json:"command"`
+	Args      []string  `json:"args"`
+}
+
+func NewCapabilityRunnerSpec(spec *job.CapabilityRunnerSpec) *CapabilityRunnerSpec {
+	return &CapabilityRunnerSpec{
+		CreatedAt: spec.CreatedAt,
+		UpdatedAt: spec.UpdatedAt,
+		Command:   spec.Command,
+		Args:      spec.Args,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -551,6 +567,7 @@ type JobResource struct {
 	DirectRequestSpec        *DirectRequestSpec        `json:"directRequestSpec"`
 	FluxMonitorSpec          *FluxMonitorSpec          `json:"fluxMonitorSpec"`
 	CRESettings              *CRESettingsSpec          `json:"creSettingsSpec"`
+	CapabilityRunner         *CapabilityRunnerSpec     `json:"capabilityRunnerSpec"`
 	CronSpec                 *CronSpec                 `json:"cronSpec"`
 	OffChainReportingSpec    *OffChainReportingSpec    `json:"offChainReportingOracleSpec"`
 	OffChainReporting2Spec   *OffChainReporting2Spec   `json:"offChainReporting2OracleSpec"`
@@ -591,6 +608,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.FluxMonitorSpec = NewFluxMonitorSpec(j.FluxMonitorSpec)
 	case job.CRESettings:
 		resource.CRESettings = NewCRESettingsSpec(j.CRESettingsSpec)
+	case job.CapabilityRunner:
+		resource.CapabilityRunner = NewCapabilityRunnerSpec(j.CapabilityRunnerSpec)
 	case job.Cron:
 		resource.CronSpec = NewCronSpec(j.CronSpec)
 	case job.OffchainReporting:

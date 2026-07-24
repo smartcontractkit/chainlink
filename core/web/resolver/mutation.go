@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/capabilityrunner"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -1093,6 +1094,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		return nil, fmt.Errorf("cannot create job of type %q: %w", job.Webhook, job.ErrJobTypeRemoved)
 	case job.CRESettings:
 		jb, err = cresettings.ValidatedCRESettingsSpec(args.Input.TOML)
+	case job.CapabilityRunner:
+		jb, err = capabilityrunner.ValidatedCapabilityRunnerSpec(args.Input.TOML)
 	case job.Cron:
 		jb, err = cron.ValidatedCronSpec(args.Input.TOML)
 	case job.VRF:
