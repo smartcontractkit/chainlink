@@ -266,8 +266,8 @@ func (c *LocalBuildConfig) buildNodeImage(ctx context.Context) error {
 			return fmt.Errorf("cross-compiler %q not found; set up the local toolchain or override CRE_LOCAL_CC/CXX (see docs): %w", f, err)
 		}
 	}
-	staticStd := filepath.Join(filepathDir(c.LibDir), "lib", "libstdc++.a")
-	staticSup := filepath.Join(filepathDir(c.LibDir), "lib", "libsupc++.a")
+	staticStd := filepath.Join(filepath.Dir(c.LibDir), "lib", "libstdc++.a")
+	staticSup := filepath.Join(filepath.Dir(c.LibDir), "lib", "libsupc++.a")
 
 	ctxDir := c.stageDir("node-image")
 	if err := os.MkdirAll(filepath.Join(ctxDir, "caps"), 0o755); err != nil {
@@ -305,12 +305,12 @@ EXPOSE 6688
 ENTRYPOINT ["chainlink"]
 CMD ["local", "node"]
 `
-	if err := os.WriteFile(filepath.Join(ctxDir, "Dockerfile"), []byte(dockerfile), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(ctxDir, "Dockerfile"), []byte(dockerfile), 0o600); err != nil {
 		return err
 	}
 
 	framework.L.Info().Msgf("Building node image %s", c.DevImage)
-	db := exec.CommandContext(ctx, "docker", "build", "--platform", c.Platform, "-t", c.DevImage, ctxDir)
+	db := exec.CommandContext(ctx, "docker", "build", "--platform", c.Platform, "-t", c.DevImage, ctxDir) //nolint:gosec // G204: local docker build with developer-controlled args
 	db.Stdout, db.Stderr = os.Stdout, os.Stderr
 	if err := db.Run(); err != nil {
 		return errors.Wrap(err, "docker build of node image failed")
@@ -325,7 +325,3 @@ func (c *LocalBuildConfig) stageDir(sub string) string {
 	}
 	return filepath.Join(base, sub)
 }
-
-// filepathDir returns the parent directory of the given path (used to derive
-// the static-lib dir as a sibling of the shared-lib dir).
-func filepathDir(p string) string { return filepath.Dir(p) }
