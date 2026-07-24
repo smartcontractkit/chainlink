@@ -201,7 +201,7 @@ func configureAdditionalWorkflowSigners(t *testing.T, sharedEnv *ttypes.TestEnvi
 	}
 
 	out := make([]ttypes.PerTestDeployKey, 0, numSigners)
-	var signers []common.Address
+	signers := make([]common.Address, 0, numSigners)
 	for keyIdx := range numSigners {
 		ownerAddress, privateKey, addrErr := crecrypto.GenerateNewKeyPair()
 		require.NoError(t, addrErr, "failed to generate workflow signer key pair")

@@ -315,7 +315,8 @@ func authorizePooledSigners(t *testing.T, sharedEnv *ttypes.TestEnvironment, sig
 
 	var unallowedSigners []common.Address
 	for _, signer := range signers {
-		allowed, err := registry.IsAllowedSigner(rootRegistryChain.SethClient.NewCallOpts(), signer)
+		var allowed bool
+		allowed, err = registry.IsAllowedSigner(rootRegistryChain.SethClient.NewCallOpts(), signer)
 		require.NoError(t, err, "failed to check signer allowlist status")
 		if !allowed {
 			unallowedSigners = append(unallowedSigners, signer)

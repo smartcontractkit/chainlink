@@ -115,7 +115,7 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 
 	const numWorkflows = 5
 	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
-	var workflowIDs []string
+	workflowIDs := make([]string, 0, numWorkflows)
 	for i := range numWorkflows {
 		workflowName := fmt.Sprintf("shardtest%d", i)
 		workflowConfig := crontypes.WorkflowConfig{

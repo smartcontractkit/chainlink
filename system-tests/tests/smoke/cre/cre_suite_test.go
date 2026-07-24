@@ -89,14 +89,15 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			allowlistSubtestName := "allowlist_auth_when_jwt_auth_disabled"
 			jwtSubtestName := "jwt_auth_rejected_when_jwt_auth_disabled"
 			vaultConfig := getVaultDefaultTestConfig(t)
-			if isVaultJWTAuthEnabledTopology(topology) {
+			switch {
+			case isVaultJWTAuthEnabledTopology(topology):
 				vaultConfig = getVaultJWTAuthEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_jwt_auth_enabled"
 				jwtSubtestName = "jwt_auth_when_jwt_auth_enabled"
-			} else if isVaultOptimizationsEnabledTopology(topology) {
+			case isVaultOptimizationsEnabledTopology(topology):
 				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
-			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
+			case isVaultWorkflowDONBindingEnabledTopology(topology):
 				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
 			}
