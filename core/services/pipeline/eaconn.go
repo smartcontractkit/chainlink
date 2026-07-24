@@ -13,8 +13,8 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/streamspb"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // Operational timing and reconnect behavior are hardcoded: this manager has no
@@ -75,13 +75,12 @@ type eaConn struct {
 
 // newEAConn is called with manager.connsMu already held, so reading manager.lggr
 // here is safe without a separate lock.
-func newEAConn(bridge bridges.BridgeType, manager *bridgeConnManager) *eaConn {
-	name := bridge.Name.String()
+func newEAConn(bridgeName string, bridgeUrl models.WebURL, manager *bridgeConnManager) *eaConn {
 	return &eaConn{
-		bridgeName: name,
-		target:     url.URL(bridge.URL).Host,
+		bridgeName: bridgeName,
+		target:     url.URL(bridgeUrl).Host,
 		dial:       manager.dial,
-		lggr:       logger.With(logger.Named(manager.lggr, "EAConn"), "bridgeName", name),
+		lggr:       logger.With(logger.Named(manager.lggr, "EAConn"), "bridgeName", bridgeName),
 		manager:    manager,
 		clock:      clockwork.NewRealClock(),
 		assets:     make(map[[32]byte]*eaAsset),

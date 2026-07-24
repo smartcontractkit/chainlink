@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	stdErrors "errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/goccy/go-json"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type BridgeConnManager interface {
@@ -60,25 +62,27 @@ func NewBridgeConnManager(lggr ...logger.Logger) BridgeConnManager {
 }
 
 func (m *bridgeConnManager) GetObservation(bridge bridges.BridgeType, requestData MapParam) ([]byte, error) {
+	bridgeName := strings.TrimPrefix(bridge.Name.String(), "bridge-")
 	data, err := subscriptionData(requestData)
 	if err != nil {
-		return nil, fmt.Errorf("bridge %q: %w", bridge.Name.String(), err)
+		return nil, fmt.Errorf("bridge %q: %w", bridgeName, err)
 	}
-	key, err := bridgeObservationCacheKey(bridge, data)
+	key, err := bridgeObservationCacheKey(bridgeName, data)
 	if err != nil {
 		return nil, err
 	}
+	m.lggr.Debugw("cache key generated", "key", fmt.Sprintf("%x", key), "bridge", bridgeName, "data", data)
 	subscription, err := structpb.NewStruct(data)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build subscription payload for bridge %q: %w", bridge.Name.String(), err)
+		return nil, fmt.Errorf("failed to build subscription payload for bridge %q: %w", bridgeName, err)
 	}
-	m.getOrCreateConn(bridge).registerAsset(key, subscription)
+	m.getOrCreateConn(bridgeName, bridge.URL).registerAsset(key, subscription)
 
 	m.mu.RLock()
 	entry, ok := m.cache[key]
 	m.mu.RUnlock()
 	if !ok {
-		return nil, fmt.Errorf("%w for bridge %q", ErrBridgeObservationNotFound, bridge.Name.String())
+		return nil, fmt.Errorf("%w for bridge %q", ErrBridgeObservationNotFound, bridgeName)
 	}
 	payload := make([]byte, len(entry))
 	copy(payload, entry)
@@ -97,17 +101,16 @@ func (m *bridgeConnManager) PutObservation(key [32]byte, observation []byte) {
 
 // getOrCreateConn returns the bridge's persistent EAConn, lazily creating and
 // starting it on first use.
-func (m *bridgeConnManager) getOrCreateConn(bridge bridges.BridgeType) *eaConn {
-	name := bridge.Name.String()
+func (m *bridgeConnManager) getOrCreateConn(bridgeName string, bridgeURL models.WebURL) *eaConn {
 
 	m.connsMu.Lock()
 	defer m.connsMu.Unlock()
-	if conn, ok := m.conns[name]; ok {
+	if conn, ok := m.conns[bridgeName]; ok {
 		return conn
 	}
 
-	conn := newEAConn(bridge, m)
-	m.conns[name] = conn
+	conn := newEAConn(bridgeName, bridgeURL, m)
+	m.conns[bridgeName] = conn
 	conn.start()
 	return conn
 }
@@ -140,14 +143,13 @@ func subscriptionData(requestData MapParam) (map[string]any, error) {
 // bridgeObservationCacheKey mirrors the streams-adapter's own ObservationPayloadHash.
 // The adapter is configured with its own adapterName equal to this bridge's name,
 // so payload_hash on an accepted observation equals this same key.
-func bridgeObservationCacheKey(bridge bridges.BridgeType, data map[string]any) ([32]byte, error) {
+func bridgeObservationCacheKey(bridgeName string, data map[string]any) ([32]byte, error) {
 	lookupBytes, err := json.Marshal(data)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to marshal bridge lookup payload: %w", err)
 	}
-	name := bridge.Name.String()
-	b := make([]byte, 0, len(name)+len(lookupBytes))
-	b = append(b, name...)
+	b := make([]byte, 0, len(bridgeName)+len(lookupBytes))
+	b = append(b, bridgeName...)
 	b = append(b, lookupBytes...)
 	return sha256.Sum256(b), nil
 }

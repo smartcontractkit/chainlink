@@ -54,11 +54,11 @@ func TestBridgeConnManager_GetOrCreateConn_OnePerBridge(t *testing.T) {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
-			conns[idx] = m.getOrCreateConn(bridgeA)
+			conns[idx] = m.getOrCreateConn(bridgeA.Name.String(), bridgeA.URL)
 		}()
 		go func() {
 			defer wg.Done()
-			conns[idx+10] = m.getOrCreateConn(bridgeB)
+			conns[idx+10] = m.getOrCreateConn(bridgeB.Name.String(), bridgeB.URL)
 		}()
 	}
 	wg.Wait()
@@ -80,7 +80,7 @@ func TestEAConn_RegisterAsset_RefreshAndIdlePrune(t *testing.T) {
 	t.Parallel()
 	m := newTestManager()
 	bridge := testBridge(t, "idlebridge")
-	conn := newEAConn(bridge, m)
+	conn := newEAConn(bridge.Name.String(), bridge.URL, m)
 	clock := clockwork.NewFakeClock()
 	conn.clock = clock
 
@@ -116,7 +116,7 @@ func TestEAConn_HandleObservation(t *testing.T) {
 	t.Parallel()
 	m := newTestManager()
 	bridge := testBridge(t, "obsbridge")
-	conn := newEAConn(bridge, m)
+	conn := newEAConn(bridge.Name.String(), bridge.URL, m)
 
 	payload, err := structpb.NewStruct(map[string]any{"endpoint": "crypto"})
 	require.NoError(t, err)
@@ -186,7 +186,7 @@ func TestBridgeConnManager_GetObservation_CacheHitAndMiss(t *testing.T) {
 	_, err := m.GetObservation(bridge, requestData)
 	require.ErrorIs(t, err, ErrBridgeObservationNotFound)
 
-	key, err := bridgeObservationCacheKey(bridge, requestData["data"].(map[string]any))
+	key, err := bridgeObservationCacheKey(bridge.Name.String(), requestData["data"].(map[string]any))
 	require.NoError(t, err)
 
 	m.PutObservation(key, []byte(`{"result":"9700"}`))
