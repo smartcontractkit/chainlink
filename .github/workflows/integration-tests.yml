@@ -592,9 +592,11 @@ jobs:
               p2=$!
               (cd "$GITHUB_WORKSPACE/core/scripts/cre/environment" && go build -ldflags="-s -w" -o "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" .) &
               p3=$!
+              set +e
               wait "$p1"; p1_exit=$?
               wait "$p2"; p2_exit=$?
               wait "$p3"; p3_exit=$?
+              set -e
               if [[ "$p1_exit" -ne 0 || "$p2_exit" -ne 0 || "$p3_exit" -ne 0 ]]; then
                 echo "Compilation failed (cre-smoke=$p1_exit, cre-regression=$p2_exit, cre-env=$p3_exit)" >&2
                 exit 1

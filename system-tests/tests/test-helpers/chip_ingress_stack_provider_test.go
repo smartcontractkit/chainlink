@@ -18,6 +18,7 @@ func TestResolveCreEnvCommand(t *testing.T) {
 	tests := []struct {
 		name                 string
 		createBinary         bool
+		binaryMode           os.FileMode
 		inputArgs            []string
 		expectedPathSuffix   string
 		expectedArgsContains string
@@ -30,11 +31,20 @@ func TestResolveCreEnvCommand(t *testing.T) {
 			expectedArgsContains: "run",
 		},
 		{
-			name:                 "uses precompiled binary when it exists",
+			name:                 "uses precompiled binary when it exists and is executable",
 			createBinary:         true,
+			binaryMode:           0700,
 			inputArgs:            []string{"env", "start"},
 			expectedPathSuffix:   "cre-env",
 			expectedArgsContains: "env",
+		},
+		{
+			name:                 "fallback to go run when binary exists but is not executable",
+			createBinary:         true,
+			binaryMode:           0600,
+			inputArgs:            []string{"env", "start"},
+			expectedPathSuffix:   "go",
+			expectedArgsContains: "run",
 		},
 	}
 
@@ -50,18 +60,15 @@ func TestResolveCreEnvCommand(t *testing.T) {
 				binDir := filepath.Join(tmpDir, "system-tests", "tests", "bin")
 				require.NoError(t, os.MkdirAll(binDir, 0700))
 				binPath := filepath.Join(binDir, "cre-env")
-				require.NoError(t, os.WriteFile(binPath, []byte("#!/bin/sh\necho ok"), 0600))
+				require.NoError(t, os.WriteFile(binPath, []byte("#!/bin/sh\necho ok"), tt.binaryMode))
 			}
 
 			cmd := resolveCreEnvCommand(ctx, tmpDir, environmentDir, tt.inputArgs...)
 			require.NotNil(t, cmd)
 
 			assert.Equal(t, environmentDir, cmd.Dir)
-			if tt.createBinary {
-				assert.True(t, filepath.IsAbs(cmd.Path) || filepath.Base(cmd.Path) == "cre-env", "path should be cre-env binary: %s", cmd.Path)
-			} else {
-				assert.Equal(t, "go", filepath.Base(cmd.Path))
-			}
+			assert.Equal(t, tt.expectedPathSuffix, filepath.Base(cmd.Path))
+			assert.Contains(t, cmd.Args, tt.expectedArgsContains)
 		})
 	}
 }

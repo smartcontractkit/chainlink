@@ -92,7 +92,7 @@ const creEnvBinaryName = "cre-env"
 // it is used instead of "go run ." to avoid recompilation overhead.
 func resolveCreEnvCommand(ctx context.Context, relativePathToRepoRoot, environmentDir string, args ...string) *exec.Cmd {
 	binaryPath := filepath.Join(relativePathToRepoRoot, "system-tests", "tests", "bin", creEnvBinaryName)
-	if _, err := os.Stat(binaryPath); err == nil {
+	if info, err := os.Stat(binaryPath); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0 {
 		framework.L.Info().Str("binary", binaryPath).Msg("Using precompiled cre-env binary")
 		cmd := exec.CommandContext(ctx, binaryPath, args...)
 		cmd.Dir = environmentDir
