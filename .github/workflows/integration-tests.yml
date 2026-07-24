@@ -11,6 +11,7 @@ on:
       - "*"
     branches:
       - develop
+      - push # DEBUG: Seed cache
   workflow_dispatch:
     inputs:
       cl_ref:

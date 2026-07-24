@@ -18,9 +18,10 @@ COPY plugins/scripts/setup_git_auth.sh ./plugins/scripts/
 # that depend on private Go modules (e.g. chainlink-internal-solana). When
 # empty (the default), go mod download uses the public module proxy as usual.
 ARG CL_GOPRIVATE=""
-ENV GOPRIVATE="${CL_GOPRIVATE}"
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=secret,id=GIT_AUTH_TOKEN \
+ENV GOPRIVATE="${CL_GOPRIVATE}" \
+    GOCACHE=/go-cache \
+    GOMODCACHE=/go/pkg/mod
+RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     set -e && \
     export GIT_CONFIG_GLOBAL=/tmp/gitconfig-go-mod-download && \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
@@ -55,9 +56,7 @@ COPY plugins/scripts/ ./plugins/scripts/
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
     GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=secret,id=GIT_AUTH_TOKEN \
+RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     set -e && \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     ./plugins/scripts/setup_git_auth.sh && \
@@ -76,9 +75,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 
 # Stage: Local plugins (needs source tree for ./plugins/cmd/...)
 FROM deps AS build-local-plugins
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    mkdir -p /gobins && \
+RUN mkdir -p /gobins && \
     GOBIN=/gobins make install-plugins-local
 
 # Stage: Chainlink binary (needs source tree)
@@ -87,9 +84,7 @@ ARG COMMIT_SHA
 ARG VERSION_TAG
 ARG CL_IS_PROD_BUILD=true
 
-RUN --mount=type=cache,target=/root/.cache/go-build \
-    --mount=type=cache,target=/go/pkg/mod \
-    mkdir -p /gobins && \
+RUN mkdir -p /gobins && \
     if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
           GOBIN=/gobins make install-chainlink-dev; \
       else \
