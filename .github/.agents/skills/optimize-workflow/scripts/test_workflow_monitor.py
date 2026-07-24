@@ -242,6 +242,32 @@ class TestWorkflowMonitor(unittest.TestCase):
         self.assertIn("## Longest Jobs (Bottlenecks)", report)
         self.assertIn("slow_job", report)
 
+    def test_generate_report_markdown_links(self):
+        run_data = {
+            "id": 12345,
+            "status": "completed",
+            "conclusion": "success",
+            "html_url": "https://github.com/owner/repo/actions/runs/12345",
+            "run_started_at": "2026-07-16T17:00:00Z",
+            "updated_at": "2026-07-16T17:10:00Z"
+        }
+        jobs = [
+            {
+                "name": "build",
+                "status": "completed",
+                "conclusion": "success",
+                "html_url": "https://github.com/owner/repo/actions/runs/12345/job/67890",
+                "started_at": "2026-07-16T17:00:00Z",
+                "completed_at": "2026-07-16T17:05:00Z"
+            }
+        ]
+        report = workflow_monitor.generate_report(run_data, jobs, {}, "/tmp/logs", "markdown")
+        self.assertIn("- **ID**: [12345](https://github.com/owner/repo/actions/runs/12345)", report)
+        self.assertIn("- **Status**: [completed](https://github.com/owner/repo/actions/runs/12345)", report)
+        self.assertIn("| [build](https://github.com/owner/repo/actions/runs/12345/job/67890) |", report)
+        self.assertIn("### Job: [build](https://github.com/owner/repo/actions/runs/12345/job/67890)", report)
+        self.assertIn("- **Status**: [completed](https://github.com/owner/repo/actions/runs/12345/job/67890)", report)
+
     @patch('workflow_monitor.parse_args')
     @patch('workflow_monitor.get_trials_dir')
     @patch('workflow_monitor.wait_for_run')

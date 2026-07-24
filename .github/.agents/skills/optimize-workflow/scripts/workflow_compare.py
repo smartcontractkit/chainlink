@@ -215,17 +215,71 @@ def matches_job_name(name1, name2):
     )
 
 
+def get_run_url(run_data):
+    if not run_data:
+        return None
+    if run_data.get("html_url"):
+        return run_data.get("html_url")
+    run_id = run_data.get("id")
+    if run_id:
+        return f"https://github.com/smartcontractkit/chainlink/actions/runs/{run_id}"
+    return None
+
+def get_job_url(job, run_url=None):
+    if not job:
+        return None
+    if job.get("html_url"):
+        return job.get("html_url")
+    job_id = job.get("id")
+    if job_id and run_url:
+        return f"{run_url}/job/{job_id}"
+    return None
+
+def get_overall_cost(data):
+    run = data.get("run", {})
+    if "total_cost" in run:
+        return run.get("total_cost") or "N/A"
+    jobs = data.get("jobs", [])
+    total_val = 0.0
+    has_cost = False
+    for j in jobs:
+        c_str = None
+        if "cost" in j:
+            c_str = j.get("cost")
+        elif "metrics" in j and isinstance(j["metrics"], dict) and "Cost" in j["metrics"]:
+            c_str = j["metrics"]["Cost"]
+        if c_str and c_str != "N/A":
+            try:
+                total_val += float(c_str.replace('$', '').strip())
+                has_cost = True
+            except ValueError:
+                pass
+    return f"${total_val:.4f}" if has_cost else "N/A"
+
+
 def generate_comparison(data1, data2):
     run1 = data1.get("run", {})
     run2 = data2.get("run", {})
     
+    run1_url = get_run_url(run1)
+    run2_url = get_run_url(run2)
+
     run_dur_diff, run_dur_pct = compare_durations(run1.get("runtime"), run2.get("runtime"))
+    cost1 = get_overall_cost(data1)
+    cost2 = get_overall_cost(data2)
+    run_cost_diff, run_cost_pct = compare_costs(cost1, cost2)
+
+    id1_str = f"[{run1.get('id')}]({run1_url})" if run1_url else f"`{run1.get('id')}`"
+    st1_str = f"[{run1.get('conclusion')}]({run1_url})" if run1_url else f"`{run1.get('conclusion')}`"
+    id2_str = f"[{run2.get('id')}]({run2_url})" if run2_url else f"`{run2.get('id')}`"
+    st2_str = f"[{run2.get('conclusion')}]({run2_url})" if run2_url else f"`{run2.get('conclusion')}`"
     
     lines = [
         "# Workflow Trial Comparison",
-        f"- **Base Run ID (Trial 1)**: `{run1.get('id')}` (Status: `{run1.get('conclusion')}`, Runtime: `{run1.get('runtime')}`)",
-        f"- **New Run ID (Trial 2)**: `{run2.get('id')}` (Status: `{run2.get('conclusion')}`, Runtime: `{run2.get('runtime')}`)",
+        f"- **Base Run ID (Trial 1)**: {id1_str} (Status: {st1_str}, Runtime: `{run1.get('runtime')}`, Cost: `{cost1}`)",
+        f"- **New Run ID (Trial 2)**: {id2_str} (Status: {st2_str}, Runtime: `{run2.get('runtime')}`, Cost: `{cost2}`)",
         f"- **Runtime Delta**: `{run_dur_diff}` ({run_dur_pct})",
+        f"- **Cost Delta**: `{run_cost_diff}` ({run_cost_pct})",
         "",
         "## Jobs Comparison"
     ]
@@ -272,9 +326,14 @@ def generate_comparison(data1, data2):
             m2 = j2.get("metrics", {})
             
             cost_diff, cost_pct = compare_costs(m1.get("Cost"), m2.get("Cost"))
+
+            j1_url = get_job_url(j1, run1_url)
+            j2_url = get_job_url(j2, run2_url)
+            j1_st = f"[{j1.get('conclusion')}]({j1_url})" if j1_url else f"`{j1.get('conclusion')}`"
+            j2_st = f"[{j2.get('conclusion')}]({j2_url})" if j2_url else f"`{j2.get('conclusion')}`"
             
             lines.append(f"\n### Job: {name}")
-            lines.append(f"- **Status**: `{j1.get('conclusion')}` -> `{j2.get('conclusion')}`")
+            lines.append(f"- **Status**: {j1_st} -> {j2_st}")
             lines.append(f"- **Runner**: `{j1.get('runner', {}).get('labels', 'None')}` -> `{j2.get('runner', {}).get('labels', 'None')}`")
             lines.append(f"- **Runner Name**: `{j1.get('runner', {}).get('name', 'Unknown')}` -> `{j2.get('runner', {}).get('name', 'Unknown')}`")
             lines.append("")

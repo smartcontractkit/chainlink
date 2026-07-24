@@ -48,7 +48,7 @@ class TestWorkflowCompare(unittest.TestCase):
 
     def test_generate_comparison(self):
         data1 = {
-            "run": {"id": 123, "runtime": "0:10:00", "status": "completed", "conclusion": "success"},
+            "run": {"id": 123, "runtime": "0:10:00", "status": "completed", "conclusion": "success", "total_cost": "$0.1000"},
             "logs_dir": "/tmp/logs1",
             "jobs": [
                 {
@@ -66,7 +66,7 @@ class TestWorkflowCompare(unittest.TestCase):
             ]
         }
         data2 = {
-            "run": {"id": 124, "runtime": "0:09:00", "status": "completed", "conclusion": "success"},
+            "run": {"id": 124, "runtime": "0:09:00", "status": "completed", "conclusion": "success", "total_cost": "$0.0800"},
             "logs_dir": "/tmp/logs2",
             "jobs": [
                 {
@@ -88,8 +88,75 @@ class TestWorkflowCompare(unittest.TestCase):
         self.assertIn("# Workflow Trial Comparison", report)
         self.assertIn("c6in.4xlarge", report)
         self.assertIn("c7i-flex.8xlarge", report)
-        self.assertIn("-0:00:40", report) # duration delta
-        self.assertIn("-$0.0200", report) # cost delta
+        self.assertIn("- **Runtime Delta**: `-0:01:00` (-10.0%)", report)
+        self.assertIn("- **Cost Delta**: `-$0.0200` (-20.0%)", report)
+        self.assertIn("Cost: `$0.1000`", report)
+        self.assertIn("Cost: `$0.0800`", report)
+
+    def test_generate_comparison_overall_cost_fallback_and_na(self):
+        # Fallback when total_cost is not in run dict but in job metrics
+        data1 = {
+            "run": {"id": 1, "runtime": "0:10:00", "status": "completed", "conclusion": "success"},
+            "jobs": [{"name": "j1", "duration": "0:05:00", "metrics": {"Cost": "$0.0500"}}]
+        }
+        data2 = {
+            "run": {"id": 2, "runtime": "0:10:00", "status": "completed", "conclusion": "success"},
+            "jobs": [{"name": "j1", "duration": "0:05:00", "metrics": {"Cost": "$0.0700"}}]
+        }
+        report = workflow_compare.generate_comparison(data1, data2)
+        self.assertIn("- **Cost Delta**: `+$0.0200` (+40.0%)", report)
+
+        # N/A when no cost data
+        data_no_cost = {
+            "run": {"id": 3, "runtime": "0:10:00", "status": "completed", "conclusion": "success"},
+            "jobs": [{"name": "j1", "duration": "0:05:00"}]
+        }
+        report_na = workflow_compare.generate_comparison(data1, data_no_cost)
+        self.assertIn("- **Cost Delta**: `N/A` (N/A)", report_na)
+
+    def test_generate_comparison_markdown_links(self):
+        data1 = {
+            "run": {
+                "id": 123,
+                "runtime": "0:10:00",
+                "status": "completed",
+                "conclusion": "success",
+                "html_url": "https://github.com/owner/repo/actions/runs/123"
+            },
+            "jobs": [
+                {
+                    "name": "build",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "html_url": "https://github.com/owner/repo/actions/runs/123/job/10",
+                    "duration": "0:05:00"
+                }
+            ]
+        }
+        data2 = {
+            "run": {
+                "id": 124,
+                "runtime": "0:09:00",
+                "status": "completed",
+                "conclusion": "success",
+                "html_url": "https://github.com/owner/repo/actions/runs/124"
+            },
+            "jobs": [
+                {
+                    "name": "build",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "html_url": "https://github.com/owner/repo/actions/runs/124/job/20",
+                    "duration": "0:04:00"
+                }
+            ]
+        }
+        report = workflow_compare.generate_comparison(data1, data2)
+        self.assertIn("- **Base Run ID (Trial 1)**: [123](https://github.com/owner/repo/actions/runs/123)", report)
+        self.assertIn("Status: [success](https://github.com/owner/repo/actions/runs/123)", report)
+        self.assertIn("- **New Run ID (Trial 2)**: [124](https://github.com/owner/repo/actions/runs/124)", report)
+        self.assertIn("Status: [success](https://github.com/owner/repo/actions/runs/124)", report)
+        self.assertIn("- **Status**: [success](https://github.com/owner/repo/actions/runs/123/job/10) -> [success](https://github.com/owner/repo/actions/runs/124/job/20)", report)
 
     def test_normalize_name(self):
         self.assertEqual(workflow_compare.normalize_name("build"), "build")
