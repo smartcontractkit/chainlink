@@ -15,7 +15,7 @@ jobs:
       actions: read
       security-events: read
       vulnerability-alerts: read
-    uses: smartcontractkit/.github/.github/workflows/reusable-dependabump.yml@0e6fc392912f6f19cb8b3607f6a7c4edc1d9bfec
+    uses: smartcontractkit/.github/.github/workflows/reusable-dependabump.yml@0.1.0
     secrets:
       SLACK_TOKEN: ${{ secrets.DEPENDABUMP_SLACK_API_KEY }}
       SLACK_CHANNEL_ID: ${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID }}
