@@ -67,7 +67,7 @@
       user_config_overrides = '''
 [Capabilities.Proxy]
 Enabled = true
-Command = '/usr/local/bin/main'
+Command = '/usr/local/bin/crecore'
 Port = 50051
 '''
 
@@ -101,7 +101,7 @@ Port = 50051
       user_config_overrides = '''
 [Capabilities.Proxy]
 Enabled = true
-Command = '/usr/local/bin/main'
+Command = '/usr/local/bin/crecore'
 Port = 50051
 '''
 

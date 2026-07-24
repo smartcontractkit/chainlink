@@ -72,7 +72,7 @@ var knownCapabilities = map[string]capBuildSpec{
 	"http-action":  {dir: "http_action", binary: "http_action"},
 	"http-trigger": {dir: "http_trigger", binary: "http_trigger"},
 	"evm":          {dir: "chain_capabilities/evm", binary: "evm"},
-	"main":         {dir: "main", binary: "main"},
+	"crecore":      {dir: "crecore", binary: "crecore"},
 }
 
 // allCapabilities is the default set built when "all" is requested.
