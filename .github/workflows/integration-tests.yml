@@ -11,6 +11,7 @@ on:
       - "*"
     branches:
       - develop
+      - fasterPluginsDocker # DEBUG: Seeding cache on push
   workflow_dispatch:
     inputs:
       cl_ref:
