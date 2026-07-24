@@ -562,6 +562,14 @@ jobs:
           no_cache: false
           gati_token: ${{ steps.github-token.outputs.access-token }}
 
+      - name: Restore Pre-Compiled CRE Test Binaries
+        if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+        uses: actions/cache/restore@v6
+        id: cache-cre-binaries
+        with:
+          path: system-tests/tests/bin/
+          key: test-binaries-cre-${{ hashFiles('system-tests/tests/go.sum', 'system-tests/tests/**/*.go', 'system-tests/lib/cre/**/*.go', 'core/scripts/cre/environment/**/*.go') }}
+
       # No cache-hit short-circuit: ctf-setup-go@v0.4.0 exposes no `cache-hit` output,
       # and this job's purpose is to (re)populate the shared build cache regardless.
       - name: Compile E2E tests
@@ -581,28 +589,32 @@ jobs:
           ccip_pid=""
 
           if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
-            (
-              set -euo pipefail
-              echo "Compiling CRE tests and CLI in parallel..."
-              cd "$GITHUB_WORKSPACE/system-tests/tests"
-              go mod download
-              go test -c -ldflags="-s -w" -o ./bin/cre-smoke.test ./smoke/cre &
-              p1=$!
-              go test -c -ldflags="-s -w" -o ./bin/cre-regression.test ./regression/cre &
-              p2=$!
-              (cd "$GITHUB_WORKSPACE/core/scripts/cre/environment" && go build -ldflags="-s -w" -o "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" .) &
-              p3=$!
-              set +e
-              wait "$p1"; p1_exit=$?
-              wait "$p2"; p2_exit=$?
-              wait "$p3"; p3_exit=$?
-              set -e
-              if [[ "$p1_exit" -ne 0 || "$p2_exit" -ne 0 || "$p3_exit" -ne 0 ]]; then
-                echo "Compilation failed (cre-smoke=$p1_exit, cre-regression=$p2_exit, cre-env=$p3_exit)" >&2
-                exit 1
-              fi
-            ) &
-            cre_pid=$!
+            if [[ ! -f "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-smoke.test" || ! -f "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-regression.test" || ! -f "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" ]]; then
+              (
+                set -euo pipefail
+                echo "Compiling CRE tests and CLI in parallel..."
+                cd "$GITHUB_WORKSPACE/system-tests/tests"
+                go mod download
+                go test -c -ldflags="-s -w" -o ./bin/cre-smoke.test ./smoke/cre &
+                p1=$!
+                go test -c -ldflags="-s -w" -o ./bin/cre-regression.test ./regression/cre &
+                p2=$!
+                (cd "$GITHUB_WORKSPACE/core/scripts/cre/environment" && go build -ldflags="-s -w" -o "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" .) &
+                p3=$!
+                set +e
+                wait "$p1"; p1_exit=$?
+                wait "$p2"; p2_exit=$?
+                wait "$p3"; p3_exit=$?
+                set -e
+                if [[ "$p1_exit" -ne 0 || "$p2_exit" -ne 0 || "$p3_exit" -ne 0 ]]; then
+                  echo "Compilation failed (cre-smoke=$p1_exit, cre-regression=$p2_exit, cre-env=$p3_exit)" >&2
+                  exit 1
+                fi
+              ) &
+              cre_pid=$!
+            else
+              echo "CRE test binaries already exist, skipping compilation..."
+            fi
           fi
 
           if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
@@ -619,6 +631,10 @@ jobs:
           if [ -n "$cre_pid" ]; then wait "$cre_pid"; fi
           if [ -n "$ccip_pid" ]; then wait "$ccip_pid"; fi
 
+          echo "Installing gotestsum..."
+          go install gotest.tools/gotestsum@v1.13.0
+          cp "$(go env GOPATH)/bin/gotestsum" "$GITHUB_WORKSPACE/system-tests/tests/bin/"
+
           rm -rf "$GITHUB_WORKSPACE/.gotmp"
 
       - name: Cache Pre-Compiled CRE Test Binaries
@@ -626,7 +642,14 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: system-tests/tests/bin/
-          key: test-binaries-cre-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+          key: test-binaries-cre-${{ hashFiles('system-tests/tests/go.sum', 'system-tests/tests/**/*.go', 'system-tests/lib/cre/**/*.go', 'core/scripts/cre/environment/**/*.go') }}
+
+      - name: Cache Pre-Compiled CRE Test Binaries (Warm Forks)
+        if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && github.ref_name == 'develop'
+        uses: actions/cache/save@v6
+        with:
+          path: system-tests/tests/bin/
+          key: test-binaries-cre-${{ hashFiles('system-tests/tests/go.sum', 'system-tests/tests/**/*.go', 'system-tests/lib/cre/**/*.go', 'core/scripts/cre/environment/**/*.go') }}-${{ github.sha }}
 
       - name: Cache Pre-Compiled CCIP Test Binaries
         if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'

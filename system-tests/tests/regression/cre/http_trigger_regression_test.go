@@ -181,7 +181,7 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 
 	// Retry logic to wait for workflow to be loaded, then expect auth failure
 	var authFailureDetected bool
-	tick := 5 * time.Second
+	tick := t_helpers.DefaultPollInterval
 	timeout := 3 * time.Minute
 
 	require.Eventually(t, func() bool {

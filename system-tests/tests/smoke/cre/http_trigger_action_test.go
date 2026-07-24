@@ -97,7 +97,7 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *ttypes.TestEnvironment, ga
 	var finalResponse jsonrpc.Response[json.RawMessage]
 	var triggerRequest jsonrpc.Request[json.RawMessage]
 
-	tick := 5 * time.Second
+	tick := t_helpers.DefaultPollInterval
 	require.Eventually(t, func() bool {
 		triggerRequest = createHTTPTriggerRequestWithKey(t, workflowName, workflowID, workflowOwnerAddress, singingKey)
 		triggerRequestBody, err := json.Marshal(triggerRequest)
@@ -161,7 +161,7 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *ttypes.TestEnvironment, ga
 
 // validateHTTPWorkflowRequest validates that the workflow made the expected HTTP request
 func validateHTTPWorkflowRequest(t *testing.T, testEnv *ttypes.TestEnvironment) {
-	tick := 5 * time.Second
+	tick := t_helpers.DefaultPollInterval
 	require.Eventually(t, func() bool {
 		records, err := fake.R.Get("POST", "/orders")
 		return err == nil && len(records) > 0

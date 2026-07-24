@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -47,10 +48,16 @@ const (
 	perTestEVMFundingAmountWei uint64 = 1_000_000_000_000_000_000 // 1 ETH
 )
 
+type preFundedKey struct {
+	addr common.Address
+	priv *ecdsa.PrivateKey
+}
+
 type sharedEnvironmentEntry struct {
 	once sync.Once
 	env  *ttypes.TestEnvironment
 	err  error
+	keyPool chan *preFundedKey
 }
 
 var (
@@ -89,10 +96,10 @@ func SetupTestEnvironmentWithPerTestKeys(t *testing.T, tconf *ttypes.TestConfig,
 func setupTestEnvironmentWithConfigMode(t *testing.T, tconf *ttypes.TestConfig, usePerTestKeys bool, flags ...string) *ttypes.TestEnvironment {
 	t.Helper()
 
-	sharedEnv := getOrCreateSharedEnvironment(t, tconf, flags...)
-	testEnv := cloneSharedEnvironmentForTest(sharedEnv, tconf)
+	entry := getOrCreateSharedEnvironmentEntry(t, tconf, flags...)
+	testEnv := cloneSharedEnvironmentForTest(entry.env, tconf)
 	if usePerTestKeys {
-		testEnv.Execution = configurePerTestExecutionContext(t, sharedEnv, testEnv)
+		testEnv.Execution = configurePerTestExecutionContext(t, entry, testEnv)
 	}
 
 	t.Cleanup(func() {
@@ -115,12 +122,19 @@ func setupTestEnvironmentWithConfigMode(t *testing.T, tconf *ttypes.TestConfig, 
 
 func getOrCreateSharedEnvironment(t *testing.T, tconf *ttypes.TestConfig, flags ...string) *ttypes.TestEnvironment {
 	t.Helper()
+	return getOrCreateSharedEnvironmentEntry(t, tconf, flags...).env
+}
+
+func getOrCreateSharedEnvironmentEntry(t *testing.T, tconf *ttypes.TestConfig, flags ...string) *sharedEnvironmentEntry {
+	t.Helper()
 
 	key := sharedEnvironmentKey(tconf, flags)
 	sharedEnvMu.Lock()
 	entry, ok := sharedEnvironments[key]
 	if !ok {
-		entry = &sharedEnvironmentEntry{}
+		entry = &sharedEnvironmentEntry{
+			keyPool: make(chan *preFundedKey, 24),
+		}
 		sharedEnvironments[key] = entry
 	}
 	sharedEnvMu.Unlock()
@@ -144,11 +158,40 @@ func getOrCreateSharedEnvironment(t *testing.T, tconf *ttypes.TestConfig, flags 
 			CreEnvironment: creEnvironment,
 			Dons:           dons,
 		}
+
+		numKeys := 24
+		var signers []common.Address
+		for i := 0; i < numKeys; i++ {
+			addr, priv, kerr := crecrypto.GenerateNewKeyPair()
+			require.NoError(t, kerr, "failed to generate key pair")
+			entry.keyPool <- &preFundedKey{addr: addr, priv: priv}
+			signers = append(signers, addr)
+		}
+
+		rootSignerNonceLock.Lock()
+		for _, bcOutput := range entry.env.CreEnvironment.Blockchains {
+			evmChain, ok := bcOutput.(*evm.Blockchain)
+			if !ok {
+				continue
+			}
+			for _, signer := range signers {
+				require.NoError(
+					t,
+					evmChain.Fund(t.Context(), signer.Hex(), perTestEVMFundingAmountWei),
+					"failed to fund pooled key %s on chain selector %d",
+					signer.Hex(),
+					evmChain.ChainSelector(),
+				)
+			}
+		}
+		rootSignerNonceLock.Unlock()
+
+		authorizePooledSigners(t, entry.env, signers)
 	})
 
 	require.NoError(t, entry.err, "failed to load environment")
 	require.NotNil(t, entry.env, "shared test environment was not initialized")
-	return entry.env
+	return entry
 }
 
 func sharedEnvironmentKey(tconf *ttypes.TestConfig, flags []string) string {
@@ -176,12 +219,18 @@ func cloneSharedEnvironmentForTest(sharedEnv *ttypes.TestEnvironment, tconf *tty
 
 // configurePerTestExecutionContext creates one funded, registry-authorized signer, swaps testEnv EVM blockchains
 // to per-test seth clients, and sets the CLDF deployer key (SetupTestEnvironmentWithPerTestKeys).
-func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnvironment, testEnv *ttypes.TestEnvironment) *ttypes.ExecutionContext {
+func configurePerTestExecutionContext(t *testing.T, entry *sharedEnvironmentEntry, testEnv *ttypes.TestEnvironment) *ttypes.ExecutionContext {
 	t.Helper()
 
-	ownerAddress, privateKey, addrErr := crecrypto.GenerateNewKeyPair()
-	require.NoError(t, addrErr, "failed to generate per-test key pair")
-	privateKeyHex := hex.EncodeToString(gethcrypto.FromECDSA(privateKey))
+	var key *preFundedKey
+	select {
+	case key = <-entry.keyPool:
+	default:
+		t.Fatal("key pool exhausted; increase preFundedKey pool size")
+	}
+
+	ownerAddress := key.addr
+	privateKeyHex := hex.EncodeToString(gethcrypto.FromECDSA(key.priv))
 
 	testID := deriveExecutionTestID(t)
 	execCtx := &ttypes.ExecutionContext{
@@ -191,7 +240,7 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 
 	registryChainSelector := testEnv.CreEnvironment.Blockchains[0].ChainSelector()
 	rootEVMChains := make(map[uint64]*evm.Blockchain)
-	for _, bcOutput := range sharedEnv.CreEnvironment.Blockchains {
+	for _, bcOutput := range entry.env.CreEnvironment.Blockchains {
 		evmChain, ok := bcOutput.(*evm.Blockchain)
 		if !ok {
 			continue
@@ -217,18 +266,8 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 			Build()
 		require.NoErrorf(t, clientErr, "failed to create per-test seth client for selector %d", evmChain.ChainSelector())
 
-		rootSignerNonceLock.Lock()
-		require.NoError(
-			t,
-			rootChain.Fund(t.Context(), ownerAddress.Hex(), perTestEVMFundingAmountWei),
-			"failed to fund per-test owner %s on chain selector %d",
-			ownerAddress.Hex(),
-			evmChain.ChainSelector(),
-		)
-		rootSignerNonceLock.Unlock()
-
 		testEnv.CreEnvironment.Blockchains[i] = evmChain.CloneWithSethClient(perTestClient)
-		deployerKey, txOptsErr := bind.NewKeyedTransactorWithChainID(privateKey, big.NewInt(perTestClient.ChainID))
+		deployerKey, txOptsErr := bind.NewKeyedTransactorWithChainID(key.priv, big.NewInt(perTestClient.ChainID))
 		require.NoErrorf(t, txOptsErr, "failed to create deployer key for chain selector %d", evmChain.ChainSelector())
 		deployerKey.Context = t.Context()
 		require.NoErrorf(
@@ -243,7 +282,6 @@ func configurePerTestExecutionContext(t *testing.T, sharedEnv *ttypes.TestEnviro
 		}
 	}
 
-	authorizePerTestWorkflowSignerIfNeeded(t, sharedEnv, ownerAddress)
 	return execCtx
 }
 
@@ -255,7 +293,7 @@ func deriveExecutionTestID(t *testing.T) string {
 	return fmt.Sprintf("%s-%d", base, time.Now().UnixNano()%100000)
 }
 
-func authorizePerTestWorkflowSignerIfNeeded(t *testing.T, sharedEnv *ttypes.TestEnvironment, signer common.Address) {
+func authorizePooledSigners(t *testing.T, sharedEnv *ttypes.TestEnvironment, signers []common.Address) {
 	t.Helper()
 
 	registryAddressRef := crecontracts.MustGetAddressRefFromDataStore(
@@ -275,17 +313,24 @@ func authorizePerTestWorkflowSignerIfNeeded(t *testing.T, sharedEnv *ttypes.Test
 	registry, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(registryAddressRef.Address), rootRegistryChain.SethClient.Client)
 	require.NoError(t, err, "failed to instantiate workflow registry v2 contract")
 
-	allowed, err := registry.IsAllowedSigner(rootRegistryChain.SethClient.NewCallOpts(), signer)
-	require.NoError(t, err, "failed to check signer allowlist status")
-	if allowed {
+	var unallowedSigners []common.Address
+	for _, signer := range signers {
+		allowed, err := registry.IsAllowedSigner(rootRegistryChain.SethClient.NewCallOpts(), signer)
+		require.NoError(t, err, "failed to check signer allowlist status")
+		if !allowed {
+			unallowedSigners = append(unallowedSigners, signer)
+		}
+	}
+
+	if len(unallowedSigners) == 0 {
 		return
 	}
 
 	rootSignerNonceLock.Lock()
 	defer rootSignerNonceLock.Unlock()
 
-	_, err = rootRegistryChain.SethClient.Decode(registry.UpdateAllowedSigners(rootRegistryChain.SethClient.NewTXOpts(), []common.Address{signer}, true))
-	require.NoError(t, err, "failed to authorize per-test signer")
+	_, err = rootRegistryChain.SethClient.Decode(registry.UpdateAllowedSigners(rootRegistryChain.SethClient.NewTXOpts(), unallowedSigners, true))
+	require.NoError(t, err, "failed to authorize per-test signers")
 }
 
 func GetDefaultTestConfig(t *testing.T) *ttypes.TestConfig {

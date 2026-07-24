@@ -185,7 +185,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: system-tests/tests/bin/
-          key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
+          key: test-binaries-cre-${{ hashFiles('system-tests/tests/go.sum', 'system-tests/tests/**/*.go', 'system-tests/lib/cre/**/*.go', 'core/scripts/cre/environment/**/*.go') }}
 
       # Required to pull Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) private images
       - name: Configure AWS Credentials
@@ -214,17 +214,13 @@ jobs:
         env:
           AWS_REGION: us-east-1
 
-      - name: Cache gotestsum
-        id: cache-gotestsum
-        uses: actions/cache@v6
-        with:
-          path: ~/go/bin/gotestsum
-          key: gotestsum-1.13.0
-
       - name: Set up gotestsum
         shell: bash
         run: |
-          if [ -f ~/go/bin/gotestsum ]; then
+          if [ -f "$GITHUB_WORKSPACE/system-tests/tests/bin/gotestsum" ]; then
+            echo "Using baked gotestsum from test binaries cache"
+            echo "$GITHUB_WORKSPACE/system-tests/tests/bin" >> $GITHUB_PATH
+          elif [ -f ~/go/bin/gotestsum ]; then
             echo "Using cached gotestsum"
           else
             echo "::group::Install gotestsum"

@@ -6,6 +6,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -55,28 +56,36 @@ func Start(
 	inputs []*blockchain.Input,
 	deployers map[blockchain.ChainFamily]Deployer,
 ) (*DeployedBlockchains, error) {
-	outputs := make([]Blockchain, 0, len(inputs))
+	outputs := make([]Blockchain, len(inputs))
+	g, gctx := errgroup.WithContext(ctx)
 
-	for _, input := range inputs {
-		chainFamily, chErr := blockchain.TypeToFamily(input.Type)
-		if chErr != nil {
-			return nil, chErr
-		}
-
-		deployer, ok := deployers[chainFamily]
-		if !ok {
-			if err := framework.PrintFailedContainerLogs(30); err != nil {
-				testLogger.Error().Err(err).Msg("failed to print failed Docker container logs")
+	for i, input := range inputs {
+		g.Go(func() error {
+			chainFamily, chErr := blockchain.TypeToFamily(input.Type)
+			if chErr != nil {
+				return chErr
 			}
-			return nil, fmt.Errorf("no deployer found for blockchain type %s", input.Type)
-		}
 
-		deployedBlockchain, deployErr := deployer.Deploy(ctx, input)
-		if deployErr != nil {
-			return nil, pkgerrors.Wrapf(deployErr, "failed to deploy blockchain of type %s", input.Type)
-		}
+			deployer, ok := deployers[chainFamily]
+			if !ok {
+				if err := framework.PrintFailedContainerLogs(30); err != nil {
+					testLogger.Error().Err(err).Msg("failed to print failed Docker container logs")
+				}
+				return fmt.Errorf("no deployer found for blockchain type %s", input.Type)
+			}
 
-		outputs = append(outputs, deployedBlockchain)
+			deployedBlockchain, deployErr := deployer.Deploy(gctx, input)
+			if deployErr != nil {
+				return pkgerrors.Wrapf(deployErr, "failed to deploy blockchain of type %s", input.Type)
+			}
+
+			outputs[i] = deployedBlockchain
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 
 	cldfBlockchains := make([]cldf_chain.BlockChain, 0, len(outputs))

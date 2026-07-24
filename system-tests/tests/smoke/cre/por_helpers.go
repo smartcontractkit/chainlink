@@ -511,7 +511,7 @@ func validatePoRPrices(t *testing.T, testEnv *ttypes.TestEnvironment, priceProvi
 
 			startTime := time.Now()
 			waitFor := 5 * time.Minute
-			tick := 5 * time.Second
+			tick := t_helpers.DefaultPollInterval
 
 			switch bcOutput.CtfOutput().Family {
 			case blockchain.FamilyTron:

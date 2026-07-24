@@ -201,6 +201,7 @@ func configureAdditionalWorkflowSigners(t *testing.T, sharedEnv *ttypes.TestEnvi
 	}
 
 	out := make([]ttypes.PerTestDeployKey, 0, numSigners)
+	var signers []common.Address
 	for keyIdx := range numSigners {
 		ownerAddress, privateKey, addrErr := crecrypto.GenerateNewKeyPair()
 		require.NoError(t, addrErr, "failed to generate workflow signer key pair")
@@ -235,12 +236,14 @@ func configureAdditionalWorkflowSigners(t *testing.T, sharedEnv *ttypes.TestEnvi
 		}
 
 		require.NotNil(t, registryClient, "failed to build registry chain seth client for signer %d", keyIdx)
-		authorizePerTestWorkflowSignerIfNeeded(t, sharedEnv, ownerAddress)
+		signers = append(signers, ownerAddress)
 		out = append(out, ttypes.PerTestDeployKey{
 			OwnerAddress:   ownerAddress,
 			RegistryClient: registryClient,
 		})
 	}
+
+	authorizePooledSigners(t, sharedEnv, signers)
 
 	return out
 }

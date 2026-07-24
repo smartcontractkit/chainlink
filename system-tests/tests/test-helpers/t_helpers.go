@@ -948,6 +948,11 @@ func ParallelEnabled() bool {
 // for its expected log.
 const StellarWorkflowTimeout = 4 * time.Minute
 
+// DefaultPollInterval is the standard tick for require.Eventually loops.
+// Lower than the historical 5s to reduce post-success latency; the loop's
+// timeout (not this tick) still bounds worst-case waits.
+const DefaultPollInterval = 2 * time.Second
+
 // stellarCronScheduleEnvVar overrides the cron schedule for Stellar test workflows.
 const stellarCronScheduleEnvVar = "CRE_STELLAR_CRON_SCHEDULE"
 

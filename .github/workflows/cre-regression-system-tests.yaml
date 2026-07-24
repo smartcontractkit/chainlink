@@ -156,7 +156,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: system-tests/tests/bin/
-          key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
+          key: test-binaries-cre-${{ hashFiles('system-tests/tests/go.sum', 'system-tests/tests/**/*.go', 'system-tests/lib/cre/**/*.go', 'core/scripts/cre/environment/**/*.go') }}
 
       # Required to pull private ECR images such as Job Distributor (main) and Chip Ingress (main),
       # and also the Chainlink image when inputs.ecr is "sdlc".
@@ -186,17 +186,13 @@ jobs:
         env:
           AWS_REGION: us-east-1
 
-      - name: Cache gotestsum
-        id: cache-gotestsum
-        uses: actions/cache@v6
-        with:
-          path: ~/go/bin/gotestsum
-          key: gotestsum-1.13.0
-
       - name: Set up gotestsum
         shell: bash
         run: |
-          if [ -f ~/go/bin/gotestsum ]; then
+          if [ -f "$GITHUB_WORKSPACE/system-tests/tests/bin/gotestsum" ]; then
+            echo "Using baked gotestsum from test binaries cache"
+            echo "$GITHUB_WORKSPACE/system-tests/tests/bin" >> $GITHUB_PATH
+          elif [ -f ~/go/bin/gotestsum ]; then
             echo "Using cached gotestsum"
           else
             echo "::group::Install gotestsum"
@@ -234,6 +230,7 @@ jobs:
           TEST_NAME: ${{ matrix.tests.test_name }}
           TEST_TIMEOUT: 7m # let's leave 3 minutes for other steps (the whole job times out after 10 minutes)
           CRE_TEST_PARALLEL_ENABLED: "true"
+          PARALLEL_COUNT: "10"
         run: |
           echo "Starting test: '${TEST_NAME}'"
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
@@ -247,7 +244,7 @@ jobs:
                 --junitfile=/tmp/junit-report-regression.xml \
                 --format=github-actions \
                 --raw-command -- \
-                go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre ../../bin/cre-regression.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1
+                go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre ../../bin/cre-regression.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL_COUNT}"
             )
           else
             echo "No precompiled binary found. Building from scratch..."
@@ -256,7 +253,7 @@ jobs:
               --junitfile=/tmp/junit-report-regression.xml \
               --format=github-actions \
               -- \
-              -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 \
+              -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel="${PARALLEL_COUNT}" \
               github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
           fi
 
