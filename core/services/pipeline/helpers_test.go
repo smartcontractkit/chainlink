@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn"
 )
 
 const (
@@ -45,7 +46,7 @@ func (t *BridgeTask) HelperSetDependencies(
 	t.specId = specId
 }
 
-func (t *BridgeTask) HelperSetBridgeConnManager(bridgeConnManager BridgeConnManager) {
+func (t *BridgeTask) HelperSetBridgeConnManager(bridgeConnManager bridgeconn.BridgeConnManager) {
 	t.bridgeConnManager = bridgeConnManager
 }
 

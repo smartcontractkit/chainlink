@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -291,9 +292,9 @@ func TestBridgeTask_UsesBridgeConnManagerHappyPath(t *testing.T) {
 		UseConnectionManager: true,
 	})
 
-	manager := pipeline.NewBridgeConnManager()
+	manager := bridgeconn.NewBridgeConnManager()
 	seedable, ok := manager.(interface {
-		PutObservation(bridge bridges.BridgeType, requestData pipeline.MapParam, observation []byte) error
+		SeedObservation(bridge bridges.BridgeType, requestData map[string]any, observation []byte) error
 		DisableEAConnDialingForTest()
 	})
 	require.True(t, ok)
@@ -301,7 +302,7 @@ func TestBridgeTask_UsesBridgeConnManagerHappyPath(t *testing.T) {
 	// bridge URL points at a plain httptest server, not a streams-adapter, so real
 	// EAConn dialing must be disabled to avoid flaky cross-protocol traffic.
 	seedable.DisableEAConnDialingForTest()
-	require.NoError(t, seedable.PutObservation(*bridge, pipeline.MapParam(utils.MustUnmarshalToMap(btcUSDPairing)), []byte(`{"data":{"result":"9700"}}`)))
+	require.NoError(t, seedable.SeedObservation(*bridge, utils.MustUnmarshalToMap(btcUSDPairing), []byte(`{"data":{"result":"9700"}}`)))
 
 	task := pipeline.BridgeTask{
 		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),

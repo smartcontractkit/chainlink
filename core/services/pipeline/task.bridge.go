@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 )
 
@@ -90,7 +91,7 @@ type BridgeTask struct {
 	config            Config
 	bridgeConfig      BridgeConfig
 	httpClient        *http.Client
-	bridgeConnManager BridgeConnManager
+	bridgeConnManager bridgeconn.BridgeConnManager
 
 	// requiredJSONPaths is populated in runner.InitializePipeline from strict
 	// downstream jsonparse tasks. When CheckRequired is true and cacheTTL is set,
@@ -176,9 +177,9 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	if bridge.UseConnectionManager {
 		bridgeConnManager := t.bridgeConnManager
 		if bridgeConnManager == nil {
-			bridgeConnManager = NewBridgeConnManager()
+			bridgeConnManager = bridgeconn.NewBridgeConnManager()
 		}
-		responseBytes, err := bridgeConnManager.GetObservation(bridge, lookupPayload)
+		responseBytes, err := bridgeConnManager.GetObservation(bridge, map[string]any(lookupPayload))
 		if err != nil {
 			lggr.Debugw("Bridge task: connection manager request failed",
 				"response", string(responseBytes),

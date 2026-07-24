@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn"
 )
 
 type Runner interface {
@@ -69,7 +70,7 @@ type runner struct {
 	lggr                   logger.Logger
 	httpClient             *http.Client
 	unrestrictedHTTPClient *http.Client
-	bridgeConnManager      BridgeConnManager
+	bridgeConnManager      bridgeconn.BridgeConnManager
 
 	// test helper
 	runFinished func(*Run)
@@ -135,7 +136,7 @@ func NewRunner(
 		lggr:                   lggr,
 		httpClient:             httpClient,
 		unrestrictedHTTPClient: unrestrictedHTTPClient,
-		bridgeConnManager:      NewBridgeConnManager(lggr),
+		bridgeConnManager:      bridgeconn.NewBridgeConnManager(lggr),
 	}
 
 	r.runReaperWorker = commonutils.NewSleeperTask(

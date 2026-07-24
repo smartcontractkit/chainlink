@@ -4,7 +4,7 @@ package streams.v1;
 
 import "google/protobuf/struct.proto";
 
-option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/streamspb";
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn/streamspb";
 
 service StreamService {
   // Each client request replaces the complete subscription set.

@@ -1,4 +1,4 @@
-package pipeline
+package bridgeconn
 
 import (
 	"context"
@@ -17,8 +17,7 @@ import (
 )
 
 type BridgeConnManager interface {
-	GetObservation(bridge bridges.BridgeType, requestData MapParam) ([]byte, error)
-	PutObservation(key [32]byte, observation []byte)
+	GetObservation(bridge bridges.BridgeType, requestData map[string]any) ([]byte, error)
 }
 
 var (
@@ -61,7 +60,7 @@ func NewBridgeConnManager(lggr ...logger.Logger) BridgeConnManager {
 	return m
 }
 
-func (m *bridgeConnManager) GetObservation(bridge bridges.BridgeType, requestData MapParam) ([]byte, error) {
+func (m *bridgeConnManager) GetObservation(bridge bridges.BridgeType, requestData map[string]any) ([]byte, error) {
 	bridgeName := strings.TrimPrefix(bridge.Name.String(), "bridge-")
 	data, err := subscriptionData(requestData)
 	if err != nil {
@@ -89,14 +88,29 @@ func (m *bridgeConnManager) GetObservation(bridge bridges.BridgeType, requestDat
 	return payload, nil
 }
 
-// putObservation is called by an EAConn's receiver loop when it accepts a
-// streamed observation for a currently registered asset.
+// PutObservation stores observation bytes under the given payload hash key.
+// It is used by EAConn receiver loops and white-box tests in this package.
 func (m *bridgeConnManager) PutObservation(key [32]byte, observation []byte) {
 	payload := make([]byte, len(observation))
 	copy(payload, observation)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.cache[key] = payload
+}
+
+// SeedObservation computes the bridge observation key from request data and
+// stores a cache entry. This is intended for tests.
+func (m *bridgeConnManager) SeedObservation(bridge bridges.BridgeType, requestData map[string]any, observation []byte) error {
+	data, err := subscriptionData(requestData)
+	if err != nil {
+		return err
+	}
+	key, err := bridgeObservationCacheKey(strings.TrimPrefix(bridge.Name.String(), "bridge-"), data)
+	if err != nil {
+		return err
+	}
+	m.PutObservation(key, observation)
+	return nil
 }
 
 // getOrCreateConn returns the bridge's persistent EAConn, lazily creating and
@@ -130,9 +144,9 @@ func (m *bridgeConnManager) DisableEAConnDialingForTest() {
 }
 
 // subscriptionData extracts the inner "data" object from a bridge task's request
-// payload — the only part sent as Subscription.Data and the only part the adapter
+// payload: the only part sent as Subscription.Data and the only part the adapter
 // hashes (see ObservationPayloadHash on the streams-adapter side).
-func subscriptionData(requestData MapParam) (map[string]any, error) {
+func subscriptionData(requestData map[string]any) (map[string]any, error) {
 	data, ok := requestData["data"].(map[string]any)
 	if !ok || len(data) == 0 {
 		return nil, fmt.Errorf("request data is missing a non-empty \"data\" field required for subscription")

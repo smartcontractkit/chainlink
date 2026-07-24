@@ -1,4 +1,4 @@
-package pipeline
+package bridgeconn
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/streamspb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn/streamspb"
 )
 
 // grpcStreamClient adapts streamspb's generated Subscribe stream to eaStreamClient.

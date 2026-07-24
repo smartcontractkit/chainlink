@@ -1,4 +1,4 @@
-package pipeline
+package bridgeconn
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/streamspb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn/streamspb"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -181,7 +181,7 @@ func TestBridgeConnManager_GetObservation_CacheHitAndMiss(t *testing.T) {
 	t.Parallel()
 	m := newTestManager()
 	bridge := testBridge(t, "cachebridge")
-	requestData := MapParam{"data": map[string]any{"endpoint": "crypto"}}
+	requestData := map[string]any{"data": map[string]any{"endpoint": "crypto"}}
 
 	_, err := m.GetObservation(bridge, requestData)
 	require.ErrorIs(t, err, ErrBridgeObservationNotFound)
@@ -204,14 +204,15 @@ func TestBridgeConnManager_GetObservation_CacheHitAndMiss(t *testing.T) {
 	conn.mu.Unlock()
 	assert.True(t, registered)
 }
+
 func TestBridgeConnManager_GetObservation_MissingDataField(t *testing.T) {
 	t.Parallel()
 	m := newTestManager()
 	bridge := testBridge(t, "nodatabridge")
 
-	_, err := m.GetObservation(bridge, MapParam{"foo": "bar"})
+	_, err := m.GetObservation(bridge, map[string]any{"foo": "bar"})
 	assert.Error(t, err, "requestData without a \"data\" field must be rejected, not silently subscribed")
 
-	_, err = m.GetObservation(bridge, MapParam{"data": map[string]any{}})
+	_, err = m.GetObservation(bridge, map[string]any{"data": map[string]any{}})
 	assert.Error(t, err, "an empty \"data\" field must be rejected")
 }
