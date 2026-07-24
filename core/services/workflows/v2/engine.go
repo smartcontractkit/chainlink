@@ -1254,7 +1254,16 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 				}
 			}
 		case logLine, ok := <-userLogChan:
-			if !ok || !processLogLine(ctx, logLine) {
+			if !ok {
+				return
+			}
+			// The execution context is cancelled the moment the execution completes,
+			// but this goroutine outlives it and may still have buffered log lines.
+			// Emit on a context detached from the execution lifecycle.
+			emitCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), emitUserLogsTimeout)
+			ok = processLogLine(emitCtx, logLine)
+			cancel()
+			if !ok {
 				return
 			}
 		}
