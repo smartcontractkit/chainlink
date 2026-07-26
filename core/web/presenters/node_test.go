@@ -12,6 +12,7 @@ import (
 )
 
 func TestNodeResource(t *testing.T) {
+	t.Parallel()
 	var nodeResource NodeResource
 	state := "test"
 	cfg := "cfg"

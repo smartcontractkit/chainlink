@@ -145,7 +145,7 @@ func TestStore_DistributionAcrossShards(t *testing.T) {
 	// Generate many workflows and check distribution
 	totalWorkflows := 100
 	distribution := make(map[uint32]int)
-	for i := 0; i < totalWorkflows; i++ {
+	for i := range totalWorkflows {
 		wfID := "workflow-" + string(rune(i))
 		shard, err := store.GetShardForWorkflow(ctx, wfID)
 		require.NoError(t, err)
@@ -226,7 +226,7 @@ func TestStore_GetShardForWorkflow_ContextCancelledDuringSend(t *testing.T) {
 	})
 
 	// Fill up the allocRequests channel
-	for i := 0; i < AllocationRequestChannelCapacity; i++ {
+	for range AllocationRequestChannelCapacity {
 		store.allocRequests <- AllocationRequest{WorkflowID: "filler"}
 	}
 

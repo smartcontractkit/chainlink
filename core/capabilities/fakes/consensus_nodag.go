@@ -64,8 +64,11 @@ func (fc *fakeConsensusNoDAG) close() error {
 	return nil
 }
 
-// NOTE: This fake capability currently bounces back the request payload, ignoring everything else.
-// When the real NoDAG consensus OCR plugin is ready, it should be used here, similarly to how the V1 fake works.
+// Simple bounces back the observation value, reshaping frequency_list fields
+// to their correct output type. The simulator runs a single node, so there is
+// exactly one observation: frequency_list turns a single value T into
+// [{value: T, count: 1}]. All other aggregation types have matching input and
+// output types, so the raw value is returned unchanged.
 func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.RequestMetadata, input *sdkpb.SimpleConsensusInputs) (*capabilities.ResponseAndMetadata[*valuespb.Value], caperrors.Error) {
 	fc.eng.Infow("Executing Fake Consensus NoDAG: Simple()", "input", input, "metadata", metadata)
 
@@ -74,8 +77,9 @@ func (fc *fakeConsensusNoDAG) Simple(ctx context.Context, metadata capabilities.
 		if obs.Value == nil {
 			return nil, caperrors.NewPublicUserError(errors.New("input value cannot be nil"), caperrors.InvalidArgument)
 		}
+		response := applyFrequencyListShape(obs.Value, input.Descriptors)
 		responseAndMetadata := capabilities.ResponseAndMetadata[*valuespb.Value]{
-			Response:         obs.Value,
+			Response:         response,
 			ResponseMetadata: capabilities.ResponseMetadata{},
 		}
 		return &responseAndMetadata, nil

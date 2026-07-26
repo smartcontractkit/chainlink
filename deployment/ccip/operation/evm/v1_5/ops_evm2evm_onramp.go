@@ -52,7 +52,6 @@ func batchFetchTokenConfigs[T any](
 	grp, grpCtx := errgroup.WithContext(ctx)
 	grp.SetLimit(concurrency)
 	for _, token := range tokens {
-		token := token
 		grp.Go(func() error {
 			cfg, err := fetchFn(grpCtx, token)
 			if err != nil {

@@ -10,6 +10,7 @@ import (
 	http_actions_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_action"
 	http_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_trigger"
 	solana_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana/v2"
+	stellar_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	vault_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 )
 
@@ -23,6 +24,7 @@ func New() cre.Features {
 		&http_trigger_feature.HTTPTrigger{},
 		&aptos_feature.Aptos{},
 		&solana_feature.Solana{},
+		&stellar_feature.Stellar{},
 		&vault_feature.Vault{},
 	)
 }

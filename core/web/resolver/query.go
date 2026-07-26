@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"sort"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,12 +12,11 @@ import (
 	"github.com/pkg/errors"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -64,7 +64,17 @@ func (r *Resolver) Bridges(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewBridgesPayload(brdgs, int32(count)), nil
+	return NewBridgesPayload(brdgs, safeInt32(count)), nil
+}
+
+func safeInt32(n int) int32 {
+	if n > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if n < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(n)
 }
 
 // Chain retrieves a chain by id.
@@ -145,7 +155,7 @@ func (r *Resolver) Chains(ctx context.Context, args struct {
 	}
 
 	sortByNetworkAndID(chains)
-	return NewChainsPayload(chains[offset:end], int32(count)), nil
+	return NewChainsPayload(chains[offset:end], safeInt32(count)), nil
 }
 
 func sortByNetworkAndID(chains []chainlink.NetworkChainStatus) {
@@ -238,7 +248,7 @@ func (r *Resolver) Jobs(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewJobsPayload(r.App, jobs, int32(count)), nil
+	return NewJobsPayload(r.App, jobs, safeInt32(count)), nil
 }
 
 func (r *Resolver) OCRKeyBundles(ctx context.Context) (*OCRKeyBundlesPayloadResolver, error) {
@@ -395,7 +405,7 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 		r.App.GetLogger().Errorw("Error creating get nodes status from app", "err", err)
 		return nil, err
 	}
-	npr, warn := NewNodesPayload(allNodes, int32(total))
+	npr, warn := NewNodesPayload(allNodes, safeInt32(total))
 	if warn != nil {
 		r.App.GetLogger().Warnw("Error creating NodesPayloadResolver", "err", warn)
 	}
@@ -418,7 +428,7 @@ func (r *Resolver) JobRuns(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewJobRunsPayload(runs, int32(count), r.App), nil
+	return NewJobRunsPayload(runs, safeInt32(count), r.App), nil
 }
 
 func (r *Resolver) JobRun(ctx context.Context, args struct {
@@ -470,7 +480,7 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 			return nil, err
 		}
 
-		chainService, err := r.App.GetRelayers().LegacyEVMChains().Get(state.EVMChainID.String())
+		chainService, err := r.App.GetRelayers().LegacyEVMChains().Get(state.EVMChainID.String()) //nolint:staticcheck // LegacyEVMChains is deprecated but refactoring to new relayer interface requires larger architectural changes
 		// Don't include keys without valid chain.
 		// OperatorUI fails to show keys where chains are not in the config.
 		if err == nil {
@@ -539,7 +549,7 @@ func (r *Resolver) EthTransactions(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewEthTransactionsPayload(txs, int32(count)), nil
+	return NewEthTransactionsPayload(txs, safeInt32(count)), nil
 }
 
 func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
@@ -558,7 +568,7 @@ func (r *Resolver) EthTransactionsAttempts(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	return NewEthTransactionsAttemptsPayload(attempts, int32(count)), nil
+	return NewEthTransactionsAttemptsPayload(attempts, safeInt32(count)), nil
 }
 
 func (r *Resolver) GlobalLogLevel(ctx context.Context) (*GlobalLogLevelPayloadResolver, error) {

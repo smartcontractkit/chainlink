@@ -32,7 +32,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 	t.Run("with no p2p keys returns error", func(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.P2P.V2.Enabled = ptr(true)
+			c.P2P.V2.Enabled = new(true)
 		})
 		keyStore := cltest.NewKeyStore(t, db)
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), db, logger.TestLogger(t))
@@ -46,9 +46,9 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		require.NoError(t, err)
 
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.P2P.V2.Enabled = ptr(true)
+			c.P2P.V2.Enabled = new(true)
 			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
-			c.P2P.PeerID = ptr(k.PeerID())
+			c.P2P.PeerID = new(k.PeerID())
 		})
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), db, logger.TestLogger(t))
 
@@ -59,8 +59,8 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Run("with one p2p key and mismatching P2P.PeerID returns error", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.P2P.V2.Enabled = ptr(true)
-			c.P2P.PeerID = ptr(p2pkey.PeerID(peerID))
+			c.P2P.V2.Enabled = new(true)
+			c.P2P.PeerID = new(p2pkey.PeerID(peerID))
 		})
 		keyStore := cltest.NewKeyStore(t, db)
 
@@ -79,9 +79,9 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		require.NoError(t, err)
 
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.P2P.V2.Enabled = ptr(true)
+			c.P2P.V2.Enabled = new(true)
 			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
-			c.P2P.PeerID = ptr(k2.PeerID())
+			c.P2P.PeerID = new(k2.PeerID())
 		})
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), db, logger.TestLogger(t))
@@ -93,9 +93,9 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 	t.Run("with multiple p2p keys and mismatching P2P.PeerID returns error", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-			c.P2P.V2.Enabled = ptr(true)
+			c.P2P.V2.Enabled = new(true)
 			c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
-			c.P2P.PeerID = ptr(p2pkey.PeerID(peerID))
+			c.P2P.PeerID = new(p2pkey.PeerID(peerID))
 		})
 		keyStore := cltest.NewKeyStore(t, db)
 
@@ -119,16 +119,16 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.P2P.V2.Enabled = ptr(true)
-		c.P2P.PeerID = ptr(k.PeerID())
+		c.P2P.V2.Enabled = new(true)
+		c.P2P.PeerID = new(k.PeerID())
 		c.P2P.V2.DeltaDial = commonconfig.MustNewDuration(100 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = commonconfig.MustNewDuration(1 * time.Second)
 
 		p2paddresses := []string{
 			fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t)),
 		}
-		c.P2P.V2.ListenAddresses = ptr(p2paddresses)
-		c.P2P.V2.AnnounceAddresses = ptr(p2paddresses)
+		c.P2P.V2.ListenAddresses = new(p2paddresses)
+		c.P2P.V2.AnnounceAddresses = new(p2paddresses)
 	})
 
 	pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), db, logger.TestLogger(t))
@@ -144,5 +144,3 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 	require.True(t, pw.IsStarted(), "Should have started successfully")
 	require.NoError(t, pw.Close())
 }
-
-func ptr[T any](t T) *T { return &t }

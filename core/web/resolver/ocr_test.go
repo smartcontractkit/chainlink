@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
@@ -29,8 +30,8 @@ func TestResolver_GetOCRKeyBundles(t *testing.T) {
 		}
 	`
 
-	fakeKeys := []ocrkey.KeyV2{}
-	expectedBundles := []map[string]string{}
+	fakeKeys := make([]ocrkey.KeyV2, 0, 2)
+	expectedBundles := make([]map[string]string, 0, 2)
 	for range 2 {
 		k := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 		fakeKeys = append(fakeKeys, k)

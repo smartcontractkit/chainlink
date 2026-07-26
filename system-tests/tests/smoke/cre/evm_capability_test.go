@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"strings"
 	"testing"
 	"time"
 
@@ -17,13 +16,14 @@ import (
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/contracts"
+
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
 	evm_logTrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/contracts"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 
@@ -71,18 +71,7 @@ func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, t
 			// while still reusing the shared environment cache (sync.Once) for admin sessions.
 			perCaseEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
 			enabledChains := t_helpers.GetEVMEnabledChains(t, perCaseEnv)
-
-			userLogsCh := makeSinkCh[*workflowevents.UserLogs]()
-			baseMessageCh := makeSinkCh[*commonevents.BaseMessage]()
-
-			// `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
-			server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, evmReadLogFilePath(t, perCaseEnv)))
-			t.Cleanup(func() {
-				// can't use t.Context() here because it will have been cancelled before the cleanup function is called
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
-			})
+			t_helpers.StartLoggingOnlyChipTestSink(t, evmReadLogFilePath(t, perCaseEnv))
 
 			for _, bcOutput := range perCaseEnv.CreEnvironment.Blockchains {
 				chainID := bcOutput.CtfOutput().ChainID
@@ -117,44 +106,12 @@ func evmReadLogFilePath(t *testing.T, testEnv *ttypes.TestEnvironment) string {
 		suffix = testEnv.Execution.TestID
 	}
 
-	safeSuffix := sanitizeLogToken(suffix)
+	safeSuffix := t_helpers.SanitizeLogToken(suffix)
 	if safeSuffix == "" {
 		safeSuffix = "default"
 	}
 
 	return fmt.Sprintf("./logs/evm_read_workflow_%s.log", safeSuffix)
-}
-
-func sanitizeLogToken(input string) string {
-	var b strings.Builder
-	b.Grow(len(input))
-	for _, r := range input {
-		switch {
-		case r >= 'a' && r <= 'z':
-			b.WriteRune(r)
-		case r >= 'A' && r <= 'Z':
-			b.WriteRune(r)
-		case r >= '0' && r <= '9':
-			b.WriteRune(r)
-		case r == '-' || r == '_' || r == '.':
-			b.WriteRune(r)
-		default:
-			b.WriteRune('_')
-		}
-	}
-
-	return b.String()
-}
-
-func makeSinkCh[T any]() chan T {
-	c := make(chan T, 1)
-	go func() {
-		//nolint:revive //drain the channel to prevent blocking. Content is processed elsewhere.
-		for range c {
-		}
-	}()
-
-	return c
 }
 
 func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *evm.Blockchain, testCase evm_config.TestCase, workflowName string) evm_config.Config {

@@ -39,7 +39,7 @@ func (r *CreateAPITokenPayloadResolver) ToCreateAPITokenSuccess() (*CreateAPITok
 
 func (r *CreateAPITokenPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
 	if r.inputErrs != nil {
-		var errs []*InputErrorResolver
+		errs := make([]*InputErrorResolver, 0, len(r.inputErrs))
 
 		for path, message := range r.inputErrs {
 			errs = append(errs, NewInputError(path, message))
@@ -84,7 +84,7 @@ func (r *DeleteAPITokenPayloadResolver) ToDeleteAPITokenSuccess() (*DeleteAPITok
 
 func (r *DeleteAPITokenPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
 	if r.inputErrs != nil {
-		var errs []*InputErrorResolver
+		errs := make([]*InputErrorResolver, 0, len(r.inputErrs))
 
 		for path, message := range r.inputErrs {
 			errs = append(errs, NewInputError(path, message))

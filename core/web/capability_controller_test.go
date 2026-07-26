@@ -16,31 +16,33 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	capmock "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	capmock "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	appmocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
 func TestCapabilityController_ExecuteCapability_MissingBody(t *testing.T) {
+	t.Parallel()
 	mockApp := appmocks.NewApplication(t)
 
 	controller := web.CapabilityController{App: mockApp}
 
-	var err error
-	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request, err = http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", nil)
-	require.NoError(t, err)
-	c.Request.Header.Set("Content-Type", "application/json")
+	engine := gin.New()
+	engine.POST("/v2/capabilities/execute", controller.ExecuteCapability)
 
-	controller.ExecuteCapability(c)
+	req, err := http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", nil)
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	engine.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
 func TestCapabilityController_ExecuteCapability_RegistryNotInitialized(t *testing.T) {
+	t.Parallel()
 	mockApp := appmocks.NewApplication(t)
 	requestBody := web.CapabilityRequestOuter{
 		CapabilityName:    "test-capability",
@@ -50,40 +52,42 @@ func TestCapabilityController_ExecuteCapability_RegistryNotInitialized(t *testin
 
 	controller := web.CapabilityController{App: mockApp}
 
-	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
+	engine := gin.New()
+	engine.POST("/v2/capabilities/execute", controller.ExecuteCapability)
+
 	reqJSON, err := json.Marshal(requestBody)
 	require.NoError(t, err)
-	c.Request, err = http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
+	req, err := http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
 	require.NoError(t, err)
-	c.Request.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 
-	controller.ExecuteCapability(c)
+	engine.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestCapabilityController_ExecuteCapability_MissingRequiredFields(t *testing.T) {
+	t.Parallel()
 	mockApp := appmocks.NewApplication(t)
 	mockApp.EXPECT().GetCapabilitiesRegistry().Return(nil)
 
 	controller := web.CapabilityController{App: mockApp}
 
-	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
+	engine := gin.New()
+	engine.POST("/v2/capabilities/execute", controller.ExecuteCapability)
 
 	invalidRequest := `{"capabilityName": ""}` // missing capabilityRequest
-	var err error
-	c.Request, err = http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBufferString(invalidRequest))
+	req, err := http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBufferString(invalidRequest))
 	require.NoError(t, err)
-	c.Request.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 
-	controller.ExecuteCapability(c)
+	engine.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func TestCapabilityController_ExecuteCapability(t *testing.T) {
+	t.Parallel()
 	mockApp := appmocks.NewApplication(t)
 	mockRegistry := registrymock.NewCapabilitiesRegistry(t)
 	mockApp.EXPECT().GetCapabilitiesRegistry().Return(&capabilities.Registry{
@@ -101,10 +105,6 @@ func TestCapabilityController_ExecuteCapability(t *testing.T) {
 	executableCap.EXPECT().Execute(mock.Anything, mock.AnythingOfType("capabilities.CapabilityRequest")).Return(expectedResponse, nil)
 
 	controller := web.CapabilityController{App: mockApp}
-
-	gin.SetMode(gin.TestMode)
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
 
 	inputsMap, err := values.NewMap(map[string]any{
 		"test": "input",
@@ -134,11 +134,15 @@ func TestCapabilityController_ExecuteCapability(t *testing.T) {
 	reqJSON, err := json.Marshal(requestBody)
 	require.NoError(t, err)
 
-	c.Request, err = http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
-	require.NoError(t, err)
-	c.Request.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	engine := gin.New()
+	engine.POST("/v2/capabilities/execute", controller.ExecuteCapability)
 
-	controller.ExecuteCapability(c)
+	req, err := http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	engine.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
 
 	var response map[string]any

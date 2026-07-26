@@ -16,6 +16,17 @@ var _ config.Telemetry = (*telemetryConfig)(nil)
 
 const defaultHeartbeatInterval = 1 * time.Second
 
+// Defaults for the durable emitter tuning knobs (mirrored in docs/core.toml).
+const (
+	defaultDurableEmitterRetransmitBatchSize = 500
+	defaultDurableEmitterEventTTL            = 1 * time.Hour
+)
+
+// defaultDurableEmitterMaxQueuePayloadBytes is the denominator used for the
+// durable_emitter.queue.capacity_usage_ratio gauge when the operator does not
+// override it via TOML. 1 GiB gives capacity tracking a sane default ceiling.
+const defaultDurableEmitterMaxQueuePayloadBytes int64 = 1 << 30
+
 type telemetryConfig struct {
 	s toml.Telemetry
 }
@@ -107,11 +118,81 @@ func (b *telemetryConfig) ChipIngressBatchEmitterEnabled() bool {
 	return *b.s.ChipIngressBatchEmitterEnabled
 }
 
+func (b *telemetryConfig) ChipIngressBufferSize() uint {
+	if b.s.ChipIngressBufferSize == nil {
+		return 0
+	}
+	return *b.s.ChipIngressBufferSize
+}
+
+func (b *telemetryConfig) ChipIngressMaxBatchSize() uint {
+	if b.s.ChipIngressMaxBatchSize == nil {
+		return 0
+	}
+	return *b.s.ChipIngressMaxBatchSize
+}
+
+func (b *telemetryConfig) ChipIngressMaxConcurrentSends() int {
+	if b.s.ChipIngressMaxConcurrentSends == nil {
+		return 0
+	}
+	return *b.s.ChipIngressMaxConcurrentSends
+}
+
+func (b *telemetryConfig) ChipIngressSendInterval() time.Duration {
+	if b.s.ChipIngressSendInterval == nil {
+		return 0
+	}
+	return b.s.ChipIngressSendInterval.Duration()
+}
+
+func (b *telemetryConfig) ChipIngressSendTimeout() time.Duration {
+	if b.s.ChipIngressSendTimeout == nil {
+		return 0
+	}
+	return b.s.ChipIngressSendTimeout.Duration()
+}
+
+func (b *telemetryConfig) ChipIngressDrainTimeout() time.Duration {
+	if b.s.ChipIngressDrainTimeout == nil {
+		return 0
+	}
+	return b.s.ChipIngressDrainTimeout.Duration()
+}
+
+func (b *telemetryConfig) ChipIngressMaxGRPCRequestSize() int {
+	if b.s.ChipIngressMaxGRPCRequestSize == nil {
+		return 0
+	}
+	return *b.s.ChipIngressMaxGRPCRequestSize
+}
+
 func (b *telemetryConfig) DurableEmitterEnabled() bool {
 	if b.s.DurableEmitterEnabled == nil {
-		return false
+		return true
 	}
 	return *b.s.DurableEmitterEnabled
+}
+
+func (b *telemetryConfig) DurableEmitterRetransmitBatchSize() int {
+	if b.s.DurableEmitterRetransmitBatchSize == nil {
+		return defaultDurableEmitterRetransmitBatchSize
+	}
+	return *b.s.DurableEmitterRetransmitBatchSize
+}
+
+func (b *telemetryConfig) DurableEmitterEventTTL() time.Duration {
+	if b.s.DurableEmitterEventTTL == nil || b.s.DurableEmitterEventTTL.Duration() <= 0 {
+		return defaultDurableEmitterEventTTL
+	}
+	return b.s.DurableEmitterEventTTL.Duration()
+}
+
+func (b *telemetryConfig) DurableEmitterMaxQueuePayloadBytes() int64 {
+	if b.s.DurableEmitterMaxQueuePayloadBytes == nil {
+		return defaultDurableEmitterMaxQueuePayloadBytes
+	}
+	return *b.s.DurableEmitterMaxQueuePayloadBytes
 }
 
 func (b *telemetryConfig) HeartbeatInterval() time.Duration {
@@ -180,6 +261,10 @@ func (b *telemetryConfig) LogMaxQueueSize() int {
 		return 2048
 	}
 	return *b.s.LogMaxQueueSize
+}
+
+func (b *telemetryConfig) MetricCardinalityLimit() int {
+	return *b.s.MetricCardinalityLimit
 }
 
 func (b *telemetryConfig) PrometheusBridge() config.PrometheusBridge {

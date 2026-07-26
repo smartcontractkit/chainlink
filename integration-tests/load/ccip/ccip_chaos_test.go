@@ -20,8 +20,6 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
-func Ptr[T any](value T) *T { return &value }
-
 func a(ns, text string, dashboardUIDs []string, from, to *time.Time) framework.Annotation {
 	a := framework.Annotation{
 		Text:         fmt.Sprintf("Namespace: %s, Test: %s", ns, text),
@@ -135,7 +133,7 @@ func runFullChaosSuite(t *testing.T) {
 					t.Error("Failed to set block head on geth", err)
 				}
 				time.Sleep(chaosCfg.GetExperimentInterval())
-				_, _, err = gc.Annotate(a(chaosCfg.Namespace, tcName, chaosCfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
+				_, _, err = gc.Annotate(a(chaosCfg.Namespace, tcName, chaosCfg.DashboardUIDs, new(n), new(time.Now())))
 				if err != nil {
 					t.Error("Failed to annotate grafana with chaos labels", err)
 				}
@@ -409,7 +407,7 @@ func runFullChaosSuite(t *testing.T) {
 			n := time.Now()
 			testCase.run(t)
 			time.Sleep(chaosCfg.GetExperimentInterval())
-			_, _, err := gc.Annotate(a(chaosCfg.Namespace, testCase.name, chaosCfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
+			_, _, err := gc.Annotate(a(chaosCfg.Namespace, testCase.name, chaosCfg.DashboardUIDs, new(n), new(time.Now())))
 			if err != nil {
 				t.Error("Failed to annotate grafana with chaos labels", err)
 			}

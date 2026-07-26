@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
@@ -39,7 +40,7 @@ func NewP2PKeysPayload(keys []p2pkey.KeyV2) *P2PKeysPayloadResolver {
 }
 
 func (r *P2PKeysPayloadResolver) Results() []P2PKeyResolver {
-	var results []P2PKeyResolver
+	results := make([]P2PKeyResolver, 0, len(r.keys))
 	for _, k := range r.keys {
 		results = append(results, NewP2PKey(k))
 	}

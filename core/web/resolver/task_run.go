@@ -15,7 +15,7 @@ func NewTaskRun(tr pipeline.TaskRun) *TaskRunResolver {
 }
 
 func NewTaskRuns(runs []pipeline.TaskRun) []*TaskRunResolver {
-	var resolvers []*TaskRunResolver
+	resolvers := make([]*TaskRunResolver, 0, len(runs))
 
 	for _, run := range runs {
 		resolvers = append(resolvers, NewTaskRun(run))

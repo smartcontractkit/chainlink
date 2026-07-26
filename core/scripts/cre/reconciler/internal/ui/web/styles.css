@@ -1,0 +1,228 @@
+.tab-active {
+    padding: 0.5rem 1rem;
+    border-bottom: 2px solid #2563eb;
+    color: #2563eb;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+.tab-inactive {
+    padding: 0.5rem 1rem;
+    border-bottom: 2px solid transparent;
+    color: #6b7280;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+.tab-inactive:hover {
+    color: #2563eb;
+}
+
+/* Node role badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+.badge-boot { background: #dbeafe; color: #1e40af; }
+.badge-gateway { background: #fef3c7; color: #92400e; }
+.badge-standard { background: #f3f4f6; color: #6b7280; }
+
+/* DON column */
+.don-column {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+.don-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.don-body {
+    padding: 0.75rem;
+}
+.don-nodes {
+    min-height: 80px;
+    border: 1px solid #d1d5db;
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.don-nodes-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    font-size: 0.75rem;
+    padding: 1rem;
+}
+
+/* Capability chips */
+.cap-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.625rem;
+    background: #ede9fe;
+    color: #5b21b6;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.cap-chip:hover {
+    background: #ddd6fe;
+}
+.cap-chip.active {
+    background: #5b21b6;
+    color: white;
+}
+.cap-chip .remove {
+    margin-left: 0.25rem;
+    opacity: 0.6;
+    cursor: pointer;
+}
+.cap-chip .remove:hover {
+    opacity: 1;
+}
+
+/* Capability catalog items */
+.cap-catalog-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 0.625rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.cap-catalog-item:hover {
+    background: #f3f4f6;
+}
+.cap-catalog-item.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* DON type selector */
+.don-type-select {
+    font-size: 0.75rem;
+    padding: 0.125rem 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.25rem;
+    background: white;
+}
+
+/* Node in DON */
+.node-in-don {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.625rem;
+    margin-bottom: 0.375rem;
+}
+
+/* Status cards */
+.status-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem 1.25rem;
+}
+.status-card h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 0.75rem;
+}
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.375rem 0;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 0.8125rem;
+}
+.status-row:last-child {
+    border-bottom: none;
+}
+.status-label {
+    color: #6b7280;
+}
+.status-value {
+    color: #111827;
+    font-weight: 500;
+}
+.phase-badge {
+    display: inline-block;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+}
+.phase-done { background: #d1fae5; color: #065f46; }
+.phase-toml { background: #fef3c7; color: #92400e; }
+.phase-on-chain { background: #dbeafe; color: #1e40af; }
+.phase-none { background: #f3f4f6; color: #6b7280; }
+
+input[type="text"], input[type="text"]:focus,
+input[type="password"], input[type="password"]:focus {
+    outline: none;
+}
+
+/* Spinner */
+.jd-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid #d1d5db;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: jd-spin 0.6s linear infinite;
+    vertical-align: middle;
+}
+@keyframes jd-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Cap config editor */
+.cap-config-key, .cap-config-val {
+    font-size: 0.6875rem;
+}
+.cap-config-key:focus, .cap-config-val:focus {
+    border-color: #93c5fd;
+}
+.cap-config-val {
+    width: 100%;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    line-height: 1.4;
+}
+
+/* Gateway nodes section */
+.gateway-assignment {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.gateway-assignment select {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.25rem;
+}

@@ -13,7 +13,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 	t.Parallel()
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.WebServer.AllowOrigins = ptr("http://localhost:3000,http://localhost:6689")
+		c.WebServer.AllowOrigins = new("http://localhost:3000,http://localhost:6689")
 	})
 
 	tests := []struct {
@@ -27,6 +27,7 @@ func TestCors_DefaultOrigins(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.origin, func(t *testing.T) {
+			t.Parallel()
 			app := cltest.NewApplicationWithConfig(t, config)
 
 			client := app.NewHTTPClient(nil)
@@ -55,8 +56,9 @@ func TestCors_OverrideOrigins(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.origin, func(t *testing.T) {
+			t.Parallel()
 			config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.WebServer.AllowOrigins = ptr(test.allow)
+				c.WebServer.AllowOrigins = new(test.allow)
 			})
 			app := cltest.NewApplicationWithConfig(t, config)
 

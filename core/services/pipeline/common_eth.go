@@ -325,7 +325,7 @@ func convertToETHABIInteger(val any, abiType abi.Type) (any, error) {
 		// could hold it. Unsure of why this decision was taken.
 		// See https://github.com/ethereum/go-ethereum/blob/master/accounts/abi/reflect.go#L61 for
 		// the relevant code.
-		if ty == reflect.TypeOf(&big.Int{}) {
+		if ty == reflect.TypeFor[*big.Int]() {
 			return i, nil
 		}
 		return nil, fmt.Errorf("unknown Go type %+v for abi type %+v", ty.String(), abiType)

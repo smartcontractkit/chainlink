@@ -190,7 +190,7 @@ func decodeMeta(metaMap MapParam) (*txmgr.TxMeta, error) {
 				case int32Type:
 					i, err2 := strconv.ParseInt(data.(string), 10, 32)
 					return int32(i), err2
-				case reflect.TypeOf(common.Hash{}):
+				case reflect.TypeFor[common.Hash]():
 					hb, err := hex.DecodeString(data.(string))
 					if err != nil {
 						return nil, err
@@ -221,7 +221,7 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, erro
 			switch from {
 			case stringType:
 				switch to {
-				case reflect.TypeOf(common.Address{}):
+				case reflect.TypeFor[common.Address]():
 					ab, err := hex.DecodeString(data.(string))
 					if err != nil {
 						return nil, err

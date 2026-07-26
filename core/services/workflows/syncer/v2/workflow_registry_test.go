@@ -181,6 +181,164 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		require.Equal(t, expectedActivatedEvent, events[1].Data)
 	})
 
+	t.Run("RetiredIDReusedByDifferentRecord_TearsDownStaleEngine", func(t *testing.T) {
+		t.Parallel()
+		lggr := logger.TestLogger(t)
+		ctx := t.Context()
+		workflowDonNotifier := capabilities.NewDonNotifier()
+
+		wfID := [32]byte{1}
+		victimOwner := []byte{1}
+		wfName := "wf name 1"
+		tag := "tag1"
+
+		er := NewEngineRegistry()
+		victimKey, err := ReconcileKey(victimOwner, wfName)
+		require.NoError(t, err)
+		require.NoError(t, er.AddWithReconcileKey(wfID, "TestSource", victimKey, &mockService{}))
+
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			"",
+			"test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID:   wfID,
+				Owner:        []byte{9},
+				Status:       uint8(0),
+				WorkflowName: wfName,
+				BinaryURL:    "b1",
+				ConfigURL:    "c1",
+				Tag:          tag,
+				Attributes:   []byte{},
+				DonFamily:    "A",
+			},
+		}
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
+		require.NoError(t, err)
+
+		require.Len(t, events, 1)
+		require.Equal(t, WorkflowDeleted, events[0].Name)
+		require.Equal(t, WorkflowDeletedEvent{WorkflowID: wfID, Source: "TestSource"}, events[0].Data)
+	})
+
+	t.Run("SameIDMatchingIdentity_NoOpRegardlessOfTag", func(t *testing.T) {
+		t.Parallel()
+		lggr := logger.TestLogger(t)
+		ctx := t.Context()
+		workflowDonNotifier := capabilities.NewDonNotifier()
+
+		wfID := [32]byte{1}
+		owner := []byte{1}
+		wfName := "wf name 1"
+
+		er := NewEngineRegistry()
+		key, err := ReconcileKey(owner, wfName)
+		require.NoError(t, err)
+		require.NoError(t, er.AddWithReconcileKey(wfID, "TestSource", key, &mockService{}))
+
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+			"",
+			"test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			&eventHandler{},
+			workflowDonNotifier,
+			er,
+		)
+		require.NoError(t, err)
+
+		metadata := []WorkflowMetadataView{
+			{
+				WorkflowID:   wfID,
+				Owner:        owner,
+				Status:       uint8(0),
+				WorkflowName: wfName,
+				BinaryURL:    "b1",
+				ConfigURL:    "c1",
+				Tag:          "tag1",
+				Attributes:   []byte{7, 7, 7},
+				DonFamily:    "A",
+			},
+		}
+
+		pendingEvents := map[string]*reconciliationEvent{}
+		events, err := wr.generateReconciliationEvents(ctx, pendingEvents, metadata, &types.Head{Height: "123"}, "TestSource")
+		require.NoError(t, err)
+		require.Empty(t, events)
+	})
+
+	t.Run("ActiveCollisionFromOtherSource_DoesNotEvictOtherSourceEngine", func(t *testing.T) {
+		t.Parallel()
+		lggr := logger.TestLogger(t)
+		ctx := t.Context()
+		wfID := wfTypes.WorkflowID([32]byte{1})
+		privateSource := "grpc:private:v1"
+		publicSource := "contract:1:0xpublic"
+
+		er := NewEngineRegistry()
+		key, err := ReconcileKey([]byte("private-owner"), "private-workflow")
+		require.NoError(t, err)
+		require.NoError(t, er.AddWithReconcileKey(wfID, privateSource, key, &mockService{}))
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(context.Context, []byte) (types.ContractReader, error) { return nil, nil },
+			"", "test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			&eventHandler{}, capabilities.NewDonNotifier(), er,
+		)
+		require.NoError(t, err)
+
+		metadata := []WorkflowMetadataView{{
+			WorkflowID: wfID, Owner: []byte("attacker"), Status: WorkflowStatusActive,
+			WorkflowName: "attacker-workflow", Tag: "attacker-tag", Source: publicSource,
+		}}
+		events, err := wr.generateReconciliationEvents(ctx, map[string]*reconciliationEvent{}, metadata, &types.Head{Height: "123"}, publicSource)
+		require.NoError(t, err)
+		require.Empty(t, events, "the other source's engine must not be torn down")
+	})
+
+	t.Run("PausedCollisionFromOtherSource_DoesNotStopOtherSourceEngine", func(t *testing.T) {
+		t.Parallel()
+		lggr := logger.TestLogger(t)
+		ctx := t.Context()
+		wfID := wfTypes.WorkflowID([32]byte{9})
+		privateSource := "grpc:private-policy:v1"
+		publicSource := "contract:1:0xpublic"
+
+		er := NewEngineRegistry()
+		key, err := ReconcileKey([]byte("private-owner"), "private-policy-workflow")
+		require.NoError(t, err)
+		require.NoError(t, er.AddWithReconcileKey(wfID, privateSource, key, &mockService{}))
+		wr, err := NewWorkflowRegistry(
+			lggr,
+			func(context.Context, []byte) (types.ContractReader, error) { return nil, nil },
+			"", "test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			&eventHandler{}, capabilities.NewDonNotifier(), er,
+		)
+		require.NoError(t, err)
+
+		metadata := []WorkflowMetadataView{{
+			WorkflowID: wfID, Owner: []byte("attacker"), Status: WorkflowStatusPaused,
+			WorkflowName: "public-paused-collision", Source: publicSource,
+		}}
+		events, err := wr.generateReconciliationEvents(ctx, map[string]*reconciliationEvent{}, metadata, &types.Head{Height: "500"}, publicSource)
+		require.NoError(t, err)
+		require.Empty(t, events, "no WorkflowPaused must be emitted for the other source's engine")
+	})
+
 	t.Run("WorkflowDeletedEvent", func(t *testing.T) {
 		t.Parallel()
 		lggr := logger.TestLogger(t)
@@ -412,7 +570,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 		wfID := [32]byte{1}
 		owner := []byte{}
 		wfName := "wf name 1"
-		err := er.Add(wfID, ContractWorkflowSourceName, &mockService{})
+		err := er.Add(wfID, "TestSource", &mockService{})
 		require.NoError(t, err)
 		wr, err := NewWorkflowRegistry(
 			lggr,

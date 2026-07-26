@@ -2,7 +2,6 @@ name: Setup CRE E2E Test Dependencies
 description: Setup dependencies for CRE E2E tests with efficient caching
 
 inputs:
-
   cre-cli-version:
     description: Version of the CRE CLI to use
     default: "v0.2.0"
@@ -27,7 +26,6 @@ inputs:
 runs:
   using: composite
   steps:
-
     - name: Setup cache directory and key
       id: setup-cache-dir-key
       shell: bash
@@ -48,7 +46,7 @@ runs:
 
     - name: Restore Cache
       id: cache-restore
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@v6
       with:
         key: ${{ steps.setup-cache-dir-key.outputs.cache-key }}
         path: ${{ steps.setup-cache-dir-key.outputs.download-path }}
@@ -82,7 +80,7 @@ runs:
 
     - name: Save cache
       if: ${{ steps.cache-restore.outputs.cache-hit != 'true' }}
-      uses: actions/cache/save@v5
+      uses: actions/cache/save@v6
       with:
         key: ${{ steps.setup-cache-dir-key.outputs.cache-key }}
         path: ${{ steps.setup-cache-dir-key.outputs.download-path }}

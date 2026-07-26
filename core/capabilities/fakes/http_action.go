@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
@@ -130,6 +130,9 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 			Response:         httpResponse,
 			ResponseMetadata: commonCap.ResponseMetadata{},
 		}
+		if errors.Is(err, errRedirectsDisabled) {
+			return &responseAndMetadata, caperrors.NewPublicUserError(err, caperrors.InvalidArgument)
+		}
 		return &responseAndMetadata, caperrors.NewPrivateSystemError(err, caperrors.Unknown)
 	}
 	defer resp.Body.Close()
@@ -155,8 +158,16 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 		if len(v) == 0 {
 			continue
 		}
-		headers[k] = strings.Join(v, ", ")
-		multiHeaders[k] = &customhttp.HeaderValues{Values: slices.Clone(v)}
+		// HTTP header names/values may contain arbitrary bytes, but the proto
+		// HeaderValues fields are strings and must be valid UTF-8 to marshal
+		// over gRPC. Sanitize any invalid UTF-8 to avoid marshaling failures.
+		key := sanitizeUTF8(k)
+		sanitized := make([]string, len(v))
+		for i, val := range v {
+			sanitized[i] = sanitizeUTF8(val)
+		}
+		headers[key] = strings.Join(sanitized, ", ")
+		multiHeaders[key] = &customhttp.HeaderValues{Values: sanitized}
 	}
 
 	// Create response
@@ -174,12 +185,21 @@ func (fh *DirectHTTPAction) SendRequest(ctx context.Context, metadata commonCap.
 	return &responseAndMetadata, nil
 }
 
+// errRedirectsDisabled mirrors the CRE DON's HTTP action capability, which
+// does not permit following redirects (see capabilities/http_action/common/proxy.go).
+var errRedirectsDisabled = errors.New("redirects are not allowed")
+
+func disableRedirects(*http.Request, []*http.Request) error {
+	return errRedirectsDisabled
+}
+
 // newHTTPClient builds the HTTP client used to make the outbound request. When
 // the request carries mTLS auth, the client is configured to present the
 // supplied certificate and private key as a client certificate.
 func newHTTPClient(input *customhttp.Request, timeout time.Duration) (*http.Client, error) {
 	client := &http.Client{
-		Timeout: timeout,
+		Timeout:       timeout,
+		CheckRedirect: disableRedirects,
 	}
 
 	mtls := input.GetMtls()
@@ -230,4 +250,15 @@ func (fh *DirectHTTPAction) RegisterToWorkflow(ctx context.Context, request comm
 func (fh *DirectHTTPAction) UnregisterFromWorkflow(ctx context.Context, request commonCap.UnregisterFromWorkflowRequest) error {
 	fh.eng.Infow("Unregistered from Direct Http Action", "workflowID", request.Metadata.WorkflowID)
 	return nil
+}
+
+// sanitizeUTF8 returns s unchanged if it is already valid UTF-8, otherwise it
+// replaces every invalid byte with the Unicode replacement character (U+FFFD).
+// HTTP header names/values may contain arbitrary bytes, but proto string fields
+// must be valid UTF-8 to marshal over gRPC.
+func sanitizeUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	return strings.ToValidUTF8(s, "�")
 }

@@ -275,7 +275,6 @@ func TestJob_ToRows(t *testing.T) {
 	}, job.ToRows())
 }
 
-
 //go:embed ocr-bootstrap-spec.yml
 var ocrBootstrapSpec string
 
@@ -284,14 +283,14 @@ func TestShell_CreateJobV2(t *testing.T) {
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V2.Enabled = ptr(true)
+		c.OCR.Enabled = new(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 	}, func(opts *startOptions) {
 		opts.FlagsAndDeps = append(opts.FlagsAndDeps, cltest.DefaultP2PKey)
 	})
@@ -316,7 +315,6 @@ func TestShell_CreateJobV2(t *testing.T) {
 	assert.Equal(t, uint32(1), output.SchemaVersion)
 	assert.Equal(t, "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15", output.OffChainReportingSpec.ContractAddress.String())
 }
-
 
 func requireJobsCount(t *testing.T, orm job.ORM, expected int) {
 	ctx := testutils.Context(t)

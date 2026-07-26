@@ -6,14 +6,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	commoncldchangesets "github.com/smartcontractkit/cld-changesets/pkg/cldfutil"
-
 	cr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink/deployment/internal/view"
 )
 
 func TestCapRegView_Denormalize(t *testing.T) {
 	type fields struct {
-		ContractMetaData commoncldchangesets.ContractMetaData
+		ContractMetaData view.ContractMetaData
 		Capabilities     []CapabilityView
 		Nodes            []NodeView
 		Dons             []DonView

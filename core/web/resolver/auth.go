@@ -23,7 +23,7 @@ func authenticateUserCanRun(ctx context.Context) error {
 		return unauthorizedError{}
 	}
 	if session.User.Role == sessions.UserRoleView {
-		return RoleNotPermittedErr{session.User.Role}
+		return RoleNotPermittedError{session.User.Role}
 	}
 	return nil
 }
@@ -36,7 +36,7 @@ func authenticateUserCanEdit(ctx context.Context) error {
 	}
 	switch session.User.Role {
 	case sessions.UserRoleView, sessions.UserRoleRun:
-		return RoleNotPermittedErr{session.User.Role}
+		return RoleNotPermittedError{session.User.Role}
 	default:
 	}
 	return nil
@@ -49,7 +49,7 @@ func authenticateUserIsAdmin(ctx context.Context) error {
 		return unauthorizedError{}
 	}
 	if session.User.Role != sessions.UserRoleAdmin {
-		return RoleNotPermittedErr{session.User.Role}
+		return RoleNotPermittedError{session.User.Role}
 	}
 	return nil
 }
@@ -66,10 +66,10 @@ func (e unauthorizedError) Extensions() map[string]any {
 	}
 }
 
-type RoleNotPermittedErr struct {
+type RoleNotPermittedError struct {
 	Role sessions.UserRole
 }
 
-func (e RoleNotPermittedErr) Error() string {
+func (e RoleNotPermittedError) Error() string {
 	return fmt.Sprintf("Not permitted with current role: %s", e.Role)
 }

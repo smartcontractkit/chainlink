@@ -15,7 +15,7 @@ func NewStarkNetKey(key starkkey.Key) *StarkNetKeyResolver {
 }
 
 func NewStarkNetKeys(keys []starkkey.Key) []*StarkNetKeyResolver {
-	var resolvers []*StarkNetKeyResolver
+	resolvers := make([]*StarkNetKeyResolver, 0, len(keys))
 
 	for _, k := range keys {
 		resolvers = append(resolvers, NewStarkNetKey(k))

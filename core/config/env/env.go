@@ -29,7 +29,6 @@ var (
 // LOOPP commands and vars
 var (
 	MedianPlugin       = NewPlugin("median")
-	MercuryPlugin      = NewPlugin("mercury")
 	AptosPlugin        = NewPlugin("aptos")
 	EVMPlugin          = NewPlugin("evm")
 	CosmosPlugin       = NewPlugin("cosmos")

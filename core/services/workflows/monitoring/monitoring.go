@@ -51,6 +51,10 @@ type EngineMetrics struct {
 	workflowExecutionFailedCounter    metric.Int64Counter
 	workflowExecutionStartedCounter   metric.Int64Counter
 	workflowExecutionSucceededCounter metric.Int64Counter
+	// workflowExecutionFinishedCounter counts every terminal execution outcome
+	// (completed, error, timeout). Use with a status attribute so a single series
+	// family can serve as both numerator and denominator without vector(0) joins.
+	workflowExecutionFinishedCounter metric.Int64Counter
 
 	getSecretsDuration metric.Int64Histogram
 
@@ -184,6 +188,14 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowExecutionSucceededCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_execution_succeeded_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow execution succeeded counter: %w", err)
+	}
+
+	em.workflowExecutionFinishedCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_workflow_execution_finished_count",
+		metric.WithDescription("Count of workflow executions that reached a terminal status (completed, error, or timeout)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow execution finished counter: %w", err)
 	}
 
 	// Deprecated: use the gauge below
@@ -490,6 +502,14 @@ func MetricViews() []sdkmetric.View {
 				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60},
 			}},
 		),
+		// Reduce from OTel's 16 default buckets to 8 to limit series cardinality;
+		// Capabilities dashboards only use p50/p90, so coarse buckets are fine.
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_get_secrets_duration_ms"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 10, 50, 100, 250, 500, 1000},
+			}},
+		),
 	}
 }
 
@@ -667,6 +687,13 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionSucceededCounter(ctx c
 func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionStartedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.workflowExecutionStartedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementWorkflowExecutionFinishedCounter increments the terminal-outcome counter.
+// status should be one of store.StatusCompleted, store.StatusErrored, or store.StatusTimeout.
+func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionFinishedCounter(ctx context.Context, status string) {
+	otelLabels := append(beholder.OtelAttributes(c.Labels).AsStringAttributes(), attribute.String("status", status))
+	c.em.workflowExecutionFinishedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementExecutionTimestampAssignedCounter(ctx context.Context) {

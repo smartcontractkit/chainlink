@@ -54,10 +54,11 @@ import (
 )
 
 const (
-	vaultDefaultConfigPath              = "/configs/workflow-gateway-capabilities-don.toml"
-	vaultJWTAuthEnabledConfigPath       = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
-	vaultOptimizationsEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
-	vaultJWTIssuerListenAddr            = "0.0.0.0:18123"
+	vaultDefaultConfigPath                   = "/configs/workflow-gateway-capabilities-don.toml"
+	vaultJWTAuthEnabledConfigPath            = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
+	vaultOptimizationsEnabledConfigPath      = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
+	vaultWorkflowDONBindingEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-workflow-don-binding-enabled.toml"
+	vaultJWTIssuerListenAddr                 = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
 	vaultJWTTestTenantID uint64 = 1
@@ -255,12 +256,22 @@ func getVaultOptimizationsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultOptimizationsEnabledConfigPath)
 }
 
+func getVaultWorkflowDONBindingEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultWorkflowDONBindingEnabledConfigPath)
+}
+
 func isVaultJWTAuthEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-jwt_auth-enabled")
 }
 
 func isVaultOptimizationsEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-optimizations-enabled")
+}
+
+func isVaultWorkflowDONBindingEnabledTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-workflow-don-binding-enabled")
 }
 
 func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, usePerTestKeys bool) *vaultScenarioFixture {
@@ -467,6 +478,37 @@ func buildSecretIdentifiers(secretID, owner string, namespaces []string) []*vaul
 	return identifiers
 }
 
+// requireSignedPayloadRequestID asserts the vault OCR signed payload carries the gateway
+// request ID inside the signed bytes. The gateway prefixes authorizedOwner to the user
+// request ID (owner::requestID) before forwarding to the vault DON; OCR signs that value.
+// JSON-RPC response ID is stripped back to the user request ID and is not signature-covered.
+func requireSignedPayloadRequestID(t *testing.T, method, userRequestID, authorizedOwner string, payload json.RawMessage) {
+	t.Helper()
+
+	require.NotEmpty(t, userRequestID)
+	require.NotEmpty(t, payload)
+
+	signedRequestID, err := vaultutils.SignedPayloadRequestID(method, payload)
+	require.NoError(t, err)
+	if signedRequestID == "" {
+		// VaultSignedResponseRequestIDEnabled is off on vault nodes; skip until the gate is enabled in the test stack.
+		return
+	}
+
+	expectedSuffix := vaulttypes.RequestIDSeparator + userRequestID
+	require.True(t, strings.HasSuffix(signedRequestID, expectedSuffix),
+		"signed payload requestId %q should end with gateway user request ID suffix %q", signedRequestID, expectedSuffix)
+
+	if authorizedOwner != "" {
+		require.Equal(t, authorizedOwner+expectedSuffix, signedRequestID,
+			"signed payload requestId must match gateway-prefixed request ID")
+		return
+	}
+
+	ownerPrefix := strings.TrimSuffix(signedRequestID, expectedSuffix)
+	require.NotEmpty(t, ownerPrefix, "signed payload requestId should include gateway authorized owner prefix")
+}
+
 func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], authorizedOwner string) jsonrpc.Response[vaulttypes.SignedOCRResponse] {
 	t.Helper()
 
@@ -500,6 +542,8 @@ func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonReq
 	}
 
 	require.Equal(t, jsonrpc.JsonRpcVersion, jsonResponse.Version)
+
+	requireSignedPayloadRequestID(t, jsonRequest.Method, jsonRequest.ID, authorizedOwner, jsonResponse.Result.Payload)
 
 	return jsonResponse
 }

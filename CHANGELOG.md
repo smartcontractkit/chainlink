@@ -1,5 +1,29 @@
 # Changelog Chainlink Core
 
+## 2.57.0
+
+### Minor Changes
+
+- [#23084](https://github.com/smartcontractkit/chainlink/pull/23084) [`3007515`](https://github.com/smartcontractkit/chainlink/commit/3007515ee09add2c991511c61ce36ededaff8f64) - #added Add `Telemetry.MetricCardinalityLimit` config to support limiting Beholder OTel SDK metric cardinality.
+
+- [#23136](https://github.com/smartcontractkit/chainlink/pull/23136) [`aa67b6b`](https://github.com/smartcontractkit/chainlink/commit/aa67b6b6bb599eeeea06ed5baa12b8b95b03e50e) - #added The v2 workflow engine now emits `ClassifiedExecutionStatus` on `WorkflowExecutionFinished` events, distinguishing failures caused by the user's workflow (`USER_ERROR`) from platform/infrastructure failures (`SYSTEM_ERROR`). The v1 engine is unaffected.
+
+- [#23134](https://github.com/smartcontractkit/chainlink/pull/23134) [`46a0f6e`](https://github.com/smartcontractkit/chainlink/commit/46a0f6e77b5f06eebdfe9143b2d30ac6dfb6262a) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22708](https://github.com/smartcontractkit/chainlink/pull/22708) [`db2daaa`](https://github.com/smartcontractkit/chainlink/commit/db2daaa270901330ead425a8206a27422f0e239d) - #bugfix Rebuild the in-memory workflow execution store's map when pruning so old bucket storage becomes eligible for GC. Go maps never shrink after deletes, which stranded memory as the store churned through millions of executions.
+
+## 2.56.0
+
+### Minor Changes
+
+- [#23043](https://github.com/smartcontractkit/chainlink/pull/23043) [`fe901c7`](https://github.com/smartcontractkit/chainlink/commit/fe901c73df31613b5f3789a672365daf1e64ec30) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22973](https://github.com/smartcontractkit/chainlink/pull/22973) [`389792a`](https://github.com/smartcontractkit/chainlink/commit/389792a9ed6586dea7e04bafd7fe41479a94b30f) - #bugfix Fixed permissions in test db setup script (grant CREATEROLE and repair leftover NOLOGIN pgtdbuser for pgtestdb)
+
 ## 2.55.0
 
 ### Minor Changes

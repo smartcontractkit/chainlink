@@ -48,6 +48,8 @@ func (m *mockCfgTracing) Mode() string            { return "tls" }
 
 type mockCfgTelemetry struct{}
 
+func (m mockCfgTelemetry) DurableEmitterMaxQueuePayloadBytes() int64 { return 1024 * 1024 }
+
 func (m mockCfgTelemetry) AuthHeadersTTL() time.Duration { return 10 * time.Minute }
 
 func (m mockCfgTelemetry) Enabled() bool { return true }
@@ -72,9 +74,27 @@ func (m mockCfgTelemetry) ChipIngressEndpoint() string { return "example.com/chi
 
 func (m mockCfgTelemetry) DurableEmitterEnabled() bool { return true }
 
+func (m mockCfgTelemetry) DurableEmitterRetransmitBatchSize() int { return 500 }
+
+func (m mockCfgTelemetry) DurableEmitterEventTTL() time.Duration { return time.Hour }
+
 func (m mockCfgTelemetry) ChipIngressInsecureConnection() bool { return false }
 
 func (m mockCfgTelemetry) ChipIngressBatchEmitterEnabled() bool { return false }
+
+func (m mockCfgTelemetry) ChipIngressBufferSize() uint { return 1000 }
+
+func (m mockCfgTelemetry) ChipIngressMaxBatchSize() uint { return 500 }
+
+func (m mockCfgTelemetry) ChipIngressMaxConcurrentSends() int { return 10 }
+
+func (m mockCfgTelemetry) ChipIngressSendInterval() time.Duration { return 100 * time.Millisecond }
+
+func (m mockCfgTelemetry) ChipIngressSendTimeout() time.Duration { return 10 * time.Second }
+
+func (m mockCfgTelemetry) ChipIngressDrainTimeout() time.Duration { return 10 * time.Second }
+
+func (m mockCfgTelemetry) ChipIngressMaxGRPCRequestSize() int { return 10485760 }
 
 func (m mockCfgTelemetry) HeartbeatInterval() time.Duration {
 	return 5 * time.Second
@@ -87,6 +107,8 @@ func (m mockCfgTelemetry) LogExportTimeout() time.Duration  { return 2 * time.Se
 func (m mockCfgTelemetry) LogExportMaxBatchSize() int       { return 512 }
 func (m mockCfgTelemetry) LogExportInterval() time.Duration { return 5 * time.Second }
 func (m mockCfgTelemetry) LogMaxQueueSize() int             { return 2048 }
+
+func (m mockCfgTelemetry) MetricCardinalityLimit() int { return 100000 }
 
 func (m mockCfgTelemetry) PrometheusBridge() config.PrometheusBridge {
 	return mockPrometheusBridge{}
@@ -250,7 +272,16 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, 512, envCfg.TelemetryLogExportMaxBatchSize)
 	require.Equal(t, 5*time.Second, envCfg.TelemetryLogExportInterval)
 	require.Equal(t, 2048, envCfg.TelemetryLogMaxQueueSize)
+	require.NotNil(t, envCfg.TelemetryMetricCardinalityLimit)
+	require.Equal(t, 100000, *envCfg.TelemetryMetricCardinalityLimit)
 
 	require.Equal(t, "example.com/chip-ingress", envCfg.ChipIngressEndpoint)
 	require.False(t, envCfg.ChipIngressBatchEmitterEnabled)
+	require.Equal(t, uint(1000), envCfg.ChipIngressBufferSize)
+	require.Equal(t, uint(500), envCfg.ChipIngressMaxBatchSize)
+	require.Equal(t, 10, envCfg.ChipIngressMaxConcurrentSends)
+	require.Equal(t, 100*time.Millisecond, envCfg.ChipIngressSendInterval)
+	require.Equal(t, 10*time.Second, envCfg.ChipIngressSendTimeout)
+	require.Equal(t, 10*time.Second, envCfg.ChipIngressDrainTimeout)
+	require.Equal(t, 10485760, envCfg.ChipIngressMaxGRPCRequestSize)
 }

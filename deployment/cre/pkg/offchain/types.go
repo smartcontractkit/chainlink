@@ -2,6 +2,7 @@ package offchain
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/node"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -48,10 +49,8 @@ func (f TargetDONFilter) AddToFilterIfNotPresent(filter *nodev1.ListNodesRequest
 			}
 		}
 	case FilterKeyCSAPublicKey:
-		for _, pk := range filter.PublicKeys {
-			if pk == f.Value {
-				return filter
-			}
+		if slices.Contains(filter.PublicKeys, f.Value) {
+			return filter
 		}
 	default:
 		for _, s := range filter.Selectors {

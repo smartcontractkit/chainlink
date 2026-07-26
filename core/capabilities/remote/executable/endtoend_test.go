@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
@@ -268,7 +269,7 @@ func setupRemoteExecutableHarness(t *testing.T, underlying commoncap.ExecutableC
 	for i := range numCapabilityPeers {
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
-		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, lggr)
+		capabilityNode := executable.NewServer(capInfo.ID, "", capabilityPeer, capabilityDispatcher, limits.NewGateLimiter(false), lggr)
 		cfg := &commoncap.RemoteExecutableConfig{
 			RequestHashExcludedAttributes: []string{},
 			RequestTimeout:                capabilityNodeResponseTimeout,
@@ -283,7 +284,7 @@ func setupRemoteExecutableHarness(t *testing.T, underlying commoncap.ExecutableC
 	for i := range numWorkflowPeers {
 		workflowPeerDispatcher := broker.NewDispatcherForNode(workflowPeers[i])
 		workflowNode := executable.NewClient(capInfo.ID, "", workflowPeerDispatcher, lggr)
-		err := workflowNode.SetConfig(capInfo, workflowDonInfo, workflowNodeTimeout, nil, nil)
+		err := workflowNode.SetConfig(capInfo, workflowDonInfo, workflowNodeTimeout, nil, nil, 0)
 		require.NoError(t, err)
 		servicetest.Run(t, workflowNode)
 		broker.RegisterReceiverNode(workflowPeers[i], workflowNode)

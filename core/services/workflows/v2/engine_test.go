@@ -1,8 +1,5 @@
 package v2_test
 
-//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd
-//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/with_config
-//go:generate go run ../../../internal/testutils/wasmtest/generator/main.go -pkg core/services/workflows/test/wasm/v2/cmd/with_secrets
 import (
 	"context"
 	"crypto/ed25519"
@@ -41,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
@@ -431,6 +429,13 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	})
 }
 
+func wantExecutionID(t *testing.T, workflowID, triggerEventID string, triggerIndex int) string {
+	t.Helper()
+	id, err := workflows.GenerateExecutionIDWithTriggerIndex(workflowID, triggerEventID, triggerIndex)
+	require.NoError(t, err)
+	return id
+}
+
 func newTriggerSubs(n int) *sdkpb.ExecutionResult {
 	subs := make([]*sdkpb.TriggerSubscription, 0, n)
 	for i := range n {
@@ -524,8 +529,7 @@ func TestEngine_OrganizationIdLogger(t *testing.T) {
 
 	// Wait for execution to finish
 	executionID := <-executionFinishedCh
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
-	require.NoError(t, err)
+	wantExecID := wantExecutionID(t, cfg.WorkflowID, mockTriggerEvent.ID, 0)
 	require.Equal(t, wantExecID, executionID)
 
 	// Verify that the org resolver was called
@@ -606,8 +610,7 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 
 	// Wait for execution to finish - should complete successfully even with org resolver failure
 	executionID := <-executionFinishedCh
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
-	require.NoError(t, err)
+	wantExecID := wantExecutionID(t, cfg.WorkflowID, mockTriggerEvent.ID, 0)
 	require.Equal(t, wantExecID, executionID)
 
 	// Verify that the org resolver was called even though it failed
@@ -744,8 +747,7 @@ func TestEngine_OrganizationIdPreservedAfterLocalNodeSync(t *testing.T) {
 	eventCh <- capabilities.TriggerResponse{Event: mockTriggerEvent}
 
 	executionID := <-executionFinishedCh
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
-	require.NoError(t, err)
+	wantExecID := wantExecutionID(t, cfg.WorkflowID, mockTriggerEvent.ID, 0)
 	require.Equal(t, wantExecID, executionID)
 
 	// The capability call after localNodeSync must carry the org ID resolved at startup.
@@ -865,8 +867,7 @@ func TestEngine_Execution(t *testing.T) {
 		module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 			Run(
 				func(_ context.Context, request *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
-					wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
-					require.NoError(t, err)
+					wantExecID := wantExecutionID(t, cfg.WorkflowID, mockTriggerEvent.ID, 0)
 					// The executor may be the *ExecutionHelper directly or wrapped to
 					// expose raw secrets, so assert against the exported accessor.
 					capExec, ok := executor.(interface{ GetWorkflowExecutionID() string })
@@ -986,8 +987,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 
 	// Wait for execution to finish with timeout status
 	executionID := <-executionFinishedCh
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
-	require.NoError(t, err)
+	wantExecID := wantExecutionID(t, cfg.WorkflowID, mockTriggerEvent.ID, 0)
 	require.Equal(t, wantExecID, executionID)
 
 	require.NoError(t, engine.Close())
@@ -1109,9 +1109,8 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
+		wantExecID := wantExecutionID(t, cfg.WorkflowID, mockTriggerEvent.ID, 0)
 
-		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
@@ -1204,9 +1203,8 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
+		wantExecID := wantExecutionID(t, cfg.WorkflowID, mockTriggerEvent.ID, 0)
 
-		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
@@ -1285,9 +1283,8 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
+		wantExecID := wantExecutionID(t, cfg.WorkflowID, mockTriggerEvent.ID, 0)
 
-		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
@@ -1380,9 +1377,8 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 
 		// Wait for execution to finish with error status
 		executionID := <-executionFinishedCh
-		wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
+		wantExecID := wantExecutionID(t, cfg.WorkflowID, mockTriggerEvent.ID, 0)
 
-		require.NoError(t, err)
 		require.Equal(t, wantExecID, executionID)
 		capability.AssertExpectations(t)
 
@@ -1508,8 +1504,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 
 	// Wait for execution to finish with error status
 	executionID := <-executionFinishedCh
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, mockTriggerEvent.ID) //nolint:staticcheck // SA1019
-	require.NoError(t, err)
+	wantExecID := wantExecutionID(t, cfg.WorkflowID, mockTriggerEvent.ID, 0)
 	require.Equal(t, wantExecID, executionID)
 
 	require.NoError(t, engine.Close())
@@ -1592,8 +1587,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 			t.Fatalf("unexpected response type %T", output)
 		}
 
-		execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "") //nolint:staticcheck // SA1019
-		require.NoError(t, err)
+		execID := wantExecutionID(t, cfg.WorkflowID, "", 0)
 
 		require.Equal(t, execID, <-executionFinishedCh)
 		require.NoError(t, engine.Close())
@@ -1684,8 +1678,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 			t.Fatalf("unexpected response type %T", output)
 		}
 
-		execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "") //nolint:staticcheck // SA1019
-		require.NoError(t, err)
+		execID := wantExecutionID(t, cfg.WorkflowID, "", 0)
 
 		require.Equal(t, execID, <-executionFinishedCh)
 
@@ -1891,17 +1884,14 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		t.Fatalf("unexpected response type %T: %v", output, output)
 	}
 
-	execID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "") //nolint:staticcheck // SA1019
-	require.NoError(t, err)
+	execID := wantExecutionID(t, cfg.WorkflowID, "", 0)
 
 	require.Equal(t, execID, <-executionFinishedCh)
 }
 
-// TestEngine_DuplicateTriggerSameConfig verifies that the engine deduplicates executions
-// when a workflow subscribes to two instances of the same trigger with the same config
-// (e.g. two CRONs with an identical schedule). Both trigger registrations independently
-// fire events, so a single CRON tick produces two trigger events with the same event ID.
-// The engine must execute the workflow exactly once and silently drop the duplicate.
+// TestEngine_DuplicateTriggerSameConfig verifies that duplicate trigger registrations
+// with the same config each get a distinct execution ID (including trigger index) and
+// run separate executions when they fire the same event.
 func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 	t.Parallel()
 
@@ -1950,10 +1940,10 @@ func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 	trigger.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil)
 	trigger.EXPECT().AckEvent(matches.AnyContext, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-	// Only ONE execution should reach Module.Execute; the duplicate is dropped.
+	// Both trigger registrations fire the same event; each runs its own execution.
 	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
 		Return(nil, nil).
-		Once()
+		Twice()
 
 	require.NoError(t, engine.Start(t.Context()))
 	require.NoError(t, <-initDoneCh)
@@ -1970,25 +1960,21 @@ func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 	eventCh0 <- sharedEvent
 	eventCh1 <- sharedEvent
 
-	// Exactly one execution finishes.
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, sharedEventID) //nolint:staticcheck // SA1019
-	require.NoError(t, err)
+	wantExecID0 := wantExecutionID(t, cfg.WorkflowID, sharedEventID, 0)
+	wantExecID1 := wantExecutionID(t, cfg.WorkflowID, sharedEventID, 1)
 
-	select {
-	case execID := <-executionFinishedCh:
-		require.Equal(t, wantExecID, execID)
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for execution to finish")
+	gotIDs := make(map[string]struct{}, 2)
+	for range 2 {
+		select {
+		case execID := <-executionFinishedCh:
+			gotIDs[execID] = struct{}{}
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for executions to finish")
+		}
 	}
-
-	// Give the engine a brief window to see if a second (duplicate) execution fires.
-	// It should not.
-	select {
-	case execID := <-executionFinishedCh:
-		t.Fatalf("unexpected duplicate execution: %s", execID)
-	case <-time.After(200 * time.Millisecond):
-		// expected: no second execution
-	}
+	require.Len(t, gotIDs, 2)
+	require.Contains(t, gotIDs, wantExecID0)
+	require.Contains(t, gotIDs, wantExecID1)
 
 	require.NoError(t, engine.Close())
 }
@@ -2055,8 +2041,7 @@ func TestEngine_DeduplicatesSameEventID(t *testing.T) {
 	eventCh <- duplicateEvent
 	eventCh <- duplicateEvent
 
-	wantExecID, err := workflowEvents.GenerateExecutionID(cfg.WorkflowID, "same_event_id") //nolint:staticcheck // SA1019
-	require.NoError(t, err)
+	wantExecID := wantExecutionID(t, cfg.WorkflowID, "same_event_id", 0)
 
 	select {
 	case execID := <-executionFinishedCh:
@@ -2800,6 +2785,13 @@ func (r *updatableRegistry) NodeByPeerID(ctx context.Context, peerID ragetypes.P
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.localRegistry.NodeByPeerID(ctx, peerID)
+}
+
+// DONByID implements the CapabilitiesRegistryMetadata interface
+func (r *updatableRegistry) DONByID(ctx context.Context, donID uint32) (capabilities.DON, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.localRegistry.DONByID(ctx, donID)
 }
 
 // createTestEngineForDonVersionTest creates a real V2 engine for testing DON version updates

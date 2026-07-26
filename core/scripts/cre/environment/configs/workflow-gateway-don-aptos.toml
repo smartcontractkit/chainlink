@@ -17,7 +17,7 @@
 [jd]
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
   # change to your version
-  image = "job-distributor:0.22.1"
+  image = "job-distributor:0.28.0"
 
 #[s3provider]
 #  # use all defaults

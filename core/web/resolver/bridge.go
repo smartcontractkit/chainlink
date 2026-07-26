@@ -1,6 +1,8 @@
 package resolver
 
 import (
+	"math"
+
 	"github.com/graph-gophers/graphql-go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -16,7 +18,7 @@ func NewBridge(bridge bridges.BridgeType) *BridgeResolver {
 }
 
 func NewBridges(bridges []bridges.BridgeType) []*BridgeResolver {
-	var resolvers []*BridgeResolver
+	resolvers := make([]*BridgeResolver, 0, len(bridges))
 	for _, b := range bridges {
 		resolvers = append(resolvers, NewBridge(b))
 	}
@@ -41,6 +43,9 @@ func (r *BridgeResolver) URL() string {
 
 // Confirmations resolves the bridge's url.
 func (r *BridgeResolver) Confirmations() int32 {
+	if r.bridge.Confirmations > math.MaxInt32 {
+		return math.MaxInt32
+	}
 	return int32(r.bridge.Confirmations)
 }
 
