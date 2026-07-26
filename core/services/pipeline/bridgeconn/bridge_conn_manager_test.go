@@ -36,7 +36,7 @@ func newTestManager() *bridgeConnManager {
 		cache: make(map[[32]byte][]byte),
 		conns: make(map[string]*eaConn),
 		lggr:  logger.Nop(),
-		dial: func(_ context.Context, _ string) (eaStreamClient, error) {
+		dial: func(_ context.Context, _ string, _ bool) (eaStreamClient, error) {
 			return nil, errStreamDialingDisabledForTest
 		},
 	}

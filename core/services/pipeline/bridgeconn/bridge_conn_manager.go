@@ -138,7 +138,7 @@ var errStreamDialingDisabledForTest = stdErrors.New("EAConn stream dialing disab
 func (m *bridgeConnManager) DisableEAConnDialingForTest() {
 	m.connsMu.Lock()
 	defer m.connsMu.Unlock()
-	m.dial = func(_ context.Context, _ string) (eaStreamClient, error) {
+	m.dial = func(_ context.Context, _ string, _ bool) (eaStreamClient, error) {
 		return nil, errStreamDialingDisabledForTest
 	}
 }

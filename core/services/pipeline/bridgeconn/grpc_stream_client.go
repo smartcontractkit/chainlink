@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn/streamspb"
@@ -15,11 +16,16 @@ type grpcStreamClient struct {
 	stream streamspb.StreamService_SubscribeClient
 }
 
-// dialGRPCStream opens a plaintext gRPC connection to target and starts the
-// bidirectional Subscribe stream. All EAConn connections are plaintext regardless
-// of the bridge URL scheme: no TLS, no application tokens, no client certificates.
-func dialGRPCStream(ctx context.Context, target string) (eaStreamClient, error) {
-	conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(insecure.NewCredentials()))
+// dialGRPCStream opens a gRPC connection to target and starts the bidirectional
+// Subscribe stream. When useTLS is true (bridge URL scheme is https) the connection
+// uses TLS with the host's system root CAs; otherwise it is plaintext. Neither mode
+// uses application tokens or client certificates.
+func dialGRPCStream(ctx context.Context, target string, useTLS bool) (eaStreamClient, error) {
+	creds := insecure.NewCredentials()
+	if useTLS {
+		creds = credentials.NewClientTLSFromCert(nil, "")
+	}
+	conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return nil, err
 	}

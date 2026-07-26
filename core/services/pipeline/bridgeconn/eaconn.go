@@ -45,8 +45,9 @@ type eaStreamClient interface {
 }
 
 // eaStreamDialer opens a new stream to target (host:port derived from the bridge's
-// URL authority). All connections are plaintext gRPC regardless of bridge URL scheme.
-type eaStreamDialer func(ctx context.Context, target string) (eaStreamClient, error)
+// URL authority). useTLS selects TLS (bridge URL scheme https) versus plaintext gRPC
+// (http).
+type eaStreamDialer func(ctx context.Context, target string, useTLS bool) (eaStreamClient, error)
 
 // eaAsset is a bridge's registered asset: an immutable subscription payload plus the
 // timestamp it was last requested through GetObservation.
@@ -62,6 +63,7 @@ type eaAsset struct {
 type eaConn struct {
 	bridgeName string
 	target     string
+	useTLS     bool
 	dial       eaStreamDialer
 	lggr       logger.Logger
 	manager    *bridgeConnManager
@@ -76,9 +78,11 @@ type eaConn struct {
 // newEAConn is called with manager.connsMu already held, so reading manager.lggr
 // here is safe without a separate lock.
 func newEAConn(bridgeName string, bridgeUrl models.WebURL, manager *bridgeConnManager) *eaConn {
+	u := url.URL(bridgeUrl)
 	return &eaConn{
 		bridgeName: bridgeName,
-		target:     url.URL(bridgeUrl).Host,
+		target:     u.Host,
+		useTLS:     u.Scheme == "https",
 		dial:       manager.dial,
 		lggr:       logger.With(logger.Named(manager.lggr, "EAConn"), "bridgeName", bridgeName),
 		manager:    manager,
@@ -131,7 +135,7 @@ func (c *eaConn) pruneAndSnapshot() (map[[32]byte]struct{}, *streamspb.Subscribe
 func (c *eaConn) run(ctx context.Context) {
 	backoff := reconnectBackoffInitial
 	for {
-		stream, err := c.dial(ctx, c.target)
+		stream, err := c.dial(ctx, c.target, c.useTLS)
 		if err != nil {
 			c.lggr.Errorw("EAConn: dial failed", "target", c.target, "err", err)
 			backoff = c.sleepBackoff(backoff)
