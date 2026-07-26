@@ -13,6 +13,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn/streamspb"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -77,8 +78,8 @@ type eaConn struct {
 
 // newEAConn is called with manager.connsMu already held, so reading manager.lggr
 // here is safe without a separate lock.
-func newEAConn(bridgeName string, bridgeUrl models.WebURL, manager *bridgeConnManager) *eaConn {
-	u := url.URL(bridgeUrl)
+func newEAConn(bridgeName string, bridgeURL models.WebURL, manager *bridgeConnManager) *eaConn {
+	u := url.URL(bridgeURL)
 	return &eaConn{
 		bridgeName: bridgeName,
 		target:     u.Host,

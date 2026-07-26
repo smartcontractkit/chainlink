@@ -43,7 +43,7 @@ func (t *BridgeTask) HelperSetDependencies(
 	t.orm = orm
 	t.uuid = id
 	t.httpClient = httpClient
-	t.specId = specId
+	t.specID = specId
 }
 
 func (t *BridgeTask) HelperSetBridgeConnManager(bridgeConnManager bridgeconn.BridgeConnManager) {

@@ -86,7 +86,7 @@ type BridgeTask struct {
 	// requiredJSONPaths). When empty or "false", that check is skipped.
 	CheckRequired string `json:"checkRequired"`
 
-	specId            int32
+	specID            int32
 	orm               bridges.ORM
 	config            Config
 	bridgeConfig      BridgeConfig
@@ -179,14 +179,14 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		if bridgeConnManager == nil {
 			bridgeConnManager = bridgeconn.NewBridgeConnManager()
 		}
-		responseBytes, err := bridgeConnManager.GetObservation(bridge, map[string]any(lookupPayload))
-		if err != nil {
+		responseBytes, obsErr := bridgeConnManager.GetObservation(bridge, map[string]any(lookupPayload))
+		if obsErr != nil {
 			lggr.Debugw("Bridge task: connection manager request failed",
 				"response", string(responseBytes),
 				"url", url.String(),
-				"error", err,
+				"error", obsErr,
 			)
-			return Result{Error: err}, RunInfo{IsRetryable: true}
+			return Result{Error: obsErr}, RunInfo{IsRetryable: true}
 		}
 		return Result{Value: string(responseBytes)}, runInfo
 	}
@@ -226,7 +226,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 				RequestStartTimestamp:  start,
 				RequestFinishTimestamp: finish,
 				LocalCacheHit:          cachedResponse,
-				SpecID:                 t.specId,
+				SpecID:                 t.specID,
 				DotID:                  t.DotID(),
 			}
 			if err != nil {
@@ -273,7 +273,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	if !cachedResponse && cacheTTL > 0 {
-		err := t.orm.UpsertBridgeResponse(overtimeCtx, t.dotID, t.specId, responseBytes)
+		err := t.orm.UpsertBridgeResponse(overtimeCtx, t.dotID, t.specID, responseBytes)
 		if err != nil {
 			lggr.Errorw("Bridge task: failed to upsert response in bridge cache", "err", err)
 		}
@@ -391,7 +391,7 @@ func (t *BridgeTask) resolveFailureOrCache(
 	}
 
 	//nolint:gosec // disable G115
-	cachedBytes, cacheErr := t.orm.GetCachedResponse(ctx, t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
+	cachedBytes, cacheErr := t.orm.GetCachedResponse(ctx, t.dotID, t.specID, time.Duration(cacheTTL)*time.Second)
 	if cacheErr != nil {
 		promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
 		if !errors.Is(cacheErr, sql.ErrNoRows) {

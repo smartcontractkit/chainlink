@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn/streamspb"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -138,8 +139,8 @@ func TestEAConn_HandleObservation(t *testing.T) {
 	cached, ok := m.cache[key]
 	m.mu.RUnlock()
 	require.True(t, ok)
-	assert.Equal(t, `{"result":"1"}`, string(cached))
-	assert.Equal(t, float64(1), observationsMetric())
+	assert.JSONEq(t, `{"result":"1"}`, string(cached))
+	assert.InEpsilon(t, float64(1), observationsMetric(), 0)
 
 	// Unregistered key: discarded, counter unchanged.
 	var unknownKey [32]byte
@@ -152,20 +153,21 @@ func TestEAConn_HandleObservation(t *testing.T) {
 	_, unknownCached := m.cache[unknownKey]
 	m.mu.RUnlock()
 	assert.False(t, unknownCached, "observation for an unregistered key must not be cached")
-	assert.Equal(t, float64(1), observationsMetric(), "counter must not increment for an unregistered key")
+	assert.InEpsilon(t, float64(1), observationsMetric(), 0, "counter must not increment for an unregistered key")
 
 	// Malformed (wrong-length) payload_hash: discarded, no panic, counter unchanged.
 	conn.handleObservation(&streamspb.SubscribeResponse{
 		PayloadHash:     []byte{1, 2, 3},
 		ObservationJson: []byte(`{"result":"3"}`),
 	})
-	assert.Equal(t, float64(1), observationsMetric(), "counter must not increment for a malformed payload_hash")
+	assert.InEpsilon(t, float64(1), observationsMetric(), 0, "counter must not increment for a malformed payload_hash")
 }
 
 func TestNextBackoff(t *testing.T) {
 	t.Parallel()
 	d := reconnectBackoffInitial
-	seen := []time.Duration{d}
+	seen := make([]time.Duration, 0, 11)
+	seen = append(seen, d)
 	for range 10 {
 		d = nextBackoff(d)
 		seen = append(seen, d)
@@ -192,7 +194,7 @@ func TestBridgeConnManager_GetObservation_CacheHitAndMiss(t *testing.T) {
 	m.PutObservation(key, []byte(`{"result":"9700"}`))
 	got, err := m.GetObservation(bridge, requestData)
 	require.NoError(t, err)
-	assert.Equal(t, `{"result":"9700"}`, string(got))
+	assert.JSONEq(t, `{"result":"9700"}`, string(got))
 
 	// GetObservation must still have registered the asset with the bridge's EAConn.
 	m.connsMu.Lock()
@@ -211,7 +213,7 @@ func TestBridgeConnManager_GetObservation_MissingDataField(t *testing.T) {
 	bridge := testBridge(t, "nodatabridge")
 
 	_, err := m.GetObservation(bridge, map[string]any{"foo": "bar"})
-	assert.Error(t, err, "requestData without a \"data\" field must be rejected, not silently subscribed")
+	require.Error(t, err, "requestData without a \"data\" field must be rejected, not silently subscribed")
 
 	_, err = m.GetObservation(bridge, map[string]any{"data": map[string]any{}})
 	assert.Error(t, err, "an empty \"data\" field must be rejected")

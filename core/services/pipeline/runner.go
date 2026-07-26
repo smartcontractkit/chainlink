@@ -347,7 +347,7 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			bt.bridgeConfig = r.bridgeConfig
 			// orm added to BridgeTask
 			bt.orm = r.btORM
-			bt.specId = spec.ID
+			bt.specID = spec.ID
 			// URL is "safe" because it comes from the node's own database. We
 			// must use the unrestrictedHTTPClient because some node operators
 			// may run external adapters on their own hardware

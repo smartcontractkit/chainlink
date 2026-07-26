@@ -3,6 +3,7 @@ package bridgeconn
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	stdErrors "errors"
 	"fmt"
 	"strings"
@@ -12,10 +13,12 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
+//nolint:revive // Interface name matches existing project convention.
 type BridgeConnManager interface {
 	GetObservation(bridge bridges.BridgeType, requestData map[string]any) ([]byte, error)
 }
@@ -70,7 +73,7 @@ func (m *bridgeConnManager) GetObservation(bridge bridges.BridgeType, requestDat
 	if err != nil {
 		return nil, err
 	}
-	m.lggr.Debugw("cache key generated", "key", fmt.Sprintf("%x", key), "bridge", bridgeName, "data", data)
+	m.lggr.Debugw("cache key generated", "key", hex.EncodeToString(key[:]), "bridge", bridgeName, "data", data)
 	subscription, err := structpb.NewStruct(data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build subscription payload for bridge %q: %w", bridgeName, err)
@@ -116,7 +119,6 @@ func (m *bridgeConnManager) SeedObservation(bridge bridges.BridgeType, requestDa
 // getOrCreateConn returns the bridge's persistent EAConn, lazily creating and
 // starting it on first use.
 func (m *bridgeConnManager) getOrCreateConn(bridgeName string, bridgeURL models.WebURL) *eaConn {
-
 	m.connsMu.Lock()
 	defer m.connsMu.Unlock()
 	if conn, ok := m.conns[bridgeName]; ok {
@@ -149,7 +151,7 @@ func (m *bridgeConnManager) DisableEAConnDialingForTest() {
 func subscriptionData(requestData map[string]any) (map[string]any, error) {
 	data, ok := requestData["data"].(map[string]any)
 	if !ok || len(data) == 0 {
-		return nil, fmt.Errorf("request data is missing a non-empty \"data\" field required for subscription")
+		return nil, stdErrors.New("request data is missing a non-empty \"data\" field required for subscription")
 	}
 	return data, nil
 }
