@@ -30,6 +30,7 @@ type Telemetry interface {
 	DurableEmitterRetransmitBatchSize() int
 	DurableEmitterEventTTL() time.Duration
 	DurableEmitterMaxQueuePayloadBytes() int64
+	DurableEmitterInsertBatchFlushInterval() time.Duration
 	HeartbeatInterval() time.Duration
 	LogStreamingEnabled() bool
 	LogLevel() zapcore.Level
