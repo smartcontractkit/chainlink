@@ -48,7 +48,7 @@ func newTestConnector(t *testing.T, config *ConnectorConfig) (*gatewayConnector,
 	signer := gatewaymocks.NewSigner(t)
 	handler := gatewaymocks.NewGatewayConnectorHandler(t)
 	clock := clockwork.NewFakeClock()
-	connector, err := NewGatewayConnector(config, signer, clock, logger.Test(t))
+	connector, err := NewGatewayConnector(config, signer, clock, logger.Test(t), "")
 	require.NoError(t, err)
 	require.NoError(t, connector.AddHandler(t.Context(), []string{testMethod1}, handler))
 	return connector, signer, handler
@@ -129,7 +129,7 @@ URL = "ws://localhost:8081/node"
 	for name, config := range invalidCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			_, err := NewGatewayConnector(parseTOMLConfig(t, config), signer, clock, logger.Test(t))
+			_, err := NewGatewayConnector(parseTOMLConfig(t, config), signer, clock, logger.Test(t), "")
 			require.Error(t, err)
 		})
 	}
