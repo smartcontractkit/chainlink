@@ -47,9 +47,11 @@ COPY ccip ./ccip
 COPY common ./common
 COPY core ./core
 COPY internal ./internal
+COPY operator_ui ./operator_ui
 COPY plugins ./plugins
 COPY tools ./tools
 COPY --from=operator-ui-assets /chainlink/core/web/assets ./core/web/assets
+
 
 
 
