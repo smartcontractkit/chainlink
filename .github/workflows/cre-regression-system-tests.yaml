@@ -112,7 +112,7 @@ jobs:
                       if any($tmpfs[]; . == $name) then
                         "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
                       else
-                        "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=32/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache"
+                        "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=16/family=c7i+c8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache"
                       end
                     ),
                     configs: ($per[$name] // "configs/workflow-gateway-capabilities-don.toml")
