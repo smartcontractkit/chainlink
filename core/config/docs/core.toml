@@ -928,6 +928,9 @@ LogExportMaxBatchSize = 512 # Default
 LogExportInterval = '1s' # Default
 # LogMaxQueueSize sets the maximum queue size used by the batcher
 LogMaxQueueSize = 2048 # Default
+# MetricViewsDenyAttributes lists attribute keys dropped before export (e.g. event_id).
+# Empty disables default Beholder metric attribute deny views.
+MetricViewsDenyAttributes = ['event_id'] # Default
 # MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
 MetricCardinalityLimit = 100000 # Default
 
