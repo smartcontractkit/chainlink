@@ -165,8 +165,6 @@ jobs:
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
-        with:
-          metrics: cpu,network,memory,disk,io
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -349,6 +347,16 @@ jobs:
           aws-role-duration-seconds: "1800"
           set-git-config: "true"
 
+      # DEBUG: Check for OOM due to TMPFS
+      - name: 🔍 Debug tmpfs RAM usage (Before)
+        if: always()
+        run: |
+          echo "=== Tmpfs Filesystem Usage (RAM eaten by files) ==="
+          df -h /home/runner /tmp /var/lib/docker
+          echo ""
+          echo "=== Actual Free RAM ==="
+          grep -E "MemTotal|MemAvailable|Shmem" /proc/meminfo
+
       - name: Run CRE Smoke system tests
         id: run-tests
         shell: bash
@@ -390,6 +398,16 @@ jobs:
           if [ "$exit_code" -eq 0 ]; then
             echo "tests_result=✅ Tests passed" >> "${GITHUB_OUTPUT}"
           fi
+
+      # DEBUG: Check for OOM due to TMPFS
+      - name: 🔍 Debug tmpfs RAM usage (After)
+        if: always()
+        run: |
+          echo "=== Tmpfs Filesystem Usage (RAM eaten by files) ==="
+          df -h /home/runner /tmp /var/lib/docker
+          echo ""
+          echo "=== Actual Free RAM ==="
+          grep -E "MemTotal|MemAvailable|Shmem" /proc/meminfo
 
       - name:
           Analyze and upload test results (${{ steps.run-tests.outputs.tests_result

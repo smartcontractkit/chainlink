@@ -227,6 +227,16 @@ jobs:
           cleanup-on-error: "false"
           working-directory: core/scripts/cre/environment
 
+      # DEBUG: Check for OOM due to TMPFS
+      - name: 🔍 Debug tmpfs RAM usage (Before)
+        if: always()
+        run: |
+          echo "=== Tmpfs Filesystem Usage (RAM eaten by files) ==="
+          df -h /home/runner /tmp /var/lib/docker
+          echo ""
+          echo "=== Actual Free RAM ==="
+          grep -E "MemTotal|MemAvailable|Shmem" /proc/meminfo
+
       - name: Run CRE Regression system tests
         id: run-regression-tests
         shell: bash
@@ -270,6 +280,16 @@ jobs:
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
 
           exit "$exit_code"
+
+      # DEBUG: Check for OOM due to TMPFS
+      - name: 🔍 Debug tmpfs RAM usage (After)
+        if: always()
+        run: |
+          echo "=== Tmpfs Filesystem Usage (RAM eaten by files) ==="
+          df -h /home/runner /tmp /var/lib/docker
+          echo ""
+          echo "=== Actual Free RAM ==="
+          grep -E "MemTotal|MemAvailable|Shmem" /proc/meminfo
 
       - name: Analyze and upload test results (${{
           steps.run-regression-tests.outputs.tests_result }})
