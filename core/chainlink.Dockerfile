@@ -37,7 +37,8 @@ COPY tools/bin/ldflags ./tools/bin/
 # Isolated from source code so assets are fetched only when operator_ui/TAG or install.go changes.
 FROM deps-base AS operator-ui-assets
 COPY operator_ui/TAG operator_ui/install.go ./operator_ui/
-RUN go run operator_ui/install.go .
+RUN mkdir -p core/web/assets && go run operator_ui/install.go .
+
 
 # Stage: deps — Go source tree for stages that compile chainlink code.
 FROM deps-base AS deps
