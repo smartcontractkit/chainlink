@@ -290,15 +290,8 @@ gocs: ## Run gocs to generate changeset markdown files.
 	go run github.com/smartcontractkit/gocs/cmd/gocs@v0.2.0
 
 .PHONY: dependabot
-ifndef DEPENDABOT_SEVERITY
-DEPENDABOT_SEVERITY := "critical,high"
-endif
-dependabot: gomods
-	gh api --paginate -H "Accept: application/vnd.github+json" --method GET \
-	  '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' \
-	  --jq '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
-	  go tool dependabot && \
-	gomods tidy
+dependabot:
+	echo "Deprecated: manually trigger the CI workflow instead"
 
 help:
 	@echo ""

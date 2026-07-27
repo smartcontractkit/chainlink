@@ -25,6 +25,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	ks_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"
+	ks_stellar "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -99,6 +100,7 @@ func NewContractVersionsProvider(overrides map[ContractType]*semver.Version) *co
 			keystone_changeset.KeystoneForwarder.String():    semver.MustParse("1.0.0"),
 			ks_sol.ForwarderContract.String():                semver.MustParse("1.0.0"),
 			ks_sol.ForwarderState.String():                   semver.MustParse("1.0.0"),
+			ks_stellar.ForwarderContract.String():            semver.MustParse(ks_stellar.DefaultForwarderVersion),
 		},
 	}
 	maps.Copy(cvp.contracts, overrides)
@@ -1581,6 +1583,11 @@ type Environment struct {
 	ContractVersions      map[ContractType]*semver.Version
 	Provider              infra.Provider
 	// CapabilityConfigs     map[CapabilityFlag]CapabilityConfig
+
+	// FreshExternalJobIDs, when true, tells job-proposing Feature files to
+	// generate a random externalJobID for every job instead of the default
+	// deterministic one. Off by default so local-CRE's behavior is unchanged.
+	FreshExternalJobIDs bool
 }
 
 func (e *Environment) RegistryChain() (blockchains.Blockchain, error) {

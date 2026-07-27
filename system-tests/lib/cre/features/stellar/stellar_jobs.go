@@ -72,11 +72,7 @@ func proposeStellarStandardCapabilityJobsForChain(
 		return nil, fmt.Errorf("failed to resolve Stellar method config settings: %w", err)
 	}
 
-	// The forwarder address is only consumed by WriteReport, which is out of scope for
-	// this read-only build (no forwarder is deployed). The capability config still needs
-	// a syntactically-valid C-address, so a placeholder is supplied.
-	const placeholderForwarderAddress = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
-	forwarderAddress := placeholderForwarderAddress
+	forwarderAddress := mustForwarderAddress(creEnv.CldfEnvironment.DataStore, chainSelector)
 
 	configStr, err := buildJobConfigJSON(chainID, forwarderAddress, methodSettings, isLocal)
 	if err != nil {

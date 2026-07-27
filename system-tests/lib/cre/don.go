@@ -19,16 +19,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
-	cre_offchain "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
-	offchain_ops "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain/changeset/operations"
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
-	stellarbc "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
-
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -41,7 +31,16 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	cre_offchain "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
+	offchain_ops "github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain/changeset/operations"
 	"github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	stellarbc "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 
 const (
@@ -296,7 +295,7 @@ func registerWithJD(ctx context.Context, d *Don, supportedChains []blockchains.B
 			for _, role := range node.Roles {
 				switch role {
 				case RoleWorker, RoleBootstrap:
-					if err := createJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
+					if err := CreateJDChainConfigs(ctx, node, supportedChains, jd); err != nil {
 						return fmt.Errorf("failed to create supported chains in node %s: %w", node.Name, err)
 					}
 				case RoleGateway:
@@ -450,7 +449,8 @@ type JDChainConfigInput struct {
 	ChainType string
 }
 
-type nodeChainConfigLister interface {
+// JDChainConfigLister lists node chain configs from Job Distributor.
+type JDChainConfigLister interface {
 	ListNodeChainConfigs(context.Context, *nodev1.ListNodeChainConfigsRequest, ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error)
 }
 
@@ -459,7 +459,9 @@ var (
 	jdChainConfigRPCTimeout  = 3 * time.Second
 )
 
-func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd nodeChainConfigLister) error {
+// CreateJDChainConfigs creates missing JD chain configs for a node. It is
+// idempotent and safe to call on reruns.
+func CreateJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockchains.Blockchain, jd JDChainConfigLister) error {
 	ocr2BundleIDsByType := make(map[string]string)
 	// Dedupe by (chain ID, chain type) so we never create the same config twice.
 	seen := make(map[string]struct{})
@@ -611,7 +613,7 @@ func createJDChainConfigs(ctx context.Context, n *Node, supportedChains []blockc
 	return nil
 }
 
-func listNodeChainConfigIDs(ctx context.Context, jd nodeChainConfigLister, nodeID string) (map[string]struct{}, error) {
+func listNodeChainConfigIDs(ctx context.Context, jd JDChainConfigLister, nodeID string) (map[string]struct{}, error) {
 	rpcCtx, cancel := context.WithTimeout(ctx, jdChainConfigRPCTimeout)
 	defer cancel()
 
@@ -685,14 +687,14 @@ func (n *Node) AcceptJob(ctx context.Context, spec string) error {
 	var idToAccept string
 	for _, jp := range jd.JobProposals {
 		if jp.LatestSpec.Definition == spec {
-			idToAccept = jp.Id
+			idToAccept = jp.LatestSpec.Id
 			break
 		}
 	}
 	if idToAccept == "" {
 		return fmt.Errorf("no job proposal found for job spec %s", spec)
 	}
-	approvedSpec, err := n.Clients.GQLClient.ApproveJobProposalSpec(ctx, idToAccept, false)
+	approvedSpec, err := n.Clients.GQLClient.ApproveJobProposalSpec(ctx, idToAccept, true)
 	if err != nil {
 		return err
 	}
@@ -888,7 +890,7 @@ func LinkToJobDistributor(ctx context.Context, input *LinkDonsToJDInput) error {
 	errGroup, groupCtx := errgroup.WithContext(ctx)
 	for idx, don := range dons {
 		errGroup.Go(func() error {
-			supportedChains, schErr := findDonSupportedChains(donMetadata[idx], input.Blockchains)
+			supportedChains, schErr := FindDonSupportedChains(donMetadata[idx], input.Blockchains)
 			if schErr != nil {
 				return errors.Wrap(schErr, "failed to find supported chains for DON")
 			}
@@ -933,7 +935,8 @@ func HasFlag(values []string, capability string) bool {
 	return false
 }
 
-func findDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockchain) ([]blockchains.Blockchain, error) {
+// FindDonSupportedChains returns blockchains that require JD chain configs for a DON.
+func FindDonSupportedChains(donMetadata *DonMetadata, bcs []blockchains.Blockchain) ([]blockchains.Blockchain, error) {
 	chains := make([]blockchains.Blockchain, 0)
 	chainCapabilityIDs := donMetadata.MustNodeSet().ChainCapabilityChainIDs()
 

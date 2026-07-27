@@ -1,0 +1,109 @@
+[capability_configs.consensus]
+  binary_name = "consensus"
+
+# Global values for consensus are optional - uses empty jobspec config by default
+[capability_configs.consensus.values]
+# MaxRequestSizeBytes = 200000  # Default: 100000
+# RequestBatchSize = 1 # Default: 1
+# MaxRequestOutcomeSize = 1000 # Default: 1000
+# KeyBundleIDForValueConsensus = "" # Default: ""
+#   CustomField = "value"  # Add custom fields if needed
+
+[capability_configs.cron]
+  binary_name = "cron"
+
+# Global config for cron is optional - uses empty config by default
+[capability_configs.cron.values]
+#   CustomField = "value"  # Add custom fields if needed
+
+[capability_configs.evm]
+  # Defaults for the EVM capability
+  # These are merged with per-DON chain_overrides
+  binary_name = "evm"
+
+[capability_configs.evm.values]
+  LogTriggerPollInterval = 1500000000  # 1.5s in nanoseconds
+  ReceiverGasMinimum = 500
+  # LogTriggerSendChannelBufferSize = 1000 # default 1000, ommited here to use default
+  # LogTriggerLimitQueryLogSize = 1000 # default 1000, ommited here to use default
+  # Runtime values below are typically filled at runtime, but may be overridden
+  # CreForwarderAddress = "0x0000000000000000000000000000000000000000"
+  # NodeAddress = "0x0000000000000000000000000000000000000000"
+
+[capability_configs.http-action]
+  binary_name = "http_action"
+
+[capability_configs.solana]
+  binary_name = "solana"
+
+[capability_configs.http-action.values]
+  # HTTP Action capability configuration
+  ProxyMode = "gateway"
+  IncomingGlobalBurst = 10
+  IncomingGlobalRPS = 50
+  IncomingPerSenderBurst = 10
+  IncomingPerSenderRPS = 10
+  OutgoingGlobalBurst = 10
+  OutgoingGlobalRPS = 50
+  OutgoingPerSenderBurst = 10
+  OutgoingPerSenderRPS = 10
+
+[capability_configs.http-trigger]
+  binary_name = "http_trigger"
+
+[capability_configs.http-trigger.values]
+  # HTTP Trigger capability configuration
+  IncomingGlobalBurst = 10
+  IncomingGlobalRPS = 50
+  IncomingPerSenderBurst = 10
+  IncomingPerSenderRPS = 10
+  OutgoingGlobalBurst = 10
+  OutgoingGlobalRPS = 50
+  OutgoingPerSenderBurst = 10
+  OutgoingPerSenderRPS = 10
+
+#[capability_configs.vault]
+#  no binary path for vault, it's built-in
+
+[capability_configs.vault.values]
+  [capability_configs.vault.values.auth0]
+    issuerURL = "http://host.docker.internal:18123/"
+    audience = "https://vault.test.chain.link"
+    tenantID = 1
+
+[capability_configs.write-solana.values]
+  # Solana Workflow configuration for write capabilities
+  TxAcceptanceState = 3
+  TxRetentionTimeout = "120s"
+  AcceptanceTimeout = "30s"
+  PollPeriod = "2s"
+  SkipPreflight = true
+  Local = true
+  # Runtime values below are typically filled at runtime, but may be overridden
+  # FromAddress = "0x0000000000000000000000000000000000000000"
+  # ForwarderAddress = "0x0000000000000000000000000000000000000000"
+
+# Aptos chain capability plugin (View + WriteReport). Runtime values are injected per chain.
+[capability_configs.aptos]
+  binary_name = "aptos"
+
+[capability_configs.aptos.values]
+  # These values build the Aptos capability config registered in CapReg.
+  # ChainID and forwarder address are injected separately at job proposal time.
+  # They are not emitted as top-level worker job-spec fields.
+  RequestTimeout = "30s"
+  DeltaStage = "1500ms"
+
+[capability_configs.solana.values]
+  TxAcceptanceState = 3
+  TxRetentonTimeout = "120s"
+  AcceptanceTimeout = "30s"
+  PollPeriod = "2s"
+  SkipPreflight = true
+  Local = true
+
+[capability_configs.mock]
+  binary_name = "mock"
+
+[capability_configs.mock.values]
+  Port = 7777  # Default port for mock service
