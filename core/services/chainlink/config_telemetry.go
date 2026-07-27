@@ -263,7 +263,14 @@ func (b *telemetryConfig) LogMaxQueueSize() int {
 	return *b.s.LogMaxQueueSize
 }
 
+func (b *telemetryConfig) MetricViewsDenyAttributes() []string {
+	return b.s.MetricViewsDenyAttributes
+}
+
 func (b *telemetryConfig) MetricCardinalityLimit() int {
+	if b.s.MetricCardinalityLimit == nil {
+		return 100000
+	}
 	return *b.s.MetricCardinalityLimit
 }
 
