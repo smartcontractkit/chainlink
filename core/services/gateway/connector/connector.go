@@ -116,10 +116,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 	}
 	metrics, err := newConnectorMetrics()
 	if err != nil {
-		// Metrics are non-essential; log and continue without them rather than
-		// failing connector construction.
-		lggr.Warnw("failed to initialize gateway connector metrics", "err", err)
-		metrics = nil
+		return nil, fmt.Errorf("failed to create gateway connector metrics: %w", err)
 	}
 	connector := &gatewayConnector{
 		config:      config,
