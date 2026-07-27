@@ -146,9 +146,9 @@ func executeStellarReadContractSmokeTest(
 	lggr.Info().Int("cases", len(steps)).Str("expected_log", expectLogReadContractBatchOK).Msg("Stellar ReadContract capability test passed")
 }
 
-// ExecuteStellarWriteTest deploys a CRE receiver + a workflow that generates an
+// executeStellarWriteTest deploys a CRE receiver + a workflow that generates an
 // ed25519 OCR report and submits it via WriteReport through the Soroban CRE
-// forwarder, then asserts the receiver recorded the report on-chain.
+// forwarder, then asserts the receiver recorded the report on-chain with payload integrity check.
 func executeStellarWriteTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
@@ -172,11 +172,17 @@ func executeStellarWriteTest(
 	require.NotEmpty(t, workers, "Stellar DON has no worker nodes")
 	requiredSignatures := (len(workers)-1)/3 + 1
 
-	const workflowName = "stellar-write-workflow"
+	// Use a deterministic payload: 0x0000000000000064 = 100 as little-endian u64.
+	// The receiver's last_value_u64() reads the first 8 bytes of the payload as LE u64.
+	const reportPayloadHex = "0000000000000064"
+	const expectedValue uint64 = 100
+
+	workflowName := thelpers.UniqueStellarWorkflowName("stellar-write-workflow")
 	workflowConfig := thelpers.StellarWriteWorkflowConfig{
 		ChainSelector:      stellarChain.ChainSelector(),
 		WorkflowName:       workflowName,
 		ReceiverContractID: receiverID,
+		ReportPayloadHex:   reportPayloadHex,
 		RequiredSignatures: requiredSignatures,
 	}
 
@@ -186,17 +192,26 @@ func executeStellarWriteTest(
 	expectedLog := "Stellar write consensus succeeded"
 	thelpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, thelpers.WorkflowEngineInitErrorLog, expectedLog, thelpers.StellarWorkflowTimeout, thelpers.WithUserLogWorkflowID(workflowID))
 
-	// Assert the report was actually delivered on-chain: the receiver's on_report
-	// incremented its report count.
+	// Assert the report was delivered and the payload matches on-chain.
 	require.Eventually(t, func() bool {
 		n, cErr := stellarfeature.ReceiverReportCount(ctx, concreteChain, receiverID)
 		if cErr != nil {
 			lggr.Warn().Err(cErr).Msg("stellar receiver report_count query failed; retrying")
 			return false
 		}
-		return n > 0
-	}, 2*time.Minute, 5*time.Second, "Stellar receiver did not record any report")
-	lggr.Info().Str("expected_log", expectedLog).Msg("Stellar write capability test passed")
+		if n == 0 {
+			return false
+		}
+		val, vErr := stellarfeature.ReceiverLastValueU64(ctx, concreteChain, receiverID)
+		if vErr != nil {
+			lggr.Warn().Err(vErr).Msg("stellar receiver last_value_u64 query failed; retrying")
+			return false
+		}
+		lggr.Info().Uint64("on_chain_value", val).Uint64("expected_value", expectedValue).Msg("Stellar write on-chain value read")
+		return val == expectedValue
+	}, 2*time.Minute, 5*time.Second, "Stellar receiver did not record the expected payload value %d", expectedValue)
+
+	lggr.Info().Str("expected_log", expectedLog).Uint64("payload_value", expectedValue).Msg("Stellar write capability test passed")
 }
 
 // setupStellarScenario provisions an isolated per-test context for a Stellar read scenario:

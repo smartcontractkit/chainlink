@@ -44,3 +44,55 @@ func ReceiverReportCount(ctx context.Context, chain *stellchain.Blockchain, cont
 	}
 	return stellar.ReportCountForChain(ctx, stellarChain, contractID)
 }
+
+// ReceiverLastValueU64 reads the receiver's last_value_u64 (read-only simulate)
+// so the write→read roundtrip test can assert payload integrity.
+func ReceiverLastValueU64(ctx context.Context, chain *stellchain.Blockchain, contractID string) (uint64, error) {
+	stellarChain, err := stellarCldfChain(chain)
+	if err != nil {
+		return 0, err
+	}
+	return stellar.ReceiverLastValueU64ForChain(ctx, stellarChain, contractID)
+}
+
+// DeployStellarRejectingReceiver deploys the CRE rejecting test receiver (always
+// returns Err from on_report) on the given Stellar chain and returns its C-address.
+// Used by write regression tests to exercise the forwarder's Failed transmission state.
+func DeployStellarRejectingReceiver(ctx context.Context, chain *stellchain.Blockchain) (string, error) {
+	stellarChain, err := stellarCldfChain(chain)
+	if err != nil {
+		return "", err
+	}
+	owner := stellarChain.Signer.Address()
+	if fundErr := chain.Fund(ctx, owner, 0); fundErr != nil {
+		return "", fmt.Errorf("failed to fund stellar deployer %s via friendbot: %w", owner, fundErr)
+	}
+
+	buildCfg, err := stellarBuildConfig(ctx, stellar.RejectingReceiverWasm)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve stellar rejecting receiver WASM source: %w", err)
+	}
+
+	var salt [32]byte
+	salt[0] = 0x52 // 'R' — distinct from the cooperative receiver's all-zero salt
+	return stellar.DeployRejectingReceiverForChain(ctx, stellarChain, buildCfg, salt)
+}
+
+// GetStellarTransmissionInfo queries the forwarder's get_transmission_info view
+// for a given (receiver, workflowExecutionID, reportID) triple. Used by write
+// regression tests to assert the on-chain transmission state (Succeeded, Failed,
+// InvalidReceiver, NotAttempted).
+func GetStellarTransmissionInfo(
+	ctx context.Context,
+	chain *stellchain.Blockchain,
+	forwarderAddress string,
+	receiverContractID string,
+	workflowExecutionIDHex string,
+	reportIDHex string,
+) (stellar.TransmissionInfo, error) {
+	stellarChain, err := stellarCldfChain(chain)
+	if err != nil {
+		return stellar.TransmissionInfo{}, err
+	}
+	return stellar.GetTransmissionInfoForChain(ctx, stellarChain, forwarderAddress, receiverContractID, workflowExecutionIDHex, reportIDHex)
+}
