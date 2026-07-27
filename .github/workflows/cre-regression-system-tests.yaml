@@ -76,6 +76,20 @@ jobs:
         id: define-matrix
         shell: bash
         run: |
+          # IO-heavy tests with sizable slowdowns without tmpfs use 16 vCPU / 64 GB + tmpfs.
+          # Remaining tests with lower IO/resource usage run on 8 vCPU / 32 GB non-tmpfs runners.
+          TMPFS_TESTS_JSON='[
+            "Test_CRE_V2_HTTP_Action_CRUD_Regression",
+            "Test_CRE_V2_EVM_WriteReport_Invalid_Receiver_Regression",
+            "Test_CRE_V2_Consensus_Regression",
+            "Test_CRE_V2_EVM_WriteReport_Invalid_Gas_Regression",
+            "Test_CRE_V2_EVM_CallContract_Invalid_Balance_Reader_Contract_Regression",
+            "Test_CRE_V2_EVM_GetTransactionReceipt_Invalid_Hash_Regression",
+            "Test_CRE_V2_EVM_FilterLogs_Invalid_FromBlock_Regression",
+            "Test_CRE_V2_EVM_BalanceAt_Invalid_Address_Regression",
+            "Test_CRE_V2_EVM_LogTrigger_Invalid_Address_Regression"
+          ]'
+
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/regression/cre/*_test.go)
 
           per_test_configs='{
@@ -85,15 +99,25 @@ jobs:
           tests=$(echo "$test_names" | jq -c -R -s \
             --argjson run_id "${{ github.run_id }}" \
             --arg run_attempt "${{ github.run_attempt }}" \
-            --argjson per "$per_test_configs" '
+            --argjson per "$per_test_configs" \
+            --argjson tmpfs "$TMPFS_TESTS_JSON" '
             split("\n") | map(select(length>0))
             | to_entries
-            | map({
-                test_name: .value,
-                test_id: .key,
-                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache",
-                configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
-              })
+            | map(
+                .value as $name
+                | {
+                    test_name: $name,
+                    test_id: .key,
+                    runs_on: (
+                      if any($tmpfs[]; . == $name) then
+                        "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+                      else
+                        "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=32/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache"
+                      end
+                    ),
+                    configs: ($per[$name] // "configs/workflow-gateway-capabilities-don.toml")
+                  }
+              )
           ')
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
