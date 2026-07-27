@@ -11,7 +11,6 @@ on:
       - "*"
     branches:
       - develop
-      - fasterPluginsDocker # DEBUG: Seed cache
   workflow_dispatch:
     inputs:
       cl_ref:
@@ -331,7 +330,7 @@ jobs:
 
       - name: Build Chainlink Image
         if: steps.explain.outputs.build-image == 'true'
-        uses: smartcontractkit/.github/actions/ctf-build-image@fb9f83216aa399df05e3d3ab45ef364ee53c5f91 # DEBUG: Using the buildkit cache dance
+        uses: smartcontractkit/.github/actions/ctf-build-image@cacheDance # DEBUG: Using the buildkit cache dance
         with:
           image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
