@@ -112,23 +112,13 @@ jobs:
              ]
           }'
 
-          # IO-heavy tests with sizable slowdowns without tmpfs use 16 vCPU / 64 GB + tmpfs.
-          # Remaining tests with lower IO/resource usage run on 8 vCPU / 32 GB non-tmpfs runners.
-          TMPFS_TESTS_JSON='[
-            "Test_CRE_GRPCSource_Lifecycle",
-            "Test_CRE_V2_EVM_Read_StateQueries",
-            "Test_CRE_V2_Suite_Bucket_B:workflow-gateway-capabilities-vault-jwt_auth-enabled",
-            "Test_CRE_V2_Suite_Bucket_B:workflow-gateway-capabilities-vault-optimizations-enabled"
-          ]'
-
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade)
 
           tests=$(echo "$test_names" | jq -c -R -s \
             --argjson run_id "${{ github.run_id }}" \
             --arg run_attempt "${{ github.run_attempt }}" \
             --argjson tops "$TOPOLOGIES_JSON" \
-            --argjson per "$PER_TEST_TOPOLOGIES_JSON" \
-            --argjson tmpfs "$TMPFS_TESTS_JSON" '
+            --argjson per "$PER_TEST_TOPOLOGIES_JSON" '
             (split("\n") | map(select(length>0))) as $names
             | [ $names[] as $name | $tops[] | {test_name:$name} + . ] as $baseAll
             | ($baseAll | map(select(.test_name as $n | ($per[$n] | type) == "array" | not))) as $base
@@ -137,20 +127,10 @@ jobs:
               ] as $extra
             | ($base + $extra)
             | to_entries
-            | map(
-                .value as $val
-                | ($val.test_name + (if $val.topology then ":" + $val.topology else "" end)) as $key_name
-                | $val + {
-                    test_id: .key,
-                    runs_on: (
-                      if any($tmpfs[]; . == $val.test_name or . == $key_name) then
-                        "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
-                      else
-                        "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=32/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache"
-                      end
-                    )
-                  }
-              )
+            | map(.value + {
+                test_id: .key,
+                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+              })
           ')
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
