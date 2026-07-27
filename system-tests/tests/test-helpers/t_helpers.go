@@ -967,16 +967,17 @@ func UniqueStellarWorkflowName(base string) string {
 	return fmt.Sprintf("%s-%d-%d", base, time.Now().UnixNano(), stellarWorkflowNameSeq.Add(1))
 }
 
-// MustStellarChainInEnv returns the first Stellar chain in the environment, failing
-// the test if none is present.
-func MustStellarChainInEnv(t *testing.T, tenv *ttypes.TestEnvironment) blockchains.Blockchain {
+// MustStellarChainInEnv returns the first Stellar chain in the environment, failing the test if none is present.
+func MustStellarChainInEnv(t *testing.T, tenv *ttypes.TestEnvironment) *stellchain.Blockchain {
 	t.Helper()
 	require.NotNil(t, tenv, "Stellar suite requires a test environment")
 	require.NotNil(t, tenv.CreEnvironment, "Stellar suite requires a CRE environment")
 	require.NotEmpty(t, tenv.CreEnvironment.Blockchains, "Stellar suite expects at least one blockchain in the environment")
 	for _, bc := range tenv.CreEnvironment.Blockchains {
 		if bc.IsFamily(blockchain.FamilyStellar) {
-			return bc
+			concrete, ok := bc.(*stellchain.Blockchain)
+			require.True(t, ok, "expected concrete *stellar.Blockchain, got %T", bc)
+			return concrete
 		}
 	}
 	require.FailNow(t, "Stellar suite expects a Stellar chain in the environment (use config workflow-gateway-don-stellar.toml)")
@@ -985,11 +986,9 @@ func MustStellarChainInEnv(t *testing.T, tenv *ttypes.TestEnvironment) blockchai
 
 // MustDeployStellarReadFixture deploys the read_fixture contract and returns its
 // C-address, failing the test on error.
-func MustDeployStellarReadFixture(t *testing.T, stellarChain blockchains.Blockchain) string {
+func MustDeployStellarReadFixture(t *testing.T, stellarChain *stellchain.Blockchain) string {
 	t.Helper()
-	concreteChain, ok := stellarChain.(*stellchain.Blockchain)
-	require.True(t, ok, "expected concrete *stellar.Blockchain, got %T", stellarChain)
-	fixtureID, err := stellarfeature.DeployStellarReadFixture(context.Background(), concreteChain)
+	fixtureID, err := stellarfeature.DeployStellarReadFixture(context.Background(), stellarChain)
 	require.NoError(t, err, "failed to deploy Stellar CRE read fixture")
 	framework.L.Info().Str("fixture", fixtureID).Msg("Deployed Stellar ReadContract fixture")
 	return fixtureID

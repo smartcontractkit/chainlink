@@ -77,22 +77,3 @@ func DeployStellarRejectingReceiver(ctx context.Context, chain *stellchain.Block
 	salt[0] = 0x52 // 'R' — distinct from the cooperative receiver's all-zero salt
 	return stellar.DeployRejectingReceiverForChain(ctx, stellarChain, buildCfg, salt)
 }
-
-// GetStellarTransmissionInfo queries the forwarder's get_transmission_info view
-// for a given (receiver, workflowExecutionID, reportID) triple. Used by write
-// regression tests to assert the on-chain transmission state (Succeeded, Failed,
-// InvalidReceiver, NotAttempted).
-func GetStellarTransmissionInfo(
-	ctx context.Context,
-	chain *stellchain.Blockchain,
-	forwarderAddress string,
-	receiverContractID string,
-	workflowExecutionIDHex string,
-	reportIDHex string,
-) (stellar.TransmissionInfo, error) {
-	stellarChain, err := stellarCldfChain(chain)
-	if err != nil {
-		return stellar.TransmissionInfo{}, err
-	}
-	return stellar.GetTransmissionInfoForChain(ctx, stellarChain, forwarderAddress, receiverContractID, workflowExecutionIDHex, reportIDHex)
-}

@@ -16,7 +16,6 @@ import (
 	"github.com/stellar/go-stellar-sdk/xdr"
 
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	stellarfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	thelpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -45,7 +44,7 @@ const (
 func executeStellarReadLatestLedgerTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
-	stellarChain blockchains.Blockchain,
+	stellarChain *stellchain.Blockchain,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
@@ -67,7 +66,7 @@ func executeStellarReadLatestLedgerTest(
 func executeStellarReadContractSmokeTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
-	stellarChain blockchains.Blockchain,
+	stellarChain *stellchain.Blockchain,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
@@ -152,17 +151,14 @@ func executeStellarReadContractSmokeTest(
 func executeStellarWriteTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
-	stellarChain blockchains.Blockchain,
+	stellarChain *stellchain.Blockchain,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
 	lggr := framework.L
 	ctx := context.Background()
 
-	concreteChain, ok := stellarChain.(*stellchain.Blockchain)
-	require.True(t, ok, "expected concrete *stellar.Blockchain, got %T", stellarChain)
-
-	receiverID, err := stellarfeature.DeployStellarTestReceiver(ctx, concreteChain)
+	receiverID, err := stellarfeature.DeployStellarTestReceiver(ctx, stellarChain)
 	require.NoError(t, err, "failed to deploy Stellar CRE test receiver")
 	lggr.Info().Str("receiver", receiverID).Msg("Deployed Stellar CRE test receiver")
 
@@ -194,7 +190,7 @@ func executeStellarWriteTest(
 
 	// Assert the report was delivered and the payload matches on-chain.
 	require.Eventually(t, func() bool {
-		n, cErr := stellarfeature.ReceiverReportCount(ctx, concreteChain, receiverID)
+		n, cErr := stellarfeature.ReceiverReportCount(ctx, stellarChain, receiverID)
 		if cErr != nil {
 			lggr.Warn().Err(cErr).Msg("stellar receiver report_count query failed; retrying")
 			return false
@@ -202,7 +198,7 @@ func executeStellarWriteTest(
 		if n == 0 {
 			return false
 		}
-		val, vErr := stellarfeature.ReceiverLastValueU64(ctx, concreteChain, receiverID)
+		val, vErr := stellarfeature.ReceiverLastValueU64(ctx, stellarChain, receiverID)
 		if vErr != nil {
 			lggr.Warn().Err(vErr).Msg("stellar receiver last_value_u64 query failed; retrying")
 			return false
@@ -219,7 +215,7 @@ func executeStellarWriteTest(
 // chip sink capturing that scenario's workflow logs. Call it at the top of each scenario subtest.
 func setupStellarScenario(t *testing.T, tenv *configuration.TestEnvironment) (
 	*configuration.TestEnvironment,
-	blockchains.Blockchain,
+	*stellchain.Blockchain,
 	<-chan *workflowevents.UserLogs,
 	<-chan *commonevents.BaseMessage,
 ) {
