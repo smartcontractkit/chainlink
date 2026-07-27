@@ -331,7 +331,7 @@ jobs:
 
       - name: Build Chainlink Image
         if: steps.explain.outputs.build-image == 'true'
-        uses: smartcontractkit/.github/actions/ctf-build-image@75f7437d42630b8f771b1a7879079ed9743165dc # DEBUG: Using the buildkit cache dance
+        uses: smartcontractkit/.github/actions/ctf-build-image@fb9f83216aa399df05e3d3ab45ef364ee53c5f91 # DEBUG: Using the buildkit cache dance
         with:
           image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
@@ -349,12 +349,10 @@ jobs:
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
           # DEBUG: Force caching for testing
-          docker-save-cache: "true"
-          docker-restore-cache: "true"
+          cache-mode: read-write
 
           cache-scope: ${{ matrix.image.cache-scope }}
-          cache-dance: "true"
-          cache-dance-cache-map: |
+          cache-map: |
             {"go-mod-cache": "/go/pkg/mod", "go-build-cache": "/root/.cache/go-build"}
 
   run-core-cre-e2e-tests-setup:
