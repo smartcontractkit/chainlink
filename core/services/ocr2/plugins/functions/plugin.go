@@ -217,7 +217,7 @@ func NewConnector(ctx context.Context, pluginConfig *config.PluginConfig, ethKey
 		return nil, nil, err
 	}
 	// handler acts as a signer here
-	connector, err := connector.NewGatewayConnector(pluginConfig.GatewayConnectorConfig, handler, clockwork.NewRealClock(), lggr)
+	connector, err := connector.NewGatewayConnector(pluginConfig.GatewayConnectorConfig, handler, clockwork.NewRealClock(), lggr, "")
 	if err != nil {
 		return nil, nil, err
 	}

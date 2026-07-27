@@ -123,7 +123,7 @@ func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ec
 
 	ethKeystore := &keystest.FakeChainStore{Addresses: keystest.Addresses{keystoreKeyV2.Address}}
 	gc := config.Capabilities().GatewayConnector()
-	wrapper := gatewayconnector.NewGatewayConnectorServiceWrapper(gc, ethKeystore, nil, big.NewInt(1), clockwork.NewFakeClock(), lggr)
+	wrapper := gatewayconnector.NewGatewayConnectorServiceWrapper(gc, ethKeystore, nil, big.NewInt(1), clockwork.NewFakeClock(), lggr, nil)
 	return wrapper, nil
 }
 
@@ -173,6 +173,7 @@ func setupAutoDiscoverTest(
 		big.NewInt(1),
 		clockwork.NewFakeClock(),
 		lggr,
+		nil,
 	), nil
 }
 
