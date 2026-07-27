@@ -3,18 +3,31 @@
 .DS_Store
 .envrc
 *.log
+**/*_test.go
 node_modules/
 **/node_modules/
 vendor/
 tmp/
+
 
 contracts/node_modules
 examples/
 
 .changeset/
 .github/
+.vscode/
+.claude/
+.cursor/
 docs/
 fuzz/
+
+*.md
+sonar-project.properties
+pnpm-lock.yaml
+flake.lock
+flake.nix
+shell.nix
+
 
 devenv/
 deployment/

@@ -33,9 +33,24 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
 COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
-# Stage: deps — full source tree for stages that compile chainlink code.
+# Stage: operator-ui-assets — downloads and caches static Operator UI assets.
+# Isolated from source code so assets are fetched only when operator_ui/TAG or install.go changes.
+FROM deps-base AS operator-ui-assets
+COPY operator_ui/TAG operator_ui/install.go ./operator_ui/
+RUN go run operator_ui/install.go .
+
+# Stage: deps — Go source tree for stages that compile chainlink code.
 FROM deps-base AS deps
-COPY . .
+COPY main.go ./
+COPY ccip ./ccip
+COPY common ./common
+COPY core ./core
+COPY internal ./internal
+COPY plugins ./plugins
+COPY tools ./tools
+COPY --from=operator-ui-assets /chainlink/core/web/assets ./core/web/assets
+
+
 
 # Stage: Delve debugger (no source needed, branches from deps-base)
 FROM deps-base AS build-delve
