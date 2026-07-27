@@ -387,7 +387,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		}
 		emitterCfg.InsertBatchSize = 500
 		emitterCfg.InsertBatchWorkers = 6
-		emitterCfg.InsertBatchFlushInterval = 100 * time.Millisecond
+		emitterCfg.InsertBatchFlushInterval = cfg.Telemetry().DurableEmitterInsertBatchFlushInterval() // default 50ms, configurable via [Telemetry]
 		emitterCfg.DeleteBatchSize = 500
 		emitterCfg.DeleteBatchWorkers = 6
 		emitterCfg.DeleteBatchFlushInterval = 100 * time.Millisecond
