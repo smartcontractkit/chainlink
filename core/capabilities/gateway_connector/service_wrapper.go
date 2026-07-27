@@ -117,9 +117,9 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 		// stays empty and the connector skips metric recording.
 		csaKeyID := ""
 		if e.csa != nil {
-			csaKey, err := keystore.GetDefault(ctx, e.csa)
-			if err != nil {
-				return fmt.Errorf("failed to resolve CSA key for gateway connector: %w", err)
+			csaKey, csaErr := keystore.GetDefault(ctx, e.csa)
+			if csaErr != nil {
+				return fmt.Errorf("failed to resolve CSA key for gateway connector: %w", csaErr)
 			}
 			csaKeyID = csaKey.ID()
 		}
