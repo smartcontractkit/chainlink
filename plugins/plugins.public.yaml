@@ -18,7 +18,7 @@ plugins:
       # IMP: consult chainlink-sui team before updating this version
       # Must track the gRPC-migrated chainlink-sui used in go.mod, otherwise the DON runs a
       # pre-migration relayer (no gRPC ChainPoller) and never observes Sui source events.
-      gitRef: "v0.0.0-20260714190119-005bb9a612c3"
+      gitRef: "v0.0.0-20260722165728-7a830b8800c6"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
@@ -66,7 +66,7 @@ plugins:
 
   evm:
     - moduleURI: "github.com/smartcontractkit/chainlink-evm"
-      gitRef: "v0.3.4-0.20260716150153-cd1826496e2d"
+      gitRef: "v0.3.4-0.20260724155057-853407a21d53"
       installPath: "./pkg/cmd/chainlink-evm"
 
   capability-cron:

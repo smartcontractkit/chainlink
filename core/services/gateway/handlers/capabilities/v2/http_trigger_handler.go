@@ -588,7 +588,9 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutio
 				continue
 			}
 			h.metrics.IncrementTriggerCapabilityRequestCount(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
+			sendStart := time.Now()
 			err := h.don.SendToNode(ctxWithTimeout, member.Address, req)
+			h.metrics.RecordGatewayToNodeLatency(ctx, time.Since(sendStart).Milliseconds(), member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
 			if err != nil {
 				allNodesSucceeded = false
 				h.metrics.IncrementTriggerCapabilityRequestFailures(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
