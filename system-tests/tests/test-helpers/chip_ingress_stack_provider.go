@@ -31,7 +31,7 @@ const (
 	defaultErrorBufferSize   = 100
 
 	// Kafka timings
-	chipIngressStackStartTimeout   = 5 * time.Minute  // timeout for starting Chip Ingress stack
+	chipIngressStackStartTimeout   = 2 * time.Minute  // timeout for starting Chip Ingress stack
 	maxConsumerConnectivityTimeout = 60 * time.Second // max timeout before Kafka consumer reconnection
 	kafkaSessionTimeoutMs          = 20000            // keep it high enough to let Chip Ingress stack messages incoming
 	messageReadInterval            = 50 * time.Millisecond
@@ -84,14 +84,11 @@ func NewChipIngressStack(lggr zerolog.Logger, testConfig *configuration.TestConf
 	return &ChipIngressStack{cfg: chipConfig, lggr: lggr}, nil
 }
 
-// creEnvBinaryName is the precompiled CRE environment binary built by the CI compile-tests job.
-const creEnvBinaryName = "cre-env"
-
 // resolveCreEnvCommand returns the command to run the CRE environment tool.
 // If a precompiled binary exists at <relativePathToRepoRoot>/system-tests/tests/bin/cre-env,
 // it is used instead of "go run ." to avoid recompilation overhead.
 func resolveCreEnvCommand(ctx context.Context, relativePathToRepoRoot, environmentDir string, args ...string) *exec.Cmd {
-	binaryPath := filepath.Join(relativePathToRepoRoot, "system-tests", "tests", "bin", creEnvBinaryName)
+	binaryPath := filepath.Join(relativePathToRepoRoot, "system-tests", "tests", "bin", "cre-env")
 	if info, err := os.Stat(binaryPath); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0 {
 		framework.L.Info().Str("binary", binaryPath).Msg("Using precompiled cre-env binary")
 		cmd := exec.CommandContext(ctx, binaryPath, args...)
