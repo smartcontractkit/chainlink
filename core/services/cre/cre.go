@@ -362,7 +362,8 @@ func newGatewayConnectorWrapper(
 		keyStore.Eth(),
 		chainID,
 		clockwork.NewRealClock(),
-		lggr)
+		lggr,
+		keyStore.CSA())
 
 	return wrapper, nil
 }
