@@ -716,6 +716,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_SendsToNodesInParallel(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
 	const nodeDelay = 200 * time.Millisecond
 	cfg := WithDefaults(ServiceConfig{
@@ -759,11 +761,11 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_SendsToNodesInParallel(t *t
 		}).Return(nil).Once()
 	}
 
-	err := handler.Start(testutils.Context(t))
+	err := handler.Start(t.Context())
 	require.NoError(t, err)
 
 	start := time.Now()
-	err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+	err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 	require.NoError(t, err)
 	elapsed := time.Since(start)
 
@@ -775,6 +777,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_SendsToNodesInParallel(t *t
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_SlowNodeDoesNotBlockOthers(t *testing.T) {
+	t.Parallel()
+
 	lggr := logger.Test(t)
 	const nodeSendTimeoutMs = 100
 	cfg := WithDefaults(ServiceConfig{
@@ -835,11 +839,11 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_SlowNodeDoesNotBlockOthers(
 			return nil
 		}).Twice()
 
-	err := handler.Start(testutils.Context(t))
+	err := handler.Start(t.Context())
 	require.NoError(t, err)
 
 	start := time.Now()
-	err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+	err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 	require.NoError(t, err)
 	elapsed := time.Since(start)
 
