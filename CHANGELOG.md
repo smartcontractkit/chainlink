@@ -1,5 +1,22 @@
 # Changelog Chainlink Core
 
+## 2.58.0
+
+### Minor Changes
+
+- [#23196](https://github.com/smartcontractkit/chainlink/pull/23196) [`9aa8015`](https://github.com/smartcontractkit/chainlink/commit/9aa80150fdd193ce879a933597403da3c1dee828) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23085](https://github.com/smartcontractkit/chainlink/pull/23085) [`850a738`](https://github.com/smartcontractkit/chainlink/commit/850a7385948f954747779cebeed8c451890ed833) - #added Add `Telemetry.MetricViewsDenyAttributes` config option to drop specified metric attribute keys from Beholder default views.
+
+- [#22987](https://github.com/smartcontractkit/chainlink/pull/22987) [`76d6194`](https://github.com/smartcontractkit/chainlink/commit/76d619492ff3beb82643bb0654e9cac55b39fd17) - #changed Chip-ingress batch emitter defaults tuned from staging/prod capacity analysis:
+  `ChipIngressBufferSize` 1000 → 10000, `ChipIngressMaxBatchSize` 500 → 1000,
+  `ChipIngressSendInterval` 100ms → 500ms, `ChipIngressSendTimeout` 3s → 10s,
+  `ChipIngressDrainTimeout` 10s → 30s.
+
+- [#23251](https://github.com/smartcontractkit/chainlink/pull/23251) [`e5d93d4`](https://github.com/smartcontractkit/chainlink/commit/e5d93d41424034fcf165b22495e281be49ea8e86) - Add feedAddress to meta metrics. #internal
+
 ## 2.57.0
 
 ### Minor Changes
