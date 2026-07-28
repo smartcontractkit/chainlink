@@ -168,9 +168,9 @@ func executeStellarWriteTest(
 	require.NotEmpty(t, workers, "Stellar DON has no worker nodes")
 	requiredSignatures := (len(workers)-1)/3 + 1
 
-	// Use a deterministic payload: 0x0000000000000064 = 100 as little-endian u64.
-	// The receiver's last_value_u64() reads the first 8 bytes of the payload as LE u64.
-	const reportPayloadHex = "0000000000000064"
+	// Use a deterministic payload: hex "6400000000000000" is bytes [0x64, 0x00, ...]
+	// which the receiver's last_value_u64() reads as little-endian u64 = 100.
+	const reportPayloadHex = "6400000000000000"
 	const expectedValue uint64 = 100
 
 	workflowName := thelpers.UniqueStellarWorkflowName("stellar-write-workflow")
