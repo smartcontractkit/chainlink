@@ -19,7 +19,7 @@ import (
 // relayerReportTimeout bounds each relay's LatestHead/FinalizedHead calls in
 // relayerMetricsReporter.ReportPeriodic, so one unresponsive relay can't stall metrics
 // collection for the rest (or delay the next periodic tick).
-const relayerReportTimeout = 10 * time.Second
+const relayerReportTimeout = 2 * time.Second
 
 // chainSelector is the resolved chain_selector label for a chain, or the zero value with
 // ok=false if it could not be resolved (e.g. chain not in the chain-selectors registry).
