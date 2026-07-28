@@ -47,6 +47,7 @@ func (m *metricsMockRelayer) FinalizedHead(_ context.Context) (types.Head, error
 }
 
 func Test_EVMMetricsReporter_ReportNewHead_WithFinalized(t *testing.T) {
+	t.Parallel()
 	head := evmtypes.Head{
 		Number:     42,
 		EVMChainID: sqlutil.NewI(100),
@@ -81,6 +82,7 @@ func Test_EVMMetricsReporter_ReportNewHead_WithFinalized(t *testing.T) {
 }
 
 func Test_EVMMetricsReporter_ReportNewHead_MissingFinalized(t *testing.T) {
+	t.Parallel()
 	head := evmtypes.Head{
 		Number:     42,
 		EVMChainID: sqlutil.NewI(100),
@@ -105,6 +107,7 @@ func Test_EVMMetricsReporter_ReportNewHead_MissingFinalized(t *testing.T) {
 }
 
 func Test_EVMMetricsReporter_ReportNewHead_UnknownChainSelector(t *testing.T) {
+	t.Parallel()
 	unregisteredChainID := big.NewInt(123456789012345) // not present in the chain-selectors registry
 	head := evmtypes.Head{
 		Number:     42,
@@ -128,18 +131,21 @@ func Test_EVMMetricsReporter_ReportNewHead_UnknownChainSelector(t *testing.T) {
 }
 
 func Test_EVMMetricsReporter_ReportPeriodic_NoOp(t *testing.T) {
+	t.Parallel()
 	metrics := NewMockHeadMetrics(t)
 	reporter := NewEVMMetricsReporter(metrics, logger.TestLogger(t), big.NewInt(100))
 	assert.NoError(t, reporter.ReportPeriodic(t.Context()))
 }
 
 func Test_RelayerMetricsReporter_NilRelayers(t *testing.T) {
+	t.Parallel()
 	metrics := NewMockHeadMetrics(t)
 	reporter := NewRelayerMetricsReporter(metrics, logger.TestLogger(t), nil)
 	assert.Nil(t, reporter)
 }
 
 func Test_RelayerMetricsReporter_ReportNewHead_NoOp(t *testing.T) {
+	t.Parallel()
 	metrics := NewMockHeadMetrics(t)
 	relays := map[types.RelayID]loop.Relayer{
 		{Network: "Solana", ChainID: "testchain"}: &metricsMockRelayer{},
@@ -149,6 +155,7 @@ func Test_RelayerMetricsReporter_ReportNewHead_NoOp(t *testing.T) {
 }
 
 func Test_RelayerMetricsReporter_ReportPeriodic(t *testing.T) {
+	t.Parallel()
 	privKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	blockHash := [32]byte(privKey.PublicKey())
@@ -178,6 +185,7 @@ func Test_RelayerMetricsReporter_ReportPeriodic(t *testing.T) {
 }
 
 func Test_RelayerMetricsReporter_ReportPeriodic_WithFinalizedHead(t *testing.T) {
+	t.Parallel()
 	privKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	blockHash := [32]byte(privKey.PublicKey())
@@ -212,6 +220,7 @@ func Test_RelayerMetricsReporter_ReportPeriodic_WithFinalizedHead(t *testing.T) 
 }
 
 func Test_RelayerMetricsReporter_ReportPeriodic_FinalizedHeadError(t *testing.T) {
+	t.Parallel()
 	privKey, err := solana.NewRandomPrivateKey()
 	require.NoError(t, err)
 	blockHash := [32]byte(privKey.PublicKey())
@@ -241,6 +250,7 @@ func Test_RelayerMetricsReporter_ReportPeriodic_FinalizedHeadError(t *testing.T)
 }
 
 func Test_RelayerMetricsReporter_ReportPeriodic_EmptyBlockHeight(t *testing.T) {
+	t.Parallel()
 	relay := &metricsMockRelayer{latestHead: types.Head{Height: ""}}
 	relays := map[types.RelayID]loop.Relayer{
 		{Network: "solana", ChainID: "testchain"}: relay,

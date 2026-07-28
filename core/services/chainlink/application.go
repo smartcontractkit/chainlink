@@ -601,8 +601,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	legacyEVMTelemReporter := headreporter.NewLegacyEVMTelemetryReporter(telemetryManager, globalLogger, evmChainIDs...)
 	loopTelemReporter := headreporter.NewTelemetryReporter(telemetryManager, globalLogger, relayChainInterops.GetIDToRelayerMap())
 	headReporters := []headreporter.HeadReporter{promReporter, legacyEVMTelemReporter, loopTelemReporter}
-	if headMetrics, err := headreporter.NewBeholderHeadMetrics(); err != nil {
-		globalLogger.Errorw("Failed to initialize head reporter Beholder metrics; skipping head metrics reporters", "err", err)
+	if headMetrics, metricsErr := headreporter.NewBeholderHeadMetrics(); metricsErr != nil {
+		globalLogger.Errorw("Failed to initialize head reporter Beholder metrics; skipping head metrics reporters", "err", metricsErr)
 	} else {
 		headReporters = append(headReporters, headreporter.NewEVMMetricsReporter(headMetrics, globalLogger, evmChainIDs...))
 		if relayerMetricsReporter := headreporter.NewRelayerMetricsReporter(headMetrics, globalLogger, relayChainInterops.GetIDToRelayerMap()); relayerMetricsReporter != nil {

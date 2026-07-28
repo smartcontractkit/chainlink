@@ -11,6 +11,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
+const (
+	metricLatestBlockNumber       = "head_reporter_latest_block_number"
+	metricLatestBlockTimestamp    = "head_reporter_latest_block_timestamp_seconds"
+	metricFinalizedBlockNumber    = "head_reporter_finalized_block_number"
+	metricFinalizedBlockTimestamp = "head_reporter_finalized_block_timestamp_seconds"
+	metricFinalityDepth           = "head_reporter_finality_depth_blocks"
+
+	attrChainID       = "chain_id"
+	attrNetwork       = "network"
+	attrChainSelector = "chain_selector"
+)
+
 type (
 	// finalizedBlock is the finalized counterpart of a headReport's latest block.
 	finalizedBlock struct {
@@ -50,25 +62,25 @@ type (
 func NewBeholderHeadMetrics() (HeadMetrics, error) {
 	m := beholder.GetMeter()
 
-	latestNumber, err := m.Int64Gauge("head_reporter_latest_block_number")
+	latestNumber, err := m.Int64Gauge(metricLatestBlockNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to register head_reporter_latest_block_number gauge: %w", err)
+		return nil, fmt.Errorf("failed to register %s gauge: %w", metricLatestBlockNumber, err)
 	}
-	latestTs, err := m.Int64Gauge("head_reporter_latest_block_timestamp_seconds")
+	latestTs, err := m.Int64Gauge(metricLatestBlockTimestamp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to register head_reporter_latest_block_timestamp_seconds gauge: %w", err)
+		return nil, fmt.Errorf("failed to register %s gauge: %w", metricLatestBlockTimestamp, err)
 	}
-	finalizedNumber, err := m.Int64Gauge("head_reporter_finalized_block_number")
+	finalizedNumber, err := m.Int64Gauge(metricFinalizedBlockNumber)
 	if err != nil {
-		return nil, fmt.Errorf("failed to register head_reporter_finalized_block_number gauge: %w", err)
+		return nil, fmt.Errorf("failed to register %s gauge: %w", metricFinalizedBlockNumber, err)
 	}
-	finalizedTs, err := m.Int64Gauge("head_reporter_finalized_block_timestamp_seconds")
+	finalizedTs, err := m.Int64Gauge(metricFinalizedBlockTimestamp)
 	if err != nil {
-		return nil, fmt.Errorf("failed to register head_reporter_finalized_block_timestamp_seconds gauge: %w", err)
+		return nil, fmt.Errorf("failed to register %s gauge: %w", metricFinalizedBlockTimestamp, err)
 	}
-	finalityDepth, err := m.Int64Gauge("head_reporter_finality_depth_blocks")
+	finalityDepth, err := m.Int64Gauge(metricFinalityDepth)
 	if err != nil {
-		return nil, fmt.Errorf("failed to register head_reporter_finality_depth_blocks gauge: %w", err)
+		return nil, fmt.Errorf("failed to register %s gauge: %w", metricFinalityDepth, err)
 	}
 
 	return &beholderHeadMetrics{
@@ -82,11 +94,11 @@ func NewBeholderHeadMetrics() (HeadMetrics, error) {
 
 func (b *beholderHeadMetrics) RecordHeadReport(ctx context.Context, r headReport) {
 	kvs := []attribute.KeyValue{
-		attribute.String("chain_id", r.chainID),
-		attribute.String("network", r.network),
+		attribute.String(attrChainID, r.chainID),
+		attribute.String(attrNetwork, r.network),
 	}
 	if r.hasSelector {
-		kvs = append(kvs, attribute.String("chain_selector", strconv.FormatUint(r.chainSelector, 10)))
+		kvs = append(kvs, attribute.String(attrChainSelector, strconv.FormatUint(r.chainSelector, 10)))
 	}
 	attrs := metric.WithAttributes(kvs...)
 

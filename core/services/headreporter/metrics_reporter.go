@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	chainselector "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -14,6 +15,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+// relayerReportTimeout bounds each relay's LatestHead/FinalizedHead calls in
+// relayerMetricsReporter.ReportPeriodic, so one unresponsive relay can't stall metrics
+// collection for the rest (or delay the next periodic tick).
+const relayerReportTimeout = 10 * time.Second
 
 // chainSelector is the resolved chain_selector label for a chain, or the zero value with
 // ok=false if it could not be resolved (e.g. chain not in the chain-selectors registry).
@@ -115,6 +121,9 @@ func (r *relayerMetricsReporter) ReportPeriodic(ctx context.Context) error {
 }
 
 func (r *relayerMetricsReporter) reportOne(ctx context.Context, relayID types.RelayID, relay loop.Relayer) error {
+	ctx, cancel := context.WithTimeout(ctx, relayerReportTimeout)
+	defer cancel()
+
 	head, err := relay.LatestHead(ctx)
 	if err != nil {
 		return fmt.Errorf("failed getting head for chain %s: %w", relayID, err)

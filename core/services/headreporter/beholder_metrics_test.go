@@ -52,6 +52,7 @@ func collectGauge(t *testing.T, rm metricdata.ResourceMetrics, name string) metr
 }
 
 func Test_BeholderHeadMetrics_RecordHeadReport_WithFinalized(t *testing.T) {
+	t.Parallel()
 	metrics, reader := newTestBeholderHeadMetrics(t)
 
 	metrics.RecordHeadReport(t.Context(), headReport{
@@ -84,6 +85,7 @@ func Test_BeholderHeadMetrics_RecordHeadReport_WithFinalized(t *testing.T) {
 }
 
 func Test_BeholderHeadMetrics_RecordHeadReport_NoFinalized(t *testing.T) {
+	t.Parallel()
 	metrics, reader := newTestBeholderHeadMetrics(t)
 
 	metrics.RecordHeadReport(t.Context(), headReport{
