@@ -45,9 +45,6 @@ COPY operator_ui ./operator_ui
 COPY plugins ./plugins
 COPY tools ./tools
 
-
-
-
 # Stage: Delve debugger (no source needed, branches from deps-base)
 FROM deps-base AS build-delve
 RUN --mount=type=cache,id=go-mod-cache,target=/go/pkg/mod \
@@ -80,10 +77,10 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     mkdir -p /gobins "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
     GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
     fi && \
     if [ "${CL_INSTALL_TESTING_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
     fi && \
     mkdir -p /tmp/lib && \
     ./plugins/scripts/copy_loopinstall_libs.sh \
@@ -107,10 +104,10 @@ RUN --mount=type=cache,id=go-mod-cache,target=/go/pkg/mod \
     --mount=type=cache,id=go-build-cache,target=/root/.cache/go-build \
     mkdir -p /gobins && \
     if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
-          GOBIN=/gobins make install-chainlink-dev; \
-      else \
-          GOBIN=/gobins make install-chainlink; \
-      fi
+    GOBIN=/gobins make install-chainlink-dev; \
+    else \
+    GOBIN=/gobins make install-chainlink; \
+    fi
 
 ##
 # Final Image
@@ -123,21 +120,21 @@ RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl 
 
 # Install Postgres for CLI tools, needed specifically for DB backups
 RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
-      | gpg --dearmor -o /usr/share/keyrings/postgresql-archive-keyring.gpg \
+    | gpg --dearmor -o /usr/share/keyrings/postgresql-archive-keyring.gpg \
     && gpg --no-default-keyring \
-           --keyring /usr/share/keyrings/postgresql-archive-keyring.gpg \
-           --fingerprint B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 \
+    --keyring /usr/share/keyrings/postgresql-archive-keyring.gpg \
+    --fingerprint B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8 \
     && echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] \
-       https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
-       > /etc/apt/sources.list.d/pgdg.list \
+    https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+    > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update && apt-get install -y postgresql-client-17 \
     && rm -rf /var/lib/apt/lists/*
 
 # Prod images (CHAINLINK_USER=chainlink) run as UID:GID 14933:14933 for deterministic
 # ownership on bind mounts in Docker/Compose deployments without K8s securityContext overrides.
 RUN if [ ${CHAINLINK_USER} != root ]; then \
-      groupadd --gid 14933 ${CHAINLINK_USER} && \
-      useradd --uid 14933 --gid 14933 --create-home ${CHAINLINK_USER}; \
+    groupadd --gid 14933 ${CHAINLINK_USER} && \
+    useradd --uid 14933 --gid 14933 --create-home ${CHAINLINK_USER}; \
     fi
 USER ${CHAINLINK_USER}
 
