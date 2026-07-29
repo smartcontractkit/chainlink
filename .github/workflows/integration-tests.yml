@@ -353,6 +353,15 @@ jobs:
 
           cache-scope: ${{ matrix.image.cache-scope }}
 
+          # Persist only the Go build cache (GOCACHE), not the module cache.
+          # Auto-discovery would pick up both mounts, but GOMODCACHE is the bulk of the
+          # payload (~1.4GB compressed) and only saves ~8s of `go: downloading`, while
+          # GOCACHE saves ~53s of compilation. The `id` is what binds this to the
+          # Dockerfile's `--mount=type=cache,id=go-build-cache`; `target` is just the
+          # mount point inside the dance's throwaway utility image.
+          cache-map: |
+            {"cache-mount/go-build-cache": {"target": "/var/cache-target", "id": "go-build-cache"}}
+
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup
     runs-on: ubuntu-latest
