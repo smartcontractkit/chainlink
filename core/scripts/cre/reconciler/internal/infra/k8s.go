@@ -1,30 +1,39 @@
 package infra
 
 import (
+	"archive/tar"
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 )
 
 // K8sClient wraps the Kubernetes client for discovering node runtime info.
 type K8sClient struct {
-	client    *kubernetes.Clientset
-	dynamic   dynamic.Interface
-	namespace string
-	log       zerolog.Logger
+	client     *kubernetes.Clientset
+	dynamic    dynamic.Interface
+	restConfig *rest.Config
+	namespace  string
+	log        zerolog.Logger
 }
 
 // NewK8sClient creates a Kubernetes client. If kubeconfigPath is empty,
@@ -46,10 +55,11 @@ func NewK8sClient(kubeconfigPath, namespace string, log zerolog.Logger) (*K8sCli
 	}
 
 	return &K8sClient{
-		client:    client,
-		dynamic:   dyn,
-		namespace: namespace,
-		log:       log,
+		client:     client,
+		dynamic:    dyn,
+		restConfig: config,
+		namespace:  namespace,
+		log:        log,
 	}, nil
 }
 
@@ -343,6 +353,86 @@ func (k *K8sClient) RestartNodePods(ctx context.Context, nodeName, namespace str
 	return nil
 }
 
+// CopyFilesToPod streams the given local files into destDir inside the named
+// container of a running pod, the same way `kubectl cp` does internally: it
+// execs a shell in the container that creates destDir (tar itself won't
+// create a missing -C target) and then runs `tar xf -` into it, piping a tar
+// archive of the files into its stdin over a SPDY exec stream. No pod
+// restart is triggered — the files just appear on the container's filesystem.
+func (k *K8sClient) CopyFilesToPod(ctx context.Context, namespace, podName, container, destDir string, localPaths []string) error {
+	if namespace == "" {
+		namespace = k.namespace
+	}
+	if k.restConfig == nil {
+		return errors.New("k8s client has no rest.Config — cannot exec into pods")
+	}
+
+	var tarBuf bytes.Buffer
+	if err := writeFilesAsTar(&tarBuf, localPaths); err != nil {
+		return errors.Wrap(err, "failed to build tar archive")
+	}
+
+	req := k.client.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(podName).
+		Namespace(namespace).
+		SubResource("exec")
+	req.VersionedParams(&corev1.PodExecOptions{
+		Container: container,
+		// destDir is passed as $1 rather than interpolated into the script
+		// string, so it's safe even if it contains spaces or shell metachars.
+		Command: []string{"sh", "-c", `mkdir -p "$1" && exec tar xf - -C "$1"`, "sh", destDir},
+		Stdin:   true,
+		Stdout:  true,
+		Stderr:  true,
+	}, scheme.ParameterCodec)
+
+	executor, err := remotecommand.NewSPDYExecutor(k.restConfig, "POST", req.URL())
+	if err != nil {
+		return errors.Wrapf(err, "failed to create exec stream for pod %s/%s", namespace, podName)
+	}
+
+	var stdout, stderr bytes.Buffer
+	err = executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdin:  &tarBuf,
+		Stdout: &stdout,
+		Stderr: &stderr,
+	})
+	if err != nil {
+		return errors.Wrapf(err, "failed to stream files into pod %s/%s: %s", namespace, podName, stderr.String())
+	}
+
+	return nil
+}
+
+// writeFilesAsTar writes each local file as a flat entry (basename only, no
+// directory structure) into a tar archive, so the remote `tar xf -C destDir`
+// extracts them directly into destDir.
+func writeFilesAsTar(w io.Writer, localPaths []string) error {
+	tw := tar.NewWriter(w)
+
+	for _, path := range localPaths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return errors.Wrapf(err, "failed to read local file %s", path)
+		}
+
+		hdr := &tar.Header{
+			Name: filepath.Base(path),
+			Mode: 0o644,
+			Size: int64(len(data)),
+		}
+		if err := tw.WriteHeader(hdr); err != nil {
+			return errors.Wrapf(err, "failed to write tar header for %s", path)
+		}
+		if _, err := tw.Write(data); err != nil {
+			return errors.Wrapf(err, "failed to write tar contents for %s", path)
+		}
+	}
+
+	return tw.Close()
+}
+
 // unstructuredNestedStringSlice navigates a nested map[string]interface{} (from
 // unstructured.Unstructured.Object) to find a string slice at the given path.
 func unstructuredNestedStringSlice(obj map[string]any, keys ...string) ([]string, bool, error) {
@@ -368,11 +458,4 @@ func unstructuredNestedStringSlice(obj map[string]any, keys ...string) ([]string
 		}
 	}
 	return result, true, nil
-}
-
-// CopyFilesToPod copies local files to a pod's container.
-// This is a stub implementation for the K8sAPI interface.
-func (k *K8sClient) CopyFilesToPod(_ context.Context, namespace, podName, container, destDir string, localPaths []string) error {
-	// TODO: implement kubectl cp or use client-go exec to copy files
-	return errors.New("CopyFilesToPod not yet implemented")
 }

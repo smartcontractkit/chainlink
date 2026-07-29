@@ -6,12 +6,14 @@ package reconciler
 
 import (
 	"context"
+	"encoding/json"
 	stderrors "errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -21,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/ui"
 )
 
@@ -65,11 +68,41 @@ var (
 	flagDeployerKey       string
 )
 
+// CLI flags for the workflow-deploy command.
+var (
+	flagWFFile      string
+	flagWFName      string
+	flagWFOwner     string
+	flagWFDonFamily string
+	flagWFConfig    string
+	flagWFTag       string
+	flagWFRemoteDir string
+	flagWFContainer string
+	flagWFNamespace string
+	flagWFPods      []string
+)
+
+// CLI flags for the workflow-trigger command.
+var (
+	flagTGGatewayURL   string
+	flagTGWorkflowName string
+	flagTGOwner        string
+	flagTGWorkflowTag  string
+	flagTGWorkflowID   string
+	flagTGPrivateKey   string
+	flagTGInput        string
+	flagTGTimeout      time.Duration
+	flagTGPollInterval time.Duration
+)
+
 func init() {
 	RootCmd.AddCommand(applyCmd)
 	RootCmd.AddCommand(statusCmd)
 	RootCmd.AddCommand(diffCmd)
 	RootCmd.AddCommand(serveCmd)
+	RootCmd.AddCommand(workflowDeployCmd)
+	RootCmd.AddCommand(workflowTriggerCmd)
+
 	RootCmd.PersistentPreRun = trackCommandPreRun
 }
 
@@ -107,6 +140,32 @@ var serveCmd = &cobra.Command{
 	},
 }
 
+var workflowDeployCmd = &cobra.Command{
+	Use:   "workflow-deploy",
+	Short: "Compile a workflow and push it to a private file-based workflow registry on running pods",
+	Long: `Compiles a workflow to WASM, brotli-compresses it, computes its workflow ID,
+builds a single-entry private file-registry JSON, and copies both files into
+the same directory on every target pod. No pod restart is required — the
+node's v2 file workflow source re-reads the registry and re-fetches the
+binary on its next poll. The node must already have a TOML AdditionalSources
+entry pointing file:// at that directory (see toml_patch.go / GenerateNodeTOML).`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runWorkflowDeploy(cmd.Context())
+	},
+}
+
+var workflowTriggerCmd = &cobra.Command{
+	Use:   "workflow-trigger",
+	Short: "Trigger a deployed HTTP-triggered workflow via a gateway",
+	Long: `Builds a workflows.execute JSON-RPC request, signs it with an ECDSA private key
+(matching one of the workflow's AuthorizedKeys), and POSTs it to a gateway's external HTTP
+trigger endpoint — the same flow used by system-tests/tests/smoke/cre/http_trigger_action_test.go.
+Retries on failure (e.g. the workflow not yet loaded on the node) until --timeout elapses.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runWorkflowTrigger(cmd.Context())
+	},
+}
+
 func init() {
 	// Apply flags
 	applyCmd.Flags().StringVarP(&flagDesired, "desired", "d", "cre/desired.toml", "path to desired-state TOML")
@@ -139,6 +198,30 @@ func init() {
 	serveCmd.Flags().StringVarP(&flagEnv, "env", "e", "dev", "environment name")
 	serveCmd.Flags().StringVar(&flagAddr, "addr", "localhost:8089", "address to serve the web UI on")
 	serveCmd.Flags().StringVar(&flagKubeconfig, "kubeconfig", "", "path to kubeconfig (defaults to KUBECONFIG env or ~/.kube/config)")
+
+	// workflow-deploy flags
+	workflowDeployCmd.Flags().StringVar(&flagWFFile, "workflow-file", "", "path to the workflow source file (.go or .ts) (required)")
+	workflowDeployCmd.Flags().StringVar(&flagWFName, "workflow-name", "", "workflow name, at least 10 characters (required)")
+	workflowDeployCmd.Flags().StringVar(&flagWFOwner, "owner", "", "hex-encoded workflow owner address, with or without 0x (required)")
+	workflowDeployCmd.Flags().StringVar(&flagWFDonFamily, "don-family", "workflow", "DON family this workflow belongs to")
+	workflowDeployCmd.Flags().StringVar(&flagWFConfig, "config", "", "optional path to a workflow config file")
+	workflowDeployCmd.Flags().StringVar(&flagWFTag, "tag", "v1.0.0", "registry entry tag/version")
+	workflowDeployCmd.Flags().StringVar(&flagWFRemoteDir, "remote-dir", "/home/chainlink/workflows", "directory on the pod both the registry file and binary are copied into (must match the node's file:// TOML paths)")
+	workflowDeployCmd.Flags().StringVar(&flagWFContainer, "container", "chainlink-node", "container name to exec into inside each pod")
+	workflowDeployCmd.Flags().StringVar(&flagWFNamespace, "namespace", "", "default namespace for --pod values given without one")
+	workflowDeployCmd.Flags().StringVar(&flagKubeconfig, "kubeconfig", "", "path to kubeconfig (defaults to KUBECONFIG env or ~/.kube/config)")
+	workflowDeployCmd.Flags().StringArrayVar(&flagWFPods, "pod", nil, "target pod as namespace/podName (repeatable, required)")
+
+	// workflow-trigger flags
+	workflowTriggerCmd.Flags().StringVar(&flagTGGatewayURL, "gateway-url", "", "full external gateway URL to send the trigger request to (required)")
+	workflowTriggerCmd.Flags().StringVar(&flagTGWorkflowName, "workflow-name", "", "workflow name (required)")
+	workflowTriggerCmd.Flags().StringVar(&flagTGOwner, "owner", "", "hex-encoded workflow owner address, with or without 0x (required)")
+	workflowTriggerCmd.Flags().StringVar(&flagTGWorkflowTag, "tag", "", "workflow tag/version (optional)")
+	workflowTriggerCmd.Flags().StringVar(&flagTGWorkflowID, "workflow-id", "", "hex-encoded workflow ID (optional)")
+	workflowTriggerCmd.Flags().StringVar(&flagTGPrivateKey, "private-key", "", "hex-encoded ECDSA private key used to sign the request, with or without 0x (required)")
+	workflowTriggerCmd.Flags().StringVar(&flagTGInput, "input", "{}", "JSON payload for the trigger; prefix with @ to read from a file")
+	workflowTriggerCmd.Flags().DurationVar(&flagTGTimeout, "timeout", 2*time.Minute, "how long to keep retrying before giving up")
+	workflowTriggerCmd.Flags().DurationVar(&flagTGPollInterval, "poll-interval", 5*time.Second, "delay between retries")
 }
 
 // Run is the entry point called from main.go.
@@ -265,6 +348,108 @@ func runDiff(_ context.Context) error {
 	} else {
 		fmt.Println("  [pending] not written")
 	}
+	return nil
+}
+
+func runWorkflowDeploy(ctx context.Context) error {
+	log := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.TimeOnly}).
+		Level(zerolog.DebugLevel).
+		With().Timestamp().Logger()
+
+	if flagWFFile == "" {
+		return errors.New("--workflow-file is required")
+	}
+	if flagWFName == "" {
+		return errors.New("--workflow-name is required")
+	}
+	if flagWFOwner == "" {
+		return errors.New("--owner is required")
+	}
+	if len(flagWFPods) == 0 {
+		return errors.New("at least one --pod is required")
+	}
+
+	pods := make([]PodTarget, 0, len(flagWFPods))
+	for _, p := range flagWFPods {
+		if !strings.Contains(p, "/") {
+			if flagWFNamespace == "" {
+				return fmt.Errorf("--pod %q has no namespace and --namespace was not set", p)
+			}
+			pods = append(pods, PodTarget{Namespace: flagWFNamespace, PodName: p})
+			continue
+		}
+		target, err := ParsePodTarget(p)
+		if err != nil {
+			return err
+		}
+		pods = append(pods, target)
+	}
+
+	namespace := flagWFNamespace
+	if namespace == "" && len(pods) > 0 {
+		namespace = pods[0].Namespace
+	}
+
+	k8s, err := infra.NewK8sClient(flagKubeconfig, namespace, log)
+	if err != nil {
+		return errors.Wrap(err, "failed to create k8s client")
+	}
+
+	result, err := WorkflowDeploy(ctx, k8s, WorkflowDeployInputs{
+		WorkflowFilePath: flagWFFile,
+		WorkflowName:     flagWFName,
+		Owner:            flagWFOwner,
+		DonFamily:        flagWFDonFamily,
+		ConfigPath:       flagWFConfig,
+		Tag:              flagWFTag,
+		RemoteDir:        flagWFRemoteDir,
+		Container:        flagWFContainer,
+		Pods:             pods,
+	}, log)
+	if result != nil {
+		fmt.Printf("Workflow ID: %s\n", result.WorkflowID)
+	}
+	return err
+}
+
+func runWorkflowTrigger(ctx context.Context) error {
+	log := zerolog.New(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.TimeOnly}).
+		Level(zerolog.DebugLevel).
+		With().Timestamp().Logger()
+
+	if flagTGGatewayURL == "" {
+		return errors.New("--gateway-url is required")
+	}
+	if flagTGWorkflowName == "" {
+		return errors.New("--workflow-name is required")
+	}
+	if flagTGOwner == "" {
+		return errors.New("--owner is required")
+	}
+	if flagTGPrivateKey == "" {
+		return errors.New("--private-key is required")
+	}
+
+	result, err := WorkflowTrigger(ctx, WorkflowTriggerInputs{
+		GatewayURL:    flagTGGatewayURL,
+		WorkflowName:  flagTGWorkflowName,
+		WorkflowOwner: flagTGOwner,
+		WorkflowTag:   flagTGWorkflowTag,
+		WorkflowID:    flagTGWorkflowID,
+		PrivateKeyHex: flagTGPrivateKey,
+		Input:         flagTGInput,
+		Timeout:       flagTGTimeout,
+		PollInterval:  flagTGPollInterval,
+	}, log)
+	if err != nil {
+		return err
+	}
+
+	responseJSON, err := json.MarshalIndent(result.Response, "", "  ")
+	if err != nil {
+		return errors.Wrap(err, "failed to marshal response")
+	}
+	fmt.Println(string(responseJSON))
 	return nil
 }
 
