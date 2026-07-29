@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
@@ -117,7 +115,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode onchain public key: %w", err)
 	}
-	configPubKeyBytes, err := hexutil.Decode(decodedCfg.SignerAddress)
+	configPubKeyBytes, err := hex.DecodeString(decodedCfg.SignerAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode signer address: %w", err)
 	}
@@ -136,7 +134,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			Named(decodedCfg.VerifierID),
 		decodedCfg,
 		aggregatorSecrets,
-		common.HexToAddress(decodedCfg.SignerAddress).Bytes(),
+		configPubKeyBytes,
 		newSignerAdapter(signingKey),
 		legacyChains,
 		d.ds,
