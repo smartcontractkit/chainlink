@@ -855,7 +855,7 @@ func Test_observationTuningHelpers(t *testing.T) {
 	assert.Less(t, staleRefreshSkipThreshold(tuningTestT), cacheEntryTTL(tuningTestT))
 	assert.Less(t, staleRefreshSkipThreshold(tuningTestT)+observationLoopPacing(tuningTestT), cacheEntryTTL(tuningTestT))
 
-	// With num/den = 6/5 the invariant cap (cacheTTL−stale−1ns = 4/5·T−1ns) exceeds raw T/2, so pacing is bounded by
+	// With num/den = 13/5 the invariant cap (cacheTTL−stale−1ns = 7/5·T−1ns) exceeds raw T/2, so pacing is bounded by
 	// T/observationLoopPacingDivisor (= T/2), not the invariant.
 	assert.Equal(t, 100*time.Millisecond/observationLoopPacingDivisor, observationLoopPacing(100*time.Millisecond))
 	assert.Equal(t, 500*time.Millisecond/observationLoopPacingDivisor, observationLoopPacing(500*time.Millisecond))
