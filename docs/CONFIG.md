@@ -2404,6 +2404,7 @@ DurableEmitterEnabled = true # Default
 DurableEmitterRetransmitBatchSize = 500 # Default
 DurableEmitterEventTTL = '1h0m0s' # Default
 DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
+DurableEmitterInsertBatchFlushInterval = '50ms' # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
 LogStreamingEnabled = false # Default
@@ -2555,6 +2556,13 @@ DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
 ```
 DurableEmitterMaxQueuePayloadBytes is the byte ceiling used as the denominator for the durable emitter's
 queue capacity_usage_ratio metric. Defaults to 1 GiB.
+
+### DurableEmitterInsertBatchFlushInterval
+```toml
+DurableEmitterInsertBatchFlushInterval = '50ms' # Default
+```
+DurableEmitterInsertBatchFlushInterval is the linger time the durable emitter waits to coalesce concurrent
+emits into a single multi-row INSERT. Lower values reduce per-emit latency at the cost of smaller batches.
 
 ### HeartbeatInterval
 ```toml

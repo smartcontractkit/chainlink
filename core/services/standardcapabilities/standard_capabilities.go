@@ -53,6 +53,26 @@ type StandardCapabilities struct {
 	readyChan    chan struct{}
 	stopChan     services.StopChan
 	startTimeout time.Duration
+
+	// readyErr records the outcome of the asynchronous startup goroutine
+	// (WaitCtx/Initialise/Infos). It is nil once startup has succeeded, and
+	// holds the last error otherwise. Guarded by readyMu because it is written
+	// by the startup goroutine and read by the health checker via Ready/
+	// HealthReport on a different goroutine.
+	readyMu  sync.RWMutex
+	readyErr error
+}
+
+func (s *StandardCapabilities) setReadyErr(err error) {
+	s.readyMu.Lock()
+	defer s.readyMu.Unlock()
+	s.readyErr = err
+}
+
+func (s *StandardCapabilities) getReadyErr() error {
+	s.readyMu.RLock()
+	defer s.readyMu.RUnlock()
+	return s.readyErr
 }
 
 func NewStandardCapabilities(
@@ -114,6 +134,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 
 			if err = s.capabilitiesLoop.WaitCtx(cctx); err != nil {
 				s.log.Errorf("error waiting for standard capabilities service to start: %v", err)
+				s.setReadyErr(fmt.Errorf("waiting for standard capabilities service to start: %w", err))
 				return
 			}
 
@@ -132,15 +153,18 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 			}
 			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)
+				s.setReadyErr(fmt.Errorf("initialising standard capabilities service: %w", err))
 				return
 			}
 
 			capabilityInfos, err := s.capabilitiesLoop.Service.Infos(cctx)
 			if err != nil {
 				s.log.Errorf("error getting standard capabilities service info: %v", err)
+				s.setReadyErr(fmt.Errorf("getting standard capabilities service info: %w", err))
 				return
 			}
 
+			s.setReadyErr(nil)
 			s.log.Info("Started standard capabilities", "command", s.command, "capabilities", capabilityInfos)
 		})
 
@@ -156,7 +180,9 @@ func (s *StandardCapabilities) Ready() error {
 	}
 	select {
 	case <-s.readyChan:
-		return nil
+		// Startup goroutine has finished; surface its outcome (nil on success,
+		// the WaitCtx/Initialise/Infos error otherwise).
+		return s.getReadyErr()
 	case <-s.stopChan:
 		return ErrServiceStopped
 	default:
@@ -164,11 +190,27 @@ func (s *StandardCapabilities) Ready() error {
 	}
 }
 
+// Name implements services.HealthReporter. It returns the per-capability
+// logger name so health metrics are attributed to this specific capability.
+func (s *StandardCapabilities) Name() string {
+	return s.log.Name()
+}
+
+// HealthReport implements services.HealthReporter. Unlike the embedded
+// StateMachine's default (which reports healthy as soon as Start returns), this
+// reflects the asynchronous startup outcome so a capability that failed to
+// initialise is reported unhealthy instead of falsely ready.
+func (s *StandardCapabilities) HealthReport() map[string]error {
+	return map[string]error{s.Name(): s.Ready()}
+}
+
 // Await waits for the service to be ready or for the context to be cancelled.
 func (s *StandardCapabilities) Await(ctx context.Context) error {
 	select {
 	case <-s.readyChan:
-		return nil
+		// Startup goroutine has finished; surface its outcome (nil on success,
+		// the WaitCtx/Initialise/Infos error otherwise).
+		return s.getReadyErr()
 	case <-s.stopChan:
 		return ErrServiceStopped
 	case <-ctx.Done():

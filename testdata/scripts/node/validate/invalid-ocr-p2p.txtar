@@ -402,6 +402,7 @@ DurableEmitterEnabled = true
 DurableEmitterRetransmitBatchSize = 500
 DurableEmitterEventTTL = '1h0m0s'
 DurableEmitterMaxQueuePayloadBytes = 1073741824
+DurableEmitterInsertBatchFlushInterval = '50ms'
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false
