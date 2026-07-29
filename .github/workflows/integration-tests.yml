@@ -330,7 +330,7 @@ jobs:
 
       - name: Build Chainlink Image
         if: steps.explain.outputs.build-image == 'true'
-        uses: smartcontractkit/.github/actions/ctf-build-image@fixCacheKeys # DEBUG: branch with cache-mounts: auto
+        uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
         with:
           image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
@@ -345,11 +345,8 @@ jobs:
           gati-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
-          # DEBUG: Force caching for testing
-          cache-mode: read-only # DEBUG: Force populate cache
-
+          cache-mode: auto
           cache-scope: ${{ matrix.image.cache-scope }}
-
           # Persist only the Go build cache (GOCACHE), not the module cache.
           # Module cache is large, and doesn't save us much time,
           # at least compared to just using the build cache
