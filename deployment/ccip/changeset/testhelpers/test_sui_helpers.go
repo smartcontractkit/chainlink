@@ -100,9 +100,8 @@ type TokenPoolRateLimiterConfig struct {
 
 // SeedSuiDestChainPrices seeds a Sui chain's FeeQuoter with the LINK fee-token price and the remote
 // chain's gas price, when Sui is the CCIP *destination*. Sui→EVM re-seeds these inline on every send
-// (SendSuiCCIPRequest), but EVM→Sui never sends from Sui, so its destination FeeQuoter stays empty:
-// get_token_price aborts EUnknownToken (code 4), the DON cannot build a commit, and offramp::commit
-// rejects the report as EStaleCommitReport (code 15) → the message never lands.
+// (SendSuiCCIPRequest), but EVM→Sui never sends from Sui, so its destination FeeQuoter otherwise
+// lacks the values needed for commit price observations.
 //
 // Call this AFTER the DON has registered its lane event filters (WaitForEventFilterRegistrationOnLane)
 // and before sending — mirroring the source-side timing. Seeding earlier, during environment setup,

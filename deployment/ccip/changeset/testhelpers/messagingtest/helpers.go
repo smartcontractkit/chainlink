@@ -129,6 +129,22 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Errorf("unsupported dest chain: %v", tc.DestChain)
 	}
 
+	// For Sui destinations, anchor the event-watcher scan to the current Sui
+	// checkpoint (captured before the send). A commit for this message can only
+	// land in a later Sui checkpoint, so scanning from here guarantees the
+	// watcher covers it — even though messagingtest.Run sleeps ~30s for EVM
+	// replay before subscribing the watcher. Without this the watcher falls back
+	// to a fixed tip backfill that is too small and misses commits that already
+	// landed (the EVM2Sui timeout root cause).
+	destFamily, err := chain_selectors.GetSelectorFamily(tc.DestChain)
+	require.NoError(tc.T, err)
+	if destFamily == chain_selectors.FamilySui {
+		tip, err := tc.Env.BlockChains.SuiChains()[tc.DestChain].Client.GetLatestCheckpoint(tc.T.Context())
+		require.NoError(tc.T, err)
+		seq := tip.GetSequenceNumber()
+		startBlock = &seq
+	}
+
 	msg, err := sourceAdapter.BuildMessage(testhelpers.MessageComponents{
 		DestChainSelector: tc.DestChain,
 		Receiver:          tc.Receiver,

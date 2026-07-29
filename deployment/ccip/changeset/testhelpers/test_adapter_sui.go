@@ -106,10 +106,16 @@ func (a *SuiAdapter) ValidateExec(t *testing.T, sourceSelector uint64, startBloc
 // subscription (e.g. a commit that landed between send and validation) are not missed.
 const suiEventCheckpointBackfill = uint64(50)
 
+// SuiEventEmitter polls Sui checkpoints and emits events whose fully-qualified
+// type matches packageID::moduleName::event. startSeq, when non-nil, anchors the
+// scan to that checkpoint so events that already landed before subscription
+// (e.g. a commit that fired during the test's replay settle window) are not
+// missed. When startSeq is nil it falls back to a small tip backfill.
 func SuiEventEmitter[T any](
 	t *testing.T,
 	client cslclient.SuiPTBClient,
 	packageID, moduleName, event string,
+	startSeq *uint64,
 	done chan any,
 ) (<-chan struct {
 	Event   T
@@ -141,15 +147,21 @@ func SuiEventEmitter[T any](
 			}
 		}
 
-		// Seed the scan position from the current chain tip, backfilling a small window.
-		latest, err := client.GetLatestCheckpoint(ctx)
-		if err != nil {
-			emitErr(fmt.Errorf("failed to get latest checkpoint: %w", err))
-			return
-		}
+		// Seed the scan position. Prefer an explicit start checkpoint (captured at
+		// send time) so events that landed before subscription are covered; fall
+		// back to a small tip backfill when none was provided.
 		var nextSeq uint64
-		if tip := latest.GetSequenceNumber(); tip > suiEventCheckpointBackfill {
-			nextSeq = tip - suiEventCheckpointBackfill
+		if startSeq != nil {
+			nextSeq = *startSeq
+		} else {
+			latest, err := client.GetLatestCheckpoint(ctx)
+			if err != nil {
+				emitErr(fmt.Errorf("failed to get latest checkpoint: %w", err))
+				return
+			}
+			if tip := latest.GetSequenceNumber(); tip > suiEventCheckpointBackfill {
+				nextSeq = tip - suiEventCheckpointBackfill
+			}
 		}
 
 		ticker := time.NewTicker(time.Second)
@@ -273,7 +285,7 @@ func confirmCommitWithExpectedSeqNumRangeSui(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errChan := SuiEventEmitter[sui_module_offramp.CommitReportAccepted](t, dest.Client, boundOffRamp.Address(), "offramp", "CommitReportAccepted", done)
+	sink, errChan := SuiEventEmitter[sui_module_offramp.CommitReportAccepted](t, dest.Client, boundOffRamp.Address(), "offramp", "CommitReportAccepted", startVersion, done)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -348,7 +360,7 @@ func confirmExecWithExpectedSeqNrsSui(
 	defer close(done)
 
 	t.Log("[DEBUG] Subscribing to Sui events...", offRampAddress)
-	sink, errChan := SuiEventEmitter[sui_module_offramp.ExecutionStateChanged](t, dest.Client, offRampAddress, "offramp", "ExecutionStateChanged", done)
+	sink, errChan := SuiEventEmitter[sui_module_offramp.ExecutionStateChanged](t, dest.Client, offRampAddress, "offramp", "ExecutionStateChanged", startVersion, done)
 
 	t.Log("[DEBUG] Event subscription established")
 
