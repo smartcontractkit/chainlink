@@ -1,0 +1,37 @@
+﻿2026-07-27T15:32:37.0888941Z ##[group]Run if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
+2026-07-27T15:32:37.0890089Z [36;1mif [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then[0m
+2026-07-27T15:32:37.0961335Z [36;1m  # CCIP v1.6 E2E Tests run on merge queue (merge_group), not on PRs[0m
+2026-07-27T15:32:37.0963144Z [36;1m  echo "should-run=false" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0964424Z [36;1m[0m
+2026-07-27T15:32:37.0965520Z [36;1melif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then[0m
+2026-07-27T15:32:37.0967100Z [36;1m  # Run CCIP v1.6 E2E Tests in the merge queue, if there are relevant changes[0m
+2026-07-27T15:32:37.0968123Z [36;1m  echo "should-run=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0968845Z [36;1m[0m
+2026-07-27T15:32:37.0969402Z [36;1melif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then[0m
+2026-07-27T15:32:37.0970229Z [36;1m  # Always Run CCIP v1.6 E2E Tests on workflow dispatch[0m
+2026-07-27T15:32:37.0970977Z [36;1m  echo "should-run=true" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0971655Z [36;1m[0m
+2026-07-27T15:32:37.0972154Z [36;1melif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then[0m
+2026-07-27T15:32:37.0973507Z [36;1m  # Run CCIP v1.6 E2E Tests on push events, only if there are relevant changes or if it's a tag push[0m
+2026-07-27T15:32:37.0974616Z [36;1m  if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then[0m
+2026-07-27T15:32:37.0975483Z [36;1m    echo "should-run=true" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0976109Z [36;1m  else[0m
+2026-07-27T15:32:37.0976638Z [36;1m    echo "should-run=false" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0977255Z [36;1m  fi[0m
+2026-07-27T15:32:37.0977702Z [36;1m[0m
+2026-07-27T15:32:37.0978105Z [36;1melse[0m
+2026-07-27T15:32:37.0978641Z [36;1m  echo "should-run=false" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0979272Z [36;1mfi[0m
+2026-07-27T15:32:37.1728511Z shell: /usr/bin/bash -e {0}
+2026-07-27T15:32:37.1730025Z env:
+2026-07-27T15:32:37.1731818Z   ENV_JOB_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:37.1734309Z   CHAINLINK_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-integration-tests
+2026-07-27T15:32:37.1735867Z   CHAINLINK_REF: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:37.1737080Z   TEST_SUITE: smoke
+2026-07-27T15:32:37.1737902Z   MOD_CACHE_VERSION: 2
+2026-07-27T15:32:37.1739186Z   GITHUB_EVENT_NAME: pull_request
+2026-07-27T15:32:37.1741024Z   GITHUB_REF_TYPE: branch
+2026-07-27T15:32:37.1741949Z   CONTAINS_CHANGES: true
+2026-07-27T15:32:37.1742870Z   RUN_E2E_TESTS_LABEL_FOUND: false
+2026-07-27T15:32:37.1744123Z ##[endgroup]
+2026-07-27T15:32:37.2044433Z should-run=false

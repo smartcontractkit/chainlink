@@ -1,0 +1,93 @@
+﻿2026-07-27T15:39:27.1194553Z Current runner version: '2.335.1'
+2026-07-27T15:39:27.1198987Z Runner name: 'runs-on--i-037408c32f085ff30--fa5tk1aee3'
+2026-07-27T15:39:27.1199653Z Runner group name: 'Default'
+2026-07-27T15:39:27.1200299Z Machine name: 'ip-10-1-33-113'
+2026-07-27T15:39:27.1213528Z ##[group]🏃 Runner details (m8ib.4xlarge, spot, v2.12.1-rc.4)
+2026-07-27T15:39:27.1214587Z ┌───────────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+2026-07-27T15:39:27.1215451Z │       INFO        │                                                    VALUE                                                     │
+2026-07-27T15:39:27.1216274Z ├───────────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+2026-07-27T15:39:27.1217235Z │ Labels            │ [runs-on=30280453093-2-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs] │
+2026-07-27T15:39:27.1218704Z │ Extras            │ [s3-cache tmpfs]                                                                                             │
+2026-07-27T15:39:27.1219778Z │ PrivateIp         │ 10.1.33.113                                                                                                  │
+2026-07-27T15:39:27.1220639Z │ IsPrivate         │ false                                                                                                        │
+2026-07-27T15:39:27.1221508Z │ Organization      │ smartcontractkit                                                                                             │
+2026-07-27T15:39:27.1222492Z │ Environment       │ production                                                                                                   │
+2026-07-27T15:39:27.1223322Z │ Region            │ us-east-2                                                                                                    │
+2026-07-27T15:39:27.1224226Z │ AvailabilityZone  │ us-east-2c                                                                                                   │
+2026-07-27T15:39:27.1225098Z │ Version           │ v2.12.1-rc.4                                                                                                 │
+2026-07-27T15:39:27.1226068Z │ RunnerName        │ runs-on--i-037408c32f085ff30--fa5tk1aee3                                                                     │
+2026-07-27T15:39:27.1227195Z │ BucketCacheName   │ runson-prod-ue2-s3bucketcache-ewwxpctygsec                                                                   │
+2026-07-27T15:39:27.1228363Z │ InstanceId        │ i-037408c32f085ff30                                                                                          │
+2026-07-27T15:39:27.1229310Z │ InstanceType      │ m8ib.4xlarge                                                                                                 │
+2026-07-27T15:39:27.1230171Z │ InstanceLifecycle │ spot                                                                                                         │
+2026-07-27T15:39:27.1231082Z │ InstanceRAM       │ 63255.29 MiB                                                                                                 │
+2026-07-27T15:39:27.1231948Z │ InstanceCPU       │ 16 cores                                                                                                     │
+2026-07-27T15:39:27.1232827Z │ InstanceDisk1     │ /=/dev/nvme0n1p1                                                                                             │
+2026-07-27T15:39:27.1233721Z │                   │ Free=21.16GiB Used=16.53GiB                                                                                  │
+2026-07-27T15:39:27.1234614Z │ ImageId           │ ami-0b2d584ba6a7a3791                                                                                        │
+2026-07-27T15:39:27.1235618Z │ ImageName         │ runs-on-v2.2-ubuntu24-full-x64-20260717095855                                                                │
+2026-07-27T15:39:27.1236636Z │ Platform          │ linux                                                                                                        │
+2026-07-27T15:39:27.1237714Z │ Architecture      │ x64                                                                                                          │
+2026-07-27T15:39:27.1238740Z │ HasPreinstall     │ false                                                                                                        │
+2026-07-27T15:39:27.1239610Z │ HasPrerun         │ false                                                                                                        │
+2026-07-27T15:39:27.1240428Z │ IsDebug           │ false                                                                                                        │
+2026-07-27T15:39:27.1241360Z │ Integrations      │ []                                                                                                           │
+2026-07-27T15:39:27.1242186Z └───────────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+2026-07-27T15:39:27.1242898Z ##[endgroup]
+2026-07-27T15:39:27.1243368Z ##[group]⏱️ Timings - 28.28s
+2026-07-27T15:39:27.1243975Z ┌──────────────────────┬─────────────────────────────────┬─────────┬────────┐
+2026-07-27T15:39:27.1244639Z │         TIME         │              STEP               │  DIFF   │ TOTAL  │
+2026-07-27T15:39:27.1245280Z ├──────────────────────┼─────────────────────────────────┼─────────┼────────┤
+2026-07-27T15:39:27.1246029Z │ 2026-07-27T15:38:40Z │ job-created                     │ 0ms     │ 0.0s   │
+2026-07-27T15:39:27.1246738Z │ 2026-07-27T15:38:41Z │ job-received                    │ 1588ms  │ 1.59s  │
+2026-07-27T15:39:27.1247466Z │ 2026-07-27T15:38:44Z │ job-scheduled                   │ 2611ms  │ 4.20s  │
+2026-07-27T15:39:27.1248349Z │ 2026-07-27T15:38:45Z │ instance-pending                │ 799ms   │ 5.00s  │
+2026-07-27T15:39:27.1249085Z │ 2026-07-27T15:38:54Z │ runner-registered               │ 9111ms  │ 14.11s │
+2026-07-27T15:39:27.1249868Z │ 2026-07-27T15:39:07Z │ agent-booting                   │ 13101ms │ 27.21s │
+2026-07-27T15:39:27.1250576Z │ 2026-07-27T15:39:07Z │ runner-setup-global-env         │ 18ms    │ 27.23s │
+2026-07-27T15:39:27.1251294Z │ 2026-07-27T15:39:07Z │ runner-setup-user               │ 62ms    │ 27.29s │
+2026-07-27T15:39:27.1252049Z │ 2026-07-27T15:39:07Z │ agent-metadata                  │ 81ms    │ 27.38s │
+2026-07-27T15:39:27.1252737Z │ 2026-07-27T15:39:07Z │ instance-config                 │ 73ms    │ 27.45s │
+2026-07-27T15:39:27.1253549Z │ 2026-07-27T15:39:07Z │ runner-otel-setup-tracer        │ 0ms     │ 27.45s │
+2026-07-27T15:39:27.1254294Z │ 2026-07-27T15:39:07Z │ runner-otel-setup-collector     │ 0ms     │ 27.45s │
+2026-07-27T15:39:27.1255011Z │ 2026-07-27T15:39:08Z │ runner-resize-disk              │ 723ms   │ 28.17s │
+2026-07-27T15:39:27.1255769Z │ 2026-07-27T15:39:08Z │ runner-prepare-mount-points     │ 0ms     │ 28.17s │
+2026-07-27T15:39:27.1256492Z │ 2026-07-27T15:39:08Z │ runner-setup-mount-points       │ 49ms    │ 28.22s │
+2026-07-27T15:39:27.1257412Z │ 2026-07-27T15:39:08Z │ runner-setup-agent              │ 4ms     │ 28.23s │
+2026-07-27T15:39:27.1258389Z │ 2026-07-27T15:39:08Z │ runner-setup-integrations       │ 0ms     │ 28.23s │
+2026-07-27T15:39:27.1259208Z │ 2026-07-27T15:39:08Z │ runner-setup-host               │ 0ms     │ 28.23s │
+2026-07-27T15:39:27.1259943Z │ 2026-07-27T15:39:08Z │ runner-config                   │ 21ms    │ 28.25s │
+2026-07-27T15:39:27.1260719Z │ 2026-07-27T15:39:08Z │ runner-otel-restart             │ 0ms     │ 28.25s │
+2026-07-27T15:39:27.1261430Z │ 2026-07-27T15:39:08Z │ runner-env                      │ 3ms     │ 28.25s │
+2026-07-27T15:39:27.1262191Z │ 2026-07-27T15:39:08Z │ runner-chown-runner-directories │ 1ms     │ 28.25s │
+2026-07-27T15:39:27.1262935Z │ 2026-07-27T15:39:08Z │ runner-setup-s3-cache           │ 29ms    │ 28.28s │
+2026-07-27T15:39:27.1263606Z └──────────────────────┴─────────────────────────────────┴─────────┴────────┘
+2026-07-27T15:39:27.1264218Z ##[endgroup]
+2026-07-27T15:39:27.1265069Z ##[group]GITHUB_TOKEN Permissions
+2026-07-27T15:39:27.1266960Z Contents: read
+2026-07-27T15:39:27.1267424Z Metadata: read
+2026-07-27T15:39:27.1267887Z ##[endgroup]
+2026-07-27T15:39:27.1269692Z Secret source: Actions
+2026-07-27T15:39:27.1270294Z Prepare workflow directory
+2026-07-27T15:39:27.1642135Z Prepare all required actions
+2026-07-27T15:39:27.1670991Z Getting action download info
+2026-07-27T15:39:27.3887402Z Download action repository 'runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc' (SHA:4e5f72399b6b17f2e79c511c1b38a315a64d22dc)
+2026-07-27T15:39:27.5383119Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-07-27T15:39:27.7400795Z Download action repository 'smartcontractkit/.github@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5' (SHA:fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5)
+2026-07-27T15:39:28.5752814Z Download action repository 'actions/cache@v6' (SHA:55cc8345863c7cc4c66a329aec7e433d2d1c52a9)
+2026-07-27T15:39:28.6629566Z Download action repository 'aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c' (SHA:e6de054238d6b7531b4efff3b6587d9aade6a06c)
+2026-07-27T15:39:28.9132263Z Download action repository 'aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64' (SHA:d539f0932e70871a027e9d5a9d8fc38589180a64)
+2026-07-27T15:39:29.1831862Z Download action repository 'smartcontractkit/.github@branch-out-upload/v1' (SHA:c1fcfff6ad31752d4938c63cabae8b9972026239)
+2026-07-27T15:39:29.8908422Z Download action repository 'actions/upload-artifact@v7' (SHA:043fb46d1a93c77aae656e7c1c64a875d1fc6a0a)
+2026-07-27T15:39:30.0073415Z Getting action download info
+2026-07-27T15:39:30.1082592Z Download action repository 'actions/setup-go@v7' (SHA:b7ad1dad31e06c5925ef5d2fc7ad053ef454303e)
+2026-07-27T15:39:30.4512748Z Getting action download info
+2026-07-27T15:39:30.5515281Z Download action repository 'trunk-io/analytics-uploader@95a0fb8b29e45b6068304261fb518644b426a803' (SHA:95a0fb8b29e45b6068304261fb518644b426a803)
+2026-07-27T15:39:30.7860465Z Uses: smartcontractkit/chainlink/.github/workflows/cre-regression-system-tests.yaml@refs/pull/23164/merge (3c9debe77afe9c8af6615c7e425764b56cd4331b)
+2026-07-27T15:39:30.7863630Z ##[group] Inputs
+2026-07-27T15:39:30.7864073Z   chainlink_image_repository_path: chainlink-integration-tests
+2026-07-27T15:39:30.7864473Z   chainlink_image_tag: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:30.7864850Z   ecr: sdlc
+2026-07-27T15:39:30.7865132Z   chainlink_version: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:30.7865479Z ##[endgroup]
+2026-07-27T15:39:30.7865844Z Complete job name: Run Core CRE E2E Regression Tests / Test_CRE_V2_HTTP_Regression

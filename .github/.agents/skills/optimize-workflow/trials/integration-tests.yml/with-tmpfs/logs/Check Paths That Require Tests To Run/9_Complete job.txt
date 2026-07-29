@@ -1,0 +1,6 @@
+﻿2026-07-27T15:32:27.4557376Z Evaluate and set job outputs
+2026-07-27T15:32:27.4563841Z Set output 'general-changes'
+2026-07-27T15:32:27.4565679Z Set output 'core-changes'
+2026-07-27T15:32:27.4566399Z Set output 'cre-changes'
+2026-07-27T15:32:27.4566726Z Set output 'ccip-changes'
+2026-07-27T15:32:27.4567562Z Cleaning up orphan processes

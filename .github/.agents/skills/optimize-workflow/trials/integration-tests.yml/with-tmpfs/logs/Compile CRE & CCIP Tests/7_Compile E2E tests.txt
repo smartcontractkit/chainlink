@@ -1,0 +1,107 @@
+﻿2026-07-27T15:33:26.0626565Z ##[group]Run set -euo pipefail
+2026-07-27T15:33:26.0626930Z [36;1mset -euo pipefail[0m
+2026-07-27T15:33:26.0627160Z [36;1mmkdir -p "$GITHUB_WORKSPACE/.gotmp"[0m
+2026-07-27T15:33:26.0627441Z [36;1mexport GOTMPDIR="$GITHUB_WORKSPACE/.gotmp"[0m
+2026-07-27T15:33:26.0627690Z [36;1m[0m
+2026-07-27T15:33:26.0627915Z [36;1mmkdir -p "$GITHUB_WORKSPACE/system-tests/tests/bin"[0m
+2026-07-27T15:33:26.0628230Z [36;1mmkdir -p "$GITHUB_WORKSPACE/integration-tests/bin"[0m
+2026-07-27T15:33:26.0628566Z [36;1m[0m
+2026-07-27T15:33:26.0628982Z [36;1mcre_pid=""[0m
+2026-07-27T15:33:26.0629234Z [36;1mccip_pid=""[0m
+2026-07-27T15:33:26.0629421Z [36;1m[0m
+2026-07-27T15:33:26.0629616Z [36;1mif [[ "${SHOULD_RUN_CRE}" == "true" ]]; then[0m
+2026-07-27T15:33:26.0629856Z [36;1m  ([0m
+2026-07-27T15:33:26.0630048Z [36;1m    set -euo pipefail[0m
+2026-07-27T15:33:26.0630309Z [36;1m    echo "Compiling CRE tests and CLI in parallel..."[0m
+2026-07-27T15:33:26.0630604Z [36;1m    cd "$GITHUB_WORKSPACE/system-tests/tests"[0m
+2026-07-27T15:33:26.0630907Z [36;1m    go mod download[0m
+2026-07-27T15:33:26.0631198Z [36;1m    go test -c -ldflags="-s -w" -o ./bin/cre-smoke.test ./smoke/cre &[0m
+2026-07-27T15:33:26.0631504Z [36;1m    p1=$![0m
+2026-07-27T15:33:26.0631782Z [36;1m    go test -c -ldflags="-s -w" -o ./bin/cre-regression.test ./regression/cre &[0m
+2026-07-27T15:33:26.0632096Z [36;1m    p2=$![0m
+2026-07-27T15:33:26.0632510Z [36;1m    (cd "$GITHUB_WORKSPACE/core/scripts/cre/environment" && go build -ldflags="-s -w" -o "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" .) &[0m
+2026-07-27T15:33:26.0632950Z [36;1m    p3=$![0m
+2026-07-27T15:33:26.0633123Z [36;1m    set +e[0m
+2026-07-27T15:33:26.0633320Z [36;1m    wait "$p1"; p1_exit=$?[0m
+2026-07-27T15:33:26.0633547Z [36;1m    wait "$p2"; p2_exit=$?[0m
+2026-07-27T15:33:26.0633760Z [36;1m    wait "$p3"; p3_exit=$?[0m
+2026-07-27T15:33:26.0633972Z [36;1m    set -e[0m
+2026-07-27T15:33:26.0634221Z [36;1m    if [[ "$p1_exit" -ne 0 || "$p2_exit" -ne 0 || "$p3_exit" -ne 0 ]]; then[0m
+2026-07-27T15:33:26.0634776Z [36;1m      echo "Compilation failed (cre-smoke=$p1_exit, cre-regression=$p2_exit, cre-env=$p3_exit)" >&2[0m
+2026-07-27T15:33:26.0635143Z [36;1m      exit 1[0m
+2026-07-27T15:33:26.0635335Z [36;1m    fi[0m
+2026-07-27T15:33:26.0635519Z [36;1m  ) &[0m
+2026-07-27T15:33:26.0635705Z [36;1m  cre_pid=$![0m
+2026-07-27T15:33:26.0635895Z [36;1mfi[0m
+2026-07-27T15:33:26.0636059Z [36;1m[0m
+2026-07-27T15:33:26.0636264Z [36;1mif [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then[0m
+2026-07-27T15:33:26.0636508Z [36;1m  ([0m
+2026-07-27T15:33:26.0636700Z [36;1m    set -euo pipefail[0m
+2026-07-27T15:33:26.0636946Z [36;1m    echo "Compiling CCIP tests in parallel..."[0m
+2026-07-27T15:33:26.0637265Z [36;1m    cd "$GITHUB_WORKSPACE/integration-tests"[0m
+2026-07-27T15:33:26.0637514Z [36;1m    go mod download[0m
+2026-07-27T15:33:26.0637817Z [36;1m    go test -c -tags embed -ldflags="-s -w" -o ./bin/ccip-smoke.test ./smoke/ccip[0m
+2026-07-27T15:33:26.0638135Z [36;1m  ) &[0m
+2026-07-27T15:33:26.0638314Z [36;1m  ccip_pid=$![0m
+2026-07-27T15:33:26.0638485Z [36;1mfi[0m
+2026-07-27T15:33:26.0638634Z [36;1m[0m
+2026-07-27T15:33:26.0638986Z [36;1mif [ -n "$cre_pid" ]; then wait "$cre_pid"; fi[0m
+2026-07-27T15:33:26.0639271Z [36;1mif [ -n "$ccip_pid" ]; then wait "$ccip_pid"; fi[0m
+2026-07-27T15:33:26.0639508Z [36;1m[0m
+2026-07-27T15:33:26.0639686Z [36;1mrm -rf "$GITHUB_WORKSPACE/.gotmp"[0m
+2026-07-27T15:33:26.0660677Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-27T15:33:26.0660950Z env:
+2026-07-27T15:33:26.0661354Z   ENV_JOB_IMAGE: ***.dkr.ecr.***.amazonaws.com/chainlink-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:33:26.0661848Z   CHAINLINK_IMAGE: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests
+2026-07-27T15:33:26.0662181Z   CHAINLINK_REF: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:33:26.0662438Z   TEST_SUITE: smoke
+2026-07-27T15:33:26.0662655Z   MOD_CACHE_VERSION: 2
+2026-07-27T15:33:26.0662861Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:33:26.0663215Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:33:26.0663425Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:33:26.0663653Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:33:26.0663881Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:33:26.0664085Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:33:26.0664293Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:33:26.0664526Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:33:26.0664804Z   RUNS_ON_AWS_AZ: us-east-2c
+2026-07-27T15:33:26.0665021Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:33:26.0665260Z   RUNS_ON_INSTANCE_ID: i-06f00fe4cd78180f6
+2026-07-27T15:33:26.0665497Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:33:26.0665725Z   RUNS_ON_INSTANCE_TYPE: c8i-flex.8xlarge
+2026-07-27T15:33:26.0665960Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:33:26.0666240Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:33:26.0666543Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:33:26.0666808Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:33:26.0667068Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:33:26.0667315Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:33:26.0667545Z   GITHUB_HOST: github.com
+2026-07-27T15:33:26.0667788Z   RUNS_ON_RUNNER_NAME: runs-on--i-06f00fe4cd78180f6--zjb19nnt1f
+2026-07-27T15:33:26.0668085Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:32:41Z
+2026-07-27T15:33:26.0668352Z   ACTIONS_CACHE_URL: http://10.1.42.30:6871/
+2026-07-27T15:33:26.0668591Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:33:26.0668967Z   ACTIONS_RESULTS_URL: http://10.1.42.30:6871/
+2026-07-27T15:33:26.0669250Z   AWS_DEFAULT_REGION: ***
+2026-07-27T15:33:26.0669460Z   AWS_REGION: ***
+2026-07-27T15:33:26.0669663Z   AWS_ACCESS_KEY_ID: ***
+2026-07-27T15:33:26.0669915Z   AWS_SECRET_ACCESS_KEY: ***
+2026-07-27T15:33:26.0673445Z   AWS_SESSION_TOKEN: ***
+2026-07-27T15:33:26.0673652Z   TAR_OPTIONS: --skip-old-files
+2026-07-27T15:33:26.0673865Z   GOTOOLCHAIN: local
+2026-07-27T15:33:26.0674047Z   SHOULD_RUN_CRE: true
+2026-07-27T15:33:26.0674242Z   SHOULD_RUN_CCIP: false
+2026-07-27T15:33:26.0674435Z ##[endgroup]
+2026-07-27T15:33:26.0743945Z Compiling CRE tests and CLI in parallel...
+2026-07-27T15:34:18.6730584Z go: downloading github.com/c-bata/go-prompt v0.2.6
+2026-07-27T15:34:18.8033821Z go: downloading github.com/gagliardetto/solana-go v1.13.0
+2026-07-27T15:34:18.9405425Z go: downloading github.com/minio/minio-go/v7 v7.0.86
+2026-07-27T15:34:19.0425598Z go: downloading github.com/moby/go-archive v0.1.0
+2026-07-27T15:34:19.0444630Z go: downloading google.golang.org/genproto v0.0.0-20250505200425-f936aa4a68b2
+2026-07-27T15:34:19.5881801Z go: downloading filippo.io/edwards25519 v1.1.1
+2026-07-27T15:34:19.5921792Z go: downloading k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
+2026-07-27T15:34:19.5987056Z go: downloading github.com/pkg/term v1.2.0-beta.2
+2026-07-27T15:34:19.6056764Z go: downloading github.com/minio/crc64nvme v1.0.0
+2026-07-27T15:34:19.8918067Z go: downloading github.com/urfave/cli v1.22.17
+2026-07-27T15:34:20.2113156Z go: downloading github.com/pressly/goose/v3 v3.26.0
+2026-07-27T15:34:20.2204595Z go: downloading cosmossdk.io/errors v1.0.1
+2026-07-27T15:34:20.2482927Z go: downloading github.com/go-logfmt/logfmt v0.6.0

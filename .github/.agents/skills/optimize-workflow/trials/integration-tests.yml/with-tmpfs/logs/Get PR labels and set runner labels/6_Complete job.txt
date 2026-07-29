@@ -1,0 +1,7 @@
+﻿2026-07-27T15:32:27.0527349Z Evaluate and set job outputs
+2026-07-27T15:32:27.0533819Z Set output 'builder-runner-label-core'
+2026-07-27T15:32:27.0535803Z Set output 'builder-runner-label-plugins'
+2026-07-27T15:32:27.0536899Z Set output 'should-use-self-hosted-runners'
+2026-07-27T15:32:27.0537612Z Set output 'run-e2e-tests-label-found'
+2026-07-27T15:32:27.0538159Z Set output 'skip-e2e-regression-label-found'
+2026-07-27T15:32:27.0539184Z Cleaning up orphan processes

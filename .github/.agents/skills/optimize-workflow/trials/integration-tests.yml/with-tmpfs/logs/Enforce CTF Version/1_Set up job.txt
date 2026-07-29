@@ -1,0 +1,49 @@
+﻿2026-07-27T15:32:22.2428746Z Current runner version: '2.335.1'
+2026-07-27T15:32:22.2455861Z ##[group]Runner Image Provisioner
+2026-07-27T15:32:22.2456832Z Hosted Compute Agent
+2026-07-27T15:32:22.2457450Z Version: 20260707.563
+2026-07-27T15:32:22.2458071Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+2026-07-27T15:32:22.2459228Z Build Date: 2026-07-07T19:33:50Z
+2026-07-27T15:32:22.2459947Z Worker ID: {16e62b03-8133-45d1-8056-8c6ba42e6d3a}
+2026-07-27T15:32:22.2460789Z Azure Region: northcentralus
+2026-07-27T15:32:22.2461459Z ##[endgroup]
+2026-07-27T15:32:22.2462923Z ##[group]Operating System
+2026-07-27T15:32:22.2463678Z Ubuntu
+2026-07-27T15:32:22.2464267Z 24.04.4
+2026-07-27T15:32:22.2464838Z LTS
+2026-07-27T15:32:22.2465393Z ##[endgroup]
+2026-07-27T15:32:22.2465969Z ##[group]Runner Image
+2026-07-27T15:32:22.2466628Z Image: ubuntu-24.04
+2026-07-27T15:32:22.2467231Z Version: 20260720.247.2
+2026-07-27T15:32:22.2468470Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260720.247/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-27T15:32:22.2470305Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260720.247
+2026-07-27T15:32:22.2471349Z ##[endgroup]
+2026-07-27T15:32:22.2474470Z ##[group]GITHUB_TOKEN Permissions
+2026-07-27T15:32:22.2476734Z Actions: write
+2026-07-27T15:32:22.2477381Z ArtifactMetadata: write
+2026-07-27T15:32:22.2478028Z Attestations: write
+2026-07-27T15:32:22.2479133Z Checks: write
+2026-07-27T15:32:22.2479756Z CodeQuality: write
+2026-07-27T15:32:22.2480410Z Contents: write
+2026-07-27T15:32:22.2481005Z CopilotRequests: write
+2026-07-27T15:32:22.2481606Z Deployments: write
+2026-07-27T15:32:22.2482286Z Discussions: write
+2026-07-27T15:32:22.2482912Z Drives: write
+2026-07-27T15:32:22.2483500Z Issues: write
+2026-07-27T15:32:22.2484077Z Metadata: read
+2026-07-27T15:32:22.2484732Z Models: read
+2026-07-27T15:32:22.2485339Z Packages: write
+2026-07-27T15:32:22.2485948Z Pages: write
+2026-07-27T15:32:22.2486495Z PullRequests: write
+2026-07-27T15:32:22.2487212Z RepositoryProjects: write
+2026-07-27T15:32:22.2487878Z SecurityEvents: write
+2026-07-27T15:32:22.2488638Z Statuses: write
+2026-07-27T15:32:22.2489440Z VulnerabilityAlerts: read
+2026-07-27T15:32:22.2490048Z ##[endgroup]
+2026-07-27T15:32:22.2492360Z Secret source: Actions
+2026-07-27T15:32:22.2493129Z Prepare workflow directory
+2026-07-27T15:32:22.3065068Z Prepare all required actions
+2026-07-27T15:32:22.3103306Z Getting action download info
+2026-07-27T15:32:22.5740521Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-07-27T15:32:22.9722270Z Download action repository 'smartcontractkit/.github@21b0189c5fdca0318617d259634b1a91e6d80262' (SHA:21b0189c5fdca0318617d259634b1a91e6d80262)
+2026-07-27T15:32:23.8871151Z Complete job name: Enforce CTF Version

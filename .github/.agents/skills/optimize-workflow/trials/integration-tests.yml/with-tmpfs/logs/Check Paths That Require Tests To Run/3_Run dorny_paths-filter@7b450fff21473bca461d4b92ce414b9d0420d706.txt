@@ -1,0 +1,132 @@
+﻿2026-07-27T15:32:26.3252128Z ##[group]Run dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706
+2026-07-27T15:32:26.3252893Z with:
+2026-07-27T15:32:26.3255624Z   filters: general_changes:
+  - '.github/workflows/integration-tests.yml'
+  - '.github/workflows/cre-system-tests.yaml'
+  - '.github/workflows/cre-regression-system-tests.yaml'
+  - '.github/workflows/ccip-system-tests.yaml'
+  - 'GNUmakefile'
+  - 'core/chainlink.Dockerfile'
+  - 'plugins/chainlink.Dockerfile'
+core_changes: &core_changes
+  - '**/*.go'
+  - '**/*go.sum'
+  - '**/*go.mod'
+  - '**/*Dockerfile'
+  - 'core/**/migrations/*.sql'
+  - 'core/**/config/**/*.toml'
+  - 'integration-tests/**/*.toml'
+cre_changes:
+  - *core_changes
+  - 'core/scripts/cre/environment/**/*'
+  - 'system-tests/**'
+  - 'plugins/plugins.private.yaml'
+  - 'plugins/plugins.public.yaml'
+ccip_changes:
+  - '.github/workflows/integration-tests.yml'
+  - '.github/workflows/ccip-system-tests.yaml'
+  - '.github/actions/**'
+  - 'integration-tests/**'
+  - 'core/capabilities/ccip/**'
+
+2026-07-27T15:32:26.3260910Z   token: ***
+2026-07-27T15:32:26.3261158Z   list-files: none
+2026-07-27T15:32:26.3261557Z   initial-fetch-depth: 100
+2026-07-27T15:32:26.3261805Z   predicate-quantifier: some
+2026-07-27T15:32:26.3262036Z env:
+2026-07-27T15:32:26.3262774Z   ENV_JOB_IMAGE: ***.dkr.ecr.***.amazonaws.com/chainlink-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:26.3263435Z   CHAINLINK_IMAGE: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests
+2026-07-27T15:32:26.3263874Z   CHAINLINK_REF: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:26.3264189Z   TEST_SUITE: smoke
+2026-07-27T15:32:26.3264397Z   MOD_CACHE_VERSION: 2
+2026-07-27T15:32:26.3264625Z ##[endgroup]
+2026-07-27T15:32:26.4064710Z ##[group]Fetching list of changed files for PR#23164 from GitHub API
+2026-07-27T15:32:26.4073370Z Invoking listFiles(pull_number: 23164, per_page: 100)
+2026-07-27T15:32:26.7383233Z Received 41 items
+2026-07-27T15:32:26.7411619Z [added] .github/.agents/skills/optimize-workflow/SKILL.md
+2026-07-27T15:32:26.7433500Z [added] .github/.agents/skills/optimize-workflow/scripts/test_workflow_compare.py
+2026-07-27T15:32:26.7434828Z [renamed] .github/.agents/skills/optimize-workflow/scripts/test_workflow_monitor.py
+2026-07-27T15:32:26.7436913Z [renamed] .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py
+2026-07-27T15:32:26.7438172Z [renamed] .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py
+2026-07-27T15:32:26.7439235Z [removed] .github/.agents/skills/right-size-runners/SKILL.md
+2026-07-27T15:32:26.7440334Z [removed] .github/.agents/skills/right-size-runners/scripts/test_workflow_compare.py
+2026-07-27T15:32:26.7441302Z [modified] .github/AGENTS.md
+2026-07-27T15:32:26.7442012Z [modified] .github/actions/setup-go/action.yml
+2026-07-27T15:32:26.7443231Z [modified] .github/actions/start-local-cre-environment/action.yml
+2026-07-27T15:32:26.7444139Z [removed] .github/e2e-tests.yml
+2026-07-27T15:32:26.7444834Z [removed] .github/workflows/ccip-chaos-tests.yml
+2026-07-27T15:32:26.7445738Z [added] .github/workflows/ccip-system-tests.yaml
+2026-07-27T15:32:26.7446616Z [modified] .github/workflows/ci-core.yml
+2026-07-27T15:32:26.7447457Z [modified] .github/workflows/ci-deployments.yml
+2026-07-27T15:32:26.7448241Z [modified] .github/workflows/codeql.yml
+2026-07-27T15:32:26.7449070Z [modified] .github/workflows/cre-local-env-tests.yaml
+2026-07-27T15:32:26.7450021Z [modified] .github/workflows/cre-regression-system-tests.yaml
+2026-07-27T15:32:26.7450946Z [modified] .github/workflows/cre-soak-memory-leak.yml
+2026-07-27T15:32:26.7451854Z [modified] .github/workflows/cre-system-tests.yaml
+2026-07-27T15:32:26.7452869Z [modified] .github/workflows/cre-wf-caching-test.yml
+2026-07-27T15:32:26.7453867Z [modified] .github/workflows/cre-workflow-don-benchmark.yaml
+2026-07-27T15:32:26.7454934Z [modified] .github/workflows/devenv-compat.yml
+2026-07-27T15:32:26.7455790Z [removed] .github/workflows/find-flaky-tests.yml
+2026-07-27T15:32:26.7456656Z [modified] .github/workflows/go-mod-cache.yml
+2026-07-27T15:32:26.7457551Z [modified] .github/workflows/integration-in-memory-tests.yml
+2026-07-27T15:32:26.7459034Z [modified] .github/workflows/integration-tests.yml
+2026-07-27T15:32:26.7460052Z [modified] .github/workflows/legacy-non-functional-tests.yml
+2026-07-27T15:32:26.7461062Z [modified] .github/workflows/legacy-system-tests.yml
+2026-07-27T15:32:26.7462082Z [modified] .github/workflows/run-nightly-in-memory-integration-tests.yml
+2026-07-27T15:32:26.7463257Z [modified] .gitignore
+2026-07-27T15:32:26.7464003Z [modified] core/chainlink.Dockerfile
+2026-07-27T15:32:26.7464827Z [modified] plugins/chainlink.Dockerfile
+2026-07-27T15:32:26.7465714Z [modified] system-tests/tests/test-helpers/before_suite.go
+2026-07-27T15:32:26.7466749Z [modified] system-tests/tests/test-helpers/chip-testsink/server.go
+2026-07-27T15:32:26.7467852Z [modified] system-tests/tests/test-helpers/chip_ingress_stack_provider.go
+2026-07-27T15:32:26.7469000Z [added] system-tests/tests/test-helpers/chip_ingress_stack_provider_test.go
+2026-07-27T15:32:26.7470154Z [modified] system-tests/tests/test-helpers/chip_testsink_helpers.go
+2026-07-27T15:32:26.7471529Z [modified] system-tests/tests/test-helpers/container_logs.go
+2026-07-27T15:32:26.7472903Z [modified] system-tests/tests/test-helpers/t_helpers.go
+2026-07-27T15:32:26.7473893Z [modified] system-tests/tests/test-helpers/t_helpers_soak.go
+2026-07-27T15:32:26.7475142Z ##[endgroup]
+2026-07-27T15:32:26.7475717Z Detected 44 changed files
+2026-07-27T15:32:26.7476278Z Results:
+2026-07-27T15:32:26.7477105Z ##[group]Filter general_changes = true
+2026-07-27T15:32:26.7477765Z Matching files:
+2026-07-27T15:32:26.7478374Z .github/workflows/ccip-system-tests.yaml [added]
+2026-07-27T15:32:26.7479229Z .github/workflows/cre-regression-system-tests.yaml [modified]
+2026-07-27T15:32:26.7480106Z .github/workflows/cre-system-tests.yaml [modified]
+2026-07-27T15:32:26.7480961Z .github/workflows/integration-tests.yml [modified]
+2026-07-27T15:32:26.7481727Z core/chainlink.Dockerfile [modified]
+2026-07-27T15:32:26.7482602Z plugins/chainlink.Dockerfile [modified]
+2026-07-27T15:32:26.7483557Z ##[endgroup]
+2026-07-27T15:32:26.7484347Z ##[group]Filter core_changes = true
+2026-07-27T15:32:26.7484996Z Matching files:
+2026-07-27T15:32:26.7485562Z core/chainlink.Dockerfile [modified]
+2026-07-27T15:32:26.7486240Z plugins/chainlink.Dockerfile [modified]
+2026-07-27T15:32:26.7487002Z system-tests/tests/test-helpers/before_suite.go [modified]
+2026-07-27T15:32:26.7487951Z system-tests/tests/test-helpers/chip-testsink/server.go [modified]
+2026-07-27T15:32:26.7488983Z system-tests/tests/test-helpers/chip_ingress_stack_provider.go [modified]
+2026-07-27T15:32:26.7490078Z system-tests/tests/test-helpers/chip_ingress_stack_provider_test.go [added]
+2026-07-27T15:32:26.7491120Z system-tests/tests/test-helpers/chip_testsink_helpers.go [modified]
+2026-07-27T15:32:26.7492084Z system-tests/tests/test-helpers/container_logs.go [modified]
+2026-07-27T15:32:26.7493202Z system-tests/tests/test-helpers/t_helpers.go [modified]
+2026-07-27T15:32:26.7494121Z system-tests/tests/test-helpers/t_helpers_soak.go [modified]
+2026-07-27T15:32:26.7495240Z ##[endgroup]
+2026-07-27T15:32:26.7496044Z ##[group]Filter cre_changes = true
+2026-07-27T15:32:26.7496678Z Matching files:
+2026-07-27T15:32:26.7497407Z core/chainlink.Dockerfile [modified]
+2026-07-27T15:32:26.7498176Z plugins/chainlink.Dockerfile [modified]
+2026-07-27T15:32:26.7498860Z system-tests/tests/test-helpers/before_suite.go [modified]
+2026-07-27T15:32:26.7499633Z system-tests/tests/test-helpers/chip-testsink/server.go [modified]
+2026-07-27T15:32:26.7500486Z system-tests/tests/test-helpers/chip_ingress_stack_provider.go [modified]
+2026-07-27T15:32:26.7501407Z system-tests/tests/test-helpers/chip_ingress_stack_provider_test.go [added]
+2026-07-27T15:32:26.7502583Z system-tests/tests/test-helpers/chip_testsink_helpers.go [modified]
+2026-07-27T15:32:26.7503409Z system-tests/tests/test-helpers/container_logs.go [modified]
+2026-07-27T15:32:26.7504186Z system-tests/tests/test-helpers/t_helpers.go [modified]
+2026-07-27T15:32:26.7504908Z system-tests/tests/test-helpers/t_helpers_soak.go [modified]
+2026-07-27T15:32:26.7506146Z ##[endgroup]
+2026-07-27T15:32:26.7506828Z ##[group]Filter ccip_changes = true
+2026-07-27T15:32:26.7507302Z Matching files:
+2026-07-27T15:32:26.7507735Z .github/actions/setup-go/action.yml [modified]
+2026-07-27T15:32:26.7508449Z .github/actions/start-local-cre-environment/action.yml [modified]
+2026-07-27T15:32:26.7509167Z .github/workflows/ccip-system-tests.yaml [added]
+2026-07-27T15:32:26.7509825Z .github/workflows/integration-tests.yml [modified]
+2026-07-27T15:32:26.7510643Z ##[endgroup]
+2026-07-27T15:32:26.7511253Z Changes output set to ["general_changes","core_changes","cre_changes","ccip_changes"]

@@ -1,0 +1,46 @@
+﻿2026-07-27T15:45:39.0411287Z Current runner version: '2.336.0'
+2026-07-27T15:45:39.0441077Z ##[group]Runner Image Provisioner
+2026-07-27T15:45:39.0442942Z Hosted Compute Agent
+2026-07-27T15:45:39.0444172Z Version: 20260707.563
+2026-07-27T15:45:39.0445365Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+2026-07-27T15:45:39.0446850Z Build Date: 2026-07-07T19:33:50Z
+2026-07-27T15:45:39.0448107Z Worker ID: {cf84ff30-3a37-4ade-869e-e45152f38147}
+2026-07-27T15:45:39.0449474Z Azure Region: centralus
+2026-07-27T15:45:39.0451026Z ##[endgroup]
+2026-07-27T15:45:39.0453522Z ##[group]Operating System
+2026-07-27T15:45:39.0454677Z Ubuntu
+2026-07-27T15:45:39.0455629Z 24.04.4
+2026-07-27T15:45:39.0456600Z LTS
+2026-07-27T15:45:39.0457647Z ##[endgroup]
+2026-07-27T15:45:39.0458656Z ##[group]Runner Image
+2026-07-27T15:45:39.0459938Z Image: ubuntu-24.04
+2026-07-27T15:45:39.0461273Z Version: 20260720.247.2
+2026-07-27T15:45:39.0463260Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260720.247/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-27T15:45:39.0466356Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260720.247
+2026-07-27T15:45:39.0468349Z ##[endgroup]
+2026-07-27T15:45:39.0474487Z ##[group]GITHUB_TOKEN Permissions
+2026-07-27T15:45:39.0477933Z Actions: write
+2026-07-27T15:45:39.0478981Z ArtifactMetadata: write
+2026-07-27T15:45:39.0480010Z Attestations: write
+2026-07-27T15:45:39.0481448Z Checks: write
+2026-07-27T15:45:39.0482472Z CodeQuality: write
+2026-07-27T15:45:39.0483582Z Contents: write
+2026-07-27T15:45:39.0484732Z CopilotRequests: write
+2026-07-27T15:45:39.0485877Z Deployments: write
+2026-07-27T15:45:39.0487116Z Discussions: write
+2026-07-27T15:45:39.0488151Z Drives: write
+2026-07-27T15:45:39.0489201Z Issues: write
+2026-07-27T15:45:39.0490505Z Metadata: read
+2026-07-27T15:45:39.0491633Z Models: read
+2026-07-27T15:45:39.0492730Z Packages: write
+2026-07-27T15:45:39.0493743Z Pages: write
+2026-07-27T15:45:39.0494628Z PullRequests: write
+2026-07-27T15:45:39.0495702Z RepositoryProjects: write
+2026-07-27T15:45:39.0496815Z SecurityEvents: write
+2026-07-27T15:45:39.0497776Z Statuses: write
+2026-07-27T15:45:39.0498754Z VulnerabilityAlerts: read
+2026-07-27T15:45:39.0499748Z ##[endgroup]
+2026-07-27T15:45:39.0502870Z Secret source: Actions
+2026-07-27T15:45:39.0504922Z Prepare workflow directory
+2026-07-27T15:45:39.1174078Z Prepare all required actions
+2026-07-27T15:45:39.1265916Z Complete job name: ETH Smoke Tests

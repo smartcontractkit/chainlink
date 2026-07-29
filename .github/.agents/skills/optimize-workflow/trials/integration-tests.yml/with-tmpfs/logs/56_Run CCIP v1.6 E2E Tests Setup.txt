@@ -1,0 +1,68 @@
+﻿2026-07-27T15:32:36.9579948Z Current runner version: '2.335.1'
+2026-07-27T15:32:36.9605021Z ##[group]Runner Image Provisioner
+2026-07-27T15:32:36.9606018Z Hosted Compute Agent
+2026-07-27T15:32:36.9606594Z Version: 20260707.563
+2026-07-27T15:32:36.9607296Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+2026-07-27T15:32:36.9608039Z Build Date: 2026-07-07T19:33:50Z
+2026-07-27T15:32:36.9608721Z Worker ID: {c6f99923-cb12-4643-91ed-dbbbdda3d617}
+2026-07-27T15:32:36.9609514Z Azure Region: westus
+2026-07-27T15:32:36.9610090Z ##[endgroup]
+2026-07-27T15:32:36.9611931Z ##[group]Operating System
+2026-07-27T15:32:36.9612668Z Ubuntu
+2026-07-27T15:32:36.9613477Z 24.04.4
+2026-07-27T15:32:36.9614053Z LTS
+2026-07-27T15:32:36.9614570Z ##[endgroup]
+2026-07-27T15:32:36.9615140Z ##[group]Runner Image
+2026-07-27T15:32:36.9615783Z Image: ubuntu-24.04
+2026-07-27T15:32:36.9616334Z Version: 20260720.247.2
+2026-07-27T15:32:36.9617685Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260720.247/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-27T15:32:36.9619270Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260720.247
+2026-07-27T15:32:36.9620306Z ##[endgroup]
+2026-07-27T15:32:36.9621450Z ##[group]GITHUB_TOKEN Permissions
+2026-07-27T15:32:36.9623647Z Contents: read
+2026-07-27T15:32:36.9624267Z Metadata: read
+2026-07-27T15:32:36.9624816Z ##[endgroup]
+2026-07-27T15:32:36.9627002Z Secret source: Actions
+2026-07-27T15:32:36.9627788Z Prepare workflow directory
+2026-07-27T15:32:37.0197961Z Prepare all required actions
+2026-07-27T15:32:37.0251140Z Complete job name: Run CCIP v1.6 E2E Tests Setup
+2026-07-27T15:32:37.0888970Z ##[group]Run if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
+2026-07-27T15:32:37.0890095Z [36;1mif [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then[0m
+2026-07-27T15:32:37.0961383Z [36;1m  # CCIP v1.6 E2E Tests run on merge queue (merge_group), not on PRs[0m
+2026-07-27T15:32:37.0963168Z [36;1m  echo "should-run=false" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0964443Z [36;1m[0m
+2026-07-27T15:32:37.0965537Z [36;1melif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then[0m
+2026-07-27T15:32:37.0967121Z [36;1m  # Run CCIP v1.6 E2E Tests in the merge queue, if there are relevant changes[0m
+2026-07-27T15:32:37.0968126Z [36;1m  echo "should-run=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0968848Z [36;1m[0m
+2026-07-27T15:32:37.0969405Z [36;1melif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then[0m
+2026-07-27T15:32:37.0970232Z [36;1m  # Always Run CCIP v1.6 E2E Tests on workflow dispatch[0m
+2026-07-27T15:32:37.0971029Z [36;1m  echo "should-run=true" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0971659Z [36;1m[0m
+2026-07-27T15:32:37.0972157Z [36;1melif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then[0m
+2026-07-27T15:32:37.0973519Z [36;1m  # Run CCIP v1.6 E2E Tests on push events, only if there are relevant changes or if it's a tag push[0m
+2026-07-27T15:32:37.0974619Z [36;1m  if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then[0m
+2026-07-27T15:32:37.0975487Z [36;1m    echo "should-run=true" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0976112Z [36;1m  else[0m
+2026-07-27T15:32:37.0976641Z [36;1m    echo "should-run=false" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0977258Z [36;1m  fi[0m
+2026-07-27T15:32:37.0977705Z [36;1m[0m
+2026-07-27T15:32:37.0978108Z [36;1melse[0m
+2026-07-27T15:32:37.0978644Z [36;1m  echo "should-run=false" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:37.0979275Z [36;1mfi[0m
+2026-07-27T15:32:37.1728562Z shell: /usr/bin/bash -e {0}
+2026-07-27T15:32:37.1730082Z env:
+2026-07-27T15:32:37.1731844Z   ENV_JOB_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:37.1734333Z   CHAINLINK_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-integration-tests
+2026-07-27T15:32:37.1735888Z   CHAINLINK_REF: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:37.1737097Z   TEST_SUITE: smoke
+2026-07-27T15:32:37.1737912Z   MOD_CACHE_VERSION: 2
+2026-07-27T15:32:37.1739202Z   GITHUB_EVENT_NAME: pull_request
+2026-07-27T15:32:37.1741047Z   GITHUB_REF_TYPE: branch
+2026-07-27T15:32:37.1741960Z   CONTAINS_CHANGES: true
+2026-07-27T15:32:37.1742884Z   RUN_E2E_TESTS_LABEL_FOUND: false
+2026-07-27T15:32:37.1744141Z ##[endgroup]
+2026-07-27T15:32:37.2044468Z should-run=false
+2026-07-27T15:32:37.2282041Z Evaluate and set job outputs
+2026-07-27T15:32:37.2291012Z Set output 'should-run'
+2026-07-27T15:32:37.2294895Z Cleaning up orphan processes

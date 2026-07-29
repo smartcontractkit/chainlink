@@ -1,0 +1,4 @@
+﻿2026-07-27T15:32:36.7161823Z Evaluate and set job outputs
+2026-07-27T15:32:36.7168436Z Set output 'should-run'
+2026-07-27T15:32:36.7170755Z Set output 'with-regression'
+2026-07-27T15:32:36.7172183Z Cleaning up orphan processes

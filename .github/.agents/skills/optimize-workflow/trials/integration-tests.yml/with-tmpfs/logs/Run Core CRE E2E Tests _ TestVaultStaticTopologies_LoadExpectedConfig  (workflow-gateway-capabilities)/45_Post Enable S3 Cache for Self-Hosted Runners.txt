@@ -1,0 +1,29 @@
+﻿2026-07-27T15:41:08.9469415Z Post job cleanup.
+2026-07-27T15:41:09.0134393Z Running post-execution phase...
+2026-07-27T15:41:09.0134799Z Input 'show_env': false
+2026-07-27T15:41:09.0135051Z Input 'show_costs': inline
+2026-07-27T15:41:09.0135286Z Input 'metrics': []
+2026-07-27T15:41:09.0135530Z Input 'network_interface': enp39s0
+2026-07-27T15:41:09.0135796Z Input 'disk_device': nvme0n1p1
+2026-07-27T15:41:09.0136301Z Input 'sccache': 
+2026-07-27T15:41:09.0136732Z ZCTIONS_RESULTS_URL is set: https://results-receiver.actions.githubusercontent.com/
+2026-07-27T15:41:09.0137390Z ZCTIONS_CACHE_URL is set: https://acghubeus2.actions.githubusercontent.com/xq3ZZMJi430EYtg9xllMhfXALZB4H6uze3QiJ2jeQ5XLKwNUJd/
+2026-07-27T15:41:09.0137883Z ACTIONS_RUNTIME_TOKEN is set.
+2026-07-27T15:41:09.0664590Z Mapped zone name us-east-2c to zone ID use2-az3
+2026-07-27T15:41:09.2390888Z ## Execution Cost Summary
+2026-07-27T15:41:09.2391156Z 
+2026-07-27T15:41:09.2391283Z | metric                 | value           |
+2026-07-27T15:41:09.2391585Z | ---------------------- | --------------- |
+2026-07-27T15:41:09.2391926Z | Instance Type          | m8ib.4xlarge    |
+2026-07-27T15:41:09.2392248Z | Instance Lifecycle     | spot            |
+2026-07-27T15:41:09.2392526Z | Region                 | us-east-2       |
+2026-07-27T15:41:09.2392803Z | Platform               | Linux/UNIX      |
+2026-07-27T15:41:09.2393064Z | Arch                   | x64             |
+2026-07-27T15:41:09.2393520Z | Az                     | us-east-2c      |
+2026-07-27T15:41:09.2393787Z | Zone ID                | use2-az3        |
+2026-07-27T15:41:09.2394089Z | Duration               | 2.45 minutes    |
+2026-07-27T15:41:09.2394442Z | Cost                   | $0.0152         |
+2026-07-27T15:41:09.2394786Z | GitHub equivalent cost | $0.1260         |
+2026-07-27T15:41:09.2395169Z | Savings                | $0.1108 (88.0%) |
+2026-07-27T15:41:09.2395335Z 
+2026-07-27T15:41:09.2395469Z Post-execution phase finished.

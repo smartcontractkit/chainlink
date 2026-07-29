@@ -1,0 +1,11 @@
+﻿2026-07-27T15:32:23.9486734Z ##[group]Run echo "pull_request"
+2026-07-27T15:32:23.9487543Z [36;1mecho "pull_request"[0m
+2026-07-27T15:32:23.9538102Z shell: /usr/bin/bash -e {0}
+2026-07-27T15:32:23.9539194Z env:
+2026-07-27T15:32:23.9540318Z   ENV_JOB_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:23.9541651Z   CHAINLINK_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-integration-tests
+2026-07-27T15:32:23.9542582Z   CHAINLINK_REF: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:23.9543299Z   TEST_SUITE: smoke
+2026-07-27T15:32:23.9543811Z   MOD_CACHE_VERSION: 2
+2026-07-27T15:32:23.9544323Z ##[endgroup]
+2026-07-27T15:32:23.9690973Z pull_request

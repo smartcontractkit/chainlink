@@ -1,0 +1,160 @@
+﻿2026-07-27T15:39:33.5356810Z ##[group]Run actions/checkout@v7
+2026-07-27T15:39:33.5357067Z with:
+2026-07-27T15:39:33.5357269Z   ref: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:33.5357538Z   persist-credentials: false
+2026-07-27T15:39:33.5357804Z   repository: smartcontractkit/chainlink
+2026-07-27T15:39:33.5359614Z   token: ***
+2026-07-27T15:39:33.5359797Z   ssh-strict: true
+2026-07-27T15:39:33.5359980Z   ssh-user: git
+2026-07-27T15:39:33.5360147Z   clean: true
+2026-07-27T15:39:33.5360334Z   sparse-checkout-cone-mode: true
+2026-07-27T15:39:33.5360567Z   fetch-depth: 1
+2026-07-27T15:39:33.5360744Z   fetch-tags: false
+2026-07-27T15:39:33.5360917Z   show-progress: true
+2026-07-27T15:39:33.5361103Z   lfs: false
+2026-07-27T15:39:33.5361279Z   submodules: false
+2026-07-27T15:39:33.5361462Z   set-safe-directory: true
+2026-07-27T15:39:33.5361701Z   allow-unsafe-pr-checkout: false
+2026-07-27T15:39:33.5361906Z env:
+2026-07-27T15:39:33.5362107Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:39:33.5362559Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:39:33.5363297Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:33.5364132Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:39:33.5364729Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:39:33.5365108Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:39:33.5365331Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:39:33.5365524Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:39:33.5365742Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:39:33.5365971Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:39:33.5366262Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:39:33.5366474Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:39:33.5366689Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:39:33.5366898Z   RUNS_ON_AWS_AZ: us-east-2c
+2026-07-27T15:39:33.5367107Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:39:33.5367352Z   RUNS_ON_INSTANCE_ID: i-042671285000cd924
+2026-07-27T15:39:33.5367586Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:39:33.5367806Z   RUNS_ON_INSTANCE_TYPE: m8i.4xlarge
+2026-07-27T15:39:33.5368031Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:39:33.5368397Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:39:33.5368784Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:39:33.5369225Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:39:33.5369553Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:39:33.5369857Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:39:33.5370161Z   GITHUB_HOST: github.com
+2026-07-27T15:39:33.5370488Z   RUNS_ON_RUNNER_NAME: runs-on--i-042671285000cd924--2gz5p0ijq2
+2026-07-27T15:39:33.5370839Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:53Z
+2026-07-27T15:39:33.5371271Z   ACTIONS_CACHE_URL: http://10.1.47.80:6871/
+2026-07-27T15:39:33.5371556Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:39:33.5371865Z   ACTIONS_RESULTS_URL: http://10.1.47.80:6871/
+2026-07-27T15:39:33.5372145Z ##[endgroup]
+2026-07-27T15:39:33.6612846Z Syncing repository: smartcontractkit/chainlink
+2026-07-27T15:39:33.6613686Z ##[group]Getting Git version info
+2026-07-27T15:39:33.6614406Z Working directory is '/home/runner/_work/chainlink/chainlink'
+2026-07-27T15:39:33.6615053Z [command]/usr/bin/git version
+2026-07-27T15:39:33.6852114Z git version 2.54.0
+2026-07-27T15:39:33.6861110Z ##[endgroup]
+2026-07-27T15:39:33.6868593Z Temporarily overriding HOME='/home/runner/_work/_temp/59a506d9-926a-475b-8683-839c4433b238' before making global git config changes
+2026-07-27T15:39:33.6869256Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-27T15:39:33.6871927Z [command]/usr/bin/git config --global --add safe.directory /home/runner/_work/chainlink/chainlink
+2026-07-27T15:39:33.6932312Z Deleting the contents of '/home/runner/_work/chainlink/chainlink'
+2026-07-27T15:39:33.6935079Z ##[group]Determining repository object format
+2026-07-27T15:39:33.6935754Z ##[endgroup]
+2026-07-27T15:39:33.6936349Z ##[group]Initializing the repository
+2026-07-27T15:39:33.6939669Z [command]/usr/bin/git init /home/runner/_work/chainlink/chainlink
+2026-07-27T15:39:33.7128760Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-07-27T15:39:33.7129282Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-07-27T15:39:33.7129887Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-07-27T15:39:33.7130240Z hint: call:
+2026-07-27T15:39:33.7130489Z hint:
+2026-07-27T15:39:33.7130832Z hint: 	git config --global init.defaultBranch <name>
+2026-07-27T15:39:33.7131201Z hint:
+2026-07-27T15:39:33.7131527Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-07-27T15:39:33.7131985Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-07-27T15:39:33.7132385Z hint:
+2026-07-27T15:39:33.7132645Z hint: 	git branch -m <name>
+2026-07-27T15:39:33.7132892Z hint:
+2026-07-27T15:39:33.7133294Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-07-27T15:39:33.7139556Z Initialized empty Git repository in /home/runner/_work/chainlink/chainlink/.git/
+2026-07-27T15:39:33.7147222Z [command]/usr/bin/git remote add origin https://github.com/smartcontractkit/chainlink
+2026-07-27T15:39:33.7205306Z ##[endgroup]
+2026-07-27T15:39:33.7205784Z ##[group]Disabling automatic garbage collection
+2026-07-27T15:39:33.7207027Z [command]/usr/bin/git config --local gc.auto 0
+2026-07-27T15:39:33.7232086Z ##[endgroup]
+2026-07-27T15:39:33.7232492Z ##[group]Setting up auth
+2026-07-27T15:39:33.7233610Z Removing SSH command configuration
+2026-07-27T15:39:33.7239197Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-27T15:39:33.7267077Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-27T15:39:33.7777044Z Removing HTTP extra header
+2026-07-27T15:39:33.7781287Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-27T15:39:33.7805693Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-27T15:39:33.7954274Z Removing includeIf entries pointing to credentials config files
+2026-07-27T15:39:33.7958476Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-27T15:39:33.7980521Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-27T15:39:33.8135257Z [command]/usr/bin/git config --file /home/runner/_work/_temp/git-credentials-d7846684-fa40-429f-826c-41f53920e82c.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-07-27T15:39:33.8163147Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/_work/chainlink/chainlink/.git.path /home/runner/_work/_temp/git-credentials-d7846684-fa40-429f-826c-41f53920e82c.config
+2026-07-27T15:39:33.8183361Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/_work/chainlink/chainlink/.git/worktrees/*.path /home/runner/_work/_temp/git-credentials-d7846684-fa40-429f-826c-41f53920e82c.config
+2026-07-27T15:39:33.8212130Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-d7846684-fa40-429f-826c-41f53920e82c.config
+2026-07-27T15:39:33.8232921Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-d7846684-fa40-429f-826c-41f53920e82c.config
+2026-07-27T15:39:33.8251553Z ##[endgroup]
+2026-07-27T15:39:33.8252124Z ##[group]Fetching the repository
+2026-07-27T15:39:33.8257396Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:34.7896228Z From https://github.com/smartcontractkit/chainlink
+2026-07-27T15:39:34.7896821Z  * branch            3c9debe77afe9c8af6615c7e425764b56cd4331b -> FETCH_HEAD
+2026-07-27T15:39:34.7947308Z [command]/usr/bin/git rev-parse --verify --quiet 3c9debe77afe9c8af6615c7e425764b56cd4331b^{object}
+2026-07-27T15:39:34.7967166Z 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:34.7969180Z ##[endgroup]
+2026-07-27T15:39:34.7969677Z ##[group]Determining the checkout info
+2026-07-27T15:39:34.7970134Z ##[endgroup]
+2026-07-27T15:39:34.7973678Z [command]/usr/bin/git sparse-checkout disable
+2026-07-27T15:39:34.8016809Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-07-27T15:39:34.8036269Z ##[group]Checking out the ref
+2026-07-27T15:39:34.8039161Z [command]/usr/bin/git checkout --progress --force 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:35.0745772Z Note: switching to '3c9debe77afe9c8af6615c7e425764b56cd4331b'.
+2026-07-27T15:39:35.0746509Z 
+2026-07-27T15:39:35.0746790Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-07-27T15:39:35.0747310Z changes and commit them, and you can discard any commits you make in this
+2026-07-27T15:39:35.0747797Z state without impacting any branches by switching back to a branch.
+2026-07-27T15:39:35.0748055Z 
+2026-07-27T15:39:35.0748250Z If you want to create a new branch to retain commits you create, you may
+2026-07-27T15:39:35.0748660Z do so (now or later) by using -c with the switch command. Example:
+2026-07-27T15:39:35.0749168Z 
+2026-07-27T15:39:35.0749312Z   git switch -c <new-branch-name>
+2026-07-27T15:39:35.0749527Z 
+2026-07-27T15:39:35.0749672Z Or undo this operation with:
+2026-07-27T15:39:35.0749852Z 
+2026-07-27T15:39:35.0750040Z   git switch -
+2026-07-27T15:39:35.0750222Z 
+2026-07-27T15:39:35.0750451Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-07-27T15:39:35.0750790Z 
+2026-07-27T15:39:35.0751097Z HEAD is now at 3c9debe Merge 51c5f7ece5d99cc824b1001b9c5819868461fc78 into 6b0cf224a3166fc777874ac33d817cfd4b6a5d9a
+2026-07-27T15:39:35.0753689Z ##[endgroup]
+2026-07-27T15:39:35.0797931Z [command]/usr/bin/git log -1 --format=%H
+2026-07-27T15:39:35.0815329Z 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:35.0822017Z ##[group]Removing auth
+2026-07-27T15:39:35.0822303Z Removing SSH command configuration
+2026-07-27T15:39:35.0826778Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-27T15:39:35.0852061Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-27T15:39:35.1013144Z Removing HTTP extra header
+2026-07-27T15:39:35.1015289Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-27T15:39:35.1043081Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-27T15:39:35.1198168Z Removing includeIf entries pointing to credentials config files
+2026-07-27T15:39:35.1199934Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-27T15:39:35.1222475Z includeif.gitdir:/home/runner/_work/chainlink/chainlink/.git.path
+2026-07-27T15:39:35.1223037Z includeif.gitdir:/home/runner/_work/chainlink/chainlink/.git/worktrees/*.path
+2026-07-27T15:39:35.1223504Z includeif.gitdir:/github/workspace/.git.path
+2026-07-27T15:39:35.1224081Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-07-27T15:39:35.1228345Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/_work/chainlink/chainlink/.git.path
+2026-07-27T15:39:35.1243607Z /home/runner/_work/_temp/git-credentials-d7846684-fa40-429f-826c-41f53920e82c.config
+2026-07-27T15:39:35.1249687Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/_work/chainlink/chainlink/.git.path \/home\/runner\/_work\/_temp\/git\-credentials\-d7846684\-fa40\-429f\-826c\-41f53920e82c\.config
+2026-07-27T15:39:35.1270275Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/_work/chainlink/chainlink/.git/worktrees/*.path
+2026-07-27T15:39:35.1285552Z /home/runner/_work/_temp/git-credentials-d7846684-fa40-429f-826c-41f53920e82c.config
+2026-07-27T15:39:35.1290855Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/_work/chainlink/chainlink/.git/worktrees/*.path \/home\/runner\/_work\/_temp\/git\-credentials\-d7846684\-fa40\-429f\-826c\-41f53920e82c\.config
+2026-07-27T15:39:35.1313550Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-07-27T15:39:35.1328622Z /github/runner_temp/git-credentials-d7846684-fa40-429f-826c-41f53920e82c.config
+2026-07-27T15:39:35.1333391Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-d7846684\-fa40\-429f\-826c\-41f53920e82c\.config
+2026-07-27T15:39:35.1377162Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-07-27T15:39:35.1413364Z /github/runner_temp/git-credentials-d7846684-fa40-429f-826c-41f53920e82c.config
+2026-07-27T15:39:35.1419143Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-d7846684\-fa40\-429f\-826c\-41f53920e82c\.config
+2026-07-27T15:39:35.1441851Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-27T15:39:35.1597788Z Removing credentials config '/home/runner/_work/_temp/git-credentials-d7846684-fa40-429f-826c-41f53920e82c.config'
+2026-07-27T15:39:35.1603089Z ##[endgroup]

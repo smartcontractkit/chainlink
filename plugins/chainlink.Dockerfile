@@ -32,9 +32,17 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
 COPY GNUmakefile package.json ./
 COPY tools/bin/ldflags ./tools/bin/
 
-# Stage: deps — full source tree for stages that compile chainlink code.
+# Stage: deps — Go source tree for stages that compile chainlink code.
+# Explicit COPYs (not `COPY . .`) so unrelated workspace churn doesn't invalidate the layer.
 FROM deps-base AS deps
-COPY . .
+COPY main.go ./
+COPY ccip ./ccip
+COPY common ./common
+COPY core ./core
+COPY internal ./internal
+COPY operator_ui ./operator_ui
+COPY plugins ./plugins
+COPY tools ./tools
 
 # Stage: Delve debugger (no source needed, branches from deps-base)
 FROM deps-base AS build-delve

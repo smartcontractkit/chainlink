@@ -1,0 +1,9 @@
+2026-07-27T15:32:11.3840000Z Requested labels: ubuntu-latest
+2026-07-27T15:32:11.3840000Z Job defined at: smartcontractkit/chainlink/.github/workflows/integration-tests.yml@refs/pull/23164/merge
+2026-07-27T15:32:11.3840000Z Waiting for a runner to pick up this job...
+2026-07-27T15:32:11.3780000Z Evaluating enforce-ctf-version.if
+2026-07-27T15:32:11.3780000Z Evaluating: (success() && ((github.actor != 'dependabot[bot]')))
+2026-07-27T15:32:11.3780000Z Expanded: (true && ('kalverra' != 'dependabot[bot]'))
+2026-07-27T15:32:11.3780000Z Result: true
+2026-07-27T15:32:19.4320000Z Job is about to start running on the hosted runner: GitHub Actions 1012053366
+2026-07-27T15:32:19.4310000Z Job is waiting for a hosted runner to come online.

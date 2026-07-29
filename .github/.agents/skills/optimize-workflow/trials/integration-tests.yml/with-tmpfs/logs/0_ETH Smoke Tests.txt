@@ -1,0 +1,88 @@
+﻿2026-07-27T15:45:39.0411885Z Current runner version: '2.336.0'
+2026-07-27T15:45:39.0441319Z ##[group]Runner Image Provisioner
+2026-07-27T15:45:39.0442970Z Hosted Compute Agent
+2026-07-27T15:45:39.0444184Z Version: 20260707.563
+2026-07-27T15:45:39.0445384Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+2026-07-27T15:45:39.0446873Z Build Date: 2026-07-07T19:33:50Z
+2026-07-27T15:45:39.0448123Z Worker ID: {cf84ff30-3a37-4ade-869e-e45152f38147}
+2026-07-27T15:45:39.0449497Z Azure Region: centralus
+2026-07-27T15:45:39.0451050Z ##[endgroup]
+2026-07-27T15:45:39.0453547Z ##[group]Operating System
+2026-07-27T15:45:39.0454694Z Ubuntu
+2026-07-27T15:45:39.0455643Z 24.04.4
+2026-07-27T15:45:39.0456618Z LTS
+2026-07-27T15:45:39.0457663Z ##[endgroup]
+2026-07-27T15:45:39.0458679Z ##[group]Runner Image
+2026-07-27T15:45:39.0459960Z Image: ubuntu-24.04
+2026-07-27T15:45:39.0461290Z Version: 20260720.247.2
+2026-07-27T15:45:39.0463578Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260720.247/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-27T15:45:39.0466380Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260720.247
+2026-07-27T15:45:39.0468376Z ##[endgroup]
+2026-07-27T15:45:39.0474515Z ##[group]GITHUB_TOKEN Permissions
+2026-07-27T15:45:39.0477958Z Actions: write
+2026-07-27T15:45:39.0478992Z ArtifactMetadata: write
+2026-07-27T15:45:39.0480024Z Attestations: write
+2026-07-27T15:45:39.0481466Z Checks: write
+2026-07-27T15:45:39.0482485Z CodeQuality: write
+2026-07-27T15:45:39.0483595Z Contents: write
+2026-07-27T15:45:39.0484748Z CopilotRequests: write
+2026-07-27T15:45:39.0485936Z Deployments: write
+2026-07-27T15:45:39.0487134Z Discussions: write
+2026-07-27T15:45:39.0488159Z Drives: write
+2026-07-27T15:45:39.0489220Z Issues: write
+2026-07-27T15:45:39.0490525Z Metadata: read
+2026-07-27T15:45:39.0491652Z Models: read
+2026-07-27T15:45:39.0492743Z Packages: write
+2026-07-27T15:45:39.0493754Z Pages: write
+2026-07-27T15:45:39.0494635Z PullRequests: write
+2026-07-27T15:45:39.0495727Z RepositoryProjects: write
+2026-07-27T15:45:39.0496821Z SecurityEvents: write
+2026-07-27T15:45:39.0497783Z Statuses: write
+2026-07-27T15:45:39.0498761Z VulnerabilityAlerts: read
+2026-07-27T15:45:39.0499755Z ##[endgroup]
+2026-07-27T15:45:39.0502894Z Secret source: Actions
+2026-07-27T15:45:39.0504938Z Prepare workflow directory
+2026-07-27T15:45:39.1174123Z Prepare all required actions
+2026-07-27T15:45:39.1265946Z Complete job name: ETH Smoke Tests
+2026-07-27T15:45:39.2300888Z ##[group]Run check_result() {
+2026-07-27T15:45:39.2302028Z [36;1mcheck_result() {[0m
+2026-07-27T15:45:39.2302974Z [36;1m  local name="$1" result="$2"[0m
+2026-07-27T15:45:39.2304050Z [36;1m  case "${result}" in[0m
+2026-07-27T15:45:39.2305061Z [36;1m    failure)[0m
+2026-07-27T15:45:39.2306010Z [36;1m      echo "::error::${name} failed."[0m
+2026-07-27T15:45:39.2307066Z [36;1m      return 1[0m
+2026-07-27T15:45:39.2307971Z [36;1m      ;;[0m
+2026-07-27T15:45:39.2308833Z [36;1m    cancelled)[0m
+2026-07-27T15:45:39.2309784Z [36;1m      echo "::error::${name} cancelled."[0m
+2026-07-27T15:45:39.2311190Z [36;1m      return 1[0m
+2026-07-27T15:45:39.2312735Z [36;1m      ;;[0m
+2026-07-27T15:45:39.2313565Z [36;1m    skipped)[0m
+2026-07-27T15:45:39.2314526Z [36;1m      echo "::warning::${name} skipped."[0m
+2026-07-27T15:45:39.2315654Z [36;1m      ;;[0m
+2026-07-27T15:45:39.2316469Z [36;1m  esac[0m
+2026-07-27T15:45:39.2317246Z [36;1m  return 0[0m
+2026-07-27T15:45:39.2318074Z [36;1m}[0m
+2026-07-27T15:45:39.2318856Z [36;1m[0m
+2026-07-27T15:45:39.2319705Z [36;1mfailed=0[0m
+2026-07-27T15:45:39.2321245Z [36;1mcheck_result "CCIP v1.6 E2E tests" "${CCIP_RESULT}" || failed=1[0m
+2026-07-27T15:45:39.2322862Z [36;1mcheck_result "Core CRE E2E tests" "${CRE_RESULT}" || failed=1[0m
+2026-07-27T15:45:39.2324698Z [36;1mcheck_result "Core CRE E2E regression tests" "${CRE_REGRESSION_RESULT}" || failed=1[0m
+2026-07-27T15:45:39.2326582Z [36;1mcheck_result "Chainlink image build" "${BUILD_RESULT}" || failed=1[0m
+2026-07-27T15:45:39.2327989Z [36;1m[0m
+2026-07-27T15:45:39.2329099Z [36;1mif [[ "$failed" -eq 1 ]]; then[0m
+2026-07-27T15:45:39.2330103Z [36;1m  exit 1[0m
+2026-07-27T15:45:39.2331213Z [36;1mfi[0m
+2026-07-27T15:45:39.3071312Z shell: /usr/bin/bash -e {0}
+2026-07-27T15:45:39.3072736Z env:
+2026-07-27T15:45:39.3074364Z   ENV_JOB_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:45:39.3076470Z   CHAINLINK_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-integration-tests
+2026-07-27T15:45:39.3078000Z   CHAINLINK_REF: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:45:39.3079160Z   TEST_SUITE: smoke
+2026-07-27T15:45:39.3079968Z   MOD_CACHE_VERSION: 2
+2026-07-27T15:45:39.3081129Z   CCIP_RESULT: skipped
+2026-07-27T15:45:39.3081964Z   CRE_RESULT: success
+2026-07-27T15:45:39.3082812Z   CRE_REGRESSION_RESULT: success
+2026-07-27T15:45:39.3083735Z   BUILD_RESULT: success
+2026-07-27T15:45:39.3084563Z ##[endgroup]
+2026-07-27T15:45:39.3336751Z ##[warning]CCIP v1.6 E2E tests skipped.
+2026-07-27T15:45:39.3502402Z Cleaning up orphan processes

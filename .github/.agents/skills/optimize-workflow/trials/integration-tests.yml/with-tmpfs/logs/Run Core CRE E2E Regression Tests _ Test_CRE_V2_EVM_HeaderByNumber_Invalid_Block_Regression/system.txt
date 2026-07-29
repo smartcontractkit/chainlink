@@ -1,0 +1,14 @@
+2026-07-27T15:38:41.1260000Z Evaluating run-core-cre-e2e-regression-tests.if
+2026-07-27T15:38:41.1260000Z Evaluating: (success() && (((needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true') && (needs.run-core-cre-e2e-tests-setup.outputs.with-regression == 'true'))))
+2026-07-27T15:38:41.1260000Z Expanded: (true && (('true' == 'true') && ('true' == 'true')))
+2026-07-27T15:38:41.1260000Z Result: true
+2026-07-27T15:38:41.1260000Z Evaluating run-core-cre-e2e-regression-tests.run-system-tests.if
+2026-07-27T15:38:41.1260000Z Evaluating: success()
+2026-07-27T15:38:41.1260000Z Result: true
+2026-07-27T15:38:41.4970000Z Requested labels: runs-on=30280453093-12-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+2026-07-27T15:38:41.4970000Z Job defined at: smartcontractkit/chainlink/.github/workflows/cre-regression-system-tests.yaml@refs/pull/23164/merge
+2026-07-27T15:38:41.4970000Z Reusable workflow chain:
+2026-07-27T15:38:41.4970000Z smartcontractkit/chainlink/.github/workflows/integration-tests.yml@refs/pull/23164/merge (3c9debe77afe9c8af6615c7e425764b56cd4331b)
+2026-07-27T15:38:41.4970000Z -> smartcontractkit/chainlink/.github/workflows/cre-regression-system-tests.yaml@refs/pull/23164/merge (3c9debe77afe9c8af6615c7e425764b56cd4331b)
+2026-07-27T15:38:41.4970000Z Waiting for a runner to pick up this job...
+2026-07-27T15:39:25.6680000Z Job is about to start running on the runner: runs-on--i-0bd94cc3ac26a0ddf--40cyjsta8d

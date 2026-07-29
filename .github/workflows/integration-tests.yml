@@ -330,7 +330,7 @@ jobs:
 
       - name: Build Chainlink Image
         if: steps.explain.outputs.build-image == 'true'
-        uses: smartcontractkit/.github/actions/ctf-build-image@cacheDance # DEBUG: Using the buildkit cache dance
+        uses: smartcontractkit/.github/actions/ctf-build-image@fixCacheKeys # DEBUG: branch with cache-mounts: auto
         with:
           image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
@@ -351,8 +351,10 @@ jobs:
           cache-mode: read-write
 
           cache-scope: ${{ matrix.image.cache-scope }}
-          cache-map: |
-            {"go-mod-cache": "/go/pkg/mod", "go-build-cache": "/root/.cache/go-build"}
+          # Auto-discovers RUN --mount=type=cache ids from the Dockerfile and persists them
+          # via actions/cache. The old hand-written cache-map targeted the wrong cache volumes
+          # (it set the mount target, not the id), so mounts were never actually reused.
+          cache-mounts: auto
 
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup

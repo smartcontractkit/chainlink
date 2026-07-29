@@ -1,0 +1,2 @@
+﻿2026-07-27T15:43:20.6489935Z Post job cleanup.
+2026-07-27T15:43:20.6968254Z Logging out of registry public.ecr.aws

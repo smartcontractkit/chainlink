@@ -1,0 +1,1359 @@
+﻿2026-07-27T15:39:34.7101515Z ##[group]Run smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5
+2026-07-27T15:39:34.7101997Z with:
+2026-07-27T15:39:34.7102276Z   go_mod_path: system-tests/tests/go.mod
+2026-07-27T15:39:34.7102575Z   cache_key_id: integration-tests-v1
+2026-07-27T15:39:34.7102894Z   cache_builds: true
+2026-07-27T15:39:34.7103135Z   cache_restore_only: true
+2026-07-27T15:39:34.7103477Z   no_cache: false
+2026-07-27T15:39:34.7103724Z   should_tidy: true
+2026-07-27T15:39:34.7103984Z env:
+2026-07-27T15:39:34.7104207Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:39:34.7104934Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:39:34.7105612Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:34.7106322Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:39:34.7107018Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:39:34.7107553Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:39:34.7107894Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:39:34.7108142Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:39:34.7108465Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:39:34.7108740Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:39:34.7109032Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:39:34.7109312Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:39:34.7109627Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:39:34.7110042Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:39:34.7110526Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:39:34.7110876Z   RUNS_ON_INSTANCE_ID: i-0e1ba20432b392f59
+2026-07-27T15:39:34.7111190Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:39:34.7111497Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:39:34.7111825Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:39:34.7112229Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:39:34.7112613Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:39:34.7112995Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:39:34.7113325Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:39:34.7113656Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:39:34.7114012Z   GITHUB_HOST: github.com
+2026-07-27T15:39:34.7114330Z   RUNS_ON_RUNNER_NAME: runs-on--i-0e1ba20432b392f59--hmgvzch0e2
+2026-07-27T15:39:34.7114698Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:45Z
+2026-07-27T15:39:34.7115036Z   ACTIONS_CACHE_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:34.7115355Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:39:34.7115660Z   ACTIONS_RESULTS_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:34.7115945Z ##[endgroup]
+2026-07-27T15:39:34.7189930Z ##[group]Run echo "TAR_OPTIONS=--skip-old-files" >> $GITHUB_ENV
+2026-07-27T15:39:34.7190657Z [36;1mecho "TAR_OPTIONS=--skip-old-files" >> $GITHUB_ENV[0m
+2026-07-27T15:39:34.7360711Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-27T15:39:34.7361000Z env:
+2026-07-27T15:39:34.7361176Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:39:34.7361662Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:39:34.7362268Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:34.7362874Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:39:34.7363602Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:39:34.7364000Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:39:34.7364226Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:39:34.7364429Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:39:34.7364641Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:39:34.7364933Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:39:34.7365123Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:39:34.7365333Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:39:34.7365553Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:39:34.7365758Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:39:34.7365968Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:39:34.7366213Z   RUNS_ON_INSTANCE_ID: i-0e1ba20432b392f59
+2026-07-27T15:39:34.7366439Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:39:34.7366660Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:39:34.7366879Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:39:34.7367163Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:39:34.7367480Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:39:34.7367758Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:39:34.7368021Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:39:34.7368265Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:39:34.7368490Z   GITHUB_HOST: github.com
+2026-07-27T15:39:34.7368731Z   RUNS_ON_RUNNER_NAME: runs-on--i-0e1ba20432b392f59--hmgvzch0e2
+2026-07-27T15:39:34.7369016Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:45Z
+2026-07-27T15:39:34.7369277Z   ACTIONS_CACHE_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:34.7369508Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:39:34.7369736Z   ACTIONS_RESULTS_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:34.7369957Z ##[endgroup]
+2026-07-27T15:39:34.7430097Z ##[group]Run version=$(sed -ne '/^toolchain /s/^toolchain go//p' system-tests/tests/go.mod)
+2026-07-27T15:39:34.7430794Z [36;1mversion=$(sed -ne '/^toolchain /s/^toolchain go//p' system-tests/tests/go.mod)[0m
+2026-07-27T15:39:34.7431134Z [36;1mif [ -z "$version" ]; then[0m
+2026-07-27T15:39:34.7431424Z [36;1m  version=$(sed -ne '/^go /s/^go //p' system-tests/tests/go.mod)[0m
+2026-07-27T15:39:34.7431828Z [36;1m  echo "Toolchain version not found in system-tests/tests/go.mod, using go directive instead."[0m
+2026-07-27T15:39:34.7432174Z [36;1mfi[0m
+2026-07-27T15:39:34.7432349Z [36;1mecho "Go Version: $version"[0m
+2026-07-27T15:39:34.7432593Z [36;1mecho "version=$version" >> "$GITHUB_OUTPUT"[0m
+2026-07-27T15:39:34.7449928Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-27T15:39:34.7450206Z env:
+2026-07-27T15:39:34.7450542Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:39:34.7451000Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:39:34.7451585Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:34.7452196Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:39:34.7452764Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:39:34.7453140Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:39:34.7453367Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:39:34.7453568Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:39:34.7453777Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:39:34.7453991Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:39:34.7454179Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:39:34.7454386Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:39:34.7454601Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:39:34.7454807Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:39:34.7455013Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:39:34.7455262Z   RUNS_ON_INSTANCE_ID: i-0e1ba20432b392f59
+2026-07-27T15:39:34.7455553Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:39:34.7455772Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:39:34.7455991Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:39:34.7456269Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:39:34.7456577Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:39:34.7456893Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:39:34.7457161Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:39:34.7457402Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:39:34.7457622Z   GITHUB_HOST: github.com
+2026-07-27T15:39:34.7457869Z   RUNS_ON_RUNNER_NAME: runs-on--i-0e1ba20432b392f59--hmgvzch0e2
+2026-07-27T15:39:34.7458158Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:45Z
+2026-07-27T15:39:34.7458417Z   ACTIONS_CACHE_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:34.7458683Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:39:34.7458912Z   ACTIONS_RESULTS_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:34.7459148Z   TAR_OPTIONS: --skip-old-files
+2026-07-27T15:39:34.7459347Z ##[endgroup]
+2026-07-27T15:39:34.7514011Z Toolchain version not found in system-tests/tests/go.mod, using go directive instead.
+2026-07-27T15:39:34.7514479Z Go Version: 1.26.4
+2026-07-27T15:39:34.7544945Z ##[group]Run if [[ "system-tests/tests/go.mod" == "" ]]; then
+2026-07-27T15:39:34.7545315Z [36;1mif [[ "system-tests/tests/go.mod" == "" ]]; then[0m
+2026-07-27T15:39:34.7545624Z [36;1m  echo "No go mod path provided, using go version provided"[0m
+2026-07-27T15:39:34.7545921Z [36;1m  echo "go_version=" >> "$GITHUB_OUTPUT"[0m
+2026-07-27T15:39:34.7546151Z [36;1melse[0m
+2026-07-27T15:39:34.7546362Z [36;1m  echo "go_version=1.26.4" >> "$GITHUB_OUTPUT"[0m
+2026-07-27T15:39:34.7546590Z [36;1mfi[0m
+2026-07-27T15:39:34.7563856Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-27T15:39:34.7564140Z env:
+2026-07-27T15:39:34.7564316Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:39:34.7564778Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:39:34.7565369Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:34.7565994Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:39:34.7566565Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:39:34.7566947Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:39:34.7567172Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:39:34.7567374Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:39:34.7567588Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:39:34.7567805Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:39:34.7567994Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:39:34.7568199Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:39:34.7568421Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:39:34.7568614Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:39:34.7568830Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:39:34.7569072Z   RUNS_ON_INSTANCE_ID: i-0e1ba20432b392f59
+2026-07-27T15:39:34.7569298Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:39:34.7569514Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:39:34.7569737Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:39:34.7570011Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:39:34.7570476Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:39:34.7570766Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:39:34.7571029Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:39:34.7571273Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:39:34.7571499Z   GITHUB_HOST: github.com
+2026-07-27T15:39:34.7571743Z   RUNS_ON_RUNNER_NAME: runs-on--i-0e1ba20432b392f59--hmgvzch0e2
+2026-07-27T15:39:34.7572115Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:45Z
+2026-07-27T15:39:34.7572376Z   ACTIONS_CACHE_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:34.7572609Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:39:34.7572835Z   ACTIONS_RESULTS_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:34.7573068Z   TAR_OPTIONS: --skip-old-files
+2026-07-27T15:39:34.7573264Z ##[endgroup]
+2026-07-27T15:39:34.7634173Z ##[group]Run actions/setup-go@v7
+2026-07-27T15:39:34.7634403Z with:
+2026-07-27T15:39:34.7634579Z   go-version: 1.26.4
+2026-07-27T15:39:34.7634758Z   check-latest: true
+2026-07-27T15:39:34.7634940Z   cache: false
+2026-07-27T15:39:34.7636549Z   token: ***
+2026-07-27T15:39:34.7636710Z env:
+2026-07-27T15:39:34.7636885Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:39:34.7637275Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:39:34.7637997Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:34.7638669Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:39:34.7639286Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:39:34.7639703Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:39:34.7639932Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:39:34.7640130Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:39:34.7640495Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:39:34.7640738Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:39:34.7640932Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:39:34.7641140Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:39:34.7641364Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:39:34.7641567Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:39:34.7641781Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:39:34.7642030Z   RUNS_ON_INSTANCE_ID: i-0e1ba20432b392f59
+2026-07-27T15:39:34.7642261Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:39:34.7642489Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:39:34.7642709Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:39:34.7642992Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:39:34.7643307Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:39:34.7643577Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:39:34.7643834Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:39:34.7644071Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:39:34.7644285Z   GITHUB_HOST: github.com
+2026-07-27T15:39:34.7644524Z   RUNS_ON_RUNNER_NAME: runs-on--i-0e1ba20432b392f59--hmgvzch0e2
+2026-07-27T15:39:34.7644813Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:45Z
+2026-07-27T15:39:34.7645067Z   ACTIONS_CACHE_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:34.7645293Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:39:34.7645512Z   ACTIONS_RESULTS_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:34.7645754Z   TAR_OPTIONS: --skip-old-files
+2026-07-27T15:39:34.7645947Z ##[endgroup]
+2026-07-27T15:39:34.8490572Z Setup go version spec 1.26.4
+2026-07-27T15:39:34.8490961Z Attempting to resolve the latest version from the manifest...
+2026-07-27T15:39:35.3127296Z matching 1.26.4...
+2026-07-27T15:39:35.3145010Z Resolved as '1.26.4'
+2026-07-27T15:39:35.3146634Z Attempting to download 1.26.4...
+2026-07-27T15:39:35.7920189Z matching 1.26.4...
+2026-07-27T15:39:35.7921886Z Acquiring 1.26.4 from https://github.com/actions/go-versions/releases/download/1.26.4-26891772857/go-1.26.4-linux-x64.tar.gz
+2026-07-27T15:39:36.1593543Z Extracting Go...
+2026-07-27T15:39:36.1712538Z [command]/usr/bin/tar xz --warning=no-unknown-keyword --overwrite -C /home/runner/_work/_temp/c62b2411-3462-43d8-abe0-492940a4d27e -f /home/runner/_work/_temp/b0a02974-77a9-45f6-84e2-0f2998973150
+2026-07-27T15:39:37.3884817Z Successfully extracted go to /home/runner/_work/_temp/c62b2411-3462-43d8-abe0-492940a4d27e
+2026-07-27T15:39:37.3885509Z Adding to the cache ...
+2026-07-27T15:39:40.9544167Z Successfully cached go to /opt/hostedtoolcache/go/1.26.4/x64
+2026-07-27T15:39:40.9545897Z Added go to the path
+2026-07-27T15:39:40.9546556Z Successfully set up Go version 1.26.4
+2026-07-27T15:39:40.9683078Z go version go1.26.4 linux/amd64
+2026-07-27T15:39:40.9683262Z 
+2026-07-27T15:39:40.9683550Z ##[group]go env
+2026-07-27T15:39:41.1265661Z AR='ar'
+2026-07-27T15:39:41.1265912Z CC='gcc'
+2026-07-27T15:39:41.1266088Z CGO_CFLAGS='-O2 -g'
+2026-07-27T15:39:41.1266286Z CGO_CPPFLAGS=''
+2026-07-27T15:39:41.1266468Z CGO_CXXFLAGS='-O2 -g'
+2026-07-27T15:39:41.1266651Z CGO_ENABLED='1'
+2026-07-27T15:39:41.1266831Z CGO_FFLAGS='-O2 -g'
+2026-07-27T15:39:41.1267007Z CGO_LDFLAGS='-O2 -g'
+2026-07-27T15:39:41.1267186Z CXX='g++'
+2026-07-27T15:39:41.1267347Z GCCGO='gccgo'
+2026-07-27T15:39:41.1267526Z GO111MODULE=''
+2026-07-27T15:39:41.1267691Z GOAMD64='v1'
+2026-07-27T15:39:41.1267880Z GOARCH='amd64'
+2026-07-27T15:39:41.1268036Z GOAUTH='netrc'
+2026-07-27T15:39:41.1268203Z GOBIN=''
+2026-07-27T15:39:41.1268420Z GOCACHE='/home/runner/.cache/go-build'
+2026-07-27T15:39:41.1268651Z GOCACHEPROG=''
+2026-07-27T15:39:41.1268815Z GODEBUG=''
+2026-07-27T15:39:41.1269000Z GOENV='/home/runner/.config/go/env'
+2026-07-27T15:39:41.1269201Z GOEXE=''
+2026-07-27T15:39:41.1269367Z GOEXPERIMENT=''
+2026-07-27T15:39:41.1269535Z GOFIPS140='off'
+2026-07-27T15:39:41.1269840Z GOFLAGS=''
+2026-07-27T15:39:41.1270540Z GOGCCFLAGS='-fPIC -m64 -pthread -Wl,--no-gc-sections -fmessage-length=0 -ffile-prefix-map=/tmp/go-build1035588697=/tmp/go-build -gno-record-gcc-switches'
+2026-07-27T15:39:41.1271062Z GOHOSTARCH='amd64'
+2026-07-27T15:39:41.1271240Z GOHOSTOS='linux'
+2026-07-27T15:39:41.1271418Z GOINSECURE=''
+2026-07-27T15:39:41.1271668Z GOMOD='/home/runner/_work/chainlink/chainlink/go.mod'
+2026-07-27T15:39:41.1271942Z GOMODCACHE='/home/runner/go/pkg/mod'
+2026-07-27T15:39:41.1272150Z GONOPROXY=''
+2026-07-27T15:39:41.1272318Z GONOSUMDB=''
+2026-07-27T15:39:41.1272478Z GOOS='linux'
+2026-07-27T15:39:41.1272650Z GOPATH='/home/runner/go'
+2026-07-27T15:39:41.1272839Z GOPRIVATE=''
+2026-07-27T15:39:41.1273052Z GOPROXY='https://proxy.golang.org,direct'
+2026-07-27T15:39:41.1273308Z GOROOT='/opt/hostedtoolcache/go/1.26.4/x64'
+2026-07-27T15:39:41.1273541Z GOSUMDB='sum.golang.org'
+2026-07-27T15:39:41.1273730Z GOTELEMETRY='local'
+2026-07-27T15:39:41.1273940Z GOTELEMETRYDIR='/home/runner/.config/go/telemetry'
+2026-07-27T15:39:41.1274186Z GOTMPDIR=''
+2026-07-27T15:39:41.1274351Z GOTOOLCHAIN='local'
+2026-07-27T15:39:41.1274609Z GOTOOLDIR='/opt/hostedtoolcache/go/1.26.4/x64/pkg/tool/linux_amd64'
+2026-07-27T15:39:41.1274877Z GOVCS=''
+2026-07-27T15:39:41.1275050Z GOVERSION='go1.26.4'
+2026-07-27T15:39:41.1275224Z GOWORK=''
+2026-07-27T15:39:41.1275401Z PKG_CONFIG='pkg-config'
+2026-07-27T15:39:41.1275517Z 
+2026-07-27T15:39:41.1275787Z ##[endgroup]
+2026-07-27T15:39:41.1368672Z ##[group]Run echo "gomodcache=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT
+2026-07-27T15:39:41.1369068Z [36;1mecho "gomodcache=$(go env GOMODCACHE)" >> $GITHUB_OUTPUT[0m
+2026-07-27T15:39:41.1369412Z [36;1mecho "gobuildcache=$(go env GOCACHE)" >> $GITHUB_OUTPUT[0m
+2026-07-27T15:39:41.1395178Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-27T15:39:41.1395456Z env:
+2026-07-27T15:39:41.1395643Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:39:41.1396117Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:39:41.1396740Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:41.1397368Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:39:41.1397960Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:39:41.1398347Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:39:41.1398578Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:39:41.1398774Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:39:41.1399147Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:39:41.1399360Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:39:41.1399558Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:39:41.1399758Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:39:41.1399980Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:39:41.1400177Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:39:41.1400583Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:39:41.1400828Z   RUNS_ON_INSTANCE_ID: i-0e1ba20432b392f59
+2026-07-27T15:39:41.1401058Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:39:41.1401271Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:39:41.1401494Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:39:41.1401767Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:39:41.1402107Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:39:41.1402379Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:39:41.1402657Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:39:41.1402899Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:39:41.1403127Z   GITHUB_HOST: github.com
+2026-07-27T15:39:41.1403365Z   RUNS_ON_RUNNER_NAME: runs-on--i-0e1ba20432b392f59--hmgvzch0e2
+2026-07-27T15:39:41.1403659Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:45Z
+2026-07-27T15:39:41.1403913Z   ACTIONS_CACHE_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:41.1404155Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:39:41.1404368Z   ACTIONS_RESULTS_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:41.1404610Z   TAR_OPTIONS: --skip-old-files
+2026-07-27T15:39:41.1404808Z   GOTOOLCHAIN: local
+2026-07-27T15:39:41.1404989Z ##[endgroup]
+2026-07-27T15:39:41.5433218Z ##[group]Run actions/cache/restore@v6
+2026-07-27T15:39:41.5433558Z with:
+2026-07-27T15:39:41.5433738Z   path: /home/runner/go/pkg/mod
+
+2026-07-27T15:39:41.5434136Z   key: Linux-integration-tests-v1-gomod-bb0ca371dc5509375608a6ca3598ea63098b978eff6a2c639d3a6221827cd3a4
+2026-07-27T15:39:41.5434583Z   restore-keys: Linux-integration-tests-v1-gomod-
+
+2026-07-27T15:39:41.5434858Z   enableCrossOsArchive: false
+2026-07-27T15:39:41.5435071Z   fail-on-cache-miss: false
+2026-07-27T15:39:41.5435291Z   lookup-only: false
+2026-07-27T15:39:41.5435460Z env:
+2026-07-27T15:39:41.5435624Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:39:41.5436074Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:39:41.5436663Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:41.5437338Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:39:41.5437904Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:39:41.5438291Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:39:41.5438520Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:39:41.5438711Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:39:41.5438932Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:39:41.5439144Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:39:41.5439330Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:39:41.5439529Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:39:41.5439741Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:39:41.5439944Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:39:41.5440150Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:39:41.5440615Z   RUNS_ON_INSTANCE_ID: i-0e1ba20432b392f59
+2026-07-27T15:39:41.5440891Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:39:41.5441108Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:39:41.5441320Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:39:41.5441599Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:39:41.5441908Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:39:41.5442182Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:39:41.5442583Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:39:41.5442819Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:39:41.5443034Z   GITHUB_HOST: github.com
+2026-07-27T15:39:41.5443275Z   RUNS_ON_RUNNER_NAME: runs-on--i-0e1ba20432b392f59--hmgvzch0e2
+2026-07-27T15:39:41.5443568Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:45Z
+2026-07-27T15:39:41.5443826Z   ACTIONS_CACHE_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:41.5444104Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:39:41.5444327Z   ACTIONS_RESULTS_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:41.5444565Z   TAR_OPTIONS: --skip-old-files
+2026-07-27T15:39:41.5444764Z   GOTOOLCHAIN: local
+2026-07-27T15:39:41.5444938Z ##[endgroup]
+2026-07-27T15:39:41.7238054Z Cache not found for input keys: Linux-integration-tests-v1-gomod-bb0ca371dc5509375608a6ca3598ea63098b978eff6a2c639d3a6221827cd3a4, Linux-integration-tests-v1-gomod-
+2026-07-27T15:39:41.7701741Z ##[group]Run actions/cache/restore@v6
+2026-07-27T15:39:41.7701976Z with:
+2026-07-27T15:39:41.7702172Z   path: /home/runner/.cache/go-build
+
+2026-07-27T15:39:41.7702593Z   key: Linux-integration-tests-v1-gobuild-bb0ca371dc5509375608a6ca3598ea63098b978eff6a2c639d3a6221827cd3a4
+2026-07-27T15:39:41.7703049Z   restore-keys: Linux-integration-tests-v1-gobuild-
+
+2026-07-27T15:39:41.7703317Z   enableCrossOsArchive: false
+2026-07-27T15:39:41.7703523Z   fail-on-cache-miss: false
+2026-07-27T15:39:41.7703735Z   lookup-only: false
+2026-07-27T15:39:41.7703901Z env:
+2026-07-27T15:39:41.7704064Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:39:41.7704495Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:39:41.7705081Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:41.7705688Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:39:41.7706250Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:39:41.7706645Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:39:41.7706869Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:39:41.7707060Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:39:41.7707270Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:39:41.7707481Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:39:41.7707671Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:39:41.7707875Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:39:41.7708091Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:39:41.7708292Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:39:41.7708497Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:39:41.7708742Z   RUNS_ON_INSTANCE_ID: i-0e1ba20432b392f59
+2026-07-27T15:39:41.7708961Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:39:41.7709178Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:39:41.7709392Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:39:41.7710160Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:39:41.7712921Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:39:41.7714405Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:39:41.7715035Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:39:41.7715283Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:39:41.7715504Z   GITHUB_HOST: github.com
+2026-07-27T15:39:41.7715747Z   RUNS_ON_RUNNER_NAME: runs-on--i-0e1ba20432b392f59--hmgvzch0e2
+2026-07-27T15:39:41.7716034Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:45Z
+2026-07-27T15:39:41.7716417Z   ACTIONS_CACHE_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:41.7717517Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:39:41.7717743Z   ACTIONS_RESULTS_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:41.7717977Z   TAR_OPTIONS: --skip-old-files
+2026-07-27T15:39:41.7718296Z   GOTOOLCHAIN: local
+2026-07-27T15:39:41.7719172Z ##[endgroup]
+2026-07-27T15:39:41.9144073Z Cache not found for input keys: Linux-integration-tests-v1-gobuild-bb0ca371dc5509375608a6ca3598ea63098b978eff6a2c639d3a6221827cd3a4, Linux-integration-tests-v1-gobuild-
+2026-07-27T15:39:41.9192449Z ##[group]Run # find test go root by using the go_mod_path and change to that directory
+2026-07-27T15:39:41.9192895Z [36;1m# find test go root by using the go_mod_path and change to that directory[0m
+2026-07-27T15:39:41.9193213Z [36;1mTEST_LIB_PATH="system-tests/tests/go.mod"[0m
+2026-07-27T15:39:41.9193544Z [36;1mif [ "${#TEST_LIB_PATH}" -gt "6" ]; then[0m
+2026-07-27T15:39:41.9193794Z [36;1m    TEST_LIB_PATH=${TEST_LIB_PATH%go.mod}[0m
+2026-07-27T15:39:41.9194032Z [36;1m    cd "${TEST_LIB_PATH}"[0m
+2026-07-27T15:39:41.9194231Z [36;1mfi[0m
+2026-07-27T15:39:41.9194405Z [36;1mgo mod tidy[0m
+2026-07-27T15:39:41.9194593Z [36;1mgit diff --stat --exit-code[0m
+2026-07-27T15:39:41.9217182Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-27T15:39:41.9217450Z env:
+2026-07-27T15:39:41.9217637Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:39:41.9218095Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:39:41.9218672Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:41.9219317Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:39:41.9219896Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:39:41.9220275Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:39:41.9220648Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:39:41.9220847Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:39:41.9221059Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:39:41.9221287Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:39:41.9221484Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:39:41.9221705Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:39:41.9221944Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:39:41.9222165Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:39:41.9222380Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:39:41.9222622Z   RUNS_ON_INSTANCE_ID: i-0e1ba20432b392f59
+2026-07-27T15:39:41.9222852Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:39:41.9223066Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:39:41.9223293Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:39:41.9223566Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:39:41.9223897Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:39:41.9224168Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:39:41.9224444Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:39:41.9224677Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:39:41.9224903Z   GITHUB_HOST: github.com
+2026-07-27T15:39:41.9225138Z   RUNS_ON_RUNNER_NAME: runs-on--i-0e1ba20432b392f59--hmgvzch0e2
+2026-07-27T15:39:41.9225429Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:45Z
+2026-07-27T15:39:41.9225681Z   ACTIONS_CACHE_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:41.9225918Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:39:41.9226135Z   ACTIONS_RESULTS_URL: http://10.1.18.45:6871/
+2026-07-27T15:39:41.9226374Z   TAR_OPTIONS: --skip-old-files
+2026-07-27T15:39:41.9226567Z   GOTOOLCHAIN: local
+2026-07-27T15:39:41.9226756Z ##[endgroup]
+2026-07-27T15:39:41.9337642Z go: downloading github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6-0.20260708113039-95f97b2d25e9
+2026-07-27T15:39:42.1686317Z go: downloading github.com/smartcontractkit/chainlink-testing-framework/wasp v1.52.0
+2026-07-27T15:39:42.1686871Z go: downloading github.com/Masterminds/semver/v3 v3.5.0
+2026-07-27T15:39:42.1687178Z go: downloading github.com/pelletier/go-toml v1.9.5
+2026-07-27T15:39:42.1687464Z go: downloading github.com/urfave/cli/v2 v2.27.7
+2026-07-27T15:39:42.1692965Z go: downloading github.com/ethereum/go-ethereum v1.17.4
+2026-07-27T15:39:42.1694087Z go: downloading github.com/gin-gonic/gin v1.12.0
+2026-07-27T15:39:42.1695421Z go: downloading github.com/rs/zerolog v1.35.1
+2026-07-27T15:39:42.1699705Z go: downloading github.com/smartcontractkit/chainlink-common v0.11.2-0.20260722120418-c1a1e0e75034
+2026-07-27T15:39:42.1707208Z go: downloading github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.16.2
+2026-07-27T15:39:42.1714018Z go: downloading github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260716165322-7f2edff6e954
+2026-07-27T15:39:42.1714484Z go: downloading google.golang.org/grpc v1.82.1
+2026-07-27T15:39:42.1714886Z go: downloading github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
+2026-07-27T15:39:42.1750528Z go: downloading go.opentelemetry.io/otel v1.44.0
+2026-07-27T15:39:42.1858455Z go: downloading github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260713161920-de075095648b
+2026-07-27T15:39:42.2405413Z go: downloading go.opentelemetry.io/otel/sdk v1.44.0
+2026-07-27T15:39:42.2570611Z go: downloading github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260716141634-c0cc05ed05d8
+2026-07-27T15:39:42.3112542Z go: downloading github.com/google/uuid v1.6.0
+2026-07-27T15:39:42.3229871Z go: downloading go.opentelemetry.io/otel/trace v1.44.0
+2026-07-27T15:39:42.3246144Z go: downloading github.com/smartcontractkit/chainlink-common/keystore v1.3.0
+2026-07-27T15:39:42.3622569Z go: downloading github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
+2026-07-27T15:39:42.4103592Z go: downloading github.com/avast/retry-go/v4 v4.7.0
+2026-07-27T15:39:42.4286962Z go: downloading github.com/avast/retry-go v3.0.0+incompatible
+2026-07-27T15:39:42.5513273Z go: downloading github.com/go-playground/locales v0.14.1
+2026-07-27T15:39:42.5523587Z go: downloading github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
+2026-07-27T15:39:42.5556578Z go: downloading github.com/confluentinc/confluent-kafka-go v1.9.2
+2026-07-27T15:39:42.5567431Z go: downloading github.com/go-playground/universal-translator v0.18.1
+2026-07-27T15:39:42.5567848Z go: downloading github.com/pkg/errors v0.9.1
+2026-07-27T15:39:42.5568143Z go: downloading github.com/gagliardetto/solana-go v1.14.0
+2026-07-27T15:39:42.5609352Z go: downloading github.com/stretchr/testify v1.11.1
+2026-07-27T15:39:42.5648838Z go: downloading github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake v0.15.0
+2026-07-27T15:39:42.5649371Z go: downloading github.com/go-playground/validator/v10 v10.30.3
+2026-07-27T15:39:42.5671474Z go: downloading github.com/moby/moby/client v0.4.1
+2026-07-27T15:39:42.5717893Z go: downloading github.com/go-resty/resty/v2 v2.17.2
+2026-07-27T15:39:42.6124654Z go: downloading github.com/moby/moby/api v1.54.2
+2026-07-27T15:39:42.6127737Z go: downloading github.com/smartcontractkit/chainlink-deployments-framework v0.111.1-0.20260612191326-e31c0ae4cd54
+2026-07-27T15:39:42.7127698Z go: downloading github.com/pelletier/go-toml/v2 v2.3.1
+2026-07-27T15:39:42.7830214Z go: downloading github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260724155057-853407a21d53
+2026-07-27T15:39:42.8098521Z go: downloading github.com/testcontainers/testcontainers-go v0.42.0
+2026-07-27T15:39:42.8101716Z go: downloading github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260714170805-29c5577b5f55
+2026-07-27T15:39:42.8456326Z go: downloading go.uber.org/multierr v1.11.0
+2026-07-27T15:39:42.8461124Z go: downloading github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4
+2026-07-27T15:39:42.8478985Z go: downloading golang.org/x/sync v0.22.0
+2026-07-27T15:39:42.8608576Z go: downloading github.com/smartcontractkit/cld-changesets v0.5.0
+2026-07-27T15:39:42.8833564Z go: downloading github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c
+2026-07-27T15:39:42.9179169Z go: downloading google.golang.org/protobuf v1.36.11
+2026-07-27T15:39:42.9197197Z go: downloading github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread v0.0.0-20260609191154-1ecc282df958
+2026-07-27T15:39:42.9470448Z go: downloading gopkg.in/yaml.v3 v3.0.1
+2026-07-27T15:39:42.9587893Z go: downloading github.com/aptos-labs/aptos-go-sdk v1.13.0
+2026-07-27T15:39:42.9979484Z go: downloading github.com/golang-jwt/jwt/v5 v5.3.1
+2026-07-27T15:39:43.0365702Z go: downloading github.com/lib/pq v1.12.3
+2026-07-27T15:39:43.0599898Z go: downloading github.com/smartcontractkit/chain-selectors v1.0.106
+2026-07-27T15:39:43.0600977Z go: downloading github.com/smartcontractkit/chainlink-aptos v0.0.0-20260708114855-e953eeb028a7
+2026-07-27T15:39:43.0650574Z go: downloading github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
+2026-07-27T15:39:43.0972165Z go: downloading github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501
+2026-07-27T15:39:43.1160175Z go: downloading github.com/smartcontractkit/chainlink-protos/ring/go v0.0.0-20260331131315-f08a616d8dcd
+2026-07-27T15:39:43.1682858Z go: downloading github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread v0.0.0-20250917232237-c4ecf802c6f8
+2026-07-27T15:39:43.1725693Z go: downloading github.com/stellar/go-stellar-sdk v0.5.0
+2026-07-27T15:39:43.1947730Z go: downloading github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260715130435-1e32cea69af1
+2026-07-27T15:39:43.1959458Z go: downloading github.com/avast/retry-go/v5 v5.0.0
+2026-07-27T15:39:43.1961859Z go: downloading github.com/cosmos/gogoproto v1.7.0
+2026-07-27T15:39:43.2223591Z go: downloading github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea
+2026-07-27T15:39:43.2327866Z go: downloading github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
+2026-07-27T15:39:43.2374137Z go: downloading github.com/gin-contrib/sse v1.1.0
+2026-07-27T15:39:43.2377249Z go: downloading github.com/mattn/go-isatty v0.0.22
+2026-07-27T15:39:43.2550950Z go: downloading github.com/quic-go/quic-go v0.59.1
+2026-07-27T15:39:43.2794673Z go: downloading golang.org/x/net v0.57.0
+2026-07-27T15:39:43.2975197Z go: downloading go.mongodb.org/mongo-driver/v2 v2.5.0
+2026-07-27T15:39:43.2991687Z go: downloading github.com/mattn/go-colorable v0.1.14
+2026-07-27T15:39:43.3053836Z go: downloading github.com/awalterschulze/gographviz v2.0.3+incompatible
+2026-07-27T15:39:43.3929332Z go: downloading github.com/holiman/uint256 v1.3.2
+2026-07-27T15:39:43.3929866Z go: downloading github.com/montanaflynn/stats v0.7.1
+2026-07-27T15:39:43.3930468Z go: downloading go.uber.org/ratelimit v0.3.1
+2026-07-27T15:39:43.3937493Z go: downloading github.com/coder/websocket v1.8.14
+2026-07-27T15:39:43.3941656Z go: downloading github.com/grafana/dskit v0.0.0-20260209132809-8d1c6d34bb5a
+2026-07-27T15:39:43.4020786Z go: downloading github.com/grafana/loki/v3 v3.7.1
+2026-07-27T15:39:43.4743008Z go: downloading github.com/prometheus/common v1.20.99
+2026-07-27T15:39:43.4819791Z go: downloading github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
+2026-07-27T15:39:43.4820608Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.20.0
+2026-07-27T15:39:43.4821618Z go: downloading go.opentelemetry.io/otel/log v0.20.0
+2026-07-27T15:39:43.5311888Z go: downloading github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9
+2026-07-27T15:39:43.5325311Z go: downloading go.opentelemetry.io/otel/sdk/log v0.20.0
+2026-07-27T15:39:43.5835156Z go: downloading go.mongodb.org/mongo-driver v1.17.9
+2026-07-27T15:39:43.5987363Z go: downloading k8s.io/api v0.35.3
+2026-07-27T15:39:43.5998050Z go: downloading k8s.io/apimachinery v0.35.3
+2026-07-27T15:39:43.6281724Z go: downloading k8s.io/client-go v0.35.3
+2026-07-27T15:39:43.6511348Z go: downloading github.com/grafana/pyroscope-go v1.3.0
+2026-07-27T15:39:43.6555724Z go: downloading github.com/google/go-cmp v0.7.0
+2026-07-27T15:39:43.7171721Z go: downloading github.com/shopspring/decimal v1.4.0
+2026-07-27T15:39:43.8360702Z go: downloading golang.org/x/time v0.15.0
+2026-07-27T15:39:43.9118518Z go: downloading github.com/go-json-experiment/json v0.0.0-20260505212615-e40f80bf6836
+2026-07-27T15:39:43.9544088Z go: downloading github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb
+2026-07-27T15:39:44.0725442Z go: downloading golang.org/x/sys v0.47.0
+2026-07-27T15:39:44.1551355Z go: downloading github.com/smartcontractkit/mcms v0.47.2-0.20260611004209-3f43937dcffd
+2026-07-27T15:39:44.2847730Z go: downloading github.com/smartcontractkit/libocr v0.0.0-20260529134643-c101335a64cd
+2026-07-27T15:39:44.6159868Z go: downloading github.com/mr-tron/base58 v1.3.0
+2026-07-27T15:39:44.6160448Z go: downloading github.com/jmoiron/sqlx v1.4.0
+2026-07-27T15:39:44.6171760Z go: downloading go.opentelemetry.io/otel/metric v1.44.0
+2026-07-27T15:39:44.6216147Z go: downloading golang.org/x/exp v0.0.0-20260508232706-74f9aab9d74a
+2026-07-27T15:39:44.6216569Z go: downloading go.opentelemetry.io/otel/sdk/metric v1.44.0
+2026-07-27T15:39:44.6458725Z go: downloading google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa
+2026-07-27T15:39:44.6463242Z go: downloading github.com/Microsoft/go-winio v0.6.2
+2026-07-27T15:39:44.6706994Z go: downloading github.com/containerd/errdefs v1.0.0
+2026-07-27T15:39:44.6707508Z go: downloading github.com/containerd/errdefs/pkg v0.3.0
+2026-07-27T15:39:44.6982931Z go: downloading google.golang.org/genproto v0.0.0-20260217215200-42d3e9bedb6d
+2026-07-27T15:39:44.7017414Z go: downloading github.com/distribution/reference v0.6.0
+2026-07-27T15:39:44.7201789Z go: downloading github.com/docker/go-connections v0.7.0
+2026-07-27T15:39:44.7458543Z go: downloading github.com/opencontainers/go-digest v1.0.0
+2026-07-27T15:39:44.7473232Z go: downloading github.com/opencontainers/image-spec v1.1.1
+2026-07-27T15:39:44.7474075Z go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0
+2026-07-27T15:39:44.7496109Z go: downloading gotest.tools/v3 v3.5.2
+2026-07-27T15:39:44.7746284Z go: downloading github.com/gabriel-vasile/mimetype v1.4.13
+2026-07-27T15:39:44.7779952Z go: downloading github.com/leodido/go-urn v1.4.0
+2026-07-27T15:39:44.7780448Z go: downloading golang.org/x/crypto v0.54.0
+2026-07-27T15:39:44.8043712Z go: downloading golang.org/x/text v0.40.0
+2026-07-27T15:39:44.8050926Z go: downloading filippo.io/edwards25519 v1.2.0
+2026-07-27T15:39:44.8827002Z go: downloading github.com/gagliardetto/binary v0.8.0
+2026-07-27T15:39:44.8828256Z go: downloading github.com/gagliardetto/treeout v0.1.4
+2026-07-27T15:39:44.8828793Z go: downloading github.com/json-iterator/go v1.1.12
+2026-07-27T15:39:44.8829794Z go: downloading github.com/mostynb/zstdpool-freelist v0.0.0-20201229113212-927304c0c3b1
+2026-07-27T15:39:44.8902870Z go: downloading github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091
+2026-07-27T15:39:44.9394170Z go: downloading go.uber.org/zap v1.28.0
+2026-07-27T15:39:44.9422581Z go: downloading github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a
+2026-07-27T15:39:44.9464019Z go: downloading github.com/zksync-sdk/zksync2-go v1.1.1-0.20250620124214-2c742ee399c6
+2026-07-27T15:39:44.9623409Z go: downloading github.com/samber/lo v1.53.0
+2026-07-27T15:39:44.9631174Z go: downloading github.com/smartcontractkit/ccip-owner-contracts v0.1.0
+2026-07-27T15:39:44.9734647Z go: downloading github.com/docker/go-units v0.5.0
+2026-07-27T15:39:44.9888083Z go: downloading github.com/moby/docker-image-spec v1.3.1
+2026-07-27T15:39:45.0215555Z go: downloading github.com/block-vision/sui-go-sdk v1.2.1
+2026-07-27T15:39:45.0517107Z go: downloading github.com/jpillora/backoff v1.0.0
+2026-07-27T15:39:45.0656613Z go: downloading github.com/robfig/cron/v3 v3.0.1
+2026-07-27T15:39:45.0986790Z go: downloading github.com/go-viper/mapstructure/v2 v2.5.0
+2026-07-27T15:39:45.1005265Z go: downloading github.com/sethvargo/go-retry v0.3.0
+2026-07-27T15:39:45.1435028Z go: downloading github.com/scylladb/go-reflectx v1.0.1
+2026-07-27T15:39:45.1436702Z go: downloading github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305
+2026-07-27T15:39:45.1460889Z go: downloading dario.cat/mergo v1.0.2
+2026-07-27T15:39:45.1506755Z go: downloading github.com/andybalholm/brotli v1.2.1
+2026-07-27T15:39:45.1578253Z go: downloading github.com/goccy/go-yaml v1.19.2
+2026-07-27T15:39:45.2151647Z go: downloading gopkg.in/guregu/null.v4 v4.0.0
+2026-07-27T15:39:45.2156814Z go: downloading github.com/jonboulle/clockwork v0.5.0
+2026-07-27T15:39:45.2233659Z go: downloading github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
+2026-07-27T15:39:45.2458070Z go: downloading github.com/cpuguy83/go-md2man/v2 v2.0.7
+2026-07-27T15:39:45.2468831Z go: downloading github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1
+2026-07-27T15:39:45.2832561Z go: downloading github.com/klauspost/compress v1.18.6
+2026-07-27T15:39:45.3151494Z go: downloading github.com/prometheus/client_golang v1.23.2
+2026-07-27T15:39:45.3391480Z go: downloading github.com/smartcontractkit/chainlink-automation v0.8.1
+2026-07-27T15:39:45.3421120Z go: downloading github.com/smartcontractkit/chainlink-data-streams v1.0.0
+2026-07-27T15:39:45.6923229Z go: downloading github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20260423135514-5b1a7565a99c
+2026-07-27T15:39:45.6924545Z go: downloading github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260724153515-bb6a2de39bcb
+2026-07-27T15:39:45.6931390Z go: downloading go.uber.org/goleak v1.3.0
+2026-07-27T15:39:45.7011520Z go: downloading github.com/dominikbraun/graph v0.23.0
+2026-07-27T15:39:45.7043155Z go: downloading github.com/invopop/jsonschema v0.14.0
+2026-07-27T15:39:45.7374954Z go: downloading github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
+2026-07-27T15:39:45.7406622Z go: downloading sigs.k8s.io/yaml v1.6.0
+2026-07-27T15:39:45.7407430Z go: downloading github.com/deckarep/golang-set/v2 v2.9.0
+2026-07-27T15:39:45.7416188Z go: downloading github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
+2026-07-27T15:39:45.7598937Z go: downloading github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1
+2026-07-27T15:39:45.7599718Z go: downloading golang.org/x/mod v0.37.0
+2026-07-27T15:39:45.7644657Z go: downloading github.com/cenkalti/backoff/v4 v4.3.0
+2026-07-27T15:39:45.7966814Z go: downloading github.com/containerd/platforms v1.0.0-rc.4
+2026-07-27T15:39:45.7991668Z go: downloading github.com/cpuguy83/dockercfg v0.3.2
+2026-07-27T15:39:45.8231046Z go: downloading github.com/cenkalti/backoff v2.2.1+incompatible
+2026-07-27T15:39:45.8291420Z go: downloading github.com/moby/go-archive v0.2.0
+2026-07-27T15:39:45.8581322Z go: downloading github.com/moby/patternmatcher v0.6.1
+2026-07-27T15:39:45.8630541Z go: downloading github.com/aws/aws-sdk-go-v2 v1.42.0
+2026-07-27T15:39:45.8632635Z go: downloading github.com/aws/aws-sdk-go-v2/config v1.32.24
+2026-07-27T15:39:45.8705224Z go: downloading github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider v1.61.4
+2026-07-27T15:39:45.9312993Z go: downloading golang.org/x/oauth2 v0.36.0
+2026-07-27T15:39:45.9359788Z go: downloading github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260721074545-ef8526aebfcf
+2026-07-27T15:39:46.0329986Z go: downloading github.com/Khan/genqlient v0.8.1
+2026-07-27T15:39:46.0929386Z go: downloading github.com/gin-contrib/sessions v0.0.5
+2026-07-27T15:39:46.1777349Z go: downloading github.com/gorilla/securecookie v1.1.2
+2026-07-27T15:39:46.1809879Z go: downloading github.com/grafana/otel-profiling-go v0.5.1
+2026-07-27T15:39:46.2058628Z go: downloading github.com/imdario/mergo v0.3.16
+2026-07-27T15:39:46.2059215Z go: downloading github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260709145319-7782fb89eb16
+2026-07-27T15:39:46.2148117Z go: downloading github.com/kylelemons/godebug v1.1.0
+2026-07-27T15:39:46.2150491Z go: downloading github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260625152110-9afcf56e4053
+2026-07-27T15:39:46.2218590Z go: downloading github.com/minio/minio-go/v7 v7.0.99
+2026-07-27T15:39:46.2720998Z go: downloading github.com/ugorji/go/codec v1.2.12
+2026-07-27T15:39:46.2721620Z go: downloading github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee
+2026-07-27T15:39:46.2732050Z go: downloading github.com/bytedance/sonic v1.15.0
+2026-07-27T15:39:46.2763454Z go: downloading github.com/goccy/go-json v0.10.6
+2026-07-27T15:39:46.3135011Z go: downloading github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad
+2026-07-27T15:39:46.3365165Z go: downloading github.com/testcontainers/testcontainers-go/modules/compose v0.42.0
+2026-07-27T15:39:46.3551911Z go: downloading github.com/google/go-github/v72 v72.0.0
+2026-07-27T15:39:46.3552347Z go: downloading github.com/jhump/protocompile v0.0.0-20221021153901-4f6f732835e8
+2026-07-27T15:39:46.3657873Z go: downloading github.com/hasura/go-graphql-client v0.15.1
+2026-07-27T15:39:46.4137215Z go: downloading github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1
+2026-07-27T15:39:46.4271294Z go: downloading github.com/hdevalence/ed25519consensus v0.2.0
+2026-07-27T15:39:46.4347568Z go: downloading github.com/ProjectZKM/Ziren/crates/go-runtime/zkvm_runtime v0.0.0-20260416073033-7c2071eaa8d4
+2026-07-27T15:39:46.4376064Z go: downloading github.com/fjl/jsonw v0.1.0
+2026-07-27T15:39:46.4622197Z go: downloading github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
+2026-07-27T15:39:46.5001158Z go: downloading github.com/benbjohnson/clock v1.3.5
+2026-07-27T15:39:46.5015273Z go: downloading go.uber.org/atomic v1.11.0
+2026-07-27T15:39:46.5015693Z go: downloading github.com/quic-go/qpack v0.6.0
+2026-07-27T15:39:46.5487026Z go: downloading github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb
+2026-07-27T15:39:46.5541589Z go: downloading github.com/golang/protobuf v1.5.4
+2026-07-27T15:39:46.5678614Z go: downloading github.com/go-logr/logr v1.4.3
+2026-07-27T15:39:46.6494553Z go: downloading github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
+2026-07-27T15:39:46.6558301Z go: downloading gopkg.in/yaml.v2 v2.4.0
+2026-07-27T15:39:46.6560154Z go: downloading go.opentelemetry.io/proto/otlp v1.10.0
+2026-07-27T15:39:46.7228822Z go: downloading github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853
+2026-07-27T15:39:46.7268230Z go: downloading github.com/prometheus/client_model v0.6.2
+2026-07-27T15:39:46.7268632Z go: downloading github.com/go-logr/stdr v1.2.2
+2026-07-27T15:39:46.7269158Z go: downloading github.com/stellar/go-xdr v0.0.0-20260423131911-a87d4d0789c3
+2026-07-27T15:39:46.8086008Z go: downloading github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b
+2026-07-27T15:39:46.8651721Z go: downloading github.com/go-kit/log v0.2.1
+2026-07-27T15:39:46.9154870Z go: downloading go.yaml.in/yaml/v3 v3.0.4
+2026-07-27T15:39:46.9155393Z go: downloading github.com/grafana/pyroscope-go/godeltaprof v0.1.10
+2026-07-27T15:39:46.9468572Z go: downloading github.com/aws/aws-sdk-go v1.55.8
+2026-07-27T15:39:47.0009333Z go: downloading github.com/fsnotify/fsnotify v1.10.1
+2026-07-27T15:39:47.5950010Z go: downloading github.com/grafana/grafana-foundation-sdk/go v0.0.0-20240326122733-6f96a993222b
+2026-07-27T15:39:47.8356030Z go: downloading github.com/cespare/xxhash/v2 v2.3.0
+2026-07-27T15:39:47.8690965Z go: downloading k8s.io/utils v0.0.0-20251218160917-61b37f7a4624
+2026-07-27T15:39:47.9694514Z go: downloading sigs.k8s.io/randfill v1.0.0
+2026-07-27T15:39:48.0140152Z go: downloading github.com/xssnick/tonutils-go v1.14.1
+2026-07-27T15:39:48.8984456Z go: downloading github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
+2026-07-27T15:39:48.8985194Z go: downloading github.com/go-playground/assert/v2 v2.2.0
+2026-07-27T15:39:48.8985748Z go: downloading github.com/smartcontractkit/chainlink-protos/op-catalog v0.1.0
+2026-07-27T15:39:48.8986348Z go: downloading gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
+2026-07-27T15:39:48.8986798Z go: downloading github.com/AlekSi/pointer v1.1.0
+2026-07-27T15:39:48.8987250Z go: downloading github.com/hashicorp/consul/sdk v0.17.2
+2026-07-27T15:39:48.8987707Z go: downloading github.com/cucumber/godog v0.15.1
+2026-07-27T15:39:48.8988279Z go: downloading github.com/google/gofuzz v1.2.0
+2026-07-27T15:39:48.8988688Z go: downloading go.uber.org/mock v0.6.0
+2026-07-27T15:39:48.8989060Z go: downloading github.com/onsi/ginkgo v1.16.5
+2026-07-27T15:39:48.8989536Z go: downloading github.com/cespare/cp v1.1.1
+2026-07-27T15:39:48.8989939Z go: downloading github.com/onsi/gomega v1.38.2
+2026-07-27T15:39:48.8990725Z go: downloading github.com/smartcontractkit/quarantine v0.0.0-20251203215908-fd0551c6adf9
+2026-07-27T15:39:48.9303028Z go: downloading github.com/segmentio/ksuid v1.0.4
+2026-07-27T15:39:48.9510284Z go: downloading github.com/fatih/color v1.19.0
+2026-07-27T15:39:48.9510881Z go: downloading github.com/gogo/protobuf v1.3.2
+2026-07-27T15:39:48.9512946Z go: downloading github.com/golang/snappy v1.0.0
+2026-07-27T15:39:48.9692044Z go: downloading github.com/prometheus/prometheus v0.311.3
+2026-07-27T15:39:48.9694716Z go: downloading github.com/grafana/loki/pkg/push v0.0.0-20250630054201-94c0ba7b0952
+2026-07-27T15:39:48.9818775Z go: downloading github.com/c2h5oh/datasize v0.0.0-20231215233829-aa82cc1e6500
+2026-07-27T15:39:48.9819230Z go: downloading github.com/dustin/go-humanize v1.0.1
+2026-07-27T15:39:48.9991710Z go: downloading github.com/stretchr/objx v0.5.3
+2026-07-27T15:39:48.9999755Z go: downloading github.com/gkampitakis/go-snaps v0.5.19
+2026-07-27T15:39:49.0236464Z go: downloading k8s.io/klog/v2 v2.140.0
+2026-07-27T15:39:49.0247005Z go: downloading github.com/go-sql-driver/mysql v1.9.3
+2026-07-27T15:39:49.0444171Z go: downloading github.com/mattn/go-sqlite3 v2.0.3+incompatible
+2026-07-27T15:39:49.0477702Z go: downloading pgregory.net/rapid v1.2.0
+2026-07-27T15:39:49.0555817Z go: downloading github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
+2026-07-27T15:39:49.0743552Z go: downloading github.com/spf13/pflag v1.0.10
+2026-07-27T15:39:49.0743968Z go: downloading golang.org/x/term v0.45.0
+2026-07-27T15:39:49.0768492Z go: downloading github.com/felixge/httpsnoop v1.0.4
+2026-07-27T15:39:49.0786564Z go: downloading github.com/digital-asset/dazl-client/v8 v8.9.0
+2026-07-27T15:39:49.1197119Z go: downloading github.com/smartcontractkit/chainlink-sui v0.0.0-20260722165728-7a830b8800c6
+2026-07-27T15:39:49.1438864Z go: downloading github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260629213843-c52e07523035
+2026-07-27T15:39:49.2835157Z go: downloading github.com/aws/aws-sdk-go-v2/service/kms v1.50.1
+2026-07-27T15:39:49.2835689Z go: downloading github.com/testcontainers/testcontainers-go/modules/postgres v0.41.0
+2026-07-27T15:39:49.2836128Z go: downloading github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+2026-07-27T15:39:49.2952068Z go: downloading github.com/cosmos/go-bip39 v1.0.0
+2026-07-27T15:39:49.2952422Z go: downloading github.com/blendle/zapdriver v1.3.1
+2026-07-27T15:39:49.2952754Z go: downloading github.com/logrusorgru/aurora v2.0.3+incompatible
+2026-07-27T15:39:49.2966384Z go: downloading github.com/mitchellh/go-testing-interface v1.14.1
+2026-07-27T15:39:49.3072358Z go: downloading github.com/test-go/testify v1.1.4
+2026-07-27T15:39:49.3111499Z go: downloading github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
+2026-07-27T15:39:49.3112132Z go: downloading github.com/gorilla/sessions v1.2.2
+2026-07-27T15:39:49.3202519Z go: downloading github.com/tidwall/gjson v1.18.0
+2026-07-27T15:39:49.3204904Z go: downloading github.com/urfave/cli v1.22.17
+2026-07-27T15:39:49.3239797Z go: downloading golang.org/x/tools v0.47.0
+2026-07-27T15:39:49.3276026Z go: downloading github.com/getsentry/sentry-go v0.35.1
+2026-07-27T15:39:49.3358867Z go: downloading github.com/shirou/gopsutil/v3 v3.24.3
+2026-07-27T15:39:49.3418654Z go: downloading gopkg.in/natefinch/lumberjack.v2 v2.2.1
+2026-07-27T15:39:49.3419005Z go: downloading github.com/alitto/pond/v2 v2.5.0
+2026-07-27T15:39:49.3471247Z go: downloading github.com/stephenlacy/go-ethereum-hdwallet v0.0.0-20230913225845-a4fa94429863
+2026-07-27T15:39:49.3546251Z go: downloading github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260723212800-b2f21d31b1d2
+2026-07-27T15:39:49.3546901Z go: downloading github.com/leanovate/gopter v0.2.11
+2026-07-27T15:39:49.3643128Z go: downloading go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.68.0
+2026-07-27T15:39:49.3725157Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.19.0
+2026-07-27T15:39:49.3786767Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.43.0
+2026-07-27T15:39:49.3819530Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.43.0
+2026-07-27T15:39:49.3867040Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.43.0
+2026-07-27T15:39:49.3867562Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.43.0
+2026-07-27T15:39:49.3867991Z go: downloading go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.19.0
+2026-07-27T15:39:49.3910191Z go: downloading go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.43.0
+2026-07-27T15:39:49.3954145Z go: downloading go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.43.0
+2026-07-27T15:39:49.3967856Z go: downloading go.opentelemetry.io/otel/metric/x v0.66.0
+2026-07-27T15:39:49.4004817Z go: downloading github.com/shirou/gopsutil v3.21.11+incompatible
+2026-07-27T15:39:49.4029016Z go: downloading github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
+2026-07-27T15:39:49.4045570Z go: downloading go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.43.0
+2026-07-27T15:39:49.4070502Z go: downloading github.com/smartcontractkit/cre-sdk-go v1.12.1-0.20260617153047-4f3b50819080
+2026-07-27T15:39:49.4115355Z go: downloading github.com/russross/blackfriday/v2 v2.1.0
+2026-07-27T15:39:49.4183161Z go: downloading github.com/fxamacker/cbor/v2 v2.9.2
+2026-07-27T15:39:49.4192674Z go: downloading github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.1.0
+2026-07-27T15:39:49.4193074Z go: downloading github.com/hashicorp/go-hclog v1.6.3
+2026-07-27T15:39:49.4263853Z go: downloading github.com/hashicorp/go-plugin v1.8.0
+2026-07-27T15:39:49.4377182Z go: downloading go.opentelemetry.io/contrib/bridges/prometheus v0.68.0
+2026-07-27T15:39:49.4460711Z go: downloading github.com/beorn7/perks v1.0.1
+2026-07-27T15:39:49.4472938Z go: downloading github.com/prometheus/procfs v0.20.1
+2026-07-27T15:39:49.4480995Z go: downloading github.com/xyproto/randomstring v1.0.5
+2026-07-27T15:39:49.4547351Z go: downloading github.com/patrickmn/go-cache v2.1.0+incompatible
+2026-07-27T15:39:49.4547854Z go: downloading github.com/umbracle/ethgo v0.1.3
+2026-07-27T15:39:49.4551394Z go: downloading github.com/jackc/pgtype v1.14.4
+2026-07-27T15:39:49.4588806Z go: downloading github.com/esote/minmaxheap v1.0.0
+2026-07-27T15:39:49.4613733Z go: downloading github.com/jackc/pgx/v5 v5.9.2
+2026-07-27T15:39:49.4633363Z go: downloading github.com/pb33f/ordered-map/v2 v2.3.1
+2026-07-27T15:39:49.4828333Z go: downloading go.yaml.in/yaml/v2 v2.4.4
+2026-07-27T15:39:49.4828742Z go: downloading github.com/moby/term v0.5.2
+2026-07-27T15:39:49.4871290Z go: downloading github.com/magiconair/properties v1.8.10
+2026-07-27T15:39:49.4886859Z go: downloading github.com/shirou/gopsutil/v4 v4.26.3
+2026-07-27T15:39:49.4996989Z go: downloading github.com/containerd/log v0.1.0
+2026-07-27T15:39:49.5033278Z go: downloading github.com/moby/sys/sequential v0.6.0
+2026-07-27T15:39:49.5054026Z go: downloading github.com/moby/sys/user v0.4.0
+2026-07-27T15:39:49.5112380Z go: downloading github.com/moby/sys/userns v0.1.0
+2026-07-27T15:39:49.5129127Z go: downloading github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
+2026-07-27T15:39:49.5151669Z go: downloading github.com/Unheilbar/anchor-go v1.0.3
+2026-07-27T15:39:49.5177083Z go: downloading github.com/spf13/cast v1.10.0
+2026-07-27T15:39:49.5188683Z go: downloading github.com/mitchellh/go-homedir v1.1.0
+2026-07-27T15:39:49.5189124Z go: downloading github.com/go-webauthn/webauthn v0.9.4
+2026-07-27T15:39:49.5287858Z go: downloading github.com/valyala/fastjson v1.6.10
+2026-07-27T15:39:49.5306474Z go: downloading github.com/gorilla/context v1.1.1
+2026-07-27T15:39:49.5365006Z go: downloading github.com/aws/smithy-go v1.27.2
+2026-07-27T15:39:49.5445437Z go: downloading github.com/aws/aws-sdk-go-v2/credentials v1.19.23
+2026-07-27T15:39:49.5755969Z go: downloading github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.29
+2026-07-27T15:39:49.5756575Z go: downloading github.com/aws/aws-sdk-go-v2/service/signin v1.1.5
+2026-07-27T15:39:49.5757280Z go: downloading github.com/aws/aws-sdk-go-v2/service/sso v1.31.3
+2026-07-27T15:39:49.5757804Z go: downloading github.com/aws/aws-sdk-go-v2/service/ssooidc v1.36.6
+2026-07-27T15:39:49.5758331Z go: downloading github.com/aws/aws-sdk-go-v2/service/sts v1.43.3
+2026-07-27T15:39:49.6204835Z go: downloading github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.29
+2026-07-27T15:39:49.6423368Z go: downloading github.com/google/pprof v0.0.0-20260302011040-a15ffb7f9dcc
+2026-07-27T15:39:49.6423923Z go: downloading github.com/smartcontractkit/chainlink-ccv v0.1.1-0.20260716164331-d938b371c5d6
+2026-07-27T15:39:49.6424319Z go: downloading github.com/BurntSushi/toml v1.6.0
+2026-07-27T15:39:49.6445122Z go: downloading github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0
+2026-07-27T15:39:49.6465478Z go: downloading github.com/buraksezer/consistent v0.10.0
+2026-07-27T15:39:49.6468271Z go: downloading github.com/buger/jsonparser v1.2.0
+2026-07-27T15:39:49.6472709Z go: downloading gonum.org/v1/gonum v0.17.0
+2026-07-27T15:39:49.7275201Z go: downloading github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4
+2026-07-27T15:39:49.7338014Z go: downloading github.com/go-ldap/ldap/v3 v3.4.6
+2026-07-27T15:39:49.7423742Z go: downloading github.com/coreos/go-oidc/v3 v3.17.0
+2026-07-27T15:39:49.7551354Z go: downloading github.com/hashicorp/go-envparse v0.1.0
+2026-07-27T15:39:49.7637103Z go: downloading github.com/XSAM/otelsql v0.42.0
+2026-07-27T15:39:49.7701039Z go: downloading github.com/vektah/gqlparser/v2 v2.5.30
+2026-07-27T15:39:49.7831243Z go: downloading github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260721074545-ef8526aebfcf
+2026-07-27T15:39:49.8092573Z go: downloading github.com/cloudevents/sdk-go/v2 v2.16.2
+2026-07-27T15:39:49.8093361Z go: downloading github.com/compose-spec/compose-go/v2 v2.10.2
+2026-07-27T15:39:49.8094714Z go: downloading github.com/docker/cli v29.4.0+incompatible
+2026-07-27T15:39:49.8540545Z go: downloading github.com/docker/compose/v5 v5.1.2
+2026-07-27T15:39:49.8742670Z go: downloading github.com/klauspost/crc32 v1.3.0
+2026-07-27T15:39:49.8859597Z go: downloading github.com/minio/crc64nvme v1.1.1
+2026-07-27T15:39:49.8860036Z go: downloading github.com/minio/md5-simd v1.1.2
+2026-07-27T15:39:49.8860819Z go: downloading github.com/go-ini/ini v1.67.0
+2026-07-27T15:39:49.8902174Z go: downloading github.com/dchest/siphash v1.2.3
+2026-07-27T15:39:49.9053713Z go: downloading github.com/gofrs/flock v0.13.0
+2026-07-27T15:39:49.9070251Z go: downloading github.com/golang-jwt/jwt/v4 v4.5.2
+2026-07-27T15:39:49.9090007Z go: downloading github.com/rs/cors v1.11.1
+2026-07-27T15:39:49.9097630Z go: downloading github.com/crate-crypto/go-eth-kzg v1.5.0
+2026-07-27T15:39:49.9179285Z go: downloading github.com/ethereum/c-kzg-4844/v2 v2.1.7
+2026-07-27T15:39:49.9227059Z go: downloading github.com/consensys/gnark-crypto v0.20.1
+2026-07-27T15:39:49.9244714Z go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+2026-07-27T15:39:49.9287049Z go: downloading github.com/decred/dcrd/crypto/blake256 v1.1.0
+2026-07-27T15:39:49.9289318Z go: downloading github.com/cenkalti/backoff/v5 v5.0.3
+2026-07-27T15:39:49.9359863Z go: downloading go.opentelemetry.io/otel/sdk/log/logtest v0.20.0
+2026-07-27T15:39:49.9360519Z go: downloading github.com/google/go-querystring v1.2.0
+2026-07-27T15:39:49.9363576Z go: downloading github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0
+2026-07-27T15:39:49.9563256Z go: downloading github.com/xdrpp/goxdr v0.1.1
+2026-07-27T15:39:49.9579716Z go: downloading github.com/go-logfmt/logfmt v0.6.1
+2026-07-27T15:39:49.9582187Z go: downloading github.com/gagliardetto/gofuzz v1.2.2
+2026-07-27T15:39:49.9601122Z go: downloading gopkg.in/inf.v0 v0.9.1
+2026-07-27T15:39:49.9601697Z go: downloading k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912
+2026-07-27T15:39:49.9846428Z go: downloading sigs.k8s.io/structured-merge-diff/v6 v6.3.0
+2026-07-27T15:39:49.9871639Z go: downloading sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730
+2026-07-27T15:39:49.9875991Z go: downloading filippo.io/nistec v0.0.4
+2026-07-27T15:39:49.9878678Z go: downloading filippo.io/bigmod v0.1.0
+2026-07-27T15:39:49.9909538Z go: downloading github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3
+2026-07-27T15:39:49.9909868Z go: downloading github.com/kr/pretty v0.3.1
+2026-07-27T15:39:49.9910166Z go: downloading github.com/suzuki-shunsuke/go-convmap v0.2.1
+2026-07-27T15:39:49.9910730Z go: downloading github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1
+2026-07-27T15:39:49.9922257Z go: downloading github.com/tjhop/slog-gokit v0.1.6
+2026-07-27T15:39:50.0088524Z go: downloading github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08
+2026-07-27T15:39:50.0089044Z go: downloading github.com/smartcontractkit/chainlink-canton v0.0.0-20260615233851-4e78e7c23a58
+2026-07-27T15:39:50.0672182Z go: downloading github.com/grpc-ecosystem/grpc-gateway v1.16.0
+2026-07-27T15:39:51.0834687Z go: downloading github.com/smartcontractkit/go-daml v0.0.0-20260615231356-88c6ee9b5774
+2026-07-27T15:39:51.1247416Z go: downloading github.com/karalabe/hid v1.0.1-0.20260315100226-f5d04adeffeb
+2026-07-27T15:39:51.1660275Z go: downloading github.com/cucumber/messages/go/v21 v21.0.1
+2026-07-27T15:39:51.1899575Z go: downloading github.com/gkampitakis/ciinfo v0.3.2
+2026-07-27T15:39:51.2147765Z go: downloading github.com/maruel/natural v1.1.1
+2026-07-27T15:39:51.2398751Z go: downloading github.com/sergi/go-diff v1.4.0
+2026-07-27T15:39:51.3236668Z go: downloading github.com/tidwall/pretty v1.2.1
+2026-07-27T15:39:51.3356461Z go: downloading github.com/google/gnostic-models v0.7.0
+2026-07-27T15:39:51.3636088Z go: downloading github.com/creachadair/jrpc2 v1.2.0
+2026-07-27T15:39:51.3844924Z go: downloading github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
+2026-07-27T15:39:51.4058847Z go: downloading github.com/mitchellh/mapstructure v1.5.1-0.20220423185008-bf980b35cac4
+2026-07-27T15:39:51.4215543Z go: downloading github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96
+2026-07-27T15:39:51.4352477Z go: downloading github.com/cosmos/cosmos-sdk v0.50.14
+2026-07-27T15:39:51.8691449Z go: downloading github.com/NethermindEth/juno v0.15.11
+2026-07-27T15:39:51.8692055Z go: downloading github.com/NethermindEth/starknet.go v0.17.1
+2026-07-27T15:39:51.8692656Z go: downloading go.dedis.ch/kyber/v3 v3.1.0
+2026-07-27T15:39:51.8694557Z go: downloading github.com/Depado/ginprom v1.8.0
+2026-07-27T15:39:51.8695208Z go: downloading github.com/olekukonko/tablewriter v1.0.9
+2026-07-27T15:39:51.8698439Z go: downloading github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
+2026-07-27T15:39:51.8698882Z go: downloading github.com/gin-contrib/cors v1.7.2
+2026-07-27T15:39:51.8699280Z go: downloading github.com/gin-contrib/expvar v0.0.1
+2026-07-27T15:39:51.8699620Z go: downloading github.com/gin-contrib/size v0.0.0-20230212012657-e14a14094dc4
+2026-07-27T15:39:51.8699979Z go: downloading github.com/graph-gophers/graphql-go v1.5.0
+2026-07-27T15:39:51.8705302Z go: downloading github.com/ulule/limiter/v3 v3.11.2
+2026-07-27T15:39:51.9086136Z go: downloading github.com/unrolled/secure v1.13.0
+2026-07-27T15:39:51.9086731Z go: downloading go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.49.0
+2026-07-27T15:39:51.9121978Z go: downloading github.com/otiai10/copy v1.14.1
+2026-07-27T15:39:51.9151215Z go: downloading github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2
+2026-07-27T15:39:51.9155241Z go: downloading github.com/tidwall/match v1.2.0
+2026-07-27T15:39:51.9155914Z go: downloading github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813
+2026-07-27T15:39:51.9156639Z go: downloading github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb
+2026-07-27T15:39:51.9351930Z go: downloading github.com/go-errors/errors v1.5.1
+2026-07-27T15:39:51.9353094Z go: downloading github.com/pingcap/errors v0.11.4
+2026-07-27T15:39:51.9357090Z go: downloading github.com/btcsuite/btcd/btcutil v1.1.6
+2026-07-27T15:39:51.9357507Z go: downloading github.com/btcsuite/btcd v0.24.2
+2026-07-27T15:39:51.9376211Z go: downloading github.com/tyler-smith/go-bip39 v1.1.0
+2026-07-27T15:39:51.9380003Z go: downloading github.com/doyensec/safeurl v0.2.5
+2026-07-27T15:39:51.9385429Z go: downloading github.com/bytecodealliance/wasmtime-go/v47 v47.0.0
+2026-07-27T15:39:51.9532512Z go: downloading github.com/iancoleman/strcase v0.3.0
+2026-07-27T15:39:51.9570220Z go: downloading github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7
+2026-07-27T15:39:51.9571231Z go: downloading github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260710151514-27b5a126dabe
+2026-07-27T15:39:51.9611726Z go: downloading github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55
+2026-07-27T15:39:51.9643339Z go: downloading github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.3
+2026-07-27T15:39:51.9739839Z go: downloading github.com/expr-lang/expr v1.17.8
+2026-07-27T15:39:51.9804404Z go: downloading github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
+2026-07-27T15:39:51.9913742Z go: downloading github.com/marcboeker/go-duckdb v1.8.5
+2026-07-27T15:39:52.0053956Z go: downloading github.com/smartcontractkit/chainlink-protos/svr v1.3.0
+2026-07-27T15:39:52.0058553Z go: downloading github.com/x448/float16 v0.8.4
+2026-07-27T15:39:52.0268468Z go: downloading github.com/hashicorp/yamux v0.1.2
+2026-07-27T15:39:52.0287089Z go: downloading github.com/oklog/run v1.2.0
+2026-07-27T15:39:52.0446998Z go: downloading github.com/jhump/protoreflect v1.17.0
+2026-07-27T15:39:52.0474840Z go: downloading github.com/bahlo/generic-list-go v0.2.0
+2026-07-27T15:39:52.0611210Z go: downloading go.yaml.in/yaml/v4 v4.0.0-rc.4
+2026-07-27T15:39:52.0988849Z go: downloading github.com/creack/pty v1.1.24
+2026-07-27T15:39:52.0999613Z go: downloading github.com/sirupsen/logrus v1.9.4
+2026-07-27T15:39:52.1001105Z go: downloading github.com/jackc/pgio v1.0.0
+2026-07-27T15:39:52.1004594Z go: downloading github.com/jackc/pgx/v4 v4.18.3
+2026-07-27T15:39:52.1259006Z go: downloading github.com/tklauser/go-sysconf v0.4.0
+2026-07-27T15:39:52.1305328Z go: downloading github.com/jackc/pgpassfile v1.0.0
+2026-07-27T15:39:52.1308986Z go: downloading github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761
+2026-07-27T15:39:52.1309621Z go: downloading github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260716230027-bd85997bc03c
+2026-07-27T15:39:52.1331321Z go: downloading github.com/frankban/quicktest v1.14.6
+2026-07-27T15:39:52.1372735Z go: downloading github.com/dennwc/varint v1.0.0
+2026-07-27T15:39:52.1466521Z go: downloading github.com/google/go-tpm v0.9.0
+2026-07-27T15:39:52.1467024Z go: downloading github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.30
+2026-07-27T15:39:52.1467494Z go: downloading github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.12
+2026-07-27T15:39:52.1485494Z go: downloading github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.29
+2026-07-27T15:39:52.1549065Z go: downloading github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.29
+2026-07-27T15:39:52.2887898Z go: downloading github.com/btcsuite/btcd/btcec/v2 v2.3.4
+2026-07-27T15:39:52.3425290Z go: downloading go.dedis.ch/fixbuf v1.0.3
+2026-07-27T15:39:52.3560776Z go: downloading github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36
+2026-07-27T15:39:52.3719770Z go: downloading github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
+2026-07-27T15:39:52.3918706Z go: downloading github.com/cockroachdb/pebble v1.1.5
+2026-07-27T15:39:52.5896418Z go: downloading github.com/Azure/go-ntlmssp v0.1.1
+2026-07-27T15:39:52.5897148Z go: downloading github.com/go-asn1-ber/asn1-ber v1.5.5
+2026-07-27T15:39:52.5897443Z go: downloading github.com/go-jose/go-jose/v4 v4.1.4
+2026-07-27T15:39:52.6107549Z go: downloading github.com/mattn/go-shellwords v1.0.12
+2026-07-27T15:39:52.6204659Z go: downloading github.com/xhit/go-str2duration/v2 v2.1.0
+2026-07-27T15:39:52.6240667Z go: downloading github.com/rs/xid v1.6.0
+2026-07-27T15:39:52.6321336Z go: downloading github.com/tinylib/msgp v1.6.3
+2026-07-27T15:39:52.6554494Z go: downloading github.com/ethereum/go-bigmodexpfix v0.0.0-20250911101455-f9e208c548ab
+2026-07-27T15:39:52.6596667Z go: downloading github.com/VictoriaMetrics/fastcache v1.13.0
+2026-07-27T15:39:52.6597052Z go: downloading github.com/holiman/bloomfilter/v2 v2.0.3
+2026-07-27T15:39:52.6728120Z go: downloading github.com/klauspost/cpuid/v2 v2.3.0
+2026-07-27T15:39:52.6730878Z go: downloading github.com/holiman/billy v0.0.0-20250707135307-f2f9b9aae7db
+2026-07-27T15:39:52.6818281Z go: downloading github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d
+2026-07-27T15:39:52.7082210Z go: downloading github.com/hashicorp/go-bexpr v0.1.10
+2026-07-27T15:39:52.7082677Z go: downloading github.com/huin/goupnp v1.3.0
+2026-07-27T15:39:52.7275675Z go: downloading github.com/jackpal/go-nat-pmp v1.0.2
+2026-07-27T15:39:52.7276064Z go: downloading github.com/pion/stun/v3 v3.1.2
+2026-07-27T15:39:52.7276345Z go: downloading github.com/yusufpapurcu/wmi v1.2.4
+2026-07-27T15:39:52.7466716Z go: downloading github.com/hashicorp/go-version v1.9.0
+2026-07-27T15:39:52.7500729Z go: downloading github.com/DefangLabs/secret-detector v0.0.0-20250403165618-22662109213e
+2026-07-27T15:39:52.7595171Z go: downloading github.com/containerd/console v1.0.5
+2026-07-27T15:39:52.7684552Z go: downloading github.com/docker/buildx v0.33.0
+2026-07-27T15:39:52.7689058Z go: downloading github.com/eiannone/keyboard v0.0.0-20220611211555-0d226195f203
+2026-07-27T15:39:52.7730048Z go: downloading github.com/moby/buildkit v0.29.0
+2026-07-27T15:39:52.9342384Z go: downloading github.com/moby/sys/atomicwriter v0.1.0
+2026-07-27T15:39:52.9343045Z go: downloading github.com/spf13/cobra v1.10.2
+2026-07-27T15:39:52.9347733Z go: downloading tags.cncf.io/container-device-interface v1.1.0
+2026-07-27T15:39:52.9476554Z go: downloading github.com/morikuni/aec v1.1.0
+2026-07-27T15:39:52.9549596Z go: downloading github.com/bytedance/gopkg v0.1.3
+2026-07-27T15:39:52.9631219Z go: downloading github.com/cloudwego/base64x v0.1.6
+2026-07-27T15:39:52.9638532Z go: downloading golang.org/x/arch v0.22.0
+2026-07-27T15:39:52.9856580Z go: downloading github.com/jinzhu/copier v0.4.0
+2026-07-27T15:39:52.9881077Z go: downloading github.com/gogo/status v1.1.1
+2026-07-27T15:39:52.9988545Z go: downloading github.com/gogo/googleapis v1.4.1
+2026-07-27T15:39:53.0011899Z go: downloading github.com/hashicorp/golang-lru/v2 v2.0.7
+2026-07-27T15:39:53.0249851Z go: downloading github.com/hashicorp/golang-lru v1.0.2
+2026-07-27T15:39:53.0324091Z go: downloading github.com/pb33f/libopenapi v0.34.3
+2026-07-27T15:39:53.2182226Z go: downloading github.com/prometheus/client_golang/exp v0.0.0-20260325093428-d8591d0db856
+2026-07-27T15:39:53.2184537Z go: downloading github.com/oklog/ulid/v2 v2.1.1
+2026-07-27T15:39:53.2184874Z go: downloading github.com/gorilla/mux v1.8.1
+2026-07-27T15:39:53.2185243Z go: downloading github.com/opentracing-contrib/go-grpc v0.1.2
+2026-07-27T15:39:53.2185707Z go: downloading github.com/opentracing/opentracing-go v1.2.1-0.20220228012449-10b1cf09e00b
+2026-07-27T15:39:53.2186119Z go: downloading github.com/pires/go-proxyproto v0.8.1
+2026-07-27T15:39:53.2186426Z go: downloading github.com/prometheus/exporter-toolkit v0.15.1
+2026-07-27T15:39:53.2187592Z go: downloading github.com/uber/jaeger-client-go v2.30.0+incompatible
+2026-07-27T15:39:53.2380279Z go: downloading github.com/uber/jaeger-lib v2.4.1+incompatible
+2026-07-27T15:39:53.2403165Z go: downloading go.opentelemetry.io/contrib/exporters/autoexport v0.64.0
+2026-07-27T15:39:53.2409534Z go: downloading go.opentelemetry.io/contrib/propagators/jaeger v1.39.0
+2026-07-27T15:39:53.2432380Z go: downloading go.opentelemetry.io/contrib/samplers/jaegerremote v0.33.0
+2026-07-27T15:39:53.2438695Z go: downloading go.opentelemetry.io/otel/exporters/jaeger v1.17.0
+2026-07-27T15:39:53.2439861Z go: downloading github.com/nxadm/tail v1.4.8
+2026-07-27T15:39:53.2440157Z go: downloading github.com/Masterminds/sprig/v3 v3.3.0
+2026-07-27T15:39:53.2441180Z go: downloading github.com/grafana/jsonparser v0.0.0-20241004153430-023329977675
+2026-07-27T15:39:53.2464292Z go: downloading go4.org/netipx v0.0.0-20230125063823-8449b0a6169f
+2026-07-27T15:39:53.2513796Z go: downloading github.com/edsrzf/mmap-go v1.2.0
+2026-07-27T15:39:53.2515432Z go: downloading github.com/facette/natsort v0.0.0-20181210072756-2cd4dd1e2dcb
+2026-07-27T15:39:53.2516046Z go: downloading github.com/grafana/gomemcache v0.0.0-20251127154401-74f93547077b
+2026-07-27T15:39:53.2580510Z go: downloading github.com/redis/go-redis/v9 v9.18.0
+2026-07-27T15:39:53.2603480Z go: downloading github.com/sony/gobreaker/v2 v2.4.0
+2026-07-27T15:39:53.2621850Z go: downloading github.com/alicebob/miniredis/v2 v2.37.0
+2026-07-27T15:39:53.2623819Z go: downloading github.com/peterh/liner v1.1.1-0.20190123174540-a2c9a5303de7
+2026-07-27T15:39:53.2714354Z go: downloading github.com/ferranbt/fastssz v0.1.4
+2026-07-27T15:39:53.2719936Z go: downloading github.com/influxdata/influxdb-client-go/v2 v2.4.0
+2026-07-27T15:39:53.2754456Z go: downloading github.com/influxdata/influxdb1-client v0.0.0-20220302092344-a9ab5670611c
+2026-07-27T15:39:53.2754825Z go: downloading github.com/kr/text v0.2.0
+2026-07-27T15:39:53.2805761Z go: downloading github.com/rogpeppe/go-internal v1.14.1
+2026-07-27T15:39:53.2900111Z go: downloading google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa
+2026-07-27T15:39:53.2908038Z go: downloading github.com/bits-and-blooms/bitset v1.24.4
+2026-07-27T15:39:53.2910612Z go: downloading github.com/supranational/blst v0.3.16
+2026-07-27T15:39:53.2919843Z go: downloading github.com/moby/spdystream v0.5.1
+2026-07-27T15:39:53.2931610Z go: downloading github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
+2026-07-27T15:39:53.3004259Z go: downloading github.com/cucumber/gherkin/go/v26 v26.2.0
+2026-07-27T15:39:53.3014537Z go: downloading github.com/hashicorp/go-memdb v1.3.5
+2026-07-27T15:39:53.3120087Z go: downloading github.com/gofrs/uuid v4.4.0+incompatible
+2026-07-27T15:39:53.3167462Z go: downloading github.com/tidwall/sjson v1.2.5
+2026-07-27T15:39:53.3262920Z go: downloading github.com/go-openapi/swag v0.26.0
+2026-07-27T15:39:53.3300140Z go: downloading github.com/jmespath/go-jmespath v0.4.0
+2026-07-27T15:39:53.3441157Z go: downloading github.com/creachadair/mds v0.13.4
+2026-07-27T15:39:53.3441567Z go: downloading github.com/fortytw2/leaktest v1.3.0
+2026-07-27T15:39:53.3477262Z go: downloading github.com/manucorporat/sse v0.0.0-20160126180136-ee05b128a739
+2026-07-27T15:39:53.3568700Z go: downloading github.com/pressly/goose/v3 v3.27.0
+2026-07-27T15:39:53.3578259Z go: downloading github.com/graph-gophers/dataloader v5.0.0+incompatible
+2026-07-27T15:39:53.3671913Z go: downloading github.com/kelseyhightower/envconfig v1.4.0
+2026-07-27T15:39:53.3764175Z go: downloading github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.34.2
+2026-07-27T15:39:53.3810990Z go: downloading github.com/joho/godotenv v1.5.1
+2026-07-27T15:39:53.3909460Z go: downloading github.com/cdk8s-team/cdk8s-core-go/cdk8s/v2 v2.70.2
+2026-07-27T15:39:53.3932153Z go: downloading github.com/go-chi/chi v4.1.2+incompatible
+2026-07-27T15:39:53.3932842Z go: downloading github.com/otiai10/mint v1.6.3
+2026-07-27T15:39:53.3937060Z go: downloading github.com/mattn/go-runewidth v0.0.24
+2026-07-27T15:39:53.3972586Z go: downloading github.com/olekukonko/errors v1.1.0
+2026-07-27T15:39:53.4012757Z go: downloading github.com/olekukonko/ll v0.0.9
+2026-07-27T15:39:53.4097593Z go: downloading github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c
+2026-07-27T15:39:53.4117891Z go: downloading github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722
+2026-07-27T15:39:53.4125842Z go: downloading github.com/lufia/plan9stats v0.0.0-20260216142805-b3301c5f2a88
+2026-07-27T15:39:53.4261145Z go: downloading github.com/ebitengine/purego v0.10.0
+2026-07-27T15:39:53.4311216Z go: downloading github.com/cometbft/cometbft v0.38.21
+2026-07-27T15:39:53.4313890Z go: downloading cosmossdk.io/api v0.7.6
+2026-07-27T15:39:53.4422712Z go: downloading cosmossdk.io/errors v1.0.2
+2026-07-27T15:39:53.4520027Z go: downloading github.com/99designs/keyring v1.2.1
+2026-07-27T15:39:53.4520861Z go: downloading github.com/cockroachdb/errors v1.12.0
+2026-07-27T15:39:53.4564251Z go: downloading cosmossdk.io/math v1.4.0
+2026-07-27T15:39:53.4588905Z go: downloading github.com/go-webauthn/x v0.1.5
+2026-07-27T15:39:53.4631055Z go: downloading github.com/tklauser/numcpus v0.12.0
+2026-07-27T15:39:53.4673351Z go: downloading github.com/jackc/pgconn v1.14.3
+2026-07-27T15:39:53.4677409Z go: downloading github.com/jackc/pgproto3/v2 v2.3.4-0.20250125160525-bc041643406d
+2026-07-27T15:39:53.4730592Z go: downloading github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260716214810-db5ecc877490
+2026-07-27T15:39:53.4833800Z go: downloading github.com/peterldowns/pgtestdb v0.1.1
+2026-07-27T15:39:53.4919351Z go: downloading github.com/hashicorp/go-retryablehttp v0.7.8
+2026-07-27T15:39:53.4924744Z go: downloading github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20260626090144-2343efd61516
+2026-07-27T15:39:53.4955250Z go: downloading github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
+2026-07-27T15:39:53.4957538Z go: downloading github.com/alexbrainman/sspi v0.0.0-20210105120005-909beea2cc74
+2026-07-27T15:39:53.5041836Z go: downloading github.com/jackc/pgproto3 v1.1.0
+2026-07-27T15:39:53.5261337Z go: downloading github.com/jackc/puddle/v2 v2.2.2
+2026-07-27T15:39:53.5261827Z go: downloading github.com/andreyvit/diff v0.0.0-20170406064948-c7f18ee00883
+2026-07-27T15:39:53.5264056Z go: downloading github.com/beevik/ntp v1.5.0
+2026-07-27T15:39:53.5279592Z go: downloading github.com/smartcontractkit/chainlink-protos/chainlink-ccv/heartbeat v0.0.0-20260115142640-f6b99095c12e
+2026-07-27T15:39:53.5280508Z go: downloading github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-rules v0.0.0-20260505131349-78e491b80735
+2026-07-27T15:39:53.5281311Z go: downloading github.com/failsafe-go/failsafe-go v0.9.0
+2026-07-27T15:39:53.5660249Z go: downloading github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d
+2026-07-27T15:39:53.5661355Z go: downloading github.com/smartcontractkit/chainlink-protos/chainlink-ccv/message-discovery v0.0.0-20251211142334-5c3421fe2c8d
+2026-07-27T15:39:53.5662026Z go: downloading github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d
+2026-07-27T15:39:53.5671512Z go: downloading github.com/cockroachdb/fifo v0.0.0-20240816210425-c5d0cb0b6fc0
+2026-07-27T15:39:53.5808932Z go: downloading github.com/cockroachdb/redact v1.1.6
+2026-07-27T15:39:53.5855943Z go: downloading github.com/cockroachdb/tokenbucket v0.0.0-20250429170803-42689b6311bb
+2026-07-27T15:39:53.5856490Z go: downloading github.com/cockroachdb/datadriven v1.0.3-0.20230413201302-be42291fc80f
+2026-07-27T15:39:53.5857668Z go: downloading github.com/philhofer/fwd v1.2.0
+2026-07-27T15:39:53.5858032Z go: downloading github.com/allegro/bigcache v1.2.1
+2026-07-27T15:39:53.5860076Z go: downloading github.com/mitchellh/pointerstructure v1.2.0
+2026-07-27T15:39:53.5910659Z go: downloading github.com/go-ole/go-ole v1.3.0
+2026-07-27T15:39:53.5918166Z go: downloading github.com/pion/dtls/v3 v3.1.2
+2026-07-27T15:39:53.5925875Z go: downloading github.com/pion/transport/v4 v4.0.1
+2026-07-27T15:39:53.6176381Z go: downloading github.com/hashicorp/go-multierror v1.1.1
+2026-07-27T15:39:53.6181760Z go: downloading github.com/inhies/go-bytesize v0.0.0-20220417184213-4913239db9cf
+2026-07-27T15:39:53.6230401Z go: downloading github.com/fvbommel/sortorder v1.1.0
+2026-07-27T15:39:53.6232624Z go: downloading github.com/moby/sys/capability v0.4.0
+2026-07-27T15:39:53.6419097Z go: downloading github.com/moby/sys/signal v0.7.1
+2026-07-27T15:39:53.6422587Z go: downloading github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d
+2026-07-27T15:39:53.6423212Z go: downloading github.com/buger/goterm v1.0.4
+2026-07-27T15:39:53.6423872Z go: downloading github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
+2026-07-27T15:39:53.6429409Z go: downloading github.com/containerd/containerd/v2 v2.2.5
+2026-07-27T15:39:53.6497989Z go: downloading github.com/fsnotify/fsevents v0.2.0
+2026-07-27T15:39:53.6663364Z go: downloading github.com/tilt-dev/fsnotify v1.4.8-0.20220602155310-fff9c274a375
+2026-07-27T15:39:53.6665731Z go: downloading github.com/containerd/containerd/api v1.10.0
+2026-07-27T15:39:53.6789872Z go: downloading github.com/tonistiigi/fsutil v0.0.0-20251211185533-a2aa163d723f
+2026-07-27T15:39:53.8845529Z go: downloading github.com/containerd/continuity v0.4.5
+2026-07-27T15:39:53.8846187Z go: downloading github.com/containerd/nydus-snapshotter v0.15.13
+2026-07-27T15:39:53.8847871Z go: downloading github.com/in-toto/in-toto-golang v0.11.0
+2026-07-27T15:39:53.8852864Z go: downloading github.com/package-url/packageurl-go v0.1.1
+2026-07-27T15:39:53.8853602Z go: downloading github.com/moby/policy-helpers v0.0.0-20260324161837-b7c0b994300b
+2026-07-27T15:39:53.8854023Z go: downloading github.com/spdx/tools-golang v0.5.7
+2026-07-27T15:39:53.8854544Z go: downloading github.com/tonistiigi/go-csvvalue v0.0.0-20240814133006-030d3b2625d0
+2026-07-27T15:39:53.8855013Z go: downloading github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea
+2026-07-27T15:39:53.8855480Z go: downloading github.com/tonistiigi/vt100 v0.0.0-20240514184818-90bafcd6abab
+2026-07-27T15:39:53.8855917Z go: downloading github.com/docker/docker-credential-helpers v0.9.5
+2026-07-27T15:39:53.8861799Z go: downloading github.com/inconshreveable/mousetrap v1.1.0
+2026-07-27T15:39:53.9098831Z go: downloading github.com/gagliardetto/metaplex-go v0.2.1
+2026-07-27T15:39:53.9108025Z go: downloading github.com/spf13/viper v1.21.0
+2026-07-27T15:39:53.9110749Z go: downloading github.com/hashicorp/go-metrics v0.5.4
+2026-07-27T15:39:53.9151054Z go: downloading github.com/hashicorp/go-sockaddr v1.0.7
+2026-07-27T15:39:53.9151541Z go: downloading github.com/grafana/memberlist v0.3.1-0.20260410131411-8c2f3bdae9db
+2026-07-27T15:39:53.9214723Z go: downloading github.com/hashicorp/consul/api v1.33.4
+2026-07-27T15:39:53.9351042Z go: downloading github.com/hashicorp/go-cleanhttp v0.5.2
+2026-07-27T15:39:53.9429409Z go: downloading github.com/julienschmidt/httprouter v1.3.0
+2026-07-27T15:39:53.9467302Z go: downloading github.com/prometheus/otlptranslator v1.0.0
+2026-07-27T15:39:53.9467905Z go: downloading github.com/prometheus/sigv4 v0.4.1
+2026-07-27T15:39:53.9584128Z go: downloading go.opentelemetry.io/contrib/instrumentation/net/http/httptrace/otelhttptrace v0.67.0
+2026-07-27T15:39:53.9646959Z go: downloading github.com/open-telemetry/opentelemetry-collector-contrib/processor/deltatocumulativeprocessor v0.148.0
+2026-07-27T15:39:53.9666627Z go: downloading github.com/bboreham/go-loser v0.0.0-20230920113527-fcc2c21820a3
+2026-07-27T15:39:53.9692028Z go: downloading go.opentelemetry.io/collector/component v1.54.0
+2026-07-27T15:39:53.9693075Z go: downloading go.opentelemetry.io/collector/consumer v1.54.0
+2026-07-27T15:39:53.9743613Z go: downloading go.opentelemetry.io/collector/pdata v1.54.0
+2026-07-27T15:39:53.9786337Z go: downloading go.opentelemetry.io/collector/processor v1.54.0
+2026-07-27T15:39:53.9876477Z go: downloading github.com/pb33f/libopenapi-validator v0.13.3
+2026-07-27T15:39:53.9926282Z go: downloading github.com/sercand/kuberesolver/v6 v6.0.1
+2026-07-27T15:39:53.9931612Z go: downloading github.com/opentracing-contrib/go-stdlib v1.1.1
+2026-07-27T15:39:53.9955957Z go: downloading github.com/coreos/go-systemd/v22 v22.7.0
+2026-07-27T15:39:53.9956355Z go: downloading github.com/mdlayher/vsock v1.2.1
+2026-07-27T15:39:54.0015579Z go: downloading gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
+2026-07-27T15:39:54.0131413Z go: downloading go.opentelemetry.io/otel/exporters/prometheus v0.61.0
+2026-07-27T15:39:54.0181279Z go: downloading github.com/Workiva/go-datastructures v1.1.7
+2026-07-27T15:39:54.0181969Z go: downloading github.com/pierrec/lz4/v4 v4.1.26
+2026-07-27T15:39:54.0182512Z go: downloading github.com/jaegertracing/jaeger-idl v0.6.0
+2026-07-27T15:39:54.0219835Z go: downloading github.com/Masterminds/goutils v1.1.1
+2026-07-27T15:39:54.0259971Z go: downloading github.com/huandu/xstrings v1.5.0
+2026-07-27T15:39:54.0293555Z go: downloading github.com/mitchellh/copystructure v1.2.0
+2026-07-27T15:39:54.0308878Z go: downloading github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f
+2026-07-27T15:39:54.0399455Z go: downloading github.com/go-openapi/jsonreference v0.21.6
+2026-07-27T15:39:54.0425877Z go: downloading gopkg.in/evanphx/json-patch.v4 v4.13.0
+2026-07-27T15:39:54.0426755Z go: downloading github.com/emicklei/go-restful/v3 v3.13.0
+2026-07-27T15:39:54.0439523Z go: downloading github.com/hashicorp/go-immutable-radix v1.3.1
+2026-07-27T15:39:54.0441445Z go: downloading github.com/go-openapi/swag/cmdutils v0.26.0
+2026-07-27T15:39:54.0441887Z go: downloading github.com/go-openapi/swag/conv v0.26.0
+2026-07-27T15:39:54.0446879Z go: downloading github.com/go-openapi/swag/fileutils v0.26.0
+2026-07-27T15:39:54.0536599Z go: downloading github.com/go-openapi/swag/jsonname v0.26.0
+2026-07-27T15:39:54.0581738Z go: downloading github.com/go-openapi/swag/jsonutils v0.26.0
+2026-07-27T15:39:54.0582422Z go: downloading github.com/go-openapi/swag/loading v0.26.0
+2026-07-27T15:39:54.0583001Z go: downloading github.com/go-openapi/swag/mangling v0.26.0
+2026-07-27T15:39:54.0676430Z go: downloading github.com/go-openapi/swag/netutils v0.26.0
+2026-07-27T15:39:54.0720826Z go: downloading github.com/go-openapi/swag/stringutils v0.26.0
+2026-07-27T15:39:54.0728159Z go: downloading github.com/go-openapi/swag/typeutils v0.26.0
+2026-07-27T15:39:54.0732379Z go: downloading github.com/go-openapi/swag/yamlutils v0.26.0
+2026-07-27T15:39:54.0738178Z go: downloading github.com/go-openapi/testify/v2 v2.5.1
+2026-07-27T15:39:54.0803709Z go: downloading github.com/yuin/gopher-lua v1.1.1
+2026-07-27T15:39:54.0858645Z go: downloading github.com/aws/constructs-go/constructs/v10 v10.4.2
+2026-07-27T15:39:54.0867446Z go: downloading github.com/aws/jsii-runtime-go v1.112.0
+2026-07-27T15:39:54.0877603Z go: downloading github.com/chaos-mesh/chaos-mesh/api v0.0.0-20240821051457-da69c6d9617a
+2026-07-27T15:39:54.0889478Z go: downloading k8s.io/cli-runtime v0.31.2
+2026-07-27T15:39:54.0915976Z go: downloading k8s.io/kubectl v0.31.2
+2026-07-27T15:39:54.0951540Z go: downloading github.com/rivo/uniseg v0.4.7
+2026-07-27T15:39:54.1102131Z go: downloading github.com/jmespath/go-jmespath/internal/testify v1.5.1
+2026-07-27T15:39:54.1295828Z go: downloading github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c
+2026-07-27T15:39:54.1375016Z go: downloading github.com/google/btree v1.1.3
+2026-07-27T15:39:54.1375556Z go: downloading github.com/clipperhouse/uax29/v2 v2.7.0
+2026-07-27T15:39:54.1565563Z go: downloading github.com/cosmos/btcutil v1.0.5
+2026-07-27T15:39:54.1585575Z go: downloading cosmossdk.io/collections v0.4.0
+2026-07-27T15:39:54.1702353Z go: downloading cosmossdk.io/core v0.11.0
+2026-07-27T15:39:54.1759371Z go: downloading cosmossdk.io/log v1.4.1
+2026-07-27T15:39:54.1760048Z go: downloading cosmossdk.io/store v1.1.1
+2026-07-27T15:39:54.1845079Z go: downloading github.com/cosmos/cosmos-proto v1.0.0-beta.5
+2026-07-27T15:39:54.2161476Z go: downloading github.com/golang/mock v1.7.0-rc.1
+2026-07-27T15:39:54.2645990Z go: downloading github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816
+2026-07-27T15:39:54.2758897Z go: downloading cosmossdk.io/x/tx v0.13.7
+2026-07-27T15:39:54.3068518Z go: downloading github.com/tendermint/go-amino v0.16.0
+2026-07-27T15:39:54.3084101Z go: downloading cosmossdk.io/depinject v1.1.0
+2026-07-27T15:39:54.3262298Z go: downloading github.com/cosmos/ledger-cosmos-go v0.14.0
+2026-07-27T15:39:54.6252849Z go: downloading github.com/bufbuild/protocompile v0.14.1
+2026-07-27T15:39:54.6293541Z go: downloading github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
+2026-07-27T15:39:54.6294207Z go: downloading github.com/danieljoos/wincred v1.2.3
+2026-07-27T15:39:54.6294698Z go: downloading github.com/dvsekhvalnov/jose2go v1.7.0
+2026-07-27T15:39:54.6295702Z go: downloading github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2
+2026-07-27T15:39:54.6296453Z go: downloading github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c
+2026-07-27T15:39:54.6296907Z go: downloading github.com/mtibben/percent v0.2.1
+2026-07-27T15:39:54.6297677Z go: downloading github.com/jackc/chunkreader/v2 v2.0.1
+2026-07-27T15:39:54.6299538Z go: downloading github.com/cockroachdb/logtags v0.0.0-20241215232642-bb51bb14a506
+2026-07-27T15:39:54.6300154Z go: downloading modernc.org/sqlite v1.49.1
+2026-07-27T15:39:54.6300796Z go: downloading github.com/valyala/bytebufferpool v1.0.0
+2026-07-27T15:39:54.6301217Z go: downloading github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
+2026-07-27T15:39:54.6515834Z go: downloading github.com/DataDog/zstd v1.5.7
+2026-07-27T15:39:54.6528850Z go: downloading gopkg.in/ini.v1 v1.67.1
+2026-07-27T15:39:54.6559467Z go: downloading github.com/moby/sys/symlink v0.3.0
+2026-07-27T15:39:54.6565190Z go: downloading github.com/jackc/chunkreader v1.0.0
+2026-07-27T15:39:54.6567609Z go: downloading github.com/wlynxg/anet v0.0.5
+2026-07-27T15:39:54.6568319Z go: downloading github.com/pion/logging v0.2.4
+2026-07-27T15:39:54.6647717Z go: downloading github.com/hashicorp/errwrap v1.1.0
+2026-07-27T15:39:54.6649817Z go: downloading github.com/moby/locker v1.0.1
+2026-07-27T15:39:54.6656186Z go: downloading github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
+2026-07-27T15:39:54.6777637Z go: downloading github.com/docker/docker v28.5.3-0.20260325154711-31a1689cb0a1+incompatible
+2026-07-27T15:39:54.6795045Z go: downloading github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10
+2026-07-27T15:39:54.6809479Z go: downloading github.com/containerd/typeurl/v2 v2.2.3
+2026-07-27T15:39:54.6819249Z go: downloading github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f
+2026-07-27T15:39:54.6854795Z go: downloading github.com/bsm/ginkgo/v2 v2.12.0
+2026-07-27T15:39:54.6862820Z go: downloading github.com/bsm/gomega v1.27.10
+2026-07-27T15:39:54.6865671Z go: downloading github.com/containerd/ttrpc v1.2.8
+2026-07-27T15:39:54.6870063Z go: downloading github.com/containerd/stargz-snapshotter/estargz v0.18.2
+2026-07-27T15:39:54.7045256Z go: downloading github.com/ProtonMail/go-crypto v1.3.0
+2026-07-27T15:39:54.7117775Z go: downloading github.com/containerd/stargz-snapshotter v0.18.2
+2026-07-27T15:39:54.7321167Z go: downloading github.com/containerd/fifo v1.1.0
+2026-07-27T15:39:54.7321577Z go: downloading github.com/containerd/plugin v1.0.0
+2026-07-27T15:39:54.7471831Z go: downloading github.com/opencontainers/runtime-spec v1.3.0
+2026-07-27T15:39:54.7691415Z go: downloading github.com/opencontainers/selinux v1.13.1
+2026-07-27T15:39:54.7711923Z go: downloading github.com/bytedance/sonic/loader v0.5.0
+2026-07-27T15:39:54.7739125Z go: downloading github.com/twitchyliquid64/golang-asm v0.15.1
+2026-07-27T15:39:54.7981495Z go: downloading go.etcd.io/etcd/api/v3 v3.6.7
+2026-07-27T15:39:54.7984491Z go: downloading go.etcd.io/etcd/client/pkg/v3 v3.6.7
+2026-07-27T15:39:54.7985154Z go: downloading go.etcd.io/etcd/client/v3 v3.6.7
+2026-07-27T15:39:54.7989045Z go: downloading github.com/pascaldekloe/goe v0.1.0
+2026-07-27T15:39:54.8006478Z go: downloading github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.0
+2026-07-27T15:39:54.8256374Z go: downloading github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
+2026-07-27T15:39:54.8371363Z go: downloading google.golang.org/api v0.272.0
+2026-07-27T15:39:54.8393780Z go: downloading github.com/sagikazarmark/locafero v0.11.0
+2026-07-27T15:39:54.8402340Z go: downloading github.com/spf13/afero v1.15.0
+2026-07-27T15:39:54.8465605Z go: downloading github.com/aws/aws-sdk-go-v2/service/ec2 v1.296.0
+2026-07-27T15:39:54.8499986Z go: downloading github.com/aws/aws-sdk-go-v2/service/ecs v1.74.0
+2026-07-27T15:39:54.8527199Z go: downloading github.com/aws/aws-sdk-go-v2/service/elasticache v1.51.12
+2026-07-27T15:39:54.8543491Z go: downloading github.com/aws/aws-sdk-go-v2/service/kafka v1.49.1
+2026-07-27T15:39:54.8779117Z go: downloading github.com/aws/aws-sdk-go-v2/service/lightsail v1.51.0
+2026-07-27T15:39:54.8786934Z go: downloading github.com/aws/aws-sdk-go-v2/service/rds v1.117.0
+2026-07-27T15:39:54.9134709Z go: downloading github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v5 v5.7.0
+2026-07-27T15:39:54.9210660Z go: downloading github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v4 v4.3.0
+2026-07-27T15:39:54.9211356Z go: downloading github.com/Code-Hex/go-generics-cache v1.5.1
+2026-07-27T15:39:54.9220247Z go: downloading github.com/digitalocean/godo v1.178.0
+2026-07-27T15:39:54.9543201Z go: downloading github.com/miekg/dns v1.1.72
+2026-07-27T15:39:54.9630243Z go: downloading github.com/hetznercloud/hcloud-go/v2 v2.36.0
+2026-07-27T15:39:54.9631113Z go: downloading github.com/ionos-cloud/sdk-go/v6 v6.3.6
+2026-07-27T15:39:54.9641760Z go: downloading github.com/linode/linodego v1.66.0
+2026-07-27T15:39:55.0256273Z go: downloading github.com/hashicorp/nomad/api v0.0.0-20260324203407-b27b0c2e019a
+2026-07-27T15:39:55.0630282Z go: downloading github.com/gophercloud/gophercloud/v2 v2.11.1
+2026-07-27T15:39:55.2735257Z go: downloading github.com/ovh/go-ovh v1.9.0
+2026-07-27T15:39:55.2736057Z go: downloading github.com/scaleway/scaleway-sdk-go v1.0.0-beta.36
+2026-07-27T15:39:55.3107429Z go: downloading github.com/stackitcloud/stackit-sdk-go/core v0.23.0
+2026-07-27T15:39:55.3108065Z go: downloading github.com/kolo/xmlrpc v0.0.0-20220921171641-a4b6fa1dd06b
+2026-07-27T15:39:55.3108743Z go: downloading github.com/vultr/govultr/v3 v3.28.1
+2026-07-27T15:39:55.3109309Z go: downloading github.com/envoyproxy/go-control-plane/envoy v1.37.0
+2026-07-27T15:39:55.3109799Z go: downloading github.com/envoyproxy/protoc-gen-validate v1.3.3
+2026-07-27T15:39:55.3110195Z go: downloading github.com/go-zookeeper/zk v1.0.4
+2026-07-27T15:39:55.3508157Z go: downloading github.com/go-openapi/strfmt v0.26.3
+2026-07-27T15:39:55.3712092Z go: downloading github.com/prometheus/alertmanager v0.31.1
+2026-07-27T15:39:55.3712924Z go: downloading github.com/hashicorp/go-msgpack/v2 v2.1.5
+2026-07-27T15:39:55.3714917Z go: downloading github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529
+2026-07-27T15:39:55.3752724Z go: downloading github.com/hashicorp/go-rootcerts v1.0.2
+2026-07-27T15:39:55.3806254Z go: downloading github.com/hashicorp/serf v0.10.2
+2026-07-27T15:39:55.3864840Z go: downloading github.com/hashicorp/go-uuid v1.0.3
+2026-07-27T15:39:55.3935864Z go: downloading github.com/in-toto/attestation v1.2.0
+2026-07-27T15:39:55.3957535Z go: downloading github.com/secure-systems-lab/go-securesystemslib v0.11.0
+2026-07-27T15:39:55.4240493Z go: downloading github.com/shibumi/go-pathspec v1.3.0
+2026-07-27T15:39:55.4310888Z go: downloading github.com/open-telemetry/opentelemetry-collector-contrib/internal/exp/metrics v0.148.0
+2026-07-27T15:39:55.4346877Z go: downloading github.com/puzpuzpuz/xsync/v4 v4.4.0
+2026-07-27T15:39:55.4349591Z go: downloading go.opentelemetry.io/collector/confmap/xconfmap v0.148.0
+2026-07-27T15:39:55.4350103Z go: downloading go.opentelemetry.io/collector/component/componenttest v0.148.0
+2026-07-27T15:39:55.4485142Z go: downloading go.opentelemetry.io/collector/confmap v1.54.0
+2026-07-27T15:39:55.4485727Z go: downloading go.opentelemetry.io/collector/consumer/consumertest v0.148.0
+2026-07-27T15:39:55.4486441Z go: downloading go.opentelemetry.io/collector/processor/processortest v0.148.0
+2026-07-27T15:39:55.4544225Z go: downloading go.opentelemetry.io/collector/internal/componentalias v0.148.0
+2026-07-27T15:39:55.4544722Z go: downloading go.opentelemetry.io/collector/pipeline v1.54.0
+2026-07-27T15:39:55.4658025Z go: downloading github.com/pb33f/jsonpath v0.8.1
+2026-07-27T15:39:55.4831446Z go: downloading github.com/mdlayher/socket v0.5.1
+2026-07-27T15:39:55.4857533Z go: downloading github.com/HdrHistogram/hdrhistogram-go v1.2.0
+2026-07-27T15:39:55.4858144Z go: downloading github.com/onsi/ginkgo/v2 v2.27.2
+2026-07-27T15:39:55.4901306Z go: downloading github.com/dlclark/regexp2 v1.11.5
+2026-07-27T15:39:55.5005209Z go: downloading github.com/mitchellh/reflectwalk v1.0.2
+2026-07-27T15:39:55.5053477Z go: downloading github.com/influxdata/line-protocol v0.0.0-20210311194329-9aa0e372d097
+2026-07-27T15:39:55.5067517Z go: downloading github.com/deepmap/oapi-codegen v1.8.2
+2026-07-27T15:39:55.5194627Z go: downloading github.com/segmentio/go-loggly v0.5.1-0.20171222203950-eb91657e62b2
+2026-07-27T15:39:55.5339583Z go: downloading github.com/go-openapi/jsonpointer v0.23.1
+2026-07-27T15:39:55.5394031Z go: downloading go.opentelemetry.io/collector/internal/testutil v0.148.0
+2026-07-27T15:39:55.5475018Z go: downloading go.opentelemetry.io/proto/slim/otlp v1.10.0
+2026-07-27T15:39:55.5563439Z go: downloading github.com/go-openapi/testify/enable/yaml/v2 v2.5.1
+2026-07-27T15:39:55.5714502Z go: downloading github.com/go-openapi/swag/jsonutils/fixtures_test v0.26.0
+2026-07-27T15:39:55.5825111Z go: downloading sigs.k8s.io/controller-runtime v0.19.0
+2026-07-27T15:39:55.6337820Z go: downloading github.com/bxcodec/faker v2.0.1+incompatible
+2026-07-27T15:39:55.6640010Z go: downloading github.com/sanity-io/litter v1.5.5
+2026-07-27T15:39:55.6774262Z go: downloading github.com/mfridman/interpolate v0.0.2
+2026-07-27T15:39:55.6892698Z go: downloading github.com/cosmos/cosmos-db v1.1.1
+2026-07-27T15:39:55.7049157Z go: downloading k8s.io/component-base v0.31.2
+2026-07-27T15:39:55.7132543Z go: downloading github.com/zondax/ledger-go v0.14.3
+2026-07-27T15:39:55.7133139Z go: downloading github.com/emicklei/dot v1.6.2
+2026-07-27T15:39:55.7133799Z go: downloading github.com/prysmaticlabs/gohashtree v0.0.4-beta
+2026-07-27T15:39:55.7134361Z go: downloading github.com/cosmos/ics23/go v0.11.0
+2026-07-27T15:39:55.7134904Z go: downloading github.com/minio/sha256-simd v1.0.1
+2026-07-27T15:39:55.7135602Z go: downloading github.com/oasisprotocol/curve25519-voi v0.0.0-20230904125328-1f23a7beb09a
+2026-07-27T15:39:55.7258628Z go: downloading github.com/oapi-codegen/runtime v1.4.1
+2026-07-27T15:39:55.7317063Z go: downloading github.com/docker/distribution v2.8.3+incompatible
+2026-07-27T15:39:55.8081266Z go: downloading github.com/mitchellh/hashstructure/v2 v2.0.2
+2026-07-27T15:39:55.8081861Z go: downloading github.com/tonistiigi/dchapes-mode v0.0.0-20250318174251-73d941a28323
+2026-07-27T15:39:55.8082506Z go: downloading github.com/sigstore/sigstore-go v1.2.0
+2026-07-27T15:39:55.8082965Z go: downloading github.com/zeebo/xxh3 v1.1.0
+2026-07-27T15:39:55.8083488Z go: downloading github.com/Microsoft/hcsshim v0.14.1
+2026-07-27T15:39:55.8083973Z go: downloading github.com/moby/sys/mountinfo v0.7.2
+2026-07-27T15:39:55.8087666Z go: downloading cloud.google.com/go/compute/metadata v0.9.0
+2026-07-27T15:39:55.8088245Z go: downloading github.com/coreos/go-semver v0.3.1
+2026-07-27T15:39:55.8348700Z go: downloading github.com/vbatts/tar-split v0.12.2
+2026-07-27T15:39:55.8349371Z go: downloading github.com/subosito/gotenv v1.6.0
+2026-07-27T15:39:55.8359262Z go: downloading github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.2
+2026-07-27T15:39:55.8565271Z go: downloading github.com/envoyproxy/go-control-plane v0.14.0
+2026-07-27T15:39:55.8567850Z go: downloading github.com/AzureAD/microsoft-authentication-library-for-go v1.6.0
+2026-07-27T15:39:55.8727258Z go: downloading github.com/Azure/azure-sdk-for-go/sdk/azidentity/cache v0.3.2
+2026-07-27T15:39:55.8841063Z go: downloading github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8
+2026-07-27T15:39:55.8879392Z go: downloading github.com/hashicorp/cronexpr v1.1.3
+2026-07-27T15:39:55.8881195Z go: downloading github.com/armon/go-metrics v0.4.1
+2026-07-27T15:39:55.8881678Z go: downloading github.com/go-openapi/errors v0.22.7
+2026-07-27T15:39:55.8882377Z go: downloading github.com/codahale/rfc6979 v0.0.0-20141003034818-6a90f24967eb
+2026-07-27T15:39:55.8884266Z go: downloading github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil v0.148.0
+2026-07-27T15:39:55.8958788Z go: downloading github.com/anchore/go-struct-converter v0.1.0
+2026-07-27T15:39:55.8959593Z go: downloading github.com/basgys/goxml2json v1.1.1-0.20231018121955-e66ee54ceaad
+2026-07-27T15:39:55.8981151Z go: downloading go.opentelemetry.io/collector/component/componentstatus v0.148.0
+2026-07-27T15:39:55.9069187Z go: downloading go.opentelemetry.io/collector/consumer/xconsumer v0.148.0
+2026-07-27T15:39:55.9076808Z go: downloading go.opentelemetry.io/collector/pdata/testdata v0.148.0
+2026-07-27T15:39:55.9122059Z go: downloading go.opentelemetry.io/collector/processor/xprocessor v0.148.0
+2026-07-27T15:39:55.9137734Z go: downloading go.opentelemetry.io/collector/pdata/pprofile v0.148.0
+2026-07-27T15:39:55.9160626Z go: downloading github.com/gorilla/schema v1.4.1
+2026-07-27T15:39:55.9212779Z go: downloading go.opentelemetry.io/collector/featuregate v1.54.0
+2026-07-27T15:39:55.9243399Z go: downloading go.opentelemetry.io/proto/slim/otlp/collector/profiles/v1development v0.3.0
+2026-07-27T15:39:55.9391379Z go: downloading go.opentelemetry.io/proto/slim/otlp/profiles/v1development v0.3.0
+2026-07-27T15:39:55.9397102Z go: downloading github.com/go-openapi/validate v0.25.3
+2026-07-27T15:39:55.9436262Z go: downloading github.com/mitchellh/go-wordwrap v1.0.1
+2026-07-27T15:39:55.9458568Z go: downloading github.com/linxGnu/grocksdb v1.9.3
+2026-07-27T15:39:55.9461366Z go: downloading github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
+2026-07-27T15:39:55.9564978Z go: downloading sigs.k8s.io/kustomize/api v0.17.2
+2026-07-27T15:39:55.9611584Z go: downloading sigs.k8s.io/kustomize/kyaml v0.17.1
+2026-07-27T15:39:55.9716011Z go: downloading github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79
+2026-07-27T15:39:55.9716830Z go: downloading github.com/peterbourgon/diskv v2.0.1+incompatible
+2026-07-27T15:39:55.9728383Z go: downloading github.com/chai2010/gettext-go v1.0.2
+2026-07-27T15:39:55.9865893Z go: downloading github.com/MakeNowJust/heredoc v1.0.0
+2026-07-27T15:39:55.9894888Z go: downloading github.com/evanphx/json-patch/v5 v5.9.11
+2026-07-27T15:39:55.9936471Z go: downloading github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f
+2026-07-27T15:39:55.9941280Z go: downloading github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
+2026-07-27T15:39:55.9944862Z go: downloading github.com/cosmos/gogogateway v1.2.0
+2026-07-27T15:39:56.0093750Z go: downloading github.com/gorilla/handlers v1.5.2
+2026-07-27T15:39:56.0195845Z go: downloading github.com/improbable-eng/grpc-web v0.15.0
+2026-07-27T15:39:56.0285820Z go: downloading gomodules.xyz/jsonpatch/v2 v2.4.0
+2026-07-27T15:39:56.0343062Z go: downloading k8s.io/apiextensions-apiserver v0.31.0
+2026-07-27T15:39:56.0397114Z go: downloading github.com/cosmos/iavl v1.2.2
+2026-07-27T15:39:56.0515738Z go: downloading github.com/go-kit/kit v0.13.0
+2026-07-27T15:39:56.0579431Z go: downloading github.com/go-logr/zapr v1.3.0
+2026-07-27T15:39:56.0744653Z go: downloading github.com/sasha-s/go-deadlock v0.3.5
+2026-07-27T15:39:56.0878702Z go: downloading github.com/zondax/hid v0.9.2
+2026-07-27T15:39:56.0899166Z go: downloading github.com/influxdata/tdigest v0.0.2-0.20210216194612-fc98d27c9e8b
+2026-07-27T15:39:56.0899774Z go: downloading github.com/apapsch/go-jsonmerge/v2 v2.0.0
+2026-07-27T15:39:56.0901489Z go: downloading github.com/oapi-codegen/nullable v1.1.0
+2026-07-27T15:39:56.0905671Z go: downloading github.com/cloudflare/circl v1.6.3
+2026-07-27T15:39:56.1009937Z go: downloading github.com/cyphar/filepath-securejoin v0.6.0
+2026-07-27T15:39:56.1087912Z go: downloading github.com/sigstore/sigstore v1.10.8
+2026-07-27T15:39:56.1200040Z go: downloading github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
+2026-07-27T15:39:56.1234746Z go: downloading github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2
+2026-07-27T15:39:56.1662126Z go: downloading github.com/gobwas/glob v0.2.3
+2026-07-27T15:39:56.1662811Z go: downloading github.com/knadh/koanf/maps v0.1.2
+2026-07-27T15:39:56.1674715Z go: downloading github.com/knadh/koanf/providers/confmap v1.0.0
+2026-07-27T15:39:56.1896609Z go: downloading github.com/knadh/koanf/v2 v2.3.3
+2026-07-27T15:39:56.1904633Z go: downloading github.com/AzureAD/microsoft-authentication-extensions-for-go/cache v0.1.1
+2026-07-27T15:39:56.1913660Z go: downloading github.com/bitly/go-simplejson v0.5.1
+2026-07-27T15:39:56.1976324Z go: downloading github.com/huandu/skiplist v1.2.0
+2026-07-27T15:39:56.1980485Z go: downloading github.com/cometbft/cometbft-db v1.0.1
+2026-07-27T15:39:56.1987078Z go: downloading github.com/evanphx/json-patch v5.6.0+incompatible
+2026-07-27T15:39:56.1987622Z go: downloading github.com/go-openapi/analysis v0.25.2
+2026-07-27T15:39:56.2296837Z go: downloading github.com/go-openapi/loads v0.23.3
+2026-07-27T15:39:56.2311491Z go: downloading github.com/go-openapi/spec v0.22.5
+2026-07-27T15:39:56.2740681Z go: downloading github.com/petermattis/goid v0.0.0-20240813172612-4fcff4a6cae7
+2026-07-27T15:39:56.2746985Z go: downloading github.com/desertbit/timer v0.0.0-20180107155436-c41aec40b27f
+2026-07-27T15:39:56.2747607Z go: downloading nhooyr.io/websocket v1.8.10
+2026-07-27T15:39:56.2796710Z go: downloading cyphar.com/go-pathrs v0.2.1
+2026-07-27T15:39:56.2928087Z go: downloading github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78
+2026-07-27T15:39:56.2994741Z go: downloading github.com/go-task/slim-sprig/v3 v3.0.0
+2026-07-27T15:39:56.3064192Z go: downloading github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9
+2026-07-27T15:39:56.3195057Z go: downloading github.com/fatih/camelcase v1.0.0
+2026-07-27T15:39:56.3271169Z go: downloading github.com/lithammer/dedent v1.1.0
+2026-07-27T15:39:56.3335124Z go: downloading go.opencensus.io v0.24.0
+2026-07-27T15:39:56.3378286Z go: downloading github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572
+2026-07-27T15:39:56.3405553Z go: downloading github.com/DataDog/datadog-go v3.2.0+incompatible
+2026-07-27T15:39:56.3427614Z go: downloading github.com/google/orderedcode v0.0.1
+2026-07-27T15:39:56.3428256Z go: downloading github.com/minio/highwayhash v1.0.3
+2026-07-27T15:39:56.3436890Z go: downloading github.com/tidwall/btree v1.7.0
+2026-07-27T15:39:56.3593052Z go: downloading github.com/blang/semver/v4 v4.0.0
+2026-07-27T15:39:56.3656989Z go: downloading github.com/dgraph-io/badger/v4 v4.7.0
+2026-07-27T15:39:56.3693046Z go: downloading github.com/jmhodges/levigo v1.0.0
+2026-07-27T15:39:56.3791649Z go: downloading go.etcd.io/bbolt v1.4.3
+2026-07-27T15:39:56.3834208Z go: downloading github.com/keybase/go-keychain v0.0.1
+2026-07-27T15:39:56.3851739Z go: downloading github.com/docker/go-metrics v0.0.1
+2026-07-27T15:39:56.3882859Z go: downloading github.com/VividCortex/gohistogram v1.0.0
+2026-07-27T15:39:56.3885154Z go: downloading github.com/sigstore/protobuf-specs v0.5.1
+2026-07-27T15:39:56.4164625Z go: downloading github.com/sigstore/timestamp-authority/v2 v2.1.2
+2026-07-27T15:39:56.4179513Z go: downloading github.com/containerd/cgroups/v3 v3.1.3
+2026-07-27T15:39:56.4194674Z go: downloading github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00
+2026-07-27T15:39:56.4401504Z go: downloading github.com/xlab/treeprint v1.2.0
+2026-07-27T15:39:56.4432916Z go: downloading github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8
+2026-07-27T15:39:56.4433685Z go: downloading github.com/go-openapi/runtime v0.32.3
+2026-07-27T15:39:56.4434372Z go: downloading github.com/sigstore/rekor-tiles/v2 v2.2.2-0.20260601073857-5d098a2b6443
+2026-07-27T15:39:56.4435159Z go: downloading github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467
+2026-07-27T15:39:56.4704754Z go: downloading github.com/sigstore/rekor v1.5.2
+2026-07-27T15:39:56.5025308Z go: downloading github.com/google/certificate-transparency-go v1.3.3
+2026-07-27T15:39:56.5677270Z go: downloading github.com/dgraph-io/ristretto/v2 v2.2.0
+2026-07-27T15:39:56.5678199Z go: downloading github.com/theupdateframework/go-tuf/v2 v2.4.2-0.20260407074541-7e8f69f906ef
+2026-07-27T15:39:56.5931614Z go: downloading github.com/theupdateframework/go-tuf v0.7.0
+2026-07-27T15:39:56.5933137Z go: downloading github.com/google/go-containerregistry v0.21.6
+2026-07-27T15:39:56.5938355Z go: downloading github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7
+2026-07-27T15:39:56.5938909Z go: downloading github.com/transparency-dev/formats v0.1.1
+2026-07-27T15:39:56.5939353Z go: downloading github.com/transparency-dev/merkle v0.0.2
+2026-07-27T15:39:56.5939939Z go: downloading github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352
+2026-07-27T15:39:56.6438665Z go: downloading github.com/blang/semver v3.5.1+incompatible
+2026-07-27T15:39:56.6442403Z go: downloading github.com/google/flatbuffers v25.12.19+incompatible
+2026-07-27T15:39:56.6505769Z go: downloading go.starlark.net v0.0.0-20230525235612-a134d8f9ddca
+2026-07-27T15:39:56.6679564Z go: downloading github.com/dgryski/go-farm v0.0.0-20240924180020-3414d57e47da
+2026-07-27T15:39:56.6703083Z go: downloading github.com/apache/arrow-go/v18 v18.6.0
+2026-07-27T15:39:56.6936326Z go: downloading github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
+2026-07-27T15:39:56.7113991Z go: downloading github.com/go-openapi/runtime/server-middleware v0.30.0
+2026-07-27T15:39:56.9123140Z go: downloading modernc.org/libc v1.72.0
+2026-07-27T15:39:56.9801740Z go: downloading github.com/apache/thrift v0.22.0
+2026-07-27T15:39:56.9802359Z go: downloading github.com/zeebo/assert v1.3.0
+2026-07-27T15:39:57.3828215Z go: downloading github.com/googleapis/enterprise-certificate-proxy v0.3.14
+2026-07-27T15:39:57.3829036Z go: downloading cloud.google.com/go/auth v0.18.2
+2026-07-27T15:39:57.3829682Z go: downloading cloud.google.com/go/auth/oauth2adapt v0.2.8
+2026-07-27T15:39:57.3830078Z go: downloading github.com/google/s2a-go v0.1.9
+2026-07-27T15:39:57.4228170Z go: downloading github.com/googleapis/gax-go/v2 v2.18.0
+2026-07-27T15:39:57.9187720Z go: downloading modernc.org/mathutil v1.7.1
+2026-07-27T15:39:57.9188258Z go: downloading modernc.org/memory v1.11.0
+2026-07-27T15:39:57.9188847Z go: downloading github.com/ncruces/go-strftime v1.0.0
+2026-07-27T15:39:57.9531090Z go: downloading github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec

@@ -1,0 +1,62 @@
+﻿2026-07-27T15:33:18.2937194Z ##[group]Run if [[ "${EVENT_NAME}" == "push" && "${REF_NAME}" == "develop" ]]; then
+2026-07-27T15:33:18.2937651Z [36;1mif [[ "${EVENT_NAME}" == "push" && "${REF_NAME}" == "develop" ]]; then[0m
+2026-07-27T15:33:18.2938058Z [36;1m  echo "We force build on pushes to develop to populate the docker layer cache."[0m
+2026-07-27T15:33:18.2938443Z [36;1m  echo "build-image=true" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:33:18.2938804Z [36;1melif [[ "${ANY_SHOULD_RUN}" == "true" && "${IMAGE_EXISTS}" != "true" ]]; then[0m
+2026-07-27T15:33:18.2939336Z [36;1m  echo "We will build the image because the matrix's any-should-run is true and the image does not already exist in ECR."[0m
+2026-07-27T15:33:18.2939793Z [36;1m  echo "any-should-run is true when:"[0m
+2026-07-27T15:33:18.2940136Z [36;1m  echo "  - For the non-plugins image: the CCIP v1.6 tests will be run."[0m
+2026-07-27T15:33:18.2940519Z [36;1m  echo "  - For the plugins image: the core cre e2e tests will be run."[0m
+2026-07-27T15:33:18.2940829Z [36;1m[0m
+2026-07-27T15:33:18.2941099Z [36;1m  echo "build-image=true" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:33:18.2941361Z [36;1melse[0m
+2026-07-27T15:33:18.2941956Z [36;1m  echo "We will not build the image because either the matrix's any-should-run is false or the image already exists in ECR."[0m
+2026-07-27T15:33:18.2942453Z [36;1m  echo "build-image=false" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:33:18.2942736Z [36;1mfi[0m
+2026-07-27T15:33:18.2966234Z shell: /usr/bin/bash -e {0}
+2026-07-27T15:33:18.2966480Z env:
+2026-07-27T15:33:18.2966981Z   ENV_JOB_IMAGE: ***.dkr.ecr.***.amazonaws.com/chainlink-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:33:18.2967510Z   CHAINLINK_IMAGE: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests
+2026-07-27T15:33:18.2967882Z   CHAINLINK_REF: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:33:18.2968157Z   TEST_SUITE: smoke
+2026-07-27T15:33:18.2968360Z   MOD_CACHE_VERSION: 2
+2026-07-27T15:33:18.2968576Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:33:18.2968830Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:33:18.2969048Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:33:18.2969276Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:33:18.2969513Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:33:18.2969725Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:33:18.2969948Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:33:18.2970181Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:33:18.2970402Z   RUNS_ON_AWS_AZ: us-east-2c
+2026-07-27T15:33:18.2970706Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:33:18.2970981Z   RUNS_ON_INSTANCE_ID: i-0d6efd34df3a5081a
+2026-07-27T15:33:18.2971229Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:33:18.2971458Z   RUNS_ON_INSTANCE_TYPE: m8i.4xlarge
+2026-07-27T15:33:18.2971833Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:33:18.2972136Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:33:18.2972474Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:33:18.2972770Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:33:18.2973047Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:33:18.2973307Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:33:18.2973554Z   GITHUB_HOST: github.com
+2026-07-27T15:33:18.2973817Z   RUNS_ON_RUNNER_NAME: runs-on--i-0d6efd34df3a5081a--mqievmwhv7
+2026-07-27T15:33:18.2974125Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:32:30Z
+2026-07-27T15:33:18.2974396Z   ACTIONS_CACHE_URL: http://10.1.43.120:6871/
+2026-07-27T15:33:18.2974655Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:33:18.2974894Z   ACTIONS_RESULTS_URL: http://10.1.43.120:6871/
+2026-07-27T15:33:18.2975172Z   AWS_DEFAULT_REGION: ***
+2026-07-27T15:33:18.2975382Z   AWS_REGION: ***
+2026-07-27T15:33:18.2975590Z   AWS_ACCESS_KEY_ID: ***
+2026-07-27T15:33:18.2975908Z   AWS_SECRET_ACCESS_KEY: ***
+2026-07-27T15:33:18.2979485Z   AWS_SESSION_TOKEN: ***
+2026-07-27T15:33:18.2979695Z   EVENT_NAME: pull_request
+2026-07-27T15:33:18.2979896Z   REF_NAME: 23164/merge
+2026-07-27T15:33:18.2980182Z   ANY_SHOULD_RUN: true
+2026-07-27T15:33:18.2980383Z   IMAGE_EXISTS: false
+2026-07-27T15:33:18.2980578Z ##[endgroup]
+2026-07-27T15:33:18.3017865Z We will build the image because the matrix's any-should-run is true and the image does not already exist in ECR.
+2026-07-27T15:33:18.3018331Z any-should-run is true when:
+2026-07-27T15:33:18.3018617Z   - For the non-plugins image: the CCIP v1.6 tests will be run.
+2026-07-27T15:33:18.3018949Z   - For the plugins image: the core cre e2e tests will be run.
+2026-07-27T15:33:18.3025907Z build-image=true

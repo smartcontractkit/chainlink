@@ -1,0 +1,3 @@
+﻿2026-07-27T15:43:08.8851572Z Post job cleanup.
+2026-07-27T15:43:08.9376633Z Logging out of registry ***.dkr.ecr.***.amazonaws.com
+2026-07-27T15:43:08.9525598Z Logging out of registry ***.dkr.ecr.***.amazonaws.com

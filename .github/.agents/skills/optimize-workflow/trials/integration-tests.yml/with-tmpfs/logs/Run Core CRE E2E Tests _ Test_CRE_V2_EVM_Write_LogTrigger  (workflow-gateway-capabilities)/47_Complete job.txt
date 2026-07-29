@@ -1,0 +1,2 @@
+﻿2026-07-27T15:43:17.7509613Z Cleaning up orphan processes
+2026-07-27T15:43:17.8975422Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: trunk-io/analytics-uploader@95a0fb8b29e45b6068304261fb518644b426a803. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

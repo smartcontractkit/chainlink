@@ -9,7 +9,6 @@ node_modules/
 vendor/
 tmp/
 
-
 contracts/node_modules
 examples/
 
@@ -58,3 +57,8 @@ gcr_creds.env
 
 go.work
 go.work.sum
+
+# buildkit-cache-dance host dirs (cache-dir / scratch-dir). These hold the injected
+# Go module + build caches and must never enter the build context.
+cache-mount/
+scratch/

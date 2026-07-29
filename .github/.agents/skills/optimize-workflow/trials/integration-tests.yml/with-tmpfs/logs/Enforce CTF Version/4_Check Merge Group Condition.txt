@@ -1,0 +1,24 @@
+﻿2026-07-27T15:32:26.2983662Z ##[group]Run echo "Checking event condition..."
+2026-07-27T15:32:26.2984158Z [36;1mecho "Checking event condition..."[0m
+2026-07-27T15:32:26.2984510Z [36;1mSHOULD_ENFORCE="false"[0m
+2026-07-27T15:32:26.2984876Z [36;1mif [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then[0m
+2026-07-27T15:32:26.2985397Z [36;1m    echo "We are in a merge_group event, now check if we are on the develop branch"[0m
+2026-07-27T15:32:26.2985980Z [36;1m    target_branch=$(cat "$GITHUB_EVENT_PATH" | jq -r .merge_group.base_ref)[0m
+2026-07-27T15:32:26.2986673Z [36;1m    if [[ "$target_branch" == "refs/heads/develop" ]]; then[0m
+2026-07-27T15:32:26.2987136Z [36;1m        echo "We are on the develop branch, we should enforce ctf version"[0m
+2026-07-27T15:32:26.2987539Z [36;1m        SHOULD_ENFORCE="true"[0m
+2026-07-27T15:32:26.2987826Z [36;1m    fi[0m
+2026-07-27T15:32:26.2988046Z [36;1mfi[0m
+2026-07-27T15:32:26.2988542Z [36;1mecho "should we enforce ctf version = $SHOULD_ENFORCE"[0m
+2026-07-27T15:32:26.2989017Z [36;1mecho "should-enforce=$SHOULD_ENFORCE" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:26.3039054Z shell: /usr/bin/bash -e {0}
+2026-07-27T15:32:26.3039358Z env:
+2026-07-27T15:32:26.3040167Z   ENV_JOB_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:26.3040850Z   CHAINLINK_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-integration-tests
+2026-07-27T15:32:26.3041311Z   CHAINLINK_REF: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:26.3041652Z   TEST_SUITE: smoke
+2026-07-27T15:32:26.3041911Z   MOD_CACHE_VERSION: 2
+2026-07-27T15:32:26.3042153Z ##[endgroup]
+2026-07-27T15:32:26.3115216Z Checking event condition...
+2026-07-27T15:32:26.3115731Z should we enforce ctf version = false
+2026-07-27T15:32:26.3128017Z should-enforce=false

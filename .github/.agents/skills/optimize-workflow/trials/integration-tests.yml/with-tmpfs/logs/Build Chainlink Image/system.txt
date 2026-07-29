@@ -1,0 +1,8 @@
+2026-07-27T15:32:30.1850000Z Evaluating build-chainlink.if
+2026-07-27T15:32:30.1850000Z Evaluating: (success() && ((github.actor != 'dependabot[bot]')))
+2026-07-27T15:32:30.1850000Z Expanded: (true && ('kalverra' != 'dependabot[bot]'))
+2026-07-27T15:32:30.1850000Z Result: true
+2026-07-27T15:32:30.5700000Z Requested labels: runs-on=30280453093-core/cpu=16/memory=64/family=m7i+m8i/spot=co/extras=s3-cache+tmpfs
+2026-07-27T15:32:30.5700000Z Job defined at: smartcontractkit/chainlink/.github/workflows/integration-tests.yml@refs/pull/23164/merge
+2026-07-27T15:32:30.5700000Z Waiting for a runner to pick up this job...
+2026-07-27T15:33:01.5320000Z Job is about to start running on the runner: runs-on--i-0d6efd34df3a5081a--mqievmwhv7

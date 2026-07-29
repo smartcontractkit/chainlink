@@ -1,0 +1,146 @@
+﻿2026-07-27T15:39:30.7902710Z ##[group]Run runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc
+2026-07-27T15:39:30.7903112Z with:
+2026-07-27T15:39:30.7903455Z   metrics: cpu,network,memory,disk,io
+2026-07-27T15:39:30.7903746Z   show_env: false
+2026-07-27T15:39:30.7903996Z   show_costs: inline
+2026-07-27T15:39:30.7904267Z   network_interface: enp39s0
+2026-07-27T15:39:30.7904544Z   disk_device: nvme0n1p1
+2026-07-27T15:39:30.7904792Z env:
+2026-07-27T15:39:30.7905037Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:39:30.7905774Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:39:30.7906491Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:39:30.7907117Z   CTF_CHIP_ROUTER_IMAGE: ***.dkr.ecr.***.amazonaws.com/local-cre-chip-router:v1.0.1
+2026-07-27T15:39:30.7907661Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.45.0
+2026-07-27T15:39:30.7908440Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:39:30.7908919Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:39:30.7909211Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:39:30.7909487Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:39:30.7909753Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:39:30.7910031Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:39:30.7910309Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:39:30.7910586Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:39:30.7910862Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:39:30.7911153Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:39:30.7911464Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:39:30.7912033Z   RUNS_ON_INSTANCE_ID: i-0c0819c7f4318c8c1
+2026-07-27T15:39:30.7912328Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:39:30.7912677Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:39:30.7913063Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:39:30.7913496Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:39:30.7913869Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:39:30.7914228Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:39:30.7914542Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:39:30.7914856Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:39:30.7915184Z   GITHUB_HOST: github.com
+2026-07-27T15:39:30.7915491Z   RUNS_ON_RUNNER_NAME: runs-on--i-0c0819c7f4318c8c1--4gx447qovd
+2026-07-27T15:39:30.7915861Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:48Z
+2026-07-27T15:39:30.7916199Z   ACTIONS_CACHE_URL: http://10.1.23.115:6871/
+2026-07-27T15:39:30.7916511Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:39:30.7916803Z   ACTIONS_RESULTS_URL: http://10.1.23.115:6871/
+2026-07-27T15:39:30.7917101Z ##[endgroup]
+2026-07-27T15:39:31.2323801Z Input 'show_env': false
+2026-07-27T15:39:31.2324442Z Input 'show_costs': inline
+2026-07-27T15:39:31.2324817Z Input 'metrics': [cpu network memory disk io]
+2026-07-27T15:39:31.2325729Z Input 'network_interface': enp39s0
+2026-07-27T15:39:31.2326136Z Input 'disk_device': nvme0n1p1
+2026-07-27T15:39:31.2326532Z Input 'sccache': 
+2026-07-27T15:39:31.2326938Z ZCTIONS_RESULTS_URL is set: https://results-receiver.actions.githubusercontent.com/
+2026-07-27T15:39:31.2327660Z ZCTIONS_CACHE_URL is set: https://acghubeus2.actions.githubusercontent.com/xq3ZZMJi430EYtg9xllMhfXALZB4H6uze3QiJ2jeQ5XLKwNUJd/
+2026-07-27T15:39:31.2328153Z ACTIONS_RUNTIME_TOKEN is set.
+2026-07-27T15:39:31.2328459Z Config update response status: 200 OK
+2026-07-27T15:39:31.2328845Z Using network interface: enp39s0
+2026-07-27T15:39:31.2329188Z Using disk device: nvme0n1p1
+2026-07-27T15:39:31.2329696Z Generated CloudWatch config with metrics: [cpu network memory disk io]
+2026-07-27T15:39:31.2330077Z Config file: /tmp/runs-on-metrics-4048734901.json
+2026-07-27T15:39:31.2330384Z Config content: {
+2026-07-27T15:39:31.2330655Z   "metrics": {
+2026-07-27T15:39:31.2331080Z     "namespace": "CWAgent",
+2026-07-27T15:39:31.2331348Z     "metrics_collected": {
+2026-07-27T15:39:31.2331606Z       "cpu": {
+2026-07-27T15:39:31.2332151Z         "drop_original_metrics": true,
+2026-07-27T15:39:31.2332511Z         "measurement": [
+2026-07-27T15:39:31.2332787Z           "usage_user",
+2026-07-27T15:39:31.2333027Z           "usage_system"
+2026-07-27T15:39:31.2333244Z         ],
+2026-07-27T15:39:31.2333522Z         "totalcpu": true
+2026-07-27T15:39:31.2333757Z       },
+2026-07-27T15:39:31.2333976Z       "disk": {
+2026-07-27T15:39:31.2334236Z         "drop_device": true,
+2026-07-27T15:39:31.2334493Z         "drop_original_metrics": true,
+2026-07-27T15:39:31.2334809Z         "ignore_file_system_types": [
+2026-07-27T15:39:31.2335078Z           "sysfs",
+2026-07-27T15:39:31.2335323Z           "devtmpfs"
+2026-07-27T15:39:31.2335549Z         ],
+2026-07-27T15:39:31.2335804Z         "measurement": [
+2026-07-27T15:39:31.2336067Z           "used_percent",
+2026-07-27T15:39:31.2336298Z           "inodes_used"
+2026-07-27T15:39:31.2336578Z         ],
+2026-07-27T15:39:31.2336797Z         "resources": [
+2026-07-27T15:39:31.2337046Z           "/",
+2026-07-27T15:39:31.2337289Z           "/tmp",
+2026-07-27T15:39:31.2337514Z           "/var/lib/docker",
+2026-07-27T15:39:31.2337764Z           "/home/runner"
+2026-07-27T15:39:31.2338004Z         ]
+2026-07-27T15:39:31.2338253Z       },
+2026-07-27T15:39:31.2338465Z       "diskio": {
+2026-07-27T15:39:31.2338740Z         "drop_original_metrics": true,
+2026-07-27T15:39:31.2339004Z         "measurement": [
+2026-07-27T15:39:31.2339225Z           "io_time",
+2026-07-27T15:39:31.2339514Z           "reads",
+2026-07-27T15:39:31.2339734Z           "writes"
+2026-07-27T15:39:31.2339955Z         ],
+2026-07-27T15:39:31.2340199Z         "resources": [
+2026-07-27T15:39:31.2340448Z           "nvme0n1p1"
+2026-07-27T15:39:31.2340682Z         ]
+2026-07-27T15:39:31.2340903Z       },
+2026-07-27T15:39:31.2341128Z       "mem": {
+2026-07-27T15:39:31.2341447Z         "drop_original_metrics": true,
+2026-07-27T15:39:31.2341936Z         "measurement": [
+2026-07-27T15:39:31.2342281Z           "used_percent"
+2026-07-27T15:39:31.2342496Z         ]
+2026-07-27T15:39:31.2342751Z       },
+2026-07-27T15:39:31.2342974Z       "net": {
+2026-07-27T15:39:31.2343251Z         "drop_original_metrics": true,
+2026-07-27T15:39:31.2343538Z         "measurement": [
+2026-07-27T15:39:31.2343782Z           "bytes_recv",
+2026-07-27T15:39:31.2344065Z           "bytes_sent"
+2026-07-27T15:39:31.2344293Z         ],
+2026-07-27T15:39:31.2344522Z         "resources": [
+2026-07-27T15:39:31.2344777Z           "enp39s0"
+2026-07-27T15:39:31.2345004Z         ]
+2026-07-27T15:39:31.2345208Z       }
+2026-07-27T15:39:31.2345449Z     },
+2026-07-27T15:39:31.2345671Z     "append_dimensions": {
+2026-07-27T15:39:31.2345926Z       "InstanceId": "${aws:InstanceId}"
+2026-07-27T15:39:31.2346218Z     },
+2026-07-27T15:39:31.2346454Z     "force_flush_interval": 5
+2026-07-27T15:39:31.2346700Z   },
+2026-07-27T15:39:31.2346919Z   "agent": {
+2026-07-27T15:39:31.2347166Z     "metrics_collection_interval": 10
+2026-07-27T15:39:31.2347438Z   }
+2026-07-27T15:39:31.2347656Z }
+2026-07-27T15:39:31.2850919Z CloudWatch agent is not running, starting it with configuration...
+2026-07-27T15:39:32.5493061Z Successfully configured CloudWatch agent
+2026-07-27T15:39:32.5493849Z CloudWatch agent output: ****** processing amazon-cloudwatch-agent ******
+2026-07-27T15:39:32.5494560Z Starting config-downloader, this will map back to a call to amazon-cloudwatch-agent
+2026-07-27T15:39:32.5496259Z Executing /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent with arguments: [config-downloader -download-source file:/tmp/runs-on-metrics-4048734901.json -output-dir /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.d -config /opt/aws/amazon-cloudwatch-agent/etc/common-config.toml -multi-config default -mode ec2]I! Trying to detect region from ec2
+2026-07-27T15:39:32.5497826Z D! [EC2] Found active network interface
+2026-07-27T15:39:32.5498307Z I! imds retry client will retry 1 times
+2026-07-27T15:39:32.5499021Z Start configuration validation...
+2026-07-27T15:39:32.5499707Z 2026/07/27 15:39:32 Reading json config file path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.d/file_runs-on-metrics-4048734901.json.tmp ...
+2026-07-27T15:39:32.5500525Z 2026/07/27 15:39:32 I! Valid Json input schema.
+2026-07-27T15:39:32.5500911Z 2026/07/27 15:39:32 D! ec2tagger processor required because append_dimensions is set
+2026-07-27T15:39:32.5501394Z 2026/07/27 15:39:32 D! delta processor required because metrics with diskio or net are set
+2026-07-27T15:39:32.5502017Z 2026/07/27 15:39:32 D! ec2tagger processor required because append_dimensions is set
+2026-07-27T15:39:32.5502456Z 2026/07/27 15:39:32 Configuration validation first phase succeeded
+2026-07-27T15:39:32.5502945Z Starting config-translator, this will map back to a call to amazon-cloudwatch-agent
+2026-07-27T15:39:32.5504423Z Executing /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent with arguments: [config-translator -input /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -input-dir /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.d -output /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.toml -mode ec2 -config /opt/aws/amazon-cloudwatch-agent/etc/common-config.toml -multi-config default]I! Trying to detect region from ec2
+2026-07-27T15:39:32.5505801Z D! [EC2] Found active network interface
+2026-07-27T15:39:32.5506080Z I! imds retry client will retry 1 times
+2026-07-27T15:39:32.5506620Z /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent -schematest -config /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.toml
+2026-07-27T15:39:32.5507210Z Configuration validation second phase succeeded
+2026-07-27T15:39:32.5507505Z Configuration validation succeeded
+2026-07-27T15:39:32.5507843Z amazon-cloudwatch-agent has already been stopped
+2026-07-27T15:39:32.5508501Z Created symlink /etc/systemd/system/multi-user.target.wants/amazon-cloudwatch-agent.service → /etc/systemd/system/amazon-cloudwatch-agent.service.
+2026-07-27T15:39:32.5509042Z 
+2026-07-27T15:39:32.5509149Z Action finished.

@@ -1,0 +1,29 @@
+﻿2026-07-27T15:38:16.1523817Z Post job cleanup.
+2026-07-27T15:38:16.1694536Z Post job cleanup.
+2026-07-27T15:38:16.1740008Z Post job cleanup.
+2026-07-27T15:38:16.3504868Z ##[group]Generating build summary
+2026-07-27T15:38:16.3982668Z exporting build record to /home/runner/_work/_temp/docker-actions-toolkit-osUrYB/export
+2026-07-27T15:38:16.4880661Z [command]/usr/bin/docker buildx history export --builder builder-f937fb0c-2d8d-400c-835f-111b5aa9f13d --output /home/runner/_work/_temp/docker-actions-toolkit-osUrYB/export/smartcontractkit~chainlink~LKKPLO.dockerbuild lkkplou9ehmh1tjh9vqcy4f4r --finalize
+2026-07-27T15:38:16.6456501Z Build record written to /home/runner/_work/_temp/docker-actions-toolkit-osUrYB/export/smartcontractkit~chainlink~LKKPLO.dockerbuild (98.18 KB)
+2026-07-27T15:38:16.6475978Z Writing summary
+2026-07-27T15:38:16.6483739Z ##[endgroup]
+2026-07-27T15:38:16.6484231Z ##[group]Removing temp folder /home/runner/_work/_temp/docker-actions-toolkit-SIs9pu
+2026-07-27T15:38:16.6485009Z ##[endgroup]
+2026-07-27T15:38:16.6485339Z ##[group]Post cache
+2026-07-27T15:38:16.6485615Z State not set
+2026-07-27T15:38:16.6485934Z ##[endgroup]
+2026-07-27T15:38:16.6595711Z Post job cleanup.
+2026-07-27T15:38:16.7962662Z ##[group]Removing builder
+2026-07-27T15:38:16.8671248Z [command]/usr/bin/docker buildx rm builder-f937fb0c-2d8d-400c-835f-111b5aa9f13d
+2026-07-27T15:38:19.4673918Z builder-f937fb0c-2d8d-400c-835f-111b5aa9f13d removed
+2026-07-27T15:38:19.4704765Z ##[endgroup]
+2026-07-27T15:38:19.4705142Z ##[group]Cleaning up certificates
+2026-07-27T15:38:19.4706679Z ##[endgroup]
+2026-07-27T15:38:19.4707011Z ##[group]Post cache
+2026-07-27T15:38:19.4707846Z State not set
+2026-07-27T15:38:19.4708168Z ##[endgroup]
+2026-07-27T15:38:19.4804562Z Post job cleanup.
+2026-07-27T15:38:19.5312818Z Logging out of registry ***.dkr.ecr.***.amazonaws.com
+2026-07-27T15:38:19.5541055Z Post job cleanup.
+2026-07-27T15:38:19.6144693Z Post job cleanup.
+2026-07-27T15:38:19.6189575Z Post job cleanup.

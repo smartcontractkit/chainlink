@@ -1,0 +1,28 @@
+﻿2026-07-27T15:32:36.9579337Z Current runner version: '2.335.1'
+2026-07-27T15:32:36.9604998Z ##[group]Runner Image Provisioner
+2026-07-27T15:32:36.9606010Z Hosted Compute Agent
+2026-07-27T15:32:36.9606591Z Version: 20260707.563
+2026-07-27T15:32:36.9607292Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+2026-07-27T15:32:36.9608036Z Build Date: 2026-07-07T19:33:50Z
+2026-07-27T15:32:36.9608718Z Worker ID: {c6f99923-cb12-4643-91ed-dbbbdda3d617}
+2026-07-27T15:32:36.9609511Z Azure Region: westus
+2026-07-27T15:32:36.9610088Z ##[endgroup]
+2026-07-27T15:32:36.9611913Z ##[group]Operating System
+2026-07-27T15:32:36.9612664Z Ubuntu
+2026-07-27T15:32:36.9613472Z 24.04.4
+2026-07-27T15:32:36.9614049Z LTS
+2026-07-27T15:32:36.9614567Z ##[endgroup]
+2026-07-27T15:32:36.9615136Z ##[group]Runner Image
+2026-07-27T15:32:36.9615780Z Image: ubuntu-24.04
+2026-07-27T15:32:36.9616330Z Version: 20260720.247.2
+2026-07-27T15:32:36.9617427Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260720.247/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-27T15:32:36.9619266Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260720.247
+2026-07-27T15:32:36.9620303Z ##[endgroup]
+2026-07-27T15:32:36.9621446Z ##[group]GITHUB_TOKEN Permissions
+2026-07-27T15:32:36.9623627Z Contents: read
+2026-07-27T15:32:36.9624264Z Metadata: read
+2026-07-27T15:32:36.9624813Z ##[endgroup]
+2026-07-27T15:32:36.9626947Z Secret source: Actions
+2026-07-27T15:32:36.9627784Z Prepare workflow directory
+2026-07-27T15:32:37.0197922Z Prepare all required actions
+2026-07-27T15:32:37.0251117Z Complete job name: Run CCIP v1.6 E2E Tests Setup

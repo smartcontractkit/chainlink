@@ -1,0 +1,209 @@
+﻿2026-07-27T15:38:36.7121959Z Current runner version: '2.335.1'
+2026-07-27T15:38:36.7148611Z ##[group]Runner Image Provisioner
+2026-07-27T15:38:36.7149636Z Hosted Compute Agent
+2026-07-27T15:38:36.7150301Z Version: 20260707.563
+2026-07-27T15:38:36.7151000Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+2026-07-27T15:38:36.7151735Z Build Date: 2026-07-07T19:33:50Z
+2026-07-27T15:38:36.7152409Z Worker ID: {bfa217b1-9d37-4a3e-a2eb-7e399776ad36}
+2026-07-27T15:38:36.7153207Z Azure Region: eastus2
+2026-07-27T15:38:36.7153831Z ##[endgroup]
+2026-07-27T15:38:36.7155822Z ##[group]Operating System
+2026-07-27T15:38:36.7156503Z Ubuntu
+2026-07-27T15:38:36.7157035Z 24.04.4
+2026-07-27T15:38:36.7157619Z LTS
+2026-07-27T15:38:36.7158196Z ##[endgroup]
+2026-07-27T15:38:36.7159236Z ##[group]Runner Image
+2026-07-27T15:38:36.7159927Z Image: ubuntu-24.04
+2026-07-27T15:38:36.7160510Z Version: 20260720.247.2
+2026-07-27T15:38:36.7161895Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260720.247/images/ubuntu/Ubuntu2404-Readme.md
+2026-07-27T15:38:36.7163430Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260720.247
+2026-07-27T15:38:36.7164477Z ##[endgroup]
+2026-07-27T15:38:36.7165746Z ##[group]GITHUB_TOKEN Permissions
+2026-07-27T15:38:36.7168026Z Contents: read
+2026-07-27T15:38:36.7168684Z Metadata: read
+2026-07-27T15:38:36.7169321Z ##[endgroup]
+2026-07-27T15:38:36.7171514Z Secret source: Actions
+2026-07-27T15:38:36.7172557Z Prepare workflow directory
+2026-07-27T15:38:36.7507698Z Prepare all required actions
+2026-07-27T15:38:36.7545336Z Getting action download info
+2026-07-27T15:38:37.0022606Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-07-27T15:38:37.3441151Z Uses: smartcontractkit/chainlink/.github/workflows/cre-regression-system-tests.yaml@refs/pull/23164/merge (3c9debe77afe9c8af6615c7e425764b56cd4331b)
+2026-07-27T15:38:37.3446304Z ##[group] Inputs
+2026-07-27T15:38:37.3447011Z   chainlink_image_repository_path: chainlink-integration-tests
+2026-07-27T15:38:37.3447849Z   chainlink_image_tag: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:38:37.3448503Z   ecr: sdlc
+2026-07-27T15:38:37.3449024Z   chainlink_version: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:38:37.3449672Z ##[endgroup]
+2026-07-27T15:38:37.3450264Z Complete job name: Run Core CRE E2E Regression Tests / define-test-matrix
+2026-07-27T15:38:37.4185006Z ##[group]Run actions/checkout@v7
+2026-07-27T15:38:37.4185872Z with:
+2026-07-27T15:38:37.4186354Z   ref: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:38:37.4186969Z   persist-credentials: false
+2026-07-27T15:38:37.4187505Z   repository: smartcontractkit/chainlink
+2026-07-27T15:38:37.4191396Z   token: ***
+2026-07-27T15:38:37.4191837Z   ssh-strict: true
+2026-07-27T15:38:37.4192301Z   ssh-user: git
+2026-07-27T15:38:37.4192725Z   clean: true
+2026-07-27T15:38:37.4193238Z   sparse-checkout-cone-mode: true
+2026-07-27T15:38:37.4193775Z   fetch-depth: 1
+2026-07-27T15:38:37.4194208Z   fetch-tags: false
+2026-07-27T15:38:37.4194824Z   show-progress: true
+2026-07-27T15:38:37.4195276Z   lfs: false
+2026-07-27T15:38:37.4195690Z   submodules: false
+2026-07-27T15:38:37.4196140Z   set-safe-directory: true
+2026-07-27T15:38:37.4196643Z   allow-unsafe-pr-checkout: false
+2026-07-27T15:38:37.4197378Z ##[endgroup]
+2026-07-27T15:38:37.5201299Z Syncing repository: smartcontractkit/chainlink
+2026-07-27T15:38:37.5203192Z ##[group]Getting Git version info
+2026-07-27T15:38:37.5203899Z Working directory is '/home/runner/work/chainlink/chainlink'
+2026-07-27T15:38:37.5205259Z [command]/usr/bin/git version
+2026-07-27T15:38:37.5265616Z git version 2.54.0
+2026-07-27T15:38:37.5284749Z ##[endgroup]
+2026-07-27T15:38:37.5295077Z Temporarily overriding HOME='/home/runner/work/_temp/14e01a3e-279b-4f1e-96fb-3f5f3348e015' before making global git config changes
+2026-07-27T15:38:37.5296846Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-27T15:38:37.5299800Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/chainlink/chainlink
+2026-07-27T15:38:37.5344880Z Deleting the contents of '/home/runner/work/chainlink/chainlink'
+2026-07-27T15:38:37.5348408Z ##[group]Determining repository object format
+2026-07-27T15:38:37.5349868Z ##[endgroup]
+2026-07-27T15:38:37.5350597Z ##[group]Initializing the repository
+2026-07-27T15:38:37.5354025Z [command]/usr/bin/git init /home/runner/work/chainlink/chainlink
+2026-07-27T15:38:37.5455459Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-07-27T15:38:37.5456746Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-07-27T15:38:37.5457694Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-07-27T15:38:37.5458738Z hint: call:
+2026-07-27T15:38:37.5459350Z hint:
+2026-07-27T15:38:37.5460120Z hint: 	git config --global init.defaultBranch <name>
+2026-07-27T15:38:37.5461068Z hint:
+2026-07-27T15:38:37.5461948Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-07-27T15:38:37.5463093Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-07-27T15:38:37.5463816Z hint:
+2026-07-27T15:38:37.5464237Z hint: 	git branch -m <name>
+2026-07-27T15:38:37.5465007Z hint:
+2026-07-27T15:38:37.5465713Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-07-27T15:38:37.5466729Z Initialized empty Git repository in /home/runner/work/chainlink/chainlink/.git/
+2026-07-27T15:38:37.5472274Z [command]/usr/bin/git remote add origin https://github.com/smartcontractkit/chainlink
+2026-07-27T15:38:37.5514960Z ##[endgroup]
+2026-07-27T15:38:37.5518293Z ##[group]Disabling automatic garbage collection
+2026-07-27T15:38:37.5518980Z [command]/usr/bin/git config --local gc.auto 0
+2026-07-27T15:38:37.5548409Z ##[endgroup]
+2026-07-27T15:38:37.5549312Z ##[group]Setting up auth
+2026-07-27T15:38:37.5549866Z Removing SSH command configuration
+2026-07-27T15:38:37.5553499Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-27T15:38:37.5588640Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-27T15:38:37.5918304Z Removing HTTP extra header
+2026-07-27T15:38:37.5923852Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-27T15:38:37.5956455Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-27T15:38:37.6185214Z Removing includeIf entries pointing to credentials config files
+2026-07-27T15:38:37.6190215Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-27T15:38:37.6222442Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-27T15:38:37.6459316Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-48f90123-d576-4325-9f96-7a2f0b997a65.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-07-27T15:38:37.6496845Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/chainlink/chainlink/.git.path /home/runner/work/_temp/git-credentials-48f90123-d576-4325-9f96-7a2f0b997a65.config
+2026-07-27T15:38:37.6528278Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/chainlink/chainlink/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-48f90123-d576-4325-9f96-7a2f0b997a65.config
+2026-07-27T15:38:37.6562989Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-48f90123-d576-4325-9f96-7a2f0b997a65.config
+2026-07-27T15:38:37.6597553Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-48f90123-d576-4325-9f96-7a2f0b997a65.config
+2026-07-27T15:38:37.6627841Z ##[endgroup]
+2026-07-27T15:38:37.6628930Z ##[group]Fetching the repository
+2026-07-27T15:38:37.6635878Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:38:38.5239143Z From https://github.com/smartcontractkit/chainlink
+2026-07-27T15:38:38.5241138Z  * branch            3c9debe77afe9c8af6615c7e425764b56cd4331b -> FETCH_HEAD
+2026-07-27T15:38:38.5281724Z [command]/usr/bin/git rev-parse --verify --quiet 3c9debe77afe9c8af6615c7e425764b56cd4331b^{object}
+2026-07-27T15:38:38.5310761Z 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:38:38.5320786Z ##[endgroup]
+2026-07-27T15:38:38.5321579Z ##[group]Determining the checkout info
+2026-07-27T15:38:38.5322437Z ##[endgroup]
+2026-07-27T15:38:38.5330856Z [command]/usr/bin/git sparse-checkout disable
+2026-07-27T15:38:38.5373432Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-07-27T15:38:38.5406900Z ##[group]Checking out the ref
+2026-07-27T15:38:38.5410160Z [command]/usr/bin/git checkout --progress --force 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:38:38.9458356Z Note: switching to '3c9debe77afe9c8af6615c7e425764b56cd4331b'.
+2026-07-27T15:38:38.9458893Z 
+2026-07-27T15:38:38.9459306Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-07-27T15:38:38.9459962Z changes and commit them, and you can discard any commits you make in this
+2026-07-27T15:38:38.9460581Z state without impacting any branches by switching back to a branch.
+2026-07-27T15:38:38.9460905Z 
+2026-07-27T15:38:38.9461153Z If you want to create a new branch to retain commits you create, you may
+2026-07-27T15:38:38.9461721Z do so (now or later) by using -c with the switch command. Example:
+2026-07-27T15:38:38.9462065Z 
+2026-07-27T15:38:38.9462230Z   git switch -c <new-branch-name>
+2026-07-27T15:38:38.9462500Z 
+2026-07-27T15:38:38.9462667Z Or undo this operation with:
+2026-07-27T15:38:38.9462891Z 
+2026-07-27T15:38:38.9463044Z   git switch -
+2026-07-27T15:38:38.9463226Z 
+2026-07-27T15:38:38.9463513Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-07-27T15:38:38.9463889Z 
+2026-07-27T15:38:38.9464806Z HEAD is now at 3c9debe Merge 51c5f7ece5d99cc824b1001b9c5819868461fc78 into 6b0cf224a3166fc777874ac33d817cfd4b6a5d9a
+2026-07-27T15:38:38.9478947Z ##[endgroup]
+2026-07-27T15:38:38.9526482Z [command]/usr/bin/git log -1 --format=%H
+2026-07-27T15:38:38.9553648Z 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:38:38.9566049Z ##[group]Removing auth
+2026-07-27T15:38:38.9567213Z Removing SSH command configuration
+2026-07-27T15:38:38.9568845Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-27T15:38:38.9601058Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-27T15:38:38.9858735Z Removing HTTP extra header
+2026-07-27T15:38:38.9861728Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-27T15:38:38.9896265Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-27T15:38:39.0132465Z Removing includeIf entries pointing to credentials config files
+2026-07-27T15:38:39.0135890Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-27T15:38:39.0164171Z includeif.gitdir:/home/runner/work/chainlink/chainlink/.git.path
+2026-07-27T15:38:39.0165218Z includeif.gitdir:/home/runner/work/chainlink/chainlink/.git/worktrees/*.path
+2026-07-27T15:38:39.0165966Z includeif.gitdir:/github/workspace/.git.path
+2026-07-27T15:38:39.0166553Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-07-27T15:38:39.0173023Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/chainlink/chainlink/.git.path
+2026-07-27T15:38:39.0196782Z /home/runner/work/_temp/git-credentials-48f90123-d576-4325-9f96-7a2f0b997a65.config
+2026-07-27T15:38:39.0205344Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/chainlink/chainlink/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-48f90123\-d576\-4325\-9f96\-7a2f0b997a65\.config
+2026-07-27T15:38:39.0238001Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/chainlink/chainlink/.git/worktrees/*.path
+2026-07-27T15:38:39.0259997Z /home/runner/work/_temp/git-credentials-48f90123-d576-4325-9f96-7a2f0b997a65.config
+2026-07-27T15:38:39.0268230Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/chainlink/chainlink/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-48f90123\-d576\-4325\-9f96\-7a2f0b997a65\.config
+2026-07-27T15:38:39.0300778Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-07-27T15:38:39.0326529Z /github/runner_temp/git-credentials-48f90123-d576-4325-9f96-7a2f0b997a65.config
+2026-07-27T15:38:39.0334911Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-48f90123\-d576\-4325\-9f96\-7a2f0b997a65\.config
+2026-07-27T15:38:39.0413438Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-07-27T15:38:39.0444249Z /github/runner_temp/git-credentials-48f90123-d576-4325-9f96-7a2f0b997a65.config
+2026-07-27T15:38:39.0446546Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-48f90123\-d576\-4325\-9f96\-7a2f0b997a65\.config
+2026-07-27T15:38:39.0476894Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-27T15:38:39.0709561Z Removing credentials config '/home/runner/work/_temp/git-credentials-48f90123-d576-4325-9f96-7a2f0b997a65.config'
+2026-07-27T15:38:39.0717404Z ##[endgroup]
+2026-07-27T15:38:39.0926619Z ##[group]Run test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/regression/cre/*_test.go)
+2026-07-27T15:38:39.0927469Z [36;1mtest_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/regression/cre/*_test.go)[0m
+2026-07-27T15:38:39.0927954Z [36;1m[0m
+2026-07-27T15:38:39.0928165Z [36;1mper_test_configs='{[0m
+2026-07-27T15:38:39.0928634Z [36;1m  "Test_CRE_V2_Stellar_ReadContract_Regression": "configs/workflow-gateway-don-stellar.toml"[0m
+2026-07-27T15:38:39.0929142Z [36;1m}'[0m
+2026-07-27T15:38:39.0929351Z [36;1m[0m
+2026-07-27T15:38:39.0929585Z [36;1mtests=$(echo "$test_names" | jq -c -R -s \[0m
+2026-07-27T15:38:39.0929924Z [36;1m  --argjson run_id "30280453093" \[0m
+2026-07-27T15:38:39.0930213Z [36;1m  --arg run_attempt "1" \[0m
+2026-07-27T15:38:39.0930497Z [36;1m  --argjson per "$per_test_configs" '[0m
+2026-07-27T15:38:39.0930828Z [36;1m  split("\n") | map(select(length>0))[0m
+2026-07-27T15:38:39.0931146Z [36;1m  | to_entries[0m
+2026-07-27T15:38:39.0931378Z [36;1m  | map({[0m
+2026-07-27T15:38:39.0931599Z [36;1m      test_name: .value,[0m
+2026-07-27T15:38:39.0931849Z [36;1m      test_id: .key,[0m
+2026-07-27T15:38:39.0932405Z [36;1m      runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",[0m
+2026-07-27T15:38:39.0933100Z [36;1m      configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")[0m
+2026-07-27T15:38:39.0933505Z [36;1m    })[0m
+2026-07-27T15:38:39.0933703Z [36;1m')[0m
+2026-07-27T15:38:39.0933892Z [36;1m[0m
+2026-07-27T15:38:39.0934142Z [36;1mecho "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"[0m
+2026-07-27T15:38:39.0987137Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-27T15:38:39.0987546Z ##[endgroup]
+2026-07-27T15:38:39.1242254Z matrix=[{"test_name":"Test_CRE_V2_Consensus_Regression","test_id":0,"runs_on":"runs-on=30280453093-0-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_Cron_Regression","test_id":1,"runs_on":"runs-on=30280453093-1-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_HTTP_Regression","test_id":2,"runs_on":"runs-on=30280453093-2-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_BalanceAt_Invalid_Address_Regression","test_id":3,"runs_on":"runs-on=30280453093-3-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_CallContract_Invalid_Addr_To_Read_Regression","test_id":4,"runs_on":"runs-on=30280453093-4-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_CallContract_Invalid_Balance_Reader_Contract_Regression","test_id":5,"runs_on":"runs-on=30280453093-5-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_EstimateGas_Invalid_To_Address_Regression","test_id":6,"runs_on":"runs-on=30280453093-6-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_FilterLogs_Invalid_Addresses_Regression","test_id":7,"runs_on":"runs-on=30280453093-7-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_FilterLogs_Invalid_FromBlock_Regression","test_id":8,"runs_on":"runs-on=30280453093-8-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_FilterLogs_Invalid_ToBlock_Regression","test_id":9,"runs_on":"runs-on=30280453093-9-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_GetTransactionByHash_Invalid_Hash_Regression","test_id":10,"runs_on":"runs-on=30280453093-10-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_GetTransactionReceipt_Invalid_Hash_Regression","test_id":11,"runs_on":"runs-on=30280453093-11-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_HeaderByNumber_Invalid_Block_Regression","test_id":12,"runs_on":"runs-on=30280453093-12-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_WriteReport_Invalid_Receiver_Regression","test_id":13,"runs_on":"runs-on=30280453093-13-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_WriteReport_Failing_On_Receiver","test_id":14,"runs_on":"runs-on=30280453093-14-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_WriteReport_Corrupt_Receiver_Address_Regression","test_id":15,"runs_on":"runs-on=30280453093-15-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_WriteReport_Invalid_Gas_Regression","test_id":16,"runs_on":"runs-on=30280453093-16-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_EVM_LogTrigger_Invalid_Address_Regression","test_id":17,"runs_on":"runs-on=30280453093-17-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_HTTP_Action_CRUD_Regression","test_id":18,"runs_on":"runs-on=30280453093-18-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-capabilities-don.toml"},{"test_name":"Test_CRE_V2_Stellar_ReadContract_Regression","test_id":19,"runs_on":"runs-on=30280453093-19-1/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs","configs":"configs/workflow-gateway-don-stellar.toml"}]
+2026-07-27T15:38:39.1401325Z Post job cleanup.
+2026-07-27T15:38:39.2227642Z [command]/usr/bin/git version
+2026-07-27T15:38:39.2278006Z git version 2.54.0
+2026-07-27T15:38:39.2342626Z Temporarily overriding HOME='/home/runner/work/_temp/113574b8-7a4b-4391-a690-6548b2649134' before making global git config changes
+2026-07-27T15:38:39.2343537Z Adding repository directory to the temporary git global config as a safe directory
+2026-07-27T15:38:39.2348009Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/chainlink/chainlink
+2026-07-27T15:38:39.2381105Z Removing SSH command configuration
+2026-07-27T15:38:39.2387560Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-07-27T15:38:39.2421717Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-07-27T15:38:39.2660620Z Removing HTTP extra header
+2026-07-27T15:38:39.2665400Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-07-27T15:38:39.2698348Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-07-27T15:38:39.2931212Z Removing includeIf entries pointing to credentials config files
+2026-07-27T15:38:39.2936700Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-07-27T15:38:39.2970045Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-07-27T15:38:39.3348114Z Evaluate and set job outputs
+2026-07-27T15:38:39.3369946Z Set output 'matrix'
+2026-07-27T15:38:39.3371793Z Cleaning up orphan processes

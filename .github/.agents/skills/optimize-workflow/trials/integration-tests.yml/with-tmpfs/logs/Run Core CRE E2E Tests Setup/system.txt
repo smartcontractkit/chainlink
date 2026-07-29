@@ -1,0 +1,8 @@
+2026-07-27T15:32:30.5810000Z Evaluating run-core-cre-e2e-tests-setup.if
+2026-07-27T15:32:30.5810000Z Evaluating: success()
+2026-07-27T15:32:30.5810000Z Result: true
+2026-07-27T15:32:30.5840000Z Requested labels: ubuntu-latest
+2026-07-27T15:32:30.5840000Z Job defined at: smartcontractkit/chainlink/.github/workflows/integration-tests.yml@refs/pull/23164/merge
+2026-07-27T15:32:30.5840000Z Waiting for a runner to pick up this job...
+2026-07-27T15:32:33.0610000Z Job is about to start running on the hosted runner: GitHub Actions 1012053406
+2026-07-27T15:32:33.0610000Z Job is waiting for a hosted runner to come online.

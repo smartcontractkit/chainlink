@@ -1,0 +1,21 @@
+﻿2026-07-27T15:32:27.0315513Z ##[group]Run if [[ "${OPT_OUT}" == "true" ]]; then
+2026-07-27T15:32:27.0315923Z [36;1mif [[ "${OPT_OUT}" == "true" ]]; then[0m
+2026-07-27T15:32:27.0316544Z [36;1m  echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:27.0316992Z [36;1melse[0m
+2026-07-27T15:32:27.0317412Z [36;1m  echo "builder-runner-label-core=${SH_BUILDER_RUNNER_CORE}" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:27.0318148Z [36;1m  echo "builder-runner-label-plugins=${SH_BUILDER_RUNNER_PLUGINS}" | tee -a "$GITHUB_OUTPUT"[0m
+2026-07-27T15:32:27.0318673Z [36;1mfi[0m
+2026-07-27T15:32:27.0364206Z shell: /usr/bin/bash -e {0}
+2026-07-27T15:32:27.0364538Z env:
+2026-07-27T15:32:27.0365063Z   ENV_JOB_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:27.0365752Z   CHAINLINK_IMAGE: ***.dkr.ecr..amazonaws.com/chainlink-integration-tests
+2026-07-27T15:32:27.0366232Z   CHAINLINK_REF: 3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:32:27.0366613Z   TEST_SUITE: smoke
+2026-07-27T15:32:27.0366852Z   MOD_CACHE_VERSION: 2
+2026-07-27T15:32:27.0367105Z   OPT_OUT: false
+2026-07-27T15:32:27.0367366Z   GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
+2026-07-27T15:32:27.0367923Z   SH_BUILDER_RUNNER_CORE: runs-on=30280453093-core/cpu=16/memory=64/family=m7i+m8i/spot=co/extras=s3-cache+tmpfs
+2026-07-27T15:32:27.0368727Z   SH_BUILDER_RUNNER_PLUGINS: runs-on=30280453093-plugins/cpu=16/memory=64/family=m7i+m8i/spot=co/extras=s3-cache+tmpfs
+2026-07-27T15:32:27.0369270Z ##[endgroup]
+2026-07-27T15:32:27.0440960Z builder-runner-label-core=runs-on=30280453093-core/cpu=16/memory=64/family=m7i+m8i/spot=co/extras=s3-cache+tmpfs
+2026-07-27T15:32:27.0453720Z builder-runner-label-plugins=runs-on=30280453093-plugins/cpu=16/memory=64/family=m7i+m8i/spot=co/extras=s3-cache+tmpfs

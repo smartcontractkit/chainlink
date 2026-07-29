@@ -1,0 +1,85 @@
+﻿2026-07-27T15:41:06.8776450Z ##[group]Run echo "Starting test: '${TEST_NAME}'"
+2026-07-27T15:41:06.8776846Z [36;1mecho "Starting test: '${TEST_NAME}'"[0m
+2026-07-27T15:41:06.8777143Z [36;1mif [ -f "./bin/cre-smoke.test" ]; then[0m
+2026-07-27T15:41:06.8777429Z [36;1m  echo "Using precompiled binary"[0m
+2026-07-27T15:41:06.8777679Z [36;1m  ([0m
+2026-07-27T15:41:06.8777889Z [36;1m    cd smoke/cre && \[0m
+2026-07-27T15:41:06.8778127Z [36;1m    gotestsum \[0m
+2026-07-27T15:41:06.8778389Z [36;1m      --jsonfile=/tmp/gotest.log \[0m
+2026-07-27T15:41:06.8778709Z [36;1m      --junitfile=/tmp/junit-report.xml \[0m
+2026-07-27T15:41:06.8779043Z [36;1m      --format=github-actions \[0m
+2026-07-27T15:41:06.8779322Z [36;1m      --raw-command -- \[0m
+2026-07-27T15:41:06.8780240Z [36;1m      go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre ../../bin/cre-smoke.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL_COUNT}"[0m
+2026-07-27T15:41:06.8781023Z [36;1m  )[0m
+2026-07-27T15:41:06.8781232Z [36;1melse[0m
+2026-07-27T15:41:06.8781567Z [36;1m  echo "No precompiled binary found. Building from scratch..."[0m
+2026-07-27T15:41:06.8782010Z [36;1m  gotestsum \[0m
+2026-07-27T15:41:06.8782333Z [36;1m    --jsonfile=/tmp/gotest.log \[0m
+2026-07-27T15:41:06.8782808Z [36;1m    --junitfile=/tmp/junit-report.xml \[0m
+2026-07-27T15:41:06.8783162Z [36;1m    --format=github-actions \[0m
+2026-07-27T15:41:06.8783481Z [36;1m    -- \[0m
+2026-07-27T15:41:06.8783842Z [36;1m    -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel="${PARALLEL_COUNT}" \[0m
+2026-07-27T15:41:06.8784363Z [36;1m    github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre[0m
+2026-07-27T15:41:06.8784686Z [36;1mfi[0m
+2026-07-27T15:41:06.8784905Z [36;1m[0m
+2026-07-27T15:41:06.8785100Z [36;1mexit_code="$?"[0m
+2026-07-27T15:41:06.8785330Z [36;1mif [ "$exit_code" -eq 0 ]; then[0m
+2026-07-27T15:41:06.8785658Z [36;1m  echo "tests_result=✅ Tests passed" >> "${GITHUB_OUTPUT}"[0m
+2026-07-27T15:41:06.8786007Z [36;1mfi[0m
+2026-07-27T15:41:06.8804719Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-27T15:41:06.8805037Z env:
+2026-07-27T15:41:06.8805246Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:41:06.8805706Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:41:06.8806348Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:41:06.8806992Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:41:06.8807608Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:41:06.8808042Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:41:06.8808304Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:41:06.8808542Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:41:06.8808804Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:41:06.8809076Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:41:06.8809298Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:41:06.8809540Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:41:06.8810033Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:41:06.8810288Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:41:06.8810535Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:41:06.8810816Z   RUNS_ON_INSTANCE_ID: i-084b02434646fb51a
+2026-07-27T15:41:06.8811072Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:41:06.8811319Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:41:06.8811561Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:41:06.8811859Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:41:06.8812203Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:41:06.8812503Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:41:06.8812802Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:41:06.8813190Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:41:06.8813458Z   GITHUB_HOST: github.com
+2026-07-27T15:41:06.8813740Z   RUNS_ON_RUNNER_NAME: runs-on--i-084b02434646fb51a--l5rp0r0yns
+2026-07-27T15:41:06.8814080Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:47Z
+2026-07-27T15:41:06.8814390Z   ACTIONS_CACHE_URL: http://10.1.30.163:6871/
+2026-07-27T15:41:06.8814660Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:41:06.8814914Z   ACTIONS_RESULTS_URL: http://10.1.30.163:6871/
+2026-07-27T15:41:06.8815230Z   TAR_OPTIONS: --skip-old-files
+2026-07-27T15:41:06.8815457Z   GOTOOLCHAIN: local
+2026-07-27T15:41:06.8815690Z   AWS_DEFAULT_REGION: ***
+2026-07-27T15:41:06.8815909Z   AWS_REGION: ***
+2026-07-27T15:41:06.8816132Z   AWS_ACCESS_KEY_ID: ***
+2026-07-27T15:41:06.8816418Z   AWS_SECRET_ACCESS_KEY: ***
+2026-07-27T15:41:06.8820265Z   AWS_SESSION_TOKEN: ***
+2026-07-27T15:41:06.8820630Z   TEST_NAME: TestMultiGatewayTopology_LoadExpectedConfig
+2026-07-27T15:41:06.8820921Z   TEST_TIMEOUT: 7m
+2026-07-27T15:41:06.8821145Z   RUN_QUARANTINED_TESTS: true
+2026-07-27T15:41:06.8821405Z   TOPOLOGY_NAME: workflow-gateway-capabilities
+2026-07-27T15:41:06.8821763Z   GITHUB_TOKEN: ***
+2026-07-27T15:41:06.8821970Z   PARALLEL_COUNT: 10
+2026-07-27T15:41:06.8822197Z   CRE_TEST_PARALLEL_ENABLED: true
+2026-07-27T15:41:06.8822494Z ##[endgroup]
+2026-07-27T15:41:06.8856290Z Starting test: 'TestMultiGatewayTopology_LoadExpectedConfig'
+2026-07-27T15:41:06.8856677Z Using precompiled binary
+2026-07-27T15:41:09.3397385Z ##[group][32mPASS[0m smoke/cre.TestMultiGatewayTopology_LoadExpectedConfig (0.01s)
+2026-07-27T15:41:09.3398237Z [90m3:41PM[0m [32mINF[0m [1mLoading configuration input[0m [36mPath=[0m../../../../core/scripts/cre/environment/configs/workflow-gateway-capabilities-multi-gateway-don.toml
+2026-07-27T15:41:09.3398712Z 
+2026-07-27T15:41:09.3398945Z ##[endgroup]
+2026-07-27T15:41:09.3434587Z   [32mPASS[0m Package smoke/cre (242ms)
+2026-07-27T15:41:09.3434777Z 
+2026-07-27T15:41:09.3587050Z 
+2026-07-27T15:41:09.3587466Z DONE 1 tests in 0.242s

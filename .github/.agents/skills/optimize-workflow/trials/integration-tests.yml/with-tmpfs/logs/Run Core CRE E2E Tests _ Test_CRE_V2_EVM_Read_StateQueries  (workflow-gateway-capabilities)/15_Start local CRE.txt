@@ -1,0 +1,340 @@
+﻿2026-07-27T15:40:03.3496853Z Prepare all required actions
+2026-07-27T15:40:03.3542193Z ##[group]Run ./.github/actions/start-local-cre-environment
+2026-07-27T15:40:03.3542492Z with:
+2026-07-27T15:40:03.3542818Z   jd-image: ***.dkr.ecr.***.amazonaws.com/job-distributor:0.28.0
+2026-07-27T15:40:03.3543366Z   chainlink-image: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:40:03.3543987Z   chip-router-image: ***.dkr.ecr.***.amazonaws.com/local-cre-chip-router:v1.0.1
+2026-07-27T15:40:03.3544384Z   ctf-configs: configs/workflow-gateway-capabilities-don.toml
+2026-07-27T15:40:03.3544687Z   retry-count: 3
+2026-07-27T15:40:03.3544895Z   retry-delay-seconds: 15
+2026-07-27T15:40:03.3545120Z   cleanup-on-error: false
+2026-07-27T15:40:03.3545371Z   working-directory: core/scripts/cre/environment
+2026-07-27T15:40:03.3545631Z env:
+2026-07-27T15:40:03.3545821Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:40:03.3546226Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:40:03.3546884Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:40:03.3547542Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:40:03.3548157Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:40:03.3548562Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:40:03.3548809Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:40:03.3549029Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:40:03.3549266Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:40:03.3549508Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:40:03.3549779Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:40:03.3550008Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:40:03.3550256Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:40:03.3550483Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:40:03.3550858Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:40:03.3557030Z   RUNS_ON_INSTANCE_ID: i-0454b9a066555f9be
+2026-07-27T15:40:03.3557285Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:40:03.3558982Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:40:03.3559233Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:40:03.3560994Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:40:03.3562800Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:40:03.3563102Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:40:03.3564896Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:40:03.3566629Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:40:03.3566891Z   GITHUB_HOST: github.com
+2026-07-27T15:40:03.3568601Z   RUNS_ON_RUNNER_NAME: runs-on--i-0454b9a066555f9be--inzvpa6op7
+2026-07-27T15:40:03.3568931Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:45Z
+2026-07-27T15:40:03.3570655Z   ACTIONS_CACHE_URL: http://10.1.22.175:6871/
+2026-07-27T15:40:03.3572432Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:40:03.3572707Z   ACTIONS_RESULTS_URL: http://10.1.22.175:6871/
+2026-07-27T15:40:03.3574465Z   TAR_OPTIONS: --skip-old-files
+2026-07-27T15:40:03.3574732Z   GOTOOLCHAIN: local
+2026-07-27T15:40:03.3576397Z   AWS_DEFAULT_REGION: ***
+2026-07-27T15:40:03.3576610Z   AWS_REGION: ***
+2026-07-27T15:40:03.3578299Z   AWS_ACCESS_KEY_ID: ***
+2026-07-27T15:40:03.3578573Z   AWS_SECRET_ACCESS_KEY: ***
+2026-07-27T15:40:03.3593805Z   AWS_SESSION_TOKEN: ***
+2026-07-27T15:40:03.3594022Z ##[endgroup]
+2026-07-27T15:40:03.3652081Z ##[group]Run set -u
+2026-07-27T15:40:03.3652341Z [36;1mset -u[0m
+2026-07-27T15:40:03.3652527Z [36;1mset +e[0m
+2026-07-27T15:40:03.3652813Z [36;1m# GitHub invokes bash with errexit (-e); disable it so a failed `env start`[0m
+2026-07-27T15:40:03.3653197Z [36;1m# does not abort the script before we can retry.[0m
+2026-07-27T15:40:03.3653459Z [36;1m[0m
+2026-07-27T15:40:03.3653636Z [36;1mCRE_BIN=""[0m
+2026-07-27T15:40:03.3654015Z [36;1mif [[ -x "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" ]]; then[0m
+2026-07-27T15:40:03.3654382Z [36;1m  CRE_BIN="$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env"[0m
+2026-07-27T15:40:03.3654751Z [36;1m  echo "Using pre-compiled CRE environment CLI binary: ${CRE_BIN}"[0m
+2026-07-27T15:40:03.3655068Z [36;1melif [[ -x "./bin/cre-env" ]]; then[0m
+2026-07-27T15:40:03.3655312Z [36;1m  CRE_BIN="./bin/cre-env"[0m
+2026-07-27T15:40:03.3655603Z [36;1m  echo "Using pre-compiled CRE environment CLI binary: ${CRE_BIN}"[0m
+2026-07-27T15:40:03.3655895Z [36;1mfi[0m
+2026-07-27T15:40:03.3656075Z [36;1m[0m
+2026-07-27T15:40:03.3656260Z [36;1mlast_exit=1[0m
+2026-07-27T15:40:03.3656461Z [36;1mattempt=1[0m
+2026-07-27T15:40:03.3656696Z [36;1mwhile [[ "$attempt" -le "$MAX_ATTEMPTS" ]]; do[0m
+2026-07-27T15:40:03.3657040Z [36;1m  echo "Starting local CRE (attempt ${attempt}/${MAX_ATTEMPTS})..."[0m
+2026-07-27T15:40:03.3657358Z [36;1m  # shellcheck disable=SC2086[0m
+2026-07-27T15:40:03.3657603Z [36;1m  if [[ -n "$CRE_BIN" ]]; then[0m
+2026-07-27T15:40:03.3657952Z [36;1m    "$CRE_BIN" env start ${ENV_START_EXTRA_ARGS} --cleanup-on-error="${CLEANUP_ON_ERROR}"[0m
+2026-07-27T15:40:03.3658287Z [36;1m  else[0m
+2026-07-27T15:40:03.3658567Z [36;1m    go run . env start ${ENV_START_EXTRA_ARGS} --cleanup-on-error="${CLEANUP_ON_ERROR}"[0m
+2026-07-27T15:40:03.3658936Z [36;1m  fi[0m
+2026-07-27T15:40:03.3659128Z [36;1m  last_exit=$?[0m
+2026-07-27T15:40:03.3659346Z [36;1m  if [[ "$last_exit" -eq 0 ]]; then[0m
+2026-07-27T15:40:03.3659584Z [36;1m    exit 0[0m
+2026-07-27T15:40:03.3659776Z [36;1m  fi[0m
+2026-07-27T15:40:03.3660003Z [36;1m  echo "env start failed with exit code ${last_exit}"[0m
+2026-07-27T15:40:03.3660309Z [36;1m  if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then[0m
+2026-07-27T15:40:03.3660643Z [36;1m    echo "Running env stop before retry..."[0m
+2026-07-27T15:40:03.3660905Z [36;1m    if [[ -n "$CRE_BIN" ]]; then[0m
+2026-07-27T15:40:03.3661279Z [36;1m      "$CRE_BIN" env stop || true[0m
+2026-07-27T15:40:03.3661557Z [36;1m    else[0m
+2026-07-27T15:40:03.3661755Z [36;1m      go run . env stop || true[0m
+2026-07-27T15:40:03.3661977Z [36;1m    fi[0m
+2026-07-27T15:40:03.3662177Z [36;1m    sleep "${RETRY_DELAY_SECONDS}"[0m
+2026-07-27T15:40:03.3662411Z [36;1m  fi[0m
+2026-07-27T15:40:03.3662603Z [36;1m  attempt=$((attempt + 1))[0m
+2026-07-27T15:40:03.3662823Z [36;1mdone[0m
+2026-07-27T15:40:03.3663154Z [36;1mecho "Error: failed to start local CRE after ${MAX_ATTEMPTS} attempts (last exit code ${last_exit})"[0m
+2026-07-27T15:40:03.3663547Z [36;1mexit "${last_exit}"[0m
+2026-07-27T15:40:03.3714246Z shell: /usr/bin/bash --noprofile --norc -e -o pipefail {0}
+2026-07-27T15:40:03.3714534Z env:
+2026-07-27T15:40:03.3714735Z   ENABLE_AUTO_QUARANTINE: true
+2026-07-27T15:40:03.3715202Z   BILLING_PLATFORM_SERVICE_IMAGE: ***.dkr.ecr.***.amazonaws.com/billing-platform-service:v1.57.1
+2026-07-27T15:40:03.3715858Z   CHAINLINK_IMAGE_FULL: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:40:03.3716541Z   CTF_CHIP_INGRESS_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+2026-07-27T15:40:03.3717156Z   CTF_CHIP_CONFIG_IMAGE: ***.dkr.ecr.***.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+2026-07-27T15:40:03.3717564Z   RUNNER_TOOL_CACHE: /opt/hostedtoolcache
+2026-07-27T15:40:03.3717812Z   RUNS_ON_HOME: /runs-on
+2026-07-27T15:40:03.3718028Z   RUNS_ON_VERSION: v2.12.1-rc.4
+2026-07-27T15:40:03.3718257Z   RUNS_ON_AGENT_BINARY: /runs-on/agent
+2026-07-27T15:40:03.3718488Z   RUNS_ON_AGENT_ARCH: x64
+2026-07-27T15:40:03.3718698Z   RUNS_ON_AGENT_USER: runner
+2026-07-27T15:40:03.3718921Z   RUNS_ON_AMI_ID: ami-0b2d584ba6a7a3791
+2026-07-27T15:40:03.3719165Z   RUNS_ON_AWS_REGION: us-east-2
+2026-07-27T15:40:03.3719389Z   RUNS_ON_AWS_AZ: us-east-2b
+2026-07-27T15:40:03.3719618Z   RUNS_ON_ENV_CUSTOM_FILE: /runs-on/env.custom
+2026-07-27T15:40:03.3719870Z   RUNS_ON_INSTANCE_ID: i-0454b9a066555f9be
+2026-07-27T15:40:03.3720185Z   RUNS_ON_INSTANCE_LIFECYCLE: spot
+2026-07-27T15:40:03.3720425Z   RUNS_ON_INSTANCE_TYPE: m8in.4xlarge
+2026-07-27T15:40:03.3720670Z   RUNS_ON_STACK_NAME: runson-prod-ue2
+2026-07-27T15:40:03.3720973Z   RUNS_ON_S3_BUCKET_CACHE: runson-prod-ue2-s3bucketcache-ewwxpctygsec
+2026-07-27T15:40:03.3721442Z   ACTIONS_RUNNER_HOOK_JOB_STARTED: /runs-on/pre.sh
+2026-07-27T15:40:03.3721736Z   ACTIONS_RUNNER_HOOK_JOB_COMPLETED: /runs-on/post.sh
+2026-07-27T15:40:03.3722028Z   GITHUB_SERVER_URL: https://github.com/
+2026-07-27T15:40:03.3722286Z   GITHUB_API_URL: https://api.github.com/
+2026-07-27T15:40:03.3722526Z   GITHUB_HOST: github.com
+2026-07-27T15:40:03.3722793Z   RUNS_ON_RUNNER_NAME: runs-on--i-0454b9a066555f9be--inzvpa6op7
+2026-07-27T15:40:03.3723108Z   RUNS_ON_INSTANCE_LAUNCHED_AT: 2026-07-27T15:38:45Z
+2026-07-27T15:40:03.3723385Z   ACTIONS_CACHE_URL: http://10.1.22.175:6871/
+2026-07-27T15:40:03.3723635Z   ACTIONS_CACHE_SERVICE_V2: true
+2026-07-27T15:40:03.3723881Z   ACTIONS_RESULTS_URL: http://10.1.22.175:6871/
+2026-07-27T15:40:03.3724139Z   TAR_OPTIONS: --skip-old-files
+2026-07-27T15:40:03.3724356Z   GOTOOLCHAIN: local
+2026-07-27T15:40:03.3724580Z   AWS_DEFAULT_REGION: ***
+2026-07-27T15:40:03.3724804Z   AWS_REGION: ***
+2026-07-27T15:40:03.3725017Z   AWS_ACCESS_KEY_ID: ***
+2026-07-27T15:40:03.3725286Z   AWS_SECRET_ACCESS_KEY: ***
+2026-07-27T15:40:03.3728882Z   AWS_SESSION_TOKEN: ***
+2026-07-27T15:40:03.3729087Z   MAX_ATTEMPTS: 3
+2026-07-27T15:40:03.3729278Z   RETRY_DELAY_SECONDS: 15
+2026-07-27T15:40:03.3729486Z   CLEANUP_ON_ERROR: false
+2026-07-27T15:40:03.3729689Z   ENV_START_EXTRA_ARGS: 
+2026-07-27T15:40:03.3730003Z   CTF_JD_IMAGE: ***.dkr.ecr.***.amazonaws.com/job-distributor:0.28.0
+2026-07-27T15:40:03.3730531Z   CTF_CHAINLINK_IMAGE: ***.dkr.ecr.***.amazonaws.com/chainlink-integration-tests:3c9debe77afe9c8af6615c7e425764b56cd4331b
+2026-07-27T15:40:03.3731172Z   CTF_CONFIGS: configs/workflow-gateway-capabilities-don.toml
+2026-07-27T15:40:03.3731624Z   CTF_CHIP_ROUTER_IMAGE: ***.dkr.ecr.***.amazonaws.com/local-cre-chip-router:v1.0.1
+2026-07-27T15:40:03.3731950Z ##[endgroup]
+2026-07-27T15:40:03.3791775Z Using pre-compiled CRE environment CLI binary: /home/runner/_work/chainlink/chainlink/system-tests/tests/bin/cre-env
+2026-07-27T15:40:03.3793774Z Starting local CRE (attempt 1/3)...
+2026-07-27T15:40:03.9292129Z 
+2026-07-27T15:40:03.9292779Z [38;5;33m	db       .d88b.   .o88b.  .d8b.  db            .o88b. d8888b. d88888b[0m
+2026-07-27T15:40:03.9293237Z [38;5;33m	88      .8P  Y8. d8P  Y8 d8' `8b 88           d8P  Y8 88  `8D 88'[0m
+2026-07-27T15:40:03.9293601Z [38;5;33m	88      88    88 8P      88ooo88 88           8P      88oobY' 88ooooo[0m
+2026-07-27T15:40:03.9293955Z [38;5;33m	88      88    88 8b      88~~~88 88           8b      88`8b   88~~~~~[0m
+2026-07-27T15:40:03.9294339Z [38;5;33m	88booo. `8b  d8' Y8b  d8 88   88 88booo.      Y8b  d8 88 `88. 88.[0m
+2026-07-27T15:40:03.9294722Z [38;5;33m	Y88888P  `Y88P'   `Y88P' YP   YP Y88888P       `Y88P' 88   YD Y88888P[0m
+2026-07-27T15:40:03.9294964Z 
+2026-07-27T15:40:03.9295261Z [90m3:40PM[0m [32mINF[0m [1mRemoving environment state directory: core/scripts/cre/environment/state[0m
+2026-07-27T15:40:03.9295815Z [90m3:40PM[0m [32mINF[0m [1mLoading configuration input[0m [36mPath=[0mconfigs/capability_defaults.toml
+2026-07-27T15:40:03.9296427Z [90m3:40PM[0m [32mINF[0m [1mLoading configuration input[0m [36mPath=[0mconfigs/workflow-gateway-capabilities-don.toml
+2026-07-27T15:40:03.9596845Z [90m3:40PM[0m [32mINF[0m [1mUsing Chip Router image override from CTF_CHIP_ROUTER_IMAGE: ***.dkr.ecr.***.amazonaws.com/local-cre-chip-router:v1.0.1[0m
+2026-07-27T15:40:03.9597544Z [90m3:40PM[0m [32mINF[0m [1mCleaning up docker containers[0m [36mlabel=[0mframework=ctf
+2026-07-27T15:40:03.9811330Z [90m3:40PM[0m [32mINF[0m [1mCI environment detected, skipping chip image pre-check[0m
+2026-07-27T15:40:03.9814002Z [35m
+2026-07-27T15:40:03.9814628Z time=2026-07-27T15:40:03.981Z level=INFO msg="Logging to \"/home/runner/_work/chainlink/chainlink/core/scripts/cre/environment/logs/2026-07-27T15-40-03_254265d0-934a-4eb4-a014-a47a58b9291e.log\""
+2026-07-27T15:40:03.9815594Z Topology: configs/capability_defaults.toml,configs/workflow-gateway-capabilities-don.toml (multi-don)
+2026-07-27T15:40:03.9816089Z Capability Matrix
+2026-07-27T15:40:03.9816442Z +--------------+-----------------------+-----------------------+--------------+
+2026-07-27T15:40:03.9816859Z | Capability   | bootstrap-gateway DON | capabilities DON      | workflow DON |
+2026-07-27T15:40:03.9817257Z +--------------+-----------------------+-----------------------+--------------+
+2026-07-27T15:40:03.9817607Z | consensus    | -                     | -                     | local        |
+2026-07-27T15:40:03.9817940Z | cron         | -                     | -                     | local        |
+2026-07-27T15:40:03.9818310Z | don-time     | -                     | -                     | local        |
+2026-07-27T15:40:03.9818649Z | evm          | -                     | remote-exposed (2337) | local (1337) |
+2026-07-27T15:40:03.9819004Z | http-action  | -                     | -                     | local        |
+2026-07-27T15:40:03.9819347Z | http-trigger | -                     | -                     | local        |
+2026-07-27T15:40:03.9819691Z | vault        | -                     | remote-exposed        | -            |
+2026-07-27T15:40:03.9820061Z +--------------+-----------------------+-----------------------+--------------+
+2026-07-27T15:40:03.9820272Z 
+2026-07-27T15:40:03.9820397Z [0m[35m[STAGE 1/10] Starting Chip Router
+2026-07-27T15:40:03.9820562Z 
+2026-07-27T15:40:08.1867048Z [90m3:40PM[0m [32mINF[0m [1mCreating anvil with command[0m [36mCmd=[0m"anvil --host 0.0.0.0 --port 8545 --chain-id 1337 -b 0.5 --mixed-mining"
+2026-07-27T15:40:08.1867825Z [0m[35m
+2026-07-27T15:40:08.1868070Z [STAGE 1/10] Chip Router started in 4.21 seconds
+2026-07-27T15:40:08.1868253Z 
+2026-07-27T15:40:08.1868371Z [0m[35m[STAGE 2/10] Starting 2 blockchain(s)
+2026-07-27T15:40:08.1868556Z 
+2026-07-27T15:40:12.3860672Z [90m3:40PM[0m [32mINF[0m [1mSet PRIVATE_KEY environment variable to default value: ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80[0m
+2026-07-27T15:40:12.3866081Z [90m3:40PM[0m [32mINF[0m [1mCreating new ethereum client[0m
+2026-07-27T15:40:12.3873043Z [90m3:40PM[0m [32mINF[0m [1mContract map was provided[0m [36mSize=[0m0
+2026-07-27T15:40:12.3875752Z [90m3:40PM[0m [32mINF[0m [1mCreated new client[0m [36mAddresses=[0m["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"] [36mChainID=[0m1337 [36mEphemeral keys=[0m0 [36mNetworkName=[0mDefault [36mRPC=[0mws://127.0.0.1:8545
+2026-07-27T15:40:12.3876538Z [90m3:40PM[0m [32mINF[0m [1mCalculating suggested EIP-1559 fees[0m
+2026-07-27T15:40:12.3887216Z [90m3:40PM[0m [32mINF[0m [1mCalculated suggested EIP-1559 fees[0m [36mGasFeeCap=[0m"2000000000 wei / 0.000000002 ether" [36mGasTipCap=[0m"1000000000 wei / 0.000000001 ether"
+2026-07-27T15:40:12.3888073Z [90m3:40PM[0m [32mINF[0m [1mCreating anvil with command[0m [36mCmd=[0m"anvil --host 0.0.0.0 --port 8546 --chain-id 2337 -b 0.5 --mixed-mining"
+2026-07-27T15:40:12.5729447Z [90m3:40PM[0m [32mINF[0m [1mCreating new ethereum client[0m
+2026-07-27T15:40:12.5734677Z [90m3:40PM[0m [32mINF[0m [1mContract map was provided[0m [36mSize=[0m0
+2026-07-27T15:40:12.5737122Z [90m3:40PM[0m [32mINF[0m [1mCreated new client[0m [36mAddresses=[0m["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"] [36mChainID=[0m2337 [36mEphemeral keys=[0m0 [36mNetworkName=[0mDefault [36mRPC=[0mws://127.0.0.1:8546
+2026-07-27T15:40:12.5738014Z [90m3:40PM[0m [32mINF[0m [1mCalculating suggested EIP-1559 fees[0m
+2026-07-27T15:40:12.5748419Z [90m3:40PM[0m [32mINF[0m [1mCalculated suggested EIP-1559 fees[0m [36mGasFeeCap=[0m"2000000000 wei / 0.000000002 ether" [36mGasTipCap=[0m"1000000000 wei / 0.000000001 ether"
+2026-07-27T15:40:12.5762166Z [0m[35m
+2026-07-27T15:40:12.5762536Z [STAGE 2/10] Blockchains started in 4.39 seconds
+2026-07-27T15:40:12.5762942Z 
+2026-07-27T15:40:12.5763130Z [0m[35m[STAGE 3/10] Deploying Workflow and Capability Registry contracts
+2026-07-27T15:40:12.5763366Z 
+2026-07-27T15:40:12.5946125Z [0m[35m
+2026-07-27T15:40:12.5946509Z [STAGE 3/10] Workflow and Capability Registry contracts deployed in 0.02 seconds
+2026-07-27T15:40:12.5946769Z 
+2026-07-27T15:40:12.5946909Z [0m[35m[STAGE 4/10] Preparing DONs configuration
+2026-07-27T15:40:12.5947092Z 
+2026-07-27T15:40:12.5947472Z [90m3:40PM[0m [32mINF[0m [1mDeployed Workflow Registry 2.0.0 contract on chain 3379446385462418246 at 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512[0m
+2026-07-27T15:40:12.5948201Z [90m3:40PM[0m [32mINF[0m [1mDeployed Capabilities Registry 2.0.0 contract on chain 3379446385462418246 at 0x5FbDB2315678afecb367f032d93F642f64180aa3[0m
+2026-07-27T15:40:14.9607176Z [90m3:40PM[0m [32mINF[0m [1mNode metadata generation completed[0m [36mdon=[0mworkflow [36mduration_s=[0m2.365758391 [36mnodes=[0m4
+2026-07-27T15:40:17.1537221Z [90m3:40PM[0m [32mINF[0m [1mNode metadata generation completed[0m [36mdon=[0mcapabilities [36mduration_s=[0m2.192841411 [36mnodes=[0m4
+2026-07-27T15:40:19.2581905Z [90m3:40PM[0m [32mINF[0m [1mNode metadata generation completed[0m [36mdon=[0mbootstrap-gateway [36mduration_s=[0m2.104413925 [36mnodes=[0m1
+2026-07-27T15:40:19.2583147Z [90m3:40PM[0m [32mINF[0m [1mGateway don_family pairs: workflow → bootstrap-gateway (don_family=test-don-family)[0m
+2026-07-27T15:40:19.2592651Z [90m3:40PM[0m [32mINF[0m [1mExecuting PreEnvStartup for feature consensus for don 'workflow'[0m
+2026-07-27T15:40:19.2593270Z [0m[35m
+2026-07-27T15:40:19.2593833Z [90m3:40PM[0m [32mINF[0m [1mPreEnvStartup for feature consensus executed successfully[0m
+2026-07-27T15:40:19.2594685Z [STAGE 4/10] DONs configuration prepared in 6.66 seconds
+2026-07-27T15:40:19.2595339Z [90m3:40PM[0m [32mINF[0m [1mExecuting PreEnvStartup for feature cron for don 'workflow'[0m
+2026-07-27T15:40:19.2596091Z [90m3:40PM[0m [32mINF[0m [1mPreEnvStartup for feature cron executed successfully[0m
+2026-07-27T15:40:19.2596777Z [90m3:40PM[0m [32mINF[0m [1mExecuting PreEnvStartup for feature don-time for don 'workflow'[0m
+2026-07-27T15:40:19.2597469Z [90m3:40PM[0m [32mINF[0m [1mPreEnvStartup for feature don-time executed successfully[0m
+2026-07-27T15:40:19.2598156Z [90m3:40PM[0m [32mINF[0m [1mExecuting PreEnvStartup for feature evm for don 'workflow'[0m
+2026-07-27T15:40:19.2598490Z 
+2026-07-27T15:40:19.2598683Z [0m[35m[STAGE 5/10] Applying Features before environment startup
+2026-07-27T15:40:19.2598942Z 
+2026-07-27T15:40:19.2702375Z [90m3:40PM[0m [32mINF[0m [1mDeployed EVM Forwarder 1.0.0 contract on chain 3379446385462418246 at 0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0[0m
+2026-07-27T15:40:19.2703156Z [90m3:40PM[0m [32mINF[0m [1mDeployed EVM Forwarder 1.0.0 contract on chain 12922642891491394802 at 0x5FbDB2315678afecb367f032d93F642f64180aa3[0m
+2026-07-27T15:40:19.2703767Z [90m3:40PM[0m [32mINF[0m [1mPreEnvStartup for feature evm executed successfully[0m
+2026-07-27T15:40:19.2704242Z [90m3:40PM[0m [32mINF[0m [1mExecuting PreEnvStartup for feature evm for don 'capabilities'[0m
+2026-07-27T15:40:19.2704711Z [90m3:40PM[0m [32mINF[0m [1mPreEnvStartup for feature evm executed successfully[0m
+2026-07-27T15:40:19.2705179Z [90m3:40PM[0m [32mINF[0m [1mExecuting PreEnvStartup for feature http-action for don 'workflow'[0m
+2026-07-27T15:40:19.2706000Z [90m3:40PM[0m [32mINF[0m [1mPreEnvStartup for feature http-action executed successfully[0m
+2026-07-27T15:40:19.2706484Z [90m3:40PM[0m [32mINF[0m [1mExecuting PreEnvStartup for feature http-trigger for don 'workflow'[0m
+2026-07-27T15:40:19.2713668Z [90m3:40PM[0m [32mINF[0m [1mPreEnvStartup for feature http-trigger executed successfully[0m
+2026-07-27T15:40:19.2714356Z [90m3:40PM[0m [32mINF[0m [1mExecuting PreEnvStartup for feature vault for don 'capabilities'[0m
+2026-07-27T15:40:19.2724126Z [90m3:40PM[0m [32mINF[0m [1mPreEnvStartup for feature vault executed successfully[0m
+2026-07-27T15:40:19.2724645Z [0m[35m
+2026-07-27T15:40:19.2724899Z [90m3:40PM[0m [32mINF[0m [1mStarting Job Distributor[0m
+2026-07-27T15:40:19.2725240Z [90m3:40PM[0m [32mINF[0m [1mStarting DON named bootstrap-gateway[0m
+2026-07-27T15:40:19.2725584Z [90m3:40PM[0m [32mINF[0m [1mStarting DON named workflow[0m
+2026-07-27T15:40:19.2725888Z [STAGE 5/10] Applied Features in 0.01 seconds
+2026-07-27T15:40:19.2726051Z 
+2026-07-27T15:40:19.2726184Z [0m[35m[STAGE 6/10] Starting Job Distributor and DONs
+2026-07-27T15:40:19.2726363Z 
+2026-07-27T15:40:19.2726517Z [90m3:40PM[0m [32mINF[0m [1mStarting DON named capabilities[0m
+2026-07-27T15:40:27.7064057Z [90m3:40PM[0m [32mINF[0m [1mUsing insecure credentials for JD GRPC connection (non-Kubernetes)[0m
+2026-07-27T15:40:27.7064654Z [90m3:40PM[0m [32mINF[0m [1mConnecting to JD GRPC at: 127.0.0.1:14231[0m
+2026-07-27T15:40:27.7065047Z [90m3:40PM[0m [32mINF[0m [1mJob Distributor started in 8.43 seconds[0m
+2026-07-27T15:40:47.5183463Z [90m3:40PM[0m [32mINF[0m [36mUI=[0m["http://127.0.0.1:10300"]
+2026-07-27T15:40:47.5712168Z [90m3:40PM[0m [32mINF[0m [36mUI=[0m["http://127.0.0.1:10100","http://127.0.0.1:10101","http://127.0.0.1:10102","http://127.0.0.1:10103"]
+2026-07-27T15:40:47.6336023Z [90m3:40PM[0m [32mINF[0m [1mDON bootstrap-gateway started in 28.36 seconds[0m
+2026-07-27T15:40:47.6872553Z [90m3:40PM[0m [32mINF[0m [1mDON workflow started in 28.41 seconds[0m
+2026-07-27T15:40:47.9889492Z [90m3:40PM[0m [32mINF[0m [36mUI=[0m["http://127.0.0.1:10200","http://127.0.0.1:10201","http://127.0.0.1:10202","http://127.0.0.1:10203"]
+2026-07-27T15:40:48.1081463Z [90m3:40PM[0m [32mINF[0m [1mDON capabilities started in 28.84 seconds[0m
+2026-07-27T15:40:49.1685773Z [90m3:40PM[0m [32mINF[0m [1mPost-start JD linking completed[0m
+2026-07-27T15:40:49.1686228Z [0m[35m
+2026-07-27T15:40:49.1686524Z [STAGE 6/10] DONs and Job Distributor started and linked in 29.90 seconds
+2026-07-27T15:40:49.1686842Z 
+2026-07-27T15:40:49.1686991Z [0m[35m[STAGE 7/10] Creating Jobs with Job Distributor
+2026-07-27T15:40:49.1687185Z 
+2026-07-27T15:40:49.2320798Z [90m3:40PM[0m [32mINF[0m [1mFunding nodes for DON workflow[0m
+2026-07-27T15:40:49.2321620Z [90m3:40PM[0m [32mINF[0m [1mAttempting to fund EVM account 0x04dBe3be41f0D7bE043BAA9211FaEa86e04B7703[0m
+2026-07-27T15:40:49.2322035Z [0m[35m
+2026-07-27T15:40:49.2322287Z [STAGE 7/10] Jobs created in 0.06 seconds
+2026-07-27T15:40:49.2322472Z 
+2026-07-27T15:40:49.2322590Z [0m[35m[STAGE 8/10] Funding Chainlink nodes
+2026-07-27T15:40:49.2322758Z 
+2026-07-27T15:40:49.2329754Z [90m3:40PM[0m [32mINF[0m [1mCalculating suggested EIP-1559 fees[0m
+2026-07-27T15:40:49.2345530Z [90m3:40PM[0m [32mINF[0m [1mCalculated suggested EIP-1559 fees[0m [36mGasFeeCap=[0m"1006124454 wei / 0.000000001006124454 ether" [36mGasTipCap=[0m"1000000000 wei / 0.000000001 ether"
+2026-07-27T15:40:50.2367148Z [90m3:40PM[0m [32mINF[0m [1mSuccessfully funded EVM account 0x04dBe3be41f0D7bE043BAA9211FaEa86e04B7703[0m
+2026-07-27T15:40:50.2367867Z [90m3:40PM[0m [32mINF[0m [1mAttempting to fund EVM account 0xB4D365fE144ecA6735b6398A7380D91741b21bbE[0m
+2026-07-27T15:40:50.2377738Z [90m3:40PM[0m [32mINF[0m [1mCalculating suggested EIP-1559 fees[0m
+2026-07-27T15:40:50.2392977Z [90m3:40PM[0m [32mINF[0m [1mCalculated suggested EIP-1559 fees[0m [36mGasFeeCap=[0m"1005023967 wei / 0.000000001005023967 ether" [36mGasTipCap=[0m"1000000000 wei / 0.000000001 ether"
+2026-07-27T15:40:51.2412810Z [90m3:40PM[0m [32mINF[0m [1mSuccessfully funded EVM account 0xB4D365fE144ecA6735b6398A7380D91741b21bbE[0m
+2026-07-27T15:40:51.2413505Z [90m3:40PM[0m [32mINF[0m [1mAttempting to fund EVM account 0x3d18e33caBb80E7b7dE93dbEcA0AEAC9F7bD1291[0m
+2026-07-27T15:40:51.2423884Z [90m3:40PM[0m [32mINF[0m [1mCalculating suggested EIP-1559 fees[0m
+2026-07-27T15:40:51.2438349Z [90m3:40PM[0m [32mINF[0m [1mCalculated suggested EIP-1559 fees[0m [36mGasFeeCap=[0m"1004102907 wei / 0.000000001004102907 ether" [36mGasTipCap=[0m"1000000000 wei / 0.000000001 ether"
+2026-07-27T15:40:52.2458768Z [90m3:40PM[0m [32mINF[0m [1mSuccessfully funded EVM account 0x3d18e33caBb80E7b7dE93dbEcA0AEAC9F7bD1291[0m
+2026-07-27T15:40:52.2459545Z [90m3:40PM[0m [32mINF[0m [1mAttempting to fund EVM account 0x37166C515eD03652F854A94d2F303DE8fdE31212[0m
+2026-07-27T15:40:52.2470069Z [90m3:40PM[0m [32mINF[0m [1mCalculating suggested EIP-1559 fees[0m
+2026-07-27T15:40:52.2484039Z [90m3:40PM[0m [32mINF[0m [1mCalculated suggested EIP-1559 fees[0m [36mGasFeeCap=[0m"1003365666 wei / 0.000000001003365666 ether" [36mGasTipCap=[0m"1000000000 wei / 0.000000001 ether"
+2026-07-27T15:40:53.2501340Z [90m3:40PM[0m [32mINF[0m [1mSuccessfully funded EVM account 0x37166C515eD03652F854A94d2F303DE8fdE31212[0m
+2026-07-27T15:40:53.2501946Z [90m3:40PM[0m [32mINF[0m [1mFunded nodes for DON workflow[0m
+2026-07-27T15:40:53.2502341Z [90m3:40PM[0m [32mINF[0m [1mFunding nodes for DON capabilities[0m
+2026-07-27T15:40:53.2502811Z [90m3:40PM[0m [32mINF[0m [1mAttempting to fund EVM account 0xaea4AaD47D1bf6b2f101068325B65960317dd857[0m
+2026-07-27T15:40:53.2514057Z [90m3:40PM[0m [32mINF[0m [1mCalculating suggested EIP-1559 fees[0m
+2026-07-27T15:40:53.2529297Z [90m3:40PM[0m [32mINF[0m [1mCalculated suggested EIP-1559 fees[0m [36mGasFeeCap=[0m"1003735128 wei / 0.000000001003735128 ether" [36mGasTipCap=[0m"1000000000 wei / 0.000000001 ether"
+2026-07-27T15:40:54.2545888Z [90m3:40PM[0m [32mINF[0m [1mSuccessfully funded EVM account 0xaea4AaD47D1bf6b2f101068325B65960317dd857[0m
+2026-07-27T15:40:54.2546594Z [90m3:40PM[0m [32mINF[0m [1mAttempting to fund EVM account 0x72eD3714db3Dc10663D6293e490e2F93748C668F[0m
+2026-07-27T15:40:54.2560996Z [90m3:40PM[0m [32mINF[0m [1mCalculating suggested EIP-1559 fees[0m
+2026-07-27T15:40:54.2578084Z [90m3:40PM[0m [32mINF[0m [1mCalculated suggested EIP-1559 fees[0m [36mGasFeeCap=[0m"1003063972 wei / 0.000000001003063972 ether" [36mGasTipCap=[0m"1000000000 wei / 0.000000001 ether"
+2026-07-27T15:40:55.2595970Z [90m3:40PM[0m [32mINF[0m [1mSuccessfully funded EVM account 0x72eD3714db3Dc10663D6293e490e2F93748C668F[0m
+2026-07-27T15:40:55.2596677Z [90m3:40PM[0m [32mINF[0m [1mAttempting to fund EVM account 0x23A20cc51754db6fbD867FbF96aDd006E7aE0fab[0m
+2026-07-27T15:40:55.2605887Z [90m3:40PM[0m [32mINF[0m [1mCalculating suggested EIP-1559 fees[0m
+2026-07-27T15:40:55.2623112Z [90m3:40PM[0m [32mINF[0m [1mCalculated suggested EIP-1559 fees[0m [36mGasFeeCap=[0m"1002502245 wei / 0.000000001002502245 ether" [36mGasTipCap=[0m"1000000000 wei / 0.000000001 ether"
+2026-07-27T15:40:56.2640343Z [90m3:40PM[0m [32mINF[0m [1mSuccessfully funded EVM account 0x23A20cc51754db6fbD867FbF96aDd006E7aE0fab[0m
+2026-07-27T15:40:56.2641585Z [90m3:40PM[0m [32mINF[0m [1mAttempting to fund EVM account 0xA14e879b2132314D043E2E6d6ae32daA5E0557B0[0m
+2026-07-27T15:40:56.2649892Z [90m3:40PM[0m [32mINF[0m [1mCalculating suggested EIP-1559 fees[0m
+2026-07-27T15:40:56.2666591Z [90m3:40PM[0m [32mINF[0m [1mCalculated suggested EIP-1559 fees[0m [36mGasFeeCap=[0m"1002052623 wei / 0.000000001002052623 ether" [36mGasTipCap=[0m"1000000000 wei / 0.000000001 ether"
+2026-07-27T15:40:57.2684942Z [0m[35m
+2026-07-27T15:40:57.2685533Z [90m3:40PM[0m [32mINF[0m [1mSuccessfully funded EVM account 0xA14e879b2132314D043E2E6d6ae32daA5E0557B0[0m
+2026-07-27T15:40:57.2686008Z [90m3:40PM[0m [32mINF[0m [1mFunded nodes for DON capabilities[0m
+2026-07-27T15:40:57.2686388Z [90m3:40PM[0m [32mINF[0m [1mFunding nodes for DON bootstrap-gateway[0m
+2026-07-27T15:40:57.2686777Z [90m3:40PM[0m [32mINF[0m [1mFunded nodes for DON bootstrap-gateway[0m
+2026-07-27T15:40:57.2687161Z [STAGE 8/10] Chainlink nodes funded in 8.04 seconds
+2026-07-27T15:40:57.2687347Z 
+2026-07-27T15:40:57.2687527Z [0m[35m[STAGE 9/10] Configuring Workflow and Capability Registry contracts
+2026-07-27T15:40:57.2687932Z 
+2026-07-27T15:40:59.3760259Z [90m3:40PM[0m [32mINF[0m [1mExecuting PostEnvStartup for feature consensus for don 'workflow'[0m
+2026-07-27T15:40:59.3760745Z [0m[35m
+2026-07-27T15:40:59.3761243Z [STAGE 9/10] Workflow and Capability Registry contracts configured in 2.11 seconds
+2026-07-27T15:40:59.3761510Z 
+2026-07-27T15:40:59.3761673Z [0m[35m[STAGE 10/10] Applying Features after environment startup
+2026-07-27T15:40:59.3761892Z 
+2026-07-27T15:40:59.4642758Z [90m3:40PM[0m [32mINF[0m [1mPostEnvStartup for feature consensus executed successfully[0m
+2026-07-27T15:40:59.4643340Z [90m3:40PM[0m [32mINF[0m [1mExecuting PostEnvStartup for feature cron for don 'workflow'[0m
+2026-07-27T15:40:59.4643846Z [90m3:40PM[0m [32mINF[0m [1mPostEnvStartup for feature cron executed successfully[0m
+2026-07-27T15:40:59.4644349Z [90m3:40PM[0m [32mINF[0m [1mExecuting PostEnvStartup for feature don-time for don 'workflow'[0m
+2026-07-27T15:40:59.5559702Z [90m3:40PM[0m [32mINF[0m [1mPostEnvStartup for feature don-time executed successfully[0m
+2026-07-27T15:40:59.5560503Z [90m3:40PM[0m [32mINF[0m [1mExecuting PostEnvStartup for feature evm for don 'workflow'[0m
+2026-07-27T15:40:59.6500860Z [90m3:40PM[0m [32mINF[0m [1mConfigured EVM forwarders: &{DonID:1 F:1 ConfigVersion:1 Signers:[0xBe89E44DA32d534265548c1f93Aa5c64afd9A17c 0x3069C1637206B52aE226a83608a6501DF6C3818C 0xf531d4Dc97824d69092958f81bBF39FBa079BEa5 0xF96aA9556e9b8233cC079726f11AEb9937D721ab]}[0m
+2026-07-27T15:40:59.6502349Z [90m3:40PM[0m [32mINF[0m [1mPostEnvStartup for feature evm executed successfully[0m
+2026-07-27T15:40:59.6503011Z [90m3:40PM[0m [32mINF[0m [1mExecuting PostEnvStartup for feature evm for don 'capabilities'[0m
+2026-07-27T15:40:59.7413511Z [90m3:40PM[0m [32mINF[0m [1mConfigured EVM forwarders: &{DonID:1 F:1 ConfigVersion:1 Signers:[0xBe89E44DA32d534265548c1f93Aa5c64afd9A17c 0x3069C1637206B52aE226a83608a6501DF6C3818C 0xf531d4Dc97824d69092958f81bBF39FBa079BEa5 0xF96aA9556e9b8233cC079726f11AEb9937D721ab]}[0m
+2026-07-27T15:40:59.7415066Z [90m3:40PM[0m [32mINF[0m [1mPostEnvStartup for feature evm executed successfully[0m
+2026-07-27T15:40:59.7415788Z [90m3:40PM[0m [32mINF[0m [1mExecuting PostEnvStartup for feature http-action for don 'workflow'[0m
+2026-07-27T15:40:59.8493370Z [90m3:40PM[0m [32mINF[0m [1mPostEnvStartup for feature http-action executed successfully[0m
+2026-07-27T15:40:59.8494031Z [90m3:40PM[0m [32mINF[0m [1mExecuting PostEnvStartup for feature http-trigger for don 'workflow'[0m
+2026-07-27T15:40:59.9579602Z [90m3:40PM[0m [32mINF[0m [1mPostEnvStartup for feature http-trigger executed successfully[0m
+2026-07-27T15:40:59.9580501Z [90m3:40PM[0m [32mINF[0m [1mExecuting PostEnvStartup for feature vault for don 'capabilities'[0m
+2026-07-27T15:40:59.9827191Z [90m3:40PM[0m [32mINF[0m [1mDeployed OCR3 1.0.0 (Vault) contract on chain 3379446385462418246 at 0x9A676e781A523b5d0C0e43731313A708CB607508[0m
+2026-07-27T15:40:59.9828062Z [90m3:40PM[0m [32mINF[0m [1mDeployed OCR3 1.0.0 (DKG) contract on chain 3379446385462418246 at 0x0B306BF915C4d645ff596e518fAf3F9669b97016[0m
+2026-07-27T15:41:00.1082741Z [90m3:41PM[0m [32mINF[0m [1mPostEnvStartup for feature vault executed successfully[0m
+2026-07-27T15:41:00.1083526Z [90m3:41PM[0m [32mINF[0m [1mStoring Workflow Registry state file: /home/runner/_work/chainlink/chainlink/core/scripts/cre/environment/state/workflow_registry.toml[0m
+2026-07-27T15:41:00.1084083Z [0m[35m
+2026-07-27T15:41:00.1084305Z [STAGE 10/10] Features applied in 0.73 seconds
+2026-07-27T15:41:00.1084479Z 
+2026-07-27T15:41:00.1084854Z [90m3:41PM[0m [32mINF[0m [1mStoring local CRE state file: /home/runner/_work/chainlink/chainlink/core/scripts/cre/environment/state/local_cre.toml[0m
+2026-07-27T15:41:00.1093532Z [0m[35m
+2026-07-27T15:41:00.1093828Z Environment setup completed successfully in 56.51 seconds
+2026-07-27T15:41:00.1094032Z 
+2026-07-27T15:41:00.1094150Z [0mTo terminate execute:`go run . env stop`
+2026-07-27T15:41:00.1094458Z 
+2026-07-27T15:41:00.1094832Z [90m3:41PM[0m [32mINF[0m [1mStoring local CRE state file: /home/runner/_work/chainlink/chainlink/core/scripts/cre/environment/state/local_cre.toml[0m
