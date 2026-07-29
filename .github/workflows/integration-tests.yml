@@ -346,7 +346,7 @@ jobs:
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
           # DEBUG: Force caching for testing
-          cache-mode: read-write
+          cache-mode: write-only # DEBUG: Force populate cache
 
           cache-scope: ${{ matrix.image.cache-scope }}
 
