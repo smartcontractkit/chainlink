@@ -189,10 +189,12 @@ func SuiEventEmitter[T any](
 
 				for _, tx := range data.Transactions {
 					for _, ev := range tx.GetEvents().GetEvents() {
-						// Sui event struct types always carry the original defining
-						// package's ID, so match on the fully-qualified handle.
-						qualified := strings.Join([]string{ev.GetPackageId(), ev.GetModule(), ev.GetEventType()}, "::")
-						if qualified != eventType {
+						// EventType is already the fully-qualified
+						// package::module::event handle. PackageId is the emitting
+						// package and can differ from the type's original package
+						// after an upgrade, so prepending PackageId and Module both
+						// duplicates the handle and breaks upgraded-package events.
+						if !suiEventTypeMatches(ev.GetEventType(), eventType) {
 							continue
 						}
 						if ev.GetJson() == nil {
@@ -238,6 +240,10 @@ func SuiEventEmitter[T any](
 		}
 	}()
 	return ch, errChan
+}
+
+func suiEventTypeMatches(actual, expected string) bool {
+	return strings.TrimPrefix(actual, "0x") == strings.TrimPrefix(expected, "0x")
 }
 
 // isSuiCheckpointNotFound reports whether err indicates a checkpoint that is not yet

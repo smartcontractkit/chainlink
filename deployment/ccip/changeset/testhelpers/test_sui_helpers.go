@@ -98,6 +98,54 @@ type TokenPoolRateLimiterConfig struct {
 	InboundRate         uint64
 }
 
+// SeedSuiDestChainPrices seeds a Sui chain's FeeQuoter with the LINK fee-token price and the remote
+// chain's gas price, when Sui is the CCIP *destination*. Sui→EVM re-seeds these inline on every send
+// (SendSuiCCIPRequest), but EVM→Sui never sends from Sui, so its destination FeeQuoter stays empty:
+// get_token_price aborts EUnknownToken (code 4), the DON cannot build a commit, and offramp::commit
+// rejects the report as EStaleCommitReport (code 15) → the message never lands.
+//
+// Call this AFTER the DON has registered its lane event filters (WaitForEventFilterRegistrationOnLane)
+// and before sending — mirroring the source-side timing. Seeding earlier, during environment setup,
+// disturbs reader/DON startup and hangs filter registration. Values match SendSuiCCIPRequest;
+// update_prices is idempotent. The deployer still owns the CCIP OwnerCap (the MCMS ownership transfer
+// is only requested by DeploySuiChain, not executed), so a direct owner-cap update works.
+func SeedSuiDestChainPrices(t *testing.T, e cldf.Environment, suiChainSelector, remoteChainSelector uint64) {
+	t.Helper()
+	state, err := stateview.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	suiChain := e.BlockChains.SuiChains()[suiChainSelector]
+	deps := sui_ops.OpTxDeps{
+		Client: suiChain.Client,
+		Signer: suiChain.Signer,
+		GetCallOpts: func() *suiBind.CallOpts {
+			b := uint64(400_000_000)
+			return &suiBind.CallOpts{
+				Signer:           suiChain.Signer,
+				WaitForExecution: true,
+				GasBudget:        &b,
+			}
+		},
+	}
+
+	linkUsdPerToken, ok := new(big.Int).SetString("15377040000000000000000000000", 10)
+	require.True(t, ok, "failed to parse Sui LINK usd_per_token")
+
+	_, err = operations.ExecuteOperation(e.OperationsBundle, ccipops.FeeQuoterUpdatePricesWithOwnerCapOp, deps,
+		ccipops.FeeQuoterUpdatePricesWithOwnerCapInput{
+			CCIPPackageId:    state.SuiChains[suiChainSelector].CCIPAddress,
+			CCIPObjectRef:    state.SuiChains[suiChainSelector].CCIPObjectRef,
+			OwnerCapObjectId: state.SuiChains[suiChainSelector].CCIPOwnerCapObjectId,
+			// OCR token configuration keys Sui LINK by its package address, not
+			// by the CoinMetadata object ID.
+			SourceTokens:          []string{state.SuiChains[suiChainSelector].LinkTokenAddress},
+			SourceUsdPerToken:     []*big.Int{linkUsdPerToken},
+			GasDestChainSelectors: []uint64{remoteChainSelector},
+			GasUsdPerUnitGas:      []*big.Int{big.NewInt(41946474500)},
+		})
+	require.NoError(t, err, "failed to seed Sui dest FeeQuoter prices")
+}
+
 func SendSuiCCIPRequest(e cldf.Environment, cfg *ccipclient.CCIPSendReqConfig) (*ccipclient.AnyMsgSentEvent, error) {
 	// The SDK's default WaitForTxIndexedTimeout (30s) is too short for CI environments
 	// where fullnode indexing can lag. Override it to match our custom polling budget,
