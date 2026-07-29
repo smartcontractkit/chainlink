@@ -346,12 +346,13 @@ jobs:
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
           # DEBUG: Force caching for testing
-          cache-mode: write-only # DEBUG: Force populate cache
+          cache-mode: read-only # DEBUG: Force populate cache
 
           cache-scope: ${{ matrix.image.cache-scope }}
 
           # Persist only the Go build cache (GOCACHE), not the module cache.
-          # Module cache is large, and doesn't save us much time.
+          # Module cache is large, and doesn't save us much time,
+          # at least compared to just using the build cache
           # It also has mysterious failures when trying to upload
           cache-map: |
             {"cache-mount/go-build-cache": {"target": "/var/cache-target", "id": "go-build-cache"}}
