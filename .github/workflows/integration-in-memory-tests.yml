@@ -106,7 +106,7 @@ jobs:
       workflow_name: Run CCIP Integration Tests For PR
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
       test_path: .github/integration-in-memory-tests.yml
-      test_trigger: PR Integration CCIP Tests
+      test_trigger: PR Integration CCIP EVM2Sui Tests
       skip_image_build: true # in-memory tests do not require an image
       use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
       quarantine: "true"

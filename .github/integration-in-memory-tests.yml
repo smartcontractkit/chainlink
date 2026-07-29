@@ -1076,6 +1076,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1095,6 +1096,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1113,6 +1115,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1294,6 +1297,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1312,6 +1316,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1330,6 +1335,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1348,6 +1354,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1366,6 +1373,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1384,6 +1392,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1457,6 +1466,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1475,6 +1485,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1493,6 +1504,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
@@ -1511,6 +1523,7 @@ runner-test-matrix:
     runs_on_self_hosted: runs-on/cpu=16/ram=64/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
     triggers:
       - PR Integration CCIP Tests
+      - PR Integration CCIP EVM2Sui Tests
       - Nightly Integration CCIP Tests
     test_cmd: |
       gotestsum \
