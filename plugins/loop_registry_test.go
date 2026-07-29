@@ -127,6 +127,18 @@ func (m mockPrometheusBridge) Enabled() bool { return true }
 
 func (m mockPrometheusBridge) Prefixes() []string { return nil }
 
+func (m mockCfgTelemetry) WorkflowFaultInjection() config.WorkflowFaultInjection {
+	return mockWorkflowFaultInjection{}
+}
+
+type mockWorkflowFaultInjection struct{}
+
+func (m mockWorkflowFaultInjection) Enabled() bool            { return false }
+func (m mockWorkflowFaultInjection) OwnerAllowlist() []string { return nil }
+func (m mockWorkflowFaultInjection) RateBps() int             { return 0 }
+func (m mockWorkflowFaultInjection) Seed() string             { return "" }
+func (m mockWorkflowFaultInjection) Level() int               { return 1 }
+
 type mockCfgDatabase struct{}
 
 func (m mockCfgDatabase) Backup() config.Backup { panic("unimplemented") }

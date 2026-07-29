@@ -584,10 +584,19 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 		return fmt.Errorf("unknown message type: %T", msg)
 	}
 
-	return emitRawMessage(ctx, b, schema, entity)
+	return emitRawMessage(ctx, dropIdentityFor(msg), b, schema, entity)
 }
 
-func emitRawMessage(ctx context.Context, body []byte, schema, entity string) error {
+func emitRawMessage(ctx context.Context, id DropIdentity, body []byte, schema, entity string) error {
+	// Known-answer fault injection seam: consulted BEFORE both transports so a
+	// drop suppresses the event everywhere (nothing is persisted, so no retry
+	// layer can resurrect it). A drop is deliberate, not a failure — return nil
+	// so engine behavior is byte-identical for injected executions. No decider
+	// installed (the default) => no-op.
+	if shouldDropEvent(ctx, id, entity) {
+		return nil
+	}
+
 	if err := beholder.GetEmitter().Emit(ctx, body,
 		"beholder_data_schema", schema, // required
 		"beholder_domain", "platform", // required

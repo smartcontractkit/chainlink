@@ -86,6 +86,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	workflowevents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
@@ -432,6 +433,29 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			return nil, fmt.Errorf("failed to set up chip durable emitter: %w", setupErr)
 		}
 		srvcs = append(srvcs, durableEmitter)
+	}
+
+	// Known-answer fault injection for workflow events: deterministically drop
+	// (and record) a configured fraction of allowlisted-owner workflow events at
+	// the emit fan-out seam, so downstream integrity detectors can be
+	// continuously verified. Hard off by default; when disabled no decider is
+	// installed and the emit path is an unchanged no-op passthrough.
+	if fiCfg := cfg.Telemetry().WorkflowFaultInjection(); fiCfg.Enabled() {
+		faultInjector, fiErr := workflowevents.NewFaultInjector(workflowevents.FaultInjectorConfig{
+			Enabled:        true,
+			OwnerAllowlist: fiCfg.OwnerAllowlist(),
+			RateBps:        fiCfg.RateBps(),
+			Seed:           fiCfg.Seed(),
+			Level:          fiCfg.Level(),
+		}, globalLogger)
+		if fiErr != nil {
+			return nil, fmt.Errorf("failed to set up workflow event fault injector: %w", fiErr)
+		}
+		workflowevents.SetDropDecider(faultInjector)
+		globalLogger.Infow("Workflow event fault injection enabled",
+			"ownerAllowlistSize", len(fiCfg.OwnerAllowlist()),
+			"rateBps", fiCfg.RateBps(),
+			"level", fiCfg.Level())
 	}
 
 	creServices, err := cre.NewServices(

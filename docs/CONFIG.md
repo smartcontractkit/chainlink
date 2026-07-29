@@ -2660,6 +2660,57 @@ Prefixes = ["go_"] # Default
 Prefixes is a set of filters to restrict which prometheus metrics are forwarded based on prefix matching.
 By default, we only forward the go runtime metrics. Empty means forward everything.
 
+## Telemetry.WorkflowFaultInjection
+```toml
+[Telemetry.WorkflowFaultInjection]
+Enabled = false # Default
+OwnerAllowlist = [] # Default
+RateBps = 0 # Default
+Seed = '' # Default
+Level = 1 # Default
+```
+WorkflowFaultInjection configures known-answer fault injection for workflow events: a deterministic
+fraction of workflow executions belonging to allowlisted (internal) owners has events deliberately
+dropped — and durably recorded via a structured log line and the workflow_fault_injection_dropped_total
+metric — so downstream integrity detectors can be continuously verified (injected vs detected).
+
+### Enabled
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+Enabled = false # Default
+```
+Enabled turns fault injection on. Even when enabled, events are only dropped for workflow owners in
+OwnerAllowlist and at the rate set by RateBps; missing identity always fails closed (never drop).
+
+### OwnerAllowlist
+```toml
+OwnerAllowlist = [] # Default
+```
+OwnerAllowlist is the exact set of workflow owner addresses whose events may be dropped
+(case-insensitive, optional 0x prefix). Empty means no events are ever dropped.
+
+### RateBps
+```toml
+RateBps = 0 # Default
+```
+RateBps is the fraction of allowlisted workflow executions to drop, in basis points of 10000
+(100 = 1%). The selection is a deterministic hash of (Seed, workflowExecutionID), so every node of a
+DON independently drops the same executions. 0 disables dropping.
+
+### Seed
+```toml
+Seed = '' # Default
+```
+Seed feeds the deterministic drop hash. Rotate it to select a new cohort of executions.
+
+### Level
+```toml
+Level = 1 # Default
+```
+Level selects which events are dropped for a selected execution: 1 = WorkflowExecutionFinished only
+(execution visible downstream but never terminal), 2 = all workflow lifecycle events (execution
+invisible downstream). Metering, deployment, and user log/metric events are never dropped.
+
 ## CRE.Streams
 ```toml
 [CRE.Streams]

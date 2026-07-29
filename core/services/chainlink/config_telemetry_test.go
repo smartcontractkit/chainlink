@@ -600,3 +600,49 @@ func TestTelemetryConfig_MetricCardinalityLimit(t *testing.T) {
 		assert.Equal(t, 100000, tc.MetricCardinalityLimit())
 	})
 }
+
+func TestTelemetryConfig_WorkflowFaultInjection(t *testing.T) {
+	t.Parallel()
+
+	t.Run("defaults are hard off", func(t *testing.T) {
+		t.Parallel()
+		tc := telemetryConfig{s: toml.Telemetry{}}
+		fi := tc.WorkflowFaultInjection()
+		assert.False(t, fi.Enabled())
+		assert.Empty(t, fi.OwnerAllowlist())
+		assert.Equal(t, 0, fi.RateBps())
+		assert.Empty(t, fi.Seed())
+		assert.Equal(t, 1, fi.Level())
+	})
+
+	t.Run("set values round-trip", func(t *testing.T) {
+		t.Parallel()
+		tc := telemetryConfig{s: toml.Telemetry{
+			WorkflowFaultInjection: toml.WorkflowFaultInjection{
+				Enabled:        new(true),
+				OwnerAllowlist: []string{"1100000000000000000000000000000000000000"},
+				RateBps:        new(100),
+				Seed:           new("epoch-1"),
+				Level:          new(2),
+			},
+		}}
+		fi := tc.WorkflowFaultInjection()
+		assert.True(t, fi.Enabled())
+		assert.Equal(t, []string{"1100000000000000000000000000000000000000"}, fi.OwnerAllowlist())
+		assert.Equal(t, 100, fi.RateBps())
+		assert.Equal(t, "epoch-1", fi.Seed())
+		assert.Equal(t, 2, fi.Level())
+	})
+
+	t.Run("defaults from core docs", func(t *testing.T) {
+		t.Parallel()
+		defaults := docs.CoreDefaults()
+		tc := telemetryConfig{s: defaults.Telemetry}
+		fi := tc.WorkflowFaultInjection()
+		assert.False(t, fi.Enabled())
+		assert.Empty(t, fi.OwnerAllowlist())
+		assert.Equal(t, 0, fi.RateBps())
+		assert.Empty(t, fi.Seed())
+		assert.Equal(t, 1, fi.Level())
+	})
+}
