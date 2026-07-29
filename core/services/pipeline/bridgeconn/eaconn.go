@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/goccy/go-json"
 	"github.com/jonboulle/clockwork"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -35,6 +36,52 @@ var promEAConnObservationsTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 	Name: "bridge_eaconn_observations_total",
 	Help: "Count of gRPC observation messages accepted per bridge and asset pair",
 }, []string{"bridgeName", "assetKey"})
+
+// promEAConnTransmitDuration measures the delay between the external adapter receiving
+// data from its upstream provider (timestamps.providerDataReceivedUnixMs in the
+// observation payload) and this node handling the gRPC message.
+var promEAConnTransmitDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	Name: "bridge_eaconn_transmit_duration_seconds",
+	Help: "Delay from the adapter receiving provider data to the node handling the gRPC observation",
+	Buckets: []float64{
+		0.001, // 1 ms
+		0.002, // 2 ms
+		0.005, // 5 ms
+		0.010, // 10 ms
+		0.015, // 15 ms
+		0.020, // 20 ms
+		0.030, // 30 ms
+		0.040, // 40 ms
+		0.050, // 50 ms
+		0.075, // 75 ms
+		0.100, // 100 ms
+		0.150, // 150 ms
+		0.200, // 200 ms
+		0.500, // 500 ms
+	},
+}, []string{"bridgeName"})
+
+// promEAConnTransmitSkewTotal counts observations excluded from the transmit-duration
+// histogram because now minus providerDataReceivedUnixMs came out negative, meaning the
+// adapter's clock runs ahead of this node's. Skew of tens of milliseconds is normal
+// between unsynchronized hosts and exceeds the latency the histogram tries to measure,
+// so such samples are dropped rather than folded into the lowest bucket. Compare this
+// against bridge_eaconn_observations_total to judge how much of a bridge's traffic the
+// histogram actually covers: if this tracks the observation rate, the histogram is empty
+// for that bridge and its clocks need synchronizing before the latency data means
+// anything.
+var promEAConnTransmitSkewTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "bridge_eaconn_transmit_skew_total",
+	Help: "Count of observations excluded from the transmit-duration histogram due to adapter clock skew",
+}, []string{"bridgeName"})
+
+// observationTimestamps is the subset of an observation payload EAConn reads for the
+// transmit-duration metric; all other payload fields are ignored.
+type observationTimestamps struct {
+	Timestamps struct {
+		ProviderDataReceivedUnixMs *int64 `json:"providerDataReceivedUnixMs"`
+	} `json:"timestamps"`
+}
 
 // eaStreamClient is the protobuf-independent contract EAConn depends on for its
 // bidirectional observation stream, implemented by grpcStreamClient in production
@@ -218,7 +265,30 @@ func (c *eaConn) handleObservation(resp *streamspb.SubscribeResponse) {
 		return
 	}
 	promEAConnObservationsTotal.WithLabelValues(c.bridgeName, hex.EncodeToString(key[:])).Inc()
+	c.observeTransmitDuration(resp.ObservationJson)
 	c.manager.PutObservation(key, resp.ObservationJson)
+}
+
+// observeTransmitDuration records now minus providerDataReceivedUnixMs. Payloads that
+// omit the timestamp are skipped silently; negative durations are counted in
+// promEAConnTransmitSkewTotal instead, since they reflect adapter clock skew rather than
+// transmission time. Both branches are per-message hot paths at a few thousand
+// observations per second, so neither logs: the counters carry the signal.
+func (c *eaConn) observeTransmitDuration(observationJSON []byte) {
+	var obs observationTimestamps
+	if err := json.Unmarshal(observationJSON, &obs); err != nil {
+		return
+	}
+	if obs.Timestamps.ProviderDataReceivedUnixMs == nil {
+		return
+	}
+	received := time.UnixMilli(*obs.Timestamps.ProviderDataReceivedUnixMs)
+	d := c.clock.Now().Sub(received)
+	if d < 0 {
+		promEAConnTransmitSkewTotal.WithLabelValues(c.bridgeName).Inc()
+		return
+	}
+	promEAConnTransmitDuration.WithLabelValues(c.bridgeName).Observe(d.Seconds())
 }
 
 func (c *eaConn) sleepBackoff(current time.Duration) time.Duration {
