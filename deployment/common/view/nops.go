@@ -302,7 +302,7 @@ func ApprovedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 		Filter: &jobv1.ListJobsRequest_Filter{
 			NodeIds: nodeIDs,
 		},
-	}, grpc.MaxCallRecvMsgSize(50 * 1024 * 1024)) // Raise the default max receive message size (4 MB) to 50 MB
+	}, grpc.MaxCallRecvMsgSize(50*1024*1024)) // Raise the default max receive message size (4 MB) to 50 MB
 	if err != nil {
 		return nodeJobsView, proposedJobsView, fmt.Errorf("failed to list jobs for nodes %v: %w", nodeIDs, err)
 	}
