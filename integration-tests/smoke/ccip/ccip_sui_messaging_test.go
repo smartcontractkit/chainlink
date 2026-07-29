@@ -645,10 +645,6 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[destChain])
 	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
 
-	// Sui is the destination here; seed its FeeQuoter prices so the DON can build a commit for the
-	// Sui OffRamp (EVM→Sui never runs the source-side inline seed in SendSuiCCIPRequest).
-	testhelpers.SeedSuiDestChainPrices(t, e.Env, destChain, sourceChain)
-
 	t.Run("Message to Sui with zero receiver", func(t *testing.T) {
 		message := []byte("Hello Sui, from EVM!")
 		messagingtest.Run(t,
