@@ -148,10 +148,10 @@ func startEVMLogTriggerEventEmitter(
 	}()
 }
 
-func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput blockchains.Blockchain, msgEmitter *evmreadcontracts.MessageEmitter, expectedUserLog string) uint64 {
+func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput blockchains.Blockchain, msgEmitter *evmreadcontracts.MessageEmitter, message string) uint64 {
 	lggr.Info().Msgf("Emitting event to be picked up by workflow for chain '%s'", chainID)
 	sethClient := bcOutput.(*evm.Blockchain).SethClient
-	emittingTx, err := msgEmitter.EmitMessage(sethClient.NewTXOpts(), expectedUserLog)
+	emittingTx, err := msgEmitter.EmitMessage(sethClient.NewTXOpts(), message)
 	if err != nil {
 		lggr.Info().Msgf("Failed to emit transaction for chain '%s': %v", chainID, err)
 		return 0
@@ -162,6 +162,6 @@ func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput block
 		lggr.Info().Msgf("Failed to emit receipt for chain '%s': %v", chainID, err)
 		return 0
 	}
-	lggr.Info().Msgf("Transaction for chain '%s' mined at '%d' with emitted message %q", chainID, emittingReceipt.BlockNumber.Uint64(), expectedUserLog)
+	lggr.Info().Msgf("Transaction for chain '%s' mined at '%d' with emitted message %q", chainID, emittingReceipt.BlockNumber.Uint64(), message)
 	return emittingReceipt.BlockNumber.Uint64()
 }
