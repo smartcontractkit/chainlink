@@ -48,8 +48,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      # Note: CodeQL writes the build cache on push to default branch (which runs on an extras=s3-cache runner).
-      # PRs restore from develop's checkpoint.
+      # Note: CodeQL writes the build cache on push to default branch (develop).
+      # On release/* branches and PRs, build-cache-write resolves to never (restore-only).
       - name: Set up Go
         if: matrix.language == 'go'
         uses: ./.github/actions/setup-go

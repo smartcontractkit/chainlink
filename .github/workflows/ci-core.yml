@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -182,7 +182,7 @@ jobs:
         uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -193,7 +193,9 @@ jobs:
         with:
           go-directory: ${{ matrix.modules }}
           build-cache-version: lint-${{ matrix.modules }}
-          build-cache-write: default-branch-only
+          # Scheduled runs expand the matrix to all ~36 modules (no-change-behaviour: all),
+          # so restrict checkpoint writes to push events where the matrix is the push diff.
+          build-cache-write: ${{ github.event_name == 'push' && 'default-branch-only' || 'never' }}
 
       - name: Notify Slack
         # Skip for now as it's always failing on scheduled runs

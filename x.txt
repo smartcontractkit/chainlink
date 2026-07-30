@@ -1,0 +1,21 @@
+- [-] Regression: schedule turns golangci into a 35-cache fan-out writer, 11×/day. My suggestion last round, my miss on the interaction. ci-core.yml:150-151 sets no-change-behaviour: all, so on schedule the matrix expands to every module — 36 go.mod files in the repo. Each now hits default-branch-only with CURRENT_BRANCH == develop and event_name == schedule → SAVE=true. That's ~35 build-cache writes per scheduled run × 11 runs/day ≈ 385/day, which is worse than the PR-write volume this PR exists to eliminate. On push to develop the matrix comes from the push diff, so it stays small — the problem is schedule only.
+- Keep schedule in the action (it's correct and cheap for the single-instance writers: misc, core-scripts-tests, deployment shard 1). Gate it at the golangci caller instead.
+- [-] Use actions/checkout@v7 instead of v6
+- [-] codeql.yml release/* behavior change still unflagged. Was restore-build-cache-only: ${{ github.event_name != 'push' }} → saved on pushes to release/*. Now default-branch-only → never. codeql.yml triggers on push: [develop, release/*]. Acceptable, but worth a line in the PR description so it isn't discovered later as a mystery cold build.
+
+Suggested changes
+
+.github/workflows/ci-core.yml, golangci job:
+
+        with:
+          go-directory: ${{ matrix.modules }}
+          build-cache-version: lint-${{ matrix.modules }}
+          # Scheduled runs expand the matrix to all ~36 modules (no-change-behaviour: all),
+          # so restrict checkpoint writes to push events where the matrix is the push diff.
+          build-cache-write: ${{ github.event_name == 'push' && 'default-branch-only' || 'never' }}
+
+.github/workflows/go-mod-cache.yml, filter job:
+
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
