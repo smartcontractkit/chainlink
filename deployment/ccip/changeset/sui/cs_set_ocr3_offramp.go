@@ -67,6 +67,11 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 			CCIPOnChainState: state,
 		}
 
+		// If timelock proposal is to be generated, disable signer in deps
+		if config.MCMS != nil {
+			deps.SuiChain.Signer = nil
+		}
+
 		// DonIds for the chain
 		donID, err := internal.DonIDForChain(deps.CCIPOnChainState.Chains[config.HomeChainSel].CapabilityRegistry,
 			deps.CCIPOnChainState.Chains[config.HomeChainSel].CCIPHome,
