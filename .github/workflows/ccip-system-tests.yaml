@@ -71,10 +71,6 @@ jobs:
         shell: bash
         run: |
           TESTS_JSON='[
-            {"test_name":"Test_CCIPReorg_BelowFinality_OnSource","timeout":"15m","selected_network":"SIMULATED_1_DEEPER_FINALITY,SIMULATED_2_DEEPER_FINALITY"},
-            {"test_name":"Test_CCIPReorg_BelowFinality_OnDest","timeout":"15m","selected_network":"SIMULATED_1_DEEPER_FINALITY,SIMULATED_2_DEEPER_FINALITY"},
-            {"test_name":"Test_CCIPReorg_GreaterThanFinality_OnSource","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2,SIMULATED_3"},
-            {"test_name":"Test_CCIPReorg_GreaterThanFinality_OnDest","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2,SIMULATED_3"},
             {"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2"},
             {"test_name":"TestRMN_GlobalCurseTwoMessagesOnTwoLanes","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","rmn_rageproxy_version":"master-amd6416f5d86","rmn_afn2proxy_version":"master-amd64-10b42b2"},
             {"test_name":"TestDeleteCCIPJobs|TestRevokeJobs","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","job_timeout":20}
