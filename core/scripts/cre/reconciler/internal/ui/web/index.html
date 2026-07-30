@@ -43,10 +43,19 @@
         <div class="grid grid-cols-12 gap-4">
             <!-- DON Columns (center + left) -->
             <div class="col-span-9">
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h2 class="text-sm font-semibold text-gray-700">Families</h2>
+                            <p class="text-xs text-gray-400">Groups a gateway DON with the workflow/capabilities DON(s) it serves — assign a DON to one via its own "Family" select below</p>
+                        </div>
+                        <button id="btnAddFamily" class="px-3 py-1 bg-gray-100 text-gray-600 rounded text-xs hover:bg-gray-200 flex-shrink-0">+ Add</button>
+                    </div>
+                    <div id="familiesContent" class="flex flex-wrap gap-1"></div>
+                </div>
                 <div id="donColumns" class="space-y-4">
                     <!-- DONs rendered here -->
                 </div>
-                <div id="gatewayAssignments" class="mt-4 hidden"></div>
             </div>
 
             <!-- Capability Catalog (right) -->

@@ -10,8 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/discovery"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
@@ -28,15 +26,15 @@ type Reconciler struct {
 	cv                *domain.ChartValues
 	k8s               K8sAPI
 	nodeDialer        NodeDialer
-	deployerKey       string
 	log               zerolog.Logger
 	confirm           bool
 	restartWorkerPods bool
 	waitAtBreakpoint  bool
 }
 
-// NewReconciler creates a Reconciler from the CLI flags.
-func NewReconciler(desiredPath, statePath, chartDir, kubeconfig, env string, confirm, restartWorkerPods, waitAtBreakpoint bool, deployerKey string, log zerolog.Logger) (*Reconciler, error) {
+// NewReconciler creates a Reconciler from the CLI flags. The deployer key is
+// env-only (see onchain.resolveDeployerKey) — there is no CLI flag for it.
+func NewReconciler(desiredPath, statePath, chartDir, kubeconfig, env string, confirm, restartWorkerPods, waitAtBreakpoint bool, log zerolog.Logger) (*Reconciler, error) {
 	log.Info().Str("desired", desiredPath).Str("state", statePath).Msg("Loading desired state")
 
 	ds, err := domain.LoadDesiredState(desiredPath)
@@ -83,10 +81,6 @@ func NewReconciler(desiredPath, statePath, chartDir, kubeconfig, env string, con
 		log.Info().Str("namespace", cv.Namespace).Msg("K8s client connected")
 	}
 
-	if deployerKey == "" {
-		deployerKey = blockchain.DefaultAnvilPrivateKey
-	}
-
 	return &Reconciler{
 		desired:           ds,
 		state:             state,
@@ -94,7 +88,6 @@ func NewReconciler(desiredPath, statePath, chartDir, kubeconfig, env string, con
 		cv:                cv,
 		k8s:               k8s,
 		nodeDialer:        clNodeDialer{},
-		deployerKey:       deployerKey,
 		log:               log,
 		confirm:           confirm,
 		restartWorkerPods: restartWorkerPods,
@@ -131,7 +124,7 @@ func (r *Reconciler) Run(ctx context.Context) error {
 		return errors.Wrap(err, "node label preflight failed")
 	}
 
-	d := onchain.NewDeployer(r.k8s, r.deployerKey, r.log, r.confirmStep)
+	d := onchain.NewDeployer(r.k8s, r.log, r.confirmStep)
 
 	var onChainChanged bool
 	if !r.onChainComplete() {
@@ -477,7 +470,7 @@ func (r *Reconciler) injectTOML(_ context.Context) error {
 
 			if don != nil && donName != "" && r.desired.NeedsGateway() &&
 				(don.IsWorkflowDon() || don.NeedsGatewayAccess()) {
-				gateways := r.buildWorkerGateways()
+				gateways := r.buildWorkerGateways(donName)
 				if len(gateways) > 0 {
 					evmAddr := ""
 					if addrs := r.state.NodeRuntime[node.Name].EVMAddress; addrs != nil {
@@ -673,29 +666,51 @@ func filterUnchangedTOMLPatches(
 	return filteredByFile, filteredPatches, nil
 }
 
-func (r *Reconciler) buildWorkerGateways() []nodeconfig.ConnectorGateway {
+// buildWorkerGateways returns the gateway connectors a node in donName's DON
+// should list — every gateway DON sharing donName's family, per the explicit
+// don-family model (desired.Validate ensures every workflow/capabilities/
+// gateway DON has one). Returns nil if the DON has no family (e.g. bootstrap)
+// or matches no gateway.
+func (r *Reconciler) buildWorkerGateways(donName string) []nodeconfig.ConnectorGateway {
+	don := r.desired.DONByName(donName)
+	if don == nil || don.Family == "" {
+		return nil
+	}
+	family := don.Family
+
 	if len(r.state.GatewayConnectors) > 0 {
 		gateways := make([]nodeconfig.ConnectorGateway, 0, len(r.state.GatewayConnectors))
 		for _, gc := range r.state.GatewayConnectors {
+			gwDON := r.desired.DONByName(gc.DONName)
+			if gwDON == nil || gwDON.Family != family {
+				continue
+			}
 			gateways = append(gateways, nodeconfig.ConnectorGateway{
 				ID:    gc.AuthGatewayID,
 				URL:   gc.WebSocketURL,
-				DonID: gc.GatewayDonID,
+				DonID: gc.DONName, // the gateway's OWN DON id, per core's ConnectorGateway.DonID semantics
 			})
 		}
 		return gateways
 	}
 
+	// Fallback: state.GatewayConnectors not yet populated (e.g. before any
+	// on-chain phase has stored connector info) — derive directly from chart
+	// + desired state instead.
 	gwNodes := r.cv.FindGatewayNodes()
 	gateways := make([]nodeconfig.ConnectorGateway, 0, len(gwNodes))
 	for idx, gwNode := range gwNodes {
-		gwDON := r.desired.GatewayDONFor(gwNode.Name)
+		gwDonName := r.desired.GatewayDONForNode(r.cv, gwNode.Name)
+		gwDON := r.desired.DONByName(gwDonName)
+		if gwDON == nil || gwDON.Family != family {
+			continue
+		}
 		gwNamespace := r.cv.GetNodeNamespace(gwNode.Name)
 		gwURL := fmt.Sprintf("ws://%s.%s.svc.cluster.local:5003", gwNode.Name, gwNamespace)
 		gateways = append(gateways, nodeconfig.ConnectorGateway{
 			ID:    fmt.Sprintf("gateway-node-%d", idx),
 			URL:   gwURL,
-			DonID: gwDON,
+			DonID: gwDonName,
 		})
 	}
 	return gateways

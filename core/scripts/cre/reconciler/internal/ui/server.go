@@ -120,13 +120,8 @@ type DesiredResponse struct {
 	} `json:"jd"`
 	Chains            []ChainResponse                    `json:"chains"`
 	DONs              []DONResponse                      `json:"dons"`
-	GatewayNodes      []GatewayNodeResponse              `json:"gatewayNodes"`
+	Families          []string                           `json:"families"`
 	CapabilityConfigs map[string]domain.CapabilityConfig `json:"capabilityConfigs"`
-}
-
-type GatewayNodeResponse struct {
-	Node string `json:"node"`
-	DON  string `json:"don"`
 }
 
 type DONResponse struct {
@@ -137,6 +132,7 @@ type DONResponse struct {
 	BootstrapNode          string                             `json:"bootstrapNode"`
 	ExposesRemoteCaps      bool                               `json:"exposesRemoteCapabilities"`
 	RegistryBasedAllowlist []string                           `json:"registryBasedLaunchAllowlist"`
+	Family                 string                             `json:"family"`
 	CapabilityConfigs      map[string]domain.CapabilityConfig `json:"capabilityConfigs,omitempty"`
 }
 
@@ -261,6 +257,7 @@ func (s *Server) handleDesired(w http.ResponseWriter, r *http.Request) {
 				BootstrapNode:          don.BootstrapNode,
 				ExposesRemoteCaps:      don.ExposesRemoteCaps,
 				RegistryBasedAllowlist: don.RegistryBasedAllowlist,
+				Family:                 don.Family,
 				CapabilityConfigs:      don.CapabilityConfigs,
 			}
 			if cvErr == nil && cv != nil {
@@ -271,9 +268,7 @@ func (s *Server) handleDesired(w http.ResponseWriter, r *http.Request) {
 			resp.DONs = append(resp.DONs, donResp)
 		}
 
-		for _, gwn := range ds.GatewayNodes {
-			resp.GatewayNodes = append(resp.GatewayNodes, GatewayNodeResponse{Node: gwn.Node, DON: gwn.DON})
-		}
+		resp.Families = ds.Families
 
 		s.writeJSON(w, http.StatusOK, resp)
 
@@ -609,13 +604,12 @@ func responseToDesiredState(req DesiredResponse) *domain.DesiredState {
 			BootstrapNode:          d.BootstrapNode,
 			ExposesRemoteCaps:      d.ExposesRemoteCaps,
 			RegistryBasedAllowlist: d.RegistryBasedAllowlist,
+			Family:                 d.Family,
 			CapabilityConfigs:      d.CapabilityConfigs,
 		})
 	}
 
-	for _, gwn := range req.GatewayNodes {
-		ds.GatewayNodes = append(ds.GatewayNodes, domain.GatewayNodeAssignment{Node: gwn.Node, DON: gwn.DON})
-	}
+	ds.Families = req.Families
 
 	return ds
 }

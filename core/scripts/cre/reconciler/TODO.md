@@ -286,77 +286,68 @@ precondition applies to each new chain-scoped cap), E6 (allowlist), the UI capab
 
 ## D. Parallelization
 
-### D1 — Parallelize remaining sequential loops  ·  PARTIAL · P2
+### D1 — Parallelize remaining sequential loops  ·  DONE (Phase 7, partial by design) · P2
 **Status.** Job cleanup is already parallel + rate-limited (`jobs.DeleteAllForDons`, Phase 4); discovery is parallel
 (Phase 3); JD chain configs are parallel (Phase 6). The cancel→list→delete chain *within a node* is necessarily
 sequential (cancel must precede delete) — that's correct, not a gap.
 
-**Remaining candidates (verify each is safe, then bound with errgroup):**
-- `runPreEnvStartup` — per-feature × per-DON loop is sequential (onchain.go). Features may have shared state
-  (`donsCapabilities`, OCR3 maps) — needs a mutex or per-DON result merge before parallelizing.
-- `buildDonsForJobs` — builds `clnode.Output` + enriches CapReg node per node sequentially (postenv/reconcile).
-- `buildNodeSpecs` / topology build — `GetNodeSecretsToml` per node sequential (onchain.go `buildTopology`).
-- `runPostEnvStartup` — per-feature × per-DON, similar caveats to PreEnvStartup.
+**What shipped (Phase 7).** `buildNodeSpecs` (topology.go) and `buildDonsForJobs`'s two per-node loops (jobs.go —
+building `clnode.Output`, then enriching each CapReg node) are now bounded `errgroup` (limit 8), writing into
+pre-sized slices by index so each goroutine only touches its own slot. The one genuinely shared touchpoint either
+loop reaches (`state.JDNodeIDs`, via `resolveJDNodeID`) was already mutex-guarded from earlier work — confirmed safe
+to call concurrently without new locking.
 
-**Scope.** For each, confirm no shared-state races, then wrap in a bounded `errgroup` (mirror Phase 3/4/6). Rate-limit
-anything hitting JD.
-
-**Acceptance.** Named loops run concurrently under `-race` with no data races; wall-clock improves on multi-node DONs.
-
-**Open decisions.** PreEnvStartup/PostEnvStartup parallelization depends on Feature-hook thread-safety — may need to
-stay sequential or aggregate results. Confirm before planning.
+**Deliberately left sequential, per the original open decision:** `runPreEnvStartup`/`runPostEnvStartup` — per-feature
+× per-DON loops with real shared state (`donsCapabilities`, OCR3 maps) that would need a mutex or per-DON result-merge
+redesign to parallelize safely. Not attempted this phase; still a candidate for a future pass if warranted.
 
 ---
 
 ## E. Gateway & UI
 
-### E1 — One gateway serving multiple DONs, incl. `capabilities`-type DONs  ·  PARTIAL · P2
-**Status.** DON type `capabilities` already exists as an option in the UI DON-type selector (`app.js`/`index.html`).
-**Gaps:**
-1. **Backend:** a gateway currently maps to a single DON (`GatewayNodeAssignment{Node, DON}`, `GatewayDONFor` returns
-   one; `GatewayConnectorConfig.DonID` single). Needs to support a gateway serving **multiple** DONs (a set of
-   DON IDs per gateway connector).
-2. **UI:** `renderGatewayAssignments` offers only **workflow** DONs as assignment targets. Must also allow
-   **capabilities**-type DONs, and allow assigning one gateway to **multiple** DONs (multi-select rather than single).
+### E1 — One gateway serving multiple DONs, incl. `capabilities`-type DONs  ·  DONE (Phase 7) · P2
+**What shipped — a different, more faithful mechanism than originally scoped.** Investigating how
+`system-tests/lib/cre`'s job-creation actually pairs gateways with DONs surfaced a hard constraint: `NodeSet.DonFamily`
+is a single string per nodeset, and `GatewayServiceConfigsForGateway` filters by exact family-string equality — a
+gateway can only ever serve DONs sharing its own family. The originally-planned per-gateway `dons = [...]` list can
+express bipartite assignments the library can't realize faithfully (e.g. gw-A serving {X,Y}, gw-B serving {Y,Z} —
+overlapping but not identical) — Y can't belong to two families at once, so one of the two gateways would silently
+mis-serve. Real CRE avoids this by making `family` an explicit, required field on **every** DON (`nodesets.don_family`)
+— mirrored here instead of the list-per-gateway shape:
+- `domain.DON.Family string` (required for workflow/capabilities/gateway DONs, no default) + `domain.DesiredState.Families
+  []string` (the declared catalog) — validated in `Validate()`.
+- Which DONs a gateway serves is now **fully derived**: every non-gateway DON sharing the gateway DON's family. This
+  makes invalid overlaps structurally impossible (a DON belongs to exactly one family) rather than something to catch
+  after the fact — no separate validation pass needed for the overlap case that motivated this redesign.
+- `[[gateway_nodes]]`/`GatewayNodeAssignment`/`GatewayDONFor` **removed outright**, not reshaped — the per-node
+  assignment list became redundant once family membership does the job.
+- UI: a new "Families" card (same pattern as Cap Configs) manages the family-name catalog; every DON card gets a
+  "Family" `<select>` populated from it. No gateway-assignment multi-select — picking a DON's family *is* the
+  assignment.
+- Two real bugs fixed alongside (found via research, not originally scoped): `GatewayDonID` was set to the *served*
+  DON name instead of the gateway's *own* DON name (core's `ConnectorGateway.DonID` expects the latter, for
+  multi-gateway routing) — fixed in `newGatewayNodeSet`. `buildWorkerGateways` (reconcile.go) ignored which DON was
+  asking and returned every gateway connector unfiltered to every node — harmless with one gateway, wrong with
+  several — fixed to take the calling node's DON name and filter by family match. `storeGatewayConnectors`'s
+  positional pairing (`Configurations[i]` ↔ `FindGatewayNodes()[i]`) was also fragile and fixed to match by
+  `NodeUUID` via topology metadata instead.
 
-**Finalized schema (phase_plan.md D6).** `desired.toml` uses a `dons = [...]` list field, not repeated entries and not
-the old single-`don` shape:
-
-```toml
-[[gateway_nodes]]
-node = "node-gw-0"
-dons = ["workflow-a", "capabilities-b"]
-```
-
-This is a direct breaking change — do not support the old single-`don` shape. Scope of support: one gateway nodeset
-may contain multiple gateway nodes; multiple nodesets may each contain gateway nodes; any nodeset treated as a gateway
-nodeset is assumed to contain only gateway nodes; mixed worker+gateway nodesets are out of scope.
-
-**Scope.** Backend: change gateway→DON to a one-to-many mapping using the `dons = [...]` schema above + topology/
-connector build to emit multiple `Gateways[].DonID` / a DON list. UI: multi-select of eligible DONs (workflow +
-capabilities) per gateway; render membership read-only as today. Generated `[Capabilities.GatewayConnector]` must
-reflect all served DONs.
-
-**Acceptance.** A single gateway node assigned to both a workflow DON and a capabilities DON produces a gateway job +
-connector config serving both; UI lets you pick multiple DONs of either type.
+**Acceptance.** A gateway DON and any number of workflow/capabilities DONs sharing one family produce a gateway job +
+connector config serving all of them; UI assigns via each DON's own Family select, including `capabilities`-type DONs.
 
 **Depends on / relates to:** gateway job creation, `NeedsGateway`/`NeedsGatewayAccess` logic.
 
-### E2 — Block save/preview when a gateway DON is left unassigned  ·  TODO · P2
-**Status.** The gateway→DON assignment **is** used downstream — `renderGatewayAssignments` (app.js) writes
-`state.gatewayNodes`, which persists to `desired.toml` `[[gateway_nodes]]` (`GatewayNodeAssignment`, desired.go:171) and
-feeds topology/connector build (`GatewayDONFor` desired.go:444, `buildGatewayNodeSets` onchain.go:903). **Gap:** the UI
-happily saves/previews with a gateway DON that has no DON selected (empty `don`), producing a gateway that serves
-nothing.
+### E2 — Block save/preview when a gateway DON is left unassigned  ·  DONE (Phase 7) · P2
+**What shipped.** Folded into the family model (E1) as a natural consequence rather than a separate check: `Validate()`
+rejects any family that contains a gateway DON but no non-gateway DON — an "assigned-to-nothing" gateway can't be
+saved. `handlePreviewTOML` deliberately skips full `Validate()` (so preview still works on an in-progress config), so
+the same check is also done client-side (`blockedByUnservedGateways()` in app.js) before both `save()` and
+`previewTOML()`.
 
-**Scope.** On `save()` and `previewTOML()` (and/or server-side in the `/api/desired` + `/api/preview-toml` handlers),
-reject when any gateway DON has no assignment; surface a precise "gateway <name> is not assigned to a DON" error and
-don't write TOML. Since a gateway may serve **multiple** DONs (see E1), validate "≥1 assignment", not "exactly one".
+**Acceptance.** Saving/previewing with a gateway DON whose family has no served DON shows a blocking error naming the
+gateway; assigning a family shared with ≥1 non-gateway DON clears it.
 
-**Acceptance.** Saving/previewing with an unassigned gateway shows a blocking error naming the gateway; assigning it to
-≥1 DON clears the error.
-
-**Depends on / relates to:** E1 (multi-DON gateway — the many-DON shape this validation must tolerate).
+**Depends on / relates to:** E1 (the family model this validation is built into).
 
 ### E3 — Apply the desired state from the UI, with live execution logs  ·  TODO · P2
 **Problem.** `apply` is CLI-only (`cmd.go`); the UI can only author/preview/save `desired.toml`. Operators must drop to
@@ -516,30 +507,22 @@ default). What goes in each artifact (inputs, addresses, tx hashes, changeset id
 
 ## H. Deployer keys & signing
 
-### H1 — Per-chain deployer private keys via `PRIVATE_KEY_<CHAIN_ID>` env vars  ·  TODO · P2
-**Problem.** There is a single deployer key for **all** chains: `--deployer-key` (cmd.go:116), defaulting to the Anvil
-dev account (`reconcile.go:97`, `blockchain.DefaultAnvilPrivateKey`). It's used for every chain's transactor
-(`DeployerTransactorGen: TransactorFromRaw(r.deployerKey)`, onchain.go:247) and for the workflow-owner address on the
-registry chain (`deployerAddress(r.deployerKey)`, onchain.go:550). A real multi-chain deployment needs a different
-funded key per chain.
-
-**Finalized (phase_plan.md D2).** Deployer key configuration is environment variables only. Remove `--deployer-key`
-entirely — do not mix CLI flags and environment variables. Resolution order: `PRIVATE_KEY_<CHAIN_ID>` for per-chain
-EVM deployer keys, `PRIVATE_KEY` as the global fallback, and the Anvil default only when neither env var is set. The
-workflow owner is derived from the effective key for the registry chain.
-
-**Scope.** Remove the `--deployer-key` CLI flag entirely. Resolve a per-chain key from `PRIVATE_KEY_<CHAIN_ID>` env
-vars (e.g. `PRIVATE_KEY_1337=0x…`), falling back to `PRIVATE_KEY`, then the Anvil default. Thread a `chainID → key`
-lookup into the per-chain transactor construction (onchain.go:247 and the deploy loop at :764-769) instead of the
-single `r.deployerKey`. The workflow-owner address (registry chain, onchain.go:550) resolves from the effective key for
-the registry chain.
+### H1 — Per-chain deployer private keys via `PRIVATE_KEY_<CHAIN_ID>` env vars  ·  DONE (Phase 7) · P2
+**What shipped.** Confirmed during implementation that this codebase only ever builds one EVM chain provider (the
+registry chain, in `buildCldfEnv`) — no separate "per-chain deploy loop" existed to update, simpler than the stale
+line-number references implied. Removed the `--deployer-key` CLI flag and the `deployerKey` field from
+`Reconciler`/`Deployer` entirely. Added `resolveDeployerKey(chainID uint64) string` to env.go (`PRIVATE_KEY_<chainID>`
+→ `PRIVATE_KEY` → Anvil default), following the same `const FooEnv = "..."` + accessor convention as
+`SolanaPrivateKeyEnv`/`JDAccessTokenEnv`. Used by `buildCldfEnv`'s `TransactorFromRaw` call and both
+`deployerAddress()` call sites (deployer.go's CapReg-hash workflow-owner computation, workflowreg.go's actual P8
+execution), both resolving for the registry chain's ID.
 
 **Acceptance.** With `PRIVATE_KEY_1337` set, deploys/txs on chain 1337 are signed by that key; chains without a
 `PRIVATE_KEY_<id>` fall back to `PRIVATE_KEY`/Anvil; the workflow owner is derived from the registry chain's effective
 key; `--deployer-key` no longer exists as a CLI flag.
 
-**Open decisions.** Whether keys ever come from a file/secret store rather than env (out of scope for the first cut).
-Never log the keys.
+**Open decisions (unchanged, still open).** Whether keys ever come from a file/secret store rather than env (out of
+scope for this cut). Never log the keys.
 
 **Depends on / relates to:** the on-chain deploy flow (A2/A3), G1 (document the env-var convention alongside
 `GRIDDLE_JD_ACCESS_TOKEN`).

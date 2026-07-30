@@ -20,6 +20,8 @@ func TestLoadDesiredState_Minimal(t *testing.T) {
 	t.Parallel()
 
 	path := writeTempTOML(t, `
+families = ["family-a"]
+
 [infra]
   type = "griddle"
 
@@ -40,6 +42,7 @@ func TestLoadDesiredState_Minimal(t *testing.T) {
   don_types = ["workflow"]
   capabilities = ["cron", "evm-1337"]
   nodes = ["node-0", "node-1"]
+  family = "family-a"
 
 [capability_configs.cron]
   binary_name = "cron"
@@ -64,6 +67,8 @@ func TestLoadDesiredState_MultipleDONs(t *testing.T) {
 	t.Parallel()
 
 	path := writeTempTOML(t, `
+families = ["family-a"]
+
 [infra]
   type = "griddle"
 
@@ -84,6 +89,7 @@ func TestLoadDesiredState_MultipleDONs(t *testing.T) {
   don_types = ["workflow"]
   capabilities = ["cron", "http-action", "evm-1337"]
   nodes = ["node-0", "node-1", "node-2", "node-3"]
+  family = "family-a"
 
 [[dons]]
   name = "capabilities"
@@ -91,10 +97,7 @@ func TestLoadDesiredState_MultipleDONs(t *testing.T) {
   exposes_remote_capabilities = true
   capabilities = ["vault"]
   nodes = ["node-0", "node-1"]
-
-[[gateway_nodes]]
-  node = "node-gw-0"
-  don = "workflow"
+  family = "family-a"
 
 [capability_configs.cron]
   binary_name = "cron"
@@ -110,8 +113,8 @@ func TestLoadDesiredState_MultipleDONs(t *testing.T) {
 	require.Len(t, ds.DONs, 2)
 	require.Equal(t, "capabilities", ds.DONs[1].Name)
 	require.True(t, ds.DONs[1].ExposesRemoteCaps)
-	require.Len(t, ds.GatewayNodes, 1)
-	require.Equal(t, "node-gw-0", ds.GatewayNodes[0].Node)
+	require.Equal(t, "family-a", ds.DONs[0].Family)
+	require.ElementsMatch(t, []string{"family-a"}, ds.Families)
 }
 
 func TestLoadDesiredState_ValidationErrors(t *testing.T) {
@@ -474,6 +477,108 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 `,
 			errSub: "family solana): ws_url is required",
 		},
+		{
+			name: "workflow DON missing family",
+			toml: `[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "evm"
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[dons]]
+  name = "w"
+  don_types = ["workflow"]
+  capabilities = ["cron"]
+[capability_configs.cron]
+  binary_name = "cron"
+`,
+			errSub: "family is required for workflow/capabilities/gateway DONs",
+		},
+		{
+			name: "family not declared",
+			toml: `[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "evm"
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[dons]]
+  name = "w"
+  don_types = ["workflow"]
+  capabilities = ["cron"]
+  family = "family-a"
+[capability_configs.cron]
+  binary_name = "cron"
+`,
+			errSub: "family \"family-a\" is not declared in [families]",
+		},
+		{
+			name: "duplicate family name",
+			toml: `families = ["family-a", "family-a"]
+[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "evm"
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[dons]]
+  name = "w"
+  capabilities = ["cron"]
+[capability_configs.cron]
+  binary_name = "cron"
+`,
+			errSub: "duplicate family \"family-a\"",
+		},
+		{
+			name: "gateway DON's family serves nothing",
+			toml: `families = ["family-a"]
+[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "evm"
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[dons]]
+  name = "gw"
+  don_types = ["gateway"]
+  family = "family-a"
+[capability_configs.cron]
+  binary_name = "cron"
+`,
+			errSub: "has gateway DON(s)",
+		},
 	}
 
 	for _, tt := range tests {
@@ -594,23 +699,25 @@ func TestNeedsGateway(t *testing.T) {
 	require.True(t, ds.NeedsGateway())
 }
 
-func TestGatewayDONFor(t *testing.T) {
+func TestGatewayDONForNode(t *testing.T) {
 	t.Parallel()
 
 	ds := &DesiredState{
 		DONs: []DON{
 			{Name: "capabilities", DONTypes: []string{"capabilities"}},
-			{Name: "workflow", DONTypes: []string{"workflow"}},
+			{Name: "gateway-don", DONTypes: []string{"gateway"}},
 		},
 	}
-	// No explicit assignment -> first workflow DON
-	require.Equal(t, "workflow", ds.GatewayDONFor("node-gw-0"))
-
-	// Explicit assignment
-	ds.GatewayNodes = []GatewayNodeAssignment{
-		{Node: "node-gw-0", DON: "capabilities"},
+	cv := &ChartValues{
+		Nodes: []ChartNodeInfo{
+			{Name: "node-gw-0", DONName: "gateway-don"},
+			{Name: "node-cap-0", DONName: "capabilities"},
+		},
 	}
-	require.Equal(t, "capabilities", ds.GatewayDONFor("node-gw-0"))
+
+	require.Equal(t, "gateway-don", ds.GatewayDONForNode(cv, "node-gw-0"))
+	require.Equal(t, "", ds.GatewayDONForNode(cv, "node-cap-0"))
+	require.Equal(t, "", ds.GatewayDONForNode(cv, "node-unknown"))
 }
 
 func TestStripChainSuffix(t *testing.T) {

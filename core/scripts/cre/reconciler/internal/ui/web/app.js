@@ -7,7 +7,7 @@
         chains: [],
         bootstrap: '',
         gateways: [],
-        gatewayNodes: [],
+        families: [],
         namespace: '',
         chartDir: '',
         dons: [],
@@ -79,12 +79,6 @@
             state.chartDir = data.chartDir || '';
             document.getElementById('namespaceLabel').textContent =
                 state.namespace ? `Namespace: ${state.namespace}` : '';
-
-            state.gateways.forEach(gwName => {
-                if (!state.gatewayNodes.find(gwn => gwn.node === gwName)) {
-                    state.gatewayNodes.push({ node: gwName, don: '' });
-                }
-            });
         } catch (e) {
             toast('Failed to load nodes: ' + e.message, 'error');
         }
@@ -108,6 +102,7 @@
                 bootstrapNode: d.bootstrapNode || '',
                 exposesRemoteCapabilities: d.exposesRemoteCapabilities || false,
                 registryBasedLaunchAllowlist: d.registryBasedLaunchAllowlist || [],
+                family: d.family || '',
                 capabilityConfigs: d.capabilityConfigs || {},
             }));
             state.infra = data.infra || { type: 'griddle' };
@@ -118,7 +113,7 @@
             if (!state.jd.environment) state.jd.environment = 'dev';
             if (state.jd.useTLS === undefined) state.jd.useTLS = true;
             state.capabilityConfigs = data.capabilityConfigs || {};
-            state.gatewayNodes = (data.gatewayNodes || []).map(gwn => ({ node: gwn.node, don: gwn.don }));
+            state.families = data.families || [];
 
             renderDONs();
             renderConfig();
@@ -239,63 +234,54 @@
         container.innerHTML = state.dons.map((don, idx) => donColumnHTML(don, idx)).join('');
 
         renderCapabilityCatalog();
-        renderGatewayAssignments();
+        renderFamilies();
     }
 
-    function renderGatewayAssignments() {
-        const container = document.getElementById('gatewayAssignments');
+    // --- Render: Families ---
+    // A family groups a gateway DON with the workflow/capabilities DON(s) it
+    // serves — assigning DONs to a family happens via each DON's own "Family"
+    // select (donColumnHTML), not here; this card only manages the catalog of
+    // family names those selects offer.
+    function renderFamilies() {
+        const container = document.getElementById('familiesContent');
         if (!container) return;
 
-        const gatewayDONs = state.dons.filter(d => d.donTypes.includes('gateway'));
-        const workflowDONs = state.dons.filter(d => d.donTypes.includes('workflow'));
-
-        if (gatewayDONs.length === 0) {
-            container.innerHTML = '';
-            container.classList.add('hidden');
+        if (state.families.length === 0) {
+            container.innerHTML = '<div class="text-xs text-gray-400 text-center py-4">No families defined — add one, then assign it to a gateway DON and the DON(s) it serves</div>';
             return;
         }
 
-        container.classList.remove('hidden');
-        let html = `
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <h2 class="text-sm font-semibold text-gray-700">Gateway DON Assignments</h2>
-            <p class="text-xs text-gray-400 mb-3">Map each gateway DON to the workflow DON it serves</p>
-    `;
-
-        gatewayDONs.forEach(don => {
-            const assignedNode = don.nodes.find(n => state.gateways.includes(n)) || don.nodes[0] || '';
-            const assignment = state.gatewayNodes.find(gwn => gwn.node === assignedNode);
-            const selectedDON = assignment ? assignment.don : '';
-
-            html += `
-            <div class="gateway-assignment">
-                <span class="text-sm font-medium text-gray-800">${don.name}</span>
-                <select class="don-type-select" onchange="updateGatewayDON('${don.name}', this.value)">
-                    <option value="">— Select workflow DON —</option>
-                    ${workflowDONs.map(wf => `
-                        <option value="${wf.name}" ${selectedDON === wf.name ? 'selected' : ''}>${wf.name}</option>
-                    `).join('')}
-                </select>
-            </div>
-        `;
-        });
-
-        html += '</div>';
-        container.innerHTML = html;
+        container.innerHTML = state.families.map(f => `
+        <span class="cap-chip active" data-family="${f}">
+            ${f}
+            <span class="remove" onclick="removeFamily('${f}')">&times;</span>
+        </span>
+    `).join('');
     }
 
-    window.updateGatewayDON = function (gatewayDONName, workflowDONName) {
-        const don = state.dons.find(d => d.name === gatewayDONName);
-        if (!don) return;
-        don.nodes.forEach(nodeName => {
-            if (!state.gateways.includes(nodeName)) return;
-            const existing = state.gatewayNodes.find(gwn => gwn.node === nodeName);
-            if (existing) {
-                existing.don = workflowDONName;
-            } else {
-                state.gatewayNodes.push({ node: nodeName, don: workflowDONName });
-            }
-        });
+    window.addFamily = function () {
+        const name = prompt('Enter a new family name (groups a gateway DON with the DON(s) it serves):');
+        if (name === null) return;
+        const trimmed = name.trim();
+        if (!trimmed) {
+            toast('Family name cannot be empty', 'error');
+            return;
+        }
+        if (state.families.includes(trimmed)) {
+            toast(`${trimmed} already exists`, 'error');
+            return;
+        }
+        state.families.push(trimmed);
+        renderDONs();
+    };
+
+    window.removeFamily = function (name) {
+        if (state.dons.some(d => d.family === name)) {
+            toast(`Cannot remove family "${name}" — still assigned to a DON`, 'error');
+            return;
+        }
+        state.families = state.families.filter(f => f !== name);
+        renderFamilies();
     };
 
     function donColumnHTML(don, idx) {
@@ -339,6 +325,17 @@
                 <button onclick="removeDON(${idx})" class="text-gray-400 hover:text-red-500 text-sm ml-2">&times;</button>
             </div>
             <div class="don-body">
+                ${donType !== 'bootstrap' ? `
+                <div class="mt-1 mb-2">
+                    <label class="text-[10px] text-gray-400 uppercase tracking-wide">Family</label>
+                    <select class="don-type-select w-full" onchange="updateDONFamily(${idx}, this.value)">
+                        <option value="">— Select family —</option>
+                        ${state.families.map(f => `
+                            <option value="${f}" ${don.family === f ? 'selected' : ''}>${f}</option>
+                        `).join('')}
+                    </select>
+                </div>
+                ` : ''}
                 <div class="don-nodes">
                     ${nodesHTML}
                 </div>
@@ -719,6 +716,11 @@
 
     window.updateDONType = function (idx, type) {
         state.dons[idx].donTypes = [type];
+        renderDONs(); // bootstrap DONs hide the Family select — refresh to reflect the type change
+    };
+
+    window.updateDONFamily = function (idx, family) {
+        state.dons[idx].family = family;
     };
 
     window.removeDON = function (idx) {
@@ -770,6 +772,7 @@
                 bootstrapNode: '',
                 exposesRemoteCapabilities: false,
                 registryBasedLaunchAllowlist: [],
+                family: '',
                 capabilityConfigs: {},
             });
         });
@@ -859,11 +862,32 @@
         renderCapabilityCatalog();
     };
 
+    // findUnservedGatewayDONs returns gateway DONs whose family has no
+    // non-gateway DON in it — i.e. a gateway assigned to serve nothing.
+    // handlePreviewTOML deliberately skips full Validate() (so preview still
+    // works on an in-progress config), so this check has to happen here too,
+    // not just rely on the backend rejecting an invalid save.
+    function findUnservedGatewayDONs() {
+        const gatewayDONs = state.dons.filter(d => d.donTypes.includes('gateway'));
+        const servedFamilies = new Set(
+            state.dons.filter(d => !d.donTypes.includes('gateway') && d.family).map(d => d.family)
+        );
+        return gatewayDONs.filter(d => !d.family || !servedFamilies.has(d.family));
+    }
+
+    function blockedByUnservedGateways() {
+        const unserved = findUnservedGatewayDONs();
+        if (unserved.length === 0) return false;
+        toast(`Gateway DON(s) ${unserved.map(d => d.name).join(', ')} have no family assigned to a DON they serve`, 'error');
+        return true;
+    }
+
     // --- Save ---
     async function save() {
         syncCapConfigsFromDOM();
         syncConfigInputs();
-        const payload = { infra: state.infra, jd: state.jd, chains: state.chains, dons: state.dons, gatewayNodes: state.gatewayNodes, capabilityConfigs: state.capabilityConfigs };
+        if (blockedByUnservedGateways()) return;
+        const payload = { infra: state.infra, jd: state.jd, chains: state.chains, dons: state.dons, families: state.families, capabilityConfigs: state.capabilityConfigs };
         try {
             await apiPost('/api/desired', payload);
             toast('Desired state saved', 'success');
@@ -876,7 +900,8 @@
     async function previewTOML() {
         syncCapConfigsFromDOM();
         syncConfigInputs();
-        const payload = { infra: state.infra, jd: state.jd, chains: state.chains, dons: state.dons, gatewayNodes: state.gatewayNodes, capabilityConfigs: state.capabilityConfigs };
+        if (blockedByUnservedGateways()) return;
+        const payload = { infra: state.infra, jd: state.jd, chains: state.chains, dons: state.dons, families: state.families, capabilityConfigs: state.capabilityConfigs };
         try {
             const resp = await fetch('/api/preview-toml', {
                 method: 'POST',
@@ -1030,6 +1055,7 @@
         document.getElementById('btnSave').addEventListener('click', save);
         document.getElementById('btnPreview').addEventListener('click', previewTOML);
         document.getElementById('btnAddCapConfig').addEventListener('click', window.addCapConfig);
+        document.getElementById('btnAddFamily').addEventListener('click', window.addFamily);
         document.getElementById('btnCheckJD').addEventListener('click', checkJD);
         document.getElementById('btnLoadChains').addEventListener('click', () => loadDiscoveredChains(false));
         document.getElementById('btnClosePreview').addEventListener('click', () => {

@@ -43,6 +43,30 @@ import (
 // externally-provided (Kubernetes) chain; there is no default.
 const SolanaPrivateKeyEnv = "SOLANA_PRIVATE_KEY"
 
+// PrivateKeyEnv is the global fallback deployer key, used when a chain has no
+// PRIVATE_KEY_<chainID> override. Deployer key configuration is env-only —
+// there is deliberately no CLI flag, so CLI and env-var configuration are
+// never mixed.
+const PrivateKeyEnv = "PRIVATE_KEY"
+
+// privateKeyEnvForChain is the per-chain override env var name for chainID,
+// e.g. PRIVATE_KEY_1337.
+func privateKeyEnvForChain(chainID uint64) string {
+	return PrivateKeyEnv + "_" + strconv.FormatUint(chainID, 10)
+}
+
+// resolveDeployerKey returns the effective deployer key for an EVM chain:
+// PRIVATE_KEY_<chainID> if set, else PRIVATE_KEY, else the Anvil dev key.
+func resolveDeployerKey(chainID uint64) string {
+	if k := os.Getenv(privateKeyEnvForChain(chainID)); k != "" {
+		return k
+	}
+	if k := os.Getenv(PrivateKeyEnv); k != "" {
+		return k
+	}
+	return blockchain.DefaultAnvilPrivateKey
+}
+
 // buildCldfEnv creates a cldf.Environment with an EVM chain provider for the
 // desired state's registry chain and an optional JD client.
 func (d *Deployer) buildCldfEnv(ctx context.Context, desired *domain.DesiredState) (*cldf.Environment, uint64, error) {
@@ -62,7 +86,7 @@ func (d *Deployer) buildCldfEnv(ctx context.Context, desired *domain.DesiredStat
 	provider, err := cldf_evm_provider.NewRPCChainProvider(
 		chainDetails.ChainSelector,
 		cldf_evm_provider.RPCChainProviderConfig{
-			DeployerTransactorGen: cldf_evm_provider.TransactorFromRaw(d.deployerKey),
+			DeployerTransactorGen: cldf_evm_provider.TransactorFromRaw(resolveDeployerKey(registryChain.ChainID)),
 			RPCs: []rpcclient.RPC{
 				{
 					Name:               "default",

@@ -2,33 +2,35 @@ package onchain
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	griddleinfra "github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
 	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
-func (d *Deployer) storeGatewayConnectors(desired *domain.DesiredState, cv *domain.ChartValues, state *domain.StateFile, topology *cre.Topology) {
+// storeGatewayConnectors persists each gateway connector's info, keyed by the
+// gateway's own DON — matched by NodeUUID against topology.DonsMetadata
+// (not by position against cv.FindGatewayNodes(), which is fragile once
+// there's more than one gateway and nothing guarantees matching order).
+func (d *Deployer) storeGatewayConnectors(cv *domain.ChartValues, state *domain.StateFile, topology *cre.Topology) {
 	state.GatewayConnectors = nil
 	if topology.GatewayConnectors == nil {
 		return
 	}
 
-	gwNodes := cv.FindGatewayNodes()
-	for i, config := range topology.GatewayConnectors.Configurations {
+	for _, config := range topology.GatewayConnectors.Configurations {
 		if config == nil || config.GatewayConfiguration == nil {
 			continue
 		}
 		gc := config.GatewayConfiguration
+
+		donName, nodeName := gatewayOwnDONAndNodeForUUID(topology, cv, gc.NodeUUID)
 		wsURL := gc.WebSocketURL()
-		donName := ""
-		if i < len(gwNodes) {
-			gwNode := gwNodes[i]
-			namespace := cv.GetNodeNamespace(gwNode.Name)
-			wsURL = fmt.Sprintf("ws://%s.%s.svc.cluster.local:%d", gwNode.Name, namespace, griddleinfra.GatewayWSPort)
-			donName = gatewayDONNameForNode(desired, cv, gwNode.Name)
+		if nodeName != "" {
+			namespace := cv.GetNodeNamespace(nodeName)
+			wsURL = fmt.Sprintf("ws://%s.%s.svc.cluster.local:%d", nodeName, namespace, griddleinfra.GatewayWSPort)
 		}
+
 		state.GatewayConnectors = append(state.GatewayConnectors, domain.GatewayConnectorState{
 			NodeUUID:      gc.NodeUUID,
 			AuthGatewayID: gc.AuthGatewayID,
@@ -37,6 +39,23 @@ func (d *Deployer) storeGatewayConnectors(desired *domain.DesiredState, cv *doma
 			DONName:       donName,
 		})
 	}
+}
+
+// gatewayOwnDONAndNodeForUUID finds the gateway DON (and its single physical
+// node) that owns a given gateway node's UUID, by scanning topology metadata
+// rather than assuming any particular ordering.
+func gatewayOwnDONAndNodeForUUID(topology *cre.Topology, cv *domain.ChartValues, nodeUUID string) (donName, nodeName string) {
+	for _, donMeta := range topology.DonsMetadata.List() {
+		gwNode, hasGateway := donMeta.Gateway()
+		if !hasGateway || gwNode.UUID != nodeUUID {
+			continue
+		}
+		if names := cv.NodeNamesForDONName(donMeta.Name); len(names) > 0 {
+			nodeName = names[0]
+		}
+		return donMeta.Name, nodeName
+	}
+	return "", ""
 }
 
 // storeGatewayServiceConfigs copies the topology's gateway service configs (which
@@ -59,19 +78,6 @@ func (d *Deployer) storeGatewayServiceConfigs(state *domain.StateFile, topology 
 		}
 		state.GatewayServiceConfigs = append(state.GatewayServiceConfigs, s)
 	}
-}
-
-func gatewayDONNameForNode(desired *domain.DesiredState, cv *domain.ChartValues, nodeName string) string {
-	for i := range desired.DONs {
-		don := &desired.DONs[i]
-		if !don.HasDONType("gateway") {
-			continue
-		}
-		if slices.Contains(cv.NodeNamesForDONName(don.Name), nodeName) {
-			return don.Name
-		}
-	}
-	return ""
 }
 
 // applyStoredGatewayServiceConfigs overwrites a freshly built topology's gateway

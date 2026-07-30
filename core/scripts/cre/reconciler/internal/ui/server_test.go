@@ -176,13 +176,15 @@ func TestAPI_Desired_SaveAndLoad(t *testing.T) {
 		"chains": [
 			{"chainId": 1337, "wsUrl": "wss://anvil-1337.example.com", "httpUrl": "https://anvil-1337.example.com", "registry": true}
 		],
+		"families": ["family-a"],
 		"dons": [
 			{
 				"name": "workflow",
 				"donTypes": ["workflow"],
 				"capabilities": ["cron", "evm-1337"],
 				"exposesRemoteCapabilities": false,
-				"registryBasedLaunchAllowlist": ["cron-trigger@1.0.0", "evm-1337"]
+				"registryBasedLaunchAllowlist": ["cron-trigger@1.0.0", "evm-1337"],
+				"family": "family-a"
 			}
 		],
 		"capabilityConfigs": {
@@ -226,18 +228,20 @@ func TestAPI_Desired_IgnoresPostedNodes(t *testing.T) {
 	// Even if a legacy client posts "nodes", the server must not persist or
 	// trust it — membership always comes from the chart.
 	payload := `{
-		"infra": {"type": "griddle", "chartValues": "deploy/config/workflow", "namespace": "my-repo-nodeset"},
+		"infra": {"type": "griddle"},
 		"jd": {"grpc": "grpc-jd:443", "domain": "cre", "environment": "dev"},
 		"chains": [
 			{"chainId": 1337, "wsUrl": "wss://anvil-1337.example.com", "httpUrl": "https://anvil-1337.example.com", "registry": true}
 		],
+		"families": ["family-a"],
 		"dons": [
 			{
 				"name": "workflow",
 				"donTypes": ["workflow"],
 				"capabilities": ["cron"],
 				"nodes": ["totally-made-up-node"],
-				"exposesRemoteCapabilities": false
+				"exposesRemoteCapabilities": false,
+				"family": "family-a"
 			}
 		],
 		"capabilityConfigs": {
@@ -265,33 +269,33 @@ func TestAPI_Desired_IgnoresPostedNodes(t *testing.T) {
 	require.ElementsMatch(t, []string{"node-bt-0", "node-0", "node-1", "node-2", "node-3"}, resp.DONs[0].Nodes)
 }
 
-func TestAPI_Desired_GatewayNodesRoundTrip(t *testing.T) {
+func TestAPI_Desired_FamiliesRoundTrip(t *testing.T) {
 	t.Parallel()
 
 	server, _ := setupTestServer(t)
 
 	payload := `{
-		"infra": {"type": "griddle", "chartValues": "deploy/config/workflow", "namespace": "my-repo-nodeset"},
+		"infra": {"type": "griddle"},
 		"jd": {"grpc": "grpc-jd:443", "domain": "cre", "environment": "dev"},
 		"chains": [
 			{"chainId": 1337, "wsUrl": "wss://anvil-1337.example.com", "httpUrl": "https://anvil-1337.example.com", "registry": true}
 		],
+		"families": ["family-a"],
 		"dons": [
 			{
 				"name": "workflow",
 				"donTypes": ["workflow"],
 				"capabilities": ["cron", "http-action"],
-				"exposesRemoteCapabilities": false
+				"exposesRemoteCapabilities": false,
+				"family": "family-a"
 			},
 			{
 				"name": "gateway-don",
 				"donTypes": ["gateway"],
 				"capabilities": [],
-				"exposesRemoteCapabilities": false
+				"exposesRemoteCapabilities": false,
+				"family": "family-a"
 			}
-		],
-		"gatewayNodes": [
-			{"node": "node-gw-0", "don": "workflow"}
 		],
 		"capabilityConfigs": {
 			"cron": {"binary_name": "cron"},
@@ -312,9 +316,9 @@ func TestAPI_Desired_GatewayNodesRoundTrip(t *testing.T) {
 
 	var resp DesiredResponse
 	require.NoError(t, json.NewDecoder(w2.Body).Decode(&resp))
-	require.Len(t, resp.GatewayNodes, 1)
-	require.Equal(t, "node-gw-0", resp.GatewayNodes[0].Node)
-	require.Equal(t, "workflow", resp.GatewayNodes[0].DON)
+	require.ElementsMatch(t, []string{"family-a"}, resp.Families)
+	require.Equal(t, "family-a", resp.DONs[0].Family)
+	require.Equal(t, "family-a", resp.DONs[1].Family)
 
 	for _, don := range resp.DONs {
 		if don.Name == "gateway-don" {
@@ -535,12 +539,10 @@ func TestResponseToDesiredState(t *testing.T) {
 			UseTLS      bool   `json:"useTLS"`
 		}{GRPC: "g:443", Domain: "cre", Environment: "dev"},
 		DONs: []DONResponse{
-			{Name: "w", DONTypes: []string{"workflow"}, Capabilities: []string{"cron"}},
+			{Name: "w", DONTypes: []string{"workflow"}, Capabilities: []string{"cron"}, Family: "family-a"},
 		},
+		Families:          []string{"family-a"},
 		CapabilityConfigs: map[string]domain.CapabilityConfig{"cron": {BinaryName: "cron"}},
-		GatewayNodes: []GatewayNodeResponse{
-			{Node: "node-gw-0", DON: "workflow"},
-		},
 	}
 
 	ds := responseToDesiredState(resp)
@@ -548,9 +550,8 @@ func TestResponseToDesiredState(t *testing.T) {
 	require.Equal(t, "w", ds.DONs[0].Name)
 	require.Contains(t, ds.DONs[0].Capabilities, "cron")
 	require.Equal(t, "cron", ds.CapabilityConfigs["cron"].BinaryName)
-	require.Len(t, ds.GatewayNodes, 1)
-	require.Equal(t, "node-gw-0", ds.GatewayNodes[0].Node)
-	require.Equal(t, "workflow", ds.GatewayNodes[0].DON)
+	require.Equal(t, "family-a", ds.DONs[0].Family)
+	require.ElementsMatch(t, []string{"family-a"}, ds.Families)
 }
 
 func TestNormalizeJSONNumberValue(t *testing.T) {
@@ -576,17 +577,19 @@ func TestAPI_Desired_SaveAndLoad_NormalizesCapabilityConfigNumbers(t *testing.T)
 	// which encoding/json still decodes to float64 for a map[string]any target
 	// (the exact scenario that broke evm.go's `%d`-formatted job spec).
 	payload := `{
-		"infra": {"type": "griddle", "chartValues": "deploy/config/workflow", "namespace": "my-repo-nodeset"},
+		"infra": {"type": "griddle"},
 		"jd": {"grpc": "grpc-jd:443", "domain": "cre", "environment": "dev"},
 		"chains": [
 			{"chainId": 1337, "wsUrl": "wss://anvil-1337.example.com", "httpUrl": "https://anvil-1337.example.com", "registry": true}
 		],
+		"families": ["family-a"],
 		"dons": [
 			{
 				"name": "workflow",
 				"donTypes": ["workflow"],
 				"capabilities": ["evm-1337"],
-				"exposesRemoteCapabilities": false
+				"exposesRemoteCapabilities": false,
+				"family": "family-a"
 			}
 		],
 		"capabilityConfigs": {

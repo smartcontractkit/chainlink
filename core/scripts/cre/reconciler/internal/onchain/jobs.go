@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	cldfjd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
@@ -36,17 +37,24 @@ func (d *Deployer) buildDonsForJobs(
 	var dons []*cre.Don
 	for _, donMeta := range topology.DonsMetadata.List() {
 		ctfNodes := make([]*clnode.Output, len(donMeta.NodesMetadata))
+		g, gctx := errgroup.WithContext(ctx)
+		g.SetLimit(8)
 		for i, nodeMeta := range donMeta.NodesMetadata {
 			nodeName := chartNodeNameForDonNode(donMeta, nodeMeta, state.NodeRuntime)
 			if nodeName == "" {
 				return nil, fmt.Errorf("DON %s: could not resolve chart node name for node index %d", donMeta.Name, i)
 			}
-
-			ctfNode, err := d.buildCLNodeOutput(ctx, nodeName, cv, state)
-			if err != nil {
-				return nil, errors.Wrapf(err, "DON %s node %s", donMeta.Name, nodeName)
-			}
-			ctfNodes[i] = ctfNode
+			g.Go(func() error {
+				ctfNode, err := d.buildCLNodeOutput(gctx, nodeName, cv, state)
+				if err != nil {
+					return errors.Wrapf(err, "DON %s node %s", donMeta.Name, nodeName)
+				}
+				ctfNodes[i] = ctfNode
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
+			return nil, err
 		}
 
 		don, err := cre.NewDON(ctx, donMeta, ctfNodes)
@@ -54,15 +62,23 @@ func (d *Deployer) buildDonsForJobs(
 			return nil, errors.Wrapf(err, "failed to build DON %s", donMeta.Name)
 		}
 
+		g, gctx = errgroup.WithContext(ctx)
+		g.SetLimit(8)
 		for i, node := range don.Nodes {
 			nodeName := chartNodeNameForDonNode(donMeta, donMeta.NodesMetadata[i], state.NodeRuntime)
-			enriched, enrichErr := d.buildCapRegCRENode(ctx, nodeName, donMeta.NodesMetadata[i], jd, desired, cv, state)
-			if enrichErr != nil {
-				return nil, errors.Wrapf(enrichErr, "DON %s node %s", donMeta.Name, nodeName)
-			}
-			node.JobDistributorDetails = enriched.JobDistributorDetails
-			node.Addresses = enriched.Addresses
-			don.Nodes[i] = node
+			g.Go(func() error {
+				enriched, enrichErr := d.buildCapRegCRENode(gctx, nodeName, donMeta.NodesMetadata[i], jd, desired, cv, state)
+				if enrichErr != nil {
+					return errors.Wrapf(enrichErr, "DON %s node %s", donMeta.Name, nodeName)
+				}
+				node.JobDistributorDetails = enriched.JobDistributorDetails
+				node.Addresses = enriched.Addresses
+				don.Nodes[i] = node
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
+			return nil, err
 		}
 
 		if id, ok := state.DONIDs[donMeta.Name]; ok {

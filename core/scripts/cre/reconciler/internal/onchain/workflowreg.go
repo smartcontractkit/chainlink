@@ -49,7 +49,11 @@ func (d *Deployer) configureWorkflowReg(
 		return errors.Wrap(err, "failed to create cldf logger")
 	}
 
-	workflowOwner, err := deployerAddress(d.deployerKey)
+	registryChain, ok := desired.RegistryChain()
+	if !ok {
+		return errors.New("no registry chain declared in desired state")
+	}
+	workflowOwner, err := deployerAddress(resolveDeployerKey(registryChain.ChainID))
 	if err != nil {
 		return errors.Wrap(err, "failed to resolve deployer workflow owner address")
 	}

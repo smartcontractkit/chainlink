@@ -32,7 +32,7 @@ type DesiredState struct {
 	JD                JDConfig                    `toml:"jd"`
 	Chains            []Chain                     `toml:"chains"`
 	DONs              []DON                       `toml:"dons"`
-	GatewayNodes      []GatewayNodeAssignment     `toml:"gateway_nodes"`
+	Families          []string                    `toml:"families"`
 	CapabilityConfigs map[string]CapabilityConfig `toml:"capability_configs"`
 }
 
@@ -92,6 +92,11 @@ type DON struct {
 	ExposesRemoteCaps      bool                        `toml:"exposes_remote_capabilities"`
 	RegistryBasedAllowlist []string                    `toml:"registry_based_launch_allowlist"`
 	CapabilityConfigs      map[string]CapabilityConfig `toml:"capability_configs"`
+	// Family groups this DON with the gateway DON(s) that serve it (or, for a
+	// gateway DON, the DON(s) it serves) — required for workflow/capabilities/
+	// gateway DONs, must reference a name declared in DesiredState.Families,
+	// no default. Bootstrap DONs never need one.
+	Family string `toml:"family"`
 }
 
 // ResolveBootstrap returns the bootstrap node name for this DON.
@@ -200,13 +205,6 @@ func (d *DON) NeedsGatewayAccess() bool {
 	return false
 }
 
-// GatewayNodeAssignment optionally maps a gateway node to a specific DON.
-// If not provided, the gateway node serves the first workflow DON.
-type GatewayNodeAssignment struct {
-	Node string `toml:"node"`
-	DON  string `toml:"don"`
-}
-
 // CapabilityConfig mirrors cre.CapabilityConfig for TOML parsing.
 type CapabilityConfig struct {
 	BinaryName string         `toml:"binary_name"`
@@ -276,7 +274,58 @@ func (ds *DesiredState) Validate() error {
 		}
 	}
 
+	if err := ds.validateFamilies(); err != nil {
+		return err
+	}
+
 	return ds.validateChains()
+}
+
+// validateFamilies enforces the explicit don-family model that pairs gateway
+// DONs with the workflow/capabilities DONs they serve: every workflow,
+// capabilities, and gateway DON must declare a family from [families], and
+// any family containing a gateway DON must contain at least one non-gateway
+// DON for it to serve — an assigned-to-nothing gateway is rejected outright
+// rather than silently saved.
+func (ds *DesiredState) validateFamilies() error {
+	declared := make(map[string]bool, len(ds.Families))
+	for i, f := range ds.Families {
+		if f == "" {
+			return fmt.Errorf("families[%d]: family name cannot be empty", i)
+		}
+		if declared[f] {
+			return fmt.Errorf("duplicate family %q in [families]", f)
+		}
+		declared[f] = true
+	}
+
+	membersByFamily := make(map[string][]string)
+	gatewaysByFamily := make(map[string][]string)
+	for i, don := range ds.DONs {
+		needsFamily := don.IsWorkflowDon() || don.HasDONType(cre.CapabilitiesDON) || don.IsGatewayDon()
+		if !needsFamily {
+			continue
+		}
+		if don.Family == "" {
+			return fmt.Errorf("dons[%d] (%s): family is required for workflow/capabilities/gateway DONs", i, don.Name)
+		}
+		if !declared[don.Family] {
+			return fmt.Errorf("dons[%d] (%s): family %q is not declared in [families]", i, don.Name, don.Family)
+		}
+		if don.IsGatewayDon() {
+			gatewaysByFamily[don.Family] = append(gatewaysByFamily[don.Family], don.Name)
+		} else {
+			membersByFamily[don.Family] = append(membersByFamily[don.Family], don.Name)
+		}
+	}
+
+	for family, gateways := range gatewaysByFamily {
+		if len(membersByFamily[family]) == 0 {
+			return fmt.Errorf("family %q has gateway DON(s) %v but no workflow/capabilities DON for them to serve", family, gateways)
+		}
+	}
+
+	return nil
 }
 
 // validChainFamilies is the set of families a [[chains]] entry may declare.
@@ -538,21 +587,21 @@ func (ds *DesiredState) DONByName(name string) *DON {
 	return nil
 }
 
-// GatewayDONFor returns the DON name that a gateway node should serve.
-// If there's an explicit [[gateway_nodes]] assignment, use it.
-// Otherwise default to the first workflow DON.
-func (ds *DesiredState) GatewayDONFor(gatewayNodeName string) string {
-	for _, gwn := range ds.GatewayNodes {
-		if gwn.Node == gatewayNodeName {
-			return gwn.DON
+// GatewayDONForNode returns the name of the gateway-type DON that this chart
+// node belongs to, or "" if none. Used to find a physical gateway node's own
+// DON (and thus its family) from chart membership alone, before topology/
+// state exists.
+func (ds *DesiredState) GatewayDONForNode(cv *ChartValues, nodeName string) string {
+	for i := range ds.DONs {
+		don := &ds.DONs[i]
+		if !don.IsGatewayDon() {
+			continue
 		}
-	}
-	for _, don := range ds.DONs {
-		if slices.Contains(don.DONTypes, cre.WorkflowDON) {
+		if slices.Contains(cv.NodeNamesForDONName(don.Name), nodeName) {
 			return don.Name
 		}
 	}
-	return ds.DONs[0].Name
+	return ""
 }
 
 // ChainScopedCapabilities is the set of capability base names that require

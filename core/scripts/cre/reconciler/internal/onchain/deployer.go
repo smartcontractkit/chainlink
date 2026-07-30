@@ -39,10 +39,9 @@ type ConfirmFunc func(title, details string) error
 // *domain.StateFile passed into Apply/SyncJobs: it reads prior results for
 // idempotency (HasAddress/DONIDs) and writes new results back into it.
 type Deployer struct {
-	k8s         K8sAPI
-	deployerKey string
-	log         zerolog.Logger
-	confirm     ConfirmFunc
+	k8s     K8sAPI
+	log     zerolog.Logger
+	confirm ConfirmFunc
 
 	// transient caches populated by runPreEnvStartup and consumed by configureCapReg,
 	// reset implicitly at the start of each Apply (a fresh Deployer per run).
@@ -55,12 +54,13 @@ type Deployer struct {
 
 // NewDeployer creates a Deployer. confirm gates each on-chain/job step; it should
 // return nil to proceed or a non-nil error (propagated to the caller) to abort.
-func NewDeployer(k8s K8sAPI, deployerKey string, log zerolog.Logger, confirm ConfirmFunc) *Deployer {
+// The deployer key is env-only (see resolveDeployerKey) — there is no
+// constructor parameter for it.
+func NewDeployer(k8s K8sAPI, log zerolog.Logger, confirm ConfirmFunc) *Deployer {
 	return &Deployer{
-		k8s:         k8s,
-		deployerKey: deployerKey,
-		log:         log,
-		confirm:     confirm,
+		k8s:     k8s,
+		log:     log,
+		confirm: confirm,
 	}
 }
 
@@ -115,7 +115,7 @@ func (d *Deployer) Apply(
 	if err != nil {
 		return false, errors.Wrap(err, "failed to build topology")
 	}
-	d.storeGatewayConnectors(desired, cv, state, topology)
+	d.storeGatewayConnectors(cv, state, topology)
 	for _, donMeta := range topology.DonsMetadata.List() {
 		d.log.Info().
 			Str("don", donMeta.Name).
@@ -213,7 +213,11 @@ func (d *Deployer) Apply(
 	}
 	persist()
 
-	workflowOwner, err := deployerAddress(d.deployerKey)
+	registryChain, ok := desired.RegistryChain()
+	if !ok {
+		return false, errors.New("no registry chain declared in desired state")
+	}
+	workflowOwner, err := deployerAddress(resolveDeployerKey(registryChain.ChainID))
 	if err != nil {
 		return false, errors.Wrap(err, "failed to resolve deployer workflow owner address")
 	}

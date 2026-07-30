@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -195,11 +196,11 @@ func (d *Deployer) buildNodeSetForDON(
 		CapabilityConfigs:            capConfigs,
 		ExposesRemoteCapabilities:    don.ExposesRemoteCaps,
 		RegistryBasedLaunchAllowlist: append([]string(nil), don.RegistryBasedAllowlist...),
-		// A workflow DON's don_family is its own name; the gateway node set(s)
-		// serving it (see newGatewayNodeSet) are given the same value via
-		// desired.GatewayDONFor, so GatewayConnectorsForDonFamily/
-		// GatewayServiceConfigsForGateway pair them correctly.
-		DonFamily: don.Name,
+		// don.Family is explicit and required (validated in desired.Validate) —
+		// the gateway DON(s) serving this DON declare the same family, so
+		// GatewayConnectorsForDonFamily/GatewayServiceConfigsForGateway pair
+		// them correctly.
+		DonFamily: don.Family,
 	}, nodeNames, nil
 }
 
@@ -257,9 +258,13 @@ func (d *Deployer) buildGatewayNodeSets(
 	requiredChains := requiredEVMChainIDsForGatewayNode(registryChainID)
 
 	for _, gw := range gatewayNodes {
-		donName := gatewayDONNameForNode(desired, cv, gw.Name)
+		donName := desired.GatewayDONForNode(cv, gw.Name)
 		if donName == "" {
 			return nil, nil, fmt.Errorf("gateway node %s: no DON in desired state has DON type %q and includes this node", gw.Name, "gateway")
+		}
+		gwDON := desired.DONByName(donName)
+		if gwDON == nil || gwDON.Family == "" {
+			return nil, nil, fmt.Errorf("gateway DON %s: family is required (validated in desired.Validate, but missing here — inconsistent state)", donName)
 		}
 
 		nodeNames := []string{gw.Name}
@@ -274,7 +279,7 @@ func (d *Deployer) buildGatewayNodeSets(
 		nodeSets = append(nodeSets, newGatewayNodeSet(
 			donName,
 			nodeSpecs,
-			desired.GatewayDONFor(gw.Name),
+			gwDON.Family,
 			requiredChains,
 		))
 		nodeNamesBySet = append(nodeNamesBySet, nodeNames)
@@ -286,7 +291,7 @@ func (d *Deployer) buildGatewayNodeSets(
 func newGatewayNodeSet(
 	donName string,
 	nodeSpecs []*cre.NodeSpecWithRole,
-	gatewayDonID string,
+	family string,
 	supportedEVMChains []uint64,
 ) *cre.NodeSet {
 	for i := range nodeSpecs {
@@ -302,14 +307,16 @@ func newGatewayNodeSet(
 		NodeSpecs:          nodeSpecs,
 		DONTypes:           []string{"gateway"},
 		SupportedEVMChains: append([]uint64(nil), supportedEVMChains...),
-		GatewayDonID:       gatewayDonID,
-		// gatewayDonID here is the workflow DON name this gateway serves
-		// (desired.GatewayDONFor), not an on-chain ID. Using it as don_family
-		// matches the served workflow DON's own don_family (its DON name, set
-		// in buildNodeSetForDON), which is how system-tests' pairing logic
-		// (GatewayConnectorsForDonFamily/GatewayServiceConfigsForGateway)
-		// wires gateway connector config into the workflow DON's node TOML.
-		DonFamily: gatewayDonID,
+		// GatewayDonID is the gateway's OWN DON id (matches real CRE/core's
+		// ConnectorGateway.DonID semantics, used for multi-gateway routing at
+		// the connector layer) — not the served DON, which was the bug here
+		// before don.Family existed.
+		GatewayDonID: donName,
+		// DonFamily is the gateway DON's own declared family — every
+		// workflow/capabilities DON sharing this family is what
+		// GatewayConnectorsForDonFamily/GatewayServiceConfigsForGateway will
+		// pair this gateway with.
+		DonFamily: family,
 	}
 }
 
@@ -344,29 +351,38 @@ func newBootstrapOnlyNodeSet(
 }
 
 func (d *Deployer) buildNodeSpecs(ctx context.Context, nodeNames []string, bootstrapName string, cv *domain.ChartValues) ([]*cre.NodeSpecWithRole, error) {
-	specs := make([]*cre.NodeSpecWithRole, 0, len(nodeNames))
-	for _, nodeName := range nodeNames {
-		// 00-secrets.toml supplies imported non-EVM key material (P2P, etc.).
-		// EVM public addresses are not stored there; they are discovered from the
-		// node API during D1 and hydrated into node metadata before on-chain work.
-		secretsToml, err := d.k8s.GetNodeSecretsToml(ctx, nodeName, cv.GetNodeNamespace(nodeName))
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to read secrets for node %s", nodeName)
-		}
+	specs := make([]*cre.NodeSpecWithRole, len(nodeNames))
+	g, gctx := errgroup.WithContext(ctx)
+	g.SetLimit(8)
+	for i, nodeName := range nodeNames {
+		g.Go(func() error {
+			// 00-secrets.toml supplies imported non-EVM key material (P2P, etc.).
+			// EVM public addresses are not stored there; they are discovered from
+			// the node API during D1 and hydrated into node metadata before
+			// on-chain work.
+			secretsToml, err := d.k8s.GetNodeSecretsToml(gctx, nodeName, cv.GetNodeNamespace(nodeName))
+			if err != nil {
+				return errors.Wrapf(err, "failed to read secrets for node %s", nodeName)
+			}
 
-		role := cre.WorkerNode
-		if nodeName == bootstrapName {
-			role = cre.BootstrapNode
-		}
+			role := cre.WorkerNode
+			if nodeName == bootstrapName {
+				role = cre.BootstrapNode
+			}
 
-		specs = append(specs, &cre.NodeSpecWithRole{
-			Input: &clnode.Input{
-				Node: &clnode.NodeInput{
-					TestSecretsOverrides: secretsToml,
+			specs[i] = &cre.NodeSpecWithRole{
+				Input: &clnode.Input{
+					Node: &clnode.NodeInput{
+						TestSecretsOverrides: secretsToml,
+					},
 				},
-			},
-			Roles: []cre.NodeType{role},
+				Roles: []cre.NodeType{role},
+			}
+			return nil
 		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil, err
 	}
 	return specs, nil
 }

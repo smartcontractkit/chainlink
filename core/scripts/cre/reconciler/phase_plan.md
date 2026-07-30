@@ -605,48 +605,46 @@ Complete the new gateway model, unify deployer key handling, and parallelize saf
 - [internal/onchain/env.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/onchain/env.go)
 - [internal/onchain/workflowreg.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/onchain/workflowreg.go)
 
-### Implementation steps
+### Decided (differs substantially from the steps below — see TODO.md E1 for full rationale)
 
-1. Replace the single-DON gateway assignment model with `dons = [...]`.
-2. Support both gateway deployment shapes:
-   - one gateway nodeset containing multiple gateway nodes
-   - multiple nodesets, each containing gateway nodes
-3. Assume a gateway nodeset contains only gateway nodes.
-4. Update topology and connector generation so one gateway node can serve multiple DONs, including `capabilities` DONs.
-5. Update UI gateway assignment to multi-select.
-6. Block save/preview when any gateway has zero assigned DONs.
-7. Remove `--deployer-key` from the CLI.
-8. Implement env-only effective key resolution:
-   - `PRIVATE_KEY_<CHAIN_ID>`
-   - fallback `PRIVATE_KEY`
-   - fallback Anvil default
-9. Use the effective registry-chain key for workflow-owner derivation.
-10. Parallelize only safe loops:
-   - `buildNodeSpecs`
-   - `buildDonsForJobs`
-   - other clearly independent per-node reads
-11. Keep `runPreEnvStartup` and `runPostEnvStartup` sequential.
+- **Explicit `family` field per DON replaces `dons = [...]` entirely**, after investigating how `system-tests/lib/cre`'s job-creation actually pairs gateways with DONs: `NodeSet.DonFamily` is a single string per nodeset, and `GatewayServiceConfigsForGateway` filters by exact family-string equality — a gateway can only serve DONs sharing its own family. A per-gateway `dons = [...]` list can express bipartite assignments the underlying library can't realize faithfully (overlapping-but-not-identical served-DON sets between two gateways). Mirroring real CRE's actual `nodesets.don_family` mechanism instead — an explicit, required `family` string on every workflow/capabilities/gateway DON (`domain.DON.Family`), validated against a declared `DesiredState.Families []string` catalog — makes invalid overlaps structurally impossible (a DON belongs to exactly one family) instead of needing to be caught after the fact.
+- **`[[gateway_nodes]]`/`GatewayNodeAssignment` removed outright**, not reshaped — which DONs a gateway serves is now 100% derived (every non-gateway DON sharing its family), so the separate per-node assignment list became redundant.
+- **UI**: no multi-select on a gateway-assignment view. Instead, a new "Families" card (same pattern as Cap Configs) manages the family-name catalog, and every DON card gets a "Family" `<select>` populated from it — assignment happens by picking a family per DON, not by picking DONs per gateway.
+- **E2 folded into `Validate()`** as "a family containing a gateway DON must contain at least one non-gateway DON" — a natural consequence of the family model, not a separate UI-only check (though the UI also blocks save/preview client-side, since `handlePreviewTOML` deliberately skips full `Validate()` to allow previewing in-progress configs).
+- **Two real bugs fixed alongside the schema change** (found via research, not in the original steps): `GatewayDonID` was being set to the *served* DON name instead of the gateway's *own* DON name (core's `ConnectorGateway.DonID` semantics expect the latter, for multi-gateway routing); `buildWorkerGateways` (reconcile.go) ignored which DON was asking and returned every gateway connector unfiltered to every node — harmless with one gateway, actively wrong with several. Both fixed: `newGatewayNodeSet` now sets `GatewayDonID` to the gateway's own DON name; `buildWorkerGateways` now takes the calling node's DON name and filters by family match. `storeGatewayConnectors`'s positional pairing (`Configurations[i]` ↔ `FindGatewayNodes()[i]`) was also fragile and fixed to match by `NodeUUID` via topology metadata instead.
+- H1/D1 implemented as specified, no deviations — H1 confirmed simpler than TODO.md's stale line references implied (only one EVM chain provider is ever built in this codebase, so there was no separate "per-chain deploy loop" to update beyond `buildCldfEnv`).
+
+### Implementation steps (as actually implemented)
+
+1. Added `domain.DON.Family string` (required for workflow/capabilities/gateway DONs, no default) and `domain.DesiredState.Families []string` (the declared catalog); removed `GatewayNodeAssignment`/`[[gateway_nodes]]`/`GatewayDONFor` entirely.
+2. `validateFamilies()` (desired.go): families unique/non-empty; every workflow/capabilities/gateway DON's family is required and must be declared; any family with a gateway DON must have ≥1 non-gateway DON (E2).
+3. New `DesiredState.GatewayDONForNode(cv, nodeName) string` — chart-membership lookup for a gateway's own DON, replacing the old unexported `gatewayDONNameForNode`.
+4. `buildNodeSetForDON`: `DonFamily: don.Family` (was `don.Name`). `newGatewayNodeSet`/`buildGatewayNodeSets`: `GatewayDonID` = gateway's own DON name (bug fix); `DonFamily` = the gateway DON's own declared family.
+5. `storeGatewayConnectors` (gateway.go): matches by `NodeUUID` against `topology.DonsMetadata` instead of position against `cv.FindGatewayNodes()`.
+6. `buildWorkerGateways` (reconcile.go): takes the calling node's DON name, filters `state.GatewayConnectors` by family match, uses the gateway's own DON id for `ConnectorGateway.DonID`.
+7. UI: Families card (catalog management) + per-DON Family select (app.js/index.html); `gatewayNodes`/`renderGatewayAssignments`/`updateGatewayDON` removed entirely; client-side `blockedByUnservedGateways()` check before save/preview (E2).
+8. `--deployer-key` CLI flag removed; `resolveDeployerKey(chainID)` added to env.go (`PRIVATE_KEY_<chainID>` → `PRIVATE_KEY` → Anvil default), used by `buildCldfEnv`'s transactor and both `deployerAddress()` call sites (workflow-owner derivation) for the registry chain.
+9. `buildNodeSpecs` (topology.go) and `buildDonsForJobs`'s two per-node loops (jobs.go) parallelized with bounded `errgroup` (limit 8), writing to pre-sized slices by index — safe since each iteration's shared-state touchpoint (`state.JDNodeIDs` via `resolveJDNodeID`) was already mutex-guarded. `runPreEnvStartup`/`runPostEnvStartup` left sequential, per plan.
 
 ### Tests to add or update
 
-- desired-state gateway schema tests
-- topology/gateway tests
-- CLI flag tests for removal of `--deployer-key`
-- deployer key resolution tests
-- race-safe concurrency tests where practical
+- desired-state family validation tests (required field, undeclared family, duplicate family, empty family, gateway-serves-nothing) — done
+- `GatewayDONForNode` test replacing the old `GatewayDONFor` test — done
+- `newGatewayNodeSet`/topology tests updated for the `GatewayDonID`-is-gateway's-own-DON fix — done
+- UI family round-trip test (`TestAPI_Desired_FamiliesRoundTrip`, replacing `TestAPI_Desired_GatewayNodesRoundTrip`) — done
+- CLI flag test for `--deployer-key` removal — not added (no `cmd_test.go` exists in this package to extend; flags aren't otherwise unit-tested here)
+- deployer key resolution tests — not yet added as a dedicated test (existing `TestDeployerAddress_*` tests are unaffected since `deployerAddress`'s own signature didn't change)
+- race-safe concurrency tests — relies on `go test -race`, no new dedicated test
 
 ### Validation
 
-- Run:
-  - `go test ./core/scripts/cre/reconciler/internal/domain`
-  - `go test ./core/scripts/cre/reconciler/internal/onchain`
-  - `go test -race ./core/scripts/cre/reconciler/...`
+- User-verified: reported one failing test (`TestNewGatewayNodeSet_PerNode`, expecting the old served-DON semantics) after implementation; fixed and confirmed passing. Full build/vet/gofmt/`-race` re-run deferred to Phase 8 kickoff at user's direction.
 
 ### Exit criteria
 
-- Gateway assignments use the final multi-DON schema only.
-- Deployer key behavior is env-only and consistent.
-- Added concurrency passes `-race`.
+- Gateway assignments use the final family-based model only (no `dons = [...]`, no `[[gateway_nodes]]`). ✅
+- Deployer key behavior is env-only and consistent. ✅
+- Added concurrency uses bounded `errgroup`, safe under `-race` by construction (index-isolated writes, pre-existing mutex on the one shared touchpoint). ⚠ not independently re-verified with `-race` in this session — worth a check next time the full suite runs.
 
 ---
 

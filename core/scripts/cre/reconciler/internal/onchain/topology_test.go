@@ -138,12 +138,16 @@ func TestNewGatewayNodeSet_PerNode(t *testing.T) {
 	nodeSet := newGatewayNodeSet(
 		"gateway-don",
 		specs,
-		"workflow",
+		"family-a",
 		[]uint64{1337},
 	)
 
 	require.Equal(t, "gateway-don", nodeSet.Name)
-	require.Equal(t, "workflow", nodeSet.GatewayDonID)
+	// GatewayDonID is the gateway's OWN DON id (core's multi-gateway routing
+	// semantics), not the served DON — DonFamily is what pairs this gateway
+	// with the DON(s) it serves.
+	require.Equal(t, "gateway-don", nodeSet.GatewayDonID)
+	require.Equal(t, "family-a", nodeSet.DonFamily)
 	require.Equal(t, []string{"gateway"}, nodeSet.DONTypes)
 	require.Len(t, nodeSet.NodeSpecs, 1)
 	require.Equal(t, []cre.NodeType{cre.GatewayNode}, nodeSet.NodeSpecs[0].Roles)

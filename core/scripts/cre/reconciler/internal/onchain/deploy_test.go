@@ -62,7 +62,7 @@ func TestDeployContracts_SkipsWhenBothPresent(t *testing.T) {
 	state.SetAddress(addressRef(keystone_changeset.CapabilitiesRegistry.String(), chainSelector))
 	state.SetAddress(addressRef(keystone_changeset.WorkflowRegistry.String(), chainSelector))
 
-	d := NewDeployer(nil, "", zerolog.Nop(), nil)
+	d := NewDeployer(nil, zerolog.Nop(), nil)
 	env := &cldf.Environment{}
 
 	deployed, err := d.deployContracts(env, chainSelector, state)

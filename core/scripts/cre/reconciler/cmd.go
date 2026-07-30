@@ -64,7 +64,6 @@ var (
 	flagConfirm           bool
 	flagRestartWorkerPods bool
 	flagWaitAtBreakpoint  bool
-	flagDeployerKey       string
 )
 
 func init() {
@@ -121,8 +120,6 @@ func init() {
 		"restart worker/standard node pods (excluding bootstrap and gateway) as the last step, working around capabilities that don't clean up state after job cancellation")
 	applyCmd.Flags().BoolVar(&flagWaitAtBreakpoint, "wait-at-breakpoint", true,
 		"pause in-process at the TOML breakpoint and continue after the user presses Enter; set false to exit with code 42 for the two-invocation workflow (both paths restore persisted gateway handlers)")
-	applyCmd.Flags().StringVar(&flagDeployerKey, "deployer-key", "",
-		"hex private key for the on-chain deployer (defaults to the Anvil dev account)")
 
 	// Status flags
 	statusCmd.Flags().StringVarP(&flagState, "state", "s", "cre/state.toml", "path to state file")
@@ -190,7 +187,7 @@ func runApply(ctx context.Context) error {
 
 	log.Info().Str("version", Version).Msg("reconciler starting")
 
-	reconciler, err := NewReconciler(flagDesired, flagState, flagChartDir, flagKubeconfig, flagEnv, flagConfirm, flagRestartWorkerPods, flagWaitAtBreakpoint, flagDeployerKey, log)
+	reconciler, err := NewReconciler(flagDesired, flagState, flagChartDir, flagKubeconfig, flagEnv, flagConfirm, flagRestartWorkerPods, flagWaitAtBreakpoint, log)
 	if err != nil {
 		return err
 	}
