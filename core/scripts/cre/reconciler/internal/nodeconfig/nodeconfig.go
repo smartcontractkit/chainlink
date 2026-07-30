@@ -50,7 +50,7 @@ type ConnectorGateway struct {
 func Generate(in Inputs) (string, error) {
 	port := in.P2PPort
 	if port == 0 {
-		port = 6689
+		port = 5001
 	}
 
 	cfg := corechainlink.Config{Core: coretoml.Core{

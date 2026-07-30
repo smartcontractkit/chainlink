@@ -87,7 +87,7 @@
 
 - [#22809](https://github.com/smartcontractkit/chainlink/pull/22809) [`af55120`](https://github.com/smartcontractkit/chainlink/commit/af5512049c60904b10489e7f1b0dc72bdefea241) - #internal Confidential workflows: stop setting the deprecated outside-envelope `ConfidentialWorkflowRequest.binary_url`. `binary_url` stays in the hashed `WorkflowExecution` (PublicData); the enclave reads it there.
 
-## 2.51.0
+## 2.56.0
 
 ### Minor Changes
 

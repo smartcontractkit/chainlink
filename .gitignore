@@ -26,7 +26,7 @@ tools/clroot/db.sqlite3-wal
 .env*
 .dbenv
 !.github/actions/setup-postgres/.env
-/.github/.agents/skills/right-size-runners/trials/
+/.github/.agents/skills/**/trials/
 .direnv
 .idea
 .vscode/
@@ -35,8 +35,6 @@ debug.env
 operator_ui/install
 .devenv
 event_dump.ndjson
-.cursor/
-.claude/
 
 # neovim
 .nvim.lua
@@ -136,4 +134,8 @@ core/scripts/cre/environment/cron
 core/scripts/cre/environment/binaries/*
 *.br.b64
 
-/.github/.agents/skills/optimize-workflow/trials/
+# AI Agent settings
+.claude/
+.cursor/
+.gemini/
+opencode.json
