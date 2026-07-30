@@ -2770,6 +2770,7 @@ URL is override URL for the workflow fetcher service.
 [CRE.Linking]
 URL = "" # Default
 TLSEnabled = true # Default
+RequestTimeout = '2s' # Default
 ```
 
 
@@ -2784,6 +2785,12 @@ URL is the locator for the Chainlink linking service.
 TLSEnabled = true # Default
 ```
 TLSEnabled enables TLS to be used to secure communication with the linking service. This is enabled by default.
+
+### RequestTimeout
+```toml
+RequestTimeout = '2s' # Default
+```
+RequestTimeout bounds each organization lookup against the linking service.
 
 ## Billing
 ```toml

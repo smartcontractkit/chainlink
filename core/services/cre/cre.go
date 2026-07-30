@@ -696,6 +696,7 @@ func newOrgResolver(
 	orgResolverConfig := orgresolver.Config{
 		URL:                           cfg.CRE().Linking().URL(),
 		TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
+		RequestTimeout:                cfg.CRE().Linking().RequestTimeout(),
 		WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
 		WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
 		JWTGenerator:                  opts.JWTGenerator,

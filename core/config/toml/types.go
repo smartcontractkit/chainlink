@@ -2060,8 +2060,9 @@ type ConfidentialRelayConfig struct {
 
 // LinkingConfig holds the configuration for connecting to the CRE linking service
 type LinkingConfig struct {
-	URL        *string `toml:",omitempty"`
-	TLSEnabled *bool   `toml:",omitempty"`
+	URL            *string                `toml:",omitempty"`
+	TLSEnabled     *bool                  `toml:",omitempty"`
+	RequestTimeout *commonconfig.Duration `toml:",omitempty"`
 }
 
 func (c *CreConfig) setFrom(f *CreConfig) {
@@ -2105,6 +2106,9 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		}
 		if v := f.Linking.TLSEnabled; v != nil {
 			c.Linking.TLSEnabled = v
+		}
+		if v := f.Linking.RequestTimeout; v != nil {
+			c.Linking.RequestTimeout = v
 		}
 	}
 
@@ -2153,6 +2157,11 @@ func (l *LinkingConfig) ValidateConfig() error {
 	if l.TLSEnabled == nil {
 		val := true
 		l.TLSEnabled = &val
+	}
+	if l.RequestTimeout == nil {
+		l.RequestTimeout = commonconfig.MustNewDuration(2 * time.Second)
+	} else if l.RequestTimeout.Duration() <= 0 {
+		return configutils.ErrInvalid{Name: "RequestTimeout", Value: l.RequestTimeout.String(), Msg: "must be positive"}
 	}
 	return nil
 }

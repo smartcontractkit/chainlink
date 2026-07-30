@@ -463,6 +463,7 @@ URL = ''
 [CRE.Linking]
 URL = ''
 TLSEnabled = true
+RequestTimeout = '2s'
 
 [CRE.ConfidentialRelay]
 Enabled = false
