@@ -1,6 +1,9 @@
 package domain
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -33,7 +36,6 @@ const (
 // It is committed to the consumer repo so multiple machines/CI can share state.
 type StateFile struct {
 	Phase                 Phase                       `toml:"phase"`
-	TOMLPatchApplied      bool                        `toml:"toml_patch_applied"`
 	Addresses             []AddressRef                `toml:"addresses"`
 	DONIDs                map[string]uint64           `toml:"don_ids"`
 	JDNodeIDs             map[string]string           `toml:"jd_node_ids"`
@@ -42,6 +44,12 @@ type StateFile struct {
 	GatewayConnectors     []GatewayConnectorState     `toml:"gateway_connectors"`
 	GatewayServiceConfigs []GatewayServiceConfigState `toml:"gateway_service_configs"`
 	NodeConfigFiles       map[string]string           `toml:"node_config_files"` // key: namespace/nodeName
+	// PhaseHashes memoizes the canonical input hash of each opaque (non-actual-state)
+	// phase, stored only after that phase succeeds. A phase reruns when its freshly
+	// computed hash doesn't match the stored one; running it invalidates every phase
+	// after it in the pipeline (see PhaseNeedsRun), mirroring Docker layer caching.
+	// To force a repair, delete the relevant entry (or the whole table) by hand.
+	PhaseHashes map[string]string `toml:"phase_hashes"`
 }
 
 // GatewayConnectorState stores per-gateway connector info from topology for TOML generation.
@@ -187,4 +195,39 @@ func (s *StateFile) SetAddress(ref AddressRef) {
 // HasAddress returns true if a contract of the given type is in the state.
 func (s *StateFile) HasAddress(contractType string) bool {
 	return s.GetAddress(contractType) != ""
+}
+
+// CanonicalHash returns a deterministic sha256 hex digest of v, intended for
+// phase input-hash memoization. v should be a plain, JSON-marshalable struct
+// with any order-sensitive fields (e.g. member lists) pre-sorted by the
+// caller — encoding/json already sorts map keys, so maps need no such care.
+func CanonicalHash(v any) (string, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal value for canonical hash")
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:]), nil
+}
+
+// GetPhaseHash returns the stored input hash for a phase key, or "" if none.
+func (s *StateFile) GetPhaseHash(key string) string {
+	return s.PhaseHashes[key]
+}
+
+// SetPhaseHash stores the input hash for a phase key, to be called only after
+// that phase succeeds.
+func (s *StateFile) SetPhaseHash(key, hash string) {
+	if s.PhaseHashes == nil {
+		s.PhaseHashes = make(map[string]string)
+	}
+	s.PhaseHashes[key] = hash
+}
+
+// PhaseNeedsRun reports whether a hash-gated phase must (re)run: either an
+// upstream phase already invalidated the pipeline from this point on
+// (cascaded), or this phase's freshly computed input hash doesn't match the
+// hash stored after its last successful run.
+func PhaseNeedsRun(state *StateFile, key, newHash string, cascaded bool) bool {
+	return cascaded || state.GetPhaseHash(key) != newHash
 }

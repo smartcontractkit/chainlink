@@ -12,7 +12,33 @@ Priority buckets (suggested): **P0** correctness/security now · **P1** reconcil
 
 ## A. Reconciliation & phase model
 
-### A1 — Per-phase input-hash memoization (skip unchanged phases)  ·  TODO · P1
+### A1 — Per-phase input-hash memoization (skip unchanged phases)  ·  DONE (Phase 3) · P1
+**Status.** Implemented in `internal/onchain/hash.go` (canonical hash builders), `internal/domain/state.go`
+(`PhaseHashes`, `CanonicalHash`, `GetPhaseHash`/`SetPhaseHash`/`PhaseNeedsRun`), `internal/onchain/deployer.go`
+(`Apply`/`SyncJobs`), and `reconcile.go`/`internal/infra/chartpatch.go` (TOML direct-compare). Three decisions below
+differ from the original design in this section — treat this status block as authoritative over the rest of A1.
+
+**Decision 1 — PreEnvStartup and Configure CapReg are one combined hash-gated unit, not two.** PreEnvStartup's output
+(`DONCapabilityWithConfig`, consumed in-memory by `configureCapReg`) contains a protobuf `CapabilityConfig` with an
+unexported oneof field — persisting it to the TOML state file to allow independently skipping CapReg while still
+running PreEnvStartup (or vice versa) would need custom protobuf↔TOML serialization. Instead they share one key,
+`pre_env_startup_capreg`: always run together or skipped together. PreEnvStartup is cheap/safe to redo (per A2's
+atomicity rule), so this is a deliberate simplification, not a gap.
+
+**Decision 2 — cascade invalidation instead of embedding contract addresses/DON IDs into every hash.** A hash based
+purely on desired-state facts would wrongly skip reconfiguring a *freshly (re)deployed* contract (e.g. A3's
+redeploy-both case) even though the fresh contract starts unconfigured on-chain. Rather than folding contract
+addresses/`state.DONIDs` into each phase's hash input, the pipeline is a Docker-layer-cache-style chain: `deploy
+contracts → [PreEnvStartup+CapReg] → resolve DON IDs → Configure WorkflowReg → Jobs`. `deployContracts` reports
+whether it actually (re)deployed (vs. skipped); that, or any hash-gated phase actually running (for any reason),
+forces every phase after it in the chain to run too, regardless of its own hash. Implemented via
+`domain.PhaseNeedsRun(state, key, hash, cascaded)`.
+
+**Decision 3 — no `--force` flag.** The repair path is manual: delete the relevant entry (or the whole
+`[phase_hashes]` table) in the state TOML file. Because of the cascade rule, deleting one entry forces it and
+everything downstream to rerun — strictly more precise than a blanket `--force` flag, which can only mean "rerun
+absolutely everything." No new CLI flag, no threading a force bool through `Reconciler`/`Deployer`.
+
 **Not "true reconciliation".** CLDF changesets are executed, not simulated — there's no way to preview the jobspec /
 contract calldata a phase *would* apply, so effect-level desired-vs-actual diffing is infeasible for the opaque steps.
 Instead: **hash each phase's desired inputs, store the hash after the phase succeeds, and skip the phase next run when
@@ -28,19 +54,19 @@ correct for add/remove — hashing only decides *whether* to re-run:
   handles capability/node add *and* remove. So "if anything changed, re-run the whole phase" is correct; no per-
   capability/per-node diff engine.
 
-`state.DesiredHash` (currently declared-but-unused in `internal/domain/state.go`) is replaced by a per-phase hash map.
+`state.PhaseHashes map[string]string` is the per-phase hash map (there was never an actual `DesiredHash` field in the
+tree to replace — that was aspirational backlog text; see Phase 0's cleanup).
 
-**Phase skip mechanism (hybrid — prefer actual-state reads where cheap, hash only the opaque phases):**
+**Phase skip mechanism as implemented (hybrid — prefer actual-state reads where cheap, hash only the opaque phases):**
 | Phase | Mechanism | Hash inputs |
 |---|---|---|
-| Deploy contracts | **actual state** (per-contract address presence, see A3) — correctness + drift-safe | — |
-| PreEnvStartup | hash | per-DON caps + `capability_configs` (global+DON) + allowlist + registry chain + **member set by sorted p2p_id** |
+| Deploy contracts | **actual state** (both-present check, see A3) — correctness + drift-safe | — |
+| PreEnvStartup + Configure CapReg | **hash, one combined unit** (Decision 1) — **excluding bootstrap-only & gateway DONs** (`flags.HasNoOtherFlags(flags, {GatewayDON, BootstrapDON})`, mirroring `capRegWorkerNodes`) | registry chain ID, global `capability_configs`, per-DON: types/caps/configs/allowlist/exposesRemoteCaps + **membership by sorted p2p_id** incl. discovered CSA/EVM/OCR2 per member |
 | JD chain configs | **actual state** (`ListNodeChainConfigs`, already done) | — |
-| Configure CapReg | hash (opaque effect) | **excluding bootstrap-only & gateway DONs** (mirror `flags.HasNoOtherFlags(flags, {GatewayDON, BootstrapDON})`): DON names/types, caps+configs+allowlist+exposesRemoteCaps, **membership by sorted p2p_id**, discovered CSA/EVM/OCR2 per member |
 | Resolve DON IDs | always run (read-only, cheap) | — |
-| Configure WorkflowReg | hash | workflow DON IDs + workflow owners |
-| TOML injection (breakpoint) | **direct compare** (actual is readable — see below) | — |
-| Jobs | hash (backed by full delete+recreate) | topology + feature set + gateway service configs |
+| Configure WorkflowReg | hash | sorted workflow DON names + derived workflow-owner address (from the deployer key) |
+| TOML injection (breakpoint) | **direct compare**, runs every apply (no one-shot gate) | — |
+| Jobs | hash (backed by full delete+recreate) | all DONs (no bootstrap/gateway exclusion — jobs are created for those too) + gateway service configs |
 
 **TOML phase is special — compare, don't hash.** The current `30-cre` layer is already in the chart YAML, so we can
 read it and compare directly to the freshly-generated TOML per node. If identical for all nodes ⇒ **no patch, no
@@ -51,23 +77,24 @@ Compare the layer's TOML string value (generation is deterministic), not the YAM
 CapReg). p2p_id is the stable on-chain identity; a node rename/redeploy that keeps its p2p_id must NOT trigger a
 re-config, and a re-keyed node MUST.
 
-**Scope.**
-- Add a per-phase hash map to `StateFile` (e.g. `PhaseHashes map[string]string`), replacing the unused `DesiredHash`.
-- A canonical, deterministic hash helper over each phase's input bundle (sorted keys / stable field order — Go map
-  iteration is random; see caveat). Sort p2p_id member sets.
-- Gate each opaque phase on `hash(inputs) == state.PhaseHashes[phase]`; on mismatch run, then store the new hash
-  **only after success**.
-- `--force` flag to ignore all hashes and re-run every phase (drift-repair escape hatch).
+**Scope (as implemented).**
+- `PhaseHashes map[string]string` on `StateFile`, keyed `pre_env_startup_capreg` / `configure_workflowreg` / `jobs`.
+- `domain.CanonicalHash(v any)` — `sha256(json.Marshal(v))`. `encoding/json` already sorts map keys deterministically,
+  so the only extra work is explicitly sorting slices (DON lists, member lists) before hashing — no custom
+  canonicalization walker was needed.
+- Cascade invalidation (Decision 2) instead of a `--force` flag (Decision 3, no flag exists) — see above.
 
 **Acceptance.** A no-change `apply` does zero on-chain/JD writes, no TOML patch, no breakpoint, and exits clean;
-changing one DON's capability config re-runs (only) CapReg + jobs for the changed set; removing a feature re-runs jobs
-(delete+recreate) so its jobs disappear; a node rename that preserves p2p_id is a no-op; `--force` re-runs everything.
+changing one DON's capability config re-runs (only) the combined PreEnvStartup+CapReg unit, which cascades into
+WorkflowReg + Jobs; removing a feature re-runs jobs (delete+recreate) so its jobs disappear; a node rename that
+preserves p2p_id is a no-op; deleting a `phase_hashes` entry re-runs it and everything after it in the chain.
 
 **Caveats (the things that bite).**
 - **Not drift-safe** for the hashed phases — out-of-band changes to a contract/JD won't be detected (unchanged input ⇒
-  skip). `--force` and the actual-state phases (deploy, chain configs) are the mitigations.
+  skip). Deleting the relevant `phase_hashes` entry (or the whole table) and the actual-state phases (deploy, chain
+  configs) are the mitigations.
 - **Canonical hashing is the real work** — non-deterministic serialization ⇒ spurious re-runs (annoying) or spurious
-  skips (dangerous). This is the main implementation risk, not the concept.
+  skips (dangerous). Mitigated by `encoding/json`'s deterministic map-key sorting plus explicit slice sorting.
 - **Store-after-success only**; discovery must run before hashing (it feeds the opaque-phase hashes) — both already hold.
 
 **Depends on / relates to:** A2 (per-checkpoint hashing), A3 (deploy stays actual-state), B-items (p2p_id + discovered

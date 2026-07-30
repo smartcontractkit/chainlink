@@ -23,7 +23,12 @@ func contractsFullyDeployed(state *domain.StateFile) bool {
 		state.HasAddress(keystone_changeset.WorkflowRegistry.String())
 }
 
-func (d *Deployer) deployContracts(env *cldf.Environment, chainSelector uint64, state *domain.StateFile) error {
+// deployContracts deploys the registry contracts if not already fully present,
+// and reports whether it actually deployed (vs. skipped). A fresh deploy means
+// the new contract(s) start unconfigured on-chain regardless of any stored
+// phase hash, so callers must treat a true return as forcing the downstream
+// hash-gated phases to (re)run — see Deployer.Apply.
+func (d *Deployer) deployContracts(env *cldf.Environment, chainSelector uint64, state *domain.StateFile) (bool, error) {
 	d.log.Info().Msg("Deploying Keystone v2 contracts")
 
 	if contractsFullyDeployed(state) {
@@ -33,10 +38,10 @@ func (d *Deployer) deployContracts(env *cldf.Environment, chainSelector uint64, 
 
 		memDs, err := hydrateMemoryDataStoreFromState(state, chainSelector)
 		if err != nil {
-			return errors.Wrap(err, "failed to hydrate datastore from state")
+			return false, errors.Wrap(err, "failed to hydrate datastore from state")
 		}
 		env.DataStore = memDs.Seal()
-		return nil
+		return false, nil
 	}
 
 	report, err := operations.ExecuteSequence(
@@ -46,12 +51,12 @@ func (d *Deployer) deployContracts(env *cldf.Environment, chainSelector uint64, 
 		ks_contracts_op.DeployRegistryContractsSequenceInput{RegistryChainSelector: chainSelector},
 	)
 	if err != nil {
-		return errors.Wrap(err, "failed to deploy contracts")
+		return false, errors.Wrap(err, "failed to deploy contracts")
 	}
 
 	memDs := datastore.NewMemoryDataStore()
 	if err := memDs.Merge(report.Output.Datastore); err != nil {
-		return errors.Wrap(err, "failed to merge deployed contract addresses")
+		return false, errors.Wrap(err, "failed to merge deployed contract addresses")
 	}
 
 	capRegAddr := crecontracts.MustGetAddressFromMemoryDataStore(
@@ -64,5 +69,5 @@ func (d *Deployer) deployContracts(env *cldf.Environment, chainSelector uint64, 
 	env.DataStore = memDs.Seal()
 
 	d.log.Info().Str("capReg", capRegAddr.Hex()).Str("wfReg", wfRegAddr.Hex()).Msg("Contracts deployed")
-	return nil
+	return true, nil
 }

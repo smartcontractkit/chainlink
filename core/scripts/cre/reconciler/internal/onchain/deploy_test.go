@@ -65,7 +65,8 @@ func TestDeployContracts_SkipsWhenBothPresent(t *testing.T) {
 	d := NewDeployer(nil, "", zerolog.Nop(), nil)
 	env := &cldf.Environment{}
 
-	err := d.deployContracts(env, chainSelector, state)
+	deployed, err := d.deployContracts(env, chainSelector, state)
 	require.NoError(t, err)
+	require.False(t, deployed)
 	require.NotNil(t, env.DataStore)
 }

@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/ui"
 )
 
@@ -260,10 +262,20 @@ func runDiff(_ context.Context) error {
 		fmt.Println("  [pending] not configured")
 	}
 	fmt.Println("=== Node config ===")
-	if st.TOMLPatchApplied {
-		fmt.Println("  [have]   30-cre layer written")
-	} else {
+	if len(st.NodeConfigFiles) == 0 {
 		fmt.Println("  [pending] not written")
+	} else {
+		written := 0
+		for key, filePath := range st.NodeConfigFiles {
+			nodeName := key
+			if idx := strings.LastIndex(key, "/"); idx >= 0 {
+				nodeName = key[idx+1:]
+			}
+			if _, exists, err := infra.ReadLayerValue(filePath, nodeName, "30-cre"); err == nil && exists {
+				written++
+			}
+		}
+		fmt.Printf("  [have]   30-cre layer written for %d/%d nodes\n", written, len(st.NodeConfigFiles))
 	}
 	return nil
 }

@@ -80,6 +80,57 @@ func PatchChartValues(yamlPath string, patches map[string]string) error {
 	return nil
 }
 
+// ReadLayerValue returns the current value of a node's named configuration
+// layer (e.g. "30-cre") in a chart values YAML file, and whether it exists.
+// Used to diff freshly generated TOML against what's already applied, so
+// PatchChartValues only needs to run for nodes that actually changed.
+func ReadLayerValue(yamlPath, nodeName, layerName string) (string, bool, error) {
+	data, err := os.ReadFile(yamlPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", false, nil
+		}
+		return "", false, errors.Wrapf(err, "failed to read chart values %s", yamlPath)
+	}
+
+	var root yaml.Node
+	if err = yaml.Unmarshal(data, &root); err != nil {
+		return "", false, errors.Wrapf(err, "failed to parse YAML %s", yamlPath)
+	}
+	if root.Kind != yaml.DocumentNode || len(root.Content) == 0 {
+		return "", false, fmt.Errorf("unexpected YAML structure in %s", yamlPath)
+	}
+
+	docMap := root.Content[0]
+	if docMap.Kind != yaml.MappingNode {
+		return "", false, fmt.Errorf("expected mapping at root of %s", yamlPath)
+	}
+
+	clNode := FindKey(docMap, "chainlink-node")
+	if clNode == nil {
+		return "", false, nil
+	}
+	instances := FindKey(clNode, "instances")
+	if instances == nil {
+		return "", false, nil
+	}
+	nodeEntry := FindKey(instances, nodeName)
+	if nodeEntry == nil {
+		return "", false, nil
+	}
+	configList := FindKey(nodeEntry, "configuration")
+	if configList == nil || configList.Kind != yaml.SequenceNode {
+		return "", false, nil
+	}
+
+	for _, item := range configList.Content {
+		if item.Kind == yaml.MappingNode && len(item.Content) >= 2 && item.Content[0].Value == layerName {
+			return item.Content[1].Value, true, nil
+		}
+	}
+	return "", false, nil
+}
+
 // FindKey finds a value node by key name in a mapping node.
 func FindKey(mapping *yaml.Node, key string) *yaml.Node {
 	if mapping == nil || mapping.Kind != yaml.MappingNode {

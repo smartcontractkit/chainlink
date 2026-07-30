@@ -77,6 +77,62 @@ func TestStateFile_SetAddress(t *testing.T) {
 	require.Len(t, s.Addresses, 2)
 }
 
+func TestCanonicalHash_DeterministicRegardlessOfMapOrder(t *testing.T) {
+	t.Parallel()
+
+	type input struct {
+		Names map[string]string
+	}
+
+	a := input{Names: map[string]string{"a": "1", "b": "2", "c": "3"}}
+	b := input{Names: map[string]string{"c": "3", "b": "2", "a": "1"}}
+
+	hashA, err := CanonicalHash(a)
+	require.NoError(t, err)
+	hashB, err := CanonicalHash(b)
+	require.NoError(t, err)
+	require.Equal(t, hashA, hashB)
+}
+
+func TestCanonicalHash_DiffersOnContentChange(t *testing.T) {
+	t.Parallel()
+
+	hashA, err := CanonicalHash(map[string]string{"a": "1"})
+	require.NoError(t, err)
+	hashB, err := CanonicalHash(map[string]string{"a": "2"})
+	require.NoError(t, err)
+	require.NotEqual(t, hashA, hashB)
+}
+
+func TestPhaseHash_GetSetRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	s := &StateFile{}
+	require.Empty(t, s.GetPhaseHash("jobs"))
+
+	s.SetPhaseHash("jobs", "abc123")
+	require.Equal(t, "abc123", s.GetPhaseHash("jobs"))
+
+	s.SetPhaseHash("jobs", "def456")
+	require.Equal(t, "def456", s.GetPhaseHash("jobs"))
+}
+
+func TestPhaseNeedsRun(t *testing.T) {
+	t.Parallel()
+
+	s := &StateFile{}
+	// No stored hash yet -> needs run even without cascade.
+	require.True(t, PhaseNeedsRun(s, "jobs", "hash-1", false))
+
+	s.SetPhaseHash("jobs", "hash-1")
+	// Stored hash matches, no cascade -> skip.
+	require.False(t, PhaseNeedsRun(s, "jobs", "hash-1", false))
+	// Stored hash matches, but cascaded -> still runs.
+	require.True(t, PhaseNeedsRun(s, "jobs", "hash-1", true))
+	// Hash changed -> runs regardless of cascade.
+	require.True(t, PhaseNeedsRun(s, "jobs", "hash-2", false))
+}
+
 func TestSetAddress_QualifierDistinguishesEntries(t *testing.T) {
 	t.Parallel()
 

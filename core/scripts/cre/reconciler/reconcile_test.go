@@ -3,6 +3,7 @@ package reconciler
 import (
 	"context"
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/rs/zerolog"
@@ -412,4 +413,71 @@ func TestRestartWorkerNodePods_PropagatesError(t *testing.T) {
 
 	err := r.restartWorkerNodePods(context.Background())
 	require.Error(t, err)
+}
+
+func TestFilterUnchangedTOMLPatches_DropsIdenticalKeepsChanged(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	yamlPath := dir + "/dev.yaml"
+	original := `chainlink-node:
+  instances:
+    node-0:
+      configuration:
+        - 30-cre: |
+            unchanged content
+    node-1:
+      configuration:
+        - 30-cre: |
+            old content
+`
+	require.NoError(t, os.WriteFile(yamlPath, []byte(original), 0600))
+
+	patchesByFile := map[string]map[string]string{
+		yamlPath: {
+			"node-0": "unchanged content\n",
+			"node-1": "new content\n",
+		},
+	}
+	nodePatches := []nodeTOMLPatch{
+		{Namespace: "ns", Name: "node-0", TOML: "unchanged content\n"},
+		{Namespace: "ns", Name: "node-1", TOML: "new content\n"},
+	}
+	nodeConfigFiles := map[string]string{
+		domain.NodeIdentity("ns", "node-0"): yamlPath,
+		domain.NodeIdentity("ns", "node-1"): yamlPath,
+	}
+
+	filtered, filteredPatches, err := filterUnchangedTOMLPatches(patchesByFile, nodePatches, nodeConfigFiles)
+	require.NoError(t, err)
+	require.Len(t, filtered[yamlPath], 1)
+	require.Equal(t, "new content\n", filtered[yamlPath]["node-1"])
+	require.Len(t, filteredPatches, 1)
+	require.Equal(t, "node-1", filteredPatches[0].Name)
+}
+
+func TestFilterUnchangedTOMLPatches_AllUnchangedYieldsEmpty(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	yamlPath := dir + "/dev.yaml"
+	original := `chainlink-node:
+  instances:
+    node-0:
+      configuration:
+        - 30-cre: |
+            same content
+`
+	require.NoError(t, os.WriteFile(yamlPath, []byte(original), 0600))
+
+	patchesByFile := map[string]map[string]string{
+		yamlPath: {"node-0": "same content\n"},
+	}
+	nodePatches := []nodeTOMLPatch{{Namespace: "ns", Name: "node-0", TOML: "same content\n"}}
+	nodeConfigFiles := map[string]string{domain.NodeIdentity("ns", "node-0"): yamlPath}
+
+	filtered, filteredPatches, err := filterUnchangedTOMLPatches(patchesByFile, nodePatches, nodeConfigFiles)
+	require.NoError(t, err)
+	require.Empty(t, filtered)
+	require.Empty(t, filteredPatches)
 }

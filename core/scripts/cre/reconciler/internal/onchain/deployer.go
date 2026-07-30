@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 )
 
 // K8sAPI is the narrow Kubernetes surface the on-chain engine needs — a subset of
@@ -68,29 +69,38 @@ func (d *Deployer) skipUnlessConfirmed(title, details string) error {
 	return d.confirm(title, details)
 }
 
-// Apply implements P1-P8 on-chain deployment and configuration. It must only be
+// Apply implements on-chain deployment and configuration. It must only be
 // called when the caller has determined on-chain configuration is not yet
 // complete — it does not re-check that itself. persist is called after each
 // state-mutating milestone so a crash mid-flow can resume from the last
 // successfully persisted step.
+//
+// PreEnvStartup and Configure CapReg are hash-gated as one combined unit (see
+// hash.go), Configure WorkflowReg as another; deploying contracts fresh (vs.
+// skipping) forces the first to run regardless of its own hash, and the first
+// actually running forces the second — mirroring Docker layer caching, since a
+// freshly (re)deployed or reconfigured contract can't be correctly left as-is
+// just because its own declared inputs didn't change. Apply returns whether
+// anything on-chain actually changed this run, so the caller can cascade the
+// same forcing into the Jobs phase.
 func (d *Deployer) Apply(
 	ctx context.Context,
 	desired *domain.DesiredState,
 	cv *domain.ChartValues,
 	state *domain.StateFile,
 	persist func(),
-) error {
+) (bool, error) {
 	d.log.Info().Msg("=== On-chain configuration ===")
 
 	// The JD access token is validated once, up front, in Run (requireJDAccessToken) —
 	// before discovery even starts — so no redundant check is needed here.
 
 	if err := d.skipUnlessConfirmed("P1: Build CLDF environment", d.onChainEnvSummary(desired, cv)); err != nil {
-		return err
+		return false, err
 	}
 	env, chainSelector, err := d.buildCldfEnv(ctx, desired)
 	if err != nil {
-		return errors.Wrap(err, "failed to build cldf environment")
+		return false, errors.Wrap(err, "failed to build cldf environment")
 	}
 	d.log.Info().
 		Uint64("chainSelector", chainSelector).
@@ -99,11 +109,11 @@ func (d *Deployer) Apply(
 		Msg("Built cldf environment")
 
 	if err = d.skipUnlessConfirmed("P2: Build topology from desired state + K8s secrets", d.topologySummary(desired, cv)); err != nil {
-		return err
+		return false, err
 	}
 	topology, err := d.buildTopology(ctx, desired, cv, state)
 	if err != nil {
-		return errors.Wrap(err, "failed to build topology")
+		return false, errors.Wrap(err, "failed to build topology")
 	}
 	d.storeGatewayConnectors(desired, cv, state, topology)
 	for _, donMeta := range topology.DonsMetadata.List() {
@@ -116,11 +126,11 @@ func (d *Deployer) Apply(
 	}
 
 	if err = d.skipUnlessConfirmed("P3: Build CRE environment (blockchains + contract versions)", fmt.Sprintf("Registry chain selector: %d\nDeclared chains: %d", chainSelector, len(desired.Chains))); err != nil {
-		return err
+		return false, err
 	}
 	creEnv, err := d.buildCreEnvironment(ctx, desired, env, chainSelector)
 	if err != nil {
-		return errors.Wrap(err, "failed to build CRE environment")
+		return false, errors.Wrap(err, "failed to build CRE environment")
 	}
 	d.log.Info().
 		Uint64("registryChainSelector", creEnv.RegistryChainSelector).
@@ -134,74 +144,112 @@ func (d *Deployer) Apply(
 		deploySummary = "Contracts already deployed — will hydrate addresses from state"
 	}
 	if err = d.skipUnlessConfirmed("P4: Deploy registry contracts", deploySummary); err != nil {
-		return err
+		return false, err
 	}
-	if err = d.deployContracts(env, chainSelector, state); err != nil {
-		return errors.Wrap(err, "failed to deploy contracts")
-	}
-	if err = d.syncAddressBook(env, state); err != nil {
-		return errors.Wrap(err, "failed to sync address book after P4")
-	}
-	persist()
-
-	if err = d.skipUnlessConfirmed("P5: Run Features.PreEnvStartup", "Deploy forwarders and collect capability configs per DON"); err != nil {
-		return err
-	}
-	if err = d.runPreEnvStartup(ctx, topology, creEnv); err != nil {
-		return errors.Wrap(err, "failed to run PreEnvStartup")
-	}
-	if err = d.syncAddressBook(env, state); err != nil {
-		return errors.Wrap(err, "failed to sync address book after P5")
-	}
-	d.storeGatewayServiceConfigs(state, topology)
-	persist()
-
-	if err = d.skipUnlessConfirmed("P5b: Prepare JD node chain configs for CapReg", d.jdChainConfigSummary(desired, topology, state)); err != nil {
-		return err
-	}
-	if err = d.prepareJDChainConfigsForCapReg(ctx, topology, creEnv, chainSelector, desired, cv, state); err != nil {
-		return errors.Wrap(err, "failed to prepare JD chain configs")
-	}
-
-	if err = d.skipUnlessConfirmed("P6: Configure Capabilities Registry on-chain", "CapReg: "+state.GetAddress(keystone_changeset.CapabilitiesRegistry.String())); err != nil {
-		return err
-	}
-	capReg, err := d.configureCapReg(topology, creEnv, chainSelector, state)
+	deployedFresh, err := d.deployContracts(env, chainSelector, state)
 	if err != nil {
-		return errors.Wrap(err, "failed to configure capabilities registry")
+		return false, errors.Wrap(err, "failed to deploy contracts")
+	}
+	if err = d.syncAddressBook(env, state); err != nil {
+		return false, errors.Wrap(err, "failed to sync address book after deploy")
+	}
+	persist()
+
+	capRegAddrHex := state.GetAddress(keystone_changeset.CapabilitiesRegistry.String())
+	preEnvCapRegHash, err := hashPreEnvStartupCapReg(desired, topology, state.NodeRuntime)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to compute PreEnvStartup/CapReg phase hash")
+	}
+
+	onChainChanged := deployedFresh
+	var capReg crecontracts.CapabilityRegistry
+	if domain.PhaseNeedsRun(state, phaseKeyPreEnvStartupCapReg, preEnvCapRegHash, deployedFresh) {
+		if err = d.skipUnlessConfirmed("P5: Run Features.PreEnvStartup", "Deploy forwarders and collect capability configs per DON"); err != nil {
+			return false, err
+		}
+		if err = d.runPreEnvStartup(ctx, topology, creEnv); err != nil {
+			return false, errors.Wrap(err, "failed to run PreEnvStartup")
+		}
+		if err = d.syncAddressBook(env, state); err != nil {
+			return false, errors.Wrap(err, "failed to sync address book after PreEnvStartup")
+		}
+		d.storeGatewayServiceConfigs(state, topology)
+		persist()
+
+		if err = d.skipUnlessConfirmed("P5b: Prepare JD node chain configs for CapReg", d.jdChainConfigSummary(desired, topology, state)); err != nil {
+			return false, err
+		}
+		if err = d.prepareJDChainConfigsForCapReg(ctx, topology, creEnv, chainSelector, desired, cv, state); err != nil {
+			return false, errors.Wrap(err, "failed to prepare JD chain configs")
+		}
+
+		if err = d.skipUnlessConfirmed("P6: Configure Capabilities Registry on-chain", "CapReg: "+capRegAddrHex); err != nil {
+			return false, err
+		}
+		capReg, err = d.configureCapReg(topology, creEnv, chainSelector, state)
+		if err != nil {
+			return false, errors.Wrap(err, "failed to configure capabilities registry")
+		}
+
+		state.SetPhaseHash(phaseKeyPreEnvStartupCapReg, preEnvCapRegHash)
+		persist()
+		onChainChanged = true
+	} else {
+		d.log.Info().Msg("PreEnvStartup + Configure CapReg unchanged — skipping")
+		capReg, err = crecontracts.BindCapabilityRegistry(env, chainSelector, capRegAddrHex)
+		if err != nil {
+			return false, errors.Wrap(err, "failed to bind existing capabilities registry")
+		}
 	}
 
 	if err := d.skipUnlessConfirmed("P7: Resolve DON IDs from CapReg contract", fmt.Sprintf("DONs: %d", len(desired.DONs))); err != nil {
-		return err
+		return false, err
 	}
 	if err := d.resolveDONIDs(capReg, desired, cv, state); err != nil {
-		return errors.Wrap(err, "failed to resolve DON IDs")
+		return false, errors.Wrap(err, "failed to resolve DON IDs")
 	}
 	if err := d.syncAddressBook(env, state); err != nil {
-		return errors.Wrap(err, "failed to sync address book after P6/P7")
+		return false, errors.Wrap(err, "failed to sync address book after resolving DON IDs")
 	}
 	persist()
 
-	if err := d.skipUnlessConfirmed("P8: Configure Workflow Registry on-chain", "WfReg: "+state.GetAddress(keystone_changeset.WorkflowRegistry.String())); err != nil {
-		return err
+	workflowOwner, err := deployerAddress(d.deployerKey)
+	if err != nil {
+		return false, errors.Wrap(err, "failed to resolve deployer workflow owner address")
 	}
-	if err := d.configureWorkflowReg(ctx, env, chainSelector, desired, state); err != nil {
-		return errors.Wrap(err, "failed to configure workflow registry")
+	workflowRegHash, err := hashConfigureWorkflowReg(desired, workflowOwner.Hex())
+	if err != nil {
+		return false, errors.Wrap(err, "failed to compute Configure WorkflowReg phase hash")
 	}
-	if err := d.syncAddressBook(env, state); err != nil {
-		return errors.Wrap(err, "failed to sync address book after P8")
+
+	if domain.PhaseNeedsRun(state, phaseKeyConfigureWorkflowReg, workflowRegHash, onChainChanged) {
+		if err := d.skipUnlessConfirmed("P8: Configure Workflow Registry on-chain", "WfReg: "+state.GetAddress(keystone_changeset.WorkflowRegistry.String())); err != nil {
+			return false, err
+		}
+		if err := d.configureWorkflowReg(ctx, env, chainSelector, desired, state); err != nil {
+			return false, errors.Wrap(err, "failed to configure workflow registry")
+		}
+		if err := d.syncAddressBook(env, state); err != nil {
+			return false, errors.Wrap(err, "failed to sync address book after configuring workflow registry")
+		}
+		state.SetPhaseHash(phaseKeyConfigureWorkflowReg, workflowRegHash)
+		onChainChanged = true
+	} else {
+		d.log.Info().Msg("Configure WorkflowReg unchanged — skipping")
 	}
 
 	state.Phase = domain.PhaseOnChain
 	persist()
 	d.log.Info().Msg("On-chain configuration complete")
-	return nil
+	return onChainChanged, nil
 }
 
 // SyncJobs builds env/topology/dons, restores persisted gateway service configs onto
 // the fresh topology, deletes existing jobs, and runs each feature's PostEnvStartup +
 // gateway job creation. Must only be called once on-chain configuration is complete.
-func (d *Deployer) SyncJobs(ctx context.Context, desired *domain.DesiredState, cv *domain.ChartValues, state *domain.StateFile) error {
+// cascaded forces Jobs to run regardless of its own hash — set it to whatever Apply
+// returned, since a Configure CapReg/WorkflowReg change invalidates job specs too.
+func (d *Deployer) SyncJobs(ctx context.Context, desired *domain.DesiredState, cv *domain.ChartValues, state *domain.StateFile, cascaded bool) error {
 	d.log.Info().Msg("=== J1: Job creation ===")
 
 	if !onChainComplete(state) {
@@ -227,6 +275,15 @@ func (d *Deployer) SyncJobs(ctx context.Context, desired *domain.DesiredState, c
 	// http-capabilities) that Features populated and we persisted during the
 	// on-chain phase; otherwise the generated gateway job omits those handlers.
 	d.applyStoredGatewayServiceConfigs(state, topology)
+
+	jobsHash, err := hashJobs(desired, topology, state.NodeRuntime, state.GatewayServiceConfigs)
+	if err != nil {
+		return errors.Wrap(err, "failed to compute Jobs phase hash")
+	}
+	if !domain.PhaseNeedsRun(state, phaseKeyJobs, jobsHash, cascaded) {
+		d.log.Info().Msg("Jobs unchanged — skipping")
+		return nil
+	}
 
 	creEnv, err := d.buildCreEnvironment(ctx, desired, env, chainSelector)
 	if err != nil {
@@ -264,6 +321,7 @@ func (d *Deployer) SyncJobs(ctx context.Context, desired *domain.DesiredState, c
 		return errors.Wrap(err, "failed to run PostEnvStartup")
 	}
 
+	state.SetPhaseHash(phaseKeyJobs, jobsHash)
 	state.Phase = domain.PhaseJobs
 	d.log.Info().Msg("Job creation complete")
 	return nil

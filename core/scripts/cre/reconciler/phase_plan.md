@@ -292,6 +292,20 @@ Split the monolithic on-chain apply flow into resumable, independently persisted
 
 Add input-hash memoization for opaque phases and a force-rerun escape hatch.
 
+### Decided (differs from the steps below — see TODO.md A1 for full rationale)
+
+- **PreEnvStartup + Configure CapReg share one hash key**, not two — PreEnvStartup's output contains a protobuf type
+  that isn't cleanly TOML-serializable, so they always run or skip together.
+- **No `--force` flag.** The repair path is deleting the relevant `phase_hashes` entry (or the whole table) in the
+  state file by hand — more precise than a blanket force flag, since the cascade rule (below) propagates it forward
+  automatically.
+- **Cascade invalidation, Docker-layer-cache style**, instead of embedding contract addresses/DON IDs into every hash:
+  `deploy contracts → [PreEnvStartup+CapReg] → resolve DON IDs → Configure WorkflowReg → Jobs`. A fresh contract
+  deploy (vs. skip), or any hash-gated phase actually running, forces every phase after it to run too, regardless of
+  its own hash — otherwise a freshly (re)deployed-but-unconfigured contract could be silently skipped.
+- **`TOMLPatchApplied` (one-time ratchet) is retired.** `injectTOML` runs every apply; the new direct-compare
+  (`infra.ReadLayerValue`) makes it a no-op when nothing differs, rather than a bool gate that only ever fires once.
+
 ### Primary backlog items
 
 - A1
@@ -304,52 +318,50 @@ Add input-hash memoization for opaque phases and a force-rerun escape hatch.
 - [internal/onchain/deployer.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/onchain/deployer.go)
 - [internal/ui/server.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/ui/server.go) later, for status/diff consumers
 
-### Implementation steps
+### Implementation steps (as implemented)
 
-1. Add `PhaseHashes map[string]string` to `StateFile`.
-2. Add a canonical hashing helper:
-   - stable field order
-   - stable map serialization
-   - sorted DONs where needed
-   - sorted members by `p2p_id`
-   - deterministic handling of capability config maps
-3. Define exactly which phases use hashing:
-   - PreEnvStartup
-   - Configure CapReg
-   - Configure WorkflowReg
-   - Jobs
-4. Keep actual-state checks for:
-   - contract deployment
-   - JD chain configs
-5. TOML patching must use direct compare, not hashing.
-6. Define `--force` explicitly before implementing it:
-   - it bypasses hash-based skip decisions
-   - it bypasses TOML no-change skip decisions
-   - it reruns configurable phases even if their inputs are unchanged
-   - it does not force unsafe contract redeployment when contracts already exist
-   - deploy steps still respect actual-state safety checks
-7. Add `--force` to the CLI and thread it into reconciliation control flow using the semantics above.
-8. Store a phase hash only after the phase succeeds.
-9. Do not try to make hashed phases drift-safe. Document that `--force` is the repair path for hashed/configurable phases.
+1. Added `PhaseHashes map[string]string` to `StateFile`, keyed `pre_env_startup_capreg` / `configure_workflowreg` /
+   `jobs` (see decisions above for why PreEnvStartup+CapReg share one key).
+2. Added `domain.CanonicalHash` — `sha256(json.Marshal(v))`. `encoding/json` already sorts map keys deterministically;
+   callers (in `internal/onchain/hash.go`) explicitly sort slices (DON lists, p2p_id member lists) before hashing, so
+   no custom canonicalization walker was needed.
+3. Hashing scope: PreEnvStartup+CapReg combined (excludes bootstrap-only/gateway DONs, mirroring
+   `capRegWorkerNodes`'s `flags.HasNoOtherFlags` check), Configure WorkflowReg (sorted workflow DON names + derived
+   workflow-owner address), Jobs (all DON types + gateway service configs).
+4. Kept actual-state checks unchanged: contract deployment (`contractsFullyDeployed`, Phase 2), JD chain configs
+   (library-level idempotency, unchanged).
+5. TOML patching uses direct compare (`infra.ReadLayerValue`), not hashing — and `TOMLPatchApplied`'s one-time ratchet
+   was retired so this comparison actually gets a chance to run on every apply, not just the first one.
+6. No `--force` flag (Decision 3) — manual `phase_hashes` deletion is the repair path, and the cascade rule (Decision
+   2) means deleting one entry already propagates forward.
+7. N/A — no CLI changes in this phase.
+8. Each hash-gated phase stores its hash only after success (`state.SetPhaseHash`, called post-success in `Apply`/
+   `SyncJobs`).
+9. Documented in TODO.md A1: not drift-safe for hashed phases; manual `phase_hashes` deletion (or the whole table) is
+   the repair path.
 
-### Tests to add or update
+### Tests added
 
-- [internal/domain/state_test.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/domain/state_test.go)
-- new unit tests around canonical hash construction
-- reconcile/deployer tests for skip behavior
+- [internal/domain/state_test.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/domain/state_test.go) — `CanonicalHash` determinism, `PhaseHashes` get/set, `PhaseNeedsRun` cascade semantics.
+- [internal/onchain/hash_test.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/onchain/hash_test.go) (new) — hash determinism/sensitivity per phase, bootstrap/gateway DON exclusion.
+- [internal/infra/chartpatch_test.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/infra/chartpatch_test.go) — `ReadLayerValue` (missing file, absent layer, reflects patched content).
+- [reconcile_test.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/reconcile_test.go) — `filterUnchangedTOMLPatches` (drops identical, keeps changed, all-unchanged yields empty).
+- [deploy_test.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/onchain/deploy_test.go) — updated for `deployContracts`'s new `(bool, error)` return.
 
 ### Validation
 
 - Run:
-  - `go test ./core/scripts/cre/reconciler/internal/domain`
-  - `go test ./core/scripts/cre/reconciler/internal/onchain`
-  - `go test ./core/scripts/cre/reconciler/...`
+  - `go test ./core/scripts/cre/reconciler/internal/domain` — passing
+  - `go test ./core/scripts/cre/reconciler/internal/onchain` — passing
+  - `go test ./core/scripts/cre/reconciler/...` — 161 passed, 9 packages (up from 147 baseline, +14 new tests)
+  - `go build ./...` in `system-tests/lib` — passing (new `crecontracts.BindCapabilityRegistry` helper)
 
 ### Exit criteria
 
-- A no-change apply performs no on-chain or JD writes.
-- A changed capability config reruns only the affected hashed phases.
-- `--force` reruns all phases.
+- A no-change apply performs no on-chain or JD writes, and `injectTOML` patches nothing.
+- A changed capability config reruns the combined PreEnvStartup+CapReg unit, which cascades into WorkflowReg + Jobs.
+- Deleting a `phase_hashes` entry (the manual repair path, replacing `--force`) reruns it and everything after it in
+  the pipeline.
 
 ---
 

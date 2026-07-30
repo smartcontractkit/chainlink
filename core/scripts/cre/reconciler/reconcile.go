@@ -126,28 +126,31 @@ func (r *Reconciler) Run(ctx context.Context) error {
 
 	d := onchain.NewDeployer(r.k8s, r.deployerKey, r.log, r.confirmStep)
 
+	var onChainChanged bool
 	if !r.onChainComplete() {
 		if err := r.requireDiscoveryComplete(); err != nil {
 			return err
 		}
-		if err := d.Apply(ctx, r.desired, r.cv, r.state, r.persistState); err != nil {
+		changed, err := d.Apply(ctx, r.desired, r.cv, r.state, r.persistState)
+		if err != nil {
 			return errors.Wrap(err, "on-chain provisioning failed")
 		}
+		onChainChanged = changed
 		r.persistState()
 	}
 
-	if !r.state.TOMLPatchApplied {
-		// writeNodeConfig honors --wait-at-breakpoint: default (true) pauses in-process then returns nil so we
-		// continue to SyncJobs below; false returns ErrBreakpoint, which flows up to cmd.go → exit 42.
-		if err := r.injectTOML(ctx); err != nil {
-			return err // ErrBreakpoint in the exit-42 flow only
-		}
-		r.persistState()
+	// injectTOML runs every time (no one-shot gate): it diffs freshly generated
+	// TOML against the chart's current layer per node and is a no-op — no patch,
+	// no breakpoint — when nothing differs.
+	if err := r.injectTOML(ctx); err != nil {
+		return err // ErrBreakpoint in the exit-42 flow only
 	}
+	r.persistState()
 
 	// SyncJobs first restores the persisted gateway service configs (Feature-added handlers) onto the freshly
-	// built topology, then cancels/deletes jobs, creates gateway jobs, and runs PostEnvStartup.
-	if err := d.SyncJobs(ctx, r.desired, r.cv, r.state); err != nil {
+	// built topology, then cancels/deletes jobs, creates gateway jobs, and runs PostEnvStartup. A change earlier
+	// in the on-chain chain forces Jobs to run too, regardless of its own hash.
+	if err := d.SyncJobs(ctx, r.desired, r.cv, r.state, onChainChanged); err != nil {
 		return errors.Wrap(err, "job sync failed")
 	}
 	r.state.Phase = domain.PhaseDone
@@ -489,6 +492,18 @@ func (r *Reconciler) injectTOML(_ context.Context) error {
 		return errors.Wrap(err, "failed to resolve TOML patch targets")
 	}
 
+	// Diff each node's freshly generated TOML against its current chart-layer value;
+	// drop anything unchanged so we only patch/confirm/breakpoint for real changes.
+	patchesByFile, nodePatches, err = filterUnchangedTOMLPatches(patchesByFile, nodePatches, r.state.NodeConfigFiles)
+	if err != nil {
+		return errors.Wrap(err, "failed to diff generated TOML against chart values")
+	}
+	if len(patchesByFile) == 0 {
+		r.log.Info().Msg("No TOML changes detected — nothing to patch")
+		r.state.Phase = domain.PhaseConfigWritten
+		return nil
+	}
+
 	// Build a preview of what will be written
 	var preview strings.Builder
 	fmt.Fprintf(&preview, "Target files: %d\n", len(patchesByFile))
@@ -532,7 +547,6 @@ func (r *Reconciler) injectTOML(_ context.Context) error {
 	}
 
 	r.state.Phase = domain.PhaseConfigWritten
-	r.state.TOMLPatchApplied = true
 
 	r.printBreakpointInstructions()
 	if r.waitAtBreakpoint {
@@ -587,6 +601,43 @@ func groupPatchesByConfigFile(mapping map[string]string, patches []nodeTOMLPatch
 		out[filePath][patch.Name] = patch.TOML
 	}
 	return out, nil
+}
+
+// filterUnchangedTOMLPatches drops any node whose freshly generated TOML
+// matches its current "30-cre" chart-layer value, so injectTOML only
+// patches/confirms/breaks for nodes that actually changed.
+func filterUnchangedTOMLPatches(
+	patchesByFile map[string]map[string]string,
+	nodePatches []nodeTOMLPatch,
+	nodeConfigFiles map[string]string,
+) (map[string]map[string]string, []nodeTOMLPatch, error) {
+	filteredByFile := make(map[string]map[string]string, len(patchesByFile))
+	for filePath, byNode := range patchesByFile {
+		for nodeName, tomlContent := range byNode {
+			current, exists, err := infra.ReadLayerValue(filePath, nodeName, "30-cre")
+			if err != nil {
+				return nil, nil, errors.Wrapf(err, "node %s: failed to read current chart layer", nodeName)
+			}
+			if exists && current == tomlContent {
+				continue
+			}
+			if filteredByFile[filePath] == nil {
+				filteredByFile[filePath] = make(map[string]string)
+			}
+			filteredByFile[filePath][nodeName] = tomlContent
+		}
+	}
+
+	var filteredPatches []nodeTOMLPatch
+	for _, patch := range nodePatches {
+		if byNode, ok := filteredByFile[nodeConfigFiles[domain.NodeIdentity(patch.Namespace, patch.Name)]]; ok {
+			if _, ok := byNode[patch.Name]; ok {
+				filteredPatches = append(filteredPatches, patch)
+			}
+		}
+	}
+
+	return filteredByFile, filteredPatches, nil
 }
 
 func (r *Reconciler) buildWorkerGateways() []nodeconfig.ConnectorGateway {
