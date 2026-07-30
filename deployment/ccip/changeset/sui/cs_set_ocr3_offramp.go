@@ -9,7 +9,6 @@ import (
 	"golang.org/x/crypto/blake2b"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	cld_ops "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-sui/bindings/bind"
@@ -160,7 +159,7 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 			addr := "0x" + hex.EncodeToString(hash[:])
 			execTransmitters = append(execTransmitters, addr)
 		}
-		_, err = operations.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigCommitInput)
+		_, err = cld_ops.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigCommitInput)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -179,7 +178,7 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 			Transmitters:                   execTransmitters,
 		}
 
-		report, err := operations.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigExecInput)
+		report, err := cld_ops.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigExecInput)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
