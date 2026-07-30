@@ -109,23 +109,23 @@ deploys nothing.
 
 ## B. Discovery & node validation
 
-### B1 — Read Aptos / Solana / Stellar public keys + their OCR2 key bundles  ·  TODO · P2
+### B1 — Read Aptos / Solana public keys + their OCR2 key bundles  ·  TODO · P2
 **Problem.** Discovery only reads EVM addresses (`MustReadETHKeys`) and OCR2 bundles keyed by chain family (currently
 only `evm` is used). The `NodeClient` interface (`deps.go`, `internal/discovery/discovery.go`, impl `nodeapi.go`) has
-no methods for Aptos/Solana/Stellar keys, and `NodeRuntimeInfo` (`internal/domain/state.go`) has no fields for them.
+no methods for Aptos/Solana keys, and `NodeRuntimeInfo` (`internal/domain/state.go`) has no fields for them.
 The reference config lib already supports Solana/Aptos chains (`appendSolanaChain`/`appendAptosChain`); griddle is
 EVM-only.
 
-**Scope.** Extend `NodeClient` with `ReadSolanaKeys`/`ReadAptosKeys`/`ReadStellarKeys` (map/address forms) using the
-matching `clclient` read methods; extend `NodeRuntimeInfo` with per-family address maps; store per-family OCR2 bundle
-IDs (already keyed by family — verify Aptos/Solana families flow through). Wire into topology hydration
-(`hydrateDiscoveredEVMAddresses` needs Solana/Aptos siblings).
+**Deferred.** `stellar` is explicitly out of scope for the first cut (see phase_plan.md D4) — no `ReadStellarKeys`,
+no Stellar fields, no Stellar capability wiring.
+
+**Scope.** Extend `NodeClient` with `ReadSolanaKeys`/`ReadAptosKeys` (map/address forms) using the matching `clclient`
+read methods; extend `NodeRuntimeInfo` with per-family address maps; store per-family OCR2 bundle IDs (already keyed
+by family — verify Aptos/Solana families flow through). Wire into topology hydration (`hydrateDiscoveredEVMAddresses`
+needs Solana/Aptos siblings).
 
 **Acceptance.** For a DON with a `solana-*`/`aptos-*` capability, discovery captures that chain's node public key +
 OCR2 bundle, and CapReg configuration succeeds for non-EVM chains.
-
-**Open decisions.** Confirm Stellar is actually supported by the node API / `clclient` today (may not be — scope it
-out if not). Which families are in scope for the first cut.
 
 **Depends on / relates to:** B3 (role gating shares the discovery loop), A1 (keys feed hashes).
 
@@ -208,23 +208,22 @@ there's drift between the UI catalog, the default-config file, and end-to-end wi
 - **`aptos` is registered as chain-scoped** (`chainScopedCapabilities`, desired.go:457-459: `evm`/`solana`/`aptos`) yet
   is absent from the catalog, so it can't be attached to a DON at all today.
 
-**Scope.** Close the gap end-to-end for each capability we intend to support:
+**Finalized scope (phase_plan.md D4).** First-cut supported set: `cron`, `consensus`, `don-time`, `http-action`,
+`http-trigger`, `vault`, `evm`, `solana`, `aptos`. `stellar` is deferred. `write-solana` is **not** exposed as a
+standalone capability — treat it as Solana-specific config or internal behavior, folded into the `solana` capability's
+handling. `mock` is test-only and out of scope for the UI catalog.
+
+**Scope.** Close the gap end-to-end for each capability in the finalized set:
 1. Add it to the UI catalog (name/label/description/`chainScoped`) so it's selectable.
 2. Ensure a default config exists (or is intentionally omitted) in `capability_defaults.toml`.
 3. Confirm the backend actually wires it into CapReg config + jobs (the reference feature hooks), and — for chain-scoped
-   caps — that discovery reads the matching keys (this is **gated on B1** for Solana/Aptos/Stellar).
-Start from the concrete known gaps (`aptos`, `write-solana`, `mock`), then enumerate the remaining CRE capabilities the
-reconciler should support.
+   caps — that discovery reads the matching keys (this is **gated on B1** for Solana/Aptos).
 
 **Acceptance.** Each newly-supported capability is selectable in the UI, has (or intentionally lacks) a default config,
 and produces correct CapReg + job output on `apply`; a chain-scoped addition (e.g. `aptos-<id>`) works alongside its
-discovery keys.
+discovery keys; `write-solana` does not appear as a standalone selectable capability.
 
-**Open decisions.** The authoritative list of capabilities the reconciler must support (enumerate against the current
-CRE capability set — don't guess). Which are in scope for the first cut vs. deferred. Whether `mock` is a real target or
-test-only. Per-capability: chain-scoped or not, gateway-routed or not.
-
-**Depends on / relates to:** B1 (non-EVM discovery — hard prerequisite for Solana/Aptos/Stellar caps), C1 (chain
+**Depends on / relates to:** B1 (non-EVM discovery — hard prerequisite for Solana/Aptos caps), C1 (chain
 precondition applies to each new chain-scoped cap), E6 (allowlist), the UI capability catalog + `capability_defaults.toml`.
 
 ---
@@ -264,16 +263,26 @@ stay sequential or aggregate results. Confirm before planning.
 2. **UI:** `renderGatewayAssignments` offers only **workflow** DONs as assignment targets. Must also allow
    **capabilities**-type DONs, and allow assigning one gateway to **multiple** DONs (multi-select rather than single).
 
-**Scope.** Backend: change gateway→DON to a one-to-many mapping in `desired.toml` schema (`[[gateway_nodes]]` gains a
-`dons = [...]` list, or repeatable) + topology/connector build to emit multiple `Gateways[].DonID` / a DON list.
-UI: multi-select of eligible DONs (workflow + capabilities) per gateway; render membership read-only as today.
-Generated `[Capabilities.GatewayConnector]` must reflect all served DONs.
+**Finalized schema (phase_plan.md D6).** `desired.toml` uses a `dons = [...]` list field, not repeated entries and not
+the old single-`don` shape:
+
+```toml
+[[gateway_nodes]]
+node = "node-gw-0"
+dons = ["workflow-a", "capabilities-b"]
+```
+
+This is a direct breaking change — do not support the old single-`don` shape. Scope of support: one gateway nodeset
+may contain multiple gateway nodes; multiple nodesets may each contain gateway nodes; any nodeset treated as a gateway
+nodeset is assumed to contain only gateway nodes; mixed worker+gateway nodesets are out of scope.
+
+**Scope.** Backend: change gateway→DON to a one-to-many mapping using the `dons = [...]` schema above + topology/
+connector build to emit multiple `Gateways[].DonID` / a DON list. UI: multi-select of eligible DONs (workflow +
+capabilities) per gateway; render membership read-only as today. Generated `[Capabilities.GatewayConnector]` must
+reflect all served DONs.
 
 **Acceptance.** A single gateway node assigned to both a workflow DON and a capabilities DON produces a gateway job +
 connector config serving both; UI lets you pick multiple DONs of either type.
-
-**Open decisions.** `desired.toml` shape for many-DON gateway (list field vs repeated entries) — **breaking schema
-change, document it.** Whether capabilities DONs need gateway access in all cases or only for gateway-routed caps.
 
 **Depends on / relates to:** gateway job creation, `NeedsGateway`/`NeedsGatewayAccess` logic.
 
@@ -348,14 +357,15 @@ node config (`RegistryBasedLaunchAllowlist`, nodeconfig.go:127); the UI state mo
 `registryBasedLaunchAllowlist` (app.js) and it round-trips through `/api/desired`. **Gap:** there is **no UI control** to
 view/edit it — it's always empty unless hand-written into `desired.toml`.
 
+**Finalized entry format (phase_plan.md D1).** `registryBasedLaunchAllowlist` is a slice of **capability names**, not
+addresses — e.g. `cron-trigger@1.0.0`, `evm-1337`. Do not apply address validation.
+
 **Scope.** Add an editable list input per DON in `donColumnHTML` (alongside the "Exposes remote capabilities" checkbox)
-that reads/writes `don.registryBasedLaunchAllowlist`. Entries are workflow-owner addresses / IDs (confirm exact form).
+that reads/writes `don.registryBasedLaunchAllowlist`. Validate each entry as: non-empty string, no duplicates, and
+optionally a simple format check (printable token, no surrounding whitespace).
 
 **Acceptance.** Adding allowlist entries to a DON in the UI persists to `desired.toml` and appears in the generated
-CapReg + node config.
-
-**Open decisions.** Exact entry format/validation (address vs. arbitrary string) and whether it applies to all DON
-types or workflow/capabilities only.
+CapReg + node config; entries are treated as capability names throughout, not addresses.
 
 ### E7 — Capability picker DON selector defaults to first workflow DON  ·  TODO · P3
 **Problem.** `renderCapabilityCatalog` (app.js) defaults `state.selectedDON` to `0` — the first DON of *any* type,
@@ -366,7 +376,7 @@ if none). Only on initial default — don't override an explicit user selection.
 
 **Acceptance.** On load, the capability catalog targets the first workflow DON, not a bootstrap/gateway DON.
 
-### E8 — Remove `Chart Values Dir` and `Namespace` from the Config tab  ·  DECISION · P2
+### E8 — Remove `Chart Values Dir` and `Namespace` from the Config tab  ·  TODO · P2
 **Problem.** The Config tab's `Chart Values Dir` (`Infra.ChartValues`) and `Namespace` (`Infra.Namespace`) fields are
 now largely redundant:
 - **Namespace** is a fallback only — the real per-node namespace comes from the chart (`GetNodeNamespace`); `serve`
@@ -374,16 +384,15 @@ now largely redundant:
 - **Chart Values Dir** is still read by the **apply** path (`LoadChartValues(ds.Infra.ChartValues, …)`, cmd.go:205),
   whereas `serve` uses the `--chart-dir` flag. So the field can't just be deleted without redirecting apply.
 
+**Finalized (phase_plan.md D3).** This is a direct breaking change — remove `infra.chart_values` and `infra.namespace`
+outright rather than supporting old and new forms together.
+
 **Scope.** Drop both inputs from the Config tab; source namespace from the chart everywhere; make `apply` read the
 chart dir from a `--chart-dir` flag (align with `serve`) instead of `Infra.ChartValues`; remove `Infra.ChartValues` /
-`Infra.Namespace` from the `desired.toml` schema (**breaking change — document in G1**).
+`Infra.Namespace` from the `desired.toml` schema.
 
 **Acceptance.** Config tab no longer shows these fields; `apply` locates the chart via `--chart-dir`; `desired.toml`
 no longer needs `[infra] chart_values`/`namespace`.
-
-**Open decisions (the reason this is DECISION, not TODO).** Confirm nothing else reads `Infra.ChartValues`/
-`Infra.Namespace`. Decide the apply CLI contract (`--chart-dir` required? default `.`?). Whether to keep `[infra]`
-at all once these two fields go (only `type` would remain).
 
 **Depends on / relates to:** E5 (Config tab shrinks — the JD move + this cleanup leave the tab nearly empty; consider
 whether Config survives as a tab), G1 (document the breaking schema change).
@@ -404,9 +413,11 @@ the live check shows redundant creates; then add the cheap pre-skip (`ListNodeCh
 
 ### G1 — Documentation  ·  TODO · P2
 **Scope (make concrete).**
-- README: update flow diagram to the current phase model; document `--deployer-key` and the `GRIDDLE_JD_ACCESS_TOKEN`
-  env var (Phase 11); document the "chart owns all `[[EVM]]` chains, must pre-exist" contract (C1); document the
-  breaking `desired.toml` changes (no `nodes[]`, no `access_token`, many-DON gateway shape from E1).
+- README: update flow diagram to the current phase model; document the env-only deployer key resolution
+  (`PRIVATE_KEY_<CHAIN_ID>` / `PRIVATE_KEY`, no `--deployer-key`, see H1) and the `GRIDDLE_JD_ACCESS_TOKEN` env var
+  (Phase 11); document the "chart owns all `[[EVM]]` chains, must pre-exist" contract (C1); document the breaking
+  `desired.toml` changes (no `nodes[]`, no `access_token`, no `infra.chart_values`/`infra.namespace` (E8), many-DON
+  gateway `dons = [...]` shape from E1).
 - Package doc comments for the new subpackages (`internal/domain|infra|nodeconfig|discovery|jobs|ui`).
 - A short "reconciliation model" doc once A1 lands (what triggers what).
 **Acceptance.** A new operator can run `apply` and `serve` from the README alone, including required env vars.
@@ -428,28 +439,32 @@ card header inside already reads "Capability Configs" (index.html:73). Rename th
 `data-tab="configs"` id / `renderCapConfigs` internals can stay as-is (cosmetic label only).
 - Acceptance: the tab nav reads "Capability Configs".
 
-### G3 — Produce CLD-compatible audit artifacts (README promise is unimplemented)  ·  TODO · P2
+### G3 — Produce CLD-compatible audit artifacts (README promise is unimplemented)  ·  DEFERRED · P2
+**Status (phase_plan.md D8).** Deferred — do not spend implementation time on G3 in this workstream. Remove or rewrite
+any README text that promises CLD artifacts (tracked under Phase 9 / G1).
+
 **Problem.** The README advertises audit artifacts (§"Audit artifacts", README.md:208-210): *"per-changeset artifacts
 will [be] written in CLD-compatible format to `cre/artifacts/durable_pipelines/` … directory layout and JSON schema
 match what the `cld` runtime produces."* This is aspirational — **nothing writes them today** (the only file writes in
 the tree are the state file, the chart patch, and `desired.toml`). The README's own "In the future" wording flags the
 gap.
 
-**Scope.** After each executed changeset/phase, emit a CLD-compatible artifact into `cre/artifacts/durable_pipelines/`
-whose directory layout + JSON schema match the `cld` runtime's output, so the same tooling can consume reconciler runs.
-Because CLDF changesets are *executed, not simulated* (see A1), the artifact is a record of what was applied per
-changeset. Wire it into the per-step flow (A2) so each step emits its artifact on success.
+**Scope (if picked up later).** After each executed changeset/phase, emit a CLD-compatible artifact into
+`cre/artifacts/durable_pipelines/` whose directory layout + JSON schema match the `cld` runtime's output, so the same
+tooling can consume reconciler runs. Because CLDF changesets are *executed, not simulated* (see A1), the artifact is a
+record of what was applied per changeset. Wire it into the per-step flow (A2) so each step emits its artifact on
+success.
 
-**Acceptance.** A completed `apply` populates `cre/artifacts/durable_pipelines/` with per-changeset JSON artifacts whose
-layout/schema validate against the `cld` runtime's format; the README's "In the future" caveat is removed.
+**Acceptance (if picked up later).** A completed `apply` populates `cre/artifacts/durable_pipelines/` with per-changeset
+JSON artifacts whose layout/schema validate against the `cld` runtime's format.
 
-**Open decisions.** The **authoritative CLD schema + directory layout** — pin it against the real `cld` runtime source
-(not in this repo per a quick grep; confirm where it lives and version it). Which phases count as a "changeset"
-(the opaque CLDF steps vs. every phase). Whether to gate behind a flag (`--artifacts-dir` / on by default). What goes
-in each artifact (inputs, addresses, tx hashes, changeset id/hash — reuse A1's per-phase hashes).
+**Open decisions (if picked up later).** The **authoritative CLD schema + directory layout** — pin it against the real
+`cld` runtime source (not in this repo per a quick grep; confirm where it lives and version it). Which phases count as
+a "changeset" (the opaque CLDF steps vs. every phase). Whether to gate behind a flag (`--artifacts-dir` / on by
+default). What goes in each artifact (inputs, addresses, tx hashes, changeset id/hash — reuse A1's per-phase hashes).
 
-**Depends on / relates to:** A1/A2 (per-phase/changeset execution + hashes feed the artifact contents), G1 (update the
-README from "in the future" to documenting the real output).
+**Depends on / relates to:** A1/A2 (per-phase/changeset execution + hashes would feed the artifact contents), G1
+(remove the README's "in the future" CLD-artifacts promise now, independent of whether G3 is ever implemented).
 
 ## Housekeeping (discovered during review — not in the original notes)
 - **Delete dead root `web/` dir** — `web/{app.js,index.html,styles.css,capability_defaults.toml}` are still git-tracked
@@ -468,17 +483,23 @@ dev account (`reconcile.go:97`, `blockchain.DefaultAnvilPrivateKey`). It's used 
 registry chain (`deployerAddress(r.deployerKey)`, onchain.go:550). A real multi-chain deployment needs a different
 funded key per chain.
 
-**Scope.** Resolve a per-chain key from `PRIVATE_KEY_<CHAIN_ID>` env vars (e.g. `PRIVATE_KEY_1337=0x…`), falling back
-to `--deployer-key`, then the Anvil default. Thread a `chainID → key` lookup into the per-chain transactor construction
-(onchain.go:247 and the deploy loop at :764-769) instead of the single `r.deployerKey`. Decide what the workflow-owner
-address (registry chain, onchain.go:550) resolves to — presumably the registry chain's key.
+**Finalized (phase_plan.md D2).** Deployer key configuration is environment variables only. Remove `--deployer-key`
+entirely — do not mix CLI flags and environment variables. Resolution order: `PRIVATE_KEY_<CHAIN_ID>` for per-chain
+EVM deployer keys, `PRIVATE_KEY` as the global fallback, and the Anvil default only when neither env var is set. The
+workflow owner is derived from the effective key for the registry chain.
+
+**Scope.** Remove the `--deployer-key` CLI flag entirely. Resolve a per-chain key from `PRIVATE_KEY_<CHAIN_ID>` env
+vars (e.g. `PRIVATE_KEY_1337=0x…`), falling back to `PRIVATE_KEY`, then the Anvil default. Thread a `chainID → key`
+lookup into the per-chain transactor construction (onchain.go:247 and the deploy loop at :764-769) instead of the
+single `r.deployerKey`. The workflow-owner address (registry chain, onchain.go:550) resolves from the effective key for
+the registry chain.
 
 **Acceptance.** With `PRIVATE_KEY_1337` set, deploys/txs on chain 1337 are signed by that key; chains without a
-`PRIVATE_KEY_<id>` fall back to `--deployer-key`/Anvil; the workflow owner is derived from the registry chain's key.
+`PRIVATE_KEY_<id>` fall back to `PRIVATE_KEY`/Anvil; the workflow owner is derived from the registry chain's effective
+key; `--deployer-key` no longer exists as a CLI flag.
 
-**Open decisions.** Precedence order (env vs. flag) — env should win per-chain, flag as global fallback. Whether to
-keep `--deployer-key` at all or make it purely the fallback. Whether keys ever come from a file/secret store rather
-than env (out of scope for the first cut). Never log the keys.
+**Open decisions.** Whether keys ever come from a file/secret store rather than env (out of scope for the first cut).
+Never log the keys.
 
 **Depends on / relates to:** the on-chain deploy flow (A2/A3), G1 (document the env-var convention alongside
 `GRIDDLE_JD_ACCESS_TOKEN`).
@@ -492,7 +513,7 @@ than env (out of scope for the first cut). Never log the keys.
 3. **Discovery breadth:** B1 (non-EVM keys), B2 (label validation), B4 (chart-level chain-capability preflight).
    Then C2 (add unsupported capabilities) once B1 unblocks the non-EVM ones.
 4. **UI quick wins (cheap, mostly independent):** E6 (allowlist input), E7 (workflow-DON default), E5 (JD tab),
-   E8 (Config-tab cleanup, needs a decision), E2 (block unassigned-gateway save).
+   E8 (Config-tab cleanup — breaking `desired.toml` change, schema finalized), E2 (block unassigned-gateway save).
 5. **Feature/UX:** E1 (multi-DON gateway + capabilities type), H1 (per-chain deployer keys), remaining D1
    parallelization.
 6. **Bigger UI:** E3 (apply-from-UI + live logs) → E4 (diff/status, needs A1).
