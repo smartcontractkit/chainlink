@@ -62,12 +62,12 @@ func (c Chain) SolanaGenesisHash() string {
 	return v
 }
 
-// Infra describes the Griddle deployment target.
+// Infra describes the Griddle deployment target. The chart dir and namespace
+// are NOT here — chart dir comes from the --chart-dir flag (same as `serve`),
+// and namespace is always derived from the chart (ChartValues.GetNodeNamespace).
 type Infra struct {
-	Type        string `toml:"type"`         // must be "griddle"
-	ChartValues string `toml:"chart_values"` // path to deploy/config/<service> dir
-	Namespace   string `toml:"namespace"`    // K8s namespace
-	Kubeconfig  string `toml:"kubeconfig"`   // optional path to kubeconfig
+	Type       string `toml:"type"`       // must be "griddle"
+	Kubeconfig string `toml:"kubeconfig"` // optional path to kubeconfig
 }
 
 // JDConfig describes how to connect to the Job Distributor.
@@ -237,12 +237,6 @@ func LoadDesiredState(path string) (*DesiredState, error) {
 func (ds *DesiredState) Validate() error {
 	if ds.Infra.Type != "griddle" {
 		return fmt.Errorf("infra.type must be \"griddle\", got %q", ds.Infra.Type)
-	}
-	if ds.Infra.ChartValues == "" {
-		return errors.New("infra.chart_values is required (path to deploy/config/<service> dir)")
-	}
-	if ds.Infra.Namespace == "" {
-		return errors.New("infra.namespace is required")
 	}
 	if ds.JD.GRPC == "" {
 		return errors.New("jd.grpc is required (gRPC endpoint)")

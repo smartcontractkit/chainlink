@@ -113,6 +113,7 @@ func init() {
 	// Apply flags
 	applyCmd.Flags().StringVarP(&flagDesired, "desired", "d", "cre/desired.toml", "path to desired-state TOML")
 	applyCmd.Flags().StringVarP(&flagState, "state", "s", "cre/state.toml", "path to state file")
+	applyCmd.Flags().StringVar(&flagChartDir, "chart-dir", ".", "path to repo root containing griddle.yaml")
 	applyCmd.Flags().StringVar(&flagKubeconfig, "kubeconfig", "", "path to kubeconfig (defaults to KUBECONFIG env or ~/.kube/config)")
 	applyCmd.Flags().StringVarP(&flagEnv, "env", "e", "dev", "environment name (e.g. dev, stage, prod)")
 	applyCmd.Flags().BoolVar(&flagConfirm, "confirm", false, "prompt for confirmation before each step (shows full details)")
@@ -131,6 +132,7 @@ func init() {
 	// Diff flags
 	diffCmd.Flags().StringVarP(&flagDesired, "desired", "d", "cre/desired.toml", "path to desired-state TOML")
 	diffCmd.Flags().StringVarP(&flagState, "state", "s", "cre/state.toml", "path to state file")
+	diffCmd.Flags().StringVar(&flagChartDir, "chart-dir", ".", "path to repo root containing griddle.yaml")
 	diffCmd.Flags().StringVar(&flagKubeconfig, "kubeconfig", "", "path to kubeconfig")
 	diffCmd.Flags().StringVarP(&flagEnv, "env", "e", "dev", "environment name")
 
@@ -188,7 +190,7 @@ func runApply(ctx context.Context) error {
 
 	log.Info().Str("version", Version).Msg("reconciler starting")
 
-	reconciler, err := NewReconciler(flagDesired, flagState, flagKubeconfig, flagEnv, flagConfirm, flagRestartWorkerPods, flagWaitAtBreakpoint, flagDeployerKey, log)
+	reconciler, err := NewReconciler(flagDesired, flagState, flagChartDir, flagKubeconfig, flagEnv, flagConfirm, flagRestartWorkerPods, flagWaitAtBreakpoint, flagDeployerKey, log)
 	if err != nil {
 		return err
 	}
@@ -226,7 +228,7 @@ func runDiff(_ context.Context) error {
 	if err != nil {
 		return err
 	}
-	cv, err := domain.LoadChartValues(ds.Infra.ChartValues, flagEnv)
+	cv, err := domain.LoadChartValues(flagChartDir, flagEnv)
 	if err != nil {
 		return err
 	}
@@ -283,17 +285,10 @@ func runDiff(_ context.Context) error {
 func runServe(_ context.Context) error {
 	log := zerolog.New(os.Stderr).With().Timestamp().Logger()
 
-	// Try to resolve namespace from desired state
+	// Resolve namespace from griddle.yaml
 	namespace := ""
-	if ds, err := domain.LoadDesiredState(flagDesired); err == nil {
-		namespace = ds.Infra.Namespace
-	}
-
-	// Try to resolve namespace from griddle.yaml
-	if namespace == "" {
-		if cv, err := domain.LoadChartValues(flagChartDir, flagEnv); err == nil {
-			namespace = cv.Namespace
-		}
+	if cv, err := domain.LoadChartValues(flagChartDir, flagEnv); err == nil {
+		namespace = cv.Namespace
 	}
 	if namespace == "" {
 		namespace = "default"

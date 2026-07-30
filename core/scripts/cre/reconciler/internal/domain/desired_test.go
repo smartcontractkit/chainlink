@@ -22,8 +22,6 @@ func TestLoadDesiredState_Minimal(t *testing.T) {
 	path := writeTempTOML(t, `
 [infra]
   type = "griddle"
-  chart_values = "deploy/config/my-repo"
-  namespace = "my-repo-nodeset"
 
 [jd]
   grpc = "grpc-job-distributor.main.stage.cldev.sh:443"
@@ -54,7 +52,6 @@ func TestLoadDesiredState_Minimal(t *testing.T) {
 	ds, err := LoadDesiredState(path)
 	require.NoError(t, err)
 	require.Equal(t, "griddle", ds.Infra.Type)
-	require.Equal(t, "deploy/config/my-repo", ds.Infra.ChartValues)
 	require.Len(t, ds.DONs, 1)
 	require.Equal(t, "workflow", ds.DONs[0].Name)
 	require.ElementsMatch(t, []string{"cron", "evm-1337"}, ds.DONs[0].Capabilities)
@@ -69,8 +66,6 @@ func TestLoadDesiredState_MultipleDONs(t *testing.T) {
 	path := writeTempTOML(t, `
 [infra]
   type = "griddle"
-  chart_values = "deploy/config/my-repo"
-  namespace = "my-repo-nodeset"
 
 [jd]
   grpc = "grpc-jd:443"
@@ -131,8 +126,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "wrong infra type",
 			toml: `[infra]
   type = "docker"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -147,29 +140,9 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			errSub: "must be \"griddle\"",
 		},
 		{
-			name: "missing chart_values",
-			toml: `[infra]
-  type = "griddle"
-  namespace = "ns"
-[jd]
-  grpc = "x"
-  domain = "cre"
-  environment = "dev"
-[[dons]]
-  name = "w"
-  capabilities = ["cron"]
-  nodes = ["n"]
-[capability_configs.cron]
-  binary_name = "cron"
-`,
-			errSub: "chart_values is required",
-		},
-		{
 			name: "no DONs",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -181,8 +154,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "duplicate DON name",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -204,8 +175,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "missing capability config",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -221,8 +190,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "no chains declared",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -240,8 +207,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "no registry chain",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -264,8 +229,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "duplicate chain_id",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -294,8 +257,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "capability references undeclared chain",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -319,8 +280,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "missing family",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -343,8 +302,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "unsupported family",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -366,8 +323,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "non-evm chain cannot be registry",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -389,8 +344,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "aptos capability references undeclared chain",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -414,8 +367,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "aptos chain missing http_url",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -442,8 +393,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "aptos chain cannot set ws_url",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -472,8 +421,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "solana chain missing genesis_hash",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -502,8 +449,6 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			name: "solana chain missing ws_url",
 			toml: `[infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -549,8 +494,6 @@ func TestLoadDesiredState_NonEVMChainDeclared(t *testing.T) {
 	path := writeTempTOML(t, `
 [infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"
@@ -588,8 +531,6 @@ func TestLoadDesiredState_SolanaChainDeclared(t *testing.T) {
 	path := writeTempTOML(t, `
 [infra]
   type = "griddle"
-  chart_values = "x"
-  namespace = "ns"
 [jd]
   grpc = "x"
   domain = "cre"

@@ -530,41 +530,53 @@ Ship the low-risk UI improvements and remove stale desired-state config fields.
 - [cmd.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/cmd.go)
 - [reconcile.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/reconcile.go)
 
+### Decided (differs slightly from the steps below — see TODO.md E5-E8 for full detail)
+
+- **Config tab removed entirely, not left as an empty placeholder** (explicit user decision): once the Infrastructure
+  card (E8) and Job Distributor card (E5) both leave it, nothing remains, so the tab and its nav button were deleted
+  rather than kept empty for future settings.
+- **E7 fix went one step further than the stated scope:** `removeDON` had a related gap — it only clamped
+  `selectedDON` when it fell past the shrunk array's end, but never re-targeted it when a DON *before* or *at* the
+  selected index was deleted, silently pointing the selector at the wrong DON. Fixed alongside the default-selection
+  change since both use the same new `defaultDONIndex()` helper.
+- **E6's UI pattern:** reused the existing chip+`prompt()` add/remove convention already used for chain-scoped
+  capabilities, rather than introducing a new textarea-based input — keeps the DON editor visually consistent.
+
 ### Implementation steps
 
-1. Add the E6 allowlist input to the DON editor UI:
-   - add a free-text UI field backed by a slice of strings
-   - serialize user-entered values directly to `registryBasedLaunchAllowlist`
-   - preserve order
-   - reject empty entries
-   - do not reinterpret the entries as addresses or typed objects
-2. Change E7 default DON selection:
-   - first workflow DON
-   - fallback to index 0 if none
-3. Move JD connectivity/settings to a JD tab.
-4. Remove `infra.chart_values` and `infra.namespace` from the desired-state schema.
-5. Remove the corresponding UI inputs.
-6. Make `apply` load the chart from `--chart-dir`, same as `serve`.
-7. Derive namespace from chart values everywhere.
+1. Add the E6 allowlist input to the DON editor UI ✅ — chip+`prompt()` editor in `donColumnHTML`, backed by
+   `don.registryBasedLaunchAllowlist`; non-empty/trimmed/no-duplicates validation; entries stay untyped capability-name
+   strings, never reinterpreted as addresses.
+2. Change E7 default DON selection ✅ — first workflow DON, fallback to index 0; `removeDON` re-validation fixed too.
+3. Move JD connectivity/settings to a JD tab ✅.
+4. Remove `infra.chart_values` and `infra.namespace` from the desired-state schema ✅.
+5. Remove the corresponding UI inputs ✅ (the whole Config tab, per the Decided note above).
+6. Make `apply` load the chart from `--chart-dir`, same as `serve` ✅ — `diff` got the same flag too, since it had the
+   identical `ds.Infra.ChartValues` pattern.
+7. Derive namespace from chart values everywhere ✅ — `runServe`'s `Infra.Namespace` fallback removed; `checkJD`'s
+   namespace source in app.js switched to the already-chart-derived `state.namespace`.
 
 ### Tests to add or update
 
-- desired-state parsing tests
-- UI server request/response tests
-- UI tests for allowlist round-trip if practical
+- desired-state parsing tests ✅ (stripped `chart_values`/`namespace` from every `[infra]` fixture; removed the
+  obsolete "missing chart_values" validation-error case)
+- UI server request/response tests ✅ (`TestResponseToDesiredState`, `TestAPI_Desired_SaveAndLoad` updated)
+- UI tests for allowlist round-trip ✅ (`TestAPI_Desired_SaveAndLoad` now round-trips `registryBasedLaunchAllowlist`)
 
 ### Validation
 
-- Run:
+- Ran:
   - `go test ./core/scripts/cre/reconciler/internal/ui`
   - `go test ./core/scripts/cre/reconciler/internal/domain`
-  - `go test ./core/scripts/cre/reconciler/...`
+  - `go test ./core/scripts/cre/reconciler/...` → 180 passed, 9 packages (181 minus the one obsolete test removed)
+  - `go vet ./core/scripts/cre/reconciler/...` → no issues
+  - `gofmt -l` → clean
 
 ### Exit criteria
 
-- UI no longer exposes chart path or namespace fields.
-- Desired-state schema no longer contains those fields.
-- Allowlist can be edited in the UI as capability names.
+- UI no longer exposes chart path or namespace fields. ✅
+- Desired-state schema no longer contains those fields. ✅
+- Allowlist can be edited in the UI as capability names. ✅
 
 ---
 

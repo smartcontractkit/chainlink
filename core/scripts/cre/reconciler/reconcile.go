@@ -36,7 +36,7 @@ type Reconciler struct {
 }
 
 // NewReconciler creates a Reconciler from the CLI flags.
-func NewReconciler(desiredPath, statePath, kubeconfig, env string, confirm, restartWorkerPods, waitAtBreakpoint bool, deployerKey string, log zerolog.Logger) (*Reconciler, error) {
+func NewReconciler(desiredPath, statePath, chartDir, kubeconfig, env string, confirm, restartWorkerPods, waitAtBreakpoint bool, deployerKey string, log zerolog.Logger) (*Reconciler, error) {
 	log.Info().Str("desired", desiredPath).Str("state", statePath).Msg("Loading desired state")
 
 	ds, err := domain.LoadDesiredState(desiredPath)
@@ -44,8 +44,8 @@ func NewReconciler(desiredPath, statePath, kubeconfig, env string, confirm, rest
 		return nil, errors.Wrap(err, "failed to load desired state")
 	}
 
-	log.Info().Str("chartDir", ds.Infra.ChartValues).Str("env", env).Msg("Loading chart values from griddle.yaml")
-	cv, err := domain.LoadChartValues(ds.Infra.ChartValues, env)
+	log.Info().Str("chartDir", chartDir).Str("env", env).Msg("Loading chart values from griddle.yaml")
+	cv, err := domain.LoadChartValues(chartDir, env)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load chart values")
 	}

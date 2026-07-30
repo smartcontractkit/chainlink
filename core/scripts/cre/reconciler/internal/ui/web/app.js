@@ -14,7 +14,7 @@
         capabilities: [],
         capabilityConfigs: {},
         selectedDON: null,
-        infra: { type: 'griddle', chartValues: '', namespace: '' },
+        infra: { type: 'griddle' },
         jd: { grpc: 'grpc-job-distributor.main.stage.cldev.sh:443', domain: 'cre', environment: 'dev', useTLS: true },
     };
 
@@ -80,10 +80,6 @@
             document.getElementById('namespaceLabel').textContent =
                 state.namespace ? `Namespace: ${state.namespace}` : '';
 
-            // Prepopulate config fields if not already set by desired state
-            if (!state.infra.namespace) state.infra.namespace = state.namespace;
-            if (!state.infra.chartValues) state.infra.chartValues = state.chartDir;
-
             state.gateways.forEach(gwName => {
                 if (!state.gatewayNodes.find(gwn => gwn.node === gwName)) {
                     state.gatewayNodes.push({ node: gwName, don: '' });
@@ -114,7 +110,7 @@
                 registryBasedLaunchAllowlist: d.registryBasedLaunchAllowlist || [],
                 capabilityConfigs: d.capabilityConfigs || {},
             }));
-            state.infra = data.infra || { type: 'griddle', chartValues: '', namespace: state.namespace };
+            state.infra = data.infra || { type: 'griddle' };
             state.jd = data.jd || {};
             // Pre-fill defaults if not set
             if (!state.jd.grpc) state.jd.grpc = 'grpc-job-distributor.main.stage.cldev.sh:443';
@@ -123,9 +119,6 @@
             if (state.jd.useTLS === undefined) state.jd.useTLS = true;
             state.capabilityConfigs = data.capabilityConfigs || {};
             state.gatewayNodes = (data.gatewayNodes || []).map(gwn => ({ node: gwn.node, don: gwn.don }));
-
-            // Ensure infra.namespace is set
-            if (!state.infra.namespace) state.infra.namespace = state.namespace;
 
             renderDONs();
             renderConfig();
@@ -321,6 +314,14 @@
         </span>
     `).join('');
 
+        const allowlist = don.registryBasedLaunchAllowlist || [];
+        const allowlistHTML = allowlist.map(entry => `
+        <span class="cap-chip active" data-allowlist-entry="${entry}">
+            ${entry}
+            <span class="remove" onclick="removeAllowlistEntry(${idx}, '${entry}')">&times;</span>
+        </span>
+    `).join('');
+
         return `
         <div class="don-column" data-don-idx="${idx}">
             <div class="don-header">
@@ -353,6 +354,16 @@
                         Exposes remote capabilities
                     </label>
                 </div>
+                <div class="mt-2">
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="text-[10px] text-gray-400 uppercase tracking-wide">Registry Launch Allowlist</label>
+                        <button onclick="addAllowlistEntry(${idx})" class="text-[10px] text-blue-500 hover:text-blue-700">+ Add</button>
+                    </div>
+                    <div class="flex flex-wrap gap-1">
+                        ${allowlistHTML}
+                        ${allowlist.length === 0 ? '<span class="text-xs text-gray-400">No allowlist entries</span>' : ''}
+                    </div>
+                </div>
             </div>
         </div>
     `;
@@ -372,10 +383,18 @@
     }
 
     // --- Render: Capability Catalog ---
+    // defaultDONIndex picks the first workflow DON, falling back to index 0 —
+    // a bootstrap/gateway DON can't carry capabilities, so defaulting to
+    // "the first DON of any type" often lands on one that can't be used.
+    function defaultDONIndex() {
+        const idx = state.dons.findIndex(d => d.donTypes.includes('workflow'));
+        return idx >= 0 ? idx : 0;
+    }
+
     function renderCapabilityCatalog() {
         const container = document.getElementById('capabilityCatalog');
-        if (!state.selectedDON && state.dons.length > 0) {
-            state.selectedDON = 0;
+        if (state.selectedDON === null && state.dons.length > 0) {
+            state.selectedDON = defaultDONIndex();
         }
 
         if (state.dons.length === 0) {
@@ -451,8 +470,6 @@
 
     // --- Render: Config tab ---
     function renderConfig() {
-        document.getElementById('cfgChartValues').value = state.infra.chartValues || '';
-        document.getElementById('cfgNamespace').value = state.infra.namespace || '';
         document.getElementById('cfgJDGrpc').value = state.jd.grpc || '';
         document.getElementById('cfgJDDomain').value = state.jd.domain || '';
         document.getElementById('cfgJDEnv').value = state.jd.environment || '';
@@ -706,7 +723,15 @@
 
     window.removeDON = function (idx) {
         state.dons.splice(idx, 1);
-        if (state.selectedDON >= state.dons.length) state.selectedDON = Math.max(0, state.dons.length - 1);
+        if (state.selectedDON === idx) {
+            // The selected DON itself was removed — re-pick a sensible default
+            // rather than silently pointing at whatever DON shifted into idx.
+            state.selectedDON = state.dons.length > 0 ? defaultDONIndex() : null;
+        } else if (state.selectedDON > idx) {
+            // A DON before the selection was removed — shift the index down so
+            // it still points at the same DON, not the one after it.
+            state.selectedDON -= 1;
+        }
         renderDONs();
     };
 
@@ -803,6 +828,32 @@
         state.dons[idx].exposesRemoteCapabilities = checked;
     };
 
+    // Entries are capability names (e.g. "cron-trigger@1.0.0", "evm-1337"), not
+    // addresses — no address-shaped validation here, just non-empty + no dupes.
+    window.addAllowlistEntry = function (donIdx) {
+        const entry = prompt('Enter a capability name to add to the registry launch allowlist:');
+        if (entry === null) return;
+        const trimmed = entry.trim();
+        if (!trimmed) {
+            toast('Allowlist entry cannot be empty', 'error');
+            return;
+        }
+        const don = state.dons[donIdx];
+        if (!don.registryBasedLaunchAllowlist) don.registryBasedLaunchAllowlist = [];
+        if (don.registryBasedLaunchAllowlist.includes(trimmed)) {
+            toast(`${trimmed} already in allowlist`, 'error');
+            return;
+        }
+        don.registryBasedLaunchAllowlist.push(trimmed);
+        renderDONs();
+    };
+
+    window.removeAllowlistEntry = function (donIdx, entry) {
+        const don = state.dons[donIdx];
+        don.registryBasedLaunchAllowlist = (don.registryBasedLaunchAllowlist || []).filter(e => e !== entry);
+        renderDONs();
+    };
+
     window.selectDONForCaps = function (idx) {
         state.selectedDON = parseInt(idx);
         renderCapabilityCatalog();
@@ -842,8 +893,6 @@
     }
 
     function syncConfigInputs() {
-        state.infra.chartValues = document.getElementById('cfgChartValues').value;
-        state.infra.namespace = document.getElementById('cfgNamespace').value;
         state.jd.grpc = document.getElementById('cfgJDGrpc').value;
         state.jd.domain = document.getElementById('cfgJDDomain').value;
         state.jd.environment = document.getElementById('cfgJDEnv').value;
@@ -882,7 +931,7 @@
             const resp = await apiPost('/api/jd/check', {
                 grpc: state.jd.grpc,
                 useTLS: state.jd.useTLS,
-                namespace: state.infra.namespace,
+                namespace: state.namespace,
                 kubeconfig: '',
                 nodeNames: nodeNames,
             });

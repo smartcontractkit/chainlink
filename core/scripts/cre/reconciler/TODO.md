@@ -393,65 +393,49 @@ inputs changed; status shows per-phase last-applied state.
 **Depends on / relates to:** A1 (per-phase input-hash memoization — supplies the "changed vs. unchanged" signal), E3
 (apply surface).
 
-### E5 — Move JD connectivity + settings to a dedicated JD tab  ·  TODO · P2
-**Problem.** JD settings (gRPC endpoint, domain, environment, TLS) and the "Check JD Connectivity" flow live inside the
-**Config** tab (index.html:131-169; `checkJD` in app.js). They're conceptually separate from infra config and crowd the
-tab (which E8 shrinks further).
+### E5 — Move JD connectivity + settings to a dedicated JD tab  ·  DONE (Phase 6) · P2
+**What shipped.** Added a **JD** nav tab; moved the Job Distributor card (endpoint, domain, environment, TLS toggle,
+access-token note, Check button, node-validation results) into it verbatim — all element IDs unchanged, so
+`syncConfigInputs`/`checkJD` needed no JS changes beyond what E8 already required (namespace source). The old
+**Config** tab (and its nav button) was removed outright, per E8 — it had nothing left in it once both the
+Infrastructure card (E8) and the Job Distributor card (this item) moved/were removed.
 
-**Scope.** Add a new **JD** tab in the nav; move the Job Distributor card (endpoint, domain, environment, TLS toggle,
-access-token note, Check button, node-validation results) there. Keep `state.jd` wiring; `syncConfigInputs`/`checkJD`
-just read from the new tab's inputs. Route the tab in `switchTab`.
+### E6 — Per-DON `RegistryBasedLaunchAllowlist` input  ·  DONE (Phase 6) · P2
+**What shipped.** Backend was already fully wired (`don.RegistryBasedAllowlist` → CapReg config + node config); added
+the missing UI control: a chip+`prompt()` editor in `donColumnHTML` (reusing the existing add/remove-chip convention
+used for capability chains), backed by `don.registryBasedLaunchAllowlist`. Validates non-empty, trimmed, no
+duplicates — entries are treated as capability names throughout (`cron-trigger@1.0.0`, `evm-1337`), never as
+addresses, per phase_plan.md D1. New global handlers: `window.addAllowlistEntry`/`window.removeAllowlistEntry`. Round
+trip covered by `TestAPI_Desired_SaveAndLoad` (server_test.go).
 
-**Acceptance.** JD endpoint/domain/env/TLS and the connectivity+node-validation check all live on their own JD tab; the
-Config tab no longer shows JD fields.
+### E7 — Capability picker DON selector defaults to first workflow DON  ·  DONE (Phase 6) · P3
+**What shipped.** `renderCapabilityCatalog`'s default changed from `!state.selectedDON` (falsy-`0` bug, harmless by
+coincidence) to `state.selectedDON === null`, defaulting to the first DON whose `donTypes` includes `workflow`
+(fallback index `0`) via a new `defaultDONIndex()` helper. Also fixed a related gap found during implementation:
+`removeDON` only clamped the upper bound when a DON was deleted — it didn't re-target `selectedDON` when a DON
+*before* or *at* the selected index was removed, silently pointing the selector at the wrong DON. Both paths now use
+`defaultDONIndex()`.
 
-**Depends on / relates to:** E8 (Config-tab cleanup — do together).
+### E8 — Remove `Chart Values Dir` and `Namespace` from the Config tab  ·  DONE (Phase 6) · P2
+**What shipped (direct breaking change, per phase_plan.md D3 — no dual old/new support).**
+- Removed `ChartValues`/`Namespace` from `domain.Infra` (desired.go) and their `Validate()` required-field checks.
+  `domain.Infra` now only carries `Type`/`Kubeconfig`.
+- Added a `--chart-dir` flag to `apply` and `diff` (reusing the same `flagChartDir` var `serve` already had, default
+  `"."`). `NewReconciler` gained a `chartDir` param used instead of `ds.Infra.ChartValues`; `runDiff` uses
+  `flagChartDir` the same way. `runServe`'s namespace resolution dropped the `ds.Infra.Namespace` fallback entirely —
+  it now goes straight to the already-existing chart-derived fallback (`cv.Namespace` via `LoadChartValues`).
+- Removed the Infrastructure card and the `Chart Values Dir`/`Namespace` inputs from the UI (folded into E5's tab
+  removal — the whole Config tab went away). Removed the matching `state.infra.chartValues`/`state.infra.namespace`
+  reads/writes in app.js (`renderConfig`, `syncConfigInputs`, initial state shape, `loadNodes`'s prepopulation).
+  `checkJD`'s `/api/jd/check` call now sources `namespace` from `state.namespace` (chart-derived, already populated
+  from `/api/nodes`) instead of the removed `state.infra.namespace`.
+- Removed `Infra.ChartValues`/`Infra.Namespace` from `server.go`'s `DesiredResponse` JSON shape (GET/POST).
+- Updated every `[infra]` TOML fixture across `desired_test.go` and the README to drop `chart_values`/`namespace`;
+  removed the now-obsolete "missing chart_values" validation-error test case.
 
-### E6 — Per-DON `RegistryBasedLaunchAllowlist` input  ·  TODO · P2
-**Status.** Backend is fully wired: `don.RegistryBasedAllowlist` flows into CapReg config (onchain.go:865, :989) and
-node config (`RegistryBasedLaunchAllowlist`, nodeconfig.go:127); the UI state model already carries
-`registryBasedLaunchAllowlist` (app.js) and it round-trips through `/api/desired`. **Gap:** there is **no UI control** to
-view/edit it — it's always empty unless hand-written into `desired.toml`.
-
-**Finalized entry format (phase_plan.md D1).** `registryBasedLaunchAllowlist` is a slice of **capability names**, not
-addresses — e.g. `cron-trigger@1.0.0`, `evm-1337`. Do not apply address validation.
-
-**Scope.** Add an editable list input per DON in `donColumnHTML` (alongside the "Exposes remote capabilities" checkbox)
-that reads/writes `don.registryBasedLaunchAllowlist`. Validate each entry as: non-empty string, no duplicates, and
-optionally a simple format check (printable token, no surrounding whitespace).
-
-**Acceptance.** Adding allowlist entries to a DON in the UI persists to `desired.toml` and appears in the generated
-CapReg + node config; entries are treated as capability names throughout, not addresses.
-
-### E7 — Capability picker DON selector defaults to first workflow DON  ·  TODO · P3
-**Problem.** `renderCapabilityCatalog` (app.js) defaults `state.selectedDON` to `0` — the first DON of *any* type,
-which is often a bootstrap/gateway DON that can't carry capabilities.
-
-**Scope.** Default `selectedDON` to the index of the first DON whose `donTypes` includes `workflow` (fall back to `0`
-if none). Only on initial default — don't override an explicit user selection.
-
-**Acceptance.** On load, the capability catalog targets the first workflow DON, not a bootstrap/gateway DON.
-
-### E8 — Remove `Chart Values Dir` and `Namespace` from the Config tab  ·  TODO · P2
-**Problem.** The Config tab's `Chart Values Dir` (`Infra.ChartValues`) and `Namespace` (`Infra.Namespace`) fields are
-now largely redundant:
-- **Namespace** is a fallback only — the real per-node namespace comes from the chart (`GetNodeNamespace`); `serve`
-  already prefers `Infra.Namespace` but falls back to the chart (cmd.go:255-261).
-- **Chart Values Dir** is still read by the **apply** path (`LoadChartValues(ds.Infra.ChartValues, …)`, cmd.go:205),
-  whereas `serve` uses the `--chart-dir` flag. So the field can't just be deleted without redirecting apply.
-
-**Finalized (phase_plan.md D3).** This is a direct breaking change — remove `infra.chart_values` and `infra.namespace`
-outright rather than supporting old and new forms together.
-
-**Scope.** Drop both inputs from the Config tab; source namespace from the chart everywhere; make `apply` read the
-chart dir from a `--chart-dir` flag (align with `serve`) instead of `Infra.ChartValues`; remove `Infra.ChartValues` /
-`Infra.Namespace` from the `desired.toml` schema.
-
-**Acceptance.** Config tab no longer shows these fields; `apply` locates the chart via `--chart-dir`; `desired.toml`
-no longer needs `[infra] chart_values`/`namespace`.
-
-**Depends on / relates to:** E5 (Config tab shrinks — the JD move + this cleanup leave the tab nearly empty; consider
-whether Config survives as a tab), G1 (document the breaking schema change).
+**Acceptance.** Config tab is gone entirely (folded into E5); `apply`/`diff`/`serve` all locate the chart via
+`--chart-dir`; `desired.toml` no longer has `[infra] chart_values`/`namespace`. Full suite: 180 passed (down from 181
+— one obsolete validation test removed, no new failures).
 
 ---
 

@@ -35,8 +35,6 @@ go build -o bin/reconciler ./cmd
 cat > cre/desired.toml << 'EOF'
 [infra]
   type = "griddle"
-  chart_values = "deploy/config/my-repo"
-  namespace = "my-repo-nodeset"
 
 [jd]
   grpc = "grpc-job-distributor.main.stage.cldev.sh:443"
@@ -62,7 +60,7 @@ cat > cre/desired.toml << 'EOF'
 EOF
 
 # Run reconciliation
-./bin/reconciler apply --desired cre/desired.toml --state cre/state.toml
+./bin/reconciler apply --desired cre/desired.toml --state cre/state.toml --chart-dir deploy/config/my-repo
 
 # If the tool writes a TOML patch, apply it via Griddle (.deploy dev),
 # wait for the nodes to re-roll, then re-run:
@@ -86,7 +84,7 @@ Then open http://localhost:8089 in your browser.
 - **DON Builder** — drag & drop nodes from a node pool into DON columns. Toggle capabilities per DON from a catalog; chain-scoped capabilities can only be attached to a chain declared in the Chains tab. Add/remove DONs, edit names, set DON types.
 - **Chains** — always preloaded on startup from the chart nodes' existing typed EVM config (there's no manual "add chain" action; to add a chain, add its network config to the chart and refresh). If the same chain ID is discovered with more than one RPC URL (e.g. a gateway node pointed at a different one than workers), every variant is shown so you can delete the wrong one. Pick exactly one registry chain.
 - **Status** — view the current reconcile phase, deployed contract addresses, on-chain DON IDs, and node status.
-- **Config** — edit JD connection settings and infrastructure paths.
+- **JD** — edit Job Distributor connection settings and check connectivity/node validation.
 - **TOML Preview** — see the generated desired-state TOML before saving.
 - **Save** — writes the desired-state TOML directly from the UI.
 
@@ -96,13 +94,14 @@ The web UI is self-contained in the binary (embedded files, no external frontend
 
 The desired state is declared in a TOML file in your consumer repo. The easiest way to produce this file is via
 the [web UI](#web-ui) above — use its DON Builder and TOML Preview / Save features rather than hand-writing it.
-The format below is documented for reference and for making manual edits once the file exists:
+The format below is documented for reference and for making manual edits once the file exists.
+
+The Griddle chart dir and K8s namespace are NOT part of this file — the chart dir comes from the `--chart-dir`
+flag (same on `apply`, `diff`, and `serve`), and the namespace is always derived from the chart values.
 
 ```toml
 [infra]
   type = "griddle"
-  chart_values = "deploy/config/my-repo"    # path to Griddle chart values dir
-  namespace = "my-repo-nodeset"              # K8s namespace
   kubeconfig = "~/.kube/config"              # optional, defaults to KUBECONFIG env
 
 [jd]

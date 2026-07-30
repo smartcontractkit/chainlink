@@ -171,7 +171,7 @@ func TestAPI_Desired_SaveAndLoad(t *testing.T) {
 	// membership is always chart-derived from the don-name label, never from
 	// desired.toml.
 	payload := `{
-		"infra": {"type": "griddle", "chartValues": "deploy/config/workflow", "namespace": "my-repo-nodeset"},
+		"infra": {"type": "griddle"},
 		"jd": {"grpc": "grpc-jd:443", "domain": "cre", "environment": "dev"},
 		"chains": [
 			{"chainId": 1337, "wsUrl": "wss://anvil-1337.example.com", "httpUrl": "https://anvil-1337.example.com", "registry": true}
@@ -181,7 +181,8 @@ func TestAPI_Desired_SaveAndLoad(t *testing.T) {
 				"name": "workflow",
 				"donTypes": ["workflow"],
 				"capabilities": ["cron", "evm-1337"],
-				"exposesRemoteCapabilities": false
+				"exposesRemoteCapabilities": false,
+				"registryBasedLaunchAllowlist": ["cron-trigger@1.0.0", "evm-1337"]
 			}
 		],
 		"capabilityConfigs": {
@@ -214,6 +215,7 @@ func TestAPI_Desired_SaveAndLoad(t *testing.T) {
 	require.Len(t, resp.Chains, 1)
 	require.Equal(t, uint64(1337), resp.Chains[0].ChainID)
 	require.True(t, resp.Chains[0].Registry)
+	require.ElementsMatch(t, []string{"cron-trigger@1.0.0", "evm-1337"}, resp.DONs[0].RegistryBasedAllowlist)
 }
 
 func TestAPI_Desired_IgnoresPostedNodes(t *testing.T) {
@@ -524,10 +526,8 @@ func TestResponseToDesiredState(t *testing.T) {
 
 	resp := DesiredResponse{
 		Infra: struct {
-			Type        string `json:"type"`
-			ChartValues string `json:"chartValues"`
-			Namespace   string `json:"namespace"`
-		}{Type: "griddle", ChartValues: "x", Namespace: "ns"},
+			Type string `json:"type"`
+		}{Type: "griddle"},
 		JD: struct {
 			GRPC        string `json:"grpc"`
 			Domain      string `json:"domain"`

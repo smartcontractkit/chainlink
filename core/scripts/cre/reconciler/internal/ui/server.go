@@ -110,9 +110,7 @@ type ChainResponse struct {
 
 type DesiredResponse struct {
 	Infra struct {
-		Type        string `json:"type"`
-		ChartValues string `json:"chartValues"`
-		Namespace   string `json:"namespace"`
+		Type string `json:"type"`
 	} `json:"infra"`
 	JD struct {
 		GRPC        string `json:"grpc"`
@@ -239,8 +237,6 @@ func (s *Server) handleDesired(w http.ResponseWriter, r *http.Request) {
 			CapabilityConfigs: ds.CapabilityConfigs,
 		}
 		resp.Infra.Type = ds.Infra.Type
-		resp.Infra.ChartValues = ds.Infra.ChartValues
-		resp.Infra.Namespace = ds.Infra.Namespace
 		resp.JD.GRPC = ds.JD.GRPC
 		resp.JD.Domain = ds.JD.Domain
 		resp.JD.Environment = ds.JD.Environment
@@ -579,9 +575,7 @@ func responseToDesiredState(req DesiredResponse) *domain.DesiredState {
 
 	ds := &domain.DesiredState{
 		Infra: domain.Infra{
-			Type:        req.Infra.Type,
-			ChartValues: req.Infra.ChartValues,
-			Namespace:   req.Infra.Namespace,
+			Type: req.Infra.Type,
 		},
 		JD: domain.JDConfig{
 			GRPC:        req.JD.GRPC,
