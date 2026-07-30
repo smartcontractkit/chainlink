@@ -73,10 +73,10 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     mkdir -p /gobins "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
     GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
-    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
+      GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
     fi && \
     if [ "${CL_INSTALL_TESTING_PLUGINS}" = "true" ]; then \
-    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
+      GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
     fi && \
     mkdir -p /tmp/lib && \
     ./plugins/scripts/copy_loopinstall_libs.sh \
@@ -135,8 +135,8 @@ RUN curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
 # Prod images (CHAINLINK_USER=chainlink) run as UID:GID 14933:14933 for deterministic
 # ownership on bind mounts in Docker/Compose deployments without K8s securityContext overrides.
 RUN if [ ${CHAINLINK_USER} != root ]; then \
-    groupadd --gid 14933 ${CHAINLINK_USER} && \
-    useradd --uid 14933 --gid 14933 --create-home ${CHAINLINK_USER}; \
+      groupadd --gid 14933 ${CHAINLINK_USER} && \
+      useradd --uid 14933 --gid 14933 --create-home ${CHAINLINK_USER}; \
     fi
 USER ${CHAINLINK_USER}
 

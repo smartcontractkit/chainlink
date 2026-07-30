@@ -100,9 +100,9 @@ RUN --mount=type=cache,id=go-mod-cache,target=/go/pkg/mod \
     mkdir -p /gobins && \
     if [ "$CL_IS_PROD_BUILD" = "false" ]; then \
           GOBIN=/gobins make install-chainlink-dev; \
-    else \
+      else \
           GOBIN=/gobins make install-chainlink; \
-    fi
+      fi
 
 ##
 # Final Image
