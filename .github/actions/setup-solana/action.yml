@@ -1,6 +1,10 @@
 name: Setup Solana CLI
 description: Setup solana CLI
 inputs:
+  version:
+    description: Solana CLI version
+    required: false
+    default: v1.18.26
   base-path:
     description: Path to the base of the repo
     required: false
@@ -13,8 +17,10 @@ runs:
       name: Cache solana CLI
       with:
         path: |
-          ~/.local/share/solana/install/active_release/bin
-        key: ${{ runner.os }}-${{ runner.arch }}-solana-cli-${{ hashFiles(format('{0}/tools/ci/install_solana', inputs.base-path)) }}
+          ~/.local/share/solana
+        key: ${{ runner.os }}-${{ runner.arch }}-solana-cli-${{ inputs.version }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-solana-cli-
 
     - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
       name: Install solana cli

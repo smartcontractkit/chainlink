@@ -13,8 +13,11 @@ runs:
       id: cache
       uses: actions/cache@v6
       with:
-        path: ~/.aptos/bin
+        path: |
+          ~/.local/bin/aptos
         key: ${{ runner.os }}-${{ runner.arch }}-aptos-${{ inputs.version }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-aptos-
 
     - name: Install Aptos CLI
       if: ${{ steps.cache.outputs.cache-hit != 'true' }}
@@ -24,4 +27,4 @@ runs:
 
     - name: Export Aptos CLI to PATH
       shell: bash
-      run: echo "$HOME/.aptos/bin" >> "$GITHUB_PATH"
+      run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
