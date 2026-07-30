@@ -121,7 +121,7 @@ func mergeEVMChains(tomlContent string, chains *[]domain.Chain, seen map[string]
 		}
 		chainID := evmCfg.ChainID.ToInt().Uint64()
 
-		ch := domain.Chain{ChainID: chainID}
+		ch := domain.Chain{ChainID: chainID, Family: "evm"}
 		if len(evmCfg.Nodes) > 0 {
 			node := evmCfg.Nodes[0]
 			if node.WSURL != nil {

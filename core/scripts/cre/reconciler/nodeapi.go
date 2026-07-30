@@ -49,6 +49,22 @@ func (n *clNodeClient) ReadEVMAddresses() (map[string]string, error) {
 	return result, nil
 }
 
+func (n *clNodeClient) ReadAptosKeys() (string, error) {
+	accounts, err := n.c.MustReadAptosAccounts()
+	if err != nil || len(accounts) == 0 {
+		return "", err
+	}
+	return accounts[0], nil
+}
+
+func (n *clNodeClient) ReadSolanaKeys() (string, error) {
+	accounts, err := n.c.MustReadSolanaAccounts()
+	if err != nil || len(accounts) == 0 {
+		return "", err
+	}
+	return accounts[0], nil
+}
+
 func (n *clNodeClient) ReadOCR2BundleIDs() (map[string]string, error) {
 	ocr2Keys, err := n.c.MustReadOCR2Keys()
 	if err != nil {

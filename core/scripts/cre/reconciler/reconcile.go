@@ -124,6 +124,13 @@ func (r *Reconciler) Run(ctx context.Context) error {
 		return errors.Wrap(err, "discovery failed")
 	}
 
+	// Runs unconditionally, every invocation — including once on-chain work is
+	// already complete and Apply would otherwise be skipped below — so a node
+	// label that broke after the initial apply is still caught.
+	if err := onchain.ValidateNodeLabels(r.desired, r.cv, r.state); err != nil {
+		return errors.Wrap(err, "node label preflight failed")
+	}
+
 	d := onchain.NewDeployer(r.k8s, r.deployerKey, r.log, r.confirmStep)
 
 	var onChainChanged bool
@@ -332,6 +339,32 @@ func (a *clientAdapter) ReadOCR2BundleIDs() (map[string]string, error) {
 	return a.client.ReadOCR2BundleIDs()
 }
 
+func (a *clientAdapter) ReadAptosKeys() (string, error) {
+	return a.client.ReadAptosKeys()
+}
+
+func (a *clientAdapter) ReadSolanaKeys() (string, error) {
+	return a.client.ReadSolanaKeys()
+}
+
+// nonEVMFamiliesByNode maps worker node name -> non-EVM chain families ("aptos"/"solana")
+// that node's DON declares a capability for, so discovery only attempts a Read*Keys call
+// where a key is actually expected to exist.
+func nonEVMFamiliesByNode(desired *domain.DesiredState, cv *domain.ChartValues) map[string][]string {
+	out := make(map[string][]string)
+	for i := range desired.DONs {
+		don := &desired.DONs[i]
+		families := don.NonEVMFamilies()
+		if len(families) == 0 {
+			continue
+		}
+		for _, nodeName := range don.WorkerNodes(cv) {
+			out[nodeName] = append(out[nodeName], families...)
+		}
+	}
+	return out
+}
+
 // D1: Discover node runtime info from K8s + node API.
 func (r *Reconciler) discover(ctx context.Context) error {
 	r.log.Info().Msg("=== D1: Discovery ===")
@@ -358,7 +391,7 @@ func (r *Reconciler) discover(ctx context.Context) error {
 	}
 
 	// Use discovery.Run to parallelize K8s and node API discovery
-	results, err := discovery.Run(ctx, r.log, r.cv.Nodes, r.cv, &k8sAdapter{r.k8s}, &dialerAdapter{r.nodeDialer})
+	results, err := discovery.Run(ctx, r.log, r.cv.Nodes, r.cv, &k8sAdapter{r.k8s}, &dialerAdapter{r.nodeDialer}, nonEVMFamiliesByNode(r.desired, r.cv))
 	if err != nil {
 		return errors.Wrap(err, "discovery failed")
 	}

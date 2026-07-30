@@ -78,33 +78,9 @@ func (d *Deployer) buildCldfEnv(ctx context.Context, desired *domain.DesiredStat
 		return nil, 0, errors.Wrap(err, "failed to create cldf logger")
 	}
 
-	var offchainClient offchain.Client
-	token := griddleinfra.JDAccessToken()
-	if desired.JD.GRPC != "" && token != "" {
-		useTLS := desired.JD.UseTLS
-		if !useTLS && strings.Contains(desired.JD.GRPC, ":443") {
-			useTLS = true
-		}
-
-		var creds credentials.TransportCredentials
-		if useTLS {
-			creds = credentials.NewTLS(nil)
-		} else {
-			creds = insecure.NewCredentials()
-		}
-
-		jdClient, jdErr := cldfjd.NewJDClient(cldfjd.JDConfig{
-			GRPC:  desired.JD.GRPC,
-			Creds: creds,
-			Auth: oauth2.StaticTokenSource(&oauth2.Token{
-				AccessToken: token,
-				TokenType:   "Bearer",
-			}),
-		})
-		if jdErr != nil {
-			return nil, 0, errors.Wrap(jdErr, "failed to create JD client")
-		}
-		offchainClient = jdClient
+	offchainClient, err := buildOffchainClient(desired.JD)
+	if err != nil {
+		return nil, 0, err
 	}
 
 	env := &cldf.Environment{
@@ -126,6 +102,44 @@ func (d *Deployer) buildCldfEnv(ctx context.Context, desired *domain.DesiredStat
 	}
 
 	return env, chainDetails.ChainSelector, nil
+}
+
+// buildOffchainClient constructs a JD offchain.Client from JD config alone —
+// no EVM/chain provider setup required, unlike the rest of buildCldfEnv. This
+// is what a JD-only preflight check (e.g. node-label validation) can call
+// directly, without paying for full CLDF environment construction. Returns a
+// nil client (not an error) if JD isn't configured or the access token isn't
+// set, matching buildCldfEnv's existing behavior.
+func buildOffchainClient(jdCfg domain.JDConfig) (offchain.Client, error) {
+	token := griddleinfra.JDAccessToken()
+	if jdCfg.GRPC == "" || token == "" {
+		return nil, nil
+	}
+
+	useTLS := jdCfg.UseTLS
+	if !useTLS && strings.Contains(jdCfg.GRPC, ":443") {
+		useTLS = true
+	}
+
+	var creds credentials.TransportCredentials
+	if useTLS {
+		creds = credentials.NewTLS(nil)
+	} else {
+		creds = insecure.NewCredentials()
+	}
+
+	jdClient, err := cldfjd.NewJDClient(cldfjd.JDConfig{
+		GRPC:  jdCfg.GRPC,
+		Creds: creds,
+		Auth: oauth2.StaticTokenSource(&oauth2.Token{
+			AccessToken: token,
+			TokenType:   "Bearer",
+		}),
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create JD client")
+	}
+	return jdClient, nil
 }
 
 // syncAddressBook copies every address ref currently in env.DataStore into

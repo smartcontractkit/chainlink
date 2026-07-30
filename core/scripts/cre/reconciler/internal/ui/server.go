@@ -598,6 +598,7 @@ func responseToDesiredState(req DesiredResponse) *domain.DesiredState {
 	for _, ch := range req.Chains {
 		ds.Chains = append(ds.Chains, domain.Chain{
 			ChainID:  ch.ChainID,
+			Family:   "evm", // the UI's Chains tab only manages EVM chains today
 			WSURL:    ch.WSURL,
 			HTTPURL:  ch.HTTPURL,
 			Registry: ch.Registry,

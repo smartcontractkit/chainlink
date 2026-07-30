@@ -3,6 +3,7 @@ package discovery
 import (
 	"context"
 	"runtime"
+	"slices"
 
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
@@ -27,13 +28,20 @@ type Client interface {
 	ReadPeerID() (string, error)
 	ReadEVMAddresses() (map[string]string, error)
 	ReadOCR2BundleIDs() (map[string]string, error)
+	ReadAptosKeys() (string, error)
+	ReadSolanaKeys() (string, error)
 }
 
 // Run discovers runtime info for all nodes concurrently (bounded), returning a map keyed by node name.
 // Individual node failures are logged and skipped (matching current behavior: warn + continue), so a
 // partial map is returned; the caller's completeness checks gate progress.
+//
+// nonEVMFamilies maps node name -> the non-EVM chain families ("aptos"/"solana") that
+// node's DON actually declares a capability for, so discoverOne only calls the matching
+// Read*Keys when the node is expected to have that key at all (calling it otherwise
+// would just fail — most nodes have no Aptos/Solana key configured).
 func Run(ctx context.Context, log zerolog.Logger, nodes []domain.ChartNodeInfo, cv *domain.ChartValues,
-	k8s K8sClient, dialer Dialer) (map[string]domain.NodeRuntimeInfo, error) {
+	k8s K8sClient, dialer Dialer, nonEVMFamilies map[string][]string) (map[string]domain.NodeRuntimeInfo, error) {
 	type result struct {
 		name string
 		info domain.NodeRuntimeInfo
@@ -47,7 +55,7 @@ func Run(ctx context.Context, log zerolog.Logger, nodes []domain.ChartNodeInfo, 
 		node := nodes[i]
 		idx := i
 		g.Go(func() error {
-			info, ok := discoverOne(gctx, log, node, cv, k8s, dialer)
+			info, ok := discoverOne(gctx, log, node, cv, k8s, dialer, nonEVMFamilies[node.Name])
 			results[idx] = result{name: node.Name, info: info, ok: ok}
 			return nil
 		})
@@ -67,7 +75,7 @@ func Run(ctx context.Context, log zerolog.Logger, nodes []domain.ChartNodeInfo, 
 
 // discoverOne contains the per-node discovery logic: K8s API lookup + node API dial + key reads.
 func discoverOne(ctx context.Context, log zerolog.Logger, node domain.ChartNodeInfo, cv *domain.ChartValues,
-	k8s K8sClient, dialer Dialer) (domain.NodeRuntimeInfo, bool) {
+	k8s K8sClient, dialer Dialer, neededNonEVMFamilies []string) (domain.NodeRuntimeInfo, bool) {
 	var info domain.NodeRuntimeInfo
 	info.NodeType = string(node.NodeType)
 
@@ -118,6 +126,25 @@ func discoverOne(ctx context.Context, log zerolog.Logger, node domain.ChartNodeI
 			log.Warn().Err(err).Str("node", node.Name).Msg("Failed to read OCR2 bundle IDs")
 		} else if len(ocr2Bundles) > 0 {
 			info.OCR2BundleIDs = ocr2Bundles
+		}
+	}
+
+	// Aptos/Solana addresses — only for nodes whose DON actually declares the matching
+	// capability; most nodes have no such key configured and the read would just fail.
+	if slices.Contains(neededNonEVMFamilies, "aptos") {
+		aptosAddr, err := client.ReadAptosKeys()
+		if err != nil {
+			log.Warn().Err(err).Str("node", node.Name).Msg("Failed to read Aptos keys")
+		} else if aptosAddr != "" {
+			info.AptosAddress = aptosAddr
+		}
+	}
+	if slices.Contains(neededNonEVMFamilies, "solana") {
+		solanaAddr, err := client.ReadSolanaKeys()
+		if err != nil {
+			log.Warn().Err(err).Str("node", node.Name).Msg("Failed to read Solana keys")
+		} else if solanaAddr != "" {
+			info.SolanaAddress = solanaAddr
 		}
 	}
 

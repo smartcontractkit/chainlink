@@ -387,40 +387,62 @@ Teach discovery/preflight about Solana and Aptos, and fail earlier on configurat
 - [internal/onchain/topology.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/onchain/topology.go)
 - [internal/nodeconfig/chains.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/nodeconfig/chains.go)
 
-### Implementation steps
+### Decided (differs from the steps below — see TODO.md B1/B2/B4 for full rationale)
 
-1. Extend `NodeClient` with:
-   - `ReadSolanaKeys`
-   - `ReadAptosKeys`
-2. Extend `NodeRuntimeInfo` with non-EVM key storage.
-3. Update discovery to read and persist these keys.
-4. Add a dedicated preflight step before on-chain apply.
-5. Preflight must validate:
-   - chart-side `don-name`
-   - JD-side labels `p2p_id`, `environment`, `type`
-   - every node in every DON has the required chain config for each chain-scoped capability
-6. Keep `stellar` out of scope in this phase.
-7. Keep the existing apply-time validation as a backstop.
+- **`[[chains]]` unified with a `family` field** (required, no default — breaking change), not split EVM/non-EVM
+  chain types, per explicit direction. Non-EVM entries need no RPC URLs and can't be the registry chain.
+- **Aptos/Solana key reads are capability-gated**, not unconditional like EVM — only nodes whose DON declares the
+  matching capability get a read attempted, since most nodes have no such key configured.
+- **The chain-config-per-node check was NOT moved earlier.** It stays exactly where the EVM version already ran
+  (inside `buildTopology`, before contracts get configured) and was extended to Solana/Aptos there — a brand-new
+  node-set legitimately doesn't have chart chain config yet, so running this very early would break first-time
+  applies.
+- **The JD-label preflight DOES run early** — unconditionally near the top of `Run()`, on every invocation (even
+  once on-chain work is complete), via a new standalone `buildOffchainClient` factory decoupled from full CLDF
+  environment setup.
+- **Solana support was added to the vendored `clclient` dependency** (chainlink-testing-framework), via a temporary
+  `replace` directive in `core/scripts/go.mod`, since it had no Solana key-read method at all (only Aptos).
 
-### Tests to add or update
+### Implementation steps (as implemented)
 
-- discovery tests for Aptos and Solana runtime data
-- chart/preflight tests for missing chain config
-- tests for missing JD labels
+1. `NodeClient`/`Client` gained `ReadAptosKeys`/`ReadSolanaKeys` — single native address each, not chain-ID-keyed.
+2. `NodeRuntimeInfo` gained `AptosAddress`/`SolanaAddress string`.
+3. `discovery.Run`/`discoverOne` take a per-node needed-families map (`reconcile.go`'s `nonEVMFamiliesByNode`,
+   computed from `desired.DONs` + `don.WorkerNodes(cv)`) and only read a family's key when needed.
+4. New preflight: `onchain.ValidateNodeLabels` (JD labels) runs early/unconditionally in `Run()`. The chain-config
+   check stays in `buildTopology` (see decided-scope note above) — no separate early step for it.
+5. Preflight validates:
+   - chart-side `don-name` — unchanged, already ran at chart-load time.
+   - JD-side labels `p2p_id`, `environment` (== `desired.JD.Environment`), `type` (== `bootstrap`/`gateway`/`plugin`
+     — workers are `"plugin"` in JD, not `"standard"`).
+   - every worker node in every DON has the required chain config for each chain-scoped capability, EVM and now
+     Solana/Aptos too (`validateDiscoveredNonEVMAddresses` in `hydrate.go`), at the same call site as before.
+6. `stellar` stays out of scope — confirmed nowhere touched.
+7. Existing apply-time validation (`validateDiscoveredEVMAddresses`) is unchanged, still the backstop.
+
+### Tests added
+
+- `internal/discovery/discovery_test.go` — capability-gated Aptos/Solana reads.
+- `internal/domain/desired_test.go` — `Chain.Family` validation (missing/unsupported family, non-EVM registry
+  rejected, solana/aptos capability cross-reference), `DON.NonEVMFamilies()`.
+- `internal/onchain/hydrate_test.go` — `validateDiscoveredNonEVMAddresses`.
+- `internal/onchain/preflight_test.go` (new) — `expectedJDTypeLabel`, `ValidateNodeLabels` (skips when JD not
+  configured, errors on missing discovered CSA key — without needing a real JD connection).
 
 ### Validation
 
 - Run:
-  - `go test ./core/scripts/cre/reconciler/internal/discovery`
-  - `go test ./core/scripts/cre/reconciler/internal/domain`
-  - `go test ./core/scripts/cre/reconciler/internal/onchain`
-  - `go test ./core/scripts/cre/reconciler/...`
+  - `go test ./core/scripts/cre/reconciler/internal/discovery` — passing
+  - `go test ./core/scripts/cre/reconciler/internal/domain` — passing
+  - `go test ./core/scripts/cre/reconciler/internal/onchain` — passing
+  - `go test ./core/scripts/cre/reconciler/...` — 175 passed, 9 packages (up from 162 baseline, +13 new tests)
+  - `go build ./...` in `chainlink-testing-framework/framework` — passing (new Solana key-read support)
 
 ### Exit criteria
 
-- Solana and Aptos keys are available in runtime state.
-- Misconfigured nodes fail in preflight before on-chain work starts.
-- Missing JD labels produce precise errors.
+- Solana and Aptos keys are available in runtime state, for nodes whose DON needs them.
+- Misconfigured chain config still fails before contracts get configured (unchanged timing, now covers non-EVM too).
+- Missing/wrong JD labels produce precise errors, checked on every `Run()` invocation.
 
 ---
 

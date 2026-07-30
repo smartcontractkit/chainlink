@@ -46,6 +46,48 @@ func validateDiscoveredEVMAddresses(
 	return stderrors.Join(errs...)
 }
 
+// validateDiscoveredNonEVMAddresses asserts every worker node of a DON that
+// declares a solana/aptos capability has a discovered native address for that
+// family. Unlike EVM there's no per-chain-ID keying — a node has one native
+// key per family regardless of how many declared chains of that family exist,
+// so this is a presence check, not a per-chain lookup. nodeNames should be the
+// DON's worker nodes only (bootstrap/gateway nodes never get one discovered,
+// see discovery.Run's capability-gated reads).
+func validateDiscoveredNonEVMAddresses(
+	donName string,
+	nodeNames []string,
+	requiredFamilies []string,
+	runtime map[string]domain.NodeRuntimeInfo,
+) error {
+	if len(requiredFamilies) == 0 {
+		return nil
+	}
+
+	var errs []error
+	for _, nodeName := range nodeNames {
+		info, ok := runtime[nodeName]
+		if !ok {
+			errs = append(errs, fmt.Errorf("DON %s node %s: no discovered runtime info", donName, nodeName))
+			continue
+		}
+		for _, family := range requiredFamilies {
+			var addr string
+			switch family {
+			case cre.SolanaCapability:
+				addr = info.SolanaAddress
+			case cre.AptosCapability:
+				addr = info.AptosAddress
+			default:
+				continue
+			}
+			if strings.TrimSpace(addr) == "" {
+				errs = append(errs, fmt.Errorf("DON %s node %s: missing discovered %s address", donName, nodeName, family))
+			}
+		}
+	}
+	return stderrors.Join(errs...)
+}
+
 // validateNodeRolesPresent rejects a node with no assigned Roles outright,
 // rather than letting it silently fall through role-gated logic (e.g.
 // hydrateDiscoveredOCR2BundleIDs) as if it were bootstrap/gateway. A node

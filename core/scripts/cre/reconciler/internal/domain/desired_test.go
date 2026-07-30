@@ -32,6 +32,7 @@ func TestLoadDesiredState_Minimal(t *testing.T) {
 
 [[chains]]
   chain_id = 1337
+  family = "evm"
   ws_url = "wss://anvil-1337.example.com"
   http_url = "https://anvil-1337.example.com"
   registry = true
@@ -78,6 +79,7 @@ func TestLoadDesiredState_MultipleDONs(t *testing.T) {
 
 [[chains]]
   chain_id = 1337
+  family = "evm"
   ws_url = "wss://anvil-1337.example.com"
   http_url = "https://anvil-1337.example.com"
   registry = true
@@ -246,6 +248,7 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
   environment = "dev"
 [[chains]]
   chain_id = 1337
+  family = "evm"
   ws_url = "wss://anvil-1337.example.com"
   http_url = "https://anvil-1337.example.com"
 [[dons]]
@@ -269,11 +272,13 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
   environment = "dev"
 [[chains]]
   chain_id = 1337
+  family = "evm"
   ws_url = "wss://anvil-1337.example.com"
   http_url = "https://anvil-1337.example.com"
   registry = true
 [[chains]]
   chain_id = 1337
+  family = "evm"
   ws_url = "wss://anvil-1337-b.example.com"
   http_url = "https://anvil-1337-b.example.com"
 [[dons]]
@@ -297,6 +302,7 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
   environment = "dev"
 [[chains]]
   chain_id = 11155111
+  family = "evm"
   ws_url = "wss://sepolia.example.com"
   http_url = "https://sepolia.example.com"
   registry = true
@@ -306,6 +312,101 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
   nodes = ["n"]
 [capability_configs.evm]
   binary_name = "evm"
+`,
+			errSub: "not declared in [[chains]]",
+		},
+		{
+			name: "missing family",
+			toml: `[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[dons]]
+  name = "w"
+  capabilities = ["cron"]
+  nodes = ["n"]
+[capability_configs.cron]
+  binary_name = "cron"
+`,
+			errSub: "family is required",
+		},
+		{
+			name: "unsupported family",
+			toml: `[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "stellar"
+  registry = true
+[[dons]]
+  name = "w"
+  capabilities = ["cron"]
+  nodes = ["n"]
+[capability_configs.cron]
+  binary_name = "cron"
+`,
+			errSub: "unsupported family",
+		},
+		{
+			name: "non-evm chain cannot be registry",
+			toml: `[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 4
+  family = "aptos"
+  registry = true
+[[dons]]
+  name = "w"
+  capabilities = ["cron"]
+  nodes = ["n"]
+[capability_configs.cron]
+  binary_name = "cron"
+`,
+			errSub: "registry chain must be evm",
+		},
+		{
+			name: "aptos capability references undeclared chain",
+			toml: `[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "evm"
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[dons]]
+  name = "w"
+  capabilities = ["aptos-4"]
+  nodes = ["n"]
+[capability_configs.aptos]
+  binary_name = "aptos"
 `,
 			errSub: "not declared in [[chains]]",
 		},
@@ -321,6 +422,56 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 			require.Contains(t, err.Error(), tt.errSub)
 		})
 	}
+}
+
+func TestLoadDesiredState_NonEVMChainDeclared(t *testing.T) {
+	t.Parallel()
+
+	path := writeTempTOML(t, `
+[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "evm"
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[chains]]
+  chain_id = 4
+  family = "aptos"
+[[dons]]
+  name = "w"
+  capabilities = ["cron", "aptos-4"]
+  nodes = ["n"]
+[capability_configs.cron]
+  binary_name = "cron"
+[capability_configs.aptos]
+  binary_name = "aptos"
+`)
+	ds, err := LoadDesiredState(path)
+	require.NoError(t, err)
+	require.Len(t, ds.Chains, 2)
+	require.Equal(t, "aptos", ds.Chains[1].Family)
+	require.ElementsMatch(t, []uint64{1337}, ds.EVMChainIDs())
+}
+
+func TestDON_NonEVMFamilies(t *testing.T) {
+	t.Parallel()
+
+	don := DON{Capabilities: []string{"cron", "aptos-4", "evm-1337"}}
+	require.Equal(t, []string{"aptos"}, don.NonEVMFamilies())
+
+	don2 := DON{Capabilities: []string{"cron", "solana", "aptos-4"}}
+	require.ElementsMatch(t, []string{"solana", "aptos"}, don2.NonEVMFamilies())
+
+	don3 := DON{Capabilities: []string{"cron", "evm-1337"}}
+	require.Empty(t, don3.NonEVMFamilies())
 }
 
 func TestNeedsGateway(t *testing.T) {

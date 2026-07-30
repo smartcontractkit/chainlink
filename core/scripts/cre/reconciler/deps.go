@@ -22,6 +22,8 @@ type NodeClient interface {
 	ReadPeerID() (string, error)                   // P2P PeerID, "" if none
 	ReadEVMAddresses() (map[string]string, error)  // chainID(string) -> address
 	ReadOCR2BundleIDs() (map[string]string, error) // chain family (lowercase) -> bundle ID
+	ReadAptosKeys() (string, error)                // single native account address, "" if none
+	ReadSolanaKeys() (string, error)               // single native account address, "" if none
 }
 
 // NodeDialer opens a NodeClient for a node's API endpoint.

@@ -9,6 +9,11 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/system-tests/lib => ../../system-tests/lib
 
+// TEMPORARY: chainlink-testing-framework/framework doesn't have Solana key-read
+// support yet (ReadSolanaKeys); pointing at a local sibling checkout with it added
+// until that lands upstream and a tagged version picks it up.
+replace github.com/smartcontractkit/chainlink-testing-framework/framework => ../../../chainlink-testing-framework/framework
+
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based => ./cre/environment/examples/workflows/proof-of-reserve/cron-based
 
 // chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1

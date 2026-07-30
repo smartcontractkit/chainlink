@@ -124,6 +124,10 @@ type NodeRuntimeInfo struct {
 	EVMAddress    map[string]string `toml:"evm_addresses"`
 	NodeType      string            `toml:"node_type"`
 	OCR2BundleIDs map[string]string `toml:"ocr2_bundle_ids"` // chain family (lowercase, e.g. "evm") -> bundle ID
+	// AptosAddress/SolanaAddress are the node's single native account address for
+	// that family (unlike EVMAddress, Aptos/Solana keys aren't per-chain-ID).
+	AptosAddress  string `toml:"aptos_address"`
+	SolanaAddress string `toml:"solana_address"`
 }
 
 // LoadState reads a state file from disk. Returns nil, nil if the file

@@ -26,14 +26,18 @@ func (f *fakeK8s) GetNodeAPIInfo(ctx context.Context, nodeName, namespace string
 
 // fakeClient implements Client for tests.
 type fakeClient struct {
-	csa      string
-	peerID   string
-	evmAddrs map[string]string
-	ocr2IDs  map[string]string
-	csaErr   error
-	peerErr  error
-	evmErr   error
-	ocr2Err  error
+	csa       string
+	peerID    string
+	evmAddrs  map[string]string
+	ocr2IDs   map[string]string
+	aptosAddr string
+	solAddr   string
+	csaErr    error
+	peerErr   error
+	evmErr    error
+	ocr2Err   error
+	aptosErr  error
+	solErr    error
 }
 
 func (f *fakeClient) ReadCSAKey() (string, error) {
@@ -50,6 +54,14 @@ func (f *fakeClient) ReadEVMAddresses() (map[string]string, error) {
 
 func (f *fakeClient) ReadOCR2BundleIDs() (map[string]string, error) {
 	return f.ocr2IDs, f.ocr2Err
+}
+
+func (f *fakeClient) ReadAptosKeys() (string, error) {
+	return f.aptosAddr, f.aptosErr
+}
+
+func (f *fakeClient) ReadSolanaKeys() (string, error) {
+	return f.solAddr, f.solErr
 }
 
 // fakeDialer implements Dialer for tests.
@@ -94,7 +106,7 @@ func TestDiscovery_SuccessfulDiscovery(t *testing.T) {
 	nodes := []domain.ChartNodeInfo{{Name: "node-0", NodeType: domain.RoleStandard}}
 	cv := &domain.ChartValues{Nodes: nodes, Namespace: "default"}
 
-	result, err := Run(context.Background(), zerolog.Nop(), nodes, cv, k8s, dialer)
+	result, err := Run(context.Background(), zerolog.Nop(), nodes, cv, k8s, dialer, nil)
 
 	require.NoError(t, err)
 	require.Len(t, result, 1)
@@ -130,7 +142,7 @@ func TestDiscovery_SkipsOCR2ReadForBootstrapAndGatewayNodes(t *testing.T) {
 	}
 	cv := &domain.ChartValues{Nodes: nodes, Namespace: "default"}
 
-	result, err := Run(context.Background(), zerolog.Nop(), nodes, cv, k8s, dialer)
+	result, err := Run(context.Background(), zerolog.Nop(), nodes, cv, k8s, dialer, nil)
 
 	require.NoError(t, err)
 	require.Len(t, result, 2)
@@ -144,6 +156,40 @@ func TestDiscovery_SkipsOCR2ReadForBootstrapAndGatewayNodes(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, "csa_gw", gwInfo.CSAKey)
 	require.Empty(t, gwInfo.OCR2BundleIDs)
+}
+
+func TestDiscovery_ReadsNonEVMKeysOnlyWhenNeeded(t *testing.T) {
+	t.Parallel()
+
+	k8s := &fakeK8s{
+		apiInfo: map[string]*infra.NodeAPIInfo{
+			"node-solana": {URL: "http://node-solana:6688", Email: "test", Password: "test"},
+			"node-plain":  {URL: "http://node-plain:6688", Email: "test", Password: "test"},
+		},
+	}
+	dialer := &fakeDialer{
+		clients: map[string]*fakeClient{
+			"http://node-solana:6688": {csa: "csa-solana", solAddr: "sol-addr-1", aptosErr: context.Canceled},
+			// aptosAddr/aptosErr set to prove ReadAptosKeys/ReadSolanaKeys are never
+			// called for a node whose DON doesn't need that family.
+			"http://node-plain:6688": {csa: "csa-plain", solAddr: "should-not-be-read", aptosAddr: "should-not-be-read"},
+		},
+	}
+
+	nodes := []domain.ChartNodeInfo{
+		{Name: "node-solana", NodeType: domain.RoleStandard},
+		{Name: "node-plain", NodeType: domain.RoleStandard},
+	}
+	cv := &domain.ChartValues{Nodes: nodes, Namespace: "default"}
+	nonEVMFamilies := map[string][]string{"node-solana": {"solana"}}
+
+	result, err := Run(context.Background(), zerolog.Nop(), nodes, cv, k8s, dialer, nonEVMFamilies)
+
+	require.NoError(t, err)
+	require.Equal(t, "sol-addr-1", result["node-solana"].SolanaAddress)
+	require.Empty(t, result["node-solana"].AptosAddress)
+	require.Empty(t, result["node-plain"].SolanaAddress)
+	require.Empty(t, result["node-plain"].AptosAddress)
 }
 
 func TestDiscovery_SkipsFailedNodes(t *testing.T) {
@@ -174,7 +220,7 @@ func TestDiscovery_SkipsFailedNodes(t *testing.T) {
 	}
 	cv := &domain.ChartValues{Nodes: nodes, Namespace: "default"}
 
-	result, err := Run(context.Background(), zerolog.Nop(), nodes, cv, k8s, dialer)
+	result, err := Run(context.Background(), zerolog.Nop(), nodes, cv, k8s, dialer, nil)
 
 	require.NoError(t, err)
 	require.Len(t, result, 1)

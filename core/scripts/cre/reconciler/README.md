@@ -45,6 +45,7 @@ cat > cre/desired.toml << 'EOF'
 
 [[chains]]
   chain_id = 1337
+  family = "evm"
   ws_url = "wss://anvil-1337.my-repo-nodeset.svc.cluster.local"
   http_url = "https://anvil-1337.my-repo-nodeset.svc.cluster.local"
   registry = true
@@ -119,12 +120,14 @@ The format below is documented for reference and for making manual edits once th
 # error instead of silently skipping the affected work.
 [[chains]]
   chain_id = 1337
+  family = "evm"
   ws_url = "wss://anvil-1337.my-repo-nodeset.svc.cluster.local"
   http_url = "https://anvil-1337.my-repo-nodeset.svc.cluster.local"
   registry = true
 
 [[chains]]
   chain_id = 11155111
+  family = "evm"
   ws_url = "wss://sepolia.infura.io/ws/v3/..."
   http_url = "https://sepolia.infura.io/v3/..."
 

@@ -144,60 +144,70 @@ nothing.
 
 ## B. Discovery & node validation
 
-### B1 — Read Aptos / Solana public keys + their OCR2 key bundles  ·  TODO · P2
-**Problem.** Discovery only reads EVM addresses (`MustReadETHKeys`) and OCR2 bundles keyed by chain family (currently
-only `evm` is used). The `NodeClient` interface (`deps.go`, `internal/discovery/discovery.go`, impl `nodeapi.go`) has
-no methods for Aptos/Solana keys, and `NodeRuntimeInfo` (`internal/domain/state.go`) has no fields for them.
-The reference config lib already supports Solana/Aptos chains (`appendSolanaChain`/`appendAptosChain`); griddle is
-EVM-only.
+### B1 — Read Aptos / Solana public keys + their OCR2 key bundles  ·  DONE (Phase 4) · P2
+**Status.** `NodeClient`/`Client` (`deps.go`, `internal/discovery/discovery.go`, impl `nodeapi.go`) gained
+`ReadAptosKeys`/`ReadSolanaKeys`, each returning a single native account address string — **not** a chain-ID-keyed map
+like `EVMAddress`, since a node has one Aptos/Solana key regardless of how many chains of that family exist.
+`NodeRuntimeInfo` gained matching `AptosAddress`/`SolanaAddress string` fields.
 
-**Deferred.** `stellar` is explicitly out of scope for the first cut (see phase_plan.md D4) — no `ReadStellarKeys`,
-no Stellar fields, no Stellar capability wiring.
+**Solana clclient support added upstream.** The vendored `chainlink-testing-framework/framework/clclient` had no
+Solana key-read method at all (Aptos did: `ReadAptosKeys`). Added `SolanaKeyAttributes`/`SolanaKeyData`/`SolanaKeys`
+models and `ReadSolanaKeys`/`MustReadSolanaKeys`/`MustReadSolanaAccounts` there, mirroring the Aptos trio exactly
+(confirmed route: `GET /v2/keys/solana`, already served by the real chainlink node). `core/scripts/go.mod` has a
+**temporary** `replace` directive pointing at a local sibling checkout until this lands upstream and a tagged version
+picks it up.
 
-**Scope.** Extend `NodeClient` with `ReadSolanaKeys`/`ReadAptosKeys` (map/address forms) using the matching `clclient`
-read methods; extend `NodeRuntimeInfo` with per-family address maps; store per-family OCR2 bundle IDs (already keyed
-by family — verify Aptos/Solana families flow through). Wire into topology hydration (`hydrateDiscoveredEVMAddresses`
-needs Solana/Aptos siblings).
+**Capability-gated reads, not unconditional.** Unlike EVM (read for every node regardless of role), `discoverOne` only
+calls `ReadAptosKeys`/`ReadSolanaKeys` for a node whose DON actually declares an `aptos`/`aptos-<N>` or
+`solana`/`solana-<N>` capability — most nodes have no such key configured and the call would just fail. `reconcile.go`
+computes a per-node needed-families map (`nonEVMFamiliesByNode`, from `desired.DONs` + `don.WorkerNodes(cv)`) before
+calling `discovery.Run`.
 
-**Acceptance.** For a DON with a `solana-*`/`aptos-*` capability, discovery captures that chain's node public key +
-OCR2 bundle, and CapReg configuration succeeds for non-EVM chains.
+**Deferred.** `stellar` stays out of scope entirely (phase_plan.md D4).
 
-**Depends on / relates to:** B3 (role gating shares the discovery loop), A1 (keys feed hashes).
+**Depends on / relates to:** B3 (DONE), A1 (DONE).
 
-### B2 — Validate node labels during discovery/preflight  ·  TODO · P2
-**Problem.** Only the `don-name` chart label is validated (`donNameLabel` in chartvalues.go). Nothing checks that JD-
-/chart-registered nodes carry the other expected labels: `p2p_id`, `don-<Name>`, `environment`, `type`.
+### B2 — Validate node labels during discovery/preflight  ·  DONE (Phase 4) · P2
+**Status.** New `onchain.ValidateNodeLabels` (`internal/onchain/preflight.go`), called unconditionally near the top of
+`Reconciler.Run` (right after discovery, before the on-chain-completeness gate) — so it re-checks on every invocation,
+including once on-chain work is already complete and `Apply` would otherwise be skipped.
 
-**Scope.** Add a preflight check (in discovery or a dedicated `preflight` step) that reads each node's labels (from JD
-`ListNodes` labels and/or chart `registerNodes.labels`) and asserts the expected set is present and consistent with
-the resolved role/DON/env; fail with a precise per-node message listing missing/mismatched labels.
+**Label set, per D5 (already decided, not an open question).** JD labels `p2p_id`, `environment` (must equal
+`desired.JD.Environment`), and `type` (must equal `"bootstrap"`/`"gateway"`/`"plugin"` — **not** `"standard"`; workers
+are labeled `"plugin"` in JD, see `system-tests/lib/cre/don.go`'s `Role` constants). Chart-side `don-name` was already
+validated at chart-load time (`donNameLabel`, unchanged); `don-<Name>` is not required for the first cut per D5.
 
-**Acceptance.** A node missing `p2p_id` or with a wrong `environment` label is reported by name with the exact missing
-label before any on-chain work.
+**Standalone JD client.** `buildOffchainClient(jdCfg domain.JDConfig)` was extracted out of `buildCldfEnv` (previously
+JD-client construction was inline there, coupled to full EVM-RPC-provider setup) so the preflight check can get a JD
+client without paying for CLDF environment construction. Node lookup uses discovered CSA keys
+(`state.NodeRuntime[name].CSAKey`) via `deployment.NodeInfo`. Matches `requireJDAccessToken`'s existing tolerance:
+skips (returns nil) when JD isn't configured at all, rather than erroring.
 
-**Open decisions.** Exact label keys/values and their source of truth (JD vs chart). Enumerate the required set.
+### B4 — Validate every chain-capability has a matching chain config per member node  ·  DONE (EVM + non-EVM address presence) · P1
+**Decided scope (differs from the draft below — see conversation with the user).** The originally-drafted "chart-
+shaped, moved earlier" preflight was rejected: for a brand-new node-set, chart chain config legitimately doesn't exist
+yet, so running this check very early (at `NewReconciler`/before discovery) would incorrectly block first-time applies.
+The check stays exactly where it already ran for EVM — inside topology building (`buildTopology`), before contracts
+get configured — and was extended to Solana/Aptos there, not moved.
 
-### B4 — Validate every chain-capability has a matching `[[EVM]]` per member node  ·  PARTIAL · P1
-**Status.** The apply-time half is already covered by **C1**: `validateDiscoveredEVMAddresses` (onchain.go:1080) sources
-its required-chain set from the model (registry chain + each DON's capability chains) and fails fast if a member node
-discovered no EVM address for a required chain — which transitively proves the chart declared no `[[EVM]]` for it.
-**Gap:** that check runs late (after discovery, at apply) and is address-shaped, not chart-shaped. There's no early,
-authoring-time preflight that reads the chart's per-node `[[EVM]]` blocks directly.
+**What changed.** `hydrate.go` gained `validateDiscoveredNonEVMAddresses`, a sibling to `validateDiscoveredEVMAddresses`
+but simpler: no per-chain-ID keying, just "does this worker node have a discovered address for the required family."
+`domain.DON.NonEVMFamilies()` extracts which families (`aptos`/`solana`) a DON's capabilities require. Wired into
+`buildTopology`'s existing per-DON loop alongside the EVM check, scoped to worker nodes only (bootstrap/gateway nodes
+never get an Aptos/Solana key discovered, matching B1's capability-gated reads).
 
-**Problem.** If a DON carries `evm-1337` but one of its member nodes is missing the `[[EVM]]` chain config for 1337 in
-the chart, the failure only surfaces mid-apply as a "no EVM address for chain N" error — after JD/on-chain work has
-begun for other DONs.
+**`[[chains]]` unified with a `family` field, not split EVM/non-EVM types (per the user's explicit request).**
+`domain.Chain` gained `Family string` — **required, no default** (breaking change, every existing `desired.toml` must
+add `family = "evm"` to its `[[chains]]` entries). `validateChains()` branches: `evm` entries keep today's behavior
+(unique chain_id, exactly one `registry = true`, valid `ws_url`/`http_url`); `solana`/`aptos` entries only need a
+non-zero, unique-within-family `chain_id` — no URLs, and `registry = true` is rejected (the registry chain is always
+EVM). The capability-vs-declared-chain cross-check (already existed for `evm-<id>`) now also covers `solana-<id>`/
+`aptos-<id>` via the same `[[chains]]` list. No chain-selector↔native-chain-ID translation was needed for this (that
+distinction only would have mattered for the rejected chart-content-matching check) — the declared `chain_id` is just
+the same opaque number that appears in the capability suffix, exactly like EVM.
 
-**Scope.** Add a preflight (in discovery/`preflight`, or `/api/preview` server-side) that, for each DON and each of its
-chain-scoped capabilities (`evm-<id>`, later `solana-*`/`aptos-*`), asserts **every member node** of that DON has the
-matching chain config declared in the chart. Report per-node, per-chain misses before any JD/on-chain write. Keep the
-existing discovery-time check as the backstop.
-
-**Acceptance.** A DON with `evm-1337` where one member node lacks `[[EVM]]` for 1337 is reported by node name + chain
-ID at preflight, before discovery/on-chain work runs.
-
-**Depends on / relates to:** C1 (DONE; this makes it earlier + chart-shaped), B2 (label validation shares the preflight),
-B1 (extend to non-EVM chains once their discovery lands).
+**Depends on / relates to:** C1 (DONE, unchanged), B1 (DONE, feeds the discovered addresses this validates), B2
+(shares the "before on-chain work" framing, though B4 intentionally did NOT move earlier).
 
 ### B3 — Don't read OCR2 keys from bootstrap and gateway nodes  ·  TODO · P0 (bug)
 **Problem.** `discoverOne` (`internal/discovery/discovery.go`) reads OCR2 bundle IDs for **every** node with no role

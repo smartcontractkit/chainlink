@@ -36,16 +36,20 @@ type DesiredState struct {
 	CapabilityConfigs map[string]CapabilityConfig `toml:"capability_configs"`
 }
 
-// Chain is a user-declared EVM chain: chain ID plus the RPC URLs used to talk
-// to it. Exactly one declared chain must be the registry chain — the chain
-// where CapabilitiesRegistry/WorkflowRegistry live and where nodes register.
-// This is the only source of chain data the reconciler uses; nothing is
-// derived from the chart's anvil.instances.
+// Chain is a user-declared chain: chain ID plus, for EVM, the RPC URLs used to
+// talk to it. Exactly one declared EVM chain must be the registry chain — the
+// chain where CapabilitiesRegistry/WorkflowRegistry live and where nodes
+// register. This is the only source of chain data the reconciler uses for EVM;
+// nothing is derived from the chart's anvil.instances. Non-EVM (solana/aptos)
+// entries exist only so chain-scoped capabilities (e.g. "aptos-4") can be
+// validated against a declared chain — there's no RPC connectivity concept for
+// them here, chain config for those is chart-local.
 type Chain struct {
 	ChainID  uint64 `toml:"chain_id"`
-	WSURL    string `toml:"ws_url"`
-	HTTPURL  string `toml:"http_url"`
-	Registry bool   `toml:"registry"`
+	Family   string `toml:"family"`   // "evm" | "solana" | "aptos" — required, no default
+	WSURL    string `toml:"ws_url"`   // evm only
+	HTTPURL  string `toml:"http_url"` // evm only
+	Registry bool   `toml:"registry"` // evm only; the registry chain is always EVM
 }
 
 // Infra describes the Griddle deployment target.
@@ -150,6 +154,27 @@ func (d *DON) IsBootstrapDon() bool {
 	return d.HasDONType(cre.BootstrapDON)
 }
 
+// NonEVMFamilies returns the distinct non-EVM chain families ("aptos"/"solana") this
+// DON declares a capability for — either the bare capability ("aptos") or a
+// chain-scoped one ("aptos-4"). Used to gate discovery: only nodes whose DON
+// actually needs a family get that family's key read attempted.
+func (d *DON) NonEVMFamilies() []string {
+	seen := make(map[string]bool)
+	var families []string
+	for _, cap := range d.Capabilities {
+		base := stripChainSuffix(cap)
+		if base != cre.SolanaCapability && base != cre.AptosCapability {
+			continue
+		}
+		if seen[base] {
+			continue
+		}
+		seen[base] = true
+		families = append(families, base)
+	}
+	return families
+}
+
 // NeedsGatewayAccess reports whether this DON has gateway-routed capabilities.
 func (d *DON) NeedsGatewayAccess() bool {
 	gatewayCaps := map[string]bool{
@@ -250,24 +275,51 @@ func (ds *DesiredState) Validate() error {
 	return ds.validateChains()
 }
 
+// validChainFamilies is the set of families a [[chains]] entry may declare.
+// Stellar is deliberately excluded (deferred, see phase_plan.md D4).
+var validChainFamilies = map[string]bool{
+	cre.EVMCapability:    true,
+	cre.SolanaCapability: true,
+	cre.AptosCapability:  true,
+}
+
 // validateChains enforces the explicit chain model: at least one declared
-// chain, exactly one registry chain, unique chain IDs, valid RPC URLs, and
-// every chain-scoped capability referencing a declared chain.
+// chain, every entry has an explicit, valid family, unique chain_id per
+// family, exactly one EVM registry chain with valid RPC URLs, and every
+// chain-scoped capability (evm-<id>, solana-<id>, aptos-<id>) referencing a
+// declared chain of the matching family.
 func (ds *DesiredState) validateChains() error {
 	if len(ds.Chains) == 0 {
 		return errors.New("at least one [[chains]] entry is required")
 	}
 
-	seen := make(map[uint64]bool, len(ds.Chains))
+	seen := make(map[string]map[uint64]bool, len(ds.Chains))
 	registryCount := 0
 	for i, ch := range ds.Chains {
+		if ch.Family == "" {
+			return fmt.Errorf("chains[%d]: family is required (evm, solana, or aptos)", i)
+		}
+		if !validChainFamilies[ch.Family] {
+			return fmt.Errorf("chains[%d]: unsupported family %q (must be evm, solana, or aptos)", i, ch.Family)
+		}
 		if ch.ChainID == 0 {
 			return fmt.Errorf("chains[%d]: chain_id is required", i)
 		}
-		if seen[ch.ChainID] {
-			return fmt.Errorf("duplicate chain_id %d in [[chains]]", ch.ChainID)
+		if seen[ch.Family] == nil {
+			seen[ch.Family] = make(map[uint64]bool)
 		}
-		seen[ch.ChainID] = true
+		if seen[ch.Family][ch.ChainID] {
+			return fmt.Errorf("duplicate chain_id %d for family %q in [[chains]]", ch.ChainID, ch.Family)
+		}
+		seen[ch.Family][ch.ChainID] = true
+
+		if ch.Family != cre.EVMCapability {
+			if ch.Registry {
+				return fmt.Errorf("chains[%d] (family %q): registry chain must be evm", i, ch.Family)
+			}
+			continue
+		}
+
 		if ch.Registry {
 			registryCount++
 		}
@@ -290,17 +342,40 @@ func (ds *DesiredState) validateChains() error {
 
 	for _, don := range ds.DONs {
 		for _, cap := range don.Capabilities {
-			chainID, ok := ParseEVMChainIDFromCapability(cap)
+			family, chainID, ok := parseChainScopedCapability(cap)
 			if !ok {
 				continue
 			}
-			if !seen[chainID] {
-				return fmt.Errorf("dons[%s]: capability %q references chain %d which is not declared in [[chains]]", don.Name, cap, chainID)
+			if !seen[family][chainID] {
+				return fmt.Errorf("dons[%s]: capability %q references %s chain %d which is not declared in [[chains]]", don.Name, cap, family, chainID)
 			}
 		}
 	}
 
 	return nil
+}
+
+// parseChainScopedCapability extracts the family and chain ID suffix from a
+// chain-scoped capability name (e.g. "evm-1337" -> ("evm", 1337, true),
+// "aptos-4" -> ("aptos", 4, true)). Returns ok=false for non-chain-scoped
+// capabilities (e.g. bare "evm", or unrelated capabilities).
+func parseChainScopedCapability(capability string) (string, uint64, bool) {
+	for family := range validChainFamilies {
+		prefix := family + "-"
+		if !strings.HasPrefix(capability, prefix) {
+			continue
+		}
+		chainPart := strings.TrimPrefix(capability, prefix)
+		if chainPart == "" {
+			return "", 0, false
+		}
+		chainID, err := strconv.ParseUint(chainPart, 10, 64)
+		if err != nil {
+			return "", 0, false
+		}
+		return family, chainID, true
+	}
+	return "", 0, false
 }
 
 // RegistryChain returns the chain declared with registry = true.
@@ -313,19 +388,21 @@ func (ds *DesiredState) RegistryChain() (Chain, bool) {
 	return Chain{}, false
 }
 
-// ChainIDs returns all declared chain IDs.
-func (ds *DesiredState) ChainIDs() []uint64 {
-	ids := make([]uint64, 0, len(ds.Chains))
+// EVMChainIDs returns all declared EVM chain IDs.
+func (ds *DesiredState) EVMChainIDs() []uint64 {
+	var ids []uint64
 	for _, ch := range ds.Chains {
-		ids = append(ids, ch.ChainID)
+		if ch.Family == cre.EVMCapability {
+			ids = append(ids, ch.ChainID)
+		}
 	}
 	return ids
 }
 
-// ChainByID returns the declared chain with the given ID, or false if absent.
+// ChainByID returns the declared EVM chain with the given ID, or false if absent.
 func (ds *DesiredState) ChainByID(id uint64) (Chain, bool) {
 	for _, ch := range ds.Chains {
-		if ch.ChainID == id {
+		if ch.Family == cre.EVMCapability && ch.ChainID == id {
 			return ch, true
 		}
 	}
@@ -374,10 +451,10 @@ func (ds *DesiredState) hasCapabilityConfig(capName string, don DON) bool {
 }
 
 // stripChainSuffix removes a chain ID suffix from a capability name.
-// e.g. "evm-1337" -> "evm", "solana-123" -> "solana".
+// e.g. "evm-1337" -> "evm", "solana-123" -> "solana", "aptos-4" -> "aptos".
 // Returns the original string if there is no suffix.
 func stripChainSuffix(capName string) string {
-	for _, base := range []string{cre.EVMCapability, cre.SolanaCapability} {
+	for _, base := range []string{cre.EVMCapability, cre.SolanaCapability, cre.AptosCapability} {
 		if strings.HasPrefix(capName, base+"-") {
 			return base
 		}

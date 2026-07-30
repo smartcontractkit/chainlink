@@ -10,7 +10,7 @@ import (
 
 func testDesiredStateForHashTests() *domain.DesiredState {
 	return &domain.DesiredState{
-		Chains: []domain.Chain{{ChainID: 1337, Registry: true}},
+		Chains: []domain.Chain{{ChainID: 1337, Family: "evm", Registry: true}},
 		DONs: []domain.DON{
 			{
 				Name:         "workflow",

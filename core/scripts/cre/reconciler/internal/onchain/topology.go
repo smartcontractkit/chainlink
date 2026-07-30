@@ -24,7 +24,7 @@ func (d *Deployer) buildTopology(ctx context.Context, desired *domain.DesiredSta
 
 	provider := infra.Provider{Type: infra.Kubernetes}
 	globalCapConfigs := d.buildGlobalCapabilityConfigs(desired)
-	supportedEVMChains := desired.ChainIDs()
+	supportedEVMChains := desired.EVMChainIDs()
 	registryChainVal, ok := desired.RegistryChain()
 	if !ok {
 		return nil, errors.New("no registry chain declared in desired state (exactly one [[chains]] entry must set registry = true)")
@@ -34,6 +34,8 @@ func (d *Deployer) buildTopology(ctx context.Context, desired *domain.DesiredSta
 	var nodeSets []*cre.NodeSet
 	nodeNamesBySet := make([][]string, 0)
 	requiredEVMChainsBySet := make([][]uint64, 0)
+	requiredNonEVMFamiliesBySet := make([][]string, 0)
+	workerNodeNamesBySet := make([][]string, 0)
 	bootstrapAssigned := false
 
 	for i := range desired.DONs {
@@ -69,6 +71,8 @@ func (d *Deployer) buildTopology(ctx context.Context, desired *domain.DesiredSta
 		nodeSets = append(nodeSets, nodeSet)
 		nodeNamesBySet = append(nodeNamesBySet, nodeNames)
 		requiredEVMChainsBySet = append(requiredEVMChainsBySet, requiredChains)
+		requiredNonEVMFamiliesBySet = append(requiredNonEVMFamiliesBySet, don.NonEVMFamilies())
+		workerNodeNamesBySet = append(workerNodeNamesBySet, don.WorkerNodes(cv))
 	}
 
 	if desired.NeedsGateway() {
@@ -80,6 +84,8 @@ func (d *Deployer) buildTopology(ctx context.Context, desired *domain.DesiredSta
 			nodeSets = append(nodeSets, gwNodeSet)
 			nodeNamesBySet = append(nodeNamesBySet, gwNodeNamesBySet[i])
 			requiredEVMChainsBySet = append(requiredEVMChainsBySet, requiredEVMChainIDsForGatewayNode(registryChain))
+			requiredNonEVMFamiliesBySet = append(requiredNonEVMFamiliesBySet, nil)
+			workerNodeNamesBySet = append(workerNodeNamesBySet, nil)
 		}
 	}
 
@@ -102,6 +108,14 @@ func (d *Deployer) buildTopology(ctx context.Context, desired *domain.DesiredSta
 			state.NodeRuntime,
 		); err != nil {
 			return nil, errors.Wrapf(err, "failed to hydrate EVM addresses for DON %s", donMeta.Name)
+		}
+		if err := validateDiscoveredNonEVMAddresses(
+			donMeta.Name,
+			workerNodeNamesBySet[i],
+			requiredNonEVMFamiliesBySet[i],
+			state.NodeRuntime,
+		); err != nil {
+			return nil, errors.Wrapf(err, "failed to validate non-EVM addresses for DON %s", donMeta.Name)
 		}
 		if err := hydrateDiscoveredOCR2BundleIDs(
 			donMeta,

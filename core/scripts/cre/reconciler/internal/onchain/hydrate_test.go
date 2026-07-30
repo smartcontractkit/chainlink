@@ -46,6 +46,42 @@ func TestValidateDiscoveredEVMAddresses_EmptyAddress(t *testing.T) {
 	require.Contains(t, err.Error(), "missing EVM address for chain 1337")
 }
 
+func TestValidateDiscoveredNonEVMAddresses_NoneRequired(t *testing.T) {
+	t.Parallel()
+
+	err := validateDiscoveredNonEVMAddresses("workflow", []string{"node-0"}, nil, nil)
+	require.NoError(t, err)
+}
+
+func TestValidateDiscoveredNonEVMAddresses_Pass(t *testing.T) {
+	t.Parallel()
+
+	runtime := map[string]domain.NodeRuntimeInfo{
+		"node-0": {AptosAddress: "0xaptos", SolanaAddress: "sol-addr"},
+	}
+	err := validateDiscoveredNonEVMAddresses("workflow", []string{"node-0"}, []string{"aptos", "solana"}, runtime)
+	require.NoError(t, err)
+}
+
+func TestValidateDiscoveredNonEVMAddresses_MissingAddress(t *testing.T) {
+	t.Parallel()
+
+	runtime := map[string]domain.NodeRuntimeInfo{
+		"node-0": {AptosAddress: ""},
+	}
+	err := validateDiscoveredNonEVMAddresses("workflow", []string{"node-0"}, []string{"aptos"}, runtime)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing discovered aptos address")
+}
+
+func TestValidateDiscoveredNonEVMAddresses_MissingRuntimeInfo(t *testing.T) {
+	t.Parallel()
+
+	err := validateDiscoveredNonEVMAddresses("workflow", []string{"node-0"}, []string{"solana"}, map[string]domain.NodeRuntimeInfo{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no discovered runtime info")
+}
+
 func TestHydrateDiscoveredEVMAddresses_SetsPublicAddress(t *testing.T) {
 	t.Parallel()
 
