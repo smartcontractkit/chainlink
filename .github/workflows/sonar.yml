@@ -26,6 +26,7 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Download artifacts from parent workflow
         uses: actions/download-artifact@v8

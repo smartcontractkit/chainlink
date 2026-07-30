@@ -148,13 +148,14 @@ runs:
       shell: bash
       env:
         BUILD_CACHE_WRITE: ${{ inputs.build-cache-write }}
-        CACHE_VERSION: ${{ inputs.build-cache-version || inputs.cache-version }}
+        RAW_CACHE_VERSION: ${{ inputs.build-cache-version || inputs.cache-version }}
         CURRENT_BRANCH: ${{ steps.branch-name.outputs.current_branch }}
         DEFAULT_BRANCH: ${{ steps.branch-name.outputs.default_branch }}
         RESTORE_BUILD_CACHE_ONLY: ${{ inputs.restore-build-cache-only }}
         RUNNER_OS: ${{ runner.os }}
         RUNNER_ARCH: ${{ runner.arch }}
       run: |
+        CACHE_VERSION="${RAW_CACHE_VERSION//\//-}"
         SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
         KEY_PREFIX="${RUNNER_OS}-${RUNNER_ARCH}-gobuild-${CACHE_VERSION}"
 
