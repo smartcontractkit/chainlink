@@ -36,6 +36,7 @@ jobs:
         if: ${{ github.event_name == 'workflow_run' }}
 
       - name: Check and Set SonarQube Report Paths
+        id: report-paths
         shell: bash
         env:
           PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
@@ -95,13 +96,30 @@ jobs:
           shopt -u nullglob
           echo "Lint report paths: $sonarqube_lint_report_paths"
 
+          # Sonar overwrites a branch's measures with whatever an analysis reports, so
+          # publishing with no reports at all would zero out coverage. Skip instead.
+          if [[ -z "${sonarqube_tests_report_paths}${sonarqube_coverage_report_paths}${sonarqube_lint_report_paths}" ]]; then
+            echo "::warning::No test, coverage, or lint reports found, skipping SonarQube analysis"
+            echo "has-reports=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # workflow_run carries no PR context of its own, so pass it explicitly. Without
+          # this, sonar-scanner cannot auto-detect the PR and reports the analysis against
+          # the default branch.
           ARGS=""
           if [[ -n "${PR_NUMBER}" ]]; then
             ARGS="$ARGS -Dsonar.pullrequest.key=${PR_NUMBER}"
             ARGS="$ARGS -Dsonar.pullrequest.branch=${HEAD_BRANCH}"
             ARGS="$ARGS -Dsonar.pullrequest.base=${BASE_BRANCH}"
-          elif [[ -n "${HEAD_BRANCH}" ]]; then
+          elif [[ "${HEAD_BRANCH}" == "develop" || "${HEAD_BRANCH}" == release/* ]]; then
             ARGS="$ARGS -Dsonar.branch.name=${HEAD_BRANCH}"
+          else
+            # A PR branch with no pull_requests entry. Analyzing it as a long-lived Sonar
+            # branch would clutter the project, so skip.
+            echo "::warning::No PR context for '${HEAD_BRANCH}', skipping SonarQube analysis"
+            echo "has-reports=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
           if [[ -z "$sonarqube_tests_report_paths" ]]; then
@@ -127,9 +145,10 @@ jobs:
 
           echo "Final SONARQUBE_ARGS: $ARGS"
           echo "SONARQUBE_ARGS=$ARGS" >> "$GITHUB_ENV"
+          echo "has-reports=true" >> "$GITHUB_OUTPUT"
 
       - name: SonarQube Scan
-        if: ${{ env.SONARQUBE_ARGS != '' }}
+        if: ${{ steps.report-paths.outputs.has-reports == 'true' }}
         uses: sonarsource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
         with:
           args: ${{ env.SONARQUBE_ARGS }}
@@ -137,4 +156,3 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
-
