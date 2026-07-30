@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
-	evm_logTrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
 )
 
 // chainlink-common/pkg/capabilities/base_trigger.go logs this when AckEvent is called.
@@ -124,7 +123,6 @@ func startEVMLogTriggerEventEmitter(
 	bcOutput blockchains.Blockchain,
 	msgEmitter *evmreadcontracts.MessageEmitter,
 	message string,
-	workflowConfig evm_logTrigger_config.Config,
 ) {
 	t.Helper()
 

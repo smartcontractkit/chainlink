@@ -316,7 +316,7 @@ func executeEVMLogTriggerTestForChain(
 
 	// create a context that will be canceled as soon as we either find the log we are looking for or timeout
 	emitCtx, emitCancelFn := context.WithCancel(t.Context())
-	startEVMLogTriggerEventEmitter(emitCtx, t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
+	startEVMLogTriggerEventEmitter(emitCtx, t, lggr, chainID, bcOutput, msgEmitter, message)
 	expectedUserLog := "OnTrigger decoded message: message:" + message
 
 	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))
