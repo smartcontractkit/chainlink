@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -364,7 +365,14 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		if err2 := ocrcommon.ValidatePeerWrapperConfig(cfg.P2P()); err != nil {
 			return nil, fmt.Errorf("invalid P2P config: %w", err2)
 		}
-		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, globalLogger)
+		// When the CRE p2p proxy is enabled, the peer wrapper delegates all rage
+		// networking to the out-of-process proxy at this address instead of
+		// running a local libocr peer.
+		proxyAddr := ""
+		if cfg.Capabilities().Proxy().Enabled() {
+			proxyAddr = fmt.Sprintf("localhost:%d", cfg.Capabilities().Proxy().Port())
+		}
+		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, proxyAddr, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
 	}
 
@@ -614,6 +622,35 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	srvcs = append(srvcs, pipelineORM)
 
 	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, loopRegistry.Register, loopRegistry.Unregister)
+
+	// When the CRE p2p proxy is enabled, launch the proxy binary as a LOOP. It
+	// serves the OCR and DON-to-DON proxy gRPC that the clients (wired below and
+	// in the CRE) connect to.
+	if cfg.Capabilities().Proxy().Enabled() {
+		// The launched process does not inherit our environment, so pass the proxy
+		// its config explicitly: addresses as CLI args, secrets via env. It gets
+		// its P2P key from the shared DB keystore table itself (via
+		// CL_DATABASE_URL + CL_PASSWORD_KEYSTORE); we do not export the key here.
+		proxyDBURL := cfg.Database().URL()
+		proxyCmdFn, proxyGRPCOpts, rerr := loopRegistrarConfig.RegisterLOOP(plugins.CmdConfig{
+			ID:  "cre-p2p-proxy",
+			Cmd: cfg.Capabilities().Proxy().Command(),
+			Args: []string{
+				"--listen-addresses=" + strings.Join(cfg.P2P().V2().ListenAddresses(), ","),
+				fmt.Sprintf("--proxy-listen-address=:%d", cfg.Capabilities().Proxy().Port()),
+			},
+			Env: []string{
+				// Sourced from resolved config, not os.Getenv: the node may receive
+				// these via secrets TOML / password file rather than env.
+				"CL_DATABASE_URL=" + proxyDBURL.String(),
+				"CL_PASSWORD_KEYSTORE=" + cfg.Password().Keystore(),
+			},
+		})
+		if rerr != nil {
+			return nil, fmt.Errorf("failed to register p2p proxy LOOP: %w", rerr)
+		}
+		srvcs = append(srvcs, loop.NewEmptyService(globalLogger, proxyGRPCOpts, proxyCmdFn))
+	}
 
 	var (
 		delegates = map[job.Type]job.Delegate{

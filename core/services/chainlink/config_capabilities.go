@@ -27,6 +27,35 @@ func (c *capabilitiesConfig) SharedPeering() config.SharedPeering {
 	return &sharedPeering{s: c.c.SharedPeering}
 }
 
+func (c *capabilitiesConfig) Proxy() config.CapabilitiesProxy {
+	return &capabilitiesProxy{c: c.c.Proxy}
+}
+
+type capabilitiesProxy struct {
+	c toml.CapabilitiesProxy
+}
+
+func (c *capabilitiesProxy) Enabled() bool {
+	if c.c.Enabled == nil {
+		return false
+	}
+	return *c.c.Enabled
+}
+
+func (c *capabilitiesProxy) Command() string {
+	if c.c.Command == nil {
+		return ""
+	}
+	return *c.c.Command
+}
+
+func (c *capabilitiesProxy) Port() uint16 {
+	if c.c.Port == nil {
+		return 0
+	}
+	return *c.c.Port
+}
+
 func (c *capabilitiesConfig) ExternalRegistry() config.CapabilitiesExternalRegistry {
 	return &capabilitiesExternalRegistry{
 		c: c.c.ExternalRegistry,

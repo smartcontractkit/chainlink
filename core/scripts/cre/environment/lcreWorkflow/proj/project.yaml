@@ -1,0 +1,45 @@
+# ==========================================================================
+# CRE PROJECT SETTINGS FILE
+# ==========================================================================
+# Project-specific settings for CRE CLI targets.
+# Each target defines cre-cli, account, and rpcs groups.
+#
+# Example custom target:
+# my-target:
+#   account:
+#     workflow-owner-address: "0x123..."            # Optional: Owner wallet/MSIG address (used for --unsigned transactions)
+#   rpcs:
+#     - chain-name: ethereum-testnet-sepolia        # Required if your workflow interacts with this chain
+#       url: "<select your own rpc url>"
+#     - chain-name: ethereum-mainnet                # Required if your workflow interacts with this chain
+#       url: "<select your own rpc url>"
+#
+# RPC URLs support ${VAR_NAME} syntax to reference environment variables.
+# This keeps secrets out of project.yaml (which is committed to git).
+# Variables are resolved from your .env file or exported shell variables.
+# Example:
+#     - chain-name: ethereum-testnet-sepolia
+#       url: https://rpc.example.com/${CRE_SECRET_RPC_SEPOLIA}
+#
+# Experimental chains (automatically used by the simulator when present):
+# Use this for chains not yet in official chain-selectors (e.g., hackathons, new chain integrations).
+# In your workflow, reference the chain as <chain-type>:ChainSelector:<chain-selector>@1.0.0
+#
+#   experimental-chains:
+#     - chain-type: evm                             # Chain family
+#       chain-selector: 12345                       # The chain selector value
+#       rpc-url: "https://rpc.example.com"          # RPC endpoint URL
+#       forwarder: "0x..."                          # Forwarder contract address on the chain
+
+# ==========================================================================
+staging-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com
+
+# ==========================================================================
+production-settings:
+  rpcs:
+    - chain-name: ethereum-testnet-sepolia
+      url: https://ethereum-sepolia-rpc.publicnode.com
+

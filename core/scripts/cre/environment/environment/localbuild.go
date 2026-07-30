@@ -72,10 +72,18 @@ var knownCapabilities = map[string]capBuildSpec{
 	"http-action":  {dir: "http_action", binary: "http_action"},
 	"http-trigger": {dir: "http_trigger", binary: "http_trigger"},
 	"evm":          {dir: "chain_capabilities/evm", binary: "evm"},
+	"crecore":      {dir: "crecore", binary: "crecore"},
 }
 
 // allCapabilities is the default set built when "all" is requested.
-var allCapabilities = []string{"cron", "consensus", "http-action", "http-trigger", "evm"}
+var allCapabilities []string
+
+func init() {
+	allCapabilities = make([]string, 0, len(knownCapabilities))
+	for k := range knownCapabilities {
+		allCapabilities = append(allCapabilities, k)
+	}
+}
 
 const localBuildContainerCapDir = "/usr/local/bin"
 

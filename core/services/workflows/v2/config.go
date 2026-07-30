@@ -1,10 +1,13 @@
 package v2
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/jonboulle/clockwork"
+
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -484,6 +487,25 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	if h.OnResultReceived == nil {
 		h.OnResultReceived = func(res *sdkpb.ExecutionResult) {}
 	}
+
+	originalHook := h.OnResultReceived
+	h.OnResultReceived = func(res *sdkpb.ExecutionResult) {
+		originalHook(res)
+		switch r := res.Result.(type) {
+		case *sdkpb.ExecutionResult_Value:
+			v, _ := values.FromProto(r.Value)
+			u, _ := v.Unwrap()
+			j, _ := json.Marshal(u)
+			fmt.Println("DONE: Value returned from workflow: " + string(j))
+		case *sdkpb.ExecutionResult_Error:
+			fmt.Println("DONE: Error message returned from workflow " + r.Error)
+		case *sdkpb.ExecutionResult_TriggerSubscriptions:
+			fmt.Println("DONE: Triggering done")
+		case *sdkpb.ExecutionResult_Restrictions:
+			fmt.Println("DONE: Restrictions returned...?")
+		}
+	}
+
 	if h.OnExecutionError == nil {
 		h.OnExecutionError = func(msg string) {}
 	}

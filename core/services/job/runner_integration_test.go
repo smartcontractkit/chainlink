@@ -468,7 +468,7 @@ answer1      [type=median index=0];
 		lggr := logger.TestLogger(t)
 		_, err = keyStore.P2P().Create(ctx)
 		assert.NoError(t, err)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, "", lggr)
 		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
@@ -504,7 +504,7 @@ answer1      [type=median index=0];
 		assert.Equal(t, jb.MaxTaskDuration, sqlutil.Interval(cltest.MustParseDuration(t, "1s")))
 
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, "", lggr)
 		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
@@ -533,7 +533,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, "", lggr)
 		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,
@@ -596,7 +596,7 @@ answer1      [type=median index=0];
 			assert.Equal(t, jb.MaxTaskDuration, sqlutil.Interval(cltest.MustParseDuration(t, "1s")))
 
 			lggr := logger.TestLogger(t)
-			pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, lggr)
+			pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, "", lggr)
 			servicetest.Run(t, pw)
 			sd := ocr.NewDelegate(
 				db,
@@ -642,7 +642,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 
 		lggr := logger.TestLogger(t)
-		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, lggr)
+		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, config.P2P(), config.OCR(), db, "", lggr)
 		servicetest.Run(t, pw)
 		sd := ocr.NewDelegate(
 			db,

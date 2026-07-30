@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	creproxy "github.com/smartcontractkit/chainlink-protos/cre/impl/proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -57,6 +58,12 @@ type (
 		lggr     logger.Logger
 		PeerID   p2pkey.PeerID
 
+		// proxyAddr, when non-empty, makes the wrapper delegate all rage
+		// (OCR + PeerGroup) to an out-of-process proxy at this gRPC address
+		// instead of running a local libocr peer.
+		proxyAddr    string
+		proxyClosers []io.Closer
+
 		// Used at shutdown to stop all of this peer's goroutines
 		peerCloser io.Closer
 
@@ -84,13 +91,16 @@ func ValidatePeerWrapperConfig(config config.P2P) error {
 // NewSingletonPeerWrapper creates a new peer based on the p2p keys in the keystore
 // It currently only supports one peerID/key
 // It should be fairly easy to modify it to support multiple peerIDs/keys using e.g. a map
-func NewSingletonPeerWrapper(keyStore keystore.Master, p2pCfg config.P2P, ocrCfg PeerWrapperOCRConfig, ds sqlutil.DataSource, lggr logger.Logger) *SingletonPeerWrapper {
+// proxyAddr, when non-empty, makes the wrapper delegate all rage networking to
+// an out-of-process proxy at that gRPC address instead of running a local peer.
+func NewSingletonPeerWrapper(keyStore keystore.Master, p2pCfg config.P2P, ocrCfg PeerWrapperOCRConfig, ds sqlutil.DataSource, proxyAddr string, lggr logger.Logger) *SingletonPeerWrapper {
 	return &SingletonPeerWrapper{
-		keyStore: keyStore,
-		p2pCfg:   p2pCfg,
-		ocrCfg:   ocrCfg,
-		ds:       ds,
-		lggr:     lggr.Named("SingletonPeerWrapper"),
+		keyStore:  keyStore,
+		p2pCfg:    p2pCfg,
+		ocrCfg:    ocrCfg,
+		ds:        ds,
+		proxyAddr: proxyAddr,
+		lggr:      lggr.Named("SingletonPeerWrapper"),
 	}
 }
 
@@ -99,6 +109,10 @@ func (p *SingletonPeerWrapper) IsStarted() bool { return p.Ready() == nil }
 // Start starts SingletonPeerWrapper.
 func (p *SingletonPeerWrapper) Start(context.Context) error {
 	return p.StartOnce("SingletonPeerWrapper", func() error {
+		if p.proxyAddr != "" {
+			return p.startProxy()
+		}
+
 		peerConfig, err := p.peerConfig()
 		if err != nil {
 			return err
@@ -128,6 +142,49 @@ func (p *SingletonPeerWrapper) Start(context.Context) error {
 		p.peerCloser = peer
 		return nil
 	})
+}
+
+// startProxy delegates all rage networking to an out-of-process proxy: it does
+// not create a local libocr peer, and instead exposes Peer2 (OCR) and
+// PeerGroupFactory (DON-to-DON) backed by proxy clients that connect to the
+// proxy's gRPC. Peer1/Peer3_1 are not proxied yet.
+func (p *SingletonPeerWrapper) startProxy() error {
+	if ks, err := p.keyStore.P2P().GetAll(); err == nil && len(ks) == 0 {
+		return errors.New("No P2P keys found in keystore. Peer wrapper will not be fully initialized")
+	}
+	key, err := p.keyStore.P2P().GetOrFirst(p.p2pCfg.PeerID())
+	if err != nil {
+		return err
+	}
+	p.PeerID = key.PeerID()
+
+	// NOTE: libocr expects the raw peer ID (base58, no core-specific "p2p_"
+	// prefix) — it is compared against peer IDs in the OCR config.
+	endpointFactory, err := creproxy.NewProxyEndpointFactory(p.PeerID.Raw(), p.proxyAddr)
+	if err != nil {
+		return errors.Wrap(err, "failed to create proxy OCR endpoint factory")
+	}
+	endpoint2Factory, err := creproxy.NewProxyEndpoint2Factory(p.PeerID.Raw(), p.proxyAddr)
+	if err != nil {
+		_ = endpointFactory.Close()
+		return errors.Wrap(err, "failed to create proxy OCR3.1 endpoint factory")
+	}
+	pgClient, err := creproxy.NewProxyPeerGroupFactory(p.proxyAddr)
+	if err != nil {
+		_ = endpointFactory.Close()
+		_ = endpoint2Factory.Close()
+		return errors.Wrap(err, "failed to create proxy peer group factory")
+	}
+
+	// The proxy only serves the endpoint side; the bootstrapper factory is unused
+	// on non-bootstrap nodes. Peer1 (OCR1) is not proxied.
+	p.Peer2 = &peerAdapterOCR2{endpointFactory, nil}
+	p.Peer3_1 = &peerAdapterOCR3_1{endpoint2Factory, nil}
+	p.PeerGroupFactory = newProxyBackedPeerGroupFactory(pgClient)
+	p.proxyClosers = []io.Closer{endpointFactory, endpoint2Factory, pgClient}
+
+	p.lggr.Infow("SingletonPeerWrapper delegating rage to proxy", "proxyAddr", p.proxyAddr, "peerID", p.PeerID.String())
+	return nil
 }
 
 func (p *SingletonPeerWrapper) peerConfig() (ocrnetworking.PeerConfig, error) {
@@ -178,6 +235,11 @@ func (p *SingletonPeerWrapper) Close() error {
 	return p.StopOnce("SingletonPeerWrapper", func() (err error) {
 		if p.peerCloser != nil {
 			err = p.peerCloser.Close()
+		}
+		for _, c := range p.proxyClosers {
+			if cerr := c.Close(); cerr != nil && err == nil {
+				err = cerr
+			}
 		}
 		return err
 	})
