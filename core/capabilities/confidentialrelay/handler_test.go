@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -136,6 +137,9 @@ func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn cor
 	require.NoError(t, err)
 	h, err := NewHandler(registry, &ExecutionHandlers{}, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr}, validator, true)
 	require.NoError(t, err)
+	// Keep the not-yet-registered wait short so the "handler not found" cases do
+	// not stall the suite for the production default.
+	h.getExecutionWait = 50 * time.Millisecond
 	return h
 }
 
@@ -450,13 +454,16 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			registry: func(_ *testing.T) *mockCapRegistry {
 				return withEnclaveConfig(&mockCapRegistry{})
 			},
-			// No helper registered: GetExecution fails before attestation.
+			// No helper registered. The lookup now runs after attestation and
+			// enclave-config checks, so the request must pass those (valid
+			// attestation, config, and a decodable payload) to reach the not-found
+			// path rather than failing earlier.
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
 					WorkflowID:    "wf-1",
 					ExecutionID:   capExecExecutionID,
 					CapabilityID:  "missing-cap@1.0.0",
-					Payload:       base64.StdEncoding.EncodeToString([]byte("payload")),
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
 					EnclaveConfig: testEnclaveConfigPtr(),
 					Attestation:   testAttestationB64,
 				})
