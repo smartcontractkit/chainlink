@@ -180,7 +180,7 @@ jobs:
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
       - name: Install LOOP Plugins
-        run: make install-plugins
+        uses: ./.github/actions/setup-loop-plugins
       - name: Run tests
         timeout-minutes: 25
         continue-on-error: true

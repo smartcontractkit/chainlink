@@ -1,0 +1,74 @@
+name: Setup LOOP Plugins
+description: Setup and cache LOOP plugins
+inputs:
+  plugin-file:
+    description: Path to public plugins file
+    required: false
+    default: plugins/plugins.public.yaml
+  install-local:
+    description: Whether to install local plugins
+    required: false
+    default: "true"
+  cache-version:
+    description: Cache version bust knob
+    required: false
+    default: "v1"
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve Cache Keys and Directories
+      id: keys
+      shell: bash
+      run: |
+        echo "bin=$HOME/.cache/cl-loop-plugins/bin" >> "$GITHUB_OUTPUT"
+        echo "gocache=$HOME/.cache/cl-loop-plugins/gocache" >> "$GITHUB_OUTPUT"
+        echo "goversion=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore Binaries Cache (Tier 1)
+      id: bin-cache
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ steps.keys.outputs.bin }}
+        key: ${{ runner.os }}-${{ runner.arch }}-loopbin-${{ inputs.cache-version }}-${{ steps.keys.outputs.goversion }}-${{ hashFiles(inputs.plugin-file) }}
+
+    - name: Restore Go Build Cache (Tier 2)
+      id: gocache-cache
+      if: ${{ steps.bin-cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ steps.keys.outputs.gocache }}
+        key: ${{ runner.os }}-${{ runner.arch }}-loopgocache-${{ inputs.cache-version }}-${{ steps.keys.outputs.goversion }}-${{ hashFiles(inputs.plugin-file) }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-loopgocache-${{ inputs.cache-version }}-${{ steps.keys.outputs.goversion }}-
+
+    - name: Build public plugins
+      if: ${{ steps.bin-cache.outputs.cache-hit != 'true' }}
+      shell: bash
+      env:
+        GOBIN: ${{ steps.keys.outputs.bin }}
+        GOCACHE: ${{ steps.keys.outputs.gocache }}
+      run: make install-plugins-public
+
+    - name: Save Binaries Cache (Tier 1)
+      if: ${{ steps.bin-cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ steps.keys.outputs.bin }}
+        key: ${{ runner.os }}-${{ runner.arch }}-loopbin-${{ inputs.cache-version }}-${{ steps.keys.outputs.goversion }}-${{ hashFiles(inputs.plugin-file) }}
+
+    - name: Save Go Build Cache (Tier 2)
+      if: ${{ steps.bin-cache.outputs.cache-hit != 'true' && steps.gocache-cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ steps.keys.outputs.gocache }}
+        key: ${{ runner.os }}-${{ runner.arch }}-loopgocache-${{ inputs.cache-version }}-${{ steps.keys.outputs.goversion }}-${{ hashFiles(inputs.plugin-file) }}
+
+    - name: Export plugin bin to PATH
+      shell: bash
+      run: echo "${{ steps.keys.outputs.bin }}" >> "$GITHUB_PATH"
+
+    - name: Install local plugins
+      if: ${{ inputs.install-local == 'true' }}
+      shell: bash
+      run: make install-plugins-local

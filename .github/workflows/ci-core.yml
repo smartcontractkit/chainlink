@@ -404,7 +404,7 @@ jobs:
         if:
           ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true'
           }}
-        run: make install-plugins
+        uses: ./.github/actions/setup-loop-plugins
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only
