@@ -92,6 +92,9 @@ func (d *Deployer) buildTopology(ctx context.Context, desired *domain.DesiredSta
 		if i >= len(nodeNamesBySet) {
 			continue
 		}
+		if err := validateNodeRolesPresent(donMeta, nodeNamesBySet[i]); err != nil {
+			return nil, errors.Wrapf(err, "failed to validate node roles for DON %s", donMeta.Name)
+		}
 		if err := hydrateDiscoveredEVMAddresses(
 			donMeta,
 			nodeNamesBySet[i],

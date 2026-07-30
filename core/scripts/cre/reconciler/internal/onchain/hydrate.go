@@ -46,6 +46,29 @@ func validateDiscoveredEVMAddresses(
 	return stderrors.Join(errs...)
 }
 
+// validateNodeRolesPresent rejects a node with no assigned Roles outright,
+// rather than letting it silently fall through role-gated logic (e.g.
+// hydrateDiscoveredOCR2BundleIDs) as if it were bootstrap/gateway. A node
+// should always have exactly one role assigned by the nodeset builders
+// (buildNodeSpecs, newGatewayNodeSet); an empty Roles slice indicates a
+// construction bug upstream, not a legitimate node type.
+func validateNodeRolesPresent(
+	donMeta *cre.DonMetadata,
+	nodeNames []string,
+) error {
+	var errs []error
+	for i, nodeMeta := range donMeta.NodesMetadata {
+		if i >= len(nodeNames) {
+			errs = append(errs, fmt.Errorf("DON %s: missing node name for metadata index %d", donMeta.Name, i))
+			continue
+		}
+		if len(nodeMeta.Roles) == 0 {
+			errs = append(errs, fmt.Errorf("DON %s node %s: no roles assigned", donMeta.Name, nodeNames[i]))
+		}
+	}
+	return stderrors.Join(errs...)
+}
+
 func hydrateDiscoveredEVMAddresses(
 	donMeta *cre.DonMetadata,
 	nodeNames []string,
@@ -100,6 +123,11 @@ func hydrateDiscoveredEVMAddresses(
 // hydrateDiscoveredOCR2BundleIDs copies OCR2 key bundle IDs discovered during
 // D1 (per chain family, e.g. "evm") into each node's Keys.OCR2BundleIDs, which
 // Features look up directly (e.g. evm.go's per-node OCR3 job proposal).
+//
+// Only worker/plugin nodes are OCR signers; bootstrap and gateway nodes don't
+// expose OCR2 bundles and are skipped. This assumes every node's Roles was
+// already validated non-empty upstream (see buildTopology), so an empty Roles
+// slice here is never silently treated as "not a worker".
 func hydrateDiscoveredOCR2BundleIDs(
 	donMeta *cre.DonMetadata,
 	nodeNames []string,
@@ -114,6 +142,9 @@ func hydrateDiscoveredOCR2BundleIDs(
 		nodeName := nodeNames[i] //nolint:gosec // bounds-checked by the `i >= len(nodeNames)` guard above
 		if nodeMeta.Keys == nil {
 			errs = append(errs, fmt.Errorf("DON %s node %s: node keys not initialized", donMeta.Name, nodeName))
+			continue
+		}
+		if !nodeMeta.HasRole(cre.WorkerNode) {
 			continue
 		}
 

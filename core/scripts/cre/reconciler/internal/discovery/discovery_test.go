@@ -106,6 +106,46 @@ func TestDiscovery_SuccessfulDiscovery(t *testing.T) {
 	require.Equal(t, "bundle_id_123", info.OCR2BundleIDs["evm"])
 }
 
+func TestDiscovery_SkipsOCR2ReadForBootstrapAndGatewayNodes(t *testing.T) {
+	t.Parallel()
+
+	k8s := &fakeK8s{
+		apiInfo: map[string]*infra.NodeAPIInfo{
+			"node-boot": {URL: "http://node-boot:6688", Email: "test", Password: "test"},
+			"node-gw":   {URL: "http://node-gw:6688", Email: "test", Password: "test"},
+		},
+	}
+	dialer := &fakeDialer{
+		clients: map[string]*fakeClient{
+			// ocr2IDs/ocr2Err set to prove the field would be populated/erroring
+			// if ReadOCR2BundleIDs were called; it must not be for these roles.
+			"http://node-boot:6688": {csa: "csa_boot", ocr2IDs: map[string]string{"evm": "should-not-be-read"}},
+			"http://node-gw:6688":   {csa: "csa_gw", ocr2Err: context.Canceled},
+		},
+	}
+
+	nodes := []domain.ChartNodeInfo{
+		{Name: "node-boot", NodeType: domain.RoleBootstrap},
+		{Name: "node-gw", NodeType: domain.RoleGateway},
+	}
+	cv := &domain.ChartValues{Nodes: nodes, Namespace: "default"}
+
+	result, err := Run(context.Background(), zerolog.Nop(), nodes, cv, k8s, dialer)
+
+	require.NoError(t, err)
+	require.Len(t, result, 2)
+
+	bootInfo, ok := result["node-boot"]
+	require.True(t, ok)
+	require.Equal(t, "csa_boot", bootInfo.CSAKey)
+	require.Empty(t, bootInfo.OCR2BundleIDs)
+
+	gwInfo, ok := result["node-gw"]
+	require.True(t, ok)
+	require.Equal(t, "csa_gw", gwInfo.CSAKey)
+	require.Empty(t, gwInfo.OCR2BundleIDs)
+}
+
 func TestDiscovery_SkipsFailedNodes(t *testing.T) {
 	t.Parallel()
 

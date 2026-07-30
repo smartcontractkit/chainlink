@@ -111,12 +111,14 @@ func discoverOne(ctx context.Context, log zerolog.Logger, node domain.ChartNodeI
 		info.EVMAddress = evmAddrs
 	}
 
-	// OCR2 bundle IDs
-	ocr2Bundles, err := client.ReadOCR2BundleIDs()
-	if err != nil {
-		log.Warn().Err(err).Str("node", node.Name).Msg("Failed to read OCR2 bundle IDs")
-	} else if len(ocr2Bundles) > 0 {
-		info.OCR2BundleIDs = ocr2Bundles
+	// OCR2 bundle IDs — bootstrap and gateway nodes are not OCR signers and don't expose these.
+	if node.NodeType != domain.RoleBootstrap && node.NodeType != domain.RoleGateway {
+		ocr2Bundles, err := client.ReadOCR2BundleIDs()
+		if err != nil {
+			log.Warn().Err(err).Str("node", node.Name).Msg("Failed to read OCR2 bundle IDs")
+		} else if len(ocr2Bundles) > 0 {
+			info.OCR2BundleIDs = ocr2Bundles
+		}
 	}
 
 	return info, true

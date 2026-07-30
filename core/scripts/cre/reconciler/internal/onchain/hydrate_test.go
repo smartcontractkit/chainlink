@@ -89,7 +89,8 @@ func TestHydrateDiscoveredOCR2BundleIDs_SetsBundleIDs(t *testing.T) {
 	donMeta := &cre.DonMetadata{
 		Name: "workflow",
 		NodesMetadata: []*cre.NodeMetadata{{
-			Keys: &secrets.NodeKeys{},
+			Keys:  &secrets.NodeKeys{},
+			Roles: []cre.NodeType{cre.WorkerNode},
 		}},
 	}
 	runtime := map[string]domain.NodeRuntimeInfo{
@@ -107,7 +108,8 @@ func TestHydrateDiscoveredOCR2BundleIDs_MissingDiscoveredBundle(t *testing.T) {
 	donMeta := &cre.DonMetadata{
 		Name: "workflow",
 		NodesMetadata: []*cre.NodeMetadata{{
-			Keys: &secrets.NodeKeys{},
+			Keys:  &secrets.NodeKeys{},
+			Roles: []cre.NodeType{cre.WorkerNode},
 		}},
 	}
 	runtime := map[string]domain.NodeRuntimeInfo{
@@ -117,6 +119,71 @@ func TestHydrateDiscoveredOCR2BundleIDs_MissingDiscoveredBundle(t *testing.T) {
 	err := hydrateDiscoveredOCR2BundleIDs(donMeta, []string{"node-0"}, runtime)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "no discovered OCR2 key bundles")
+}
+
+func TestHydrateDiscoveredOCR2BundleIDs_SkipsBootstrapNode(t *testing.T) {
+	t.Parallel()
+
+	donMeta := &cre.DonMetadata{
+		Name: "workflow",
+		NodesMetadata: []*cre.NodeMetadata{{
+			Keys:  &secrets.NodeKeys{},
+			Roles: []cre.NodeType{cre.BootstrapNode},
+		}},
+	}
+	runtime := map[string]domain.NodeRuntimeInfo{
+		"node-0": {},
+	}
+
+	err := hydrateDiscoveredOCR2BundleIDs(donMeta, []string{"node-0"}, runtime)
+	require.NoError(t, err)
+	require.Empty(t, donMeta.NodesMetadata[0].Keys.OCR2BundleIDs)
+}
+
+func TestHydrateDiscoveredOCR2BundleIDs_SkipsGatewayNode(t *testing.T) {
+	t.Parallel()
+
+	donMeta := &cre.DonMetadata{
+		Name: "gateway",
+		NodesMetadata: []*cre.NodeMetadata{{
+			Keys:  &secrets.NodeKeys{},
+			Roles: []cre.NodeType{cre.GatewayNode},
+		}},
+	}
+	runtime := map[string]domain.NodeRuntimeInfo{
+		"node-0": {},
+	}
+
+	err := hydrateDiscoveredOCR2BundleIDs(donMeta, []string{"node-0"}, runtime)
+	require.NoError(t, err)
+	require.Empty(t, donMeta.NodesMetadata[0].Keys.OCR2BundleIDs)
+}
+
+func TestValidateNodeRolesPresent_Pass(t *testing.T) {
+	t.Parallel()
+
+	donMeta := &cre.DonMetadata{
+		Name: "workflow",
+		NodesMetadata: []*cre.NodeMetadata{{
+			Roles: []cre.NodeType{cre.WorkerNode},
+		}},
+	}
+
+	err := validateNodeRolesPresent(donMeta, []string{"node-0"})
+	require.NoError(t, err)
+}
+
+func TestValidateNodeRolesPresent_EmptyRolesRejected(t *testing.T) {
+	t.Parallel()
+
+	donMeta := &cre.DonMetadata{
+		Name:          "workflow",
+		NodesMetadata: []*cre.NodeMetadata{{}},
+	}
+
+	err := validateNodeRolesPresent(donMeta, []string{"node-0"})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no roles assigned")
 }
 
 func TestHydrateDiscoveredHosts_UsesChartNodeNamespace(t *testing.T) {
