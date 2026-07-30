@@ -326,7 +326,7 @@ func ApprovedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 			Filter: &jobv1.ListProposalsRequest_Filter{
 				JobIds: slices.Collect(maps.Keys(jobs)),
 			},
-		})
+		}, grpc.MaxCallRecvMsgSize(50*1024*1024)) // Raise the default max receive message size (4 MB) to 50 MB
 		if err != nil {
 			// don't block on single node error
 			lggr.Warnf("failed to list job proposals on node %s: %v", nodeID, err)
