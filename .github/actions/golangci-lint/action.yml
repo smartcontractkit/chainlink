@@ -33,7 +33,7 @@ runs:
   using: composite
   steps:
     - name: Checkout repo (full)
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       # Only do a full checkout on merge_groups
       if: github.event_name == 'merge_group'
       with:
@@ -41,7 +41,7 @@ runs:
         fetch-depth: 0
 
     - name: Checkout repo
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       if: github.event_name != 'merge_group'
       with:
         persist-credentials: false
@@ -80,6 +80,7 @@ runs:
       with:
         version: v2.11.4
         only-new-issues: true
+        skip-cache: true
         args: --output.checkstyle.path=${{ env.REPORT_PATH }}
         working-directory: ${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}
 

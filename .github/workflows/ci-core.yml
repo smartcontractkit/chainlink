@@ -293,6 +293,7 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             install-loopps: "false"
+            build-cache-version: go_core_tests
             build-cache-write: never
 
           - cmd: go_core_race_tests
@@ -305,6 +306,7 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             install-loopps: "false"
+            build-cache-version: go_core_tests
             build-cache-write: never
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
@@ -335,7 +337,7 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-go
         with:
-          build-cache-version: ${{ matrix.type.cmd }}
+          build-cache-version: ${{ matrix.type.build-cache-version || matrix.type.cmd }}
           build-cache-write: ${{ matrix.type.build-cache-write }}
           go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
           go-module-file: ${{ matrix.type.go-mod-directory }}go.sum

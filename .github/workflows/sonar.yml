@@ -1,7 +1,7 @@
 name: SonarQube Scan
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || github.ref }}
   cancel-in-progress: true
 
 on:
@@ -14,7 +14,7 @@ on:
 jobs:
   scan:
     name: SonarQube Scan
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.actor.login != 'dependabot[bot]' && github.event.workflow_run.head_repository.full_name == github.repository) }}
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion != 'cancelled' && github.event.workflow_run.actor.login != 'dependabot[bot]' && github.event.workflow_run.head_repository.full_name == github.repository) }}
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -32,10 +32,15 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         if: ${{ github.event_name == 'workflow_run' }}
 
       - name: Check and Set SonarQube Report Paths
         shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          BASE_BRANCH: ${{ github.event.workflow_run.pull_requests[0].base.ref || 'develop' }}
         run: |
           # Check and assign paths for coverage/test reports in go_core_tests_logs
           core_artifact="go_core_tests_logs"
@@ -91,6 +96,14 @@ jobs:
           echo "Lint report paths: $sonarqube_lint_report_paths"
 
           ARGS=""
+          if [[ -n "${PR_NUMBER}" ]]; then
+            ARGS="$ARGS -Dsonar.pullrequest.key=${PR_NUMBER}"
+            ARGS="$ARGS -Dsonar.pullrequest.branch=${HEAD_BRANCH}"
+            ARGS="$ARGS -Dsonar.pullrequest.base=${BASE_BRANCH}"
+          elif [[ -n "${HEAD_BRANCH}" ]]; then
+            ARGS="$ARGS -Dsonar.branch.name=${HEAD_BRANCH}"
+          fi
+
           if [[ -z "$sonarqube_tests_report_paths" ]]; then
             echo "::warning::No test report paths found, will not pass to sonarqube"
           else
@@ -124,3 +137,4 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
+
