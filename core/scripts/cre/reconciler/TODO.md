@@ -73,35 +73,43 @@ changing one DON's capability config re-runs (only) CapReg + jobs for the change
 **Depends on / relates to:** A2 (per-checkpoint hashing), A3 (deploy stays actual-state), B-items (p2p_id + discovered
 keys feed the hashes). This supersedes the old "diff-based reconciliation" idea.
 
-### A2 — Granular, resumable phases  ·  TODO · P1
-**Problem.** `deployAndConfigureOnChain` (onchain.go) runs P1–P8 as one function. A failure anywhere forces a full
-re-run of all steps. There is coarse skip (see A3) but no per-step checkpoint/resume.
+### A2 — Granular, resumable phases  ·  DONE (Phase 2) · P1
+**Status.** The on-chain flow was already split into individual methods on `Deployer`
+(`internal/onchain/deployer.go`'s `Apply`: `buildCldfEnv`, `buildTopology`, `buildCreEnvironment`, `deployContracts`,
+`runPreEnvStartup`, `prepareJDChainConfigsForCapReg`, `configureCapReg`, `resolveDONIDs`, `configureWorkflowReg`) —
+`Apply` just calls them in sequence. The `internal/onchain` subpackage extraction this item originally deferred has
+already happened; there is no `onchain.go` mega-function left to split.
 
-**Scope.** Break the on-chain flow into individually-gated, individually-persisted steps (deploy CapReg, deploy
-WorkflowReg, deploy forwarders, PreEnvStartup, JD chain configs, configure CapReg, resolve DON IDs, configure
-WorkflowReg), each with its own "already done?" guard driven by state/datastore so a mid-flow failure resumes at the
-failed step. Sync internal log labels (P1–P6 vs orchestration P1–P8 are desynced) with the real order.
+**Resolved scope.** Per-step "already done?" guards only make sense for steps that have a real, checkable artifact:
+- **Deploy contracts** — actual-state guard, see A3.
+- **Resolve DON IDs** (`state.DONIDs`) and **Configure WorkflowReg** (`state.WorkflowReg`) — already have a
+  post-success state artifact and are already persisted only after success.
+- **PreEnvStartup** and **Configure CapReg** — deliberately have **no** per-run completion marker. Both are
+  full-replace/idempotent operations (`ConfigureCapabilitiesRegistry` is a setter, not an appender), and skip-if-
+  input-unchanged for these is explicitly **A1's job** (Phase 3 hashing), not this item's. Always safely re-running
+  them on a resumed `Apply` call is correct, not a gap — adding a binary "ran once" marker here would just be
+  premature/duplicate machinery ahead of A1's hashing.
+- The stale log-label desync (`"=== P1-P6: ..."` header vs. 9 actual steps) is fixed — replaced with a plain,
+  non-numbered header so it can't drift out of sync again.
 
-**Acceptance.** Killing the process after step N and re-running resumes at step N+1 without repeating N; each step logs
-a label that matches its actual position.
+**Depends on / relates to:** A1 (per-step hashing — the next layer on top of this), A3.
 
-Each granular step is the natural unit for A1's store-after-success hashing (hash + persist per step, not one mega-hash
-for the whole on-chain flow), so build A2 with A1 in mind.
+### A3 — Auto-skip contract deployment when addresses present  ·  DONE (Phase 2) · P1
+**Status.** `deployContracts` (`internal/onchain/deploy.go`) now uses a `contractsFullyDeployed(state)` predicate that
+checks CapabilitiesRegistry **and** WorkflowRegistry are both present before skipping the deploy sequence.
 
-**Note.** The `internal/onchain` subpackage extraction was deliberately **deferred** (dead-stub version was deleted).
-This item can be done in place in `onchain.go`; revisit the subpackage split only if it earns its keep.
+**Decided behavior (differs from the original acceptance draft below).** `DeployV2RegistryContractsSequence` deploys
+both contracts together against a fresh in-memory datastore with no existence check of its own — it cannot deploy just
+one of the two. Rather than bypassing the sequence to call the underlying CLDF operations
+(`cap_reg_v2.DeployCapabilitiesRegistry`, `wf_reg_v2.DeployWorkflowRegistryOp`) independently and duplicating its
+datastore-merge logic, the decided approach is: if either contract is missing, **redeploy both** via the existing
+sequence. This means a crash between the two contracts' deployment (leaving only CapReg on-chain) resolves by
+redeploying both — the original CapReg contract is orphaned rather than reused, but the flow completes correctly
+without new CLDF-operation-level code. `KeystoneForwarder` is out of scope for this guard entirely — it's deployed
+per-DON/per-feature inside `PreEnvStartup`, which stays atomic (see A2).
 
-**Depends on / relates to:** A1 (per-step hashing), A3.
-
-### A3 — Auto-skip contract deployment when addresses present  ·  PARTIAL · P1
-**Status.** Already partly done: `deployContracts` skips the deploy sequence and hydrates the datastore from state when
-`state.HasAddress("CapabilitiesRegistry")` is true. **Gap:** it's coarse (keys off CapReg only) and not per-contract.
-
-**Scope.** Make the skip per-contract via datastore `MightGetAddressFromDataStore` guards (CapReg, WorkflowReg,
-KeystoneForwarder independently), so a partial prior deploy resumes cleanly. Fold into A2's per-step guards.
-
-**Acceptance.** With only CapReg in state, re-run deploys WorkflowReg/Forwarder but not CapReg; with all present,
-deploys nothing.
+**Acceptance.** With only CapReg (or only WorkflowReg) in state, re-run redeploys both; with both present, deploys
+nothing.
 
 **Depends on / relates to:** A2 (this is one of its steps), A1.
 

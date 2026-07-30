@@ -236,47 +236,53 @@ Split the monolithic on-chain apply flow into resumable, independently persisted
 
 ### Implementation steps
 
-1. Identify the existing P1-P8 sequence in `Deployer.Apply`.
-2. Extract each major step into its own method:
-   - build CLDF env
-   - build topology
-   - build CRE env
-   - deploy contracts
-   - run PreEnvStartup
-   - prepare JD chain configs
-   - configure CapReg
-   - resolve DON IDs
-   - configure WorkflowReg
-3. After each successful state-mutating step:
-   - persist state
-   - update the phase/checkpoint marker
-4. Replace the current coarse deploy skip with per-contract address guards.
-5. Treat `PreEnvStartup` as atomic:
-   - do not try to resume midway through `PreEnvStartup`
-   - do not introduce per-forwarder resume logic
-   - do not introduce per-DON partial completion inside `PreEnvStartup`
-6. Ensure the realistic contract/config boundary states resume cleanly:
-   - only CapReg exists
-   - CapReg and WorkflowReg exist
-   - contracts exist, but CapReg and WorkflowReg have not been configured yet
-7. Keep the public CLI behavior unchanged in this phase.
+1. ~~Identify the existing P1-P8 sequence in `Deployer.Apply`.~~ Done pre-Phase-2 — the `internal/onchain`
+   subpackage split already happened and `Apply` already calls 9 distinct steps.
+2. ~~Extract each major step into its own method~~ — already done (build CLDF env, build topology, build CRE env,
+   deploy contracts, run PreEnvStartup, prepare JD chain configs, configure CapReg, resolve DON IDs, configure
+   WorkflowReg all already exist as separate `Deployer` methods). Fixed the stale log header
+   (`"=== P1-P6: ... ==="`, wrong step count) — replaced with a plain, non-numbered header.
+3. Persist-after-success review: `resolveDONIDs` (`state.DONIDs`) and `configureWorkflowReg` (`state.WorkflowReg`)
+   already write their own state artifact only after success, and `Apply` already persists after each. **No new
+   checkpoint/phase marker was added** for `PreEnvStartup` or `configureCapReg` — see the decided-scope note below.
+4. **Decided scope (differs from the original wording here — see TODO.md A3):** `DeployV2RegistryContractsSequence`
+   deploys CapabilitiesRegistry + WorkflowRegistry together against a fresh in-memory datastore with no existence
+   check of its own — it cannot deploy just one of the two without bypassing the sequence and duplicating its
+   datastore-merge logic. Instead of a true independent per-contract guard, `deployContracts` now uses a
+   `contractsFullyDeployed(state)` predicate that requires **both** addresses present to skip; if either is missing,
+   it redeploys **both** via the existing sequence (accepting that a contract that already existed gets redeployed/
+   orphaned in that case).
+5. Treat `PreEnvStartup` as atomic — confirmed unchanged: no per-forwarder or per-DON partial-completion logic was
+   added. `PreEnvStartup` and `configureCapReg` have no per-run completion marker by design — they're full-replace/
+   idempotent operations, and skip-if-input-unchanged is explicitly A1's job (Phase 3), not this phase's. Always
+   re-running them on a resumed `Apply` is correct, not a gap.
+6. Boundary-state resume, given step 4's fix:
+   - only CapReg exists → redeploys both (see step 4), then the rest of `Apply` proceeds normally.
+   - CapReg and WorkflowReg exist → deploy step skips; `PreEnvStartup`/`configureCapReg`/`resolveDONIDs`/
+     `configureWorkflowReg` safely re-run (idempotent, no data loss).
+   - contracts exist but not configured → same as above, resumes correctly with no changes needed beyond step 4.
+7. Public CLI behavior unchanged — confirmed, no flags touched.
 
 ### Tests to add or update
 
-- create or expand deployer tests for partial resume
-- update any state tests that assume a single on-chain phase checkpoint
+- `internal/onchain/deploy_test.go` (new): `contractsFullyDeployed` (neither/CapReg-only/WorkflowReg-only/both) and
+  `deployContracts` skip-path test.
+- No end-to-end `Apply` test harness was built — none existed before this phase, and building one (faking CLDF env +
+  JD client) is disproportionate to the narrowed scope above; deferred until it's actually needed.
 
 ### Validation
 
 - Run:
-  - `go test ./core/scripts/cre/reconciler/internal/onchain`
-  - `go test ./core/scripts/cre/reconciler/...`
+  - `go test ./core/scripts/cre/reconciler/internal/onchain` — 36 passed
+  - `go test ./core/scripts/cre/reconciler/...` — 147 passed, 9 packages
 
 ### Exit criteria
 
-- A failed run can resume from the failed step.
-- Already-completed steps are not repeated.
-- Per-contract deployment skip works independently.
+- A failed run can resume from the failed step — true for deploy (per the decided redeploy-both behavior) and for
+  every step after it (idempotent re-run, no data loss).
+- Already-completed steps (contract deploy when both present) are not repeated.
+- Per-contract deployment *check* is independent (both addresses checked separately); the *remedy* when not fully
+  deployed is a combined redeploy, not an independent per-contract deploy — see TODO.md A3.
 
 ---
 

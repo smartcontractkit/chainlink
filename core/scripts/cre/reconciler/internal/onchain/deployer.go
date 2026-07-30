@@ -80,7 +80,7 @@ func (d *Deployer) Apply(
 	state *domain.StateFile,
 	persist func(),
 ) error {
-	d.log.Info().Msg("=== P1-P6: On-chain configuration ===")
+	d.log.Info().Msg("=== On-chain configuration ===")
 
 	// The JD access token is validated once, up front, in Run (requireJDAccessToken) —
 	// before discovery even starts — so no redundant check is needed here.
@@ -130,7 +130,7 @@ func (d *Deployer) Apply(
 		Msg("Built CRE environment")
 
 	deploySummary := "Deploy CapabilitiesRegistry + WorkflowRegistry v2 to Anvil"
-	if state.HasAddress(keystone_changeset.CapabilitiesRegistry.String()) {
+	if contractsFullyDeployed(state) {
 		deploySummary = "Contracts already deployed — will hydrate addresses from state"
 	}
 	if err = d.skipUnlessConfirmed("P4: Deploy registry contracts", deploySummary); err != nil {

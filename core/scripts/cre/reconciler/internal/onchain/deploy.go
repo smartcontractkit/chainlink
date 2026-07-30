@@ -13,13 +13,23 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 )
 
-func (d *Deployer) deployContracts(env *cldf.Environment, chainSelector uint64, state *domain.StateFile) error {
-	d.log.Info().Msg("P1: Deploying Keystone v2 contracts")
+// contractsFullyDeployed reports whether both registry contracts this step is
+// responsible for are already present in state. DeployV2RegistryContractsSequence
+// deploys CapabilitiesRegistry and WorkflowRegistry together and can't deploy just
+// one of them, so a partial deploy (only one present, e.g. from a crashed prior
+// run) is not skippable — it's redeployed in full, see deployContracts.
+func contractsFullyDeployed(state *domain.StateFile) bool {
+	return state.HasAddress(keystone_changeset.CapabilitiesRegistry.String()) &&
+		state.HasAddress(keystone_changeset.WorkflowRegistry.String())
+}
 
-	if state.HasAddress(keystone_changeset.CapabilitiesRegistry.String()) {
+func (d *Deployer) deployContracts(env *cldf.Environment, chainSelector uint64, state *domain.StateFile) error {
+	d.log.Info().Msg("Deploying Keystone v2 contracts")
+
+	if contractsFullyDeployed(state) {
 		capRegAddr := state.GetAddress(keystone_changeset.CapabilitiesRegistry.String())
 		wfRegAddr := state.GetAddress(keystone_changeset.WorkflowRegistry.String())
-		d.log.Info().Str("capReg", capRegAddr).Str("wfReg", wfRegAddr).Msg("Contracts already deployed — skipping P1")
+		d.log.Info().Str("capReg", capRegAddr).Str("wfReg", wfRegAddr).Msg("Contracts already deployed — skipping")
 
 		memDs, err := hydrateMemoryDataStoreFromState(state, chainSelector)
 		if err != nil {
