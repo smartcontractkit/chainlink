@@ -103,22 +103,22 @@ plugins:
 
   capability-evm:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/evm"
-      gitRef: "d7162a2b15aea2ce861052ebaa2f5ca716a9b60a"
+      gitRef: "530807a9c2982e6d4cb7b22be412e28397c601e3"
       installPath: "."
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "baffa8733456bf8409cfbc006fd3a79b2e114997"
+      gitRef: "530807a9c2982e6d4cb7b22be412e28397c601e3"
       installPath: "."
 
   capability-aptos:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/aptos"
-      gitRef: "326012b4ee2e40aedb0a9cb9be5e9fd3c26c524e"
+      gitRef: "530807a9c2982e6d4cb7b22be412e28397c601e3"
       installPath: "."
 
   capability-stellar:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/stellar"
-      gitRef: "56181b247c89ba937d6ba54a6a29b805f53804f4"
+      gitRef: "530807a9c2982e6d4cb7b22be412e28397c601e3"
       installPath: "."
 
   confidential-http:
