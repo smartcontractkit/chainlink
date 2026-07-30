@@ -413,6 +413,7 @@ DurableEmitterEnabled = true
 DurableEmitterRetransmitBatchSize = 500
 DurableEmitterEventTTL = '1h0m0s'
 DurableEmitterMaxQueuePayloadBytes = 1073741824
+DurableEmitterInsertBatchFlushInterval = '50ms'
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false
@@ -421,6 +422,7 @@ LogExportTimeout = '1s'
 LogExportMaxBatchSize = 512
 LogExportInterval = '1s'
 LogMaxQueueSize = 2048
+MetricViewsDenyAttributes = ['event_id']
 MetricCardinalityLimit = 100000
 
 [Telemetry.PrometheusBridge]

@@ -912,6 +912,9 @@ DurableEmitterEventTTL = '1h0m0s' # Default
 # DurableEmitterMaxQueuePayloadBytes is the byte ceiling used as the denominator for the durable emitter's
 # queue capacity_usage_ratio metric. Defaults to 1 GiB.
 DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
+# DurableEmitterInsertBatchFlushInterval is the linger time the durable emitter waits to coalesce concurrent
+# emits into a single multi-row INSERT. Lower values reduce per-emit latency at the cost of smaller batches.
+DurableEmitterInsertBatchFlushInterval = '50ms' # Default
 # HeartbeatInterval is the interval at which a the application heartbeat is sent to telemetry backends.
 HeartbeatInterval = '1s' # Default
 # LogLevel sets the log level for telemetry streaming (debug, info, warn, error, crit, panic, fatal)
@@ -928,6 +931,9 @@ LogExportMaxBatchSize = 512 # Default
 LogExportInterval = '1s' # Default
 # LogMaxQueueSize sets the maximum queue size used by the batcher
 LogMaxQueueSize = 2048 # Default
+# MetricViewsDenyAttributes lists attribute keys dropped before export (e.g. event_id).
+# Empty disables default Beholder metric attribute deny views.
+MetricViewsDenyAttributes = ['event_id'] # Default
 # MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
 MetricCardinalityLimit = 100000 # Default
 
