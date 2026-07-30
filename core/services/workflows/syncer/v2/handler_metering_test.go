@@ -224,6 +224,7 @@ func Test_meterRecords(t *testing.T) {
 				WorkflowID:    wfID.Hex(),
 				Status:        job.WorkflowSpecStatusActive,
 				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
 			},
 		}, newMeteringResourceManager(t, true, emitter))
 

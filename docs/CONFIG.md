@@ -2674,13 +2674,7 @@ NodeID = '' # Default
 ```
 Metering configures durable resource metering emission and the coarse
 deployment/node identity dimensions stamped on emitted MeterRecords and
-MeterSnapshots. This TOML section is the single authority for metering on the
-core node; there is no environment-variable gate. For capability LOOP plugins
-the values are forwarded unchanged over the plugin environment
-(loop.EnvConfig), which is only a child-process transport produced from this
-config, not a separate gate. Snapshots are emitted on a fixed internal
-interval and are bucket-aligned (each snapshot timestamp is truncated to the
-interval) so cross-node snapshot buckets agree.
+MeterSnapshots.
 
 ### MeterRecordsEnabled
 ```toml
@@ -2730,7 +2724,6 @@ Zone is the deployment zone identity dimension, e.g. 'wf-zone-a'.
 NodeID = '' # Default
 ```
 NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA public key).
-Required (non-empty) when `MeterRecordsEnabled = true`.
 
 ## CRE.Streams
 ```toml
