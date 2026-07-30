@@ -13,6 +13,8 @@ import (
 )
 
 func TestExecutionHandlers_AddGetRemove(t *testing.T) {
+	t.Parallel()
+
 	var eh ExecutionHandlers
 	helper := &mockExecutionHelper{}
 
@@ -27,6 +29,8 @@ func TestExecutionHandlers_AddGetRemove(t *testing.T) {
 }
 
 func TestExecutionHandlers_GetExecutionWithWait_AlreadyPresent(t *testing.T) {
+	t.Parallel()
+
 	var eh ExecutionHandlers
 	helper := &mockExecutionHelper{}
 	eh.AddExecution("wf", "exec", helper)
@@ -46,6 +50,8 @@ func TestExecutionHandlers_GetExecutionWithWait_AlreadyPresent(t *testing.T) {
 // execution; GetExecutionWithWait must return the handler once AddExecution
 // registers it, without a lost wakeup.
 func TestExecutionHandlers_GetExecutionWithWait_AppearsWhileWaiting(t *testing.T) {
+	t.Parallel()
+
 	var eh ExecutionHandlers
 	helper := &mockExecutionHelper{}
 
@@ -77,11 +83,15 @@ func TestExecutionHandlers_GetExecutionWithWait_AppearsWhileWaiting(t *testing.T
 // A callback for an execution this node never runs must fail in bounded time and
 // must not leak the waiter.
 func TestExecutionHandlers_GetExecutionWithWait_Timeout(t *testing.T) {
+	t.Parallel()
+
 	var eh ExecutionHandlers
+	// Capture start before the deadline is set so the elapsed lower-bound check
+	// cannot flake on the sliver of time between WithTimeout and the call.
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	start := time.Now()
 	_, ok := eh.GetExecutionWithWait(ctx, "wf", "missing")
 	elapsed := time.Since(start)
 	assert.False(t, ok)
@@ -96,6 +106,8 @@ func TestExecutionHandlers_GetExecutionWithWait_Timeout(t *testing.T) {
 
 // AddExecution must wake every parked waiter for the key.
 func TestExecutionHandlers_GetExecutionWithWait_ManyWaiters(t *testing.T) {
+	t.Parallel()
+
 	var eh ExecutionHandlers
 	helper := &mockExecutionHelper{}
 
