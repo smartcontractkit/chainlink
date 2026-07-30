@@ -115,6 +115,8 @@ jobs:
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade)
 
           tests=$(echo "$test_names" | jq -c -R -s \
+            --argjson run_id "${{ github.run_id }}" \
+            --arg run_attempt "${{ github.run_attempt }}" \
             --argjson tops "$TOPOLOGIES_JSON" \
             --argjson per "$PER_TEST_TOPOLOGIES_JSON" '
             (split("\n") | map(select(length>0))) as $names
@@ -125,12 +127,16 @@ jobs:
               ] as $extra
             | ($base + $extra)
             | to_entries
-            | map(.value + {test_id: .key})
+            | map(.value + {
+                test_id: .key,
+                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+              })
           ')
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
   run-system-tests:
+    name: ${{ matrix.tests.test_name }} ${{ matrix.tests.topology != '' && format(' ({0})', matrix.tests.topology) || '' }}
     permissions:
       contents: read
       id-token: write
@@ -141,9 +147,7 @@ jobs:
     needs: [define-test-matrix]
     # we need a `test_id` and `run_attempt` here to stop runner stealing
     # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
-    runs-on: runs-on=${{ github.run_id }}-${{ matrix.tests.test_id }}-${{
-      github.run_attempt
-      }}/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on: ${{ matrix.tests.runs_on }}
     environment:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
       name: integration
@@ -154,6 +158,9 @@ jobs:
       BILLING_PLATFORM_SERVICE_IMAGE:
         ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
         secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.57.1
+      CHAINLINK_IMAGE_FULL: ${{ inputs.ecr == 'public' && format('public.ecr.aws/{0}:{1}', inputs.chainlink_image_repository_path, inputs.chainlink_image_tag) || format('{0}.dkr.ecr.{1}.amazonaws.com/{2}:{3}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.QA_AWS_REGION, inputs.chainlink_image_repository_path, inputs.chainlink_image_tag) }}
+      CTF_CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+      CTF_CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
@@ -167,14 +174,22 @@ jobs:
 
       - name: Set up Go
         id: setup-go
-        uses: actions/setup-go@v7
+        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
-          go-version-file: system-tests/tests/go.mod
-          cache: true
+          go_mod_path: system-tests/tests/go.mod
+          cache_key_id: integration-tests-v1
+          cache_builds: true
+          cache_restore_only: "true"
+
+      - name: Restore Pre-Compiled Test Binaries from S3 Cache
+        uses: actions/cache/restore@v6
+        with:
+          path: system-tests/tests/bin/
+          key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
 
       # Required to pull Job Distributor (main), Chip Ingress (main) and Chainlink (sdlc) private images
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
@@ -199,12 +214,23 @@ jobs:
         env:
           AWS_REGION: us-east-1
 
+      - name: Cache gotestsum
+        id: cache-gotestsum
+        uses: actions/cache@v6
+        with:
+          path: ~/go/bin/gotestsum
+          key: gotestsum-1.13.0
+
       - name: Set up gotestsum
         shell: bash
         run: |
-          echo "::group::Install gotestsum"
-          go install gotest.tools/gotestsum@v1.13.0
-          echo "::endgroup::"
+          if [ -f ~/go/bin/gotestsum ]; then
+            echo "Using cached gotestsum"
+          else
+            echo "::group::Install gotestsum"
+            go install gotest.tools/gotestsum@v1.13.0
+            echo "::endgroup::"
+          fi
 
       - name: Install Aptos CLI
         if: ${{ matrix.tests.test_name == 'Test_CRE_V2_Aptos_Suite' }}
@@ -218,21 +244,6 @@ jobs:
         with:
           working-directory: system-tests/lib
 
-      - name: Resolve Chainlink image
-        id: resolve-chainlink-image
-        working-directory: .github/scripts
-        shell: bash
-        env:
-          CHAINLINK_IMAGE_REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
-          CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
-          ECR_TYPE: ${{ inputs.ecr }}
-          AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-        run: |
-          resolved_image="$(bash resolve-chainlink-image.sh)"
-          echo "$resolved_image"
-          echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
-
       - name: Start observability stack (Beholder suite)
         if: contains(matrix.tests.test_name, 'Beholder_Suite')
         shell: bash
@@ -241,12 +252,6 @@ jobs:
           TEST_NAME: ${{ matrix.tests.test_name }}
           OBS_MAX_ATTEMPTS: "3"
           OBS_RETRY_DELAY_SECONDS: "15"
-          CTF_CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
-            secrets.QA_AWS_REGION
-            }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
-          CTF_CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
-            secrets.QA_AWS_REGION
-            }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
         run: |
           set -u
           set +e
@@ -323,7 +328,7 @@ jobs:
           jd-image:
             "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
             }}.amazonaws.com/job-distributor:0.28.0"
-          chainlink-image: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
+          chainlink-image: "${{ env.CHAINLINK_IMAGE_FULL }}"
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           ctf-configs: ${{ matrix.tests.configs }}
@@ -355,21 +360,29 @@ jobs:
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
           PARALLEL_COUNT: "10"
           CRE_TEST_PARALLEL_ENABLED: "true"
-          CTF_CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
-            secrets.QA_AWS_REGION
-            }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
-          CTF_CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
-            secrets.QA_AWS_REGION
-            }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
         run: |
           echo "Starting test: '${TEST_NAME}'"
-          gotestsum \
-            --jsonfile=/tmp/gotest.log \
-            --junitfile=/tmp/junit-report.xml \
-            --format=github-actions \
-            -- \
-            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel="${PARALLEL_COUNT}" \
-            github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
+          if [ -f "./bin/cre-smoke.test" ]; then
+            echo "Using precompiled binary"
+            (
+              cd smoke/cre && \
+              gotestsum \
+                --jsonfile=/tmp/gotest.log \
+                --junitfile=/tmp/junit-report.xml \
+                --format=github-actions \
+                --raw-command -- \
+                go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre ../../bin/cre-smoke.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL_COUNT}"
+            )
+          else
+            echo "No precompiled binary found. Building from scratch..."
+            gotestsum \
+              --jsonfile=/tmp/gotest.log \
+              --junitfile=/tmp/junit-report.xml \
+              --format=github-actions \
+              -- \
+              -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel="${PARALLEL_COUNT}" \
+              github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
+          fi
 
           exit_code="$?"
           if [ "$exit_code" -eq 0 ]; then
