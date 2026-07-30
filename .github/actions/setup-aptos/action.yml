@@ -1,0 +1,27 @@
+name: Setup Aptos CLI
+description: Install and cache Aptos CLI
+inputs:
+  version:
+    description: Aptos CLI version
+    required: false
+    default: "8.1.0"
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Aptos CLI
+      id: cache
+      uses: actions/cache@v6
+      with:
+        path: ~/.aptos/bin
+        key: ${{ runner.os }}-${{ runner.arch }}-aptos-${{ inputs.version }}
+
+    - name: Install Aptos CLI
+      if: ${{ steps.cache.outputs.cache-hit != 'true' }}
+      uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505
+      with:
+        CLI_VERSION: ${{ inputs.version }}
+
+    - name: Export Aptos CLI to PATH
+      shell: bash
+      run: echo "$HOME/.aptos/bin" >> "$GITHUB_PATH"
