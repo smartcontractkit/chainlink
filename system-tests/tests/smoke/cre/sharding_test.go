@@ -18,14 +18,13 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/dev/generated/latest/shard_config"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
