@@ -29,11 +29,17 @@ jobs:
   filter:
     name: Detect Go module changes
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
-      changed: ${{ steps.changes.outputs.src }}
+      changed: ${{ steps.changes.outputs.src || 'true' }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        if: github.event_name == 'pull_request'
         id: changes
         with:
           filters: |
@@ -45,7 +51,7 @@ jobs:
   go-cache:
     name: Go Cache ${{ matrix.suffix }}
     needs: [filter]
-    if: needs.filter.outputs.changed == 'true' || github.event_name != 'pull_request'
+    if: needs.filter.outputs.changed == 'true'
 
     strategy:
       fail-fast: false

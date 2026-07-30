@@ -23,6 +23,7 @@ inputs:
     default: "true"
   restore-build-cache-only:
     description: |
+      [Deprecated] Use build-cache-write instead.
       Only restore the build cache, don't automatically update/upload it.
     default: "false"
   build-cache-write:
@@ -171,7 +172,8 @@ runs:
             SAVE="true"
             ;;
           default-branch-only)
-            if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${CURRENT_BRANCH}" = "${DEFAULT_BRANCH}" ]; then
+            if [ "${CURRENT_BRANCH}" = "${DEFAULT_BRANCH}" ] && \
+               { [ "${GITHUB_EVENT_NAME}" = "push" ] || [ "${GITHUB_EVENT_NAME}" = "schedule" ]; }; then
               SAVE="true"
             fi
             ;;

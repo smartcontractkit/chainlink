@@ -338,13 +338,20 @@ jobs:
           go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
           go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
 
+      - name: Compute WASM cache key
+        if: ${{ matrix.type.should-run == 'true' }}
+        id: wasm-key
+        shell: bash
+        run: |
+          echo "key=${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}" >> "$GITHUB_OUTPUT"
+
       - name: Restore WASM test binaries cache
         if: ${{ matrix.type.should-run == 'true' }}
         id: wasm-cache-restore
         uses: actions/cache/restore@v6
         with:
           path: .wasm-cache/
-          key: ${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}
+          key: ${{ steps.wasm-key.outputs.key }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-wasmcache-
 
@@ -425,7 +432,7 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: .wasm-cache/
-          key: ${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}
+          key: ${{ steps.wasm-key.outputs.key }}
 
       - name: Analyze and upload test results
         if:
