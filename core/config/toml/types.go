@@ -2058,8 +2058,8 @@ type ConfidentialRelayConfig struct {
 
 // LinkingConfig holds the configuration for connecting to the CRE linking service
 type LinkingConfig struct {
-	URL        *string                `toml:",omitempty"`
-	TLSEnabled *bool                  `toml:",omitempty"`
+	URL            *string                `toml:",omitempty"`
+	TLSEnabled     *bool                  `toml:",omitempty"`
 	RequestTimeout *commonconfig.Duration `toml:",omitempty"`
 }
 
