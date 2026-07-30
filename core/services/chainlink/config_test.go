@@ -48,11 +48,11 @@ var (
 
 	multiChain = Config{
 		Core: toml.Core{
-			RootDir: ptr("my/root/dir"),
+			RootDir: new("my/root/dir"),
 			AuditLogger: toml.AuditLogger{
-				Enabled:      ptr(true),
+				Enabled:      new(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
-				Headers: ptr([]models.ServiceHeader{
+				Headers: new([]models.ServiceHeader{
 					{
 						Header: "Authorization",
 						Value:  "token",
@@ -62,7 +62,7 @@ var (
 						Value:  "value with spaces | and a bar+*",
 					},
 				}),
-				JsonWrapperKey: ptr("event"),
+				JsonWrapperKey: new("event"),
 			},
 			Database: toml.Database{
 				Listener: toml.DatabaseListener{
@@ -71,7 +71,7 @@ var (
 			},
 			Log: toml.Log{
 				Level:       ptr(toml.LogLevel(zapcore.PanicLevel)),
-				JSONConsole: ptr(true),
+				JSONConsole: new(true),
 			},
 			JobPipeline: toml.JobPipeline{
 				HTTPRequest: toml.JobPipelineHTTPRequest{
@@ -79,23 +79,23 @@ var (
 				},
 			},
 			OCR2: toml.OCR2{
-				Enabled:         ptr(true),
+				Enabled:         new(true),
 				DatabaseTimeout: commoncfg.MustNewDuration(20 * time.Second),
 			},
 			OCR: toml.OCR{
-				Enabled:           ptr(true),
+				Enabled:           new(true),
 				BlockchainTimeout: commoncfg.MustNewDuration(5 * time.Second),
 			},
 			P2P: toml.P2P{
-				IncomingMessageBufferSize: ptr[int64](999),
+				IncomingMessageBufferSize: new(int64(999)),
 			},
 			AutoPprof: toml.AutoPprof{
-				CPUProfileRate: ptr[int64](7),
+				CPUProfileRate: new(int64(7)),
 			},
 			Workflows: toml.Workflows{
 				Limits: toml.Limits{
-					Global:   ptr(int32(200)),
-					PerOwner: ptr(int32(200)),
+					Global:   new(int32(200)),
+					PerOwner: new(int32(200)),
 				},
 			},
 		},
@@ -103,21 +103,21 @@ var (
 			{
 				ChainID: sqlutil.NewI(1),
 				Chain: evmcfg.Chain{
-					FinalityDepth:        ptr[uint32](26),
-					SafeDepth:            ptr[uint32](0),
-					FinalityTagEnabled:   ptr[bool](true),
-					SafeTagSupported:     ptr(true),
-					FinalizedBlockOffset: ptr[uint32](12),
+					FinalityDepth:        new(uint32(26)),
+					SafeDepth:            new(uint32(0)),
+					FinalityTagEnabled:   new(true),
+					SafeTagSupported:     new(true),
+					FinalizedBlockOffset: new(uint32(12)),
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("primary"),
+						Name:  new("primary"),
 						WSURL: mustURL("wss://web.socket/mainnet"),
 					},
 					{
-						Name:     ptr("secondary"),
+						Name:     new("secondary"),
 						HTTPURL:  mustURL("http://broadcast.mirror"),
-						SendOnly: ptr(true),
+						SendOnly: new(true),
 					},
 				}},
 			{
@@ -129,7 +129,7 @@ var (
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("foo"),
+						Name:  new("foo"),
 						WSURL: mustURL("wss://web.socket/test/foo"),
 					},
 				}},
@@ -137,12 +137,12 @@ var (
 				ChainID: sqlutil.NewI(137),
 				Chain: evmcfg.Chain{
 					GasEstimator: evmcfg.GasEstimator{
-						Mode: ptr("FixedPrice"),
+						Mode: new("FixedPrice"),
 					},
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("bar"),
+						Name:  new("bar"),
 						WSURL: mustURL("wss://web.socket/test/bar"),
 					},
 				}},
@@ -174,23 +174,23 @@ func TestConfig_Marshal(t *testing.T) {
 
 	global := Config{
 		Core: toml.Core{
-			InsecureFastScrypt:  ptr(true),
-			InsecurePPROFHeap:   ptr(true),
-			RootDir:             ptr("test/root/dir"),
+			InsecureFastScrypt:  new(true),
+			InsecurePPROFHeap:   new(true),
+			RootDir:             new("test/root/dir"),
 			ShutdownGracePeriod: commoncfg.MustNewDuration(10 * time.Second),
 			Insecure: toml.Insecure{
-				DevWebServer:         ptr(false),
-				OCRDevelopmentMode:   ptr(false),
-				InfiniteDepthQueries: ptr(false),
-				DisableRateLimiting:  ptr(false),
+				DevWebServer:         new(false),
+				OCRDevelopmentMode:   new(false),
+				InfiniteDepthQueries: new(false),
+				DisableRateLimiting:  new(false),
 			},
 			Tracing: toml.Tracing{
-				Enabled:         ptr(true),
-				CollectorTarget: ptr("localhost:4317"),
-				NodeID:          ptr("clc-ocr-sol-devnet-node-1"),
-				SamplingRatio:   ptr(1.0),
-				Mode:            ptr("tls"),
-				TLSCertPath:     ptr("/path/to/cert.pem"),
+				Enabled:         new(true),
+				CollectorTarget: new("localhost:4317"),
+				NodeID:          new("clc-ocr-sol-devnet-node-1"),
+				SamplingRatio:   new(1.0),
+				Mode:            new("tls"),
+				TLSCertPath:     new("/path/to/cert.pem"),
 				Attributes: map[string]string{
 					"test": "load",
 					"env":  "dev",
@@ -206,193 +206,193 @@ func TestConfig_Marshal(t *testing.T) {
 		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
 	}
 	full.AuditLogger = toml.AuditLogger{
-		Enabled:        ptr(true),
+		Enabled:        new(true),
 		ForwardToUrl:   mustURL("http://localhost:9898"),
-		Headers:        ptr(serviceHeaders),
-		JsonWrapperKey: ptr("event"),
+		Headers:        new(serviceHeaders),
+		JsonWrapperKey: new("event"),
 	}
 
 	full.Feature = toml.Feature{
-		FeedsManager:       ptr(true),
-		LogPoller:          ptr(true),
-		UICSAKeys:          ptr(true),
-		CCIP:               ptr(true),
-		MultiFeedsManagers: ptr(true),
+		FeedsManager:       new(true),
+		LogPoller:          new(true),
+		UICSAKeys:          new(true),
+		CCIP:               new(true),
+		MultiFeedsManagers: new(true),
 	}
 	full.Database = toml.Database{
 		DefaultIdleInTxSessionTimeout: commoncfg.MustNewDuration(time.Minute),
 		DefaultLockTimeout:            commoncfg.MustNewDuration(time.Hour),
 		DefaultQueryTimeout:           commoncfg.MustNewDuration(time.Second),
-		LogQueries:                    ptr(true),
-		MigrateOnStartup:              ptr(true),
-		MaxIdleConns:                  ptr[int64](7),
-		MaxOpenConns:                  ptr[int64](13),
+		LogQueries:                    new(true),
+		MigrateOnStartup:              new(true),
+		MaxIdleConns:                  new(int64(7)),
+		MaxOpenConns:                  new(int64(13)),
 		Listener: toml.DatabaseListener{
 			MaxReconnectDuration: commoncfg.MustNewDuration(time.Minute),
 			MinReconnectInterval: commoncfg.MustNewDuration(5 * time.Minute),
 			FallbackPollInterval: commoncfg.MustNewDuration(2 * time.Minute),
 		},
 		Lock: toml.DatabaseLock{
-			Enabled:              ptr(false),
+			Enabled:              new(false),
 			LeaseDuration:        &minute,
 			LeaseRefreshInterval: &second,
 		},
 		Backup: toml.DatabaseBackup{
-			Dir:              ptr("test/backup/dir"),
+			Dir:              new("test/backup/dir"),
 			Frequency:        &hour,
 			Mode:             &config.DatabaseBackupModeFull,
-			OnVersionUpgrade: ptr(true),
+			OnVersionUpgrade: new(true),
 		},
 	}
 	full.TelemetryIngress = toml.TelemetryIngress{
-		UniConn:            ptr(false),
-		Logging:            ptr(true),
-		BufferSize:         ptr[uint16](1234),
-		MaxBatchSize:       ptr[uint16](4321),
+		UniConn:            new(false),
+		Logging:            new(true),
+		BufferSize:         new(uint16(1234)),
+		MaxBatchSize:       new(uint16(4321)),
 		SendInterval:       commoncfg.MustNewDuration(time.Minute),
 		SendTimeout:        commoncfg.MustNewDuration(5 * time.Second),
-		UseBatchSend:       ptr(true),
-		ChipIngressEnabled: ptr(false),
+		UseBatchSend:       new(true),
+		ChipIngressEnabled: new(false),
 		Endpoints: []toml.TelemetryIngressEndpoint{{
-			Network:      ptr("EVM"),
-			ChainID:      ptr("1"),
-			ServerPubKey: ptr("test-pub-key"),
+			Network:      new("EVM"),
+			ChainID:      new("1"),
+			ServerPubKey: new("test-pub-key"),
 			URL:          mustURL("prom.test")},
 		},
 	}
 
 	full.Log = toml.Log{
 		Level:       ptr(toml.LogLevel(zapcore.DPanicLevel)),
-		JSONConsole: ptr(true),
-		UnixTS:      ptr(true),
+		JSONConsole: new(true),
+		UnixTS:      new(true),
 		File: toml.LogFile{
-			Dir:        ptr("log/file/dir"),
-			MaxSize:    ptr[utils.FileSize](100 * utils.GB),
-			MaxAgeDays: ptr[int64](17),
-			MaxBackups: ptr[int64](9),
+			Dir:        new("log/file/dir"),
+			MaxSize:    new((utils.FileSize)(100 * utils.GB)),
+			MaxAgeDays: new(int64(17)),
+			MaxBackups: new(int64(9)),
 		},
 	}
 	full.WebServer = toml.WebServer{
-		AuthenticationMethod:    ptr("local"),
-		AllowOrigins:            ptr("*"),
+		AuthenticationMethod:    new("local"),
+		AllowOrigins:            new("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
 		BridgeCacheTTL:          commoncfg.MustNewDuration(10 * time.Second),
 		HTTPWriteTimeout:        commoncfg.MustNewDuration(time.Minute),
-		HTTPPort:                ptr[uint16](56),
-		SecureCookies:           ptr(true),
+		HTTPPort:                new(uint16(56)),
+		SecureCookies:           new(true),
 		SessionTimeout:          commoncfg.MustNewDuration(time.Hour),
 		SessionReaperExpiration: commoncfg.MustNewDuration(7 * 24 * time.Hour),
 		HTTPMaxSize:             ptr(utils.FileSize(uint64(32770))),
 		StartTimeout:            commoncfg.MustNewDuration(15 * time.Second),
 		ListenIP:                mustIP("192.158.1.37"),
 		MFA: toml.WebServerMFA{
-			RPID:     ptr("test-rpid"),
-			RPOrigin: ptr("test-rp-origin"),
+			RPID:     new("test-rpid"),
+			RPOrigin: new("test-rp-origin"),
 		},
 		LDAP: toml.WebServerLDAP{
-			ServerTLS:                   ptr(true),
+			ServerTLS:                   new(true),
 			SessionTimeout:              commoncfg.MustNewDuration(15 * time.Minute),
 			QueryTimeout:                commoncfg.MustNewDuration(2 * time.Minute),
-			BaseUserAttr:                ptr("uid"),
-			BaseDN:                      ptr("dc=custom,dc=example,dc=com"),
-			UsersDN:                     ptr("ou=users"),
-			GroupsDN:                    ptr("ou=groups"),
-			ActiveAttribute:             ptr("organizationalStatus"),
-			ActiveAttributeAllowedValue: ptr("ACTIVE"),
-			AdminUserGroupCN:            ptr("NodeAdmins"),
-			EditUserGroupCN:             ptr("NodeEditors"),
-			RunUserGroupCN:              ptr("NodeRunners"),
-			ReadUserGroupCN:             ptr("NodeReadOnly"),
-			UserApiTokenEnabled:         ptr(false),
+			BaseUserAttr:                new("uid"),
+			BaseDN:                      new("dc=custom,dc=example,dc=com"),
+			UsersDN:                     new("ou=users"),
+			GroupsDN:                    new("ou=groups"),
+			ActiveAttribute:             new("organizationalStatus"),
+			ActiveAttributeAllowedValue: new("ACTIVE"),
+			AdminUserGroupCN:            new("NodeAdmins"),
+			EditUserGroupCN:             new("NodeEditors"),
+			RunUserGroupCN:              new("NodeRunners"),
+			ReadUserGroupCN:             new("NodeReadOnly"),
+			UserApiTokenEnabled:         new(false),
 			UserAPITokenDuration:        commoncfg.MustNewDuration(240 * time.Hour),
 			UpstreamSyncInterval:        commoncfg.MustNewDuration(0 * time.Second),
 			UpstreamSyncRateLimit:       commoncfg.MustNewDuration(2 * time.Minute),
 		},
 		OIDC: toml.WebServerOIDC{
-			ClientID:             ptr("abcd1234"),
-			ProviderURL:          ptr("https://id.provider.com/oauth2/default"),
-			RedirectURL:          ptr("http://localhost:3000/signin"),
-			ClaimName:            ptr("groups"),
-			AdminClaim:           ptr("NodeAdmins"),
-			EditClaim:            ptr("NodeEditors"),
-			RunClaim:             ptr("NodeRunners"),
-			ReadClaim:            ptr("NodeReadOnly"),
+			ClientID:             new("abcd1234"),
+			ProviderURL:          new("https://id.provider.com/oauth2/default"),
+			RedirectURL:          new("http://localhost:3000/signin"),
+			ClaimName:            new("groups"),
+			AdminClaim:           new("NodeAdmins"),
+			EditClaim:            new("NodeEditors"),
+			RunClaim:             new("NodeRunners"),
+			ReadClaim:            new("NodeReadOnly"),
 			SessionTimeout:       commoncfg.MustNewDuration(15 * time.Minute),
-			UserAPITokenEnabled:  ptr(false),
+			UserAPITokenEnabled:  new(false),
 			UserAPITokenDuration: commoncfg.MustNewDuration(240 * time.Hour),
 		},
 		RateLimit: toml.WebServerRateLimit{
-			Authenticated:         ptr[int64](42),
+			Authenticated:         new(int64(42)),
 			AuthenticatedPeriod:   commoncfg.MustNewDuration(time.Second),
-			Unauthenticated:       ptr[int64](7),
+			Unauthenticated:       new(int64(7)),
 			UnauthenticatedPeriod: commoncfg.MustNewDuration(time.Minute),
 		},
 		TLS: toml.WebServerTLS{
-			CertPath:      ptr("tls/cert/path"),
-			Host:          ptr("tls-host"),
-			KeyPath:       ptr("tls/key/path"),
-			HTTPSPort:     ptr[uint16](6789),
-			ForceRedirect: ptr(true),
+			CertPath:      new("tls/cert/path"),
+			Host:          new("tls-host"),
+			KeyPath:       new("tls/key/path"),
+			HTTPSPort:     new(uint16(6789)),
+			ForceRedirect: new(true),
 			ListenIP:      mustIP("192.158.1.38"),
 		},
 	}
 	full.JobPipeline = toml.JobPipeline{
-		ExternalInitiatorsEnabled: ptr(true),
+		ExternalInitiatorsEnabled: new(true),
 		MaxRunDuration:            commoncfg.MustNewDuration(time.Hour),
-		MaxSuccessfulRuns:         ptr[uint64](123456),
+		MaxSuccessfulRuns:         new(uint64(123456)),
 		ReaperInterval:            commoncfg.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           commoncfg.MustNewDuration(7 * 24 * time.Hour),
-		ResultWriteQueueDepth:     ptr[uint32](10),
-		VerboseLogging:            ptr(false),
+		ResultWriteQueueDepth:     new(uint32(10)),
+		VerboseLogging:            new(false),
 		HTTPRequest: toml.JobPipelineHTTPRequest{
-			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
+			MaxSize:        new((utils.FileSize)(100 * utils.MB)),
 			DefaultTimeout: commoncfg.MustNewDuration(time.Minute),
 		},
 	}
 	full.FluxMonitor = toml.FluxMonitor{ //nolint:staticcheck // deprecated config surface must match embedded config-full.toml
-		DefaultTransactionQueueDepth: ptr[uint32](1),
-		SimulateTransactions:         ptr(false),
+		DefaultTransactionQueueDepth: new(uint32(1)),
+		SimulateTransactions:         new(false),
 	}
 	full.OCR2 = toml.OCR2{
-		Enabled:                            ptr(true),
-		ContractConfirmations:              ptr[uint32](11),
+		Enabled:                            new(true),
+		ContractConfirmations:              new(uint32(11)),
 		BlockchainTimeout:                  commoncfg.MustNewDuration(3 * time.Second),
 		ContractPollInterval:               commoncfg.MustNewDuration(time.Hour),
 		ContractSubscribeInterval:          commoncfg.MustNewDuration(time.Minute),
 		ContractTransmitterTransmitTimeout: commoncfg.MustNewDuration(time.Minute),
 		DatabaseTimeout:                    commoncfg.MustNewDuration(8 * time.Second),
-		KeyBundleID:                        ptr(corekeys.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
-		CaptureEATelemetry:                 ptr(false),
-		CaptureAutomationCustomTelemetry:   ptr(true),
-		AllowNoBootstrappers:               ptr(true),
-		DefaultTransactionQueueDepth:       ptr[uint32](1),
-		SimulateTransactions:               ptr(false),
-		TraceLogging:                       ptr(false),
-		SampleTelemetry:                    ptr(false),
-		KeyValueStoreRootDir:               ptr("~/.chainlink-data"),
+		KeyBundleID:                        new(corekeys.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
+		CaptureEATelemetry:                 new(false),
+		CaptureAutomationCustomTelemetry:   new(true),
+		AllowNoBootstrappers:               new(true),
+		DefaultTransactionQueueDepth:       new(uint32(1)),
+		SimulateTransactions:               new(false),
+		TraceLogging:                       new(false),
+		SampleTelemetry:                    new(false),
+		KeyValueStoreRootDir:               new("~/.chainlink-data"),
 	}
 	full.OCR = toml.OCR{
-		Enabled:                      ptr(true),
+		Enabled:                      new(true),
 		ObservationTimeout:           commoncfg.MustNewDuration(11 * time.Second),
 		BlockchainTimeout:            commoncfg.MustNewDuration(3 * time.Second),
 		ContractPollInterval:         commoncfg.MustNewDuration(time.Hour),
 		ContractSubscribeInterval:    commoncfg.MustNewDuration(time.Minute),
-		DefaultTransactionQueueDepth: ptr[uint32](12),
-		KeyBundleID:                  ptr(corekeys.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
-		SimulateTransactions:         ptr(true),
-		TransmitterAddress:           ptr(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
-		CaptureEATelemetry:           ptr(false),
-		TraceLogging:                 ptr(false),
-		ConfigLogValidation:          ptr(false),
+		DefaultTransactionQueueDepth: new(uint32(12)),
+		KeyBundleID:                  new(corekeys.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
+		SimulateTransactions:         new(true),
+		TransmitterAddress:           new(types.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
+		CaptureEATelemetry:           new(false),
+		TraceLogging:                 new(false),
+		ConfigLogValidation:          new(false),
 	}
 	full.P2P = toml.P2P{
-		IncomingMessageBufferSize: ptr[int64](13),
-		OutgoingMessageBufferSize: ptr[int64](17),
+		IncomingMessageBufferSize: new(int64(13)),
+		OutgoingMessageBufferSize: new(int64(17)),
 		PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
-		TraceLogging:              ptr(true),
-		EnableExperimentalRageP2P: ptr(true),
+		TraceLogging:              new(true),
+		EnableExperimentalRageP2P: new(true),
 		V2: toml.P2PV2{
-			Enabled:           ptr(false),
+			Enabled:           new(false),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
 			DefaultBootstrappers: &[]ocrcommontypes.BootstrapperLocator{
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
@@ -405,20 +405,20 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.Capabilities = toml.Capabilities{
 		RateLimit: toml.EngineExecutionRateLimit{
-			GlobalRPS:      ptr(200.00),
-			GlobalBurst:    ptr(200),
-			PerSenderRPS:   ptr(200.0),
-			PerSenderBurst: ptr(200),
+			GlobalRPS:      new(200.00),
+			GlobalBurst:    new(200),
+			PerSenderRPS:   new(200.0),
+			PerSenderBurst: new(200),
 		},
 
 		Peering: toml.P2P{
-			IncomingMessageBufferSize: ptr[int64](13),
-			OutgoingMessageBufferSize: ptr[int64](17),
+			IncomingMessageBufferSize: new(int64(13)),
+			OutgoingMessageBufferSize: new(int64(17)),
 			PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
-			TraceLogging:              ptr(true),
-			EnableExperimentalRageP2P: ptr(true),
+			TraceLogging:              new(true),
+			EnableExperimentalRageP2P: new(true),
 			V2: toml.P2PV2{
-				Enabled:           ptr(false),
+				Enabled:           new(false),
 				AnnounceAddresses: &[]string{"a", "b", "c"},
 				DefaultBootstrappers: &[]ocrcommontypes.BootstrapperLocator{
 					{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
@@ -430,77 +430,77 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		SharedPeering: toml.SharedPeering{
-			Enabled: ptr(false),
+			Enabled: new(false),
 			Bootstrappers: &[]ocrcommontypes.BootstrapperLocator{
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"foo:42", "bar:10"}},
 				{PeerID: "12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw", Addrs: []string{"test:99"}},
 			},
 			StreamConfig: toml.StreamConfig{
-				IncomingMessageBufferSize:  ptr(500),
-				OutgoingMessageBufferSize:  ptr(500),
-				MaxMessageLenBytes:         ptr(500000),
-				MessageRateLimiterRate:     ptr(100.0),
-				MessageRateLimiterCapacity: ptr(uint32(500)),
-				BytesRateLimiterRate:       ptr(5000000.0),
-				BytesRateLimiterCapacity:   ptr(uint32(10000000)),
+				IncomingMessageBufferSize:  new(500),
+				OutgoingMessageBufferSize:  new(500),
+				MaxMessageLenBytes:         new(500000),
+				MessageRateLimiterRate:     new(100.0),
+				MessageRateLimiterCapacity: new(uint32(500)),
+				BytesRateLimiterRate:       new(5000000.0),
+				BytesRateLimiterCapacity:   new(uint32(10000000)),
 			},
 		},
 		ExternalRegistry: toml.ExternalRegistry{
-			Address:         ptr(""),
-			ChainID:         ptr("1"),
-			NetworkID:       ptr("evm"),
-			ContractVersion: ptr("1.0.0"),
+			Address:         new(""),
+			ChainID:         new("1"),
+			NetworkID:       new("evm"),
+			ContractVersion: new("1.0.0"),
 		},
 		WorkflowRegistry: toml.WorkflowRegistry{
-			Address:                 ptr(""),
-			ChainID:                 ptr("1"),
-			ContractVersion:         ptr("1.0.0"),
-			NetworkID:               ptr("evm"),
+			Address:                 new(""),
+			ChainID:                 new("1"),
+			ContractVersion:         new("1.0.0"),
+			NetworkID:               new("evm"),
 			MaxBinarySize:           ptr(utils.FileSize(20 * utils.MB)),
 			MaxEncryptedSecretsSize: ptr(utils.FileSize(26.4 * utils.KB)),
 			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
-			SyncStrategy:            ptr("event"),
-			MaxConcurrency:          ptr(12),
+			SyncStrategy:            new("event"),
+			MaxConcurrency:          new(12),
 			MaxActivationRetries:    new(100),
 			WorkflowStorage: toml.WorkflowStorage{
-				ArtifactStorageHost: ptr(""),
-				URL:                 ptr(""),
-				TLSEnabled:          ptr(true),
+				ArtifactStorageHost: new(""),
+				URL:                 new(""),
+				TLSEnabled:          new(true),
 			},
 			ModuleCache: toml.ModuleCache{
-				Enabled:            ptr(false),
-				DiskMonitorEnabled: ptr(false),
-				IdleEviction:       ptr(true),
+				Enabled:            new(false),
+				DiskMonitorEnabled: new(false),
+				IdleEviction:       new(true),
 				IdleTimeout:        commoncfg.MustNewDuration(10 * time.Minute),
-				MaxLoaded:          ptr(200),
-				CacheDir:           ptr(""),
+				MaxLoaded:          new(200),
+				CacheDir:           new(""),
 			},
 			AdditionalSourcesConfig: []toml.AdditionalWorkflowSource{
 				{
-					URL:        ptr("localhost:50051"),
-					TLSEnabled: ptr(true),
-					Name:       ptr("test-grpc-source"),
+					URL:        new("localhost:50051"),
+					TLSEnabled: new(true),
+					Name:       new("test-grpc-source"),
 				},
 			},
 		},
 		Dispatcher: toml.Dispatcher{
-			SupportedVersion:   ptr(1),
-			ReceiverBufferSize: ptr(10000),
+			SupportedVersion:   new(1),
+			ReceiverBufferSize: new(10000),
 			RateLimit: toml.DispatcherRateLimit{
-				GlobalRPS:      ptr(800.0),
-				GlobalBurst:    ptr(1000),
-				PerSenderRPS:   ptr(10.0),
-				PerSenderBurst: ptr(50),
+				GlobalRPS:      new(800.0),
+				GlobalBurst:    new(1000),
+				PerSenderRPS:   new(10.0),
+				PerSenderBurst: new(50),
 			},
-			SendToSharedPeer: ptr(false),
+			SendToSharedPeer: new(false),
 		},
 		GatewayConnector: toml.GatewayConnector{
-			ChainIDForNodeKey:         ptr("11155111"),
-			NodeAddress:               ptr("0x68902d681c28119f9b2531473a417088bf008e59"),
-			DonID:                     ptr("example_don"),
-			WSHandshakeTimeoutMillis:  ptr[uint32](100),
-			AuthMinChallengeLen:       ptr[int](10),
-			AuthTimestampToleranceSec: ptr[uint32](10),
+			ChainIDForNodeKey:         new("11155111"),
+			NodeAddress:               new("0x68902d681c28119f9b2531473a417088bf008e59"),
+			DonID:                     new("example_don"),
+			WSHandshakeTimeoutMillis:  new(uint32(100)),
+			AuthMinChallengeLen:       new(10),
+			AuthTimestampToleranceSec: new(uint32(10)),
 			Gateways: []toml.ConnectorGateway{
 				{ID: new("example_gateway"), DonID: new("example_gateway_don"), URL: new("wss://localhost:8081/node")},
 			},
@@ -509,11 +509,11 @@ func TestConfig_Marshal(t *testing.T) {
 			RegistryBasedLaunchAllowlist: []string{`^cron@1\.0\.0$`, `^http-action@.*$`},
 			Capabilities: map[string]toml.CapabilityNodeConfig{
 				"http-action@1.0.0": {
-					BinaryPathOverride: ptr("/opt/chainlink/binaries/http_action"),
+					BinaryPathOverride: new("/opt/chainlink/binaries/http_action"),
 					Config:             map[string]string{"proxyMode": "gateway", "allowedPorts": "443,8443"},
 				},
 				"cron@1.0.0": {
-					BinaryPathOverride: ptr("/opt/chainlink/binaries/cron"),
+					BinaryPathOverride: new("/opt/chainlink/binaries/cron"),
 					Config:             map[string]string{"fastestScheduleIntervalSeconds": "60"},
 				},
 			},
@@ -521,60 +521,70 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.Workflows = toml.Workflows{
 		Limits: toml.Limits{
-			Global:   ptr(int32(200)),
-			PerOwner: ptr(int32(200)),
+			Global:   new(int32(200)),
+			PerOwner: new(int32(200)),
 		},
 	}
 	full.AutoPprof = toml.AutoPprof{
-		Enabled:              ptr(true),
-		ProfileRoot:          ptr("prof/root"),
+		Enabled:              new(true),
+		ProfileRoot:          new("prof/root"),
 		PollInterval:         commoncfg.MustNewDuration(time.Minute),
 		GatherDuration:       commoncfg.MustNewDuration(12 * time.Second),
 		GatherTraceDuration:  commoncfg.MustNewDuration(13 * time.Second),
-		MaxProfileSize:       ptr[utils.FileSize](utils.GB),
-		CPUProfileRate:       ptr[int64](7),
-		MemProfileRate:       ptr[int64](9),
-		BlockProfileRate:     ptr[int64](5),
-		MutexProfileFraction: ptr[int64](2),
-		MemThreshold:         ptr[utils.FileSize](utils.GB),
-		GoroutineThreshold:   ptr[int64](999),
+		MaxProfileSize:       new((utils.FileSize)(utils.GB)),
+		CPUProfileRate:       new(int64(7)),
+		MemProfileRate:       new(int64(9)),
+		BlockProfileRate:     new(int64(5)),
+		MutexProfileFraction: new(int64(2)),
+		MemThreshold:         new((utils.FileSize)(utils.GB)),
+		GoroutineThreshold:   new(int64(999)),
 	}
 	full.Pyroscope = toml.Pyroscope{
-		ServerAddress:        ptr("http://localhost:4040"),
-		Environment:          ptr("tests"),
-		LinkTracesToProfiles: ptr(true),
+		ServerAddress:        new("http://localhost:4040"),
+		Environment:          new("tests"),
+		LinkTracesToProfiles: new(true),
 	}
 	full.Sentry = toml.Sentry{
-		Debug:       ptr(true),
-		DSN:         ptr("sentry-dsn"),
-		Environment: ptr("dev"),
-		Release:     ptr("v1.2.3"),
+		Debug:       new(true),
+		DSN:         new("sentry-dsn"),
+		Environment: new("dev"),
+		Release:     new("v1.2.3"),
 	}
 	full.Telemetry = toml.Telemetry{
-		Enabled:                            new(true),
-		CACertFile:                         new("cert-file"),
-		Endpoint:                           new("example.com/collector"),
-		InsecureConnection:                 new(true),
-		ResourceAttributes:                 map[string]string{"Baz": "test", "Foo": "bar"},
-		TraceSampleRatio:                   new(0.01),
-		EmitterBatchProcessor:              new(true),
-		EmitterExportTimeout:               commoncfg.MustNewDuration(1 * time.Second),
-		AuthHeadersTTL:                     commoncfg.MustNewDuration(0 * time.Second),
-		ChipIngressEndpoint:                new("example.com/chip-ingress"),
-		ChipIngressInsecureConnection:      new(false),
-		ChipIngressBatchEmitterEnabled:     new(true),
-		DurableEmitterEnabled:              new(false),
-		DurableEmitterRetransmitBatchSize:  new(500),
-		DurableEmitterEventTTL:             commoncfg.MustNewDuration(1 * time.Hour),
-		DurableEmitterMaxQueuePayloadBytes: new(int64(1073741824)),
-		HeartbeatInterval:                  commoncfg.MustNewDuration(1 * time.Second),
-		LogStreamingEnabled:                new(false),
-		LogLevel:                           new("info"),
-		LogBatchProcessor:                  new(true),
-		LogExportTimeout:                   commoncfg.MustNewDuration(1 * time.Second),
-		LogExportMaxBatchSize:              new(512),
-		LogExportInterval:                  ptrDuration(1 * time.Second),
-		LogMaxQueueSize:                    new(2048),
+		Enabled:                                new(true),
+		CACertFile:                             new("cert-file"),
+		Endpoint:                               new("example.com/collector"),
+		InsecureConnection:                     new(true),
+		ResourceAttributes:                     map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:                       new(0.01),
+		EmitterBatchProcessor:                  new(true),
+		EmitterExportTimeout:                   commoncfg.MustNewDuration(1 * time.Second),
+		AuthHeadersTTL:                         commoncfg.MustNewDuration(0 * time.Second),
+		ChipIngressEndpoint:                    new("example.com/chip-ingress"),
+		ChipIngressInsecureConnection:          new(false),
+		ChipIngressBatchEmitterEnabled:         new(true),
+		ChipIngressBufferSize:                  new(uint(10000)),
+		ChipIngressMaxBatchSize:                new(uint(1000)),
+		ChipIngressMaxConcurrentSends:          new(10),
+		ChipIngressSendInterval:                commoncfg.MustNewDuration(500 * time.Millisecond),
+		ChipIngressSendTimeout:                 commoncfg.MustNewDuration(10 * time.Second),
+		ChipIngressDrainTimeout:                commoncfg.MustNewDuration(30 * time.Second),
+		ChipIngressMaxGRPCRequestSize:          new(10485760),
+		DurableEmitterEnabled:                  new(false),
+		DurableEmitterRetransmitBatchSize:      new(500),
+		DurableEmitterEventTTL:                 commoncfg.MustNewDuration(1 * time.Hour),
+		DurableEmitterMaxQueuePayloadBytes:     new(int64(1073741824)),
+		DurableEmitterInsertBatchFlushInterval: commoncfg.MustNewDuration(50 * time.Millisecond),
+		HeartbeatInterval:                      commoncfg.MustNewDuration(1 * time.Second),
+		LogStreamingEnabled:                    new(false),
+		LogLevel:                               new("info"),
+		LogBatchProcessor:                      new(true),
+		LogExportTimeout:                       commoncfg.MustNewDuration(1 * time.Second),
+		LogExportMaxBatchSize:                  new(512),
+		LogExportInterval:                      ptrDuration(1 * time.Second),
+		LogMaxQueueSize:                        new(2048),
+		MetricViewsDenyAttributes:              []string{"event_id"},
+		MetricCardinalityLimit:                 new(100000),
 
 		PrometheusBridge: toml.PrometheusBridge{
 			Enabled:  new(true),
@@ -592,19 +602,19 @@ func TestConfig_Marshal(t *testing.T) {
 		NodeID:                new("clp-cre-wf-zone-a-1"),
 	}
 	full.CRE = toml.CreConfig{
-		UseLocalTimeProvider: ptr(true),
-		EnableDKGRecipient:   ptr(false),
-		DebugMode:            ptr(false),
+		UseLocalTimeProvider: new(true),
+		EnableDKGRecipient:   new(false),
+		DebugMode:            new(false),
 		Streams: &toml.StreamsConfig{
-			WsURL:   ptr("streams.url"),
-			RestURL: ptr("streams.url"),
+			WsURL:   new("streams.url"),
+			RestURL: new("streams.url"),
 		},
 		WorkflowFetcher: &toml.WorkflowFetcherConfig{
-			URL: ptr("https://workflow.fetcher.url"),
+			URL: new("https://workflow.fetcher.url"),
 		},
 		Linking: &toml.LinkingConfig{
-			URL:        ptr(""),
-			TLSEnabled: ptr(true),
+			URL:        new(""),
+			TLSEnabled: new(true),
 		},
 		ConfidentialRelay: &toml.ConfidentialRelayConfig{
 			Enabled:          new(bool),
@@ -613,69 +623,69 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.Billing = toml.Billing{
-		URL:        ptr("localhost:4319"),
-		TLSEnabled: ptr(true),
+		URL:        new("localhost:4319"),
+		TLSEnabled: new(true),
 	}
 	full.BridgeStatusReporter = toml.BridgeStatusReporter{
-		Enabled:              ptr(false),
-		StatusPath:           ptr("/status"),
+		Enabled:              new(false),
+		StatusPath:           new("/status"),
 		PollingInterval:      commoncfg.MustNewDuration(5 * time.Minute),
-		IgnoreInvalidBridges: ptr(true),
-		IgnoreJoblessBridges: ptr(false),
+		IgnoreInvalidBridges: new(true),
+		IgnoreJoblessBridges: new(false),
 	}
 	enabledOCR2PluginTypes := []string{"median"}
 	full.JobSpecReporter = toml.JobSpecReporter{
-		Enabled:                ptr(true),
+		Enabled:                new(true),
 		PollingInterval:        commoncfg.MustNewDuration(time.Hour),
 		EnabledOCR2PluginTypes: &enabledOCR2PluginTypes,
 	}
 	full.Sharding = toml.Sharding{
-		ShardingEnabled:          ptr(false),
-		ArbiterPort:              ptr[uint16](9876),
+		ShardingEnabled:          new(false),
+		ArbiterPort:              new(uint16(9876)),
 		ArbiterPollInterval:      commoncfg.MustNewDuration(12 * time.Second),
 		ArbiterRetryInterval:     commoncfg.MustNewDuration(12 * time.Second),
-		ShardIndex:               ptr[uint16](0),
-		ShardOrchestratorPort:    ptr[uint16](50051),
+		ShardIndex:               new(uint16(0)),
+		ShardOrchestratorPort:    new(uint16(50051)),
 		ShardOrchestratorAddress: &commoncfg.URL{},
 	}
 	full.LOOPP = toml.LOOPP{
-		GRPCServerMaxRecvMsgSize: ptr[utils.FileSize](42 * utils.MB),
+		GRPCServerMaxRecvMsgSize: new((utils.FileSize)(42 * utils.MB)),
 	}
 	full.JobDistributor = toml.JobDistributor{
-		DisplayName: ptr("test-node"),
+		DisplayName: new("test-node"),
 	}
 	full.EVM = []*evmcfg.EVMConfig{
 		{
 			ChainID: sqlutil.NewI(1),
-			Enabled: ptr(false),
+			Enabled: new(false),
 			Chain: evmcfg.Chain{
-				AutoCreateKey: ptr(false),
+				AutoCreateKey: new(false),
 				BalanceMonitor: evmcfg.BalanceMonitor{
-					Enabled: ptr(true),
+					Enabled: new(true),
 				},
-				BlockBackfillDepth:   ptr[uint32](100),
-				BlockBackfillSkip:    ptr(true),
+				BlockBackfillDepth:   new(uint32(100)),
+				BlockBackfillSkip:    new(true),
 				ChainType:            chaintype.NewConfig("Optimism"),
-				FinalityDepth:        ptr[uint32](42),
-				SafeDepth:            ptr[uint32](0),
-				FinalityTagEnabled:   ptr[bool](true),
-				SafeTagSupported:     ptr(true),
+				FinalityDepth:        new(uint32(42)),
+				SafeDepth:            new(uint32(0)),
+				FinalityTagEnabled:   new(true),
+				SafeTagSupported:     new(true),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
-				FinalizedBlockOffset: ptr[uint32](16),
+				FinalizedBlockOffset: new(uint32(16)),
 
 				GasEstimator: evmcfg.GasEstimator{
-					Mode:               ptr("SuggestedPrice"),
-					EIP1559DynamicFees: ptr(true),
-					BumpPercent:        ptr[uint16](10),
-					BumpThreshold:      ptr[uint32](6),
-					BumpTxDepth:        ptr[uint32](6),
+					Mode:               new("SuggestedPrice"),
+					EIP1559DynamicFees: new(true),
+					BumpPercent:        new(uint16(10)),
+					BumpThreshold:      new(uint32(6)),
+					BumpTxDepth:        new(uint32(6)),
 					BumpMin:            assets.NewWeiI(100),
 					FeeCapDefault:      assets.NewWeiI(math.MaxInt64),
-					LimitDefault:       ptr[uint64](12),
-					LimitMax:           ptr[uint64](17),
+					LimitDefault:       new(uint64(12)),
+					LimitMax:           new(uint64(17)),
 					LimitMultiplier:    mustDecimal("1.234"),
-					LimitTransfer:      ptr[uint64](100),
-					EstimateLimit:      ptr(false),
+					LimitTransfer:      new(uint64(100)),
+					EstimateLimit:      new(false),
 					TipCapDefault:      assets.NewWeiI(2),
 					TipCapMin:          assets.NewWeiI(1),
 					PriceDefault:       assets.NewWeiI(math.MaxInt64),
@@ -683,21 +693,21 @@ func TestConfig_Marshal(t *testing.T) {
 					PriceMin:           assets.NewWeiI(13),
 
 					LimitJobType: evmcfg.GasLimitJobType{
-						OCR:    ptr[uint32](1001),
-						DR:     ptr[uint32](1002),
-						VRF:    ptr[uint32](1003),
-						FM:     ptr[uint32](1004),
-						Keeper: ptr[uint32](1005),
-						OCR2:   ptr[uint32](1006),
+						OCR:    new(uint32(1001)),
+						DR:     new(uint32(1002)),
+						VRF:    new(uint32(1003)),
+						FM:     new(uint32(1004)),
+						Keeper: new(uint32(1005)),
+						OCR2:   new(uint32(1006)),
 					},
 
 					BlockHistory: evmcfg.BlockHistoryEstimator{
-						BatchSize:                 ptr[uint32](17),
-						BlockHistorySize:          ptr[uint16](12),
-						CheckInclusionBlocks:      ptr[uint16](18),
-						CheckInclusionPercentile:  ptr[uint16](19),
-						EIP1559FeeCapBufferBlocks: ptr[uint16](13),
-						TransactionPercentile:     ptr[uint16](15),
+						BatchSize:                 new(uint32(17)),
+						BlockHistorySize:          new(uint16(12)),
+						CheckInclusionBlocks:      new(uint16(18)),
+						CheckInclusionPercentile:  new(uint16(19)),
+						EIP1559FeeCapBufferBlocks: new(uint16(13)),
+						TransactionPercentile:     new(uint16(15)),
 					},
 					FeeHistory: evmcfg.FeeHistoryEstimator{
 						CacheTimeout: &second,
@@ -714,89 +724,89 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				LinkContractAddress:          mustAddress("0x538aAaB4ea120b2bC2fe5D296852D948F07D849e"),
-				LogBackfillBatchSize:         ptr[uint32](17),
+				LogBackfillBatchSize:         new(uint32(17)),
 				LogPollInterval:              &minute,
-				LogKeepBlocksDepth:           ptr[uint32](100000),
-				LogPollerSkipEmptyBlocks:     ptr(false),
-				LogPrunePageSize:             ptr[uint32](0),
-				BackupLogPollerBlockDelay:    ptr[uint64](532),
+				LogKeepBlocksDepth:           new(uint32(100000)),
+				LogPollerSkipEmptyBlocks:     new(false),
+				LogPrunePageSize:             new(uint32(0)),
+				BackupLogPollerBlockDelay:    new(uint64(532)),
 				MinContractPayment:           commonassets.NewLinkFromJuels(math.MaxInt64),
-				MinIncomingConfirmations:     ptr[uint32](13),
-				NonceAutoSync:                ptr(true),
+				MinIncomingConfirmations:     new(uint32(13)),
+				NonceAutoSync:                new(true),
 				NoNewHeadsThreshold:          &minute,
 				OperatorFactoryAddress:       mustAddress("0xa5B85635Be42F21f94F28034B7DA440EeFF0F418"),
-				LogBroadcasterEnabled:        ptr(true),
-				RPCDefaultBatchSize:          ptr[uint32](17),
-				RPCBlockQueryDelay:           ptr[uint16](10),
+				LogBroadcasterEnabled:        new(true),
+				RPCDefaultBatchSize:          new(uint32(17)),
+				RPCBlockQueryDelay:           new(uint16(10)),
 				NoNewFinalizedHeadsThreshold: &hour,
 
 				Transactions: evmcfg.Transactions{
-					Enabled:              ptr(true),
-					MaxInFlight:          ptr[uint32](19),
-					MaxQueued:            ptr[uint32](99),
+					Enabled:              new(true),
+					MaxInFlight:          new(uint32(19)),
+					MaxQueued:            new(uint32(99)),
 					ReaperInterval:       &minute,
 					ReaperThreshold:      &minute,
 					ResendAfterThreshold: &hour,
-					ForwardersEnabled:    ptr(true),
+					ForwardersEnabled:    new(true),
 					AutoPurge: evmcfg.AutoPurgeConfig{
-						Enabled: ptr(false),
+						Enabled: new(false),
 					},
 					TransactionManagerV2: evmcfg.TransactionManagerV2Config{
-						Enabled:                     ptr(false),
-						ReadRequestsToMultipleNodes: ptr(false),
-						Bundles:                     ptr(false),
+						Enabled:                     new(false),
+						ReadRequestsToMultipleNodes: new(false),
+						Bundles:                     new(false),
 					},
 					ConfirmationTimeout: &minute,
 				},
 
 				HeadTracker: evmcfg.HeadTracker{
-					HistoryDepth:            ptr[uint32](15),
-					MaxBufferSize:           ptr[uint32](17),
+					HistoryDepth:            new(uint32(15)),
+					MaxBufferSize:           new(uint32(17)),
 					SamplingInterval:        &hour,
-					FinalityTagBypass:       ptr[bool](false),
-					MaxAllowedFinalityDepth: ptr[uint32](1500),
-					PersistenceEnabled:      ptr(false),
-					PersistenceBatchSize:    ptr[int64](100),
+					FinalityTagBypass:       new(false),
+					MaxAllowedFinalityDepth: new(uint32(1500)),
+					PersistenceEnabled:      new(false),
+					PersistenceBatchSize:    new(int64(100)),
 				},
 
 				NodePool: evmcfg.NodePool{
-					PollFailureThreshold:                ptr[uint32](5),
-					PollSuccessThreshold:                ptr[uint32](0),
+					PollFailureThreshold:                new(uint32(5)),
+					PollSuccessThreshold:                new(uint32(0)),
 					PollInterval:                        &minute,
 					SelectionMode:                       &selectionMode,
-					SyncThreshold:                       ptr[uint32](13),
+					SyncThreshold:                       new(uint32(13)),
 					LeaseDuration:                       &zeroSeconds,
-					NodeIsSyncingEnabled:                ptr(true),
+					NodeIsSyncingEnabled:                new(true),
 					FinalizedBlockPollInterval:          &second,
-					HistoricalBalanceCheckAddress:       ptr(types.MustEIP55Address("0x0000000000000000000000000000000000000000")),
-					EnforceRepeatableRead:               ptr(true),
+					HistoricalBalanceCheckAddress:       new(types.MustEIP55Address("0x0000000000000000000000000000000000000000")),
+					EnforceRepeatableRead:               new(true),
 					DeathDeclarationDelay:               &minute,
-					VerifyChainID:                       ptr(true),
+					VerifyChainID:                       new(true),
 					NewHeadsPollInterval:                &zeroSeconds,
-					ExternalRequestMaxResponseSize:      ptr[uint32](10),
-					FinalizedStateCheckFailureThreshold: ptr[uint32](0),
+					ExternalRequestMaxResponseSize:      new(uint32(10)),
+					FinalizedStateCheckFailureThreshold: new(uint32(0)),
 					Errors: evmcfg.ClientErrors{
-						NonceTooLow:                       ptr[string]("(: |^)nonce too low"),
-						NonceTooHigh:                      ptr[string]("(: |^)nonce too high"),
-						ReplacementTransactionUnderpriced: ptr[string]("(: |^)replacement transaction underpriced"),
-						LimitReached:                      ptr[string]("(: |^)limit reached"),
-						TransactionAlreadyInMempool:       ptr[string]("(: |^)transaction already in mempool"),
-						TerminallyUnderpriced:             ptr[string]("(: |^)terminally underpriced"),
-						InsufficientEth:                   ptr[string]("(: |^)insufficient eth"),
-						TxFeeExceedsCap:                   ptr[string]("(: |^)tx fee exceeds cap"),
-						L2FeeTooLow:                       ptr[string]("(: |^)l2 fee too low"),
-						L2FeeTooHigh:                      ptr[string]("(: |^)l2 fee too high"),
-						L2Full:                            ptr[string]("(: |^)l2 full"),
-						TransactionAlreadyMined:           ptr[string]("(: |^)transaction already mined"),
-						Fatal:                             ptr[string]("(: |^)fatal"),
-						ServiceUnavailable:                ptr[string]("(: |^)service unavailable"),
-						TooManyResults:                    ptr[string]("(: |^)too many results"),
-						MissingBlocks:                     ptr[string]("(: |^)missing blocks"),
-						FinalizedStateUnavailable:         ptr[string]("(: |^)(missing trie node|state not available|historical state unavailable)"),
+						NonceTooLow:                       new("(: |^)nonce too low"),
+						NonceTooHigh:                      new("(: |^)nonce too high"),
+						ReplacementTransactionUnderpriced: new("(: |^)replacement transaction underpriced"),
+						LimitReached:                      new("(: |^)limit reached"),
+						TransactionAlreadyInMempool:       new("(: |^)transaction already in mempool"),
+						TerminallyUnderpriced:             new("(: |^)terminally underpriced"),
+						InsufficientEth:                   new("(: |^)insufficient eth"),
+						TxFeeExceedsCap:                   new("(: |^)tx fee exceeds cap"),
+						L2FeeTooLow:                       new("(: |^)l2 fee too low"),
+						L2FeeTooHigh:                      new("(: |^)l2 fee too high"),
+						L2Full:                            new("(: |^)l2 full"),
+						TransactionAlreadyMined:           new("(: |^)transaction already mined"),
+						Fatal:                             new("(: |^)fatal"),
+						ServiceUnavailable:                new("(: |^)service unavailable"),
+						TooManyResults:                    new("(: |^)too many results"),
+						MissingBlocks:                     new("(: |^)missing blocks"),
+						FinalizedStateUnavailable:         new("(: |^)(missing trie node|state not available|historical state unavailable)"),
 					},
 				},
 				OCR: evmcfg.OCR{
-					ContractConfirmations:              ptr[uint16](11),
+					ContractConfirmations:              new(uint16(11)),
 					ContractTransmitterTransmitTimeout: &minute,
 					DatabaseTimeout:                    &second,
 					DeltaCOverride:                     commoncfg.MustNewDuration(time.Hour),
@@ -805,11 +815,11 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 				OCR2: evmcfg.OCR2{
 					Automation: evmcfg.Automation{
-						GasLimit: ptr[uint32](540),
+						GasLimit: new(uint32(540)),
 					},
 				},
 				Workflow: evmcfg.Workflow{
-					GasLimitDefault:   ptr[uint64](400000),
+					GasLimitDefault:   new(uint64(400000)),
 					TxAcceptanceState: ptr(commontypes.Unconfirmed),
 					PollPeriod:        commoncfg.MustNewDuration(time.Second * 2),
 					AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 30),
@@ -817,20 +827,20 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 			Nodes: []*evmcfg.Node{
 				{
-					Name:              ptr("foo"),
+					Name:              new("foo"),
 					HTTPURL:           mustURL("https://foo.web"),
 					WSURL:             mustURL("wss://web.socket/test/foo"),
 					HTTPURLExtraWrite: mustURL("https://foo.web/extra"),
 				},
 				{
-					Name:    ptr("bar"),
+					Name:    new("bar"),
 					HTTPURL: mustURL("https://bar.com"),
 					WSURL:   mustURL("wss://web.socket/test/bar"),
 				},
 				{
-					Name:     ptr("broadcast"),
+					Name:     new("broadcast"),
 					HTTPURL:  mustURL("http://broadcast.mirror"),
-					SendOnly: ptr(true),
+					SendOnly: new(true),
 				},
 			}},
 	}
@@ -841,17 +851,17 @@ func TestConfig_Marshal(t *testing.T) {
 			LatestReportDeadline: commoncfg.MustNewDuration(102 * time.Second),
 		},
 		TLS: toml.MercuryTLS{
-			CertFile: ptr("/path/to/cert.pem"),
+			CertFile: new("/path/to/cert.pem"),
 		},
 		Transmitter: toml.MercuryTransmitter{
 			Protocol:             ptr(mercurytransmitter.MercuryTransmitterProtocolGRPC),
-			TransmitQueueMaxSize: ptr(uint32(123)),
+			TransmitQueueMaxSize: new(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
-			TransmitConcurrency:  ptr(uint32(456)),
+			TransmitConcurrency:  new(uint32(456)),
 			ReaperFrequency:      commoncfg.MustNewDuration(567 * time.Second),
 			ReaperMaxAge:         commoncfg.MustNewDuration(678 * time.Hour),
 		},
-		VerboseLogging: ptr(true),
+		VerboseLogging: new(true),
 	}
 
 	for _, tt := range []struct {
@@ -1327,23 +1337,23 @@ func TestConfig_full(t *testing.T) {
 			got.EVM[c].Workflow.ForwarderAddress = &addr
 		}
 		if got.EVM[c].Workflow.GasLimitDefault == nil {
-			got.EVM[c].Workflow.GasLimitDefault = ptr(uint64(400000))
+			got.EVM[c].Workflow.GasLimitDefault = new(uint64(400000))
 		}
 		for n := range got.EVM[c].Nodes {
 			if got.EVM[c].Nodes[n].WSURL == nil {
 				got.EVM[c].Nodes[n].WSURL = new(commoncfg.URL)
 			}
 			if got.EVM[c].Nodes[n].SendOnly == nil {
-				got.EVM[c].Nodes[n].SendOnly = ptr(true)
+				got.EVM[c].Nodes[n].SendOnly = new(true)
 			}
 			if got.EVM[c].Nodes[n].Order == nil {
-				got.EVM[c].Nodes[n].Order = ptr(int32(100))
+				got.EVM[c].Nodes[n].Order = new(int32(100))
 			}
 			if got.EVM[c].Nodes[n].HTTPURLExtraWrite == nil {
 				got.EVM[c].Nodes[n].HTTPURLExtraWrite = new(commoncfg.URL)
 			}
 			if got.EVM[c].Nodes[n].IsLoadBalancedRPC == nil {
-				got.EVM[c].Nodes[n].IsLoadBalancedRPC = ptr(false)
+				got.EVM[c].Nodes[n].IsLoadBalancedRPC = new(false)
 			}
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.BlockTime == nil {
@@ -1353,25 +1363,25 @@ func TestConfig_full(t *testing.T) {
 			got.EVM[c].Transactions.TransactionManagerV2.CustomURL = new(commoncfg.URL)
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast == nil {
-			got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast = ptr(false)
+			got.EVM[c].Transactions.TransactionManagerV2.DualBroadcast = new(false)
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.ReadRequestsToMultipleNodes == nil {
-			got.EVM[c].Transactions.TransactionManagerV2.ReadRequestsToMultipleNodes = ptr(false)
+			got.EVM[c].Transactions.TransactionManagerV2.ReadRequestsToMultipleNodes = new(false)
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.Bundles == nil {
-			got.EVM[c].Transactions.TransactionManagerV2.Bundles = ptr(false)
+			got.EVM[c].Transactions.TransactionManagerV2.Bundles = new(false)
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout == nil {
 			got.EVM[c].Transactions.TransactionManagerV2.FastlaneAuctionRequestTimeout = new(commoncfg.Duration)
 		}
 		if got.EVM[c].Transactions.TransactionManagerV2.FeeBoost == nil {
-			got.EVM[c].Transactions.TransactionManagerV2.FeeBoost = ptr(false)
+			got.EVM[c].Transactions.TransactionManagerV2.FeeBoost = new(false)
 		}
 		if got.EVM[c].Transactions.AutoPurge.Threshold == nil {
-			got.EVM[c].Transactions.AutoPurge.Threshold = ptr(uint32(0))
+			got.EVM[c].Transactions.AutoPurge.Threshold = new(uint32(0))
 		}
 		if got.EVM[c].Transactions.AutoPurge.MinAttempts == nil {
-			got.EVM[c].Transactions.AutoPurge.MinAttempts = ptr(uint32(0))
+			got.EVM[c].Transactions.AutoPurge.MinAttempts = new(uint32(0))
 		}
 		if got.EVM[c].Transactions.AutoPurge.DetectionApiUrl == nil {
 			got.EVM[c].Transactions.AutoPurge.DetectionApiUrl = new(commoncfg.URL)
@@ -1732,9 +1742,9 @@ func assertValidationError(t *testing.T, invalid interface{ Validate() error }, 
 func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: sqlutil.NewI(99999133712345)}}
-	c.Cosmos = RawConfigs{{"ChainID": ptr("unknown cosmos chain")}}
-	c.Solana = RawConfigs{{"ChainID": ptr("unknown solana chain")}}
-	c.Starknet = RawConfigs{{"ChainID": ptr("unknown starknet chain")}}
+	c.Cosmos = RawConfigs{{"ChainID": new("unknown cosmos chain")}}
+	c.Solana = RawConfigs{{"ChainID": new("unknown solana chain")}}
+	c.Starknet = RawConfigs{{"ChainID": new("unknown starknet chain")}}
 	c.setDefaults()
 
 	s, err := c.TOMLString()
@@ -1804,9 +1814,9 @@ func TestConfig_warnings(t *testing.T) {
 			config: Config{
 				Core: toml.Core{
 					Tracing: toml.Tracing{
-						Enabled:     ptr(true),
-						Mode:        ptr("unencrypted"),
-						TLSCertPath: ptr("/path/to/cert.pem"),
+						Enabled:     new(true),
+						Mode:        new("unencrypted"),
+						TLSCertPath: new("/path/to/cert.pem"),
 					},
 				},
 			},
@@ -1828,7 +1838,8 @@ func TestConfig_warnings(t *testing.T) {
 	}
 }
 
-func ptr[T any](t T) *T { return &t }
+//go:fix inline
+func ptr[T any](t T) *T { return new(t) }
 
 func mustHexToBig(t *testing.T, hx string) *big.Int {
 	n, err := hex.ParseBig(hx)

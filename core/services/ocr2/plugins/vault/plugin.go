@@ -1329,7 +1329,7 @@ func userFacingError(err error, fallback string) string {
 	return fallback
 }
 
-func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...interface{}) {
+func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...any) {
 	keysAndValues = append(keysAndValues, "error", err)
 	lggr := l.Helper(1)
 	if errors.Is(err, &userError{}) {

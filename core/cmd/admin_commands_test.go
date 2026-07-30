@@ -155,9 +155,9 @@ func TestShell_ListUsers(t *testing.T) {
 		if presenter.Email == user.Email {
 			userPresenterFound = true
 			assert.Equal(t, presenter.Role, user.Role)
-			userHasActiveApiToken, err := strconv.ParseBool(presenter.HasActiveApiToken)
+			userHasActiveAPIToken, err := strconv.ParseBool(presenter.HasActiveAPIToken)
 			assert.NoError(t, err)
-			assert.Equal(t, userHasActiveApiToken, user.TokenKey.String != "")
+			assert.Equal(t, userHasActiveAPIToken, user.TokenKey.String != "")
 			assert.True(t, presenter.CreatedAt.Equal(user.CreatedAt))
 			assert.True(t, presenter.CreatedAt.Equal(user.UpdatedAt))
 		}
@@ -180,7 +180,7 @@ func TestAdminUsersPresenter_RenderTable(t *testing.T) {
 			JAID:              presenters.JAID{ID: user.Email},
 			Email:             user.Email,
 			Role:              user.Role,
-			HasActiveApiToken: user.TokenKey.String,
+			HasActiveAPIToken: user.TokenKey.String,
 			CreatedAt:         user.CreatedAt,
 			UpdatedAt:         user.UpdatedAt,
 		},

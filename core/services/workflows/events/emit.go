@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -215,7 +216,62 @@ func EmitExecutionProfile(
 	return profile, emitProtoMessage(ctx, profile)
 }
 
-func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string, execErr error, lggr logger.Logger) error {
+// ErrorClassification attributes a failed workflow execution to its root cause:
+// the user's workflow (code, config, or a returned error) vs the platform
+// (timeouts, unavailable capabilities, internal engine errors).
+type ErrorClassification int
+
+const (
+	// ErrorClassificationUnspecified means the cause was not determined (e.g. the
+	// legacy v1 engine, which does not classify). Emitted as UNSPECIFIED.
+	ErrorClassificationUnspecified ErrorClassification = iota
+	// ErrorClassificationUser attributes the failure to the user's workflow.
+	ErrorClassificationUser
+	// ErrorClassificationSystem attributes the failure to the platform.
+	ErrorClassificationSystem
+)
+
+// ClassifyError resolves an execution error to a user/system classification.
+// A caperrors.Error carrying an explicit origin wins (so user-origin errors that
+// propagate up from a capability or the guest are attributed correctly); other
+// errors fall back to the caller-supplied classification.
+func ClassifyError(execErr error, fallback ErrorClassification) ErrorClassification {
+	if execErr == nil {
+		return ErrorClassificationUnspecified
+	}
+	var capErr caperrors.Error
+	if errors.As(execErr, &capErr) {
+		switch capErr.Origin() {
+		case caperrors.OriginUser:
+			return ErrorClassificationUser
+		case caperrors.OriginSystem:
+			return ErrorClassificationSystem
+		}
+	}
+	return fallback
+}
+
+// classifiedExecutionStatus folds the terminal status and the error
+// classification into the v2 ClassifiedExecutionStatus enum.
+func classifiedExecutionStatus(status eventsv2.ExecutionStatus, errClass ErrorClassification) eventsv2.ClassifiedExecutionStatus {
+	switch status {
+	case eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED:
+		return eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_SUCCEEDED
+	case eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED:
+		switch errClass {
+		case ErrorClassificationUser:
+			return eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_USER_ERROR
+		case ErrorClassificationSystem:
+			return eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_SYSTEM_ERROR
+		default:
+			return eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_UNSPECIFIED
+		}
+	default:
+		return eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_UNSPECIFIED
+	}
+}
+
+func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string, execErr error, errClass ErrorClassification, lggr logger.Logger) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.WorkflowExecutionFinished{
@@ -251,6 +307,7 @@ func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, s
 		Timestamp:           time.Now().Format(time.RFC3339),
 		Status:              executionStatus,
 		Error:               errMsg,
+		ClassifiedStatus:    classifiedExecutionStatus(executionStatus, errClass),
 	}
 
 	// Emit both v1 and v2 events

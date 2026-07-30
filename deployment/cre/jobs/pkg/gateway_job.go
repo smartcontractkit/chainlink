@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 	"time"
 
@@ -67,10 +68,10 @@ type GatewayJob struct {
 	DONs     []TargetDON
 	Services []GatewayServiceConfig
 
-	JobName           string
-	RequestTimeoutSec int
-	AllowedPorts      []int
-	AllowedSchemes    []string
+	JobName             string
+	RequestTimeoutSec   int
+	AllowedPorts        []int
+	AllowedSchemes      []string
 	AllowedIPsCIDR      []string
 	AuthGatewayID       string
 	AuthGatewayIDPrefix string
@@ -132,13 +133,7 @@ func (g GatewayJob) Validate() error {
 
 	if g.ServiceCentricFormatEnabled {
 		for _, svc := range g.Services {
-			hasVaultHandler := false
-			for _, h := range svc.Handlers {
-				if h == GatewayHandlerTypeVault {
-					hasVaultHandler = true
-					break
-				}
-			}
+			hasVaultHandler := slices.Contains(svc.Handlers, GatewayHandlerTypeVault)
 			if svc.Auth0 != nil {
 				if !hasVaultHandler {
 					return fmt.Errorf("service %q configures auth0 but does not expose the vault handler", svc.ServiceName)

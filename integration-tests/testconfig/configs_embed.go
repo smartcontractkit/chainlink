@@ -1,5 +1,4 @@
 //go:build embed
-// +build embed
 
 package testconfig
 

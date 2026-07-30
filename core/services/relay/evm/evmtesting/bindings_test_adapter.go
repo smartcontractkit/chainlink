@@ -269,11 +269,11 @@ func (b *bindingChainWriterProxy) GetTransactionStatus(ctx context.Context, tran
 }
 
 func removeAddressFromReadIdentifier(s string) string {
-	index := strings.Index(s, "-")
-	if index == -1 {
+	_, after, ok := strings.Cut(s, "-")
+	if !ok {
 		return s
 	}
-	return s[index+1:]
+	return after
 }
 
 func (b *bindingsMapping) createDelegates() {
@@ -295,7 +295,7 @@ func (b *bindingsMapping) createDelegates() {
 }
 
 func (b *bindingsMapping) createDelegateForMethodTakingLatestParams() *Delegate {
-	delegate := Delegate{inputType: reflect.TypeOf(bindings.GetElementAtIndexInput{})}
+	delegate := Delegate{inputType: reflect.TypeFor[bindings.GetElementAtIndexInput]()}
 	delegate.delegateFunc = func(ctx context.Context, readyKey string, input *any, level primitives.ConfidenceLevel) (any, error) {
 		methodInvocation := func(ctx context.Context, readKey string, input *bindings.GetElementAtIndexInput, level primitives.ConfidenceLevel) (any, error) {
 			chainReaderTester := b.GetChainReaderTester(readKey)
@@ -319,7 +319,7 @@ func (b *bindingsMapping) createDelegateForMethodReturningAlterableUint64() *Del
 }
 
 func (b *bindingsMapping) createDelegateForMethodReturningSeenStruct() *Delegate {
-	delegate := Delegate{inputType: reflect.TypeOf(bindings.ReturnSeenInput{})}
+	delegate := Delegate{inputType: reflect.TypeFor[bindings.ReturnSeenInput]()}
 	delegate.delegateFunc = func(ctx context.Context, readyKey string, input *any, level primitives.ConfidenceLevel) (any, error) {
 		methodInvocation := func(ctx context.Context, readKey string, input *bindings.ReturnSeenInput, level primitives.ConfidenceLevel) (any, error) {
 			chainReaderTester := b.GetChainReaderTester(readKey)
@@ -445,7 +445,7 @@ func (d Delegate) apply(ctx context.Context, readKey string, input any, confiden
 
 // Utility function to converted original types from and to bindings expected types.
 func convertStruct(src any, dst any) error {
-	if reflect.TypeOf(src).Kind() == reflect.Ptr && reflect.TypeOf(dst).Kind() == reflect.Ptr && reflect.TypeOf(src).Elem() == reflect.TypeOf(interfacetests.LatestParams{}) && reflect.TypeOf(dst).Elem() == reflect.TypeOf(bindings.GetElementAtIndexInput{}) {
+	if reflect.TypeOf(src).Kind() == reflect.Pointer && reflect.TypeOf(dst).Kind() == reflect.Pointer && reflect.TypeOf(src).Elem() == reflect.TypeFor[interfacetests.LatestParams]() && reflect.TypeOf(dst).Elem() == reflect.TypeFor[bindings.GetElementAtIndexInput]() {
 		value := src.(*interfacetests.LatestParams).I
 		dst.(*bindings.GetElementAtIndexInput).I = big.NewInt(int64(value))
 		return nil
@@ -459,7 +459,7 @@ func convertStruct(src any, dst any) error {
 		return err
 	}
 	switch {
-	case reflect.TypeOf(dst).Elem() == reflect.TypeOf(interfacetests.TestStructWithExtraField{}):
+	case reflect.TypeOf(dst).Elem() == reflect.TypeFor[interfacetests.TestStructWithExtraField]():
 		destTestStruct := dst.(*interfacetests.TestStructWithExtraField)
 		if destTestStruct != nil {
 			auxTestStruct := &interfacetests.TestStruct{}
@@ -474,7 +474,7 @@ func convertStruct(src any, dst any) error {
 			destTestStruct.NestedDynamicStruct.FixedBytes = sourceTestStruct.NestedDynamicStruct.FixedBytes
 			destTestStruct.ExtraField = interfacetests.AnyExtraValue
 		}
-	case reflect.TypeOf(dst).Elem() == reflect.TypeOf(interfacetests.TestStruct{}):
+	case reflect.TypeOf(dst).Elem() == reflect.TypeFor[interfacetests.TestStruct]():
 		destTestStruct := dst.(*interfacetests.TestStruct)
 		if destTestStruct != nil {
 			sourceTestStruct := src.(bindings.TestStruct)
@@ -484,7 +484,7 @@ func convertStruct(src any, dst any) error {
 			destTestStruct.NestedDynamicStruct.Inner.I = int(sourceTestStruct.NestedDynamicStruct.Inner.IntVal)
 			destTestStruct.NestedDynamicStruct.FixedBytes = sourceTestStruct.NestedDynamicStruct.FixedBytes
 		}
-	case reflect.TypeOf(src) == reflect.TypeOf(interfacetests.TestStruct{}) && reflect.TypeOf(dst) == reflect.TypeOf(&bindings.AddTestStructInput{}):
+	case reflect.TypeOf(src) == reflect.TypeFor[interfacetests.TestStruct]() && reflect.TypeOf(dst) == reflect.TypeFor[*bindings.AddTestStructInput]():
 		destTestStruct := dst.(*bindings.AddTestStructInput)
 		if destTestStruct != nil {
 			sourceTestStruct := src.(interfacetests.TestStruct)
@@ -494,7 +494,7 @@ func convertStruct(src any, dst any) error {
 			destTestStruct.NestedDynamicStruct.Inner.IntVal = int64(sourceTestStruct.NestedDynamicStruct.Inner.I)
 			destTestStruct.NestedDynamicStruct.FixedBytes = sourceTestStruct.NestedDynamicStruct.FixedBytes
 		}
-	case reflect.TypeOf(src) == reflect.TypeOf(interfacetests.TestStruct{}) && reflect.TypeOf(dst) == reflect.TypeOf(&bindings.ReturnSeenInput{}):
+	case reflect.TypeOf(src) == reflect.TypeFor[interfacetests.TestStruct]() && reflect.TypeOf(dst) == reflect.TypeFor[*bindings.ReturnSeenInput]():
 		destTestStruct := dst.(*bindings.ReturnSeenInput)
 		if destTestStruct != nil {
 			sourceTestStruct := src.(interfacetests.TestStruct)
@@ -520,10 +520,10 @@ func createDecoder(dst any) (*mapstructure.Decoder, error) {
 }
 
 func stringToByteArrayHook(from reflect.Type, to reflect.Type, data any) (any, error) {
-	if from.Kind() == reflect.String && to == reflect.TypeOf([]byte{}) {
+	if from.Kind() == reflect.String && to == reflect.TypeFor[[]byte]() {
 		return evmcodec.EVMAddressModifier{}.DecodeAddress(data.(string))
 	}
-	if from == reflect.TypeOf([]byte{}) && to.Kind() == reflect.String {
+	if from == reflect.TypeFor[[]byte]() && to.Kind() == reflect.String {
 		return evmcodec.EVMAddressModifier{}.EncodeAddress(data.([]byte))
 	}
 	return data, nil

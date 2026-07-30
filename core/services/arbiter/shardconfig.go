@@ -84,11 +84,9 @@ func (s *shardConfigSyncer) Start(ctx context.Context) error {
 		s.lggr.Info("Starting ShardConfig syncer")
 
 		// Start async initialization and polling
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
+		s.wg.Go(func() {
 			s.run()
-		}()
+		})
 
 		return nil
 	})

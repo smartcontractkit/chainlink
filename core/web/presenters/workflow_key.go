@@ -22,7 +22,7 @@ func NewWorkflowKeyResource(key workflowkey.Key) *WorkflowKeyResource {
 }
 
 func NewWorkflowKeyResources(keys []workflowkey.Key) []WorkflowKeyResource {
-	rs := []WorkflowKeyResource{}
+	rs := make([]WorkflowKeyResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewWorkflowKeyResource(key))
 	}

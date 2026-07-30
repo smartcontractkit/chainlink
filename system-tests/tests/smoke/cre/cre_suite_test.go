@@ -97,6 +97,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			} else if isVaultOptimizationsEnabledTopology(topology) {
 				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
+			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
+				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
+				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
 
@@ -274,8 +277,23 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 //nolint:paralleltest // isolate local cre env run
 func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
-	t.Run("Stellar", func(t *testing.T) {
-		ExecuteStellarTest(t, testEnv)
+
+	t.Run("Stellar GetLatestLedger", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarReadLatestLedgerTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
+
+	t.Run("Stellar ReadContract", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarReadContractSmokeTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
+
+	t.Run("StellarWrite", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarWriteTest(t, env, chain, userLogsCh, baseMessageCh)
 	})
 }
 

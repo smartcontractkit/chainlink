@@ -371,7 +371,8 @@ func newGatewayConnectorWrapper(
 		keyStore.Eth(),
 		chainID,
 		clockwork.NewRealClock(),
-		lggr)
+		lggr,
+		keyStore.CSA())
 
 	return wrapper, nil
 }
@@ -497,6 +498,7 @@ func (s *Services) newRegistrySyncer(
 		dispatcherWrapper.dispatcher,
 		opts.CapabilitiesRegistry,
 		donNotifier,
+		opts.LimitsFactory,
 	)
 	if err != nil {
 		return nil, nil, fmt.Errorf("could not create workflow launcher: %w", err)
@@ -1154,6 +1156,13 @@ func newWorkflowRegistrySyncerV2(
 	}
 
 	registryOpts := []syncerV2.Option{
+		// WithCentralizedOwnerVerification MUST be applied before WithAdditionalSources:
+		// WithAdditionalSources builds GRPC workflow sources eagerly and requires the
+		// owner-verification gate (and settings getter) to already be set on the registry.
+		// If it runs first, the gate is still nil and NewGRPCWorkflowSource fails with
+		// "CentralizedOwnerVerificationEnabled gate is required", silently dropping the
+		// centralized source and every workflow it serves.
+		syncerV2.WithCentralizedOwnerVerification(engineLimiters.CentralizedWorkflowOwnerVerificationEnabled, lf.Settings),
 		syncerV2.WithAdditionalSources(addSourceConfigs),
 		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
 		syncerV2.WithMaxConcurrency(wfReg.MaxConcurrency()),

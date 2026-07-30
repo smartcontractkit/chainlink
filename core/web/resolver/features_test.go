@@ -9,6 +9,7 @@ import (
 )
 
 func Test_ToFeatures(t *testing.T) {
+	t.Parallel()
 	query := `
 	{
 		features {

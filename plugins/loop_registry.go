@@ -158,6 +158,13 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.ChipIngressInsecureConnection = m.cfgTelemetry.ChipIngressInsecureConnection()
 		envCfg.ChipIngressBatchEmitterEnabled = m.cfgTelemetry.ChipIngressBatchEmitterEnabled()
 		envCfg.ChipIngressDurableEmitterEnabled = m.cfgTelemetry.DurableEmitterEnabled()
+		envCfg.ChipIngressBufferSize = m.cfgTelemetry.ChipIngressBufferSize()
+		envCfg.ChipIngressMaxBatchSize = m.cfgTelemetry.ChipIngressMaxBatchSize()
+		envCfg.ChipIngressMaxConcurrentSends = m.cfgTelemetry.ChipIngressMaxConcurrentSends()
+		envCfg.ChipIngressSendInterval = m.cfgTelemetry.ChipIngressSendInterval()
+		envCfg.ChipIngressSendTimeout = m.cfgTelemetry.ChipIngressSendTimeout()
+		envCfg.ChipIngressDrainTimeout = m.cfgTelemetry.ChipIngressDrainTimeout()
+		envCfg.ChipIngressMaxGRPCRequestSize = m.cfgTelemetry.ChipIngressMaxGRPCRequestSize()
 		envCfg.TelemetryLogStreamingEnabled = m.cfgTelemetry.LogStreamingEnabled()
 		envCfg.TelemetryLogLevel = m.cfgTelemetry.LogLevel()
 		envCfg.TelemetryLogBatchProcessor = m.cfgTelemetry.LogBatchProcessor()
@@ -165,6 +172,9 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryLogExportMaxBatchSize = m.cfgTelemetry.LogExportMaxBatchSize()
 		envCfg.TelemetryLogExportInterval = m.cfgTelemetry.LogExportInterval()
 		envCfg.TelemetryLogMaxQueueSize = m.cfgTelemetry.LogMaxQueueSize()
+		envCfg.TelemetryMetricViewsDenyAttributes = m.cfgTelemetry.MetricViewsDenyAttributes()
+		limit := m.cfgTelemetry.MetricCardinalityLimit()
+		envCfg.TelemetryMetricCardinalityLimit = &limit
 		envCfg.TelemetryPrometheusBridgeEnabled = m.cfgTelemetry.PrometheusBridge().Enabled()
 		envCfg.TelemetryPrometheusBridgePrefixes = m.cfgTelemetry.PrometheusBridge().Prefixes()
 	}

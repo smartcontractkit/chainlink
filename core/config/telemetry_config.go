@@ -19,10 +19,18 @@ type Telemetry interface {
 	ChipIngressEndpoint() string
 	ChipIngressInsecureConnection() bool
 	ChipIngressBatchEmitterEnabled() bool
+	ChipIngressBufferSize() uint
+	ChipIngressMaxBatchSize() uint
+	ChipIngressMaxConcurrentSends() int
+	ChipIngressSendInterval() time.Duration
+	ChipIngressSendTimeout() time.Duration
+	ChipIngressDrainTimeout() time.Duration
+	ChipIngressMaxGRPCRequestSize() int
 	DurableEmitterEnabled() bool
 	DurableEmitterRetransmitBatchSize() int
 	DurableEmitterEventTTL() time.Duration
 	DurableEmitterMaxQueuePayloadBytes() int64
+	DurableEmitterInsertBatchFlushInterval() time.Duration
 	HeartbeatInterval() time.Duration
 	LogStreamingEnabled() bool
 	LogLevel() zapcore.Level
@@ -31,6 +39,8 @@ type Telemetry interface {
 	LogExportMaxBatchSize() int
 	LogExportInterval() time.Duration
 	LogMaxQueueSize() int
+	MetricViewsDenyAttributes() []string
+	MetricCardinalityLimit() int
 	PrometheusBridge() PrometheusBridge
 }
 

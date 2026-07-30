@@ -4,18 +4,19 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestOCRKeysController_Index_HappyPath(t *testing.T) {
+	t.Parallel()
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 
 	keys, _ := OCRKeyStore.GetAll()
@@ -33,6 +34,7 @@ func TestOCRKeysController_Index_HappyPath(t *testing.T) {
 }
 
 func TestOCRKeysController_Create_HappyPath(t *testing.T) {
+	t.Parallel()
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 
 	keys, _ := OCRKeyStore.GetAll()
@@ -47,9 +49,9 @@ func TestOCRKeysController_Create_HappyPath(t *testing.T) {
 
 	resource := presenters.OCRKeysBundleResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resource)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	var ids []string
+	ids := make([]string, 0, len(keys))
 	for _, key := range keys {
 		ids = append(ids, key.ID())
 	}
@@ -60,6 +62,7 @@ func TestOCRKeysController_Create_HappyPath(t *testing.T) {
 }
 
 func TestOCRKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
+	t.Parallel()
 	client, _ := setupOCRKeysControllerTests(t)
 
 	nonExistentOCRKeyID := "eb81f4a35033ac8dd68b9d33a039a713d6fd639af6852b81f47ffeda1c95de54"
@@ -69,7 +72,8 @@ func TestOCRKeysController_Delete_NonExistentOCRKeyID(t *testing.T) {
 }
 
 func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	client, OCRKeyStore := setupOCRKeysControllerTests(t)
 
 	keys, _ := OCRKeyStore.GetAll()
@@ -79,21 +83,21 @@ func TestOCRKeysController_Delete_HappyPath(t *testing.T) {
 	response, cleanup := client.Delete("/v2/keys/ocr/" + key.ID())
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
-	assert.Error(t, utils.JustError(OCRKeyStore.Get(key.ID())))
+	require.Error(t, utils.JustError(OCRKeyStore.Get(key.ID())))
 
 	keys, _ = OCRKeyStore.GetAll()
 	assert.Len(t, keys, initialLength)
 }
 
 func setupOCRKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.OCR) {
-	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 
-	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
+	_, err := app.KeyStore.OCR().Create(ctx)
+	require.NoError(t, err)
 
 	return client, app.GetKeyStore().OCR()
 }

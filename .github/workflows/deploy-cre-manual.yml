@@ -1,0 +1,62 @@
+name: "Deploy CRE (Manual)"
+
+# Manually bump CRE to a chainlink image that's already been published, e.g. a
+# hotfix RC that build-publish.yml skipped deploying automatically.
+#
+# Uses a version-specific branch/PR per product (instead of the standing
+# auto/deploy-<product> branch the automatic RC pipeline reuses), so a manual
+# bump never overwrites whatever the standing deploy PR currently points to.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Chainlink release tag already built and pushed (e.g. "v2.38.1-rc.0")'
+        required: true
+
+permissions: {}
+
+jobs:
+  validate:
+    name: "Validate"
+    if: github.repository == 'smartcontractkit/chainlink'
+    runs-on: ubuntu-24.04
+    permissions: {}
+    outputs:
+      oci-image-tag: ${{ steps.parse.outputs.oci-image-tag }}
+    steps:
+      - name: Parse and validate version input
+        id: parse
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ ! "$VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+            echo "::error::version must be an RC tag like v2.38.1-rc.0 (CRE is only ever deployed at rc phase), got: $VERSION"
+            exit 1
+          fi
+          echo "oci-image-tag=${VERSION#v}" | tee -a "$GITHUB_OUTPUT"
+
+  deploy:
+    name: "Deploy CRE"
+    needs: [validate]
+    if: github.repository == 'smartcontractkit/chainlink'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Deploy CRE
+        uses: ./.github/actions/deploy-cre-products
+        with:
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
+          oci-image-tag: ${{ needs.validate.outputs.oci-image-tag }}
+          pr-head-branch-override: auto/deploy-{product}-${{ needs.validate.outputs.oci-image-tag }}
+          pr-title-override: "{product} - Deploy ${{ needs.validate.outputs.oci-image-tag }}"

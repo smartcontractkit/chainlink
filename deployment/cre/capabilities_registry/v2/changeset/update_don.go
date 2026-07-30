@@ -3,6 +3,7 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
@@ -236,10 +237,5 @@ func (u UpdateDON) Apply(e cldf.Environment, config UpdateDONInput) (cldf.Change
 // isFirstOCR3Config returns true if capID is listed in the
 // firstOCR3ConfigCapabilities slice.
 func isFirstOCR3Config(firstCaps []string, capID string) bool {
-	for _, c := range firstCaps {
-		if c == capID {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(firstCaps, capID)
 }

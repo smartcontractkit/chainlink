@@ -242,14 +242,14 @@ func generateOverridesToml(
 		Core: toml.Core{
 			Capabilities: toml.Capabilities{
 				ExternalRegistry: toml.ExternalRegistry{
-					Address:   ptr(externalRegistryAddress),
-					NetworkID: ptr("evm"),
-					ChainID:   ptr(strconv.FormatInt(chainID, 10)),
+					Address:   new(externalRegistryAddress),
+					NetworkID: new("evm"),
+					ChainID:   new(strconv.FormatInt(chainID, 10)),
 				},
 				Peering: toml.P2P{
 					V2: toml.P2PV2{
-						Enabled:         ptr(true),
-						ListenAddresses: ptr([]string{fmt.Sprintf("0.0.0.0:%d", capabilitiesP2PPort)}),
+						Enabled:         new(true),
+						ListenAddresses: new([]string{fmt.Sprintf("0.0.0.0:%d", capabilitiesP2PPort)}),
 					},
 				},
 			},
@@ -257,12 +257,12 @@ func generateOverridesToml(
 	}
 
 	if capabilitiesBootstrapper != nil {
-		conf.Capabilities.Peering.V2.DefaultBootstrappers = ptr([]ocrcommontypes.BootstrapperLocator{*capabilitiesBootstrapper})
+		conf.Capabilities.Peering.V2.DefaultBootstrappers = new([]ocrcommontypes.BootstrapperLocator{*capabilitiesBootstrapper})
 
 		if nodeSetName == WorkflowNodeSetName {
 			evmConfig.Workflow = evmcfg.Workflow{
-				FromAddress:      ptr(evmtypes.MustEIP55Address(fromAddress)),
-				ForwarderAddress: ptr(evmtypes.MustEIP55Address(forwarderAddress)),
+				FromAddress:      new(evmtypes.MustEIP55Address(fromAddress)),
+				ForwarderAddress: new(evmtypes.MustEIP55Address(forwarderAddress)),
 			}
 		}
 	}
@@ -307,5 +307,3 @@ func generateIngress(nodeNames []string) Ingress {
 		Hosts: hosts,
 	}
 }
-
-func ptr[T any](t T) *T { return &t }

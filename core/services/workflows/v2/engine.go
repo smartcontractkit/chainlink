@@ -876,11 +876,13 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
 
-	// Track execution error for deferred event emission
+	// Track execution error (and its user/system classification) for deferred
+	// event emission. Set alongside executionStatus at each outcome site below.
 	var execErr error
+	execErrClass := events.ErrorClassificationUnspecified
 	var execHelper *ExecutionHelper
 	defer func() {
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, lggr)
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, execErrClass, lggr)
 		if execHelper != nil {
 			endTime := e.cfg.Clock.Now()
 			profile, emitErr := events.EmitExecutionProfile(
@@ -932,6 +934,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		lggr.Errorw("Failed to get execution response size limit", "err", err)
 		executionStatus = store.StatusErrored
 		execErr = err
+		execErrClass = events.ErrorClassificationSystem
 		triggerDrop(monitoring.TriggerDropReasonExecutionResponseLimitReadFailed)
 		return
 	}
@@ -939,6 +942,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		execErr = fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 		lggr.Errorw(execErr.Error())
 		executionStatus = store.StatusErrored
+		execErrClass = events.ErrorClassificationSystem
 		triggerDrop(monitoring.TriggerDropReasonExecutionResponseLimitInvalid)
 		return
 	}
@@ -1010,6 +1014,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	if execErr != nil {
 		executionStatus = store.StatusErrored
+		// Module/host and timeout failures are platform errors by default, but a
+		// user-origin caperrors.Error propagating from a capability or the guest
+		// is attributed to the user.
+		execErrClass = events.ClassifyError(execErr, events.ErrorClassificationSystem)
 		if errors.Is(execErr, context.DeadlineExceeded) {
 			executionStatus = store.StatusTimeout
 			e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, int64(executionDuration.Seconds()))
@@ -1028,6 +1036,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if len(result.GetError()) > 0 {
 		executionStatus = store.StatusErrored
 		execErr = errors.New(result.GetError())
+		// The user's workflow ran and returned an error: a user failure.
+		execErrClass = events.ErrorClassificationUser
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
@@ -1244,7 +1254,16 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 				}
 			}
 		case logLine, ok := <-userLogChan:
-			if !ok || !processLogLine(ctx, logLine) {
+			if !ok {
+				return
+			}
+			// The execution context is cancelled the moment the execution completes,
+			// but this goroutine outlives it and may still have buffered log lines.
+			// Emit on a context detached from the execution lifecycle.
+			emitCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), emitUserLogsTimeout)
+			ok = processLogLine(emitCtx, logLine)
+			cancel()
+			if !ok {
 				return
 			}
 		}

@@ -5,19 +5,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/manyminds/api2go/jsonapi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/manyminds/api2go/jsonapi"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestETHKeyResource(t *testing.T) {
+	t.Parallel()
 	var (
 		now        = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 		addressStr = "0x2aCFF2ec69aa9945Ed84f4F281eCCF6911A3B0eD"

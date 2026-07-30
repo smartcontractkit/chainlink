@@ -48,7 +48,7 @@ type JobProposalApprovalSuccessSpec struct {
 }
 
 func DecodeInput(in, out any) error {
-	if reflect.TypeOf(out).Kind() != reflect.Ptr || reflect.ValueOf(out).IsNil() {
+	if reflect.TypeOf(out).Kind() != reflect.Pointer || reflect.ValueOf(out).IsNil() {
 		return errors.New("out type must be a non-nil pointer")
 	}
 	jsonBytes, err := json.Marshal(in)

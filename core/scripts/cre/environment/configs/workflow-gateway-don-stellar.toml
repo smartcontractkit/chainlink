@@ -1,8 +1,3 @@
-# Same as workflow-gateway-don.toml but with a Stellar chain and the Stellar chain capability (READ path).
-# Anvil 1337: registry and gateway. Stellar: local stellar/quickstart standalone network.
-# chain_id is the STELLAR_LOCALNET network id (SHA-256 of the standalone passphrase),
-# which maps to chain selector 17301180955411967724 in chain-selectors.
-
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
 
@@ -15,6 +10,8 @@
 [[blockchains]]
   type = "stellar"
   chain_id = "baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"
+  # Pin the standalone network to mainnet's live protocol (26) so local/CI matches
+  docker_cmd_params = ["--protocol-version", "26"]
 
 [jd]
   csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
@@ -38,13 +35,40 @@
   # Stellar chains this DON supports (string network ids), used for key generation and node relayer config.
   supported_stellar_chains = ["baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"]
   # Workflow runtime limits need both the EVM registry chain (1337) and the Stellar chain selector.
-  env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","17301180955411967724":"true"}},"ExecutionTimestampsEnabled":"true"}}' }
-  capabilities = ["cron", "consensus", "stellar", "don-time"]
+  env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","17301180955411967724":"true"}},"ExecutionTimestampsEnabled":"true","ChainRead":{"CallLimit":"32"}}}', CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["cron", "consensus", "don-time"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   [nodesets.db]
     image = "postgres:12.0"
     port = 13000
+
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "core/chainlink.Dockerfile"
+      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 4
+  name = "capabilities"
+  don_family = "test-don-family"
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "all"
+  http_port_range_start = 10200
+
+  # 1337 for node identity/gateway; Stellar to host the capability + submit on-chain.
+  supported_evm_chains = [1337]
+  supported_stellar_chains = ["baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"]
+  capabilities = ["stellar"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -64,6 +88,7 @@
   http_port_range_start = 10300
 
   supported_evm_chains = [1337]
+  supported_stellar_chains = ["baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"]
 
   [nodesets.db]
     image = "postgres:12.0"

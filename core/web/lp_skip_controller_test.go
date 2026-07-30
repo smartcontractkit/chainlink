@@ -112,9 +112,9 @@ func TestLPSkipController_LPSkipToBlock_HappyPath(t *testing.T) {
 
 	controller := web.LPSkipController{App: mockApp}
 
-	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
+	engine := gin.New()
+	engine.POST("/v2/lp_skip_to_block", controller.LPSkipToBlock)
 
 	body, err := json.Marshal(web.LPSkipToBlockRequest{
 		BlockNumber: 100,
@@ -123,11 +123,11 @@ func TestLPSkipController_LPSkipToBlock_HappyPath(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	c.Request, err = http.NewRequestWithContext(t.Context(), "POST", "/v2/lp_skip_to_block", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(t.Context(), "POST", "/v2/lp_skip_to_block", bytes.NewReader(body))
 	require.NoError(t, err)
-	c.Request.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 
-	controller.LPSkipToBlock(c)
+	engine.ServeHTTP(w, req)
 	require.Equal(t, http.StatusOK, w.Code)
 
 	var response web.LPSkipToBlockResponse

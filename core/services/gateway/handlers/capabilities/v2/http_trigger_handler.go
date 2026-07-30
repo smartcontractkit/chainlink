@@ -472,9 +472,7 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 func (h *httpTriggerHandler) Start(ctx context.Context) error {
 	return h.StartOnce("HTTPTriggerHandler", func() error {
 		h.lggr.Info("Starting HTTPTriggerHandler")
-		h.wg.Add(1)
-		go func() {
-			defer h.wg.Done()
+		h.wg.Go(func() {
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
 			for {
@@ -485,7 +483,7 @@ func (h *httpTriggerHandler) Start(ctx context.Context) error {
 					return
 				}
 			}
-		}()
+		})
 		return nil
 	})
 }
@@ -559,8 +557,15 @@ func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID stri
 	}
 }
 
-// sendWithRetries attempts to send the request to all DON members,
+type nodeSendResult struct {
+	nodeAddress string
+	err         error
+}
+
+// sendWithRetries attempts to send the request to all DON members in parallel,
 // retrying failed nodes until either all succeed or the max trigger request duration is reached.
+// Each send attempt is bounded by a per-node timeout, smaller than the overall request duration,
+// so that a single slow or unresponsive node can't delay delivery to the rest of the DON.
 // doneCh is closed when the callback has been responded to (quorum reached), allowing immediate termination.
 func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutionID, executionIDWithTriggerIndex string, req *jsonrpc.Request[json.RawMessage], doneCh <-chan struct{}) error {
 	if doneCh == nil {
@@ -572,6 +577,8 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutio
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, maxDuration)
 	defer cancel()
 
+	nodeTimeout := time.Duration(h.config.NodeSendTimeoutMs) * time.Millisecond
+
 	successfulNodes := make(map[string]bool)
 	b := backoff.Backoff{
 		Min:    time.Duration(h.config.RetryConfig.InitialIntervalMs) * time.Millisecond,
@@ -581,32 +588,53 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutio
 	}
 
 	for {
-		// Retry sending to nodes that haven't received the message
-		allNodesSucceeded := true
-		var combinedErr error
-
+		var pending []string
 		for _, member := range h.donConfig.Members {
-			if successfulNodes[member.Address] {
-				continue
-			}
-			h.metrics.IncrementTriggerCapabilityRequestCount(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
-			err := h.don.SendToNode(ctxWithTimeout, member.Address, req)
-			if err != nil {
-				allNodesSucceeded = false
-				h.metrics.IncrementTriggerCapabilityRequestFailures(ctx, member.Address, gateway_common.MethodWorkflowExecute, h.lggr)
-				err = errors.Join(combinedErr, err)
-				h.lggr.Debugw("Failed to send trigger request to node, will retry",
-					"node", member.Address,
-					"legacyExecutionID", legacyExecutionID,
-					"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
-					"error", err)
-			} else {
-				// Mark this node as successful
-				successfulNodes[member.Address] = true
+			if !successfulNodes[member.Address] {
+				pending = append(pending, member.Address)
 			}
 		}
 
-		if allNodesSucceeded {
+		// Buffered so every goroutine can send its result and exit without waiting on a reader.
+		results := make(chan nodeSendResult, len(pending))
+		var wg sync.WaitGroup
+		for _, nodeAddress := range pending {
+			wg.Add(1)
+			go func(nodeAddress string) {
+				defer wg.Done()
+
+				nodeCtx, nodeCancel := context.WithTimeout(ctxWithTimeout, nodeTimeout)
+				defer nodeCancel()
+
+				h.metrics.IncrementTriggerCapabilityRequestCount(ctx, nodeAddress, gateway_common.MethodWorkflowExecute, h.lggr)
+				sendStart := time.Now()
+				err := h.don.SendToNode(nodeCtx, nodeAddress, req)
+				h.metrics.RecordGatewayToNodeLatency(ctx, time.Since(sendStart).Milliseconds(), nodeAddress, gateway_common.MethodWorkflowExecute, h.lggr)
+				if err != nil {
+					h.metrics.IncrementTriggerCapabilityRequestFailures(ctx, nodeAddress, gateway_common.MethodWorkflowExecute, h.lggr)
+				}
+				results <- nodeSendResult{nodeAddress: nodeAddress, err: err}
+			}(nodeAddress)
+		}
+		wg.Wait()
+		close(results)
+
+		// Only this goroutine reads from results, so successfulNodes and combinedErr need no locking.
+		var combinedErr error
+		for res := range results {
+			if res.err != nil {
+				combinedErr = errors.Join(combinedErr, fmt.Errorf("node %s: %w", res.nodeAddress, res.err))
+				h.lggr.Debugw("Failed to send trigger request to node, will retry",
+					"node", res.nodeAddress,
+					"legacyExecutionID", legacyExecutionID,
+					"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
+					"error", res.err)
+			} else {
+				successfulNodes[res.nodeAddress] = true
+			}
+		}
+
+		if len(successfulNodes) == len(h.donConfig.Members) {
 			h.lggr.Infow("Successfully sent trigger request to all nodes",
 				"legacyExecutionID", legacyExecutionID,
 				"executionIDWithTriggerIndex", executionIDWithTriggerIndex,

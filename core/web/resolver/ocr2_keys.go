@@ -139,7 +139,7 @@ func NewOCR2KeyBundlesPayload(keys []ocr2key.KeyBundle) *OCR2KeyBundlesPayloadRe
 
 // Results resolves the list of OCR2 key bundles
 func (r *OCR2KeyBundlesPayloadResolver) Results() []OCR2KeyBundleResolver {
-	var results []OCR2KeyBundleResolver
+	results := make([]OCR2KeyBundleResolver, 0, len(r.keys))
 
 	for _, k := range r.keys {
 		results = append(results, *NewOCR2KeyBundle(k))

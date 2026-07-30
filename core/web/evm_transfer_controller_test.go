@@ -11,8 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gin-gonic/gin"
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -20,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
@@ -35,11 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webmocks "github.com/smartcontractkit/chainlink/v2/core/web/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 func TestTransfersController_CreateSuccess_From(t *testing.T) {
@@ -57,7 +57,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -73,7 +73,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	}
 
 	body, err := json.Marshal(&request)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	t.Cleanup(cleanup)
@@ -205,7 +205,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -220,7 +220,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	}
 
 	body, err := json.Marshal(&request)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	t.Cleanup(cleanup)
@@ -247,11 +247,11 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 	})
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -266,8 +266,9 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
 	}
 
-	body, err := json.Marshal(&request)
-	assert.NoError(t, err)
+	var body []byte
+	body, err = json.Marshal(&request)
+	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	t.Cleanup(cleanup)
@@ -283,7 +284,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
@@ -297,7 +298,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 	}
 
 	body, err := json.Marshal(&request)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	t.Cleanup(cleanup)
@@ -317,7 +318,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -333,7 +334,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 	}
 
 	body, err := json.Marshal(&request)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	t.Cleanup(cleanup)
@@ -356,7 +357,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Once()
 
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -372,7 +373,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 	}
 
 	body, err := json.Marshal(&request)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	t.Cleanup(cleanup)
@@ -384,7 +385,7 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -409,8 +410,8 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil)
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].GasEstimator.EIP1559DynamicFees = new(true)
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 		c.EVM[0].ChainID = (*sqlutil.Big)(testutils.FixtureChainID)
 		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
 		// Testing triggers requires committing transactions and does not work with transactional tests
@@ -418,7 +419,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	})
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -435,7 +436,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	}
 
 	body, err := json.Marshal(&request)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
 	t.Cleanup(cleanup)
@@ -444,7 +445,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 
 	resource := presenters.EthTxResource{}
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	validateTxCount(t, app.GetDB(), 1)
 
@@ -457,13 +458,15 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 }
 
 func TestTransfersController_FindTxAttempt(t *testing.T) {
+	t.Parallel()
 	tx := txmgr.Tx{ID: 1}
 	attempt := txmgr.TxAttempt{ID: 2}
 	txWithAttempt := txmgr.Tx{ID: 1, TxAttempts: []txmgr.TxAttempt{attempt}}
 
 	// happy path
 	t.Run("happy_path", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+		ctx := t.Context()
 		timeout := 5 * time.Second
 		var done bool
 		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
@@ -481,7 +484,8 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 
 	// failed to find tx
 	t.Run("failed to find tx", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+		ctx := t.Context()
 		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
 			return txmgr.Tx{}, errors.New("ERRORED")
 		}
@@ -491,7 +495,8 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 
 	// timeout
 	t.Run("timeout", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+		ctx := t.Context()
 		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
 			return tx, nil
 		}
@@ -501,7 +506,8 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 
 	// context canceled
 	t.Run("context canceled", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+		ctx := t.Context()
 		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
 			return tx, nil
 		}
@@ -520,7 +526,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 func validateTxCount(t *testing.T, ds sqlutil.DataSource, count int) {
 	txStore := txmgr.NewTxStore(ds, logger.TestLogger(t))
 
-	txes, err := txStore.GetAllTxes(testutils.Context(t))
+	txes, err := txStore.GetAllTxes(t.Context())
 	require.NoError(t, err)
 	require.Len(t, txes, count)
 }

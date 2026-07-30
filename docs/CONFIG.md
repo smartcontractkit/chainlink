@@ -2393,10 +2393,18 @@ AuthHeadersTTL = '0s' # Default
 ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 ChipIngressBatchEmitterEnabled = true # Default
+ChipIngressBufferSize = 10000 # Default
+ChipIngressMaxBatchSize = 1000 # Default
+ChipIngressMaxConcurrentSends = 10 # Default
+ChipIngressSendInterval = '500ms' # Default
+ChipIngressSendTimeout = '10s' # Default
+ChipIngressDrainTimeout = '30s' # Default
+ChipIngressMaxGRPCRequestSize = 10485760 # Default
 DurableEmitterEnabled = true # Default
 DurableEmitterRetransmitBatchSize = 500 # Default
 DurableEmitterEventTTL = '1h0m0s' # Default
 DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
+DurableEmitterInsertBatchFlushInterval = '50ms' # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
 LogStreamingEnabled = false # Default
@@ -2405,6 +2413,8 @@ LogExportTimeout = '1s' # Default
 LogExportMaxBatchSize = 512 # Default
 LogExportInterval = '1s' # Default
 LogMaxQueueSize = 2048 # Default
+MetricViewsDenyAttributes = ['event_id'] # Default
+MetricCardinalityLimit = 100000 # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2480,6 +2490,48 @@ ChipIngressBatchEmitterEnabled = true # Default
 ChipIngressBatchEmitterEnabled enables batching for chip-ingress events.
 When false, events are sent individually (legacy behavior).
 
+### ChipIngressBufferSize
+```toml
+ChipIngressBufferSize = 10000 # Default
+```
+ChipIngressBufferSize is the in-memory queue size for chip-ingress events.
+
+### ChipIngressMaxBatchSize
+```toml
+ChipIngressMaxBatchSize = 1000 # Default
+```
+ChipIngressMaxBatchSize is the max events per PublishBatch RPC.
+
+### ChipIngressMaxConcurrentSends
+```toml
+ChipIngressMaxConcurrentSends = 10 # Default
+```
+ChipIngressMaxConcurrentSends limits parallel PublishBatch calls.
+
+### ChipIngressSendInterval
+```toml
+ChipIngressSendInterval = '500ms' # Default
+```
+ChipIngressSendInterval is the max wait before flushing an incomplete batch.
+
+### ChipIngressSendTimeout
+```toml
+ChipIngressSendTimeout = '10s' # Default
+```
+ChipIngressSendTimeout is the per-RPC timeout for PublishBatch.
+
+### ChipIngressDrainTimeout
+```toml
+ChipIngressDrainTimeout = '30s' # Default
+```
+ChipIngressDrainTimeout is the max shutdown wait to flush queued events.
+
+### ChipIngressMaxGRPCRequestSize
+```toml
+ChipIngressMaxGRPCRequestSize = 10485760 # Default
+```
+ChipIngressMaxGRPCRequestSize is the max serialized PublishBatch request size in bytes. Batches exceeding this are split before send (min 1 MiB enforced by batch client).
+
 ### DurableEmitterEnabled
 ```toml
 DurableEmitterEnabled = true # Default
@@ -2504,6 +2556,13 @@ DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
 ```
 DurableEmitterMaxQueuePayloadBytes is the byte ceiling used as the denominator for the durable emitter's
 queue capacity_usage_ratio metric. Defaults to 1 GiB.
+
+### DurableEmitterInsertBatchFlushInterval
+```toml
+DurableEmitterInsertBatchFlushInterval = '50ms' # Default
+```
+DurableEmitterInsertBatchFlushInterval is the linger time the durable emitter waits to coalesce concurrent
+emits into a single multi-row INSERT. Lower values reduce per-emit latency at the cost of smaller batches.
 
 ### HeartbeatInterval
 ```toml
@@ -2552,6 +2611,19 @@ LogExportInterval sets the maximum duration between batched exports
 LogMaxQueueSize = 2048 # Default
 ```
 LogMaxQueueSize sets the maximum queue size used by the batcher
+
+### MetricViewsDenyAttributes
+```toml
+MetricViewsDenyAttributes = ['event_id'] # Default
+```
+MetricViewsDenyAttributes lists attribute keys dropped before export (e.g. event_id).
+Empty disables default Beholder metric attribute deny views.
+
+### MetricCardinalityLimit
+```toml
+MetricCardinalityLimit = 100000 # Default
+```
+MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
 
 ## Telemetry.ResourceAttributes
 ```toml

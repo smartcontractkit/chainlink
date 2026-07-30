@@ -263,12 +263,12 @@ func validateEnv() (err error) {
 		if strings.TrimSpace(kv) == "" {
 			continue
 		}
-		i := strings.Index(kv, "=")
-		if i == -1 {
+		before, _, ok := strings.Cut(kv, "=")
+		if !ok {
 			return errors.Errorf("malformed .env file line: %s", kv)
 		}
-		k := kv[:i]
-		_, ok := os.LookupEnv(k)
+		k := before
+		_, ok = os.LookupEnv(k)
 		if ok {
 			err = stderrors.Join(err, fmt.Errorf("environment variable %s must not be set: %w", k, v2.ErrUnsupported))
 		}

@@ -18,9 +18,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/freeport"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -35,7 +35,7 @@ func TestPipelineRunsController_CreateWebhookJobRejected(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 	// Bridge names are arbitrary; webhook creation is rejected before bridge validation.
@@ -58,7 +58,7 @@ func TestPipelineRunsController_RunExistingWebhookJobRejected(t *testing.T) {
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	jobUUID := uuid.New()
 	cltest.MustInsertWebhookSpec(t, app.GetDB(), jobUUID)
@@ -72,6 +72,8 @@ func TestPipelineRunsController_RunExistingWebhookJobRejected(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	url := url.URL{Path: "/v2/pipeline/runs"}
@@ -88,7 +90,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"allErrors":["uh oh"],"fatalErrors":[null],"inputs":{"answer":"3","ds1":"{\"USD\": 1}","ds1_multiply":"3","ds1_parse":1,"ds2":"{\"USD\": 1}","ds2_multiply":"3","ds2_parse":1,"ds3":{},"jobRun":{"meta":null}`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	require.Len(t, parsedResponse, 2)
 	// Job Run ID is returned in descending order by run ID (most recent run first)
@@ -100,6 +102,8 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs")
@@ -111,7 +115,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	assert.Contains(t, string(responseBytes), `"outputs":["3"],"errors":[null],"allErrors":["uh oh"],"fatalErrors":[null],"inputs":{"answer":"3","ds1":"{\"USD\": 1}","ds1_multiply":"3","ds1_parse":1,"ds2":"{\"USD\": 1}","ds2_multiply":"3","ds2_parse":1,"ds3":{},"jobRun":{"meta":null}`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	require.Len(t, parsedResponse, 2)
 	// Job Run ID is returned in descending order by run ID (most recent run first)
@@ -123,6 +127,8 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 }
 
 func TestPipelineRunsController_Index_Pagination(t *testing.T) {
+	t.Parallel()
+
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs?page=1&size=1")
@@ -135,7 +141,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 	assert.Contains(t, string(responseBytes), `"meta":{"count":2}`)
 
 	err := web.ParseJSONAPIResponse(responseBytes, &parsedResponse)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	require.Len(t, parsedResponse, 1)
 	assert.Equal(t, parsedResponse[0].ID, strconv.Itoa(int(runIDs[1])))
@@ -145,6 +151,8 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 }
 
 func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
+	t.Parallel()
+
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs/" + strconv.FormatInt(runIDs[0], 10))
@@ -166,7 +174,7 @@ func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 
 	response, cleanup := client.Get("/v2/jobs/1/runs/invalid-run-ID")
@@ -175,17 +183,17 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 }
 
 func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64) {
-	t.Parallel()
-	ctx := testutils.Context(t)
+	t.Helper()
+	ctx := t.Context()
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V2.Enabled = ptr(true)
+		c.OCR.Enabled = new(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 	})
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(ctx))
@@ -232,12 +240,12 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	require.NoError(t, err)
 	jb.OCROracleSpec = &os
 
-	err = app.AddJobV2(testutils.Context(t), &jb)
+	err = app.AddJobV2(t.Context(), &jb)
 	require.NoError(t, err)
 
-	firstRunID, err := app.RunJobV2(testutils.Context(t), jb.ID, nil)
+	firstRunID, err := app.RunJobV2(t.Context(), jb.ID, nil)
 	require.NoError(t, err)
-	secondRunID, err := app.RunJobV2(testutils.Context(t), jb.ID, nil)
+	secondRunID, err := app.RunJobV2(t.Context(), jb.ID, nil)
 	require.NoError(t, err)
 
 	return client, jb.ID, []int64{firstRunID, secondRunID}

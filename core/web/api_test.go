@@ -6,6 +6,7 @@ import (
 
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestApi_ParsePaginatedRequest(t *testing.T) {
@@ -31,11 +32,12 @@ func TestApi_ParsePaginatedRequest(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			size, page, offset, err := ParsePaginatedRequest(test.sizeParam, test.pageParam)
 			if test.err {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 			assert.Equal(t, test.size, size)
 			assert.Equal(t, test.page, page)
@@ -108,13 +110,14 @@ func TestApi_NewPaginatedResponse(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			url, err := url.Parse(test.path)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			buffer, err := NewPaginatedResponse(*url, test.size, test.page, test.count, test.resource)
 			if test.err {
-				assert.Error(t, err)
+				require.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 			assert.Equal(t, test.output, string(buffer))
 		})
@@ -128,16 +131,16 @@ func TestPagination_ParsePaginatedResponse(t *testing.T) {
 	var links jsonapi.Links
 
 	err := ParsePaginatedResponse([]byte(`{"data":[{"type":"testResources","id":"1","attributes":{"Title":"album 1"}}]}`), &docs, &links)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "album 1", docs[0].Title)
 
 	// Typo in "type"
 	err = ParsePaginatedResponse([]byte(`{"data":[{"type":"testNotResources","id":"1","attributes":{}}]}`), &docs, &links)
-	assert.Error(t, err)
+	require.Error(t, err)
 
 	// Typo in "links"
 	err = ParsePaginatedResponse([]byte(`{"links":[],"data":[{"type":"testResources","id":"1","attributes":{}}]}`), &docs, &links)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 type DummyResource struct {
@@ -153,11 +156,11 @@ func TestNewJSONAPIResponse(t *testing.T) {
 	t.Parallel()
 
 	buffer, err := NewJSONAPIResponse(12981)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.Empty(t, buffer)
 
 	r := DummyResource{ID: "782"}
 	buffer, err = NewJSONAPIResponse(&r)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.JSONEq(t, `{"data":{"type":"dummyResources","id":"782","attributes":{"ID":"782"}}}`, string(buffer))
 }

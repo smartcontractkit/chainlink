@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
@@ -19,7 +20,7 @@ type LCAController struct {
 //
 //	"<application>/v2/find_lca"
 func (bdc *LCAController) FindLCA(c *gin.Context) {
-	chain, err := getChain(bdc.App.GetRelayers().LegacyEVMChains(), c.Query("evmChainID"))
+	chain, err := getChain(bdc.App.GetRelayers().LegacyEVMChains(), c.Query("evmChainID")) //nolint:staticcheck // LegacyEVMChains is deprecated but refactoring to new relayer interface requires larger architectural changes
 	if err != nil {
 		if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
 			jsonAPIError(c, http.StatusUnprocessableEntity, err)

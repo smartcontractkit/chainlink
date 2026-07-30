@@ -56,13 +56,16 @@ type gatewayConnector struct {
 	config      *ConnectorConfig
 	clock       clockwork.Clock
 	nodeAddress []byte
+	csaKey      string
 	signer      Signer
+	handlersMu  sync.RWMutex
 	handlers    map[string]core.GatewayConnectorHandler
 	gateways    map[string]*gatewayState
 	urlToId     map[string]string
 	closeWait   sync.WaitGroup
 	shutdownCh  services.StopChan
 	lggr        logger.Logger
+	metrics     *connectorMetrics
 }
 
 func (c *gatewayConnector) HealthReport() map[string]error {
@@ -100,7 +103,7 @@ func (gs *gatewayState) awaitConn(ctx context.Context) error {
 	}
 }
 
-func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork.Clock, lggr logger.Logger) (*gatewayConnector, error) {
+func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork.Clock, lggr logger.Logger, csaKey string) (*gatewayConnector, error) {
 	if config == nil || signer == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
@@ -111,14 +114,20 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 	if err != nil {
 		return nil, err
 	}
+	metrics, err := newConnectorMetrics()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gateway connector metrics: %w", err)
+	}
 	connector := &gatewayConnector{
 		config:      config,
 		clock:       clock,
 		nodeAddress: addressBytes,
+		csaKey:      csaKey,
 		signer:      signer,
 		handlers:    make(map[string]core.GatewayConnectorHandler),
 		shutdownCh:  make(chan struct{}),
 		lggr:        logger.Named(lggr, "GatewayConnector"),
+		metrics:     metrics,
 	}
 	gateways := make(map[string]*gatewayState)
 	urlToId := make(map[string]string)
@@ -153,6 +162,8 @@ func (c *gatewayConnector) AddHandler(ctx context.Context, methods []string, han
 	if handler == nil {
 		return errors.New("cannot add a nil handler")
 	}
+	c.handlersMu.Lock()
+	defer c.handlersMu.Unlock()
 	for _, method := range methods {
 		if _, exists := c.handlers[method]; exists {
 			return fmt.Errorf("handler for method %s already exists", method)
@@ -166,6 +177,8 @@ func (c *gatewayConnector) AddHandler(ctx context.Context, methods []string, han
 }
 
 func (c *gatewayConnector) RemoveHandler(ctx context.Context, methods []string) error {
+	c.handlersMu.Lock()
+	defer c.handlersMu.Unlock()
 	for _, method := range methods {
 		_, exists := c.handlers[method]
 		if !exists {
@@ -269,7 +282,9 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.ID, "err", err)
 				break
 			}
+			c.handlersMu.RLock()
 			handler, exists := c.handlers[req.Method]
+			c.handlersMu.RUnlock()
 			if !exists {
 				c.lggr.Errorw("no handler for method", "id", gatewayState.config.ID, "method", req.Method)
 				break
@@ -321,6 +336,7 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 func (c *gatewayConnector) Start(ctx context.Context) error {
 	return c.StartOnce("GatewayConnector", func() error {
 		c.lggr.Info("starting gateway connector")
+		c.recordGatewaysPerDon(ctx)
 		for _, gatewayState := range c.gateways {
 			if err := gatewayState.conn.Start(ctx); err != nil {
 				return err
@@ -331,6 +347,27 @@ func (c *gatewayConnector) Start(ctx context.Context) error {
 		}
 		return nil
 	})
+}
+
+// recordGatewaysPerDon emits one gauge sample per DON ID configured on this
+// connector, labeled with the node's CSA key. In multi-DON mode each gateway's
+// DonID is used; in single-DON mode the top-level DonId is used. Recording is
+// skipped when the CSA key is empty or metrics are unavailable.
+func (c *gatewayConnector) recordGatewaysPerDon(ctx context.Context) {
+	if c.metrics == nil || c.csaKey == "" {
+		return
+	}
+	counts := make(map[string]int)
+	for _, gw := range c.config.Gateways {
+		donID := gw.DonID
+		if donID == "" {
+			donID = c.config.DonId
+		}
+		counts[donID]++
+	}
+	for donID, count := range counts {
+		c.metrics.recordGatewaysPerDon(ctx, c.csaKey, donID, count)
+	}
 }
 
 func (c *gatewayConnector) Close() error {

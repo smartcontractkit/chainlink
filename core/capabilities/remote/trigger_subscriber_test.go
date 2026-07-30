@@ -2,6 +2,7 @@ package remote_test
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -311,7 +312,16 @@ func TestTriggerSubscriber_AckReplayOnDuplicateReceive(t *testing.T) {
 	lggr := logger.Test(t)
 	capInfo, capDon, workflowDon := buildTwoTestDONs(t, 3, 1)
 	dispatcher := remoteMocks.NewDispatcher(t)
-	dispatcher.On("Send", mock.Anything, mock.Anything).Return(nil).Maybe()
+	// Count ACK fan-out sends through a synchronized hook rather than reading the
+	// mock's internal Calls slice directly: the background registrationLoop keeps
+	// calling Send concurrently, so touching dispatcher.Calls unsynchronized races.
+	// Filtering by method isolates ACKs from the loop's MethodRegisterTrigger sends.
+	var ackSendsTotal atomic.Int64
+	dispatcher.On("Send", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		if m, ok := args.Get(1).(*remotetypes.MessageBody); ok && m.Method == remotetypes.MethodTriggerEventAck {
+			ackSendsTotal.Add(1)
+		}
+	}).Return(nil).Maybe()
 
 	config := &commoncap.RemoteTriggerConfig{
 		RegistrationRefresh:     100 * time.Millisecond,
@@ -345,20 +355,11 @@ func TestTriggerSubscriber_AckReplayOnDuplicateReceive(t *testing.T) {
 
 	require.NoError(t, subscriber.AckEvent(t.Context(), triggerRegID, eventID, "method"))
 
-	dispatcher.Calls = nil
+	// Duplicate receive replays the ACK fan-out synchronously within Receive.
+	before := ackSendsTotal.Load()
 	subscriber.Receive(t.Context(), msg)
 
-	ackSends := 0
-	for _, call := range dispatcher.Calls {
-		if call.Method != "Send" {
-			continue
-		}
-		m := call.Arguments.Get(1).(*remotetypes.MessageBody)
-		if m.Method == remotetypes.MethodTriggerEventAck {
-			ackSends++
-		}
-	}
-	require.Equal(t, len(capDon.Members), ackSends, "duplicate receive should fan out ACK to all capability DON members")
+	require.Equal(t, int64(len(capDon.Members)), ackSendsTotal.Load()-before, "duplicate receive should fan out ACK to all capability DON members")
 
 	select {
 	case r := <-callbackCh:

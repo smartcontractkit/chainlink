@@ -3,6 +3,7 @@ package contracts
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -35,10 +36,8 @@ func (r *DeleteDONInput) Validate() error {
 	if len(r.DonNames) == 0 {
 		return errors.New("must specify don names")
 	}
-	for _, name := range r.DonNames {
-		if name == "" {
-			return errors.New("don names cannot contain empty string")
-		}
+	if slices.Contains(r.DonNames, "") {
+		return errors.New("don names cannot contain empty string")
 	}
 	return nil
 }

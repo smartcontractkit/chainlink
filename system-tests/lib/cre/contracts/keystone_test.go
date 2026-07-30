@@ -51,11 +51,18 @@ func newFakeOffchainClient(nodes []*fakeNodeInfo) *fakeOffchainClient {
 
 func (f *fakeOffchainClient) ListNodes(_ context.Context, in *nodev1.ListNodesRequest, _ ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
 	var wantP2P map[string]bool
+	var wantCSA map[string]bool
 	if in.Filter != nil {
+		if len(in.Filter.PublicKeys) > 0 {
+			wantCSA = make(map[string]bool)
+			for _, key := range in.Filter.PublicKeys {
+				wantCSA[key] = true
+			}
+		}
 		for _, sel := range in.Filter.Selectors {
 			if sel.Key == "p2p_id" && sel.Op == ptypes.SelectorOp_IN && sel.Value != nil {
 				wantP2P = make(map[string]bool)
-				for _, v := range strings.Split(*sel.Value, ",") {
+				for v := range strings.SplitSeq(*sel.Value, ",") {
 					wantP2P[v] = true
 				}
 			}
@@ -64,7 +71,11 @@ func (f *fakeOffchainClient) ListNodes(_ context.Context, in *nodev1.ListNodesRe
 
 	out := make([]*nodev1.Node, 0, len(f.nodesByID))
 	for _, n := range f.nodesByID {
-		if wantP2P != nil && !wantP2P[n.p2pID] {
+		if wantCSA != nil {
+			if !wantCSA[n.csaKey] {
+				continue
+			}
+		} else if wantP2P != nil && !wantP2P[n.p2pID] {
 			continue
 		}
 		p2pVal := n.p2pID

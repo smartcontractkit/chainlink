@@ -113,7 +113,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				s.Password.Keystore = models.NewSecret("16charlengthp4SsW0rD1!@#_")
-				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].Name = new("fake")
 				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
 				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
 				// seems to be needed for config validate
@@ -473,7 +473,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		s.Password.Keystore = models.NewSecret("dummy")
-		c.EVM[0].Nodes[0].Name = ptr("fake")
+		c.EVM[0].Nodes[0].Name = new("fake")
 		c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
 		c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
 		// seems to be needed for config validate
@@ -732,7 +732,7 @@ func TestShell_RunNode_WithBeforeNode(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				s.Password.Keystore = models.NewSecret("dummy")
-				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].Name = new("fake")
 				c.EVM[0].Nodes[0].HTTPURL = commonconfig.MustParseURL("http://fake.com")
 				c.EVM[0].Nodes[0].WSURL = commonconfig.MustParseURL("WSS://fake.com/ws")
 				// seems to be needed for config validate
