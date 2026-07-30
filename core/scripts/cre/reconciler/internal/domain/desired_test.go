@@ -410,6 +410,125 @@ func TestLoadDesiredState_ValidationErrors(t *testing.T) {
 `,
 			errSub: "not declared in [[chains]]",
 		},
+		{
+			name: "aptos chain missing http_url",
+			toml: `[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "evm"
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[chains]]
+  chain_id = 4
+  family = "aptos"
+[[dons]]
+  name = "w"
+  capabilities = ["cron"]
+  nodes = ["n"]
+[capability_configs.cron]
+  binary_name = "cron"
+`,
+			errSub: "family aptos): http_url is required",
+		},
+		{
+			name: "aptos chain cannot set ws_url",
+			toml: `[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "evm"
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[chains]]
+  chain_id = 4
+  family = "aptos"
+  ws_url = "wss://aptos-4.example.com"
+  http_url = "https://aptos-4.example.com"
+[[dons]]
+  name = "w"
+  capabilities = ["cron"]
+  nodes = ["n"]
+[capability_configs.cron]
+  binary_name = "cron"
+`,
+			errSub: "ws_url is not used by aptos",
+		},
+		{
+			name: "solana chain missing genesis_hash",
+			toml: `[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "evm"
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[chains]]
+  chain_id = 5
+  family = "solana"
+  ws_url = "wss://solana-5.example.com"
+  http_url = "https://solana-5.example.com"
+[[dons]]
+  name = "w"
+  capabilities = ["cron"]
+  nodes = ["n"]
+[capability_configs.cron]
+  binary_name = "cron"
+`,
+			errSub: "chain_specific.genesis_hash is required",
+		},
+		{
+			name: "solana chain missing ws_url",
+			toml: `[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "evm"
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[chains]]
+  chain_id = 5
+  family = "solana"
+  http_url = "https://solana-5.example.com"
+  [chains.chain_specific]
+    genesis_hash = "22222222222222222222222222222222222222222222"
+[[dons]]
+  name = "w"
+  capabilities = ["cron"]
+  nodes = ["n"]
+[capability_configs.cron]
+  binary_name = "cron"
+`,
+			errSub: "family solana): ws_url is required",
+		},
 	}
 
 	for _, tt := range tests {
@@ -445,6 +564,7 @@ func TestLoadDesiredState_NonEVMChainDeclared(t *testing.T) {
 [[chains]]
   chain_id = 4
   family = "aptos"
+  http_url = "https://aptos-4.example.com"
 [[dons]]
   name = "w"
   capabilities = ["cron", "aptos-4"]
@@ -458,7 +578,49 @@ func TestLoadDesiredState_NonEVMChainDeclared(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ds.Chains, 2)
 	require.Equal(t, "aptos", ds.Chains[1].Family)
+	require.Equal(t, "https://aptos-4.example.com", ds.Chains[1].HTTPURL)
 	require.ElementsMatch(t, []uint64{1337}, ds.EVMChainIDs())
+}
+
+func TestLoadDesiredState_SolanaChainDeclared(t *testing.T) {
+	t.Parallel()
+
+	path := writeTempTOML(t, `
+[infra]
+  type = "griddle"
+  chart_values = "x"
+  namespace = "ns"
+[jd]
+  grpc = "x"
+  domain = "cre"
+  environment = "dev"
+[[chains]]
+  chain_id = 1337
+  family = "evm"
+  ws_url = "wss://anvil-1337.example.com"
+  http_url = "https://anvil-1337.example.com"
+  registry = true
+[[chains]]
+  chain_id = 5
+  family = "solana"
+  ws_url = "wss://solana-5.example.com"
+  http_url = "https://solana-5.example.com"
+  [chains.chain_specific]
+    genesis_hash = "22222222222222222222222222222222222222222222"
+[[dons]]
+  name = "w"
+  capabilities = ["cron", "solana-5"]
+  nodes = ["n"]
+[capability_configs.cron]
+  binary_name = "cron"
+[capability_configs.solana]
+  binary_name = "solana"
+`)
+	ds, err := LoadDesiredState(path)
+	require.NoError(t, err)
+	require.Len(t, ds.Chains, 2)
+	require.Equal(t, "solana", ds.Chains[1].Family)
+	require.Equal(t, "22222222222222222222222222222222222222222222", ds.Chains[1].SolanaGenesisHash())
 }
 
 func TestDON_NonEVMFamilies(t *testing.T) {

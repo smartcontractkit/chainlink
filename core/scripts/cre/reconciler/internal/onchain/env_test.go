@@ -1,6 +1,7 @@
 package onchain
 
 import (
+	"context"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -84,4 +85,22 @@ func TestSyncAddressBook_ReSyncUpdatesExistingRef(t *testing.T) {
 	require.NoError(t, d.syncAddressBook(env, state))
 
 	require.Len(t, state.Addresses, 1, "syncing the same datastore twice must not duplicate entries")
+}
+
+func TestBuildCreEnvironment_SolanaRequiresPrivateKeyEnv(t *testing.T) {
+	// Deliberately not t.Parallel(): asserts the absence of SolanaPrivateKeyEnv,
+	// which would race against any other test that sets it.
+	t.Setenv(SolanaPrivateKeyEnv, "")
+
+	d := &Deployer{}
+	desired := &domain.DesiredState{
+		Chains: []domain.Chain{
+			{ChainID: 5, Family: "solana", WSURL: "wss://solana-5.example.com", HTTPURL: "https://solana-5.example.com"},
+		},
+	}
+	cldfEnv := &cldf.Environment{DataStore: datastore.NewMemoryDataStore().Seal()}
+
+	_, err := d.buildCreEnvironment(context.Background(), desired, cldfEnv, 1337)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), SolanaPrivateKeyEnv)
 }

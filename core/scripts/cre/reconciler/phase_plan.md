@@ -464,37 +464,47 @@ Align the UI catalog, defaults, discovery, and backend wiring around the actual 
 - [internal/onchain/env.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/onchain/env.go)
 - [internal/onchain/topology.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/onchain/topology.go)
 
+### Decided (differs from the steps below — see TODO.md C2 for full rationale)
+
+- **Chain-selector mismatch discovered during investigation:** Solana's blockchain provider (`system-tests/lib/cre/environment/blockchains/solana`) resolves a chain selector from a base58 genesis-hash-style string via `chainselectors.SolanaChainIdToChainSelector()` — incompatible with the opaque numeric `chain_id` Phase 4 established for `solana-<N>` capability scoping. Resolved by adding a generic `domain.Chain.ChainSpecificData map[string]any` field (`toml:"chain_specific"`) rather than a one-off `GenesisHash` struct field, so the same mechanism extends to future non-EVM families. Solana reads `chain_specific.genesis_hash` via a `Chain.SolanaGenesisHash()` helper; `chain_id` keeps its Phase-4 opaque-number semantics unchanged.
+- **Aptos has no such mismatch:** its `Deploy()` parses `chain_id` as a plain uint64, so `chain.ChainID` is reused directly — no extra field needed.
+- **write-solana fold:** per explicit user direction, the standalone `[capability_configs.write-solana]` table was deleted outright rather than merged into `solana`'s values (no Go code read it by name, so nothing depended on the merge).
+- **Step 3 ("extend backend environment construction") turned out to be load-bearing, not optional/cosmetic:** the CRE feature hooks (`system-tests/lib/cre/features/aptos`, `.../solana/v2`) hard-require a matching `creEnv.Blockchains` entry — aptos errors, solana nil-pointer-panics — the moment a DON has that capability enabled and gets applied. So "aptos selectable in the UI" could not ship safely without also completing this wiring in the same phase.
+- Solana requires the `SOLANA_PRIVATE_KEY` env var (no default on the Kubernetes/external-provider path, unlike EVM's auto-defaulted `PRIVATE_KEY`) and a writable `ContractsDir`, which the reconciler generates internally via `os.MkdirTemp` (operational detail, not user-declared desired state).
+
 ### Implementation steps
 
 1. Update the UI catalog to the finalized support set:
-   - add `aptos`
-   - keep `solana`
-   - do not add `write-solana`
+   - add `aptos` ✅
+   - keep `solana` ✅
+   - do not add `write-solana` ✅ (was already absent)
 2. Clean `capability_defaults.toml`:
-   - keep defaults for real supported capabilities
-   - fold any `write-solana` values into the Solana capability handling if they are still needed
-3. Extend backend environment construction as needed so the reconciler can actually supply the chain families required by Aptos/Solana feature code.
-4. Verify chain-scoped capability handling in `desired.go` still matches the final catalog.
+   - keep defaults for real supported capabilities ✅
+   - delete the standalone `write-solana` table (not merged — see Decided above) ✅
+3. Extend backend environment construction so the reconciler can actually supply the chain families required by Aptos/Solana feature code ✅ — `buildCreEnvironment` (env.go) now switches on `chain.Family` and calls the matching CRE blockchain deployer (solana/aptos), reusing their existing Kubernetes-path `Deploy()` — no new provider-construction code.
+4. Verify chain-scoped capability handling in `desired.go` still matches the final catalog ✅ — `ChainScopedCapabilities`/`stripChainSuffix`/`validChainFamilies` were already consistent (aptos present everywhere) from Phase 4; `validateChains()` gained per-family branches (solana: `ws_url`+`http_url`+`chain_specific.genesis_hash` required; aptos: `http_url` required, `ws_url` rejected).
 
 ### Tests to add or update
 
-- UI server capability catalog tests
-- desired-state tests for chain-scoped capability handling
-- any env/topology tests needed once Aptos/Solana are materially wired in
+- UI server capability catalog tests ✅ (`aptos` present + chainScoped, `write-solana`/`mock` absent)
+- desired-state tests for chain-scoped capability handling ✅ (new validation-error cases + positive solana/aptos chain fixtures)
+- env tests for the family-switch wiring ✅ (`SOLANA_PRIVATE_KEY`-required error path; full EVM/aptos happy-path wiring isn't unit-tested since `evm.Deploy()` dials a real RPC endpoint even on the Kubernetes path — consistent with why no prior test exercised `buildCreEnvironment` end-to-end)
 
 ### Validation
 
-- Run:
+- Ran:
   - `go test ./core/scripts/cre/reconciler/internal/ui`
   - `go test ./core/scripts/cre/reconciler/internal/domain`
   - `go test ./core/scripts/cre/reconciler/internal/onchain`
-  - `go test ./core/scripts/cre/reconciler/...`
+  - `go test ./core/scripts/cre/reconciler/...` → 181 passed, 9 packages (up from 175)
+  - `go vet ./core/scripts/cre/reconciler/...` → no issues
+  - `gofmt -l` → clean
 
 ### Exit criteria
 
-- The visible capability catalog matches the supported set.
-- `aptos` is selectable end-to-end.
-- standalone `write-solana` does not appear in the UI.
+- The visible capability catalog matches the supported set. ✅
+- `aptos` is selectable end-to-end. ✅
+- standalone `write-solana` does not appear in the UI. ✅
 
 ---
 

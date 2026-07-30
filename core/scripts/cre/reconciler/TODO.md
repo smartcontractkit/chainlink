@@ -243,32 +243,43 @@ bundles for them; workers unchanged.
 
 **Depends on / relates to:** B1/B3 (discovery), and the documented "chart owns EVM chains" assumption.
 
-### C2 — Add currently-unsupported capabilities  ·  TODO · P2
-**Problem.** The set of capabilities a user can actually pick and deploy is narrower than what the tree half-supports —
-there's drift between the UI catalog, the default-config file, and end-to-end wiring:
-- **UI catalog** (`handleCapabilities`, server.go:327-334) exposes only 8: `cron`, `evm`, `http-action`,
-  `http-trigger`, `vault`, `consensus`, `don-time`, `solana`.
-- **`capability_defaults.toml` ships default configs for capabilities that are *not* in the catalog** — `aptos`,
-  `write-solana`, `mock` — so they have configs but can't be selected in the UI.
-- **`aptos` is registered as chain-scoped** (`chainScopedCapabilities`, desired.go:457-459: `evm`/`solana`/`aptos`) yet
-  is absent from the catalog, so it can't be attached to a DON at all today.
+### C2 — Add currently-unsupported capabilities  ·  DONE (Phase 5) · P2
+**Problem (as found).** The set of capabilities a user could actually pick and deploy was narrower than what the tree
+half-supported — drift between the UI catalog, the default-config file, and end-to-end wiring: the UI catalog exposed
+8 capabilities (missing `aptos`), `capability_defaults.toml` shipped a stale `write-solana` block duplicating (and
+subtly diverging from, via a `TxRetentonTimeout` typo) `solana`'s own values, and `buildCreEnvironment`
+(internal/onchain/env.go) built every declared `[[chains]]` entry through the EVM anvil deployer regardless of
+`Family` — so even with B1's discovery landed, a DON with `aptos`/`solana` enabled would error (aptos) or panic
+(solana, nil-pointer on `creEnv.Blockchains`) the moment it was applied, since the CRE feature hooks
+(`system-tests/lib/cre/features/aptos`, `.../solana/v2`) hard-require a matching blockchain provider entry.
 
-**Finalized scope (phase_plan.md D4).** First-cut supported set: `cron`, `consensus`, `don-time`, `http-action`,
-`http-trigger`, `vault`, `evm`, `solana`, `aptos`. `stellar` is deferred. `write-solana` is **not** exposed as a
-standalone capability — treat it as Solana-specific config or internal behavior, folded into the `solana` capability's
-handling. `mock` is test-only and out of scope for the UI catalog.
+**What shipped.**
+1. **UI catalog** (`internal/ui/server.go` `handleCapabilities`): added `aptos` (`chainScoped: true`). `write-solana`/
+   `mock` were already absent — confirmed, not re-added.
+2. **`capability_defaults.toml`**: deleted the standalone `[capability_configs.write-solana]`/`.values` tables (no Go
+   code read `write-solana` by name); left `solana`'s own values block as-is, per explicit user direction not to
+   merge write-solana's values in.
+3. **`domain.Chain`** (desired.go) gained a generic `ChainSpecificData map[string]any` field (`toml:"chain_specific"`)
+   instead of one-off per-family fields, so future non-EVM families can add config without another struct change.
+   Solana uses it for `genesis_hash` (a real base58 network identifier `chainselectors.SolanaChainIdToChainSelector()`
+   needs to resolve a chain selector — deliberately distinct from the opaque `chain_id` used for `solana-<N>`
+   capability-scoping, which stays untranslated per B1's Phase-4 decision). A `Chain.SolanaGenesisHash()` helper reads
+   it. `validateChains()` gained per-family branches: solana requires `ws_url` + `http_url` + `chain_specific.genesis_hash`;
+   aptos requires `http_url` only (rejects `ws_url` — aptos's feature code never reads a WS URL).
+4. **`buildCreEnvironment`** (env.go) now switches on `chain.Family` and calls the matching CRE blockchain deployer
+   (`system-tests/lib/cre/environment/blockchains/{solana,aptos}`, reusing their existing Kubernetes/external-provider
+   `Deploy()` paths — no new provider-construction code needed) instead of unconditionally using the EVM anvil path.
+   Solana additionally requires the `SOLANA_PRIVATE_KEY` env var (a hard requirement of its `Deploy()`, with no
+   default on the Kubernetes path, unlike EVM's auto-defaulted `PRIVATE_KEY`) and gets a reconciler-managed temp
+   `ContractsDir` (an operational detail, not user-declared desired state) for its deploy-keypair file.
 
-**Scope.** Close the gap end-to-end for each capability in the finalized set:
-1. Add it to the UI catalog (name/label/description/`chainScoped`) so it's selectable.
-2. Ensure a default config exists (or is intentionally omitted) in `capability_defaults.toml`.
-3. Confirm the backend actually wires it into CapReg config + jobs (the reference feature hooks), and — for chain-scoped
-   caps — that discovery reads the matching keys (this is **gated on B1** for Solana/Aptos).
+**Acceptance.** `aptos` is selectable end-to-end in the UI; `write-solana` does not appear as a standalone capability;
+`aptos`/`solana` DONs build a real matching blockchain provider on `apply` instead of erroring/panicking. New tests:
+UI catalog assertions (`aptos` present + chainScoped, `write-solana`/`mock` absent), `desired_test.go` validation cases
+for solana/aptos chain-field requirements plus positive fixtures declaring each family, `env_test.go` covering the
+`SOLANA_PRIVATE_KEY`-required error path. Full suite: 181 passed (up from 175).
 
-**Acceptance.** Each newly-supported capability is selectable in the UI, has (or intentionally lacks) a default config,
-and produces correct CapReg + job output on `apply`; a chain-scoped addition (e.g. `aptos-<id>`) works alongside its
-discovery keys; `write-solana` does not appear as a standalone selectable capability.
-
-**Depends on / relates to:** B1 (non-EVM discovery — hard prerequisite for Solana/Aptos caps), C1 (chain
+**Depends on / relates to:** B1 (non-EVM discovery, DONE Phase 4 — hard prerequisite for Solana/Aptos caps), C1 (chain
 precondition applies to each new chain-scoped cap), E6 (allowlist), the UI capability catalog + `capability_defaults.toml`.
 
 ---

@@ -36,20 +36,30 @@ type DesiredState struct {
 	CapabilityConfigs map[string]CapabilityConfig `toml:"capability_configs"`
 }
 
-// Chain is a user-declared chain: chain ID plus, for EVM, the RPC URLs used to
-// talk to it. Exactly one declared EVM chain must be the registry chain — the
-// chain where CapabilitiesRegistry/WorkflowRegistry live and where nodes
-// register. This is the only source of chain data the reconciler uses for EVM;
-// nothing is derived from the chart's anvil.instances. Non-EVM (solana/aptos)
-// entries exist only so chain-scoped capabilities (e.g. "aptos-4") can be
-// validated against a declared chain — there's no RPC connectivity concept for
-// them here, chain config for those is chart-local.
+// Chain is a user-declared chain: chain ID plus the RPC URLs used to talk to
+// it. Exactly one declared EVM chain must be the registry chain — the chain
+// where CapabilitiesRegistry/WorkflowRegistry live and where nodes register.
+// This is the only source of chain data the reconciler uses for EVM; nothing
+// is derived from the chart's anvil.instances. ChainID is always the opaque
+// number shared with chain-scoped capability names (e.g. "aptos-4" ↔
+// chain_id = 4) — it is never translated through chain-selectors.
+// ChainSpecificData carries family-specific extras that don't warrant their
+// own struct field (e.g. solana's genesis_hash, needed only to resolve a
+// chain selector for the blockchain provider, unrelated to capability naming).
 type Chain struct {
-	ChainID  uint64 `toml:"chain_id"`
-	Family   string `toml:"family"`   // "evm" | "solana" | "aptos" — required, no default
-	WSURL    string `toml:"ws_url"`   // evm only
-	HTTPURL  string `toml:"http_url"` // evm only
-	Registry bool   `toml:"registry"` // evm only; the registry chain is always EVM
+	ChainID           uint64         `toml:"chain_id"`
+	Family            string         `toml:"family"`         // "evm" | "solana" | "aptos" — required, no default
+	WSURL             string         `toml:"ws_url"`         // evm, solana
+	HTTPURL           string         `toml:"http_url"`       // evm, solana, aptos
+	Registry          bool           `toml:"registry"`       // evm only; the registry chain is always EVM
+	ChainSpecificData map[string]any `toml:"chain_specific"` // family-specific extras, e.g. solana's genesis_hash
+}
+
+// SolanaGenesisHash returns the chain_specific.genesis_hash value for a
+// solana-family chain, or "" if absent/wrong type.
+func (c Chain) SolanaGenesisHash() string {
+	v, _ := c.ChainSpecificData["genesis_hash"].(string)
+	return v
 }
 
 // Infra describes the Griddle deployment target.
@@ -313,27 +323,53 @@ func (ds *DesiredState) validateChains() error {
 		}
 		seen[ch.Family][ch.ChainID] = true
 
-		if ch.Family != cre.EVMCapability {
-			if ch.Registry {
-				return fmt.Errorf("chains[%d] (family %q): registry chain must be evm", i, ch.Family)
-			}
-			continue
+		if ch.Registry && ch.Family != cre.EVMCapability {
+			return fmt.Errorf("chains[%d] (family %q): registry chain must be evm", i, ch.Family)
 		}
 
-		if ch.Registry {
-			registryCount++
-		}
-		if ch.WSURL == "" {
-			return fmt.Errorf("chains[%d] (chain_id %d): ws_url is required", i, ch.ChainID)
-		}
-		if _, err := commonconfig.ParseURL(ch.WSURL); err != nil {
-			return fmt.Errorf("chains[%d] (chain_id %d): ws_url %q is not a valid URL: %w", i, ch.ChainID, ch.WSURL, err)
-		}
-		if ch.HTTPURL == "" {
-			return fmt.Errorf("chains[%d] (chain_id %d): http_url is required", i, ch.ChainID)
-		}
-		if _, err := commonconfig.ParseURL(ch.HTTPURL); err != nil {
-			return fmt.Errorf("chains[%d] (chain_id %d): http_url %q is not a valid URL: %w", i, ch.ChainID, ch.HTTPURL, err)
+		switch ch.Family {
+		case cre.EVMCapability:
+			if ch.Registry {
+				registryCount++
+			}
+			if ch.WSURL == "" {
+				return fmt.Errorf("chains[%d] (chain_id %d): ws_url is required", i, ch.ChainID)
+			}
+			if _, err := commonconfig.ParseURL(ch.WSURL); err != nil {
+				return fmt.Errorf("chains[%d] (chain_id %d): ws_url %q is not a valid URL: %w", i, ch.ChainID, ch.WSURL, err)
+			}
+			if ch.HTTPURL == "" {
+				return fmt.Errorf("chains[%d] (chain_id %d): http_url is required", i, ch.ChainID)
+			}
+			if _, err := commonconfig.ParseURL(ch.HTTPURL); err != nil {
+				return fmt.Errorf("chains[%d] (chain_id %d): http_url %q is not a valid URL: %w", i, ch.ChainID, ch.HTTPURL, err)
+			}
+		case cre.SolanaCapability:
+			if ch.WSURL == "" {
+				return fmt.Errorf("chains[%d] (chain_id %d, family solana): ws_url is required", i, ch.ChainID)
+			}
+			if _, err := commonconfig.ParseURL(ch.WSURL); err != nil {
+				return fmt.Errorf("chains[%d] (chain_id %d, family solana): ws_url %q is not a valid URL: %w", i, ch.ChainID, ch.WSURL, err)
+			}
+			if ch.HTTPURL == "" {
+				return fmt.Errorf("chains[%d] (chain_id %d, family solana): http_url is required", i, ch.ChainID)
+			}
+			if _, err := commonconfig.ParseURL(ch.HTTPURL); err != nil {
+				return fmt.Errorf("chains[%d] (chain_id %d, family solana): http_url %q is not a valid URL: %w", i, ch.ChainID, ch.HTTPURL, err)
+			}
+			if ch.SolanaGenesisHash() == "" {
+				return fmt.Errorf("chains[%d] (chain_id %d, family solana): chain_specific.genesis_hash is required", i, ch.ChainID)
+			}
+		case cre.AptosCapability:
+			if ch.WSURL != "" {
+				return fmt.Errorf("chains[%d] (chain_id %d, family aptos): ws_url is not used by aptos, leave it unset", i, ch.ChainID)
+			}
+			if ch.HTTPURL == "" {
+				return fmt.Errorf("chains[%d] (chain_id %d, family aptos): http_url is required", i, ch.ChainID)
+			}
+			if _, err := commonconfig.ParseURL(ch.HTTPURL); err != nil {
+				return fmt.Errorf("chains[%d] (chain_id %d, family aptos): http_url %q is not a valid URL: %w", i, ch.ChainID, ch.HTTPURL, err)
+			}
 		}
 	}
 	if registryCount != 1 {

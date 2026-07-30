@@ -404,15 +404,23 @@ func TestAPI_Capabilities(t *testing.T) {
 	require.True(t, ok)
 	require.NotEmpty(t, caps)
 
+	names := make(map[string]bool, len(caps))
 	for _, c := range caps {
 		cm := c.(map[string]any)
+		names[cm["name"].(string)] = true
 		if cm["name"] == "evm" {
+			require.True(t, cm["chainScoped"].(bool))
+		}
+		if cm["name"] == "aptos" {
 			require.True(t, cm["chainScoped"].(bool))
 		}
 		if cm["name"] == "cron" {
 			require.False(t, cm["chainScoped"].(bool))
 		}
 	}
+	require.True(t, names["aptos"], "aptos must be selectable in the UI catalog")
+	require.False(t, names["write-solana"], "write-solana must not appear as a standalone capability")
+	require.False(t, names["mock"], "mock is test-only and out of UI catalog scope")
 }
 
 func TestAPI_PreviewTOML(t *testing.T) {

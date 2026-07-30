@@ -2,6 +2,7 @@ package onchain
 
 import (
 	"context"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -31,9 +32,16 @@ import (
 	griddleinfra "github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
 	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	creaptos "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
 	creevm "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	cresolana "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
+
+// SolanaPrivateKeyEnv is the ONLY place the Solana deployer/signer key may come
+// from — required by cresolana's Deploy() even for an already-running,
+// externally-provided (Kubernetes) chain; there is no default.
+const SolanaPrivateKeyEnv = "SOLANA_PRIVATE_KEY"
 
 // buildCldfEnv creates a cldf.Environment with an EVM chain provider for the
 // desired state's registry chain and an optional JD client.
@@ -200,31 +208,79 @@ func (d *Deployer) buildCreEnvironment(
 	registryChainSelector uint64,
 ) (*cre.Environment, error) {
 	provider := infra.Provider{Type: infra.Kubernetes}
-	deployer := creevm.NewDeployer(d.log, &provider)
+	evmDeployer := creevm.NewDeployer(d.log, &provider)
+	solanaDeployer := cresolana.NewDeployer(d.log, &provider)
+	aptosDeployer := creaptos.NewDeployer(d.log, &provider)
 
+	var evmChains int
 	blockchainsOut := make([]creblockchains.Blockchain, 0, len(desired.Chains))
 	for _, chain := range desired.Chains {
 		chainIDStr := strconv.FormatUint(chain.ChainID, 10)
-		bc, err := deployer.Deploy(ctx, &blockchain.Input{
-			Type:    blockchain.TypeAnvil,
-			ChainID: chainIDStr,
-			Out: &blockchain.Output{
+
+		var bc creblockchains.Blockchain
+		var err error
+		switch chain.Family {
+		case cre.EVMCapability:
+			evmChains++
+			bc, err = evmDeployer.Deploy(ctx, &blockchain.Input{
 				Type:    blockchain.TypeAnvil,
-				Family:  chainselectors.FamilyEVM,
 				ChainID: chainIDStr,
-				Nodes: []*blockchain.Node{{
-					ExternalWSUrl:   chain.WSURL,
-					ExternalHTTPUrl: chain.HTTPURL,
-				}},
-			},
-		})
+				Out: &blockchain.Output{
+					Type:    blockchain.TypeAnvil,
+					Family:  chainselectors.FamilyEVM,
+					ChainID: chainIDStr,
+					Nodes: []*blockchain.Node{{
+						ExternalWSUrl:   chain.WSURL,
+						ExternalHTTPUrl: chain.HTTPURL,
+					}},
+				},
+			})
+		case cre.SolanaCapability:
+			if os.Getenv(SolanaPrivateKeyEnv) == "" {
+				return nil, errors.Errorf("chain_id %d (family solana): %s env var is required to build the Solana blockchain provider", chain.ChainID, SolanaPrivateKeyEnv)
+			}
+			genesisHash := chain.SolanaGenesisHash()
+			contractsDir, dirErr := os.MkdirTemp("", "reconciler-solana-")
+			if dirErr != nil {
+				return nil, errors.Wrap(dirErr, "failed to create solana contracts dir")
+			}
+			bc, err = solanaDeployer.Deploy(ctx, &blockchain.Input{
+				Type:         blockchain.TypeSolana,
+				ChainID:      genesisHash,
+				ContractsDir: contractsDir,
+				Out: &blockchain.Output{
+					Type:    blockchain.TypeSolana,
+					Family:  chainselectors.FamilySolana,
+					ChainID: genesisHash,
+					Nodes: []*blockchain.Node{{
+						ExternalWSUrl:   chain.WSURL,
+						ExternalHTTPUrl: chain.HTTPURL,
+					}},
+				},
+			})
+		case cre.AptosCapability:
+			bc, err = aptosDeployer.Deploy(ctx, &blockchain.Input{
+				Type:    blockchain.TypeAptos,
+				ChainID: chainIDStr,
+				Out: &blockchain.Output{
+					Type:    blockchain.TypeAptos,
+					Family:  chainselectors.FamilyAptos,
+					ChainID: chainIDStr,
+					Nodes: []*blockchain.Node{{
+						ExternalHTTPUrl: chain.HTTPURL,
+					}},
+				},
+			})
+		default:
+			return nil, errors.Errorf("chain_id %d: unsupported family %q", chain.ChainID, chain.Family)
+		}
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to build EVM blockchain for chain %s", chainIDStr)
+			return nil, errors.Wrapf(err, "failed to build %s blockchain for chain %s", chain.Family, chainIDStr)
 		}
 		blockchainsOut = append(blockchainsOut, bc)
 	}
 
-	if len(blockchainsOut) == 0 {
+	if evmChains == 0 {
 		return nil, errors.New("no EVM chains declared in desired state")
 	}
 

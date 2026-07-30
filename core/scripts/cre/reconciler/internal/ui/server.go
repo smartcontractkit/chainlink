@@ -341,6 +341,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, _ *http.Request) {
 		{"name": "consensus", "label": "Consensus", "description": "OCR3 consensus for offchain reporting", "chainScoped": false},
 		{"name": "don-time", "label": "DON Time", "description": "DON-wide timestamp capability", "chainScoped": false},
 		{"name": "solana", "label": "Solana", "description": "Solana chain interaction", "chainScoped": true},
+		{"name": "aptos", "label": "Aptos", "description": "Aptos chain interaction", "chainScoped": true},
 	}
 
 	defaults := LoadCapabilityDefaults()

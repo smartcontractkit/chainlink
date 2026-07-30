@@ -71,18 +71,6 @@
     audience = "https://vault.test.chain.link"
     tenantID = 1
 
-[capability_configs.write-solana.values]
-  # Solana Workflow configuration for write capabilities
-  TxAcceptanceState = 3
-  TxRetentionTimeout = "120s"
-  AcceptanceTimeout = "30s"
-  PollPeriod = "2s"
-  SkipPreflight = true
-  Local = true
-  # Runtime values below are typically filled at runtime, but may be overridden
-  # FromAddress = "0x0000000000000000000000000000000000000000"
-  # ForwarderAddress = "0x0000000000000000000000000000000000000000"
-
 # Aptos chain capability plugin (View + WriteReport). Runtime values are injected per chain.
 [capability_configs.aptos]
   binary_name = "aptos"
