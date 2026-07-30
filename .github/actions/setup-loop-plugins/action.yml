@@ -21,9 +21,9 @@ runs:
       id: keys
       shell: bash
       run: |
-        echo "bin=$HOME/.cache/cl-loop-plugins/bin" >> "$GITHUB_OUTPUT"
-        echo "gocache=$HOME/.cache/cl-loop-plugins/gocache" >> "$GITHUB_OUTPUT"
-        echo "goversion=$(go env GOVERSION)" >> "$GITHUB_OUTPUT"
+        echo "bin=$HOME/.cache/cl-loop-plugins/bin" | tee -a "$GITHUB_OUTPUT"
+        echo "gocache=$HOME/.cache/cl-loop-plugins/gocache" | tee -a "$GITHUB_OUTPUT"
+        echo "goversion=$(go env GOVERSION)" | tee -a "$GITHUB_OUTPUT"
 
     - name: Restore Binaries Cache (Tier 1)
       id: bin-cache
