@@ -50,6 +50,10 @@ type mockCfgTelemetry struct{}
 
 func (m mockCfgTelemetry) DurableEmitterMaxQueuePayloadBytes() int64 { return 1024 * 1024 }
 
+func (m mockCfgTelemetry) DurableEmitterInsertBatchFlushInterval() time.Duration {
+	return 50 * time.Millisecond
+}
+
 func (m mockCfgTelemetry) AuthHeadersTTL() time.Duration { return 10 * time.Minute }
 
 func (m mockCfgTelemetry) Enabled() bool { return true }
