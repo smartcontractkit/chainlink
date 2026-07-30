@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/multicall3"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/weth9_zksync"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -246,21 +245,12 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 					err2       error
 				)
 
-				if chain.IsZkSyncVM {
-					rmnAddress, _, rmnC, err2 = rmn_contract.DeployRMNContractZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						*deployOpts.LegacyDeploymentCfg.RMNConfig,
-					)
-				} else {
-					rmnAddress, tx2, rmnC, err2 = rmn_contract.DeployRMNContract(
-						chain.DeployerKey,
-						chain.Client,
-						*deployOpts.LegacyDeploymentCfg.RMNConfig,
-					)
-				}
+				rmnAddress, tx2, rmnC, err2 = rmn_contract.DeployRMNContract(
+					chain.DeployerKey,
+					chain.Client,
+					*deployOpts.LegacyDeploymentCfg.RMNConfig,
+				)
+
 				return cldf.ContractDeploy[*rmn_contract.RMNContract]{
 					Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.RMN, deployment.Version1_5_0), Err: err2,
 				}
@@ -281,19 +271,11 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 						rmnC       *mock_rmn_contract.MockRMNContract
 						err2       error
 					)
-					if chain.IsZkSyncVM {
-						rmnAddress, _, rmnC, err2 = mock_rmn_contract.DeployMockRMNContractZk(
-							nil,
-							chain.ClientZkSyncVM,
-							chain.DeployerKeyZkSyncVM,
-							chain.Client,
-						)
-					} else {
-						rmnAddress, tx2, rmnC, err2 = mock_rmn_contract.DeployMockRMNContract(
-							chain.DeployerKey,
-							chain.Client,
-						)
-					}
+					rmnAddress, tx2, rmnC, err2 = mock_rmn_contract.DeployMockRMNContract(
+						chain.DeployerKey,
+						chain.Client,
+					)
+
 					return cldf.ContractDeploy[*mock_rmn_contract.MockRMNContract]{
 						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.MockRMN, deployment.Version1_0_0), Err: err2,
 					}
@@ -317,21 +299,12 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 					rmnProxy2    *rmn_proxy_contract.RMNProxy
 					err2         error
 				)
-				if chain.IsZkSyncVM {
-					rmnProxyAddr, _, rmnProxy2, err2 = rmn_proxy_contract.DeployRMNProxyZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						rmnAddr,
-					)
-				} else {
-					rmnProxyAddr, tx2, rmnProxy2, err2 = rmn_proxy_contract.DeployRMNProxy(
-						chain.DeployerKey,
-						chain.Client,
-						rmnAddr,
-					)
-				}
+				rmnProxyAddr, tx2, rmnProxy2, err2 = rmn_proxy_contract.DeployRMNProxy(
+					chain.DeployerKey,
+					chain.Client,
+					rmnAddr,
+				)
+
 				return cldf.ContractDeploy[*rmn_proxy_contract.RMNProxy]{
 					Address: rmnProxyAddr, Contract: rmnProxy2, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.ARMProxy, deployment.Version1_0_0), Err: err2,
 				}
@@ -384,18 +357,10 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 					tokenAdminRegistry     *token_admin_registry.TokenAdminRegistry
 					err2                   error
 				)
-				if chain.IsZkSyncVM {
-					tokenAdminRegistryAddr, _, tokenAdminRegistry, err2 = token_admin_registry.DeployTokenAdminRegistryZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-					)
-				} else {
-					tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 = token_admin_registry.DeployTokenAdminRegistry(
-						chain.DeployerKey,
-						chain.Client)
-				}
+				tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 = token_admin_registry.DeployTokenAdminRegistry(
+					chain.DeployerKey,
+					chain.Client)
+
 				return cldf.ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
 					Address: tokenAdminRegistryAddr, Contract: tokenAdminRegistry, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.TokenAdminRegistry, deployment.Version1_5_0), Err: err2,
 				}
@@ -425,20 +390,11 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 					regMod     *registry_module_owner_custom.RegistryModuleOwnerCustom
 					err2       error
 				)
-				if chain.IsZkSyncVM {
-					regModAddr, _, regMod, err2 = registry_module_owner_custom.DeployRegistryModuleOwnerCustomZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						tokenAdminReg.Address(),
-					)
-				} else {
-					regModAddr, tx2, regMod, err2 = registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
-						chain.DeployerKey,
-						chain.Client,
-						tokenAdminReg.Address())
-				}
+				regModAddr, tx2, regMod, err2 = registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
+					chain.DeployerKey,
+					chain.Client,
+					tokenAdminReg.Address())
+
 				return cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
 					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0), Err: err2,
 				}
@@ -484,24 +440,6 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 	}
 
 	if weth9Contract == nil {
-		deployWeth9ZkAndPort := func(chain cldf_evm.Chain) (*weth9.WETH9, common.Address, error) {
-			weth9AddrZk, _, weth9zk, err := weth9_zksync.DeployWETH9ZKSyncZk(
-				nil,
-				chain.ClientZkSyncVM,
-				chain.DeployerKeyZkSyncVM,
-				chain.Client,
-			)
-			if err != nil {
-				return nil, common.Address{}, err
-			}
-			weth9ZkPorted, err := weth9.NewWETH9(weth9zk.Address(), chain.Client)
-			if err != nil {
-				return nil, common.Address{}, err
-			}
-
-			return weth9ZkPorted, weth9AddrZk, nil
-		}
-
 		weth, err := cldf.DeployContract(lggr, chain, ab,
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*weth9.WETH9] {
 				var (
@@ -510,14 +448,11 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 					weth9c    *weth9.WETH9
 					err2      error
 				)
-				if chain.IsZkSyncVM {
-					weth9c, weth9Addr, err2 = deployWeth9ZkAndPort(chain)
-				} else {
-					weth9Addr, tx2, weth9c, err2 = weth9.DeployWETH9(
-						chain.DeployerKey,
-						chain.Client,
-					)
-				}
+				weth9Addr, tx2, weth9c, err2 = weth9.DeployWETH9(
+					chain.DeployerKey,
+					chain.Client,
+				)
+
 				return cldf.ContractDeploy[*weth9.WETH9]{
 					Address: weth9Addr, Contract: weth9c, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.WETH9, deployment.Version1_0_0), Err: err2,
 				}
@@ -542,23 +477,13 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 					routerC    *router.Router
 					err2       error
 				)
-				if chain.IsZkSyncVM {
-					routerAddr, _, routerC, err2 = router.DeployRouterZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						weth9Contract.Address(),
-						rmnProxy.Address(),
-					)
-				} else {
-					routerAddr, tx2, routerC, err2 = router.DeployRouter(
-						chain.DeployerKey,
-						chain.Client,
-						weth9Contract.Address(),
-						rmnProxy.Address(),
-					)
-				}
+				routerAddr, tx2, routerC, err2 = router.DeployRouter(
+					chain.DeployerKey,
+					chain.Client,
+					weth9Contract.Address(),
+					rmnProxy.Address(),
+				)
+
 				return cldf.ContractDeploy[*router.Router]{
 					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.Router, deployment.Version1_2_0), Err: err2,
 				}
@@ -624,19 +549,11 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 					multicall3Wrapper *multicall3.Multicall3
 					err2              error
 				)
-				if chain.IsZkSyncVM {
-					multicall3Addr, _, multicall3Wrapper, err2 = multicall3.DeployMulticall3Zk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-					)
-				} else {
-					multicall3Addr, tx2, multicall3Wrapper, err2 = multicall3.DeployMulticall3(
-						chain.DeployerKey,
-						chain.Client,
-					)
-				}
+				multicall3Addr, tx2, multicall3Wrapper, err2 = multicall3.DeployMulticall3(
+					chain.DeployerKey,
+					chain.Client,
+				)
+
 				return cldf.ContractDeploy[*multicall3.Multicall3]{
 					Address: multicall3Addr, Contract: multicall3Wrapper, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.Multicall3, deployment.Version1_0_0), Err: err2,
 				}
@@ -681,21 +598,12 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 					receiver     *maybe_revert_message_receiver.MaybeRevertMessageReceiver
 					err2         error
 				)
-				if chain.IsZkSyncVM {
-					receiverAddr, _, receiver, err2 = maybe_revert_message_receiver.DeployMaybeRevertMessageReceiverZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						false,
-					)
-				} else {
-					receiverAddr, tx, receiver, err2 = maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
-						chain.DeployerKey,
-						chain.Client,
-						false,
-					)
-				}
+				receiverAddr, tx, receiver, err2 = maybe_revert_message_receiver.DeployMaybeRevertMessageReceiver(
+					chain.DeployerKey,
+					chain.Client,
+					false,
+				)
+
 				return cldf.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver]{
 					Address: receiverAddr, Contract: receiver, Tx: tx, Tv: cldf.NewTypeAndVersion(shared.CCIPReceiver, deployment.Version1_0_0), Err: err2,
 				}
@@ -722,25 +630,14 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 						priceRegAddrC *price_registry_1_2_0.PriceRegistry
 						err2          error
 					)
-					if chain.IsZkSyncVM {
-						priceRegAddr, _, priceRegAddrC, err2 = price_registry_1_2_0.DeployPriceRegistryZk(
-							nil,
-							chain.ClientZkSyncVM,
-							chain.DeployerKeyZkSyncVM,
-							chain.Client,
-							nil,
-							[]common.Address{weth9Contract.Address(), linkAddr},
-							deployOpts.LegacyDeploymentCfg.PriceRegStalenessThreshold,
-						)
-					} else {
-						priceRegAddr, tx2, priceRegAddrC, err2 = price_registry_1_2_0.DeployPriceRegistry(
-							chain.DeployerKey,
-							chain.Client,
-							nil,
-							[]common.Address{weth9Contract.Address(), linkAddr},
-							deployOpts.LegacyDeploymentCfg.PriceRegStalenessThreshold,
-						)
-					}
+					priceRegAddr, tx2, priceRegAddrC, err2 = price_registry_1_2_0.DeployPriceRegistry(
+						chain.DeployerKey,
+						chain.Client,
+						nil,
+						[]common.Address{weth9Contract.Address(), linkAddr},
+						deployOpts.LegacyDeploymentCfg.PriceRegStalenessThreshold,
+					)
+
 					return cldf.ContractDeploy[*price_registry_1_2_0.PriceRegistry]{
 						Address: priceRegAddr, Contract: priceRegAddrC, Tx: tx2,
 						Tv: cldf.NewTypeAndVersion(shared.PriceRegistry, deployment.Version1_2_0), Err: err2,
@@ -791,31 +688,17 @@ func deployTokenPools(
 					contract                 *factory_burn_mint_erc20.FactoryBurnMintERC20
 					err2                     error
 				)
-				if chain.IsZkSyncVM {
-					factoryBurnMintERC20Addr, _, contract, err2 = factory_burn_mint_erc20.DeployFactoryBurnMintERC20Zk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						string(shared.FactoryBurnMintERC20Symbol),
-						string(shared.FactoryBurnMintERC20Symbol),
-						18,
-						big.NewInt(0),
-						big.NewInt(0),
-						chain.DeployerKey.From,
-					)
-				} else {
-					factoryBurnMintERC20Addr, tx2, contract, err2 = factory_burn_mint_erc20.DeployFactoryBurnMintERC20(
-						chain.DeployerKey,
-						chain.Client,
-						string(shared.FactoryBurnMintERC20Symbol),
-						string(shared.FactoryBurnMintERC20Symbol),
-						18,
-						big.NewInt(0),
-						big.NewInt(0),
-						chain.DeployerKey.From,
-					)
-				}
+				factoryBurnMintERC20Addr, tx2, contract, err2 = factory_burn_mint_erc20.DeployFactoryBurnMintERC20(
+					chain.DeployerKey,
+					chain.Client,
+					string(shared.FactoryBurnMintERC20Symbol),
+					string(shared.FactoryBurnMintERC20Symbol),
+					18,
+					big.NewInt(0),
+					big.NewInt(0),
+					chain.DeployerKey.From,
+				)
+
 				return cldf.ContractDeploy[*factory_burn_mint_erc20.FactoryBurnMintERC20]{
 					Address: factoryBurnMintERC20Addr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.FactoryBurnMintERC20Token, deployment.Version1_6_2), Err: err2,
 				}
@@ -839,29 +722,16 @@ func deployTokenPools(
 					contract              *burn_mint_token_pool.BurnMintTokenPool
 					err2                  error
 				)
-				if chain.IsZkSyncVM {
-					burnMintTokenPoolAddr, _, contract, err2 = burn_mint_token_pool.DeployBurnMintTokenPoolZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						factoryBurnMintERC20.Address(),
-						18,
-						[]common.Address{}, // empty allow list
-						rmnProxy,
-						router,
-					)
-				} else {
-					burnMintTokenPoolAddr, tx2, contract, err2 = burn_mint_token_pool.DeployBurnMintTokenPool(
-						chain.DeployerKey,
-						chain.Client,
-						factoryBurnMintERC20.Address(),
-						18,
-						[]common.Address{}, // empty allow list
-						rmnProxy,
-						router,
-					)
-				}
+				burnMintTokenPoolAddr, tx2, contract, err2 = burn_mint_token_pool.DeployBurnMintTokenPool(
+					chain.DeployerKey,
+					chain.Client,
+					factoryBurnMintERC20.Address(),
+					18,
+					[]common.Address{}, // empty allow list
+					rmnProxy,
+					router,
+				)
+
 				return cldf.ContractDeploy[*burn_mint_token_pool.BurnMintTokenPool]{
 					Address: burnMintTokenPoolAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.BurnMintTokenPool, deployment.Version1_5_1), Err: err2,
 				}
@@ -885,29 +755,16 @@ func deployTokenPools(
 					contract                  *burn_from_mint_token_pool.BurnFromMintTokenPool
 					err2                      error
 				)
-				if chain.IsZkSyncVM {
-					burnFromMintTokenPoolAddr, _, contract, err2 = burn_from_mint_token_pool.DeployBurnFromMintTokenPoolZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						factoryBurnMintERC20.Address(),
-						18,
-						[]common.Address{}, // empty allow list
-						rmnProxy,
-						router,
-					)
-				} else {
-					burnFromMintTokenPoolAddr, tx2, contract, err2 = burn_from_mint_token_pool.DeployBurnFromMintTokenPool(
-						chain.DeployerKey,
-						chain.Client,
-						factoryBurnMintERC20.Address(),
-						18,
-						[]common.Address{}, // empty allow list
-						rmnProxy,
-						router,
-					)
-				}
+				burnFromMintTokenPoolAddr, tx2, contract, err2 = burn_from_mint_token_pool.DeployBurnFromMintTokenPool(
+					chain.DeployerKey,
+					chain.Client,
+					factoryBurnMintERC20.Address(),
+					18,
+					[]common.Address{}, // empty allow list
+					rmnProxy,
+					router,
+				)
+
 				return cldf.ContractDeploy[*burn_from_mint_token_pool.BurnFromMintTokenPool]{
 					Address: burnFromMintTokenPoolAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.BurnFromMintTokenPool, deployment.Version1_5_1), Err: err2,
 				}
@@ -930,29 +787,16 @@ func deployTokenPools(
 					contract                      *burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
 					err2                          error
 				)
-				if chain.IsZkSyncVM {
-					burnWithFromMintTokenPoolAddr, _, contract, err2 = burn_with_from_mint_token_pool.DeployBurnWithFromMintTokenPoolZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						factoryBurnMintERC20.Address(),
-						18,
-						[]common.Address{}, // empty allow list
-						rmnProxy,
-						router,
-					)
-				} else {
-					burnWithFromMintTokenPoolAddr, tx2, contract, err2 = burn_with_from_mint_token_pool.DeployBurnWithFromMintTokenPool(
-						chain.DeployerKey,
-						chain.Client,
-						factoryBurnMintERC20.Address(),
-						18,
-						[]common.Address{}, // empty allow list
-						rmnProxy,
-						router,
-					)
-				}
+				burnWithFromMintTokenPoolAddr, tx2, contract, err2 = burn_with_from_mint_token_pool.DeployBurnWithFromMintTokenPool(
+					chain.DeployerKey,
+					chain.Client,
+					factoryBurnMintERC20.Address(),
+					18,
+					[]common.Address{}, // empty allow list
+					rmnProxy,
+					router,
+				)
+
 				return cldf.ContractDeploy[*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool]{
 					Address: burnWithFromMintTokenPoolAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.BurnWithFromMintTokenPool, deployment.Version1_5_1), Err: err2,
 				}
@@ -976,31 +820,17 @@ func deployTokenPools(
 					contract                 *lock_release_token_pool.LockReleaseTokenPool
 					err2                     error
 				)
-				if chain.IsZkSyncVM {
-					lockReleaseTokenPoolAddr, _, contract, err2 = lock_release_token_pool.DeployLockReleaseTokenPoolZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						factoryBurnMintERC20.Address(),
-						18,
-						[]common.Address{}, // empty allow list
-						rmnProxy,
-						false,
-						router,
-					)
-				} else {
-					lockReleaseTokenPoolAddr, tx2, contract, err2 = lock_release_token_pool.DeployLockReleaseTokenPool(
-						chain.DeployerKey,
-						chain.Client,
-						factoryBurnMintERC20.Address(),
-						18,
-						[]common.Address{}, // empty allow list
-						rmnProxy,
-						false,
-						router,
-					)
-				}
+				lockReleaseTokenPoolAddr, tx2, contract, err2 = lock_release_token_pool.DeployLockReleaseTokenPool(
+					chain.DeployerKey,
+					chain.Client,
+					factoryBurnMintERC20.Address(),
+					18,
+					[]common.Address{}, // empty allow list
+					rmnProxy,
+					false,
+					router,
+				)
+
 				return cldf.ContractDeploy[*lock_release_token_pool.LockReleaseTokenPool]{
 					Address: lockReleaseTokenPoolAddr, Contract: contract, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.LockReleaseTokenPool, deployment.Version1_5_1), Err: err2,
 				}
@@ -1040,27 +870,15 @@ func deployUSDC(
 				tokenContract *burn_mint_erc677.BurnMintERC677
 				err2          error
 			)
-			if chain.IsZkSyncVM {
-				tokenAddress, _, tokenContract, err2 = burn_mint_erc677.DeployBurnMintERC677Zk(
-					nil,
-					chain.ClientZkSyncVM,
-					chain.DeployerKeyZkSyncVM,
-					chain.Client,
-					shared.USDCName,
-					string(shared.USDCSymbol),
-					shared.UsdcDecimals,
-					big.NewInt(0),
-				)
-			} else {
-				tokenAddress, tx, tokenContract, err2 = burn_mint_erc677.DeployBurnMintERC677(
-					chain.DeployerKey,
-					chain.Client,
-					shared.USDCName,
-					string(shared.USDCSymbol),
-					shared.UsdcDecimals,
-					big.NewInt(0),
-				)
-			}
+			tokenAddress, tx, tokenContract, err2 = burn_mint_erc677.DeployBurnMintERC677(
+				chain.DeployerKey,
+				chain.Client,
+				shared.USDCName,
+				string(shared.USDCSymbol),
+				shared.UsdcDecimals,
+				big.NewInt(0),
+			)
+
 			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: tokenContract,
@@ -1092,25 +910,14 @@ func deployUSDC(
 				transmitterContract *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
 				err2                error
 			)
-			if chain.IsZkSyncVM {
-				transmitterAddress, _, transmitterContract, err2 = mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitterZk(
-					nil,
-					chain.ClientZkSyncVM,
-					chain.DeployerKeyZkSyncVM,
-					chain.Client,
-					0,
-					reader.AllAvailableDomains()[chain.Selector],
-					token.Address,
-				)
-			} else {
-				transmitterAddress, tx, transmitterContract, err2 = mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(
-					chain.DeployerKey,
-					chain.Client,
-					0,
-					reader.AllAvailableDomains()[chain.Selector],
-					token.Address,
-				)
-			}
+			transmitterAddress, tx, transmitterContract, err2 = mock_usdc_token_transmitter.DeployMockE2EUSDCTransmitter(
+				chain.DeployerKey,
+				chain.Client,
+				0,
+				reader.AllAvailableDomains()[chain.Selector],
+				token.Address,
+			)
+
 			return cldf.ContractDeploy[*mock_usdc_token_transmitter.MockE2EUSDCTransmitter]{
 				Address:  transmitterAddress,
 				Contract: transmitterContract,
@@ -1132,23 +939,13 @@ func deployUSDC(
 				messengerContract *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
 				err2              error
 			)
-			if chain.IsZkSyncVM {
-				messengerAddress, _, messengerContract, err2 = mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessengerZk(
-					nil,
-					chain.ClientZkSyncVM,
-					chain.DeployerKeyZkSyncVM,
-					chain.Client,
-					0,
-					transmitter.Address,
-				)
-			} else {
-				messengerAddress, tx, messengerContract, err2 = mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(
-					chain.DeployerKey,
-					chain.Client,
-					0,
-					transmitter.Address,
-				)
-			}
+			messengerAddress, tx, messengerContract, err2 = mock_usdc_token_messenger.DeployMockE2EUSDCTokenMessenger(
+				chain.DeployerKey,
+				chain.Client,
+				0,
+				transmitter.Address,
+			)
+
 			return cldf.ContractDeploy[*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger]{
 				Address:  messengerAddress,
 				Contract: messengerContract,
@@ -1170,29 +967,16 @@ func deployUSDC(
 				tokenPoolContract *usdc_token_pool.USDCTokenPool
 				err2              error
 			)
-			if chain.IsZkSyncVM {
-				tokenPoolAddress, _, tokenPoolContract, err2 = usdc_token_pool.DeployUSDCTokenPoolZk(
-					nil,
-					chain.ClientZkSyncVM,
-					chain.DeployerKeyZkSyncVM,
-					chain.Client,
-					messenger.Address,
-					token.Address,
-					[]common.Address{},
-					rmnProxy,
-					router,
-				)
-			} else {
-				tokenPoolAddress, tx, tokenPoolContract, err2 = usdc_token_pool.DeployUSDCTokenPool(
-					chain.DeployerKey,
-					chain.Client,
-					messenger.Address,
-					token.Address,
-					[]common.Address{},
-					rmnProxy,
-					router,
-				)
-			}
+			tokenPoolAddress, tx, tokenPoolContract, err2 = usdc_token_pool.DeployUSDCTokenPool(
+				chain.DeployerKey,
+				chain.Client,
+				messenger.Address,
+				token.Address,
+				[]common.Address{},
+				rmnProxy,
+				router,
+			)
+
 			return cldf.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
 				Address:  tokenPoolAddress,
 				Contract: tokenPoolContract,
@@ -1228,27 +1012,15 @@ func deployLBTC(
 				tokenContract *burn_mint_erc677.BurnMintERC677
 				err2          error
 			)
-			if chain.IsZkSyncVM {
-				tokenAddress, _, tokenContract, err2 = burn_mint_erc677.DeployBurnMintERC677Zk(
-					nil,
-					chain.ClientZkSyncVM,
-					chain.DeployerKeyZkSyncVM,
-					chain.Client,
-					shared.LBTCSymbol,
-					string(shared.LBTCSymbol),
-					shared.LBTCDecimals,
-					big.NewInt(0),
-				)
-			} else {
-				tokenAddress, tx, tokenContract, err2 = burn_mint_erc677.DeployBurnMintERC677(
-					chain.DeployerKey,
-					chain.Client,
-					string(shared.LBTCSymbol),
-					string(shared.LBTCSymbol),
-					shared.LBTCDecimals,
-					big.NewInt(0),
-				)
-			}
+			tokenAddress, tx, tokenContract, err2 = burn_mint_erc677.DeployBurnMintERC677(
+				chain.DeployerKey,
+				chain.Client,
+				string(shared.LBTCSymbol),
+				string(shared.LBTCSymbol),
+				shared.LBTCDecimals,
+				big.NewInt(0),
+			)
+
 			return cldf.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: tokenContract,
@@ -1282,30 +1054,16 @@ func deployLBTC(
 			)
 			// valid 32 bytes staging Lombard message hash
 			destPoolData := hexutil.MustDecode("0xdee9d5a70c34ab6ad3d3be55cc81b8f3dbd7aaf4070d7f1046b239e4995df489")
-			if chain.IsZkSyncVM {
-				tokenPoolAddress, _, tokenPoolContract, err2 = mock_lbtc_token_pool.DeployMockE2ELBTCTokenPoolZk(
-					nil,
-					chain.ClientZkSyncVM,
-					chain.DeployerKeyZkSyncVM,
-					chain.Client,
-					chain.DeployerKeyZkSyncVM,
-					token.Address,
-					[]common.Address{},
-					rmnProxy,
-					router,
-					destPoolData,
-				)
-			} else {
-				tokenPoolAddress, tx, tokenPoolContract, err2 = mock_lbtc_token_pool.DeployMockE2ELBTCTokenPool(
-					chain.DeployerKey,
-					chain.Client,
-					token.Address,
-					[]common.Address{},
-					rmnProxy,
-					router,
-					destPoolData,
-				)
-			}
+			tokenPoolAddress, tx, tokenPoolContract, err2 = mock_lbtc_token_pool.DeployMockE2ELBTCTokenPool(
+				chain.DeployerKey,
+				chain.Client,
+				token.Address,
+				[]common.Address{},
+				rmnProxy,
+				router,
+				destPoolData,
+			)
+
 			return cldf.ContractDeploy[*mock_lbtc_token_pool.MockE2ELBTCTokenPool]{
 				Address:  tokenPoolAddress,
 				Contract: tokenPoolContract,

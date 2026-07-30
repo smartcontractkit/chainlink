@@ -24,9 +24,8 @@ var (
 		shared.OffRamp,
 		offramp.OffRampMetaData,
 		&opsutils.ContractOpts{
-			Version:          &deployment.Version1_6_0,
-			EVMBytecode:      common.FromHex(offramp.OffRampBin),
-			ZkSyncVMBytecode: offramp.ZkBytecode,
+			Version:     &deployment.Version1_6_0,
+			EVMBytecode: common.FromHex(offramp.OffRampBin),
 		},
 		func(input DeployOffRampInput) []any {
 			return []any{
