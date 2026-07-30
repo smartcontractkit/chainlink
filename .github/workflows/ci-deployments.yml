@@ -152,8 +152,8 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
-          restore-build-cache-only: false
-          build-cache-version: go_deployment_tests-${{ matrix.shard-id }}
+          build-cache-version: go_deployment_tests
+          build-cache-write: ${{ matrix.shard-id == 1 && 'default-branch-only' || 'never' }}
           go-version-file: deployment/go.mod
           go-module-file: deployment/go.sum
       - name: Setup Solana

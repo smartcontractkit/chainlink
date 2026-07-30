@@ -192,6 +192,8 @@ jobs:
         timeout-minutes: 20
         with:
           go-directory: ${{ matrix.modules }}
+          build-cache-version: lint-${{ matrix.modules }}
+          build-cache-write: default-branch-only
 
       - name: Notify Slack
         # Skip for now as it's always failing on scheduled runs
@@ -265,6 +267,7 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             install-loopps: "false"
+            build-cache-write: always
 
           - cmd: go_core_tests_integration
             os: runs-on=${{ github.run_id
@@ -276,6 +279,7 @@ jobs:
             go-mod-directory: ""
             setup-aptos: "false"
             setup-sui: "false"
+            build-cache-write: always
 
           - cmd: go_core_fuzz
             os: runs-on=${{
@@ -287,6 +291,7 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             install-loopps: "false"
+            build-cache-write: never
 
           - cmd: go_core_race_tests
             os: runs-on=${{
@@ -298,6 +303,7 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             install-loopps: "false"
+            build-cache-write: never
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -327,24 +333,20 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-go
         with:
-          # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
-          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' ||
-            matrix.type.cmd == 'go_core_race_tests' }}
           build-cache-version: ${{ matrix.type.cmd }}
+          build-cache-write: ${{ matrix.type.build-cache-write }}
           go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
           go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
 
-      - name: Cache WASM test binaries
+      - name: Restore WASM test binaries cache
         if: ${{ matrix.type.should-run == 'true' }}
-        uses: actions/cache@v6
+        id: wasm-cache-restore
+        uses: actions/cache/restore@v6
         with:
           path: .wasm-cache/
-          # Best-effort warming key. Correctness is guaranteed by the in-code content
-          # fingerprint (filename), so a coarse/stale key here only risks a rebuild.
-          # restore-keys still restores the latest cache so only changed pkgs rebuild.
-          key: ${{ runner.os }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}
           restore-keys: |
-            ${{ runner.os }}-wasmcache-
+            ${{ runner.os }}-${{ runner.arch }}-wasmcache-
 
       - name: Setup Solana
         if:
@@ -417,6 +419,13 @@ jobs:
         run: |
           GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
           # See: https://github.com/golang/go/issues/69179
+
+      - name: Save WASM test binaries cache
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.cmd == 'go_core_tests' && steps.wasm-cache-restore.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .wasm-cache/
+          key: ${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}
 
       - name: Analyze and upload test results
         if:
@@ -499,6 +508,8 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
+          build-cache-version: go_core_scripts_tests
+          build-cache-write: default-branch-only
           go-version-file: core/scripts/go.mod
           go-module-file: core/scripts/go.sum
 
@@ -699,6 +710,9 @@ jobs:
           persist-credentials: false
       - name: Setup go
         uses: ./.github/actions/setup-go
+        with:
+          build-cache-version: misc
+          build-cache-write: default-branch-only
       ##
       # Plugins (LOOPPs) are defined in ./plugins/plugins.*.yaml files.
       # Some plugins such as chainlink-data-streams, chainlink-feeds,

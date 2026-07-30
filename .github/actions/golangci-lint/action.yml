@@ -11,6 +11,12 @@ inputs:
   cache-version:
     description: Set this to cache bust
     default: "1"
+  build-cache-version:
+    description: For scoping build caches to certain matrix jobs, takes precedence over cache-version
+    default: ""
+  build-cache-write:
+    description: When to save the Go build cache (always, default-branch-only, never)
+    default: "always"
   go-version-file:
     description: Set where the go version file is located at
     default: "go.mod"
@@ -46,6 +52,8 @@ runs:
       with:
         only-modules: ${{ inputs.only-modules }}
         cache-version: ${{ inputs.cache-version }}
+        build-cache-version: ${{ inputs.build-cache-version }}
+        build-cache-write: ${{ inputs.build-cache-write }}
         go-version-file: ${{ inputs.go-version-file }}
         go-module-file: ${{ inputs.go-module-file }}
 

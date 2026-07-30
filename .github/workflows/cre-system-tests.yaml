@@ -219,7 +219,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/go/bin/gotestsum
-          key: gotestsum-1.13.0
+          key: ${{ runner.os }}-${{ runner.arch }}-gotestsum-1.13.0
 
       - name: Set up gotestsum
         shell: bash
