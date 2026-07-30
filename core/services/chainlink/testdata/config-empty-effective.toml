@@ -377,13 +377,6 @@ MetricCardinalityLimit = 100000
 Enabled = false
 Prefixes = ['go_']
 
-[Telemetry.WorkflowFaultInjection]
-Enabled = false
-OwnerAllowlist = []
-RateBps = 0
-Seed = ''
-Level = 1
-
 [Workflows]
 [Workflows.Limits]
 Global = 200

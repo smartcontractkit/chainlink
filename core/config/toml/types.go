@@ -3007,8 +3007,6 @@ type Telemetry struct {
 	MetricCardinalityLimit                 *int
 
 	PrometheusBridge PrometheusBridge `toml:",omitempty"`
-
-	WorkflowFaultInjection WorkflowFaultInjection `toml:",omitempty"`
 }
 
 func (b *Telemetry) setFrom(f *Telemetry) {
@@ -3115,7 +3113,6 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 		b.MetricCardinalityLimit = v
 	}
 	b.PrometheusBridge.setFrom(&f.PrometheusBridge)
-	b.WorkflowFaultInjection.setFrom(&f.WorkflowFaultInjection)
 }
 
 func (b *Telemetry) ValidateConfig() (err error) {
@@ -3170,53 +3167,6 @@ func (b *PrometheusBridge) setFrom(f *PrometheusBridge) {
 	if v := f.Prefixes; v != nil {
 		b.Prefixes = v
 	}
-}
-
-// WorkflowFaultInjection configures known-answer fault injection for workflow
-// events: a deterministic fraction of allowlisted-owner workflow executions has
-// events deliberately dropped (and durably recorded) at the emit seam, so
-// downstream integrity detectors can be continuously verified.
-type WorkflowFaultInjection struct {
-	Enabled        *bool
-	OwnerAllowlist []string
-	RateBps        *int
-	Seed           *string
-	Level          *int
-}
-
-func (b *WorkflowFaultInjection) setFrom(f *WorkflowFaultInjection) {
-	if v := f.Enabled; v != nil {
-		b.Enabled = v
-	}
-	if v := f.OwnerAllowlist; v != nil {
-		b.OwnerAllowlist = v
-	}
-	if v := f.RateBps; v != nil {
-		b.RateBps = v
-	}
-	if v := f.Seed; v != nil {
-		b.Seed = v
-	}
-	if v := f.Level; v != nil {
-		b.Level = v
-	}
-}
-
-func (b *WorkflowFaultInjection) ValidateConfig() (err error) {
-	if v := b.RateBps; v != nil && (*v < 0 || *v > 10000) {
-		err = errors.Join(err, configutils.ErrInvalid{Name: "RateBps", Value: *v, Msg: "must be between 0 and 10000"})
-	}
-	if v := b.Level; v != nil && (*v < 1 || *v > 2) {
-		err = errors.Join(err, configutils.ErrInvalid{Name: "Level", Value: *v, Msg: "must be 1 (WorkflowExecutionFinished only) or 2 (all workflow lifecycle events)"})
-	}
-	if b.Enabled != nil && *b.Enabled {
-		for i, owner := range b.OwnerAllowlist {
-			if strings.TrimSpace(owner) == "" {
-				err = errors.Join(err, configutils.ErrInvalid{Name: "OwnerAllowlist", Value: i, Msg: "entries must be non-empty owner addresses"})
-			}
-		}
-	}
-	return err
 }
 
 var hostnameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$`)

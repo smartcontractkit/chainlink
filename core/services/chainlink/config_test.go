@@ -590,14 +590,6 @@ func TestConfig_Marshal(t *testing.T) {
 			Enabled:  new(true),
 			Prefixes: []string{"ocr_"},
 		},
-
-		WorkflowFaultInjection: toml.WorkflowFaultInjection{
-			Enabled:        new(true),
-			OwnerAllowlist: []string{"1100000000000000000000000000000000000000"},
-			RateBps:        new(100),
-			Seed:           new("fault-injection-seed"),
-			Level:          new(2),
-		},
 	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: new(true),

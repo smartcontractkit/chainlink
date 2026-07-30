@@ -42,20 +42,9 @@ type Telemetry interface {
 	MetricViewsDenyAttributes() []string
 	MetricCardinalityLimit() int
 	PrometheusBridge() PrometheusBridge
-	WorkflowFaultInjection() WorkflowFaultInjection
 }
 
 type PrometheusBridge interface {
 	Enabled() bool
 	Prefixes() []string
-}
-
-// WorkflowFaultInjection configures known-answer fault injection for workflow
-// events (see the [Telemetry.WorkflowFaultInjection] TOML section).
-type WorkflowFaultInjection interface {
-	Enabled() bool
-	OwnerAllowlist() []string
-	RateBps() int
-	Seed() string
-	Level() int
 }
