@@ -1830,8 +1830,8 @@ github.com/smartcontractkit/chainlink-sui v0.0.0-20260728151254-66dc095d5ccf h1:
 github.com/smartcontractkit/chainlink-sui v0.0.0-20260728151254-66dc095d5ccf/go.mod h1:ayMAswIoOUfKXjnPml593ODmVTgUO4FBTFpG1zjdr/I=
 github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 h1:3R9f6pguDIjei+nKx5dUT9j6fX8urGmlZA7Ad3x9UBs=
 github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96/go.mod h1:pSW9q0/YqQE5R65Z/2zsyD9c50JZf+yRJJvN6Jo3LCU=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6-0.20260708113039-95f97b2d25e9 h1:wZI7WwMuK+GHUIY38HTgEZU6wdBaH9jaiBLPAmJSfxQ=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6-0.20260708113039-95f97b2d25e9/go.mod h1:nyOjn4ADJGqRMe3+4ZXSV+J/7nWb1H2Vx8Qk57eLRYA=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6 h1:2cW+w652PdfdxG2muvMS14pACeP3tfZXCaIkiYD8s7M=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6/go.mod h1:nyOjn4ADJGqRMe3+4ZXSV+J/7nWb1H2Vx8Qk57eLRYA=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4 h1:bGicxBPndwy9NeB79n+CgyNxA8aeWoMudC84krz6QGM=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4/go.mod h1:TsZMdVIPeIBzFwVIUmU7jkXOTHSpyvCJGeLtjuBxa8E=
 github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23 h1:FYZZ2U6h2y4sITrEyTKPHTzjJrrsqCqN3zGqkpk7p3s=
