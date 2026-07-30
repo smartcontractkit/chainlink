@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	meteringpb "github.com/smartcontractkit/chainlink-protos/metering/go"
@@ -174,7 +176,7 @@ func Test_meterRecords(t *testing.T) {
 			WorkflowID:    wfID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "wf-name",
-		}, WorkflowRegistered)
+		})
 		require.NoError(t, err)
 
 		records := emitter.Records()
@@ -198,8 +200,8 @@ func Test_meterRecords(t *testing.T) {
 			WorkflowName:  "wf-name",
 			CreatedAt:     123,
 		}
-		require.NoError(t, h.workflowRegisteredEvent(t.Context(), event, WorkflowRegistered))
-		require.NoError(t, h.workflowRegisteredEvent(t.Context(), event, WorkflowRegistered))
+		require.NoError(t, h.workflowRegisteredEvent(t.Context(), event))
+		require.NoError(t, h.workflowRegisteredEvent(t.Context(), event))
 
 		records := emitter.Records()
 		require.Len(t, records, 2)
@@ -232,7 +234,7 @@ func Test_meterRecords(t *testing.T) {
 			WorkflowID:    wfID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "wf-name",
-		}, WorkflowRegistered)
+		})
 		require.NoError(t, err)
 
 		assert.Empty(t, emitter.Records())
@@ -269,7 +271,7 @@ func Test_meterRecords(t *testing.T) {
 			},
 		}, newMeteringResourceManager(t, true, emitter))
 
-		require.NoError(t, h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, WorkflowDeleted))
+		require.NoError(t, h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, WorkflowDeleted, "aabbccdd", true))
 
 		records := emitter.Records()
 		require.Len(t, records, 1)
@@ -287,7 +289,7 @@ func Test_meterRecords(t *testing.T) {
 			WorkflowID:    types.WorkflowID{6},
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "wf-name",
-		}, WorkflowRegistered)
+		})
 		require.ErrorIs(t, err, assert.AnError)
 		assert.Empty(t, emitter.Records())
 	})
@@ -305,7 +307,7 @@ func Test_meterRecords(t *testing.T) {
 			deleteErr: assert.AnError,
 		}, newMeteringResourceManager(t, true, emitter))
 
-		err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, WorkflowDeleted)
+		err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, WorkflowDeleted, "aabbccdd", true)
 		require.ErrorIs(t, err, assert.AnError)
 		assert.Empty(t, emitter.Records())
 	})
@@ -326,12 +328,12 @@ func Test_meterRecords(t *testing.T) {
 		drainable.activeExecutions.Store(1)
 		require.NoError(t, h.engineRegistry.Add(wfID, "test-source", drainable))
 
-		err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, WorkflowDeleted)
+		err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, WorkflowDeleted, "aabbccdd", true)
 		require.ErrorIs(t, err, ErrDrainInProgress)
 		assert.Empty(t, emitter.Records())
 
 		drainable.activeExecutions.Store(0)
-		require.NoError(t, h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, WorkflowDeleted))
+		require.NoError(t, h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, WorkflowDeleted, "aabbccdd", true))
 
 		records := emitter.Records()
 		require.Len(t, records, 1)
@@ -356,8 +358,8 @@ func Test_meterRecords(t *testing.T) {
 			WorkflowID:    wfID,
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "wf-name",
-		}, WorkflowRegistered))
-		require.NoError(t, h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, WorkflowDeleted))
+		}))
+		require.NoError(t, h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, WorkflowDeleted, "aabbccdd", true))
 		assert.Empty(t, emitter.Records())
 	})
 
@@ -371,7 +373,7 @@ func Test_meterRecords(t *testing.T) {
 			WorkflowID:    types.WorkflowID{10},
 			WorkflowOwner: wfOwner,
 			WorkflowName:  "wf-name",
-		}, WorkflowRegistered))
+		}))
 		assert.Empty(t, emitter.Records())
 	})
 
@@ -424,4 +426,205 @@ func Test_meterRecords(t *testing.T) {
 		require.NotNil(t, byWorkflowID[wfID1.Hex()], "snapshot must contain an entry for the first persisted spec")
 		require.NotNil(t, byWorkflowID[wfID2.Hex()], "snapshot must contain an entry for the second persisted spec")
 	})
+}
+
+// fakeOrgResolver is a no-network OrgResolver that maps workflow owners (hex)
+// to organization IDs. It asserts that metering org resolution is exercised
+// (previously org was entirely untested).
+type fakeOrgResolver struct {
+	orgs map[string]string
+}
+
+func (f *fakeOrgResolver) Get(_ context.Context, owner string) (string, error) {
+	if org, ok := f.orgs[owner]; ok {
+		return org, nil
+	}
+	return "", errors.New("owner not found")
+}
+
+func (f *fakeOrgResolver) Start(context.Context) error    { return nil }
+func (f *fakeOrgResolver) Close() error                   { return nil }
+func (f *fakeOrgResolver) HealthReport() map[string]error { return nil }
+func (f *fakeOrgResolver) Ready() error                   { return nil }
+func (f *fakeOrgResolver) Name() string                   { return "fake-org-resolver" }
+
+// newMeteringTestHandlerWithOrg is newMeteringTestHandler plus a wired
+// OrgResolver, so tests can assert OrgId on emitted records.
+func newMeteringTestHandlerWithOrg(t *testing.T, artifactsStore WorkflowArtifactsStore, rm *resourcemanager.ResourceManager, org orgresolver.OrgResolver) *eventHandler {
+	t.Helper()
+	lggr := logger.TestLogger(t)
+	lf := limits.Factory{Logger: lggr}
+	registry := capabilities.NewRegistry(lggr)
+	registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
+	limiters, err := v2.NewLimiters(lf, nil)
+	require.NoError(t, err)
+	rl, err := ratelimiter.NewRateLimiter(rlConfig)
+	require.NoError(t, err)
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig, lf)
+	require.NoError(t, err)
+
+	h, err := NewEventHandler(
+		lggr,
+		workflowstore.NewInMemoryStore(lggr, clockwork.NewFakeClock()),
+		nil,
+		true,
+		registry,
+		&confidentialrelay.ExecutionHandlers{},
+		NewEngineRegistry(),
+		custmsg.NewLabeler(),
+		limiters,
+		nil,
+		rl,
+		workflowLimits,
+		artifactsStore,
+		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
+		&testDonNotifier{},
+		WithResourceManager(rm),
+		WithEngineFactoryFn(mockEngineFactory),
+		WithOrgResolver(org),
+	)
+	require.NoError(t, err)
+	return h
+}
+
+// redeliveredDeleteSpecs returns a fresh stub seeded with a stored spec and the
+// owner the metering tests use, so a delete + redelivered-delete pair can be
+// driven through Handle (which pre-reads the spec itself).
+func redeliveredDeleteStore() *stubWorkflowArtifactsStore {
+	return &stubWorkflowArtifactsStore{
+		spec: &job.WorkflowSpec{
+			WorkflowID:    types.WorkflowID{5}.Hex(),
+			Status:        job.WorkflowSpecStatusActive,
+			WorkflowOwner: "aabbccdd",
+		},
+	}
+}
+
+// a redelivered delete (after the spec was already removed) must NOT emit a
+// second -1. DeleteWorkflowArtifacts maps ErrNoRows→nil, so without gating on
+// the pre-read the redelivery would double-emit.
+func Test_meterRecords_RedeliveredDeleteEmitsExactlyOneDelta(t *testing.T) {
+	t.Parallel()
+	wfID := types.WorkflowID{5}
+	emitter := &recordingEmitter{}
+	store := redeliveredDeleteStore()
+	h := newMeteringTestHandler(t, store, newMeteringResourceManager(t, true, emitter))
+
+	deleteEvent := Event{Name: WorkflowDeleted, Data: WorkflowDeletedEvent{WorkflowID: wfID}}
+	require.NoError(t, h.Handle(t.Context(), deleteEvent))
+	require.NoError(t, h.Handle(t.Context(), deleteEvent)) // redelivery
+
+	records := emitter.Records()
+	require.Len(t, records, 1, "redelivered delete must not emit a second -1")
+	requireSpecDelta(t, records[0], "-1", wfID.Hex(),
+		resourcemanager.EventID("workflow-spec-delete", wfID.Hex()))
+}
+
+// activate-after-pause re-runs the create path and emits a +1 whose
+// event_id equals the original register event_id (same on-chain CreatedAt).
+// Pause itself emits no delta; within-bucket pause→activate therefore merges
+// with the original register, with cumulative-delta drift corrected by snapshots.
+func Test_meterRecords_ActivateAfterPauseEmitsRegisterEventID(t *testing.T) {
+	t.Parallel()
+	emitter := &recordingEmitter{}
+	// The stub does not persist on upsert, so register and activate each take
+	// the new-spec path; pause deletes (a no-op here) and emits nothing.
+	h := newMeteringTestHandler(t, &stubWorkflowArtifactsStore{}, newMeteringResourceManager(t, true, emitter))
+
+	wfID := types.WorkflowID{42}
+	createdAt := uint64(123)
+	wantEventID := resourcemanager.EventID("workflow-spec-register", wfID.Hex(), strconv.FormatUint(createdAt, 10))
+	payload := WorkflowRegisteredEvent{
+		Status:        WorkflowStatusPaused,
+		WorkflowID:    wfID,
+		WorkflowOwner: []byte{0xaa, 0xbb, 0xcc, 0xdd},
+		WorkflowName:  "wf-name",
+		CreatedAt:     createdAt,
+	}
+
+	require.NoError(t, h.workflowRegisteredEvent(t.Context(), payload))
+	require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID}))
+	require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+
+	records := emitter.Records()
+	require.Len(t, records, 2, "register and activate each emit one +1; pause emits none")
+	requireSpecDelta(t, records[0], "1", wfID.Hex(), wantEventID)
+	requireSpecDelta(t, records[1], "1", wfID.Hex(), wantEventID)
+	assert.Equal(t, records[0].Utilizations[0].GetEventId(), records[1].Utilizations[0].GetEventId(),
+		"activate-after-pause must reuse the register event_id (same on-chain CreatedAt)")
+}
+
+// OrgId is resolved from the workflow owner and stamped on emitted records.
+func Test_meterRecords_OrgIdResolvedOnRecords(t *testing.T) {
+	t.Parallel()
+	emitter := &recordingEmitter{}
+	orgR := &fakeOrgResolver{orgs: map[string]string{"aabbccdd": "org-42"}}
+	h := newMeteringTestHandlerWithOrg(t, &stubWorkflowArtifactsStore{}, newMeteringResourceManager(t, true, emitter), orgR)
+
+	wfID := types.WorkflowID{50}
+	require.NoError(t, h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
+		Status:        WorkflowStatusPaused,
+		WorkflowID:    wfID,
+		WorkflowOwner: []byte{0xaa, 0xbb, 0xcc, 0xdd},
+		WorkflowName:  "wf-name",
+		CreatedAt:     1,
+	}))
+
+	records := emitter.Records()
+	require.Len(t, records, 1)
+	require.Len(t, records[0].Utilizations, 1)
+	assert.Equal(t, "org-42", records[0].Utilizations[0].OrgId, "OrgId must be resolved and stamped on the record")
+}
+
+// don_id is folded into the metering identity once resolved and stamped on both
+// emitted records and snapshot entries.
+func Test_meterRecords_DonIDOnRecordAndSnapshot(t *testing.T) {
+	t.Parallel()
+	emitter := &recordingEmitter{}
+	wfID := types.WorkflowID{60}
+	store := &stubWorkflowArtifactsStore{
+		specs: []*job.WorkflowSpec{{WorkflowID: wfID.Hex(), WorkflowOwner: "aabbccdd"}},
+	}
+	h := newMeteringTestHandler(t, store, newMeteringResourceManager(t, true, emitter))
+
+	// Simulate a resolved workflow DON id (as resolveWorkflowDonID would store).
+	resolvedDon := "7"
+	h.resolvedDonID.Store(&resolvedDon)
+
+	require.NoError(t, h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
+		Status:        WorkflowStatusPaused,
+		WorkflowID:    wfID,
+		WorkflowOwner: []byte{0xaa, 0xbb, 0xcc, 0xdd},
+		WorkflowName:  "wf-name",
+		CreatedAt:     1,
+	}))
+	records := emitter.Records()
+	require.Len(t, records, 1)
+	require.NotNil(t, records[0].Identity.GetDon())
+	assert.Equal(t, "7", records[0].Identity.GetDon().GetDonId(), "record identity must carry resolved don_id")
+
+	entries := h.GetUtilization(t.Context())
+	require.Len(t, entries, 1)
+	require.NotNil(t, entries[0].Identity.Don)
+	assert.Equal(t, "7", entries[0].Identity.Don.DonID, "snapshot identity must carry resolved don_id")
+}
+
+// a transient DB error on GetWorkflowSpec (not a missing row) must surface
+// an error and emit no +1, so the event is retried instead of creating a
+// spurious spec + delta.
+func Test_meterRecords_TransientDBErrorOnGetSpecEmitsNoDelta(t *testing.T) {
+	t.Parallel()
+	emitter := &recordingEmitter{}
+	h := newMeteringTestHandler(t, &stubWorkflowArtifactsStore{getSpecErr: errors.New("db connection lost")},
+		newMeteringResourceManager(t, true, emitter))
+
+	err := h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
+		Status:        WorkflowStatusPaused,
+		WorkflowID:    types.WorkflowID{70},
+		WorkflowOwner: []byte{0xaa, 0xbb, 0xcc, 0xdd},
+		WorkflowName:  "wf-name",
+		CreatedAt:     1,
+	})
+	require.Error(t, err)
+	assert.Empty(t, emitter.Records(), "transient DB error must not take the new-spec path or emit a +1")
 }

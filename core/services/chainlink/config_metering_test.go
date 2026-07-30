@@ -15,9 +15,11 @@ func TestMeteringConfig(t *testing.T) {
 		mc := meteringConfig{s: toml.Metering{}}
 		assert.False(t, mc.MeterRecordsEnabled())
 		assert.False(t, mc.MeterSnapshotsEnabled())
-		// Product defaults to "cre" so metering can never be enabled with an
-		// empty product dimension and the syncer identity matches the plugins'
-		// fallback.
+		// A zero-value toml.Metering (not run through setDefaults) has a nil
+		// Product pointer, so Product() returns "unset". The parsed config
+		// applies a "cre" default via docs.CoreDefaults (covered by the
+		// LogConfiguration effective-TOML test), so metering is never enabled
+		// with an empty product dimension.
 		assert.Equal(t, "unset", mc.Product())
 		assert.Empty(t, mc.Tenant())
 		assert.Empty(t, mc.NumericTenantID())

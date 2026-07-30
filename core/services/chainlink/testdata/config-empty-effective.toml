@@ -370,7 +370,7 @@ Prefixes = ['go_']
 [Metering]
 MeterRecordsEnabled = false
 MeterSnapshotsEnabled = false
-Product = 'unset'
+Product = 'cre'
 Tenant = ''
 NumericTenantID = ''
 Environment = ''

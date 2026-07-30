@@ -22,8 +22,10 @@ func (b *meteringConfig) MeterSnapshotsEnabled() bool {
 	return *b.s.MeterSnapshotsEnabled
 }
 
-// Product defaults to "unset" (resourcemanager.DefaultMeteringProduct) when unset,
-// to catch config errors early.
+// Product returns the deployment product identity dimension. The parsed config
+// defaults it to "cre" via docs.CoreDefaults so metering is never enabled with
+// an empty product dimension; a zero-value toml.Metering that has not been run
+// through setDefaults returns "unset" (the nil-pointer fallback below).
 func (b *meteringConfig) Product() string {
 	if b.s.Product == nil {
 		return "unset"

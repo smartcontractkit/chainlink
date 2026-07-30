@@ -26,8 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
+	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const name = "WorkflowRegistrySyncer"
@@ -137,6 +139,7 @@ type evtHandler interface {
 
 	Handle(ctx context.Context, event Event) error
 	EmitActivationAbandoned(ctx context.Context, event Event, reason eventsv2.ActivationAbandonReason, activationErr error, retryCount int32) error
+	GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error)
 }
 
 type donNotifier interface {
@@ -803,6 +806,14 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			// Process each source independently to isolate failures
 			totalWorkflowsFetched := 0
 			reconcileReport := newReconcileReport()
+			// allMetadataIDs is the union of every source's (post-shard)
+			// workflow IDs this tick; it is the source of truth for the
+			// downtime-orphan sweep. sourceFetchFailed stays false only when
+			// every source fetched successfully, so the sweep never runs on
+			// incomplete metadata (it would risk deleting specs whose workflow
+			// belongs to a source that failed to fetch).
+			allMetadataIDs := make(map[string]struct{})
+			sourceFetchFailed := false
 
 			for _, source := range w.workflowSources {
 				sourceName := source.Name()
@@ -823,6 +834,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				w.metrics.recordSourceFetch(ctx, sourceName, len(workflows), duration, fetchErr)
 
 				if fetchErr != nil {
+					sourceFetchFailed = true
 					w.lggr.Errorw("Failed to fetch from source, skipping reconciliation for this source",
 						"source", sourceName, "error", fetchErr, "durationMs", duration.Milliseconds())
 					// KEY: Skip this source entirely - no events generated, no deletions
@@ -839,6 +851,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				if w.shardingEnabled {
 					filteredWorkflowsMetadata, err = w.filterWorkflowsByShard(ctx, workflows)
 					if err != nil {
+						sourceFetchFailed = true
 						w.lggr.Errorw("failed to filter workflows by shard",
 							"err", err,
 							"source", sourceName)
@@ -850,6 +863,10 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 						"shardID", w.myShardID,
 						"source", sourceName,
 					)
+				}
+
+				for _, wfMeta := range filteredWorkflowsMetadata {
+					allMetadataIDs[wfMeta.WorkflowID.Hex()] = struct{}{}
 				}
 
 				// Generate events only for this source's engines (using sourceIdentifier for engine registry lookups)
@@ -962,6 +979,17 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				)
 			}
 
+			// Downtime-orphan sweep: after every source has been reconciled (and
+			// only when all fetched successfully, so the metadata union is
+			// complete), delete persisted specs whose workflowID is absent from
+			// all sources. This catches workflows deleted on-chain while this
+			// node was down — their spec rows linger with no engine and no
+			// source event. Dispatched through Handle, they take the existing
+			// delete path (artifact cleanup + -1 delta) with no new emission code.
+			if !sourceFetchFailed && len(w.workflowSources) > 0 {
+				w.reconcileOrphanedSpecs(ctx, allMetadataIDs)
+			}
+
 			w.metrics.recordFetchedWorkflows(ctx, totalWorkflowsFetched)
 			w.lggr.Debugw("reconciled events", "report", reconcileReport)
 
@@ -979,6 +1007,48 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			}
 			w.metrics.recordDrainingWorkflows(ctx, drainingWorkflows)
 			w.metrics.incrementCompletedSyncs(ctx)
+		}
+	}
+}
+
+// reconcileOrphanedSpecs dispatches a WorkflowDeleted event for every persisted
+// workflow spec whose workflowID is absent from liveWorkflowIDs (the union of
+// every source's metadata this tick). It uses EXISTING state — the persisted
+// spec rows are this node's record of "workflows it believes exist" — and the
+// registry metadata is the source of truth. Each orphan flows through the
+// existing handler delete path, producing the -1 delta and artifact cleanup with
+// zero new emission code. Paused workflows remain in metadata (status Paused),
+// so they are present in liveWorkflowIDs and are never swept. Fail-open: a
+// listing error or an unparseable id skips the sweep / that row.
+func (w *workflowRegistry) reconcileOrphanedSpecs(ctx context.Context, liveWorkflowIDs map[string]struct{}) {
+	specs, err := w.handler.GetWorkflowSpecList(ctx)
+	if err != nil {
+		w.lggr.Warnw("failed to list persisted workflow specs for orphan reconciliation; skipping sweep", "err", err)
+		return
+	}
+	for _, spec := range specs {
+		if spec == nil || spec.WorkflowID == "" {
+			continue
+		}
+		if _, live := liveWorkflowIDs[spec.WorkflowID]; live {
+			continue
+		}
+		wfIDBytes, derr := hex.DecodeString(spec.WorkflowID)
+		if derr != nil || len(wfIDBytes) != len(wftypes.WorkflowID{}) {
+			w.lggr.Warnw("orphan sweep: skipping unparseable persisted workflow_id", "workflowID", spec.WorkflowID, "err", derr)
+			continue
+		}
+		var wfID wftypes.WorkflowID
+		copy(wfID[:], wfIDBytes)
+		w.lggr.Debugw("orphaned workflow spec: persisted locally but absent from registry metadata; dispatching delete",
+			"workflowID", spec.WorkflowID, "owner", spec.WorkflowOwner)
+		evt := Event{
+			Name: WorkflowDeleted,
+			Data: WorkflowDeletedEvent{WorkflowID: wfID},
+			Head: Head{},
+		}
+		if herr := w.handler.Handle(ctx, evt); herr != nil {
+			w.lggr.Warnw("failed to handle orphaned workflow spec delete", "workflowID", spec.WorkflowID, "err", herr)
 		}
 	}
 }

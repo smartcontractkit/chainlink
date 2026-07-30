@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -20,8 +21,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -1838,4 +1841,62 @@ func TestWorkflowRegistry_getTicker_WithTickerOverride(t *testing.T) {
 
 	tickerCh := wr.getTicker(10 * time.Second)
 	require.Equal(t, (<-chan time.Time)(customCh), tickerCh)
+}
+
+// orphanSweepFakeHandler is a minimal evtHandler that returns a fixed spec list
+// and records every Handle call, so reconcileOrphanedSpecs can be unit-tested
+// in isolation.
+type orphanSweepFakeHandler struct {
+	mu      sync.Mutex
+	specs   []*job.WorkflowSpec
+	handled []Event
+}
+
+func (h *orphanSweepFakeHandler) Close() error                { return nil }
+func (h *orphanSweepFakeHandler) Start(context.Context) error { return nil }
+func (h *orphanSweepFakeHandler) Handle(_ context.Context, event Event) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.handled = append(h.handled, event)
+	return nil
+}
+func (h *orphanSweepFakeHandler) EmitActivationAbandoned(context.Context, Event, eventsv2.ActivationAbandonReason, error, int32) error {
+	return nil
+}
+func (h *orphanSweepFakeHandler) GetWorkflowSpecList(context.Context) ([]*job.WorkflowSpec, error) {
+	return h.specs, nil
+}
+func (h *orphanSweepFakeHandler) Handled() []Event {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	cp := make([]Event, len(h.handled))
+	copy(cp, h.handled)
+	return cp
+}
+
+// a persisted spec whose workflowID is absent from the registry metadata
+// (the union of all sources) is a downtime orphan — it is dispatched through
+// the existing delete path. Specs still present in metadata (including paused
+// workflows, which remain in metadata) are left alone.
+func Test_reconcileOrphanedSpecs_DispatchesDeleteForOrphansOnly(t *testing.T) {
+	t.Parallel()
+	liveID := wfTypes.WorkflowID{1}
+	orphanID := wfTypes.WorkflowID{2}
+	h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+		{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd"},
+		{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd"},
+	}}
+	w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h}
+
+	// liveWorkflowIDs is the union of all sources' metadata this tick; the
+	// live workflow (present in metadata) is retained, the orphan is swept.
+	live := map[string]struct{}{liveID.Hex(): {}}
+	w.reconcileOrphanedSpecs(t.Context(), live)
+
+	handled := h.Handled()
+	require.Len(t, handled, 1, "exactly the orphan is swept")
+	assert.Equal(t, WorkflowDeleted, handled[0].Name)
+	del, ok := handled[0].Data.(WorkflowDeletedEvent)
+	require.True(t, ok)
+	assert.Equal(t, orphanID, del.WorkflowID, "only the spec absent from metadata is deleted")
 }

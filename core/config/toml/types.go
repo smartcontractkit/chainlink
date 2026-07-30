@@ -3157,6 +3157,13 @@ func (b *Metering) ValidateConfig() (err error) {
 			Msg:   "requires MeterRecordsEnabled to be true",
 		})
 	}
+	if b.MeterRecordsEnabled != nil && *b.MeterRecordsEnabled && (b.NodeID == nil || *b.NodeID == "") {
+		err = errors.Join(err, configutils.ErrInvalid{
+			Name:  "NodeID",
+			Value: "",
+			Msg:   "must be non-empty when MeterRecordsEnabled is true (an empty NodeID collapses per-node snapshot dedup scope DON-wide)",
+		})
+	}
 	return err
 }
 

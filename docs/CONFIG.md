@@ -2658,6 +2658,7 @@ Zone is the deployment zone identity dimension, e.g. 'wf-zone-a'.
 NodeID = '' # Default
 ```
 NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA public key).
+Required (non-empty) when `MeterRecordsEnabled = true`.
 
 ## CRE.Streams
 ```toml

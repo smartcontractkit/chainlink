@@ -126,6 +126,7 @@ func (orm *orm) GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSp
 	`
 
 	var spec job.WorkflowSpec
+	// Note: "Get will return sql.ErrNoRows like row.Scan would" - sqlx@v1.4.0
 	err := orm.ds.GetContext(ctx, &spec, query, id)
 	if err != nil {
 		return nil, err
