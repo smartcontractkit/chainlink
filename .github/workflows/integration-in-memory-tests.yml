@@ -252,19 +252,19 @@ jobs:
           go build -ldflags="-s -w" -o integration-tests/bin/preparetest ./core/store/cmd/preparetest
           GOBIN="$PWD/integration-tests/bin" go install gotest.tools/gotestsum@v1.13.0
 
-      - name: Warm LOOP Plugins cache
+      - name: Setup LOOP Plugins
         uses: ./.github/actions/setup-loop-plugins
         with:
           install-public: "true"
           install-private: "false"
           install-local: "false"
 
-      - name: Warm Aptos cache
+      - name: Setup Aptos CLI
         uses: ./.github/actions/setup-aptos
         with:
           version: "9.1.0"
 
-      - name: Warm Sui cache
+      - name: Setup Sui CLI
         uses: ./.github/actions/setup-sui
         with:
           version: "mainnet-v1.75.2"
