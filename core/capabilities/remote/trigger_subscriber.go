@@ -371,18 +371,30 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 
 			nowMs := time.Now().UnixMilli()
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
-			ready, payloads := s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
+
+			ready := false
+			var payloads [][]byte
+			if !s.messageCache.WasReady(key) {
+				ready, payloads = s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), false)
+			}
+			if !ready {
+				s.mu.Unlock()
+				s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
+				continue
+			}
+
+			aggregatedResponse, err := cfg.aggregator.Aggregate(meta.TriggerEventId, payloads)
+			if err != nil {
+				s.mu.Unlock()
+				s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
+				s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "err", err)
+				continue
+			}
+			s.messageCache.MarkDelivered(key)
 			s.mu.Unlock()
 			s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
-			if ready {
-				aggregatedResponse, err := cfg.aggregator.Aggregate(meta.TriggerEventId, payloads)
-				if err != nil {
-					s.lggr.Errorw("failed to aggregate responses", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "err", err)
-					continue
-				}
-				s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID)
-				registration.callback <- aggregatedResponse
-			}
+			s.lggr.Infow("remote trigger event aggregated", "triggerEventID", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID)
+			registration.callback <- aggregatedResponse
 		}
 	case types.MethodTriggerRegistrationCheck:
 		meta := msg.GetTriggerEventMetadata()

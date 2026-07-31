@@ -64,10 +64,18 @@ func (c *MessageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, 
 		}
 	}
 	if countAboveMinTimestamp >= minCount {
-		ev.wasReady = true
+		if once {
+			ev.wasReady = true
+		}
 		return true, accPayloads
 	}
 	return false, nil
+}
+
+func (c *MessageCache[EventID, PeerID]) MarkDelivered(eventID EventID) {
+	if ev, ok := c.events[eventID]; ok {
+		ev.wasReady = true
+	}
 }
 
 // WasReady reports whether Ready has already returned true for eventID (once=true path).
