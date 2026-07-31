@@ -76,5 +76,8 @@
   {"name":"Test_CCIP_Messaging_EVM2Sui_Success","test":"Test_CCIP_Messaging_EVM2Sui_Success","timeout":"25m","parallel":1,"plugins":true,"runs_on":"cpu=16/ram=64","free_disk":true,"aptos":"","sui":"mainnet-v1.75.2"},
   {"name":"Test_CCIP_Messaging_EVM2Sui_Revert_Part1","test":"Test_CCIP_Messaging_EVM2Sui_Revert_Part1","timeout":"25m","parallel":1,"plugins":true,"runs_on":"cpu=16/ram=64","free_disk":true,"aptos":"","sui":"mainnet-v1.75.2"},
   {"name":"Test_CCIP_Messaging_EVM2Sui_Revert_Part2","test":"Test_CCIP_Messaging_EVM2Sui_Revert_Part2","timeout":"25m","parallel":1,"plugins":true,"runs_on":"cpu=16/ram=64","free_disk":true,"aptos":"","sui":"mainnet-v1.75.2"},
-  {"name":"Test_CCIP_EVM2Sui_ZeroReceiver","test":"Test_CCIP_EVM2Sui_ZeroReceiver","timeout":"25m","parallel":1,"plugins":true,"runs_on":"cpu=16/ram=64","free_disk":true,"aptos":"","sui":"mainnet-v1.75.2"}
+  {"name":"Test_CCIP_EVM2Sui_ZeroReceiver","test":"Test_CCIP_EVM2Sui_ZeroReceiver","timeout":"25m","parallel":1,"plugins":true,"runs_on":"cpu=16/ram=64","free_disk":true,"aptos":"","sui":"mainnet-v1.75.2"},
+  {"name":"Test_CCIP_EVM2Sui_DestTokenAmount_ReportsLocalAmount","test":"Test_CCIP_EVM2Sui_DestTokenAmount_ReportsLocalAmount","timeout":"20m","parallel":1,"plugins":true,"runs_on":"cpu=16/ram=64","free_disk":true,"aptos":"","sui":"mainnet-v1.75.2"},
+  {"name":"Test_CCIP_ReceiverNotRegistered_EVM2Sui","test":"Test_CCIP_ReceiverNotRegistered_EVM2Sui","timeout":"20m","parallel":1,"plugins":true,"runs_on":"cpu=16/ram=64","free_disk":true,"aptos":"","sui":"mainnet-v1.75.2"},
+  {"name":"Test_CCIP_ReceiverReverts_EVM2Sui","test":"Test_CCIP_ReceiverReverts_EVM2Sui","timeout":"20m","parallel":1,"plugins":true,"runs_on":"cpu=16/ram=64","free_disk":true,"aptos":"","sui":"mainnet-v1.75.2"}
 ]
