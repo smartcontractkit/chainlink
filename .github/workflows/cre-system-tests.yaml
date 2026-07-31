@@ -31,6 +31,13 @@ on:
           "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
+      mixed_env_baseline_image:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Full baseline (develop) chainlink image ref for the mixed-env
+          topology. If empty, defaults to the develop nightly image."
   workflow_call:
     inputs:
       chainlink_image_repository_path:
@@ -57,6 +64,13 @@ on:
           "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
+      mixed_env_baseline_image:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Full baseline (develop) chainlink image ref for the mixed-env
+          topology. If empty, defaults to the develop nightly image."
 
 jobs:
   define-test-matrix:
@@ -81,10 +95,27 @@ jobs:
           ]'
 
           PER_TEST_TOPOLOGIES_JSON='{
+            "Test_CRE_V2_Suite_Bucket_A": [
+               {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
+               {"topology":"mixed-env","configs":"configs/mixed-env-don.toml"}
+             ],
             "Test_CRE_V2_Suite_Bucket_B": [
                {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
                {"topology":"workflow-gateway-capabilities-vault-jwt_auth-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"},
-               {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"}
+               {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"},
+               {"topology":"mixed-env","configs":"configs/mixed-env-don.toml"}
+             ],
+            "Test_CRE_V2_EVM_Read_HeavyCalls": [
+               {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
+               {"topology":"mixed-env","configs":"configs/mixed-env-don.toml"}
+             ],
+            "Test_CRE_V2_EVM_Read_StateQueries": [
+               {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
+               {"topology":"mixed-env","configs":"configs/mixed-env-don.toml"}
+             ],
+            "Test_CRE_V2_EVM_Read_TxArtifacts": [
+               {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
+               {"topology":"mixed-env","configs":"configs/mixed-env-don.toml"}
              ],
             "Test_CRE_V2_Aptos_Suite": [
                {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
@@ -112,7 +143,7 @@ jobs:
              ]
           }'
 
-          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade)
+          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade | grep -v '^TestMain$')
 
           tests=$(echo "$test_names" | jq -c -R -s \
             --argjson run_id "${{ github.run_id }}" \
@@ -244,6 +275,29 @@ jobs:
         with:
           working-directory: system-tests/lib
 
+      - name: Render mixed-env topology
+        if: ${{ matrix.tests.topology == 'mixed-env' }}
+        working-directory: core/scripts/cre/environment
+        shell: bash
+        env:
+          CRE_PR_IMAGE: ${{ env.CHAINLINK_IMAGE_FULL }}
+          BASELINE_IMAGE_OVERRIDE: ${{ inputs.mixed_env_baseline_image }}
+          ECR_ACCOUNT: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          ECR_REGION: ${{ secrets.QA_AWS_REGION }}
+        run: |
+          if [[ -n "${BASELINE_IMAGE_OVERRIDE}" ]]; then
+            CRE_BASELINE_IMAGE="${BASELINE_IMAGE_OVERRIDE}"
+          else
+            # Default to the develop nightly image (built daily + on develop pushes).
+            # Core variant (no -plugins) to match the PR image built by integration-tests.
+            DATE="$(date +'%Y%m%d')"
+            CRE_BASELINE_IMAGE="${ECR_ACCOUNT}.dkr.ecr.${ECR_REGION}.amazonaws.com/chainlink:nightly-${DATE}"
+          fi
+          export CRE_PR_IMAGE CRE_BASELINE_IMAGE
+          echo "PR image:       ${CRE_PR_IMAGE}"
+          echo "Baseline image: ${CRE_BASELINE_IMAGE}"
+          bash configs/render-mixed-env.sh
+
       - name: Start observability stack (Beholder suite)
         if: contains(matrix.tests.test_name, 'Beholder_Suite')
         shell: bash
@@ -328,7 +382,11 @@ jobs:
           jd-image:
             "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
             }}.amazonaws.com/job-distributor:0.28.0"
-          chainlink-image: "${{ env.CHAINLINK_IMAGE_FULL }}"
+          # For mixed-env, images are baked per-node into the rendered TOML, so leave
+          # CTF_CHAINLINK_IMAGE empty (a non-empty value forces every node onto one image).
+          # NB: the non-empty value must sit on the `&&` side — `cond && '' || X` always
+          # yields X in GitHub Actions because '' is falsy.
+          chainlink-image: "${{ matrix.tests.topology != 'mixed-env' && env.CHAINLINK_IMAGE_FULL || '' }}"
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           ctf-configs: ${{ matrix.tests.configs }}
@@ -388,6 +446,36 @@ jobs:
           if [ "$exit_code" -eq 0 ]; then
             echo "tests_result=✅ Tests passed" >> "${GITHUB_OUTPUT}"
           fi
+
+      - name: Check for non-determinism (mixed-env)
+        # Dedicated hard gate. The smoke step above is continue-on-error
+        # (auto-quarantine), which would swallow the in-test TestMain scan, so we
+        # re-scan the live node containers here and fail the job on any marker.
+        if: ${{ always() && matrix.tests.topology == 'mixed-env' }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          markers=(
+            "This is commonly caused by non-determinism"
+            "received messages with the same id and different payloads"
+            "received multiple unique responses for the same request"
+            "response quorum unreachable"
+          )
+          hit=0
+          for c in $(docker ps -a --format '{{.Names}}'); do
+            logs="$(docker logs "$c" 2>&1 || true)"
+            for m in "${markers[@]}"; do
+              if grep -qF -- "$m" <<<"$logs"; then
+                echo "::error::Non-Determinism introduced — container=${c} marker=\"${m}\""
+                hit=1
+              fi
+            done
+          done
+          if [[ "${hit}" -ne 0 ]]; then
+            echo "Non-Determinism introduced: PR and develop nodes disagreed."
+            exit 1
+          fi
+          echo "mixed-env non-determinism check: no markers found"
 
       - name:
           Analyze and upload test results (${{ steps.run-tests.outputs.tests_result
