@@ -1867,24 +1867,22 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 
 		// Use channel to signal when initial broadcast is complete
 		broadcastComplete := make(chan struct{})
-		callCount := 0
+		var callCount atomic.Int64
 
 		// Setup: node1, node2, node3 succeed, node4 fails indefinitely
 		mockDon.On("SendToNode", mock.Anything, "node1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			callCount++
-			if callCount == 3 {
+
+			if callCount.Add(1) == 3 {
 				close(broadcastComplete)
 			}
 		}).Once()
 		mockDon.On("SendToNode", mock.Anything, "node2", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			callCount++
-			if callCount == 3 {
+			if callCount.Add(1) == 3 {
 				close(broadcastComplete)
 			}
 		}).Once()
 		mockDon.On("SendToNode", mock.Anything, "node3", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			callCount++
-			if callCount == 3 {
+			if callCount.Add(1) == 3 {
 				close(broadcastComplete)
 			}
 		}).Once()
