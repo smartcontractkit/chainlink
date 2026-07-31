@@ -60,7 +60,9 @@
   # because bootstrap job for capability DON will be created on the boostrap node from this DON
   supported_evm_chains = [1337, 2337]
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  # CRE_CANARY_NONDETERMINISM activates the DO-NOT-MERGE canary in capability_executor.go
+  # (PR-built nodes only; develop nodes lack the code) to validate the mixed-env check.
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CRE_CANARY_NONDETERMINISM = "1" }
   capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 

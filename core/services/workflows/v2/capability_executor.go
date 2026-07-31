@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -234,6 +235,15 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 	propagateOrgIDMeta, _ := cresettings.Default.PropagateOrgIDInRequestMetadata.GetOrDefault(ctx, creGetter)
 	if propagateOrgIDMeta && c.orgID != "" {
 		capReq.Metadata.OrgID = c.orgID
+	}
+	// TEMPORARY CANARY — DO NOT MERGE. Validates the mixed-env non-determinism check.
+	// Active only when CRE_CANARY_NONDETERMINISM is set (the mixed-env topology sets it),
+	// so unit tests and normal runs are unaffected. On PR-built nodes it stamps a constant
+	// OrgID, so the executable-capability request payload differs from develop-built nodes;
+	// the capability DON logs "received messages with the same id and different payloads",
+	// which the mixed-env TestMain log scan turns into "Non-Determinism introduced".
+	if os.Getenv("CRE_CANARY_NONDETERMINISM") != "" {
+		capReq.Metadata.OrgID = "canary-nondeterminism"
 	}
 
 	execLogger.Debug("Executing capability ...")
