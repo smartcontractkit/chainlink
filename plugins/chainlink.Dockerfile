@@ -7,7 +7,7 @@
 # Stage: deps-base — module downloads, no source tree.
 # Stages that don't need the full source (remote plugins, delve) branch from
 # here so that source-only changes never invalidate their layer cache.
-FROM golang:1.26.4-bookworm AS deps-base
+FROM golang:1.26.5-bookworm AS deps-base
 RUN go version
 RUN apt-get update && apt-get install -y --no-install-recommends jq=1.6-2.1+deb12u2 && rm -rf /var/lib/apt/lists/*
 
