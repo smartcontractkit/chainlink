@@ -367,9 +367,7 @@ jobs:
 
       - name: Setup Aptos
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
-        uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
-        with:
-          CLI_VERSION: 8.1.0
+        uses: ./.github/actions/setup-aptos
 
       - name: Setup Sui CLI v1.72.2
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
@@ -404,7 +402,7 @@ jobs:
         if:
           ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true'
           }}
-        run: make install-plugins
+        uses: ./.github/actions/setup-loop-plugins
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only

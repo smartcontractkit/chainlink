@@ -156,12 +156,13 @@ jobs:
           build-cache-write: ${{ matrix.shard-id == 1 && 'default-branch-only' || 'never' }}
           go-version-file: deployment/go.mod
           go-module-file: deployment/go.sum
+      - name: Download Go vendor packages
+        working-directory: deployment
+        run: go mod download
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
       - name: Setup Aptos
-        uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
-        with:
-          CLI_VERSION: 8.1.0
+        uses: ./.github/actions/setup-aptos
       - name: Setup Sui CLI v1.72.2
         uses: ./.github/actions/setup-sui
         with:
@@ -173,14 +174,14 @@ jobs:
           tmpfs: "true"
           image-tag: "16-alpine"
           postgres-options: "-c max_connections=1000 -c shared_buffers=2GB -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c client_min_messages=warning" # Turn off some prod-protections to make postgres go brrr. https://github.com/peterldowns/pgtestdb#how-do-i-make-it-go-faster
-      - name: Download Go vendor packages
-        run: go mod download
       - name: Setup DB
-        run: go run ./core/store/cmd/preparetest
+        run: |
+          go install ./core/store/cmd/preparetest
+          preparetest
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
       - name: Install LOOP Plugins
-        run: make install-plugins
+        uses: ./.github/actions/setup-loop-plugins
       - name: Run tests
         timeout-minutes: 25
         continue-on-error: true
