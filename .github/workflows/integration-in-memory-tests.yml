@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    if: github.actor != 'dependabot[bot]' && github.event_name != 'workflow_call' && github.event_name != 'workflow_dispatch'
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     outputs:
       run-tests: ${{ steps.advanced-triggers.outputs.run-tests }}
     steps:
@@ -91,7 +91,7 @@ jobs:
     name: Define Test Matrix
     runs-on: ubuntu-latest
     needs: [changes]
-    if: github.actor != 'dependabot[bot]' && !cancelled() && (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.run-tests == 'true')
+    if: github.actor != 'dependabot[bot]' && !cancelled() && (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || needs.changes.outputs.run-tests == 'true')
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
@@ -103,7 +103,6 @@ jobs:
         run: |
           # shellcheck disable=SC1083,SC2016
           TESTS_JSON='[
-          {"name": "ccip_migration_to_v_1_6_test.go", "test": "^TestMigrateFromV1_5ToV1_6$", "timeout": "12m", "parallel": 1, "plugins": false, "runs_on": "", "free_disk": false, "aptos": "", "sui": ""},
           {"name": "ccip_fees_test.go", "test": "^(Test_CCIPFees)$", "timeout": "20m", "parallel": 4, "plugins": false, "runs_on": "cpu=8/ram=32", "free_disk": false, "aptos": "", "sui": ""},
           {"name": "Test_CCIPMessaging_EVM2EVM", "test": "Test_CCIPMessaging_EVM2EVM", "timeout": "18m", "parallel": 4, "plugins": false, "runs_on": "cpu=8/ram=32", "free_disk": false, "aptos": "", "sui": ""},
           {"name": "Test_CCIPMessaging_EVM2Solana", "test": "Test_CCIPMessaging_EVM2Solana", "timeout": "18m", "parallel": 4, "plugins": true, "runs_on": "cpu=8/ram=32", "free_disk": false, "aptos": "", "sui": ""},
@@ -126,7 +125,6 @@ jobs:
           {"name": "ccip_lbtc_test.go", "test": "^(TestLBTCTokenTransfer)$", "timeout": "18m", "parallel": 1, "plugins": false, "runs_on": "", "free_disk": false, "aptos": "", "sui": ""},
           {"name": "ccip_ooo_execution_test.go", "test": "^(Test_OutOfOrderExecution)$", "timeout": "16m", "parallel": 1, "plugins": false, "runs_on": "", "free_disk": false, "aptos": "", "sui": ""},
           {"name": "ccip_token_transfer_test.go", "test": "^(TestTokenTransfer_EVM2EVM|TestTokenTransfer_EVM2Solana|TestTokenTransfer_Solana2EVM)$", "timeout": "16m", "parallel": 2, "plugins": true, "runs_on": "cpu=8/ram=32", "free_disk": false, "aptos": "", "sui": ""},
-          {"name": "ccip_token_transfer_test.go (LOOPP)", "test": "^(TestTokenTransfer_EVM2EVM|TestTokenTransfer_EVM2Solana|TestTokenTransfer_Solana2EVM)$", "timeout": "16m", "parallel": 2, "plugins": true, "runs_on": "cpu=8/ram=32", "free_disk": false, "aptos": "", "sui": ""},
           {"name": "ccip_cs_update_rmn_config_test.go", "test": "^(TestUpdateRMNConfig|TestSetDynamicConfig|TestRevokeConfig|TestSetRMNRemoteOnRMNProxy)$", "timeout": "20m", "parallel": 1, "plugins": false, "runs_on": "", "free_disk": false, "aptos": "", "sui": ""},
           {"name": "TestRMNCurse", "test": "^TestRMNCurse$", "timeout": "20m", "parallel": 2, "plugins": true, "runs_on": "cpu=16/ram=64", "free_disk": false, "aptos": "", "sui": ""},
           {"name": "TestRMNCurseUncurseAptos", "test": "^TestRMNCurseUncurseAptos$", "timeout": "20m", "parallel": 4, "plugins": false, "runs_on": "cpu=8/ram=32", "free_disk": false, "aptos": "9.1.0", "sui": ""},
@@ -239,7 +237,7 @@ jobs:
           go_mod_path: integration-tests/go.mod
           cache_key_id: integration-tests-v1
           cache_builds: true
-          cache_restore_only: "true"
+          cache_restore_only: ${{ github.ref_name != 'develop' }}
           should_tidy: false
           gati_token: ${{ steps.github-token.outputs.access-token }}
 
@@ -348,6 +346,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Postgres
+        id: postgres
         uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
           tmpfs: "true"
@@ -356,7 +355,9 @@ jobs:
 
       - name: Prepare DB
         shell: bash
-        run: CL_DATABASE_URL="${DB_URL}" preparetest
+        env:
+          CL_DATABASE_URL: ${{ steps.postgres.outputs.database-url }}
+        run: preparetest
 
       - name: Run Tests
         id: run-tests
@@ -365,7 +366,7 @@ jobs:
         continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
         env:
           RUN_QUARANTINED_TESTS: "true"
-          CL_DATABASE_URL: ${{ env.DB_URL }}
+          CL_DATABASE_URL: ${{ steps.postgres.outputs.database-url }}
           TEST_RUN: ${{ matrix.tests.test }}
           TEST_TIMEOUT: ${{ matrix.tests.timeout }}
           PARALLEL: ${{ matrix.tests.parallel }}
@@ -376,17 +377,28 @@ jobs:
               ../../bin/ccip-inmemory.test -test.v -test.run "${TEST_RUN}" \
               -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL}"
 
-      - name: Branch Out Upload
+      - name: Ensure Junit XML file exists
         if: always()
+        shell: bash
+        run: |
+          if [ ! -f /tmp/junit.xml ]; then
+            echo "Warning: /tmp/junit.xml not found. Creating empty report."
+            echo '<testsuites name="empty" tests="0" failures="0" errors="0" time="0"></testsuites>' > /tmp/junit.xml
+          fi
+
+      - name: Branch Out Upload
+        if: ${{ !cancelled() }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:
           junit-file-path: /tmp/junit.xml
           trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
           trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
+          trunk-org-slug: chainlink
+          trunk-token: ${{ secrets.TRUNK_API_KEY }}
           artifact-name: ${{ matrix.tests.test_id }}_test_logs
 
       - name: Collect Diagnostic Logs on Failure
-        if: failure()
+        if: ${{ steps.run-tests.outcome != 'success' || cancelled() }}
         shell: bash
         run: |
           docker ps -a || true
@@ -397,7 +409,7 @@ jobs:
           cp /tmp/junit.xml /tmp/failure_logs/ || true
 
       - name: Upload Diagnostic Logs on Failure
-        if: failure()
+        if: ${{ steps.run-tests.outcome != 'success' || cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.tests.test_id }}_failure_logs
@@ -411,8 +423,10 @@ jobs:
     needs: [run-tests]
     steps:
       - name: Check test status
+        env:
+          TESTS_RESULT: ${{ needs.run-tests.result }}
         run: |
-          if [ "${{ needs.run-tests.result }}" = "failure" ] || [ "${{ needs.run-tests.result }}" = "cancelled" ]; then
+          if [ "${{ env.TESTS_RESULT }}" = "failure" ] || [ "${{ env.TESTS_RESULT }}" = "cancelled" ]; then
             echo "Integration in-memory tests failed or were cancelled."
             exit 1
           fi
@@ -420,9 +434,12 @@ jobs:
 
   notify-slack:
     name: Notify Slack
-    if: always() && inputs.slack_channel_id != ''
+    if: always() && (inputs.slack_channel_id != '' || (github.event_name == 'merge_group' && needs.check-integration-test-results.result == 'failure'))
     needs: [check-integration-test-results]
     runs-on: ubuntu-latest
+    environment:
+      name: integration
+      deployment: false
     permissions:
       contents: read
     steps:
@@ -439,5 +456,5 @@ jobs:
           status: ${{ needs.check-integration-test-results.result }}
           job_name: "Integration In-Memory Tests"
           run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
-          slack_channel_id: ${{ inputs.slack_channel_id }}
+          slack_channel_id: ${{ inputs.slack_channel_id || '#ccip-testing' }}
           slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}

@@ -13,6 +13,9 @@ on:
         type: string
         default: develop
 
+permissions:
+  contents: read
+
 jobs:
   in-memory-tests:
     uses: ./.github/workflows/integration-in-memory-tests.yml
