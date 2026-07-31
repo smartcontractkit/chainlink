@@ -157,6 +157,7 @@ jobs:
           go-version-file: deployment/go.mod
           go-module-file: deployment/go.sum
       - name: Download Go vendor packages
+        working-directory: deployment
         run: go mod download
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
