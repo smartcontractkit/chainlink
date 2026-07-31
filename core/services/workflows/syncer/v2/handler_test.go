@@ -1967,6 +1967,7 @@ func Test_specStorage_StateMachine(t *testing.T) {
 	wfID := types.WorkflowID(wfIDBytes)
 	hexWorkflow := hex.EncodeToString(binaryData)
 	createdAt := uint64(999)
+	createdAtI64 := int64(createdAt)
 
 	makeHandler := func(store *stubWorkflowArtifactsStore) *eventHandler {
 		return newMeteringTestHandler(t, store, nil)
@@ -1984,7 +1985,7 @@ func Test_specStorage_StateMachine(t *testing.T) {
 		store := &stubWorkflowArtifactsStore{persistUpserts: true}
 		h := makeHandler(store)
 		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(activePayload)))
-		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, int64(createdAt))
+		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, createdAtI64)
 		_, ok := h.engineRegistry.Get(wfID)
 		assert.True(t, ok, "engine should be started")
 		assert.Equal(t, int32(1), store.fetchCalls.Load(), "exactly one fetch")
@@ -1996,12 +1997,12 @@ func Test_specStorage_StateMachine(t *testing.T) {
 		h := makeHandler(store)
 		require.NoError(t, h.workflowRegisteredEvent(t.Context(), activePayload))
 		require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID}))
-		assertStubState(t, store, true, job.WorkflowSpecStatusPaused, true, int64(createdAt))
+		assertStubState(t, store, true, job.WorkflowSpecStatusPaused, true, createdAtI64)
 		_, ok := h.engineRegistry.Get(wfID)
 		assert.False(t, ok, "engine should be popped")
 		// Redelivery
 		require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID}))
-		assertStubState(t, store, true, job.WorkflowSpecStatusPaused, true, int64(createdAt))
+		assertStubState(t, store, true, job.WorkflowSpecStatusPaused, true, createdAtI64)
 	})
 
 	t.Run("tombstone + Activated → fetch, full restore, engine started", func(t *testing.T) {
@@ -2012,7 +2013,7 @@ func Test_specStorage_StateMachine(t *testing.T) {
 		require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID}))
 		fetchBefore := store.fetchCalls.Load()
 		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(activePayload)))
-		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, int64(createdAt))
+		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, createdAtI64)
 		_, ok := h.engineRegistry.Get(wfID)
 		assert.True(t, ok, "engine should be started")
 		assert.Equal(t, fetchBefore+1, store.fetchCalls.Load(), "exactly one new fetch for restore")
@@ -2040,12 +2041,12 @@ func Test_specStorage_StateMachine(t *testing.T) {
 				WorkflowOwner: "aabbccdd",
 				Workflow:      hexWorkflow,
 				Config:        string(configData),
-				RegisteredAt:  int64(createdAt),
+				RegisteredAt:  createdAtI64,
 			},
 		}
 		h := makeHandler(store)
 		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(activePayload)))
-		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, int64(createdAt))
+		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, createdAtI64)
 	})
 
 	t.Run("absent + Paused → no-op, no error", func(t *testing.T) {
@@ -2079,7 +2080,7 @@ func Test_specStorage_StateMachine(t *testing.T) {
 		}
 		h := makeHandler(store)
 		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(activePayload)))
-		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, int64(createdAt))
+		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, createdAtI64)
 	})
 }
 
@@ -2096,6 +2097,7 @@ func Test_handler_SourceParity_PauseActivateCycle(t *testing.T) {
 	require.NoError(t, err)
 	wfID := types.WorkflowID(wfIDBytes)
 	createdAt := uint64(777)
+	createdAtI64 := int64(createdAt)
 	sources := []string{
 		"contract:42:0xabcdef1234567890",
 		"grpc:centralized-registry:v1",
@@ -2124,10 +2126,10 @@ func Test_handler_SourceParity_PauseActivateCycle(t *testing.T) {
 			assert.Equal(t, source, entry.Source)
 
 			require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID, Source: source}))
-			assertStubState(t, store, true, job.WorkflowSpecStatusPaused, true, int64(createdAt))
+			assertStubState(t, store, true, job.WorkflowSpecStatusPaused, true, createdAtI64)
 
 			require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
-			assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, int64(createdAt))
+			assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, createdAtI64)
 			entry, ok = h.engineRegistry.Get(wfID)
 			require.True(t, ok)
 			assert.Equal(t, source, entry.Source)

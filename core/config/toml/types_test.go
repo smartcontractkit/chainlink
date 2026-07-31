@@ -862,6 +862,7 @@ func durationPtr(d time.Duration) *commonconfig.Duration {
 }
 
 func TestMetering_ValidateConfig(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name        string
 		config      *Metering
@@ -912,6 +913,7 @@ func TestMetering_ValidateConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			err := tc.config.ValidateConfig()
 			if tc.expectError {
 				require.Error(t, err)

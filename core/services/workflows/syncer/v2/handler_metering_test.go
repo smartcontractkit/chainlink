@@ -595,7 +595,7 @@ func Test_meterRecords_DonIDOnRecordAndSnapshot(t *testing.T) {
 	}
 	h := newMeteringTestHandler(t, store, newMeteringResourceManager(t, true, emitter))
 
-	// Simulate a resolved workflow DON id (as resolveWorkflowDonID would store).
+	// Simulate a resolved workflow DON id (as SetWorkflowDon would store).
 	resolvedDon := "7"
 	h.resolvedDonID.Store(&resolvedDon)
 

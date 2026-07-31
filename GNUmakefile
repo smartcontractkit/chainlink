@@ -224,7 +224,7 @@ gomodslocalupdate: gomods ## Run gomod-local-update
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	GOTOOLCHAIN=go$(shell awk '/^go /{print $$2}' go.mod) go install github.com/vektra/mockery/v2@v2.53.0
+	go install github.com/vektra/mockery/v2@v2.53.0
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen

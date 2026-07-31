@@ -87,6 +87,8 @@ func (m *testEvtHandler) ReleaseOrphanedSpec(context.Context, string, string) er
 	return nil
 }
 
+func (m *testEvtHandler) SetWorkflowDon(capabilities.DON) {}
+
 func (m *testEvtHandler) ClearEvents() {
 	m.mux.Lock()
 	defer m.mux.Unlock()

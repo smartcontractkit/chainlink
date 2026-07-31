@@ -19,6 +19,7 @@ import (
 	"go.opentelemetry.io/otel/trace/noop"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -34,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	meteringpb "github.com/smartcontractkit/chainlink-protos/metering/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -107,11 +109,8 @@ type eventHandler struct {
 	billingClient          metering.BillingClient
 	resourceManager        *resourcemanager.ResourceManager
 	meterIdentity          resourcemanager.ResourceIdentity
-	// resolvedDonID holds the workflow DON id once resolved from the don notifier
-	// at start (the engine runs on the workflow DON). It is resolved
-	// asynchronously so node boot is not blocked while waiting for the DON to be
-	// set, and read on the hot snapshot/emit paths; an atomic keeps that read
-	// lock-free. Nil until resolved; baseIdentity folds it into meterIdentity.
+
+	// resolvedDonID holds the workflow DON id once set by the registry syncer
 	resolvedDonID atomic.Pointer[string]
 	// rmUnregister removes this handler from the ResourceManager's snapshot
 	// registry; set in start, called in close. Nil until started.
@@ -357,7 +356,8 @@ func NewEventHandler(
 		workflowArtifactsStore: workflowArtifacts,
 		workflowEncryptionKey:  workflowEncryptionKey,
 		workflowDonSubscriber:  workflowDonSubscriber,
-		tracer: noop.NewTracerProvider().Tracer(""), // default; can override in WithDebugMode
+		// default, enable via WithDebugMode
+		tracer: noop.NewTracerProvider().Tracer(""),
 		meterIdentity: resourcemanager.ResourceIdentity{
 			Service:      meterService,
 			ResourcePool: meterResourcePool,
@@ -400,38 +400,16 @@ func (h *eventHandler) start(ctx context.Context) error {
 		}
 		// Register returns a func that unregisters.
 		h.rmUnregister = h.resourceManager.Register(h)
-		h.resolveWorkflowDonID()
 	}
 	return nil
 }
 
-// resolveWorkflowDonID asynchronously resolves the workflow DON id (the engine
-// runs on the workflow DON) and folds it into the metering identity. It
-// subscribes to the don notifier and stores the first DON's id, so node boot is
-// never blocked waiting for the DON to be set. Until it resolves, emitted records
-// carry an empty don_id (the host-injection fallback semantics); once resolved,
-// every subsequent record and snapshot carries it. Resolution happens at most
-// once per start.
-func (h *eventHandler) resolveWorkflowDonID() {
-	if h.workflowDonSubscriber == nil || h.resolvedDonID.Load() != nil {
-		return
-	}
-	h.eng.Go(func(ctx context.Context) {
-		ch, unsubscribe, err := h.workflowDonSubscriber.Subscribe(ctx)
-		if err != nil {
-			h.lggr.Warnw("failed to subscribe to workflow DON for metering identity; don_id will be empty", "err", err)
-			return
-		}
-		defer unsubscribe()
-		select {
-		case <-ctx.Done():
-			return
-		case don := <-ch:
-			donID := strconv.FormatUint(uint64(don.ID), 10)
-			h.resolvedDonID.Store(&donID)
-			h.lggr.Debugw("resolved workflow DON id for metering identity", "donID", donID)
-		}
-	})
+// SetWorkflowDon supplies the launcher-resolved workflow DON identity for
+// metering. Called by the registry after WaitForDon, before any event is
+// dispatched; the value is static for the life of the node.
+func (h *eventHandler) SetWorkflowDon(don commoncap.DON) {
+	donID := strconv.FormatUint(uint64(don.ID), 10)
+	h.resolvedDonID.Store(&donID)
 }
 
 func (h *eventHandler) close() error {
@@ -699,7 +677,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		} else {
 			spec.Status = status
 			if spec.RegisteredAt == 0 && payload.CreatedAt > 0 {
-				spec.RegisteredAt = int64(payload.CreatedAt)
+				spec.RegisteredAt = int64(payload.CreatedAt) //nolint:gosec // G115: CreatedAt is a timestamp that cannot overflow int64
 			}
 			if _, innerErr := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); innerErr != nil {
 				return fmt.Errorf("failed to update workflow spec: %w", innerErr)
@@ -711,7 +689,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// Legacy-row convergence: backfill registered_at for pre-migration rows
 	// (at most once per row). Fail-open: a write error is logged, not returned.
 	if spec.RegisteredAt == 0 && payload.CreatedAt > 0 {
-		spec.RegisteredAt = int64(payload.CreatedAt)
+		spec.RegisteredAt = int64(payload.CreatedAt) //nolint:gosec // G115: CreatedAt is a timestamp that cannot overflow int64
 		if _, err := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); err != nil {
 			h.lggr.Warnw("failed to backfill registered_at", "workflowID", spec.WorkflowID, "err", err)
 		}
@@ -805,7 +783,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
 		Attributes:    payload.Attributes,
-		RegisteredAt:  int64(payload.CreatedAt),
+		RegisteredAt:  int64(payload.CreatedAt), //nolint:gosec // G115: CreatedAt is a timestamp that cannot overflow int64
 	}
 
 	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, entry); err != nil {
@@ -1056,7 +1034,7 @@ func (h *eventHandler) workflowDeletedEvent(
 	if err != nil {
 		return err
 	}
-	if err := h.releaseSpecStorage(ctx, workflowID, owner); err != nil {
+	if err = h.releaseSpecStorage(ctx, workflowID, owner); err != nil {
 		return err
 	}
 	_, err = h.engineRegistry.Pop(payload.WorkflowID)
@@ -1120,7 +1098,7 @@ func (h *eventHandler) emitSpecDelta(ctx context.Context, delta int64, workflowI
 }
 
 // baseIdentity returns the handler's metering identity with the workflow DON id
-// folded in once it has been resolved from the don notifier. meterIdentity itself
+// folded in once it has been set by the registry syncer. meterIdentity itself
 // is immutable after construction (set via WithIdentity); only the DON id is
 // learned later, so it is read from an atomic and overlaid here.
 func (h *eventHandler) baseIdentity() resourcemanager.ResourceIdentity {

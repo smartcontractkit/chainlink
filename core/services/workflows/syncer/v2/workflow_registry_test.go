@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -2033,9 +2034,11 @@ func (h *orphanSweepFakeHandler) GetWorkflowSpecList(context.Context) ([]*job.Wo
 func (h *orphanSweepFakeHandler) ReleaseOrphanedSpec(_ context.Context, workflowID, owner string) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.released = append(h.released, orphanRelease{workflowID: workflowID, owner: owner})
+	h.released = append(h.released, orphanRelease{workflowID, owner})
 	return nil
 }
+
+func (h *orphanSweepFakeHandler) SetWorkflowDon(commonCap.DON) {}
 func (h *orphanSweepFakeHandler) Handled() []Event {
 	h.mu.Lock()
 	defer h.mu.Unlock()

@@ -146,6 +146,7 @@ type evtHandler interface {
 	EmitActivationAbandoned(ctx context.Context, event Event, reason eventsv2.ActivationAbandonReason, activationErr error, retryCount int32) error
 	GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error)
 	ReleaseOrphanedSpec(ctx context.Context, workflowID, owner string) error
+	SetWorkflowDon(don capabilities.DON)
 }
 
 type donNotifier interface {
@@ -422,11 +423,12 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
-			_, err := w.workflowDonNotifier.WaitForDon(ctx)
+			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
 				w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
 				return
 			}
+			w.handler.SetWorkflowDon(don)
 			w.syncUsingReconciliationStrategy(ctx)
 		})
 
