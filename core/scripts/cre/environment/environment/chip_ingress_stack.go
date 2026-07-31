@@ -77,7 +77,7 @@ func schemaCommitRefFromGoMod(ctx context.Context, repoRoot, targetModule string
 // getSchemaSetFromGoMod resolves SchemaSets from chainlink-protos commits pinned in go.mod:
 //   - workflows (chip-cre.json) for CRE/workflow telemetry
 //   - node-platform (chip-schemas.json) for PluginRelayerConfigEmitter / common.v1.ChainPluginConfig
-//   - metering (chip-cll-meter.json) for durable resource metering (MeterRecord/MeterSnapshot on
+//   - metering (chip-cll.meter.json) for durable resource metering (MeterRecord/MeterSnapshot on
 //     the cll.meter domain); without this, ChIP Ingress rejects those events at pre-publish encode
 //     time with "Subject 'cll-meter-metering.v1.MeterRecord' not found" and drops them silently.
 func getSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.SchemaSet, error) {

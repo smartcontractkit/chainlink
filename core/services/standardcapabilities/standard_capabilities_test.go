@@ -80,7 +80,7 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 		require.Contains(t, err.Error(), capturingRegistrarErr)
 
 		require.Empty(t, cfg.Env,
-			"no operator-provided env vars should be forwarded when CL_CAPABILITIES_ENV is unset; ")
+			"no operator-provided env vars should be forwarded when CL_CAPABILITIES_ENV is unset")
 	})
 
 	t.Run("missing env file fails Start before RegisterLOOP", func(t *testing.T) {

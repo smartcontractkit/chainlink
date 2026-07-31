@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -194,8 +195,9 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 		require.NoError(t, err)
 		require.NotZero(t, id)
 
-		err = orm.DeleteWorkflowSpec(ctx, spec.WorkflowID)
+		deletedSpec, err := orm.DeleteWorkflowSpec(ctx, spec.WorkflowID)
 		require.NoError(t, err)
+		require.NotNil(t, deletedSpec)
 
 		// Verify the record is deleted from the database
 		var dbSpec job.WorkflowSpec
@@ -204,16 +206,16 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 		require.Equal(t, sql.ErrNoRows, err)
 	})
 
-	t.Run("fails if no workflow spec exists", func(t *testing.T) {
+	t.Run("returns false for non-existent workflow spec", func(t *testing.T) {
 		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
 		ctx := t.Context()
 		lggr := logger.TestLogger(t)
 		orm := &orm{ds: db, lggr: lggr}
 
-		err := orm.DeleteWorkflowSpec(ctx, "non-existent-workflow-id")
-		require.Error(t, err)
-		require.Equal(t, sql.ErrNoRows, err)
+		deletedSpec, err := orm.DeleteWorkflowSpec(ctx, "non-existent-workflow-id")
+		require.NoError(t, err)
+		assert.Nil(t, deletedSpec)
 	})
 }
 
@@ -293,7 +295,7 @@ func Test_GetWorkflowSpec(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, spec.Workflow, dbSpec.Workflow)
 
-		err = orm.DeleteWorkflowSpec(ctx, spec.WorkflowID)
+		_, err = orm.DeleteWorkflowSpec(ctx, spec.WorkflowID)
 		require.NoError(t, err)
 	})
 

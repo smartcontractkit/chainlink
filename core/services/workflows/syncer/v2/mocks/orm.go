@@ -23,21 +23,33 @@ func (_m *ORM) EXPECT() *ORM_Expecter {
 }
 
 // DeleteWorkflowSpec provides a mock function with given fields: ctx, id
-func (_m *ORM) DeleteWorkflowSpec(ctx context.Context, id string) error {
+func (_m *ORM) DeleteWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error) {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DeleteWorkflowSpec")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+	var r0 *job.WorkflowSpec
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (*job.WorkflowSpec, error)); ok {
+		return rf(ctx, id)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) *job.WorkflowSpec); ok {
 		r0 = rf(ctx, id)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*job.WorkflowSpec)
+		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // ORM_DeleteWorkflowSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteWorkflowSpec'
@@ -59,12 +71,59 @@ func (_c *ORM_DeleteWorkflowSpec_Call) Run(run func(ctx context.Context, id stri
 	return _c
 }
 
-func (_c *ORM_DeleteWorkflowSpec_Call) Return(_a0 error) *ORM_DeleteWorkflowSpec_Call {
+func (_c *ORM_DeleteWorkflowSpec_Call) Return(_a0 *job.WorkflowSpec, _a1 error) *ORM_DeleteWorkflowSpec_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *ORM_DeleteWorkflowSpec_Call) RunAndReturn(run func(context.Context, string) (*job.WorkflowSpec, error)) *ORM_DeleteWorkflowSpec_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// PauseWorkflowSpec provides a mock function with given fields: ctx, id
+func (_m *ORM) PauseWorkflowSpec(ctx context.Context, id string) error {
+	ret := _m.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PauseWorkflowSpec")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
+		r0 = rf(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// ORM_PauseWorkflowSpec_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PauseWorkflowSpec'
+type ORM_PauseWorkflowSpec_Call struct {
+	*mock.Call
+}
+
+// PauseWorkflowSpec is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id string
+func (_e *ORM_Expecter) PauseWorkflowSpec(ctx interface{}, id interface{}) *ORM_PauseWorkflowSpec_Call {
+	return &ORM_PauseWorkflowSpec_Call{Call: _e.mock.On("PauseWorkflowSpec", ctx, id)}
+}
+
+func (_c *ORM_PauseWorkflowSpec_Call) Run(run func(ctx context.Context, id string)) *ORM_PauseWorkflowSpec_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *ORM_PauseWorkflowSpec_Call) Return(_a0 error) *ORM_PauseWorkflowSpec_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *ORM_DeleteWorkflowSpec_Call) RunAndReturn(run func(context.Context, string) error) *ORM_DeleteWorkflowSpec_Call {
+func (_c *ORM_PauseWorkflowSpec_Call) RunAndReturn(run func(context.Context, string) error) *ORM_PauseWorkflowSpec_Call {
 	_c.Call.Return(run)
 	return _c
 }

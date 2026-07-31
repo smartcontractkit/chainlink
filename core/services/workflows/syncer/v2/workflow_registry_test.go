@@ -2001,13 +2001,19 @@ func TestWorkflowRegistry_getTicker_WithTickerOverride(t *testing.T) {
 	require.Equal(t, (<-chan time.Time)(customCh), tickerCh)
 }
 
+type orphanRelease struct {
+	workflowID string
+	owner      string
+}
+
 // orphanSweepFakeHandler is a minimal evtHandler that returns a fixed spec list
-// and records every Handle call, so reconcileOrphanedSpecs can be unit-tested
-// in isolation.
+// and records every Handle / ReleaseOrphanedSpec call, so reconcileOrphanedSpecs
+// can be unit-tested in isolation.
 type orphanSweepFakeHandler struct {
-	mu      sync.Mutex
-	specs   []*job.WorkflowSpec
-	handled []Event
+	mu       sync.Mutex
+	specs    []*job.WorkflowSpec
+	handled  []Event
+	released []orphanRelease
 }
 
 func (h *orphanSweepFakeHandler) Close() error                { return nil }
@@ -2024,6 +2030,12 @@ func (h *orphanSweepFakeHandler) EmitActivationAbandoned(context.Context, Event,
 func (h *orphanSweepFakeHandler) GetWorkflowSpecList(context.Context) ([]*job.WorkflowSpec, error) {
 	return h.specs, nil
 }
+func (h *orphanSweepFakeHandler) ReleaseOrphanedSpec(_ context.Context, workflowID, owner string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.released = append(h.released, orphanRelease{workflowID: workflowID, owner: owner})
+	return nil
+}
 func (h *orphanSweepFakeHandler) Handled() []Event {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -2031,12 +2043,19 @@ func (h *orphanSweepFakeHandler) Handled() []Event {
 	copy(cp, h.handled)
 	return cp
 }
+func (h *orphanSweepFakeHandler) Released() []orphanRelease {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	cp := make([]orphanRelease, len(h.released))
+	copy(cp, h.released)
+	return cp
+}
 
 // a persisted spec whose workflowID is absent from the registry metadata
-// (the union of all sources) is a downtime orphan — it is dispatched through
-// the existing delete path. Specs still present in metadata (including paused
-// workflows, which remain in metadata) are left alone.
-func Test_reconcileOrphanedSpecs_DispatchesDeleteForOrphansOnly(t *testing.T) {
+// (the union of all sources) and has no running engine is a downtime orphan —
+// it is released through ReleaseOrphanedSpec. Specs still present in metadata
+// (including paused workflows, which remain in metadata) are left alone.
+func Test_reconcileOrphanedSpecs_ReleasesEnginelessOrphansOnly(t *testing.T) {
 	t.Parallel()
 	liveID := wfTypes.WorkflowID{1}
 	orphanID := wfTypes.WorkflowID{2}
@@ -2044,17 +2063,36 @@ func Test_reconcileOrphanedSpecs_DispatchesDeleteForOrphansOnly(t *testing.T) {
 		{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd"},
 		{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd"},
 	}}
-	w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h}
+	w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: NewEngineRegistry()}
 
 	// liveWorkflowIDs is the union of all sources' metadata this tick; the
-	// live workflow (present in metadata) is retained, the orphan is swept.
+	// live workflow (present in metadata) is retained, the orphan is released.
 	live := map[string]struct{}{liveID.Hex(): {}}
 	w.reconcileOrphanedSpecs(t.Context(), live)
 
-	handled := h.Handled()
-	require.Len(t, handled, 1, "exactly the orphan is swept")
-	assert.Equal(t, WorkflowDeleted, handled[0].Name)
-	del, ok := handled[0].Data.(WorkflowDeletedEvent)
-	require.True(t, ok)
-	assert.Equal(t, orphanID, del.WorkflowID, "only the spec absent from metadata is deleted")
+	assert.Empty(t, h.Handled(), "orphan sweep must not dispatch events through Handle")
+	released := h.Released()
+	require.Len(t, released, 1, "exactly the orphan is released")
+	assert.Equal(t, orphanID.Hex(), released[0].workflowID)
+	assert.Equal(t, "aabbccdd", released[0].owner)
+}
+
+// An orphan with a registered engine is skipped: the engine-based deletion
+// path handles it (with drain/retry machinery).
+func Test_reconcileOrphanedSpecs_SkipsOrphansWithEngines(t *testing.T) {
+	t.Parallel()
+	orphanID := wfTypes.WorkflowID{3}
+	er := NewEngineRegistry()
+	require.NoError(t, er.Add(orphanID, "test-source", &mockService{}))
+	h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+		{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd"},
+	}}
+	w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: er}
+
+	// orphanID is absent from metadata (orphan), but has a running engine.
+	live := map[string]struct{}{}
+	w.reconcileOrphanedSpecs(t.Context(), live)
+
+	assert.Empty(t, h.Handled(), "no events dispatched")
+	assert.Empty(t, h.Released(), "engine-owned orphan must not be released by the sweep")
 }

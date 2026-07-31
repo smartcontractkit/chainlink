@@ -345,7 +345,6 @@ type Config interface {
 	CRE() config.CRE
 	P2P() config.P2P
 	Sharding() config.Sharding
-	Telemetry() config.Telemetry
 	Metering() config.Metering
 }
 

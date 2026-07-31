@@ -87,7 +87,7 @@ func Test_Store_DeleteWorkflowArtifacts(t *testing.T) {
 	require.NoError(t, err)
 
 	// Delete the workflow artifacts by ID
-	err = h.DeleteWorkflowArtifacts(t.Context(), workflowID)
+	_, err = h.DeleteWorkflowArtifacts(t.Context(), workflowID)
 	require.NoError(t, err)
 
 	// Check that the workflow no longer exists

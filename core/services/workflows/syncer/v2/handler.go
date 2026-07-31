@@ -304,7 +304,8 @@ type WorkflowArtifactsStore interface {
 	GetWorkflowSpec(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
 	GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error)
 	UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error)
-	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error
+	DeleteWorkflowArtifacts(ctx context.Context, workflowID string) (*job.WorkflowSpec, error)
+	PauseWorkflowArtifacts(ctx context.Context, workflowID string) error
 	DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error
 }
 
@@ -548,7 +549,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		var err error
 		defer func() {
-			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, err); err2 != nil {
+			if err2 := events.EmitWorkflowStatusChangedEventV2(ctx, cma.Labels(), toCommonHead(event.Head), string(event.Name), payload.BinaryURL, payload.ConfigURL, customerFacingError(err)); err2 != nil {
 				h.lggr.Errorf("failed to emit status changed event: %+v", err2)
 			}
 		}()
@@ -576,19 +577,17 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		// Get workflow spec from database to get owner and name info for organization lookup,
 		// and to check if the spec exists to determine if a MeterRecord is warranted.
 		var wfOwner, wfName, orgID string
-		specExisted := false
 		if spec, gerr := h.workflowArtifactsStore.GetWorkflowSpec(ctx, wfID); gerr == nil && spec != nil {
-			specExisted = true
 			wfOwner = spec.WorkflowOwner
 			wfName = spec.WorkflowName
 		} else if gerr != nil && !errors.Is(gerr, sql.ErrNoRows) {
-			h.lggr.Warnw("failed to read workflow spec during deletion, proceeding without metadata", "workflowID", wfID, "error", gerr)
+			h.lggr.Errorw("failed to read workflow spec during deletion, proceeding without metadata", "workflowID", wfID, "error", gerr)
 		}
 		if wfOwner != "" {
-			if oerr, ferr := h.fetchOrganizationID(ctx, wfOwner); ferr != nil {
-				h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", ferr)
+			if resolvedOrgID, orgErr := h.fetchOrganizationID(ctx, wfOwner); orgErr != nil {
+				h.lggr.Warnw("Failed to get organization from linking service", "workflowOwner", wfOwner, "error", orgErr)
 			} else {
-				orgID = oerr
+				orgID = resolvedOrgID
 			}
 		}
 		ctx = contexts.WithCRE(ctx, contexts.CRE{Org: orgID, Owner: wfOwner, Workflow: wfID})
@@ -612,7 +611,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			}
 		}()
 
-		if herr = h.workflowDeletedEvent(ctx, payload, WorkflowDeleted, wfOwner, specExisted); herr != nil {
+		if herr = h.workflowDeletedEvent(ctx, payload, wfOwner); herr != nil {
 			if errors.Is(herr, ErrDrainInProgress) {
 				logCustMsg(ctx, cma, fmt.Sprintf("workflow deletion deferred: %v", herr), h.lggr)
 			} else {
@@ -669,6 +668,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		if innerErr != nil {
 			return innerErr
 		}
+
 		h.emitSpecDelta(ctx, 1, payload.WorkflowID.Hex(), hex.EncodeToString(payload.WorkflowOwner),
 			resourcemanager.EventID("workflow-spec-register", payload.WorkflowID.Hex(), strconv.FormatUint(payload.CreatedAt, 10)))
 
@@ -689,13 +689,32 @@ func (h *eventHandler) workflowRegisteredEvent(
 
 		spec = newSpec
 	case spec.Status != status:
-		spec.Status = status
-		if _, innerErr := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); innerErr != nil {
-			return fmt.Errorf("failed to update workflow spec: %w", innerErr)
+		if status == job.WorkflowSpecStatusActive && spec.Workflow == "" {
+			// Activating a paused tombstone: no delta.
+			newSpec, innerErr := h.createWorkflowSpec(ctx, payload)
+			if innerErr != nil {
+				return innerErr
+			}
+			spec = newSpec
+		} else {
+			spec.Status = status
+			if spec.RegisteredAt == 0 && payload.CreatedAt > 0 {
+				spec.RegisteredAt = int64(payload.CreatedAt)
+			}
+			if _, innerErr := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); innerErr != nil {
+				return fmt.Errorf("failed to update workflow spec: %w", innerErr)
+			}
+			// Status-only flip: no artifact-persistence transition, no delta.
 		}
-		// Status-only update (e.g. activate an already-stored spec): the spec
-		// stays stored, so there is no artifact-persistence transition and no
-		// meter delta. The level is unchanged and remains covered by snapshots.
+	}
+
+	// Legacy-row convergence: backfill registered_at for pre-migration rows
+	// (at most once per row). Fail-open: a write error is logged, not returned.
+	if spec.RegisteredAt == 0 && payload.CreatedAt > 0 {
+		spec.RegisteredAt = int64(payload.CreatedAt)
+		if _, err := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); err != nil {
+			h.lggr.Warnw("failed to backfill registered_at", "workflowID", spec.WorkflowID, "err", err)
+		}
 	}
 
 	// Next, let's synchronize the engine.
@@ -786,6 +805,7 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
 		Attributes:    payload.Attributes,
+		RegisteredAt:  int64(payload.CreatedAt),
 	}
 
 	if _, err = h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, entry); err != nil {
@@ -940,46 +960,17 @@ func (h *eventHandler) createEngineModule(
 	return engineModule
 }
 
-// workflowPausedEvent handles the WorkflowPausedEvent event type. This method must remain idempotent.
-//
-// Pause emits no metering delta (by design): it removes artifacts and stops the
-// engine, but the durable spec's release is realized by its absence from
-// subsequent snapshots, not a -1 delta. Activate-after-pause re-runs the create
-// path and emits a +1 with the register event_id (same on-chain CreatedAt), so a
-// within-bucket pause→activate merges with the original register; cumulative-delta
-// drift is corrected by snapshot level reconciliation.
-func (h *eventHandler) workflowPausedEvent(
-	ctx context.Context,
-	payload WorkflowPausedEvent,
-) error {
-	return h.workflowDeletedEvent(ctx, WorkflowDeletedEvent{WorkflowID: payload.WorkflowID}, WorkflowPaused, "", false)
-}
-
-// workflowDeletedEvent handles the WorkflowDeletedEvent event type. This method must remain idempotent.
-// originatingEvent names the event that triggered this call (e.g. WorkflowPaused
-// when delegated from workflowPausedEvent). deleteOwner/specExisted are supplied
-// by the caller (Handle pre-reads the spec once for labels and to decide whether
-// a -1 is warranted); pause passes ""/false since it emits no delta.
-func (h *eventHandler) workflowDeletedEvent(
-	ctx context.Context,
-	payload WorkflowDeletedEvent,
-	originatingEvent WorkflowRegistryEventName,
-	deleteOwner string,
-	specExisted bool,
-) error {
-	// The order in the handler is slightly different to the order in `tryEngineCleanup`.
-	// This is because the engine requires its corresponding DB record to be present to be successfully
-	// closed.
-	// At the same time, popping the engine should occur last to allow deletes to be retried if any of the
-	// prior steps fail.
-	workflowID := payload.WorkflowID.Hex()
-	e, ok := h.engineRegistry.Get(payload.WorkflowID)
+// stopEngine drains (returning ErrDrainInProgress while executions remain) and
+// closes the engine for workflowID if one is registered.
+// Returns the drainable handle (nil-able) for drain-completed metrics.
+func (h *eventHandler) stopEngine(ctx context.Context, workflowID types.WorkflowID) (DrainableService, error) {
+	e, ok := h.engineRegistry.Get(workflowID)
 	var drainable DrainableService
-	var isDrainable bool
 	if ok {
+		var isDrainable bool
 		if drainable, isDrainable = e.Service.(DrainableService); isDrainable {
 			if started := drainable.Drain(); started {
-				h.lggr.Infow("initiated drain for workflow engine", "workflowID", workflowID)
+				h.lggr.Infow("initiated drain for workflow in workflow engine", "workflowID", workflowID.String())
 				if h.metrics != nil {
 					h.metrics.incrementDrainStarted(ctx)
 				}
@@ -990,48 +981,105 @@ func (h *eventHandler) workflowDeletedEvent(
 					h.metrics.incrementDeleteDeferred(ctx, "drain_in_progress")
 				}
 				h.lggr.Infow("workflow deletion deferred: active executions still running",
-					"workflowID", workflowID,
+					"workflowID", workflowID.String(),
 					"activeExecutions", active)
-				return fmt.Errorf("%w: %d active executions still running", ErrDrainInProgress, active)
+				return nil, fmt.Errorf("%w: %d active executions still running", ErrDrainInProgress, active)
 			}
 		}
 
 		if innerErr := e.Close(); innerErr != nil && !errors.Is(innerErr, services.ErrAlreadyStopped) {
-			return fmt.Errorf("failed to close workflow engine: %w", innerErr)
+			return nil, fmt.Errorf("failed to close workflow engine: %w", innerErr)
 		}
 	}
+	return drainable, nil
+}
 
-	if err := h.workflowArtifactsStore.DeleteWorkflowArtifacts(ctx, payload.WorkflowID.Hex()); err != nil {
+// releaseSpecStorage deletes the persisted spec row and, iff a row was
+// actually removed, emits the -1 generation delta. RowsAffected is the
+// exactly-once gate: redeliveries observe no row and emit nothing; a transient
+// DELETE error returns before emission so the retry emits when the delete
+// lands. The event_id is derived AFTER the delete from the row's persisted
+// registered_at, so all nodes emit the identical id. Module-cache cleanup
+// always runs. owner may be empty; org resolution is fail-open.
+func (h *eventHandler) releaseSpecStorage(ctx context.Context, workflowID, owner string) error {
+	deletedSpec, err := h.workflowArtifactsStore.DeleteWorkflowArtifacts(ctx, workflowID)
+	if err != nil {
 		return fmt.Errorf("failed to delete workflow artifacts: %w", err)
 	}
-	// A real delete that removed a previously-persisted spec emits a -1 delta.
-	// Gating on specExisted prevents a redelivered delete (spec already removed,
-	// and DeleteWorkflowArtifacts maps ErrNoRows→nil) from emitting a second -1.
-	// Pause is delegated here too (originatingEvent == WorkflowPaused); it passes
-	// specExisted=false to avoid emitting a delta
-	if originatingEvent == WorkflowDeleted && specExisted {
-		// eventID must be consistent across DONs
-		h.emitSpecDelta(ctx, -1, workflowID, deleteOwner,
-			resourcemanager.EventID("workflow-spec-delete", workflowID))
+	if deletedSpec != nil {
+		parts := []string{workflowID}
+		if deletedSpec.RegisteredAt > 0 {
+			parts = append(parts, strconv.FormatInt(deletedSpec.RegisteredAt, 10))
+		}
+		h.emitSpecDelta(ctx, -1, workflowID, owner, resourcemanager.EventID("workflow-spec-delete", parts...))
 	}
+	h.cleanupModuleCache(workflowID)
+	return nil
+}
 
-	h.cleanupModuleCache(payload.WorkflowID.Hex())
+// workflowPausedEvent handles WorkflowPaused. Idempotent.
+//
+// Pause is level-neutral for metering: the spec row survives as a tombstone
+// (status=paused, artifact payload cleared to free storage) so the
+// registration generation stays metered until deletion — mirroring the
+// on-chain registry, which retains the paused registration. Emitting per-cycle
+// pause/activate deltas is impossible without drift: no DON-consistent
+// per-occurrence discriminator exists, so a -1 here would force the
+// re-activation +1 to reuse the register event_id and be dropped by consumer
+// dedup. Deltas therefore fire only at generation boundaries (register/delete).
+func (h *eventHandler) workflowPausedEvent(
+	ctx context.Context,
+	payload WorkflowPausedEvent,
+) error {
+	workflowID := payload.WorkflowID.Hex()
+	if _, err := h.stopEngine(ctx, payload.WorkflowID); err != nil {
+		return err
+	}
+	if err := h.workflowArtifactsStore.PauseWorkflowArtifacts(ctx, workflowID); err != nil {
+		return fmt.Errorf("failed to pause workflow artifacts: %w", err)
+	}
+	h.cleanupModuleCache(workflowID)
+	if _, err := h.engineRegistry.Pop(payload.WorkflowID); err != nil && !errors.Is(err, ErrNotFound) {
+		return err
+	}
+	return nil
+}
 
-	_, err := h.engineRegistry.Pop(payload.WorkflowID)
+// workflowDeletedEvent handles the WorkflowDeletedEvent event type. This method must remain idempotent.
+func (h *eventHandler) workflowDeletedEvent(
+	ctx context.Context,
+	payload WorkflowDeletedEvent,
+	owner string,
+) error {
+	workflowID := payload.WorkflowID.Hex()
+	drainable, err := h.stopEngine(ctx, payload.WorkflowID)
+	if err != nil {
+		return err
+	}
+	if err := h.releaseSpecStorage(ctx, workflowID, owner); err != nil {
+		return err
+	}
+	_, err = h.engineRegistry.Pop(payload.WorkflowID)
 	if errors.Is(err, ErrNotFound) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-
-	if isDrainable {
+	if drainable != nil {
 		startedAt, exists := drainable.DrainStartedAt()
 		if exists && h.metrics != nil {
 			h.metrics.recordDrainCompleted(ctx, time.Since(startedAt))
 		}
 	}
 	return nil
+}
+
+// ReleaseOrphanedSpec implements the workflow registry's downtime-orphan sweep
+// contract: release the persisted spec for a workflow absent from all sources'
+// metadata with no running engine.
+func (h *eventHandler) ReleaseOrphanedSpec(ctx context.Context, workflowID, owner string) error {
+	return h.releaseSpecStorage(ctx, workflowID, owner)
 }
 
 // emitSpecDelta emits one metering.v1.MeterRecord (METER_ACTION_UPDATE)
@@ -1098,22 +1146,17 @@ func (h *eventHandler) ResourceIdentity() resourcemanager.ResourceIdentity {
 	return h.baseIdentity()
 }
 
-// GetWorkflowSpecList allows meter deltas to ignore activate-then-pause and
-// pause-then-activate events.
+// GetWorkflowSpecList backs the orphan sweep and the metering snapshot path.
 func (h *eventHandler) GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error) {
 	return h.workflowArtifactsStore.GetWorkflowSpecList(ctx)
 }
 
 // GetUtilization implements resourcemanager.Meterable: it returns one
-// SnapshotEntry per persisted workflow_specs_v2 spec. 
+// SnapshotEntry per persisted workflow_specs_v2 spec.
 // The durable resource is the stored spec, NOT the running engine.
-// Why: paused-but-stored specs and
-// specs whose engine failed to start are still accounted for, and a delete is
-// reflected by the spec's absence from the next snapshot.
 //
 // resource_id is the workflow_id; the organization is resolved fail-open from
-// the spec's stored owner through the org resolver. Fail-open: a store error
-// yields no entries for this tick.
+// the spec's stored owner through the org resolver. Must fail open.
 func (h *eventHandler) GetUtilization(ctx context.Context) []resourcemanager.SnapshotEntry {
 	specs, err := h.workflowArtifactsStore.GetWorkflowSpecList(ctx)
 	if err != nil {

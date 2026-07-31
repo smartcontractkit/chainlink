@@ -843,6 +843,7 @@ type WorkflowSpec struct {
 	UpdatedAt     time.Time          `toml:"-" db:"updated_at"`
 	SpecType      WorkflowSpecType   `toml:"spec_type" db:"spec_type"`
 	Attributes    []byte             `db:"attributes"`
+	RegisteredAt  int64              `toml:"-" db:"registered_at"`
 	sdkWorkflow   *sdk.WorkflowSpec
 	rawSpec       []byte
 	config        []byte

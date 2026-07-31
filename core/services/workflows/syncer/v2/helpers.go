@@ -83,6 +83,10 @@ func (m *testEvtHandler) GetWorkflowSpecList(context.Context) ([]*job.WorkflowSp
 	return nil, nil
 }
 
+func (m *testEvtHandler) ReleaseOrphanedSpec(context.Context, string, string) error {
+	return nil
+}
+
 func (m *testEvtHandler) ClearEvents() {
 	m.mux.Lock()
 	defer m.mux.Unlock()

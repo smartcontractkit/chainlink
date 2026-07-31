@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"net"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -39,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -1021,11 +1023,15 @@ func (m *mockArtifactStore) UpsertWorkflowSpec(ctx context.Context, spec *job.Wo
 	return m.artifactStore.UpsertWorkflowSpec(ctx, spec)
 }
 
-func (m *mockArtifactStore) DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error {
+func (m *mockArtifactStore) DeleteWorkflowArtifacts(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {
 	if m.deleteWorkflowArtifactsErr != nil {
-		return m.deleteWorkflowArtifactsErr
+		return nil, m.deleteWorkflowArtifactsErr
 	}
 	return m.artifactStore.DeleteWorkflowArtifacts(ctx, workflowID)
+}
+
+func (m *mockArtifactStore) PauseWorkflowArtifacts(ctx context.Context, workflowID string) error {
+	return m.artifactStore.PauseWorkflowArtifacts(ctx, workflowID)
 }
 
 func (m *mockArtifactStore) GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error) {
@@ -1136,7 +1142,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		deleteEvent := WorkflowDeletedEvent{
 			WorkflowID: giveWFID,
 		}
-		err = h.workflowDeletedEvent(ctx, deleteEvent, WorkflowDeleted, "", false)
+		err = h.workflowDeletedEvent(ctx, deleteEvent, "")
 		require.NoError(t, err)
 
 		// Verify the record is deleted in the database
@@ -1191,7 +1197,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		deleteEvent := WorkflowDeletedEvent{
 			WorkflowID: giveWFID,
 		}
-		err = h.workflowDeletedEvent(ctx, deleteEvent, WorkflowDeleted, "", false)
+		err = h.workflowDeletedEvent(ctx, deleteEvent, "")
 		require.NoError(t, err)
 
 		// Verify the record is deleted in the database
@@ -1292,7 +1298,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		deleteEvent := WorkflowDeletedEvent{
 			WorkflowID: giveWFID,
 		}
-		err = h.workflowDeletedEvent(ctx, deleteEvent, WorkflowDeleted, "", false)
+		err = h.workflowDeletedEvent(ctx, deleteEvent, "")
 		require.Error(t, err, failWith)
 
 		// Verify the record is still in the DB
@@ -1306,17 +1312,21 @@ func Test_workflowDeletedHandler(t *testing.T) {
 }
 
 type stubWorkflowArtifactsStore struct {
-	spec        *job.WorkflowSpec
-	specs       []*job.WorkflowSpec
-	upsertErr   error
-	deleteErr   error
-	listErr     error
-	getSpecErr  error
-	deleteCalls atomic.Int32
+	spec           *job.WorkflowSpec
+	specs          []*job.WorkflowSpec
+	persistUpserts bool
+	upsertErr      error
+	deleteErr      error
+	listErr        error
+	getSpecErr     error
+	deleteCalls    atomic.Int32
+	pauseCalls     atomic.Int32
+	fetchCalls     atomic.Int32
 }
 
 func (s *stubWorkflowArtifactsStore) FetchWorkflowArtifacts(context.Context, string, string, string) ([]byte, []byte, error) {
-	return nil, nil, nil
+	s.fetchCalls.Add(1)
+	return []byte("binary"), []byte("config"), nil
 }
 
 func (s *stubWorkflowArtifactsStore) GetWorkflowSpec(context.Context, string) (*job.WorkflowSpec, error) {
@@ -1329,9 +1339,13 @@ func (s *stubWorkflowArtifactsStore) GetWorkflowSpec(context.Context, string) (*
 	return s.spec, nil
 }
 
-func (s *stubWorkflowArtifactsStore) UpsertWorkflowSpec(context.Context, *job.WorkflowSpec) (int64, error) {
+func (s *stubWorkflowArtifactsStore) UpsertWorkflowSpec(_ context.Context, spec *job.WorkflowSpec) (int64, error) {
 	if s.upsertErr != nil {
 		return 0, s.upsertErr
+	}
+	if s.persistUpserts {
+		cp := *spec
+		s.spec = &cp
 	}
 	return 1, nil
 }
@@ -1343,14 +1357,26 @@ func (s *stubWorkflowArtifactsStore) GetWorkflowSpecList(context.Context) ([]*jo
 	return s.specs, nil
 }
 
-func (s *stubWorkflowArtifactsStore) DeleteWorkflowArtifacts(context.Context, string) error {
+func (s *stubWorkflowArtifactsStore) DeleteWorkflowArtifacts(context.Context, string) (*job.WorkflowSpec, error) {
 	s.deleteCalls.Add(1)
 	if s.deleteErr != nil {
-		return s.deleteErr
+		return nil, s.deleteErr
 	}
-	// Mimic the real store: a successful delete removes the spec, so a
-	// redelivered delete observes no row (sql.ErrNoRows) on the next read.
+	if s.spec == nil {
+		return nil, nil
+	}
+	deleted := *s.spec
 	s.spec = nil
+	return &deleted, nil
+}
+
+func (s *stubWorkflowArtifactsStore) PauseWorkflowArtifacts(context.Context, string) error {
+	s.pauseCalls.Add(1)
+	if s.spec != nil {
+		s.spec.Status = job.WorkflowSpecStatusPaused
+		s.spec.Workflow = ""
+		s.spec.Config = ""
+	}
 	return nil
 }
 
@@ -1374,7 +1400,7 @@ func Test_workflowDeletedEvent_DrainInProgress(t *testing.T) {
 		workflowArtifactsStore: artifactStore,
 	}
 
-	err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: workflowID}, WorkflowDeleted, "", false)
+	err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: workflowID}, "")
 	require.Error(t, err)
 	require.ErrorIs(t, err, ErrDrainInProgress)
 	assert.Equal(t, int32(1), drainable.drainCalls.Load())
@@ -1400,7 +1426,7 @@ func Test_workflowDeletedEvent_IgnoresErrAlreadyStopped(t *testing.T) {
 		workflowArtifactsStore: artifactStore,
 	}
 
-	err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: workflowID}, WorkflowDeleted, "", false)
+	err := h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: workflowID}, "")
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), drainable.closeCalls.Load())
 	assert.Equal(t, int32(1), artifactStore.deleteCalls.Load())
@@ -1740,7 +1766,7 @@ func Test_Handler_OrganizationID(t *testing.T) { //nolint:paralleltest // behold
 		}
 
 		mockDeleteORM.EXPECT().GetWorkflowSpec(mock.Anything, types.WorkflowID(giveWFID).Hex()).Return(spec, nil)
-		mockDeleteORM.EXPECT().DeleteWorkflowSpec(mock.Anything, types.WorkflowID(giveWFID).Hex()).Return(nil)
+		mockDeleteORM.EXPECT().DeleteWorkflowSpec(mock.Anything, types.WorkflowID(giveWFID).Hex()).Return(&job.WorkflowSpec{}, nil)
 
 		deleteArtifactStore, err := artifacts.NewStore(lggr, mockDeleteORM, fetcher.FetcherFunc(), fetcher.RetrieverFunc(), clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), lf, artifacts.WithConfig(artifacts.StoreConfig{
 			ArtifactStorageHost: "example.com",
@@ -1908,3 +1934,214 @@ func (c *confidentialCap) Initialise(_ context.Context, _ core.StandardCapabilit
 }
 
 var _ server.ClientCapability = &confidentialCap{}
+
+// assertStubState checks the in-memory stub's spec state.
+func assertStubState(t *testing.T, s *stubWorkflowArtifactsStore, exists bool, status job.WorkflowSpecStatus, artifactsEmpty bool, registeredAt int64) {
+	t.Helper()
+	if !exists {
+		assert.Nil(t, s.spec, "spec should not exist")
+		return
+	}
+	require.NotNil(t, s.spec, "spec should exist")
+	assert.Equal(t, status, s.spec.Status)
+	if artifactsEmpty {
+		assert.Empty(t, s.spec.Workflow, "workflow artifacts should be empty")
+		assert.Empty(t, s.spec.Config, "config artifacts should be empty")
+	} else {
+		assert.NotEmpty(t, s.spec.Workflow, "workflow artifacts should be present")
+	}
+	assert.Equal(t, registeredAt, s.spec.RegisteredAt)
+}
+
+// Test_specStorage_StateMachine exercises the storage state machine across
+// (row state × event) transitions, verifying row existence, Status, artifact
+// presence, RegisteredAt, engine-registry contents, and fetch call counts.
+func Test_specStorage_StateMachine(t *testing.T) {
+	t.Parallel()
+
+	owner := []byte{0xaa, 0xbb, 0xcc, 0xdd}
+	binaryData := []byte("binary")
+	configData := []byte("config")
+	wfIDBytes, err := pkgworkflows.GenerateWorkflowID(owner, "wf-name", binaryData, configData, "")
+	require.NoError(t, err)
+	wfID := types.WorkflowID(wfIDBytes)
+	hexWorkflow := hex.EncodeToString(binaryData)
+	createdAt := uint64(999)
+
+	makeHandler := func(store *stubWorkflowArtifactsStore) *eventHandler {
+		return newMeteringTestHandler(t, store, nil)
+	}
+	activePayload := WorkflowRegisteredEvent{
+		Status:        WorkflowStatusActive,
+		WorkflowID:    wfID,
+		WorkflowOwner: owner,
+		WorkflowName:  "wf-name",
+		CreatedAt:     createdAt,
+	}
+
+	t.Run("absent + Activated → fetch, insert, engine started", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{persistUpserts: true}
+		h := makeHandler(store)
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(activePayload)))
+		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, int64(createdAt))
+		_, ok := h.engineRegistry.Get(wfID)
+		assert.True(t, ok, "engine should be started")
+		assert.Equal(t, int32(1), store.fetchCalls.Load(), "exactly one fetch")
+	})
+
+	t.Run("active + Paused → tombstone, engine popped; redelivery no-op", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{persistUpserts: true}
+		h := makeHandler(store)
+		require.NoError(t, h.workflowRegisteredEvent(t.Context(), activePayload))
+		require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID}))
+		assertStubState(t, store, true, job.WorkflowSpecStatusPaused, true, int64(createdAt))
+		_, ok := h.engineRegistry.Get(wfID)
+		assert.False(t, ok, "engine should be popped")
+		// Redelivery
+		require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID}))
+		assertStubState(t, store, true, job.WorkflowSpecStatusPaused, true, int64(createdAt))
+	})
+
+	t.Run("tombstone + Activated → fetch, full restore, engine started", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{persistUpserts: true}
+		h := makeHandler(store)
+		require.NoError(t, h.workflowRegisteredEvent(t.Context(), activePayload))
+		require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID}))
+		fetchBefore := store.fetchCalls.Load()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(activePayload)))
+		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, int64(createdAt))
+		_, ok := h.engineRegistry.Get(wfID)
+		assert.True(t, ok, "engine should be started")
+		assert.Equal(t, fetchBefore+1, store.fetchCalls.Load(), "exactly one new fetch for restore")
+	})
+
+	t.Run("tombstone + Deleted → row removed, engine steps no-op", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{persistUpserts: true}
+		h := makeHandler(store)
+		require.NoError(t, h.workflowRegisteredEvent(t.Context(), activePayload))
+		require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID}))
+		require.NoError(t, h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, "aabbccdd"))
+		assertStubState(t, store, false, "", true, 0)
+		_, ok := h.engineRegistry.Get(wfID)
+		assert.False(t, ok, "engine should be absent")
+	})
+
+	t.Run("paused+artifacts + Activated → status flip, no fetch", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusPaused,
+				WorkflowOwner: "aabbccdd",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  int64(createdAt),
+			},
+		}
+		h := makeHandler(store)
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(activePayload)))
+		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, int64(createdAt))
+	})
+
+	t.Run("absent + Paused → no-op, no error", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{}
+		h := makeHandler(store)
+		require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID}))
+		assertStubState(t, store, false, "", true, 0)
+	})
+
+	t.Run("absent + Deleted → no-op, no error", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{}
+		h := makeHandler(store)
+		require.NoError(t, h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID}, ""))
+		assertStubState(t, store, false, "", true, 0)
+	})
+
+	t.Run("active RegisteredAt==0 + Activated (no status change) → backfill", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  0,
+			},
+		}
+		h := makeHandler(store)
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(activePayload)))
+		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, int64(createdAt))
+	})
+}
+
+// Test_handler_SourceParity_PauseActivateCycle runs a full register→pause→
+// activate→delete cycle twice with contract-style and gRPC-style source
+// identifiers, asserting identical storage outcomes, engine-registry source
+// scoping, and identical metering records/ids.
+func Test_handler_SourceParity_PauseActivateCycle(t *testing.T) {
+	t.Parallel()
+	owner := []byte{0xaa, 0xbb, 0xcc, 0xdd}
+	binaryData := []byte("binary")
+	configData := []byte("config")
+	wfIDBytes, err := pkgworkflows.GenerateWorkflowID(owner, "wf-name", binaryData, configData, "")
+	require.NoError(t, err)
+	wfID := types.WorkflowID(wfIDBytes)
+	createdAt := uint64(777)
+	sources := []string{
+		"contract:42:0xabcdef1234567890",
+		"grpc:centralized-registry:v1",
+	}
+
+	for _, source := range sources {
+		t.Run(source, func(t *testing.T) {
+			t.Parallel()
+			emitter := &recordingEmitter{}
+			store := &stubWorkflowArtifactsStore{persistUpserts: true}
+			h := newMeteringTestHandler(t, store, newMeteringResourceManager(t, true, emitter))
+
+			payload := WorkflowRegisteredEvent{
+				Status:        WorkflowStatusActive,
+				WorkflowID:    wfID,
+				WorkflowOwner: owner,
+				WorkflowName:  "wf-name",
+				CreatedAt:     createdAt,
+				Source:        source,
+			}
+
+			require.NoError(t, h.workflowRegisteredEvent(t.Context(), payload))
+			// Verify engine is registered with the correct source
+			entry, ok := h.engineRegistry.Get(wfID)
+			require.True(t, ok)
+			assert.Equal(t, source, entry.Source)
+
+			require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID, Source: source}))
+			assertStubState(t, store, true, job.WorkflowSpecStatusPaused, true, int64(createdAt))
+
+			require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+			assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, int64(createdAt))
+			entry, ok = h.engineRegistry.Get(wfID)
+			require.True(t, ok)
+			assert.Equal(t, source, entry.Source)
+
+			require.NoError(t, h.workflowDeletedEvent(t.Context(), WorkflowDeletedEvent{WorkflowID: wfID, Source: source}, "aabbccdd"))
+			assertStubState(t, store, false, "", true, 0)
+
+			// Both sources produce identical metering: one +1, one -1, same ids
+			records := emitter.Records()
+			require.Len(t, records, 2)
+			requireSpecDelta(t, records[0], "1", wfID.Hex(),
+				resourcemanager.EventID("workflow-spec-register", wfID.Hex(), strconv.FormatUint(createdAt, 10)))
+			requireSpecDelta(t, records[1], "-1", wfID.Hex(),
+				resourcemanager.EventID("workflow-spec-delete", wfID.Hex(), strconv.FormatUint(createdAt, 10)))
+		})
+	}
+}

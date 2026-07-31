@@ -145,6 +145,7 @@ type evtHandler interface {
 	Handle(ctx context.Context, event Event) error
 	EmitActivationAbandoned(ctx context.Context, event Event, reason eventsv2.ActivationAbandonReason, activationErr error, retryCount int32) error
 	GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error)
+	ReleaseOrphanedSpec(ctx context.Context, workflowID, owner string) error
 }
 
 type donNotifier interface {
@@ -1015,13 +1016,6 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				)
 			}
 
-			// Downtime-orphan sweep: after every source has been reconciled (and
-			// only when all fetched successfully, so the metadata union is
-			// complete), delete persisted specs whose workflowID is absent from
-			// all sources. This catches workflows deleted on-chain while this
-			// node was down — their spec rows linger with no engine and no
-			// source event. Dispatched through Handle, they take the existing
-			// delete path (artifact cleanup + -1 delta) with no new emission code.
 			if !sourceFetchFailed && len(w.workflowSources) > 0 {
 				w.reconcileOrphanedSpecs(ctx, allMetadataIDs)
 			}
@@ -1047,15 +1041,11 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 	}
 }
 
-// reconcileOrphanedSpecs dispatches a WorkflowDeleted event for every persisted
-// workflow spec whose workflowID is absent from liveWorkflowIDs (the union of
-// every source's metadata this tick). It uses EXISTING state — the persisted
-// spec rows are this node's record of "workflows it believes exist" — and the
-// registry metadata is the source of truth. Each orphan flows through the
-// existing handler delete path, producing the -1 delta and artifact cleanup with
-// zero new emission code. Paused workflows remain in metadata (status Paused),
-// so they are present in liveWorkflowIDs and are never swept. Fail-open: a
-// listing error or an unparseable id skips the sweep / that row.
+// reconcileOrphanedSpecs releases persisted specs whose workflowID is
+// absent from all sources. This catches workflows deleted while this
+// node is down or restarting. Released through ReleaseOrphanedSpec, they take the
+// existing delete path (artifact cleanup and -1 metering delta) but must
+// not emit workflow status changed events.
 func (w *workflowRegistry) reconcileOrphanedSpecs(ctx context.Context, liveWorkflowIDs map[string]struct{}) {
 	specs, err := w.handler.GetWorkflowSpecList(ctx)
 	if err != nil {
@@ -1076,15 +1066,15 @@ func (w *workflowRegistry) reconcileOrphanedSpecs(ctx context.Context, liveWorkf
 		}
 		var wfID wftypes.WorkflowID
 		copy(wfID[:], wfIDBytes)
-		w.lggr.Debugw("orphaned workflow spec: persisted locally but absent from registry metadata; dispatching delete",
-			"workflowID", spec.WorkflowID, "owner", spec.WorkflowOwner)
-		evt := Event{
-			Name: WorkflowDeleted,
-			Data: WorkflowDeletedEvent{WorkflowID: wfID},
-			Head: Head{},
+		if _, engineFound := w.engineRegistry.Get(wfID); engineFound {
+			// Engine-owned: the reconciliation path deletes it with drain/retry
+			// machinery. The sweep only handles engine-less leftovers.
+			continue
 		}
-		if herr := w.handler.Handle(ctx, evt); herr != nil {
-			w.lggr.Warnw("failed to handle orphaned workflow spec delete", "workflowID", spec.WorkflowID, "err", herr)
+		w.lggr.Debugw("orphaned workflow spec: persisted locally but absent from registry metadata; releasing",
+			"workflowID", spec.WorkflowID, "owner", spec.WorkflowOwner)
+		if rerr := w.handler.ReleaseOrphanedSpec(ctx, spec.WorkflowID, spec.WorkflowOwner); rerr != nil {
+			w.lggr.Warnw("failed to release orphaned workflow spec", "workflowID", spec.WorkflowID, "err", rerr)
 		}
 	}
 }
