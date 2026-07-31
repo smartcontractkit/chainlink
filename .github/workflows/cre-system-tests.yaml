@@ -232,11 +232,11 @@ jobs:
             echo "::endgroup::"
           fi
 
-      - name: Install Aptos CLI
+      - name: Setup Aptos CLI
         if: ${{ matrix.tests.test_name == 'Test_CRE_V2_Aptos_Suite' }}
-        uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
+        uses: ./.github/actions/setup-aptos
         with:
-          CLI_VERSION: 7.8.0
+          version: "7.8.0"
 
       - name: Setup Stellar CRE contracts
         if: ${{ contains(matrix.tests.test_name, 'Stellar') }}
