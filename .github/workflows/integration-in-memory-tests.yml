@@ -268,12 +268,11 @@ jobs:
           version: "mainnet-v1.75.2"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Test Binaries Artifact
-        uses: actions/upload-artifact@v7
+      - name: Cache Pre-Compiled Test Binaries
+        uses: actions/cache/save@v6
         with:
-          name: in-memory-test-bins
           path: integration-tests/bin/
-          retention-days: 1
+          key: inmemory-test-bins-${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
 
   run-tests:
     name: ${{ matrix.tests.name }}
@@ -312,11 +311,11 @@ jobs:
           go-version-file: integration-tests/go.mod
           cache: false
 
-      - name: Download Test Binaries Artifact
-        uses: actions/download-artifact@v7
+      - name: Restore Pre-Compiled Test Binaries from S3 Cache
+        uses: actions/cache/restore@v6
         with:
-          name: in-memory-test-bins
-          path: integration-tests/bin
+          path: integration-tests/bin/
+          key: inmemory-test-bins-${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
 
       - name: Add Test Binaries to PATH
         shell: bash
