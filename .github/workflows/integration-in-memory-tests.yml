@@ -262,7 +262,7 @@ jobs:
       - name: Warm Aptos cache
         uses: ./.github/actions/setup-aptos
         with:
-          version: "v2.1.1"
+          version: "9.1.0"
 
       - name: Warm Sui cache
         uses: ./.github/actions/setup-sui
