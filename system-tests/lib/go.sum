@@ -1514,8 +1514,8 @@ github.com/sigstore/rekor-tiles/v2 v2.2.2-0.20260601073857-5d098a2b6443 h1:/CO8F
 github.com/sigstore/rekor-tiles/v2 v2.2.2-0.20260601073857-5d098a2b6443/go.mod h1:w1h8wF8vq9lHjmtRdwJiEaoVxhP+WHIMpj4M39pkzp0=
 github.com/sigstore/sigstore v1.10.8 h1:1Mgkxvkw4AXMfIP1DOjc6kw0GkUgA8pGVpveN/EfOq4=
 github.com/sigstore/sigstore v1.10.8/go.mod h1:f9+B/4iaYimvUkySyb2mvc73n3RLqNn24grHZM/ET8M=
-github.com/sigstore/sigstore-go v1.2.0 h1:8k8sGMVUUWwZ/KA+s4Q66yEPEzcC1xZ8UsTgI46J9Fc=
-github.com/sigstore/sigstore-go v1.2.0/go.mod h1:I8BqVwAb/SaQJ5pBu5IDFY+ksq8O/1/kCag8XUgrsko=
+github.com/sigstore/sigstore-go v1.2.1 h1:YWP/rDbBaEBvtbkj6xtwsSj38ZCFEhTVVadNOXjVe3A=
+github.com/sigstore/sigstore-go v1.2.1/go.mod h1:I8BqVwAb/SaQJ5pBu5IDFY+ksq8O/1/kCag8XUgrsko=
 github.com/sigstore/timestamp-authority/v2 v2.1.2 h1:7DDhnknLL4w8VwomyvW2W8qblOS9LDR8oihna+jc7Ls=
 github.com/sigstore/timestamp-authority/v2 v2.1.2/go.mod h1:o6rAVZceFyejClIj/uStRNIemP16bVMZtbMmhk6pr0U=
 github.com/sigurn/crc16 v0.0.0-20211026045750-20ab5afb07e3 h1:aQKxg3+2p+IFXXg97McgDGT5zcMrQoi0EICZs8Pgchs=
