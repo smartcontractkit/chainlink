@@ -35,11 +35,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: match-some
         with:
           # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
@@ -50,7 +50,7 @@ jobs:
             workflow:
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
-      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: match-every
         with:
           # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
@@ -179,10 +179,10 @@ jobs:
         modules: ${{ fromJson(needs.filter.outputs.affected-modules) }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@d141ef83eb66d096ce8afc767e09115a65c63b60 # v2.1.2
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -192,6 +192,10 @@ jobs:
         timeout-minutes: 20
         with:
           go-directory: ${{ matrix.modules }}
+          build-cache-version: lint-${{ matrix.modules }}
+          # Scheduled runs expand the matrix to all ~36 modules (no-change-behaviour: all),
+          # so restrict checkpoint writes to push events where the matrix is the push diff.
+          build-cache-write: ${{ github.event_name == 'push' && 'default-branch-only' || 'never' }}
 
       - name: Notify Slack
         # Skip for now as it's always failing on scheduled runs
@@ -257,7 +261,7 @@ jobs:
         type:
           - cmd: go_core_tests
             os: runs-on=${{ github.run_id
-              }}-unit/cpu=48/ram=96/family=c6id+c5ad/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              }}-unit/cpu=48/ram=96/family=c7id+c8id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
             go-mod-directory: ""
@@ -265,10 +269,11 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             install-loopps: "false"
+            build-cache-write: always
 
           - cmd: go_core_tests_integration
             os: runs-on=${{ github.run_id
-              }}-integ/cpu=48/ram=96/family=c6i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+              }}-integ/cpu=48/ram=96/family=c7i+c8i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
             setup-solana: "true"
@@ -276,10 +281,11 @@ jobs:
             go-mod-directory: ""
             setup-aptos: "false"
             setup-sui: "false"
+            build-cache-write: always
 
           - cmd: go_core_fuzz
             os: runs-on=${{
-              github.run_id}}-fuzz/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              github.run_id}}-fuzz/cpu=8/ram=32/family=m7id+m7idn+m8id+m8idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "false"
             go-mod-directory: ""
@@ -287,10 +293,12 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             install-loopps: "false"
+            build-cache-version: go_core_tests
+            build-cache-write: never
 
           - cmd: go_core_race_tests
             os: runs-on=${{
-              github.run_id}}-race/cpu=64/ram=128/family=c7i/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              github.run_id}}-race/cpu=64/ram=128/family=c7i+c8i/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "false"
             go-mod-directory: ""
@@ -298,6 +306,8 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             install-loopps: "false"
+            build-cache-version: go_core_tests
+            build-cache-write: never
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -313,11 +323,13 @@ jobs:
       actions: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@d141ef83eb66d096ce8afc767e09115a65c63b60 # v2.1.2
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        with:
+          metrics: cpu,network,memory,disk,io
 
       - name: Checkout the repo
         if: ${{ matrix.type.should-run == 'true' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -325,24 +337,27 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-go
         with:
-          # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
-          restore-build-cache-only: ${{ matrix.type.cmd == 'go_core_fuzz' ||
-            matrix.type.cmd == 'go_core_race_tests' }}
-          build-cache-version: ${{ matrix.type.cmd }}
+          build-cache-version: ${{ matrix.type.build-cache-version || matrix.type.cmd }}
+          build-cache-write: ${{ matrix.type.build-cache-write }}
           go-version-file: ${{ matrix.type.go-mod-directory }}go.mod
           go-module-file: ${{ matrix.type.go-mod-directory }}go.sum
 
-      - name: Cache WASM test binaries
+      - name: Compute WASM cache key
         if: ${{ matrix.type.should-run == 'true' }}
-        uses: actions/cache@v6
+        id: wasm-key
+        shell: bash
+        run: |
+          echo "key=${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore WASM test binaries cache
+        if: ${{ matrix.type.should-run == 'true' }}
+        id: wasm-cache-restore
+        uses: actions/cache/restore@v6
         with:
           path: .wasm-cache/
-          # Best-effort warming key. Correctness is guaranteed by the in-code content
-          # fingerprint (filename), so a coarse/stale key here only risks a rebuild.
-          # restore-keys still restores the latest cache so only changed pkgs rebuild.
-          key: ${{ runner.os }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}
+          key: ${{ steps.wasm-key.outputs.key }}
           restore-keys: |
-            ${{ runner.os }}-wasmcache-
+            ${{ runner.os }}-${{ runner.arch }}-wasmcache-
 
       - name: Setup Solana
         if:
@@ -352,9 +367,7 @@ jobs:
 
       - name: Setup Aptos
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-aptos == 'true' }}
-        uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
-        with:
-          CLI_VERSION: 8.1.0
+        uses: ./.github/actions/setup-aptos
 
       - name: Setup Sui CLI v1.72.2
         if: ${{ matrix.type.should-run == 'true' && matrix.type.setup-sui == 'true' }}
@@ -389,7 +402,7 @@ jobs:
         if:
           ${{ matrix.type.should-run == 'true' && matrix.type.install-loopps == 'true'
           }}
-        run: make install-plugins
+        uses: ./.github/actions/setup-loop-plugins
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only
@@ -415,6 +428,13 @@ jobs:
         run: |
           GODEBUG=goindex=0 ./tools/bin/${{ matrix.type.cmd }} ./...
           # See: https://github.com/golang/go/issues/69179
+
+      - name: Save WASM test binaries cache
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.cmd == 'go_core_tests' && steps.wasm-cache-restore.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .wasm-cache/
+          key: ${{ steps.wasm-key.outputs.key }}
 
       - name: Analyze and upload test results
         if:
@@ -492,11 +512,13 @@ jobs:
     if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
+          build-cache-version: go_core_scripts_tests
+          build-cache-write: default-branch-only
           go-version-file: core/scripts/go.mod
           go-module-file: core/scripts/go.sum
 
@@ -515,112 +537,6 @@ jobs:
             ./coverage.txt
           retention-days: 7
 
-  scan:
-    name: SonarQube Scan
-    needs: [golangci, core, core-scripts-tests]
-    # If core is cancelled, skip this to not delay the cancellation of the workflow.
-    if: ${{ always() && !cancelled() && github.actor != 'dependabot[bot]' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
-
-      - name: Download all workflow artifacts
-        uses: actions/download-artifact@v8
-
-      - name: Check and Set SonarQube Report Paths
-        shell: bash
-        run: |
-          # Check and assign paths for coverage/test reports in go_core_tests_logs
-          core_artifact="go_core_tests_logs"
-          if [ -d "$core_artifact" ]; then
-            echo "Found $core_artifact"
-            sonarqube_coverage_report_paths=$(find "./${core_artifact}" -name coverage.txt | paste -sd "," -)
-            sonarqube_tests_report_paths=$(find "./${core_artifact}" -name output.txt | paste -sd "," -)
-            echo "Coverage report paths: $sonarqube_coverage_report_paths"
-            echo "Tests report paths: $sonarqube_tests_report_paths"
-          else
-            echo "Did not find $core_artifact"
-            sonarqube_coverage_report_paths=""
-            sonarqube_tests_report_paths=""
-          fi
-
-          # Check and assign paths for coverage/test reports in go_core_tests_integration_logs
-          integration_tests_artifact="go_core_tests_integration_logs"
-          if [ -d "$integration_tests_artifact" ]; then
-            echo "Found $integration_tests_artifact"
-            integration_coverage_paths=$(find "./${integration_tests_artifact}" -name coverage.txt | paste -sd "," -)
-            integration_tests_paths=$(find "./${integration_tests_artifact}" -name output.txt | paste -sd "," -)
-
-            # Append to existing paths if they are set, otherwise assign directly
-            sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
-            sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$integration_tests_paths"
-          fi
-
-          # Check and assign paths for coverage/test reports in go_core_scripts_tests_logs
-          scripts_tests_artifact="go_core_scripts_tests_logs"
-          if [ -d "$scripts_tests_artifact" ]; then
-              echo "Found $scripts_tests_artifact"
-              scripts_coverage_paths=$(find "./${scripts_tests_artifact}" -name coverage.txt | paste -sd "," -)
-              scripts_tests_paths=$(find "./${scripts_tests_artifact}" -name output.txt | paste -sd "," -)
-
-              # Append to existing paths if they are set, otherwise assign directly
-              sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$scripts_coverage_paths"
-              sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$scripts_tests_paths"
-          fi
-
-          # Check and assign paths for lint reports
-          # To find reports in the folders named differently (because of the matrix strategy),
-          # We need to loop through the artifacts. It allows usage of RegExp folders (skipped if not found).
-          sonarqube_lint_report_paths=""
-          shopt -s nullglob
-          for golang_lint_artifact in golangci-lint-report*
-          do
-              [[ -d "$golang_lint_artifact" ]] || continue
-              echo "Found golangci-lint-report artifact: $golang_lint_artifact"
-              part=$(find "$golang_lint_artifact" -type f -name 'golangci-lint-report.xml' -printf '%p,')
-              sonarqube_lint_report_paths+="$part"
-          done
-          shopt -u nullglob
-          echo "Lint report paths: $sonarqube_lint_report_paths"
-
-          ARGS=""
-          if [[ -z "$sonarqube_tests_report_paths" ]]; then
-            echo "::warning::No test report paths found, will not pass to sonarqube"
-          else
-            echo "Found test report paths: $sonarqube_tests_report_paths"
-            ARGS="$ARGS -Dsonar.go.tests.reportPaths=$sonarqube_tests_report_paths"
-          fi
-
-          if [[ -z "$sonarqube_coverage_report_paths" ]]; then
-            echo "::warning::No coverage report paths found, will not pass to sonarqube"
-          else
-            echo "Found coverage report paths: $sonarqube_coverage_report_paths"
-            ARGS="$ARGS -Dsonar.go.coverage.reportPaths=$sonarqube_coverage_report_paths"
-          fi
-
-          if [[ -z "$sonarqube_lint_report_paths" ]]; then
-            echo "::warning::No lint report paths found, will not pass to sonarqube"
-          else
-            echo "Found lint report paths: $sonarqube_lint_report_paths"
-            ARGS="$ARGS -Dsonar.go.golangci-lint.reportPaths=$sonarqube_lint_report_paths"
-          fi
-
-          echo "Final SONARQUBE_ARGS: $ARGS"
-          echo "SONARQUBE_ARGS=$ARGS" >> "$GITHUB_ENV"
-
-      - name: SonarQube Scan
-        if: ${{ env.SONARQUBE_ARGS != '' }}
-        uses: sonarsource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
-        with:
-          args: ${{ env.SONARQUBE_ARGS }}
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
 
   clean:
     name: Clean Go Tidy & Generate
@@ -630,7 +546,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Setup Go
@@ -692,11 +608,14 @@ jobs:
     name: Misc
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Setup go
         uses: ./.github/actions/setup-go
+        with:
+          build-cache-version: misc
+          build-cache-write: default-branch-only
       ##
       # Plugins (LOOPPs) are defined in ./plugins/plugins.*.yaml files.
       # Some plugins such as chainlink-data-streams, chainlink-feeds,

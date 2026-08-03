@@ -1,11 +1,13 @@
 package v2
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -711,6 +713,146 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 		err = handler.Close()
 		require.NoError(t, err)
 	})
+}
+
+func TestHttpTriggerHandler_HandleUserTriggerRequest_SendsToNodesInParallel(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	const nodeDelay = 200 * time.Millisecond
+	cfg := WithDefaults(ServiceConfig{
+		MaxTriggerRequestDurationMs: 5000,
+		NodeSendTimeoutMs:           5000,
+	})
+
+	donConfig := &config.DONConfig{
+		DonId: "test-don",
+		F:     1,
+		Members: []config.NodeConfig{
+			{Address: "node1"},
+			{Address: "node2"},
+			{Address: "node3"},
+		},
+	}
+
+	mockDon := handlermocks.NewDON(t)
+	metadataHandler := createTestMetadataHandler(t)
+	userRateLimiter := createTestUserRateLimiter()
+	testMetrics := createTestMetrics(t, donConfig)
+	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	privateKey := createTestPrivateKey(t)
+	registerWorkflow(t, handler, workflowID, privateKey)
+
+	rawParams := json.RawMessage(`{"input":{},"workflow":{"workflowID":"0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"}}`)
+	req := &jsonrpc.Request[json.RawMessage]{
+		ID:      "test-request-parallel",
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawParams,
+		Version: "2.0",
+	}
+	req.Auth = createTestJWTToken(t, req, privateKey)
+	callback := hc.NewCallback()
+
+	// Every node takes nodeDelay to respond. If sends were sequential the whole
+	// round would take ~3*nodeDelay; in parallel it should take ~nodeDelay.
+	for _, addr := range []string{"node1", "node2", "node3"} {
+		mockDon.On("SendToNode", mock.Anything, addr, mock.Anything).Run(func(args mock.Arguments) {
+			time.Sleep(nodeDelay)
+		}).Return(nil).Once()
+	}
+
+	err := handler.Start(t.Context())
+	require.NoError(t, err)
+
+	start := time.Now()
+	err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
+	require.NoError(t, err)
+	elapsed := time.Since(start)
+
+	require.Less(t, elapsed, 2*nodeDelay, "sends to DON members should happen in parallel, not sequentially")
+
+	mockDon.AssertExpectations(t)
+	err = handler.Close()
+	require.NoError(t, err)
+}
+
+func TestHttpTriggerHandler_HandleUserTriggerRequest_SlowNodeDoesNotBlockOthers(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	const nodeSendTimeoutMs = 100
+	cfg := WithDefaults(ServiceConfig{
+		MaxTriggerRequestDurationMs: 5000,
+		NodeSendTimeoutMs:           nodeSendTimeoutMs,
+		RetryConfig: RetryConfig{
+			InitialIntervalMs: 10,
+			MaxIntervalTimeMs: 50,
+			Multiplier:        2,
+		},
+	})
+
+	donConfig := &config.DONConfig{
+		DonId: "test-don",
+		F:     1,
+		Members: []config.NodeConfig{
+			{Address: "node1"},
+			{Address: "node2"},
+			{Address: "node3"},
+		},
+	}
+
+	mockDon := handlermocks.NewDON(t)
+	metadataHandler := createTestMetadataHandler(t)
+	userRateLimiter := createTestUserRateLimiter()
+	testMetrics := createTestMetrics(t, donConfig)
+	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	privateKey := createTestPrivateKey(t)
+	registerWorkflow(t, handler, workflowID, privateKey)
+
+	rawParams := json.RawMessage(`{"input":{},"workflow":{"workflowID":"0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"}}`)
+	req := &jsonrpc.Request[json.RawMessage]{
+		ID:      "test-request-slow-node",
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawParams,
+		Version: "2.0",
+	}
+	req.Auth = createTestJWTToken(t, req, privateKey)
+	callback := hc.NewCallback()
+
+	// node2 and node3 respond immediately and must not be re-sent even though
+	// node1 hangs past its per-node timeout on the first attempt.
+	mockDon.On("SendToNode", mock.Anything, "node2", mock.Anything).Return(nil).Once()
+	mockDon.On("SendToNode", mock.Anything, "node3", mock.Anything).Return(nil).Once()
+
+	var node1Attempts atomic.Int32
+	mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).RunAndReturn(
+		func(ctx context.Context, nodeAddress string, req *jsonrpc.Request[json.RawMessage]) error {
+			if node1Attempts.Add(1) == 1 {
+				deadline, ok := ctx.Deadline()
+				require.True(t, ok, "per-node context should carry a deadline")
+				require.WithinDuration(t, time.Now().Add(nodeSendTimeoutMs*time.Millisecond), deadline, 50*time.Millisecond,
+					"per-node timeout should be applied, not the overall request duration")
+
+				<-ctx.Done()
+				return ctx.Err()
+			}
+			return nil
+		}).Twice()
+
+	err := handler.Start(t.Context())
+	require.NoError(t, err)
+
+	start := time.Now()
+	err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
+	require.NoError(t, err)
+	elapsed := time.Since(start)
+
+	require.Less(t, elapsed, 2*time.Second,
+		"a hung node should be retried after its per-node timeout, not after the full request duration")
+
+	mockDon.AssertExpectations(t)
+	err = handler.Close()
+	require.NoError(t, err)
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing.T) {
@@ -1725,24 +1867,22 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 
 		// Use channel to signal when initial broadcast is complete
 		broadcastComplete := make(chan struct{})
-		callCount := 0
+		var callCount atomic.Int64
 
 		// Setup: node1, node2, node3 succeed, node4 fails indefinitely
 		mockDon.On("SendToNode", mock.Anything, "node1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			callCount++
-			if callCount == 3 {
+
+			if callCount.Add(1) == 3 {
 				close(broadcastComplete)
 			}
 		}).Once()
 		mockDon.On("SendToNode", mock.Anything, "node2", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			callCount++
-			if callCount == 3 {
+			if callCount.Add(1) == 3 {
 				close(broadcastComplete)
 			}
 		}).Once()
 		mockDon.On("SendToNode", mock.Anything, "node3", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			callCount++
-			if callCount == 3 {
+			if callCount.Add(1) == 3 {
 				close(broadcastComplete)
 			}
 		}).Once()

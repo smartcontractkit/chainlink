@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -86,29 +84,11 @@ func DeployRegistryModuleChangeset(e cldf.Environment, cfg DeployRegistryModuleC
 
 		registryModule, err := cldf.DeployContract(e.Logger, chain, addressBook,
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
-				var (
-					regModAddr common.Address
-					tx         *types.Transaction
-					regMod     *registry_module_owner_custom.RegistryModuleOwnerCustom
-					err2       error
+				regModAddr, tx, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
+					chain.DeployerKey,
+					chain.Client,
+					chainState.TokenAdminRegistry.Address(),
 				)
-
-				if chain.IsZkSyncVM {
-					regModAddr, _, regMod, err2 = registry_module_owner_custom.DeployRegistryModuleOwnerCustomZk(
-						nil,
-						chain.ClientZkSyncVM,
-						chain.DeployerKeyZkSyncVM,
-						chain.Client,
-						chainState.TokenAdminRegistry.Address(),
-					)
-					// ZkSync deployment doesn't return a transaction, so tx remains nil
-				} else {
-					regModAddr, tx, regMod, err2 = registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
-						chain.DeployerKey,
-						chain.Client,
-						chainState.TokenAdminRegistry.Address(),
-					)
-				}
 
 				return cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
 					Address:  regModAddr,

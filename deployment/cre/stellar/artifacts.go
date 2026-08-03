@@ -15,4 +15,7 @@ const (
 
 	// ReceiverWasm is the CRE test receiver (contracts/cre/test/receiver).
 	ReceiverWasm = cre.ReceiverWasm
+
+	// RejectingReceiverWasm is the CRE test receiver that always rejects on_report.
+	RejectingReceiverWasm = cre.RejectingReceiverWasm
 )

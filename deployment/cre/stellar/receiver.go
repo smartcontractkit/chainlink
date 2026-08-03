@@ -178,3 +178,47 @@ func ReportCountForChain(ctx context.Context, ch cldfstellar.Chain, contractID s
 
 	return stellarreceiver.ReportCount(ctx, deployer, contractID)
 }
+
+// DeployRejectingReceiverForChain deploys the CRE rejecting test receiver (always
+// returns Err from on_report) directly from a CLDF stellar chain. Used by write
+// regression tests to exercise the forwarder's TransmissionState::Failed path.
+func DeployRejectingReceiverForChain(ctx context.Context, ch cldfstellar.Chain, buildCfg helpers.BuildStellarConfig, salt [32]byte) (string, error) {
+	deployer, err := stellardeployment.NewDeployerFromChain(ch)
+	if err != nil {
+		return "", fmt.Errorf("failed to build stellar deployer: %w", err)
+	}
+
+	wasm, err := helpers.BuildStellar(ctx, buildCfg)
+	if err != nil {
+		return "", fmt.Errorf("failed to source rejecting receiver WASM: %w", err)
+	}
+
+	contractID, err := deployer.DeployContractBytes(ctx, wasm, salt)
+	if err != nil {
+		return "", fmt.Errorf("failed to deploy rejecting receiver: %w", err)
+	}
+	return contractID, nil
+}
+
+// ReceiverLastValueU64ForChain reads the last_value_u64 from a CRE test receiver
+// directly from a CLDF stellar chain. Used by the write→read roundtrip test to
+// assert payload integrity (the first 8 bytes of the report payload as u64).
+func ReceiverLastValueU64ForChain(ctx context.Context, ch cldfstellar.Chain, contractID string) (uint64, error) {
+	deployer, err := stellardeployment.NewDeployerFromChain(ch)
+	if err != nil {
+		return 0, fmt.Errorf("failed to build stellar deployer: %w", err)
+	}
+
+	sv, err := deployer.SimulateContract(ctx, contractID, "last_value_u64", nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to simulate last_value_u64 on %s: %w", contractID, err)
+	}
+	if sv == nil {
+		return 0, fmt.Errorf("nil return from last_value_u64 on %s", contractID)
+	}
+	u64, ok := sv.GetU64()
+	if !ok {
+		return 0, fmt.Errorf("last_value_u64 did not return u64 (got scval type %v)", sv.Type)
+	}
+	return uint64(u64), nil
+}

@@ -36,11 +36,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # 4.0.2
         id: match-some
         with:
           # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
@@ -54,7 +54,7 @@ jobs:
             workflow:
               - '.github/workflows/ci-deployments.yml'
               - '.github/actions/**'
-      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
+      - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # 4.0.2
         id: match-every
         with:
           # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
@@ -143,25 +143,26 @@ jobs:
       actions: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@d141ef83eb66d096ce8afc767e09115a65c63b60 # v2.1.2
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
 
       - name: Checkout the repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
-          restore-build-cache-only: false
-          build-cache-version: go_deployment_tests-${{ matrix.shard-id }}
+          build-cache-version: go_deployment_tests
+          build-cache-write: ${{ matrix.shard-id == 1 && 'default-branch-only' || 'never' }}
           go-version-file: deployment/go.mod
           go-module-file: deployment/go.sum
+      - name: Download Go vendor packages
+        working-directory: deployment
+        run: go mod download
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
       - name: Setup Aptos
-        uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
-        with:
-          CLI_VERSION: 8.1.0
+        uses: ./.github/actions/setup-aptos
       - name: Setup Sui CLI v1.72.2
         uses: ./.github/actions/setup-sui
         with:
@@ -173,14 +174,14 @@ jobs:
           tmpfs: "true"
           image-tag: "16-alpine"
           postgres-options: "-c max_connections=1000 -c shared_buffers=2GB -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c client_min_messages=warning" # Turn off some prod-protections to make postgres go brrr. https://github.com/peterldowns/pgtestdb#how-do-i-make-it-go-faster
-      - name: Download Go vendor packages
-        run: go mod download
       - name: Setup DB
-        run: go run ./core/store/cmd/preparetest
+        run: |
+          go install ./core/store/cmd/preparetest
+          preparetest
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
       - name: Install LOOP Plugins
-        run: make install-plugins
+        uses: ./.github/actions/setup-loop-plugins
       - name: Run tests
         timeout-minutes: 25
         continue-on-error: true
