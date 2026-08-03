@@ -1,0 +1,140 @@
+# Mixed-env Stellar topology (template) — derived from workflow-gateway-don-stellar.toml.
+#
+# Same as workflow-gateway-don-stellar, except every multi-node DON runs 2 nodes on the
+# PR image and 2 on the develop image, to surface non-determinism between the two code
+# versions (see docs/mixed-env.md). Render with configs/render-mixed-env.sh:
+#
+#   CRE_PR_IMAGE=<pr> CRE_BASELINE_IMAGE=<develop> \
+#     ./configs/render-mixed-env.sh configs/mixed-env-stellar-don.toml
+#
+# Keep in sync with workflow-gateway-don-stellar.toml if that base topology changes.
+# Do NOT set CTF_CHAINLINK_IMAGE with this topology (it would force one image on all nodes).
+
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "stellar"
+  chain_id = "baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"
+  docker_cmd_params = ["--protocol-version", "26"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  image = "job-distributor:0.28.0"
+
+[infra]
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_family = "test-don-family"
+  don_types = ["workflow"]
+  override_mode = "each"
+  http_port_range_start = 10100
+
+  supported_evm_chains = [1337]
+  supported_stellar_chains = ["baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"]
+  env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","17301180955411967724":"true"}},"ExecutionTimestampsEnabled":"true","ChainRead":{"CallLimit":"32"}}}', CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["cron", "consensus", "don-time"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]] # node 0 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 1 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 2 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 3 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 4
+  name = "capabilities"
+  don_family = "test-don-family"
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "each"
+  http_port_range_start = 10200
+
+  supported_evm_chains = [1337]
+  supported_stellar_chains = ["baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"]
+  capabilities = ["stellar"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+
+  [[nodesets.node_specs]] # node 0 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 1 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 2 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 3 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_family = "test-don-family"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  supported_evm_chains = [1337]
+  supported_stellar_chains = ["baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      custom_ports = ["5002:5002", "15002:15002"]
+      user_config_overrides = ""

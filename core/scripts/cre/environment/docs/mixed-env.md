@@ -72,6 +72,7 @@ These lines are **silent** when every node runs the same code, so a single occur
 ## When it runs
 
 - **CI:** automatically on CRE-affecting PRs, in its **own** workflow `.github/workflows/cre-mixed-env-tests.yaml` (kept separate from `cre-system-tests.yaml` so that file stays simple). It runs the OCR3/DON2DON-heavy tests — `Test_CRE_V2_Suite_Bucket_A`, `Test_CRE_V2_Suite_Bucket_B`, and the `Test_CRE_V2_EVM_Read_*` suite — under mixed-env. The PR image and the develop image are both already built (per-PR and nightly), so no extra image builds are added. A dedicated **Check for non-determinism** step scans the live node containers after the suite and fails the job on any marker — kept separate from the auto-quarantined test step so the failure can't be swallowed.
+- **Nightly full sweep:** `.github/workflows/cre-mixed-env-nightly.yaml` calls the same dedicated workflow with `full_matrix: true` — running the *entire* matrix under mixed-env (EVM base + Solana/Aptos/Stellar/sharded/cache-test/multi-gateway variants), comparing today's develop nightly against a previous one to catch non-determinism introduced into develop between nightlies.
 
 ## Required check & emergency bypass
 

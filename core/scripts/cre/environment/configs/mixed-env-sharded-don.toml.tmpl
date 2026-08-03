@@ -1,0 +1,158 @@
+# Mixed-env sharded topology (template) — derived from workflow-gateway-sharded-don.toml.
+#
+# Same as workflow-gateway-sharded-don, except each 4-node shard runs 2 nodes on the PR
+# image and 2 on the develop image, to surface non-determinism between the two code
+# versions (see docs/mixed-env.md). Render with configs/render-mixed-env.sh:
+#
+#   CRE_PR_IMAGE=<pr> CRE_BASELINE_IMAGE=<develop> \
+#     ./configs/render-mixed-env.sh configs/mixed-env-sharded-don.toml
+#
+# Keep in sync with workflow-gateway-sharded-don.toml if that base topology changes
+# (shard0's per-node custom_ports in particular). Do NOT set CTF_CHAINLINK_IMAGE.
+
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  container_name = "anvil-2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  image = "job-distributor:0.28.0"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+[infra]
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "shard0"
+  don_family = "test-don-family"
+  don_types = ["workflow", "shard"]
+  shard_index = 0
+  override_mode = "each"
+  http_port_range_start = 10100
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337", "evm-2337"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  # Node 0 - PR (ShardOrchestrator + Arbiter ports preserved from base)
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      custom_ports = ["60051:50051", "19876:9876"]
+      user_config_overrides = ""
+
+  # Node 1 - PR
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      custom_ports = ["19877:9876"]
+      user_config_overrides = ""
+
+  # Node 2 - develop
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      custom_ports = ["19878:9876"]
+      user_config_overrides = ""
+
+  # Node 3 - develop
+  [[nodesets.node_specs]]
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      custom_ports = ["19879:9876"]
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 4
+  name = "shard1"
+  don_family = "test-don-family"
+  don_types = ["workflow", "shard"]
+  shard_index = 1
+  override_mode = "each"
+  http_port_range_start = 10400
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337", "evm-2337"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13400
+
+  [[nodesets.node_specs]] # node 0 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 1 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 2 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 3 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_family = "test-don-family"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  supported_evm_chains = [1337, 2337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      custom_ports = ["5002:5002","15002:15002"]
+      user_config_overrides = ""

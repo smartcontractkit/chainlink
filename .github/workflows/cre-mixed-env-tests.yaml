@@ -56,6 +56,13 @@ on:
           fallback: a release/* base with no published base image is skipped (no correct
           baseline vs develop); every other base (develop, or a stacked feature branch) falls
           back to the develop nightly."
+      full_matrix:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "Full sweep: also include chain-specific and other special-topology
+          tests (nightly). Per-PR runs leave this false."
   workflow_call:
     inputs:
       chainlink_image_repository_path:
@@ -101,6 +108,13 @@ on:
           fallback: a release/* base with no published base image is skipped (no correct
           baseline vs develop); every other base (develop, or a stacked feature branch) falls
           back to the develop nightly."
+      full_matrix:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "Full sweep: also include chain-specific and other special-topology
+          tests (nightly). Per-PR runs leave this false."
 
 jobs:
   define-test-matrix:
@@ -114,27 +128,42 @@ jobs:
         id: define-matrix
         shell: bash
         run: |
-          # Tests worth running under mixed-env: the OCR3/DON2DON-heavy ones.
-          TESTS='[
-            "Test_CRE_V2_Suite_Bucket_A",
-            "Test_CRE_V2_Suite_Bucket_B",
-            "Test_CRE_V2_EVM_Read_HeavyCalls",
-            "Test_CRE_V2_EVM_Read_StateQueries",
-            "Test_CRE_V2_EVM_Read_TxArtifacts"
+          # Per-PR set: the OCR3/DON2DON-heavy EVM tests, on the base mixed-env topology.
+          ENTRIES='[
+            {"test_name":"Test_CRE_V2_Suite_Bucket_A","topology":"mixed-env","configs":"configs/mixed-env-don.toml"},
+            {"test_name":"Test_CRE_V2_Suite_Bucket_B","topology":"mixed-env","configs":"configs/mixed-env-don.toml"},
+            {"test_name":"Test_CRE_V2_EVM_Read_HeavyCalls","topology":"mixed-env","configs":"configs/mixed-env-don.toml"},
+            {"test_name":"Test_CRE_V2_EVM_Read_StateQueries","topology":"mixed-env","configs":"configs/mixed-env-don.toml"},
+            {"test_name":"Test_CRE_V2_EVM_Read_TxArtifacts","topology":"mixed-env","configs":"configs/mixed-env-don.toml"}
           ]'
+
+          # Nightly full sweep: add the special-topology tests under their mixed-env variant.
+          if [[ "${{ inputs.full_matrix }}" == "true" ]]; then
+            FULL='[
+              {"test_name":"Test_CRE_V2_Aptos_Suite","topology":"mixed-env-aptos","configs":"configs/mixed-env-aptos-don.toml"},
+              {"test_name":"Test_CRE_V2_Stellar_Suite","topology":"mixed-env-stellar","configs":"configs/mixed-env-stellar-don.toml"},
+              {"test_name":"Test_CRE_V2_Solana_Write","topology":"mixed-env-solana","configs":"configs/mixed-env-solana-don.toml"},
+              {"test_name":"Test_CRE_V2_Solana_LogTrigger","topology":"mixed-env-solana","configs":"configs/mixed-env-solana-don.toml"},
+              {"test_name":"Test_CRE_V2_Solana_Read_Accounts","topology":"mixed-env-solana","configs":"configs/mixed-env-solana-don.toml"},
+              {"test_name":"Test_CRE_V2_Sharding","topology":"mixed-env-sharded","configs":"configs/mixed-env-sharded-don.toml"},
+              {"test_name":"Test_CRE_V2_Module_Cache","topology":"mixed-env-cache-test","configs":"configs/mixed-env-cache-test-don.toml"},
+              {"test_name":"Test_CRE_V2_HTTP_Action_Multi_Gateway","topology":"mixed-env-multi-gateway","configs":"configs/mixed-env-multi-gateway-don.toml"}
+            ]'
+            ENTRIES=$(jq -c -n --argjson a "$ENTRIES" --argjson b "$FULL" '$a + $b')
+          fi
+
           matrix=$(jq -c -n \
-            --argjson tests "$TESTS" \
+            --argjson entries "$ENTRIES" \
             --argjson run_id "${{ github.run_id }}" \
             --arg run_attempt "${{ github.run_attempt }}" '
-            $tests | to_entries | map({
-              test_name: .value,
+            $entries | to_entries | map(.value + {
               test_id: .key,
               runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
             })')
           echo "matrix=$matrix" | tee -a "${GITHUB_OUTPUT}"
 
   run-mixed-env-tests:
-    name: ${{ matrix.tests.test_name }} (mixed-env)
+    name: ${{ matrix.tests.test_name }} (${{ matrix.tests.topology }})
     permissions:
       contents: read
       id-token: write
@@ -290,6 +319,7 @@ jobs:
           export CRE_PR_IMAGE CRE_BASELINE_IMAGE
           echo "PR image:       ${CRE_PR_IMAGE}"
           echo "Baseline image: ${CRE_BASELINE_IMAGE}"
+          echo "Config:         ${{ matrix.tests.configs }}"
           # Fail fast with a clear error if either image is missing from the registry
           # (e.g. a transient build/registry failure, or the develop nightly hasn't been
           # published yet) instead of failing deep inside env start.
@@ -306,7 +336,7 @@ jobs:
             echo "Re-run once the image is available, or override the develop side via the mixed_env_baseline_image input."
             exit 1
           fi
-          bash configs/render-mixed-env.sh
+          bash configs/render-mixed-env.sh "${{ matrix.tests.configs }}"
 
       - name: Start local CRE
         id: start-local-cre
@@ -321,7 +351,7 @@ jobs:
           chainlink-image: ""
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
-          ctf-configs: configs/mixed-env-don.toml
+          ctf-configs: ${{ matrix.tests.configs }}
           retry-count: "3"
           retry-delay-seconds: "15"
           cleanup-on-error: "false"
@@ -348,7 +378,7 @@ jobs:
           TEST_NAME: ${{ matrix.tests.test_name }}
           TEST_TIMEOUT: 7m
           RUN_QUARANTINED_TESTS: "true"
-          TOPOLOGY_NAME: mixed-env
+          TOPOLOGY_NAME: ${{ matrix.tests.topology }}
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
           PARALLEL_COUNT: "10"
           CRE_TEST_PARALLEL_ENABLED: "true"

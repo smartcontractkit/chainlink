@@ -1,0 +1,60 @@
+name: CRE Mixed-Env Nightly Sweep
+
+# Runs the full CRE system-test matrix under the mixed-env topology (2 nodes on
+# today's develop nightly image, 2 on yesterday's) to catch non-determinism /
+# cross-version incompatibilities introduced into develop between nightlies —
+# across the whole suite (EVM + Solana/Aptos/Stellar), not just the per-PR subset.
+#
+# It calls cre-system-tests.yaml directly with mixed_env_all: true, so no image
+# build is needed: both images are the cached nightly develop builds.
+
+on:
+  schedule:
+    # After the nightly image build (docker-build.yml runs at 03:00 UTC).
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      baseline_date:
+        description: "Baseline nightly date (YYYYMMDD). Defaults to yesterday."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  set-dates:
+    runs-on: ubuntu-latest
+    outputs:
+      today: ${{ steps.d.outputs.today }}
+      baseline: ${{ steps.d.outputs.baseline }}
+    steps:
+      - id: d
+        shell: bash
+        run: |
+          today="$(date -u +'%Y%m%d')"
+          baseline="${{ inputs.baseline_date }}"
+          if [[ -z "${baseline}" ]]; then
+            baseline="$(date -u -d 'yesterday' +'%Y%m%d')"
+          fi
+          echo "today=${today}" | tee -a "$GITHUB_OUTPUT"
+          echo "baseline=${baseline}" | tee -a "$GITHUB_OUTPUT"
+
+  mixed-env-sweep:
+    needs: set-dates
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/cre-mixed-env-tests.yaml
+    secrets: inherit
+    with:
+      ecr: "sdlc"
+      chainlink_image_repository_path: "chainlink"
+      # "PR" side = today's develop nightly.
+      chainlink_image_tag: "nightly-${{ needs.set-dates.outputs.today }}"
+      # Baseline side = a previous develop nightly, so the 2-2 split compares two
+      # develop builds and surfaces non-determinism introduced since then.
+      mixed_env_baseline_image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:nightly-${{ needs.set-dates.outputs.baseline }}"
+      full_matrix: true

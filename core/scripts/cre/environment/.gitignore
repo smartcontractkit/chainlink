@@ -15,8 +15,8 @@ cre_v*
 configs/*-cache.toml
 cache/
 
-# rendered mixed-env topology (generated from configs/mixed-env-don.toml.tmpl)
-configs/mixed-env-don.toml
+# rendered mixed-env topologies (generated from configs/mixed-env-*.toml.tmpl); .tmpl are tracked
+configs/mixed-env-*.toml
 
 logs/
 
