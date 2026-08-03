@@ -253,14 +253,17 @@ func Test_CRE_V2_Solana_LogTrigger(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // single test
 func Test_CRE_V2_Solana_Read_Accounts(t *testing.T) {
 	runSolanaReadBucket(t, solana_config.ReadBucketAccountCalls)
 }
 
+//nolint:paralleltest // single test
 func Test_CRE_V2_Solana_Read_Block(t *testing.T) {
 	runSolanaReadBucket(t, solana_config.ReadBucketBlockCalls)
 }
 
+//nolint:paralleltest // single test
 func Test_CRE_V2_Solana_Read_Tx(t *testing.T) {
 	runSolanaReadBucket(t, solana_config.ReadBucketTxCalls)
 }
