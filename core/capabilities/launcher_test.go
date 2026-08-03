@@ -78,20 +78,19 @@ func (m *mockCapability) UnregisterFromWorkflow(ctx context.Context, request cap
 }
 
 func TestLauncher(t *testing.T) {
+	t.Parallel()
 	t.Run("OK-wires_up_external_capabilities", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.Test(t)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
 
 		nodes := newNodes(4)
 		capabilityDonNodes := newNodes(4)
-		peer := mocks.NewPeer(t)
-		peer.On("UpdateConnections", mock.Anything).Return(nil)
-		peer.On("ID").Return(capabilityDonNodes[0])
-		peer.On("IsBootstrap").Return(false)
-		wrapper := mocks.NewPeerWrapper(t)
-		wrapper.On("GetPeer").Return(peer)
-
+		sharedPeer := mocks.NewSharedPeer(t)
+		sharedPeer.On("ID").Return(capabilityDonNodes[0])
+		sharedPeer.On("IsBootstrap").Return(false)
+		sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		fullTriggerCapID := "streams-trigger@1.0.0"
 		mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
 			fullTriggerCapID,
@@ -127,8 +126,7 @@ func TestLauncher(t *testing.T) {
 
 		launcher, err := NewLauncher(
 			lggr,
-			wrapper,
-			nil,
+			sharedPeer,
 			nil,
 			dispatcher,
 			registry,
@@ -145,18 +143,16 @@ func TestLauncher(t *testing.T) {
 	})
 
 	t.Run("NOK-invalid_trigger_capability", func(t *testing.T) {
+		t.Parallel()
 		lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
 
 		nodes := newNodes(4)
-		peer := mocks.NewPeer(t)
-		peer.On("UpdateConnections", mock.Anything).Return(nil)
-		peer.On("ID").Return(nodes[0])
-		peer.On("IsBootstrap").Return(false)
-		wrapper := mocks.NewPeerWrapper(t)
-		wrapper.On("GetPeer").Return(peer)
-
+		sharedPeer := mocks.NewSharedPeer(t)
+		sharedPeer.On("ID").Return(nodes[0])
+		sharedPeer.On("IsBootstrap").Return(false)
+		sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		// We intentionally create a Trigger capability with a Target type
 		fullTriggerCapID := "streams-trigger@1.0.0"
 		mtarg := &mockCapability{
@@ -176,8 +172,7 @@ func TestLauncher(t *testing.T) {
 
 		launcher, err := NewLauncher(
 			lggr,
-			wrapper,
-			nil,
+			sharedPeer,
 			nil,
 			dispatcher,
 			registry,
@@ -192,18 +187,16 @@ func TestLauncher(t *testing.T) {
 	})
 
 	t.Run("NOK-invalid_target_capability", func(t *testing.T) {
+		t.Parallel()
 		lggr, observedLogs := logger.TestObserved(t, zapcore.DebugLevel)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
 
 		nodes := newNodes(4)
-		peer := mocks.NewPeer(t)
-		peer.On("UpdateConnections", mock.Anything).Return(nil)
-		peer.On("ID").Return(nodes[0])
-		peer.On("IsBootstrap").Return(false)
-		wrapper := mocks.NewPeerWrapper(t)
-		wrapper.On("GetPeer").Return(peer)
-
+		sharedPeer := mocks.NewSharedPeer(t)
+		sharedPeer.On("ID").Return(nodes[0])
+		sharedPeer.On("IsBootstrap").Return(false)
+		sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 		fullTargetID := "write-chain_evm_1@1.0.0"
 		mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
 			fullTargetID,
@@ -220,8 +213,7 @@ func TestLauncher(t *testing.T) {
 
 		launcher, err := NewLauncher(
 			lggr,
-			wrapper,
-			nil,
+			sharedPeer,
 			nil,
 			dispatcher,
 			registry,
@@ -235,7 +227,8 @@ func TestLauncher(t *testing.T) {
 		assert.Equal(t, 1, observedLogs.FilterMessage("failed to serve capability").Len())
 	})
 
-	t.Run("start and close with nil peer wrapper", func(t *testing.T) {
+	t.Run("start and close", func(t *testing.T) {
+		t.Parallel()
 		lggr := logger.Test(t)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
@@ -243,7 +236,6 @@ func TestLauncher(t *testing.T) {
 		sharedPeer.On("ID").Return(ragetypes.PeerID(RandomUTF8BytesWord()))
 		launcher, err := NewLauncher(
 			lggr,
-			nil,
 			sharedPeer,
 			nil,
 			dispatcher,
@@ -286,19 +278,17 @@ func newTriggerEventMsg(t *testing.T,
 }
 
 func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	workflowDonNodes, capabilityDonNodes := newNodes(4), newNodes(4)
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(workflowDonNodes[0])
-	peer.On("IsBootstrap").Return(false)
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
-
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	fullTriggerCapID := "log-event-trigger-evm-43113@1.0.0"
 	fullTargetID := "write-chain_evm_1@1.0.0"
 	triggerCapID := RandomUTF8BytesWord()
@@ -324,8 +314,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 
 	launcher, err := NewLauncher(
 		lggr,
-		wrapper,
-		nil,
+		sharedPeer,
 		nil,
 		dispatcher,
 		registry,
@@ -395,18 +384,16 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 }
 
 func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	nodes := newNodes(4)
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(nodes[0])
-	peer.On("IsBootstrap").Return(false)
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
-
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(nodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	dID := uint32(1)
 	triggerID := "streams-trigger@1.0.0"
 	hashedTriggerID := RandomUTF8BytesWord()
@@ -420,8 +407,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 
 	launcher, err := NewLauncher(
 		lggr,
-		wrapper,
-		nil,
+		sharedPeer,
 		nil,
 		dispatcher,
 		registry,
@@ -442,18 +428,16 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 }
 
 func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	workflowDonNodes, capabilityDonNodes := newNodes(4), newNodes(4)
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(workflowDonNodes[0])
-	peer.On("IsBootstrap").Return(false)
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
-
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	fullTriggerCapID := "streams-trigger@1.0.0"
 	fullTargetID := "write-chain_evm_1@1.0.0"
 	triggerCapID := RandomUTF8BytesWord()
@@ -478,8 +462,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 
 	launcher, err := NewLauncher(
 		lggr,
-		wrapper,
-		nil,
+		sharedPeer,
 		nil,
 		dispatcher,
 		registry,
@@ -503,18 +486,16 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 }
 
 func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	workflowDonNodes, capabilityDonNodes := newNodes(4), newNodes(4)
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(workflowDonNodes[0])
-	peer.On("IsBootstrap").Return(false)
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
-
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	fullTriggerCapID := "streams-trigger@1.0.0"
 	fullTargetID := "write-chain_evm_1@1.0.0"
 	triggerCapID := RandomUTF8BytesWord()
@@ -539,8 +520,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 
 	launcher, err := NewLauncher(
 		lggr,
-		wrapper,
-		nil,
+		sharedPeer,
 		nil,
 		dispatcher,
 		registry,
@@ -558,6 +538,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 }
 
 func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -566,14 +547,13 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
 	require.NoError(t, err)
 
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(pid)
-	peer.On("IsBootstrap").Return(false)
+	sharedPeer := mocks.NewSharedPeer(t)
 
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
+	sharedPeer.On("ID").Return(pid)
 
+	sharedPeer.On("IsBootstrap").Return(false)
+
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	fullTriggerCapID := "streams-trigger@1.0.0"
 	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
 		fullTriggerCapID,
@@ -609,71 +589,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 
 	launcher, err := NewLauncher(
 		lggr,
-		wrapper,
-		nil,
-		nil,
-		dispatcher,
-		registry,
-		&mockDonNotifier{}, limits.Factory{},
-	)
-	require.NoError(t, err)
-	require.NoError(t, launcher.Start(t.Context()))
-	defer launcher.Close()
-	err = launcher.OnNewRegistry(t.Context(), localRegistry)
-	require.NoError(t, err)
-}
-
-func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
-	lggr := logger.Test(t)
-	registry := NewRegistry(lggr)
-	dispatcher := remoteMocks.NewDispatcher(t)
-
-	var pid ragetypes.PeerID
-	err := pid.UnmarshalText([]byte("12D3KooWBCF1XT5Wi8FzfgNCqRL76Swv8TRU3TiD4QiJm8NMNX7N"))
-	require.NoError(t, err)
-
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(pid)
-	peer.On("IsBootstrap").Return(false)
-
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
-
-	fullTriggerCapID := "streams-trigger@1.0.0"
-	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
-		fullTriggerCapID,
-		capabilities.CapabilityTypeTrigger,
-		"streams trigger",
-	))
-	require.NoError(t, registry.Add(t.Context(), mt))
-
-	tt := NewTestTopology(pid, 4, 4)
-
-	triggerCapID := RandomUTF8BytesWord()
-	workflowDONID := uint32(1)
-	capabilitiesDONID := uint32(2)
-	workflowNCapabilitiesDONID := uint32(3)
-
-	localRegistry := tt.MakeLocalRegistry(
-		workflowDONID,
-		capabilitiesDONID,
-		workflowNCapabilitiesDONID,
-		triggerCapID,
-		fullTriggerCapID,
-	)
-
-	dispatcher.On(
-		"SetReceiver",
-		fullTriggerCapID,
-		capabilitiesDONID,
-		mock.AnythingOfType("*remote.triggerPublisher"),
-	).Return(remote.ErrReceiverExists)
-
-	launcher, err := NewLauncher(
-		lggr,
-		wrapper,
-		nil,
+		sharedPeer,
 		nil,
 		dispatcher,
 		registry,
@@ -682,41 +598,12 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
-
-	inputs := [][]bool{
-		// { belongsToACapabilityDON, belongsToAWorkflowDON, isBootstrap }
-		{true, true, false},
-		{true, false, false},
-		{false, true, false},
-		{false, false, false},
-		{false, false, true},
-		{true, true, true}, // invalid
-	}
-
-	expectedPeerCount := []int{
-		8, // we expect all DONs members
-		5, // we expect all capability DONs members (4+1)
-		4, // we expect all workflow DONs members
-		0, // the node does nothing, we expect no peers
-		8, // bootstrap node always adds all peers
-		8, // bootstrap node always adds all peers
-	}
-
-	for i := range inputs {
-		allPeers := launcher.peers(
-			inputs[i][0],
-			inputs[i][1],
-			inputs[i][2],
-			localRegistry,
-		)
-		require.Len(t, allPeers, expectedPeerCount[i])
-	}
-
 	err = launcher.OnNewRegistry(t.Context(), localRegistry)
 	require.NoError(t, err)
 }
 
 func TestLauncher_DonPairsToUpdate(t *testing.T) {
+	t.Parallel()
 	registry := NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -736,7 +623,7 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 	tt := NewTestTopology(pid, 4, 4)
 	wfDONID, capDONID, mixedDONID := registrysyncer.DonID(7), registrysyncer.DonID(12), registrysyncer.DonID(33)
 	localRegistry := tt.MakeLocalRegistry(uint32(wfDONID), uint32(capDONID), uint32(mixedDONID), RandomUTF8BytesWord(), fullTriggerCapID)
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
+	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Times(3)
@@ -781,6 +668,7 @@ func TestLauncher_DonPairsToUpdate(t *testing.T) {
 }
 
 func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
+	t.Parallel()
 	registry := NewRegistry(logger.Test(t))
 	dispatcher := remoteMocks.NewDispatcher(t)
 
@@ -818,7 +706,7 @@ func TestLauncher_DonPairsToUpdate_SkipsDifferentFamilies(t *testing.T) {
 	addDON(localRegistry, capDONZoneBID, uint32(0), uint8(1), true, false, capabilityDonNodesZoneB, []string{"zone-b"}, 1, [][32]byte{triggerCapID})
 	addCapabilityToDON(localRegistry, capDONZoneBID, fullTriggerCapID, capabilities.CapabilityTypeTrigger, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
+	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Once()
@@ -845,13 +733,10 @@ func TestLauncher_ShardedCapabilityRoutingByFamily(t *testing.T) {
 
 	workflowDonNodes := newNodes(4)
 	capShard0Nodes, capShard1Nodes, capShard2Nodes, sharedCapNodes := newNodes(4), newNodes(4), newNodes(4), newNodes(4)
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(workflowDonNodes[0])
-	peer.On("IsBootstrap").Return(false)
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
-
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	fullShardedTargetID := "write-chain_evm_1@1.0.0"
 	fullSharedTargetID := "read-chain_evm_1@1.0.0"
 	shardedCapIDHash := RandomUTF8BytesWord()
@@ -879,8 +764,7 @@ func TestLauncher_ShardedCapabilityRoutingByFamily(t *testing.T) {
 
 	launcher, err := NewLauncher(
 		lggr,
-		wrapper,
-		nil,
+		sharedPeer,
 		nil,
 		dispatcher,
 		registry,
@@ -940,7 +824,7 @@ func TestLauncher_DonPairsToUpdate_ShardedFamilies(t *testing.T) {
 	addDON(localRegistry, sharedCapDONID, uint32(0), uint8(1), true, false, sharedCapNodes, []string{"zone-a"}, 1, [][32]byte{capIDHash})
 	addCapabilityToDON(localRegistry, sharedCapDONID, fullTargetID, capabilities.CapabilityTypeTarget, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
+	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Once()
@@ -957,13 +841,10 @@ func TestLauncher_ShardedCapability_PhaseA_AllCapsInCommonFamily(t *testing.T) {
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	workflowDonNodes, capShard0Nodes, capShard1Nodes := newNodes(4), newNodes(4), newNodes(4)
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(workflowDonNodes[0])
-	peer.On("IsBootstrap").Return(false)
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
-
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(workflowDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	fullTargetID := "write-chain_evm_1@1.0.0"
 	cfg, err := proto.Marshal(&capabilitiespb.CapabilityConfig{})
 	require.NoError(t, err)
@@ -979,7 +860,7 @@ func TestLauncher_ShardedCapability_PhaseA_AllCapsInCommonFamily(t *testing.T) {
 	addDON(localRegistry, capShard1ID, uint32(0), uint8(1), true, false, capShard1Nodes, []string{"zone-a"}, 1, [][32]byte{RandomUTF8BytesWord()})
 	addCapabilityToDON(localRegistry, capShard1ID, fullTargetID, capabilities.CapabilityTypeTarget, cfg)
 
-	launcher, err := NewLauncher(lggr, wrapper, nil, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
+	launcher, err := NewLauncher(lggr, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
@@ -1017,7 +898,7 @@ func TestLauncher_DonPairsToUpdate_CapShardPairsOnlyWithWorkflowShard(t *testing
 	addDON(localRegistry, capShard0ID, uint32(0), uint8(1), true, false, capShard0Nodes, []string{"zone-a_shard-0"}, 1, [][32]byte{RandomUTF8BytesWord()})
 	addCapabilityToDON(localRegistry, capShard0ID, "write-chain_evm_1@1.0.0", capabilities.CapabilityTypeTarget, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
+	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 
 	sharedPeer.On("IsBootstrap").Return(false).Once()
@@ -1056,7 +937,7 @@ func TestLauncher_DonPairsToUpdate_BootstrapConnectsIsolatedCapShard(t *testing.
 	addDON(localRegistry, capShard1ID, uint32(0), uint8(1), true, false, capShard1Nodes, []string{"zone-a_shard-1"}, 1, [][32]byte{RandomUTF8BytesWord()})
 	addCapabilityToDON(localRegistry, capShard1ID, "write-chain_evm_1@1.0.0", capabilities.CapabilityTypeTarget, nil)
 
-	launcher, err := NewLauncher(logger.Test(t), nil, sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
+	launcher, err := NewLauncher(logger.Test(t), sharedPeer, nil, dispatcher, registry, &mockDonNotifier{}, limits.Factory{})
 	require.NoError(t, err)
 
 	// bootstrapPID is a member of no DON and therefore of no shard family.
@@ -1085,6 +966,7 @@ func TestLauncher_DonPairsToUpdate_BootstrapConnectsIsolatedCapShard(t *testing.
 }
 
 func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -1162,7 +1044,6 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 
 	launcher, err := NewLauncher(
 		lggr,
-		nil,
 		sharedPeer,
 		nil,
 		dispatcher,
@@ -1222,6 +1103,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 }
 
 func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	fullTriggerCapID := "streams-trigger@1.0.0"
@@ -1316,7 +1198,6 @@ func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 
 	launcher, err := NewLauncher(
 		lggr,
-		nil,
 		sharedPeer,
 		nil,
 		dispatcher,
@@ -1391,18 +1272,16 @@ func addCapabilityToDON(registry *registrysyncer.LocalRegistry, donID uint32, ca
 }
 
 func TestLauncher_OnNewRegistry_CallsLocalCapabilityManagerReconcile(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	capabilityDonNodes := newNodes(4)
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(capabilityDonNodes[0])
-	peer.On("IsBootstrap").Return(false)
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
-
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(capabilityDonNodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	fullTriggerCapID := "streams-trigger@1.0.0"
 	mt := newMockTrigger(capabilities.MustNewCapabilityInfo(
 		fullTriggerCapID,
@@ -1432,8 +1311,7 @@ func TestLauncher_OnNewRegistry_CallsLocalCapabilityManagerReconcile(t *testing.
 
 	launcher, err := NewLauncher(
 		lggr,
-		wrapper,
-		nil,
+		sharedPeer,
 		nil,
 		dispatcher,
 		registry,
@@ -1456,18 +1334,16 @@ func TestLauncher_OnNewRegistry_CallsLocalCapabilityManagerReconcile(t *testing.
 }
 
 func TestLauncher_OnNewRegistry_NilLocalCapabilityManager(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
 
 	nodes := newNodes(4)
-	peer := mocks.NewPeer(t)
-	peer.On("UpdateConnections", mock.Anything).Return(nil)
-	peer.On("ID").Return(nodes[0])
-	peer.On("IsBootstrap").Return(false)
-	wrapper := mocks.NewPeerWrapper(t)
-	wrapper.On("GetPeer").Return(peer)
-
+	sharedPeer := mocks.NewSharedPeer(t)
+	sharedPeer.On("ID").Return(nodes[0])
+	sharedPeer.On("IsBootstrap").Return(false)
+	sharedPeer.On("UpdateConnectionsByDONs", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	localRegistry := buildLocalRegistry()
 	dID := uint32(1)
 	addDON(localRegistry, dID, uint32(0), uint8(1), true, true, nodes, []string{"zone-a"}, 1, nil)
@@ -1475,8 +1351,7 @@ func TestLauncher_OnNewRegistry_NilLocalCapabilityManager(t *testing.T) {
 	// Don't set localCapMgr - should not panic.
 	launcher, err := NewLauncher(
 		lggr,
-		wrapper,
-		nil,
+		sharedPeer,
 		nil,
 		dispatcher,
 		registry,

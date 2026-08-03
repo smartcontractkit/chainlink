@@ -394,6 +394,14 @@ func (w *dispatcherWrapper) GetPeerID() (p2ptypes.PeerID, error) {
 	return p2ptypes.PeerID{}, errors.New("could not get peer from any source")
 }
 
+type sharedPeerFromPeer struct {
+	p2ptypes.Peer
+}
+
+func (s *sharedPeerFromPeer) UpdateConnectionsByDONs(_ context.Context, _ []p2ptypes.DonPair, _ p2ptypes.StreamConfig) error {
+	return nil
+}
+
 func newRegistrySyncerV1(
 	lggr logger.Logger,
 	getPeerID func() (p2ptypes.PeerID, error),
@@ -483,7 +491,6 @@ func (s *Services) newRegistrySyncer(
 
 	wfLauncher, err := capabilities.NewLauncher(
 		lggr,
-		dispatcherWrapper.externalPeerWrapper,
 		dispatcherWrapper.don2DonSharedPeer,
 		streamConfig,
 		dispatcherWrapper.dispatcher,
@@ -585,6 +592,10 @@ func (w *dispatcherWrapper) newSubservices(
 	if opts.CapabilitiesDispatcher != nil {
 		w.dispatcher = opts.CapabilitiesDispatcher
 		w.externalPeerWrapper = opts.CapabilitiesPeerWrapper
+		if w.externalPeerWrapper != nil {
+			// Override for tests.
+			w.don2DonSharedPeer = &sharedPeerFromPeer{Peer: w.externalPeerWrapper.GetPeer()}
+		}
 		return []commonsrv.Service{w.externalPeerWrapper, w.dispatcher}, nil
 	}
 
