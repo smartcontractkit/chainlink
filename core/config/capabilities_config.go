@@ -35,6 +35,7 @@ type CapabilitiesWorkflowRegistry interface {
 	RelayID() types.RelayID
 	SyncStrategy() string
 	MaxConcurrency() int
+	MaxActivationRetries() int
 	WorkflowStorage() WorkflowStorage
 	ModuleCache() ModuleCache
 	AdditionalSources() []AdditionalWorkflowSource
@@ -75,6 +76,7 @@ type GatewayConnector interface {
 
 type ConnectorGateway interface {
 	ID() string
+	DonID() string
 	URL() string
 }
 

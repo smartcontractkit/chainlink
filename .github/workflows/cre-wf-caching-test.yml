@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@742bf56072eb4845a0f94b3394673e4903c90ff0 # v2.1.0
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
         with:
           metrics: cpu,network,memory,disk,io
 
@@ -55,7 +55,7 @@ jobs:
           cache: true
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@010d0da01d0b5a38af31e9c3470dbfdabdecca3a # v4.0.1
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
@@ -64,7 +64,7 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@062b18b96a7aff071d4dc91bc00c4c1a7945b076 # v2.0.1
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
         with:
           registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER,
             secrets.AWS_ACCOUNT_ID_PROD) }}
@@ -100,7 +100,7 @@ jobs:
         with:
           jd-image:
             "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
-            }}.amazonaws.com/job-distributor:0.22.1"
+            }}.amazonaws.com/job-distributor:0.28.0"
           # TODO - remove nightly image fallback after testing
           chainlink-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name ||

@@ -32,6 +32,8 @@ type metrics struct {
 	reconcileEventsDispatched metric.Int64Histogram // events dispatched per source per tick
 	reconcileDuration         metric.Int64Histogram // wall-clock ms for parallel event processing
 	reconcileEventsBackoff    metric.Int64Counter   // events skipped due to backoff
+	activationDropped         metric.Int64Counter   // activations dropped after max load/init retries
+	activationAbandoned       metric.Int64Counter   // activations abandoned with reason label
 
 	// On-disk WASM cache write (sync); duration tails indicate IO contention vs typical skew.
 	moduleStoreDuration metric.Int64Histogram
@@ -106,6 +108,20 @@ func (m *metrics) recordReconcileBackoff(ctx context.Context, source string, cou
 	))
 }
 
+func (m *metrics) incrementActivationDropped(ctx context.Context, source, reason string) {
+	m.activationDropped.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("source", source),
+		attribute.String("reason", reason),
+	))
+}
+
+func (m *metrics) incrementActivationAbandoned(ctx context.Context, source, reason string) {
+	m.activationAbandoned.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("source", source),
+		attribute.String("reason", reason),
+	))
+}
+
 func (m *metrics) recordModuleStore(ctx context.Context, d time.Duration, success bool) {
 	if m == nil {
 		return
@@ -141,6 +157,7 @@ func (cm *CacheMetrics) recordReload(ctx context.Context, source string) {
 		return
 	}
 	cm.reloadSource.Add(ctx, 1, metric.WithAttributes(attribute.String("source", source)))
+	promModuleCacheReloadTotal.WithLabelValues(source).Inc()
 }
 
 func (cm *CacheMetrics) recordEviction(ctx context.Context, count int) {
@@ -148,6 +165,7 @@ func (cm *CacheMetrics) recordEviction(ctx context.Context, count int) {
 		return
 	}
 	cm.evictionTotal.Add(ctx, int64(count))
+	promModuleCacheEvictionTotal.Add(float64(count))
 }
 
 func (cm *CacheMetrics) recordLoaded(ctx context.Context, count int) {
@@ -155,6 +173,7 @@ func (cm *CacheMetrics) recordLoaded(ctx context.Context, count int) {
 		return
 	}
 	cm.loadedGauge.Record(ctx, int64(count))
+	promModuleCacheLoaded.Set(float64(count))
 }
 
 func (cm *CacheMetrics) recordMemorySaved(ctx context.Context, bytes int64) {
@@ -162,6 +181,7 @@ func (cm *CacheMetrics) recordMemorySaved(ctx context.Context, bytes int64) {
 		return
 	}
 	cm.memorySaved.Record(ctx, bytes)
+	promModuleCacheMemorySavedBytes.Set(float64(bytes))
 }
 
 func (cm *CacheMetrics) recordVersionMismatch(ctx context.Context) {
@@ -169,6 +189,7 @@ func (cm *CacheMetrics) recordVersionMismatch(ctx context.Context) {
 		return
 	}
 	cm.versionMismatch.Add(ctx, 1)
+	promModuleCacheVersionMismatchTotal.Inc()
 }
 
 func (cm *CacheMetrics) recordPinExhausted(ctx context.Context) {
@@ -176,6 +197,7 @@ func (cm *CacheMetrics) recordPinExhausted(ctx context.Context) {
 		return
 	}
 	cm.pinExhausted.Add(ctx, 1)
+	promModuleCachePinExhaustedTotal.Inc()
 	if cachePinExhaustedHook != nil {
 		cachePinExhaustedHook()
 	}
@@ -186,6 +208,7 @@ func (cm *CacheMetrics) recordTryAcquireExhausted(ctx context.Context) {
 		return
 	}
 	cm.tryAcquireExhausted.Add(ctx, 1)
+	promModuleCacheTryAcquireExhaustedTotal.Inc()
 	if cacheTryAcquireExhaustedHook != nil {
 		cacheTryAcquireExhaustedHook()
 	}
@@ -313,6 +336,16 @@ func newMetrics() (*metrics, error) {
 		return nil, err
 	}
 
+	activationDropped, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_activation_dropped_total")
+	if err != nil {
+		return nil, err
+	}
+
+	activationAbandoned, err := beholder.GetMeter().Int64Counter("platform_workflow_registry_syncer_activation_abandoned_total")
+	if err != nil {
+		return nil, err
+	}
+
 	moduleStoreDuration, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_module_store_duration_ms")
 	if err != nil {
 		return nil, err
@@ -335,6 +368,8 @@ func newMetrics() (*metrics, error) {
 		reconcileEventsDispatched: reconcileEventsDispatched,
 		reconcileDuration:         reconcileDuration,
 		reconcileEventsBackoff:    reconcileEventsBackoff,
+		activationDropped:         activationDropped,
+		activationAbandoned:       activationAbandoned,
 		moduleStoreDuration:       moduleStoreDuration,
 	}, nil
 }

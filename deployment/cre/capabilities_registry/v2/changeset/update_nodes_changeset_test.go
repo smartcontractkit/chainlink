@@ -301,6 +301,48 @@ func TestUpdateNodesChangeset_QualifierNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to get registry address")
 }
 
+func TestUpdateNodesChangeset_CapabilityUpdate_Succeeds(t *testing.T) {
+	t.Parallel()
+	fx := setupRegistryForUpdateNodes(t)
+
+	// Register a new capability so it exists in the registry.
+	newCapMeta := map[string]any{"capabilityType": 3, "responseType": 1}
+	_, err := changeset.ConfigureCapabilitiesRegistry{}.Apply(fx.env, changeset.ConfigureCapabilitiesRegistryInput{
+		ChainSelector:               fx.selector,
+		CapabilitiesRegistryAddress: fx.address,
+		Capabilities: []changeset.CapabilitiesRegistryCapability{
+			{CapabilityID: "new-cap@1.0.0", Metadata: newCapMeta},
+		},
+	})
+	require.NoError(t, err)
+
+	out, err := changeset.UpdateNodes{}.Apply(fx.env, changeset.UpdateNodesInput{
+		RegistryQualifier: fx.qualifier,
+		RegistryChainSel:  fx.selector,
+		Nodes: []changeset.CapabilitiesRegistryNodeParams{
+			{
+				NOP:                 fx.nodes[0].NOP,
+				Signer:              fx.nodes[0].Signer,
+				P2pID:               fx.nodes[0].P2pID,
+				EncryptionPublicKey: fx.nodes[0].EncryptionPublicKey,
+				CsaKey:              fx.nodes[0].CsaKey,
+				CapabilityIDs:       []string{"new-cap@1.0.0"},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, out)
+
+	p2pBytes, err := p2pkey.MakePeerID(fx.nodes[0].P2pID)
+	require.NoError(t, err)
+	onChainNodes, err := fx.registry.GetNodesByP2PIds(nil, [][32]byte{p2pBytes})
+	require.NoError(t, err)
+	require.Len(t, onChainNodes, 1)
+
+	// Original capabilities are preserved; new one is added.
+	assert.ElementsMatch(t, append(fx.capIDs, "new-cap@1.0.0"), onChainNodes[0].CapabilityIds)
+}
+
 func TestUpdateNodesChangeset_UnknownNOP_Fails(t *testing.T) {
 	t.Parallel()
 	fx := setupRegistryForUpdateNodes(t)

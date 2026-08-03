@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -113,7 +114,7 @@ func (btc *BridgeTypesController) Index(c *gin.Context, size, page, offset int) 
 	ctx := c.Request.Context()
 	bridges, count, err := btc.App.BridgeORM().BridgeTypes(ctx, offset, size)
 
-	var resources []presenters.BridgeResource
+	resources := make([]presenters.BridgeResource, 0, len(bridges))
 	for _, bridge := range bridges {
 		resources = append(resources, *presenters.NewBridgeResource(bridge))
 	}

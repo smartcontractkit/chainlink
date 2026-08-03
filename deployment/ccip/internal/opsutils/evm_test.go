@@ -17,7 +17,6 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -112,7 +111,7 @@ func TestAddEVMCallSequenceToCSOutput_SequenceError(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
+	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{}
 	seqErr := errors.New("sequence failed")
 
 	result, err := AddEVMCallSequenceToCSOutput(
@@ -140,7 +139,7 @@ func TestAddEVMCallSequenceToCSOutput_NoMCMS(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
+	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{}
 
 	result, err := AddEVMCallSequenceToCSOutput(
 		*env,
@@ -165,7 +164,7 @@ func TestAddEVMCallSequenceToCSOutput_AllConfirmed(t *testing.T) {
 	require.NoError(t, err)
 
 	csOutput := cldf.ChangesetOutput{}
-	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{}
+	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{}
 	mcmsCfg := &cldfproposalutils.TimelockConfig{}
 
 	result, err := AddEVMCallSequenceToCSOutput(
@@ -241,9 +240,9 @@ func TestAddEVMCallSequenceToCSOutput_ProposalCombination(t *testing.T) {
 	}
 
 	// Create sequence report with unconfirmed calls to generate a new proposal
-	seqReport := operations.SequenceReport[string, map[uint64][]opsevm.EVMCallOutput]{
-		Report: operations.Report[string, map[uint64][]opsevm.EVMCallOutput]{
-			Output: map[uint64][]opsevm.EVMCallOutput{
+	seqReport := operations.SequenceReport[string, map[uint64][]EVMCallOutput]{
+		Report: operations.Report[string, map[uint64][]EVMCallOutput]{
+			Output: map[uint64][]EVMCallOutput{
 				selector2: {
 					{
 						To:           common.HexToAddress("0x3333333333333333333333333333333333333333"),
@@ -439,10 +438,9 @@ func TestNewEVMCallOperation(t *testing.T) {
 
 func TestContractOpts_Validate(t *testing.T) {
 	tests := []struct {
-		desc       string
-		opts       *ContractOpts
-		isZkSyncVM bool
-		err        string
+		desc string
+		opts *ContractOpts
+		err  string
 	}{
 		{
 			desc: "valid evm opts",
@@ -450,15 +448,6 @@ func TestContractOpts_Validate(t *testing.T) {
 				Version:     semver.MustParse("1.0.0"),
 				EVMBytecode: []byte{0x01, 0x02, 0x03},
 			},
-			isZkSyncVM: false,
-		},
-		{
-			desc: "valid zksyncvm opts",
-			opts: &ContractOpts{
-				Version:          semver.MustParse("1.0.0"),
-				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
-			},
-			isZkSyncVM: true,
 		},
 		{
 			desc: "nil version",
@@ -470,22 +459,13 @@ func TestContractOpts_Validate(t *testing.T) {
 			opts: &ContractOpts{
 				Version: semver.MustParse("1.0.0"),
 			},
-			isZkSyncVM: false,
-			err:        "evm bytecode must be defined",
-		},
-		{
-			desc: "missing zkSyncVM bytecode",
-			opts: &ContractOpts{
-				Version: semver.MustParse("1.0.0"),
-			},
-			isZkSyncVM: true,
-			err:        "zkSyncVM bytecode must be defined",
+			err: "evm bytecode must be defined",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			err := test.opts.Validate(test.isZkSyncVM)
+			err := test.opts.Validate()
 			if test.err == "" {
 				require.NoError(t, err)
 			} else {
@@ -574,9 +554,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 			contractType,
 			&bind.MetaData{},
 			&ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      nil,
-				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: nil,
 			},
 			func(string) []any { return nil },
 		)
@@ -606,9 +585,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 		input := EVMDeployInput[string]{
 			ChainSelector: 123,
 			ContractOpts: &ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      nil,
-				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: nil,
 			},
 			DeployInput: "test",
 		}
@@ -633,9 +611,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 		input := EVMDeployInput[string]{
 			ChainSelector: 123,
 			ContractOpts: &ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      []byte{0x01, 0x02, 0x03, 0x04},
-				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: []byte{0x01, 0x02, 0x03, 0x04},
 			},
 			DeployInput: "test",
 		}
@@ -672,9 +649,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 		input := EVMDeployInput[string]{
 			ChainSelector: 5009297550715157269,
 			ContractOpts: &ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      []byte{0x01, 0x02, 0x03, 0x04},
-				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: []byte{0x01, 0x02, 0x03, 0x04},
 			},
 			DeployInput: "test",
 		}
@@ -713,9 +689,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 		input := EVMDeployInput[string]{
 			ChainSelector: 5009297550715157269,
 			ContractOpts: &ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      []byte{0x00},
-				ZkSyncVMBytecode: []byte{0x00},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: []byte{0x00},
 			},
 			DeployInput: "test",
 		}
@@ -751,9 +726,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 		input := EVMDeployInput[string]{
 			ChainSelector: 5009297550715157269,
 			ContractOpts: &ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      []byte{0x00},
-				ZkSyncVMBytecode: []byte{0x00},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: []byte{0x00},
 			},
 			DeployInput: "test",
 		}

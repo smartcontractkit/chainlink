@@ -234,6 +234,10 @@ func (c *capabilitiesWorkflowRegistry) MaxConcurrency() int {
 	return *c.c.MaxConcurrency
 }
 
+func (c *capabilitiesWorkflowRegistry) MaxActivationRetries() int {
+	return *c.c.MaxActivationRetries
+}
+
 func (c *capabilitiesWorkflowRegistry) WorkflowStorage() config.WorkflowStorage {
 	return &workflowStorage{
 		c: c.c.WorkflowStorage,
@@ -386,6 +390,13 @@ type connectorGateway struct {
 
 func (c *connectorGateway) ID() string {
 	return *c.c.ID
+}
+
+func (c *connectorGateway) DonID() string {
+	if c.c.DonID == nil {
+		return ""
+	}
+	return *c.c.DonID
 }
 
 func (c *connectorGateway) URL() string {

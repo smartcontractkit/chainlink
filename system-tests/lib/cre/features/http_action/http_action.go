@@ -7,6 +7,7 @@ import (
 	"text/template"
 
 	"dario.cat/mergo"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -55,7 +56,8 @@ func (o *HTTPAction) PreEnvStartup(
 		return nil, errors.Wrapf(hErr, "failed to add gateway handlers to gateway config for don %s ", don.Name)
 	}
 
-	cErr := don.ConfigureForGatewayAccess(registryChainID, *topology.GatewayConnectors)
+	// Gateway connector injection scoped to this workflow DON's don_family (see topology_don_family.go).
+	cErr := don.ConfigureForGatewayAccess(registryChainID, topology.GatewayConnectorsForDonFamily(don.DonFamily))
 	if cErr != nil {
 		return nil, errors.Wrapf(cErr, "failed to add gateway connectors to node's TOML config in for don %s", don.Name)
 	}
@@ -140,7 +142,7 @@ func (o *HTTPAction) PostEnvStartup(
 
 	workerInput := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
-		Environment: cre.EnvironmentName,
+		Environment: creEnv.CldfEnvironment.Name,
 		DONName:     don.Name,
 		JobName:     "http-action-worker",
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
@@ -152,6 +154,9 @@ func (o *HTTPAction) PostEnvStartup(
 			"command": command,
 			"config":  configStr,
 		},
+	}
+	if creEnv.FreshExternalJobIDs {
+		workerInput.Inputs["externalJobID"] = uuid.NewString()
 	}
 
 	workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)

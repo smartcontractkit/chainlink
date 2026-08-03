@@ -11,39 +11,31 @@ import (
 	"testing"
 
 	"github.com/block-vision/sui-go-sdk/models"
-	"github.com/stretchr/testify/require"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	module_state_object "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/state_object"
 	module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	module_onramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_onramp/onramp"
-	"github.com/smartcontractkit/chainlink-sui/contracts"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
-	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
+	"github.com/smartcontractkit/chainlink-sui/contracts"
 	"github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
@@ -137,8 +129,6 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
-
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -291,8 +281,6 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
-
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -412,8 +400,6 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
-
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -585,6 +571,7 @@ func upgradeSuiOnRamp(ctx context.Context, t *testing.T, e testhelpers.DeployedE
 		"ccip":        state.SuiChains[sourceChain].CCIPAddress,
 		"ccip_onramp": "0x0", // old onRamp address
 		"mcms":        state.SuiChains[sourceChain].MCMSPackageID,
+		"fast_mcms":   state.SuiChains[sourceChain].FastCurseMCMSPackageID,
 		"mcms_owner":  "0x1",
 
 		"latest_ccip_pkg":     state.SuiChains[sourceChain].CCIPMockV2PackageId,
@@ -692,6 +679,7 @@ func upgradeSuiOffRamp(ctx context.Context, t *testing.T, e testhelpers.Deployed
 		"ccip":         state.SuiChains[sourceChain].CCIPAddress,
 		"ccip_offramp": "0x0",
 		"mcms":         state.SuiChains[sourceChain].MCMSPackageID,
+		"fast_mcms":    state.SuiChains[sourceChain].FastCurseMCMSPackageID,
 		"mcms_owner":   "0x1",
 
 		"latest_ccip_pkg":      state.SuiChains[sourceChain].CCIPMockV2PackageId,
@@ -797,6 +785,7 @@ func upgradeCCIP(ctx context.Context, t *testing.T, e testhelpers.DeployedEnv, s
 	compiledPackage, err := suiBind.CompilePackage(version, map[string]string{
 		"ccip":       "0x0",
 		"mcms":       state.SuiChains[sourceChain].MCMSPackageID,
+		"fast_mcms":  state.SuiChains[sourceChain].FastCurseMCMSPackageID,
 		"mcms_owner": signerAddr,
 
 		"original_ccip_pkg": state.SuiChains[sourceChain].CCIPAddress,

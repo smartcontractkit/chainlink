@@ -1,0 +1,20 @@
+exec chainlink keys stellar --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink keys stellar - Remote commands for administering the node's Stellar keys
+
+USAGE:
+   chainlink keys stellar command [command options] [arguments...]
+
+COMMANDS:
+   create  Create a Stellar key
+   import  Import Stellar key from keyfile
+   export  Export Stellar key to keyfile
+   delete  Delete Stellar key if present
+   list    List the Stellar keys
+
+OPTIONS:
+   --help, -h  show help
+   

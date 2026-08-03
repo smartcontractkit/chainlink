@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/devenv
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/Masterminds/semver/v3 v3.5.0
@@ -22,7 +22,7 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.100
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260623165559-d1f5898d7ae6
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260722120418-c1a1e0e75034
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260519095745-ddfc812d06a0
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251211123524-f0c4fe7cfc0a
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.12.0
@@ -36,13 +36,8 @@ require (
 	github.com/umbracle/ethgo v0.1.3
 	go.uber.org/zap v1.27.1
 	golang.org/x/sync v0.20.0
-	google.golang.org/grpc v1.81.0
+	google.golang.org/grpc v1.82.1
 	gopkg.in/guregu/null.v4 v4.0.0
-)
-
-require (
-	github.com/go-errors/errors v1.5.1 // indirect
-	github.com/jackc/pgx/v4 v4.18.3 // indirect
 )
 
 require (
@@ -144,6 +139,7 @@ require (
 	github.com/getsentry/sentry-go v0.27.0 // indirect
 	github.com/gin-contrib/sse v1.1.1 // indirect
 	github.com/gin-gonic/gin v1.12.0 // indirect
+	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20250223041408-d3c622f1b874 // indirect
 	github.com/go-kit/log v0.2.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.1 // indirect
@@ -324,12 +320,12 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v4 v4.26.4 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
-	github.com/smartcontractkit/chainlink-common/keystore v1.1.1-0.20260602101458-208ae6ddea43 // indirect
-	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260528204832-58c7145c53f8 // indirect
+	github.com/smartcontractkit/chainlink-common/keystore v1.0.2 // indirect
+	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260716165322-7f2edff6e954 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260423135514-5b1a7565a99c // indirect
-	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260521164805-26d78d5e1243 // indirect
-	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260521164805-26d78d5e1243 // indirect
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260604171908-6734db2d444f // indirect
+	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260508154216-3ed6f623098f // indirect
+	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260505202410-b350dca113b4 // indirect
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260622152157-c8e129347b8b // indirect
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20251002192024-d2ad9222409b // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
@@ -424,8 +420,8 @@ require (
 	golang.org/x/time v0.15.0 // indirect
 	golang.org/x/tools v0.45.0 // indirect
 	google.golang.org/api v0.272.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260414002931-afd174a4e478 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
@@ -458,3 +454,5 @@ replace github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.3.1-
 // We can remove it when we re-generate this part in chainlink-evm
 // ../../../../../go/pkg/mod/github.com/smartcontractkit/chainlink-evm@v0.3.4-0.20260504070828-3216bb63d886/pkg/types/blocks/internal_types_codecgen.go:842:20: undefined: codec1978.GenHelper
 replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
+
+tool github.com/smartcontractkit/chainlink-testing-framework/framework/cmd

@@ -4,8 +4,8 @@ import (
 	"crypto/rand"
 	"fmt"
 	"testing"
+	"time"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -17,10 +17,37 @@ import (
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+func TestClientRequest_Expired_aggregationGrace(t *testing.T) {
+	t.Parallel()
+
+	requestTimeout := 100 * time.Millisecond
+	t.Run("not expired before requestTimeout plus grace", func(t *testing.T) {
+		t.Parallel()
+		c := &ClientRequest{
+			createdAt:      time.Now().Add(-requestTimeout - time.Millisecond), // less than defaultResponseAggregationGrace
+			requestTimeout: requestTimeout,
+		}
+		require.False(t, c.Expired())
+	})
+
+	t.Run("expired after requestTimeout plus grace", func(t *testing.T) {
+		t.Parallel()
+		c := &ClientRequest{
+			createdAt:      time.Now().Add(-requestTimeout - defaultResponseAggregationGrace - time.Millisecond),
+			requestTimeout: requestTimeout,
+		}
+		require.True(t, c.Expired())
+	})
+}
+
 func Test_ClientRequest_VerifyAttestation(t *testing.T) {
+	t.Parallel()
+
 	const workflowExecutionID = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
 	const referenceID = "step1"
 	spendUnit, spendValue := "testunit", "42"
@@ -76,6 +103,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	}
 
 	t.Run("not enough signers returns error", func(t *testing.T) {
+		t.Parallel()
 		cBad := &ClientRequest{
 			workflowExecutionID:           workflowExecutionID,
 			referenceID:                   referenceID,
@@ -88,6 +116,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("not enough signatures returns error", func(t *testing.T) {
+		t.Parallel()
 		respFewSigs := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
 				Metering: []commoncap.MeteringNodeDetail{{SpendUnit: spendUnit, SpendValue: spendValue}},
@@ -105,6 +134,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("invalid signer index returns error", func(t *testing.T) {
+		t.Parallel()
 		respBadSigner := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
 				Metering: []commoncap.MeteringNodeDetail{{SpendUnit: spendUnit, SpendValue: spendValue}},
@@ -125,6 +155,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("duplicate signature returns error", func(t *testing.T) {
+		t.Parallel()
 		respDupSig := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
 				Metering: []commoncap.MeteringNodeDetail{{SpendUnit: spendUnit, SpendValue: spendValue}},
@@ -145,6 +176,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("invalid signature returns error", func(t *testing.T) {
+		t.Parallel()
 		badSig := make([]byte, 65)
 		_, err := rand.Read(badSig)
 		require.NoError(t, err)
@@ -168,6 +200,7 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("wrong payload bytes produces invalid signature", func(t *testing.T) {
+		t.Parallel()
 		wrongBytes := []byte("tampered")
 		respWrongPayload := commoncap.CapabilityResponse{
 			Metadata: commoncap.ResponseMetadata{
@@ -189,8 +222,90 @@ func Test_ClientRequest_VerifyAttestation(t *testing.T) {
 	})
 
 	t.Run("valid attestation succeeds", func(t *testing.T) {
+		t.Parallel()
 		err := c.verifyAttestation(validResp)
 		require.NoError(t, err)
+	})
+}
+
+func Test_ClientRequest_hasValidAttestation_minResponsesToAggregateAboveFPlus1(t *testing.T) {
+	t.Parallel()
+
+	const workflowExecutionID = "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
+	const referenceID = "step1"
+
+	val, err := values.NewMap(map[string]any{"response": "attested"})
+	require.NoError(t, err)
+	valueProto := values.ProtoMap(val)
+	valueBytes, err := proto.Marshal(valueProto)
+	require.NoError(t, err)
+
+	configDigest := ocrtypes.ConfigDigest{1, 2, 3, 4, 5}
+	seqNr := uint64(100)
+
+	kb1, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+	kb2, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+
+	resp := commoncap.CapabilityResponse{
+		Metadata: commoncap.ResponseMetadata{
+			Metering: []commoncap.MeteringNodeDetail{
+				{SpendUnit: "testunit", SpendValue: "42"},
+			},
+		},
+		Payload: &anypb.Any{TypeUrl: "type.googleapis.com/values.v1.Map", Value: valueBytes},
+	}
+
+	reportData, err := commoncap.ResponseToReportData(workflowExecutionID, referenceID, valueBytes, resp.Metadata)
+	require.NoError(t, err)
+
+	sig1, err := kb1.Sign3(configDigest, seqNr, reportData[:])
+	require.NoError(t, err)
+	sig2, err := kb2.Sign3(configDigest, seqNr, reportData[:])
+	require.NoError(t, err)
+
+	// report_attestation.go only ever produces F+1 signatures (it stops collecting as
+	// soon as it clears the Byzantine fault threshold), so with remoteDonF=1 this
+	// attestation carries exactly F+1=2 signatures - the most it could ever have.
+	resp.OCRAttestation = &commoncap.OCRAttestation{
+		ConfigDigest:   configDigest,
+		SequenceNumber: seqNr,
+		Sigs: []commoncap.AttributedSignature{
+			{Signer: 0, Signature: sig1},
+			{Signer: 1, Signature: sig2},
+		},
+	}
+
+	signers := [][]byte{kb1.PublicKey(), kb2.PublicKey()}
+
+	t.Run("requiredResponseConfirmations at F+1 uses attestation", func(t *testing.T) {
+		t.Parallel()
+		c := &ClientRequest{
+			lggr:                          logger.Test(t),
+			signers:                       signers,
+			workflowExecutionID:           workflowExecutionID,
+			referenceID:                   referenceID,
+			remoteDonF:                    1,
+			requiredResponseConfirmations: 2, // F+1
+		}
+		require.True(t, c.hasValidAttestation(resp))
+	})
+
+	t.Run("requiredResponseConfirmations above F+1 falls back to identical responses instead of erroring", func(t *testing.T) {
+		t.Parallel()
+		c := &ClientRequest{
+			lggr:                          logger.Test(t),
+			signers:                       signers,
+			workflowExecutionID:           workflowExecutionID,
+			referenceID:                   referenceID,
+			remoteDonF:                    1,
+			requiredResponseConfirmations: 3, // minResponsesToAggregate configured above F+1
+		}
+		// The attestation is otherwise perfectly valid, but since it can never carry
+		// more than F+1 signatures, hasValidAttestation must decline to use it (rather
+		// than calling verifyAttestation and logging a spurious "likely a bug" error).
+		require.False(t, c.hasValidAttestation(resp))
 	})
 }
 
@@ -198,7 +313,7 @@ func newReqForQuorumTest(t *testing.T, remoteNodeCount, required, responsesRecei
 	t.Helper()
 
 	responseReceived := make(map[p2ptypes.PeerID]bool, responsesReceived)
-	for i := 0; i < responsesReceived; i++ {
+	for i := range responsesReceived {
 		var peer p2ptypes.PeerID
 		peer[0] = byte(i)
 		responseReceived[peer] = true
@@ -220,7 +335,7 @@ func TestClientRequest_quorumStillPossible(t *testing.T) {
 	t.Run("7 DON 6 unique 1 pending unreachable", func(t *testing.T) {
 		t.Parallel()
 		counts := make(map[[32]byte]int)
-		for i := 0; i < 6; i++ {
+		for i := range 6 {
 			counts[[32]byte{byte(i)}] = 1
 		}
 		c := newReqForQuorumTest(t, 7, 3, 6, counts)
@@ -231,7 +346,7 @@ func TestClientRequest_quorumStillPossible(t *testing.T) {
 	t.Run("7 DON 5 unique 2 pending still possible", func(t *testing.T) {
 		t.Parallel()
 		counts := make(map[[32]byte]int)
-		for i := 0; i < 5; i++ {
+		for i := range 5 {
 			counts[[32]byte{byte(i)}] = 1
 		}
 		c := newReqForQuorumTest(t, 7, 3, 5, counts)
@@ -242,7 +357,7 @@ func TestClientRequest_quorumStillPossible(t *testing.T) {
 	t.Run("7 DON 7 unique all received unreachable", func(t *testing.T) {
 		t.Parallel()
 		counts := make(map[[32]byte]int)
-		for i := 0; i < 7; i++ {
+		for i := range 7 {
 			counts[[32]byte{byte(i)}] = 1
 		}
 		c := newReqForQuorumTest(t, 7, 3, 7, counts)
@@ -270,7 +385,7 @@ func TestClientRequest_trySendQuorumUnreachableError(t *testing.T) {
 	t.Parallel()
 
 	counts := make(map[[32]byte]int)
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		counts[[32]byte{byte(i)}] = 1
 	}
 

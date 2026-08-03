@@ -61,7 +61,7 @@ func TestNewFetcherService(t *testing.T) {
 		donID = "don-id"
 	)
 
-	t.Run("OK-valid_request", func(t *testing.T) {
+	t.Run("OK-valid_request", func(t *testing.T) { //nolint:paralleltest // shares connector mock
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
@@ -91,7 +91,7 @@ func TestNewFetcherService(t *testing.T) {
 		require.Equal(t, expectedPayload, payload)
 	})
 
-	t.Run("fails with invalid payload response", func(t *testing.T) {
+	t.Run("fails with invalid payload response", func(t *testing.T) { //nolint:paralleltest // shares connector mock
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
@@ -118,7 +118,7 @@ func TestNewFetcherService(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("fails due to invalid gateway response", func(t *testing.T) {
+	t.Run("fails due to invalid gateway response", func(t *testing.T) { //nolint:paralleltest // shares connector mock
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
@@ -156,30 +156,21 @@ func TestNewFetcherService(t *testing.T) {
 		require.ErrorContains(t, err, "context deadline exceeded")
 	})
 
-	t.Run("NOK-response_payload_too_large", func(t *testing.T) {
-		headers := map[string]string{"Content-Type": "application/json"}
+	t.Run("NOK-response_payload_too_large", func(t *testing.T) { //nolint:paralleltest // shares connector mock
 		responsePayload, err := json.Marshal(ghcapabilities.Response{
-			StatusCode:   400,
-			Headers:      headers,
-			ErrorMessage: "http: request body too large",
+			ErrorMessage:   "http: request body too large",
+			ExecutionError: true,
 		})
 		require.NoError(t, err)
 		gatewayMsg := &api.Message{
 			Body: api.MessageBody{
 				MessageId: msgID,
+				DonId:     donID,
 				Method:    ghcapabilities.MethodWebAPITarget,
 				Payload:   responsePayload,
 			},
 		}
-		payload, err := json.Marshal(gatewayMsg)
-		require.NoError(t, err)
-		rawPayload := json.RawMessage(payload)
-		gatewayResp := &jsonrpc.Request[json.RawMessage]{
-			Version: "2.0",
-			ID:      gatewayMsg.Body.MessageId,
-			Method:  gatewayMsg.Body.Method,
-			Params:  &rawPayload,
-		}
+		gatewayResp := signGatewayResponse(t, gatewayMsg)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		fetcher := NewFetcherService(lggr, wrapper, gateway.WithFixedStart())
 		require.NoError(t, fetcher.Start(ctx))
@@ -201,10 +192,10 @@ func TestNewFetcherService(t *testing.T) {
 			WorkflowID:       "foo",
 		}
 		_, err = fetcher.Fetch(ctx, msgID, req)
-		require.Error(t, err, "execution error from gateway: http: request body too large")
+		require.ErrorContains(t, err, "execution error from gateway: http: request body too large")
 	})
 
-	t.Run("NOK-bad_request", func(t *testing.T) {
+	t.Run("NOK-bad_request", func(t *testing.T) { //nolint:paralleltest // shares connector mock
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 
@@ -235,7 +226,7 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	// Connector handler never makes a connection to a gateway and the context expires.
-	t.Run("NOK-request_context_deadline_exceeded", func(t *testing.T) {
+	t.Run("NOK-request_context_deadline_exceeded", func(t *testing.T) { //nolint:paralleltest // shares connector mock
 		connector := gcmocks.NewGatewayConnector(t)
 		wrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
@@ -263,7 +254,7 @@ func TestNewFetcherService(t *testing.T) {
 	})
 
 	// Connector handler cycles to next available gateway after first connection fails.
-	t.Run("OK-connector_handler_awaits_working_gateway", func(t *testing.T) {
+	t.Run("OK-connector_handler_awaits_working_gateway", func(t *testing.T) { //nolint:paralleltest // shares connector mock
 		connector := gcmocks.NewGatewayConnector(t)
 		wrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
@@ -299,11 +290,13 @@ func TestNewFetcherService(t *testing.T) {
 }
 
 func TestNewFetcherFunc(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
 	testContent := []byte("test content")
 
 	t.Run("error cases", func(t *testing.T) {
+		t.Parallel()
 		tests := []struct {
 			name    string
 			baseURL string
@@ -333,6 +326,7 @@ func TestNewFetcherFunc(t *testing.T) {
 
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
+				t.Parallel()
 				_, err := NewFetcherFunc(tc.baseURL, lggr)
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.errMsg)
@@ -341,6 +335,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("file fetcher", func(t *testing.T) {
+		t.Parallel()
 		// Create temp dir for test files
 		tempDir := t.TempDir()
 		testFilePath := filepath.Join(tempDir, "test.txt")
@@ -391,6 +386,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("file fetcher resolves HTTP URL to basename", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		err := os.WriteFile(filepath.Join(tempDir, "binary.wasm"), testContent, 0600)
 		require.NoError(t, err)
@@ -412,6 +408,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("file fetcher rejects HTTP URL with empty path", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		fetcher, err := NewFetcherFunc("file://"+tempDir, lggr)
 		require.NoError(t, err)
@@ -424,6 +421,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("http fetcher", func(t *testing.T) {
+		t.Parallel()
 		// Create test HTTP server
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/workflows/test.json" {
@@ -457,6 +455,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("context cancellation", func(t *testing.T) {
+		t.Parallel()
 		tempDir := t.TempDir()
 		baseURL := "file://" + tempDir
 
@@ -476,6 +475,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	})
 
 	t.Run("timeout handling", func(t *testing.T) {
+		t.Parallel()
 		// Create a slow HTTP server
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(200 * time.Millisecond) // Delay response
@@ -504,6 +504,8 @@ func TestNewFetcherFunc(t *testing.T) {
 
 // gatewayResponse creates an unsigned gateway response with a response body.
 func gatewayResponse(t *testing.T, msgID string, donID string, statusCode int) *api.Message {
+	t.Helper()
+
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
@@ -525,6 +527,8 @@ func gatewayResponse(t *testing.T, msgID string, donID string, statusCode int) *
 // inconsistentPayload creates an unsigned gateway response with an inconsistent payload.  The
 // ExecutionError is true, but there is no ErrorMessage, so it is invalid.
 func inconsistentPayload(t *testing.T, msgID string, donID string) *api.Message {
+	t.Helper()
+
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
 		ExecutionError: true,
 	})
@@ -542,6 +546,8 @@ func inconsistentPayload(t *testing.T, msgID string, donID string) *api.Message 
 // signGatewayResponse signs the gateway response with a private key and arbitrarily sets the receiver
 // to the signer's address.  A signature and receiver are required for a valid gateway response.
 func signGatewayResponse(t *testing.T, msg *api.Message) *jsonrpc.Request[json.RawMessage] {
+	t.Helper()
+
 	nodeKeys := common.NewTestNodes(t, 1)
 	s := &signer{pk: nodeKeys[0].PrivateKey}
 	msgToSign := api.GetRawMessageBody(&msg.Body)

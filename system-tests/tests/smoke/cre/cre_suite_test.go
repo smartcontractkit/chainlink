@@ -7,10 +7,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 //////////// SMOKE TESTS /////////////
@@ -96,6 +99,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			} else if isVaultOptimizationsEnabledTopology(topology) {
 				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
+			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
+				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
+				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
 			}
 			fixture := setupVaultSharedScenarioFixture(t, vaultConfig)
 
@@ -152,6 +158,17 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			}
 			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 			ExecuteHTTPActionCRUDSuccessTest(t, testEnv)
+		})
+	case suite_config.SuiteScenarioHTTPActionMultiGateway:
+		t.Run("HTTP Action Multi Gateway - "+topology, func(t *testing.T) {
+			if !isMultiGatewayTopology(topology) {
+				t.Skipf("skipping multi-gateway HTTP action test on topology %q", topology)
+			}
+			if parallelEnabled {
+				t.Parallel()
+			}
+			testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, getMultiGatewayTestConfig(t))
+			ExecuteHTTPActionMultiGatewayRoutingTest(t, testEnv)
 		})
 	case suite_config.SuiteScenarioDONTime:
 		t.Run("DON Time - "+topology, func(t *testing.T) {
@@ -219,13 +236,19 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 
 const solanaConfigPath = "/configs/workflow-don-solana.toml"
 
-func Test_CRE_V2_Solana_Suite(t *testing.T) {
+func Test_CRE_V2_Solana_Write(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
 	})
-	t.Run("[v2] Solana LogTrigger", func(t *testing.T) {
+}
+
+func Test_CRE_V2_Solana_LogTrigger(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
+	t.Run("Solana LogTrigger", func(t *testing.T) {
 		ExecuteSolanaLogTriggerTest(t, testEnv)
+	})
+	t.Run("Solana LogTrigger CPI", func(t *testing.T) {
 		ExecuteSolanaLogTriggerCPITest(t, testEnv)
 	})
 }
@@ -261,6 +284,29 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // isolate local cre env run
+func Test_CRE_V2_Stellar_Suite(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
+
+	t.Run("Stellar GetLatestLedger", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarReadLatestLedgerTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
+
+	t.Run("Stellar ReadContract", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarReadContractSmokeTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
+
+	t.Run("StellarWrite", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarWriteTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
+}
+
 func Test_CRE_V2_Module_Cache(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-cache-test.toml"))
 
@@ -284,11 +330,18 @@ func Test_CRE_V2_DurableEmitter(t *testing.T) {
 	ExecuteDurableEmitterTest(t, testEnv)
 }
 
+//nolint:paralleltest // subtests share the same sharding config
 func Test_CRE_V2_Sharding(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
 	)
-
-	ExecuteShardingTest(t, testEnv)
+	t.Run("ExecuteShardingTestWithCronTrigger", func(t *testing.T) {
+		ExecuteShardingTestWithCronTrigger(t, testEnv)
+	})
+	t.Run("ExecuteShardingTestWithEVMLogTrigger", func(t *testing.T) {
+		// Reinitialize OperationsBundle so that it can reexecute shard config updates instead of caching them.
+		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle = operations.NewBundle(t.Context, logger.TestLogger(t), operations.NewMemoryReporter())
+		ExecuteShardingTestWithEVMLogTrigger(t, testEnv)
+	})
 }

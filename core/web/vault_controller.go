@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
 
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"

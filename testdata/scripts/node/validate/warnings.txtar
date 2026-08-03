@@ -348,6 +348,7 @@ MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 SyncStrategy = 'event'
 MaxConcurrency = 12
+MaxActivationRetries = 100
 AdditionalSources = []
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
@@ -384,7 +385,18 @@ AuthHeadersTTL = '0s'
 ChipIngressEndpoint = ''
 ChipIngressInsecureConnection = false
 ChipIngressBatchEmitterEnabled = true
-DurableEmitterEnabled = false
+ChipIngressBufferSize = 10000
+ChipIngressMaxBatchSize = 1000
+ChipIngressMaxConcurrentSends = 10
+ChipIngressSendInterval = '500ms'
+ChipIngressSendTimeout = '10s'
+ChipIngressDrainTimeout = '30s'
+ChipIngressMaxGRPCRequestSize = 10485760
+DurableEmitterEnabled = true
+DurableEmitterRetransmitBatchSize = 500
+DurableEmitterEventTTL = '1h0m0s'
+DurableEmitterMaxQueuePayloadBytes = 1073741824
+DurableEmitterInsertBatchFlushInterval = '50ms'
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false
@@ -393,6 +405,8 @@ LogExportTimeout = '1s'
 LogExportMaxBatchSize = 512
 LogExportInterval = '1s'
 LogMaxQueueSize = 2048
+MetricViewsDenyAttributes = ['event_id']
+MetricCardinalityLimit = 100000
 
 [Telemetry.PrometheusBridge]
 Enabled = false
@@ -418,9 +432,12 @@ URL = ''
 [CRE.Linking]
 URL = ''
 TLSEnabled = true
+RequestTimeout = '2s'
 
 [CRE.ConfidentialRelay]
 Enabled = false
+TrustEnclaves = false
+RequireBFTQuorum = false
 
 [Billing]
 URL = 'localhost:4319'

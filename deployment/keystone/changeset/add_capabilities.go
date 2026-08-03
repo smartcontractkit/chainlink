@@ -191,14 +191,14 @@ func ValidateWriteTargetName(name string) error {
 
 	var chainFamilyName, networkNameOrChainID string
 	// Try to split on the first '-' (chainFamilyName is optional)
-	dashIdx := strings.Index(core, "-")
-	if dashIdx == -1 {
+	before, after, ok := strings.Cut(core, "-")
+	if !ok {
 		// No chain family, so core is just networkNameOrChainID
 		chainFamilyName = ""
 		networkNameOrChainID = core
 	} else {
-		chainFamilyName = core[:dashIdx]
-		networkNameOrChainID = core[dashIdx+1:]
+		chainFamilyName = before
+		networkNameOrChainID = after
 	}
 
 	// chainFamilyName is optional, but if provided, it must match the regex

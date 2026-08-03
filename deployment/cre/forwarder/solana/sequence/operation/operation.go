@@ -1,6 +1,7 @@
 package operation
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -49,6 +50,12 @@ var (
 		"Configure forwarder for Solana Chain",
 		configureForwarder,
 	)
+	ClearForwarderConfigOp = operations.NewOperation(
+		"clear-forwarder-config-op",
+		Version1_0_0,
+		"Closes a DON oracles config of the forwarder for Solana Chain",
+		clearForwarderConfig,
+	)
 )
 
 type (
@@ -78,20 +85,36 @@ type (
 		Proposals []mcms.TimelockProposal // will be returned in case if timelock config is passed
 	}
 
-	ConfigureForwarderInput struct {
+	// ForwarderConfigTarget identifies the oracles config account an instruction operates on and
+	// how that instruction has to be submitted. It is shared by every operation that touches the
+	// oracles config of a forwarder.
+	ForwarderConfigTarget struct {
 		MCMS           *cldfproposalutils.TimelockConfig // if set, assumes current owner is the timelock
-		ConfigPDA      string
 		ProgramID      solana.PublicKey
 		ForwarderState solana.PublicKey
-		Owner          string
-		Signers        [][20]uint8
+		ConfigPDA      solana.PublicKey
+		Owner          solana.PublicKey
 		DonID          uint32
 		ConfigVersion  uint32
-		F              uint8
 		Type           cldf.ContractType
 	}
 
+	ConfigureForwarderInput struct {
+		ForwarderConfigTarget
+
+		Signers [][20]uint8
+		F       uint8
+	}
+
 	ConfigureForwarderOutput struct {
+		Batch mcmsTypes.BatchOperation
+	}
+
+	ClearForwarderConfigInput struct {
+		ForwarderConfigTarget
+	}
+
+	ClearForwarderConfigOutput struct {
 		Batch mcmsTypes.BatchOperation
 	}
 )
@@ -179,72 +202,118 @@ func setUpgradeAuthority(b operations.Bundle, deps Deps, in SetUpgradeAuthorityI
 func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInput) (ConfigureForwarderOutput, error) {
 	var out ConfigureForwarderOutput
 
-	var instructions solana.Instruction
+	// anchor-go bakes a default program id, which can differ from the deployed one.
 	ks_forwarder.ProgramID = in.ProgramID
 
-	configPDA := solana.MustPublicKeyFromBase58(in.ConfigPDA)
-
-	var oracleExists bool
-
-	_, err := deps.Chain.Client.GetAccountInfo(b.GetContext(), configPDA)
+	oracleExists, err := oraclesConfigExists(b.GetContext(), deps, in.ConfigPDA)
 	if err != nil {
-		if !errors.Is(err, rpc.ErrNotFound) {
-			return out, fmt.Errorf("can't confirm oracle existence: %w", err)
-		}
-		oracleExists = false
-	} else {
-		oracleExists = true
-	}
-
-	owner := solana.MustPublicKeyFromBase58(in.Owner)
-
-	if !oracleExists {
-		instructions, err = ks_forwarder.NewInitOraclesConfigInstruction(
-			in.DonID,
-			in.ConfigVersion,
-			in.F,
-			in.Signers,
-			in.ForwarderState,
-			configPDA,
-			owner,
-			solana.SystemProgramID,
-		)
-		if err != nil {
-			return out, fmt.Errorf("cant build init oracle instruction: %w", err)
-		}
-	} else {
-		instructions, err = ks_forwarder.NewUpdateOraclesConfigInstruction(
-			in.DonID,
-			in.ConfigVersion,
-			in.F,
-			in.Signers,
-			in.ForwarderState,
-			configPDA,
-			owner,
-		)
-		if err != nil {
-			return out, fmt.Errorf("cant build init oracle instruction: %w", err)
-		}
-	}
-
-	if in.MCMS == nil {
-		err := deps.Chain.Confirm([]solana.Instruction{instructions})
 		return out, err
 	}
 
-	tx, err := helpers.BuildMCMSTxn(
-		instructions,
-		in.ProgramID.String(),
-		in.Type)
-	if err != nil {
-		return out, fmt.Errorf("failed to create transaction: %w", err)
+	var instruction solana.Instruction
+	if oracleExists {
+		instruction, err = ks_forwarder.NewUpdateOraclesConfigInstruction(
+			in.DonID,
+			in.ConfigVersion,
+			in.F,
+			in.Signers,
+			in.ForwarderState,
+			in.ConfigPDA,
+			in.Owner,
+		)
+		if err != nil {
+			return out, fmt.Errorf("cant build update oracles config instruction: %w", err)
+		}
+	} else {
+		instruction, err = ks_forwarder.NewInitOraclesConfigInstruction(
+			in.DonID,
+			in.ConfigVersion,
+			in.F,
+			in.Signers,
+			in.ForwarderState,
+			in.ConfigPDA,
+			in.Owner,
+			solana.SystemProgramID,
+		)
+		if err != nil {
+			return out, fmt.Errorf("cant build init oracles config instruction: %w", err)
+		}
 	}
 
-	b.Logger.Infof("build mcmstxn contract type: %q program_id: %q", in.Type.String(), in.ProgramID.String())
-	out.Batch = mcmsTypes.BatchOperation{
+	out.Batch, err = submitOrPropose(b, deps, in.ForwarderConfigTarget, instruction)
+
+	return out, err
+}
+
+// clearForwarderConfig closes the oracles config account of a single DON. The rent is refunded to
+// the owner, which makes the config version reusable by a later configure.
+func clearForwarderConfig(b operations.Bundle, deps Deps, in ClearForwarderConfigInput) (ClearForwarderConfigOutput, error) {
+	var out ClearForwarderConfigOutput
+
+	// anchor-go bakes a default program id, which can differ from the deployed one.
+	ks_forwarder.ProgramID = in.ProgramID
+
+	oracleExists, err := oraclesConfigExists(b.GetContext(), deps, in.ConfigPDA)
+	if err != nil {
+		return out, err
+	}
+	if !oracleExists {
+		return out, fmt.Errorf("no oracles config %s found for don %d config version %d", in.ConfigPDA, in.DonID, in.ConfigVersion)
+	}
+
+	instruction, err := ks_forwarder.NewCloseOraclesConfigInstruction(
+		in.DonID,
+		in.ConfigVersion,
+		in.ForwarderState,
+		in.ConfigPDA,
+		in.Owner,
+	)
+	if err != nil {
+		return out, fmt.Errorf("cant build close oracles config instruction: %w", err)
+	}
+
+	out.Batch, err = submitOrPropose(b, deps, in.ForwarderConfigTarget, instruction)
+
+	return out, err
+}
+
+// oraclesConfigExists reports whether the oracles config account was already initialized. It reads
+// at the commitment level the chain confirms transactions with, so a config written earlier in the
+// same run is visible.
+func oraclesConfigExists(ctx context.Context, deps Deps, configPDA solana.PublicKey) (bool, error) {
+	_, err := deps.Chain.Client.GetAccountInfoWithOpts(ctx, configPDA, &rpc.GetAccountInfoOpts{
+		Commitment: cldfsol.SolDefaultCommitment,
+	})
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, rpc.ErrNotFound) {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("can't confirm oracles config %s existence: %w", configPDA, err)
+}
+
+// submitOrPropose sends the instruction with the deployer key, or, when the forwarder is owned by
+// the timelock, returns it as an MCMS batch operation for the caller to propose.
+func submitOrPropose(b operations.Bundle, deps Deps, target ForwarderConfigTarget, instruction solana.Instruction) (mcmsTypes.BatchOperation, error) {
+	if target.MCMS == nil {
+		if err := deps.Chain.Confirm([]solana.Instruction{instruction}); err != nil {
+			return mcmsTypes.BatchOperation{}, fmt.Errorf("failed to confirm instruction: %w", err)
+		}
+
+		return mcmsTypes.BatchOperation{}, nil
+	}
+
+	tx, err := helpers.BuildMCMSTxn(instruction, target.ProgramID.String(), target.Type)
+	if err != nil {
+		return mcmsTypes.BatchOperation{}, fmt.Errorf("failed to create transaction: %w", err)
+	}
+
+	b.Logger.Infof("build mcmstxn contract type: %q program_id: %q", target.Type.String(), target.ProgramID.String())
+
+	return mcmsTypes.BatchOperation{
 		ChainSelector: mcmsTypes.ChainSelector(deps.Chain.ChainSelector()),
 		Transactions:  []mcmsTypes.Transaction{*tx},
-	}
-
-	return out, nil
+	}, nil
 }

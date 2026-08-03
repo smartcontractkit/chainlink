@@ -136,12 +136,12 @@ func validTestClaims(tb testing.TB, issuer, audience string) jwt.MapClaims {
 		"org_id":                          "org_test123",
 		ClaimVaultSecretManagementEnabled: "true",
 		ClaimChainlinkTenantID:            "1",
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": "abc123def456",
 			},
-			map[string]interface{}{
+			map[string]any{
 				"type":  "workflow_owner",
 				"value": testJWTExpectedWorkflowOwner(tb, 1, "org_test123"),
 			},
@@ -199,8 +199,8 @@ func TestJWTBasedAuth_ValidTokenWithoutWorkflowOwner(t *testing.T) {
 		"org_id":                          "org_no_wfowner",
 		ClaimVaultSecretManagementEnabled: "true",
 		ClaimChainlinkTenantID:            "1",
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": "digest456",
 			},
@@ -215,6 +215,98 @@ func TestJWTBasedAuth_ValidTokenWithoutWorkflowOwner(t *testing.T) {
 	require.Empty(t, result.WorkflowOwner)
 	require.Equal(t, uint64(1), result.TenantID)
 	require.Equal(t, "digest456", result.RequestDigest)
+}
+
+func TestJWTBasedAuth_AuthResultExpiryIncludesValidationLeeway(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://vault.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	derivedOrg123Owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner)
+	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
+	require.NoError(t, err)
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+
+	tokenExp := time.Now().Add(2 * time.Minute).Truncate(time.Second)
+	token := createTestJWT(t, rsaKey, jwt.MapClaims{
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(tokenExp),
+		"iat":                             jwt.NewNumericDate(time.Now()),
+		"org_id":                          "org-123",
+		ClaimVaultSecretManagementEnabled: "true",
+		ClaimChainlinkTenantID:            "1",
+		"scope":                           OAuthScopeVaultSecretsList,
+		"authorization_details": []any{
+			map[string]any{
+				"type":  "request_digest",
+				"value": digest,
+			},
+		},
+	})
+
+	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
+	require.NoError(t, err)
+
+	authResult, err := v.AuthorizeRequest(t.Context(), req)
+	require.NoError(t, err)
+	require.Equal(t, tokenExp.UTC().Add(time.Minute).Unix(), authResult.ExpiresAt())
+}
+
+func TestAuthorizer_RejectsJWTReplayDuringValidationLeewayWindow(t *testing.T) {
+	rsaKey := generateTestRSAKey(t, "key-1")
+	jwksServer := newTestJWKSServer(t, rsaKey)
+
+	issuer := jwksServer.URL() + "/"
+	audience := "https://vault.test.chain.link"
+	v := newTestValidator(t, issuer, audience)
+
+	derivedOrg123Owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner)
+	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
+	require.NoError(t, err)
+
+	digest, err := req.Digest()
+	require.NoError(t, err)
+
+	// Raw exp is in the past but still within the JWT validation leeway window.
+	tokenExp := time.Now().Add(-30 * time.Second)
+	token := createTestJWT(t, rsaKey, jwt.MapClaims{
+		"iss":                             issuer,
+		"aud":                             audience,
+		"exp":                             jwt.NewNumericDate(tokenExp),
+		"iat":                             jwt.NewNumericDate(time.Now().Add(-2 * time.Minute)),
+		"org_id":                          "org-123",
+		ClaimVaultSecretManagementEnabled: "true",
+		ClaimChainlinkTenantID:            "1",
+		"scope":                           OAuthScopeVaultSecretsList,
+		"authorization_details": []any{
+			map[string]any{
+				"type":  "request_digest",
+				"value": digest,
+			},
+		},
+	})
+
+	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
+	require.NoError(t, err)
+
+	a := NewAuthorizer(nil, v, logger.TestLogger(t))
+
+	authResult, err := a.AuthorizeRequest(t.Context(), req)
+	require.NoError(t, err)
+	require.Equal(t, digest, authResult.Digest())
+	require.Equal(t, tokenExp.UTC().Add(time.Minute).Unix(), authResult.ExpiresAt())
+
+	authResult, err = a.AuthorizeRequest(t.Context(), req)
+	require.Nil(t, authResult)
+	require.ErrorIs(t, err, ErrRequestAlreadySeen)
 }
 
 func TestJWTBasedAuth_ExpiredToken(t *testing.T) {
@@ -327,8 +419,8 @@ func TestJWTBasedAuth_MissingRequestDigest(t *testing.T) {
 	v := newTestValidator(t, issuer, audience)
 
 	claims := validTestClaims(t, issuer, audience)
-	claims["authorization_details"] = []interface{}{
-		map[string]interface{}{
+	claims["authorization_details"] = []any{
+		map[string]any{
 			"type":  "workflow_owner",
 			"value": "0xAbCd",
 		},
@@ -413,12 +505,12 @@ func TestJWTBasedAuth_JWKSKeyRotation(t *testing.T) {
 	// Token signed with key-B succeeds after JWKS refresh
 	claimsB := validTestClaims(t, issuer, audience)
 	claimsB["org_id"] = "org_after_rotation"
-	claimsB["authorization_details"] = []interface{}{
-		map[string]interface{}{
+	claimsB["authorization_details"] = []any{
+		map[string]any{
 			"type":  "request_digest",
 			"value": "abc123def456",
 		},
-		map[string]interface{}{
+		map[string]any{
 			"type":  "workflow_owner",
 			"value": testJWTExpectedWorkflowOwner(t, 1, "org_after_rotation"),
 		},
@@ -445,9 +537,9 @@ func TestJWTBasedAuth_AuthorizationDetailsFromTypedArray(t *testing.T) {
 		"org_id":                          "org_single",
 		ClaimVaultSecretManagementEnabled: "true",
 		ClaimChainlinkTenantID:            "1",
-		"authorization_details": []interface{}{
-			map[string]interface{}{"type": "request_digest", "value": "single_digest"},
-			map[string]interface{}{"type": "workflow_owner", "value": testJWTExpectedWorkflowOwner(t, 1, "org_single")},
+		"authorization_details": []any{
+			map[string]any{"type": "request_digest", "value": "single_digest"},
+			map[string]any{"type": "workflow_owner", "value": testJWTExpectedWorkflowOwner(t, 1, "org_single")},
 		},
 	}
 	tokenString := createTestJWT(t, rsaKey, claims)
@@ -601,7 +693,7 @@ func TestJWTBasedAuth_AuthorizeCreateRequestFromRawJSON(t *testing.T) {
 	v := newTestValidator(t, issuer, audience)
 
 	derivedOrg123Owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
-	rawRequest := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.create","params":{"request_id":"req-1","encrypted_secrets":[{"id":{"key":"7611","namespace":"main","owner":"%s"},"encrypted_value":"cipher+/=="}]}}`, derivedOrg123Owner))
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.create","params":{"request_id":"req-1","encrypted_secrets":[{"id":{"key":"7611","namespace":"main","owner":"%s"},"encrypted_value":"cipher+/=="}]}}`, derivedOrg123Owner)
 	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
 	require.NoError(t, err)
 
@@ -617,12 +709,12 @@ func TestJWTBasedAuth_AuthorizeCreateRequestFromRawJSON(t *testing.T) {
 		ClaimVaultSecretManagementEnabled: "true",
 		ClaimChainlinkTenantID:            "1",
 		"scope":                           OAuthScopeVaultSecretsCreate,
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
-			map[string]interface{}{
+			map[string]any{
 				"type":  "workflow_owner",
 				"value": derivedOrg123Owner,
 			},
@@ -661,8 +753,8 @@ func TestJWTBasedAuth_RejectsMissingOAuthScope(t *testing.T) {
 		"iat":                             jwt.NewNumericDate(time.Now()),
 		"org_id":                          "org-123",
 		ClaimVaultSecretManagementEnabled: "true",
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
@@ -700,8 +792,8 @@ func TestJWTBasedAuth_RejectsMismatchedOAuthScope(t *testing.T) {
 		"org_id":                          "org-123",
 		ClaimVaultSecretManagementEnabled: "true",
 		"scope":                           OAuthScopeVaultSecretsCreate,
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
@@ -739,8 +831,8 @@ func TestJWTBasedAuth_RejectsMultipleVaultOAuthScopes(t *testing.T) {
 		"org_id":                          "org-123",
 		ClaimVaultSecretManagementEnabled: "true",
 		"scope":                           OAuthScopeVaultSecretsCreate + " " + OAuthScopeVaultSecretsDelete,
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
@@ -764,7 +856,7 @@ func TestJWTBasedAuth_AcceptsOpenIDPlusSingleVaultScope(t *testing.T) {
 	v := newTestValidator(t, issuer, audience)
 
 	derivedOrg123Owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
-	rawRequest := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.create","params":{"request_id":"req-1","encrypted_secrets":[{"id":{"key":"7611","namespace":"main","owner":"%s"},"encrypted_value":"cipher+/=="}]}}`, derivedOrg123Owner))
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.create","params":{"request_id":"req-1","encrypted_secrets":[{"id":{"key":"7611","namespace":"main","owner":"%s"},"encrypted_value":"cipher+/=="}]}}`, derivedOrg123Owner)
 	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
 	require.NoError(t, err)
 
@@ -780,8 +872,8 @@ func TestJWTBasedAuth_AcceptsOpenIDPlusSingleVaultScope(t *testing.T) {
 		ClaimVaultSecretManagementEnabled: "true",
 		ClaimChainlinkTenantID:            "1",
 		"scope":                           "openid profile " + OAuthScopeVaultSecretsCreate,
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
@@ -805,7 +897,7 @@ func TestJWTBasedAuth_AcceptsPermissionsClaimInsteadOfScope(t *testing.T) {
 	v := newTestValidator(t, issuer, audience)
 
 	derivedOrg123Owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
-	rawRequest := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner))
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner)
 	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
 	require.NoError(t, err)
 
@@ -820,9 +912,9 @@ func TestJWTBasedAuth_AcceptsPermissionsClaimInsteadOfScope(t *testing.T) {
 		"org_id":                          "org-123",
 		ClaimVaultSecretManagementEnabled: "true",
 		ClaimChainlinkTenantID:            "1",
-		"permissions":                     []interface{}{OAuthScopeVaultSecretsList},
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"permissions":                     []any{OAuthScopeVaultSecretsList},
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
@@ -846,7 +938,7 @@ func TestJWTBasedAuth_AuthorizeCreateRequestWithoutWorkflowOwnerWhenIdentifiersU
 	v := newTestValidator(t, issuer, audience)
 
 	derivedOrg123Owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
-	rawRequest := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.create","params":{"request_id":"req-1","encrypted_secrets":[{"id":{"key":"7611","namespace":"main","owner":"%s"},"encrypted_value":"cipher+/=="}]}}`, derivedOrg123Owner))
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.create","params":{"request_id":"req-1","encrypted_secrets":[{"id":{"key":"7611","namespace":"main","owner":"%s"},"encrypted_value":"cipher+/=="}]}}`, derivedOrg123Owner)
 	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
 	require.NoError(t, err)
 
@@ -862,8 +954,8 @@ func TestJWTBasedAuth_AuthorizeCreateRequestWithoutWorkflowOwnerWhenIdentifiersU
 		ClaimVaultSecretManagementEnabled: "true",
 		ClaimChainlinkTenantID:            "1",
 		"scope":                           OAuthScopeVaultSecretsCreate,
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
@@ -904,8 +996,8 @@ func TestJWTBasedAuth_RejectsCreateRequestWithoutWorkflowOwnerWhenIdentifierOwne
 		ClaimVaultSecretManagementEnabled: "true",
 		ClaimChainlinkTenantID:            "1",
 		"scope":                           OAuthScopeVaultSecretsCreate,
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
@@ -915,7 +1007,9 @@ func TestJWTBasedAuth_RejectsCreateRequestWithoutWorkflowOwnerWhenIdentifierOwne
 	req, err = jsonrpc.DecodeRequest[json.RawMessage](rawRequest, token)
 	require.NoError(t, err)
 
-	authResult, err := v.AuthorizeRequest(t.Context(), req)
+	// Owner binding is enforced by the composite Authorizer, not the JWT layer directly.
+	a := NewAuthorizer(nil, v, logger.TestLogger(t))
+	authResult, err := a.AuthorizeRequest(t.Context(), req)
 	require.Nil(t, authResult)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "encrypted secret owner at index 0 \"0xAbCd\" does not match authorized workflow owner")
@@ -930,7 +1024,7 @@ func TestJWTBasedAuth_AuthorizeRequest_RejectsMissingTenantClaim(t *testing.T) {
 	v := newTestValidator(t, issuer, audience)
 
 	derivedOrg123Owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
-	rawRequest := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner))
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.list","params":{"request_id":"req-1","owner":"%s","namespace":"main"}}`, derivedOrg123Owner)
 	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
 	require.NoError(t, err)
 
@@ -944,9 +1038,9 @@ func TestJWTBasedAuth_AuthorizeRequest_RejectsMissingTenantClaim(t *testing.T) {
 		"iat":                             jwt.NewNumericDate(time.Now()),
 		"org_id":                          "org-123",
 		ClaimVaultSecretManagementEnabled: "true",
-		"permissions":                     []interface{}{OAuthScopeVaultSecretsList},
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"permissions":                     []any{OAuthScopeVaultSecretsList},
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
@@ -977,7 +1071,7 @@ func TestJWTBasedAuth_AuthorizeRequest_RejectsTenantAgainstJobSpecMismatch(t *te
 	require.NoError(t, err)
 
 	owner := testJWTExpectedWorkflowOwner(t, 1, "org-123")
-	rawRequest := []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.delete","params":{"request_id":"req-1","ids":[{"owner":"%s","namespace":"main","key":"k"}]}}`, owner))
+	rawRequest := fmt.Appendf(nil, `{"jsonrpc":"2.0","id":"req-1","method":"vault.secrets.delete","params":{"request_id":"req-1","ids":[{"owner":"%s","namespace":"main","key":"k"}]}}`, owner)
 	req, err := jsonrpc.DecodeRequest[json.RawMessage](rawRequest, "")
 	require.NoError(t, err)
 
@@ -992,13 +1086,13 @@ func TestJWTBasedAuth_AuthorizeRequest_RejectsTenantAgainstJobSpecMismatch(t *te
 		"org_id":                          "org-123",
 		ClaimVaultSecretManagementEnabled: "true",
 		ClaimChainlinkTenantID:            "1",
-		"permissions":                     []interface{}{OAuthScopeVaultSecretsDelete},
-		"authorization_details": []interface{}{
-			map[string]interface{}{
+		"permissions":                     []any{OAuthScopeVaultSecretsDelete},
+		"authorization_details": []any{
+			map[string]any{
 				"type":  "request_digest",
 				"value": digest,
 			},
-			map[string]interface{}{
+			map[string]any{
 				"type":  "workflow_owner",
 				"value": owner,
 			},

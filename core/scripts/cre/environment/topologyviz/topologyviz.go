@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ type CapabilityPlacement struct {
 type DONSummary struct {
 	Name                      string                `json:"name"`
 	DONTypes                  []string              `json:"don_types"`
+	GatewayDonID              string                `json:"gateway_don_id,omitempty"`
 	NodeCount                 int                   `json:"node_count"`
 	NodeRoles                 []string              `json:"node_roles"`
 	ExposesRemoteCapabilities bool                  `json:"exposes_remote_capabilities"`
@@ -267,6 +269,9 @@ func RenderMarkdown(summary *TopologySummary) string {
 		if len(don.SupportedSolChains) > 0 {
 			fmt.Fprintf(&b, "- Solana chains: `%s`\n", strings.Join(don.SupportedSolChains, "`, `"))
 		}
+		if don.GatewayDonID != "" {
+			fmt.Fprintf(&b, "- Gateway DON ID: `%s`\n", don.GatewayDonID)
+		}
 		fmt.Fprintf(&b, "- Exposes remote capabilities: `%t`\n", don.ExposesRemoteCapabilities)
 		b.WriteString("\n")
 	}
@@ -288,7 +293,7 @@ func summarizeDON(ns *cre.NodeSet) DONSummary {
 	donTypes := append([]string{}, ns.DONTypes...)
 	sort.Strings(donTypes)
 	evmChains := append([]uint64{}, ns.EVMChains()...)
-	sort.Slice(evmChains, func(i, j int) bool { return evmChains[i] < evmChains[j] })
+	slices.Sort(evmChains)
 	solChains := append([]string{}, ns.SupportedSolChains...)
 	sort.Strings(solChains)
 
@@ -300,6 +305,7 @@ func summarizeDON(ns *cre.NodeSet) DONSummary {
 	return DONSummary{
 		Name:                      ns.Name,
 		DONTypes:                  donTypes,
+		GatewayDonID:              ns.GatewayDonID,
 		NodeCount:                 nodeCount,
 		NodeRoles:                 sortedKeys(rolesSet),
 		ExposesRemoteCapabilities: ns.ExposesRemoteCapabilities,

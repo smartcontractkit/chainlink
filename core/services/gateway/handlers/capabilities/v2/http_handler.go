@@ -29,6 +29,7 @@ const (
 	handlerName                          = "HTTPCapabilityHandler"
 	defaultCleanUpPeriodMs               = 1000 * 60 * 10 // 10 minutes
 	defaultMaxTriggerRequestDurationMs   = 1000 * 60      // 1 minute
+	defaultNodeSendTimeoutMs             = 1000 * 10      // 10 seconds
 	defaultInitialIntervalMs             = 100
 	defaultMaxIntervalTimeMs             = 1000 * 30 // 30 seconds
 	defaultMultiplier                    = 2.0
@@ -50,6 +51,7 @@ type gatewayHandler struct {
 	globalNodeRateLimiter  limits.RateLimiter            // Global rate limiter shared across all incoming node requests from workflow DON
 	perNodeRateLimiters    map[string]limits.RateLimiter // Per-node rate limiters keyed by node address, one independent bucket per DON member
 	mtlsRequestRateLimiter limits.RateLimiter
+	mtlsConcurrencyLimiter limits.ResourcePoolLimiter[int] // Bounds the number of in-flight outbound mTLS requests
 	wg                     sync.WaitGroup
 	stopCh                 services.StopChan
 	responseCache          ResponseCache // Caches HTTP responses to avoid redundant requests for outbound HTTP actions
@@ -75,6 +77,11 @@ type ResponseCache interface {
 type ServiceConfig struct {
 	// MaxTriggerRequestDurationMs is the maximum time allowed for each trigger broadcast request to a workflow node
 	MaxTriggerRequestDurationMs int `json:"maxTriggerRequestDurationMs"`
+
+	// NodeSendTimeoutMs bounds each individual send attempt to a single workflow node. It must be smaller
+	// than MaxTriggerRequestDurationMs so that one slow/unresponsive node cannot delay sending to the rest
+	// of the DON; the send is retried on the next attempt if it times out.
+	NodeSendTimeoutMs int `json:"nodeSendTimeoutMs"`
 
 	// RetryConfig defines retry behavior for trigger broadcast requests to workflow nodes
 	RetryConfig RetryConfig `json:"retryConfig"`
@@ -141,6 +148,11 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		return nil, fmt.Errorf("failed to create mtls rate limiter: %w", err)
 	}
 
+	mtlsConcurrencyLimiter, err := limits.MakeResourcePoolLimiter(lf, cresettings.Default.GatewayHTTPActionMtlsConcurrencyLimit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create mtls concurrency limiter: %w", err)
+	}
+
 	metrics, err := metrics.NewMetrics(donConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
@@ -156,6 +168,7 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		globalNodeRateLimiter:  globalNodeRateLimiter,
 		perNodeRateLimiters:    perNodeRateLimiters,
 		mtlsRequestRateLimiter: mtlsRequestRateLimiter,
+		mtlsConcurrencyLimiter: mtlsConcurrencyLimiter,
 		stopCh:                 make(services.StopChan),
 		responseCache:          newResponseCache(lggr, cfg.OutboundRequestCacheTTLMs, metrics),
 		triggerHandler:         triggerHandler,
@@ -171,6 +184,12 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 	}
 	if cfg.MaxTriggerRequestDurationMs == 0 {
 		cfg.MaxTriggerRequestDurationMs = defaultMaxTriggerRequestDurationMs
+	}
+	if cfg.NodeSendTimeoutMs == 0 {
+		cfg.NodeSendTimeoutMs = defaultNodeSendTimeoutMs
+	}
+	if cfg.NodeSendTimeoutMs > cfg.MaxTriggerRequestDurationMs {
+		cfg.NodeSendTimeoutMs = cfg.MaxTriggerRequestDurationMs
 	}
 	if cfg.MetadataPullIntervalMs == 0 {
 		cfg.MetadataPullIntervalMs = defaultMetadataPullIntervalMs
@@ -272,13 +291,6 @@ func (h *gatewayHandler) send(ctx context.Context, httpReq network.HTTPRequest, 
 		return h.httpClient.Send(ctx, httpReq)
 	}
 
-	// We don't have access to the org here, so this will fall back to the environment default (=false).
-	// That's appropriate because all fields set on the request come from untrusted nodes.
-	// The capability separately applies an org-specific check.
-	if !h.mtlsRequestRateLimiter.Allow(ctx) {
-		return nil, fmt.Errorf("global mtls request rate limit exceeded: %w", network.ErrBlockedRequest)
-	}
-
 	if h.httpClientFactory == nil {
 		return nil, errors.New("nil http client factory, cannot make mtls request")
 	}
@@ -290,14 +302,27 @@ func (h *gatewayHandler) send(ctx context.Context, httpReq network.HTTPRequest, 
 	// b) we apply rate limits limiting the ability of sending nodes to spam requests
 	// c) we apply per-owner rate limits in the action capability in the
 	// workflow node limiting the ability of users to abuse this flow by spamming Mtls requests.
+	// The client enforces the mtls concurrency limit internally (on the request's
+	// capped-timeout context) before delegating to the underlying transport.
 	client, err := h.httpClientFactory(network.HTTPClientConfig{
 		Mtls: &gateway_common.MtlsAuth{
 			PrivateKey:  req.Mtls.PrivateKey,
 			Certificate: req.Mtls.Certificate,
 		},
+		ConcurrencyLimiter: h.mtlsConcurrencyLimiter,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate http client for mtls request: %w", err)
+	}
+
+	// We don't have access to the org here, so this will fall back to the environment default (=false).
+	// That's appropriate because all fields set on the request come from untrusted nodes.
+	// The capability separately applies an org-specific check.
+
+	// Note: we intentionally consume the rate-limit after instantiating the client so that a malicious user
+	// can't send requests with invalid mtls credentials and thus cheaply consume global tokens.
+	if !h.mtlsRequestRateLimiter.Allow(ctx) {
+		return nil, fmt.Errorf("global mtls request rate limit exceeded: %w", network.ErrBlockedRequest)
 	}
 
 	return client.Send(ctx, httpReq)
@@ -389,9 +414,7 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	sendResponseTimeout := time.Duration(defaultSendResponseTimeoutMs) * time.Millisecond
 
 	// send response to node async
-	h.wg.Add(1)
-	go func() {
-		defer h.wg.Done()
+	h.wg.Go(func() {
 		// not cancelled when parent is cancelled to ensure the goroutine can finish
 		baseCtx := context.WithoutCancel(ctx)
 		httpCtx, httpCancel := context.WithTimeout(baseCtx, timeout)
@@ -418,7 +441,7 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 			l.Errorw("error sending response to node", "err", err, "nodeAddr", nodeAddr, "requestID", requestID)
 			h.metrics.IncrementActionCapabilityFailures(ctx, nodeAddr, h.lggr)
 		}
-	}()
+	})
 	return nil
 }
 
@@ -441,9 +464,7 @@ func (h *gatewayHandler) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to start HTTP auth handler: %w", err)
 		}
-		h.wg.Add(1)
-		go func() {
-			defer h.wg.Done()
+		h.wg.Go(func() {
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
 			for {
@@ -454,7 +475,7 @@ func (h *gatewayHandler) Start(ctx context.Context) error {
 					return
 				}
 			}
-		}()
+		})
 		return nil
 	})
 }
@@ -477,6 +498,12 @@ func (h *gatewayHandler) Close() error {
 			if err = rl.Close(); err != nil {
 				h.lggr.Errorw("failed to close per-node rate limiter", "nodeAddr", nodeAddr, "err", err)
 			}
+		}
+		if err = h.mtlsRequestRateLimiter.Close(); err != nil {
+			h.lggr.Errorw("failed to close mtls request rate limiter", "err", err)
+		}
+		if err = h.mtlsConcurrencyLimiter.Close(); err != nil {
+			h.lggr.Errorw("failed to close mtls concurrency limiter", "err", err)
 		}
 		close(h.stopCh)
 		h.wg.Wait()

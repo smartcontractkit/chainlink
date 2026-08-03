@@ -13,16 +13,13 @@ import (
 
 	aptos_ccip_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp"
 	module_offramp "github.com/smartcontractkit/chainlink-aptos/bindings/ccip_offramp/offramp"
-	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
-
+	"github.com/smartcontractkit/chainlink-aptos/codec"
+	aptosstate "github.com/smartcontractkit/chainlink-aptos/deployment/state"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
-
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
+	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
 type AptosAdapter struct {
@@ -35,7 +32,7 @@ func NewAptosAdapter(chain cldf.BlockChain, env deployment.Environment) Adapter 
 	if !ok {
 		panic(fmt.Sprintf("invalid chain type: %T", chain))
 	}
-	state, err := aptosstate.LoadOnchainStateAptos(env)
+	state, err := aptosstate.LoadOnchainState(env)
 	if err != nil {
 		panic(fmt.Sprintf("failed to load onchain state: %T", err))
 	}

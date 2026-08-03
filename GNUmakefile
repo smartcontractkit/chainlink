@@ -18,7 +18,7 @@ LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
 GOLANGCI_LINT_VERSION = "v2.11.4"
 # Pin path so `make generate` does not pick up a different mockery (e.g. v3) from PATH.
-MOCKERY_BIN ?= $(shell GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" ]; then echo "$$GOBIN/mockery"; else echo "$$(go env GOPATH)/bin/mockery"; fi)
+MOCKERY_BIN ?= $(shell command -v mockery 2>/dev/null || (GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" -a -f "$$GOBIN/mockery" ]; then echo "$$GOBIN/mockery"; else echo "$$(go env GOPATH)/bin/mockery"; fi))
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -174,6 +174,7 @@ operator-ui: ## Fetch the frontend
 .PHONY: generate
 generate: codecgen mockery protoc gomods modgraph ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
+	find . -type d -name "*temp-repo*" -exec rm -rf {} + 2>/dev/null || true
 	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
 	find . -type f -name .mockery.yaml -execdir $(MOCKERY_BIN) \; ## Execute mockery for all .mockery.yaml files (see mockery target: v2)
 
@@ -289,15 +290,8 @@ gocs: ## Run gocs to generate changeset markdown files.
 	go run github.com/smartcontractkit/gocs/cmd/gocs@v0.2.0
 
 .PHONY: dependabot
-ifndef DEPENDABOT_SEVERITY
-DEPENDABOT_SEVERITY := "critical,high"
-endif
-dependabot: gomods
-	gh api --paginate -H "Accept: application/vnd.github+json" --method GET \
-	  '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' \
-	  --jq '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
-	  go tool dependabot && \
-	gomods tidy
+dependabot:
+	echo "Deprecated: manually trigger the CI workflow instead"
 
 help:
 	@echo ""

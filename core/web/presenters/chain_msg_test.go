@@ -13,6 +13,7 @@ import (
 )
 
 func TestSolanaMessageResource(t *testing.T) {
+	t.Parallel()
 	id := "1"
 	chainID := solanatest.RandomChainID()
 	r := NewSolanaMsgResource(id, chainID)
@@ -40,6 +41,7 @@ func TestSolanaMessageResource(t *testing.T) {
 }
 
 func TestCosmosMessageResource(t *testing.T) {
+	t.Parallel()
 	id := "1"
 	chainID := cosmostest.RandomChainID()
 	contractID := "cosmos1p3ucd3ptpw902fluyjzkq3fflq4btddac9sa3s"

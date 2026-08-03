@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
@@ -26,6 +25,7 @@ func truncateChipDurableEvents(t *testing.T, db *sqlx.DB) {
 }
 
 func TestPgDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
@@ -35,7 +35,7 @@ func TestPgDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	require.Positive(t, id)
 
-	events, err := store.ListPending(ctx, time.Now().Add(time.Second), 10)
+	events, err := store.ListPending(ctx, time.Now().Add(time.Second), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	require.Len(t, events, 1)
 	assert.Equal(t, id, events[0].ID)
@@ -43,12 +43,13 @@ func TestPgDurableEventStore_InsertDeleteRoundTrip(t *testing.T) {
 
 	require.NoError(t, store.Delete(ctx, id))
 
-	events, err = store.ListPending(ctx, time.Now().Add(time.Second), 10)
+	events, err = store.ListPending(ctx, time.Now().Add(time.Second), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	assert.Empty(t, events)
 }
 
 func TestPgDurableEventStore_ListPending_RespectsCreatedBefore(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
@@ -58,33 +59,35 @@ func TestPgDurableEventStore_ListPending_RespectsCreatedBefore(t *testing.T) {
 	require.NoError(t, err)
 
 	// createdBefore in the past should return nothing (event was just created).
-	events, err := store.ListPending(ctx, time.Now().Add(-time.Hour), 10)
+	events, err := store.ListPending(ctx, time.Now().Add(-time.Hour), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	assert.Empty(t, events)
 
 	// createdBefore in the future should return the event.
-	events, err = store.ListPending(ctx, time.Now().Add(time.Hour), 10)
+	events, err = store.ListPending(ctx, time.Now().Add(time.Hour), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	assert.Len(t, events, 1)
 }
 
 func TestPgDurableEventStore_ListPending_RespectsLimit(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
 	store := durableemitter.NewPgDurableEventStore(db)
 
-	for i := 0; i < 20; i++ {
-		_, err := store.Insert(ctx, []byte(fmt.Sprintf("event-%d", i)))
+	for i := range 20 {
+		_, err := store.Insert(ctx, fmt.Appendf(nil, "event-%d", i))
 		require.NoError(t, err)
 	}
 
-	events, err := store.ListPending(ctx, time.Now().Add(time.Second), 5)
+	events, err := store.ListPending(ctx, time.Now().Add(time.Second), time.Time{}, 0, 5)
 	require.NoError(t, err)
 	assert.Len(t, events, 5)
 }
 
 func TestPgDurableEventStore_DeleteExpired(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
 	ctx := t.Context()
@@ -105,52 +108,52 @@ func TestPgDurableEventStore_DeleteExpired(t *testing.T) {
 }
 
 func TestPgDurableEventStore_ObserveDurableQueue(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	store := durableemitter.NewPgDurableEventStore(db)
 
-	st, err := store.ObserveDurableQueue(ctx, time.Hour, time.Minute)
+	st, err := store.ObserveDurableQueue(ctx, time.Hour)
 	require.NoError(t, err)
 	assert.Equal(t, int64(0), st.Depth)
 
 	_, err = store.Insert(ctx, []byte("payload-bytes"))
 	require.NoError(t, err)
-	st, err = store.ObserveDurableQueue(ctx, time.Hour, time.Minute)
+	st, err = store.ObserveDurableQueue(ctx, time.Hour)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), st.Depth)
 	assert.Equal(t, int64(len("payload-bytes")), st.PayloadBytes)
 	assert.Positive(t, st.OldestPendingAge)
 }
 
-func TestPgDurableEventStore_MarkDeliveredAndPurgeDelivered(t *testing.T) {
+func TestPgDurableEventStore_BatchDelete(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
 	truncateChipDurableEvents(t, db)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	store := durableemitter.NewPgDurableEventStore(db)
 
 	id, err := store.Insert(ctx, []byte("payload"))
 	require.NoError(t, err)
 
-	pending, err := store.ListPending(ctx, time.Now().Add(time.Hour), 10)
+	pending, err := store.ListPending(ctx, time.Now().Add(time.Hour), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	require.Len(t, pending, 1)
 
-	require.NoError(t, store.MarkDelivered(ctx, id))
-	require.NoError(t, store.MarkDelivered(ctx, id), "second mark is idempotent")
+	n, err := store.BatchDelete(ctx, []int64{id})
+	require.NoError(t, err)
+	require.Equal(t, int64(1), n)
 
-	pending, err = store.ListPending(ctx, time.Now().Add(time.Hour), 10)
+	n, err = store.BatchDelete(ctx, []int64{id})
+	require.NoError(t, err)
+	require.Equal(t, int64(0), n, "second delete is idempotent")
+
+	pending, err = store.ListPending(ctx, time.Now().Add(time.Hour), time.Time{}, 0, 10)
 	require.NoError(t, err)
 	require.Empty(t, pending)
 
 	var cnt int64
 	require.NoError(t, db.GetContext(ctx, &cnt, `SELECT count(*) FROM cre.chip_durable_events`))
-	require.Equal(t, int64(1), cnt, "row remains as tombstone until purge")
-
-	n, err := store.PurgeDelivered(ctx, 10)
-	require.NoError(t, err)
-	require.Equal(t, int64(1), n)
-
-	require.NoError(t, db.GetContext(ctx, &cnt, `SELECT count(*) FROM cre.chip_durable_events`))
-	require.Equal(t, int64(0), cnt)
+	require.Equal(t, int64(0), cnt, "row is deleted on delivery, not tombstoned")
 }

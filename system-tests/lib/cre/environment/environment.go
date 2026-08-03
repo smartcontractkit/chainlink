@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	donconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
-	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
@@ -161,6 +161,9 @@ func SetupTestEnvironment(
 	if tErr != nil {
 		return nil, pkgerrors.Wrap(tErr, "failed to create topology")
 	}
+	if topology.DonsMetadata.RequiresGateway() {
+		testLogger.Info().Msg(topology.DonFamilyGatewayPairingSummary())
+	}
 
 	updatedNodeSets, topoErr := donconfig.PrepareNodeTOMLs(
 		ctx,
@@ -273,7 +276,7 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Creating Jobs with Job Distributor")))
 
-	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, topology.GatewayServiceConfigs, input.GatewayWhitelistConfig)
+	gJobErr := gateway.CreateJobs(ctx, creEnvironment, dons, topology, topology.GatewayServiceConfigs, input.GatewayWhitelistConfig)
 	if gJobErr != nil {
 		return nil, pkgerrors.Wrap(gJobErr, "failed to create gateway jobs with Job Distributor")
 	}
@@ -306,10 +309,11 @@ func SetupTestEnvironment(
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Funding Chainlink nodes")))
 
 	fundingPerChainFamilyForEachNode := map[string]uint64{
-		chainselectors.FamilyEVM:    10000000000000000, // 0.01 ETH
-		chainselectors.FamilySolana: 50_000_000_000,    // 50 SOL
-		chainselectors.FamilyTron:   100_000_000,       // 100 TRX in SUN
-		chainselectors.FamilyAptos:  1_000_000_000_000, // 1,000 APT (octas) for local devnet sender accounts
+		chainselectors.FamilyEVM:     10000000000000000, // 0.01 ETH
+		chainselectors.FamilySolana:  50_000_000_000,    // 50 SOL
+		chainselectors.FamilyTron:    100_000_000,       // 100 TRX in SUN
+		chainselectors.FamilyAptos:   1_000_000_000_000, // 1,000 APT (octas) for local devnet sender accounts
+		chainselectors.FamilyStellar: 1_000_000_000,     // 100 XLM
 	}
 
 	fErr := FundNodes(
@@ -375,6 +379,7 @@ func SetupTestEnvironment(
 			ChainSelector:   deployedBlockchains.RegistryChain().ChainSelector(),
 			CldEnv:          deployKeystoneContractsOutput.Env,
 			AllowedDonIDs:   topology.WorkflowDONIDs,
+			DONFamilies:     topology.WorkflowDONFamilies(),
 			WorkflowOwners:  []common.Address{deployedBlockchains.RegistryChain().(*evm.Blockchain).SethClient.MustGetRootKeyAddress()}, // registry chain is always EVM
 		},
 	)

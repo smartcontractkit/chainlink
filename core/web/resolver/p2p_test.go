@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
@@ -29,8 +30,8 @@ func TestResolver_GetP2PKeys(t *testing.T) {
 		}
 	`
 
-	fakeKeys := []p2pkey.KeyV2{}
-	expectedKeys := []map[string]string{}
+	fakeKeys := make([]p2pkey.KeyV2, 0, 2)
+	expectedKeys := make([]map[string]string, 0, 2)
 	for range 2 {
 		k := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 		fakeKeys = append(fakeKeys, k)

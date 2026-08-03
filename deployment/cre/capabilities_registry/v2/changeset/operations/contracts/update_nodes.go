@@ -109,11 +109,20 @@ func makeNodeParams(
 			return nil, fmt.Errorf("capabilities not found for node %s", p2pIDStr)
 		}
 
-		// We merge the already existing capabilities IDs with the new ones, to make sure that capabilities required by the DON
-		// are still supported.
-		ids := node.CapabilityIds
+		// Merge existing capability IDs with new ones, deduplicating to keep the result idempotent.
+		seen := make(map[string]struct{}, len(node.CapabilityIds)+len(updates.Capabilities))
+		ids := make([]string, 0, len(node.CapabilityIds)+len(updates.Capabilities))
+		for _, id := range node.CapabilityIds {
+			if _, ok := seen[id]; !ok {
+				seen[id] = struct{}{}
+				ids = append(ids, id)
+			}
+		}
 		for _, capability := range updates.Capabilities {
-			ids = append(ids, capability.CapabilityId)
+			if _, ok := seen[capability.CapabilityId]; !ok {
+				seen[capability.CapabilityId] = struct{}{}
+				ids = append(ids, capability.CapabilityId)
+			}
 		}
 
 		encryptionKey := node.EncryptionPublicKey

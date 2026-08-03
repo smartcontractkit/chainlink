@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jmoiron/sqlx"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -214,14 +216,14 @@ func (orm *orm) GetSecretsURLHash(owner, secretsURL []byte) ([]byte, error) {
 func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
 	var id int64
 	err := sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
-		txErr := tx.QueryRowxContext(
+		_, txErr := tx.ExecContext(
 			ctx,
 			`DELETE FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id != $3`,
 			spec.WorkflowOwner,
 			spec.WorkflowName,
 			spec.WorkflowID,
-		).Scan(nil)
-		if txErr != nil && !errors.Is(txErr, sql.ErrNoRows) {
+		)
+		if txErr != nil {
 			return fmt.Errorf("failed to clean up previous workflow specs: %w", txErr)
 		}
 
@@ -269,14 +271,17 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 			RETURNING id
 		`
 
-		stmt, err := orm.ds.PrepareNamedContext(ctx, query)
-		if err != nil {
-			return err
+		now := time.Now().UTC()
+		spec.UpdatedAt = now
+		if spec.CreatedAt.IsZero() {
+			spec.CreatedAt = now
 		}
-		defer stmt.Close()
-
-		spec.UpdatedAt = time.Now()
-		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
+		q, args, namedErr := sqlx.Named(query, spec)
+		if namedErr != nil {
+			return namedErr
+		}
+		q = sqlx.Rebind(sqlx.DOLLAR, q)
+		return tx.QueryRowxContext(ctx, q, args...).Scan(&id)
 	})
 
 	return id, err
@@ -304,15 +309,15 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 			return fmt.Errorf("failed to create workflow secrets: %w", txErr)
 		}
 
-		txErr = tx.QueryRowxContext(
+		_, queryErr := tx.ExecContext(
 			ctx,
 			`DELETE FROM workflow_specs WHERE workflow_owner = $1 AND workflow_name = $2 AND workflow_id != $3`,
 			spec.WorkflowOwner,
 			spec.WorkflowName,
 			spec.WorkflowID,
-		).Scan(nil)
-		if txErr != nil && !errors.Is(txErr, sql.ErrNoRows) {
-			return fmt.Errorf("failed to clean up previous workflow specs: %w", txErr)
+		)
+		if queryErr != nil {
+			return fmt.Errorf("failed to clean up previous workflow specs: %w", queryErr)
 		}
 
 		spec.SecretsID = sql.NullInt64{Int64: sid, Valid: true}
@@ -361,14 +366,17 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 			RETURNING id
 		`
 
-		stmt, txErr := tx.PrepareNamedContext(ctx, query)
-		if txErr != nil {
-			return txErr
+		now := time.Now().UTC()
+		spec.UpdatedAt = now
+		if spec.CreatedAt.IsZero() {
+			spec.CreatedAt = now
 		}
-		defer stmt.Close()
-
-		spec.UpdatedAt = time.Now()
-		return stmt.QueryRowxContext(ctx, spec).Scan(&id)
+		q, args, namedErr := sqlx.Named(query, spec)
+		if namedErr != nil {
+			return namedErr
+		}
+		q = sqlx.Rebind(sqlx.DOLLAR, q)
+		return tx.QueryRowxContext(ctx, q, args...).Scan(&id)
 	})
 	return id, err
 }

@@ -13,8 +13,8 @@ import (
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability"
-	verifierContract "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 )
 
@@ -28,10 +28,9 @@ type OnChainMetaSerialized struct {
 	SetConfigTxBlock uint64 `json:"setConfigTxBlock"`
 
 	CapabilitiesRegistry common.Address `json:"CapabilitiesRegistry"`
-	Verifier             common.Address `json:"VerifierContract"`
-	VerifierProxy        common.Address `json:"VerifierProxy"`
-	// Stores the address that has been initialized by the proxy, if any
-	InitializedVerifierAddress common.Address `json:"InitializedVerifierAddress"`
+	// LLO streams-trigger contracts
+	Configurator       common.Address `json:"Configurator"`
+	ChannelConfigStore common.Address `json:"ChannelConfigStore"`
 }
 
 type onchainMeta struct {
@@ -41,10 +40,10 @@ type onchainMeta struct {
 	// when we load the OCR3 job specs on the nodes.
 	SetConfigTxBlock uint64
 
-	CapabilitiesRegistry       capabilities_registry.CapabilitiesRegistryInterface
-	Verifier                   verifierContract.VerifierInterface
-	VerifierProxy              verifier_proxy.VerifierProxyInterface
-	InitializedVerifierAddress common.Address `json:"InitializedVerifierAddress"`
+	CapabilitiesRegistry capabilities_registry.CapabilitiesRegistryInterface
+	// LLO streams-trigger contracts
+	Configurator       configurator.ConfiguratorInterface
+	ChannelConfigStore channel_config_store.ChannelConfigStoreInterface
 }
 
 func WriteOnchainMeta(o *onchainMeta, artefactsDir string) {
@@ -62,18 +61,17 @@ func WriteOnchainMeta(o *onchainMeta, artefactsDir string) {
 	}
 
 	serialzed.SetConfigTxBlock = o.SetConfigTxBlock
-	serialzed.InitializedVerifierAddress = o.InitializedVerifierAddress
 
 	if o.CapabilitiesRegistry != nil {
 		serialzed.CapabilitiesRegistry = o.CapabilitiesRegistry.Address()
 	}
 
-	if o.Verifier != nil {
-		serialzed.Verifier = o.Verifier.Address()
+	if o.Configurator != nil {
+		serialzed.Configurator = o.Configurator.Address()
 	}
 
-	if o.VerifierProxy != nil {
-		serialzed.VerifierProxy = o.VerifierProxy.Address()
+	if o.ChannelConfigStore != nil {
+		serialzed.ChannelConfigStore = o.ChannelConfigStore.Address()
 	}
 
 	jsonBytes, err := json.Marshal(serialzed)
@@ -133,27 +131,23 @@ func LoadOnchainMeta(artefactsDir string, env helpers.Environment) *onchainMeta 
 		}
 	}
 
-	hydrated.InitializedVerifierAddress = s.InitializedVerifierAddress
-
-	if s.Verifier != ZeroAddress {
-		if !contractExists(s.Verifier, env) {
-			fmt.Printf("Verifier contract at %s does not exist\n", s.Verifier.Hex())
-			hydrated.InitializedVerifierAddress = ZeroAddress
+	if s.Configurator != ZeroAddress {
+		if !contractExists(s.Configurator, env) {
+			fmt.Printf("Configurator contract at %s does not exist\n", s.Configurator.Hex())
 		} else {
-			verifier, e := verifierContract.NewVerifier(s.Verifier, env.Ec)
+			c, e := configurator.NewConfigurator(s.Configurator, env.Ec)
 			PanicErr(e)
-			hydrated.Verifier = verifier
+			hydrated.Configurator = c
 		}
 	}
 
-	if s.VerifierProxy != ZeroAddress {
-		if !contractExists(s.VerifierProxy, env) {
-			fmt.Printf("VerifierProxy contract at %s does not exist\n", s.VerifierProxy.Hex())
-			hydrated.InitializedVerifierAddress = ZeroAddress
+	if s.ChannelConfigStore != ZeroAddress {
+		if !contractExists(s.ChannelConfigStore, env) {
+			fmt.Printf("ChannelConfigStore contract at %s does not exist\n", s.ChannelConfigStore.Hex())
 		} else {
-			verifierProxy, e := verifier_proxy.NewVerifierProxy(s.VerifierProxy, env.Ec)
+			ccs, e := channel_config_store.NewChannelConfigStore(s.ChannelConfigStore, env.Ec)
 			PanicErr(e)
-			hydrated.VerifierProxy = verifierProxy
+			hydrated.ChannelConfigStore = ccs
 		}
 	}
 

@@ -1,0 +1,265 @@
+name: Vault Audit Commands
+
+# Handles vault audit slash commands from authorized reviewers:
+#   /vault-audit               — run the audit (workflow_dispatch to cre-docs)
+#   /vault-audit skip <reason> — bypass the audit entirely
+#
+# The audit report and its findings are NOT posted here (this repo is public).
+# They live on a private tracking issue in smartcontractkit/cre-docs, linked from
+# the "Details" link on the vault-audit status check. Findings are resolved there
+# with /resolved <FINDING-ID> <reason> (handled in cre-docs, not this repo).
+#
+# Authorization: commenter must have write or admin permission on this repository.
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: vault-audit-cmd-${{ github.repository }}-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  handle-command:
+    if: |
+      github.event.issue.pull_request != null &&
+      (
+        startsWith(github.event.comment.body, '/vault-audit skip ') ||
+        github.event.comment.body == '/vault-audit' ||
+        startsWith(github.event.comment.body, '/vault-audit ')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      issues: write
+      pull-requests: write
+      statuses: write
+
+    steps:
+      - name: Check commenter authorization
+        id: auth
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+        run: |
+          PERMISSION=$(gh api "/repos/${REPO}/collaborators/${COMMENTER}/permission" \
+            --jq '.permission' 2>/dev/null || echo "none")
+
+          if [[ "$PERMISSION" == "write" || "$PERMISSION" == "admin" ]]; then
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reject unauthorized commenter
+        if: steps.auth.outputs.authorized == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh pr comment "$PR_NUMBER" -R "$REPO" \
+            --body "⛔ @${COMMENTER} — only authorized reviewers (repository write access) can use vault audit commands."
+          exit 1
+
+      - name: Get PR details
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          PR=$(gh api "/repos/${REPO}/pulls/${PR_NUMBER}" \
+            --jq '{head_sha: .head.sha, base_sha: .base.sha}')
+          echo "head_sha=$(echo "$PR" | jq -r '.head_sha')" >> "$GITHUB_OUTPUT"
+          echo "base_sha=$(echo "$PR" | jq -r '.base_sha')" >> "$GITHUB_OUTPUT"
+
+      - name: Parse command
+        id: cmd
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const body = context.payload.comment.body ?? '';
+
+            const skip = body.match(/^\/vault-audit skip (.+)/s);
+            if (skip) {
+              core.setOutput('type', 'skip');
+              core.setOutput('reason', skip[1]);
+              return;
+            }
+
+            core.setOutput('type', 'run');
+
+            let error = '';
+
+            const modelMap = {
+              opus:                'claude-opus-4-8',
+              'claude-opus-4-8':   'claude-opus-4-8',
+              sonnet:              'claude-sonnet-4-6',
+              'claude-sonnet-4-6': 'claude-sonnet-4-6',
+              haiku:               'claude-haiku-4-5',
+              'claude-haiku-4-5':  'claude-haiku-4-5',
+            };
+
+            let model = '';
+            const rawM = body.match(/model=(\S+)/i);
+            if (rawM) {
+              const key = rawM[1].toLowerCase();
+              if (Object.hasOwn(modelMap, key)) {
+                model = modelMap[key];
+              } else {
+                error = `Unknown model \`${rawM[1]}\`. Use \`opus\`, \`sonnet\`, or \`haiku\`.`;
+              }
+            }
+
+            let effort = '';
+            const rawE = body.match(/(?:effort|thinking)=(\S+)/i);
+            if (rawE) {
+              const level = rawE[1].toLowerCase();
+              if (['low', 'medium', 'high', 'xhigh', 'max'].includes(level)) {
+                effort = level;
+              } else if (!error) {
+                error = `Unknown thinking level \`${rawE[1]}\`. Use \`low\`, \`medium\`, \`high\`, \`xhigh\`, or \`max\`.`;
+              }
+            }
+
+            core.setOutput('model', model);
+            core.setOutput('effort', effort);
+            core.setOutput('error', error);
+
+      - name: Reject invalid override
+        if: steps.cmd.outputs.type == 'run' && steps.cmd.outputs.error != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          ERROR: ${{ steps.cmd.outputs.error }}
+        run: |
+          gh pr comment "$PR_NUMBER" -R "$REPO" \
+            --body "⛔ ${ERROR} (Or omit the override to use the defaults.)"
+          exit 1
+
+      # ── /vault-audit skip <reason> ────────────────────────────────────────────
+      - name: Handle skip
+        if: steps.cmd.outputs.type == 'skip'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          REASON: ${{ steps.cmd.outputs.reason }}
+          SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          gh api "/repos/${REPO}/statuses/${SHA}" \
+            --method POST \
+            -f state=success \
+            -f context="vault-audit" \
+            -f description="Vault audit skipped by ${COMMENTER}"
+
+          gh pr comment "$PR_NUMBER" -R "$REPO" \
+            --body "✅ Vault audit skipped by @${COMMENTER}
+
+          **Reason:** ${REASON}
+
+          > ℹ️ This skip stands for the PR like a passing audit — it carries forward across new commits (it was applied at \`${SHA:0:8}\`). Re-run \`/vault-audit\` if you want a fresh audit of later changes."
+
+      # ── /vault-audit ─────────────────────────────────────────────────────────
+      - name: Require verified commits
+        id: verify
+        if: steps.cmd.outputs.type == 'run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # The audit checks out and feeds PR HEAD code to Claude in cre-docs, so
+          # we only run it on PRs whose commits are all cryptographically verified
+          # (same signal as the "Require signed commits" ruleset). This ensures the
+          # audited code came from a known signer, not an arbitrary author.
+          UNVERIFIED=$(gh api "/repos/${REPO}/pulls/${PR_NUMBER}/commits" --paginate \
+            --jq '[.[] | select(.commit.verification.verified != true)
+                   | {sha: (.sha[0:8]), reason: .commit.verification.reason}]')
+
+          COUNT=$(echo "$UNVERIFIED" | jq 'length')
+          if [ "$COUNT" -gt 0 ]; then
+            echo "unverified=true" >> "$GITHUB_OUTPUT"
+            echo "details=$(echo "$UNVERIFIED" | jq -c '[.[] | "\(.sha) (\(.reason))"]')" >> "$GITHUB_OUTPUT"
+          else
+            echo "unverified=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reject unverified commits
+        if: steps.cmd.outputs.type == 'run' && steps.verify.outputs.unverified == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          SHA: ${{ steps.pr.outputs.head_sha }}
+          DETAILS: ${{ steps.verify.outputs.details }}
+        run: |
+          gh api "/repos/${REPO}/statuses/${SHA}" \
+            --method POST \
+            -f state=failure \
+            -f context="vault-audit" \
+            -f description="Vault audit blocked — PR contains unverified commits"
+
+          PRETTY=$(echo "$DETAILS" | jq -r '.[] | "- `\(.)`"')
+          gh pr comment "$PR_NUMBER" -R "$REPO" \
+            --body "⛔ Vault audit not run — this PR contains commits that are not verified (signed):
+
+          ${PRETTY}
+
+          The audit only runs on PRs where **every commit is verified**, so the audited code is from a known signer. Re-sign/rebase the offending commits, then comment \`/vault-audit\` again."
+          exit 1
+
+      - name: Get GATI token for cre-docs dispatch
+        id: gati
+        if: steps.cmd.outputs.type == 'run' && steps.verify.outputs.unverified == 'false'
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.CHAINLINK_CRE_DOCS_GATI_AWS_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.CHAINLINK_CRE_DOCS_GATI_AWS_LAMBDA_URL }}
+          aws-region: us-west-2
+
+      - name: Set commit status pending
+        if: steps.cmd.outputs.type == 'run'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          gh api "/repos/${REPO}/statuses/${SHA}" \
+            --method POST \
+            -f state=pending \
+            -f context="vault-audit" \
+            -f description="Vault audit queued..."
+
+      - name: Dispatch audit to cre-docs
+        if: steps.cmd.outputs.type == 'run'
+        env:
+          GH_TOKEN: ${{ steps.gati.outputs.access-token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          BASE_SHA: ${{ steps.pr.outputs.base_sha }}
+          CHAINLINK_REPO: ${{ github.repository }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          MODEL: ${{ steps.cmd.outputs.model }}
+          EFFORT: ${{ steps.cmd.outputs.effort }}
+        run: |
+          gh workflow run vault-audit-dispatch.yml \
+            --repo smartcontractkit/cre-docs \
+            --ref main \
+            -f "pr_number=${PR_NUMBER}" \
+            -f "head_sha=${HEAD_SHA}" \
+            -f "base_sha=${BASE_SHA}" \
+            -f "chainlink_repo=${CHAINLINK_REPO}" \
+            -f "triggered_by=${COMMENTER}" \
+            -f "model=${MODEL}" \
+            -f "effort=${EFFORT}"
+        # The acknowledgement / result comment on the PR is posted and updated by
+        # the cre-docs dispatch workflow (it owns all vault-audit PR output), so
+        # the issue link lands directly in the comment when the audit completes.

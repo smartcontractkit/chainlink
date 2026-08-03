@@ -1,3 +1,5 @@
+//go:build integration
+
 package v2_test
 
 import (
@@ -13,6 +15,7 @@ import (
 )
 
 func TestListener_EstimateFeeJuels(t *testing.T) {
+	t.Parallel()
 	callbackGasLimit := uint32(150_000)
 	maxGasPriceGwei := assets.GWei(30).ToInt()
 	weiPerUnitLink := big.NewInt(5898160000000000)
@@ -33,6 +36,7 @@ func TestListener_EstimateFeeJuels(t *testing.T) {
 }
 
 func Test_TxListDeduper(t *testing.T) {
+	t.Parallel()
 	tx1 := &txmgr.Tx{
 		ID:      1,
 		Value:   *big.NewInt(0),

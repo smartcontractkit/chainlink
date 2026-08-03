@@ -5,12 +5,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	opsevm "github.com/smartcontractkit/cld-changesets/pkg/family/evm/operations"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	opsutil "github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 )
 
@@ -27,39 +26,37 @@ type RouterApplyRampUpdatesOpInput struct {
 }
 
 var (
-	DeployRouter = opsutil.NewEVMDeployOperation(
+	DeployRouter = opsutils.NewEVMDeployOperation(
 		"DeployRouter",
 		semver.MustParse("1.0.0"),
 		"Deploys Router 1.2 contract on the specified evm chain",
 		shared.Router,
 		router.RouterMetaData,
-		&opsutil.ContractOpts{
-			Version:          &deployment.Version1_2_0,
-			EVMBytecode:      common.FromHex(router.RouterBin),
-			ZkSyncVMBytecode: router.RouterZkBytecode,
+		&opsutils.ContractOpts{
+			Version:     &deployment.Version1_2_0,
+			EVMBytecode: common.FromHex(router.RouterBin),
 		},
 		func(input DeployRouterInput) []any {
 			return []any{input.WethAddress, input.RMNProxy}
 		},
 	)
 
-	DeployTestRouter = opsevm.NewEVMDeployOperation(
+	DeployTestRouter = opsutils.NewEVMDeployOperation(
 		"DeployTestRouter",
 		semver.MustParse("1.0.0"),
 		"Deploys TestRouter 1.2 contract on the specified evm chain",
 		shared.TestRouter,
 		router.RouterMetaData,
-		&opsevm.ContractOpts{
-			Version:          &deployment.Version1_2_0,
-			EVMBytecode:      common.FromHex(router.RouterBin),
-			ZkSyncVMBytecode: router.RouterZkBytecode,
+		&opsutils.ContractOpts{
+			Version:     &deployment.Version1_2_0,
+			EVMBytecode: common.FromHex(router.RouterBin),
 		},
 		func(input DeployRouterInput) []any {
 			return []any{input.WethAddress, input.RMNProxy}
 		},
 	)
 
-	RouterApplyRampUpdatesOp = opsevm.NewEVMCallOperation(
+	RouterApplyRampUpdatesOp = opsutils.NewEVMCallOperation(
 		"RouterApplyRampUpdatesOp",
 		semver.MustParse("1.0.0"),
 		"Updates OnRamps and OffRamps on the Router contract",
@@ -71,7 +68,7 @@ var (
 		},
 	)
 
-	UpdateWrappedNativeAddressOnRouterOp = opsevm.NewEVMCallOperation(
+	UpdateWrappedNativeAddressOnRouterOp = opsutils.NewEVMCallOperation(
 		"UpdateWrappedNativeAddressOnRouterOp",
 		semver.MustParse("1.0.0"),
 		"Updates Wrapped Native token address on Router contract for a chain",

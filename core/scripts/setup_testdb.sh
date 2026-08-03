@@ -28,10 +28,19 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$database')\gexec
 ALTER DATABASE $database OWNER TO $username;
 GRANT ALL PRIVILEGES ON DATABASE "$database" TO "$username";
 ALTER USER $username CREATEDB;
+-- CREATEROLE is required by pgtestdb, which provisions an isolated role (pgtdbuser) per test run.
+ALTER USER $username CREATEROLE;
 
--- Create a pristine database for testing
-SELECT 'CREATE DATABASE chainlink_test_pristine WITH OWNER $username;' 
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'chainlink_test_pristine')\gexec
+-- Repair a leftover pgtdbuser from an earlier run that lacks LOGIN. pgtestdb only sets
+-- LOGIN when it first creates the role, so a pre-existing NOLOGIN role stays broken and
+-- tests fail with: role "pgtdbuser" is not permitted to log in (SQLSTATE 28000).
+DO \$\$
+BEGIN
+    IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'pgtdbuser' AND NOT rolcanlogin) THEN
+        ALTER ROLE pgtdbuser WITH LOGIN PASSWORD 'pgtdbpass';
+    END IF;
+END \$\$;
+
 EOF
 
 # Print the SQL commands

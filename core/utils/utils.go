@@ -6,11 +6,13 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha3"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"math"
 	mrand "math/rand"
 	"slices"
@@ -24,7 +26,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/crypto/sha3"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
@@ -135,7 +136,7 @@ func CheckPasswordHash(password, hash string) bool {
 
 // Sha256 returns a hexadecimal encoded string of a hashed input
 func Sha256(in string) (string, error) {
-	hasher := sha3.New256()
+	hasher := hash.Hash(sha3.New256())
 	_, err := hasher.Write([]byte(in))
 	if err != nil {
 		return "", pkgerrors.Wrap(err, "sha256 write error")

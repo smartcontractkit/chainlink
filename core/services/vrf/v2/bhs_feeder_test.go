@@ -1,3 +1,5 @@
+//go:build integration
+
 package v2_test
 
 import (
@@ -66,17 +68,17 @@ func TestStartHeartbeats(t *testing.T) {
 
 	t.Run("bhs_feeder_startheartbeats_happy_path", func(t *testing.T) {
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
-		require.NoError(t, app.Start(testutils.Context(t)))
+		require.NoError(t, app.Start(t.Context()))
 
 		_ = vrftesthelpers.CreateAndStartBHSJob(
 			t, bhsKeyAddresses, app, uni.bhsContractAddress.String(),
 			uni.rootContractAddress.String(), "", "", 0, 200, heartbeatPeriod, 100)
 
 		// Ensure log poller is ready and has all logs.
-		chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain)
+		chain, ok := app.GetRelayers().LegacyEVMChains().Slice()[0].(legacyevm.Chain) //nolint:staticcheck // TODO: migrate to relayer interface
 		require.True(t, ok)
 		require.NoError(t, chain.LogPoller().Ready())
-		require.NoError(t, chain.LogPoller().Replay(testutils.Context(t), 1))
+		require.NoError(t, chain.LogPoller().Replay(t.Context(), 1))
 
 		initTxns := 260
 		// Wait 260 blocks.
@@ -92,7 +94,7 @@ func TestStartHeartbeats(t *testing.T) {
 		// has a blockhash stored at that offset.
 		require.Eventually(t, func() bool {
 			uni.backend.Commit()
-			tip, tipErr := uni.backend.Client().HeaderByNumber(testutils.Context(t), nil)
+			tip, tipErr := uni.backend.Client().HeaderByNumber(t.Context(), nil)
 			if tipErr != nil || tip == nil || tip.Number.Uint64() < 256 {
 				return false
 			}

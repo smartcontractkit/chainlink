@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-data-streams/llo"
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
+	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -60,7 +60,7 @@ func (m *mockOpts) ObservationTimestamp() time.Time {
 	return time.Unix(1737936858, 0)
 }
 
-func (m *mockOpts) OutcomeCodec() llo.OutcomeCodec {
+func (m *mockOpts) OutcomeCodec() llov30.OutcomeCodec {
 	return nil
 }
 
@@ -140,6 +140,7 @@ var trrs = pipeline.TaskRunResults{
 }
 
 func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	m := &mockMonitoringEndpoint{}
 
@@ -187,7 +188,7 @@ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
 			MonitoringEndpoint: m,
 			DonID:              donID,
 		})
-		val := llo.ToDecimal(decimal.NewFromFloat32(102.12))
+		val := llocommon.ToDecimal(decimal.NewFromFloat32(102.12))
 		servicetest.Run(t, tm)
 		tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, nil)
 		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
@@ -243,7 +244,7 @@ func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
 			MonitoringEndpoint: m,
 			DonID:              donID,
 		})
-		val := &llo.Quote{Bid: decimal.NewFromFloat32(102.12), Benchmark: decimal.NewFromFloat32(103.32), Ask: decimal.NewFromFloat32(104.25)}
+		val := &llocommon.Quote{Bid: decimal.NewFromFloat32(102.12), Benchmark: decimal.NewFromFloat32(103.32), Ask: decimal.NewFromFloat32(104.25)}
 		servicetest.Run(t, tm)
 		tm.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, nil)
 		time.Sleep(10 * time.Millisecond)
@@ -277,6 +278,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 	opts := &mockOpts{}
 
 	t.Run("if both CaptureEATelemetry and CaptureObservationTelemetry are false, returns nil channel", func(t *testing.T) {
+		t.Parallel()
 		tm := newTelemeter(TelemeterParams{
 			Logger: lggr,
 			DonID:  donID,
@@ -302,13 +304,13 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 			Name:                   "test-bridge-1",
 			RequestData:            []byte(`foo`),
 			ResponseData:           []byte(`bar`),
-			ResponseError:          ptr("test error"),
+			ResponseError:          new("test error"),
 			ResponseStatusCode:     200,
 			RequestStartTimestamp:  time.Unix(1, 1),
 			RequestFinishTimestamp: time.Unix(2, 1),
 			LocalCacheHit:          true,
 			SpecID:                 3,
-			StreamID:               ptr(uint32(135)),
+			StreamID:               new(uint32(135)),
 			DotID:                  "ds1",
 		}
 		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
@@ -355,7 +357,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 			StreamValueType:       1,
 			StreamValueBinary:     []byte{0x01, 0x02, 0x03},
 			StreamValueText:       "stream value text",
-			ObservationError:      ptr("test error"),
+			ObservationError:      new("test error"),
 			ObservationTimestamp:  time.Unix(1, 1).UnixNano(),
 			ObservationFinishedAt: time.Unix(2, 1).UnixNano(),
 			SeqNr:                 42,
@@ -411,6 +413,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 	donID := uint32(1)
 
 	t.Run("returns nil channel if CaptureOutcomeTelemetry is false", func(t *testing.T) {
+		t.Parallel()
 		tm := newTelemeter(TelemeterParams{
 			Logger: lggr,
 			DonID:  donID,
@@ -419,7 +422,8 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 		assert.Nil(t, ch)
 	})
 
-	t.Run("transmits *datastreamsllo.LLOOutcomeTelemetry", func(t *testing.T) {
+	t.Run("transmits *llocommon.LLOOutcomeTelemetry", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                  lggr,
@@ -434,7 +438,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 		t.Run("zero values", func(t *testing.T) {
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
-			orig := &datastreamsllo.LLOOutcomeTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
+			orig := &llocommon.LLOOutcomeTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
 			ch <- orig
 
 			// Wait until the telemetry is buffered.
@@ -448,7 +452,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 
 			tLog := <-m.chTypedLogs
 			assert.Equal(t, synchronization.LLOOutcome, tLog.telemType)
-			decoded := &datastreamsllo.LLOOutcomeTelemetry{}
+			decoded := &llocommon.LLOOutcomeTelemetry{}
 			require.NoError(t, proto.Unmarshal(tLog.log, decoded))
 			assert.Empty(t, decoded.LifeCycleStage)
 			assert.Zero(t, decoded.ObservationTimestampNanoseconds)
@@ -463,13 +467,13 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 		t.Run("with values", func(t *testing.T) {
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
-			orig := &datastreamsllo.LLOOutcomeTelemetry{
+			orig := &llocommon.LLOOutcomeTelemetry{
 				LifeCycleStage:                  "foo",
 				ObservationTimestampNanoseconds: 2,
-				ChannelDefinitions: map[uint32]*datastreamsllo.LLOChannelDefinitionProto{
+				ChannelDefinitions: map[uint32]*llocommon.LLOChannelDefinitionProto{
 					3: {
 						ReportFormat: 4,
-						Streams: []*datastreamsllo.LLOStreamDefinition{
+						Streams: []*llocommon.LLOStreamDefinition{
 							{
 								StreamID:   5,
 								Aggregator: 6,
@@ -481,9 +485,9 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 				ValidAfterNanoseconds: map[uint32]uint64{
 					8: 9,
 				},
-				StreamAggregates: map[uint32]*datastreamsllo.LLOAggregatorStreamValue{
+				StreamAggregates: map[uint32]*llocommon.LLOAggregatorStreamValue{
 					10: {
-						AggregatorValues: map[uint32]*datastreamsllo.LLOStreamValue{
+						AggregatorValues: map[uint32]*llocommon.LLOStreamValue{
 							11: {
 								Type:  12,
 								Value: []byte{13},
@@ -508,7 +512,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 
 			tLog := <-m.chTypedLogs
 			assert.Equal(t, synchronization.LLOOutcome, tLog.telemType)
-			decoded := &datastreamsllo.LLOOutcomeTelemetry{}
+			decoded := &llocommon.LLOOutcomeTelemetry{}
 			require.NoError(t, proto.Unmarshal(tLog.log, decoded))
 			assert.Equal(t, "foo", decoded.LifeCycleStage)
 			assert.Equal(t, uint64(2), decoded.ObservationTimestampNanoseconds)
@@ -522,7 +526,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 			assert.Equal(t, uint64(9), decoded.ValidAfterNanoseconds[8])
 			assert.Len(t, decoded.StreamAggregates, 1)
 			assert.Len(t, decoded.StreamAggregates[10].AggregatorValues, 1)
-			assert.Equal(t, llo.LLOStreamValue_Type(12), decoded.StreamAggregates[10].AggregatorValues[11].Type)
+			assert.Equal(t, llocommon.LLOStreamValue_Type(12), decoded.StreamAggregates[10].AggregatorValues[11].Type)
 			assert.Equal(t, []byte{13}, decoded.StreamAggregates[10].AggregatorValues[11].Value)
 			assert.Equal(t, opts.SeqNr(), decoded.SeqNr)
 			assert.Equal(t, cd[:], decoded.ConfigDigest)
@@ -531,6 +535,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 	})
 
 	t.Run("overwrites previous outcome for same seqNr (epoch transition)", func(t *testing.T) {
+		t.Parallel()
 		// Simulates the bug scenario: Outcome() is called twice for the
 		// same seqNr across two epochs (first epoch fails prepare-quorum,
 		// second commits). Only the last outcome should survive in the
@@ -550,7 +555,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 		cd := opts.ConfigDigest()
 
 		// First outcome (from failed epoch)
-		epoch1Outcome := &datastreamsllo.LLOOutcomeTelemetry{
+		epoch1Outcome := &llocommon.LLOOutcomeTelemetry{
 			LifeCycleStage:                  "production",
 			ObservationTimestampNanoseconds: 1000000001,
 			SeqNr:                           opts.SeqNr(),
@@ -566,7 +571,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 		})
 
 		// Second outcome (from committed epoch) — different observation timestamp
-		epoch2Outcome := &datastreamsllo.LLOOutcomeTelemetry{
+		epoch2Outcome := &llocommon.LLOOutcomeTelemetry{
 			LifeCycleStage:                  "production",
 			ObservationTimestampNanoseconds: 2000000002,
 			SeqNr:                           opts.SeqNr(),
@@ -583,7 +588,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 				return false
 			}
 			// Wait until the buffer contains the second outcome
-			msg := buf[0].msg.(*datastreamsllo.LLOOutcomeTelemetry)
+			msg := buf[0].msg.(*llocommon.LLOOutcomeTelemetry)
 			return msg.ObservationTimestampNanoseconds == 2000000002
 		})
 
@@ -598,7 +603,7 @@ func Test_Telemeter_outcomeTelemetry(t *testing.T) {
 
 		tLog := <-m.chTypedLogs
 		assert.Equal(t, synchronization.LLOOutcome, tLog.telemType)
-		decoded := &datastreamsllo.LLOOutcomeTelemetry{}
+		decoded := &llocommon.LLOOutcomeTelemetry{}
 		require.NoError(t, proto.Unmarshal(tLog.log, decoded))
 
 		// The flushed outcome should be from the second (committed) epoch
@@ -623,6 +628,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 	donID := uint32(1)
 
 	t.Run("returns nil channel if CaptureReportTelemetry is false", func(t *testing.T) {
+		t.Parallel()
 		tm := newTelemeter(TelemeterParams{
 			Logger: lggr,
 			DonID:  donID,
@@ -631,7 +637,8 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 		assert.Nil(t, ch)
 	})
 
-	t.Run("transmits *datastreamsllo.LLOReportTelemetry", func(t *testing.T) {
+	t.Run("transmits *llocommon.LLOReportTelemetry", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                 lggr,
@@ -646,7 +653,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 		t.Run("zero values", func(t *testing.T) {
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
-			orig := &datastreamsllo.LLOReportTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
+			orig := &llocommon.LLOReportTelemetry{SeqNr: opts.SeqNr(), ConfigDigest: cd[:]}
 			ch <- orig
 
 			// Wait until the telemetry is buffered.
@@ -660,7 +667,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 
 			tLog := <-m.chTypedLogs
 			assert.Equal(t, synchronization.LLOReport, tLog.telemType)
-			decoded := &datastreamsllo.LLOReportTelemetry{}
+			decoded := &llocommon.LLOReportTelemetry{}
 			require.NoError(t, proto.Unmarshal(tLog.log, decoded))
 			assert.Zero(t, decoded.ChannelId)
 			assert.Zero(t, decoded.ValidAfterNanoseconds)
@@ -677,19 +684,19 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 		t.Run("with values", func(t *testing.T) {
 			opts := &mockOpts{}
 			cd := opts.ConfigDigest()
-			orig := &datastreamsllo.LLOReportTelemetry{
+			orig := &llocommon.LLOReportTelemetry{
 				ChannelId:                       1,
 				ValidAfterNanoseconds:           2,
 				ObservationTimestampNanoseconds: 3,
 				ReportFormat:                    4,
 				Specimen:                        true,
-				StreamDefinitions: []*datastreamsllo.LLOStreamDefinition{
+				StreamDefinitions: []*llocommon.LLOStreamDefinition{
 					{
 						StreamID:   5,
 						Aggregator: 6,
 					},
 				},
-				StreamValues: []*datastreamsllo.LLOStreamValue{
+				StreamValues: []*llocommon.LLOStreamValue{
 					{
 						Type:  7,
 						Value: []byte{8},
@@ -712,7 +719,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 
 			tLog := <-m.chTypedLogs
 			assert.Equal(t, synchronization.LLOReport, tLog.telemType)
-			decoded := &datastreamsllo.LLOReportTelemetry{}
+			decoded := &llocommon.LLOReportTelemetry{}
 			require.NoError(t, proto.Unmarshal(tLog.log, decoded))
 			assert.Equal(t, uint32(1), decoded.ChannelId)
 			assert.Equal(t, uint64(2), decoded.ValidAfterNanoseconds)
@@ -723,7 +730,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 			assert.Equal(t, uint32(5), decoded.StreamDefinitions[0].StreamID)
 			assert.Equal(t, uint32(6), decoded.StreamDefinitions[0].Aggregator)
 			assert.Len(t, decoded.StreamValues, 1)
-			assert.Equal(t, llo.LLOStreamValue_Type(7), decoded.StreamValues[0].Type)
+			assert.Equal(t, llocommon.LLOStreamValue_Type(7), decoded.StreamValues[0].Type)
 			assert.Equal(t, []byte{8}, decoded.StreamValues[0].Value)
 			assert.Equal(t, []byte{9}, decoded.ChannelOpts)
 			assert.Equal(t, opts.SeqNr(), decoded.SeqNr)
@@ -732,6 +739,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 	})
 
 	t.Run("appends multiple reports for same seqNr (one per channel)", func(t *testing.T) {
+		t.Parallel()
 		// Report telemetry must append, not overwrite. Reports() generates
 		// one report per reportable channel (up to ~1000+), all sharing
 		// the same seqNr. Overwriting would lose all but the last channel.
@@ -751,7 +759,7 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 
 		// Send 3 reports for different channels, all with the same seqNr
 		for i := uint32(1); i <= 3; i++ {
-			ch <- &datastreamsllo.LLOReportTelemetry{
+			ch <- &llocommon.LLOReportTelemetry{
 				ChannelId:    i,
 				SeqNr:        opts.SeqNr(),
 				ConfigDigest: cd[:],
@@ -775,10 +783,10 @@ func Test_Telemeter_reportTelemetry(t *testing.T) {
 		tm.TrackSeqNr(opts.ConfigDigest(), opts.SeqNr())
 
 		receivedChannels := make([]uint32, 0, 3)
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			tLog := <-m.chTypedLogs
 			assert.Equal(t, synchronization.LLOReport, tLog.telemType)
-			decoded := &datastreamsllo.LLOReportTelemetry{}
+			decoded := &llocommon.LLOReportTelemetry{}
 			require.NoError(t, proto.Unmarshal(tLog.log, decoded))
 			receivedChannels = append(receivedChannels, decoded.ChannelId)
 		}
@@ -830,6 +838,7 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 	cd := (&mockOpts{}).ConfigDigest()
 
 	t.Run("with sampling enabled emits ~1 outcome per second despite seqNr/transmit mismatch", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                  lggr,
@@ -843,14 +852,14 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 		require.NotNil(t, ch)
 
 		transmittingSeqNrs := make([]uint64, 0, secondsCovered)
-		for s := 0; s < secondsCovered; s++ {
+		for s := range secondsCovered {
 			secStart := time.Unix(baseObservationUnix+int64(s), 0).UnixNano()
-			for i := 0; i < outcomesPerSecond; i++ {
+			for i := range outcomesPerSecond {
 				seqNr := baseSeqNr + uint64(s*outcomesPerSecond+i)
 				// Spread observation timestamps within the same wall-clock
 				// second (different nanos, same second bucket).
 				obsTs := uint64(secStart + int64(i)*int64(10*time.Millisecond))
-				ch <- &datastreamsllo.LLOOutcomeTelemetry{
+				ch <- &llocommon.LLOOutcomeTelemetry{
 					LifeCycleStage:                  "production",
 					ObservationTimestampNanoseconds: obsTs,
 					SeqNr:                           seqNr,
@@ -876,11 +885,11 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 		// We expect one outcome telemetry per wall-clock second (sampler
 		// admits the first survivor per second bucket).
 		received := make([]uint64, 0, secondsCovered)
-		for i := 0; i < secondsCovered; i++ {
+		for i := range secondsCovered {
 			select {
 			case tLog := <-m.chTypedLogs:
 				assert.Equal(t, synchronization.LLOOutcome, tLog.telemType)
-				decoded := &datastreamsllo.LLOOutcomeTelemetry{}
+				decoded := &llocommon.LLOOutcomeTelemetry{}
 				require.NoError(t, proto.Unmarshal(tLog.log, decoded))
 				received = append(received, decoded.ObservationTimestampNanoseconds)
 			case <-time.After(testutils.WaitTimeout(t)):
@@ -893,7 +902,7 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 		// remaining survivors that fell in already-seen second buckets.
 		select {
 		case extra := <-m.chTypedLogs:
-			decoded := &datastreamsllo.LLOOutcomeTelemetry{}
+			decoded := &llocommon.LLOOutcomeTelemetry{}
 			require.NoError(t, proto.Unmarshal(extra.log, decoded))
 			t.Fatalf("expected no more outcome messages, got one with ts=%d", decoded.ObservationTimestampNanoseconds)
 		case <-time.After(100 * time.Millisecond):
@@ -902,6 +911,7 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 	})
 
 	t.Run("with sampling disabled emits one outcome per transmitting seqNr", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                  lggr,
@@ -915,12 +925,12 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 		require.NotNil(t, ch)
 
 		transmittingSeqNrs := make([]uint64, 0, secondsCovered)
-		for s := 0; s < secondsCovered; s++ {
+		for s := range secondsCovered {
 			secStart := time.Unix(baseObservationUnix+int64(s), 0).UnixNano()
-			for i := 0; i < outcomesPerSecond; i++ {
+			for i := range outcomesPerSecond {
 				seqNr := baseSeqNr + uint64(s*outcomesPerSecond+i)
 				obsTs := uint64(secStart + int64(i)*int64(10*time.Millisecond))
-				ch <- &datastreamsllo.LLOOutcomeTelemetry{
+				ch <- &llocommon.LLOOutcomeTelemetry{
 					LifeCycleStage:                  "production",
 					ObservationTimestampNanoseconds: obsTs,
 					SeqNr:                           seqNr,
@@ -943,7 +953,7 @@ func Test_Telemeter_outcomeTelemetry_samplingAtFlushTime(t *testing.T) {
 
 		// Without sampling, every transmit produces telemetry — one per second
 		// (since only one seqNr per second transmits).
-		for i := 0; i < secondsCovered; i++ {
+		for i := range secondsCovered {
 			select {
 			case tLog := <-m.chTypedLogs:
 				assert.Equal(t, synchronization.LLOOutcome, tLog.telemType)
@@ -986,6 +996,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 	cd := (&mockOpts{}).ConfigDigest()
 
 	t.Run("with sampling enabled emits ~1 report per channel per second despite seqNr/transmit mismatch", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                 lggr,
@@ -1000,15 +1011,15 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 
 		transmittingSeqNrs := make([]uint64, 0, secondsCovered)
 		expectedBufferEntries := 0
-		for s := 0; s < secondsCovered; s++ {
+		for s := range secondsCovered {
 			secStart := time.Unix(baseObservationUnix+int64(s), 0).UnixNano()
-			for i := 0; i < seqNrsPerSecond; i++ {
+			for i := range seqNrsPerSecond {
 				seqNr := baseSeqNr + uint64(s*seqNrsPerSecond+i)
 				obsTs := uint64(secStart + int64(i)*int64(10*time.Millisecond))
 				// Each seqNr emits a report per channel — mimics the
 				// Reports() call shape in LLO (one report per channel).
 				for _, channelID := range channels {
-					ch <- &datastreamsllo.LLOReportTelemetry{
+					ch <- &llocommon.LLOReportTelemetry{
 						ChannelId:                       channelID,
 						ObservationTimestampNanoseconds: obsTs,
 						SeqNr:                           seqNr,
@@ -1040,11 +1051,11 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 		// first survivor per (channelId, second) fingerprint).
 		expected := secondsCovered * len(channels)
 		seen := make(map[uint32]int)
-		for i := 0; i < expected; i++ {
+		for i := range expected {
 			select {
 			case tLog := <-m.chTypedLogs:
 				assert.Equal(t, synchronization.LLOReport, tLog.telemType)
-				decoded := &datastreamsllo.LLOReportTelemetry{}
+				decoded := &llocommon.LLOReportTelemetry{}
 				require.NoError(t, proto.Unmarshal(tLog.log, decoded))
 				seen[decoded.ChannelId]++
 			case <-time.After(testutils.WaitTimeout(t)):
@@ -1058,7 +1069,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 
 		select {
 		case extra := <-m.chTypedLogs:
-			decoded := &datastreamsllo.LLOReportTelemetry{}
+			decoded := &llocommon.LLOReportTelemetry{}
 			require.NoError(t, proto.Unmarshal(extra.log, decoded))
 			t.Fatalf("expected no more report messages, got one with channel=%d ts=%d",
 				decoded.ChannelId, decoded.ObservationTimestampNanoseconds)
@@ -1067,6 +1078,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 	})
 
 	t.Run("with sampling disabled emits all reports for transmitting seqNrs", func(t *testing.T) {
+		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
 			Logger:                 lggr,
@@ -1081,13 +1093,13 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 
 		transmittingSeqNrs := make([]uint64, 0, secondsCovered)
 		expectedBufferEntries := 0
-		for s := 0; s < secondsCovered; s++ {
+		for s := range secondsCovered {
 			secStart := time.Unix(baseObservationUnix+int64(s), 0).UnixNano()
-			for i := 0; i < seqNrsPerSecond; i++ {
+			for i := range seqNrsPerSecond {
 				seqNr := baseSeqNr + uint64(s*seqNrsPerSecond+i)
 				obsTs := uint64(secStart + int64(i)*int64(10*time.Millisecond))
 				for _, channelID := range channels {
-					ch <- &datastreamsllo.LLOReportTelemetry{
+					ch <- &llocommon.LLOReportTelemetry{
 						ChannelId:                       channelID,
 						ObservationTimestampNanoseconds: obsTs,
 						SeqNr:                           seqNr,
@@ -1116,7 +1128,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 		// Without sampling, every report at a transmitting seqNr flushes.
 		// One transmitting seqNr per second × len(channels) reports per seqNr.
 		expected := secondsCovered * len(channels)
-		for i := 0; i < expected; i++ {
+		for i := range expected {
 			select {
 			case tLog := <-m.chTypedLogs:
 				assert.Equal(t, synchronization.LLOReport, tLog.telemType)
@@ -1133,6 +1145,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 	})
 
 	t.Run("with sampling enabled multiple reports per channel at same transmitting seqNr keep one per second", func(t *testing.T) {
+		t.Parallel()
 		// Reports() emits one report per channel for a given seqNr. When
 		// that seqNr does transmit, the per-channel reports should be
 		// admitted (different fingerprints). This test verifies the
@@ -1155,7 +1168,7 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 
 		// Append 3 reports at the same seqNr for distinct channels.
 		for _, channelID := range []uint32{10, 20, 30} {
-			ch <- &datastreamsllo.LLOReportTelemetry{
+			ch <- &llocommon.LLOReportTelemetry{
 				ChannelId:                       channelID,
 				ObservationTimestampNanoseconds: obsTs,
 				SeqNr:                           opts.SeqNr(),
@@ -1172,10 +1185,10 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 		tm.TrackSeqNr(cd, opts.SeqNr())
 
 		received := make(map[uint32]struct{})
-		for i := 0; i < 3; i++ {
+		for i := range 3 {
 			select {
 			case tLog := <-m.chTypedLogs:
-				decoded := &datastreamsllo.LLOReportTelemetry{}
+				decoded := &llocommon.LLOReportTelemetry{}
 				require.NoError(t, proto.Unmarshal(tLog.log, decoded))
 				received[decoded.ChannelId] = struct{}{}
 			case <-time.After(testutils.WaitTimeout(t)):
@@ -1186,5 +1199,3 @@ func Test_Telemeter_reportTelemetry_samplingAtFlushTime(t *testing.T) {
 			"each per-channel report should be admitted (distinct sampler fingerprints)")
 	})
 }
-
-func ptr[T any](t T) *T { return &t }

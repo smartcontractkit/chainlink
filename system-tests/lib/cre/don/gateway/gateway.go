@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"dario.cat/mergo"
+	"github.com/google/uuid"
 
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
@@ -23,7 +24,7 @@ type WhitelistConfig struct {
 	ExtraAllowedIPsCIDR []string
 }
 
-func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, gatewayServiceConfigs []cre.GatewayServiceConfig, whitelistConfig WhitelistConfig) error {
+func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, topology *cre.Topology, gatewayServiceConfigs []cre.GatewayServiceConfig, whitelistConfig WhitelistConfig) error {
 	specs := make(map[string][]string)
 
 	if !dons.RequiresGateway() {
@@ -36,9 +37,12 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 			return fmt.Errorf("could not find gateway node with UUID %s in DON topology", config.NodeUUID)
 		}
 
+		// Gateway worker job: only register workflow DONs in the same don_family as this gateway nodeset.
+		services := topology.GatewayServiceConfigsForGateway(gatewayNode.DON.Name, gatewayServiceConfigs)
+
 		workerInput := cre_jobs.ProposeJobSpecInput{
 			Domain:      offchain.ProductLabel,
-			Environment: cre.EnvironmentName,
+			Environment: creEnv.CldfEnvironment.Name,
 			DONName:     gatewayNode.DON.Name,
 			JobName:     "gateway-worker",
 			DONFilters: []offchain.TargetDONFilter{
@@ -52,18 +56,21 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 				"gatewayKeyChainSelector":     creEnv.RegistryChainSelector,
 				"authGatewayID":               config.AuthGatewayID,
 				"serviceCentricFormatEnabled": true,
-				"services":                    gatewayServiceConfigs,
+				"services":                    services,
 			},
+		}
+		if creEnv.FreshExternalJobIDs {
+			workerInput.Inputs["externalJobID"] = uuid.NewString()
 		}
 
 		workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
 		if workerVerErr != nil {
-			return fmt.Errorf("precondition verification failed for Custom Compute worker job: %w", workerVerErr)
+			return fmt.Errorf("precondition verification failed for gateway job: %w", workerVerErr)
 		}
 
 		workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
 		if workerErr != nil {
-			return fmt.Errorf("failed to propose Custom Compute worker job spec: %w", workerErr)
+			return fmt.Errorf("failed to propose gateway worker job spec: %w", workerErr)
 		}
 
 		for _, r := range workerReport.Reports {
@@ -80,7 +87,7 @@ func CreateJobs(ctx context.Context, creEnv *cre.Environment, dons *cre.Dons, ga
 
 	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
 	if approveErr != nil {
-		return fmt.Errorf("failed to approve Custom Compute jobs: %w", approveErr)
+		return fmt.Errorf("failed to approve gateway jobs: %w", approveErr)
 	}
 
 	return nil

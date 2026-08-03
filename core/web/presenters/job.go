@@ -12,10 +12,10 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -623,7 +623,7 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.CCVExecutorSpec = NewCCVExecutorSpec(j.CCVExecutorSpec)
 	}
 
-	jes := []JobError{}
+	jes := make([]JobError, 0, len(j.JobSpecErrors))
 	for _, e := range j.JobSpecErrors {
 		jes = append(jes, NewJobError((e)))
 	}

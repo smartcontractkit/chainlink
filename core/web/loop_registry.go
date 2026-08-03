@@ -52,7 +52,7 @@ func NewLoopRegistryServer(app chainlink.Application) *LoopRegistryServer {
 // discoveryHandler implements service discovery of prom endpoints for LOOPs in the registry
 func (l *LoopRegistryServer) discoveryHandler(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var groups []*targetgroup.Group
+	groups := make([]*targetgroup.Group, 0, 1+len(l.registry.List()))
 
 	// add node metrics to service discovery
 	groups = append(groups, pluginGroup(l.discoveryHostName, l.exposedPromPort, "/metrics"))

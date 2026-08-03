@@ -2,7 +2,6 @@ package cmd_test
 
 import (
 	"bytes"
-	"context"
 	"flag"
 	"os"
 	"testing"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/solkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -59,7 +59,7 @@ func TestShell_SolanaKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Solana()
 	cleanup := func() {
-		ctx := context.Background()
+		ctx := t.Context()
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		for _, key := range keys {

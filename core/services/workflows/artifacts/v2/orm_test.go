@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -14,9 +13,11 @@ import (
 )
 
 func Test_UpsertWorkflowSpec(t *testing.T) {
+	t.Parallel()
 	t.Run("inserts new spec", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		lggr := logger.TestLogger(t)
 		orm := &orm{ds: db, lggr: lggr}
 
@@ -45,8 +46,9 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 	})
 
 	t.Run("updates existing spec", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		lggr := logger.TestLogger(t)
 		orm := &orm{ds: db, lggr: lggr}
 
@@ -81,9 +83,43 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 		require.Equal(t, spec.Status, dbSpec.Status)
 	})
 
-	t.Run("workflow is unique by workflow ID", func(t *testing.T) {
+	t.Run("sets CreatedAt to current time if zero value is provided", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
+		spec := &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    "cid-zero-time",
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			WorkflowTag:   "workflowTag",
+			Status:        job.WorkflowSpecStatusActive,
+			SpecType:      job.WASMFile,
+			// Intentionally leaving CreatedAt as zero
+		}
+
+		startTime := time.Now().UTC()
+		_, err := orm.UpsertWorkflowSpec(ctx, spec)
+		require.NoError(t, err)
+
+		var dbSpec job.WorkflowSpec
+		err = db.Get(&dbSpec, `SELECT * FROM workflow_specs_v2 WHERE workflow_id = $1`, spec.WorkflowID)
+		require.NoError(t, err)
+
+		// Assert CreatedAt was populated correctly in the DB
+		require.False(t, dbSpec.CreatedAt.IsZero(), "CreatedAt should not be the zero time")
+		require.True(t, dbSpec.CreatedAt.After(startTime) || dbSpec.CreatedAt.Equal(startTime), "CreatedAt should be >= start time")
+		require.True(t, dbSpec.CreatedAt.Before(time.Now().UTC()), "CreatedAt should be <= current time")
+	})
+
+	t.Run("workflow is unique by workflow ID", func(t *testing.T) {
+		t.Parallel()
+		db := pgtest.NewSqlxDB(t)
+		ctx := t.Context()
 		lggr := logger.TestLogger(t)
 		orm := &orm{ds: db, lggr: lggr}
 
@@ -132,9 +168,11 @@ func Test_UpsertWorkflowSpec(t *testing.T) {
 }
 
 func Test_DeleteWorkflowSpec(t *testing.T) {
+	t.Parallel()
 	t.Run("deletes a workflow spec by ID", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		lggr := logger.TestLogger(t)
 		orm := &orm{ds: db, lggr: lggr}
 
@@ -167,8 +205,9 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 	})
 
 	t.Run("fails if no workflow spec exists", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		lggr := logger.TestLogger(t)
 		orm := &orm{ds: db, lggr: lggr}
 
@@ -179,8 +218,9 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 }
 
 func Test_DeleteWorkflowSpecs(t *testing.T) {
+	t.Parallel()
 	db := pgtest.NewSqlxDB(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	orm := &orm{ds: db, lggr: lggr}
 
@@ -223,9 +263,11 @@ func Test_DeleteWorkflowSpecs(t *testing.T) {
 }
 
 func Test_GetWorkflowSpec(t *testing.T) {
+	t.Parallel()
 	t.Run("gets a workflow spec by ID", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		lggr := logger.TestLogger(t)
 		orm := &orm{ds: db, lggr: lggr}
 
@@ -256,8 +298,9 @@ func Test_GetWorkflowSpec(t *testing.T) {
 	})
 
 	t.Run("fails if no workflow spec exists", func(t *testing.T) {
+		t.Parallel()
 		db := pgtest.NewSqlxDB(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		lggr := logger.TestLogger(t)
 		orm := &orm{ds: db, lggr: lggr}
 

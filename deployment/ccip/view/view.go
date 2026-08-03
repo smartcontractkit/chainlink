@@ -7,10 +7,9 @@ import (
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
 	tonstate "github.com/smartcontractkit/chainlink-ton/deployment/state"
 
-	mcmsv10 "github.com/smartcontractkit/cld-changesets/pkg/contract/mcms/view/v1_0"
+	aptosview "github.com/smartcontractkit/chainlink-aptos/deployment/view"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/maputils"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/aptos"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
@@ -53,7 +52,7 @@ type ChainView struct {
 	// be more than one per env.
 	CCIPHome           map[string]v1_6.CCIPHomeView                  `json:"ccipHome,omitempty"`
 	CapabilityRegistry map[string]common_v1_0.CapabilityRegistryView `json:"capabilityRegistry,omitempty"`
-	MCMSWithTimelock   mcmsv10.MCMSWithTimelockView                  `json:"mcmsWithTimelock"`
+	MCMSWithTimelock   v1_0.MCMSWithTimelockView                     `json:"mcmsWithTimelock"`
 	LinkToken          v1_0.LinkTokenView                            `json:"linkToken"`
 	StaticLinkToken    v1_0.StaticLinkTokenView                      `json:"staticLinkToken"`
 
@@ -83,7 +82,7 @@ func NewChain() ChainView {
 		OffRamp:            make(map[string]v1_6.OffRampView),
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
 		CCIPHome:           make(map[string]v1_6.CCIPHomeView),
-		MCMSWithTimelock:   mcmsv10.MCMSWithTimelockView{},
+		MCMSWithTimelock:   v1_0.MCMSWithTimelockView{},
 		LinkToken:          v1_0.LinkTokenView{},
 		StaticLinkToken:    v1_0.StaticLinkTokenView{},
 		UpdateMu:           &sync.Mutex{},
@@ -131,40 +130,9 @@ func (v *ChainView) UpdateRegistryModuleView(registryModuleAddress string, regis
 	v.RegistryModules[registryModuleAddress] = registryModuleView
 }
 
-type AptosChainView struct {
-	ChainSelector uint64 `json:"chainSelector,omitempty"`
-	ChainID       string `json:"chainID,omitempty"`
+type AptosChainView = aptosview.AptosChainView
 
-	MCMSWithTimelock aptos.MCMSWithTimelockView `json:"mcmsWithTimelock"`
-
-	LinkToken aptos.TokenView            `json:"linkToken"`
-	Tokens    map[string]aptos.TokenView `json:"tokens,omitempty"`
-
-	CCIP    aptos.CCIPView               `json:"ccip"`
-	Router  map[string]aptos.RouterView  `json:"router,omitempty"`
-	OnRamp  map[string]aptos.OnRampView  `json:"onRamp,omitempty"`
-	OffRamp map[string]aptos.OffRampView `json:"offRamp,omitempty"`
-
-	TokenPools map[string]map[string]aptos.TokenPoolView `json:"poolByTokens,omitempty"` // TokenSymbol => TokenPool Address => PoolView
-
-	UpdateMu *sync.Mutex `json:"-"`
-}
-
-func NewAptosChainView() AptosChainView {
-	return AptosChainView{
-		ChainSelector:    0,
-		ChainID:          "",
-		MCMSWithTimelock: aptos.MCMSWithTimelockView{},
-		LinkToken:        aptos.TokenView{},
-		Tokens:           make(map[string]aptos.TokenView),
-		CCIP:             aptos.CCIPView{},
-		Router:           make(map[string]aptos.RouterView),
-		OnRamp:           make(map[string]aptos.OnRampView),
-		OffRamp:          make(map[string]aptos.OffRampView),
-		TokenPools:       make(map[string]map[string]aptos.TokenPoolView),
-		UpdateMu:         &sync.Mutex{},
-	}
-}
+var NewAptosChainView = aptosview.NewAptosChainView
 
 type CCIPView struct {
 	Chains      map[string]ChainView             `json:"chains,omitempty"`

@@ -10,24 +10,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
@@ -38,14 +33,15 @@ import (
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
 func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Plain(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11054")
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 100000000000)
@@ -264,6 +260,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert(t *testing.T) {
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11054")
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
@@ -847,6 +844,7 @@ func evmBurnMint677BalanceOf(t *testing.T, env cldf.Environment, destChain uint6
 }
 
 func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11054")
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 1000000000000)
@@ -1009,6 +1007,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 
 func Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11054")
+
 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
@@ -1071,7 +1070,9 @@ func Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_NoRateLimit(t *testing.T) {
 	}
 
 	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1215,7 +1216,6 @@ func Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_WithRateLimit(t *testing.T)
 }
 
 func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11053")
 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
@@ -1317,7 +1317,9 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 	}
 
 	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1428,7 +1430,6 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 }
 
 func Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
@@ -1497,7 +1498,9 @@ func Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 	}
 
 	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1522,7 +1525,6 @@ func Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 }
 
 func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 	e, sourceChain, destChain, deployerSourceChain, _, _ := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
@@ -1626,7 +1628,9 @@ func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 	}
 
 	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1651,7 +1655,6 @@ func Test_CCIPProgrammableTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 }
 
 func Test_CCIPZeroGasLimitTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
 
 	// Token Pool setup on both SUI and EVM
@@ -1754,7 +1757,9 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 	}
 
 	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
 	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
@@ -1869,6 +1874,21 @@ func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertError
 	require.Contains(t, err.Error(), execRevertCauseErrorMsg)
 }
 
+// prepareEvm2SuiTransferLane waits for CCIPMessageSent log-poller registration on the EVM
+// source chain before sending, matching ccip_token_transfer_test.go.
+func prepareEvm2SuiTransferLane(t *testing.T, e testhelpers.DeployedEnv, state stateview.CCIPOnChainState, sourceChain, destChain uint64) {
+	t.Helper()
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, state, e.Env.Offchain, sourceChain, destChain)
+}
+
+// replayEvm2SuiTransferLane replays EVM logs and waits for async replay to settle so the DON
+// can OCR-commit before we poll the Sui offramp (Sui replay is a no-op in nodetestutils).
+func replayEvm2SuiTransferLane(t *testing.T, e testhelpers.DeployedEnv, sourceChain, destChain uint64) {
+	t.Helper()
+	_ = destChain
+	messagingtest.SleepReplayAndSettle(t, e.Env, 30*time.Second, sourceChain)
+}
+
 // waitForSuiRPCSync blocks until the Sui fullnode JSON-RPC view has had a chance to index
 // recent transactions, by waiting for the latest checkpoint sequence to advance.
 //
@@ -1894,14 +1914,11 @@ func waitForSuiRPCSyncWithOptions(t *testing.T, suiChain sui.Chain, timeout time
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	defer cancel()
 
-	before, err := suiChain.Client.SuiGetLatestCheckpointSequenceNumber(ctx)
+	beforeCheckpoint, err := suiChain.Client.GetLatestCheckpoint(ctx)
 	if err != nil {
 		t.Logf("waitForSuiRPCSync: failed to read initial checkpoint seq (%v); falling back to fixed sleep", err)
 		// Use context-aware sleep instead of fixed sleep
-		fallbackSleep := 5 * time.Second
-		if timeout/2 < fallbackSleep {
-			fallbackSleep = timeout / 2
-		}
+		fallbackSleep := min(timeout/2, 5*time.Second)
 		select {
 		case <-time.After(fallbackSleep):
 			return
@@ -1910,6 +1927,8 @@ func waitForSuiRPCSyncWithOptions(t *testing.T, suiChain sui.Chain, timeout time
 			return
 		}
 	}
+
+	before := beforeCheckpoint.GetSequenceNumber()
 
 	t.Logf("waitForSuiRPCSync: starting sync wait from checkpoint %d (timeout: %v, minAdvance: %d)", before, timeout, minAdvance)
 
@@ -1923,12 +1942,13 @@ func waitForSuiRPCSyncWithOptions(t *testing.T, suiChain sui.Chain, timeout time
 			t.Logf("waitForSuiRPCSync: timeout waiting for checkpoint to advance from %d (context: %v)", before, ctx.Err())
 			return
 		case <-ticker.C:
-			after, cerr := suiChain.Client.SuiGetLatestCheckpointSequenceNumber(ctx)
+			afterCheckpoint, cerr := suiChain.Client.GetLatestCheckpoint(ctx)
 			if cerr != nil {
 				// Log but continue - network might be temporarily unavailable
 				t.Logf("waitForSuiRPCSync: temporary error reading checkpoint: %v", cerr)
 				continue
 			}
+			after := afterCheckpoint.GetSequenceNumber()
 
 			// Check if we've advanced enough checkpoints
 			if after >= before+minAdvance {

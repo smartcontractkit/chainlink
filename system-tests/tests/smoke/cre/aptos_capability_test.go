@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -59,7 +60,7 @@ const (
 )
 
 var aptosForwarderVersion = semver.MustParse("1.0.0")
-var aptosWorkflowNameSeq uint64
+var aptosWorkflowNameSeq atomic.Uint64
 
 // ExecuteAptosTest runs the Aptos CRE suite with the current CI scenario set by
 // default. Individual scenarios still remain available for local/manual
@@ -492,7 +493,7 @@ func prepareAptosWriteScenarioWithBenchmark(
 }
 
 func uniqueAptosWorkflowName(base string) string {
-	return fmt.Sprintf("%s-%d-%d", base, time.Now().UnixNano(), atomic.AddUint64(&aptosWorkflowNameSeq, 1))
+	return fmt.Sprintf("%s-%d-%d", base, time.Now().UnixNano(), aptosWorkflowNameSeq.Add(1))
 }
 
 func findAptosDonForChain(t *testing.T, tenv *configuration.TestEnvironment, chainID uint64) *crelib.Don {
@@ -505,10 +506,8 @@ func findAptosDonForChain(t *testing.T, tenv *configuration.TestEnvironment, cha
 		}
 		chainIDs, err := don.GetEnabledChainIDsForCapability("aptos")
 		require.NoError(t, err, "failed to read enabled chain ids for DON %q", don.Name)
-		for _, id := range chainIDs {
-			if id == chainID {
-				return don
-			}
+		if slices.Contains(chainIDs, chainID) {
+			return don
 		}
 	}
 

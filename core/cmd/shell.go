@@ -36,6 +36,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -54,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
+	gatewayv2metrics "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	gatewaynetwork "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -83,6 +86,7 @@ func metricViews() []sdkmetric.View {
 		ocr3beholderwrapper.MetricViews(),
 		ocr3_1beholderwrapper.MetricViews(),
 		gatewaynetwork.HTTPClientMetricViews(),
+		gatewayv2metrics.MetricViews(),
 	)
 }
 
@@ -153,6 +157,13 @@ func newBeholderClient(
 		ChipIngressEmitterGRPCEndpoint: cfgTelemetry.ChipIngressEndpoint(),
 		ChipIngressInsecureConnection:  cfgTelemetry.ChipIngressInsecureConnection(),
 		ChipIngressBatchEmitterEnabled: cfgTelemetry.ChipIngressBatchEmitterEnabled(),
+		ChipIngressBufferSize:          cfgTelemetry.ChipIngressBufferSize(),
+		ChipIngressMaxBatchSize:        cfgTelemetry.ChipIngressMaxBatchSize(),
+		ChipIngressMaxConcurrentSends:  cfgTelemetry.ChipIngressMaxConcurrentSends(),
+		ChipIngressSendInterval:        cfgTelemetry.ChipIngressSendInterval(),
+		ChipIngressSendTimeout:         cfgTelemetry.ChipIngressSendTimeout(),
+		ChipIngressDrainTimeout:        cfgTelemetry.ChipIngressDrainTimeout(),
+		ChipIngressMaxGRPCRequestSize:  cfgTelemetry.ChipIngressMaxGRPCRequestSize(),
 		ChipIngressLogger:              lggr,
 		LogStreamingEnabled:            cfgTelemetry.LogStreamingEnabled(),
 		LogLevel:                       cfgTelemetry.LogLevel(),
@@ -163,7 +174,9 @@ func newBeholderClient(
 		LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
 		// Due to OpenTelemetry semantics, histogram bucket boundaries must be set
 		// when the Beholder client is constructed.
-		MetricViews: metricViews(),
+		MetricViews:               metricViews(),
+		MetricViewsDenyAttributes: cfgTelemetry.MetricViewsDenyAttributes(),
+		MetricCardinalityLimit:    cfgTelemetry.MetricCardinalityLimit(),
 	}
 
 	if cfgTracing.Enabled() {
@@ -283,6 +296,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	creOpts := cre.Opts{
 		CapabilitiesRegistry: capabilities.NewRegistry(appLggr),
+		ExecutionHandlers:    &confidentialrelay.ExecutionHandlers{},
 	}
 	if cfg.CRE().WorkflowFetcher() != nil && cfg.CRE().WorkflowFetcher().URL() != "" {
 		creOpts.FetcherFunc, err = syncer.NewFetcherFunc(cfg.CRE().WorkflowFetcher().URL(), appLggr)

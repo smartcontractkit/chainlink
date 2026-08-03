@@ -19,11 +19,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	chippb "github.com/smartcontractkit/chainlink-common/pkg/chipingress/pb"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	workfloweventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/chiprouter"
 	chiptestsink "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/chip-testsink"
@@ -481,7 +480,7 @@ func GetLoggingPublishFn(
 		}
 
 		// Wrap in a simple structure to preserve the event type in the log file
-		entry := map[string]interface{}{
+		entry := map[string]any{
 			"type":      eventType,
 			"timestamp": time.Now(),
 			"data":      json.RawMessage(dataBytes),

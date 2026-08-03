@@ -80,7 +80,7 @@ func (rc *responseCache) Fetch(ctx context.Context, req gateway.OutboundHTTPRequ
 	// Cache check + store happen inside the flight so the key isn't released
 	// until the result is cached, closing the race window between singleflight
 	// completion and cache write.
-	result, _, _ := rc.flight.Do(cacheKey, func() (interface{}, error) {
+	result, _, _ := rc.flight.Do(cacheKey, func() (any, error) {
 		// Re-check cache: a previous flight may have just stored the result.
 		rc.cacheMu.RLock()
 		cachedResp, exists := rc.cache[cacheKey]

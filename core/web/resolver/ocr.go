@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
@@ -41,7 +42,7 @@ func NewOCRKeyBundlesPayloadResolver(keys []ocrkey.KeyV2) *OCRKeyBundlesPayloadR
 }
 
 func (r *OCRKeyBundlesPayloadResolver) Results() []OCRKeyBundleResolver {
-	var bundles []OCRKeyBundleResolver
+	bundles := make([]OCRKeyBundleResolver, 0, len(r.keys))
 	for _, k := range r.keys {
 		bundles = append(bundles, NewOCRKeyBundleResolver(k))
 	}

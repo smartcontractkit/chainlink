@@ -24,7 +24,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
-	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
@@ -57,6 +56,13 @@ var _ cctypes.OracleCreator = &pluginOracleCreator{}
 const (
 	defaultCommitGasLimit = 500_000
 	defaultExecGasLimit   = 6_500_000
+
+	// readerWriterCreationTimeout bounds the per-chain contract reader/writer creation,
+	// binding, and startup during oracle creation.
+	// Applied per chain, so it must stay small: a DON can span many chains and the timeout
+	// is spent serially in the worst case. 10s matches the other blockchain-facing timeouts
+	// in defaultLocalConfig and rpctimeout.Default.
+	readerWriterCreationTimeout = 10 * time.Second
 )
 
 // pluginOracleCreator creates oracles that reference plugins running
@@ -343,21 +349,6 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	var transmitter ocr3types.ContractTransmitter[[]byte]
 	pluginConfig := pluginServices.PluginConfig
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
-		if !i.peerWrapper.IsStarted() {
-			return nil, nil, errors.New("peer wrapper is not started")
-		}
-
-		i.lggr.Infow("creating rmn peer client",
-			"bootstrapperLocators", i.bootstrapperLocators,
-			"deltaRound", publicConfig.DeltaRound)
-
-		rmnPeerClient := rmn.NewPeerClient(
-			i.lggr.Named("RMNPeerClient"),
-			i.peerWrapper.PeerGroupFactory,
-			i.bootstrapperLocators,
-			publicConfig.DeltaRound,
-		)
-
 		factory = commitocr3.NewCommitPluginFactory(
 			commitocr3.CommitPluginFactoryParams{
 				Lggr: i.lggr.
@@ -376,8 +367,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				LOOPPCCIPProviderSupported: pluginServices.CCIPProviderSupported,
 				ExtendedReaders:            extendedReaders,
 				ContractWriters:            chainWriters,
-				RmnPeerClient:              rmnPeerClient,
-				RmnCrypto:                  pluginConfig.RMNCrypto})
+			})
 		factory = promwrapper.NewReportingPluginFactory(
 			factory,
 			i.lggr,
@@ -701,76 +691,87 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	extendedReaders := make(map[cciptypes.ChainSelector]contractreader.Extended)
 	chainWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	for relayID, relayer := range i.relayers {
-		chainID := relayID.ChainID
-		relayChainFamily := relayID.Network
-		chainDetails, err1 := chainsel.GetChainDetailsByChainIDAndFamily(chainID, relayChainFamily)
-		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
-		if err1 != nil {
-			return nil, nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
-		}
+		if err := func() error {
+			// Bound each chain's reader/writer creation with its own deadline so an unavailable
+			// chain LOOPP fails fast instead of blocking the launcher context
+			// forever.
+			chainCtx, cancel := context.WithTimeout(ctx, readerWriterCreationTimeout)
+			defer cancel()
 
-		cr, err1 := crcw.GetChainReader(ctx, ccipcommon.ChainReaderProviderOpts{
-			Lggr:            i.lggr,
-			Relayer:         relayer,
-			ChainID:         chainID,
-			DestChainID:     destChainID,
-			HomeChainID:     homeChainID,
-			Ofc:             ofc,
-			ChainSelector:   chainSelector,
-			ChainFamily:     relayChainFamily,
-			DestChainFamily: destChainFamily,
-			Transmitters:    i.transmitters,
-		})
-		if err1 != nil {
-			// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
-			i.lggr.Debugf("skipping creating reader and writers for chain %s, reader creation: %v", chainID, err1)
-			continue
-		}
-
-		if chainID == destChainID && destChainFamily == relayChainFamily {
-			offrampAddress := destAddrStr
-			err2 := cr.Bind(ctx, []types.BoundContract{
-				{
-					Address: offrampAddress,
-					Name:    consts.ContractNameOffRamp,
-				},
-			})
-			if err2 != nil {
-				return nil, nil, nil, fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chainID, offrampAddress, err2)
+			chainID := relayID.ChainID
+			relayChainFamily := relayID.Network
+			chainDetails, err1 := chainsel.GetChainDetailsByChainIDAndFamily(chainID, relayChainFamily)
+			chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
+			if err1 != nil {
+				return fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
 			}
-		}
 
-		if err2 := cr.Start(ctx); err2 != nil {
-			return nil, nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
-		}
+			cr, err1 := crcw.GetChainReader(chainCtx, ccipcommon.ChainReaderProviderOpts{
+				Lggr:            i.lggr,
+				Relayer:         relayer,
+				ChainID:         chainID,
+				DestChainID:     destChainID,
+				HomeChainID:     homeChainID,
+				Ofc:             ofc,
+				ChainSelector:   chainSelector,
+				ChainFamily:     relayChainFamily,
+				DestChainFamily: destChainFamily,
+				Transmitters:    i.transmitters,
+			})
+			if err1 != nil {
+				// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
+				i.lggr.Debugf("skipping creating reader and writers for chain %s, reader creation: %v", chainID, err1)
+				return nil
+			}
 
-		cw, err1 := crcw.GetChainWriter(ctx, ccipcommon.ChainWriterProviderOpts{
-			ChainID:                chainID,
-			Relayer:                relayer,
-			Transmitters:           i.transmitters,
-			ExecBatchGasLimit:      execBatchGasLimit,
-			CommitEvmBatchGasLimit: commitEvmGasLimit,
-			ChainFamily:            relayChainFamily,
-			OfframpProgramAddress:  config.Config.OfframpAddress,
-		})
-		if err1 != nil {
-			// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
-			i.lggr.Debugf("skipping creating chain writer for chain %s, writer creation: %v", chainID, err1)
-			continue
-		}
+			if chainID == destChainID && destChainFamily == relayChainFamily {
+				offrampAddress := destAddrStr
+				err2 := cr.Bind(chainCtx, []types.BoundContract{
+					{
+						Address: offrampAddress,
+						Name:    consts.ContractNameOffRamp,
+					},
+				})
+				if err2 != nil {
+					return fmt.Errorf("failed to bind chain reader for dest chain %s's offramp at %s: %w", chainID, offrampAddress, err2)
+				}
+			}
 
-		if err4 := cw.Start(ctx); err4 != nil {
-			return nil, nil, nil, fmt.Errorf("failed to start chain writer for chain %s: %w", chainID, err4)
-		}
+			if err2 := cr.Start(chainCtx); err2 != nil {
+				return fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
+			}
 
-		extendedCr, err := wrapContractReaderInObservedExtended(i.lggr, cr, chainSelector)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to wrap contract reader for chain %s: %w", chainID, err)
-		}
+			cw, err1 := crcw.GetChainWriter(chainCtx, ccipcommon.ChainWriterProviderOpts{
+				ChainID:                chainID,
+				Relayer:                relayer,
+				Transmitters:           i.transmitters,
+				ExecBatchGasLimit:      execBatchGasLimit,
+				CommitEvmBatchGasLimit: commitEvmGasLimit,
+				ChainFamily:            relayChainFamily,
+				OfframpProgramAddress:  config.Config.OfframpAddress,
+			})
+			if err1 != nil {
+				// Some Chain family might not need crcw to be created, and if createChainAccessorsAndContractTransmitters will catch error if it does
+				i.lggr.Debugf("skipping creating chain writer for chain %s, writer creation: %v", chainID, err1)
+				return nil
+			}
 
-		contractReaders[chainSelector] = cr
-		extendedReaders[chainSelector] = extendedCr
-		chainWriters[chainSelector] = cw
+			if err4 := cw.Start(chainCtx); err4 != nil {
+				return fmt.Errorf("failed to start chain writer for chain %s: %w", chainID, err4)
+			}
+
+			extendedCr, err := wrapContractReaderInObservedExtended(i.lggr, cr, chainSelector)
+			if err != nil {
+				return fmt.Errorf("failed to wrap contract reader for chain %s: %w", chainID, err)
+			}
+
+			contractReaders[chainSelector] = cr
+			extendedReaders[chainSelector] = extendedCr
+			chainWriters[chainSelector] = cw
+			return nil
+		}(); err != nil {
+			return nil, nil, nil, err
+		}
 	}
 	return contractReaders, extendedReaders, chainWriters, nil
 }

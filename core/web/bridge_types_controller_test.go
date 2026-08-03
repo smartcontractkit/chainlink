@@ -6,7 +6,12 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/manyminds/api2go/jsonapi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -14,10 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/manyminds/api2go/jsonapi"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestValidateBridgeType(t *testing.T) {
@@ -104,6 +105,7 @@ func TestValidateBridgeType(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
+			t.Parallel()
 			req := test.request
 			result := web.ValidateBridgeType(&req)
 			assert.Equal(t, test.want, result)
@@ -114,7 +116,7 @@ func TestValidateBridgeType(t *testing.T) {
 func TestValidateBridgeNotExist(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	orm := bridges.NewORM(db)
 
@@ -122,7 +124,7 @@ func TestValidateBridgeNotExist(t *testing.T) {
 	bt := bridges.BridgeType{}
 	bt.Name = bridges.MustParseBridgeName("solargridreporting")
 	bt.URL = cltest.WebURL(t, "https://denergy.eth")
-	assert.NoError(t, orm.CreateBridgeType(ctx, &bt))
+	require.NoError(t, orm.CreateBridgeType(ctx, &bt))
 
 	newBridge := bridges.BridgeTypeRequest{
 		Name: "solargridreporting",
@@ -147,11 +149,11 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 
 	bt, err := setupBridgeControllerIndex(t, app.BridgeORM())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	resp, cleanup := client.Get("/v2/bridge_types?size=x")
 	t.Cleanup(cleanup)
@@ -165,7 +167,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	resources := []presenters.BridgeResource{}
 
 	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &resources, &links)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.NotEmpty(t, links["next"].Href)
 	assert.Empty(t, links["prev"].Href)
 
@@ -180,7 +182,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 
 	resources = []presenters.BridgeResource{}
 	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &resources, &links)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Empty(t, links["next"])
 	assert.NotEmpty(t, links["prev"])
 	assert.Len(t, resources, 1)
@@ -197,7 +199,7 @@ func setupBridgeControllerIndex(t testing.TB, orm bridges.ORM) ([]*bridges.Bridg
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	err := orm.CreateBridgeType(ctx, bt1)
 	if err != nil {
 		return nil, err
@@ -216,7 +218,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Post(
@@ -231,9 +233,9 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 	assert.NotEmpty(t, respJSON.Get("data.attributes.incomingToken").String())
 	assert.NotEmpty(t, respJSON.Get("data.attributes.outgoingToken").String())
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	bt, err := app.BridgeORM().FindBridge(ctx, bridges.MustParseBridgeName(btName))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "randomnumber", bt.Name.String())
 	assert.Equal(t, uint32(10), bt.Confirmations)
 	assert.Equal(t, "https://example.com/randomNumber", bt.URL.String())
@@ -245,7 +247,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 
 	bridgeName := testutils.RandomizeName("BRidgea")
@@ -253,7 +255,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 		Name: bridges.MustParseBridgeName(bridgeName),
 		URL:  cltest.WebURL(t, "http://mybridge"),
 	}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.BridgeORM().CreateBridgeType(ctx, bt))
 
 	body := fmt.Sprintf(`{"name": "%s","url":"http://yourbridge"}`, bridgeName)
@@ -263,7 +265,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
 	ubt, err := app.BridgeORM().FindBridge(ctx, bt.Name)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, cltest.WebURL(t, "http://yourbridge"), ubt.URL)
 }
 
@@ -271,7 +273,7 @@ func TestBridgeController_Show(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -280,7 +282,7 @@ func TestBridgeController_Show(t *testing.T) {
 		URL:           cltest.WebURL(t, "https://testing.com/bridges"),
 		Confirmations: 0,
 	}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.BridgeORM().CreateBridgeType(ctx, bt))
 
 	resp, cleanup := client.Get("/v2/bridge_types/" + bt.Name.String())
@@ -302,7 +304,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -318,7 +320,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -334,7 +336,7 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplication(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 

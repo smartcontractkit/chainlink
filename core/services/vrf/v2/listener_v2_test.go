@@ -102,7 +102,7 @@ func addEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.Address, s
 		MinConfirmations:  clnull.Uint32{Uint32: 0},
 		PipelineTaskRunID: uuid.NullUUID{},
 	}
-	err = txStore.InsertTx(testutils.Context(t), tx)
+	err = txStore.InsertTx(t.Context(), tx)
 	require.NoError(t, err)
 }
 
@@ -133,7 +133,7 @@ func addConfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, from common.A
 		BroadcastAt:        &now,
 		InitialBroadcastAt: &now,
 	}
-	err = txStore.InsertTx(testutils.Context(t), tx)
+	err = txStore.InsertTx(t.Context(), tx)
 	require.NoError(t, err)
 }
 
@@ -160,7 +160,7 @@ func addEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, from comm
 		MinConfirmations:  clnull.Uint32{Uint32: 0},
 		PipelineTaskRunID: uuid.NullUUID{},
 	}
-	err = txStore.InsertTx(testutils.Context(t), tx)
+	err = txStore.InsertTx(t.Context(), tx)
 	require.NoError(t, err)
 }
 
@@ -190,18 +190,18 @@ func addConfirmedEthTxNativePayment(t *testing.T, txStore txmgr.TestEvmTxStore, 
 		BroadcastAt:        &now,
 		InitialBroadcastAt: &now,
 	}
-	err = txStore.InsertTx(testutils.Context(t), tx)
+	err = txStore.InsertTx(t.Context(), tx)
 	require.NoError(t, err)
 }
 
 func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 	require.NoError(t, ks.Unlock(ctx, "blah"))
 	chainID := testutils.SimulatedChainID
-	k, err := ks.Eth().Create(testutils.Context(t), chainID)
+	k, err := ks.Eth().Create(t.Context(), chainID)
 	require.NoError(t, err)
 
 	subID := new(big.Int).SetUint64(1)
@@ -249,7 +249,7 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 	require.Equal(t, "80000", start.String())
 
 	// One key's data should not affect other keys' data in the case of different subscribers.
-	k2, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
+	k2, err := ks.Eth().Create(t.Context(), testutils.SimulatedChainID)
 	require.NoError(t, err)
 
 	anotherSubID := new(big.Int).SetUint64(3)
@@ -267,21 +267,23 @@ func testMaybeSubtractReservedLink(t *testing.T, vrfVersion vrfcommon.Version) {
 }
 
 func TestMaybeSubtractReservedLinkV2(t *testing.T) {
+	t.Parallel()
 	testMaybeSubtractReservedLink(t, vrfcommon.V2)
 }
 
 func TestMaybeSubtractReservedLinkV2Plus(t *testing.T) {
+	t.Parallel()
 	testMaybeSubtractReservedLink(t, vrfcommon.V2Plus)
 }
 
 func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 	require.NoError(t, ks.Unlock(ctx, "blah"))
 	chainID := testutils.SimulatedChainID
-	k, err := ks.Eth().Create(testutils.Context(t), chainID)
+	k, err := ks.Eth().Create(t.Context(), chainID)
 	require.NoError(t, err)
 
 	subID := new(big.Int).SetUint64(1)
@@ -330,7 +332,7 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 	require.Equal(t, "80000", start.String())
 
 	// One key's data should not affect other keys' data in the case of different subscribers.
-	k2, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
+	k2, err := ks.Eth().Create(t.Context(), testutils.SimulatedChainID)
 	require.NoError(t, err)
 
 	anotherSubID := new(big.Int).SetUint64(3)
@@ -348,11 +350,13 @@ func testMaybeSubtractReservedNative(t *testing.T, vrfVersion vrfcommon.Version)
 }
 
 func TestMaybeSubtractReservedNativeV2Plus(t *testing.T) {
+	t.Parallel()
 	testMaybeSubtractReservedNative(t, vrfcommon.V2Plus)
 }
 
 func TestMaybeSubtractReservedNativeV2(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
@@ -374,12 +378,13 @@ func TestMaybeSubtractReservedNativeV2(t *testing.T) {
 		chain:     chain,
 	}
 	// returns error because native payment is not supported for V2
-	start, err := listener.MaybeSubtractReservedEth(testutils.Context(t), big.NewInt(100_000), chainID, subID, vrfcommon.V2)
+	start, err := listener.MaybeSubtractReservedEth(t.Context(), big.NewInt(100_000), chainID, subID, vrfcommon.V2)
 	require.NoError(t, err)
 	assert.Equal(t, big.NewInt(0), start)
 }
 
 func TestListener_GetConfirmedAt(t *testing.T) {
+	t.Parallel()
 	j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		RequestedConfsDelay: 10,
 	}).Toml())
@@ -420,6 +425,7 @@ func TestListener_GetConfirmedAt(t *testing.T) {
 }
 
 func TestListener_Backoff(t *testing.T) {
+	t.Parallel()
 	var tests = []struct {
 		name     string
 		initial  time.Duration
@@ -492,6 +498,7 @@ func TestListener_Backoff(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 			lsn := &listenerV2{job: job.Job{
 				VRFSpec: &job.VRFSpec{
 					BackoffInitialDelay: test.initial,

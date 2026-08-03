@@ -31,6 +31,8 @@ const (
 	OCRChainTypeTron = "TRON"
 	// OCRChainTypeTON defines OCR2 TON Chain Type
 	OCRChainTypeTON = "TON"
+	// OCR2ChainTypeStellar defines OCR2 Stellar Chain Type
+	OCR2ChainTypeStellar = "STELLAR"
 )
 
 // ToOCR2ChainType turns a valid string into a OCR2ChainType
@@ -50,6 +52,8 @@ func ToOCR2ChainType(s string) (OCR2ChainType, error) {
 		return OCRChainTypeTron, nil
 	case string(corekeys.TON):
 		return OCRChainTypeTON, nil
+	case string(corekeys.Stellar):
+		return OCR2ChainTypeStellar, nil
 	default:
 		return "", errors.New("unknown ocr2 chain type")
 	}
@@ -72,6 +76,8 @@ func FromOCR2ChainType(ct OCR2ChainType) string {
 		return string(corekeys.Tron)
 	case OCRChainTypeTON:
 		return string(corekeys.TON)
+	case OCR2ChainTypeStellar:
+		return string(corekeys.Stellar)
 	default:
 		return strings.ToLower(string(ct))
 	}
@@ -133,7 +139,7 @@ func NewOCR2KeyBundlesPayload(keys []ocr2key.KeyBundle) *OCR2KeyBundlesPayloadRe
 
 // Results resolves the list of OCR2 key bundles
 func (r *OCR2KeyBundlesPayloadResolver) Results() []OCR2KeyBundleResolver {
-	var results []OCR2KeyBundleResolver
+	results := make([]OCR2KeyBundleResolver, 0, len(r.keys))
 
 	for _, k := range r.keys {
 		results = append(results, *NewOCR2KeyBundle(k))

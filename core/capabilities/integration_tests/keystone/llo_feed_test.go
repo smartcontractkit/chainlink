@@ -1,3 +1,5 @@
+//go:build integration
+
 package keystone
 
 import (
@@ -13,19 +15,19 @@ import (
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/cre"
 	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 )
 
 func Test_runLLOWorkflow(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	lggr := logger.Test(t)
@@ -77,11 +79,11 @@ type streamUpdate struct {
 func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTriggerEvent, keyBundles []ocr2key.KeyBundle) (event *commoncap.OCRTriggerEvent, eventID string, err error) {
 	reportCodec := cre.NewReportCodecCapabilityTrigger(lggr, 1 /*donID, unused*/)
 
-	// Convert LLOStreamsTriggerEvent to datastreamsllo.Report
-	values := make([]datastreamsllo.StreamValue, len(reports.Payload))
+	// Convert LLOStreamsTriggerEvent to llocommon.Report
+	values := make([]llocommon.StreamValue, len(reports.Payload))
 	for i, payload := range reports.Payload {
 		// Create decimal stream value
-		dec := &datastreamsllo.Decimal{}
+		dec := &llocommon.Decimal{}
 		err2 := dec.UnmarshalBinary(payload.Decimal)
 		if err2 != nil {
 			return nil, "", fmt.Errorf("failed to unmarshal decimal: %w", err2)
@@ -90,7 +92,7 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 	}
 
 	// Create the report
-	report := datastreamsllo.Report{
+	report := llocommon.Report{
 		ObservationTimestampNanoseconds: reports.ObservationTimestampNanoseconds,
 		Values:                          values,
 	}
@@ -128,7 +130,7 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 	}
 
 	// Encode the report to bytes
-	cache := datastreamsllo.NewOptsCache()
+	cache := llocommon.NewOptsCache()
 	cache.Set(report.ChannelID, opts)
 	reportBytes, err := reportCodec.Encode(report, channelDef, cache)
 	if err != nil {

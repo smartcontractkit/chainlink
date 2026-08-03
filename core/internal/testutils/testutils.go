@@ -120,8 +120,10 @@ func WaitTimeoutCustom(t *testing.T, requested time.Duration) time.Duration {
 }
 
 // Context returns a context with the test's deadline, if available.
+//
 // Deprecated: use [testing.TB.Context] directly
 func Context(tb testing.TB) context.Context {
+	tb.Helper()
 	return tb.Context()
 }
 
@@ -146,11 +148,13 @@ const TestInterval = 100 * time.Millisecond
 
 // AssertEventually calls assert.Eventually with default wait and tick durations.
 func AssertEventually(t *testing.T, f func() bool) bool {
+	t.Helper()
 	return assert.Eventually(t, f, WaitTimeout(t), TestInterval/2)
 }
 
-// RequireEventually calls assert.Eventually with default wait and tick durations.
+// RequireEventually calls require.Eventually with default wait and tick durations.
 func RequireEventually(t *testing.T, f func() bool) {
+	t.Helper()
 	require.Eventually(t, f, WaitTimeout(t), TestInterval/2)
 }
 
@@ -239,11 +243,4 @@ func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected
 	err := ds.GetContext(ctx, &count, fmt.Sprintf(`SELECT count(*) FROM %s;`, tableName))
 	require.NoError(t, err)
 	require.Equal(t, expected, count)
-}
-
-// Ptr takes pointer of anything
-//
-// Deprecated: use new()
-func Ptr[T any](v T) *T {
-	return &v
 }

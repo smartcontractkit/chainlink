@@ -20,6 +20,7 @@ import (
 	"github.com/doyensec/safeurl"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -51,6 +52,11 @@ type HTTPClientConfig struct {
 	// Mtls, when set, configures the client to present the supplied client
 	// certificate for mutual TLS.
 	Mtls *gateway.MtlsAuth
+
+	// ConcurrencyLimiter, when set together with Mtls, bounds the number of
+	// in-flight mTLS requests. The limiter is acquired on the request's
+	// (capped) context so waiters self-evict at the request timeout.
+	ConcurrencyLimiter limits.ResourcePoolLimiter[int]
 }
 
 // merge returns a copy of c with any set fields from override applied on top.
@@ -97,6 +103,9 @@ func (c HTTPClientConfig) merge(override HTTPClientConfig) HTTPClientConfig {
 	}
 	if override.Mtls != nil {
 		merged.Mtls = override.Mtls
+	}
+	if override.ConcurrencyLimiter != nil {
+		merged.ConcurrencyLimiter = override.ConcurrencyLimiter
 	}
 	return merged
 }
@@ -223,8 +232,32 @@ func responseHeadersFromNetHeader(h http.Header) (map[string]string, map[string]
 	return headers, multiHeaders
 }
 
+// httpDoer is the subset of the HTTP client used by httpClient. It is satisfied
+// by *safeurl.WrappedClient and by concurrencyLimitedClient, which decorates it.
+type httpDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+// concurrencyLimitedClient bounds the number of in-flight requests delegated to
+// the underlying client. The slot is acquired on the request's context, so a
+// waiter self-evicts when that context (carrying the capped request timeout)
+// expires rather than blocking indefinitely.
+type concurrencyLimitedClient struct {
+	client  httpDoer
+	limiter limits.ResourcePoolLimiter[int]
+}
+
+func (c *concurrencyLimitedClient) Do(req *http.Request) (*http.Response, error) {
+	free, err := c.limiter.Wait(req.Context(), 1)
+	if err != nil {
+		return nil, fmt.Errorf("mtls concurrency limit exceeded: %w", ErrBlockedRequest)
+	}
+	defer free()
+	return c.client.Do(req)
+}
+
 type httpClient struct {
-	client  *safeurl.WrappedClient
+	client  httpDoer
 	config  HTTPClientConfig
 	lggr    logger.Logger
 	metrics *httpClientMetrics
@@ -259,6 +292,8 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 		SetCheckRedirect(disableRedirects).
 		SetTransport(defaultTransport)
 
+	var client httpDoer
+
 	if config.Mtls != nil {
 		// Defence-in-depth protection against accidental reuse
 		// of the HTTP client leading to auth'd connections leaking across
@@ -276,6 +311,16 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 			MinVersion:   tls.VersionTLS12,
 		}
 		safeConfigBuilder.SetTransport(defaultTransport)
+
+		if config.ConcurrencyLimiter == nil {
+			return nil, errors.New("mtls requires a ConcurrencyLimiter")
+		}
+		client = &concurrencyLimitedClient{
+			client:  safeurl.Client(safeConfigBuilder.Build()),
+			limiter: config.ConcurrencyLimiter,
+		}
+	} else {
+		client = safeurl.Client(safeConfigBuilder.Build())
 	}
 
 	metrics, err := newHTTPClientMetrics()
@@ -285,7 +330,7 @@ func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, err
 
 	return &httpClient{
 		config:  config,
-		client:  safeurl.Client(safeConfigBuilder.Build()),
+		client:  client,
 		lggr:    lggr,
 		metrics: metrics,
 	}, nil

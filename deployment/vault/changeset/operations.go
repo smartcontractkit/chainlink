@@ -560,7 +560,7 @@ func generateERC20MCMSProposals(b operations.Bundle, deps VaultDeps, input Trans
 				chainSelector,
 				tr.Token,
 				data,
-				nil,
+				big.NewInt(0),
 				"ERC20Transfer",
 				[]string{"vault", "erc20-transfer"},
 			)

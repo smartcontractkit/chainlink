@@ -613,4 +613,5 @@ func TestETHTxTask(t *testing.T) {
 	}
 }
 
-func ptr[T any](t T) *T { return &t }
+//go:fix inline
+func ptr[T any](t T) *T { return new(t) }

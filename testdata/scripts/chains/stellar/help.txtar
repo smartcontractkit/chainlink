@@ -1,0 +1,16 @@
+exec chainlink chains stellar --help
+cmp stdout out.txt
+
+-- out.txt --
+NAME:
+   chainlink chains stellar - Commands for handling stellar chains
+
+USAGE:
+   chainlink chains stellar command [command options] [arguments...]
+
+COMMANDS:
+   list  List all existing stellar chains
+
+OPTIONS:
+   --help, -h  show help
+   

@@ -463,7 +463,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 			},
 			{
 				"ChainID":   "disabled-starknet-id-1",
-				"Enabled":   ptr(false),
+				"Enabled":   new(false),
 				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
 		}

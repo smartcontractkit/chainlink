@@ -18,6 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
@@ -59,6 +61,11 @@ type launcher struct {
 	metrics             *launcherMetrics
 	localCapMgr         localcapmgr.LocalCapabilityManager
 
+	// workflowDONBindingGate is shared by all executable capability servers; when
+	// open they reject requests whose Metadata.WorkflowDonID does not match the
+	// authenticated calling DON.
+	workflowDONBindingGate limits.GateLimiter
+
 	muSubServices sync.Mutex
 	subServices   []services.Service
 }
@@ -89,6 +96,7 @@ func NewLauncher(
 	dispatcher remotetypes.Dispatcher,
 	registry *Registry,
 	workflowDonNotifier DonNotifier,
+	limitsFactory limits.Factory,
 ) (*launcher, error) {
 	p2pStreamConfig := defaultStreamConfig
 	if streamConfig != nil {
@@ -108,6 +116,10 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create launcher metrics: %w", err)
 	}
+	workflowDONBindingGate, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.RemoteExecutableWorkflowDONBindingEnabled)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workflow DON binding gate limiter: %w", err)
+	}
 	return &launcher{
 		lggr:        logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		peerWrapper: peerWrapper,
@@ -119,11 +131,12 @@ func NewLauncher(
 			executableClients:  make(map[string]executable.Client),
 			executableServers:  make(map[string]executable.Server),
 		},
-		registry:            registry,
-		workflowDonNotifier: workflowDonNotifier,
-		don2donSharedPeer:   don2donSharedPeer,
-		p2pStreamConfig:     p2pStreamConfig,
-		metrics:             metrics,
+		registry:               registry,
+		workflowDonNotifier:    workflowDonNotifier,
+		don2donSharedPeer:      don2donSharedPeer,
+		p2pStreamConfig:        p2pStreamConfig,
+		metrics:                metrics,
+		workflowDONBindingGate: workflowDONBindingGate,
 	}, nil
 }
 
@@ -243,6 +256,11 @@ func (w *launcher) Close() error {
 		for _, s := range w.subServices {
 			if err := s.Close(); err != nil {
 				w.lggr.Errorw("failed to close a sub-service", "name", s.Name(), "error", err)
+			}
+		}
+		if w.workflowDONBindingGate != nil {
+			if err := w.workflowDONBindingGate.Close(); err != nil {
+				w.lggr.Errorw("failed to close workflow DON binding gate limiter", "error", err)
 			}
 		}
 		if w.peerWrapper != nil {
@@ -412,6 +430,7 @@ func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyn
 		w.lggr.Debug("Notifying DON set...")
 		w.workflowDonNotifier.NotifyDonSet(myDON.DON)
 
+		w.warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs)
 		for _, rcd := range remoteCapabilityDONs {
 			w.addRemoteCapabilities(ctx, myDON, rcd, localRegistry)
 		}
@@ -453,6 +472,22 @@ func filterDONsByFamilies(donList []registrysyncer.DON, myDONFamilies []string) 
 		}
 	}
 	return filteredDONs
+}
+
+func (w *launcher) warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs []registrysyncer.DON) {
+	donIDsByCapability := map[string][]uint32{}
+	for _, d := range remoteCapabilityDONs {
+		for capID := range d.CapabilityConfigurations {
+			donIDsByCapability[capID] = append(donIDsByCapability[capID], d.ID)
+		}
+	}
+	for capID, donIDs := range donIDsByCapability {
+		if len(donIDs) > 1 {
+			slices.Sort(donIDs)
+			w.lggr.Warnw("multiple in-family capability DONs host the same capability; only the lowest DON ID will be routed to, check DON family configuration",
+				"capabilityID", capID, "donIDs", donIDs)
+		}
+	}
 }
 
 func donFamiliesOverlap(donA []string, donB []string) bool {
@@ -592,7 +627,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -618,7 +653,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 				w.cachedShims.executableClients[shimKey] = execCap
 			}
 			// V1 capabilities read transmission schedule from every request
-			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil); errCfg != nil {
+			if errCfg := execCap.SetConfig(info, myDON.DON, defaultTargetRequestTimeout, nil, nil, 0); errCfg != nil {
 				return nil, fmt.Errorf("failed to set trigger config: %w", errCfg)
 			}
 			return execCap.(capabilityService), nil
@@ -784,6 +819,7 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, capabilityCo
 					"", // empty method name for v1
 					myPeerID,
 					w.dispatcher,
+					w.workflowDONBindingGate,
 					w.lggr,
 				)
 				w.cachedShims.executableServers[shimKey] = server
@@ -832,6 +868,7 @@ func (w *launcher) serveCapability(ctx context.Context, cid string, capabilityCo
 					"", // empty method name for v1
 					myPeerID,
 					w.dispatcher,
+					w.workflowDONBindingGate,
 					w.lggr,
 				)
 				w.cachedShims.executableServers[shimKey] = server
@@ -989,7 +1026,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 			if err != nil {
 				return fmt.Errorf("failed to get signers for executable client: %w", err)
 			}
-			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers)
+			err = client.SetConfig(info, myDON.DON, config.RemoteExecutableConfig.RequestTimeout, transmissionConfig, signers, config.RemoteExecutableConfig.MinResponsesToAggregate)
 			if err != nil {
 				w.lggr.Errorw("failed to update client config", "capID", capID, "method", method, "error", err)
 				continue
@@ -1089,6 +1126,7 @@ func (w *launcher) exposeCapabilityV2(ctx context.Context, capID string, methodC
 					method,
 					myPeerID,
 					w.dispatcher,
+					w.workflowDONBindingGate,
 					w.lggr,
 				)
 				// add to cachedShims later, only after startNewShim succeeds

@@ -52,7 +52,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 			return nil, fmt.Errorf("failed to decode extra args: %w", err)
 		}
 		val = reflect.ValueOf(args)
-		typ = reflect.TypeOf(args)
+		typ = reflect.TypeFor[fee_quoter.GenericExtraArgsV2]()
 	case string(svmExtraArgsV1Tag):
 		var args fee_quoter.SVMExtraArgsV1
 		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
@@ -61,7 +61,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 			return nil, fmt.Errorf("failed to decode extra args: %w", err)
 		}
 		val = reflect.ValueOf(args)
-		typ = reflect.TypeOf(args)
+		typ = reflect.TypeFor[fee_quoter.SVMExtraArgsV1]()
 	default:
 		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs[:4])
 	}

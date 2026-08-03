@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -35,8 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	libnet "github.com/smartcontractkit/chainlink/system-tests/lib/net"
-
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 )
 
 const (
@@ -85,7 +84,7 @@ func RegisterWithContract(
 	sc *seth.Client,
 	workflowRegistryAddr common.Address,
 	version *semver.Version,
-	donID uint64, workflowName, binaryURL string,
+	donID uint64, donFamily, workflowName, binaryURL string,
 	configURL, secretsURL *string,
 	attributes []byte,
 	artifactsDirInContainer *string,
@@ -126,7 +125,7 @@ func RegisterWithContract(
 		return "", fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
 	}
 
-	if err := registerWorkflow(sc, workflowRegistryAddr, version, workflowName, workflowID, binaryURLToUse, configURLToUse, attributes); err != nil {
+	if err := registerWorkflow(sc, workflowRegistryAddr, version, donFamily, workflowName, workflowID, binaryURLToUse, configURLToUse, attributes); err != nil {
 		return "", err
 	}
 
@@ -241,7 +240,7 @@ func registerWorkflow(
 	sc *seth.Client,
 	workflowRegistryAddr common.Address,
 	version *semver.Version,
-	workflowName, workflowID, binaryURL, configURL string,
+	donFamily, workflowName, workflowID, binaryURL, configURL string,
 	attributes []byte,
 ) error {
 	registry, err := getRegistryInstance(sc, workflowRegistryAddr, version)
@@ -257,6 +256,10 @@ func registerWorkflow(
 		}
 	}
 
+	if donFamily == "" {
+		return errors.New("donFamily is required for workflow registration")
+	}
+
 	// Register workflow
 	_, err = sc.Decode(registry.UpsertWorkflow(
 		sc.NewTXOpts(),
@@ -264,7 +267,7 @@ func registerWorkflow(
 		defaultWorkflowTag,
 		[32]byte(common.Hex2Bytes(workflowID)),
 		defaultWorkflowStatus,
-		contracts.DonFamily,
+		donFamily,
 		binaryURL,
 		configURL,
 		attributes,
@@ -479,9 +482,7 @@ func UpdateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 			if wrapErr != nil {
 				return errors.Wrap(wrapErr, "failed to wrap vault capability config values")
 			}
-			for k, v := range newValues.Underlying {
-				base.Underlying[k] = v
-			}
+			maps.Copy(base.Underlying, newValues.Underlying)
 			existingCfg.DefaultConfig = chainlinkvalues.ProtoMap(base)
 
 			configBytes, marshalErr := proto.Marshal(existingCfg)
@@ -535,7 +536,7 @@ func WaitForVaultConfigPropagation(ctx context.Context, dbPort, nodeCount int) e
 	defer cancel()
 
 	pending := make(map[int]struct{}, nodeCount)
-	for i := 0; i < nodeCount; i++ {
+	for i := range nodeCount {
 		pending[i] = struct{}{}
 	}
 

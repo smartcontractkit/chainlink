@@ -35,6 +35,7 @@ func newResponseWriter() *responseWriter {
 }
 
 func TestLoopRegistryServer_CantWriteToResponse(t *testing.T) {
+	t.Parallel()
 	l, o := logger.TestLoggerObserved(t, zap.ErrorLevel)
 	s := &LoopRegistryServer{
 		exposedPromPort: 1,
@@ -50,6 +51,7 @@ func TestLoopRegistryServer_CantWriteToResponse(t *testing.T) {
 }
 
 func TestLoopRegistryServer_CantMarshal(t *testing.T) {
+	t.Parallel()
 	l, o := logger.TestLoggerObserved(t, zap.ErrorLevel)
 	s := &LoopRegistryServer{
 		exposedPromPort: 1,

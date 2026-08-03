@@ -144,9 +144,9 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	ethMock.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil)
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 
 		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
 		// Testing triggers requires committing transactions and does not work with transactional tests
@@ -207,9 +207,9 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	ethMock.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil)
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 
 		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
 		// Testing triggers requires committing transactions and does not work with transactional tests

@@ -4,22 +4,22 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/web"
-	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestTxAttemptsController_Index_Success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	txStore := txmgrtest.NewTestTxStore(t, app.GetDB())
 	client := app.NewHTTPClient(nil)
@@ -50,7 +50,7 @@ func TestTxAttemptsController_Index_Error(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithKey(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Get("/v2/tx_attempts?size=TrainingDay")

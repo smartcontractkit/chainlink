@@ -25,7 +25,7 @@ func NewCosmosKeyResource(key cosmoskey.Key) *CosmosKeyResource {
 }
 
 func NewCosmosKeyResources(keys []cosmoskey.Key) []CosmosKeyResource {
-	rs := []CosmosKeyResource{}
+	rs := make([]CosmosKeyResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewCosmosKeyResource(key))
 	}

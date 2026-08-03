@@ -87,7 +87,7 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 		signatures[i] = s.Signature
 	}
 
-	c.lggr.Debugw("transmitting report", "requestID", info.Id, "requestType", info.Format.String())
+	c.lggr.Debugw("transmitting report", "seqNr", seqNr, "requestID", info.Id, "requestType", info.Format.String())
 	c.lifecycle.RecordTransmitted(ctx, info.Id, seqNr, time.Now())
 	c.handler.SendResponse(ctx, &vaulttypes.Response{
 		ID:         info.Id,

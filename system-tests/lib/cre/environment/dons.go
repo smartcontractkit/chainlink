@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
@@ -261,6 +262,19 @@ func nodeAddress(node *cre.Node, chainFamily string, bc blockchains.Blockchain) 
 			return node.Keys.Aptos.Account, nil
 		}
 		return "", nil // Skip nodes without Aptos keys for this chain
+	case chainselectors.FamilyStellar:
+		stellarBc, ok := bc.(*stellar.Blockchain)
+		if !ok {
+			return "", fmt.Errorf("expected stellar blockchain, got %T", bc)
+		}
+		if node.Keys == nil || node.Keys.Stellar == nil {
+			return "", nil // Skip nodes without Stellar keys for this chain
+		}
+		stellarKey, ok := node.Keys.Stellar[stellarBc.StellarChainID()]
+		if !ok || stellarKey == nil || stellarKey.Account == "" {
+			return "", nil // Skip nodes without a Stellar key for this chain
+		}
+		return stellarKey.Account, nil
 	default:
 		return "", fmt.Errorf("unsupported chain family %s", chainFamily)
 	}

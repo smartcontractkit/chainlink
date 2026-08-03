@@ -17,6 +17,7 @@ attempts # Commands for managing Ethereum Transaction Attempts
 attempts list # List the Transaction Attempts in descending order
 blocks # Commands for managing blocks
 blocks find-lca # Find latest common block stored in DB and on chain
+blocks lp-skip-to-block # Reposition LogPoller to start processing from the given finalized block number. Note: LogPoller does not guarantee that finalized blocks in the DB and specified block belong to the same chain. LogPoller will remove all unfinalized logs before saving new checkpoint.
 blocks replay # Replays block data from the given number
 bridges # Commands for Bridges communicating with External Adapters
 bridges create # Create a new Bridge to an External Adapter
@@ -34,6 +35,8 @@ chains solana # Commands for handling solana chains
 chains solana list # List all existing solana chains
 chains starknet # Commands for handling starknet chains
 chains starknet list # List all existing starknet chains
+chains stellar # Commands for handling stellar chains
+chains stellar list # List all existing stellar chains
 chains sui # Commands for handling sui chains
 chains sui list # List all existing sui chains
 chains ton # Commands for handling ton chains
@@ -117,6 +120,12 @@ keys starknet delete # Delete StarkNet key if present
 keys starknet export # Export StarkNet key to keyfile
 keys starknet import # Import StarkNet key from keyfile
 keys starknet list # List the StarkNet keys
+keys stellar # Remote commands for administering the node's Stellar keys
+keys stellar create # Create a Stellar key
+keys stellar delete # Delete Stellar key if present
+keys stellar export # Export Stellar key to keyfile
+keys stellar import # Import Stellar key from keyfile
+keys stellar list # List the Stellar keys
 keys sui # Remote commands for administering the node's Sui keys
 keys sui create # Create a Sui key
 keys sui delete # Delete Sui key if present
@@ -174,6 +183,8 @@ nodes solana # Commands for handling solana node configuration
 nodes solana list # List all existing solana nodes
 nodes starknet # Commands for handling starknet node configuration
 nodes starknet list # List all existing starknet nodes
+nodes stellar # Commands for handling stellar node configuration
+nodes stellar list # List all existing stellar nodes
 nodes sui # Commands for handling sui node configuration
 nodes sui list # List all existing sui nodes
 nodes ton # Commands for handling ton node configuration

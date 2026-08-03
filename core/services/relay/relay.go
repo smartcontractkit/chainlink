@@ -17,6 +17,7 @@ const (
 	NetworkTron     = "tron"
 	NetworkTON      = "ton"
 	NetworkSui      = "sui"
+	NetworkStellar  = "stellar"
 
 	NetworkDummy = "dummy"
 )
@@ -30,6 +31,7 @@ var SupportedNetworks = map[string]struct{}{
 	NetworkTron:     {},
 	NetworkTON:      {},
 	NetworkSui:      {},
+	NetworkStellar:  {},
 
 	NetworkDummy: {},
 }
@@ -53,8 +55,6 @@ func (r *ServerAdapter) NewPluginProvider(ctx context.Context, rargs types.Relay
 		return r.NewMedianProvider(ctx, rargs, pargs)
 	case types.Functions:
 		return r.NewFunctionsProvider(ctx, rargs, pargs)
-	case types.Mercury:
-		return r.NewMercuryProvider(ctx, rargs, pargs)
 	case types.OCR2Keeper:
 		return r.NewAutomationProvider(ctx, rargs, pargs)
 	case types.OCR3Capability, types.DonTimePlugin, types.RingPlugin:

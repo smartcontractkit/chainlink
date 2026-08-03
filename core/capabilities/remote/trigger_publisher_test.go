@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,17 +19,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/synctest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 const capID = "cap_id@1"
 
 func TestTriggerPublisher_Register(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
-	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 1)
+	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 1, time.Second)
 
 	// invalid sender case - node 0 is not a member of the workflow DON, registration shoudn't happen
 	regEvent := newRegisterTriggerMessage(t, workflowDONID, peers[0])
@@ -38,7 +41,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	// valid registration
 	regEvent = newRegisterTriggerMessage(t, workflowDONID, peers[1])
 	publisher.Receive(ctx, regEvent)
-	require.NotEmpty(t, underlyingTriggerCap.registrationsCh)
+	require.Eventually(t, func() bool { return len(underlyingTriggerCap.registrationsCh) > 0 }, 2*time.Second, 10*time.Millisecond)
 	forwarded := <-underlyingTriggerCap.registrationsCh
 	require.Equal(t, workflowID1, forwarded.Metadata.WorkflowID)
 
@@ -46,13 +49,15 @@ func TestTriggerPublisher_Register(t *testing.T) {
 }
 
 func TestTriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
-	underlyingTriggerCap, publisher, dispatcher, peers := newServices(t, capabilityDONID, workflowDONID, 1)
+	underlyingTriggerCap, publisher, dispatcher, peers := newServices(t, capabilityDONID, workflowDONID, 1, time.Second)
 	regEvent := newRegisterTriggerMessage(t, workflowDONID, peers[1])
 	publisher.Receive(ctx, regEvent)
-	require.NotEmpty(t, underlyingTriggerCap.registrationsCh)
+	require.Eventually(t, func() bool { return len(underlyingTriggerCap.registrationsCh) > 0 }, 2*time.Second, 10*time.Millisecond)
 
 	// send a trigger event and expect that it gets delivered right away
 	awaitOutgoingMessageCh := make(chan struct{})
@@ -66,53 +71,62 @@ func TestTriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
 }
 
 func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
-	ctx := testutils.Context(t)
-	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		const batchPeriod = 50 * time.Millisecond
+		ctx := t.Context()
+		capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
-	underlyingTriggerCap, publisher, dispatcher, peers := newServices(t, capabilityDONID, workflowDONID, 2)
-	regEvent := newRegisterTriggerMessage(t, workflowDONID, peers[1])
-	publisher.Receive(ctx, regEvent)
-	require.NotEmpty(t, underlyingTriggerCap.registrationsCh)
+		underlyingTriggerCap, publisher, dispatcher, peers := newServices(t, capabilityDONID, workflowDONID, 2, batchPeriod)
+		regEvent := newRegisterTriggerMessage(t, workflowDONID, peers[1])
+		publisher.Receive(ctx, regEvent)
+		require.Eventually(t, func() bool { return len(underlyingTriggerCap.registrationsCh) > 0 }, 2*time.Second, 10*time.Millisecond)
 
-	// send two trigger events and expect them to be delivered in a batch
-	awaitOutgoingMessageCh := make(chan struct{})
-	dispatcher.On("Send", peers[1], mock.Anything).Run(func(args mock.Arguments) {
-		msg := args.Get(1).(*remotetypes.MessageBody)
-		require.Equal(t, capID, msg.CapabilityId)
-		require.Equal(t, remotetypes.MethodTriggerEvent, msg.Method)
-		require.NotEmpty(t, msg.Payload)
-		metadata := msg.Metadata.(*remotetypes.MessageBody_TriggerEventMetadata)
-		require.Len(t, metadata.TriggerEventMetadata.WorkflowIds, 2)
-		awaitOutgoingMessageCh <- struct{}{}
-	}).Return(nil).Once()
-	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
-	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
-	<-awaitOutgoingMessageCh
+		awaitOutgoingMessageCh := make(chan struct{}, 1)
 
-	// if there are fewer pending event than the batch size,
-	// the events should still be sent after the batch collection period
-	dispatcher.On("Send", peers[1], mock.Anything).Run(func(args mock.Arguments) {
-		msg := args.Get(1).(*remotetypes.MessageBody)
-		metadata := msg.Metadata.(*remotetypes.MessageBody_TriggerEventMetadata)
-		require.Len(t, metadata.TriggerEventMetadata.WorkflowIds, 1)
-		awaitOutgoingMessageCh <- struct{}{}
-	}).Return(nil).Once()
-	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
-	<-awaitOutgoingMessageCh
+		// send two trigger events and expect them to be delivered in a batch
+		dispatcher.On("Send", peers[1], mock.Anything).Run(func(args mock.Arguments) {
+			msg := args.Get(1).(*remotetypes.MessageBody)
+			require.Equal(t, capID, msg.CapabilityId)
+			require.Equal(t, remotetypes.MethodTriggerEvent, msg.Method)
+			require.NotEmpty(t, msg.Payload)
+			metadata := msg.Metadata.(*remotetypes.MessageBody_TriggerEventMetadata)
+			require.Len(t, metadata.TriggerEventMetadata.WorkflowIds, 2)
+			awaitOutgoingMessageCh <- struct{}{}
+		}).Return(nil).Once()
+		underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
+		underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
+		time.Sleep(batchPeriod)
+		<-awaitOutgoingMessageCh
 
-	require.NoError(t, publisher.Close())
+		// if there are fewer pending event than the batch size,
+		// the events should still be sent after the batch collection period
+		dispatcher.On("Send", peers[1], mock.Anything).Run(func(args mock.Arguments) {
+			msg := args.Get(1).(*remotetypes.MessageBody)
+			metadata := msg.Metadata.(*remotetypes.MessageBody_TriggerEventMetadata)
+			require.Len(t, metadata.TriggerEventMetadata.WorkflowIds, 1)
+			awaitOutgoingMessageCh <- struct{}{}
+		}).Return(nil).Once()
+		underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
+		time.Sleep(batchPeriod)
+		<-awaitOutgoingMessageCh
+
+		require.NoError(t, publisher.Close())
+	})
 }
 
 func TestTriggerPublisher_ReceiveTriggerEventAcks(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
-	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 2)
+	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 2, time.Second)
 	eventID := "123"
 	triggerID := "trigA"
 	regEvent := newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[1])
 	publisher.Receive(ctx, regEvent)
 
-	require.True(t, underlyingTriggerCap.eventAckd)
+	require.Eventually(t, func() bool { return underlyingTriggerCap.ackCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
 	require.NoError(t, publisher.Close())
 }
 
@@ -147,6 +161,8 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 	}
 
 	t.Run("returns error when underlying trigger capability is nil", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := mocks.NewDispatcher(t)
 		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
 		config := &commoncap.RemoteTriggerConfig{}
@@ -156,6 +172,8 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 	})
 
 	t.Run("handles nil config", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := mocks.NewDispatcher(t)
 		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
 		// Set config as nil - should use defaults
@@ -163,12 +181,14 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify config works
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		require.NoError(t, publisher.Start(ctx))
 		require.NoError(t, publisher.Close())
 	})
 
 	t.Run("handles nil workflowDONs", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := mocks.NewDispatcher(t)
 		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
 		config := &commoncap.RemoteTriggerConfig{
@@ -182,12 +202,14 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify config works
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		require.NoError(t, publisher.Start(ctx))
 		require.NoError(t, publisher.Close())
 	})
 
 	t.Run("updates existing config", func(t *testing.T) {
+		t.Parallel()
+
 		dispatcher := mocks.NewDispatcher(t)
 		publisher := remote.NewTriggerPublisher(capInfo.ID, "method", dispatcher, lggr)
 		// Set initial config
@@ -215,15 +237,16 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify updated config works
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		require.NoError(t, publisher.Start(ctx))
 		require.NoError(t, publisher.Close())
 	})
 }
 
-func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, maxBatchSize uint32) (*testTrigger, remotetypes.ReceiverService, *mocks.Dispatcher, []p2ptypes.PeerID) {
+func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, maxBatchSize uint32, batchCollectionPeriod time.Duration) (*testTrigger, remotetypes.ReceiverService, *mocks.Dispatcher, []p2ptypes.PeerID) {
+	t.Helper()
 	lggr := logger.Test(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	capInfo := commoncap.CapabilityInfo{
 		ID:             capID,
 		CapabilityType: commoncap.CapabilityTypeTrigger,
@@ -251,7 +274,7 @@ func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, max
 		MinResponsesToAggregate: 1,
 		MessageExpiry:           100 * time.Second,
 		MaxBatchSize:            maxBatchSize,
-		BatchCollectionPeriod:   time.Second,
+		BatchCollectionPeriod:   batchCollectionPeriod,
 	}
 	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
@@ -309,10 +332,26 @@ type testTrigger struct {
 	registrationsCh chan commoncap.TriggerRegistrationRequest
 	eventCh         chan commoncap.TriggerResponse
 	eventAckd       bool
+	ackCount        atomic.Int32
+	ackBlock        chan struct{}
 }
 
 func (tr *testTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
 	return tr.info, nil
+}
+
+// waitForRegistration blocks until async RegisterTrigger delivers to the underlying mock.
+func waitForRegistration(t *testing.T, ch <-chan commoncap.TriggerRegistrationRequest) commoncap.TriggerRegistrationRequest {
+	t.Helper()
+	require.Eventually(t, func() bool { return len(ch) > 0 }, 2*time.Second, 10*time.Millisecond)
+	return <-ch
+}
+
+// waitForUnregister blocks until UnregisterTrigger runs on the underlying mock.
+func waitForUnregister(t *testing.T, ch <-chan string) string {
+	t.Helper()
+	require.Eventually(t, func() bool { return len(ch) > 0 }, 2*time.Second, 10*time.Millisecond)
+	return <-ch
 }
 
 func (tr *testTrigger) RegisterTrigger(_ context.Context, request commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
@@ -326,11 +365,47 @@ func (tr *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.Tr
 
 func (tr *testTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
 	tr.eventAckd = true
+	tr.ackCount.Add(1)
+	if tr.ackBlock != nil {
+		<-tr.ackBlock
+	}
 	return nil
 }
 
+func TestTriggerPublisher_AckEvent_DoesNotBlockReceive(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	capabilityDONID, workflowDONID := uint32(1), uint32(2)
+	underlying, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 1, time.Second)
+	underlying.ackBlock = make(chan struct{})
+
+	eventID := "evt-block-test"
+	triggerID := "trigA"
+	publisher.Receive(ctx, newAckEventMessage(t, eventID, triggerID, workflowDONID, peers[1]))
+
+	regMsg := newRegisterTriggerMessage(t, workflowDONID, peers[1])
+	regDone := make(chan struct{})
+	go func() {
+		publisher.Receive(ctx, regMsg)
+		close(regDone)
+	}()
+
+	select {
+	case <-regDone:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("RegisterTrigger Receive blocked while AckEvent in flight")
+	}
+
+	close(underlying.ackBlock)
+	require.Eventually(t, func() bool { return underlying.ackCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
+	require.NoError(t, publisher.Close())
+}
+
 func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
@@ -377,14 +452,14 @@ func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
 	// Register trigger1
 	regEvent1 := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "trigger1")
 	publisher.Receive(ctx, regEvent1)
-	reg1 := <-underlying.registrationsCh
+	reg1 := waitForRegistration(t, underlying.registrationsCh)
 	require.Equal(t, "trigger1", reg1.TriggerID)
 	require.Equal(t, workflowID1, reg1.Metadata.WorkflowID)
 
 	// Register trigger2 for the same workflow
 	regEvent2 := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "trigger2")
 	publisher.Receive(ctx, regEvent2)
-	reg2 := <-underlying.registrationsCh
+	reg2 := waitForRegistration(t, underlying.registrationsCh)
 	require.Equal(t, "trigger2", reg2.TriggerID)
 	require.Equal(t, workflowID1, reg2.Metadata.WorkflowID) // same workflowID
 
@@ -422,7 +497,9 @@ func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
 }
 
 func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
@@ -475,7 +552,7 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
 	publisher.Receive(ctx, regEvent)
 
-	<-underlying.registrationsCh
+	waitForRegistration(t, underlying.registrationsCh)
 
 	// Send unregister
 	unregMsg := &remotetypes.MessageBody{
@@ -490,12 +567,13 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 		},
 	}
 	publisher.Receive(ctx, unregMsg)
-	require.Equal(t, "triggerA", <-underlying.unregisterCalled)
+	require.Equal(t, "triggerA", waitForUnregister(t, underlying.unregisterCalled))
 	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
@@ -552,7 +630,7 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
 	publisher.Receive(ctx, regEvent)
-	<-underlying.registrationsCh
+	waitForRegistration(t, underlying.registrationsCh)
 
 	select {
 	case msg := <-checkReceived:
@@ -570,7 +648,8 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 }
 
 func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
@@ -618,9 +697,9 @@ func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 	require.NoError(t, publisher.Start(ctx))
 
-	for i := 0; i < nRegs; i++ {
+	for i := range nRegs {
 		publisher.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], fmt.Sprintf("trigger_%d", i)))
-		<-underlying.registrationsCh
+		waitForRegistration(t, underlying.registrationsCh)
 	}
 
 	// 250 registrations at MaxBatchSize=100 → chunk lengths 100, 100, 50 per tick per peer.
@@ -645,7 +724,9 @@ func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
 }
 
 func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
@@ -696,7 +777,7 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 	// Register a trigger from the valid workflow DON member
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
 	publisher.Receive(ctx, regEvent)
-	<-underlying.registrationsCh
+	waitForRegistration(t, underlying.registrationsCh)
 
 	// Send unregister from a peer NOT in the workflow DON — should be ignored
 	unregMsg := &remotetypes.MessageBody{
@@ -723,13 +804,15 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 	// Now send from the valid member — should succeed
 	unregMsg.Sender = peers[1][:]
 	publisher.Receive(ctx, unregMsg)
-	require.Equal(t, "triggerA", <-underlying.unregisterCalled)
+	require.Equal(t, "triggerA", waitForUnregister(t, underlying.unregisterCalled))
 
 	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
@@ -780,7 +863,7 @@ func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
 	for _, p := range []p2ptypes.PeerID{peers[1], peers[2], peers[3]} {
 		publisher.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, p, "triggerA"))
 	}
-	require.Equal(t, "triggerA", (<-underlying.registrationsCh).TriggerID)
+	require.Equal(t, "triggerA", waitForRegistration(t, underlying.registrationsCh).TriggerID)
 
 	unregMeta := &remotetypes.MessageBody_TriggerEventMetadata{
 		TriggerEventMetadata: &remotetypes.TriggerEventMetadata{
@@ -806,15 +889,17 @@ func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
 	}
 
 	recvUnreg(peers[3])
-	require.Equal(t, "triggerA", <-underlying.unregisterCalled)
+	require.Equal(t, "triggerA", waitForUnregister(t, underlying.unregisterCalled))
 
 	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
 
-	_, publisher, _, peers := newServices(t, 1, 2, 1)
+	ctx := t.Context()
+
+	_, publisher, _, peers := newServices(t, 1, 2, 1, time.Second)
 
 	cases := []struct {
 		name string
@@ -855,6 +940,8 @@ func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			msg := &remotetypes.MessageBody{
 				Sender:      peers[1][:],
 				Method:      remotetypes.MethodUnregisterTrigger,
@@ -872,7 +959,8 @@ func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
 }
 
 func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	lggr := logger.Test(t)
 
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
@@ -930,7 +1018,7 @@ func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
 
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[0], "triggerA")
 	publisher.Receive(ctx, regEvent)
-	<-underlying.registrationsCh
+	waitForRegistration(t, underlying.registrationsCh)
 
 	ackMsg := newAckEventMessage(t, "event1", "triggerA", workflowDONID, peers[0])
 	publisher.Receive(ctx, ackMsg)
@@ -963,6 +1051,7 @@ func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
 }
 
 func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
 
@@ -1022,7 +1111,7 @@ func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.
 
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[0], "triggerA")
 	publisher.Receive(ctx, regEvent)
-	<-underlying.registrationsCh
+	waitForRegistration(t, underlying.registrationsCh)
 
 	eventID := "shared-event-second-delivery-regression"
 	underlying.SendEvent("triggerA", commoncap.TriggerResponse{
@@ -1063,8 +1152,12 @@ func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.
 }
 
 func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
+	t.Parallel()
+
 	t.Run("user error suppresses retries", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+
+		ctx := t.Context()
 		lggr := logger.Test(t)
 		capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
@@ -1108,17 +1201,19 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 
 		regMsg := newRegisterTriggerMessage(t, workflowDONID, peers[1])
 		publisher.Receive(ctx, regMsg)
-		require.Equal(t, 1, underlying.callCount, "RegisterTrigger should be called once on first quorum")
+		require.Eventually(t, func() bool { return underlying.callCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
 
 		publisher.Receive(ctx, regMsg)
 		publisher.Receive(ctx, regMsg)
-		require.Equal(t, 1, underlying.callCount, "RegisterTrigger must not be retried after a user error")
+		require.Eventually(t, func() bool { return underlying.callCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
 
 		require.NoError(t, publisher.Close())
 	})
 
 	t.Run("system error allows retries", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		t.Parallel()
+
+		ctx := t.Context()
 		lggr := logger.Test(t)
 		capabilityDONID, workflowDONID := uint32(1), uint32(2)
 
@@ -1161,13 +1256,23 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 
 		regMsg := newRegisterTriggerMessage(t, workflowDONID, peers[1])
 		publisher.Receive(ctx, regMsg)
-		require.Equal(t, 1, underlying.callCount, "RegisterTrigger should be called once on first quorum")
+		require.Eventually(t, func() bool { return underlying.callCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
 
-		publisher.Receive(ctx, regMsg)
-		require.Equal(t, 2, underlying.callCount, "RegisterTrigger should be retried after a system error")
+		require.Eventually(t, func() bool {
+			if underlying.callCount.Load() >= 2 {
+				return true
+			}
+			publisher.Receive(ctx, regMsg)
+			return underlying.callCount.Load() >= 2
+		}, 2*time.Second, 10*time.Millisecond)
 
-		publisher.Receive(ctx, regMsg)
-		require.Equal(t, 3, underlying.callCount, "RegisterTrigger should keep retrying on system errors")
+		require.Eventually(t, func() bool {
+			if underlying.callCount.Load() >= 3 {
+				return true
+			}
+			publisher.Receive(ctx, regMsg)
+			return underlying.callCount.Load() >= 3
+		}, 2*time.Second, 10*time.Millisecond)
 
 		require.NoError(t, publisher.Close())
 	})
@@ -1177,7 +1282,7 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 type errTrigger struct {
 	info      commoncap.CapabilityInfo
 	err       error
-	callCount int
+	callCount atomic.Int32
 }
 
 func (tr *errTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) {
@@ -1185,7 +1290,7 @@ func (tr *errTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error) 
 }
 
 func (tr *errTrigger) RegisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
-	tr.callCount++
+	tr.callCount.Add(1)
 	return nil, tr.err
 }
 

@@ -26,7 +26,7 @@ jobs:
 
       - name: Check release tag
         id: release-tag-check
-        uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # release-tag-check@0.1.0
+        uses: smartcontractkit/.github/actions/release-tag-check@9fc306ac63d8997c9ca0da283e56caaf71589f83 # release-tag-check/1.0.0
 
       - name: Compute CCIP image tag
         id: compute-ccip-tag
@@ -114,8 +114,10 @@ jobs:
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
+      github-runner-amd64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu24.04-4cores-16GB' || 'ubuntu-24.04' }}
       github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu-24.04-4cores-16GB-ARM' || 'ubuntu-24.04-arm' }}
       docker-image-tag-strip-prefix: v # strip out the "v" prefix from the git tag for the image tag.
+      free-disk-space: "true"
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -155,8 +157,10 @@ jobs:
       docker-cache-behaviour: "disable"
       docker-manifest-sign: true
       docker-registry-url-override: public.ecr.aws/chainlink
+      github-runner-amd64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu24.04-4cores-16GB' || 'ubuntu-24.04' }}
       github-runner-arm64: ${{ github.repository != 'smartcontractkit/chainlink' && 'ubuntu-24.04-4cores-16GB-ARM' || 'ubuntu-24.04-arm' }}
       docker-image-tag-override: ${{ needs.checks.outputs.ccip-image-tag }}
+      free-disk-space: "true"
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
@@ -171,8 +175,8 @@ jobs:
 
   deploy:
     name: "Deploy"
-    needs: [checks, docker-ccip]
-    # We are only deploying CCIP pre-releases and skipping hotfix deployments for now.
+    needs: [checks, docker-ccip, docker-core]
+    # Pre-release deploys (CCIP beta/RC, CRE RC). Hotfix deployments skipped for now.
     if: needs.checks.outputs.is-pre-release == 'true' &&
       needs.checks.outputs.is-hotfix == 'false'
     runs-on: ubuntu-latest
@@ -214,13 +218,23 @@ jobs:
           products: |
             ccip-prereleases-prod-testnet
 
+      - name: Deploy CRE RC
+        if: needs.checks.outputs.prerelease-phase == 'rc'
+        uses: ./.github/actions/deploy-cre-products
+        with:
+          aws-role-arn: ${{ secrets.AWS_RELENG_PROD_GATI_WORKFLOW_INVOKE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          repo-destination: ${{ secrets.REPO_K8S_DEPLOY }}
+          oci-image-tag: ${{ needs.docker-core.outputs.docker-manifest-tag }}
+
   # Notify Slack channel for new git tags associated with pre-releases.
   # Final release notifications originate from the release coordinator repo.
   slack-notify:
     permissions:
       contents: read
-    if: always() && (needs.docker-core.result == 'success' ||
-      needs.docker-ccip.result == 'success')
+    if: always() && needs.docker-core.result == 'success' &&
+      needs.docker-ccip.result == 'success'
     needs: [checks, docker-core, docker-ccip]
     uses: ./.github/workflows/release-notifications.yml
     secrets: inherit

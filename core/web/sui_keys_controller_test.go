@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -39,7 +39,7 @@ func TestSuiKeysController_Create_HappyPath(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 	keyStore := app.GetKeyStore()
 
@@ -74,7 +74,7 @@ func TestSuiKeysController_Delete_NonExistentSuiKeyID(t *testing.T) {
 
 func TestSuiKeysController_Delete_HappyPath(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	client, keyStore := setupSuiKeysControllerTests(t)
 
@@ -93,7 +93,7 @@ func TestSuiKeysController_Delete_HappyPath(t *testing.T) {
 
 func setupSuiKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(ctx))

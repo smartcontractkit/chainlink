@@ -10,10 +10,8 @@ func FiniteTicker(period time.Duration, onTick func()) func() {
 	tick := time.NewTicker(period)
 	chStop := make(chan struct{})
 	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for {
 			select {
 			case <-tick.C:
@@ -22,7 +20,7 @@ func FiniteTicker(period time.Duration, onTick func()) func() {
 				return
 			}
 		}
-	}()
+	})
 
 	// NOTE: tick.Stop does not close the ticker channel,
 	// so we still need another way of returning (chStop).

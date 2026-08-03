@@ -184,9 +184,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 	}
 
 	// send response to node async
-	h.wg.Add(1)
-	go func() {
-		defer h.wg.Done()
+	h.wg.Go(func() {
 		// not cancelled when parent is cancelled to ensure the goroutine can finish
 		newCtx := context.WithoutCancel(ctx)
 		newCtx, cancel := context.WithTimeout(newCtx, timeout)
@@ -235,7 +233,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 			return
 		}
 		l.Debugw("sent response to node", "to", nodeAddr)
-	}()
+	})
 	return nil
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -133,7 +134,7 @@ func (l *leaseLock) TakeAndHold(ctx context.Context) (err error) {
 				err = stderrors.Join(err, l.conn.Close())
 			}
 			return err
-		case <-time.After(utils.WithJitter(l.cfg.LeaseRefreshInterval)):
+		case <-time.After(timeutil.JitterPct(0.1).Apply(l.cfg.LeaseRefreshInterval)):
 		}
 	}
 	l.logger.Debug("Got exclusive lease on database")

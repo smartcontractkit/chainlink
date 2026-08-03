@@ -10,6 +10,7 @@ import (
 )
 
 func Test_NewReportCodecs(t *testing.T) {
+	t.Parallel()
 	c := NewReportCodecs(logger.Test(t), 1)
 
 	_, ok := c[llotypes.ReportFormatJSON]

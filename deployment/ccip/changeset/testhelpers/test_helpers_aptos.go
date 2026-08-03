@@ -16,9 +16,6 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
 	aptosBind "github.com/smartcontractkit/chainlink-aptos/bindings/bind"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/ccip_dummy_receiver"
@@ -34,23 +31,31 @@ import (
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/bnm_registrar"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/lnr_registrar"
 	"github.com/smartcontractkit/chainlink-aptos/bindings/test_token/test_token"
-	"github.com/smartcontractkit/chainlink-aptos/relayer/codec"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 
+	"github.com/smartcontractkit/chainlink-aptos/codec"
+	aptoscs "github.com/smartcontractkit/chainlink-aptos/deployment/ccip"
+	"github.com/smartcontractkit/chainlink-aptos/deployment/ccip/config"
+	shared "github.com/smartcontractkit/chainlink-aptos/deployment/ccip/shared"
+	aptosstate "github.com/smartcontractkit/chainlink-aptos/deployment/state"
+	aptostypes "github.com/smartcontractkit/chainlink-aptos/deployment/types"
 	"github.com/smartcontractkit/chainlink/deployment"
-	aptoscs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/aptos/config"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	aptosstate "github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview/aptos"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
+
+func mustParseAptosAddress(t *testing.T, addr string) aptos.AccountAddress {
+	var address aptos.AccountAddress
+	require.NoError(t, address.ParseStringRelaxed(addr))
+	return address
+}
 
 func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector uint64) commoncs.ConfiguredChangeSet {
 	ccipConfig := config.DeployAptosChainConfig{
@@ -59,7 +64,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 				FeeQuoterParams: config.FeeQuoterParams{
 					MaxFeeJuelsPerMsg:            new(big.Int).Mul(big.NewInt(100_000_000), big.NewInt(1e18)), // 100M LINK @ 18 decimals
 					TokenPriceStalenessThreshold: 24 * 60 * 60,
-					FeeTokens:                    []aptos.AccountAddress{aptoscs.MustParseAddress(t, shared.AptosAPTAddress)}, // LINK token will be deployed and added here automatically
+					FeeTokens:                    []aptos.AccountAddress{mustParseAptosAddress(t, shared.AptosAPTAddress)}, // LINK token will be deployed and added here automatically
 					PremiumMultiplierWeiPerEthByFeeToken: map[shared.TokenSymbol]uint64{
 						shared.APTSymbol:  11e17,
 						shared.LinkSymbol: 9e18,
@@ -80,7 +85,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 				},
 			},
 		},
-		MCMSDeployConfigPerChain: map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		MCMSDeployConfigPerChain: map[uint64]aptostypes.MCMSWithTimelockConfigV2{
 			chainSelector: {
 				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
 				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
@@ -482,7 +487,7 @@ func DeployRegulatedTransferableTokenAptos(
 
 // DeployAptosCCIPReceiver deploys the ccip_dummy_receiver package to all Aptos chains, saving the resulting address in the address book for future use
 func DeployAptosCCIPReceiver(t *testing.T, e cldf.Environment) {
-	state, err := aptosstate.LoadOnchainStateAptos(e)
+	state, err := aptosstate.LoadOnchainState(e)
 	require.NoError(t, err)
 	for selector, onchainState := range state {
 		// ccip_dummy_receiver includes ptt_dummy_receiver, which requires resource-account deployment.

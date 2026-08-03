@@ -437,7 +437,7 @@ func TestChipIngressAgent_InterfaceCompliance(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify it can be assigned to the interface
-		var _ interface{} = adapter
+		var _ any = adapter
 
 		// Call the interface method
 		mockTelemService.On("Send", mock.Anything, mock.Anything)

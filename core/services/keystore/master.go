@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/solkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/starkkey"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/stellarkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tonkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tronkey"
@@ -50,6 +51,7 @@ type Master interface {
 	Cosmos() Cosmos
 	StarkNet() StarkNet
 	Aptos() Aptos
+	Stellar() Stellar
 	Tron() Tron
 	TON() TON
 	Sui() Sui
@@ -71,6 +73,7 @@ type master struct {
 	starknet     *starknet
 	sui          *sui
 	aptos        *aptos
+	stellar      *stellar
 	tron         *tron
 	ton          *ton
 	vrf          *vrf
@@ -106,6 +109,7 @@ func newMaster(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, announ
 		starknet:     newStarkNetKeyStore(km),
 		sui:          newSuiKeyStore(km),
 		aptos:        newAptosKeyStore(km),
+		stellar:      newStellarKeyStore(km),
 		tron:         newTronKeyStore(km),
 		ton:          newTONKeyStore(km),
 		vrf:          newVRFKeyStore(km),
@@ -148,6 +152,10 @@ func (ks *master) StarkNet() StarkNet {
 
 func (ks *master) Aptos() Aptos {
 	return ks.aptos
+}
+
+func (ks *master) Stellar() Stellar {
+	return ks.stellar
 }
 
 func (ks *master) Tron() Tron {
@@ -306,6 +314,8 @@ func GetFieldNameForKey(unknownKey Key) (string, error) {
 		return "StarkNet", nil
 	case aptoskey.Key:
 		return "Aptos", nil
+	case stellarkey.Key:
+		return "Stellar", nil
 	case tronkey.Key:
 		return "Tron", nil
 	case tonkey.Key:

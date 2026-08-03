@@ -209,10 +209,7 @@ func SendLinkFundsToDeploymentAddresses(
 	boundContract := bind.NewBoundContract(multicallAddress, multiCallABI, chainClient.Client, chainClient.Client, chainClient.Client)
 	var lastReceipt *gethtypes.Receipt
 	for start := 0; start < len(call); start += maxBatchSize {
-		end := start + maxBatchSize
-		if end > len(call) {
-			end = len(call)
-		}
+		end := min(start+maxBatchSize, len(call))
 		chunk := make([]contracts.Call, end-start)
 		copy(chunk, call[start:end])
 		// call aggregate3 to group a safe number of transfers per transaction

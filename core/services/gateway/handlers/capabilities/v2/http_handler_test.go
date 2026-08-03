@@ -947,6 +947,9 @@ func TestGatewayHandler_Send_NoMtls_UsesDefaultClient(t *testing.T) {
 func TestGatewayHandler_Send_MtlsBlockedByRateLimit(t *testing.T) {
 	handler := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(0, 0)
+	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
+		return httpmocks.NewHTTPClient(t), nil
+	}
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
 	outboundReq := gateway_common.OutboundHTTPRequest{
@@ -963,6 +966,41 @@ func TestGatewayHandler_Send_MtlsBlockedByRateLimit(t *testing.T) {
 	require.Nil(t, resp)
 	require.ErrorIs(t, err, network.ErrBlockedRequest)
 	require.Contains(t, err.Error(), "global mtls request rate limit exceeded")
+}
+
+// TestGatewayHandler_Send_MtlsPassesConcurrencyLimiterToFactory verifies the
+// handler hands its shared mtls concurrency limiter to the client factory. The
+// limiter is enforced inside the HTTP client (on the request's capped-timeout
+// context); that enforcement is covered by the network package tests.
+func TestGatewayHandler_Send_MtlsPassesConcurrencyLimiterToFactory(t *testing.T) {
+	handler := createTestHandler(t)
+	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(100, 100)
+
+	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method: "GET",
+		URL:    "https://example.com/api",
+		Mtls: &gateway_common.MtlsAuth{
+			PrivateKey:  []byte("private-key"),
+			Certificate: []byte("certificate"),
+		},
+	}
+
+	expectedResp := &network.HTTPResponse{StatusCode: 200, Body: []byte("ok")}
+	mtlsClient := httpmocks.NewHTTPClient(t)
+	mtlsClient.EXPECT().Send(mock.Anything, httpReq).Return(expectedResp, nil).Once()
+
+	var capturedConfig network.HTTPClientConfig
+	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
+		capturedConfig = config
+		return mtlsClient, nil
+	}
+
+	resp, err := handler.send(testutils.Context(t), httpReq, outboundReq)
+	require.NoError(t, err)
+	require.Equal(t, expectedResp, resp)
+	require.NotNil(t, capturedConfig.ConcurrencyLimiter, "handler must pass its mtls concurrency limiter to the client factory")
+	require.Equal(t, handler.mtlsConcurrencyLimiter, capturedConfig.ConcurrencyLimiter)
 }
 
 func TestGatewayHandler_Send_MtlsUsesFactory(t *testing.T) {
@@ -1026,6 +1064,37 @@ func TestGatewayHandler_Send_MtlsFactoryError(t *testing.T) {
 	require.ErrorIs(t, err, factoryErr, "factory error should be wrapped and discoverable via errors.Is")
 }
 
+// TestGatewayHandler_Send_InvalidMtlsCertDoesNotConsumeGlobalTokens verifies that a
+// request carrying invalid mTLS credentials does not consume a global rate-limit token.
+// Otherwise a malicious user could cheaply drain the shared mtls token bucket by spamming
+// requests with bogus certificates. It uses the real HTTP client factory so that the
+// production code path is what rejects the certificate as invalid.
+func TestGatewayHandler_Send_InvalidMtlsCertDoesNotConsumeGlobalTokens(t *testing.T) {
+	handler := createTestHandler(t)
+	// Burst of exactly 1: only a single mtls request may pass the rate limiter.
+	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(1, 1)
+	handler.httpClientFactory = network.NewHTTPClientFactory(network.HTTPClientConfig{}, logger.Test(t))
+
+	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method: "GET",
+		URL:    "https://example.com/api",
+		Mtls:   &gateway_common.MtlsAuth{PrivateKey: []byte("not-a-key"), Certificate: []byte("not-a-cert")},
+	}
+
+	ctx := testutils.Context(t)
+	resp, err := handler.send(ctx, httpReq, outboundReq)
+	require.Error(t, err)
+	require.Nil(t, resp)
+	require.Contains(t, err.Error(), "failed to parse MtlsAuth into KeyPair",
+		"the real client factory should reject the invalid certificate material")
+
+	// The single available token must still be present: the failed request above must not
+	// have consumed it.
+	require.True(t, handler.mtlsRequestRateLimiter.Allow(ctx),
+		"global mtls rate-limit token must not be consumed by a request with an invalid certificate")
+}
+
 // TestGatewayHandler_Send_MtlsRoutesThroughCallbackOnly_DefaultClientUntouched
 // verifies that an mTLS request flowing through the full callback path does not
 // touch the default (shared) http client even when the factory returns a working
@@ -1062,6 +1131,9 @@ func TestGatewayHandler_Send_MtlsRoutesThroughCallbackOnly_DefaultClientUntouche
 func TestGatewayHandler_Send_MtlsBlockedRequestIsValidationError(t *testing.T) {
 	handler := createTestHandler(t)
 	handler.mtlsRequestRateLimiter = limits.GlobalRateLimiter(0, 0)
+	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
+		return httpmocks.NewHTTPClient(t), nil
+	}
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api", Timeout: 5 * time.Second}
 	outboundReq := gateway_common.OutboundHTTPRequest{
@@ -1085,6 +1157,9 @@ func TestGatewayHandler_Send_MtlsBlockedRequestIsValidationError(t *testing.T) {
 // meaning mtls is blocked out of the box.
 func TestGatewayHandler_Send_MtlsRateLimitEnabledByDefault(t *testing.T) {
 	handler := createTestHandler(t)
+	handler.httpClientFactory = func(config network.HTTPClientConfig) (network.HTTPClient, error) {
+		return httpmocks.NewHTTPClient(t), nil
+	}
 
 	httpReq := network.HTTPRequest{Method: "GET", URL: "https://example.com/api"}
 	outboundReq := gateway_common.OutboundHTTPRequest{

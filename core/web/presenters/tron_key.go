@@ -25,7 +25,7 @@ func NewTronKeyResource(key tronkey.Key) *TronKeyResource {
 }
 
 func NewTronKeyResources(keys []tronkey.Key) []TronKeyResource {
-	rs := []TronKeyResource{}
+	rs := make([]TronKeyResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewTronKeyResource(key))
 	}

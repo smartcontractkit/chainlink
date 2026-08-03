@@ -29,9 +29,8 @@ var _ GatewayConnector = (*gatewayConnector)(nil)
 type GatewayConnector interface {
 	services.Service
 	network.ConnectionInitiator
-	// core.GatewayConnector is a narrow interface that provides methods to interact with the Gateway.
-	// This interface is used by LOOP plugins to interact with the Gateway over gRPC
-	core.GatewayConnector
+	// core.MultiGatewayConnector is used by LOOP plugins to interact with the Gateway over gRPC.
+	core.MultiGatewayConnector
 }
 
 // Signer implementation needs to be provided by a GatewayConnector user (node)
@@ -57,13 +56,16 @@ type gatewayConnector struct {
 	config      *ConnectorConfig
 	clock       clockwork.Clock
 	nodeAddress []byte
+	csaKey      string
 	signer      Signer
+	handlersMu  sync.RWMutex
 	handlers    map[string]core.GatewayConnectorHandler
 	gateways    map[string]*gatewayState
 	urlToId     map[string]string
 	closeWait   sync.WaitGroup
 	shutdownCh  services.StopChan
 	lggr        logger.Logger
+	metrics     *connectorMetrics
 }
 
 func (c *gatewayConnector) HealthReport() map[string]error {
@@ -101,31 +103,37 @@ func (gs *gatewayState) awaitConn(ctx context.Context) error {
 	}
 }
 
-func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork.Clock, lggr logger.Logger) (*gatewayConnector, error) {
+func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork.Clock, lggr logger.Logger, csaKey string) (*gatewayConnector, error) {
 	if config == nil || signer == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
-	if len(config.DonId) == 0 || len(config.DonId) > network.HandshakeDonIdLen {
-		return nil, errors.New("invalid DON ID")
+	if err := validateConnectorConfig(config); err != nil {
+		return nil, err
 	}
 	addressBytes, err := commonhex.DecodeString(config.NodeAddress)
 	if err != nil {
 		return nil, err
 	}
+	metrics, err := newConnectorMetrics()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gateway connector metrics: %w", err)
+	}
 	connector := &gatewayConnector{
 		config:      config,
 		clock:       clock,
 		nodeAddress: addressBytes,
+		csaKey:      csaKey,
 		signer:      signer,
 		handlers:    make(map[string]core.GatewayConnectorHandler),
 		shutdownCh:  make(chan struct{}),
 		lggr:        logger.Named(lggr, "GatewayConnector"),
+		metrics:     metrics,
 	}
 	gateways := make(map[string]*gatewayState)
 	urlToId := make(map[string]string)
 	for _, gw := range config.Gateways {
-		if _, exists := gateways[gw.Id]; exists {
-			return nil, fmt.Errorf("duplicate Gateway ID %s", gw.Id)
+		if _, exists := gateways[gw.ID]; exists {
+			return nil, fmt.Errorf("duplicate Gateway ID %s", gw.ID)
 		}
 		if _, exists := urlToId[gw.URL]; exists {
 			return nil, fmt.Errorf("duplicate Gateway URL %s", gw.URL)
@@ -142,8 +150,8 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork
 			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),
 			signalCh: make(chan struct{}),
 		}
-		gateways[gw.Id] = gateway
-		urlToId[gw.URL] = gw.Id
+		gateways[gw.ID] = gateway
+		urlToId[gw.URL] = gw.ID
 	}
 	connector.gateways = gateways
 	connector.urlToId = urlToId
@@ -154,6 +162,8 @@ func (c *gatewayConnector) AddHandler(ctx context.Context, methods []string, han
 	if handler == nil {
 		return errors.New("cannot add a nil handler")
 	}
+	c.handlersMu.Lock()
+	defer c.handlersMu.Unlock()
 	for _, method := range methods {
 		if _, exists := c.handlers[method]; exists {
 			return fmt.Errorf("handler for method %s already exists", method)
@@ -167,6 +177,8 @@ func (c *gatewayConnector) AddHandler(ctx context.Context, methods []string, han
 }
 
 func (c *gatewayConnector) RemoveHandler(ctx context.Context, methods []string) error {
+	c.handlersMu.Lock()
+	defer c.handlersMu.Unlock()
 	for _, method := range methods {
 		_, exists := c.handlers[method]
 		if !exists {
@@ -208,12 +220,46 @@ func (c *gatewayConnector) SignMessage(ctx context.Context, msg []byte) ([]byte,
 	return c.signer.Sign(ctx, msg)
 }
 
-func (c *gatewayConnector) GatewayIDs(context.Context) ([]string, error) {
+func (c *gatewayConnector) GatewayIDs(ctx context.Context) ([]string, error) {
+	return c.gatewayIDsForDon(ctx, "")
+}
+
+func (c *gatewayConnector) gatewayIDsForDon(_ context.Context, donID string) ([]string, error) {
+	if donID == "" {
+		return c.allGatewayIDs(), nil
+	}
+
+	if !multiDonMode(c.config) {
+		return nil, nil
+	}
+
 	var gids []string
+	for _, gw := range c.config.Gateways {
+		if gw.DonID == donID {
+			gids = append(gids, gw.ID)
+		}
+	}
+	return gids, nil
+}
+
+func (c *gatewayConnector) GatewayIDsForDon(ctx context.Context, donID string) ([]string, error) {
+	return c.gatewayIDsForDon(ctx, donID)
+}
+
+func (c *gatewayConnector) DonIDForGateway(_ context.Context, gatewayID string) (string, error) {
+	gateway, ok := c.gateways[gatewayID]
+	if !ok {
+		return "", fmt.Errorf("invalid Gateway ID %s", gatewayID)
+	}
+	return gateway.config.DonID, nil
+}
+
+func (c *gatewayConnector) allGatewayIDs() []string {
+	gids := make([]string, 0, len(c.gateways))
 	for gid := range c.gateways {
 		gids = append(gids, gid)
 	}
-	return gids, nil
+	return gids
 }
 
 func (c *gatewayConnector) DonID(context.Context) (string, error) {
@@ -221,37 +267,40 @@ func (c *gatewayConnector) DonID(context.Context) (string, error) {
 }
 
 func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
+	defer c.closeWait.Done()
 	ctx, cancel := c.shutdownCh.NewCtx()
 	defer cancel()
 
 	for {
 		select {
 		case <-c.shutdownCh:
-			c.closeWait.Done()
 			return
 		case item := <-gatewayState.conn.ReadChannel():
 			var req jsonrpc.Request[json.RawMessage]
 			err := json.Unmarshal(item.Data, &req)
 			if err != nil {
-				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
+				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.ID, "err", err)
 				break
 			}
+			c.handlersMu.RLock()
 			handler, exists := c.handlers[req.Method]
+			c.handlersMu.RUnlock()
 			if !exists {
-				c.lggr.Errorw("no handler for method", "id", gatewayState.config.Id, "method", req.Method)
+				c.lggr.Errorw("no handler for method", "id", gatewayState.config.ID, "method", req.Method)
 				break
 			}
 			// do not break on error. HandleGatewayMessage handles errors
 			// by sending a response back to the Gateway.
-			err = handler.HandleGatewayMessage(ctx, gatewayState.config.Id, &req)
+			err = handler.HandleGatewayMessage(ctx, gatewayState.config.ID, &req)
 			if err != nil {
-				c.lggr.Warnw("failed to handle message from Gateway", "id", gatewayState.config.Id, "method", req.Method, "err", err)
+				c.lggr.Warnw("failed to handle message from Gateway", "id", gatewayState.config.ID, "method", req.Method, "err", err)
 			}
 		}
 	}
 }
 
 func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
+	defer c.closeWait.Done()
 	redialBackoff := utils.NewRedialBackoff()
 	ctx, cancel := c.shutdownCh.NewCtx()
 	defer cancel()
@@ -277,7 +326,6 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 		}
 		select {
 		case <-c.shutdownCh:
-			c.closeWait.Done()
 			return
 		case <-time.After(redialBackoff.Duration()):
 			c.lggr.Info("reconnecting ...")
@@ -288,6 +336,7 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 func (c *gatewayConnector) Start(ctx context.Context) error {
 	return c.StartOnce("GatewayConnector", func() error {
 		c.lggr.Info("starting gateway connector")
+		c.recordGatewaysPerDon(ctx)
 		for _, gatewayState := range c.gateways {
 			if err := gatewayState.conn.Start(ctx); err != nil {
 				return err
@@ -298,6 +347,27 @@ func (c *gatewayConnector) Start(ctx context.Context) error {
 		}
 		return nil
 	})
+}
+
+// recordGatewaysPerDon emits one gauge sample per DON ID configured on this
+// connector, labeled with the node's CSA key. In multi-DON mode each gateway's
+// DonID is used; in single-DON mode the top-level DonId is used. Recording is
+// skipped when the CSA key is empty or metrics are unavailable.
+func (c *gatewayConnector) recordGatewaysPerDon(ctx context.Context) {
+	if c.metrics == nil || c.csaKey == "" {
+		return
+	}
+	counts := make(map[string]int)
+	for _, gw := range c.config.Gateways {
+		donID := gw.DonID
+		if donID == "" {
+			donID = c.config.DonId
+		}
+		counts[donID]++
+	}
+	for donID, count := range counts {
+		c.metrics.recordGatewaysPerDon(ctx, c.csaKey, donID, count)
+	}
 }
 
 func (c *gatewayConnector) Close() error {

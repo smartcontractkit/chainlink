@@ -13,7 +13,8 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
+	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -28,8 +29,8 @@ import (
 
 var _ ObservationContext = (*observationContext)(nil)
 
-type ObservationContext interface {
-	Observe(ctx context.Context, streamID streams.StreamID, opts llo.DSOpts) (val llo.StreamValue, err error)
+type ObservationContext interface { //nolint:revive // ObservationContext is the established interface name in this package
+	Observe(ctx context.Context, streamID streams.StreamID, opts llov30.DSOpts) (val llocommon.StreamValue, err error)
 }
 
 type execution struct {
@@ -58,7 +59,7 @@ func newObservationContext(l logger.Logger, r Registry, t Telemeter) *observatio
 	return &observationContext{l, r, t, sync.Mutex{}, make(map[streams.Pipeline]*execution)}
 }
 
-func (oc *observationContext) Observe(ctx context.Context, streamID streams.StreamID, opts llo.DSOpts) (val llo.StreamValue, err error) {
+func (oc *observationContext) Observe(ctx context.Context, streamID streams.StreamID, opts llov30.DSOpts) (val llocommon.StreamValue, err error) {
 	run, trrs, err := oc.run(ctx, streamID)
 	observationFinishedAt := time.Now()
 	if err != nil {
@@ -133,20 +134,20 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 	return
 }
 
-func resultToStreamValue(val any) (llo.StreamValue, error) {
+func resultToStreamValue(val any) (llocommon.StreamValue, error) {
 	switch v := val.(type) {
 	case decimal.Decimal:
-		return llo.ToDecimal(v), nil
+		return llocommon.ToDecimal(v), nil
 	case float64:
-		return llo.ToDecimal(decimal.NewFromFloat(v)), nil
+		return llocommon.ToDecimal(decimal.NewFromFloat(v)), nil
 	case int64:
-		return llo.ToDecimal(decimal.NewFromInt(v)), nil
+		return llocommon.ToDecimal(decimal.NewFromInt(v)), nil
 	case pipeline.ObjectParam:
 		switch v.Type {
 		case pipeline.DecimalType:
-			return llo.ToDecimal(decimal.Decimal(v.DecimalValue)), nil
+			return llocommon.ToDecimal(decimal.Decimal(v.DecimalValue)), nil
 		default:
-			return nil, fmt.Errorf("don't know how to convert pipeline.ObjectParam with type %d to llo.StreamValue", v.Type)
+			return nil, fmt.Errorf("don't know how to convert pipeline.ObjectParam with type %d to llocommon.StreamValue", v.Type)
 		}
 	case map[string]any:
 		sv, err := resultMapToStreamValue(v)
@@ -155,13 +156,13 @@ func resultToStreamValue(val any) (llo.StreamValue, error) {
 		}
 		return sv, nil
 	default:
-		return nil, fmt.Errorf("don't know how to convert pipeline output result of type %T to llo.StreamValue (got: %v)", val, val)
+		return nil, fmt.Errorf("don't know how to convert pipeline output result of type %T to llocommon.StreamValue (got: %v)", val, val)
 	}
 }
 
 // Converts arbitrary JSON (parsed to map) to a StreamValue
-func resultMapToStreamValue(m map[string]any) (llo.StreamValue, error) {
-	var streamValueType llo.LLOStreamValue_Type
+func resultMapToStreamValue(m map[string]any) (llocommon.StreamValue, error) {
+	var streamValueType llocommon.LLOStreamValue_Type
 	{
 		raw, exists := m["streamValueType"]
 		if !exists {
@@ -171,13 +172,13 @@ func resultMapToStreamValue(m map[string]any) (llo.StreamValue, error) {
 		if !ok {
 			return nil, fmt.Errorf("expected 'streamValueType' to be a int64, got: %T", raw)
 		}
-		if rawInt64 < 0 || rawInt64 > math.MaxUint32 || rawInt64 >= int64(llo.LLOStreamValue_Type(len(llo.LLOStreamValue_Type_name))) { //nolint:gosec // G115 // won't overflow
+		if rawInt64 < 0 || rawInt64 > math.MaxUint32 || rawInt64 >= int64(llocommon.LLOStreamValue_Type(len(llocommon.LLOStreamValue_Type_name))) { //nolint:gosec // G115 // won't overflow
 			return nil, fmt.Errorf("invalid streamValueType: %v", rawInt64)
 		}
-		streamValueType = llo.LLOStreamValue_Type(rawInt64) //nolint:gosec // G115 // won't overflow due to check above
+		streamValueType = llocommon.LLOStreamValue_Type(rawInt64) //nolint:gosec // G115 // won't overflow due to check above
 	}
 	switch streamValueType {
-	case llo.LLOStreamValue_TimestampedStreamValue:
+	case llocommon.LLOStreamValue_TimestampedStreamValue:
 		r, err := resultMapToTimestampedStreamValue(m)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse TimestampedStreamValue: %w", err)
@@ -197,7 +198,7 @@ func resultMapToStreamValue(m map[string]any) (llo.StreamValue, error) {
 //	  },
 //	  "result": "123.456"
 //	}
-func resultMapToTimestampedStreamValue(m map[string]any) (*llo.TimestampedStreamValue, error) {
+func resultMapToTimestampedStreamValue(m map[string]any) (*llocommon.TimestampedStreamValue, error) {
 	ts, ok := m["timestamps"].(map[string]any)
 	if !ok {
 		return nil, errors.New("expected a key labeled 'timestamps' as map[string]interface{}")
@@ -230,9 +231,9 @@ func resultMapToTimestampedStreamValue(m map[string]any) (*llo.TimestampedStream
 		return nil, fmt.Errorf("observedAtMillis too large, got: %d", observedAtMillis)
 	}
 
-	return &llo.TimestampedStreamValue{
+	return &llocommon.TimestampedStreamValue{
 		ObservedAtNanoseconds: observedAtMillis * 1e6, // convert ms to ns
-		StreamValue:           llo.ToDecimal(svd),
+		StreamValue:           llocommon.ToDecimal(svd),
 	}, nil
 }
 
@@ -271,7 +272,7 @@ func toUint64(v any) (uint64, error) {
 }
 
 // extractFinalResultAsStreamValue extracts a final StreamValue from a TaskRunResults
-func extractFinalResultAsStreamValue(trrs pipeline.TaskRunResults) (llo.StreamValue, error) {
+func extractFinalResultAsStreamValue(trrs pipeline.TaskRunResults) (llocommon.StreamValue, error) {
 	// pipeline.TaskRunResults comes ordered asc by index, this is guaranteed
 	// by the pipeline executor
 	finaltrrs := trrs.Terminals()
@@ -290,7 +291,7 @@ func extractFinalResultAsStreamValue(trrs pipeline.TaskRunResults) (llo.StreamVa
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
 		}
-		return llo.ToDecimal(val), nil
+		return llocommon.ToDecimal(val), nil
 	case 3:
 		// Expect ordering of Benchmark, Bid, Ask
 		results := make([]decimal.Decimal, 3)
@@ -305,7 +306,7 @@ func extractFinalResultAsStreamValue(trrs pipeline.TaskRunResults) (llo.StreamVa
 			}
 			results[i] = val
 		}
-		return &llo.Quote{
+		return &llocommon.Quote{
 			Benchmark: results[0],
 			Bid:       results[1],
 			Ask:       results[2],

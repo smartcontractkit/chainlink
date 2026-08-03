@@ -120,8 +120,7 @@ var preferredEncodings = []string{"gzip"}
 
 // File extension to use for different encodings.
 func extensionForEncoding(encname string) string {
-	switch encname {
-	case "gzip":
+	if encname == "gzip" {
 		return ".gz"
 	}
 	return ""
@@ -178,7 +177,7 @@ func (f *gzipFileHandler) findBestFile(w http.ResponseWriter, r *http.Request, f
 // Determines the best encoding to use
 func negotiateContentEncoding(r *http.Request, available []string) string {
 	values := strings.Split(r.Header.Get(acceptEncodingHeader), ",")
-	aes := []string{}
+	aes := make([]string, 0, len(values))
 
 	// Clean the values
 	for _, v := range values {

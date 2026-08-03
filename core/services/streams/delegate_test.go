@@ -39,7 +39,7 @@ func Test_Delegate(t *testing.T) {
 			_, err := d.ServicesForSpec(testutils.Context(t), jb)
 			require.NoError(t, err)
 		})
-		jb.StreamID = ptr(uint32(42))
+		jb.StreamID = new(uint32(42))
 		t.Run("returns services", func(t *testing.T) {
 			srvs, err := d.ServicesForSpec(testutils.Context(t), jb)
 			require.NoError(t, err)
@@ -179,4 +179,3 @@ answer1      [type=median index=0];
 		})
 	}
 }
-func ptr[T any](t T) *T { return &t }

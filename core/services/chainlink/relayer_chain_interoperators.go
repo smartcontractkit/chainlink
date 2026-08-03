@@ -264,6 +264,24 @@ func InitSui(factory RelayerFactory, ks keystore.Sui, csaKS keystore.CSA, chainC
 	}
 }
 
+// InitStellar is an option for instantiating Stellar relayers.
+func InitStellar(factory RelayerFactory, ks keystore.Stellar, csaKS keystore.CSA, chainCfgs RawConfigs) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) (err error) {
+		loopKs := &keystore.StellarLooppSigner{Stellar: ks}
+		relayers, err := factory.NewStellar(loopKs, &keystore.CSASigner{CSA: csaKS}, chainCfgs)
+		if err != nil {
+			return fmt.Errorf("failed to setup Stellar relayer: %w", err)
+		}
+
+		for id, relayer := range relayers {
+			op.srvs = append(op.srvs, relayer)
+			op.loopRelayers[id] = relayer
+		}
+
+		return nil
+	}
+}
+
 // Get a [loop.Relayer] by id
 func (rs *CoreRelayerChainInteroperators) Get(id types.RelayID) (loop.Relayer, error) {
 	rs.mu.Lock()
