@@ -16,7 +16,6 @@ import (
 
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +23,6 @@ import (
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
-	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -100,9 +98,9 @@ func makeStreamValues(streamIDs ...llotypes.StreamID) llocommon.StreamValues {
 type mockOpts struct {
 	verboseLogging       bool
 	seqNr                uint64
-	outCtx               ocr3types.OutcomeContext
 	configDigest         ocr2types.ConfigDigest
 	observationTimestamp time.Time
+	lifeCycleStage       llotypes.LifeCycleStage
 }
 
 func (m *mockOpts) VerboseLogging() bool { return m.verboseLogging }
@@ -111,12 +109,6 @@ func (m *mockOpts) SeqNr() uint64 {
 		return 1042
 	}
 	return m.seqNr
-}
-func (m *mockOpts) OutCtx() ocr3types.OutcomeContext {
-	if m.outCtx.SeqNr == 0 {
-		return ocr3types.OutcomeContext{SeqNr: 1042, PreviousOutcome: []byte("foo")}
-	}
-	return m.outCtx
 }
 func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
 	if m.configDigest.Hex() == "" {
@@ -130,19 +122,11 @@ func (m *mockOpts) ObservationTimestamp() time.Time {
 	}
 	return m.observationTimestamp
 }
-func (m *mockOpts) OutcomeCodec() llov30.OutcomeCodec {
-	return mockOutputCodec{}
-}
-
-type mockOutputCodec struct{}
-
-func (oc mockOutputCodec) Encode(outcome llov30.Outcome) (ocr3types.Outcome, error) {
-	return ocr3types.Outcome{}, nil
-}
-func (oc mockOutputCodec) Decode(encoded ocr3types.Outcome) (outcome llov30.Outcome, err error) {
-	return llov30.Outcome{
-		LifeCycleStage: llocommon.LifeCycleStageProduction,
-	}, nil
+func (m *mockOpts) LifeCycleStage() llotypes.LifeCycleStage {
+	if m.lifeCycleStage == "" {
+		return llocommon.LifeCycleStageProduction
+	}
+	return m.lifeCycleStage
 }
 
 type mockTelemeter struct {
@@ -155,19 +139,19 @@ type v3PremiumLegacyPacket struct {
 	run      *pipeline.Run
 	trrs     pipeline.TaskRunResults
 	streamID uint32
-	opts     llov30.DSOpts
+	opts     telem.DSOpts
 	val      llocommon.StreamValue
 	err      error
 }
 
 var _ Telemeter = &mockTelemeter{}
 
-func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llov30.DSOpts, val llocommon.StreamValue, err error) {
+func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts telem.DSOpts, val llocommon.StreamValue, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.v3PremiumLegacyPackets = append(m.v3PremiumLegacyPackets, v3PremiumLegacyPacket{run, trrs, streamID, opts, val, err})
 }
-func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts llov30.DSOpts, size int) (ch chan<- any) {
+func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts telem.DSOpts, size int) (ch chan<- any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ch = make(chan any, size)
@@ -940,4 +924,36 @@ result3 -> result3_parse -> multiply3;
 	err := ds.Observe(ctx, vals, opts)
 	require.NoError(b, err)
 	ds.Close()
+}
+
+// Test_DataSource_inProduction covers the lifecycle gate: only a Production
+// instance observes; staging/retired/unknown and nil opts do not.
+func Test_DataSource_inProduction(t *testing.T) {
+	t.Parallel()
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	ds := newDataSource(logger.NullLogger, reg, telem.NullTelemeter)
+	defer ds.Close()
+
+	require.True(t, ds.inProduction(&mockOpts{lifeCycleStage: llocommon.LifeCycleStageProduction}))
+	require.False(t, ds.inProduction(&mockOpts{lifeCycleStage: llocommon.LifeCycleStageStaging}))
+	require.False(t, ds.inProduction(&mockOpts{lifeCycleStage: llocommon.LifeCycleStageRetired}))
+	require.False(t, ds.inProduction(nil))
+}
+
+// Test_DataSource_StagingDoesNotObserve asserts a non-Production instance runs
+// no pipelines and returns unset stream values.
+func Test_DataSource_StagingDoesNotObserve(t *testing.T) {
+	t.Parallel()
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(42), nil)
+	ds := newDataSource(logger.NullLogger, reg, telem.NullTelemeter)
+	defer ds.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), observationTimeout)
+	defer cancel()
+	vals := makeStreamValues(1)
+	require.NoError(t, ds.Observe(ctx, vals, &mockOpts{lifeCycleStage: llocommon.LifeCycleStageStaging}))
+
+	require.Nil(t, vals[1], "staging instance must not populate stream values")
+	require.Zero(t, reg.pipelines[1].runCount.Load(), "staging instance must not run pipelines")
 }

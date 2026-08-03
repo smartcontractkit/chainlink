@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
-	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -30,7 +29,7 @@ import (
 var _ ObservationContext = (*observationContext)(nil)
 
 type ObservationContext interface { //nolint:revive // ObservationContext is the established interface name in this package
-	Observe(ctx context.Context, streamID streams.StreamID, opts llov30.DSOpts) (val llocommon.StreamValue, err error)
+	Observe(ctx context.Context, streamID streams.StreamID, opts telem.DSOpts) (val llocommon.StreamValue, err error)
 }
 
 type execution struct {
@@ -59,7 +58,7 @@ func newObservationContext(l logger.Logger, r Registry, t Telemeter) *observatio
 	return &observationContext{l, r, t, sync.Mutex{}, make(map[streams.Pipeline]*execution)}
 }
 
-func (oc *observationContext) Observe(ctx context.Context, streamID streams.StreamID, opts llov30.DSOpts) (val llocommon.StreamValue, err error) {
+func (oc *observationContext) Observe(ctx context.Context, streamID streams.StreamID, opts telem.DSOpts) (val llocommon.StreamValue, err error) {
 	run, trrs, err := oc.run(ctx, streamID)
 	observationFinishedAt := time.Now()
 	if err != nil {

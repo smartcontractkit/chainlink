@@ -1571,7 +1571,22 @@ func (d *Delegate) newServicesLLO(
 		NewOCR3DB: func(pluginID int32) ocr3types.Database {
 			return NewDB(d.ds, spec.ID, pluginID, lggr)
 		},
+
+		OCR31: pluginCfg.IsOCR31(),
 	}
+
+	// OCR3.1 (llo/v31) additionally requires the "2" network endpoint factory and
+	// a persistent replicated key-value store, wired here the same way the vault
+	// and DKG OCR3.1 plugins are (pebble under OCR2().KeyValueStoreRootDir()).
+	if pluginCfg.IsOCR31() {
+		fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
+		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700)); err != nil {
+			return nil, fmt.Errorf("failed to create LLO key value store directory: %w", err)
+		}
+		cfg.BinaryNetworkEndpoint2Factory = d.peerWrapper.Peer3_1
+		cfg.KeyValueDatabaseFactory = kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
+	}
+
 	oracle, err := llo.NewDelegate(cfg)
 	if err != nil {
 		return nil, err

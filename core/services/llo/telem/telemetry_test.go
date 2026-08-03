@@ -13,11 +13,10 @@ import (
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
-	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -50,18 +49,14 @@ type mockOpts struct {
 
 func (m *mockOpts) VerboseLogging() bool { return m.verboseLogging }
 func (m *mockOpts) SeqNr() uint64        { return 1042 }
-func (m *mockOpts) OutCtx() ocr3types.OutcomeContext {
-	return ocr3types.OutcomeContext{SeqNr: 1042, PreviousOutcome: ocr3types.Outcome([]byte("foo"))}
-}
 func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
 	return ocr2types.ConfigDigest{6, 5, 4}
 }
 func (m *mockOpts) ObservationTimestamp() time.Time {
 	return time.Unix(1737936858, 0)
 }
-
-func (m *mockOpts) OutcomeCodec() llov30.OutcomeCodec {
-	return nil
+func (m *mockOpts) LifeCycleStage() llotypes.LifeCycleStage {
+	return llocommon.LifeCycleStageProduction
 }
 
 const bridgeResponse = `{
