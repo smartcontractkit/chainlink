@@ -358,9 +358,7 @@ jobs:
         shell: bash
         env:
           CL_DATABASE_URL: ${{ steps.postgres.outputs.database-url }}
-        run: |
-          go install ./core/store/cmd/preparetest
-          preparetest
+        run: go run ./core/store/cmd/preparetest
 
       - name: Run Tests
         id: run-tests
@@ -423,12 +421,17 @@ jobs:
     if: always()
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: [run-tests]
+    needs: [compile-tests, run-tests]
     steps:
       - name: Check test status
         env:
+          COMPILE_RESULT: ${{ needs.compile-tests.result }}
           TESTS_RESULT: ${{ needs.run-tests.result }}
         run: |
+          if [ "${{ env.COMPILE_RESULT }}" = "failure" ] || [ "${{ env.COMPILE_RESULT }}" = "cancelled" ]; then
+            echo "Compilation of in-memory test binaries failed or was cancelled."
+            exit 1
+          fi
           if [ "${{ env.TESTS_RESULT }}" = "failure" ] || [ "${{ env.TESTS_RESULT }}" = "cancelled" ]; then
             echo "Integration in-memory tests failed or were cancelled."
             exit 1
