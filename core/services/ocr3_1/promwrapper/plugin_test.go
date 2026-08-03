@@ -22,6 +22,7 @@ import (
 // another. Each method is invoked once and the per-label duration histogram
 // sample count is asserted to increment by exactly one.
 func Test_Plugin_FunctionLabels(t *testing.T) {
+	t.Parallel()
 	const (
 		fam  = "evm"
 		id   = "1"
@@ -34,7 +35,7 @@ func Test_Plugin_FunctionLabels(t *testing.T) {
 		init[f] = counterFromHistogramByLabels(t, promOCR3Durations, fam, id, plug, string(f), "true")
 	}
 
-	p := newReportingPlugin[uint](
+	p := newReportingPlugin(
 		fakePlugin[uint]{reports: make([]ocr3types.ReportPlus[uint], 2), stateTransitionSize: 4},
 		fam, id, plug, "abc",
 		promOCR3ReportsGenerated, promOCR3Durations, promOCR3Sizes, promOCR3PluginStatus,
@@ -73,7 +74,8 @@ func Test_Plugin_FunctionLabels(t *testing.T) {
 // Test_Factory covers NewReportingPluginFactory + NewReportingPlugin: the
 // factory wraps the origin plugin and the wrapper reports metrics.
 func Test_Factory(t *testing.T) {
-	factory := NewReportingPluginFactory[uint](
+	t.Parallel()
+	factory := NewReportingPluginFactory(
 		fakeFactory[uint]{plugin: fakePlugin[uint]{}},
 		logger.TestLogger(t), "aptos", "1", "llo",
 	)
