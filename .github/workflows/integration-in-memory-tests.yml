@@ -91,7 +91,7 @@ jobs:
     name: Define Test Matrix
     runs-on: ubuntu-latest
     needs: [changes]
-    if: github.actor != 'dependabot[bot]' && !cancelled() && (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || needs.changes.outputs.run-tests == 'true')
+    if: always() && github.actor != 'dependabot[bot]' && (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.run-tests == 'true')
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
@@ -268,11 +268,14 @@ jobs:
           version: "mainnet-v1.75.2"
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cache Pre-Compiled Test Binaries
-        uses: actions/cache/save@v6
+      - name: Upload Pre-Compiled Test Binaries
+        # Artifacts instead of S3 cache because some matrix jobs run on ubuntu-latest
+        # (no runs-on/action S3 backend). Artifacts work across all runner types.
+        uses: actions/upload-artifact@v7
         with:
+          name: inmemory-test-bins
           path: integration-tests/bin/
-          key: inmemory-test-bins-${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
+          retention-days: 1
 
   run-tests:
     name: ${{ matrix.tests.name }}
@@ -311,11 +314,11 @@ jobs:
           go-version-file: integration-tests/go.mod
           cache: false
 
-      - name: Restore Pre-Compiled Test Binaries from S3 Cache
-        uses: actions/cache/restore@v6
+      - name: Download Pre-Compiled Test Binaries
+        uses: actions/download-artifact@v7
         with:
+          name: inmemory-test-bins
           path: integration-tests/bin/
-          key: inmemory-test-bins-${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
 
       - name: Add Test Binaries to PATH
         shell: bash
