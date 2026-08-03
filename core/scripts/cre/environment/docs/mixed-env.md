@@ -56,7 +56,7 @@ These lines are **silent** when every node runs the same code, so a single occur
 
 ## When it runs
 
-- **CI:** automatically on CRE-affecting PRs. It runs as the `mixed-env` matrix entry for the OCR3/DON2DON-heavy buckets (`Test_CRE_V2_Suite_Bucket_A` and `Test_CRE_V2_Suite_Bucket_B`) in `.github/workflows/cre-system-tests.yaml`. The PR image and the develop image are both already built (per-PR and nightly), so no extra image builds are added. A dedicated **Check for non-determinism (mixed-env)** step scans the live node containers after the suite and fails the job on any marker — kept separate from the auto-quarantined test step so the failure can't be swallowed.
+- **CI:** automatically on CRE-affecting PRs, in its **own** workflow `.github/workflows/cre-mixed-env-tests.yaml` (kept separate from `cre-system-tests.yaml` so that file stays simple). It runs the OCR3/DON2DON-heavy tests — `Test_CRE_V2_Suite_Bucket_A`, `Test_CRE_V2_Suite_Bucket_B`, and the `Test_CRE_V2_EVM_Read_*` suite — under mixed-env. The PR image and the develop image are both already built (per-PR and nightly), so no extra image builds are added. A dedicated **Check for non-determinism** step scans the live node containers after the suite and fails the job on any marker — kept separate from the auto-quarantined test step so the failure can't be swallowed.
 
 ## Running it locally
 
