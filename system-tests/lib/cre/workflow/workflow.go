@@ -84,7 +84,7 @@ func RegisterWithContract(
 	sc *seth.Client,
 	workflowRegistryAddr common.Address,
 	version *semver.Version,
-	donID uint64, donFamily, workflowName, worfklowTag, binaryURL string,
+	donID uint64, donFamily, workflowName, workflowTag, binaryURL string,
 	configURL, secretsURL *string,
 	attributes []byte,
 	artifactsDirInContainer *string,
@@ -125,7 +125,7 @@ func RegisterWithContract(
 		return "", fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
 	}
 
-	if err := registerWorkflow(sc, workflowRegistryAddr, version, donFamily, workflowName, workflowID, worfklowTag, binaryURLToUse, configURLToUse, attributes); err != nil {
+	if err := registerWorkflow(sc, workflowRegistryAddr, version, donFamily, workflowName, workflowID, workflowTag, binaryURLToUse, configURLToUse, attributes); err != nil {
 		return "", err
 	}
 
