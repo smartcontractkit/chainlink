@@ -12,8 +12,6 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -22,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -93,6 +92,7 @@ type ClientRequest struct {
 
 	requiredResponseConfirmations int
 	remoteNodeCount               int
+	remoteDonF                    int
 
 	requestTimeout time.Duration
 
@@ -260,6 +260,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		requestTimeout:                requestTimeout,
 		requiredResponseConfirmations: requiredConfirmations(remoteCapabilityDonInfo.F, minResponsesToAggregate),
 		remoteNodeCount:               len(remoteCapabilityDonInfo.Members),
+		remoteDonF:                    int(remoteCapabilityDonInfo.F),
 		responseIDCount:               make(map[[32]byte]int),
 		meteringResponses:             make(map[[32]byte][]commoncap.MeteringNodeDetail),
 		errorCount:                    make(map[string]int),
@@ -519,6 +520,16 @@ func (c *ClientRequest) pending() int {
 
 func (c *ClientRequest) hasValidAttestation(resp commoncap.CapabilityResponse) bool {
 	if resp.OCRAttestation == nil {
+		return false
+	}
+
+	// report_attestation.go in libocr only ever collects F+1 signatures before declaring a report complete
+	// (it stops as soon as it has one signature past the DON's F threshold). That means an OCRAttestation
+	// can never carry more than F+1 signatures, regardless of how the capability DON is configured.
+	// When requiredResponseConfirmations (driven by minResponsesToAggregate) is set above F+1, verifyAttestation
+	// would therefore always fail and log a spurious "this is most likely a bug" error on every response. In that
+	// case we deliberately skip attestation verification altogether and fall back to the identical-response quorum check instead.
+	if c.requiredResponseConfirmations > c.remoteDonF+1 {
 		return false
 	}
 

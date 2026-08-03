@@ -79,7 +79,7 @@ jobs:
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/regression/cre/*_test.go)
 
           per_test_configs='{
-            "Test_CRE_V2_Stellar_ReadContract_Regression": "configs/workflow-gateway-don-stellar.toml"
+            "Test_CRE_V2_Stellar_Regression": "configs/workflow-gateway-don-stellar.toml"
           }'
 
           tests=$(echo "$test_names" | jq -c -R -s \
@@ -99,6 +99,7 @@ jobs:
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
   run-system-tests:
+    name: ${{ matrix.tests.test_name }} ${{ matrix.tests.topology != '' && format(' ({0})', matrix.tests.topology) || '' }}
     permissions:
       contents: read
       id-token: write
@@ -130,10 +131,13 @@ jobs:
       BILLING_PLATFORM_SERVICE_IMAGE:
         ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
         secrets.QA_AWS_REGION }}.amazonaws.com/billing-platform-service:v1.45.0
+      CHAINLINK_IMAGE_FULL: ${{ inputs.ecr == 'public' && format('public.ecr.aws/{0}:{1}', inputs.chainlink_image_repository_path, inputs.chainlink_image_tag) || format('{0}.dkr.ecr.{1}.amazonaws.com/{2}:{3}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.QA_AWS_REGION, inputs.chainlink_image_repository_path, inputs.chainlink_image_tag) }}
 
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
         uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        with:
+          metrics: cpu,network,memory,disk,io
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -143,15 +147,23 @@ jobs:
 
       - name: Set up Go
         id: setup-go
-        uses: actions/setup-go@v7
+        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
-          go-version-file: system-tests/tests/go.mod
-          cache: true
+          go_mod_path: system-tests/tests/go.mod
+          cache_key_id: integration-tests-v1
+          cache_builds: true
+          cache_restore_only: "true"
+
+      - name: Restore Pre-Compiled Test Binaries from S3 Cache
+        uses: actions/cache/restore@v6
+        with:
+          path: system-tests/tests/bin/
+          key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
 
       # Required to pull private ECR images such as Job Distributor (main) and Chip Ingress (main),
       # and also the Chainlink image when inputs.ecr is "sdlc".
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@517a711dbcd0e402f90c77e7e2f81e849156e31d # v6.2.2
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
@@ -176,12 +188,23 @@ jobs:
         env:
           AWS_REGION: us-east-1
 
+      - name: Cache gotestsum
+        id: cache-gotestsum
+        uses: actions/cache@v6
+        with:
+          path: ~/go/bin/gotestsum
+          key: ${{ runner.os }}-${{ runner.arch }}-gotestsum-1.13.0
+
       - name: Set up gotestsum
         shell: bash
         run: |
-          echo "::group::Install gotestsum"
-          go install gotest.tools/gotestsum@v1.12.3
-          echo "::endgroup::"
+          if [ -f ~/go/bin/gotestsum ]; then
+            echo "Using cached gotestsum"
+          else
+            echo "::group::Install gotestsum"
+            go install gotest.tools/gotestsum@v1.13.0
+            echo "::endgroup::"
+          fi
 
       - name: Setup Stellar CRE contracts
         if: ${{ contains(matrix.tests.test_name, 'Stellar') }}
@@ -189,28 +212,13 @@ jobs:
         with:
           working-directory: system-tests/lib
 
-      - name: Resolve Chainlink image
-        id: resolve-chainlink-image
-        working-directory: .github/scripts
-        shell: bash
-        env:
-          ECR_TYPE: ${{ inputs.ecr }}
-          CHAINLINK_IMAGE_REPO_PATH: ${{ inputs.chainlink_image_repository_path }}
-          CHAINLINK_IMAGE_TAG: ${{ inputs.chainlink_image_tag }}
-          AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-        run: |
-          resolved_image="$(bash resolve-chainlink-image.sh)"
-          echo "$resolved_image"
-          echo "resolved_image=${resolved_image}" >> "${GITHUB_OUTPUT}"
-
       - name: Start local CRE${{ matrix.tests.cre_version }}
         id: start-local-cre
         uses: ./.github/actions/start-local-cre-environment
         with:
           jd-image: "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.28.0"
-          chainlink-image: "${{ steps.resolve-chainlink-image.outputs.resolved_image }}"
+          chainlink-image: "${{ env.CHAINLINK_IMAGE_FULL }}"
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           ctf-configs: ${{ matrix.tests.configs }}
@@ -232,13 +240,27 @@ jobs:
           echo "Starting test: '${TEST_NAME}'"
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
 
-          gotestsum \
-            --jsonfile=/tmp/gotest-regression.log \
-            --junitfile=/tmp/junit-report-regression.xml \
-            --format=github-actions \
-            -- \
-            -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 \
-            github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
+          if [ -f "./bin/cre-regression.test" ]; then
+            echo "Using precompiled binary"
+            (
+              cd regression/cre && \
+              gotestsum \
+                --jsonfile=/tmp/gotest-regression.log \
+                --junitfile=/tmp/junit-report-regression.xml \
+                --format=github-actions \
+                --raw-command -- \
+                go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre ../../bin/cre-regression.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1
+            )
+          else
+            echo "No precompiled binary found. Building from scratch..."
+            gotestsum \
+              --jsonfile=/tmp/gotest-regression.log \
+              --junitfile=/tmp/junit-report-regression.xml \
+              --format=github-actions \
+              -- \
+              -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 \
+              github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
+          fi
 
           exit_code="$?"
           if [ "$exit_code" -eq 0 ]; then

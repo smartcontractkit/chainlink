@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	confidentialworkflow "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -409,6 +410,18 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	if err := json.Unmarshal(*req.Params, &params); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
+
+	// The enclave's capability calls arrive as fresh gateway messages rather than
+	// through the workflow engine, so ctx carries none of the CRE tenants the engine
+	// seeds.
+	//
+	// Seeded as soon as the params are parsed so every ctx use below carries the
+	// tenant.
+	ctx = contexts.WithCRE(ctx, contexts.CRE{
+		Org:      params.OrgID,
+		Owner:    params.Owner,
+		Workflow: params.WorkflowID,
+	})
 
 	att := params.Attestation
 	params.Attestation = ""

@@ -21,10 +21,17 @@ inputs:
       Only restore the module cache, don't automatically update it.
       Leave the updating to go-mod-cache.yml.
     default: "true"
-  restore-build-cache-only:
+  build-cache-write:
     description: |
-      Only restore the build cache, don't automatically update/upload it.
-    default: "false"
+      When to save the Go build cache.
+        always              - save on every run (use for single-instance hot-path jobs)
+        default-branch-only - save only on push to the default branch; PRs restore the
+                              develop checkpoint. Use for large caches and for any job
+                              that fans out across a matrix.
+        never               - restore only.
+      Callers that save MUST pass a `build-cache-version` unique to the job, otherwise
+      concurrent jobs race on one key.
+    default: "always"
 
 outputs:
   primary-cache-hit-modules:
@@ -49,7 +56,7 @@ runs:
         echo "version=$version" >> "$GITHUB_OUTPUT"
 
     - name: Set up Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: ${{ steps.go-version.outputs.version }}
         cache: false
@@ -107,7 +114,47 @@ runs:
       id: branch-name
       uses: smartcontractkit/.github/actions/branch-names@branch-names/v1
 
-    # 2. Build the cache keys
+    # 2. Resolve the build cache write policy
+    # ---
+    - name: Resolve Build Cache Write Policy
+      if: ${{ inputs.only-modules == 'false' }}
+      id: build-cache-policy
+      shell: bash
+      env:
+        BUILD_CACHE_WRITE: ${{ inputs.build-cache-write }}
+        CURRENT_BRANCH: ${{ steps.branch-name.outputs.current_branch }}
+        DEFAULT_BRANCH: ${{ steps.branch-name.outputs.default_branch }}
+      run: |
+        case "${BUILD_CACHE_WRITE}" in
+          always)
+            SAVE="true"
+            ;;
+          default-branch-only)
+            SAVE="false"
+            if [ "${CURRENT_BRANCH}" = "${DEFAULT_BRANCH}" ] && \
+               { [ "${GITHUB_EVENT_NAME}" = "push" ] || [ "${GITHUB_EVENT_NAME}" = "schedule" ]; }; then
+              SAVE="true"
+            fi
+            ;;
+          never)
+            SAVE="false"
+            ;;
+          *)
+            echo "::error::invalid build-cache-write '${BUILD_CACHE_WRITE}'"
+            exit 1
+            ;;
+        esac
+
+        # The merge queue must never write: its refs are ephemeral and its caches
+        # are unreachable afterwards.
+        if [ "${GITHUB_EVENT_NAME}" = "merge_group" ]; then
+          SAVE="false"
+        fi
+
+        echo "policy='${BUILD_CACHE_WRITE}' event='${GITHUB_EVENT_NAME}' -> save=${SAVE}"
+        echo "save=${SAVE}" >> "${GITHUB_OUTPUT}"
+
+    # 3. Build the cache keys
     # ---
     # - The primary key is the branch name + short SHA
     # - The secondary key is the branch name + no SHA
@@ -135,39 +182,34 @@ runs:
       id: build-cache-keys
       shell: bash
       env:
-        CACHE_VERSION: ${{ inputs.build-cache-version || inputs.cache-version }}
+        RAW_CACHE_VERSION: ${{ inputs.build-cache-version || inputs.cache-version }}
         CURRENT_BRANCH: ${{ steps.branch-name.outputs.current_branch }}
         DEFAULT_BRANCH: ${{ steps.branch-name.outputs.default_branch }}
         RUNNER_OS: ${{ runner.os }}
+        RUNNER_ARCH: ${{ runner.arch }}
       run: |
-        SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
-        KEY_PREFIX="${RUNNER_OS}-gobuild-${CACHE_VERSION}"
+        CACHE_VERSION="${RAW_CACHE_VERSION//\//-}"
+        SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+        KEY_PREFIX="${RUNNER_OS}-${RUNNER_ARCH}-gobuild-${CACHE_VERSION}"
 
-        PRIMARY_KEY="${KEY_PREFIX}-${CURRENT_BRANCH}-${SHORT_SHA}"
-        echo "primary-key=${PRIMARY_KEY}" >> "${GITHUB_OUTPUT}"
+        echo "primary-key=${KEY_PREFIX}-${CURRENT_BRANCH}-${SHORT_SHA}" >> "${GITHUB_OUTPUT}"
 
         if [ "$CURRENT_BRANCH" = "$DEFAULT_BRANCH" ]; then
           exit 0
         fi
 
-        SECONDARY_KEY="${KEY_PREFIX}-${CURRENT_BRANCH}-"
-        DEVELOP_KEY="${RUNNER_OS}-gobuild-${CACHE_VERSION}-${DEFAULT_BRANCH}-"
+        echo "secondary-key=${KEY_PREFIX}-${CURRENT_BRANCH}-" >> "${GITHUB_OUTPUT}"
+        echo "develop-key=${RUNNER_OS}-${RUNNER_ARCH}-gobuild-${CACHE_VERSION}-${DEFAULT_BRANCH}-" >> "${GITHUB_OUTPUT}"
 
-        echo "secondary-key=${SECONDARY_KEY}" >> "${GITHUB_OUTPUT}"
-        echo "develop-key=${DEVELOP_KEY}" >> "${GITHUB_OUTPUT}"
-
-    # 3. Restore the build cache
+    # 4. Restore the build cache
     # ---
     # For certain events, we don't necessarily want to create a build cache, but we will benefit from restoring from one.
     # This calls actions/cache/restore instead of actions/cache.
     # This will only restore the cache if it exists, and will not create a new cache entry.
-    # Only restore the build cache if:
-    #   1. This is a merge queue event or
-    #   2. If inputs.restore-build-cache-only == 'true'
     - uses: actions/cache/restore@v6
       name: Cache Go Build Outputs (restore)
       id: build-cache-restore
-      if: ${{ inputs.only-modules == 'false' && (github.event_name == 'merge_group' || inputs.restore-build-cache-only == 'true') }}
+      if: ${{ inputs.only-modules == 'false' && steps.build-cache-policy.outputs.save != 'true' }}
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
@@ -176,12 +218,12 @@ runs:
           ${{ steps.build-cache-keys.outputs.secondary-key }}
           ${{ steps.build-cache-keys.outputs.develop-key }}
 
-    # 4. Upsert/Create the build cache
+    # 5. Upsert/Create the build cache
     # ---
     # A negation of the above actions/cache/restore call.
     # This will create the cache entry upon a cache miss for the primary key.
     - uses: actions/cache@v6
-      if: ${{ inputs.only-modules == 'false' && (github.event_name != 'merge_group' && inputs.restore-build-cache-only == 'false') }}
+      if: ${{ inputs.only-modules == 'false' && steps.build-cache-policy.outputs.save == 'true' }}
       id: build-cache
       name: Cache Go Build Outputs
       with:

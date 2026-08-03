@@ -13,8 +13,10 @@ runs:
       name: Cache solana CLI
       with:
         path: |
-          ~/.local/share/solana/install/active_release/bin
-        key: ${{ runner.os }}-solana-cli-${{ hashFiles('${{ inputs.base-path }}tools/ci/install_solana') }}
+          ~/.local/share/solana
+        key: ${{ runner.os }}-${{ runner.arch }}-solana-cli-${{ hashFiles(format('{0}/tools/ci/install_solana', inputs.base-path)) }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-solana-cli-
 
     - if: ${{ steps.cache.outputs.cache-hit != 'true' }}
       name: Install solana cli

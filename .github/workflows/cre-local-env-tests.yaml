@@ -77,8 +77,7 @@ jobs:
           ref: ${{ github.event_name == 'pull_request' && github.sha || inputs.chainlink_version }}
 
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@d141ef83eb66d096ce8afc767e09115a65c63b60 # v2.1.2
-
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
 
       - name: Set up Go
         id: setup-go
@@ -108,7 +107,7 @@ jobs:
 
       # We need to login to ECR to allow the test to pull the Job Distributor and Chainlink images
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}

@@ -29,6 +29,7 @@ const (
 	handlerName                          = "HTTPCapabilityHandler"
 	defaultCleanUpPeriodMs               = 1000 * 60 * 10 // 10 minutes
 	defaultMaxTriggerRequestDurationMs   = 1000 * 60      // 1 minute
+	defaultNodeSendTimeoutMs             = 1000 * 10      // 10 seconds
 	defaultInitialIntervalMs             = 100
 	defaultMaxIntervalTimeMs             = 1000 * 30 // 30 seconds
 	defaultMultiplier                    = 2.0
@@ -76,6 +77,11 @@ type ResponseCache interface {
 type ServiceConfig struct {
 	// MaxTriggerRequestDurationMs is the maximum time allowed for each trigger broadcast request to a workflow node
 	MaxTriggerRequestDurationMs int `json:"maxTriggerRequestDurationMs"`
+
+	// NodeSendTimeoutMs bounds each individual send attempt to a single workflow node. It must be smaller
+	// than MaxTriggerRequestDurationMs so that one slow/unresponsive node cannot delay sending to the rest
+	// of the DON; the send is retried on the next attempt if it times out.
+	NodeSendTimeoutMs int `json:"nodeSendTimeoutMs"`
 
 	// RetryConfig defines retry behavior for trigger broadcast requests to workflow nodes
 	RetryConfig RetryConfig `json:"retryConfig"`
@@ -178,6 +184,12 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 	}
 	if cfg.MaxTriggerRequestDurationMs == 0 {
 		cfg.MaxTriggerRequestDurationMs = defaultMaxTriggerRequestDurationMs
+	}
+	if cfg.NodeSendTimeoutMs == 0 {
+		cfg.NodeSendTimeoutMs = defaultNodeSendTimeoutMs
+	}
+	if cfg.NodeSendTimeoutMs > cfg.MaxTriggerRequestDurationMs {
+		cfg.NodeSendTimeoutMs = cfg.MaxTriggerRequestDurationMs
 	}
 	if cfg.MetadataPullIntervalMs == 0 {
 		cfg.MetadataPullIntervalMs = defaultMetadataPullIntervalMs
