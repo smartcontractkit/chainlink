@@ -61,7 +61,6 @@ import (
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	stellarfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
@@ -815,7 +814,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	workflowRegConfig := &WorkflowRegistrationConfig{
 		WorkflowName:            workflowName,
 		WorkflowLocation:        workflowFileLocation,
-		WorkflowTag:             workflow.DefaultWorkflowTag,
+		WorkflowTag:             creworkflow.DefaultWorkflowTag,
 		ConfigFilePath:          workflowConfigPath,
 		CompressedWasmPath:      compressedWorkflowWasmPath,
 		WorkflowRegistryAddr:    common.HexToAddress(workflowRegistryAddress.Address),
