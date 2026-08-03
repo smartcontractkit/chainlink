@@ -208,7 +208,8 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llocommon.StreamV
 // only one that should run pipeline observations).
 func (d *dataSource) inProduction(opts llocommon.DSOpts) bool {
 	if opts == nil {
-		d.lggr.Warnw("Observe: nil opts, treating as not-in-production")
+		// setObservableStreams logs the nil-opts case; stay silent here to avoid
+		// a duplicate warning per round.
 		return false
 	}
 	if opts.LifeCycleStage() != llocommon.LifeCycleStageProduction {

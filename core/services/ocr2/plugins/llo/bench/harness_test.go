@@ -41,17 +41,16 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	memkvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/ocrintegrationtesthelpers"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/v31"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	memkvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/ocrintegrationtesthelpers"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	corello "github.com/smartcontractkit/chainlink/v2/core/services/llo"
 )
@@ -248,7 +247,7 @@ func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1
 // ---------------------------------------------------------------------------
 
 func attributedObservation(observer int, obs []byte) ocrtypes.AttributedObservation {
-	return ocrtypes.AttributedObservation{Observer: commontypes.OracleID(observer), Observation: obs}
+	return ocrtypes.AttributedObservation{Observer: commontypes.OracleID(observer), Observation: obs} //nolint:gosec // G115: observer is a small oracle index
 }
 
 // replicate builds n AttributedObservations from a single serialized
@@ -257,7 +256,7 @@ func attributedObservation(observer int, obs []byte) ocrtypes.AttributedObservat
 // aggregation still processes n observations per stream).
 func replicate(obs []byte, n int) []ocrtypes.AttributedObservation {
 	aos := make([]ocrtypes.AttributedObservation, 0, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		aos = append(aos, attributedObservation(i, obs))
 	}
 	return aos
@@ -328,7 +327,7 @@ func bootOrReplicate(obs []byte, n int, seqNr uint64) []ocrtypes.AttributedObser
 // warmupRounds returns the round budget needed to establish `channels`
 // channels (5 per round) plus slack for reportability and bootstrap.
 func warmupRounds(channels int) uint64 {
-	return uint64(channels/channelsPerRound + warmupRoundSlack)
+	return uint64(channels/channelsPerRound + warmupRoundSlack) //nolint:gosec // G115: small non-negative round budget
 }
 
 // warmV30 drives rounds until all `channels` channels are established and

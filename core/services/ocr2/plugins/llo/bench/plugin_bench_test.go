@@ -6,11 +6,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
 const (
@@ -38,9 +37,10 @@ var benchWorkloads = []workload{
 // same format. This guards the benchmark: if the two drivers diverge, the
 // latency numbers are not comparing like for like.
 func TestParity(t *testing.T) {
+	t.Parallel()
 	for _, w := range benchWorkloads {
-		w := w
 		t.Run(w.String(), func(t *testing.T) {
+			t.Parallel()
 			defs, _ := w.channelDefinitions()
 
 			p30 := buildV30(t, defs, benchN, benchF)
@@ -52,8 +52,8 @@ func TestParity(t *testing.T) {
 			reports31, _ := v31Round(t, p31, db, seq31, benchN)
 
 			require.NotEmpty(t, reports30, "v30 produced no reports")
-			require.Equal(t, w.numChannels, len(reports30), "v30 should report every channel")
-			require.Equal(t, len(reports30), len(reports31), "v30 and v31 must produce the same number of reports")
+			require.Len(t, reports30, w.numChannels, "v30 should report every channel")
+			require.Len(t, reports31, len(reports30), "v30 and v31 must produce the same number of reports")
 
 			for i := range reports30 {
 				require.Equal(t, llotypes.ReportFormatJSON, reports30[i].ReportWithInfo.Info.ReportFormat)
@@ -77,7 +77,6 @@ func TestParity(t *testing.T) {
 //     (kvread_B, kvwrite_B, kvkeys) — the incremental state cost v30 lacks.
 func BenchmarkFullRound(b *testing.B) {
 	for _, w := range benchWorkloads {
-		w := w
 		defs, _ := w.channelDefinitions()
 
 		b.Run(w.String()+"/v30", func(b *testing.B) {
@@ -135,7 +134,6 @@ func BenchmarkFullRound(b *testing.B) {
 // + observation encode; for v31 also the KeyValueState read).
 func BenchmarkObservation(b *testing.B) {
 	for _, w := range benchWorkloads {
-		w := w
 		defs, _ := w.channelDefinitions()
 
 		b.Run(w.String()+"/v30", func(b *testing.B) {
@@ -176,7 +174,6 @@ func BenchmarkObservation(b *testing.B) {
 // KeyValueDatabase commit that libocr performs after every StateTransition.
 func BenchmarkStateAdvance(b *testing.B) {
 	for _, w := range benchWorkloads {
-		w := w
 		defs, _ := w.channelDefinitions()
 
 		b.Run(w.String()+"/v30_Outcome", func(b *testing.B) {
@@ -229,7 +226,6 @@ func BenchmarkStateAdvance(b *testing.B) {
 // outcome/precursor into signed report payloads).
 func BenchmarkReports(b *testing.B) {
 	for _, w := range benchWorkloads {
-		w := w
 		defs, _ := w.channelDefinitions()
 
 		b.Run(w.String()+"/v30", func(b *testing.B) {
