@@ -111,7 +111,9 @@
   # to identify nodes in the gateway configuration (required by vault and gateway-based HTTP capabilities)
   supported_evm_chains = [1337, 2337]
 
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  # CRE_CANARY_NONDETERMINISM activates the DO-NOT-MERGE vault OCR3 report canary in
+  # core/services/ocr2/plugins/vault/plugin.go (PR-built nodes only) to validate the check.
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CRE_CANARY_NONDETERMINISM = "1" }
   capabilities = ["vault", "evm-2337"]
 
   [nodesets.db]
