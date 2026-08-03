@@ -388,6 +388,18 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
+	// The enclave's capability calls arrive as fresh gateway messages rather than
+	// through the workflow engine, so ctx carries none of the CRE tenants the engine
+	// seeds.
+	//
+	// Seeded as soon as the params are parsed so every ctx use below carries the
+	// tenant.
+	ctx = contexts.WithCRE(ctx, contexts.CRE{
+		Org:      params.OrgID,
+		Owner:    params.Owner,
+		Workflow: params.WorkflowID,
+	})
+
 	handler, ok := h.executionHandlers.GetExecution(params.WorkflowID, params.ExecutionID)
 	if !ok {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
@@ -410,17 +422,6 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
-
-	// The enclave's capability calls arrive as fresh gateway messages rather than
-	// through the workflow engine, so ctx carries none of the CRE tenants the
-	// engine seeds.
-	// Set after attestation verification above: these params are bound by the
-	// attested request hash, so they are only trustworthy once it has passed.
-	ctx = contexts.WithCRE(ctx, contexts.CRE{
-		Org:      params.OrgID,
-		Owner:    params.Owner,
-		Workflow: params.WorkflowID,
-	})
 
 	payloadBytes, err := base64.StdEncoding.DecodeString(params.Payload)
 	if err != nil {
