@@ -82,7 +82,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260415165642-49f23e4d76cc
 	github.com/smartcontractkit/chainlink-ccv v0.7.1-0.20260902155726-3ae29777797a
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260828143819-eb996f0a6c8b
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260903010007-6c536294ae17
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260724142814-45996a1bcb72
 	github.com/smartcontractkit/chainlink-data-streams v1.1.1
@@ -423,3 +423,5 @@ tool github.com/smartcontractkit/chainlink-common/script/cmd/dependabot
 // Exclude Juno's placeholder dependency. It is only intended to be resolved via
 // Juno's local replace directive and is not used directly by chainlink
 exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
+
+replace github.com/smartcontractkit/chainlink-common => /Users/bk/repos/chainlink-common

@@ -2058,6 +2058,8 @@ type LinkingConfig struct {
 	URL            *string                `toml:",omitempty"`
 	TLSEnabled     *bool                  `toml:",omitempty"`
 	RequestTimeout *commonconfig.Duration `toml:",omitempty"`
+	// CacheEnabled turns on durable Postgres-backed caching of owner->orgID mappings.
+	CacheEnabled *bool `toml:",omitempty"`
 }
 
 func (c *CreConfig) setFrom(f *CreConfig) {
@@ -2104,6 +2106,9 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		}
 		if v := f.Linking.RequestTimeout; v != nil {
 			c.Linking.RequestTimeout = v
+		}
+		if v := f.Linking.CacheEnabled; v != nil {
+			c.Linking.CacheEnabled = v
 		}
 	}
 
@@ -2157,6 +2162,10 @@ func (l *LinkingConfig) ValidateConfig() error {
 		l.RequestTimeout = commonconfig.MustNewDuration(2 * time.Second)
 	} else if l.RequestTimeout.Duration() <= 0 {
 		return configutils.ErrInvalid{Name: "RequestTimeout", Value: l.RequestTimeout.String(), Msg: "must be positive"}
+	}
+	if l.CacheEnabled == nil {
+		val := false
+		l.CacheEnabled = &val
 	}
 	return nil
 }
