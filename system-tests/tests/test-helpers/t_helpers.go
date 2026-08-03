@@ -61,6 +61,7 @@ import (
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	stellarfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
@@ -414,6 +415,7 @@ type StellarWriteWorkflowConfig struct {
 type WorkflowRegistrationConfig struct {
 	WorkflowName            string
 	WorkflowLocation        string
+	WorkflowTag             string
 	ConfigFilePath          string
 	CompressedWasmPath      string
 	SecretsURL              string
@@ -715,6 +717,7 @@ func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConf
 		wfRegCfg.DonID,
 		wfRegCfg.DonFamily,
 		wfRegCfg.WorkflowName,
+		wfRegCfg.WorkflowTag,
 		binaryURL,
 		configURL,
 		nil, // no secrets yet
@@ -812,6 +815,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	workflowRegConfig := &WorkflowRegistrationConfig{
 		WorkflowName:            workflowName,
 		WorkflowLocation:        workflowFileLocation,
+		WorkflowTag:             workflow.DefaultWorkflowTag,
 		ConfigFilePath:          workflowConfigPath,
 		CompressedWasmPath:      compressedWorkflowWasmPath,
 		WorkflowRegistryAddr:    common.HexToAddress(workflowRegistryAddress.Address),
