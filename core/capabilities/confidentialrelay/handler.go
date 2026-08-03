@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	confidentialworkflow "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -409,6 +410,17 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	if err = h.verifyEnclaveConfigMatchesDON(localNode, params.EnclaveConfig); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
+
+	// The enclave's capability calls arrive as fresh gateway messages rather than
+	// through the workflow engine, so ctx carries none of the CRE tenants the
+	// engine seeds.
+	// Set after attestation verification above: these params are bound by the
+	// attested request hash, so they are only trustworthy once it has passed.
+	ctx = contexts.WithCRE(ctx, contexts.CRE{
+		Org:      params.OrgID,
+		Owner:    params.Owner,
+		Workflow: params.WorkflowID,
+	})
 
 	payloadBytes, err := base64.StdEncoding.DecodeString(params.Payload)
 	if err != nil {

@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -91,10 +92,14 @@ type mockExecutionHelper struct {
 
 	lastCapabilityRequest *sdkpb.CapabilityRequest
 	lastSecretsRequest    *sdkpb.GetSecretsRequest
+	// lastCapabilityCRE records the CRE tenants on the context CallCapability was
+	// invoked with. The tenant-scoped limiters downstream fail closed without them.
+	lastCapabilityCRE contexts.CRE
 }
 
-func (m *mockExecutionHelper) CallCapability(_ context.Context, req *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
+func (m *mockExecutionHelper) CallCapability(ctx context.Context, req *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
 	m.lastCapabilityRequest = req
+	m.lastCapabilityCRE = contexts.CREValue(ctx)
 	return m.capResp, m.capErr
 }
 
@@ -388,6 +393,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					WorkflowID:    "wf-1",
 					Owner:         testOwner, // chainlink-common#2032 requires 0x-prefixed 20-byte hex
 					ExecutionID:   capExecExecutionID,
+					OrgID:         "org-1",
 					ReferenceID:   "17",
 					CapabilityID:  "my-cap@1.0.0",
 					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
@@ -401,6 +407,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					WorkflowID:    "wf-1",
 					Owner:         testOwner,
 					ExecutionID:   capExecExecutionID,
+					OrgID:         "org-1",
 					ReferenceID:   "17",
 					CapabilityID:  "my-cap@1.0.0",
 					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
@@ -423,6 +430,15 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.NotNil(t, helper.lastCapabilityRequest, "CallCapability should have been called")
 				assert.Equal(t, "my-cap@1.0.0", helper.lastCapabilityRequest.Id)
 				assert.Equal(t, "Execute", helper.lastCapabilityRequest.Method)
+				// Without the CRE tenants on the context, every tenant-scoped
+				// limiter downstream fails closed rather than reading a limit.
+				// Normalized(): WithCRE strips the owner's 0x prefix and lowercases
+				// it, so the tenant key matches the one the engine path produces.
+				assert.Equal(t, contexts.CRE{
+					Org:      "org-1",
+					Owner:    testOwner,
+					Workflow: "wf-1",
+				}.Normalized(), helper.lastCapabilityCRE)
 			},
 		},
 		{
