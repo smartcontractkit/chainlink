@@ -1,6 +1,7 @@
 package jobs_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -239,6 +240,37 @@ func TestProposeStellarCapJobSpec_Apply_success(t *testing.T) {
 
 	out := setup.rt.State().Outputs[task.ID()]
 	assert.Len(t, out.Reports, 1)
+}
+
+func TestProposeStellarCapJobSpec_Apply_forwarderLookbackLedgers(t *testing.T) {
+	setup := setupStellarCapTest(t)
+
+	const (
+		inputLookback  int64 = 123 // DON-wide value
+		overrideCustom int64 = 999 // explicit per-node override
+	)
+
+	input := setup.baseInput
+	input.ForwarderLookbackLedgers = inputLookback
+
+	nodeCount := len(input.StellarCapabilityInputs)
+	require.GreaterOrEqual(t, nodeCount, 2, "need at least 2 nodes to distinguish override from default")
+
+	// Explicit per-node override on the first node only; the rest inherit the DON-wide value.
+	input.StellarCapabilityInputs[0].OverrideDefaultCfg.ForwarderLookbackLedgers = overrideCustom
+
+	task := runtime.ChangesetTask(jobs.ProposeStellarCapJobSpec{}, input)
+	require.NoError(t, setup.rt.Exec(task))
+
+	out := setup.rt.State().Outputs[task.ID()]
+	require.NotNil(t, out)
+	require.Len(t, out.Reports, 1)
+
+	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
+	assert.Equal(t, 1, strings.Count(outputStr, `"forwarderLookbackLedgers":999`),
+		"expected exactly one per-node override to be preserved")
+	assert.Equal(t, nodeCount-1, strings.Count(outputStr, `"forwarderLookbackLedgers":123`),
+		"expected every other node to inherit the DON-wide value")
 }
 
 func TestProposeStellarCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
