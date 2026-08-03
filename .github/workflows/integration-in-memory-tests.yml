@@ -170,7 +170,6 @@ jobs:
           persist-credentials: false
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
-          fetch-depth: 0
 
       - name: Set up Go for compilation
         id: setup-go
