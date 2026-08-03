@@ -21,7 +21,7 @@ runs:
 
     - name: Install Aptos CLI
       if: ${{ steps.cache.outputs.cache-hit != 'true' }}
-      uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
+      uses: aptos-labs/actions/install-aptos-cli@95740d0b8fe20d7894d8abc99f9e11236f0176e9 # 2026-04-06
       with:
         CLI_VERSION: ${{ inputs.version }}
 

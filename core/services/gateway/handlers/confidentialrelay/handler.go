@@ -30,6 +30,9 @@ import (
 const (
 	defaultCleanUpPeriod = 5 * time.Second
 
+	defaultRequestTimeoutSec  = 30
+	defaultNodeSendTimeoutSec = 10
+
 	// Re-exported from chainlink-common for local use and test convenience.
 	MethodSecretsGet     = relaytypes.MethodSecretsGet
 	MethodCapabilityExec = relaytypes.MethodCapabilityExec
@@ -116,6 +119,11 @@ type relayBundler interface {
 
 type Config struct {
 	RequestTimeoutSec int `json:"requestTimeoutSec"`
+
+	// NodeSendTimeoutSec bounds each individual fan-out send to a single relay node, and is
+	// clamped to RequestTimeoutSec. It must stay below it so that one node whose connection
+	// accepts no writes cannot delay delivery to the rest of the DON.
+	NodeSendTimeoutSec int `json:"nodeSendTimeoutSec"`
 }
 
 type handler struct {
@@ -130,6 +138,7 @@ type handler struct {
 	globalNodeRateLimiter limits.RateLimiter
 	perNodeRateLimiters   map[string]limits.RateLimiter
 	requestTimeout        time.Duration
+	nodeSendTimeout       time.Duration
 
 	activeRequests map[string]*activeRequest
 	metrics        *metrics
@@ -154,7 +163,14 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	}
 
 	if cfg.RequestTimeoutSec == 0 {
-		cfg.RequestTimeoutSec = 30
+		cfg.RequestTimeoutSec = defaultRequestTimeoutSec
+	}
+
+	if cfg.NodeSendTimeoutSec == 0 {
+		cfg.NodeSendTimeoutSec = defaultNodeSendTimeoutSec
+	}
+	if cfg.NodeSendTimeoutSec > cfg.RequestTimeoutSec {
+		cfg.NodeSendTimeoutSec = cfg.RequestTimeoutSec
 	}
 
 	globalNodeRateLimiter, err := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayGlobalRate)
@@ -181,6 +197,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		don:                   don,
 		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonId),
 		requestTimeout:        time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeSendTimeout:       time.Duration(cfg.NodeSendTimeoutSec) * time.Second,
 		globalNodeRateLimiter: globalNodeRateLimiter,
 		perNodeRateLimiters:   perNodeRateLimiters,
 		activeRequests:        make(map[string]*activeRequest),
@@ -460,9 +477,16 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 		nodeErrors atomic.Uint32
 	)
 
+	// Each send is bounded independently. A node whose websocket accepts no writes blocks
+	// until its context is cancelled, and because the caller only reads the response callback
+	// after this function returns, an unbounded send would hold the request open until the
+	// client gives up, discarding a bundle that already reached quorum.
+	sendCtx, cancel := context.WithTimeout(ctx, h.nodeSendTimeout)
+	defer cancel()
+
 	for _, node := range h.donConfig.Members {
 		group.Go(func() error {
-			err := h.don.SendToNode(ctx, node.Address, &ar.req)
+			err := h.don.SendToNode(sendCtx, node.Address, &ar.req)
 			if err != nil {
 				nodeErrors.Add(1)
 				l.Errorw("error sending request to node", "node", node.Address, "error", err)

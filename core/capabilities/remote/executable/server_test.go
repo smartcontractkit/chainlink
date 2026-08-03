@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
@@ -645,9 +646,7 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify server can start with valid config
-	ctx := t.Context()
-	err = server.Start(ctx)
-	require.NoError(t, err)
+	servicetest.Run(t, server)
 
 	// Replace with new config
 	config2 := &commoncap.RemoteExecutableConfig{
@@ -656,10 +655,6 @@ func Test_Server_SetConfig_ConfigReplacement(t *testing.T) {
 		ServerMaxParallelRequests:     5,
 	}
 	err = server.SetConfig(config2, underlying, capInfo, localDonInfo, workflowDONs, nil)
-	require.NoError(t, err)
-
-	// Clean up
-	err = server.Close()
 	require.NoError(t, err)
 }
 
@@ -721,12 +716,7 @@ func Test_Server_SetConfig_StartValidation(t *testing.T) {
 			localDonInfo, workflowDONs, nil)
 		require.NoError(t, err)
 
-		err = server.Start(ctx)
-		require.NoError(t, err)
-
-		// Clean up
-		err = server.Close()
-		require.NoError(t, err)
+		servicetest.Run(t, server)
 	})
 }
 
@@ -734,7 +724,6 @@ func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 	t.Parallel()
 
 	synctest.Test(t, func(t *testing.T) {
-		ctx := t.Context()
 		lggr := logger.Test(t)
 		peerID := NewP2PPeerID(t)
 		broker := newTestAsyncMessageBroker(t, 100)
@@ -782,10 +771,8 @@ func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 		broker.RegisterReceiverNode(workflowPeer1, workflowNode)
 		broker.RegisterReceiverNode(peerID, server)
 
-		err = server.Start(ctx)
-		require.NoError(t, err)
-		err = broker.Start(ctx)
-		require.NoError(t, err)
+		servicetest.Run(t, server)
+		servicetest.Run(t, broker)
 
 		// Start a request
 		_, err = workflowNode.Execute(t.Context(), commoncap.CapabilityRequest{
@@ -815,10 +802,6 @@ func Test_Server_SetConfig_DONMembershipChange(t *testing.T) {
 		case <-time.After(5 * time.Second):
 			t.Fatal("request did not complete after DON change")
 		}
-
-		// Clean up
-		require.NoError(t, server.Close())
-		require.NoError(t, broker.Close())
 	})
 }
 
@@ -890,7 +873,6 @@ func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
 
 func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 	t.Parallel()
-	ctx := t.Context()
 	lggr := logger.Test(t)
 	numWorkflowPeers := 4
 
@@ -922,9 +904,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 	}
 
 	broker := newTestAsyncMessageBroker(t, 1000)
-	err := broker.Start(t.Context())
-	require.NoError(t, err)
-	defer broker.Close()
+	servicetest.Run(t, broker)
 
 	workflowDONs := map[uint32]commoncap.DON{
 		workflowDonInfo.ID: workflowDonInfo,
@@ -944,12 +924,10 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 		RequestTimeout:            10 * time.Second,
 		ServerMaxParallelRequests: 10,
 	}
-	err = server.SetConfig(initialConfig, underlying, capInfo, capDonInfo, workflowDONs, nil)
+	err := server.SetConfig(initialConfig, underlying, capInfo, capDonInfo, workflowDONs, nil)
 	require.NoError(t, err)
 
-	err = server.Start(ctx)
-	require.NoError(t, err)
-	defer server.Close()
+	servicetest.Run(t, server)
 
 	broker.RegisterReceiverNode(peerID, server)
 

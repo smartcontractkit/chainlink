@@ -36,7 +36,7 @@ plugins:
 
   solana:
     - moduleURI: "github.com/smartcontractkit/chainlink-solana"
-      gitRef: "v1.3.1-0.20260605202330-b5a89c32fdc1"
+      gitRef: "v1.3.1-0.20260803170030-90043607d911"
       installPath: "./pkg/solana/cmd/chainlink-solana"
 
   starknet:
@@ -108,7 +108,7 @@ plugins:
 
   capability-solana:
     - moduleURI: "github.com/smartcontractkit/capabilities/chain_capabilities/solana"
-      gitRef: "530807a9c2982e6d4cb7b22be412e28397c601e3"
+      gitRef: "6db0a0626f26eac7e2836c30db00d4a515a90210"
       installPath: "."
 
   capability-aptos:
@@ -123,10 +123,10 @@ plugins:
 
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-http/capability"
-      gitRef: "358ac8100efe55cea33a180f9c306eb5a166a4b3"
+      gitRef: "96f4d477083f4e7c81e7297b18dd614d5fc6faf9"
       installPath: "./cmd/confidential-http"
 
   confidential-workflows:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-workflows/capability"
-      gitRef: "358ac8100efe55cea33a180f9c306eb5a166a4b3"
+      gitRef: "96f4d477083f4e7c81e7297b18dd614d5fc6faf9"
       installPath: "./cmd/confidential-workflows"
