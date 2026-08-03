@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/freeport"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -225,6 +226,12 @@ type OCRConfig struct {
 	MaxDurationShouldTransmitAcceptedReport time.Duration
 	F                                       int
 	OnchainConfig                           []byte
+
+	// ocr31 selects the OCR3.1 (llo/v31) config format when true. It changes the
+	// confighelper used by generateConfig (ocr3_1confighelper => offchainConfigVersion
+	// 310) so the on-chain config matches what an OCR3.1 node validates. The
+	// config digest prefix (LLO 0x0009) is identical across OCR3.0/3.1.
+	ocr31 bool
 }
 
 func makeDefaultOCRConfig() *OCRConfig {
@@ -285,6 +292,13 @@ func WithOracles(oracles []confighelper.OracleIdentityExtra) OCRConfigOption {
 	}
 }
 
+// WithOCR31 switches config generation to the OCR3.1 (llo/v31) format.
+func WithOCR31() OCRConfigOption {
+	return func(cfg *OCRConfig) {
+		cfg.ocr31 = true
+	}
+}
+
 type OCRConfigOption func(*OCRConfig)
 
 func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.OnchainPublicKey, transmitters []types.Account, f uint8, outOnchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) {
@@ -295,30 +309,85 @@ func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.Onch
 	}
 	t.Logf("Using OCR config: %+v\n", cfg)
 	var err error
-	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
-		cfg.DeltaProgress,
-		cfg.DeltaResend,
-		cfg.DeltaInitial,
-		cfg.DeltaRound,
-		cfg.DeltaGrace,
-		cfg.DeltaCertifiedCommitRequest,
-		cfg.DeltaStage,
-		cfg.RMax,
-		cfg.S,
-		cfg.Oracles,
-		cfg.ReportingPluginConfig,
-		cfg.MaxDurationInitialization,
-		cfg.MaxDurationQuery,
-		cfg.MaxDurationObservation,
-		cfg.MaxDurationShouldAcceptAttestedReport,
-		cfg.MaxDurationShouldTransmitAcceptedReport,
-		cfg.F,
-		cfg.OnchainConfig,
-	)
+	if cfg.ocr31 {
+		signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = generateOCR31Config(cfg)
+	} else {
+		signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
+			cfg.DeltaProgress,
+			cfg.DeltaResend,
+			cfg.DeltaInitial,
+			cfg.DeltaRound,
+			cfg.DeltaGrace,
+			cfg.DeltaCertifiedCommitRequest,
+			cfg.DeltaStage,
+			cfg.RMax,
+			cfg.S,
+			cfg.Oracles,
+			cfg.ReportingPluginConfig,
+			cfg.MaxDurationInitialization,
+			cfg.MaxDurationQuery,
+			cfg.MaxDurationObservation,
+			cfg.MaxDurationShouldAcceptAttestedReport,
+			cfg.MaxDurationShouldTransmitAcceptedReport,
+			cfg.F,
+			cfg.OnchainConfig,
+		)
+	}
 
 	require.NoError(t, err)
 
 	return
+}
+
+// generateOCR31Config maps the shared OCRConfig to ocr3_1confighelper's OCR3.1
+// argument shape (offchainConfigVersion 310). The v3.0 MaxDurationQuery/Observation
+// become OCR3.1 warn durations; DeltaResend/DeltaInitial/DeltaCertifiedCommitRequest
+// move into the optional-config struct.
+func generateOCR31Config(cfg *OCRConfig) (signers []types.OnchainPublicKey, transmitters []types.Account, f uint8, outOnchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte, err error) {
+	// OCR3.1 requires a positive MaxDurationInitialization (unlike OCR3.0 where it
+	// is optional); default it when the shared config leaves it unset.
+	maxDurationInitialization := time.Second
+	if cfg.MaxDurationInitialization != nil && *cfg.MaxDurationInitialization > 0 {
+		maxDurationInitialization = *cfg.MaxDurationInitialization
+	}
+	deltaResend := cfg.DeltaResend
+	deltaInitial := cfg.DeltaInitial
+	deltaReportsPlusPrecursorRequest := cfg.DeltaCertifiedCommitRequest
+	// OCR3.1 requires every warn/max duration to be positive. The shared OCRConfig
+	// leaves several at 0 (valid for OCR3.0); positive-default them here.
+	positive := func(d time.Duration) time.Duration {
+		if d > 0 {
+			return d
+		}
+		return time.Second
+	}
+	return ocr3_1confighelper.ContractSetConfigArgsForTests(
+		ocr3_1confighelper.CheckPublicConfigLevelDefault,
+		cfg.Oracles,
+		cfg.F,
+		cfg.DeltaProgress,
+		cfg.DeltaRound,
+		cfg.DeltaGrace,
+		cfg.RMax,
+		cfg.DeltaStage,
+		cfg.S,
+		cfg.ReportingPluginConfig,
+		cfg.OnchainConfig,
+		maxDurationInitialization,
+		positive(cfg.MaxDurationQuery),       // warnDurationQuery
+		positive(cfg.MaxDurationObservation), // warnDurationObservation
+		time.Second,                          // warnDurationValidateObservation
+		time.Second,                          // warnDurationObservationQuorum
+		time.Second,                          // warnDurationStateTransition
+		time.Second,                          // warnDurationCommitted
+		positive(cfg.MaxDurationShouldAcceptAttestedReport),
+		positive(cfg.MaxDurationShouldTransmitAcceptedReport),
+		ocr3_1confighelper.ContractSetConfigArgsOptionalConfig{
+			DeltaResend:                      &deltaResend,
+			DeltaInitial:                     &deltaInitial,
+			DeltaReportsPlusPrecursorRequest: &deltaReportsPlusPrecursorRequest,
+		},
+	)
 }
 
 func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, inOffchainConfig llocommon.OffchainConfig) ocr2types.ConfigDigest {
@@ -666,15 +735,24 @@ func TestIntegration_LLO_multi_formats(t *testing.T) {
 			DefaultMinReportIntervalNanoseconds: 1,
 		},
 	}
+	ocrVersions := []struct {
+		name  string
+		ocr31 bool
+	}{
+		{"OCR3.0/v30", false},
+		{"OCR3.1/v31", true},
+	}
 	for _, offchainConfig := range offchainConfigs {
-		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
-			t.Parallel()
-			testIntegrationLLOMultiFormats(t, offchainConfig)
-		})
+		for _, ov := range ocrVersions {
+			t.Run(fmt.Sprintf("%s/offchainConfig=%+v", ov.name, offchainConfig), func(t *testing.T) {
+				t.Parallel()
+				testIntegrationLLOMultiFormats(t, offchainConfig, ov.ocr31)
+			})
+		}
 	}
 }
 
-func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig llocommon.OffchainConfig) {
+func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig llocommon.OffchainConfig, ocr31 bool) {
 	testStartTimeStamp := time.Now()
 	expirationWindow := uint32(3600)
 
@@ -1010,6 +1088,9 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+		if ocr31 {
+			pluginConfig += "\nocrVersion = \"3.1\""
+		}
 
 		bridgeName := "superbridge"
 
@@ -1197,8 +1278,12 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 		}
 
 		// Set config on configurator
+		productionConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
+		if ocr31 {
+			productionConfigOpts = append(productionConfigOpts, WithOCR31())
+		}
 		digest := setProductionConfig(
-			t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, productionConfigOpts...,
 		)
 
 		// NOTE: Wait for one of each type of report
@@ -1831,10 +1916,26 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 		ProtocolVersion:                     0,
 		DefaultMinReportIntervalNanoseconds: 0,
 		EnableObservationCompression:        false}
-	testIntegrationLLOBlueGreenLifecycle(t, offchainConfig)
+	for _, ocr31 := range []bool{false, true} {
+		name := "OCR3.0/v30"
+		if ocr31 {
+			name = "OCR3.1/v31"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig, ocr31)
+		})
+	}
 }
 
-func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig llocommon.OffchainConfig) {
+func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig llocommon.OffchainConfig, ocr31 bool) {
+	// withVersion appends WithOCR31() to config options when running the v31 variant.
+	withVersion := func(opts ...OCRConfigOption) []OCRConfigOption {
+		if ocr31 {
+			return append(opts, WithOCR31())
+		}
+		return opts
+	}
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)
 
@@ -1909,6 +2010,9 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+		if ocr31 {
+			pluginConfig += "\nocrVersion = \"3.1\""
+		}
 		addOCRJobsEVMPremiumLegacy(t, streams, serverPubKey, serverURL, configuratorAddress, bootstrapPeerID, bootstrapNodePort, nodes, configStoreAddress, clientPubKeys, pluginConfig, relayType, relayConfig)
 
 		var blueDigest ocr2types.ConfigDigest
@@ -1919,7 +2023,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		{
 			// Set config on configurator
 			blueDigest = setProductionConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
 			)
 
 			// NOTE: Wait until blue produces a report
@@ -1945,7 +2049,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		{
 			offchainConfig.EnableObservationCompression = true
 			greenDigest = setStagingConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithPredecessorConfigDigest(blueDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig),
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(WithPredecessorConfigDigest(blueDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
 			)
 
 			// NOTE: Wait until green produces the first "specimen" report
@@ -2084,7 +2188,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			offchainConfig.ProtocolVersion = 1
 			offchainConfig.DefaultMinReportIntervalNanoseconds = 1
 			blueDigest = setStagingConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithPredecessorConfigDigest(greenDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig),
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, withVersion(WithPredecessorConfigDigest(greenDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig))...,
 			)
 
 			// NOTE: Wait until blue produces the first "specimen" report
@@ -2188,7 +2292,19 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_channel_merging_owners_adders(t *testing.T) {
 	t.Parallel()
+	for _, ocr31 := range []bool{false, true} {
+		name := "OCR3.0/v30"
+		if ocr31 {
+			name = "OCR3.1/v31"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOChannelMerging(t, ocr31)
+		})
+	}
+}
 
+func testIntegrationLLOChannelMerging(t *testing.T, ocr31 bool) {
 	offchainConfig := llocommon.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
@@ -2270,6 +2386,9 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+		if ocr31 {
+			pluginConfig += "\nocrVersion = \"3.1\""
+		}
 
 		// Add stream specs and LLO jobs to all nodes
 		for i, node := range nodes {
@@ -2289,8 +2408,12 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 
 		// Set initial OCR config
+		mergeConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
+		if ocr31 {
+			mergeConfigOpts = append(mergeConfigOpts, WithOCR31())
+		}
 		digest := setProductionConfig(
-			t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, mergeConfigOpts...,
 		)
 
 		// Track reports by channel ID
@@ -2694,7 +2817,19 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 // and no longer transmits reports for that channel.
 func TestIntegration_LLO_tombstone_stops_observations_and_reports(t *testing.T) {
 	t.Parallel()
+	for _, ocr31 := range []bool{false, true} {
+		name := "OCR3.0/v30"
+		if ocr31 {
+			name = "OCR3.1/v31"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOTombstone(t, ocr31)
+		})
+	}
+}
 
+func testIntegrationLLOTombstone(t *testing.T, ocr31 bool) {
 	const (
 		salt              = 500
 		donID             = uint32(777666)
@@ -2749,6 +2884,9 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+	if ocr31 {
+		pluginConfig += "\nocrVersion = \"3.1\""
+	}
 
 	var streamACalls, streamBCalls atomic.Uint64
 	priceA := decimal.NewFromFloat(111.1)
@@ -2791,9 +2929,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	require.NoError(t, err)
 	backend.Commit()
 
+	tombstoneConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
+	if ocr31 {
+		tombstoneConfigOpts = append(tombstoneConfigOpts, WithOCR31())
+	}
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
-		WithOracles(oracles), WithOffchainConfig(offchainConfig),
+		tombstoneConfigOpts...,
 	)
 
 	seenChannels := make(map[uint32]bool)

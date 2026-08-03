@@ -105,7 +105,19 @@ func quoteBackfillString(benchmark float64) string {
 
 func TestIntegration_LLO_history_backfill(t *testing.T) {
 	t.Parallel()
+	for _, ocr31 := range []bool{false, true} {
+		name := "OCR3.0/v30"
+		if ocr31 {
+			name = "OCR3.1/v31"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			testIntegrationLLOHistoryBackfill(t, ocr31)
+		})
+	}
+}
 
+func testIntegrationLLOHistoryBackfill(t *testing.T, ocr31 bool) {
 	const (
 		salt              = 600
 		donID             = uint32(776655)
@@ -167,6 +179,9 @@ lloConfigMode = "bluegreen"
 donID = %d
 channelDefinitionsContractAddress = "0x%x"
 channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+	if ocr31 {
+		pluginConfig += "\nocrVersion = \"3.1\""
+	}
 
 	nativeStrm := Stream{
 		id:                 streamNative,
@@ -208,9 +223,13 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	require.NoError(t, err)
 	backend.Commit()
 
+	productionConfigOpts := []OCRConfigOption{WithOracles(oracles), WithOffchainConfig(offchainConfig)}
+	if ocr31 {
+		productionConfigOpts = append(productionConfigOpts, WithOCR31())
+	}
 	setProductionConfig(
 		t, donID, steve, backend, configurator, configuratorAddress, nodes,
-		WithOracles(oracles), WithOffchainConfig(offchainConfig),
+		productionConfigOpts...,
 	)
 
 	signerAddresses := make([]common.Address, len(oracles))
