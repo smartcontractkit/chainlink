@@ -266,23 +266,36 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	return engine, nil
 }
 
+// resolvedOrg holds the result of an organization ID resolution attempt.
+type resolvedOrg struct {
+	// ID is the resolved organization ID, or empty if resolution failed.
+	ID string
+	// Err is the error returned by the OrgResolver, or nil if resolution
+	// succeeded or the resolver was not configured.
+	Err error
+	// Reason explains why ID is empty: "resolver_nil" (OrgResolver not
+	// configured), "resolver_error" (Get returned an error), or
+	// "empty_response" (Get returned an empty string). Empty on success.
+	Reason string
+}
+
 // resolveOrgID resolves the organization ID for the given workflow owner.
-// If resolution fails, the returned orgID is empty and missingReason explains
-// why: "resolver_nil" (OrgResolver not configured), "resolver_error" (Get
-// returned an error), or "empty_response" (Get returned an empty string).
-// On success, missingReason is empty.
-func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflowOwner string) (orgID, missingReason string) {
+// If resolution fails, the returned ID is empty and Reason explains why.
+// The original error from the resolver (if any) is preserved in Err and
+// logged via the provided logger.
+func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflowOwner string, lggr logger.SugaredLogger) resolvedOrg {
 	if resolver == nil {
-		return "", "resolver_nil"
+		return resolvedOrg{Reason: "resolver_nil"}
 	}
 	orgID, err := resolver.Get(ctx, workflowOwner)
 	if err != nil {
-		return "", "resolver_error"
+		lggr.Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", workflowOwner, "err", err)
+		return resolvedOrg{Err: err, Reason: "resolver_error"}
 	}
 	if orgID == "" {
-		return "", "empty_response"
+		return resolvedOrg{Reason: "empty_response"}
 	}
-	return orgID, ""
+	return resolvedOrg{ID: orgID}
 }
 
 func (e *Engine) start(ctx context.Context) error {
@@ -292,12 +305,9 @@ func (e *Engine) start(ctx context.Context) error {
 	// Resolve the workflow owner's org once at engine startup and treat it as stable
 	// for the lifetime of this engine instance. If org membership/linking changes, the
 	// workflow must be restarted to pick up the new org mapping.
-	orgID, missingReason := resolveOrgID(ctx, e.cfg.OrgResolver, e.cfg.WorkflowOwner)
-	if missingReason != "" {
-		e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "reason", missingReason)
-	}
-	e.orgID = orgID
-	e.orgIDMissingReason = missingReason
+	resolved := resolveOrgID(ctx, e.cfg.OrgResolver, e.cfg.WorkflowOwner, e.logger())
+	e.orgID = resolved.ID
+	e.orgIDMissingReason = resolved.Reason
 	e.storeLoggerLabels(e.eventLabels())
 
 	e.metrics = e.metrics.With(platform.KeyOrganizationID, e.orgID)

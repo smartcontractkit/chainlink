@@ -10,6 +10,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 
@@ -90,43 +91,55 @@ func collectCounterValue(t *testing.T, reader *sdkmetric.ManualReader, name stri
 // TestEngine_OrgIDMissingReason verifies that the engine correctly records
 // why org ID is missing during the resolution logic in start().
 func TestEngine_OrgIDMissingReason(t *testing.T) {
+	resolverErr := errors.New("linking service unavailable")
+
 	tests := []struct {
 		name        string
 		orgResolver orgresolver.OrgResolver
 		wantReason  string
 		wantOrgID   string
+		wantErr     error
 	}{
 		{
 			name:        "resolver_nil",
 			orgResolver: nil,
 			wantReason:  "resolver_nil",
 			wantOrgID:   "",
+			wantErr:     nil,
 		},
 		{
 			name:        "resolver_error",
-			orgResolver: &testOrgResolver{orgID: "", err: errors.New("linking service unavailable")},
+			orgResolver: &testOrgResolver{orgID: "", err: resolverErr},
 			wantReason:  "resolver_error",
 			wantOrgID:   "",
+			wantErr:     resolverErr,
 		},
 		{
 			name:        "empty_response",
 			orgResolver: &testOrgResolver{orgID: "", err: nil},
 			wantReason:  "empty_response",
 			wantOrgID:   "",
+			wantErr:     nil,
 		},
 		{
 			name:        "valid_org_id",
 			orgResolver: &testOrgResolver{orgID: "org-123", err: nil},
 			wantReason:  "",
 			wantOrgID:   "org-123",
+			wantErr:     nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			orgID, missingReason := resolveOrgID(context.Background(), tt.orgResolver, "owner-1")
-			require.Equal(t, tt.wantOrgID, orgID)
-			require.Equal(t, tt.wantReason, missingReason)
+			resolved := resolveOrgID(context.Background(), tt.orgResolver, "owner-1", logger.Sugared(logger.Test(t)))
+			require.Equal(t, tt.wantOrgID, resolved.ID)
+			require.Equal(t, tt.wantReason, resolved.Reason)
+			if tt.wantErr != nil {
+				require.Equal(t, tt.wantErr, resolved.Err)
+			} else {
+				require.Nil(t, resolved.Err)
+			}
 		})
 	}
 }
