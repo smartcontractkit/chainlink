@@ -65,7 +65,7 @@
 
 - [#22733](https://github.com/smartcontractkit/chainlink/pull/22733) [`6624255`](https://github.com/smartcontractkit/chainlink/commit/66242557bd126cb8fe0bab390d6b75747408cdad) - Require explicit `don_family` on every nodeset for local CRE topologies. Gateway connectors, gateway worker jobs, capabilities registry families, and `env workflow deploy` are scoped by family. Deploy resolves the target workflow DON via `--don-family` (with optional `--shard-index`) or `--workflow-don-name`, and requires `--don-family` when local CRE state is absent. #internal
 
-## 2.53.6
+## 2.53.0
 
 ### Minor Changes
 
