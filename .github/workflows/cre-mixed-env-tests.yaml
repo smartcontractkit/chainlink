@@ -38,6 +38,15 @@ on:
         description:
           "Full baseline (develop) chainlink image ref. If empty, defaults to the
           develop nightly image."
+      baseline_ref:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Develop base-branch sha this PR is built on top of (the CI auto-merge base).
+          Used to pick chainlink-integration-tests:<baseline_ref> as the develop side so the
+          2-2 split isolates only the PR's changes. Falls back to the nightly if empty or the
+          image is unavailable. Ignored when mixed_env_baseline_image is set."
   workflow_call:
     inputs:
       chainlink_image_repository_path:
@@ -65,6 +74,15 @@ on:
         description:
           "Full baseline (develop) chainlink image ref. If empty, defaults to the
           develop nightly image."
+      baseline_ref:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Develop base-branch sha this PR is built on top of (the CI auto-merge base).
+          Used to pick chainlink-integration-tests:<baseline_ref> as the develop side so the
+          2-2 split isolates only the PR's changes. Falls back to the nightly if empty or the
+          image is unavailable. Ignored when mixed_env_baseline_image is set."
 
 jobs:
   define-test-matrix:
@@ -193,16 +211,27 @@ jobs:
         env:
           CRE_PR_IMAGE: ${{ env.CHAINLINK_IMAGE_FULL }}
           BASELINE_IMAGE_OVERRIDE: ${{ inputs.mixed_env_baseline_image }}
+          BASELINE_REF: ${{ inputs.baseline_ref }}
           ECR_ACCOUNT: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           ECR_REGION: ${{ secrets.QA_AWS_REGION }}
         run: |
+          REGISTRY="${ECR_ACCOUNT}.dkr.ecr.${ECR_REGION}.amazonaws.com"
           if [[ -n "${BASELINE_IMAGE_OVERRIDE}" ]]; then
+            # Explicit override (e.g. the nightly full-matrix sweep pins yesterday's nightly).
             CRE_BASELINE_IMAGE="${BASELINE_IMAGE_OVERRIDE}"
+          elif [[ -n "${BASELINE_REF}" ]] && docker manifest inspect "${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}" >/dev/null 2>&1; then
+            # Preferred: the exact develop commit this PR is built on top of (the base-branch
+            # sha the CI auto-merge was based on). The PR image = this develop commit + the
+            # PR's changes, so the 2-2 split isolates ONLY the PR's changes and never surfaces
+            # develop's own drift as a false positive. Same build/repo as the PR image, already
+            # published by the develop-push build.
+            CRE_BASELINE_IMAGE="${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}"
           else
-            # Default to the develop nightly image (built daily + on develop pushes).
-            # Core variant (no -plugins) to match the PR image built by integration-tests.
+            # Fallback (non-PR runs, or the base-branch image has aged out of ECR): the develop
+            # nightly image (built daily + on develop pushes). Core variant (no -plugins) to
+            # match the PR image built by integration-tests.
             DATE="$(date +'%Y%m%d')"
-            CRE_BASELINE_IMAGE="${ECR_ACCOUNT}.dkr.ecr.${ECR_REGION}.amazonaws.com/chainlink:nightly-${DATE}"
+            CRE_BASELINE_IMAGE="${REGISTRY}/chainlink:nightly-${DATE}"
           fi
           export CRE_PR_IMAGE CRE_BASELINE_IMAGE
           echo "PR image:       ${CRE_PR_IMAGE}"

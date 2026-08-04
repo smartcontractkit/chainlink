@@ -486,6 +486,10 @@ jobs:
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+      # Develop commit this PR is built on top of, so the mixed-env baseline is the exact
+      # develop the PR image derives from and the 2-2 split isolates only the PR's changes.
+      # Empty for non-PR events; the workflow then falls back to the develop nightly.
+      baseline_ref: ${{ github.event.pull_request.base.sha }}
     secrets: inherit
 
   run-ccip-v1-6-e2e-tests-setup:

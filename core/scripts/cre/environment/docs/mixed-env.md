@@ -27,7 +27,11 @@ It's the standard capabilities topology, except every multi-node DON is split **
 ```
 
 - **PR image** = the Chainlink node image built from your branch.
-- **develop image** = the most recent cached `develop` build.
+- **develop image** = the exact `develop` commit your PR is built on top of (the base of the CI
+  auto-merge). Because that is precisely the `develop` your PR image derives from, the two halves
+  differ **only** by your PR's changes — so `develop`'s own churn never shows up as a false
+  positive. If that image isn't available (non-PR runs, or it aged out of the registry), it falls
+  back to the latest cached `develop` **nightly** build.
 - Chains, capabilities, ports, and everything else are identical to the normal topology — only the per-node images change.
 
 ## What it checks
@@ -52,7 +56,7 @@ These lines are **silent** when every node runs the same code, so a single occur
 
 - It only triggers on tests that actually exercise **consensus** or a **cross-DON capability call**. Pure gateway/HTTP-only paths won't set it off.
 - It flags **any** divergence from `develop` — including **intentional** report/payload changes. Those are genuine incompatibilities: if the change is deliberate and will be rolled out safely, bypass the check with the documented escape hatch (PR label / env var) rather than "fixing" it.
-- It compares against the latest **cached** `develop` image, so it reflects `develop` as of that build (refreshed frequently), not necessarily the very latest commit.
+- It compares against the `develop` commit your PR is based on — not the very latest `develop`. So a change that only conflicts with `develop` commits landed **after** you branched is caught by the nightly full-matrix sweep (which pins the latest `develop`), not by the per-PR run. Keep your branch reasonably current for the tightest signal.
 
 ## When it runs
 
