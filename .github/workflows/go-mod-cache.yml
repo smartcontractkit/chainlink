@@ -69,10 +69,22 @@ jobs:
             suffix: "Deployment (Github-hosted)"
             go-mod-directory: "deployment/"
 
-          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/${{ needs.filter.outputs.spot_param }}/extras=s3-cache
+          - runs-on:
+              - runs-on=${{ github.run_id }}
+              - cpu=8
+              - ram=16
+              - family=c6id
+              - ${{ needs.filter.outputs.spot_param }}
+              - extras=s3-cache
             suffix: "Core (Self-hosted)"
 
-          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/${{ needs.filter.outputs.spot_param }}/extras=s3-cache
+          - runs-on:
+              - runs-on=${{ github.run_id }}
+              - cpu=8
+              - ram=16
+              - family=c6id
+              - ${{ needs.filter.outputs.spot_param }}
+              - extras=s3-cache
             suffix: "Deployment (Self-hosted)"
             go-mod-directory: "deployment/"
 
