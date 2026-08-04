@@ -66,15 +66,15 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Get Spot Runner Config
-        id: spot-config
-        uses: ./.github/actions/get-runner-spot
-
       - name: Checkout
         uses: actions/checkout@v7
         with:
           ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
+
+      - name: Get Spot Runner Config
+        id: spot-config
+        uses: ./.github/actions/get-runner-spot
 
       - name: Define test matrix
         id: define-matrix

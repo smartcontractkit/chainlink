@@ -28,6 +28,9 @@ jobs:
     outputs:
       spot_param: ${{ steps.spot-config.outputs.spot_param }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Get Spot Runner Config
         id: spot-config
         uses: ./.github/actions/get-runner-spot

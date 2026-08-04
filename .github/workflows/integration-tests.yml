@@ -212,6 +212,9 @@ jobs:
       skip-e2e-regression-label-found: ${{ steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
       spot_param: ${{ steps.spot-config.outputs.spot_param }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Get PR Labels (runs-on-opt-out)
         if: github.event_name == 'pull_request'
         id: label-runs-on-opt-out

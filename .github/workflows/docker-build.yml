@@ -37,6 +37,11 @@ jobs:
       checked-out-sha: ${{ steps.checkout-sha.outputs.checked-out-sha }}
       version-tag: ${{ steps.version-info.outputs.version-tag }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.git-ref || github.sha }}
+
       - name: Get PR Labels
         id: pr-labels
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
@@ -67,11 +72,6 @@ jobs:
             echo "runner-arm64=${GH_RUNNER_LABEL_ARM64}" | tee -a "$GITHUB_OUTPUT"
             echo "runner-amd64=${GH_RUNNER_LABEL_AMD64}" | tee -a "$GITHUB_OUTPUT"
           fi
-
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.git-ref || github.sha }}
 
       - name: Resolve checked out SHA
         id: checkout-sha

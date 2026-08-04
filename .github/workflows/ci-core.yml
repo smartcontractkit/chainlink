@@ -35,15 +35,15 @@ jobs:
       spot_param: ${{ steps.spot-config.outputs.spot_param }}
     runs-on: ubuntu-latest
     steps:
-      - name: Get Spot Runner Config
-        id: spot-config
-        uses: ./.github/actions/get-runner-spot
-
       - name: Checkout the repo
         uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
+
+      - name: Get Spot Runner Config
+        id: spot-config
+        uses: ./.github/actions/get-runner-spot
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: match-some
         with:
