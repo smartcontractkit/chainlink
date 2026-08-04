@@ -1,6 +1,7 @@
 package stellar
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -41,7 +42,7 @@ func (RecoverTokens) VerifyPreconditions(env cldf.Environment, req *RecoverToken
 		return fmt.Errorf("to: %w", err)
 	}
 	if req.Amount <= 0 {
-		return fmt.Errorf("amount must be positive")
+		return errors.New("amount must be positive")
 	}
 	return nil
 }

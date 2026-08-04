@@ -1,6 +1,7 @@
 package stellar
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -52,7 +53,7 @@ func (TransferOwnership) VerifyPreconditions(env cldf.Environment, req *Ownershi
 		return fmt.Errorf("new owner: %w", err)
 	}
 	if req.LiveUntilLedger == 0 {
-		return fmt.Errorf("LiveUntilLedger must be nonzero")
+		return errors.New("LiveUntilLedger must be nonzero")
 	}
 	return nil
 }

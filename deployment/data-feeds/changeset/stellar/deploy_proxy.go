@@ -1,6 +1,7 @@
 package stellar
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -47,7 +48,7 @@ func (DeployProxy) VerifyPreconditions(env cldf.Environment, req *DeployProxyReq
 		}
 	}
 	if req.CacheQualifier == "" {
-		return fmt.Errorf("cache qualifier must be set")
+		return errors.New("cache qualifier must be set")
 	}
 	return nil
 }
