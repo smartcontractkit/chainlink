@@ -281,15 +281,14 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 	// --- proxy reads (read through to the cache's stored round) -----------
 	proxyClient, _, err := LoadProxyClient(env, sel, e2eQualifier, e2eVersion)
 	require.NoError(t, err)
-	pdid := [16]byte(ids[0])
 
 	mustCall(t, "proxy.version", func() error { _, e := proxyClient.Version(ctx); return e })
 	mustCall(t, "proxy.type_and_version", func() error { _, e := proxyClient.TypeAndVersion(ctx); return e })
 	mustCall(t, "proxy.get_owner", func() error { _, e := proxyClient.GetOwner(ctx); return e })
-	mustCall(t, "proxy.decimals", func() error { _, e := proxyClient.Decimals(ctx, pdid); return e })
-	mustCall(t, "proxy.description", func() error { _, e := proxyClient.Description(ctx, pdid); return e })
-	mustCall(t, "proxy.latest_round", func() error { _, e := proxyClient.LatestRound(ctx, pdid); return e })
-	mustCall(t, "proxy.get_round", func() error { _, e := proxyClient.GetRound(ctx, pdid, 1); return e })
+	mustCall(t, "proxy.decimals", func() error { _, e := proxyClient.Decimals(ctx, did); return e })
+	mustCall(t, "proxy.description", func() error { _, e := proxyClient.Description(ctx, did); return e })
+	mustCall(t, "proxy.latest_round", func() error { _, e := proxyClient.LatestRound(ctx, did); return e })
+	mustCall(t, "proxy.get_round", func() error { _, e := proxyClient.GetRound(ctx, did, 1); return e })
 
 	// --- proxy upgrade + recover_tokens ------------------------------------
 	env = apply(t, env, Upgrade{}, &UpgradeRequest{

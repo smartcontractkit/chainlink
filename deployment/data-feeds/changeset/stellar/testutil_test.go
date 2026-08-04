@@ -46,10 +46,6 @@ type fakeDeployer struct {
 	uploads    []string // wasm paths passed to UploadContractWASM, in call order
 }
 
-func (f *fakeDeployer) DeployContract(ctx context.Context, wasmPath string, salt [32]byte) (string, error) {
-	return f.DeployContractWithArgs(ctx, wasmPath, salt, nil)
-}
-
 func (f *fakeDeployer) DeployContractWithArgs(_ context.Context, wasmPath string, salt [32]byte, args []xdr.ScVal) (string, error) {
 	f.deploys = append(f.deploys, deployCall{wasmPath, salt, args})
 	return f.contractID, nil
