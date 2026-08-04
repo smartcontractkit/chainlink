@@ -532,6 +532,12 @@ func isValidJSON(data []byte) bool {
 }
 
 func (h *httpTriggerHandler) handleUserError(ctx context.Context, requestID string, code int64, message string, callback handlers.Callback) {
+	switch code {
+	case jsonrpc.ErrInternal, jsonrpc.ErrServerOverloaded, jsonrpc.ErrUnknown, jsonrpc.ErrLimitExceeded, jsonrpc.ErrConflict:
+		h.lggr.Errorw("returning error to user", "code", code, "message", message, "requestID", requestID)
+	default:
+		h.lggr.Warnw("returning error to user", "code", code, "message", message, "requestID", requestID)
+	}
 	resp := &jsonrpc.Response[json.RawMessage]{
 		Version: "2.0",
 		ID:      requestID,

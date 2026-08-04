@@ -83,6 +83,8 @@ type EngineMetrics struct {
 	donTimeCallsCounter    metric.Int64Counter
 	donTimeTimeoutsCounter metric.Int64Counter
 	donTimeErrorsCounter   metric.Int64Counter
+
+	orgIDMissingCounter metric.Int64Counter
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -438,6 +440,14 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register don time errors counter: %w", err)
+	}
+
+	em.orgIDMissingCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_org_id_missing_total",
+		metric.WithDescription("Count of beholder events emitted by the engine without a resolved organization ID"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register org id missing counter: %w", err)
 	}
 
 	return em, nil
@@ -811,4 +821,14 @@ func (c WorkflowsMetricLabeler) IncrementDonTimeTimeoutsCounter(ctx context.Cont
 func (c WorkflowsMetricLabeler) IncrementDonTimeErrorsCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.donTimeErrorsCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementOrgIDMissingCounter increments the org_id_missing counter when the
+// engine emits beholder events without a resolved organization ID. The reason
+// attribute identifies why the org ID is missing (resolver_nil, resolver_error,
+// or empty_response).
+func (c WorkflowsMetricLabeler) IncrementOrgIDMissingCounter(ctx context.Context, reason string) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	otelLabels = append(otelLabels, attribute.String("reason", reason))
+	c.em.orgIDMissingCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

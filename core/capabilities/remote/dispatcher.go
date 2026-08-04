@@ -30,8 +30,6 @@ var (
 // dispatcher en/decodes messages and routes traffic between peers and capabilities
 type dispatcher struct {
 	cfg               config.Dispatcher
-	peerWrapper       p2ptypes.PeerWrapper
-	peer              p2ptypes.Peer
 	peerID            p2ptypes.PeerID
 	signer            p2ptypes.Signer
 	don2donSharedPeer p2ptypes.SharedPeer
@@ -47,7 +45,6 @@ type dispatcher struct {
 }
 
 type dispatcherMetrics struct {
-	externalPeerMsgsRcvdCounter metric.Int64Counter
 	sharedPeerMsgsRcvdCounter   metric.Int64Counter
 	rateLimitedMsgsCounter      metric.Int64Counter
 	invalidMsgsCounter          metric.Int64Counter
@@ -68,7 +65,10 @@ type key struct {
 
 var _ services.Service = &dispatcher{}
 
-func NewDispatcher(cfg config.Dispatcher, peerWrapper p2ptypes.PeerWrapper, don2donSharedPeer p2ptypes.SharedPeer, signer p2ptypes.Signer, registry core.CapabilitiesRegistry, lggr logger.Logger) (*dispatcher, error) {
+func NewDispatcher(cfg config.Dispatcher, don2donSharedPeer p2ptypes.SharedPeer, signer p2ptypes.Signer, registry core.CapabilitiesRegistry, lggr logger.Logger) (*dispatcher, error) {
+	if don2donSharedPeer == nil {
+		return nil, errors.New("don2donSharedPeer is required")
+	}
 	rl, err := ratelimit.NewRateLimiter(ratelimit.RateLimiterConfig{
 		GlobalRPS:      cfg.RateLimit().GlobalRPS(),
 		GlobalBurst:    cfg.RateLimit().GlobalBurst(),
@@ -80,7 +80,6 @@ func NewDispatcher(cfg config.Dispatcher, peerWrapper p2ptypes.PeerWrapper, don2
 	}
 	return &dispatcher{
 		cfg:               cfg,
-		peerWrapper:       peerWrapper,
 		signer:            signer,
 		registry:          registry,
 		rateLimiter:       rl,
@@ -93,10 +92,6 @@ func NewDispatcher(cfg config.Dispatcher, peerWrapper p2ptypes.PeerWrapper, don2
 
 func (d *dispatcher) initMetrics() error {
 	var err error
-	d.metrics.externalPeerMsgsRcvdCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_external_peer_msgs_rcvd_total")
-	if err != nil {
-		return fmt.Errorf("failed to register platform_don2don_dispatcher_external_peer_msgs_rcvd_total): %w", err)
-	}
 	d.metrics.sharedPeerMsgsRcvdCounter, err = beholder.GetMeter().Int64Counter("platform_don2don_dispatcher_shared_peer_msgs_rcvd_total")
 	if err != nil {
 		return fmt.Errorf("failed to register platform_don2don_dispatcher_shared_peer_msgs_rcvd_total): %w", err)
@@ -133,22 +128,7 @@ func (d *dispatcher) initMetrics() error {
 }
 
 func (d *dispatcher) Start(ctx context.Context) error {
-	if d.peerWrapper == nil && d.don2donSharedPeer == nil {
-		return errors.New("either peerWrapper or don2donSharedPeer must be set")
-	}
-	if d.peerWrapper != nil {
-		d.peer = d.peerWrapper.GetPeer()
-		d.peerID = d.peer.ID()
-		if d.peer == nil {
-			return errors.New("peer is not initialized")
-		}
-	}
-	if d.don2donSharedPeer != nil {
-		if (d.peerID != p2ptypes.PeerID{}) && d.peerID != d.don2donSharedPeer.ID() {
-			return errors.New("peer ID from peerWrapper and don2donSharedPeer do not match")
-		}
-		d.peerID = d.don2donSharedPeer.ID()
-	}
+	d.peerID = d.don2donSharedPeer.ID()
 	err := d.signer.Initialize()
 	if err != nil {
 		return errors.Wrap(err, "failed to initialize signer")
@@ -270,15 +250,7 @@ func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) er
 		return err
 	}
 
-	var sendErr error
-	switch {
-	case d.cfg.SendToSharedPeer():
-		sendErr = d.don2donSharedPeer.Send(peerID, rawMsg)
-	case d.peer != nil:
-		sendErr = d.peer.Send(peerID, rawMsg)
-	default:
-		sendErr = errors.New("no peer available to send message")
-	}
+	sendErr := d.don2donSharedPeer.Send(peerID, rawMsg)
 
 	ctx, cancel := d.stopCh.NewCtx()
 	defer cancel()
@@ -292,14 +264,7 @@ func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) er
 }
 
 func (d *dispatcher) receive() {
-	externalPeerRecvCh := make(<-chan p2ptypes.Message)
-	if d.peer != nil {
-		externalPeerRecvCh = d.peer.Receive()
-	}
-	sharedPeerRecvCh := make(<-chan p2ptypes.Message)
-	if d.don2donSharedPeer != nil {
-		sharedPeerRecvCh = d.don2donSharedPeer.Receive()
-	}
+	sharedPeerRecvCh := d.don2donSharedPeer.Receive()
 	ctx, cancel := d.stopCh.NewCtx()
 	defer cancel()
 	for {
@@ -307,9 +272,6 @@ func (d *dispatcher) receive() {
 		case <-d.stopCh:
 			d.lggr.Info("stopped - exiting receive")
 			return
-		case msg := <-externalPeerRecvCh: // deprecated, will be removed in favor of SharedPeer (CRE-707)
-			d.metrics.externalPeerMsgsRcvdCounter.Add(ctx, 1)
-			d.handleMessage(ctx, &msg)
 		case msg, ok := <-sharedPeerRecvCh:
 			if !ok {
 				d.lggr.Info("shared peer channel closed - exiting receive")
