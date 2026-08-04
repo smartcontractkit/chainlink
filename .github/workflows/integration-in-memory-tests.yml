@@ -118,7 +118,7 @@ jobs:
             | map(.value + {
                 test_id: .key,
                 job_timeout: (((.value.timeout | rtrimstr("m") | tonumber) + 5)),
-                runs_on: (if .value.runs_on == "" or .value.runs_on == null then "ubuntu-latest" else "runs-on=\($run_id)-\(.key)-\($run_attempt)/\(.value.runs_on)/family=m6i+m5.*/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs" end)
+                runs_on: (if .value.runs_on == "" or .value.runs_on == null then "ubuntu-latest" else "runs-on=\($run_id)-\(.key)-\($run_attempt)/\(.value.runs_on)/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs" end)
               })
           ' .github/in-memory-tests.json)
 
