@@ -30,7 +30,7 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
-	workflow_registry_wrapper_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	chainlinkvalues "github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
@@ -46,7 +46,7 @@ const (
 	fileURLTemplate = "file://%s/%s"
 
 	// Default values for workflow registration
-	defaultWorkflowTag    = "some-tag"
+	DefaultWorkflowTag    = "some-tag"
 	defaultWorkflowStatus = uint8(0)
 
 	// Common error message templates
@@ -84,7 +84,7 @@ func RegisterWithContract(
 	sc *seth.Client,
 	workflowRegistryAddr common.Address,
 	version *semver.Version,
-	donID uint64, donFamily, workflowName, binaryURL string,
+	donID uint64, donFamily, workflowName, workflowTag, binaryURL string,
 	configURL, secretsURL *string,
 	attributes []byte,
 	artifactsDirInContainer *string,
@@ -125,7 +125,7 @@ func RegisterWithContract(
 		return "", fmt.Errorf("only workflow registry contract major version 2 is supported (got %v)", version)
 	}
 
-	if err := registerWorkflow(sc, workflowRegistryAddr, version, donFamily, workflowName, workflowID, binaryURLToUse, configURLToUse, attributes); err != nil {
+	if err := registerWorkflow(sc, workflowRegistryAddr, version, donFamily, workflowName, workflowID, workflowTag, binaryURLToUse, configURLToUse, attributes); err != nil {
 		return "", err
 	}
 
@@ -240,7 +240,7 @@ func registerWorkflow(
 	sc *seth.Client,
 	workflowRegistryAddr common.Address,
 	version *semver.Version,
-	donFamily, workflowName, workflowID, binaryURL, configURL string,
+	donFamily, workflowName, workflowID, workflowTag, binaryURL, configURL string,
 	attributes []byte,
 ) error {
 	registry, err := getRegistryInstance(sc, workflowRegistryAddr, version)
@@ -264,7 +264,7 @@ func registerWorkflow(
 	_, err = sc.Decode(registry.UpsertWorkflow(
 		sc.NewTXOpts(),
 		workflowName,
-		defaultWorkflowTag,
+		workflowTag,
 		[32]byte(common.Hex2Bytes(workflowID)),
 		defaultWorkflowStatus,
 		donFamily,

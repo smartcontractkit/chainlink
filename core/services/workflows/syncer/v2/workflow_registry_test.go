@@ -96,7 +96,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			WorkflowName:  wfName,
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL,
-			Tag:           tag,
+			WorkflowTag:   tag,
 			Attributes:    attributes,
 		}
 		require.Equal(t, expectedActivatedEvent, events[0].Data)
@@ -175,7 +175,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			WorkflowName:  wfName,
 			BinaryURL:     binaryURL2,
 			ConfigURL:     configURL,
-			Tag:           tag,
+			WorkflowTag:   tag,
 			Attributes:    attributes,
 		}
 		require.Equal(t, expectedActivatedEvent, events[1].Data)
@@ -489,7 +489,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			WorkflowName:  wfName,
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL,
-			Tag:           tag,
+			WorkflowTag:   tag,
 			Attributes:    attributes,
 		}
 		require.Equal(t, expectedActivatedEvent, events[0].Data)
@@ -684,7 +684,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			WorkflowName:  wfName,
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL,
-			Tag:           tag,
+			WorkflowTag:   tag,
 			Attributes:    attributes,
 		}
 		signature := fmt.Sprintf("%s-%s-%s", WorkflowActivated, event.WorkflowID.Hex(), toSpecStatus(WorkflowStatusActive))
@@ -819,7 +819,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			WorkflowName:  wfName,
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL,
-			Tag:           tag,
+			WorkflowTag:   tag,
 			Attributes:    attributes,
 		}
 		signature := fmt.Sprintf("%s-%s-%s", WorkflowRegistered, event.WorkflowID.Hex(), toSpecStatus(WorkflowStatusActive))
@@ -1118,7 +1118,7 @@ func Test_generateReconciliationEventsV2(t *testing.T) {
 			WorkflowName:  wfName,
 			BinaryURL:     binaryURL,
 			ConfigURL:     configURL,
-			Tag:           tag,
+			WorkflowTag:   tag,
 			Attributes:    attributes,
 		}
 		pendingEvents := map[string]*reconciliationEvent{
