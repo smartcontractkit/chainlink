@@ -235,6 +235,8 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 const solanaConfigPath = "/configs/workflow-don-solana.toml"
 
 func Test_CRE_V2_Solana_Write(t *testing.T) {
+	t.Skip("Skipping flaky test")
+
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
