@@ -60,12 +60,24 @@ These lines are **silent** when every node runs the same code, so a single occur
 ## What it will NOT catch (good to know)
 
 - It only triggers on tests that actually exercise **consensus** or a **cross-DON capability call**. Pure gateway/HTTP-only paths won't set it off.
-- It flags **any** divergence from `develop` — including **intentional** report/payload changes. Those are genuine incompatibilities: if the change is deliberate and will be rolled out safely, bypass the check with the documented escape hatch (PR label / env var) rather than "fixing" it.
+- It flags **any** divergence from `develop` — including **intentional** report/payload changes. Those are genuine incompatibilities: if the change is deliberate and will be rolled out safely, bypass the check with the [`skip-mixed-env` label](#required-check--emergency-bypass) rather than "fixing" it.
 - It compares against the `develop` commit your PR is based on — not the very latest `develop`. So a change that only conflicts with `develop` commits landed **after** you branched is caught by the nightly full-matrix sweep (which pins the latest `develop`), not by the per-PR run. Keep your branch reasonably current for the tightest signal.
 
 ## When it runs
 
 - **CI:** automatically on CRE-affecting PRs, in its **own** workflow `.github/workflows/cre-mixed-env-tests.yaml` (kept separate from `cre-system-tests.yaml` so that file stays simple). It runs the OCR3/DON2DON-heavy tests — `Test_CRE_V2_Suite_Bucket_A`, `Test_CRE_V2_Suite_Bucket_B`, and the `Test_CRE_V2_EVM_Read_*` suite — under mixed-env. The PR image and the develop image are both already built (per-PR and nightly), so no extra image builds are added. A dedicated **Check for non-determinism** step scans the live node containers after the suite and fails the job on any marker — kept separate from the auto-quarantined test step so the failure can't be swallowed.
+
+## Required check & emergency bypass
+
+Mixed-env is a **required** check: it feeds the **ETH Smoke Tests** merge gate (`check-e2e-test-results` in `.github/workflows/integration-tests.yml`), so a non-determinism failure **blocks merge**. A run that is legitimately skipped (a non-CRE PR, or a release-branch PR with no baseline image — see above) counts as a non-blocking warning, not a failure.
+
+To bypass it in an emergency, in order of preference:
+
+1. **`skip-mixed-env` PR label (self-service).** Apply the label to the PR and re-run CI. The mixed-env job is then skipped, which the gate treats as a warning, so merge is unblocked — no admin needed. Like the E2E regression tests, mixed-env does not run in the merge queue, so the bypass carries through to the queue. Use this for a *deliberate*, safely-rolled-out change that the check correctly flags, or to unblock while an infra issue is sorted out.
+2. **Admin / ruleset bypass.** Repo admins (and ruleset bypass actors) can merge past the failing required check directly.
+3. **De-wire the gate.** For a durable disable, remove `run-core-cre-mixed-env-tests` from the `check-e2e-test-results` job's `needs` and its `check_result` line.
+
+> The `CRE_NONDETERMINISM_CHECK` env var only toggles the in-test scan when running locally; it is not a CI merge lever. Use the label in CI.
 
 ## Running it locally
 
