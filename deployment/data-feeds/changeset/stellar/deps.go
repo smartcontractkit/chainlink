@@ -87,34 +87,28 @@ func verifyContractRef(env cldf.Environment, chainSel uint64, contractType datas
 	return nil
 }
 
-// resolveDeps is resolveContractDeps for callers that don't need the
-// AddressRef; version must already be validated by VerifyPreconditions.
+// resolveDeps is resolveContractDeps for callers that don't need the AddressRef.
 func resolveDeps(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) (stellarApplyDeps, error) {
-	d, _, err := resolveContractDeps(env, chainSel, contractType, qualifier, semver.MustParse(version))
+	d, _, err := resolveContractDeps(env, chainSel, contractType, qualifier, version)
 	return d, err
 }
 
 // resolveContractDeps looks up the AddressRef for (chainSel, contractType,
 // version, qualifier) and bundles it with the chain's deploy/invoke deps.
-func resolveContractDeps(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier string, version *semver.Version) (stellarApplyDeps, datastore.AddressRef, error) {
-	var zero stellarApplyDeps
-	var zeroRef datastore.AddressRef
-	ch, ok := env.BlockChains.StellarChains()[chainSel]
-	if !ok {
-		return zero, zeroRef, fmt.Errorf("stellar chain not found for chain selector %d", chainSel)
+func resolveContractDeps(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) (stellarApplyDeps, datastore.AddressRef, error) {
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return stellarApplyDeps{}, datastore.AddressRef{}, fmt.Errorf("invalid version %q: %w", version, err)
 	}
-
+	_, deps, err := chainDeps(env, chainSel)
+	if err != nil {
+		return stellarApplyDeps{}, datastore.AddressRef{}, err
+	}
 	ref, err := env.DataStore.Addresses().Get(
-		datastore.NewAddressRefKey(chainSel, contractType, version, qualifier),
+		datastore.NewAddressRefKey(chainSel, contractType, v, qualifier),
 	)
 	if err != nil {
-		return zero, zeroRef, fmt.Errorf("%s address ref not found for qualifier %q: %w", contractType, qualifier, err)
+		return stellarApplyDeps{}, datastore.AddressRef{}, fmt.Errorf("%s address ref not found for qualifier %q: %w", contractType, qualifier, err)
 	}
-
-	deps, err := newStellarDeps(ch)
-	if err != nil {
-		return zero, zeroRef, err
-	}
-
 	return stellarApplyDeps{deps: deps, contractID: ref.Address}, ref, nil
 }

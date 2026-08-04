@@ -40,14 +40,12 @@ func (SetProxyCache) VerifyPreconditions(env cldf.Environment, req *SetProxyCach
 
 func (SetProxyCache) Apply(env cldf.Environment, req *SetProxyCacheRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	version := semver.MustParse(req.Version)
-
-	proxyDeps, _, err := resolveContractDeps(env, req.ChainSel, ProxyContract, req.Qualifier, version)
+	proxyDeps, err := resolveDeps(env, req.ChainSel, ProxyContract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}
 	cacheRef, err := env.DataStore.Addresses().Get(
-		datastore.NewAddressRefKey(req.ChainSel, CacheContract, version, req.CacheQualifier),
+		datastore.NewAddressRefKey(req.ChainSel, CacheContract, semver.MustParse(req.Version), req.CacheQualifier),
 	)
 	if err != nil {
 		return out, fmt.Errorf("cache address ref not found for qualifier %q: %w", req.CacheQualifier, err)
