@@ -29,6 +29,7 @@ import (
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -737,7 +738,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
-		return nil, fmt.Errorf("legacy DAG workflows are not supported")
+		return nil, errors.New("legacy DAG workflows are not supported")
 	}
 
 	// V2 aka "NoDAG"
