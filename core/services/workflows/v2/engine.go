@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -92,6 +93,11 @@ type Engine struct {
 	tracer trace.Tracer
 
 	orgID string
+	// orgIDMissingReason records why orgID is empty ("resolver_nil",
+	// "resolver_error", or "empty_response"). It is set once in start() and
+	// read by startExecution() to label the org_id_missing counter. It is only
+	// meaningful when orgID == "".
+	orgIDMissingReason string
 
 	draining         atomic.Bool
 	activeExecutions atomic.Int32
@@ -260,6 +266,38 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	return engine, nil
 }
 
+// resolvedOrg holds the result of an organization ID resolution attempt.
+type resolvedOrg struct {
+	// ID is the resolved organization ID, or empty if resolution failed.
+	ID string
+	// Err is the error returned by the OrgResolver, or nil if resolution
+	// succeeded or the resolver was not configured.
+	Err error
+	// Reason explains why ID is empty: "resolver_nil" (OrgResolver not
+	// configured), "resolver_error" (Get returned an error), or
+	// "empty_response" (Get returned an empty string). Empty on success.
+	Reason string
+}
+
+// resolveOrgID resolves the organization ID for the given workflow owner.
+// If resolution fails, the returned ID is empty and Reason explains why.
+// The original error from the resolver (if any) is preserved in Err and
+// logged via the provided logger.
+func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflowOwner string, lggr logger.SugaredLogger) resolvedOrg {
+	if resolver == nil {
+		return resolvedOrg{Reason: "resolver_nil"}
+	}
+	orgID, err := resolver.Get(ctx, workflowOwner)
+	if err != nil {
+		lggr.Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", workflowOwner, "err", err)
+		return resolvedOrg{Err: err, Reason: "resolver_error"}
+	}
+	if orgID == "" {
+		return resolvedOrg{Reason: "empty_response"}
+	}
+	return resolvedOrg{ID: orgID}
+}
+
 func (e *Engine) start(ctx context.Context) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
@@ -267,15 +305,9 @@ func (e *Engine) start(ctx context.Context) error {
 	// Resolve the workflow owner's org once at engine startup and treat it as stable
 	// for the lifetime of this engine instance. If org membership/linking changes, the
 	// workflow must be restarted to pick up the new org mapping.
-	e.orgID = ""
-	if e.cfg.OrgResolver != nil {
-		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
-		if gerr != nil {
-			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
-		} else {
-			e.orgID = orgID
-		}
-	}
+	resolved := resolveOrgID(ctx, e.cfg.OrgResolver, e.cfg.WorkflowOwner, e.logger())
+	e.orgID = resolved.ID
+	e.orgIDMissingReason = resolved.Reason
 	e.storeLoggerLabels(e.eventLabels())
 
 	e.metrics = e.metrics.With(platform.KeyOrganizationID, e.orgID)
@@ -867,6 +899,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	startTime := e.cfg.Clock.Now()
 	executionLogger.Infow("Workflow execution starting ...")
+	if e.orgID == "" {
+		e.metrics.IncrementOrgIDMissingCounter(ctx, e.orgIDMissingReason)
+	}
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
 	registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)

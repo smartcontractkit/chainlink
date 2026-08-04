@@ -9,7 +9,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -59,15 +62,42 @@ const testAttestationB64 = "ZHVtbXktYXR0ZXN0YXRpb24=" // base64("dummy-attestati
 
 type mockGatewayConnector struct {
 	core.UnimplementedGatewayConnector
-	lastResp     *jsonrpc.Response[json.RawMessage]
+	// mu guards resps: the handler serves requests on its own goroutines, so
+	// sends race with test assertions without it.
+	mu           sync.Mutex
+	resps        []*jsonrpc.Response[json.RawMessage]
 	addedMethods []string
 	removed      bool
 }
 
 func (m *mockGatewayConnector) SendToGateway(_ context.Context, _ string, resp *jsonrpc.Response[json.RawMessage]) error {
-	m.lastResp = resp
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.resps = append(m.resps, resp)
 	return nil
 }
+
+func (m *mockGatewayConnector) respCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.resps)
+}
+
+// waitResp blocks until the handler has sent at least one response and returns
+// the most recent. HandleGatewayMessage dispatches and returns without serving,
+// so assertions have to wait for the send rather than read straight after it.
+func (m *mockGatewayConnector) waitResp(t *testing.T) *jsonrpc.Response[json.RawMessage] {
+	t.Helper()
+	require.Eventually(t, func() bool { return m.respCount() > 0 },
+		testWaitTimeout, time.Millisecond, "handler did not send a response to the gateway")
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.resps[len(m.resps)-1]
+}
+
+// testWaitTimeout bounds waits for the handler's asynchronous sends.
+const testWaitTimeout = 30 * time.Second
+
 func (m *mockGatewayConnector) AddHandler(_ context.Context, methods []string, _ core.GatewayConnectorHandler) error {
 	m.addedMethods = methods
 	return nil
@@ -91,10 +121,14 @@ type mockExecutionHelper struct {
 
 	lastCapabilityRequest *sdkpb.CapabilityRequest
 	lastSecretsRequest    *sdkpb.GetSecretsRequest
+	// lastCapabilityCRE records the CRE tenants on the context CallCapability was
+	// invoked with. The tenant-scoped limiters downstream fail closed without them.
+	lastCapabilityCRE contexts.CRE
 }
 
-func (m *mockExecutionHelper) CallCapability(_ context.Context, req *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
+func (m *mockExecutionHelper) CallCapability(ctx context.Context, req *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
 	m.lastCapabilityRequest = req
+	m.lastCapabilityCRE = contexts.CREValue(ctx)
 	return m.capResp, m.capErr
 }
 
@@ -136,6 +170,9 @@ func newTestHandler(t *testing.T, registry core.CapabilitiesRegistry, gwConn cor
 	require.NoError(t, err)
 	h, err := NewHandler(registry, &ExecutionHandlers{}, gwConn, newRelayResponseSigner(key), lggr, limits.Factory{Logger: lggr}, validator, true)
 	require.NoError(t, err)
+	// Keep the not-yet-registered wait short so the "handler not found" cases do
+	// not stall the suite for the production default.
+	h.getExecutionWait = 50 * time.Millisecond
 	return h
 }
 
@@ -388,6 +425,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					WorkflowID:    "wf-1",
 					Owner:         testOwner, // chainlink-common#2032 requires 0x-prefixed 20-byte hex
 					ExecutionID:   capExecExecutionID,
+					OrgID:         "org-1",
 					ReferenceID:   "17",
 					CapabilityID:  "my-cap@1.0.0",
 					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
@@ -401,6 +439,7 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 					WorkflowID:    "wf-1",
 					Owner:         testOwner,
 					ExecutionID:   capExecExecutionID,
+					OrgID:         "org-1",
 					ReferenceID:   "17",
 					CapabilityID:  "my-cap@1.0.0",
 					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
@@ -423,6 +462,15 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 				require.NotNil(t, helper.lastCapabilityRequest, "CallCapability should have been called")
 				assert.Equal(t, "my-cap@1.0.0", helper.lastCapabilityRequest.Id)
 				assert.Equal(t, "Execute", helper.lastCapabilityRequest.Method)
+				// Without the CRE tenants on the context, every tenant-scoped
+				// limiter downstream fails closed rather than reading a limit.
+				// Normalized(): WithCRE strips the owner's 0x prefix and lowercases
+				// it, so the tenant key matches the one the engine path produces.
+				assert.Equal(t, contexts.CRE{
+					Org:      "org-1",
+					Owner:    testOwner,
+					Workflow: "wf-1",
+				}.Normalized(), helper.lastCapabilityCRE)
 			},
 		},
 		{
@@ -450,13 +498,16 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			registry: func(_ *testing.T) *mockCapRegistry {
 				return withEnclaveConfig(&mockCapRegistry{})
 			},
-			// No helper registered: GetExecution fails before attestation.
+			// No helper registered. The lookup now runs after attestation and
+			// enclave-config checks, so the request must pass those (valid
+			// attestation, config, and a decodable payload) to reach the not-found
+			// path rather than failing earlier.
 			req: func(t *testing.T) *jsonrpc.Request[json.RawMessage] {
 				return makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
 					WorkflowID:    "wf-1",
 					ExecutionID:   capExecExecutionID,
 					CapabilityID:  "missing-cap@1.0.0",
-					Payload:       base64.StdEncoding.EncodeToString([]byte("payload")),
+					Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
 					EnclaveConfig: testEnclaveConfigPtr(),
 					Attestation:   testAttestationB64,
 				})
@@ -582,8 +633,8 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			}
 			err := h.HandleGatewayMessage(t.Context(), "gw-1", tt.req(t))
 			require.NoError(t, err)
-			require.NotNil(t, gwConn.lastResp)
-			tt.checkResp(t, gwConn.lastResp)
+			resp := gwConn.waitResp(t)
+			tt.checkResp(t, resp)
 			if tt.checkExecutable != nil {
 				tt.checkExecutable(t, helper)
 			}
@@ -684,7 +735,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		h, gwConn := capExecHandler(t)
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, testEnclaveConfigPtr()))
 		require.NoError(t, err)
-		require.Nil(t, gwConn.lastResp.Error)
+		require.Nil(t, gwConn.waitResp(t).Error)
 	})
 
 	t.Run("nil config rejected on capability execute (required)", func(t *testing.T) {
@@ -693,7 +744,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		// missing config cannot be checked against DON state
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, nil))
 		require.NoError(t, err)
-		require.NotNil(t, gwConn.lastResp.Error)
+		require.NotNil(t, gwConn.waitResp(t).Error)
 	})
 
 	t.Run("F below DON minimum rejected on capability execute", func(t *testing.T) {
@@ -703,7 +754,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		badCfg.F = testEnclaveF - 1 // below the DON's minimum F
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, &badCfg))
 		require.NoError(t, err)
-		require.NotNil(t, gwConn.lastResp.Error)
+		require.NotNil(t, gwConn.waitResp(t).Error)
 	})
 
 	t.Run("F above DON minimum accepted on capability execute", func(t *testing.T) {
@@ -713,7 +764,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		cfg.F = testEnclaveF + 1 // a higher F is a stricter quorum; floor check accepts it
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, &cfg))
 		require.NoError(t, err)
-		require.Nil(t, gwConn.lastResp.Error)
+		require.Nil(t, gwConn.waitResp(t).Error)
 	})
 
 	t.Run("signers count mismatch rejected on capability execute", func(t *testing.T) {
@@ -723,7 +774,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		badCfg.Signers = badCfg.Signers[:2]
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, &badCfg))
 		require.NoError(t, err)
-		require.NotNil(t, gwConn.lastResp.Error)
+		require.NotNil(t, gwConn.waitResp(t).Error)
 	})
 
 	t.Run("signer value mismatch rejected on capability execute", func(t *testing.T) {
@@ -738,7 +789,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		}
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, &badCfg))
 		require.NoError(t, err)
-		require.NotNil(t, gwConn.lastResp.Error)
+		require.NotNil(t, gwConn.waitResp(t).Error)
 	})
 
 	t.Run("matching is order-independent on capability execute", func(t *testing.T) {
@@ -754,7 +805,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		shuffled.Signers = rev
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", capExecReq(t, &shuffled))
 		require.NoError(t, err)
-		require.Nil(t, gwConn.lastResp.Error)
+		require.Nil(t, gwConn.waitResp(t).Error)
 	})
 
 	t.Run("F below DON minimum rejected on secrets get", func(t *testing.T) {
@@ -768,7 +819,7 @@ func TestHandler_VerifyEnclaveConfig(t *testing.T) {
 		req := makeRequest(t, confidentialrelaytypes.MethodSecretsGet, params)
 		err := h.HandleGatewayMessage(context.Background(), "gw-1", req)
 		require.NoError(t, err)
-		require.NotNil(t, gwConn.lastResp.Error)
+		require.NotNil(t, gwConn.waitResp(t).Error)
 	})
 }
 
@@ -916,4 +967,92 @@ func TestVerifyWorkflowAuthorization(t *testing.T) {
 		})
 		require.ErrorContains(t, h.verifyWorkflowAuthorization(don, params), "do not share one compute request")
 	})
+}
+
+// blockingExecutionHelper reports when CallCapability is entered and holds there
+// until released, so a test can observe how many requests the handler serves at
+// the same time.
+type blockingExecutionHelper struct {
+	host.ExecutionHelperWithRawSecrets
+	entered chan struct{}
+	release chan struct{}
+}
+
+func newBlockingExecutionHelper(capacity int) *blockingExecutionHelper {
+	return &blockingExecutionHelper{
+		entered: make(chan struct{}, capacity),
+		release: make(chan struct{}),
+	}
+}
+
+func (b *blockingExecutionHelper) CallCapability(ctx context.Context, _ *sdkpb.CapabilityRequest) (*sdkpb.CapabilityResponse, error) {
+	b.entered <- struct{}{}
+	select {
+	case <-b.release:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	return &sdkpb.CapabilityResponse{
+		Response: &sdkpb.CapabilityResponse_Payload{Payload: &anypb.Any{Value: []byte("result-proto-bytes")}},
+	}, nil
+}
+
+// blockingCapExecHandler wires a handler whose capability calls block until the
+// returned helper is released.
+func blockingCapExecHandler(t *testing.T, capacity int) (*Handler, *mockGatewayConnector, *blockingExecutionHelper) {
+	t.Helper()
+	helper := newBlockingExecutionHelper(capacity)
+	gwConn := &mockGatewayConnector{}
+	h := newTestHandler(t, withEnclaveConfig(&mockCapRegistry{}), gwConn)
+	h.executionHandlers.AddExecution("wf-1", capExecExecutionID, helper)
+	return h, gwConn, helper
+}
+
+func blockingCapExecRequest(t *testing.T, id string) *jsonrpc.Request[json.RawMessage] {
+	t.Helper()
+	req := makeRequest(t, confidentialrelaytypes.MethodCapabilityExec, confidentialrelaytypes.CapabilityRequestParams{
+		WorkflowID:    "wf-1",
+		Owner:         testOwner,
+		ExecutionID:   capExecExecutionID,
+		ReferenceID:   "1",
+		CapabilityID:  "my-cap@1.0.0",
+		Payload:       makeCapabilityPayload(t, map[string]any{"key": "val"}),
+		EnclaveConfig: testEnclaveConfigPtr(),
+		Attestation:   testAttestationB64,
+	})
+	req.ID = id
+	return req
+}
+
+// TestHandler_ServesRequestsConcurrently is the regression guard for the
+// head-of-line block that made a burst of relay requests fail. The gateway
+// connector calls HandleGatewayMessage from a single goroutine per connection
+// and waits for it to return, so serving inline forced requests through one at a
+// time and the tail of a burst outlived the caller's timeout. Each call must
+// return promptly and the requests must overlap.
+func TestHandler_ServesRequestsConcurrently(t *testing.T) {
+	t.Parallel()
+	const concurrent = 8
+	h, gwConn, helper := blockingCapExecHandler(t, concurrent)
+
+	for i := range concurrent {
+		require.NoError(t, h.HandleGatewayMessage(t.Context(), "gw-1", blockingCapExecRequest(t, fmt.Sprintf("req-%d", i))))
+	}
+
+	// Every request reached the capability call while all the others were still
+	// held, which is only possible if none of them blocked the dispatch path.
+	for i := range concurrent {
+		select {
+		case <-helper.entered:
+		case <-time.After(testWaitTimeout):
+			t.Fatalf("only %d of %d requests were served concurrently; dispatch is serialized", i, concurrent)
+		}
+	}
+
+	// Nothing can have answered yet: all of them are parked in the capability call.
+	require.Zero(t, gwConn.respCount())
+
+	close(helper.release)
+	require.Eventually(t, func() bool { return gwConn.respCount() == concurrent },
+		testWaitTimeout, time.Millisecond, "expected one response per request")
 }
