@@ -5,6 +5,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -12,11 +13,12 @@ import (
 )
 
 // RecoverTokensRequest recovers tokens accidentally sent to an already-deployed
-// DataFeedsCache contract.
+// cache or proxy contract.
 type RecoverTokensRequest struct {
 	ChainSel  uint64
 	Qualifier string
 	Version   string
+	Contract  datastore.ContractType // CacheContract or ProxyContract
 	Token     string
 	To        string
 	Amount    int64
@@ -24,11 +26,14 @@ type RecoverTokensRequest struct {
 
 var _ cldf.ChangeSetV2[*RecoverTokensRequest] = RecoverTokens{}
 
-// RecoverTokens recovers tokens accidentally sent to the cache.
+// RecoverTokens recovers tokens accidentally sent to the cache or proxy.
 type RecoverTokens struct{}
 
 func (RecoverTokens) VerifyPreconditions(env cldf.Environment, req *RecoverTokensRequest) error {
-	if err := verifyContractRef(env, req.ChainSel, CacheContract, req.Qualifier, req.Version); err != nil {
+	if req.Contract != CacheContract && req.Contract != ProxyContract {
+		return fmt.Errorf("unsupported contract type %q: must be %q or %q", req.Contract, CacheContract, ProxyContract)
+	}
+	if err := verifyContractRef(env, req.ChainSel, req.Contract, req.Qualifier, req.Version); err != nil {
 		return err
 	}
 	if err := validateAddress(req.Token); err != nil {
@@ -46,12 +51,13 @@ func (RecoverTokens) VerifyPreconditions(env cldf.Environment, req *RecoverToken
 func (RecoverTokens) Apply(env cldf.Environment, req *RecoverTokensRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
 	version := semver.MustParse(req.Version)
-	d, _, err := resolveContractDeps(env, req.ChainSel, CacheContract, req.Qualifier, version)
+	d, _, err := resolveContractDeps(env, req.ChainSel, req.Contract, req.Qualifier, version)
 	if err != nil {
 		return out, err
 	}
 	_, err = operations.ExecuteOperation(env.OperationsBundle, operation.RecoverTokens, d.deps, operation.RecoverTokensInput{
 		ContractID: d.contractID,
+		IsProxy:    req.Contract == ProxyContract,
 		Token:      req.Token,
 		To:         req.To,
 		Amount:     req.Amount,

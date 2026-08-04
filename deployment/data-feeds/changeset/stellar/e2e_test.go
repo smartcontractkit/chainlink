@@ -30,15 +30,15 @@ import (
 
 // TestStellarDataFeedsE2E is the Definition-of-Done gate: it stands up a local
 // CTF Soroban devnet, deploys both Data Feeds contracts, and invokes EVERY
-// exported function on-chain — the 23 cache fns and the 14 proxy fns — through
+// exported function on-chain — the 26 cache fns and the 14 proxy fns — through
 // the real changesets/operations/bindings (no fakes).
 //
 // Function-coverage checklist. Outcome (a) = on-chain success; outcome (b) = a
 // documented, asserted, expected contract-domain/host error (never ignored).
 //
-// DataFeedsCache (23):
+// DataFeedsCache (26):
 //   __constructor        (a) DeployCache changeset
-//   upgrade              (a) UpgradeCache changeset
+//   upgrade              (a) Upgrade changeset
 //   recover_tokens       (b) RecoverTokens changeset — SAC transfer(from=self)
 //                            re-enters the contract => host trap Error(Context,
 //                            InvalidAction), asserted
@@ -52,8 +52,15 @@ import (
 //   version              (a) LoadCacheClient direct
 //   type_and_version     (a) LoadCacheClient direct
 //   get_owner            (a) LoadCacheClient direct
-//   decimals             (a) LoadCacheClient direct
-//   description          (a) LoadCacheClient direct
+//   decimals             (a) LoadCacheClient direct — Some(0) while configured,
+//                            None after remove_feed_configs
+//   description          (a) LoadCacheClient direct — Some while configured,
+//                            None after remove_feed_configs
+//   is_configured        (a) LoadCacheClient direct — true, false after removal
+//   is_frozen            (a) LoadCacheClient direct — false / true while frozen
+//   set_feed_frozen      (a) SetFeedFrozen changeset — freeze/unfreeze
+//                            round-trip; frozen decimals asserts the
+//                            FeedFrozen error (b)
 //   is_feed_admin        (a) LoadCacheClient direct
 //   has_permission       (a) LoadCacheClient direct
 //   get_feed_permissions (a) LoadCacheClient direct
@@ -77,14 +84,10 @@ import (
 //   description          (a) LoadProxyClient direct
 //   latest_round         (a) LoadProxyClient direct — reads the round stored via on_report
 //   get_round            (a) LoadProxyClient direct — reads the round stored via on_report
-//   upgrade              (a) LoadProxyClient direct — fresh wasm hash (no changeset by design)
-//   recover_tokens       (b) LoadProxyClient direct — SAC transfer(from=self)
+//   upgrade              (a) Upgrade changeset
+//   recover_tokens       (b) RecoverTokens changeset — SAC transfer(from=self)
 //                            re-enters the contract => host trap Error(Context,
 //                            InvalidAction), asserted
-//
-// The proxy deliberately has no upgrade/recover_tokens changeset (no operator
-// need identified yet), so those two are driven through the generated proxy
-// client directly.
 
 // e2eOnce guards the CTF container lifecycle for this suite (the provider
 // requires a *sync.Once; one test => one Once).
@@ -95,8 +98,8 @@ const (
 	e2eVersion   = "1.0.0"
 	// e2eDataID is a canonical left-aligned feed id (BTC/USD-shaped). After
 	// dataIDsToBytes left-justifies it into [16]byte, byte[7] is 0x00, which is
-	// outside the cache's decimals window [0x20,0x60], so cache.decimals returns 0
-	// (the else branch). Non-zero id => a valid feed id (is_valid_id passes).
+	// outside the cache's decimals window [0x20,0x60], so cache.decimals returns
+	// Some(0) while configured. Non-zero id => a valid feed id (is_valid_id passes).
 	e2eDataID       = "0x018e16c39e00032000000"
 	e2eDescription  = "BTC/USD"
 	e2eWorkflowName = "e2e"
@@ -193,8 +196,40 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 	mustCall(t, "cache.version", func() error { _, e := cacheClient.Version(ctx); return e })
 	mustCall(t, "cache.type_and_version", func() error { _, e := cacheClient.TypeAndVersion(ctx); return e })
 	mustCall(t, "cache.get_owner", func() error { _, e := cacheClient.GetOwner(ctx); return e })
-	mustCall(t, "cache.decimals", func() error { _, e := cacheClient.Decimals(ctx, did); return e })
-	mustCall(t, "cache.description", func() error { _, e := cacheClient.Description(ctx, did); return e })
+	mustCall(t, "cache.decimals", func() error {
+		dec, e := cacheClient.Decimals(ctx, did)
+		if e != nil {
+			return e
+		}
+		require.NotNil(t, dec, "decimals must be present for a configured feed")
+		require.Equal(t, uint32(0), *dec)
+		return nil
+	})
+	mustCall(t, "cache.description", func() error {
+		desc, e := cacheClient.Description(ctx, did)
+		if e != nil {
+			return e
+		}
+		require.NotNil(t, desc, "description must be present for a configured feed")
+		require.Equal(t, e2eDescription, *desc)
+		return nil
+	})
+	mustCall(t, "cache.is_configured", func() error {
+		configured, e := cacheClient.IsConfigured(ctx, did)
+		if e != nil {
+			return e
+		}
+		require.True(t, configured, "feed was configured via SetFeedConfigs")
+		return nil
+	})
+	mustCall(t, "cache.is_frozen", func() error {
+		frozen, e := cacheClient.IsFrozen(ctx, did)
+		if e != nil {
+			return e
+		}
+		require.False(t, frozen, "feed starts unfrozen")
+		return nil
+	})
 	mustCall(t, "cache.is_feed_admin", func() error { _, e := cacheClient.IsFeedAdmin(ctx, deployer); return e })
 	mustCall(t, "cache.has_permission", func() error {
 		_, e := cacheClient.HasPermission(ctx, did, deployer, [20]byte(ownerBytes), [10]byte(nameBytes))
@@ -226,6 +261,23 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 		return nil
 	})
 
+	// --- set_feed_frozen: freeze -> reads rejected -> unfreeze -------------
+	env = apply(t, env, SetFeedFrozen{}, &SetFeedFrozenRequest{
+		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, Admin: deployer,
+		DataIDs: []string{e2eDataID}, Frozen: true,
+	})
+	frozen, err := cacheClient.IsFrozen(ctx, did)
+	require.NoError(t, err)
+	require.True(t, frozen, "is_frozen must report the freeze")
+	_, frozenErr := cacheClient.Decimals(ctx, did)
+	require.Error(t, frozenErr, "decimals on a frozen feed must be rejected")
+	require.ErrorContains(t, frozenErr, "#109", "expected CacheError::FeedFrozen")
+	t.Logf("(b) cache.decimals while frozen error: %v", frozenErr)
+	env = apply(t, env, SetFeedFrozen{}, &SetFeedFrozenRequest{
+		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, Admin: deployer,
+		DataIDs: []string{e2eDataID}, Frozen: false,
+	})
+
 	// --- proxy reads (read through to the cache's stored round) -----------
 	proxyClient, _, err := LoadProxyClient(env, sel, e2eQualifier, e2eVersion)
 	require.NoError(t, err)
@@ -239,24 +291,24 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 	mustCall(t, "proxy.latest_round", func() error { _, e := proxyClient.LatestRound(ctx, pdid); return e })
 	mustCall(t, "proxy.get_round", func() error { _, e := proxyClient.GetRound(ctx, pdid, 1); return e })
 
-	// --- proxy upgrade + recover_tokens (no changesets by design) ---------
-	deps, err := newStellarDeps(ch)
-	require.NoError(t, err)
-	proxyHash, err := deps.Deploy.UploadContractWASM(ctx, proxyWasm)
-	require.NoError(t, err)
-	require.NoError(t, proxyClient.Upgrade(ctx, [32]byte(proxyHash)),
-		"proxy upgrade to a freshly uploaded wasm hash must succeed")
+	// --- proxy upgrade + recover_tokens ------------------------------------
+	env = apply(t, env, Upgrade{}, &UpgradeRequest{
+		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion,
+		Contract: ProxyContract, WasmPath: proxyWasm,
+	})
 
 	// recover_tokens invokes the SAC transfer(from=self, to, amount). We pass the
 	// contract's own address as the token, so the transfer sub-call re-enters the
 	// same contract; Soroban forbids contract re-entry and the host traps with
 	// Error(Context, InvalidAction) ("Contract re-entry is not allowed"). This is
-	// the documented (b) outcome: recover_tokens is really invoked (its three args
-	// are decoded and the transfer is dispatched — the tooling's encode/invoke path
-	// is what's under test) and the trap is a contract/host-domain error, not a
-	// transport/XDR/auth-plumbing failure. Standing up a funded native-XLM SAC
-	// balance for a success path is disproportionate for this gate.
-	proxyRecoverErr := proxyClient.RecoverTokens(ctx, proxyClient.ContractID(), deployer, 1)
+	// the documented (b) outcome: recover_tokens is really invoked and the trap
+	// is a contract/host-domain error, not a transport/XDR/auth-plumbing failure.
+	// Standing up a funded native-XLM SAC balance for a success path is
+	// disproportionate for this gate.
+	proxyRecoverErr := applyErr(t, env, RecoverTokens{}, &RecoverTokensRequest{
+		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion,
+		Contract: ProxyContract, Token: proxyClient.ContractID(), To: deployer, Amount: 1,
+	})
 	require.Error(t, proxyRecoverErr, "proxy recover_tokens must fail: self-transfer re-enters the contract")
 	require.ErrorContains(t, proxyRecoverErr, "InvalidAction", "expected a contract re-entry host trap")
 	t.Logf("(b) proxy.recover_tokens error: %v", proxyRecoverErr)
@@ -275,8 +327,9 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 	})
 
 	// --- cache upgrade + recover + config/admin removal --------------------
-	env = apply(t, env, UpgradeCache{}, &UpgradeCacheRequest{
-		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, WasmPath: cacheWasm,
+	env = apply(t, env, Upgrade{}, &UpgradeRequest{
+		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion,
+		Contract: CacheContract, WasmPath: cacheWasm,
 	})
 
 	// recover_tokens: same real-transfer semantics as the proxy. Token is the
@@ -285,7 +338,7 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 	// while the deployer is still owner (ownership renounce happens last).
 	cacheRecoverErr := applyErr(t, env, RecoverTokens{}, &RecoverTokensRequest{
 		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion,
-		Token: cacheAddr, To: deployer, Amount: 1,
+		Contract: CacheContract, Token: cacheAddr, To: deployer, Amount: 1,
 	})
 	require.Error(t, cacheRecoverErr, "cache recover_tokens must fail: self-transfer re-enters the contract")
 	require.ErrorContains(t, cacheRecoverErr, "InvalidAction", "expected a contract re-entry host trap")
@@ -295,6 +348,18 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, Admin: deployer,
 		DataIDs: []string{e2eDataID},
 	})
+
+	// The optional reads must decode None once the feed config is gone.
+	dec, err := cacheClient.Decimals(ctx, did)
+	require.NoError(t, err)
+	require.Nil(t, dec, "decimals must be absent after remove_feed_configs")
+	desc, err := cacheClient.Description(ctx, did)
+	require.NoError(t, err)
+	require.Nil(t, desc, "description must be absent after remove_feed_configs")
+	configured, err := cacheClient.IsConfigured(ctx, did)
+	require.NoError(t, err)
+	require.False(t, configured, "is_configured must be false after remove_feed_configs")
+
 	env = apply(t, env, RemoveFeedAdmin{}, &FeedAdminRequest{
 		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, Admin: deployer,
 	})

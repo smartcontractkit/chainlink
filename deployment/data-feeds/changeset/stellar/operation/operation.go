@@ -48,8 +48,8 @@ type DeployCacheInput struct {
 }
 
 // DeployCache uploads the cache WASM and instantiates it via CreateContractV2
-// with __constructor(owner). The cache constructor takes a single argument;
-// the data-retention TTL is a hardcoded on-chain constant, not a ctor input.
+// with __constructor(owner); the data-retention TTL is an on-chain constant,
+// not a constructor input.
 var DeployCache = cldfops.NewOperation(
 	"df-cache:deploy", Version1_0_0,
 	"Deploys the DataFeedsCache Soroban contract",
@@ -116,6 +116,22 @@ var RemoveFeedConfigs = cldfops.NewOperation(
 	func(b cldfops.Bundle, d StellarDeps, in RemoveFeedConfigsInput) (Void, error) {
 		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
 		return Void{}, c.RemoveFeedConfigs(b.GetContext(), in.Admin, in.DataIDs)
+	},
+)
+
+type SetFeedFrozenInput struct {
+	ContractID string     `json:"contract_id"`
+	Admin      string     `json:"admin"`
+	DataIDs    [][16]byte `json:"data_ids"`
+	Frozen     bool       `json:"frozen"`
+}
+
+var SetFeedFrozen = cldfops.NewOperation(
+	"df-cache:set-feed-frozen", Version1_0_0,
+	"Freezes or unfreezes feeds on the cache",
+	func(b cldfops.Bundle, d StellarDeps, in SetFeedFrozenInput) (Void, error) {
+		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
+		return Void{}, c.SetFeedFrozen(b.GetContext(), in.Admin, in.DataIDs, in.Frozen)
 	},
 )
 
@@ -209,15 +225,20 @@ var UploadWASM = cldfops.NewOperation(
 	},
 )
 
-type UpgradeCacheInput struct {
+type UpgradeContractInput struct {
 	ContractID  string   `json:"contract_id"`
+	IsProxy     bool     `json:"is_proxy"`
 	NewWasmHash [32]byte `json:"new_wasm_hash"`
 }
 
-var UpgradeCache = cldfops.NewOperation(
-	"df-cache:upgrade", Version1_0_0,
-	"Points the cache at a new WASM implementation",
-	func(b cldfops.Bundle, d StellarDeps, in UpgradeCacheInput) (Void, error) {
+var UpgradeContract = cldfops.NewOperation(
+	"df:upgrade", Version1_0_0,
+	"Points the contract at a new WASM implementation",
+	func(b cldfops.Bundle, d StellarDeps, in UpgradeContractInput) (Void, error) {
+		if in.IsProxy {
+			c := proxy.NewDataFeedsProxyClient(d.Invoker, in.ContractID)
+			return Void{}, c.Upgrade(b.GetContext(), in.NewWasmHash)
+		}
 		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
 		return Void{}, c.Upgrade(b.GetContext(), in.NewWasmHash)
 	},
@@ -225,15 +246,20 @@ var UpgradeCache = cldfops.NewOperation(
 
 type RecoverTokensInput struct {
 	ContractID string `json:"contract_id"`
+	IsProxy    bool   `json:"is_proxy"`
 	Token      string `json:"token"`
 	To         string `json:"to"`
 	Amount     int64  `json:"amount"`
 }
 
 var RecoverTokens = cldfops.NewOperation(
-	"df-cache:recover-tokens", Version1_0_0,
-	"Recovers tokens accidentally sent to the cache",
+	"df:recover-tokens", Version1_0_0,
+	"Recovers tokens accidentally sent to the contract",
 	func(b cldfops.Bundle, d StellarDeps, in RecoverTokensInput) (Void, error) {
+		if in.IsProxy {
+			c := proxy.NewDataFeedsProxyClient(d.Invoker, in.ContractID)
+			return Void{}, c.RecoverTokens(b.GetContext(), in.Token, in.To, in.Amount)
+		}
 		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
 		return Void{}, c.RecoverTokens(b.GetContext(), in.Token, in.To, in.Amount)
 	},

@@ -14,9 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
 )
 
-// DeployCacheRequest configures a DataFeedsCache deployment. The real cache
-// contract's __constructor(owner) takes a single argument — there is no
-// RetentionTTLLedgers constructor input (that's a hardcoded on-chain constant).
+// DeployCacheRequest configures a DataFeedsCache deployment.
 type DeployCacheRequest struct {
 	ChainSel  uint64
 	WasmPath  string

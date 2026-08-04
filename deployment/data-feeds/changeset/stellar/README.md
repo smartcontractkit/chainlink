@@ -12,9 +12,11 @@ are EVM/JD-specific and deliberately have no Stellar equivalent here).
 data-feeds/changeset/stellar/
 ├── deploy_cache.go, deploy_proxy.go   # instantiate contracts, record AddressRefs
 ├── configure_cache.go                 # SetFeedConfigs — descriptions + permissions
-├── remove_feeds.go, feed_admin.go     # remove feed configs, grant/revoke feed-admin
+├── remove_feeds.go, freeze_feeds.go   # remove feed configs, freeze/unfreeze feeds
+├── feed_admin.go                      # grant/revoke feed-admin
 ├── ownership.go                       # transfer / accept / renounce (cache + proxy)
-├── upgrade_cache.go, recover_tokens.go, set_proxy_cache.go
+├── upgrade.go, recover_tokens.go      # new WASM / token recovery (cache + proxy)
+├── set_proxy_cache.go                 # repoint the proxy at a cache
 ├── deps.go, state.go                  # shared resolve-ref/build-deps + client loaders
 ├── validation.go, config.go           # input validation, encoding helpers
 ├── operation/operation.go             # one CLDF operation per on-chain call
@@ -77,11 +79,12 @@ cp target/wasm32v1-none/release/data_feeds_{cache,proxy}.wasm \
 #### Running the e2e test
 
 `TestStellarDataFeedsE2E` boots a local CTF Soroban devnet, deploys both
-contracts, and asserts 35 exported function calls succeed plus 2
-(`recover_tokens` on each contract) fail with the documented `InvalidAction`
-host error (self-transfer re-entry — see the test's `recover_tokens`
-comments). It needs Docker and does not run in CI (`skipInCI` skips when
-`CI=true`).
+contracts, and invokes all 40 exported functions (26 cache + 14 proxy): 38
+succeed on-chain, and `recover_tokens` on each contract fails with the
+documented `InvalidAction` host error (self-transfer re-entry — see the test's
+`recover_tokens` comments). Reads on a frozen feed are additionally asserted
+to fail with the cache's `FeedFrozen` error. It needs Docker and does not run
+in CI (`skipInCI` skips when `CI=true`).
 
 ```sh
 go test ./data-feeds/changeset/stellar/ -run TestStellarDataFeedsE2E -v -timeout 25m

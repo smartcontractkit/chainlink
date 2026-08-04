@@ -13,8 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
 )
 
-// newStellarDeps builds the deploy/invoke dependencies for a CLDF Stellar chain.
-// Package-level var so unit tests can substitute fakes (the Invoker seam).
+// newStellarDeps builds the deploy/invoke dependencies for a CLDF Stellar
+// chain. Package-level var so unit tests can substitute fakes.
 var newStellarDeps = func(ch cldfstellar.Chain) (operation.StellarDeps, error) {
 	d, err := stellardeploy.NewDeployerFromChain(ch)
 	if err != nil {
@@ -24,8 +24,7 @@ var newStellarDeps = func(ch cldfstellar.Chain) (operation.StellarDeps, error) {
 }
 
 // stellarApplyDeps bundles a resolved contract's address with the chain deps
-// needed to invoke an operation against it — shared by every stellar
-// changeset that acts on a single already-deployed contract.
+// needed to invoke operations against it.
 type stellarApplyDeps struct {
 	deps       operation.StellarDeps
 	contractID string
@@ -33,9 +32,7 @@ type stellarApplyDeps struct {
 
 // verifyContractRef checks that chainSel names a known Stellar chain,
 // versionStr parses, and an AddressRef exists for (chainSel, contractType,
-// version, qualifier). This is the chain/version/ref-existence skeleton
-// shared by every changeset's VerifyPreconditions; only the extra checks
-// differ.
+// version, qualifier).
 func verifyContractRef(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, versionStr string) error {
 	if _, ok := env.BlockChains.StellarChains()[chainSel]; !ok {
 		return fmt.Errorf("stellar chain not found for chain selector %d", chainSel)
@@ -53,11 +50,7 @@ func verifyContractRef(env cldf.Environment, chainSel uint64, contractType datas
 }
 
 // resolveContractDeps looks up the AddressRef for (chainSel, contractType,
-// version, qualifier) and bundles it with the chain's deploy/invoke deps,
-// returning the AddressRef itself alongside for callers that need more than
-// just its Address (e.g. LoadCacheClient/LoadProxyClient). version must
-// already be parsed (see semver.MustParse in callers that have validated
-// req.Version in VerifyPreconditions, typically via verifyContractRef).
+// version, qualifier) and bundles it with the chain's deploy/invoke deps.
 func resolveContractDeps(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier string, version *semver.Version) (stellarApplyDeps, datastore.AddressRef, error) {
 	var zero stellarApplyDeps
 	var zeroRef datastore.AddressRef

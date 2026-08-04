@@ -15,7 +15,7 @@ import (
 
 // FeedPermission is the operator-facing shape of a workflow write-permission.
 // AllowedSender is the on-chain caller permitted to invoke on_report — the CRE
-// forwarder contract. Mirrors EVM WorkflowMetadata{AllowedSender, ...}.
+// forwarder contract.
 type FeedPermission struct {
 	AllowedSender        string // Stellar address (C... or G...)
 	AllowedWorkflowOwner string // 20-byte hex
@@ -23,7 +23,7 @@ type FeedPermission struct {
 }
 
 // SetFeedConfigsRequest sets descriptions + workflow permissions for a batch of
-// feeds. Permissions apply to every feed in the batch (EVM-aligned semantics).
+// feeds. Permissions apply to every feed in the batch.
 type SetFeedConfigsRequest struct {
 	ChainSel     uint64
 	Qualifier    string
@@ -36,8 +36,8 @@ type SetFeedConfigsRequest struct {
 
 var _ cldf.ChangeSetV2[*SetFeedConfigsRequest] = SetFeedConfigs{}
 
-// SetFeedConfigs sets per-feed descriptions and shared workflow write-permissions
-// on an already-deployed DataFeedsCache contract.
+// SetFeedConfigs sets per-feed descriptions and workflow write-permissions on
+// the cache.
 type SetFeedConfigs struct{}
 
 func (SetFeedConfigs) VerifyPreconditions(env cldf.Environment, req *SetFeedConfigsRequest) error {

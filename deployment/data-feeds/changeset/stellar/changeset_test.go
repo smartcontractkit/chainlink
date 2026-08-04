@@ -361,6 +361,42 @@ func TestRemoveFeedConfigsChangeset(t *testing.T) {
 	require.Error(t, RemoveFeedConfigs{}.VerifyPreconditions(env, &badQualifier))
 }
 
+func TestSetFeedFrozenChangeset(t *testing.T) {
+	env, inv, _ := newTestEnv(t)
+	seedCacheRef(t, &env, testContractID, "test", "1.0.0")
+
+	req := &SetFeedFrozenRequest{
+		ChainSel:  testChainSel,
+		Qualifier: "test",
+		Version:   "1.0.0",
+		Admin:     testAdmin,
+		DataIDs:   []string{"0x018e16c39e00032000000"},
+		Frozen:    true,
+	}
+	require.NoError(t, SetFeedFrozen{}.VerifyPreconditions(env, req))
+
+	_, err := SetFeedFrozen{}.Apply(env, req)
+	require.NoError(t, err)
+	require.Len(t, inv.calls, 1)
+	require.Equal(t, "set_feed_frozen", inv.calls[0].Function)
+	require.Equal(t, testContractID, inv.calls[0].ContractID)
+
+	// empty DataIDs must fail preconditions
+	empty := *req
+	empty.DataIDs = nil
+	require.Error(t, SetFeedFrozen{}.VerifyPreconditions(env, &empty))
+
+	// invalid admin address must fail preconditions
+	badAdmin := *req
+	badAdmin.Admin = "not-a-key"
+	require.Error(t, SetFeedFrozen{}.VerifyPreconditions(env, &badAdmin))
+
+	// missing cache ref must fail preconditions
+	badQualifier := *req
+	badQualifier.Qualifier = "does-not-exist"
+	require.Error(t, SetFeedFrozen{}.VerifyPreconditions(env, &badQualifier))
+}
+
 func TestFeedAdminChangesets(t *testing.T) {
 	env, inv, _ := newTestEnv(t)
 	seedCacheRef(t, &env, testContractID, "test", "1.0.0")
@@ -495,9 +531,12 @@ func TestOwnershipChangesets(t *testing.T) {
 	require.Error(t, TransferOwnership{}.VerifyPreconditions(env, &badQualifier))
 }
 
-func TestUpgradeCacheChangeset(t *testing.T) {
+func TestUpgradeChangeset(t *testing.T) {
 	env, inv, dep := newTestEnv(t)
-	seedCacheRef(t, &env, testContractID, "test", "1.0.0")
+	seedContractRefs(t, &env,
+		contractRefSpec{CacheContract, testContractID, "test", "1.0.0"},
+		contractRefSpec{ProxyContract, testProxyAddress, "test-proxy", "1.0.0"},
+	)
 
 	var wantHash xdr.Hash
 	for i := range wantHash {
@@ -505,15 +544,16 @@ func TestUpgradeCacheChangeset(t *testing.T) {
 	}
 	dep.wasmHash = wantHash
 
-	req := &UpgradeCacheRequest{
+	req := &UpgradeRequest{
 		ChainSel:  testChainSel,
 		Qualifier: "test",
 		Version:   "1.0.0",
+		Contract:  CacheContract,
 		WasmPath:  writeDummyWasm(t, "new_cache.wasm"),
 	}
-	require.NoError(t, UpgradeCache{}.VerifyPreconditions(env, req))
+	require.NoError(t, Upgrade{}.VerifyPreconditions(env, req))
 
-	_, err := UpgradeCache{}.Apply(env, req)
+	_, err := Upgrade{}.Apply(env, req)
 	require.NoError(t, err)
 
 	// the upload happened, against the requested wasm path
@@ -530,25 +570,45 @@ func TestUpgradeCacheChangeset(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, [32]byte(wantHash), gotHash)
 
+	// proxy path targets the proxy ref
+	proxyReq := *req
+	proxyReq.Qualifier = "test-proxy"
+	proxyReq.Contract = ProxyContract
+	require.NoError(t, Upgrade{}.VerifyPreconditions(env, &proxyReq))
+	_, err = Upgrade{}.Apply(env, &proxyReq)
+	require.NoError(t, err)
+	require.Len(t, inv.calls, 2)
+	require.Equal(t, "upgrade", inv.calls[1].Function)
+	require.Equal(t, testProxyAddress, inv.calls[1].ContractID)
+
+	// unsupported contract type must fail preconditions
+	badContract := *req
+	badContract.Contract = "NotAContract"
+	require.Error(t, Upgrade{}.VerifyPreconditions(env, &badContract))
+
 	// missing wasm path must fail preconditions
 	badPath := *req
 	badPath.WasmPath = "/does/not/exist.wasm"
-	require.Error(t, UpgradeCache{}.VerifyPreconditions(env, &badPath))
+	require.Error(t, Upgrade{}.VerifyPreconditions(env, &badPath))
 
 	// missing cache ref must fail preconditions
 	badQualifier := *req
 	badQualifier.Qualifier = "does-not-exist"
-	require.Error(t, UpgradeCache{}.VerifyPreconditions(env, &badQualifier))
+	require.Error(t, Upgrade{}.VerifyPreconditions(env, &badQualifier))
 }
 
 func TestRecoverTokensChangeset(t *testing.T) {
 	env, inv, _ := newTestEnv(t)
-	seedCacheRef(t, &env, testContractID, "test", "1.0.0")
+	seedContractRefs(t, &env,
+		contractRefSpec{CacheContract, testContractID, "test", "1.0.0"},
+		contractRefSpec{ProxyContract, testProxyAddress, "test-proxy", "1.0.0"},
+	)
 
 	req := &RecoverTokensRequest{
 		ChainSel:  testChainSel,
 		Qualifier: "test",
 		Version:   "1.0.0",
+		Contract:  CacheContract,
 		Token:     testContractID,
 		To:        testAdmin,
 		Amount:    1000,
@@ -561,6 +621,22 @@ func TestRecoverTokensChangeset(t *testing.T) {
 	require.Equal(t, "recover_tokens", inv.calls[0].Function)
 	require.Equal(t, testContractID, inv.calls[0].ContractID)
 	require.Len(t, inv.calls[0].Args, 3)
+
+	// proxy path targets the proxy ref
+	proxyReq := *req
+	proxyReq.Qualifier = "test-proxy"
+	proxyReq.Contract = ProxyContract
+	require.NoError(t, RecoverTokens{}.VerifyPreconditions(env, &proxyReq))
+	_, err = RecoverTokens{}.Apply(env, &proxyReq)
+	require.NoError(t, err)
+	require.Len(t, inv.calls, 2)
+	require.Equal(t, "recover_tokens", inv.calls[1].Function)
+	require.Equal(t, testProxyAddress, inv.calls[1].ContractID)
+
+	// unsupported contract type must fail preconditions
+	badContract := *req
+	badContract.Contract = "NotAContract"
+	require.Error(t, RecoverTokens{}.VerifyPreconditions(env, &badContract))
 
 	// bad token address must fail preconditions
 	badToken := *req

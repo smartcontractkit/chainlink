@@ -14,15 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
 )
 
-// DeployProxyRequest configures a DataFeedsProxy deployment. The proxy's
-// __constructor(owner, cache) resolves the cache address from the datastore
-// by (ChainSel, CacheContract, Version, CacheQualifier) — the cache must
-// already be deployed and recorded. The cache lookup reuses this request's
-// own Version (there is no separate CacheVersion field): per this suite's
-// convention, cross-contract lookups share the acting changeset's datastore
-// Version, so a cache recorded under a different version needs a
-// matching-version record (an optional CacheVersion field is a recorded
-// follow-up if operators need split versions).
+// DeployProxyRequest configures a DataFeedsProxy deployment. The cache passed
+// to __constructor(owner, cache) is resolved from the datastore by (ChainSel,
+// CacheContract, Version, CacheQualifier) — it must already be recorded.
+// Cross-contract lookups share the request's Version (see README).
 type DeployProxyRequest struct {
 	ChainSel       uint64
 	WasmPath       string

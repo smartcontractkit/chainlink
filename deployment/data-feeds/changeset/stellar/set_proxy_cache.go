@@ -14,13 +14,8 @@ import (
 
 // SetProxyCacheRequest points an already-deployed DataFeedsProxy contract at a
 // (possibly different) cache contract. Qualifier resolves the proxy being
-// acted on (ChainSel, ProxyContract, Version, Qualifier); CacheQualifier
-// resolves the new cache target (ChainSel, CacheContract, Version,
-// CacheQualifier) — both lookups share this request's Version: per this
-// suite's convention, cross-contract lookups use the acting changeset's
-// datastore Version, so a cache recorded under a different version needs a
-// matching-version record (an optional CacheVersion field is a recorded
-// follow-up if operators need split versions).
+// acted on; CacheQualifier resolves the new cache target. Cross-contract
+// lookups share the request's Version (see README).
 type SetProxyCacheRequest struct {
 	ChainSel       uint64
 	Qualifier      string

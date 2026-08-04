@@ -20,10 +20,8 @@ func validateAddress(s string) error {
 	return fmt.Errorf("%q is not a valid Stellar account or contract address", s)
 }
 
-// dataIDsToBytes converts 0x-prefixed hex feed IDs to 16-byte arrays,
-// left-justified with trailing zero padding — byte-identical to the Solana
-// suite's dataIDtoBytes (data IDs are canonically left-aligned, e.g.
-// 0x018e16c39e00032000000000000000000 shorthand drops trailing zeros).
+// dataIDsToBytes converts 0x-prefixed hex feed IDs to [16]byte, left-justified
+// with trailing zero padding (data IDs are canonically left-aligned).
 func dataIDsToBytes(ids []string) ([][16]byte, error) {
 	out := make([][16]byte, 0, len(ids))
 	for _, id := range ids {
