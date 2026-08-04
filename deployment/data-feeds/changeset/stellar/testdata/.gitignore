@@ -1,0 +1,5 @@
+# The repo-root .gitignore ignores *.wasm as build artifacts. These two files are
+# committed test fixtures (the e2e test deploys them to a local Soroban devnet),
+# so re-include them here. See README.md for regeneration.
+!data_feeds_cache.wasm
+!data_feeds_proxy.wasm
