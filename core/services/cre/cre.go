@@ -49,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2pmain "github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	p2pwrapper "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	registrysyncerV1 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	registrysyncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
@@ -78,10 +77,9 @@ type Keystore interface {
 
 // Opts are the options for the CRE services that are exposed by the application
 type Opts struct {
-	CapabilitiesRegistry    *capabilities.Registry
-	ExecutionHandlers       *confidentialrelay.ExecutionHandlers
-	CapabilitiesDispatcher  remotetypes.Dispatcher
-	CapabilitiesPeerWrapper p2ptypes.PeerWrapper
+	CapabilitiesRegistry   *capabilities.Registry
+	ExecutionHandlers      *confidentialrelay.ExecutionHandlers
+	CapabilitiesDispatcher remotetypes.Dispatcher
 
 	FetcherFunc      wftypes.FetcherFunc
 	FetcherFactoryFn compute.FetcherFactory
@@ -248,7 +246,7 @@ func (s *Services) newSubservices(
 		lggr.Warn("Skipping orgResolver, no linking service configured")
 	}
 
-	dispatcherWrapper, err := newDispatcherWrapper(cfg, opts, keyStore, ds, singletonPeerWrapper, lggr)
+	dispatcherWrapper, err := newDispatcherWrapper(cfg, opts, keyStore, singletonPeerWrapper, lggr)
 	if err != nil {
 		return nil, fmt.Errorf("could not create dispatcher: %w", err)
 	}
@@ -369,37 +367,21 @@ func newGatewayConnectorWrapper(
 }
 
 // dispatcherWrapper is a service that encapsulates the dispatcher and its peer dependencies.
-// It manages the lifecycle of the external peer wrapper, shared peer, and dispatcher as subservices.
+// It manages the lifecycle of the shared peer and dispatcher as subservices.
 type dispatcherWrapper struct {
 	commonsrv.Service
 	eng *commonsrv.Engine
 
-	dispatcher          remotetypes.Dispatcher
-	externalPeerWrapper p2ptypes.PeerWrapper
-	don2DonSharedPeer   p2ptypes.SharedPeer
+	dispatcher        remotetypes.Dispatcher
+	don2DonSharedPeer p2ptypes.SharedPeer
 }
 
-// GetPeerID returns the peer ID from either the shared peer or external peer wrapper
+// GetPeerID returns the peer ID from the shared peer.
 func (w *dispatcherWrapper) GetPeerID() (p2ptypes.PeerID, error) {
-	if w.don2DonSharedPeer != nil {
-		return w.don2DonSharedPeer.ID(), nil
+	if w.don2DonSharedPeer == nil {
+		return p2ptypes.PeerID{}, errors.New("don2DonSharedPeer is not initialized")
 	}
-	if w.externalPeerWrapper != nil {
-		p := w.externalPeerWrapper.GetPeer()
-		if p == nil {
-			return p2ptypes.PeerID{}, errors.New("could not get peer from externalPeerWrapper")
-		}
-		return p.ID(), nil
-	}
-	return p2ptypes.PeerID{}, errors.New("could not get peer from any source")
-}
-
-type sharedPeerFromPeer struct {
-	p2ptypes.Peer
-}
-
-func (s *sharedPeerFromPeer) UpdateConnectionsByDONs(_ context.Context, _ []p2ptypes.DonPair, _ p2ptypes.StreamConfig) error {
-	return nil
+	return w.don2DonSharedPeer.ID(), nil
 }
 
 func newRegistrySyncerV1(
@@ -408,7 +390,6 @@ func newRegistrySyncerV1(
 	relayer loop.Relayer,
 	registryAddress string,
 	ds sqlutil.DataSource,
-	externalPeerWrapper p2ptypes.PeerWrapper,
 	ocrConfigService capregconfig.OCRConfigService,
 	wfLauncher registrysyncerV1.Listener,
 ) ([]commonsrv.Service, error) {
@@ -527,7 +508,6 @@ func (s *Services) newRegistrySyncer(
 			relayer,
 			registryAddress,
 			ds,
-			dispatcherWrapper.externalPeerWrapper,
 			ocrConfigService,
 			wfLauncher,
 		)
@@ -579,50 +559,34 @@ func (w *dispatcherWrapper) newSubservices(
 	cfg Config,
 	opts Opts,
 	keyStore Keystore,
-	ds sqlutil.DataSource,
 	singletonPeerWrapper *ocrcommon.SingletonPeerWrapper,
 ) ([]commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 
-	if !capCfg.Peering().Enabled() && !capCfg.SharedPeering().Enabled() {
+	if !capCfg.SharedPeering().Enabled() { // test env
 		opts.CapabilitiesRegistry.SetLocalRegistry(newLocalTestMetadataRegistry(capCfg.Local()))
 		return nil, nil
 	}
 
+	if !cfg.P2P().Enabled() {
+		return nil, errors.New("top-level P2P must be enabled in order to use SharedPeering")
+	}
+	if singletonPeerWrapper == nil {
+		return nil, errors.New("singleton peer wrapper is required for shared peering (are OCR and P2P enabled?)")
+	}
+
+	bootstrappers := capCfg.SharedPeering().Bootstrappers()
+	if len(bootstrappers) == 0 {
+		bootstrappers = cfg.P2P().V2().DefaultBootstrappers()
+	}
+	w.don2DonSharedPeer = p2pmain.NewDon2DonSharedPeer(singletonPeerWrapper, bootstrappers, lggr)
+
+	signer := p2pmain.NewSigner(keyStore.P2P(), cfg.P2P().PeerID())
+
+	// Override for tests.
 	if opts.CapabilitiesDispatcher != nil {
 		w.dispatcher = opts.CapabilitiesDispatcher
-		w.externalPeerWrapper = opts.CapabilitiesPeerWrapper
-		if w.externalPeerWrapper != nil {
-			// Override for tests.
-			w.don2DonSharedPeer = &sharedPeerFromPeer{Peer: w.externalPeerWrapper.GetPeer()}
-		}
-		return []commonsrv.Service{w.externalPeerWrapper, w.dispatcher}, nil
-	}
-
-	var subs []commonsrv.Service
-	var signer p2ptypes.Signer
-	if capCfg.Peering().Enabled() {
-		w.externalPeerWrapper = p2pwrapper.NewExternalPeerWrapper(keyStore.P2P(), capCfg.Peering(), ds, lggr)
-		subs = append(subs, w.externalPeerWrapper)
-
-		signer = p2pmain.NewSigner(keyStore.P2P(), capCfg.Peering().PeerID())
-	}
-
-	if capCfg.SharedPeering().Enabled() {
-		if !cfg.P2P().Enabled() {
-			return nil, errors.New("top-level P2P must be enabled in order to use SharedPeering")
-		}
-		if singletonPeerWrapper == nil {
-			return nil, errors.New("singleton peer wrapper is required for shared peering (are OCR and P2P enabled?)")
-		}
-		bootstrappers := capCfg.SharedPeering().Bootstrappers()
-		if len(bootstrappers) == 0 {
-			bootstrappers = cfg.P2P().V2().DefaultBootstrappers()
-		}
-		w.don2DonSharedPeer = p2pmain.NewDon2DonSharedPeer(singletonPeerWrapper, bootstrappers, lggr)
-		subs = append(subs, w.don2DonSharedPeer)
-
-		signer = p2pmain.NewSigner(keyStore.P2P(), cfg.P2P().PeerID())
+		return []commonsrv.Service{w.don2DonSharedPeer, w.dispatcher}, nil
 	}
 
 	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr)
@@ -630,8 +594,7 @@ func (w *dispatcherWrapper) newSubservices(
 		return nil, fmt.Errorf("could not create dispatcher: %w", err)
 	}
 	w.dispatcher = remoteDispatcher
-	subs = append(subs, remoteDispatcher)
-	return subs, nil
+	return []commonsrv.Service{w.don2DonSharedPeer, w.dispatcher}, nil
 }
 
 func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *capabilities.TestMetadataRegistry {
@@ -650,7 +613,6 @@ func newDispatcherWrapper(
 	cfg Config,
 	opts Opts,
 	keyStore Keystore,
-	ds sqlutil.DataSource,
 	singletonPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	lggr logger.Logger,
 ) (*dispatcherWrapper, error) {
@@ -660,7 +622,7 @@ func newDispatcherWrapper(
 	w.Service, w.eng = commonsrv.Config{
 		Name: "DispatcherWrapper",
 		NewSubServices: func(lggr logger.Logger) []commonsrv.Service {
-			subs, err := w.newSubservices(lggr, cfg, opts, keyStore, ds, singletonPeerWrapper)
+			subs, err := w.newSubservices(lggr, cfg, opts, keyStore, singletonPeerWrapper)
 			if err != nil {
 				initErr = err
 				return nil

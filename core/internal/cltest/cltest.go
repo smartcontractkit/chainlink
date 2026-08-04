@@ -93,7 +93,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
@@ -337,14 +336,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	var peerWrapper p2ptypes.PeerWrapper
-	for _, dep := range flagsAndDeps {
-		peerWrapper, _ = dep.(p2ptypes.PeerWrapper)
-		if peerWrapper != nil {
-			break
-		}
-	}
-
 	var billingClient metering.BillingClient
 	for _, dep := range flagsAndDeps {
 		billingClient, _ = dep.(metering.BillingClient)
@@ -409,14 +400,13 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	appInstance, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Opts: cre.Opts{
-			CapabilitiesRegistry:    capabilitiesRegistry,
-			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
-			CapabilitiesDispatcher:  dispatcher,
-			CapabilitiesPeerWrapper: peerWrapper,
-			FetcherFunc:             syncerFetcherFunc,
-			FetcherFactoryFn:        computeFetcherFactory,
-			BillingClient:           billingClient,
-			UseLocalTimeProvider:    cfg.CRE().UseLocalTimeProvider(),
+			CapabilitiesRegistry:   capabilitiesRegistry,
+			ExecutionHandlers:      &confidentialrelay.ExecutionHandlers{},
+			CapabilitiesDispatcher: dispatcher,
+			FetcherFunc:            syncerFetcherFunc,
+			FetcherFactoryFn:       computeFetcherFactory,
+			BillingClient:          billingClient,
+			UseLocalTimeProvider:   cfg.CRE().UseLocalTimeProvider(),
 		},
 		Config:   cfg,
 		DS:       ds,
