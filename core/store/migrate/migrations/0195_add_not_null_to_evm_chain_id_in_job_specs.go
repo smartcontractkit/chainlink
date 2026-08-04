@@ -46,7 +46,7 @@ func Up195(ctx context.Context, tx *sql.Tx) error {
 			`UPDATE block_header_feeder_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
 		}
 		for i := range updateQueries {
-			_, err := tx.Exec(updateQueries[i], chainID)
+			_, err := tx.ExecContext(ctx, updateQueries[i], chainID)
 			if err != nil {
 				return errors.Wrap(err, "failed to set missing evm chain ids")
 			}

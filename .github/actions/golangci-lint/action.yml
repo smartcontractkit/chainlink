@@ -73,12 +73,12 @@ runs:
         fi
 
     - name: Golangci-lint
-      uses: golangci/golangci-lint-action@82606bf257cbaff209d206a39f5134f0cfbfd2ee # v9.2.1
+      uses: golangci/golangci-lint-action@82606bf257cbaba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278aff209d206a39f5134f0cfbfd2ee # v9.3.0
       env:
         # golangci-lint runs with absolute path mode: --path-mode=abs
         REPORT_PATH: ${{ github.workspace }}/${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}golangci-lint-report.xml
       with:
-        version: v2.11.4
+        version: v2.12.2
         only-new-issues: true
         skip-cache: true
         args: --output.checkstyle.path=${{ env.REPORT_PATH }}
