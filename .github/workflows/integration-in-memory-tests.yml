@@ -193,6 +193,8 @@ jobs:
           rm -rf "$(go env GOMODCACHE)/cache/vcs"
           mkdir -p integration-tests/bin
           (cd integration-tests && go test -c -ldflags="-s -w" -o ./bin/ccip-inmemory.test ./smoke/ccip)
+          # Pre-build preparetest so matrix jobs skip ~1min of module downloads + compile each
+          go build -o integration-tests/bin/preparetest ./core/store/cmd/preparetest
           GOBIN="$PWD/integration-tests/bin" go install gotest.tools/gotestsum@v1.13.0
 
       - name: Upload Pre-Compiled Test Binaries
@@ -235,12 +237,13 @@ jobs:
           ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
           persist-credentials: false
 
+      # No Go module operations happen in this job (test binary and preparetest
+      # are pre-compiled), so no module cache is needed.
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
           go-version-file: integration-tests/go.mod
-          cache: true
-          cache-dependency-path: integration-tests/go.sum
+          cache: false
 
       - name: Download Pre-Compiled Test Binaries
         uses: actions/download-artifact@v7
@@ -287,7 +290,7 @@ jobs:
         shell: bash
         env:
           CL_DATABASE_URL: ${{ steps.postgres.outputs.database-url }}
-        run: go run ./core/store/cmd/preparetest
+        run: preparetest
 
       - name: Run Tests
         id: run-tests
