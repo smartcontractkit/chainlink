@@ -273,6 +273,31 @@ func TestProposeStellarCapJobSpec_Apply_forwarderLookbackLedgers(t *testing.T) {
 		"expected every other node to inherit the DON-wide value")
 }
 
+// With neither the DON-wide input nor any per-node override set, the field is
+// omitted entirely and the worker applies actions.DefaultForwarderLookbackLedgers.
+// The changeset deliberately does not duplicate that default — same division of
+// responsibility as EVM's ForwarderLookbackBlocks.
+func TestProposeStellarCapJobSpec_Apply_forwarderLookbackLedgersOmittedWhenUnset(t *testing.T) {
+	setup := setupStellarCapTest(t)
+
+	input := setup.baseInput
+	input.ForwarderLookbackLedgers = 0
+	for i := range input.StellarCapabilityInputs {
+		input.StellarCapabilityInputs[i].OverrideDefaultCfg.ForwarderLookbackLedgers = 0
+	}
+
+	task := runtime.ChangesetTask(jobs.ProposeStellarCapJobSpec{}, input)
+	require.NoError(t, setup.rt.Exec(task))
+
+	out := setup.rt.State().Outputs[task.ID()]
+	require.NotNil(t, out)
+	require.Len(t, out.Reports, 1)
+
+	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
+	assert.NotContains(t, outputStr, `"forwarderLookbackLedgers"`,
+		"omitempty should drop the field entirely so the worker's own default applies")
+}
+
 func TestProposeStellarCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {
 	setup := setupStellarCapTest(t)
 	env := setup.rt.Environment()

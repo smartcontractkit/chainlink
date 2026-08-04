@@ -170,6 +170,9 @@ func (u ProposeStellarCapJobSpec) Apply(e cldf.Environment, input ProposeStellar
 			cfg.DeltaStage = capInput.OverrideDefaultCfg.DeltaStage
 		}
 		// Fall back to the DON-wide value; a non-zero per-node override wins.
+		// If neither is set the field is omitted and the worker applies its own
+		// default (actions.DefaultForwarderLookbackLedgers), matching how EVM
+		// leaves ForwarderLookbackBlocks to the worker.
 		if cfg.ForwarderLookbackLedgers == 0 {
 			cfg.ForwarderLookbackLedgers = input.ForwarderLookbackLedgers
 		}
