@@ -80,6 +80,9 @@ type Opts struct {
 	CapabilitiesRegistry   *capabilities.Registry
 	ExecutionHandlers      *confidentialrelay.ExecutionHandlers
 	CapabilitiesDispatcher remotetypes.Dispatcher
+	// CapabilitiesSharedPeer is an optional test override for the DON-to-DON
+	// shared peer, used together with CapabilitiesDispatcher.
+	CapabilitiesSharedPeer p2ptypes.SharedPeer
 
 	FetcherFunc      wftypes.FetcherFunc
 	FetcherFactoryFn compute.FetcherFactory
@@ -563,6 +566,17 @@ func (w *dispatcherWrapper) newSubservices(
 ) ([]commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 
+	// Override for tests: a pre-built dispatcher is injected directly, bypassing
+	// the shared-peering setup entirely.
+	if opts.CapabilitiesDispatcher != nil {
+		w.dispatcher = opts.CapabilitiesDispatcher
+		w.don2DonSharedPeer = opts.CapabilitiesSharedPeer
+		if w.don2DonSharedPeer != nil {
+			return []commonsrv.Service{w.don2DonSharedPeer, w.dispatcher}, nil
+		}
+		return []commonsrv.Service{w.dispatcher}, nil
+	}
+
 	if !capCfg.SharedPeering().Enabled() { // test env
 		opts.CapabilitiesRegistry.SetLocalRegistry(newLocalTestMetadataRegistry(capCfg.Local()))
 		return nil, nil
@@ -582,12 +596,6 @@ func (w *dispatcherWrapper) newSubservices(
 	w.don2DonSharedPeer = p2pmain.NewDon2DonSharedPeer(singletonPeerWrapper, bootstrappers, lggr)
 
 	signer := p2pmain.NewSigner(keyStore.P2P(), cfg.P2P().PeerID())
-
-	// Override for tests.
-	if opts.CapabilitiesDispatcher != nil {
-		w.dispatcher = opts.CapabilitiesDispatcher
-		return []commonsrv.Service{w.don2DonSharedPeer, w.dispatcher}, nil
-	}
 
 	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr)
 	if err != nil {

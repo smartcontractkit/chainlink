@@ -80,6 +80,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
+	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -320,6 +321,15 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
+	var sharedPeer p2ptypes.SharedPeer
+	for _, dep := range flagsAndDeps {
+		peerWrapper, _ := dep.(p2ptypes.PeerWrapper)
+		if peerWrapper != nil {
+			sharedPeer = sharedPeerFromPeer{Peer: peerWrapper.GetPeer()}
+			break
+		}
+	}
+
 	var syncerFetcherFunc wftypes.FetcherFunc
 	for _, dep := range flagsAndDeps {
 		syncerFetcherFunc, _ = dep.(wftypes.FetcherFunc)
@@ -403,6 +413,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			CapabilitiesRegistry:   capabilitiesRegistry,
 			ExecutionHandlers:      &confidentialrelay.ExecutionHandlers{},
 			CapabilitiesDispatcher: dispatcher,
+			CapabilitiesSharedPeer: sharedPeer,
 			FetcherFunc:            syncerFetcherFunc,
 			FetcherFactoryFn:       computeFetcherFactory,
 			BillingClient:          billingClient,
@@ -1405,4 +1416,14 @@ func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 
 	err = tx.Commit()
 	require.NoError(t, err)
+}
+
+// sharedPeerFromPeer adapts a p2ptypes.Peer to a p2ptypes.SharedPeer for tests
+// that inject a peer wrapper; DON-based connection updates are a no-op.
+type sharedPeerFromPeer struct {
+	p2ptypes.Peer
+}
+
+func (s sharedPeerFromPeer) UpdateConnectionsByDONs(_ context.Context, _ []p2ptypes.DonPair, _ p2ptypes.StreamConfig) error {
+	return nil
 }

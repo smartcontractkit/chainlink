@@ -445,6 +445,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			CapabilitiesRegistry:    opts.CapabilitiesRegistry,
 			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
 			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
+			CapabilitiesSharedPeer:  opts.CapabilitiesSharedPeer,
 			FetcherFunc:             opts.FetcherFunc,
 			FetcherFactoryFn:        opts.FetcherFactoryFn,
 			BillingClient:           opts.BillingClient,
