@@ -451,7 +451,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		Owner:    params.Owner,
 		Workflow: params.WorkflowID,
 	})
-	
+
 	att := params.Attestation
 	params.Attestation = ""
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
