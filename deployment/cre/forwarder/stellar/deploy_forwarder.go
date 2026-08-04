@@ -11,6 +11,7 @@ import (
 	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"
 	stellarforwarder "github.com/smartcontractkit/chainlink-stellar/deployment/cre/forwarder"
 
+	crestellar "github.com/smartcontractkit/chainlink/deployment/cre/stellar"
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
@@ -19,12 +20,11 @@ var _ cldf.ChangeSetV2[*DeployForwarderRequest] = DeployForwarder{}
 type DeployForwarder struct{}
 
 type DeployForwarderRequest struct {
-	ChainSel    uint64
-	Qualifier   string
-	Version     string
-	LabelSet    datastore.LabelSet
-	Salt        [32]byte
-	BuildConfig *helpers.BuildStellarConfig
+	ChainSel  uint64
+	Qualifier string
+	Version   string
+	LabelSet  datastore.LabelSet
+	Salt      [32]byte
 }
 
 func (cs DeployForwarder) VerifyPreconditions(env cldf.Environment, req *DeployForwarderRequest) error {
@@ -42,9 +42,6 @@ func (cs DeployForwarder) VerifyPreconditions(env cldf.Environment, req *DeployF
 	}
 	if _, err := semver.NewVersion(req.Version); err != nil {
 		return fmt.Errorf("invalid forwarder version %q: %w", req.Version, err)
-	}
-	if req.BuildConfig == nil {
-		return errors.New("build config is required to source the forwarder WASM")
 	}
 	return nil
 }
@@ -77,7 +74,11 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 		return out, fmt.Errorf("failed to build stellar deployer for chain selector %d: %w", req.ChainSel, err)
 	}
 
-	wasm, err := helpers.BuildStellar(env.GetContext(), *req.BuildConfig)
+	buildCfg, err := helpers.BuildStellarConfigFor(env.GetContext(), crestellar.ForwarderWasm)
+	if err != nil {
+		return out, fmt.Errorf("failed to resolve forwarder WASM build config: %w", err)
+	}
+	wasm, err := helpers.BuildStellar(env.GetContext(), buildCfg)
 	if err != nil {
 		return out, fmt.Errorf("failed to source forwarder WASM: %w", err)
 	}
