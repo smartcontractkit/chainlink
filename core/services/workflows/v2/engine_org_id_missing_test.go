@@ -10,10 +10,8 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
-	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
@@ -126,38 +124,9 @@ func TestEngine_OrgIDMissingReason(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg := &EngineConfig{
-				Lggr:          logger.Test(t),
-				Module:        modulemocks.NewModuleV2(t),
-				WorkflowID:    "wf-1",
-				WorkflowOwner: "owner-1",
-			}
-			if tt.orgResolver != nil {
-				cfg.OrgResolver = tt.orgResolver
-			}
-
-			engine := &Engine{cfg: cfg}
-
-			// Replicate the org ID resolution logic from start() without
-			// starting goroutines (which would require module mocks, cap
-			// registry, etc.).
-			engine.orgID = ""
-			engine.orgIDMissingReason = ""
-			if cfg.OrgResolver == nil {
-				engine.orgIDMissingReason = "resolver_nil"
-			} else {
-				orgID, gerr := cfg.OrgResolver.Get(context.Background(), cfg.WorkflowOwner)
-				if gerr != nil {
-					engine.orgIDMissingReason = "resolver_error"
-				} else if orgID == "" {
-					engine.orgIDMissingReason = "empty_response"
-				} else {
-					engine.orgID = orgID
-				}
-			}
-
-			require.Equal(t, tt.wantOrgID, engine.orgID)
-			require.Equal(t, tt.wantReason, engine.orgIDMissingReason)
+			orgID, missingReason := resolveOrgID(context.Background(), tt.orgResolver, "owner-1")
+			require.Equal(t, tt.wantOrgID, orgID)
+			require.Equal(t, tt.wantReason, missingReason)
 		})
 	}
 }

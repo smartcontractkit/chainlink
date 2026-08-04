@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -265,6 +266,25 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	return engine, nil
 }
 
+// resolveOrgID resolves the organization ID for the given workflow owner.
+// If resolution fails, the returned orgID is empty and missingReason explains
+// why: "resolver_nil" (OrgResolver not configured), "resolver_error" (Get
+// returned an error), or "empty_response" (Get returned an empty string).
+// On success, missingReason is empty.
+func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflowOwner string) (orgID, missingReason string) {
+	if resolver == nil {
+		return "", "resolver_nil"
+	}
+	orgID, err := resolver.Get(ctx, workflowOwner)
+	if err != nil {
+		return "", "resolver_error"
+	}
+	if orgID == "" {
+		return "", "empty_response"
+	}
+	return orgID, ""
+}
+
 func (e *Engine) start(ctx context.Context) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
@@ -272,21 +292,12 @@ func (e *Engine) start(ctx context.Context) error {
 	// Resolve the workflow owner's org once at engine startup and treat it as stable
 	// for the lifetime of this engine instance. If org membership/linking changes, the
 	// workflow must be restarted to pick up the new org mapping.
-	e.orgID = ""
-	e.orgIDMissingReason = ""
-	if e.cfg.OrgResolver == nil {
-		e.orgIDMissingReason = "resolver_nil"
-	} else {
-		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
-		if gerr != nil {
-			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
-			e.orgIDMissingReason = "resolver_error"
-		} else if orgID == "" {
-			e.orgIDMissingReason = "empty_response"
-		} else {
-			e.orgID = orgID
-		}
+	orgID, missingReason := resolveOrgID(ctx, e.cfg.OrgResolver, e.cfg.WorkflowOwner)
+	if missingReason != "" {
+		e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "reason", missingReason)
 	}
+	e.orgID = orgID
+	e.orgIDMissingReason = missingReason
 	e.storeLoggerLabels(e.eventLabels())
 
 	e.metrics = e.metrics.With(platform.KeyOrganizationID, e.orgID)
