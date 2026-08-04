@@ -134,7 +134,7 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' && needs.filter.outputs.should-run == 'true' }}
     needs: [filter]
     timeout-minutes: 35
-    runs-on: "runs-on=${{ github.run_id }}-deployment-${{ matrix.shard-id }}/cpu=8/ram=32/family=m7i+m8i/spot=false/image=ubuntu24-full-x64/extras=s3-cache"
+    runs-on: "runs-on=${{ github.run_id }}-deployment-${{ matrix.shard-id }}/cpu=8/ram=32/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
     outputs:
       shard-count: ${{ strategy.job-total }}
     permissions:
