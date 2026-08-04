@@ -58,3 +58,48 @@ jobs:
       # develop builds and surfaces non-determinism introduced since then.
       mixed_env_baseline_image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:nightly-${{ needs.set-dates.outputs.baseline }}"
       full_matrix: true
+
+  # There is no PR to block on a scheduled run, so alert the CRE team on Slack when
+  # the sweep fails (a failure usually means non-determinism was introduced into
+  # develop between the two nightlies, or a job/infra error).
+  notify-on-failure:
+    name: Notify Slack on failure
+    if: failure()
+    needs: [set-dates, mixed-env-sweep]
+    runs-on: ubuntu-latest
+    environment:
+      name: integration
+      deployment: false
+    steps:
+      - name: Send Slack notification (#cre-platform-operations)
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        with:
+          errors: "true"
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
+          # If delivery fails, invite the bot to the channel, or replace the name
+          # with the channel ID (Cxxxxxxxx) which chat.postMessage resolves more reliably.
+          payload: |
+            {
+              "channel": "#cre-platform-operations",
+              "text": "CRE Mixed-Env Nightly Sweep failed — possible non-determinism introduced into develop.",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*:rotating_light: CRE Mixed-Env Nightly Sweep failed :rotating_light:*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Today's develop nightly `nightly-${{ needs.set-dates.outputs.today }}` vs baseline `nightly-${{ needs.set-dates.outputs.baseline }}`. A failure usually means *non-determinism was introduced into develop* between these nightlies (or a job/infra error). Run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. Please investigate."
+                  }
+                },
+                {
+                  "type": "divider"
+                }
+              ]
+            }
