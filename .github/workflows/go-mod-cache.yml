@@ -34,7 +34,12 @@ jobs:
       pull-requests: read
     outputs:
       changed: ${{ steps.changes.outputs.src || 'true' }}
+      spot_param: ${{ steps.spot-config.outputs.spot_param }}
     steps:
+      - name: Get Spot Runner Config
+        id: spot-config
+        uses: ./.github/actions/get-runner-spot
+
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
@@ -64,10 +69,10 @@ jobs:
             suffix: "Deployment (Github-hosted)"
             go-mod-directory: "deployment/"
 
-          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/extras=s3-cache
+          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/${{ needs.filter.outputs.spot_param }}/extras=s3-cache
             suffix: "Core (Self-hosted)"
 
-          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/extras=s3-cache
+          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/${{ needs.filter.outputs.spot_param }}/extras=s3-cache
             suffix: "Deployment (Self-hosted)"
             go-mod-directory: "deployment/"
 

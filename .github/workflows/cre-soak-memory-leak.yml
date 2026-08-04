@@ -23,13 +23,22 @@ on:
         type: string
 
 jobs:
+  runner-config:
+    runs-on: ubuntu-latest
+    outputs:
+      spot_param: ${{ steps.spot-config.outputs.spot_param }}
+    steps:
+      - name: Get Spot Runner Config
+        id: spot-config
+        uses: ./.github/actions/get-runner-spot
+
   soak:
     name: CRE Resource Regression Test
+    needs: [runner-config]
     environment:
       name: integration
       deployment: false
-    runs-on: runs-on=${{ github.run_id
-      }}/cpu=32/ram=128/family=m6id+m6idn/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/image=ubuntu24-full-x64/extras=s3-cache
+    runs-on: runs-on=${{ github.run_id }}/cpu=32/ram=128/family=m6id+m6idn/${{ needs.runner-config.outputs.spot_param }}/image=ubuntu24-full-x64/extras=s3-cache
     timeout-minutes: 270 # 4h30m — test timeout is 4h20m
     permissions:
       contents: read

@@ -33,8 +33,13 @@ jobs:
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
         }}
+      spot_param: ${{ steps.spot-config.outputs.spot_param }}
     runs-on: ubuntu-latest
     steps:
+      - name: Get Spot Runner Config
+        id: spot-config
+        uses: ./.github/actions/get-runner-spot
+
       - name: Checkout the repo
         uses: actions/checkout@v7
         with:
@@ -134,7 +139,7 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' && needs.filter.outputs.should-run == 'true' }}
     needs: [filter]
     timeout-minutes: 35
-    runs-on: "runs-on=${{ github.run_id }}-deployment-${{ matrix.shard-id }}/cpu=8/ram=32/family=m6id+m6idn/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/image=ubuntu24-full-x64/extras=s3-cache"
+    runs-on: "runs-on=${{ github.run_id }}-deployment-${{ matrix.shard-id }}/cpu=8/ram=32/family=m6id+m6idn/${{ needs.filter.outputs.spot_param }}/image=ubuntu24-full-x64/extras=s3-cache"
     outputs:
       shard-count: ${{ strategy.job-total }}
     permissions:

@@ -66,6 +66,10 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Get Spot Runner Config
+        id: spot-config
+        uses: ./.github/actions/get-runner-spot
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
@@ -120,16 +124,10 @@ jobs:
 
           test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade)
 
-          IS_NO_SPOT="${{ github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' }}"
-          SPOT_VAL="co"
-          if [[ "$IS_NO_SPOT" == "true" ]]; then
-            SPOT_VAL="false"
-          fi
-
           tests=$(echo "$test_names" | jq -c -R -s \
             --argjson run_id "${{ github.run_id }}" \
             --arg run_attempt "${{ github.run_attempt }}" \
-            --arg spot "$SPOT_VAL" \
+            --arg spot "${{ steps.spot-config.outputs.spot }}" \
             --argjson tops "$TOPOLOGIES_JSON" \
             --argjson per "$PER_TEST_TOPOLOGIES_JSON" '
             (split("\n") | map(select(length>0))) as $names

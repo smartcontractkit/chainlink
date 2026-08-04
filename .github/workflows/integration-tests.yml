@@ -211,6 +211,7 @@ jobs:
       should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
       run-e2e-tests-label-found: ${{ steps.label-runs-e2e-tests.outputs.check-label-found || 'false' }}
       skip-e2e-regression-label-found: ${{ steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
+      spot_param: ${{ steps.spot-config.outputs.spot_param }}
     steps:
       - name: Get PR Labels (runs-on-opt-out)
         if: github.event_name == 'pull_request'
@@ -233,14 +234,18 @@ jobs:
         with:
           check-label: "skip-e2e-regression"
 
+      - name: Get Spot Runner Config
+        id: spot-config
+        uses: ./.github/actions/get-runner-spot
+
       - name: Set runner labels
         id: runner-labels
         env:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
           # include unique label (core/plugins) to ensure jobs are not competing for the same runner
-          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=16/ram=64/family=m7i+m8i/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/extras=s3-cache+tmpfs
-          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=16/ram=64/family=m7i+m8i/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=16/ram=64/family=m7i+m8i/${{ steps.spot-config.outputs.spot_param }}/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=16/ram=64/family=m7i+m8i/${{ steps.spot-config.outputs.spot_param }}/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
@@ -523,9 +528,10 @@ jobs:
          needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true')
       }}
     needs:
+      - labels
       - run-core-cre-e2e-tests-setup
       - run-ccip-v1-6-e2e-tests-setup
-    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i+c8i/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/volume=100GB/extras=s3-cache
+    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i+c8i/${{ needs.labels.outputs.spot_param }}/volume=100GB/extras=s3-cache
     environment:
       name: integration
       deployment: false
