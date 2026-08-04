@@ -108,6 +108,11 @@ func setupHandler(t *testing.T, numNodes int) (*handler, *common.Callback, *mock
 
 func setupHandlerWithF(t *testing.T, numNodes, f int) (*handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
 	t.Helper()
+	return setupHandlerWithConfig(t, numNodes, f, Config{RequestTimeoutSec: 30})
+}
+
+func setupHandlerWithConfig(t *testing.T, numNodes, f int, handlerConfig Config) (*handler, *common.Callback, *mocks.DON, *clockwork.FakeClock) {
+	t.Helper()
 	lggr := logger.Test(t)
 	don := mocks.NewDON(t)
 
@@ -123,9 +128,6 @@ func setupHandlerWithF(t *testing.T, numNodes, f int) (*handler, *common.Callbac
 		DonId:   "test_relay_don",
 		F:       f,
 		Members: members,
-	}
-	handlerConfig := Config{
-		RequestTimeoutSec: 30,
 	}
 	methodConfig, err := json.Marshal(handlerConfig)
 	require.NoError(t, err)
@@ -517,7 +519,9 @@ func TestConfidentialRelayHandler_BundlerErrorReturnsFatal(t *testing.T) {
 // F+1 floor.
 func TestConfidentialRelayHandler_TimeoutForwardsPartialBundle(t *testing.T) {
 	t.Parallel()
-	h, cb, don, clock := setupHandler(t, 4)
+	// Grace disabled so the expiry path is the only one that can answer here; the
+	// grace window covers the same shape in TestConfidentialRelayHandler_QuorumGrace*.
+	h, cb, don, clock := setupHandlerWithConfig(t, 4, 1, Config{RequestTimeoutSec: 30, QuorumGraceMillis: -1})
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
 	params := validCapParamsJSON("wf1")
@@ -609,6 +613,150 @@ func TestConfidentialRelayHandler_TimeoutNoResponses(t *testing.T) {
 	clock.Advance(31 * time.Second)
 	h.removeExpiredRequests(t.Context())
 	wg.Wait()
+}
+
+// Production shape from the staging incident: F=3 / N=10, two nodes answer with
+// JSON-RPC errors and two never answer, so signed tops out at 6 - above minQuorum=4
+// but below earlyNeed=7. Without the grace window the request is held until
+// requestTimeout and the bundle is forwarded after the caller's HTTP deadline has
+// already returned 503.
+func TestConfidentialRelayHandler_QuorumGraceForwardsPartialBundle(t *testing.T) {
+	t.Parallel()
+	h, cb, don, clock := setupHandlerWithF(t, 10, 3)
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	params := validCapParamsJSON("wf1")
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-grace",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+	result := relaytypes.CapabilityResponseResult{Payload: "result"}
+
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+
+	for i := range 2 {
+		errResp := &jsonrpc.Response[json.RawMessage]{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      req.ID,
+			Method:  MethodCapabilityExec,
+			Error:   &jsonrpc.WireError{Code: -32602, Message: "execution handler for workflow not found"},
+		}
+		require.NoError(t, h.HandleNodeMessage(t.Context(), errResp, fmt.Sprintf("0x%04d", i)))
+	}
+	for i := 2; i < 8; i++ {
+		require.NoError(t, h.HandleNodeMessage(t.Context(),
+			capExecSignedRespPtr(t, req.ID, result, fmt.Appendf(nil, "signer-%d", i)),
+			fmt.Sprintf("0x%04d", i),
+		))
+	}
+	require.NotNil(t, h.getActiveRequest(req.ID), "signed=6 is below earlyNeed=7, so the request stays open")
+
+	// The grace window was armed by the 4th signed response and has not elapsed yet.
+	clock.Advance(defaultQuorumGraceMillis*time.Millisecond - time.Second)
+	require.NotNil(t, h.getActiveRequest(req.ID), "must not forward before the grace window elapses")
+
+	clock.Advance(2 * time.Second)
+
+	resp, err := cb.Wait(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, api.NoError, resp.ErrorCode)
+	var jsonResp jsonrpc.Response[json.RawMessage]
+	require.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+	var bundle relaytypes.SignedCapabilityResponseBundle
+	require.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+	require.Len(t, bundle.Responses, 6, "every collected signed response is forwarded")
+	require.Nil(t, h.getActiveRequest(req.ID))
+}
+
+// The grace window only bounds the wait; reaching earlyNeed still forwards
+// immediately, and the pending timer must not answer the request a second time.
+func TestConfidentialRelayHandler_QuorumGraceYieldsToEarlyForward(t *testing.T) {
+	t.Parallel()
+	h, cb, don, clock := setupHandler(t, 4) // F=1: minQuorum=2, earlyNeed=3
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	params := validCapParamsJSON("wf1")
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-grace-early",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+	result := relaytypes.CapabilityResponseResult{Payload: "result"}
+
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+	for i := range 3 {
+		require.NoError(t, h.HandleNodeMessage(t.Context(),
+			capExecSignedRespPtr(t, req.ID, result, fmt.Appendf(nil, "signer-%d", i)),
+			fmt.Sprintf("0x%04d", i),
+		))
+	}
+
+	resp, err := cb.Wait(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, api.NoError, resp.ErrorCode)
+	require.Nil(t, h.getActiveRequest(req.ID))
+
+	// The grace timer armed at the second signed response is stopped on completion;
+	// firing it must not resurrect or re-answer the request.
+	clock.Advance(2 * defaultQuorumGraceMillis * time.Millisecond)
+	require.Nil(t, h.getActiveRequest(req.ID))
+}
+
+// A request that never reaches minQuorum arms no grace timer and is left to expiry.
+func TestConfidentialRelayHandler_QuorumGraceNotArmedBelowQuorum(t *testing.T) {
+	t.Parallel()
+	h, cb, don, clock := setupHandler(t, 4) // F=1: minQuorum=2
+	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+
+	params := validCapParamsJSON("wf1")
+	req := jsonrpc.Request[json.RawMessage]{
+		ID:     "req-grace-below",
+		Method: MethodCapabilityExec,
+		Params: &params,
+	}
+	result := relaytypes.CapabilityResponseResult{Payload: "result"}
+
+	require.NoError(t, h.HandleJSONRPCUserMessage(t.Context(), req, cb))
+	require.NoError(t, h.HandleNodeMessage(t.Context(),
+		capExecSignedRespPtr(t, req.ID, result, []byte("signer-0")), "0x0000"))
+
+	ar := h.getActiveRequest(req.ID)
+	require.NotNil(t, ar)
+	require.False(t, ar.graceStarted.Load(), "one signed response is below minQuorum=2")
+
+	clock.Advance(2 * defaultQuorumGraceMillis * time.Millisecond)
+	require.NotNil(t, h.getActiveRequest(req.ID), "only expiry may complete a below-quorum request")
+}
+
+func TestConfidentialRelayHandler_QuorumGraceConfig(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name        string
+		cfg         Config
+		wantGraceMs int64
+	}{
+		{"defaults when unset", Config{}, defaultQuorumGraceMillis},
+		{"honours explicit value", Config{RequestTimeoutSec: 30, QuorumGraceMillis: 2500}, 2500},
+		{"clamped to request timeout", Config{RequestTimeoutSec: 5, QuorumGraceMillis: 20000}, 5000},
+		{"default clamped by short request timeout", Config{RequestTimeoutSec: 3}, 3000},
+		{"negative disables the grace window", Config{RequestTimeoutSec: 30, QuorumGraceMillis: -1}, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			lggr := logger.Test(t)
+			methodConfig, err := json.Marshal(tc.cfg)
+			require.NoError(t, err)
+			donConfig := &config.DONConfig{DonId: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
+			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
+
+			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory)
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.wantGraceMs, h.quorumGrace.Milliseconds())
+			assert.LessOrEqual(t, h.quorumGrace, h.requestTimeout)
+		})
+	}
 }
 
 func TestConfidentialRelayHandler_DuplicateRequestID(t *testing.T) {
