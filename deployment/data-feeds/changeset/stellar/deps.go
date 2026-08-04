@@ -1,6 +1,7 @@
 package stellar
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -21,6 +22,43 @@ var newStellarDeps = func(ch cldfstellar.Chain) (operation.StellarDeps, error) {
 		return operation.StellarDeps{}, err
 	}
 	return operation.StellarDeps{Deploy: d, Invoker: d}, nil
+}
+
+// chainDeps resolves the CLDF Stellar chain for chainSel and builds its
+// deploy/invoke deps.
+func chainDeps(env cldf.Environment, chainSel uint64) (cldfstellar.Chain, operation.StellarDeps, error) {
+	ch, ok := env.BlockChains.StellarChains()[chainSel]
+	if !ok {
+		return cldfstellar.Chain{}, operation.StellarDeps{}, fmt.Errorf("stellar chain not found for chain selector %d", chainSel)
+	}
+	deps, err := newStellarDeps(ch)
+	return ch, deps, err
+}
+
+// ownerOrSigner defaults an empty owner to the chain's deployer signer.
+func ownerOrSigner(ch cldfstellar.Chain, owner string) (string, error) {
+	if owner != "" {
+		return owner, nil
+	}
+	if ch.Signer == nil {
+		return "", errors.New("owner not set and chain has no signer")
+	}
+	return ch.Signer.Address(), nil
+}
+
+// recordAddress returns a ChangesetOutput whose datastore holds the deployed
+// contract's AddressRef.
+func recordAddress(address string, chainSel uint64, contractType datastore.ContractType, qualifier, version string, labels datastore.LabelSet) (cldf.ChangesetOutput, error) {
+	var out cldf.ChangesetOutput
+	out.DataStore = datastore.NewMemoryDataStore()
+	return out, out.DataStore.Addresses().Add(datastore.AddressRef{
+		Address:       address,
+		ChainSelector: chainSel,
+		Type:          contractType,
+		Version:       semver.MustParse(version),
+		Qualifier:     qualifier,
+		Labels:        labels,
+	})
 }
 
 // stellarApplyDeps bundles a resolved contract's address with the chain deps

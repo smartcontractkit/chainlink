@@ -50,25 +50,16 @@ func (DeployCache) VerifyPreconditions(env cldf.Environment, req *DeployCacheReq
 
 func (DeployCache) Apply(env cldf.Environment, req *DeployCacheRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	ch, ok := env.BlockChains.StellarChains()[req.ChainSel]
-	if !ok {
-		return out, fmt.Errorf("stellar chain not found for chain selector %d", req.ChainSel)
+	ch, deps, err := chainDeps(env, req.ChainSel)
+	if err != nil {
+		return out, err
 	}
-
-	deps, err := newStellarDeps(ch)
+	owner, err := ownerOrSigner(ch, req.Owner)
 	if err != nil {
 		return out, err
 	}
 
-	owner := req.Owner
-	if owner == "" {
-		if ch.Signer == nil {
-			return out, fmt.Errorf("owner not set and chain has no signer")
-		}
-		owner = ch.Signer.Address()
-	}
 	salt := stellardeploy.GenerateDeterministicSalt(owner, "data_feeds_cache-"+req.Qualifier)
-
 	report, err := operations.ExecuteOperation(env.OperationsBundle, operation.DeployCache, deps, operation.DeployCacheInput{
 		WasmPath: req.WasmPath,
 		Salt:     salt,
@@ -77,14 +68,5 @@ func (DeployCache) Apply(env cldf.Environment, req *DeployCacheRequest) (cldf.Ch
 	if err != nil {
 		return out, err
 	}
-
-	out.DataStore = datastore.NewMemoryDataStore()
-	return out, out.DataStore.Addresses().Add(datastore.AddressRef{
-		Address:       report.Output.ContractID,
-		ChainSelector: req.ChainSel,
-		Type:          CacheContract,
-		Version:       semver.MustParse(req.Version),
-		Qualifier:     req.Qualifier,
-		Labels:        req.LabelSet,
-	})
+	return recordAddress(report.Output.ContractID, req.ChainSel, CacheContract, req.Qualifier, req.Version, req.LabelSet)
 }

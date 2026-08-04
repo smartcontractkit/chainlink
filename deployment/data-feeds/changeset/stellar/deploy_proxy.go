@@ -54,33 +54,22 @@ func (DeployProxy) VerifyPreconditions(env cldf.Environment, req *DeployProxyReq
 
 func (DeployProxy) Apply(env cldf.Environment, req *DeployProxyRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	ch, ok := env.BlockChains.StellarChains()[req.ChainSel]
-	if !ok {
-		return out, fmt.Errorf("stellar chain not found for chain selector %d", req.ChainSel)
+	ch, deps, err := chainDeps(env, req.ChainSel)
+	if err != nil {
+		return out, err
 	}
-
-	version := semver.MustParse(req.Version)
 	cacheRef, err := env.DataStore.Addresses().Get(
-		datastore.NewAddressRefKey(req.ChainSel, CacheContract, version, req.CacheQualifier),
+		datastore.NewAddressRefKey(req.ChainSel, CacheContract, semver.MustParse(req.Version), req.CacheQualifier),
 	)
 	if err != nil {
 		return out, fmt.Errorf("cache address ref not found for qualifier %q: %w", req.CacheQualifier, err)
 	}
-
-	deps, err := newStellarDeps(ch)
+	owner, err := ownerOrSigner(ch, req.Owner)
 	if err != nil {
 		return out, err
 	}
 
-	owner := req.Owner
-	if owner == "" {
-		if ch.Signer == nil {
-			return out, fmt.Errorf("owner not set and chain has no signer")
-		}
-		owner = ch.Signer.Address()
-	}
 	salt := stellardeploy.GenerateDeterministicSalt(owner, "data_feeds_proxy-"+req.Qualifier)
-
 	report, err := operations.ExecuteOperation(env.OperationsBundle, operation.DeployProxy, deps, operation.DeployProxyInput{
 		WasmPath: req.WasmPath,
 		Salt:     salt,
@@ -90,14 +79,5 @@ func (DeployProxy) Apply(env cldf.Environment, req *DeployProxyRequest) (cldf.Ch
 	if err != nil {
 		return out, err
 	}
-
-	out.DataStore = datastore.NewMemoryDataStore()
-	return out, out.DataStore.Addresses().Add(datastore.AddressRef{
-		Address:       report.Output.ContractID,
-		ChainSelector: req.ChainSel,
-		Type:          ProxyContract,
-		Version:       version,
-		Qualifier:     req.Qualifier,
-		Labels:        req.LabelSet,
-	})
+	return recordAddress(report.Output.ContractID, req.ChainSel, ProxyContract, req.Qualifier, req.Version, req.LabelSet)
 }
