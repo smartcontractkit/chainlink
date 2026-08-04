@@ -25,14 +25,14 @@ data-feeds/changeset/stellar/
 
 Each changeset's `Apply` resolves a `datastore.AddressRef` (chain selector +
 `ContractType` + version + qualifier) to a `stellarApplyDeps` bundle — the
-contract ID plus the `stellardeps.StellarDeps` (Deploy + Invoker) needed to
+contract ID plus the `operation.StellarDeps` (Deploy + Invoker) needed to
 call it — then executes one or more `operation.*` calls from
 `operation/operation.go` through `env.OperationsBundle`. Operations are thin:
 each wraps exactly one generated-binding call
 (`chainlink-stellar/bindings/contracts/data_feeds_{cache,proxy}`) or one
-`stellardeps.Deploy` call. `deps.go`'s `verifyContractRef` /
-`resolveContractDeps` hold the chain-exists + version-parse + ref-exists +
-build-deps skeleton shared by every changeset in this package.
+deployer call. `deps.go`'s `verifyContractRef` / `resolveContractDeps` hold
+the chain-exists + version-parse + ref-exists + build-deps skeleton shared by
+every changeset in this package.
 
 #### Permissions model — no standalone "set forwarder"
 
