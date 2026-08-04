@@ -30,8 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -115,15 +113,6 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, err
 	}
-	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
-		GlobalRPS:      defaultRPS,
-		GlobalBurst:    defaultBurst,
-		PerSenderRPS:   defaultRPS,
-		PerSenderBurst: defaultBurst,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   1000000000,
 		PerOwner: 1000000000,
@@ -143,35 +132,7 @@ func NewStandaloneEngine(
 	}
 
 	if module.IsLegacyDAG() {
-		sdkSpec, specErr := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
-		if specErr != nil {
-			return nil, nil, specErr
-		}
-
-		cfg := workflows.Config{
-			Lggr:                 lggr,
-			Workflow:             *sdkSpec,
-			WorkflowID:           defaultWorkflowID,
-			WorkflowOwner:        defaultOwner,
-			WorkflowName:         name,
-			Registry:             registry,
-			Store:                store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
-			Config:               config,
-			Binary:               binary,
-			SecretsFetcher:       SecretsFor,
-			RateLimiter:          rl,
-			WorkflowLimits:       workflowLimits,
-			NewWorkerTimeout:     time.Minute,
-			StepTimeout:          time.Minute,
-			MaxExecutionDuration: time.Minute,
-			BillingClient:        billingClient,
-		}
-
-		engine, engineErr := workflows.NewEngine(ctx, cfg)
-		if engineErr != nil {
-			return nil, nil, engineErr
-		}
-		return engine, nil, nil
+		return nil, nil, fmt.Errorf("legacy DAG workflows are not supported")
 	}
 
 	secretsFetcher, err := NewFileBasedSecrets(secrets)
