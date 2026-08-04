@@ -90,12 +90,15 @@ jobs:
   runner-config:
     name: Runner Config
     runs-on: ubuntu-latest
+    outputs:
+      go-runner: ${{ steps.go-codeql.outputs.go-runner }}
+      spot_param: ${{ steps.spot-config.outputs.spot_param }}
     permissions:
       pull-requests: read
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Get Spot Runner Config
         id: spot-config

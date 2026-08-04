@@ -213,7 +213,7 @@ jobs:
       spot_param: ${{ steps.spot-config.outputs.spot_param }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Get PR Labels (runs-on-opt-out)
         if: github.event_name == 'pull_request'

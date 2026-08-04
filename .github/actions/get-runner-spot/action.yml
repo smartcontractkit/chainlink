@@ -15,10 +15,25 @@ runs:
     - name: Evaluate Spot Strategy
       id: eval-spot
       shell: bash
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        REF: ${{ github.ref }}
+        REF_NAME: ${{ github.ref_name }}
       run: |
-        IS_MERGE_QUEUE="${{ github.event_name == 'merge_group' }}"
-        IS_RELEASE_BRANCH="${{ startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') }}"
-        IS_RELEASE_TAG_OR_EVENT="${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' }}"
+        IS_MERGE_QUEUE="false"
+        if [[ "$EVENT_NAME" == "merge_group" ]]; then
+          IS_MERGE_QUEUE="true"
+        fi
+
+        IS_RELEASE_BRANCH="false"
+        if [[ "$REF" == refs/heads/release/* || "$REF_NAME" == release/* ]]; then
+          IS_RELEASE_BRANCH="true"
+        fi
+
+        IS_RELEASE_TAG_OR_EVENT="false"
+        if [[ "$REF" == refs/tags/v* || "$EVENT_NAME" == "release" ]]; then
+          IS_RELEASE_TAG_OR_EVENT="true"
+        fi
 
         if [[ "$IS_MERGE_QUEUE" == "true" || "$IS_RELEASE_BRANCH" == "true" || "$IS_RELEASE_TAG_OR_EVENT" == "true" ]]; then
           echo "Run is merge_group or release flow. Using spot=false."
