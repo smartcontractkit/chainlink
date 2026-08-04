@@ -187,7 +187,7 @@ jobs:
             echo "::endgroup::"
           fi
 
-      - name: Render mixed-env topology
+      - name: Verify images exist & render mixed-env topology
         working-directory: core/scripts/cre/environment
         shell: bash
         env:
@@ -207,6 +207,22 @@ jobs:
           export CRE_PR_IMAGE CRE_BASELINE_IMAGE
           echo "PR image:       ${CRE_PR_IMAGE}"
           echo "Baseline image: ${CRE_BASELINE_IMAGE}"
+          # Fail fast with a clear error if either image is missing from the registry
+          # (e.g. a transient build/registry failure, or the develop nightly hasn't been
+          # published yet) instead of failing deep inside env start.
+          missing=0
+          for img in "${CRE_PR_IMAGE}" "${CRE_BASELINE_IMAGE}"; do
+            if docker manifest inspect "${img}" >/dev/null 2>&1; then
+              echo "Found image: ${img}"
+            else
+              echo "::error::Required mixed-env image is not available in the registry: ${img}"
+              missing=1
+            fi
+          done
+          if [[ "${missing}" -ne 0 ]]; then
+            echo "Re-run once the image is available, or override the develop side via the mixed_env_baseline_image input."
+            exit 1
+          fi
           bash configs/render-mixed-env.sh
 
       - name: Start local CRE
@@ -280,34 +296,14 @@ jobs:
           fi
 
       - name: Check for non-determinism
-        # Hard gate. The smoke step above is continue-on-error (auto-quarantine),
-        # which would swallow the in-test TestMain scan, so re-scan the live node
-        # containers here and fail the job on any marker.
+        # Hard gate. The smoke step above is continue-on-error (auto-quarantine), which
+        # would swallow the in-test TestMain scan, so re-scan the live node containers
+        # here and fail the job on any marker. Reuses the Go scanner and needle list from
+        # test-helpers/nondeterminism_scan.go (no duplicated marker list in bash).
         if: ${{ always() }}
         shell: bash
-        run: |
-          set -uo pipefail
-          markers=(
-            "This is commonly caused by non-determinism"
-            "received messages with the same id and different payloads"
-            "received multiple unique responses for the same request"
-            "response quorum unreachable"
-          )
-          hit=0
-          for c in $(docker ps -a --format '{{.Names}}'); do
-            logs="$(docker logs "$c" 2>&1 || true)"
-            for m in "${markers[@]}"; do
-              if grep -qF -- "$m" <<<"$logs"; then
-                echo "::error::Non-Determinism introduced — container=${c} marker=\"${m}\""
-                hit=1
-              fi
-            done
-          done
-          if [[ "${hit}" -ne 0 ]]; then
-            echo "Non-Determinism introduced: PR and develop nodes disagreed."
-            exit 1
-          fi
-          echo "mixed-env non-determinism check: no markers found"
+        working-directory: system-tests/tests
+        run: go run ./cmd/mixed-env-nondeterminism-check
 
       - name:
           Analyze and upload test results (${{ steps.run-tests.outputs.tests_result

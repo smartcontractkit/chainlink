@@ -9,23 +9,6 @@ import (
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
-// nonDeterminismNeedles are log substrings that mean two nodes in the same DON
-// computed different results — the exact signal the mixed-env topology is built to
-// surface. They are silent when every node runs identical code, so a single hit is
-// a reliable indicator that the PR diverged from develop.
-// See core/scripts/cre/environment/docs/mixed-env.md.
-var nonDeterminismNeedles = []string{
-	// libocr OCR3 consensus: a peer's report/commit signature failed to verify
-	// against this node's own computed report (report-attestation + commit phases).
-	"This is commonly caused by non-determinism",
-	// DON2DON remote-capability request aggregation (server side): the same
-	// request id arrived with more than one distinct payload hash.
-	"received messages with the same id and different payloads",
-	// DON2DON remote-capability response aggregation (client side).
-	"received multiple unique responses for the same request",
-	"response quorum unreachable",
-}
-
 // nonDeterminismFailurePrefix is emitted (and shows up in CI logs / JUnit output)
 // when the check trips, so the failure reason is unambiguous.
 const nonDeterminismFailurePrefix = "Non-Determinism introduced"
@@ -61,7 +44,7 @@ func nonDeterminismCheckEnabled() bool {
 // as "not found" (best-effort) so we never fail a run just because logs were
 // unreadable.
 func reportNonDeterminism() bool {
-	hits, err := t_helpers.ScanContainersForNeedles(nonDeterminismNeedles)
+	hits, err := t_helpers.ScanContainersForNeedles(t_helpers.NonDeterminismNeedles)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s check skipped: could not read container logs: %v\n", nonDeterminismFailurePrefix, err)
 		return false

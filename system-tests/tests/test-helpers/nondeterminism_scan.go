@@ -8,6 +8,22 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 )
 
+// NonDeterminismNeedles are the node-log substrings that indicate two nodes in the
+// same DON computed different results — the signal the mixed-env topology surfaces.
+// They are silent when every node runs identical code. Single source of truth shared
+// by the smoke-suite TestMain and the CI gate (cmd/mixed-env-nondeterminism-check).
+// See core/scripts/cre/environment/docs/mixed-env.md.
+var NonDeterminismNeedles = []string{
+	// libocr OCR3 consensus: a peer's report/commit signature failed to verify
+	// against this node's own computed report (report-attestation + commit phases).
+	"This is commonly caused by non-determinism",
+	// DON2DON remote-capability request aggregation (server side).
+	"received messages with the same id and different payloads",
+	// DON2DON remote-capability response aggregation (client side).
+	"received multiple unique responses for the same request",
+	"response quorum unreachable",
+}
+
 // NeedleHit records a forbidden log substring found in a container's logs.
 type NeedleHit struct {
 	Container string
