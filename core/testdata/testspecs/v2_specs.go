@@ -1,22 +1,18 @@
 package testspecs
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"strconv"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -860,85 +856,5 @@ func (w WorkflowJobSpec) Toml() string {
 func (w WorkflowJobSpec) Job() job.Job {
 	return w.j
 }
-
-// GenerateWorkflowJobSpec creates a WorkflowJobSpec from the given workflow yaml spec string
-func GenerateWorkflowJobSpec(t *testing.T, spec string) WorkflowJobSpec {
-	t.Helper()
-	sum := sha256.Sum256([]byte(spec))
-	id := fmt.Sprintf("%x", sum)
-	template := `
-type = "workflow"
-schemaVersion = 1
-name = "test-spec"
-workflowId = "%s"
-workflow = """
-%s
-"""
-`
-
-	toml := fmt.Sprintf(template, id, spec)
-	j, err := workflows.ValidatedWorkflowJobSpec(testutils.Context(t), toml)
-	require.NoError(t, err, "failed to validate TOML job spec for workflow %s", toml)
-	return WorkflowJobSpec{toml: toml, j: j}
-}
-
-func DefaultWorkflowJobSpec(t *testing.T) WorkflowJobSpec {
-	return GenerateWorkflowJobSpec(t, defaultWFYamlSpec)
-}
-
-var defaultWFYamlSpec = `
-name: "myworkflow"
-owner: "0x00000000000000000000000000000000000000aa"
-triggers:
-  - id: "a-trigger@1.0.0"
-    config: {}
-
-actions:
-  - id: "an-action@1.0.0"
-    ref: "an-action"
-    config: {}
-    inputs:
-      trigger_output: $(trigger.outputs)
-
-consensus:
-  - id: "a-consensus@1.0.0"
-    ref: "a-consensus"
-    config: {}
-    inputs:
-      trigger_output: $(trigger.outputs)
-      an-action_output: $(an-action.outputs)
-
-targets:
-  - id: "a-target@1.0.0"
-    config: {}
-    ref: "a-target"
-    inputs:
-      consensus_output: $(a-consensus.outputs)
-`
-var OCR2EVMDualTransmissionSpecMinimalTemplate = `
-type = "offchainreporting2"
-schemaVersion = 1
-name = "test-job"
-relay = "evm"
-contractID = "0x613a38AC1659769640aaE063C651F48E0250454C"
-p2pv2Bootstrappers = []
-transmitterID = "%s"
-pluginType         = "median"
-observationSource = """
-	ds          [type=http method=GET url="https://chain.link/ETH-USD"];
-	ds_parse    [type=jsonparse path="data.price" separator="."];
-	ds_multiply [type=multiply times=100];
-	ds -> ds_parse -> ds_multiply;
-"""
-[pluginConfig]
-juelsPerFeeCoinSource = """
-	ds          [type=http method=GET url="https://chain.link/ETH-USD"];
-	ds_parse    [type=jsonparse path="data.price" separator="."];
-	ds_multiply [type=multiply times=100];
-	ds -> ds_parse -> ds_multiply;
-"""
-[relayConfig]
-chainID = 0
-`
 
 func GetCRESettingsSpec() string { return CRESettingsSpec }
