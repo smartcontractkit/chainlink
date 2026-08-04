@@ -93,7 +93,13 @@ jobs:
     name: Define Test Matrix
     runs-on: ubuntu-latest
     needs: [changes]
-    if: always() && github.actor != 'dependabot[bot]' && (github.event_name == 'workflow_call' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.run-tests == 'true')
+    # `changes` only runs for pull_request/merge_group, so a 'skipped' result means we
+    # arrived via schedule, workflow_dispatch, or workflow_call and should always run.
+    # Do NOT gate on `github.event_name == 'workflow_call'`: inside a reusable workflow
+    # the github context belongs to the *caller*, so event_name is the caller's trigger
+    # (e.g. 'schedule' for the nightly) and never 'workflow_call'.
+    # Tag pushes stay a no-op, as before.
+    if: always() && github.actor != 'dependabot[bot]' && github.event_name != 'push' && (needs.changes.result == 'skipped' || needs.changes.outputs.run-tests == 'true')
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
     permissions:
@@ -116,8 +122,13 @@ jobs:
             --arg run_attempt "${{ github.run_attempt }}" '
             to_entries
             | map(.value + {
-                test_id: .key,
+                # Stable, human-readable id for artifact names. `.name` is unique across
+                # entries; sanitized so it is always a legal artifact name. Deliberately
+                # not the array index, which shifts whenever an entry is added or removed.
+                test_id: (.value.name | gsub("[^A-Za-z0-9._-]"; "_")),
                 job_timeout: (((.value.timeout | rtrimstr("m") | tonumber) + 5)),
+                # The runner label only needs per-run uniqueness, so the index is fine
+                # here and keeps the label short enough for runs-on.
                 runs_on: (if .value.runs_on == "" or .value.runs_on == null then "ubuntu-latest" else "runs-on=\($run_id)-\(.key)-\($run_attempt)/\(.value.runs_on)/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs" end)
               })
           ' .github/in-memory-tests.json)
@@ -353,19 +364,31 @@ jobs:
     if: always()
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs: [compile-tests, run-tests]
+    # Every job in the chain is listed so a failure upstream of the tests cannot report
+    # green here by leaving the downstream jobs 'skipped'.
+    needs: [changes, define-test-matrix, compile-tests, run-tests]
     steps:
       - name: Check test status
         env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          MATRIX_RESULT: ${{ needs.define-test-matrix.result }}
           COMPILE_RESULT: ${{ needs.compile-tests.result }}
           TESTS_RESULT: ${{ needs.run-tests.result }}
         run: |
-          if [ "${{ env.COMPILE_RESULT }}" = "failure" ] || [ "${{ env.COMPILE_RESULT }}" = "cancelled" ]; then
-            echo "Compilation of in-memory test binaries failed or was cancelled."
-            exit 1
-          fi
-          if [ "${{ env.TESTS_RESULT }}" = "failure" ] || [ "${{ env.TESTS_RESULT }}" = "cancelled" ]; then
-            echo "Integration in-memory tests failed or were cancelled."
+          fail_on() {
+            case "$2" in
+              failure|cancelled)
+                echo "$1 $2."
+                return 1
+                ;;
+            esac
+          }
+          status=0
+          fail_on "Path filtering (changes) job" "$CHANGES_RESULT" || status=1
+          fail_on "Test matrix definition" "$MATRIX_RESULT" || status=1
+          fail_on "Compilation of in-memory test binaries" "$COMPILE_RESULT" || status=1
+          fail_on "Integration in-memory tests" "$TESTS_RESULT" || status=1
+          if [ "$status" -ne 0 ]; then
             exit 1
           fi
           echo "Integration in-memory tests passed or were skipped."

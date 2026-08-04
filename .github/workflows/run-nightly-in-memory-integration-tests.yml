@@ -15,6 +15,10 @@ on:
 
 permissions:
   contents: read
+  # A called workflow cannot elevate above the caller's permissions, and
+  # integration-in-memory-tests.yml's compile-tests job needs id-token: write to mint an
+  # OIDC token for GATI.
+  id-token: write
 
 jobs:
   in-memory-tests:
