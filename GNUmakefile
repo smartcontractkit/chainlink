@@ -80,31 +80,28 @@ chainlink-test: ## Build a test build of chainlink binary.
 install-loopinstall:
 	go install github.com/smartcontractkit/chainlink-common/pkg/loop/cmd/loopinstall
 
-# loopinstall concurrency is kept at 3 (not higher) to bound peak RSS during the
-# parallel remote-plugin builds in the Docker build-remote-plugins stage; at 5 the
-# concurrent go builds (go-ethereum/solana/cosmos-wasmvm cgo, etc.) OOM-kill on 32GB runners.
 .PHONY: install-plugins-public
 install-plugins-public: ## Build & install public remote LOOPP binaries (plugins).
 	@if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
-		go tool loopinstall --concurrency 3 $(LOOPINSTALL_PUBLIC_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json ./plugins/plugins.public.yaml; \
+		go tool loopinstall --concurrency 5 $(LOOPINSTALL_PUBLIC_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json ./plugins/plugins.public.yaml; \
 	else \
-		go tool loopinstall --concurrency 3 $(LOOPINSTALL_PUBLIC_ARGS) ./plugins/plugins.public.yaml; \
+		go tool loopinstall --concurrency 5 $(LOOPINSTALL_PUBLIC_ARGS) ./plugins/plugins.public.yaml; \
 	fi
 
 .PHONY: install-plugins-private
 install-plugins-private: ## Build & install private remote LOOPP binaries (plugins).
 	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
-		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 3 $(LOOPINSTALL_PRIVATE_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json ./plugins/plugins.private.yaml; \
 	else \
-		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 3 $(LOOPINSTALL_PRIVATE_ARGS) ./plugins/plugins.private.yaml; \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_PRIVATE_ARGS) ./plugins/plugins.private.yaml; \
 	fi
 
 .PHONY: install-plugins-testing
 install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins).
 	if [ -n "$(CL_LOOPINSTALL_OUTPUT_DIR)" ]; then \
-		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 3 $(LOOPINSTALL_TESTING_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json ./plugins/plugins.testing.yaml; \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) --output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json ./plugins/plugins.testing.yaml; \
 	else \
-		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 3 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.testing.yaml; \
+		GOPRIVATE=github.com/smartcontractkit/* go tool loopinstall --concurrency 5 $(LOOPINSTALL_TESTING_ARGS) ./plugins/plugins.testing.yaml; \
 	fi
 
 .PHONY: install-plugins-local
