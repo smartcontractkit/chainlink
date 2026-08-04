@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/stellar"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 )
 
@@ -26,7 +27,7 @@ func DeployStellarTestReceiver(ctx context.Context, chain *stellchain.Blockchain
 		return "", fmt.Errorf("failed to fund stellar deployer %s via friendbot: %w", owner, fundErr)
 	}
 
-	buildCfg, err := stellarBuildConfig(ctx, stellar.ReceiverWasm)
+	buildCfg, err := helpers.BuildStellarConfigFor(ctx, stellar.ReceiverWasm)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve stellar receiver WASM source: %w", err)
 	}
@@ -68,7 +69,7 @@ func DeployStellarRejectingReceiver(ctx context.Context, chain *stellchain.Block
 		return "", fmt.Errorf("failed to fund stellar deployer %s via friendbot: %w", owner, fundErr)
 	}
 
-	buildCfg, err := stellarBuildConfig(ctx, stellar.RejectingReceiverWasm)
+	buildCfg, err := helpers.BuildStellarConfigFor(ctx, stellar.RejectingReceiverWasm)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve stellar rejecting receiver WASM source: %w", err)
 	}

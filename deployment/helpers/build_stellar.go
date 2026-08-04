@@ -1,12 +1,20 @@
 package helpers
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+)
+
+const (
+	// EnvStellarSourceDir names a writable chainlink-stellar checkout to compile contract WASM from. When unset, the pinned Go module's own directory is used.
+	EnvStellarSourceDir = "STELLAR_CONTRACTS_SOURCE_DIR"
+	stellarGoModule     = "github.com/smartcontractkit/chainlink-stellar"
 )
 
 // LocalStellarBuildConfig controls building a contract WASM from source with the Soroban toolchain.
@@ -49,6 +57,57 @@ func (c BuildStellarConfig) WASMPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(c.DestinationDir, f), nil
+}
+
+// BuildStellarConfigFor resolves how to compile the named contract WASM the artifact
+// filename, e.g. chainlink-stellar deployment/cre.ForwarderWasm, re-exported by deployment/cre/stellar.
+func BuildStellarConfigFor(ctx context.Context, artifactFile string) (BuildStellarConfig, error) {
+	destDir, err := os.MkdirTemp("", "stellar-wasm-")
+	if err != nil {
+		return BuildStellarConfig{}, fmt.Errorf("create stellar wasm dest dir: %w", err)
+	}
+	cfg := BuildStellarConfig{DestinationDir: destDir, ArtifactFile: artifactFile}
+
+	// An explicit checkout wins. It is writable, so cargo can use its default target dir.
+	if src := os.Getenv(EnvStellarSourceDir); src != "" {
+		cfg.LocalBuild = LocalStellarBuildConfig{BuildLocally: true, SourceDir: src}
+		return cfg, nil
+	}
+
+	srcDir, err := stellarModuleDir(ctx)
+	if err != nil {
+		return BuildStellarConfig{}, fmt.Errorf(
+			"no Stellar contract sources available: set %s to a chainlink-stellar checkout, or ensure module %s is on disk: %w",
+			EnvStellarSourceDir, stellarGoModule, err)
+	}
+	cfg.LocalBuild = LocalStellarBuildConfig{
+		BuildLocally: true,
+		SourceDir:    srcDir,
+		// The module cache is read-only, so cargo cannot write target/ inside it.
+		CargoTargetDir: filepath.Join(destDir, "cargo-target"),
+	}
+	return cfg, nil
+}
+
+// stellarModuleDir returns the on-disk directory of the pinned chainlink-stellar module.
+func stellarModuleDir(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, "go", "list", "-m", "-f", "{{.Dir}}", stellarGoModule)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("go list %s: %w (%s)", stellarGoModule, err, strings.TrimSpace(stderr.String()))
+	}
+	dir := strings.TrimSpace(stdout.String())
+	if dir == "" || dir == "|" {
+		return "", fmt.Errorf("go list %s returned an empty Dir", stellarGoModule)
+	}
+	// A module present in the cache but not extracted has no Cargo.toml, and
+	// `stellar contract build` would fail deep inside cargo with a far less obvious error.
+	if _, err := os.Stat(filepath.Join(dir, "Cargo.toml")); err != nil {
+		return "", fmt.Errorf("chainlink-stellar module dir %q has no Cargo.toml: %w", dir, err)
+	}
+	return dir, nil
 }
 
 // BuildStellar builds the contract WASM from chainlink-stellar sources and returns its bytes.
