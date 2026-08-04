@@ -2,6 +2,8 @@ package changelog
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -14,14 +16,26 @@ func Generate(ctx context.Context, repoDir, oldRef, newRef string) (*Report, err
 	return Analyze(ctx, g, gh, oldRef, newRef)
 }
 
-// PostToSlack posts the summary message into a thread and uploads the full
-// markdown report as a file in the same thread.
-func PostToSlack(ctx context.Context, token string, thread SlackThread, summary, filename, title, markdown string) error {
-	c := newSlackClient(token)
-	if err := c.PostMessage(ctx, thread, summary); err != nil {
-		return err
+// PostSummary posts a message into a Slack thread.
+func PostSummary(ctx context.Context, token string, thread SlackThread, text string) error {
+	return newSlackClient(token).PostMessage(ctx, thread, text)
+}
+
+// UploadReport uploads the full markdown report as a file in a Slack thread.
+// Requires the files:write scope on the bot token; callers should treat a
+// failure here as non-fatal if the summary was already delivered.
+func UploadReport(ctx context.Context, token string, thread SlackThread, filename, title, markdown string) error {
+	return newSlackClient(token).UploadFile(ctx, thread, filename, title, []byte(markdown), "")
+}
+
+// ActionsRunURL returns the URL of the current GitHub Actions run, or "" when
+// not running in CI.
+func ActionsRunURL() string {
+	server, repo, runID := os.Getenv("GITHUB_SERVER_URL"), os.Getenv("GITHUB_REPOSITORY"), os.Getenv("GITHUB_RUN_ID")
+	if server == "" || repo == "" || runID == "" {
+		return ""
 	}
-	return c.UploadFile(ctx, thread, filename, title, []byte(markdown), "")
+	return fmt.Sprintf("%s/%s/actions/runs/%s", server, repo, runID)
 }
 
 var filenameUnsafe = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)

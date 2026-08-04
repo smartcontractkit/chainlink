@@ -91,8 +91,10 @@ jobs:
           go run ./tools/ccip/ccip-release-changelog/cmd/ccip-release-changelog "${args[@]}"
 
       - name: Upload report artifact
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: ccip-release-changelog-${{ steps.inputs.outputs.safe_old }}-${{ steps.inputs.outputs.safe_new }}
           path: ccip-release-changelog.md
           retention-days: 90
+          if-no-files-found: warn

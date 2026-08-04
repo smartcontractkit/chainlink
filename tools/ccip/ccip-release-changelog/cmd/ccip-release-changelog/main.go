@@ -87,8 +87,26 @@ func run(ctx context.Context, repoDir, oldRef, newRef, outPath, slackThreadURL s
 		filename := fmt.Sprintf("ccip-release-changelog-%s-%s.md",
 			changelog.SanitizeForFilename(oldRef), changelog.SanitizeForFilename(newRef))
 		title := fmt.Sprintf("CCIP Release Changelog %s → %s", oldRef, newRef)
-		if err := changelog.PostToSlack(ctx, token, thread, summary, filename, title, markdown); err != nil {
-			return fmt.Errorf("posting to Slack: %w", err)
+
+		// The summary is the audit payload: if it can't be delivered, fail.
+		if err := changelog.PostSummary(ctx, token, thread, summary); err != nil {
+			return fmt.Errorf("posting summary to Slack: %w", err)
+		}
+
+		// The file upload needs the files:write scope, which the bot token
+		// may not have. Degrade gracefully: point the thread at the CI
+		// artifact instead, and don't fail the run — the report content is
+		// already on stdout / in --out.
+		if err := changelog.UploadReport(ctx, token, thread, filename, title, markdown); err != nil {
+			fallback := fmt.Sprintf("⚠️ Full report upload failed (%v).", err)
+			if url := changelog.ActionsRunURL(); url != "" {
+				fallback += " The markdown report is attached to this CI run as an artifact: " + url
+			}
+			if ferr := changelog.PostSummary(ctx, token, thread, fallback); ferr != nil {
+				return fmt.Errorf("uploading report: %w; posting fallback message: %w", err, ferr)
+			}
+			fmt.Fprintf(os.Stderr, "warning: report upload failed (%v); summary posted to thread %s#%s\n", err, thread.Channel, thread.ThreadTS)
+			return nil
 		}
 		fmt.Fprintf(os.Stderr, "posted summary and full report to Slack thread %s#%s\n", thread.Channel, thread.ThreadTS)
 	}
