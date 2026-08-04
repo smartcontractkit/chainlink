@@ -414,6 +414,7 @@ type StellarWriteWorkflowConfig struct {
 type WorkflowRegistrationConfig struct {
 	WorkflowName            string
 	WorkflowLocation        string
+	WorkflowTag             string
 	ConfigFilePath          string
 	CompressedWasmPath      string
 	SecretsURL              string
@@ -715,6 +716,7 @@ func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConf
 		wfRegCfg.DonID,
 		wfRegCfg.DonFamily,
 		wfRegCfg.WorkflowName,
+		wfRegCfg.WorkflowTag,
 		binaryURL,
 		configURL,
 		nil, // no secrets yet
@@ -812,6 +814,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	workflowRegConfig := &WorkflowRegistrationConfig{
 		WorkflowName:            workflowName,
 		WorkflowLocation:        workflowFileLocation,
+		WorkflowTag:             creworkflow.DefaultWorkflowTag,
 		ConfigFilePath:          workflowConfigPath,
 		CompressedWasmPath:      compressedWorkflowWasmPath,
 		WorkflowRegistryAddr:    common.HexToAddress(workflowRegistryAddress.Address),
