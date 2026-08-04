@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
-	confidentialworkflow "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -44,6 +44,16 @@ const (
 	// workflows enclave pool. The relay handler uses it to look up trusted
 	// enclave measurements from the capabilities registry.
 	confidentialWorkflowsCapID = "confidential-workflows@1.0.0-alpha"
+
+	// defaultGetExecutionWait bounds how long a relay callback waits for a
+	// not-yet-registered execution handler to appear before giving up. The
+	// enclave runs one DON-shared execution and only needs a relay quorum, so its
+	// callback can reach a node before that node has started its own copy of the
+	// execution and registered a handler (the start-edge race). Waiting briefly
+	// lets a straggling node register and still sign, instead of dropping below
+	// quorum. Kept well under the gateway relay request timeout (RequestTimeoutSec,
+	// default 30s) so the node still answers in time to be counted.
+	defaultGetExecutionWait = 5 * time.Second
 )
 
 // enclaveEntry mirrors the enclave config shape stored in the capabilities
@@ -134,6 +144,9 @@ type Handler struct {
 	// quorum of F+1.
 	requireBFTQuorum bool
 	limitsFactory    limits.Factory
+	// getExecutionWait is how long a relay callback waits for a not-yet-registered
+	// execution handler before failing (see defaultGetExecutionWait).
+	getExecutionWait time.Duration
 
 	// serveTime bounds how long one gateway request may be served for, from
 	// ConfidentialCompute.ConfidentialRelayHandlerTimeout. The connector's context
@@ -166,6 +179,7 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *Execut
 		requireBFTQuorum:  requireBFTQuorum,
 		limitsFactory:     lf,
 		serveTime:         serveTime,
+		getExecutionWait:  defaultGetExecutionWait,
 	}
 	h.Service, h.eng = services.Config{
 		Name:  HandlerName,
@@ -270,11 +284,6 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
-	handler, ok := h.executionHandlers.GetExecution(params.WorkflowID, params.ExecutionID)
-	if !ok {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
-	}
-
 	att := params.Attestation
 	params.Attestation = ""
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainSecretsGet); err != nil {
@@ -311,6 +320,20 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 			Id:        s.Key,
 			Namespace: s.Namespace,
 		})
+	}
+
+	// Resolve the execution handler only after attestation and Workflow-DON
+	// authorization have passed, so an unverified callback cannot make the node
+	// park a waiter. The enclave's callback can arrive before this node has started
+	// its own copy of the execution (start-edge race); wait briefly for the handler
+	// to register rather than failing and dropping below relay quorum. Bounded so a
+	// callback for an execution this node never runs still fails in time to respond
+	// within the gateway's relay request window.
+	waitCtx, cancel := context.WithTimeout(ctx, h.getExecutionWait)
+	defer cancel()
+	handler, ok := h.executionHandlers.GetExecutionWithWait(waitCtx, params.WorkflowID, params.ExecutionID)
+	if !ok {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
 	}
 
 	vaultResp, err := handler.GetRawSecrets(ctx, secretsRequest, teeKeyFetcher(params.EnclavePublicKey))
@@ -429,11 +452,6 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		Workflow: params.WorkflowID,
 	})
 
-	handler, ok := h.executionHandlers.GetExecution(params.WorkflowID, params.ExecutionID)
-	if !ok {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
-	}
-
 	att := params.Attestation
 	params.Attestation = ""
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
@@ -460,6 +478,18 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	sdkReq := &sdkpb.CapabilityRequest{}
 	if err = proto.Unmarshal(payloadBytes, sdkReq); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("failed to unmarshal capability request: %w", err))
+	}
+
+	// Resolve the execution handler only after attestation and enclave-config
+	// verification, so an unverified callback cannot make the node park a waiter.
+	// The enclave's callback can beat this node's own execution start (start-edge
+	// race); a bounded wait lets a straggler register and sign instead of dropping
+	// below relay quorum (see handleSecretsGet).
+	waitCtx, cancel := context.WithTimeout(ctx, h.getExecutionWait)
+	defer cancel()
+	handler, ok := h.executionHandlers.GetExecutionWithWait(waitCtx, params.WorkflowID, params.ExecutionID)
+	if !ok {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
 	}
 
 	capResp, execErr := handler.CallCapability(ctx, sdkReq)
