@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -843,18 +842,30 @@ ds -> ds_parse -> ds_multiply;
 	return StreamSpec{StreamSpecParams: params, toml: toml}
 }
 
-// WorkflowJobSpec is a test helper that wraps both the TOML and job.Job representation of a workflow job spec
-type WorkflowJobSpec struct {
-	toml string
-	j    job.Job
-}
-
-func (w WorkflowJobSpec) Toml() string {
-	return w.toml
-}
-
-func (w WorkflowJobSpec) Job() job.Job {
-	return w.j
-}
+var OCR2EVMDualTransmissionSpecMinimalTemplate = `
+type = "offchainreporting2"
+schemaVersion = 1
+name = "test-job"
+relay = "evm"
+contractID = "0x613a38AC1659769640aaE063C651F48E0250454C"
+p2pv2Bootstrappers = []
+transmitterID = "%s"
+pluginType         = "median"
+observationSource = """
+	ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+	ds_parse    [type=jsonparse path="data.price" separator="."];
+	ds_multiply [type=multiply times=100];
+	ds -> ds_parse -> ds_multiply;
+"""
+[pluginConfig]
+juelsPerFeeCoinSource = """
+	ds          [type=http method=GET url="https://chain.link/ETH-USD"];
+	ds_parse    [type=jsonparse path="data.price" separator="."];
+	ds_multiply [type=multiply times=100];
+	ds -> ds_parse -> ds_multiply;
+"""
+[relayConfig]
+chainID = 0
+`
 
 func GetCRESettingsSpec() string { return CRESettingsSpec }
