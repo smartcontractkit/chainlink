@@ -33,6 +33,11 @@ const (
 	defaultRequestTimeoutSec  = 30
 	defaultNodeSendTimeoutSec = 10
 
+	// defaultQuorumGraceMillis bounds the extra wait after quorum is reached. It must
+	// stay well below the caller's own HTTP deadline, which is what actually cuts the
+	// request short when the DON never produces 2F+1 signed responses.
+	defaultQuorumGraceMillis = 10_000
+
 	// Re-exported from chainlink-common for local use and test convenience.
 	MethodSecretsGet     = relaytypes.MethodSecretsGet
 	MethodCapabilityExec = relaytypes.MethodCapabilityExec
@@ -75,6 +80,11 @@ type activeRequest struct {
 	mu        sync.Mutex
 	completed atomic.Bool
 
+	// graceStarted is set the first time the request holds F+1 signed responses, so
+	// the grace timer is armed once per request rather than on every later response.
+	graceStarted atomic.Bool
+	graceTimer   clockwork.Timer
+
 	createdAt time.Time
 	gwhandlers.Callback
 }
@@ -113,6 +123,22 @@ func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawM
 	return copied
 }
 
+func (ar *activeRequest) setGraceTimer(t clockwork.Timer) {
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+	ar.graceTimer = t
+}
+
+func (ar *activeRequest) stopGraceTimer() {
+	ar.mu.Lock()
+	t := ar.graceTimer
+	ar.graceTimer = nil
+	ar.mu.Unlock()
+	if t != nil {
+		t.Stop()
+	}
+}
+
 type relayBundler interface {
 	Bundle(req jsonrpc.Request[json.RawMessage], resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*BundleSummary, error)
 }
@@ -124,6 +150,15 @@ type Config struct {
 	// clamped to RequestTimeoutSec. It must stay below it so that one node whose connection
 	// accepts no writes cannot delay delivery to the rest of the DON.
 	NodeSendTimeoutSec int `json:"nodeSendTimeoutSec"`
+
+	// QuorumGraceMillis is how long the handler keeps collecting responses after the
+	// first F+1 signed responses arrive, before forwarding whatever it has. It bounds
+	// the wait for a DON that answers with quorum but never reaches 2F+1 signed
+	// responses, which would otherwise hold the request until RequestTimeoutSec and
+	// forward a long-viable bundle after the caller's own deadline has passed.
+	// Clamped to RequestTimeoutSec; a negative value disables the grace window and
+	// restores waiting until expiry.
+	QuorumGraceMillis int `json:"quorumGraceMillis"`
 }
 
 type handler struct {
@@ -139,6 +174,7 @@ type handler struct {
 	perNodeRateLimiters   map[string]limits.RateLimiter
 	requestTimeout        time.Duration
 	nodeSendTimeout       time.Duration
+	quorumGrace           time.Duration
 
 	activeRequests map[string]*activeRequest
 	metrics        *metrics
@@ -173,6 +209,16 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		cfg.NodeSendTimeoutSec = cfg.RequestTimeoutSec
 	}
 
+	switch {
+	case cfg.QuorumGraceMillis == 0:
+		cfg.QuorumGraceMillis = defaultQuorumGraceMillis
+	case cfg.QuorumGraceMillis < 0:
+		cfg.QuorumGraceMillis = 0
+	}
+	if maxGraceMillis := cfg.RequestTimeoutSec * 1000; cfg.QuorumGraceMillis > maxGraceMillis {
+		cfg.QuorumGraceMillis = maxGraceMillis
+	}
+
 	globalNodeRateLimiter, err := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayGlobalRate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create global node rate limiter: %w", err)
@@ -198,6 +244,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonId),
 		requestTimeout:        time.Duration(cfg.RequestTimeoutSec) * time.Second,
 		nodeSendTimeout:       time.Duration(cfg.NodeSendTimeoutSec) * time.Second,
+		quorumGrace:           time.Duration(cfg.QuorumGraceMillis) * time.Millisecond,
 		globalNodeRateLimiter: globalNodeRateLimiter,
 		perNodeRateLimiters:   perNodeRateLimiters,
 		activeRequests:        make(map[string]*activeRequest),
@@ -431,6 +478,9 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 			fmt.Errorf("relay quorum unreachable: %d signed responses, at most %d possible, need %d (collected=%d nodes=%d remaining=%d errors=%d undecodable=%d)",
 				summary.Signed(), maxPossibleSigned, minQuorum, summary.Total(), nodes, remaining, summary.Error(), summary.Undecodable())))
 	}
+	if !expired && summary.Signed() >= minQuorum {
+		h.startQuorumGrace(l, ar, summary)
+	}
 	l.Debugw("waiting for more signed relay responses before forwarding bundle",
 		"signed", summary.Signed(),
 		"earlyNeed", earlyNeed,
@@ -444,6 +494,76 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 		"nodeErrors", summary.NodeErrorsFormatted(),
 	)
 	return nil
+}
+
+// startQuorumGrace arms the grace window the first time a request holds minQuorum
+// signed responses. It bounds how long a request that will never reach earlyNeed
+// keeps waiting for the rest of the DON: without it such a request is held until
+// requestTimeout, long after the caller's own deadline has elapsed, so a bundle
+// that was viable within milliseconds is forwarded to nobody.
+func (h *handler) startQuorumGrace(l logger.Logger, ar *activeRequest, summary *BundleSummary) {
+	if h.quorumGrace <= 0 {
+		return
+	}
+	if !ar.graceStarted.CompareAndSwap(false, true) {
+		return
+	}
+	l.Infow("relay quorum reached below earlyNeed; starting grace window",
+		"signed", summary.Signed(),
+		"minQuorum", h.donConfig.F+1,
+		"earlyNeed", 2*h.donConfig.F+1,
+		"collected", summary.Total(),
+		"nodes", len(h.donConfig.Members),
+		"grace", h.quorumGrace,
+	)
+	ar.setGraceTimer(h.clock.AfterFunc(h.quorumGrace, func() { h.onQuorumGraceElapsed(ar) }))
+}
+
+// onQuorumGraceElapsed forwards the bundle collected during the grace window.
+// Collected responses are never replaced, so the signed count only grows: a request
+// that armed the timer still holds at least minQuorum signed responses here. If the
+// earlyNeed path already answered, the send is a no-op.
+func (h *handler) onQuorumGraceElapsed(ar *activeRequest) {
+	ctx, cancel := h.stopCh.NewCtx()
+	defer cancel()
+
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
+	summary, err := h.bundler.Bundle(ar.req, ar.copiedResponses(), l)
+	if err != nil {
+		l.Errorw("failed to build relay response bundle after quorum grace", "error", err)
+		if sendErr := h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err)); sendErr != nil {
+			l.Errorw("error returning bundle failure after quorum grace", "error", sendErr)
+		}
+		return
+	}
+
+	minQuorum := h.donConfig.F + 1
+	nodes := len(h.donConfig.Members)
+	if summary.Signed() < minQuorum {
+		l.Warnw("quorum grace elapsed below quorum; leaving request to expiry",
+			"signed", summary.Signed(),
+			"minQuorum", minQuorum,
+			"collected", summary.Total(),
+			"nodes", nodes,
+		)
+		return
+	}
+
+	l.Infow("quorum grace elapsed; forwarding partial signed bundle",
+		"signed", summary.Signed(),
+		"minQuorum", minQuorum,
+		"earlyNeed", 2*h.donConfig.F+1,
+		"collected", summary.Total(),
+		"nodes", nodes,
+		"unanswered", nodes-summary.Total(),
+		"grace", h.quorumGrace,
+		"errors", summary.Error(),
+		"undecodable", summary.Undecodable(),
+		"nodeErrors", summary.NodeErrorsFormatted(),
+	)
+	if err := h.forwardBundle(ctx, l, ar, summary); err != nil {
+		l.Errorw("error forwarding bundle after quorum grace", "error", err)
+	}
 }
 
 // forwardBundle sends a previously-built bundle to the enclave. The gateway makes
@@ -509,14 +629,15 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 
 // sendResponseAndClearRequest claims the request, sends payload, and removes it from
 // activeRequests. Concurrent completion paths (node-message forward,
-// terminal-state forward, expiry) may all race here; only the first claimer
-// sends. Metrics are recorded only after a successful send so losers do not
+// terminal-state forward, quorum grace, expiry) may all race here; only the first
+// claimer sends. Metrics are recorded only after a successful send so losers do not
 // double-count.
 func (h *handler) sendResponseAndClearRequest(ctx context.Context, ar *activeRequest, payload gwhandlers.UserCallbackPayload) error {
 	if !ar.completed.CompareAndSwap(false, true) {
 		// Another path already answered this request.
 		return nil
 	}
+	ar.stopGraceTimer()
 
 	sendErr := ar.SendResponse(payload)
 
