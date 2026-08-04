@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Masterminds/semver/v3"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -31,8 +29,8 @@ var _ cldf.ChangeSetV2[*UpgradeRequest] = Upgrade{}
 type Upgrade struct{}
 
 func (Upgrade) VerifyPreconditions(env cldf.Environment, req *UpgradeRequest) error {
-	if req.Contract != CacheContract && req.Contract != ProxyContract {
-		return fmt.Errorf("unsupported contract type %q: must be %q or %q", req.Contract, CacheContract, ProxyContract)
+	if err := validateContract(req.Contract); err != nil {
+		return err
 	}
 	if err := verifyContractRef(env, req.ChainSel, req.Contract, req.Qualifier, req.Version); err != nil {
 		return err
@@ -45,8 +43,7 @@ func (Upgrade) VerifyPreconditions(env cldf.Environment, req *UpgradeRequest) er
 
 func (Upgrade) Apply(env cldf.Environment, req *UpgradeRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	version := semver.MustParse(req.Version)
-	d, _, err := resolveContractDeps(env, req.ChainSel, req.Contract, req.Qualifier, version)
+	d, err := resolveDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}

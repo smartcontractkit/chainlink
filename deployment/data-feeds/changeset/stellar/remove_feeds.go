@@ -3,8 +3,6 @@ package stellar
 import (
 	"errors"
 
-	"github.com/Masterminds/semver/v3"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -44,8 +42,7 @@ func (RemoveFeedConfigs) VerifyPreconditions(env cldf.Environment, req *RemoveFe
 
 func (RemoveFeedConfigs) Apply(env cldf.Environment, req *RemoveFeedConfigsRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	version := semver.MustParse(req.Version)
-	d, _, err := resolveContractDeps(env, req.ChainSel, CacheContract, req.Qualifier, version)
+	d, err := resolveDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}

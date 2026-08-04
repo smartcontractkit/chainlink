@@ -3,8 +3,6 @@ package stellar
 import (
 	"fmt"
 
-	"github.com/Masterminds/semver/v3"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -28,20 +26,13 @@ func (req *OwnershipRequest) verifyPreconditions(env cldf.Environment) error {
 	if _, ok := env.BlockChains.StellarChains()[req.ChainSel]; !ok {
 		return fmt.Errorf("stellar chain not found for chain selector %d", req.ChainSel)
 	}
-	if req.Contract != CacheContract && req.Contract != ProxyContract {
-		return fmt.Errorf("unsupported contract type %q: must be %q or %q", req.Contract, CacheContract, ProxyContract)
+	if err := validateContract(req.Contract); err != nil {
+		return err
 	}
 	if err := verifyContractRef(env, req.ChainSel, req.Contract, req.Qualifier, req.Version); err != nil {
 		return err
 	}
 	return nil
-}
-
-// resolve looks up the target contract's dependencies + address for req.
-func (req *OwnershipRequest) resolve(env cldf.Environment) (stellarApplyDeps, error) {
-	version := semver.MustParse(req.Version)
-	d, _, err := resolveContractDeps(env, req.ChainSel, req.Contract, req.Qualifier, version)
-	return d, err
 }
 
 var (
@@ -68,7 +59,7 @@ func (TransferOwnership) VerifyPreconditions(env cldf.Environment, req *Ownershi
 
 func (TransferOwnership) Apply(env cldf.Environment, req *OwnershipRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := req.resolve(env)
+	d, err := resolveDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}
@@ -91,7 +82,7 @@ func (AcceptOwnership) VerifyPreconditions(env cldf.Environment, req *OwnershipR
 
 func (AcceptOwnership) Apply(env cldf.Environment, req *OwnershipRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := req.resolve(env)
+	d, err := resolveDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}
@@ -111,7 +102,7 @@ func (RenounceOwnership) VerifyPreconditions(env cldf.Environment, req *Ownershi
 
 func (RenounceOwnership) Apply(env cldf.Environment, req *OwnershipRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := req.resolve(env)
+	d, err := resolveDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}

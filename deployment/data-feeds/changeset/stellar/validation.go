@@ -6,8 +6,17 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/stellar/go-stellar-sdk/strkey"
 )
+
+// validateContract restricts a request's target to the two DF contract types.
+func validateContract(t datastore.ContractType) error {
+	if t != CacheContract && t != ProxyContract {
+		return fmt.Errorf("unsupported contract type %q: must be %q or %q", t, CacheContract, ProxyContract)
+	}
+	return nil
+}
 
 // validateAddress accepts a Stellar account (G...) or contract (C...) strkey.
 func validateAddress(s string) error {

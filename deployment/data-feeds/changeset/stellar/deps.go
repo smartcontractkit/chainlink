@@ -49,6 +49,13 @@ func verifyContractRef(env cldf.Environment, chainSel uint64, contractType datas
 	return nil
 }
 
+// resolveDeps is resolveContractDeps for callers that don't need the
+// AddressRef; version must already be validated by VerifyPreconditions.
+func resolveDeps(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) (stellarApplyDeps, error) {
+	d, _, err := resolveContractDeps(env, chainSel, contractType, qualifier, semver.MustParse(version))
+	return d, err
+}
+
 // resolveContractDeps looks up the AddressRef for (chainSel, contractType,
 // version, qualifier) and bundles it with the chain's deploy/invoke deps.
 func resolveContractDeps(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier string, version *semver.Version) (stellarApplyDeps, datastore.AddressRef, error) {

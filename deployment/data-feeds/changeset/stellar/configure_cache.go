@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Masterminds/semver/v3"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	cache "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache"
@@ -91,8 +89,7 @@ func (req *SetFeedConfigsRequest) permissions() ([]cache.WorkflowPermission, err
 
 func (SetFeedConfigs) Apply(env cldf.Environment, req *SetFeedConfigsRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	version := semver.MustParse(req.Version)
-	d, _, err := resolveContractDeps(env, req.ChainSel, CacheContract, req.Qualifier, version)
+	d, err := resolveDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}

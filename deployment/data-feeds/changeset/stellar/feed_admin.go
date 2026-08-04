@@ -1,8 +1,6 @@
 package stellar
 
 import (
-	"github.com/Masterminds/semver/v3"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
@@ -28,13 +26,6 @@ func (req *FeedAdminRequest) verifyPreconditions(env cldf.Environment) error {
 	return nil
 }
 
-// resolve looks up the cache contract's dependencies + address for req.
-func (req *FeedAdminRequest) resolve(env cldf.Environment) (stellarApplyDeps, error) {
-	version := semver.MustParse(req.Version)
-	d, _, err := resolveContractDeps(env, req.ChainSel, CacheContract, req.Qualifier, version)
-	return d, err
-}
-
 var (
 	_ cldf.ChangeSetV2[*FeedAdminRequest] = AddFeedAdmin{}
 	_ cldf.ChangeSetV2[*FeedAdminRequest] = RemoveFeedAdmin{}
@@ -49,7 +40,7 @@ func (AddFeedAdmin) VerifyPreconditions(env cldf.Environment, req *FeedAdminRequ
 
 func (AddFeedAdmin) Apply(env cldf.Environment, req *FeedAdminRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := req.resolve(env)
+	d, err := resolveDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}
@@ -69,7 +60,7 @@ func (RemoveFeedAdmin) VerifyPreconditions(env cldf.Environment, req *FeedAdminR
 
 func (RemoveFeedAdmin) Apply(env cldf.Environment, req *FeedAdminRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := req.resolve(env)
+	d, err := resolveDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}

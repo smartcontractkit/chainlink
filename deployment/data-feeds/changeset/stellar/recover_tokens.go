@@ -3,8 +3,6 @@ package stellar
 import (
 	"fmt"
 
-	"github.com/Masterminds/semver/v3"
-
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
@@ -30,8 +28,8 @@ var _ cldf.ChangeSetV2[*RecoverTokensRequest] = RecoverTokens{}
 type RecoverTokens struct{}
 
 func (RecoverTokens) VerifyPreconditions(env cldf.Environment, req *RecoverTokensRequest) error {
-	if req.Contract != CacheContract && req.Contract != ProxyContract {
-		return fmt.Errorf("unsupported contract type %q: must be %q or %q", req.Contract, CacheContract, ProxyContract)
+	if err := validateContract(req.Contract); err != nil {
+		return err
 	}
 	if err := verifyContractRef(env, req.ChainSel, req.Contract, req.Qualifier, req.Version); err != nil {
 		return err
@@ -50,8 +48,7 @@ func (RecoverTokens) VerifyPreconditions(env cldf.Environment, req *RecoverToken
 
 func (RecoverTokens) Apply(env cldf.Environment, req *RecoverTokensRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	version := semver.MustParse(req.Version)
-	d, _, err := resolveContractDeps(env, req.ChainSel, req.Contract, req.Qualifier, version)
+	d, err := resolveDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}
