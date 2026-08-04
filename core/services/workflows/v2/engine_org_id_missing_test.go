@@ -91,6 +91,8 @@ func collectCounterValue(t *testing.T, reader *sdkmetric.ManualReader, name stri
 // TestEngine_OrgIDMissingReason verifies that the engine correctly records
 // why org ID is missing during the resolution logic in start().
 func TestEngine_OrgIDMissingReason(t *testing.T) {
+	t.Parallel()
+
 	resolverErr := errors.New("linking service unavailable")
 
 	tests := []struct {
@@ -132,13 +134,15 @@ func TestEngine_OrgIDMissingReason(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			resolved := resolveOrgID(context.Background(), tt.orgResolver, "owner-1", logger.Sugared(logger.Test(t)))
 			require.Equal(t, tt.wantOrgID, resolved.ID)
 			require.Equal(t, tt.wantReason, resolved.Reason)
 			if tt.wantErr != nil {
-				require.Equal(t, tt.wantErr, resolved.Err)
+				require.EqualError(t, resolved.Err, tt.wantErr.Error())
 			} else {
-				require.Nil(t, resolved.Err)
+				require.NoError(t, resolved.Err)
 			}
 		})
 	}
@@ -148,6 +152,8 @@ func TestEngine_OrgIDMissingReason(t *testing.T) {
 // incremented with the correct reason label when orgID is empty, and not
 // incremented when orgID is set.
 func TestEngine_OrgIDMissingCounter(t *testing.T) {
+	t.Parallel()
+
 	const counterName = "platform_engine_org_id_missing_total"
 
 	tests := []struct {
@@ -187,6 +193,7 @@ func TestEngine_OrgIDMissingCounter(t *testing.T) {
 	}
 
 	for _, tt := range tests {
+		//nolint:paralleltest // subtests mutate the global beholder client via setupTestMeter
 		t.Run(tt.name, func(t *testing.T) {
 			reader := setupTestMeter(t)
 
