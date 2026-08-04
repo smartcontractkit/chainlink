@@ -51,7 +51,6 @@ type launcher struct {
 	services.StateMachine
 	lggr                logger.SugaredLogger
 	myPeerID            p2ptypes.PeerID
-	peerWrapper         p2ptypes.PeerWrapper
 	dispatcher          remotetypes.Dispatcher
 	cachedShims         cachedShims
 	registry            *Registry
@@ -86,11 +85,9 @@ func shimKey(capID string, donID uint32, method string) string {
 // TODO: add metric handler and instrument all the internal log.Error calls
 
 // NewLauncher creates a new capabilities launcher.
-// If peerWrapper is nil, no p2p connections will be managed by the launcher.
-// If don2donSharedPeer is nil, no DON-to-DON connections will be managed by the launcher.
+// don2donSharedPeer is required; it provides the node's peer ID and manages DON-to-DON connections.
 func NewLauncher(
 	lggr logger.Logger,
-	peerWrapper p2ptypes.PeerWrapper,
 	don2donSharedPeer p2ptypes.SharedPeer,
 	streamConfig config.StreamConfig,
 	dispatcher remotetypes.Dispatcher,
@@ -98,6 +95,9 @@ func NewLauncher(
 	workflowDonNotifier DonNotifier,
 	limitsFactory limits.Factory,
 ) (*launcher, error) {
+	if don2donSharedPeer == nil {
+		return nil, errors.New("don2donSharedPeer is required")
+	}
 	p2pStreamConfig := defaultStreamConfig
 	if streamConfig != nil {
 		p2pStreamConfig.IncomingMessageBufferSize = streamConfig.IncomingMessageBufferSize()
@@ -121,9 +121,8 @@ func NewLauncher(
 		return nil, fmt.Errorf("failed to create workflow DON binding gate limiter: %w", err)
 	}
 	return &launcher{
-		lggr:        logger.Sugared(lggr).Named("CapabilitiesLauncher"),
-		peerWrapper: peerWrapper,
-		dispatcher:  dispatcher,
+		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
+		dispatcher: dispatcher,
 		cachedShims: cachedShims{
 			combinedClients:    make(map[string]remote.CombinedClient),
 			triggerSubscribers: make(map[string]remote.TriggerSubscriber),
@@ -138,76 +137,6 @@ func NewLauncher(
 		metrics:                metrics,
 		workflowDONBindingGate: workflowDONBindingGate,
 	}, nil
-}
-
-// Maintain only necessary Don2Don connections:
-//   - Workflow DONs connect only to other DONs that have at least one remote capability
-//   - Capability DONs connect only to workflow DONs
-//
-// Returns boolean as:
-//   - true: filter out
-//   - false: keep
-func filterDon2Don(
-	lggr logger.Logger,
-	belongsToACapabilityDON bool,
-	belongsToAWorkflowDON bool,
-	candidatePeerDON registrysyncer.DON,
-) bool {
-	// Below logic is based on identification who is who using a workflow acceptance flag
-	// and does it support any capabilities
-	candidatePeerBelongsToWorkflowDON := candidatePeerDON.AcceptsWorkflows
-	candidatePeerBelongsToCapabilityDON := len(candidatePeerDON.CapabilityConfigurations) > 0
-
-	// We identify few cases from the perspective of the node:
-	if belongsToACapabilityDON && belongsToAWorkflowDON {
-		// as both workflow & capability DON let's just connect to anything
-		return false // keep
-	}
-	if !belongsToACapabilityDON && !belongsToAWorkflowDON {
-		// as none of workflow & capability DON don't use bandwidth
-		lggr.Warn("filterDon2Don: node does not belong to workflow or capability DON; misconfiguration")
-		return true // filter out
-	}
-	if belongsToAWorkflowDON && !candidatePeerBelongsToCapabilityDON {
-		lggr.Debugw(
-			"filterDon2Don: as a workflow DON my peers should be only capability DONs - filtering out",
-			"DON.ID",
-			candidatePeerDON.ID,
-		)
-		return true // filter out
-	}
-	if belongsToACapabilityDON && !candidatePeerBelongsToWorkflowDON {
-		lggr.Debugw(
-			"filterDon2Don: as a capability DON my peers should only be workflow DONs - filtering out",
-			"DON.ID",
-			candidatePeerDON.ID,
-		)
-		return true // filter out
-	}
-	return false // keep
-}
-
-func (w *launcher) peers(
-	belongsToACapabilityDON bool,
-	belongsToAWorkflowDON bool,
-	isBootstrap bool,
-	localRegistry *registrysyncer.LocalRegistry,
-) map[ragetypes.PeerID]p2ptypes.StreamConfig {
-	allPeers := make(map[ragetypes.PeerID]p2ptypes.StreamConfig)
-	for _, id := range w.allDONs(localRegistry) {
-		candidatePeerDON := localRegistry.IDsToDONs[id]
-		if !candidatePeerDON.IsPublic {
-			w.lggr.Debugw("skipping non-public DON for peer connections", "DON.ID", candidatePeerDON.ID)
-			continue
-		}
-		if !isBootstrap && filterDon2Don(w.lggr, belongsToACapabilityDON, belongsToAWorkflowDON, candidatePeerDON) {
-			continue
-		}
-		for _, nid := range candidatePeerDON.Members {
-			allPeers[nid] = defaultStreamConfig
-		}
-	}
-	return allPeers
 }
 
 func (w *launcher) publicDONs(
@@ -239,15 +168,8 @@ func (w *launcher) allDONs(localRegistry *registrysyncer.LocalRegistry) []regist
 
 func (w *launcher) Start(ctx context.Context) error {
 	return w.StartOnce("CapabilitiesLauncher", func() error {
-		if w.peerWrapper != nil && w.peerWrapper.GetPeer() != nil {
-			w.myPeerID = w.peerWrapper.GetPeer().ID()
-			return nil
-		}
-		if w.don2donSharedPeer != nil {
-			w.myPeerID = w.don2donSharedPeer.ID()
-			return nil
-		}
-		return errors.New("could not get peer ID from any source")
+		w.myPeerID = w.don2donSharedPeer.ID()
+		return nil
 	})
 }
 
@@ -262,9 +184,6 @@ func (w *launcher) Close() error {
 			if err := w.workflowDONBindingGate.Close(); err != nil {
 				w.lggr.Errorw("failed to close workflow DON binding gate limiter", "error", err)
 			}
-		}
-		if w.peerWrapper != nil {
-			return w.peerWrapper.GetPeer().UpdateConnections(map[ragetypes.PeerID]p2ptypes.StreamConfig{})
 		}
 		return nil
 	})
@@ -444,21 +363,10 @@ func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyn
 	}
 
 	// Lastly, we identify peers to connect to, based on their DONs functions
-	w.lggr.Debugw("Updating peer connections", "peerWrapperEnabled", w.peerWrapper != nil, "don2donSharedPeerEnabled", w.don2donSharedPeer != nil)
-	if w.peerWrapper != nil { // legacy / Keystone setting
-		peer := w.peerWrapper.GetPeer()
-		myPeers := w.peers(belongsToACapabilityDON, belongsToAWorkflowDON, peer.IsBootstrap(), localRegistry)
-		err := peer.UpdateConnections(myPeers)
-		if err != nil {
-			return fmt.Errorf("failed to update peer connections: %w", err)
-		}
-	}
-	if w.don2donSharedPeer != nil {
-		donPairs := w.donPairsToUpdate(w.myPeerID, localRegistry)
-		err := w.don2donSharedPeer.UpdateConnectionsByDONs(ctx, donPairs, w.p2pStreamConfig)
-		if err != nil {
-			return fmt.Errorf("failed to update peer connections: %w", err)
-		}
+	w.lggr.Debug("Updating peer connections")
+	donPairs := w.donPairsToUpdate(w.myPeerID, localRegistry)
+	if err := w.don2donSharedPeer.UpdateConnectionsByDONs(ctx, donPairs, w.p2pStreamConfig); err != nil {
+		return fmt.Errorf("failed to update peer connections: %w", err)
 	}
 	w.metrics.incrementCompletedUpdates(ctx)
 	return nil
