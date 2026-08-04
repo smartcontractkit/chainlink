@@ -434,7 +434,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
-			platform.KeyWorkflowTag, payload.Tag,
+			platform.KeyWorkflowTag, payload.WorkflowTag,
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
@@ -459,7 +459,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		h.lggr.Debugw("handled event (WorkflowPaused)", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
-			"workflowTag", payload.Tag, "type", event.Name)
+			"workflowTag", payload.WorkflowTag, "type", event.Name)
 		return nil
 	case WorkflowDeleted:
 		payload, ok := event.Data.(WorkflowDeletedEvent)
