@@ -172,7 +172,7 @@ jobs:
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
     runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index
-      }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+      }}/cpu=16/ram=32/family=c6gd/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/image=ubuntu24-full-arm64/extras=s3-cache
     strategy:
       fail-fast: false
       matrix:
@@ -261,7 +261,7 @@ jobs:
         type:
           - cmd: go_core_tests
             os: runs-on=${{ github.run_id
-              }}-unit/cpu=48/ram=96/family=c7id+c8id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              }}-unit/cpu=48/ram=96/family=c7id+c8id/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
             go-mod-directory: ""
@@ -273,7 +273,7 @@ jobs:
 
           - cmd: go_core_tests_integration
             os: runs-on=${{ github.run_id
-              }}-integ/cpu=48/ram=96/family=c7i+c8i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+              }}-integ/cpu=48/ram=96/family=c7i+c8i/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
             setup-solana: "true"
@@ -285,7 +285,7 @@ jobs:
 
           - cmd: go_core_fuzz
             os: runs-on=${{
-              github.run_id}}-fuzz/cpu=8/ram=32/family=m7id+m7idn+m8id+m8idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              github.run_id}}-fuzz/cpu=8/ram=32/family=m7id+m7idn+m8id+m8idn/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "false"
             go-mod-directory: ""
@@ -298,7 +298,7 @@ jobs:
 
           - cmd: go_core_race_tests
             os: runs-on=${{
-              github.run_id}}-race/cpu=64/ram=128/family=c7i+c8i/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              github.run_id}}-race/cpu=64/ram=128/family=c7i+c8i/volume=80gb/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "false"
             go-mod-directory: ""

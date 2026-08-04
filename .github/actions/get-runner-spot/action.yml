@@ -1,0 +1,31 @@
+name: Get Runner Spot Setting
+description: Determines whether to use spot=co or spot=false based on merge queue and release flow rules.
+
+outputs:
+  spot:
+    description: "The spot setting value ('co' or 'false')"
+    value: ${{ steps.eval-spot.outputs.spot }}
+  spot_param:
+    description: "The formatted spot parameter ('spot=co' or 'spot=false')"
+    value: ${{ steps.eval-spot.outputs.spot_param }}
+
+runs:
+  using: composite
+  steps:
+    - name: Evaluate Spot Strategy
+      id: eval-spot
+      shell: bash
+      run: |
+        IS_MERGE_QUEUE="${{ github.event_name == 'merge_group' }}"
+        IS_RELEASE_BRANCH="${{ startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') }}"
+        IS_RELEASE_TAG_OR_EVENT="${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' }}"
+
+        if [[ "$IS_MERGE_QUEUE" == "true" || "$IS_RELEASE_BRANCH" == "true" || "$IS_RELEASE_TAG_OR_EVENT" == "true" ]]; then
+          echo "Run is merge_group or release flow. Using spot=false."
+          echo "spot=false" >> "$GITHUB_OUTPUT"
+          echo "spot_param=spot=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "Standard run. Using spot=co."
+          echo "spot=co" >> "$GITHUB_OUTPUT"
+          echo "spot_param=spot=co" >> "$GITHUB_OUTPUT"
+        fi

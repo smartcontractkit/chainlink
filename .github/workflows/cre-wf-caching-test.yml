@@ -29,7 +29,7 @@ jobs:
       name: integration
       deployment: false
     runs-on: runs-on=${{ github.run_id
-      }}/cpu=32/ram=128/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+      }}/cpu=32/ram=128/family=m6id+m6idn/spot=${{ (github.event_name == 'merge_group' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref_name, 'release/') || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release') && 'false' || 'co' }}/image=ubuntu24-full-x64/extras=s3-cache
     timeout-minutes: 270 # 4h30m — test timeout is 4h20m
     permissions:
       contents: read
