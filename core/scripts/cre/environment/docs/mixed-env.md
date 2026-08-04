@@ -27,11 +27,16 @@ It's the standard capabilities topology, except every multi-node DON is split **
 ```
 
 - **PR image** = the Chainlink node image built from your branch.
-- **develop image** = the exact `develop` commit your PR is built on top of (the base of the CI
-  auto-merge). Because that is precisely the `develop` your PR image derives from, the two halves
-  differ **only** by your PR's changes — so `develop`'s own churn never shows up as a false
-  positive. If that image isn't available (non-PR runs, or it aged out of the registry), it falls
-  back to the latest cached `develop` **nightly** build.
+- **baseline image** = the exact commit of the branch your PR **merges into** — the base of the CI
+  auto-merge. For a PR targeting `develop` that's the `develop` commit you branched from; for a PR
+  targeting a release branch (e.g. `release/2.57.1`) it's that release commit. Because it's precisely
+  the branch your PR image derives from, the two halves differ **only** by your PR's changes — so the
+  base branch's own churn never shows up as a false positive.
+  - If that image isn't published: a **develop**-targeted PR falls back to the latest cached `develop`
+    **nightly** build. For a **non-develop** base (release branch) there is no correct stand-in — the
+    develop nightly would be the wrong branch — so mixed-env is **skipped** for that PR (a warning is
+    logged) rather than compared against develop. Release-branch commits aren't force-built the way
+    `develop` is, so this skip can happen; when it does, the release PR simply doesn't get this check.
 - Chains, capabilities, ports, and everything else are identical to the normal topology — only the per-node images change.
 
 ## What it checks

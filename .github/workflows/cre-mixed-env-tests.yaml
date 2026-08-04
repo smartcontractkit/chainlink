@@ -43,10 +43,18 @@ on:
         type: string
         default: ""
         description:
-          "Develop base-branch sha this PR is built on top of (the CI auto-merge base).
-          Used to pick chainlink-integration-tests:<baseline_ref> as the develop side so the
-          2-2 split isolates only the PR's changes. Falls back to the nightly if empty or the
-          image is unavailable. Ignored when mixed_env_baseline_image is set."
+          "Base-branch sha this PR is built on top of (the CI auto-merge base). Used to pick
+          chainlink-integration-tests:<baseline_ref> as the baseline side so the 2-2 split
+          isolates only the PR's changes. Works for any base branch (develop or a release
+          branch). Ignored when mixed_env_baseline_image is set."
+      base_ref_name:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Base-branch name (e.g. 'develop' or 'release/2.57.1'). Controls the missing-image
+          fallback: for a develop base the develop nightly is used; for any other base with no
+          published base image, mixed-env is skipped (no correct baseline to compare against)."
   workflow_call:
     inputs:
       chainlink_image_repository_path:
@@ -79,10 +87,18 @@ on:
         type: string
         default: ""
         description:
-          "Develop base-branch sha this PR is built on top of (the CI auto-merge base).
-          Used to pick chainlink-integration-tests:<baseline_ref> as the develop side so the
-          2-2 split isolates only the PR's changes. Falls back to the nightly if empty or the
-          image is unavailable. Ignored when mixed_env_baseline_image is set."
+          "Base-branch sha this PR is built on top of (the CI auto-merge base). Used to pick
+          chainlink-integration-tests:<baseline_ref> as the baseline side so the 2-2 split
+          isolates only the PR's changes. Works for any base branch (develop or a release
+          branch). Ignored when mixed_env_baseline_image is set."
+      base_ref_name:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Base-branch name (e.g. 'develop' or 'release/2.57.1'). Controls the missing-image
+          fallback: for a develop base the develop nightly is used; for any other base with no
+          published base image, mixed-env is skipped (no correct baseline to compare against)."
 
 jobs:
   define-test-matrix:
@@ -205,34 +221,63 @@ jobs:
             echo "::endgroup::"
           fi
 
-      - name: Verify images exist & render mixed-env topology
-        working-directory: core/scripts/cre/environment
+      - name: Resolve baseline (develop side) image
+        id: baseline
         shell: bash
         env:
-          CRE_PR_IMAGE: ${{ env.CHAINLINK_IMAGE_FULL }}
           BASELINE_IMAGE_OVERRIDE: ${{ inputs.mixed_env_baseline_image }}
           BASELINE_REF: ${{ inputs.baseline_ref }}
+          BASE_REF_NAME: ${{ inputs.base_ref_name }}
           ECR_ACCOUNT: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           ECR_REGION: ${{ secrets.QA_AWS_REGION }}
         run: |
           REGISTRY="${ECR_ACCOUNT}.dkr.ecr.${ECR_REGION}.amazonaws.com"
+          skip=false
+          image=""
           if [[ -n "${BASELINE_IMAGE_OVERRIDE}" ]]; then
             # Explicit override (e.g. the nightly full-matrix sweep pins yesterday's nightly).
-            CRE_BASELINE_IMAGE="${BASELINE_IMAGE_OVERRIDE}"
+            image="${BASELINE_IMAGE_OVERRIDE}"
           elif [[ -n "${BASELINE_REF}" ]] && docker manifest inspect "${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}" >/dev/null 2>&1; then
-            # Preferred: the exact develop commit this PR is built on top of (the base-branch
-            # sha the CI auto-merge was based on). The PR image = this develop commit + the
-            # PR's changes, so the 2-2 split isolates ONLY the PR's changes and never surfaces
-            # develop's own drift as a false positive. Same build/repo as the PR image, already
-            # published by the develop-push build.
-            CRE_BASELINE_IMAGE="${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}"
-          else
-            # Fallback (non-PR runs, or the base-branch image has aged out of ECR): the develop
-            # nightly image (built daily + on develop pushes). Core variant (no -plugins) to
-            # match the PR image built by integration-tests.
+            # Preferred: the exact base-branch commit this PR is built on top of (the base sha
+            # the CI auto-merge was based on). The PR image = this commit + the PR's changes, so
+            # the 2-2 split isolates ONLY the PR's changes and never surfaces the base branch's
+            # own drift as a false positive. Works for ANY base branch (develop or release) --
+            # it always compares against the branch the PR is merging into. Same build/repo as
+            # the PR image.
+            image="${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}"
+          elif [[ -z "${BASELINE_REF}" || "${BASE_REF_NAME}" == "develop" ]]; then
+            # Develop-targeted PR (or a non-PR dispatch/schedule run) with no base-sha image:
+            # the develop nightly is a valid stand-in for develop. Core variant (no -plugins)
+            # to match the PR image built by integration-tests.
             DATE="$(date +'%Y%m%d')"
-            CRE_BASELINE_IMAGE="${REGISTRY}/chainlink:nightly-${DATE}"
+            image="${REGISTRY}/chainlink:nightly-${DATE}"
+          else
+            # Non-develop base (e.g. a release branch) with no published base-branch image:
+            # there is NO correct baseline. Falling back to the develop nightly would compare a
+            # release-based PR against develop and flood the run with false positives, so skip
+            # mixed-env for this PR instead of misleading. (Release-branch commits aren't
+            # force-built like develop, so their branch-tip image is often absent.)
+            echo "::warning::No baseline image for base branch '${BASE_REF_NAME}' (looked for chainlink-integration-tests:${BASELINE_REF}). Skipping mixed-env: it can only run when the base-branch image exists, to avoid comparing a non-develop base against develop."
+            skip=true
           fi
+          {
+            echo "skip=${skip}"
+            echo "image=${image}"
+          } >> "$GITHUB_OUTPUT"
+          if [[ "${skip}" == "true" ]]; then
+            echo "Mixed-env skipped (no valid baseline for base branch '${BASE_REF_NAME}')."
+          else
+            echo "Baseline (develop side) image: ${image}"
+          fi
+
+      - name: Verify images exist & render mixed-env topology
+        if: ${{ steps.baseline.outputs.skip != 'true' }}
+        working-directory: core/scripts/cre/environment
+        shell: bash
+        env:
+          CRE_PR_IMAGE: ${{ env.CHAINLINK_IMAGE_FULL }}
+          CRE_BASELINE_IMAGE: ${{ steps.baseline.outputs.image }}
+        run: |
           export CRE_PR_IMAGE CRE_BASELINE_IMAGE
           echo "PR image:       ${CRE_PR_IMAGE}"
           echo "Baseline image: ${CRE_BASELINE_IMAGE}"
@@ -256,6 +301,7 @@ jobs:
 
       - name: Start local CRE
         id: start-local-cre
+        if: ${{ steps.baseline.outputs.skip != 'true' }}
         uses: ./.github/actions/start-local-cre-environment
         with:
           jd-image:
@@ -274,6 +320,7 @@ jobs:
 
       - name: Setup GitHub token using GATI
         id: github-token
+        if: ${{ steps.baseline.outputs.skip != 'true' }}
         uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
         with:
           aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
@@ -284,6 +331,7 @@ jobs:
 
       - name: Run CRE Smoke system tests (mixed-env)
         id: run-tests
+        if: ${{ steps.baseline.outputs.skip != 'true' }}
         shell: bash
         working-directory: system-tests/tests
         continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
@@ -329,7 +377,7 @@ jobs:
         # would swallow the in-test TestMain scan, so re-scan the live node containers
         # here and fail the job on any marker. Reuses the Go scanner and needle list from
         # test-helpers/nondeterminism_scan.go (no duplicated marker list in bash).
-        if: ${{ always() }}
+        if: ${{ always() && steps.baseline.outputs.skip != 'true' }}
         shell: bash
         working-directory: system-tests/tests
         run: go run ./cmd/mixed-env-nondeterminism-check
@@ -337,7 +385,7 @@ jobs:
       - name:
           Analyze and upload test results (${{ steps.run-tests.outputs.tests_result
           }})
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.baseline.outputs.skip != 'true' }}
         uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
         with:
           junit-file-path: "/tmp/junit-report.xml"
