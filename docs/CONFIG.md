@@ -1297,13 +1297,16 @@ them all in case we regained connection and now send a bunch at once
 ```toml
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 ```
-PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID is the peer ID of the node's P2P host. If unspecified, the single P2P
+key from the node keystore is used; if the keystore contains multiple P2P keys,
+PeerID must be set.
 
 ### TraceLogging
 ```toml
 TraceLogging = false # Default
 ```
-TraceLogging enables trace level logging.
+TraceLogging **DEPRECATED**: has no effect. Use `OCR.TraceLogging` (for the P2P
+networking stack) or `OCR2.TraceLogging` (for OCR2 jobs) instead.
 
 ### EnableExperimentalRageP2P
 ```toml
@@ -1741,32 +1744,30 @@ EnableExperimentalRageP2P = false # Default
 ```toml
 IncomingMessageBufferSize = 10 # Default
 ```
-IncomingMessageBufferSize is the per-remote number of incoming
-messages to buffer. Any additional messages received on top of those
-already in the queue will be dropped.
+IncomingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
+capabilities P2P host are not configurable; for shared peering, use
+`Capabilities.SharedPeering.StreamConfig`.
 
 ### OutgoingMessageBufferSize
 ```toml
 OutgoingMessageBufferSize = 10 # Default
 ```
-OutgoingMessageBufferSize is the per-remote number of outgoing
-messages to buffer. Any additional messages send on top of those
-already in the queue will displace the oldest.
-NOTE: OutgoingMessageBufferSize should be comfortably smaller than remote's
-IncomingMessageBufferSize to give the remote enough space to process
-them all in case we regained connection and now send a bunch at once
+OutgoingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
+capabilities P2P host are not configurable; for shared peering, use
+`Capabilities.SharedPeering.StreamConfig`.
 
 ### PeerID
 ```toml
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 ```
-PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID is the peer ID to use for the capabilities P2P host; see
+[`P2P.PeerID`](#p2p).
 
 ### TraceLogging
 ```toml
 TraceLogging = false # Default
 ```
-TraceLogging enables trace level logging.
+TraceLogging **DEPRECATED**: has no effect.
 
 ### EnableExperimentalRageP2P
 ```toml

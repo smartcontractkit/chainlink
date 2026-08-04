@@ -469,9 +469,12 @@ IncomingMessageBufferSize = 10 # Default
 # IncomingMessageBufferSize to give the remote enough space to process
 # them all in case we regained connection and now send a bunch at once
 OutgoingMessageBufferSize = 10 # Default
-# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+# PeerID is the peer ID of the node's P2P host. If unspecified, the single P2P
+# key from the node keystore is used; if the keystore contains multiple P2P keys,
+# PeerID must be set.
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
-# TraceLogging enables trace level logging.
+# TraceLogging **DEPRECATED**: has no effect. Use `OCR.TraceLogging` (for the P2P
+# networking stack) or `OCR2.TraceLogging` (for OCR2 jobs) instead.
 TraceLogging = false # Default
 # EnableExperimentalRageP2P enables the experimental ragep2p version required by OCR3.1.
 EnableExperimentalRageP2P = false # Default
@@ -622,20 +625,18 @@ PerSenderRPS = 10 # Default
 PerSenderBurst = 50 # Default
 
 [Capabilities.Peering]
-# IncomingMessageBufferSize is the per-remote number of incoming
-# messages to buffer. Any additional messages received on top of those
-# already in the queue will be dropped.
+# IncomingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
+# capabilities P2P host are not configurable; for shared peering, use
+# `Capabilities.SharedPeering.StreamConfig`.
 IncomingMessageBufferSize = 10 # Default
-# OutgoingMessageBufferSize is the per-remote number of outgoing
-# messages to buffer. Any additional messages send on top of those
-# already in the queue will displace the oldest.
-# NOTE: OutgoingMessageBufferSize should be comfortably smaller than remote's
-# IncomingMessageBufferSize to give the remote enough space to process
-# them all in case we regained connection and now send a bunch at once
+# OutgoingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
+# capabilities P2P host are not configurable; for shared peering, use
+# `Capabilities.SharedPeering.StreamConfig`.
 OutgoingMessageBufferSize = 10 # Default
-# PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+# PeerID is the peer ID to use for the capabilities P2P host; see
+# [`P2P.PeerID`](#p2p).
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
-# TraceLogging enables trace level logging.
+# TraceLogging **DEPRECATED**: has no effect.
 TraceLogging = false # Default
 # EnableExperimentalRageP2P currently has no effect in this section; the
 # capabilities P2P host always uses the production ragep2p stack.
