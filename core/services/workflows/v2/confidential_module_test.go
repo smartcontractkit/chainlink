@@ -261,6 +261,55 @@ func TestConfidentialModule_Execute(t *testing.T) {
 
 		assert.Equal(t, execReq.GetConfig(), confReq.Execution.SdkExecuteRequest.GetConfig())
 	})
+
+	t.Run("resolved org ID is forwarded", func(t *testing.T) {
+		t.Parallel()
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+		execCap := capmocks.NewExecutableCapability(t)
+
+		capReg.EXPECT().GetExecutable(matches.AnyContext, confidentialWorkflowsCapabilityID).
+			Return(execCap, nil).Once()
+
+		var capturedReq capabilities.CapabilityRequest
+		execCap.EXPECT().Execute(matches.AnyContext, mock.Anything).
+			Run(func(_ context.Context, req capabilities.CapabilityRequest) {
+				capturedReq = req
+			}).
+			Return(capabilities.CapabilityResponse{Payload: respPayload}, nil).Once()
+
+		var resolvedOwner string
+		mod := mustNewConfidentialModuleWithOrgResolver(t, capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner-abc", "name", "tag",
+			func(_ context.Context, owner string) (string, error) {
+				resolvedOwner = owner
+				return "org-42", nil
+			},
+			limits.NewGateLimiter(true), lggr)
+
+		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-456"})
+		require.NoError(t, err)
+
+		assert.Equal(t, "owner-abc", resolvedOwner)
+		assert.Equal(t, "org-42", capturedReq.Metadata.OrgID)
+
+		var confReq confworkflowtypes.ConfidentialWorkflowRequest
+		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
+		assert.Equal(t, "org-42", confReq.Execution.OrgId)
+	})
+
+	t.Run("resolveOrgID error fails execution", func(t *testing.T) {
+		t.Parallel()
+		// No expectations on the registry: the capability must not be invoked.
+		capReg := regmocks.NewCapabilitiesRegistry(t)
+
+		mod := mustNewConfidentialModuleWithOrgResolver(t, capReg, &confidentialrelay.ExecutionHandlers{}, "", nil, "wf", "owner-abc", "name", "tag",
+			func(context.Context, string) (string, error) { return "", errors.New("org lookup failed") },
+			limits.NewGateLimiter(true), lggr)
+
+		_, err := mod.Execute(ctx, execReq, &stubExecutionHelper{executionID: "exec-456"})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to resolve org ID for workflow owner owner-abc")
+		assert.Contains(t, err.Error(), "org lookup failed")
+	})
 }
 
 func TestConfidentialModule_Tee(t *testing.T) {
@@ -673,7 +722,12 @@ func TestConfidentialModule_InterfaceMethods(t *testing.T) {
 
 func mustNewConfidentialModule(t *testing.T, capRegistry *regmocks.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, enabledGate limits.GateLimiter, lggr logger.Logger) *ConfidentialModule {
 	t.Helper()
-	m, err := NewConfidentialModule(capRegistry, executionHandlers, binaryURL, binaryHash, workflowID, workflowOwner, workflowName, workflowTag, func(context.Context, string) (string, error) { return "org-test", nil }, enabledGate, nil, lggr)
+	return mustNewConfidentialModuleWithOrgResolver(t, capRegistry, executionHandlers, binaryURL, binaryHash, workflowID, workflowOwner, workflowName, workflowTag, func(context.Context, string) (string, error) { return "org-test", nil }, enabledGate, lggr)
+}
+
+func mustNewConfidentialModuleWithOrgResolver(t *testing.T, capRegistry *regmocks.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(context.Context, string) (string, error), enabledGate limits.GateLimiter, lggr logger.Logger) *ConfidentialModule {
+	t.Helper()
+	m, err := NewConfidentialModule(capRegistry, executionHandlers, binaryURL, binaryHash, workflowID, workflowOwner, workflowName, workflowTag, resolveOrgID, enabledGate, nil, lggr)
 	require.NoError(t, err)
 	return m
 }
