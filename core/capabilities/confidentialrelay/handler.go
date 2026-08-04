@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
-	confidentialworkflow "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -451,12 +451,7 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 		Owner:    params.Owner,
 		Workflow: params.WorkflowID,
 	})
-
-	handler, ok := h.executionHandlers.GetExecution(params.WorkflowID, params.ExecutionID)
-	if !ok {
-		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
-	}
-
+	
 	att := params.Attestation
 	params.Attestation = ""
 	if err := h.verifyAttestationHash(ctx, att, params, confidentialrelaytypes.DomainCapabilityExec); err != nil {
