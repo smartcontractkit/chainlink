@@ -80,8 +80,6 @@ type Opts struct {
 	CapabilitiesRegistry   *capabilities.Registry
 	ExecutionHandlers      *confidentialrelay.ExecutionHandlers
 	CapabilitiesDispatcher remotetypes.Dispatcher
-	// CapabilitiesSharedPeer is an optional test override for the DON-to-DON
-	// shared peer, used together with CapabilitiesDispatcher.
 	CapabilitiesSharedPeer p2ptypes.SharedPeer
 
 	FetcherFunc      wftypes.FetcherFunc
@@ -568,7 +566,7 @@ func (w *dispatcherWrapper) newSubservices(
 
 	// Override for tests: a pre-built dispatcher is injected directly, bypassing
 	// the shared-peering setup entirely.
-	if opts.CapabilitiesDispatcher != nil {
+	if opts.CapabilitiesDispatcher != nil && opts.CapabilitiesSharedPeer != nil {
 		w.dispatcher = opts.CapabilitiesDispatcher
 		w.don2DonSharedPeer = opts.CapabilitiesSharedPeer
 		if w.don2DonSharedPeer != nil {
@@ -577,11 +575,10 @@ func (w *dispatcherWrapper) newSubservices(
 		return []commonsrv.Service{w.dispatcher}, nil
 	}
 
-	if !capCfg.SharedPeering().Enabled() { // test env
-		opts.CapabilitiesRegistry.SetLocalRegistry(newLocalTestMetadataRegistry(capCfg.Local()))
+	if !capCfg.SharedPeering().Enabled() {
+		lggr.Info("SharedPeering must be enabled for CRE - CRE not starting")
 		return nil, nil
 	}
-
 	if !cfg.P2P().Enabled() {
 		return nil, errors.New("top-level P2P must be enabled in order to use SharedPeering")
 	}
