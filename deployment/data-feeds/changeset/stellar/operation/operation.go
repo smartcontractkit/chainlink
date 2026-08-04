@@ -33,6 +33,24 @@ type StellarDeps struct {
 	Invoker bindings.Invoker
 }
 
+// contractAdmin is the ownership/upgrade/recovery surface shared by the
+// generated cache and proxy clients.
+type contractAdmin interface {
+	TransferOwnership(ctx context.Context, newOwner string, liveUntilLedger uint32) error
+	AcceptOwnership(ctx context.Context) error
+	RenounceOwnership(ctx context.Context) error
+	Upgrade(ctx context.Context, newWasmHash [32]byte) error
+	RecoverTokens(ctx context.Context, token, to string, amount int64) error
+}
+
+// adminClient returns the generated client selected by isProxy.
+func adminClient(d StellarDeps, contractID string, isProxy bool) contractAdmin {
+	if isProxy {
+		return proxy.NewDataFeedsProxyClient(d.Invoker, contractID)
+	}
+	return cache.NewDataFeedsCacheClient(d.Invoker, contractID)
+}
+
 // Void is the output for operations that return no payload.
 type Void struct{}
 
@@ -171,12 +189,7 @@ var TransferOwnership = cldfops.NewOperation(
 	"df:transfer-ownership", Version1_0_0,
 	"Begins two-step ownership transfer",
 	func(b cldfops.Bundle, d StellarDeps, in OwnershipInput) (Void, error) {
-		if in.IsProxy {
-			c := proxy.NewDataFeedsProxyClient(d.Invoker, in.ContractID)
-			return Void{}, c.TransferOwnership(b.GetContext(), in.NewOwner, in.LiveUntilLedger)
-		}
-		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
-		return Void{}, c.TransferOwnership(b.GetContext(), in.NewOwner, in.LiveUntilLedger)
+		return Void{}, adminClient(d, in.ContractID, in.IsProxy).TransferOwnership(b.GetContext(), in.NewOwner, in.LiveUntilLedger)
 	},
 )
 
@@ -184,12 +197,7 @@ var AcceptOwnership = cldfops.NewOperation(
 	"df:accept-ownership", Version1_0_0,
 	"Accepts a pending ownership transfer (caller must be the pending owner)",
 	func(b cldfops.Bundle, d StellarDeps, in OwnershipInput) (Void, error) {
-		if in.IsProxy {
-			c := proxy.NewDataFeedsProxyClient(d.Invoker, in.ContractID)
-			return Void{}, c.AcceptOwnership(b.GetContext())
-		}
-		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
-		return Void{}, c.AcceptOwnership(b.GetContext())
+		return Void{}, adminClient(d, in.ContractID, in.IsProxy).AcceptOwnership(b.GetContext())
 	},
 )
 
@@ -197,12 +205,7 @@ var RenounceOwnership = cldfops.NewOperation(
 	"df:renounce-ownership", Version1_0_0,
 	"Renounces ownership permanently",
 	func(b cldfops.Bundle, d StellarDeps, in OwnershipInput) (Void, error) {
-		if in.IsProxy {
-			c := proxy.NewDataFeedsProxyClient(d.Invoker, in.ContractID)
-			return Void{}, c.RenounceOwnership(b.GetContext())
-		}
-		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
-		return Void{}, c.RenounceOwnership(b.GetContext())
+		return Void{}, adminClient(d, in.ContractID, in.IsProxy).RenounceOwnership(b.GetContext())
 	},
 )
 
@@ -235,12 +238,7 @@ var UpgradeContract = cldfops.NewOperation(
 	"df:upgrade", Version1_0_0,
 	"Points the contract at a new WASM implementation",
 	func(b cldfops.Bundle, d StellarDeps, in UpgradeContractInput) (Void, error) {
-		if in.IsProxy {
-			c := proxy.NewDataFeedsProxyClient(d.Invoker, in.ContractID)
-			return Void{}, c.Upgrade(b.GetContext(), in.NewWasmHash)
-		}
-		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
-		return Void{}, c.Upgrade(b.GetContext(), in.NewWasmHash)
+		return Void{}, adminClient(d, in.ContractID, in.IsProxy).Upgrade(b.GetContext(), in.NewWasmHash)
 	},
 )
 
@@ -256,12 +254,7 @@ var RecoverTokens = cldfops.NewOperation(
 	"df:recover-tokens", Version1_0_0,
 	"Recovers tokens accidentally sent to the contract",
 	func(b cldfops.Bundle, d StellarDeps, in RecoverTokensInput) (Void, error) {
-		if in.IsProxy {
-			c := proxy.NewDataFeedsProxyClient(d.Invoker, in.ContractID)
-			return Void{}, c.RecoverTokens(b.GetContext(), in.Token, in.To, in.Amount)
-		}
-		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
-		return Void{}, c.RecoverTokens(b.GetContext(), in.Token, in.To, in.Amount)
+		return Void{}, adminClient(d, in.ContractID, in.IsProxy).RecoverTokens(b.GetContext(), in.Token, in.To, in.Amount)
 	},
 )
 
