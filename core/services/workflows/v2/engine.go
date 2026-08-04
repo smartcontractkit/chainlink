@@ -92,6 +92,11 @@ type Engine struct {
 	tracer trace.Tracer
 
 	orgID string
+	// orgIDMissingReason records why orgID is empty ("resolver_nil",
+	// "resolver_error", or "empty_response"). It is set once in start() and
+	// read by startExecution() to label the org_id_missing counter. It is only
+	// meaningful when orgID == "".
+	orgIDMissingReason string
 
 	draining         atomic.Bool
 	activeExecutions atomic.Int32
@@ -268,10 +273,16 @@ func (e *Engine) start(ctx context.Context) error {
 	// for the lifetime of this engine instance. If org membership/linking changes, the
 	// workflow must be restarted to pick up the new org mapping.
 	e.orgID = ""
-	if e.cfg.OrgResolver != nil {
+	e.orgIDMissingReason = ""
+	if e.cfg.OrgResolver == nil {
+		e.orgIDMissingReason = "resolver_nil"
+	} else {
 		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
 		if gerr != nil {
 			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
+			e.orgIDMissingReason = "resolver_error"
+		} else if orgID == "" {
+			e.orgIDMissingReason = "empty_response"
 		} else {
 			e.orgID = orgID
 		}
