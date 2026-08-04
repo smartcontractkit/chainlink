@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.57.1
+
+### Patch Changes
+
+- [#23329](https://github.com/smartcontractkit/chainlink/pull/23329) [`25990b2`](https://github.com/smartcontractkit/chainlink/commit/25990b2724f8b8398f846adeb77f615112330a16) - #internal Confidential relay: on the workflow node, briefly wait (after attestation and Workflow-DON authorization pass) for a not-yet-registered execution handler before failing the enclave's relay callback. This lets a node that has not yet started its copy of the DON-shared execution register and sign in time, instead of failing the callback outright and eroding the relay quorum. The wait is bounded so a callback for an execution the node never runs still fails promptly.
+
 ## 2.57.0
 
 ### Minor Changes
