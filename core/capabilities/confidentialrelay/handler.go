@@ -22,9 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	confidentialrelaytypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialrelay"
 	confidentialworkflow "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation"
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
@@ -145,6 +147,12 @@ type Handler struct {
 	// getExecutionWait is how long a relay callback waits for a not-yet-registered
 	// execution handler before failing (see defaultGetExecutionWait).
 	getExecutionWait time.Duration
+
+	// serveTime bounds how long one gateway request may be served for, from
+	// ConfidentialCompute.ConfidentialRelayHandlerTimeout. The connector's context
+	// carries no deadline of its own, so this is what keeps a stalled vault call
+	// from outliving the request it belongs to.
+	serveTime limits.TimeLimiter
 }
 
 func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *ExecutionHandlers, conn core.GatewayConnector, responseSigner relayResponseSigner, lggr logger.Logger, lf limits.Factory, validator AttestationValidator, requireBFTQuorum bool) (*Handler, error) {
@@ -154,6 +162,10 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *Execut
 	m, err := newMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create metrics: %w", err)
+	}
+	serveTime, err := lf.MakeTimeLimiter(cresettings.Default.ConfidentialCompute.ConfidentialRelayHandlerTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create serve time limiter: %w", err)
 	}
 
 	h := &Handler{
@@ -166,6 +178,7 @@ func NewHandler(capRegistry core.CapabilitiesRegistry, executionHandlers *Execut
 		validator:         validator,
 		requireBFTQuorum:  requireBFTQuorum,
 		limitsFactory:     lf,
+		serveTime:         serveTime,
 		getExecutionWait:  defaultGetExecutionWait,
 	}
 	h.Service, h.eng = services.Config{
@@ -184,10 +197,11 @@ func (h *Handler) start(ctx context.Context) error {
 }
 
 func (h *Handler) close() error {
-	if err := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); err != nil {
-		return fmt.Errorf("failed to remove enclave relay handler from connector: %w", err)
+	err := h.serveTime.Close()
+	if rmErr := h.gatewayConnector.RemoveHandler(context.Background(), h.Methods()); rmErr != nil {
+		err = errors.Join(err, fmt.Errorf("failed to remove enclave relay handler from connector: %w", rmErr))
 	}
-	return nil
+	return err
 }
 
 func (h *Handler) ID(_ context.Context) (string, error) {
@@ -200,6 +214,23 @@ func (h *Handler) Methods() []string {
 
 func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) error {
 	h.lggr.Debugw("received message from gateway", "gatewayID", gatewayID, "requestID", req.ID)
+
+	// GoCtx ties the goroutine to the handler's service lifecycle, so Close waits
+	// for in-flight requests instead of abandoning them mid-vault-call.
+	h.eng.GoCtx(ctx, func(ctx context.Context) {
+		ctx, done, err := h.serveTime.WithTimeout(ctx)
+		if err != nil {
+			h.lggr.Errorw("failed to apply serve timeout, dropping request", "gatewayID", gatewayID, "requestID", req.ID, "err", err)
+			return
+		}
+		defer done()
+		h.serveGatewayMessage(ctx, gatewayID, req)
+	})
+
+	return nil
+}
+
+func (h *Handler) serveGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) {
 	startTime := time.Now()
 	outcome := "success"
 	var errorCode int64
@@ -233,7 +264,7 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 	if err := h.gatewayConnector.SendToGateway(ctx, gatewayID, response); err != nil {
 		outcome = "send_error"
 		h.lggr.Errorw("failed to send message to gateway", "gatewayID", gatewayID, "err", err)
-		return err
+		return
 	}
 
 	h.lggr.Infow("sent message to gateway", "gatewayID", gatewayID, "requestID", req.ID)
@@ -242,7 +273,6 @@ func (h *Handler) HandleGatewayMessage(ctx context.Context, gatewayID string, re
 			attribute.String("gateway_id", gatewayID),
 		))
 	}
-	return nil
 }
 
 func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) *jsonrpc.Response[json.RawMessage] {
@@ -408,6 +438,23 @@ func (h *Handler) handleCapabilityExecute(ctx context.Context, gatewayID string,
 	var params confidentialrelaytypes.CapabilityRequestParams
 	if err := json.Unmarshal(*req.Params, &params); err != nil {
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
+	}
+
+	// The enclave's capability calls arrive as fresh gateway messages rather than
+	// through the workflow engine, so ctx carries none of the CRE tenants the engine
+	// seeds.
+	//
+	// Seeded as soon as the params are parsed so every ctx use below carries the
+	// tenant.
+	ctx = contexts.WithCRE(ctx, contexts.CRE{
+		Org:      params.OrgID,
+		Owner:    params.Owner,
+		Workflow: params.WorkflowID,
+	})
+
+	handler, ok := h.executionHandlers.GetExecution(params.WorkflowID, params.ExecutionID)
+	if !ok {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, fmt.Errorf("execution handler for workflow %s execution %s not found", params.WorkflowID, params.ExecutionID))
 	}
 
 	att := params.Attestation

@@ -11,6 +11,12 @@ inputs:
   cache-version:
     description: Set this to cache bust
     default: "1"
+  build-cache-version:
+    description: For scoping build caches to certain matrix jobs, takes precedence over cache-version
+    default: ""
+  build-cache-write:
+    description: When to save the Go build cache (always, default-branch-only, never)
+    default: "always"
   go-version-file:
     description: Set where the go version file is located at
     default: "go.mod"
@@ -27,7 +33,7 @@ runs:
   using: composite
   steps:
     - name: Checkout repo (full)
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       # Only do a full checkout on merge_groups
       if: github.event_name == 'merge_group'
       with:
@@ -35,7 +41,7 @@ runs:
         fetch-depth: 0
 
     - name: Checkout repo
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       if: github.event_name != 'merge_group'
       with:
         persist-credentials: false
@@ -46,6 +52,8 @@ runs:
       with:
         only-modules: ${{ inputs.only-modules }}
         cache-version: ${{ inputs.cache-version }}
+        build-cache-version: ${{ inputs.build-cache-version }}
+        build-cache-write: ${{ inputs.build-cache-write }}
         go-version-file: ${{ inputs.go-version-file }}
         go-module-file: ${{ inputs.go-module-file }}
 
@@ -72,6 +80,7 @@ runs:
       with:
         version: v2.11.4
         only-new-issues: true
+        skip-cache: true
         args: --output.checkstyle.path=${{ env.REPORT_PATH }}
         working-directory: ${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}
 

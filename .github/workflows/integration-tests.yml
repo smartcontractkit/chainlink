@@ -42,7 +42,6 @@ env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink-integration-tests' }}
   CHAINLINK_REF: ${{ inputs.cl_ref || github.sha }}
   TEST_SUITE: smoke
-  MOD_CACHE_VERSION: 2
 
 jobs:
   enforce-ctf-version:
@@ -94,6 +93,7 @@ jobs:
       general-changes: ${{ steps.changes.outputs.general_changes }}
       core-changes: ${{ steps.changes.outputs.core_changes }}
       cre-changes: ${{ steps.changes.outputs.cre_changes }}
+      ccip-changes: ${{ steps.changes.outputs.ccip_changes }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v7
@@ -108,9 +108,9 @@ jobs:
           filters: |
             general_changes:
               - '.github/workflows/integration-tests.yml'
-              - '.github/workflows/run-e2e-tests-reusable-workflow.yml'
               - '.github/workflows/cre-system-tests.yaml'
-              - '.github/e2e-tests.yml'
+              - '.github/workflows/cre-regression-system-tests.yaml'
+              - '.github/workflows/ccip-system-tests.yaml'
               - 'GNUmakefile'
               - 'core/chainlink.Dockerfile'
               - 'plugins/chainlink.Dockerfile'
@@ -128,6 +128,12 @@ jobs:
               - 'system-tests/**'
               - 'plugins/plugins.private.yaml'
               - 'plugins/plugins.public.yaml'
+            ccip_changes:
+              - '.github/workflows/integration-tests.yml'
+              - '.github/workflows/ccip-system-tests.yaml'
+              - '.github/actions/**'
+              - 'integration-tests/**'
+              - 'core/capabilities/ccip/**'
 
       - name: Decide which tests to run (rollout-only)
         # To validate that this properly tests, we will run this beside the dorny/paths-filter actions
@@ -148,6 +154,7 @@ jobs:
               - "core/**/config/**/*.toml"
             workflow-files:
               - ".github/workflows/integration-tests.yml"
+              - ".github/workflows/ccip-system-tests.yaml"
               - ".github/actions/**/*.y*ml"
             docker-files:
               - "**/*Dockerfile"
@@ -155,7 +162,6 @@ jobs:
               - "plugins/plugins.private.yaml"
             legacy-integ-test-files:
               - "integration-tests/**"
-              - ".github/e2e-tests.yml"
             system-test-files:
               - "system-tests/**"
               - "core/scripts/cre/**"
@@ -190,6 +196,7 @@ jobs:
                 - "!deployment/**"
                 - "**/*ccip*"
                 - "**/*ccip*/**"
+                - ".github/workflows/ccip-system-tests.yaml"
 
   labels:
     name: Get PR labels and set runner labels
@@ -206,6 +213,7 @@ jobs:
       skip-e2e-regression-label-found: ${{ steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
     steps:
       - name: Get PR Labels (runs-on-opt-out)
+        if: github.event_name == 'pull_request'
         id: label-runs-on-opt-out
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
         with:
@@ -231,8 +239,8 @@ jobs:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
           # include unique label (core/plugins) to ensure jobs are not competing for the same runner
-          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=16/memory=32/family=c7i+c8i/spot=co/extras=s3-cache+tmpfs
-          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=16/memory=32/family=c7i+c8i/spot=co/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=16/ram=64/family=m7i+m8i/spot=co/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=16/ram=64/family=m7i+m8i/spot=co/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
@@ -249,13 +257,7 @@ jobs:
       name: integration
       deployment: false
     runs-on: ${{ matrix.image.runner }}
-    needs:
-      [
-        labels,
-        enforce-ctf-version,
-        run-core-cre-e2e-tests-setup,
-        run-ccip-v1-6-e2e-tests-setup,
-      ]
+    needs: [labels, enforce-ctf-version, changes]
     permissions:
       id-token: write
       contents: read
@@ -267,11 +269,14 @@ jobs:
             dockerfile: core/chainlink.Dockerfile
             tag-suffix: ""
             cache-scope: core
-            # todo: optimize this conditional
             any-should-run: >-
               ${{
-                needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
-                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+                github.event_name == 'workflow_dispatch' ||
+                needs.changes.outputs.general-changes == 'true' ||
+                needs.changes.outputs.core-changes == 'true' ||
+                needs.changes.outputs.cre-changes == 'true' ||
+                needs.changes.outputs.ccip-changes == 'true' ||
+                needs.labels.outputs.run-e2e-tests-label-found == 'true'
               }}
 
           - name: (plugins)
@@ -279,15 +284,17 @@ jobs:
             dockerfile: plugins/chainlink.Dockerfile
             tag-suffix: -plugins
             cache-scope: plugins
-            # todo: optimize this conditional
             any-should-run: >-
               ${{
-                needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
-                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+                github.event_name == 'workflow_dispatch' ||
+                needs.changes.outputs.general-changes == 'true' ||
+                needs.changes.outputs.core-changes == 'true' ||
+                needs.changes.outputs.cre-changes == 'true' ||
+                needs.labels.outputs.run-e2e-tests-label-found == 'true'
               }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@bdccf4a8c118feaa74578d6fb51012875a860567 # v2.2.0
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
 
       - name: Check if image exists in ECR
         id: check-image-exists
@@ -339,14 +346,20 @@ jobs:
           aws-account-number: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           aws-role-arn: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          docker-additional-build-args: |
-            CL_IS_PROD_BUILD=false
+          free-disk-space: "false"
           # go-get-overrides is empty when inputs.evm-ref is unset so ctf-build-image skips an unnecessary setup-go / go mod tidy.
           go-get-overrides: >-
             ${{ inputs.evm-ref && format('chainlink-evm={0}', inputs.evm-ref) || '' }}
           gati-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
           gati-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
           cache-scope: ${{ matrix.image.cache-scope }}
+          # Persist only the Go build cache (GOCACHE), not the module cache.
+          # Module cache is large, and doesn't save us much time,
+          # at least compared to just using the build cache
+          # It also has mysterious failures when trying to upload
+          cache-map: |
+            {"cache-mount/go-build-cache": {"target": "/var/cache-target", "id": "go-build-cache"}}
 
   run-core-cre-e2e-tests-setup:
     name: Run Core CRE E2E Tests Setup
@@ -423,7 +436,7 @@ jobs:
 
   run-core-cre-e2e-tests:
     name: Run Core CRE E2E Tests
-    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup, compile-tests]
     permissions:
       actions: read
       checks: write
@@ -441,7 +454,7 @@ jobs:
 
   run-core-cre-e2e-regression-tests:
     name: Run Core CRE E2E Regression Tests
-    needs: [build-chainlink, run-core-cre-e2e-tests-setup]
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup, compile-tests]
     permissions:
       actions: read
       checks: write
@@ -465,56 +478,170 @@ jobs:
       contents: read
     outputs:
       should-run: ${{ steps.form-inputs.outputs.should-run }}
-      workflow-name: ${{ steps.form-inputs.outputs.workflow-name }}
-      test-trigger: ${{ steps.form-inputs.outputs.test-trigger }}
     steps:
       - name: Form Inputs for CCIP v1.6 E2E Tests
         id: form-inputs
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.general-changes == 'true' || needs.changes.outputs.core-changes == 'true' }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.ccip-changes == 'true' }}
           RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
         run: |
           if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # Run CCIP v1.6 E2E Tests on PRs only if the label "run-e2e-tests" is present, and there are relevant changes
-            echo "workflow-name=Run CCIP v1.6 E2E Tests For PR" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=PR E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
-
-            if [[ "${RUN_E2E_TESTS_LABEL_FOUND}" == 'true' ]]; then
-              # only run if the PR has the label "run-e2e-tests"
-              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-            fi
+            # CCIP v1.6 E2E Tests run on merge queue (merge_group), not on PRs
+            echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
             # Run CCIP v1.6 E2E Tests in the merge queue, if there are relevant changes
-            echo "workflow-name=Run CCIP v1.6 E2E Tests For Merge Queue" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Merge Queue E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
             echo "should-run=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
             # Always Run CCIP v1.6 E2E Tests on workflow dispatch
-            echo "workflow-name=Run CCIP v1.6 E2E Tests For Workflow Dispatch" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Workflow Dispatch E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
             echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
 
           elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
             # Run CCIP v1.6 E2E Tests on push events, only if there are relevant changes or if it's a tag push
-            echo "workflow-name=Run CCIP v1.6 E2E Tests For Push" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Push E2E CCIP v1.6 Tests" | tee -a "$GITHUB_OUTPUT"
             if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
               echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+            else
+              echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
             fi
 
           else
-            echo "workflow-name=Run CCIP v1.6 E2E Tests For Unknown Event" | tee -a "$GITHUB_OUTPUT"
-            echo "test-trigger=Unknown CCIP v1.6 E2E Tests" | tee -a "$GITHUB_OUTPUT"
             echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
           fi
 
+  # Central writer for the unified `integration-tests-v1` build cache consumed (restore-only) by
+  # CRE smoke + regression matrices and CCIP test suites.
+  # Keyed on go.sum hash to optimize parallel PR cache hits (Strategy A + B + C).
+  compile-tests:
+    name: Compile CRE & CCIP Tests
+    if: >-
+      ${{
+        github.actor != 'dependabot[bot]' &&
+        (needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' ||
+         needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true')
+      }}
+    needs:
+      - run-core-cre-e2e-tests-setup
+      - run-ccip-v1-6-e2e-tests-setup
+    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i+c8i/spot=co/volume=100GB/extras=s3-cache
+    environment:
+      name: integration
+      deployment: false
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
+      - name: Checkout the repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ env.CHAINLINK_REF }}
+
+      - name: Set up Go for compilation
+        id: setup-go
+        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        with:
+          # Key the cache on go.sum hash; restore-only on PRs to eliminate upload overhead and cache thrashing.
+          go_mod_path: ./system-tests/tests/go.mod
+          cache_key_id: integration-tests-v1
+          cache_builds: true
+          cache_restore_only: ${{ github.ref_name != 'develop' }}
+          should_tidy: false
+          no_cache: false
+          gati_token: ${{ steps.github-token.outputs.access-token }}
+
+      # No cache-hit short-circuit: ctf-setup-go@v0.4.0 exposes no `cache-hit` output,
+      # and this job's purpose is to (re)populate the shared build cache regardless.
+      - name: Compile E2E tests
+        shell: bash
+        env:
+          SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
+          SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/.gotmp"
+          export GOTMPDIR="$GITHUB_WORKSPACE/.gotmp"
+
+          mkdir -p "$GITHUB_WORKSPACE/system-tests/tests/bin"
+          mkdir -p "$GITHUB_WORKSPACE/integration-tests/bin"
+
+          cre_pid=""
+          ccip_pid=""
+
+          if [[ "${SHOULD_RUN_CRE}" == "true" ]]; then
+            (
+              set -euo pipefail
+              echo "Compiling CRE tests and CLI in parallel..."
+              cd "$GITHUB_WORKSPACE/system-tests/tests"
+              go mod download
+              go test -c -ldflags="-s -w" -o ./bin/cre-smoke.test ./smoke/cre &
+              p1=$!
+              go test -c -ldflags="-s -w" -o ./bin/cre-regression.test ./regression/cre &
+              p2=$!
+              (cd "$GITHUB_WORKSPACE/core/scripts/cre/environment" && go build -ldflags="-s -w" -o "$GITHUB_WORKSPACE/system-tests/tests/bin/cre-env" .) &
+              p3=$!
+              set +e
+              wait "$p1"; p1_exit=$?
+              wait "$p2"; p2_exit=$?
+              wait "$p3"; p3_exit=$?
+              set -e
+              if [[ "$p1_exit" -ne 0 || "$p2_exit" -ne 0 || "$p3_exit" -ne 0 ]]; then
+                echo "Compilation failed (cre-smoke=$p1_exit, cre-regression=$p2_exit, cre-env=$p3_exit)" >&2
+                exit 1
+              fi
+            ) &
+            cre_pid=$!
+          fi
+
+          if [[ "${SHOULD_RUN_CCIP}" == "true" ]]; then
+            (
+              set -euo pipefail
+              echo "Compiling CCIP tests in parallel..."
+              cd "$GITHUB_WORKSPACE/integration-tests"
+              go mod download
+              go test -c -tags embed -ldflags="-s -w" -o ./bin/ccip-smoke.test ./smoke/ccip
+            ) &
+            ccip_pid=$!
+          fi
+
+          if [ -n "$cre_pid" ]; then wait "$cre_pid"; fi
+          if [ -n "$ccip_pid" ]; then wait "$ccip_pid"; fi
+
+          rm -rf "$GITHUB_WORKSPACE/.gotmp"
+
+      - name: Cache Pre-Compiled CRE Test Binaries
+        if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: system-tests/tests/bin/
+          key: test-binaries-cre-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+
+      - name: Cache Pre-Compiled CCIP Test Binaries
+        if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: integration-tests/bin/
+          key: test-binaries-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+
   run-ccip-v1-6-e2e-tests:
-    needs: [run-ccip-v1-6-e2e-tests-setup, build-chainlink, changes, labels]
-    name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
+    needs: [run-ccip-v1-6-e2e-tests-setup, build-chainlink, compile-tests]
+    name: Run CCIP v1.6 E2E Tests
     permissions:
       actions: read
       checks: write
@@ -522,39 +649,13 @@ jobs:
       id-token: write
       contents: read
     if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@9c49ffcf252efbedd7ec280e1993ba29dcbc9443 # 2026-04-28
+    uses: ./.github/workflows/ccip-system-tests.yaml
     with:
-      workflow_name: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.workflow-name }}
+      ecr: "sdlc"
+      chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
-      test_path: .github/e2e-tests.yml
-      test_trigger: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.test-trigger }}
-      upload_cl_node_coverage_artifact: true
-      enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
-      use-self-hosted-runners: ${{ needs.labels.outputs.should-use-self-hosted-runners }}
-      ecr_name: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
-      quarantine: "true"
-    secrets:
-      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
-      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
-      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-      GRAFANA_INTERNAL_TENANT_ID: ${{ secrets.GRAFANA_INTERNAL_TENANT_ID }}
-      GRAFANA_INTERNAL_BASIC_AUTH: ${{ secrets.GRAFANA_INTERNAL_BASIC_AUTH }}
-      GRAFANA_INTERNAL_HOST: ${{ secrets.GRAFANA_INTERNAL_HOST }}
-      GRAFANA_INTERNAL_URL_SHORTENER_TOKEN: ${{ secrets.GRAFANA_INTERNAL_URL_SHORTENER_TOKEN }}
-      LOKI_TENANT_ID: ${{ secrets.LOKI_TENANT_ID }}
-      LOKI_URL: ${{ secrets.LOKI_URL }}
-      LOKI_BASIC_AUTH: ${{ secrets.LOKI_BASIC_AUTH }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_VALIDATION_PROD_ARN }}
-      AWS_API_GW_HOST_GRAFANA: ${{ secrets.AWS_API_GW_HOST_GRAFANA }}
-      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
-      TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+    secrets: inherit
 
   check-e2e-test-results:
     if: always()
@@ -568,71 +669,38 @@ jobs:
         run-core-cre-e2e-regression-tests,
       ]
     steps:
-      - name: Check CCIP v1.6 E2E test results
-        id: check_ccip_v1_6_results
-        env:
-          TEST_RESULTS: ${{ needs.run-ccip-v1-6-e2e-tests.outputs.test_results }}
-        run: |
-          results="$TEST_RESULTS"
-          echo "CCIP v1.6 E2E test results:"
-          echo "$results" | jq .
-
-      - name: Fail the job if CCIP v1.6 E2E tests were not successful
+      - name: Check all E2E test results
         if: always()
         env:
-          JOB_RESULT: ${{ needs.run-ccip-v1-6-e2e-tests.result }}
+          CCIP_RESULT: ${{ needs.run-ccip-v1-6-e2e-tests.result }}
+          CRE_RESULT: ${{ needs.run-core-cre-e2e-tests.result }}
+          CRE_REGRESSION_RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
+          BUILD_RESULT: ${{ needs.build-chainlink.result }}
         run: |
-          if [[ "${JOB_RESULT}" == "failure" ]]; then
-            echo "::error::CCIP v1.6 E2E tests failed."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
-            echo "::error::CCIP v1.6 E2E tests were cancelled."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
-            echo "::warning::CCIP v1.6 E2E tests were skipped."
-          fi
+          check_result() {
+            local name="$1" result="$2"
+            case "${result}" in
+              failure)
+                echo "::error::${name} failed."
+                return 1
+                ;;
+              cancelled)
+                echo "::error::${name} cancelled."
+                return 1
+                ;;
+              skipped)
+                echo "::warning::${name} skipped."
+                ;;
+            esac
+            return 0
+          }
 
-      - name: Fail the job if core CRE tests were not successful
-        if: always()
-        env:
-          JOB_RESULT: ${{ needs.run-core-cre-e2e-tests.result }}
-        run: |
-          if [[ "${JOB_RESULT}" == "failure" ]]; then
-            echo "::error::Core CRE E2E tests failed."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
-            echo "::error::Core CRE E2E tests were cancelled."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
-            echo "::warning::Core CRE E2E tests were skipped."
-          fi
+          failed=0
+          check_result "CCIP v1.6 E2E tests" "${CCIP_RESULT}" || failed=1
+          check_result "Core CRE E2E tests" "${CRE_RESULT}" || failed=1
+          check_result "Core CRE E2E regression tests" "${CRE_REGRESSION_RESULT}" || failed=1
+          check_result "Chainlink image build" "${BUILD_RESULT}" || failed=1
 
-      - name: Fail the job if core CRE regression tests were not successful
-        if: always()
-        env:
-          JOB_RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
-        run: |
-          if [[ "${JOB_RESULT}" == "failure" ]]; then
-            echo "::error::Core CRE E2E regression tests failed."
+          if [[ "$failed" -eq 1 ]]; then
             exit 1
-          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
-            echo "::error::Core CRE E2E regression tests were cancelled."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
-            echo "::warning::Core CRE E2E regression tests were skipped."
-          fi
-
-      - name: Fail the job if Chainlink image was cancelled or failed to build
-        if: always()
-        env:
-          JOB_RESULT: ${{ needs.build-chainlink.result }}
-        run: |
-          if [[ "${JOB_RESULT}" == "failure" ]]; then
-            echo "::error::Chainlink image build failed."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "cancelled" ]]; then
-            echo "::error::Chainlink image build was cancelled."
-            exit 1
-          elif [[ "${JOB_RESULT}" == "skipped" ]]; then
-            echo "::warning::Chainlink image build was skipped."
           fi

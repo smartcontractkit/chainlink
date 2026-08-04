@@ -64,7 +64,24 @@ func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 		{"evm", "GetTransactionReceipt"}: limiters.ChainReadCalls,
 		{"evm", "HeaderByNumber"}:        limiters.ChainReadCalls,
 
-		{"evm", "WriteReport"}: limiters.ChainWriteTargets,
+		{"aptos", "View"}: limiters.ChainReadCalls,
+
+		{"solana", "GetAccountInfoWithOpts"}:      limiters.ChainReadCalls,
+		{"solana", "GetBalance"}:                  limiters.ChainReadCalls,
+		{"solana", "GetBlock"}:                    limiters.ChainReadCalls,
+		{"solana", "GetFeeForMessage"}:            limiters.ChainReadCalls,
+		{"solana", "GetMultipleAccountsWithOpts"}: limiters.ChainReadCalls,
+		{"solana", "GetSignatureStatuses"}:        limiters.ChainReadCalls,
+		{"solana", "GetSlotHeight"}:               limiters.ChainReadCalls,
+		{"solana", "GetTransaction"}:              limiters.ChainReadCalls,
+
+		{"stellar", "GetLatestLedger"}: limiters.ChainReadCalls,
+		{"stellar", "ReadContract"}:    limiters.ChainReadCalls,
+
+		{"evm", "WriteReport"}:     limiters.ChainWriteTargets,
+		{"aptos", "WriteReport"}:   limiters.ChainWriteTargets,
+		{"solana", "WriteReport"}:  limiters.ChainWriteTargets,
+		{"stellar", "WriteReport"}: limiters.ChainWriteTargets,
 
 		{"http-actions", "SendRequest"}:      limiters.HTTPActionCalls,
 		{"confidential-http", "SendRequest"}: limiters.ConfidentialHTTPCalls,

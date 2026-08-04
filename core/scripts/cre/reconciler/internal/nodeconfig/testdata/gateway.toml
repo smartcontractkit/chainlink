@@ -11,7 +11,7 @@ EnableExperimentalRageP2P = true
 
 [P2P.V2]
 Enabled = true
-ListenAddresses = ['0.0.0.0:6689']
+ListenAddresses = ['0.0.0.0:5001']
 
 [Capabilities]
 [Capabilities.Peering]

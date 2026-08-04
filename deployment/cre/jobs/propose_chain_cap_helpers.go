@@ -19,9 +19,9 @@ import (
 // EVM uses KeystoneForwarder@1.0.0 and OCR3Capability@1.0.0 (see pkg.GetKeystoneForwarderCapabilityAddressRefKey).
 // Solana reads use CapabilitiesRegistry@2.0.0 for CapReg-backed oracle factory (see pkg.GetCapRegAddressRefKey).
 const (
-	solanaForwarderVersion = "1.0.0"
-	solanaCapRegVersion    = "2.0.0"
-	stellarCapRegVersion   = "2.0.0"
+	solanaForwarderVersion  = "1.0.0"
+	solanaCapRegVersion     = "2.0.0"
+	stellarCapRegVersion    = "2.0.0"
 	stellarForwarderVersion = "1.0.0"
 )
 

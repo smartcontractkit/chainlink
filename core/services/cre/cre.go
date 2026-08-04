@@ -614,7 +614,7 @@ func (w *dispatcherWrapper) newSubservices(
 		signer = p2pmain.NewSigner(keyStore.P2P(), cfg.P2P().PeerID())
 	}
 
-	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.externalPeerWrapper, w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr)
+	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr)
 	if err != nil {
 		return nil, fmt.Errorf("could not create dispatcher: %w", err)
 	}
@@ -687,6 +687,7 @@ func newOrgResolver(
 	orgResolverConfig := orgresolver.Config{
 		URL:                           cfg.CRE().Linking().URL(),
 		TLSEnabled:                    cfg.CRE().Linking().TLSEnabled(),
+		RequestTimeout:                cfg.CRE().Linking().RequestTimeout(),
 		WorkflowRegistryAddress:       capCfg.WorkflowRegistry().Address(),
 		WorkflowRegistryChainSelector: wrChainDetails.ChainSelector,
 		JWTGenerator:                  opts.JWTGenerator,
