@@ -127,7 +127,7 @@ func (m *ConfidentialModule) Execute(
 
 	orgID, orgErr := m.resolveOrgID(ctx, m.workflowOwner)
 	if orgErr != nil {
-		return nil, fmt.Errorf("failed to resolve org ID for workflow owner %s: %w", m.workflowOwner, orgErr)
+		m.lggr.Warnw("failed to resolve organization ID", "error", orgErr)
 	}
 
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
