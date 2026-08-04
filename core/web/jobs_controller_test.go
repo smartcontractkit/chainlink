@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/freeport"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -655,6 +656,10 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)
 	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
+
+	// Seed a local test metadata registry so workflow jobs can resolve local
+	// node state without an on-chain capabilities registry.
+	app.GetCapabilitiesRegistry().SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 
 	client := app.NewHTTPClient(nil)
 	vrfKeyStore := app.GetKeyStore().VRF()
