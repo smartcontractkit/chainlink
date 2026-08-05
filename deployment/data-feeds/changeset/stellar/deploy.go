@@ -167,7 +167,15 @@ func (DeployProxy) Apply(env cldf.Environment, req *DeployProxyRequest) (cldf.Ch
 	if err != nil {
 		return out, err
 	}
-	return recordAddress(report.Output.ContractID, req.ChainSel, ProxyContract, req.Qualifier, req.Version, req.LabelSet)
+	out, err = recordAddress(report.Output.ContractID, req.ChainSel, ProxyContract, req.Qualifier, req.Version, req.LabelSet)
+	if err != nil {
+		return out, err
+	}
+	return out, out.DataStore.ContractMetadata().Upsert(datastore.ContractMetadata{
+		ChainSelector: req.ChainSel,
+		Address:       report.Output.ContractID,
+		Metadata:      ContractMetadata{Cache: cacheRef.Address},
+	})
 }
 
 var deployProxyOp = operations.NewOperation(

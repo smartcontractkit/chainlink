@@ -60,7 +60,14 @@ func (RemoveFeedConfigs) Apply(env cldf.Environment, req *RemoveFeedConfigsReque
 		Admin:      req.Admin,
 		DataIDs:    ids,
 	})
-	return out, err
+	if err != nil {
+		return out, err
+	}
+	return metadataOutput(env, req.ChainSel, d.contractID, func(m *ContractMetadata) {
+		for _, id := range ids {
+			delete(m.Feeds, dataIDHex(id))
+		}
+	})
 }
 
 var removeFeedConfigsOp = operations.NewOperation(

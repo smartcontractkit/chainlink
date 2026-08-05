@@ -121,7 +121,22 @@ func (SetFeedConfigs) Apply(env cldf.Environment, req *SetFeedConfigsRequest) (c
 		Admin:      req.Admin,
 		Entries:    entries,
 	})
-	return out, err
+	if err != nil {
+		return out, err
+	}
+	return metadataOutput(env, req.ChainSel, d.contractID, func(m *ContractMetadata) {
+		if m.Feeds == nil {
+			m.Feeds = map[string]FeedMetadata{}
+		}
+		for i, id := range ids {
+			key := dataIDHex(id)
+			m.Feeds[key] = FeedMetadata{
+				Description: req.Descriptions[i],
+				Decimals:    decimalsFromID(id),
+				Permissions: req.Permissions,
+			}
+		}
+	})
 }
 
 var setFeedConfigsOp = operations.NewOperation(

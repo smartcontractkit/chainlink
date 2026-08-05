@@ -57,7 +57,12 @@ func (SetProxyCache) Apply(env cldf.Environment, req *SetProxyCacheRequest) (cld
 		ContractID: proxyDeps.contractID,
 		Cache:      cacheRef.Address,
 	})
-	return out, err
+	if err != nil {
+		return out, err
+	}
+	return metadataOutput(env, req.ChainSel, proxyDeps.contractID, func(m *ContractMetadata) {
+		m.Cache = cacheRef.Address
+	})
 }
 
 var setProxyCacheOp = operations.NewOperation(
