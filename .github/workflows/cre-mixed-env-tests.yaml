@@ -168,9 +168,10 @@ jobs:
         uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
           go_mod_path: system-tests/tests/go.mod
-          cache_key_id: integration-tests-v1
-          cache_builds: true
-          cache_restore_only: "true"
+          # No Go build/restore: mixed-env runs the pre-compiled cre-smoke.test binary
+          # (restored below), and the non-determinism gate reuses that same binary — so
+          # nothing is compiled here and cache restore would only waste ~30-60s per run.
+          no_cache: true
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6
@@ -375,12 +376,26 @@ jobs:
       - name: Check for non-determinism
         # Hard gate. The smoke step above is continue-on-error (auto-quarantine), which
         # would swallow the in-test TestMain scan, so re-scan the live node containers
-        # here and fail the job on any marker. Reuses the Go scanner and needle list from
-        # test-helpers/nondeterminism_scan.go (no duplicated marker list in bash).
+        # here and fail the job on any marker.
+        #
+        # Reuse the pre-compiled cre-smoke.test binary rather than `go run`: TestMain runs
+        # the container scan (test-helpers/nondeterminism_scan.go) after m.Run() and exits
+        # non-zero on any marker, so a non-matching -test.run executes zero tests but still
+        # triggers the scan — with NO Go build (Set up Go runs with no_cache). Fall back to
+        # `go run` only if the pre-compiled binary is unavailable.
         if: ${{ always() && steps.baseline.outputs.skip != 'true' }}
         shell: bash
         working-directory: system-tests/tests
-        run: go run ./cmd/mixed-env-nondeterminism-check
+        env:
+          CRE_NONDETERMINISM_CHECK: "true"
+        run: |
+          if [ -f "./bin/cre-smoke.test" ]; then
+            echo "Scanning via pre-compiled binary (no Go build)"
+            ./bin/cre-smoke.test -test.run '^$' -test.v
+          else
+            echo "No pre-compiled binary; falling back to 'go run'"
+            go run ./cmd/mixed-env-nondeterminism-check
+          fi
 
       - name:
           Analyze and upload test results (${{ steps.run-tests.outputs.tests_result
