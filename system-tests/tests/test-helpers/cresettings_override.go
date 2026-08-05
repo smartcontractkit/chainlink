@@ -23,7 +23,6 @@ package helpers
 //     disagree. Approve() below only returns once every targeted node accepted the job.
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -33,7 +32,6 @@ import (
 	"testing"
 	"time"
 
-	"dario.cat/mergo"
 	"github.com/moby/moby/client"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/require"
@@ -41,20 +39,13 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
-	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 const (
-	// creSettingsExternalJobID is the fixed external job id shared by every CRESettings
-	// job (at most one per node). Mirrors deployment/cre/jobs/pkg/cre_settings_job.go so
-	// cancel-by-external-id targets the right proposal.
-	creSettingsExternalJobID = "8561c20c-7d06-421e-a155-3baf21b1622b"
-
 	// creSettingsUpdateLogMarker is what the node's cresettings delegate logs when it
 	// applies an update (core/services/cresettings/delegate.go: `Updated settings`).
 	// We scan for it plus the doc hash as best-effort proof that a node converged.
@@ -62,9 +53,6 @@ const (
 
 	// how long to wait (best effort) for every targeted node to log the applied hash.
 	creSettingsConvergenceTimeout = 60 * time.Second
-
-	// per-delivery timeout for the propose+approve round trip.
-	creSettingsDeliveryTimeout = 2 * time.Minute
 )
 
 // Only one CRE settings override may be active at a time. Overrides mutate settings on
@@ -145,12 +133,11 @@ type creSettingsTarget struct {
 // nodes and are skipped. The user does not choose which DONs are targeted.
 //
 // For each DON it captures the DON's boot CL_CRE_SETTINGS as the baseline, merges the
-// overrides on top, and proposes+approves a `cresettings` job to every node of the DON.
-// Approve only returns once every node accepted the job, so a successful call means the
-// environment converged on the new settings.
+// overrides on top, and proposes a `cresettings` job to the DON's worker nodes, which
+// auto-approve and apply it live.
 //
-// It fails the test (require) if delivery to any DON fails. A best-effort log-scan
-// confirmation is emitted via t.Logf for visibility.
+// It fails the test (require) if proposing to any DON fails. Application is confirmed
+// best-effort via the nodes' "Updated settings" logs, emitted via t.Logf for visibility.
 func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, o CRESettingsOverrides) *CRESettingsHandle {
 	t.Helper()
 
@@ -273,26 +260,14 @@ func (h *CRESettingsHandle) restore(t *testing.T, fatal bool) {
 	}
 }
 
-// deliverCRESettings cancels any active settings job on every node of the DON, then
-// proposes and approves a new one carrying settingsTOML. Approve returns only after
-// every targeted node accepted the proposal.
+// deliverCRESettings proposes a `cresettings` job carrying settingsTOML to the DON's
+// worker nodes. CRE nodes auto-approve the settings job and apply it live, so proposing
+// is sufficient — we deliberately do NOT cancel the previous job or explicitly approve
+// the new one. With the fixed settings-job UUID, an explicit cancel/approve corrupts the
+// JD proposal history on repeated deliveries (e.g. reverting to the same baseline twice,
+// which failed with "no job proposal found"). Application is confirmed best-effort via
+// the nodes' "Updated settings" logs (see logSettingsConvergence).
 func deliverCRESettings(env *ttypes.TestEnvironment, don *cre.Don, settingsTOML string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), creSettingsDeliveryTimeout)
-	defer cancel()
-
-	// At most one CRESettings job may be active per node; cancel any existing proposal
-	// first (mirrors `env swap capability`). Best-effort: on the first apply there is
-	// nothing to cancel.
-	for _, node := range don.Nodes {
-		if _, err := node.CancelProposalsByExternalJobID(ctx, []string{creSettingsExternalJobID}); err != nil {
-			framework.L.Warn().
-				Str("don", don.Name).
-				Str("node", node.JobDistributorDetails.NodeID).
-				Err(err).
-				Msg("[cresettings] could not cancel existing settings proposal (continuing)")
-		}
-	}
-
 	input := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
 		Environment: env.CreEnvironment.CldfEnvironment.Name,
@@ -309,29 +284,8 @@ func deliverCRESettings(env *ttypes.TestEnvironment, don *cre.Don, settingsTOML 
 	if err := (cre_jobs.ProposeJobSpec{}).VerifyPreconditions(*env.CreEnvironment.CldfEnvironment, input); err != nil {
 		return fmt.Errorf("verify settings job preconditions: %w", err)
 	}
-
-	out, err := (cre_jobs.ProposeJobSpec{}).Apply(*env.CreEnvironment.CldfEnvironment, input)
-	if err != nil {
+	if _, err := (cre_jobs.ProposeJobSpec{}).Apply(*env.CreEnvironment.CldfEnvironment, input); err != nil {
 		return fmt.Errorf("propose settings job: %w", err)
-	}
-
-	// Collect the per-node proposed specs so we can approve them on each node.
-	specs := make(map[string][]string)
-	for _, r := range out.Reports {
-		o, ok := r.Output.(cre_jobs_ops.ProposeCRESettingsJobsOutput)
-		if !ok {
-			return fmt.Errorf("unexpected settings job report output type: %T", r.Output)
-		}
-		if mErr := mergo.Merge(&specs, o.Specs, mergo.WithAppendSlice); mErr != nil {
-			return fmt.Errorf("merge settings job specs: %w", mErr)
-		}
-	}
-	if len(specs) == 0 {
-		return fmt.Errorf("settings job proposal produced no specs for DON %q", don.Name)
-	}
-
-	if err := jobs.Approve(ctx, env.CreEnvironment.CldfEnvironment.Offchain, env.Dons, specs); err != nil {
-		return fmt.Errorf("approve settings job: %w", err)
 	}
 	return nil
 }
