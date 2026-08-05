@@ -22,6 +22,7 @@ jobs:
     name: Detect Changes
     permissions:
       pull-requests: read
+      statuses: write
     outputs:
       affected-modules: ${{ steps.changed-modules.outputs.modules-json }}
       # Runs on workflow changes, and any (non-ignored) core changes
@@ -157,6 +158,18 @@ jobs:
           module-patterns: |
             **
             !core/scripts/cre/environment/examples/workflows/**
+
+      - name: Set initial SonarQube pending status
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          gh api "/repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            --method POST \
+            -f state=pending \
+            -f context="SonarQube Scan" \
+            -f description="SonarQube scan pending CI Core completion" || true
 
   golangci:
     name: GolangCI Lint

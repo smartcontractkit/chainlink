@@ -10,6 +10,23 @@ on:
     types:
       - completed
   workflow_dispatch:
+    inputs:
+      head_sha:
+        description: "Commit SHA to analyze and stamp"
+        required: false
+        type: string
+      pr_number:
+        description: "Pull Request number (if applicable)"
+        required: false
+        type: string
+      head_branch:
+        description: "Head branch name"
+        required: false
+        type: string
+      base_branch:
+        description: "Base branch name"
+        required: false
+        type: string
 
 jobs:
   scan:
@@ -20,13 +37,14 @@ jobs:
       actions: read
       contents: read
       pull-requests: read
+      statuses: write
     steps:
       - name: Checkout the repo
         uses: actions/checkout@v7
         with:
           persist-credentials: false
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event.workflow_run.head_sha || inputs.head_sha || github.sha }}
 
       - name: Download artifacts from parent workflow
         uses: actions/download-artifact@v8
@@ -39,10 +57,55 @@ jobs:
         id: report-paths
         shell: bash
         env:
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
-          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
-          BASE_BRANCH: ${{ github.event.workflow_run.pull_requests[0].base.ref || 'develop' }}
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha || inputs.head_sha || github.sha }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number || inputs.pr_number }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch || inputs.head_branch || github.ref_name }}
+          BASE_BRANCH: ${{ github.event.workflow_run.pull_requests[0].base.ref || inputs.base_branch || 'develop' }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
         run: |
+          WORKFLOW_URL="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          echo "Evaluating SonarQube scan for HEAD_SHA=${HEAD_SHA}, HEAD_BRANCH=${HEAD_BRANCH}, BASE_BRANCH=${BASE_BRANCH}, CONCLUSION=${CONCLUSION}"
+          echo "HEAD_SHA=${HEAD_SHA}" >> "$GITHUB_ENV"
+
+          # Release branch or Tag Push check: skip scan but post success status
+          if [[ "${HEAD_BRANCH}" =~ ^release/ ]] || [[ "${BASE_BRANCH}" =~ ^release/ ]] || [[ "${HEAD_BRANCH}" =~ ^v[0-9] ]] || [[ "${github.ref}" =~ ^refs/tags/ ]]; then
+            echo "Release branch or tag push detected (${HEAD_BRANCH} -> ${BASE_BRANCH}). Skipping SonarQube scan."
+            gh api "/repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+              --method POST \
+              -f state=success \
+              -f context="SonarQube Scan" \
+              -f description="SonarQube scan skipped on release branch/tag" \
+              -f target_url="${WORKFLOW_URL}" || true
+            echo "skip-scan=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # CI Core failure/cancellation check
+          if [[ "${github.event_name}" == "workflow_run" ]]; then
+            if [[ "${CONCLUSION}" == "failure" ]]; then
+              echo "CI Core workflow failed. Marking SonarQube Scan as failure."
+              gh api "/repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+                --method POST \
+                -f state=failure \
+                -f context="SonarQube Scan" \
+                -f description="CI Core failed, SonarQube scan skipped" \
+                -f target_url="${WORKFLOW_URL}" || true
+              echo "skip-scan=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [[ "${CONCLUSION}" == "cancelled" ]]; then
+              echo "CI Core workflow was cancelled. Marking SonarQube Scan as cancelled."
+              gh api "/repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+                --method POST \
+                -f state=error \
+                -f context="SonarQube Scan" \
+                -f description="CI Core was cancelled" \
+                -f target_url="${WORKFLOW_URL}" || true
+              echo "skip-scan=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
           # Check and assign paths for coverage/test reports in go_core_tests_logs
           core_artifact="go_core_tests_logs"
           if [ -d "$core_artifact" ]; then
@@ -64,7 +127,6 @@ jobs:
             integration_coverage_paths=$(find "./${integration_tests_artifact}" -name coverage.txt | paste -sd "," -)
             integration_tests_paths=$(find "./${integration_tests_artifact}" -name output.txt | paste -sd "," -)
 
-            # Append to existing paths if they are set, otherwise assign directly
             sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$integration_coverage_paths"
             sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$integration_tests_paths"
           fi
@@ -76,14 +138,11 @@ jobs:
               scripts_coverage_paths=$(find "./${scripts_tests_artifact}" -name coverage.txt | paste -sd "," -)
               scripts_tests_paths=$(find "./${scripts_tests_artifact}" -name output.txt | paste -sd "," -)
 
-              # Append to existing paths if they are set, otherwise assign directly
               sonarqube_coverage_report_paths="${sonarqube_coverage_report_paths:+$sonarqube_coverage_report_paths,}$scripts_coverage_paths"
               sonarqube_tests_report_paths="${sonarqube_tests_report_paths:+$sonarqube_tests_report_paths,}$scripts_tests_paths"
           fi
 
           # Check and assign paths for lint reports
-          # To find reports in the folders named differently (because of the matrix strategy),
-          # We need to loop through the artifacts. It allows usage of RegExp folders (skipped if not found).
           sonarqube_lint_report_paths=""
           shopt -s nullglob
           for golang_lint_artifact in golangci-lint-report*
@@ -100,25 +159,32 @@ jobs:
           # publishing with no reports at all would zero out coverage. Skip instead.
           if [[ -z "${sonarqube_tests_report_paths}${sonarqube_coverage_report_paths}${sonarqube_lint_report_paths}" ]]; then
             echo "::warning::No test, coverage, or lint reports found, skipping SonarQube analysis"
-            echo "has-reports=false" >> "$GITHUB_OUTPUT"
+            gh api "/repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+              --method POST \
+              -f state=success \
+              -f context="SonarQube Scan" \
+              -f description="No reports found to scan" \
+              -f target_url="${WORKFLOW_URL}" || true
+            echo "skip-scan=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # workflow_run carries no PR context of its own, so pass it explicitly. Without
-          # this, sonar-scanner cannot auto-detect the PR and reports the analysis against
-          # the default branch.
           ARGS=""
           if [[ -n "${PR_NUMBER}" ]]; then
             ARGS="$ARGS -Dsonar.pullrequest.key=${PR_NUMBER}"
             ARGS="$ARGS -Dsonar.pullrequest.branch=${HEAD_BRANCH}"
             ARGS="$ARGS -Dsonar.pullrequest.base=${BASE_BRANCH}"
-          elif [[ "${HEAD_BRANCH}" == "develop" || "${HEAD_BRANCH}" == release/* ]]; then
+          elif [[ "${HEAD_BRANCH}" == "develop" ]]; then
             ARGS="$ARGS -Dsonar.branch.name=${HEAD_BRANCH}"
           else
-            # A PR branch with no pull_requests entry. Analyzing it as a long-lived Sonar
-            # branch would clutter the project, so skip.
             echo "::warning::No PR context for '${HEAD_BRANCH}', skipping SonarQube analysis"
-            echo "has-reports=false" >> "$GITHUB_OUTPUT"
+            gh api "/repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+              --method POST \
+              -f state=success \
+              -f context="SonarQube Scan" \
+              -f description="No PR context for non-develop branch, skipped" \
+              -f target_url="${WORKFLOW_URL}" || true
+            echo "skip-scan=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -145,10 +211,19 @@ jobs:
 
           echo "Final SONARQUBE_ARGS: $ARGS"
           echo "SONARQUBE_ARGS=$ARGS" >> "$GITHUB_ENV"
-          echo "has-reports=true" >> "$GITHUB_OUTPUT"
+          echo "skip-scan=false" >> "$GITHUB_OUTPUT"
+
+          # Update status to pending while Sonar scanner is running
+          gh api "/repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            --method POST \
+            -f state=pending \
+            -f context="SonarQube Scan" \
+            -f description="SonarQube scan in progress..." \
+            -f target_url="${WORKFLOW_URL}" || true
 
       - name: SonarQube Scan
-        if: ${{ steps.report-paths.outputs.has-reports == 'true' }}
+        id: sonar-scan
+        if: ${{ steps.report-paths.outputs.skip-scan == 'false' }}
         uses: sonarsource/sonarqube-scan-action@713881670b6b3676cda39549040e2d88c70d582e # v8.2.0
         with:
           args: ${{ env.SONARQUBE_ARGS }}
@@ -156,3 +231,27 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
           SONAR_SCANNER_OPTS: "-Xms6g -Xmx8g"
+
+      - name: Update Commit Status
+        if: ${{ always() && steps.report-paths.outputs.skip-scan == 'false' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ env.HEAD_SHA }}
+          SCAN_OUTCOME: ${{ steps.sonar-scan.outcome }}
+          WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$SCAN_OUTCOME" == "success" ]; then
+            gh api "/repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+              --method POST \
+              -f state=success \
+              -f context="SonarQube Scan" \
+              -f description="SonarQube scan passed" \
+              -f target_url="${WORKFLOW_URL}" || true
+          else
+            gh api "/repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+              --method POST \
+              -f state=failure \
+              -f context="SonarQube Scan" \
+              -f description="SonarQube scan failed" \
+              -f target_url="${WORKFLOW_URL}" || true
+          fi
