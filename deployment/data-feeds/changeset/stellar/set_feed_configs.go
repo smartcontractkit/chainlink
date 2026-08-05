@@ -9,17 +9,16 @@ import (
 	cache "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache"
 )
 
-// FeedPermission is the operator-facing shape of a workflow write-permission.
-// AllowedSender is the on-chain caller permitted to invoke on_report — the CRE
-// forwarder contract.
+// FeedPermission is a workflow write-permission. AllowedSender is the caller
+// allowed to invoke on_report, i.e. the CRE forwarder contract.
 type FeedPermission struct {
-	AllowedSender        string // Stellar address (C... or G...)
+	AllowedSender        string // C... or G... address
 	AllowedWorkflowOwner string // 20-byte hex
-	AllowedWorkflowName  string // <= 10 ASCII chars
+	AllowedWorkflowName  string // up to 10 ASCII chars
 }
 
-// SetFeedConfigsRequest sets descriptions + workflow permissions for a batch of
-// feeds. Permissions apply to every feed in the batch.
+// SetFeedConfigsRequest configures a batch of feeds. Permissions apply to
+// every feed in the batch.
 type SetFeedConfigsRequest struct {
 	ChainSel     uint64
 	Qualifier    string
@@ -30,7 +29,6 @@ type SetFeedConfigsRequest struct {
 	Permissions  []FeedPermission
 }
 
-// permissions converts the operator shape to the generated binding shape.
 func (req *SetFeedConfigsRequest) permissions() ([]cache.WorkflowPermission, error) {
 	out := make([]cache.WorkflowPermission, 0, len(req.Permissions))
 	for _, p := range req.Permissions {

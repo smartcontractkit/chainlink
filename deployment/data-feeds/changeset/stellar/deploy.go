@@ -27,8 +27,7 @@ type DeployCacheRequest struct {
 
 var _ cldf.ChangeSetV2[*DeployCacheRequest] = DeployCache{}
 
-// DeployCache uploads and instantiates the DataFeedsCache contract and records
-// its address in the datastore under CacheContract.
+// DeployCache deploys the cache contract and records its address.
 type DeployCache struct{}
 
 type deployOutput struct {
@@ -82,9 +81,8 @@ func (DeployCache) Apply(env cldf.Environment, req *DeployCacheRequest) (cldf.Ch
 	return recordAddress(report.Output.ContractID, req.ChainSel, CacheContract, req.Qualifier, req.Version, req.LabelSet)
 }
 
-// deployCacheOp uploads the cache WASM and instantiates it via CreateContractV2
-// with __constructor(owner); the data-retention TTL is an on-chain constant,
-// not a constructor input.
+// The cache constructor takes only the owner; the data-retention TTL is an
+// on-chain constant.
 var deployCacheOp = operations.NewOperation(
 	"df-cache:deploy", opVersion,
 	"Deploys the DataFeedsCache Soroban contract",
@@ -100,10 +98,8 @@ var deployCacheOp = operations.NewOperation(
 	},
 )
 
-// DeployProxyRequest configures a DataFeedsProxy deployment. The cache passed
-// to __constructor(owner, cache) is resolved from the datastore by (ChainSel,
-// CacheContract, Version, CacheQualifier) — it must already be recorded.
-// Cross-contract lookups share the request's Version.
+// DeployProxyRequest configures a DataFeedsProxy deployment. The cache is
+// resolved from the datastore by CacheQualifier and must already be recorded.
 type DeployProxyRequest struct {
 	ChainSel       uint64
 	WasmPath       string
@@ -116,8 +112,7 @@ type DeployProxyRequest struct {
 
 var _ cldf.ChangeSetV2[*DeployProxyRequest] = DeployProxy{}
 
-// DeployProxy uploads and instantiates the DataFeedsProxy contract and records
-// its address in the datastore under ProxyContract.
+// DeployProxy deploys the proxy contract and records its address.
 type DeployProxy struct{}
 
 type deployProxyInput struct {
@@ -175,7 +170,6 @@ func (DeployProxy) Apply(env cldf.Environment, req *DeployProxyRequest) (cldf.Ch
 	return recordAddress(report.Output.ContractID, req.ChainSel, ProxyContract, req.Qualifier, req.Version, req.LabelSet)
 }
 
-// deployProxyOp instantiates the proxy via __constructor(owner, cache).
 var deployProxyOp = operations.NewOperation(
 	"df-proxy:deploy", opVersion,
 	"Deploys the DataFeedsProxy Soroban contract",

@@ -57,10 +57,8 @@ func TestDeployCacheChangeset_MissingChain(t *testing.T) {
 	require.Error(t, DeployCache{}.VerifyPreconditions(env, req))
 }
 
-// TestDeployCacheChangeset_ExplicitOwner pins that an explicit req.Owner
-// seeds the deploy salt directly. deploy.go's DeployCache.Apply only falls back to
-// ch.Signer.Address() when req.Owner is empty; when it's set, the salt is
-// GenerateDeterministicSalt(req.Owner, ...) -- not the chain signer's address.
+// An explicit Owner seeds the deploy salt; the chain signer is only the
+// fallback when Owner is empty.
 func TestDeployCacheChangeset_ExplicitOwner(t *testing.T) {
 	env, _, dep := newTestEnv(t)
 

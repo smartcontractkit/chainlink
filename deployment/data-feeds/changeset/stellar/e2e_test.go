@@ -89,8 +89,7 @@ import (
 //                            re-enters the contract => host trap Error(Context,
 //                            InvalidAction), asserted
 
-// e2eOnce guards the CTF container lifecycle for this suite (the provider
-// requires a *sync.Once; one test => one Once).
+// e2eOnce guards the CTF container lifecycle; the provider requires a sync.Once.
 var e2eOnce sync.Once
 
 const (
@@ -163,8 +162,7 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, CacheQualifier: e2eQualifier,
 	})
 
-	// Precompute the binding-typed feed id / permission tuple used by the
-	// direct calls below (reuse the package's own hex->bytes converters).
+	// Binding-typed feed id and permission tuple for the direct calls below.
 	ids, err := dataIDsToBytes([]string{e2eDataID})
 	require.NoError(t, err)
 	did := [16]byte(ids[0])
@@ -184,8 +182,7 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 	require.NoError(t, cacheClient.OnReport(ctx, deployer, metadata, report),
 		"on_report with a valid encoding from the configured AllowedSender must succeed")
 
-	// Prove the report was actually stored (this is what makes the proxy
-	// latest_round/get_round reads return data, i.e. outcome (a)).
+	// Prove the report was stored; the proxy read-through depends on it.
 	stored, err := cacheClient.LatestRound(ctx, did)
 	require.NoError(t, err)
 	require.NotNil(t, stored, "on_report should have stored a round")
@@ -296,14 +293,10 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 		Contract: ProxyContract, WasmPath: proxyWasm,
 	})
 
-	// recover_tokens invokes the SAC transfer(from=self, to, amount). We pass the
-	// contract's own address as the token, so the transfer sub-call re-enters the
-	// same contract; Soroban forbids contract re-entry and the host traps with
-	// Error(Context, InvalidAction) ("Contract re-entry is not allowed"). This is
-	// the documented (b) outcome: recover_tokens is really invoked and the trap
-	// is a contract/host-domain error, not a transport/XDR/auth-plumbing failure.
-	// Standing up a funded native-XLM SAC balance for a success path is
-	// disproportionate for this gate.
+	// recover_tokens is exercised with the contract's own address as the token:
+	// the SAC transfer sub-call re-enters the contract and Soroban traps with
+	// Error(Context, InvalidAction). The call is really invoked on-chain; a
+	// funded token balance for a success path is disproportionate here.
 	proxyRecoverErr := applyErr(t, env, RecoverTokens{}, &RecoverTokensRequest{
 		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion,
 		Contract: ProxyContract, Token: proxyClient.ContractID(), To: deployer, Amount: 1,
@@ -331,10 +324,8 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 		Contract: CacheContract, WasmPath: cacheWasm,
 	})
 
-	// recover_tokens: same real-transfer semantics as the proxy. Token is the
-	// cache's own address, so the SAC transfer(from=self) re-enters the contract
-	// and the host traps with Error(Context, InvalidAction) — documented (b). Run
-	// while the deployer is still owner (ownership renounce happens last).
+	// recover_tokens: same re-entry trap as the proxy. Runs while the deployer
+	// is still owner; renounce happens last.
 	cacheRecoverErr := applyErr(t, env, RecoverTokens{}, &RecoverTokensRequest{
 		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion,
 		Contract: CacheContract, Token: cacheAddr, To: deployer, Amount: 1,

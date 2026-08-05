@@ -24,19 +24,15 @@ import (
 const (
 	testContractID = "CA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJUWDA"
 	testAdmin      = "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7"
-	// testProxyAddress is a second, distinct contract address used wherever a
-	// test needs to tell the proxy and cache refs apart (e.g. asserting Apply
-	// invoked the proxy, not the cache).
+	// testProxyAddress is distinct so tests can tell proxy and cache refs apart.
 	testProxyAddress = "CBPROXY00000000000000000000000000000000000000000000000AA"
 )
 
-// testChainSel is a real Stellar chain selector (from chain-selectors) so
-// that ChainMetadata methods (Family, NetworkType, ...) resolve correctly.
+// testChainSel is a real chain selector so ChainMetadata methods resolve.
 var testChainSel = chainsel.STELLAR_TESTNET.Selector
 
-// newTestEnv returns an Environment with one fake Stellar chain and swapped-in fake deps.
-// It swaps the package-level newStellarDeps seam to hand back fakeInvoker/fakeDeployer
-// instead of talking to a real Soroban RPC endpoint, and restores the seam on cleanup.
+// newTestEnv returns an Environment with one fake Stellar chain. It swaps the
+// newStellarDeps seam to fakes and restores it on cleanup.
 func newTestEnv(t *testing.T) (cldf.Environment, *fakeInvoker, *fakeDeployer) {
 	t.Helper()
 
@@ -76,7 +72,6 @@ func newTestEnv(t *testing.T) (cldf.Environment, *fakeInvoker, *fakeDeployer) {
 	return *env, invoker, deployer
 }
 
-// contractRefSpec describes one AddressRef to seed via seedContractRefs.
 type contractRefSpec struct {
 	contractType datastore.ContractType
 	address      string
@@ -84,11 +79,8 @@ type contractRefSpec struct {
 	version      string
 }
 
-// seedContractRefs pre-seeds env.DataStore with the given AddressRefs (all in
-// one MemoryDataStore) so changesets can resolve contracts by
-// (ChainSel, Type, Version, Qualifier). Replaces any refs seeded by a prior
-// call on the same env — call once per test with every ref the test needs
-// (e.g. both a proxy and a cache ref for SetProxyCache).
+// seedContractRefs replaces env.DataStore with one holding the given refs.
+// Call once per test with every ref the test needs.
 func seedContractRefs(t *testing.T, env *cldf.Environment, refs ...contractRefSpec) {
 	t.Helper()
 	ds := datastore.NewMemoryDataStore()
@@ -104,25 +96,18 @@ func seedContractRefs(t *testing.T, env *cldf.Environment, refs ...contractRefSp
 	env.DataStore = ds.Seal()
 }
 
-// seedCacheRef pre-seeds env.DataStore with a single cache AddressRef so
-// config changesets (SetFeedConfigs, RemoveFeedConfigs, Add/RemoveFeedAdmin)
-// can resolve the cache contract by (ChainSel, CacheContract, Version, Qualifier).
 func seedCacheRef(t *testing.T, env *cldf.Environment, address, qualifier, version string) {
 	t.Helper()
 	seedContractRefs(t, env, contractRefSpec{CacheContract, address, qualifier, version})
 }
 
-// seedProxyRef pre-seeds env.DataStore with a single proxy AddressRef so
-// changesets can resolve the proxy contract by
-// (ChainSel, ProxyContract, Version, Qualifier).
 func seedProxyRef(t *testing.T, env *cldf.Environment, address, qualifier, version string) {
 	t.Helper()
 	seedContractRefs(t, env, contractRefSpec{ProxyContract, address, qualifier, version})
 }
 
-// writeDummyWasm writes a placeholder wasm file under t.TempDir() so
-// VerifyPreconditions' filesystem check (os.Stat) has a real path to find.
-// The contents are never read — deployment is faked via fakeDeployer.
+// writeDummyWasm writes a placeholder wasm file for VerifyPreconditions' path
+// check; the contents are never read.
 func writeDummyWasm(t *testing.T, name string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
@@ -166,7 +151,7 @@ type fakeDeployer struct {
 	deploys    []deployCall
 	contractID string
 	wasmHash   xdr.Hash
-	uploads    []string // wasm paths passed to UploadContractWASM, in call order
+	uploads    []string // wasm paths, in call order
 }
 
 func (f *fakeDeployer) DeployContractWithArgs(_ context.Context, wasmPath string, salt [32]byte, args []xdr.ScVal) (string, error) {

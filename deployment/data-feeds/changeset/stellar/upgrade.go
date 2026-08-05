@@ -9,8 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
-// UpgradeRequest points an already-deployed cache or proxy contract at a new
-// WASM implementation.
+// UpgradeRequest points the cache or proxy at a new WASM implementation.
 type UpgradeRequest struct {
 	ChainSel  uint64
 	Qualifier string
@@ -21,9 +20,7 @@ type UpgradeRequest struct {
 
 var _ cldf.ChangeSetV2[*UpgradeRequest] = Upgrade{}
 
-// Upgrade uploads a new WASM blob and points the contract at it. Apply chains
-// two operations: uploadWASMOp produces the code hash that upgradeContractOp
-// then applies on-chain.
+// Upgrade uploads a new WASM blob and points the contract at it.
 type Upgrade struct{}
 
 type uploadWASMInput struct {

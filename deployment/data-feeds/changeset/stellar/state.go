@@ -7,8 +7,7 @@ import (
 	proxy "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_proxy"
 )
 
-// LoadCacheClient returns a generated cache client bound to the resolved
-// CacheContract AddressRef for (chainSel, qualifier, version).
+// LoadCacheClient returns a cache client bound to the resolved AddressRef.
 func LoadCacheClient(env cldf.Environment, chainSel uint64, qualifier, version string) (*cache.DataFeedsCacheClient, datastore.AddressRef, error) {
 	d, ref, err := resolveContractDeps(env, chainSel, CacheContract, qualifier, version)
 	if err != nil {

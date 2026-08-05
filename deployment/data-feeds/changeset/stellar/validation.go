@@ -18,7 +18,7 @@ func validateContract(t datastore.ContractType) error {
 	return nil
 }
 
-// validateAddress accepts a Stellar account (G...) or contract (C...) strkey.
+// validateAddress accepts a G... account or C... contract strkey.
 func validateAddress(s string) error {
 	if strkey.IsValidEd25519PublicKey(s) {
 		return nil
@@ -29,8 +29,8 @@ func validateAddress(s string) error {
 	return fmt.Errorf("%q is not a valid Stellar account or contract address", s)
 }
 
-// dataIDsToBytes converts 0x-prefixed hex feed IDs to [16]byte, left-justified
-// with trailing zero padding (data IDs are canonically left-aligned).
+// dataIDsToBytes converts hex feed IDs to [16]byte. Data IDs are canonically
+// left-aligned, so short values are left-justified with trailing zero padding.
 func dataIDsToBytes(ids []string) ([][16]byte, error) {
 	out := make([][16]byte, 0, len(ids))
 	for _, id := range ids {
@@ -58,7 +58,7 @@ func workflowNameToBytes(s string) ([10]byte, error) {
 	return out, nil
 }
 
-// workflowOwnerToBytes decodes a 20-byte 0x-prefixed hex workflow owner.
+// workflowOwnerToBytes decodes a 20-byte hex workflow owner.
 func workflowOwnerToBytes(hexStr string) ([20]byte, error) {
 	var out [20]byte
 	b, err := hex.DecodeString(strings.TrimPrefix(hexStr, "0x"))

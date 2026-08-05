@@ -9,8 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
-// RecoverTokensRequest recovers tokens accidentally sent to an already-deployed
-// cache or proxy contract.
+// RecoverTokensRequest recovers tokens accidentally sent to the cache or proxy.
 type RecoverTokensRequest struct {
 	ChainSel  uint64
 	Qualifier string

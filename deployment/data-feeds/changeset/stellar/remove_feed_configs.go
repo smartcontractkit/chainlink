@@ -8,8 +8,7 @@ import (
 	cache "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache"
 )
 
-// RemoveFeedConfigsRequest removes a batch of feed configs from an
-// already-deployed DataFeedsCache contract.
+// RemoveFeedConfigsRequest removes a batch of feed configs from the cache.
 type RemoveFeedConfigsRequest struct {
 	ChainSel  uint64
 	Qualifier string

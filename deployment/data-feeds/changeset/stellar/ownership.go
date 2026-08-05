@@ -9,9 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
-// OwnershipRequest drives the two-step ownership changesets for either DF
-// contract (CacheContract or ProxyContract) — the generated cache and proxy
-// clients expose identical ownership methods.
+// OwnershipRequest drives the ownership changesets for the cache or proxy.
 type OwnershipRequest struct {
 	ChainSel        uint64
 	Qualifier       string
@@ -40,7 +38,6 @@ var (
 	_ cldf.ChangeSetV2[*OwnershipRequest] = RenounceOwnership{}
 )
 
-// Ownership ops work for both contracts, selected by ContractID + IsProxy.
 type ownershipInput struct {
 	ContractID      string `json:"contract_id"`
 	IsProxy         bool   `json:"is_proxy"`
@@ -48,7 +45,7 @@ type ownershipInput struct {
 	LiveUntilLedger uint32 `json:"live_until_ledger"`
 }
 
-// TransferOwnership begins a two-step ownership transfer on the cache or proxy.
+// TransferOwnership begins a two-step ownership transfer.
 type TransferOwnership struct{}
 
 func (TransferOwnership) VerifyPreconditions(env cldf.Environment, req *OwnershipRequest) error {
@@ -87,8 +84,8 @@ var transferOwnershipOp = operations.NewOperation(
 	},
 )
 
-// AcceptOwnership accepts a pending ownership transfer on the cache or proxy
-// (the caller signing the underlying transaction must be the pending owner).
+// AcceptOwnership accepts a pending ownership transfer. The transaction
+// signer must be the pending owner.
 type AcceptOwnership struct{}
 
 func (AcceptOwnership) VerifyPreconditions(env cldf.Environment, req *OwnershipRequest) error {
@@ -116,7 +113,7 @@ var acceptOwnershipOp = operations.NewOperation(
 	},
 )
 
-// RenounceOwnership permanently renounces ownership of the cache or proxy.
+// RenounceOwnership permanently renounces ownership.
 type RenounceOwnership struct{}
 
 func (RenounceOwnership) VerifyPreconditions(env cldf.Environment, req *OwnershipRequest) error {

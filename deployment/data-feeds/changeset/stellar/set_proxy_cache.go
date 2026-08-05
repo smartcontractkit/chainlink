@@ -11,10 +11,8 @@ import (
 	proxy "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_proxy"
 )
 
-// SetProxyCacheRequest points an already-deployed DataFeedsProxy contract at a
-// (possibly different) cache contract. Qualifier resolves the proxy being
-// acted on; CacheQualifier resolves the new cache target. Cross-contract
-// lookups share the request's Version (see README).
+// SetProxyCacheRequest points the proxy at a new cache. Qualifier resolves
+// the proxy; CacheQualifier resolves the cache.
 type SetProxyCacheRequest struct {
 	ChainSel       uint64
 	Qualifier      string

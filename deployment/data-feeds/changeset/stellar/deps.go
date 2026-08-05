@@ -17,16 +17,15 @@ import (
 	stellardeploy "github.com/smartcontractkit/chainlink-stellar/deployment"
 )
 
-// StellarDeps bundles deploy-time and runtime chain I/O for the operations.
-// The same *deployment.Deployer satisfies both fields.
+// StellarDeps bundles deploy and invoke chain I/O for the operations. The
+// same chainlink-stellar Deployer satisfies both fields.
 type StellarDeps struct {
 	Deploy  SorobanContractDeployer
 	Invoker bindings.Invoker
 }
 
-// SorobanContractDeployer is the deploy-time surface the operations need from
-// chainlink-stellar's concrete deployment.Deployer, defined locally so the
-// upstream package does not have to export a widened interface.
+// SorobanContractDeployer is the deploy surface needed from chainlink-stellar's
+// Deployer, defined locally so upstream need not export it.
 type SorobanContractDeployer interface {
 	DeployContractWithArgs(ctx context.Context, wasmPath string, salt [32]byte, ctorArgs []xdr.ScVal) (string, error)
 	UploadContractWASM(ctx context.Context, wasmPath string) (xdr.Hash, error)
@@ -47,7 +46,6 @@ type contractAdmin interface {
 	RecoverTokens(ctx context.Context, token, to string, amount int64) error
 }
 
-// adminClient returns the generated client selected by isProxy.
 func adminClient(d StellarDeps, contractID string, isProxy bool) contractAdmin {
 	if isProxy {
 		return proxy.NewDataFeedsProxyClient(d.Invoker, contractID)
@@ -55,8 +53,7 @@ func adminClient(d StellarDeps, contractID string, isProxy bool) contractAdmin {
 	return cache.NewDataFeedsCacheClient(d.Invoker, contractID)
 }
 
-// newStellarDeps builds the deploy/invoke dependencies for a CLDF Stellar
-// chain. Package-level var so unit tests can substitute fakes.
+// newStellarDeps is a package-level var so unit tests can substitute fakes.
 var newStellarDeps = func(ch cldfstellar.Chain) (StellarDeps, error) {
 	d, err := stellardeploy.NewDeployerFromChain(ch)
 	if err != nil {
@@ -65,8 +62,6 @@ var newStellarDeps = func(ch cldfstellar.Chain) (StellarDeps, error) {
 	return StellarDeps{Deploy: d, Invoker: d}, nil
 }
 
-// chainDeps resolves the CLDF Stellar chain for chainSel and builds its
-// deploy/invoke deps.
 func chainDeps(env cldf.Environment, chainSel uint64) (cldfstellar.Chain, StellarDeps, error) {
 	ch, ok := env.BlockChains.StellarChains()[chainSel]
 	if !ok {
@@ -87,8 +82,6 @@ func ownerOrSigner(ch cldfstellar.Chain, owner string) (string, error) {
 	return ch.Signer.Address(), nil
 }
 
-// recordAddress returns a ChangesetOutput whose datastore holds the deployed
-// contract's AddressRef.
 func recordAddress(address string, chainSel uint64, contractType datastore.ContractType, qualifier, version string, labels datastore.LabelSet) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
 	out.DataStore = datastore.NewMemoryDataStore()
@@ -102,16 +95,14 @@ func recordAddress(address string, chainSel uint64, contractType datastore.Contr
 	})
 }
 
-// stellarApplyDeps bundles a resolved contract's address with the chain deps
-// needed to invoke operations against it.
+// stellarApplyDeps pairs a resolved contract address with its chain deps.
 type stellarApplyDeps struct {
 	deps       StellarDeps
 	contractID string
 }
 
-// verifyContractRef checks that chainSel names a known Stellar chain,
-// versionStr parses, and an AddressRef exists for (chainSel, contractType,
-// version, qualifier).
+// verifyContractRef checks the chain exists, the version parses, and an
+// AddressRef exists for the contract.
 func verifyContractRef(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, versionStr string) error {
 	if _, ok := env.BlockChains.StellarChains()[chainSel]; !ok {
 		return fmt.Errorf("stellar chain not found for chain selector %d", chainSel)
@@ -134,8 +125,8 @@ func resolveDeps(env cldf.Environment, chainSel uint64, contractType datastore.C
 	return d, err
 }
 
-// resolveContractDeps looks up the AddressRef for (chainSel, contractType,
-// version, qualifier) and bundles it with the chain's deploy/invoke deps.
+// resolveContractDeps resolves the contract's AddressRef and bundles it with
+// the chain deps.
 func resolveContractDeps(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) (stellarApplyDeps, datastore.AddressRef, error) {
 	v, err := semver.NewVersion(version)
 	if err != nil {

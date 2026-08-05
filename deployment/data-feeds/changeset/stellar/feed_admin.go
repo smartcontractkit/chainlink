@@ -6,8 +6,7 @@ import (
 	cache "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache"
 )
 
-// FeedAdminRequest grants or revokes feed-admin rights on an already-deployed
-// DataFeedsCache contract.
+// FeedAdminRequest grants or revokes feed-admin rights on the cache.
 type FeedAdminRequest struct {
 	ChainSel  uint64
 	Qualifier string

@@ -8,8 +8,7 @@ import (
 	cache "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache"
 )
 
-// SetFeedFrozenRequest freezes or unfreezes a batch of feeds on an
-// already-deployed DataFeedsCache contract.
+// SetFeedFrozenRequest freezes or unfreezes a batch of feeds.
 type SetFeedFrozenRequest struct {
 	ChainSel  uint64
 	Qualifier string
@@ -21,9 +20,8 @@ type SetFeedFrozenRequest struct {
 
 var _ cldf.ChangeSetV2[*SetFeedFrozenRequest] = SetFeedFrozen{}
 
-// SetFeedFrozen freezes or unfreezes feeds on the cache. Reads on a frozen
-// feed are rejected with FeedFrozen; a feed with no recorded round cannot be
-// frozen (NoFeedState).
+// SetFeedFrozen freezes or unfreezes feeds. Reads on a frozen feed fail with
+// FeedFrozen; freezing a feed with no recorded round fails with NoFeedState.
 type SetFeedFrozen struct{}
 
 type setFeedFrozenInput struct {
