@@ -102,6 +102,7 @@ jobs:
     if: always() && github.actor != 'dependabot[bot]' && github.event_name != 'push' && (needs.changes.result == 'skipped' || needs.changes.outputs.run-tests == 'true')
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
+      spot_param: ${{ steps.spot-config.outputs.spot_param }}
     permissions:
       contents: read
     steps:
@@ -112,6 +113,10 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
 
+      - name: Get Spot Runner Config
+        id: spot-config
+        uses: ./.github/actions/get-runner-spot
+
       - name: Define test matrix
         id: define-matrix
         shell: bash
@@ -119,7 +124,8 @@ jobs:
           # shellcheck disable=SC1083,SC2016
           tests=$(jq -c \
             --argjson run_id "${{ github.run_id }}" \
-            --arg run_attempt "${{ github.run_attempt }}" '
+            --arg run_attempt "${{ github.run_attempt }}" \
+            --arg spot "${{ steps.spot-config.outputs.spot }}" '
             to_entries
             | map(.value + {
                 # Stable, human-readable id for artifact names. `.name` is unique across
@@ -129,7 +135,14 @@ jobs:
                 job_timeout: (((.value.timeout | rtrimstr("m") | tonumber) + 5)),
                 # The runner label only needs per-run uniqueness, so the index is fine
                 # here and keeps the label short enough for runs-on.
-                runs_on: (if .value.runs_on == "" or .value.runs_on == null then "ubuntu-latest" else "runs-on=\($run_id)-\(.key)-\($run_attempt)/\(.value.runs_on)/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs" end)
+                runs_on: (if .value.runs_on == "" or .value.runs_on == null then "ubuntu-latest" else [
+                  "runs-on=\($run_id)-\(.key)-\($run_attempt)",
+                  .value.runs_on,
+                  "family=m7i+m8i",
+                  "spot=\($spot)",
+                  "image=ubuntu24-full-x64",
+                  "extras=s3-cache+tmpfs"
+                ] end)
               })
           ' .github/in-memory-tests.json)
 
@@ -154,7 +167,14 @@ jobs:
   compile-tests:
     name: Compile In-Memory Test Binaries
     needs: [define-test-matrix]
-    runs-on: runs-on=${{ github.run_id }}-inmem-compile/cpu=32/ram=64/family=c7i+c8i/spot=co/volume=100GB/extras=s3-cache
+    runs-on:
+      - runs-on=${{ github.run_id }}-inmem-compile
+      - cpu=32
+      - ram=64
+      - family=c7i+c8i
+      - ${{ needs.define-test-matrix.outputs.spot_param }}
+      - volume=100GB
+      - extras=s3-cache
     environment:
       name: integration
       deployment: false
