@@ -21,12 +21,16 @@ func TestSetProxyCacheChangeset(t *testing.T) {
 	}
 	require.NoError(t, SetProxyCache{}.VerifyPreconditions(env, req))
 
-	_, err := SetProxyCache{}.Apply(env, req)
+	out, err := SetProxyCache{}.Apply(env, req)
 	require.NoError(t, err)
 	require.Len(t, inv.calls, 1)
 	require.Equal(t, "set_cache", inv.calls[0].Function)
 	require.Equal(t, testProxyAddress, inv.calls[0].ContractID)
 	require.Len(t, inv.calls[0].Args, 1)
+
+	// the metadata mirror records the proxy's new cache target
+	meta := outputMetadata(t, out, testProxyAddress)
+	require.Equal(t, testContractID, meta.Cache)
 
 	// missing cache ref must fail preconditions (proxy ref alone isn't enough)
 	proxyOnly, _, _ := newTestEnv(t)

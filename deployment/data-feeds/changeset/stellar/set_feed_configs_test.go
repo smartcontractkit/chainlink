@@ -9,14 +9,19 @@ import (
 func TestSetFeedConfigsChangeset(t *testing.T) {
 	env, inv, _ := newTestEnv(t)
 	seedCacheRef(t, &env, testContractID, "test", "1.0.0")
+	seedContractMetadata(t, &env, testContractID, ContractMetadata{
+		Feeds: map[string]FeedMetadata{
+			"0x01c50f0e2106d5fd0000000000000000": {Description: "SOL/USD"},
+		},
+	})
 
 	req := &SetFeedConfigsRequest{
 		ChainSel:     testChainSel,
 		Qualifier:    "test",
 		Version:      "1.0.0",
 		Admin:        testAdmin,
-		DataIDs:      []string{"0x018e16c39e00032000000"},
-		Descriptions: []string{"BTC/USD"},
+		DataIDs:      []string{"0x018e16c39e0003320000000000000000", "0x018e16c39e0003990000000000000000"},
+		Descriptions: []string{"BTC/USD", "ETH/USD"},
 		Permissions: []FeedPermission{{
 			AllowedSender:        testContractID, // the forwarder
 			AllowedWorkflowOwner: "0x0102030405060708090a0b0c0d0e0f1011121314",
@@ -25,18 +30,24 @@ func TestSetFeedConfigsChangeset(t *testing.T) {
 	}
 	require.NoError(t, SetFeedConfigs{}.VerifyPreconditions(env, req))
 
-	_, err := SetFeedConfigs{}.Apply(env, req)
+	out, err := SetFeedConfigs{}.Apply(env, req)
 	require.NoError(t, err)
 	require.Len(t, inv.calls, 1)
 	require.Equal(t, "set_feed_configs", inv.calls[0].Function)
 	require.Equal(t, testContractID, inv.calls[0].ContractID)
 
-	// Permissions apply to every feed in the batch: a single permission set
-	// with two DataIDs must still pass length validation.
-	multi := *req
-	multi.DataIDs = []string{"0x01", "0x02"}
-	multi.Descriptions = []string{"BTC/USD", "ETH/USD"}
-	require.NoError(t, SetFeedConfigs{}.VerifyPreconditions(env, &multi))
+	// the metadata mirror keeps the pre-existing feed and adds both new ones,
+	// each with its own description and id-derived decimals
+	meta := outputMetadata(t, out, testContractID)
+	require.Len(t, meta.Feeds, 3)
+	require.Equal(t, "SOL/USD", meta.Feeds["0x01c50f0e2106d5fd0000000000000000"].Description)
+	btc := meta.Feeds["0x018e16c39e0003320000000000000000"]
+	require.Equal(t, "BTC/USD", btc.Description)
+	require.Equal(t, uint32(18), btc.Decimals)
+	require.Equal(t, req.Permissions, btc.Permissions)
+	eth := meta.Feeds["0x018e16c39e0003990000000000000000"]
+	require.Equal(t, "ETH/USD", eth.Description)
+	require.Equal(t, uint32(0), eth.Decimals) // byte 7 outside the decimals range
 
 	// mismatched lengths must fail preconditions
 	bad := *req

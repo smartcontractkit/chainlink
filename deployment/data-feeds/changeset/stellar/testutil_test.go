@@ -106,6 +106,29 @@ func seedProxyRef(t *testing.T, env *cldf.Environment, address, qualifier, versi
 	seedContractRefs(t, env, contractRefSpec{ProxyContract, address, qualifier, version})
 }
 
+// seedContractMetadata merges a contract metadata record into env.DataStore.
+func seedContractMetadata(t *testing.T, env *cldf.Environment, address string, meta ContractMetadata) {
+	t.Helper()
+	ds := datastore.NewMemoryDataStore()
+	require.NoError(t, ds.Merge(env.DataStore))
+	require.NoError(t, ds.ContractMetadata().Upsert(datastore.ContractMetadata{
+		ChainSelector: testChainSel,
+		Address:       address,
+		Metadata:      meta,
+	}))
+	env.DataStore = ds.Seal()
+}
+
+// outputMetadata returns the ContractMetadata a changeset recorded for address.
+func outputMetadata(t *testing.T, out cldf.ChangesetOutput, address string) ContractMetadata {
+	t.Helper()
+	rec, err := out.DataStore.Seal().ContractMetadata().Get(datastore.NewContractMetadataKey(testChainSel, address))
+	require.NoError(t, err)
+	meta, err := datastore.As[ContractMetadata](rec.Metadata)
+	require.NoError(t, err)
+	return meta
+}
+
 // writeDummyWasm writes a placeholder wasm file for VerifyPreconditions' path
 // check; the contents are never read.
 func writeDummyWasm(t *testing.T, name string) string {

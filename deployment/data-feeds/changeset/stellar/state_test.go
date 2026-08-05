@@ -15,21 +15,13 @@ func TestLoadCacheClient(t *testing.T) {
 	require.NotNil(t, client)
 	require.Equal(t, testContractID, ref.Address)
 	require.Equal(t, testContractID, client.ContractID())
-}
 
-func TestLoadCacheClient_MissingRef(t *testing.T) {
-	env, _, _ := newTestEnv(t)
-	seedCacheRef(t, &env, testContractID, "test-cache", "1.0.0")
-
-	_, _, err := LoadCacheClient(env, testChainSel, "does-not-exist", "1.0.0")
+	// missing ref must fail
+	_, _, err = LoadCacheClient(env, testChainSel, "does-not-exist", "1.0.0")
 	require.Error(t, err)
-}
 
-func TestLoadCacheClient_UnknownChain(t *testing.T) {
-	env, _, _ := newTestEnv(t)
-	seedCacheRef(t, &env, testContractID, "test-cache", "1.0.0")
-
-	_, _, err := LoadCacheClient(env, 999999, "test-cache", "1.0.0")
+	// unknown chain must fail
+	_, _, err = LoadCacheClient(env, 999999, "test-cache", "1.0.0")
 	require.Error(t, err)
 }
 
@@ -42,20 +34,12 @@ func TestLoadProxyClient(t *testing.T) {
 	require.NotNil(t, client)
 	require.Equal(t, testProxyAddress, ref.Address)
 	require.Equal(t, testProxyAddress, client.ContractID())
-}
 
-func TestLoadProxyClient_MissingRef(t *testing.T) {
-	env, _, _ := newTestEnv(t)
-	seedProxyRef(t, &env, testProxyAddress, "test-proxy", "1.0.0")
-
-	_, _, err := LoadProxyClient(env, testChainSel, "does-not-exist", "1.0.0")
+	// missing ref must fail
+	_, _, err = LoadProxyClient(env, testChainSel, "does-not-exist", "1.0.0")
 	require.Error(t, err)
-}
 
-func TestLoadProxyClient_UnknownChain(t *testing.T) {
-	env, _, _ := newTestEnv(t)
-	seedProxyRef(t, &env, testProxyAddress, "test-proxy", "1.0.0")
-
-	_, _, err := LoadProxyClient(env, 999999, "test-proxy", "1.0.0")
+	// unknown chain must fail
+	_, _, err = LoadProxyClient(env, 999999, "test-proxy", "1.0.0")
 	require.Error(t, err)
 }

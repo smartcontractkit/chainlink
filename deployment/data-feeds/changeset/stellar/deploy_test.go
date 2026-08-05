@@ -42,19 +42,21 @@ func TestDeployCacheChangeset(t *testing.T) {
 	badOwner := *req
 	badOwner.Owner = "not-a-key"
 	require.Error(t, DeployCache{}.VerifyPreconditions(env, &badOwner))
-}
 
-func TestDeployCacheChangeset_MissingChain(t *testing.T) {
-	env, _, _ := newTestEnv(t)
+	// unknown chain must fail preconditions
+	badChain := *req
+	badChain.ChainSel = 999999
+	require.Error(t, DeployCache{}.VerifyPreconditions(env, &badChain))
 
-	req := &DeployCacheRequest{
-		ChainSel:  999999,
-		WasmPath:  writeDummyWasm(t, "data_feeds_cache.wasm"),
-		Qualifier: "test-cache",
-		Version:   "1.0.0",
-	}
+	// invalid version must fail preconditions
+	badVersion := *req
+	badVersion.Version = "not-semver"
+	require.Error(t, DeployCache{}.VerifyPreconditions(env, &badVersion))
 
-	require.Error(t, DeployCache{}.VerifyPreconditions(env, req))
+	// missing wasm file must fail preconditions
+	badWasm := *req
+	badWasm.WasmPath = "/does/not/exist.wasm"
+	require.Error(t, DeployCache{}.VerifyPreconditions(env, &badWasm))
 }
 
 // An explicit Owner seeds the deploy salt; the chain signer is only the
@@ -86,16 +88,8 @@ func TestDeployCacheChangeset_ExplicitOwner(t *testing.T) {
 func TestDeployProxyChangeset(t *testing.T) {
 	env, _, dep := newTestEnv(t)
 
-	// Seed the datastore with a cache AddressRef so DeployProxy can resolve it.
-	seedDS := datastore.NewMemoryDataStore()
-	require.NoError(t, seedDS.Addresses().Add(datastore.AddressRef{
-		Address:       "CCACHEFAKE0000000000000000000000000000000000000000000000",
-		ChainSelector: testChainSel,
-		Type:          CacheContract,
-		Version:       semver.MustParse("1.0.0"),
-		Qualifier:     "test-cache",
-	}))
-	env.DataStore = seedDS.Seal()
+	cacheAddr := "CCACHEFAKE0000000000000000000000000000000000000000000000"
+	seedCacheRef(t, &env, cacheAddr, "test-cache", "1.0.0")
 
 	req := &DeployProxyRequest{
 		ChainSel:       testChainSel,
@@ -122,18 +116,13 @@ func TestDeployProxyChangeset(t *testing.T) {
 	ref, err := out.DataStore.Addresses().Get(key)
 	require.NoError(t, err)
 	require.Equal(t, testContractID, ref.Address)
-}
 
-func TestDeployProxyChangeset_MissingCache(t *testing.T) {
-	env, _, _ := newTestEnv(t)
+	// the metadata mirror records which cache the proxy points at
+	meta := outputMetadata(t, out, testContractID)
+	require.Equal(t, cacheAddr, meta.Cache)
 
-	req := &DeployProxyRequest{
-		ChainSel:       testChainSel,
-		WasmPath:       writeDummyWasm(t, "data_feeds_proxy.wasm"),
-		CacheQualifier: "does-not-exist",
-		Qualifier:      "test-proxy",
-		Version:        "1.0.0",
-	}
-
-	require.Error(t, DeployProxy{}.VerifyPreconditions(env, req))
+	// missing cache ref must fail preconditions
+	missing := *req
+	missing.CacheQualifier = "does-not-exist"
+	require.Error(t, DeployProxy{}.VerifyPreconditions(env, &missing))
 }
