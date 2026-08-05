@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/freeport"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
+	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -272,79 +273,6 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.NotNil(t, resource.PipelineSpec.DotDAGSource)
 				assert.Equal(t, jb.Name.ValueOrZero(), resource.Name)
 				assert.Equal(t, jb.StreamID, resource.StreamID)
-			},
-		},
-		{
-			name: "workflow",
-			tomlTemplate: func(_ string) string {
-				workflow := `
-owner: "0x00000000000000000000000000000000000000aa"
-triggers:
-  - id: "mercury-trigger@1.0.0"
-    config:
-      feedIds:
-        - "0x1111111111111111111100000000000000000000000000000000000000000000"
-        - "0x2222222222222222222200000000000000000000000000000000000000000000"
-        - "0x3333333333333333333300000000000000000000000000000000000000000000"
-
-consensus:
-  - id: "offchain_reporting@2.0.0"
-    ref: "evm_median"
-    inputs:
-      observations:
-        - "$(trigger.outputs)"
-    config:
-      aggregation_method: "data_feeds_2_0"
-      aggregation_config:
-        "0x1111111111111111111100000000000000000000000000000000000000000000":
-          deviation: "0.001"
-          heartbeat: 3600
-        "0x2222222222222222222200000000000000000000000000000000000000000000":
-          deviation: "0.001"
-          heartbeat: 3600
-        "0x3333333333333333333300000000000000000000000000000000000000000000":
-          deviation: "0.001"
-          heartbeat: 3600
-      encoder: "EVM"
-      encoder_config:
-        abi: "mercury_reports bytes[]"
-
-targets:
-  - id: "write_polygon-testnet-mumbai@3.0.0"
-    inputs:
-      report: "$(evm_median.outputs.report)"
-    config:
-      address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
-      params: ["$(report)"]
-      abi: "receive(report bytes)"
-  - id: "write_ethereum-testnet-sepolia@4.0.0"
-    inputs:
-      report: "$(evm_median.outputs.report)"
-    config:
-      address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
-      params: ["$(report)"]
-      abi: "receive(report bytes)"
-`
-				return testspecs.GenerateWorkflowJobSpec(t, workflow).Toml()
-			},
-			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
-				ok := assert.Equal(t, http.StatusOK, r.StatusCode)
-				resp := cltest.ParseResponseBody(t, r)
-				if !ok {
-					t.Fatal("response body:", string(resp))
-				}
-				resource := presenters.JobResource{}
-				err := web.ParseJSONAPIResponse(resp, &resource)
-				require.NoError(t, err, "failed to parse response body: %s", resp)
-
-				jb, err := jorm.FindJob(t.Context(), mustInt32FromString(t, resource.ID))
-				require.NoError(t, err)
-				require.NotNil(t, jb.WorkflowSpec)
-
-				assert.Equal(t, jb.WorkflowSpec.Workflow, resource.WorkflowSpec.Workflow)
-				assert.Equal(t, jb.WorkflowSpec.WorkflowID, resource.WorkflowSpec.WorkflowID)
-				assert.Equal(t, jb.WorkflowSpec.WorkflowOwner, resource.WorkflowSpec.WorkflowOwner)
-				assert.Equal(t, jb.WorkflowSpec.WorkflowName, resource.WorkflowSpec.WorkflowName)
 			},
 		},
 	}
@@ -655,6 +583,10 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)
 	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
+
+	// Seed a local test metadata registry so workflow jobs can resolve local
+	// node state without an on-chain capabilities registry.
+	app.GetCapabilitiesRegistry().SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 
 	client := app.NewHTTPClient(nil)
 	vrfKeyStore := app.GetKeyStore().VRF()

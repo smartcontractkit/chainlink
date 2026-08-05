@@ -1297,19 +1297,22 @@ them all in case we regained connection and now send a bunch at once
 ```toml
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 ```
-PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID is the peer ID of the node's P2P host. If unspecified, the single P2P
+key from the node keystore is used; if the keystore contains multiple P2P keys,
+PeerID must be set.
 
 ### TraceLogging
 ```toml
 TraceLogging = false # Default
 ```
-TraceLogging enables trace level logging.
+TraceLogging **DEPRECATED**: has no effect. Use `OCR.TraceLogging` (for the P2P
+networking stack) or `OCR2.TraceLogging` (for OCR2 jobs) instead.
 
 ### EnableExperimentalRageP2P
 ```toml
 EnableExperimentalRageP2P = false # Default
 ```
-EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
+EnableExperimentalRageP2P enables the experimental ragep2p version required by OCR3.1.
 
 ## P2P.V2
 ```toml
@@ -1327,16 +1330,28 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```toml
 Enabled = true # Default
 ```
-Enabled enables P2P V2.
-Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
+Enabled enables P2P V2, the networking stack that OCR, OCR2, OCR3, OCR3.1, and
+bootstrap jobs use to communicate with other nodes.
+It must be enabled when OCR.Enabled or OCR2.Enabled is true, otherwise the node
+fails to boot.
 
 ### AnnounceAddresses
 ```toml
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`.
-The addresses should be reachable by other nodes on the network. When attempting to connect to another node,
-a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
+AnnounceAddresses are the `ip:port` addresses this node advertises to other
+nodes. These addresses should be reachable by those nodes.
+Use IP addresses only: hostnames and domain names are not valid. Each address
+must include a port. IPv6 addresses must be enclosed in `[]` and cannot
+include zone identifiers such as `%eth0`. If omitted or empty,
+ListenAddresses are used instead.
+If those values include addresses with unspecified IPs such as `0.0.0.0:port`
+or `[::]:port`, the node attempts to replace them with detected interface IPs
+before advertising them. If autodetection fails, concrete IP entries are
+still used, but entries with unspecified IPs are dropped. Startup fails if no
+usable announce addresses remain.
+For security reasons, it is strongly recommended to use
+random/unpredictable ports.
 
 ### DefaultBootstrappers
 ```toml
@@ -1355,7 +1370,7 @@ nodes will regularly broadcast signed announcements containing their PeerID and 
 ```toml
 DeltaDial = '15s' # Default
 ```
-DeltaDial controls how far apart Dial attempts are
+DeltaDial is the minimum duration between dial attempts to a single peer. The actual duration may be longer due to jitter.
 
 ### DeltaReconcile
 ```toml
@@ -1367,8 +1382,12 @@ DeltaReconcile controls how often a Reconcile message is sent to every peer.
 ```toml
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
-but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+ListenAddresses are the `ip:port` addresses this node listens on.
+At least one listen address is required.
+You can use `0.0.0.0:port` or `[::]:port` to listen on all interfaces.
+If AnnounceAddresses is omitted or empty, ListenAddresses are also used as
+AnnounceAddresses, and thus must satisfy the AnnounceAddresses requirements
+above.
 
 ## Capabilities.RateLimit
 ```toml
@@ -1725,38 +1744,37 @@ EnableExperimentalRageP2P = false # Default
 ```toml
 IncomingMessageBufferSize = 10 # Default
 ```
-IncomingMessageBufferSize is the per-remote number of incoming
-messages to buffer. Any additional messages received on top of those
-already in the queue will be dropped.
+IncomingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
+capabilities P2P host are not configurable; for shared peering, use
+`Capabilities.SharedPeering.StreamConfig`.
 
 ### OutgoingMessageBufferSize
 ```toml
 OutgoingMessageBufferSize = 10 # Default
 ```
-OutgoingMessageBufferSize is the per-remote number of outgoing
-messages to buffer. Any additional messages send on top of those
-already in the queue will displace the oldest.
-NOTE: OutgoingMessageBufferSize should be comfortably smaller than remote's
-IncomingMessageBufferSize to give the remote enough space to process
-them all in case we regained connection and now send a bunch at once
+OutgoingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
+capabilities P2P host are not configurable; for shared peering, use
+`Capabilities.SharedPeering.StreamConfig`.
 
 ### PeerID
 ```toml
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 ```
-PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID is the peer ID to use for the capabilities P2P host; see
+[`P2P.PeerID`](#p2p).
 
 ### TraceLogging
 ```toml
 TraceLogging = false # Default
 ```
-TraceLogging enables trace level logging.
+TraceLogging **DEPRECATED**: has no effect.
 
 ### EnableExperimentalRageP2P
 ```toml
 EnableExperimentalRageP2P = false # Default
 ```
-EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
+EnableExperimentalRageP2P currently has no effect in this section; the
+capabilities P2P host always uses the production ragep2p stack.
 
 ## Capabilities.Peering.V2
 ```toml
@@ -1774,47 +1792,38 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```toml
 Enabled = false # Default
 ```
-Enabled enables P2P V2.
+Enabled enables a dedicated P2P V2 host for capabilities (DON-to-DON)
+communication, independent of the top-level `P2P` host.
 
 ### AnnounceAddresses
 ```toml
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`.
-The addresses should be reachable by other nodes on the network. When attempting to connect to another node,
-a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
+AnnounceAddresses: see [`P2P.V2.AnnounceAddresses`](#p2pv2).
 
 ### DefaultBootstrappers
 ```toml
 DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
 ```
-DefaultBootstrappers is the default bootstrapper peers for libocr's v2 networking stack.
-
-Oracle nodes typically only know each other’s PeerIDs, but not their hostnames, IP addresses, or ports.
-DefaultBootstrappers are special nodes that help other nodes discover each other’s `AnnounceAddresses` so they can communicate.
-Nodes continuously attempt to connect to bootstrappers configured in here. When a node wants to connect to another node
-(which it knows only by PeerID, but not by address), it discovers the other node’s AnnounceAddresses from communications
-received from its DefaultBootstrappers or other discovered nodes. To facilitate discovery,
-nodes will regularly broadcast signed announcements containing their PeerID and AnnounceAddresses.
+DefaultBootstrappers: see [`P2P.V2.DefaultBootstrappers`](#p2pv2).
 
 ### DeltaDial
 ```toml
 DeltaDial = '15s' # Default
 ```
-DeltaDial controls how far apart Dial attempts are
+DeltaDial: see [`P2P.V2.DeltaDial`](#p2pv2).
 
 ### DeltaReconcile
 ```toml
 DeltaReconcile = '1m' # Default
 ```
-DeltaReconcile controls how often a Reconcile message is sent to every peer.
+DeltaReconcile: see [`P2P.V2.DeltaReconcile`](#p2pv2).
 
 ### ListenAddresses
 ```toml
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
-but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+ListenAddresses: see [`P2P.V2.ListenAddresses`](#p2pv2).
 
 ## Capabilities.GatewayConnector
 ```toml

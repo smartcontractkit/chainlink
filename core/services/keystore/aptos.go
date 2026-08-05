@@ -106,7 +106,7 @@ func (ks *aptos) Import(ctx context.Context, keyJSON []byte, password string) (a
 		return aptoskey.Key{}, errors.Wrap(err, "AptosKeyStore#ImportKey failed to decrypt key")
 	}
 	if _, found := ks.keyRing.Aptos[key.ID()]; found {
-		return aptoskey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
+		return aptoskey.Key{}, fmt.Errorf("%w: key with ID %s already exists", ErrKeyExists, key.ID())
 	}
 	return key, ks.safeAddKey(ctx, key)
 }

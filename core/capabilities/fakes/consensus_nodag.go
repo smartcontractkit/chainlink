@@ -33,10 +33,7 @@ type fakeConsensusNoDAG struct {
 	seqNr        uint64
 }
 
-var (
-	_ services.Service                    = (*fakeConsensus)(nil)
-	_ consensusserver.ConsensusCapability = (*fakeConsensusNoDAG)(nil)
-)
+var _ consensusserver.ConsensusCapability = (*fakeConsensusNoDAG)(nil)
 
 func NewFakeConsensusNoDAG(signers []ocr2key.KeyBundle, lggr logger.Logger) *fakeConsensusNoDAG {
 	configDigest := ocr2types.ConfigDigest{}

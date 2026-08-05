@@ -85,7 +85,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
@@ -445,7 +444,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			CapabilitiesRegistry:    opts.CapabilitiesRegistry,
 			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
 			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
-			CapabilitiesPeerWrapper: opts.CapabilitiesPeerWrapper,
+			CapabilitiesSharedPeer:  opts.CapabilitiesSharedPeer,
 			FetcherFunc:             opts.FetcherFunc,
 			FetcherFactoryFn:        opts.FetcherFactoryFn,
 			BillingClient:           opts.BillingClient,
@@ -680,16 +679,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		}
 	)
 
-	delegates[job.Workflow] = workflows.NewDelegate(
-		globalLogger,
-		opts.CapabilitiesRegistry,
-		opts.DonTimeStore,
-		workflowORM,
-		creServices.WorkflowRateLimiter,
-		creServices.WorkflowLimits,
-		workflows.WithBillingClient(creServices.BillingClient),
-		workflows.WithWorkflowRegistry(cfg.Capabilities().WorkflowRegistry().Address(), cfg.Capabilities().WorkflowRegistry().ChainID()),
-	)
+	// Workflow job type has been removed; use a deprecated delegate so existing jobs
+	// surface a visible error in the UI rather than silently doing nothing.
+	delegates[job.Workflow] = &job.DeprecatedDelegate{Type: job.Workflow}
 
 	// FluxMonitor has been removed; use a deprecated delegate so existing jobs
 	// surface a visible error in the UI rather than silently doing nothing.

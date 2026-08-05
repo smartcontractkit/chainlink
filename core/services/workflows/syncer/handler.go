@@ -8,6 +8,7 @@ import (
 	"io"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -16,17 +17,15 @@ import (
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
@@ -554,29 +553,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	h.lggr.Debugf("Finished creating module for workflowID %s", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
-		sdkSpec, err := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get workflow sdk spec: %w", err)
-		}
-
-		cfg := workflows.Config{
-			Lggr:                          h.lggr,
-			Workflow:                      *sdkSpec,
-			WorkflowID:                    workflowID,
-			WorkflowOwner:                 owner, // this gets hex encoded in the engine.
-			WorkflowName:                  name,
-			Registry:                      h.capRegistry,
-			Store:                         h.workflowStore,
-			Config:                        config,
-			Binary:                        binary,
-			SecretsFetcher:                h.workflowArtifactsStore.SecretsFor,
-			RateLimiter:                   h.ratelimiter,
-			WorkflowLimits:                h.workflowLimits,
-			BillingClient:                 h.billingClient,
-			WorkflowRegistryAddress:       h.workflowRegistryAddress,
-			WorkflowRegistryChainSelector: h.workflowRegistryChainSelector,
-		}
-		return workflows.NewEngine(ctx, cfg)
+		return nil, errors.New("legacy DAG workflows are not supported")
 	}
 
 	// V2 aka "NoDAG"

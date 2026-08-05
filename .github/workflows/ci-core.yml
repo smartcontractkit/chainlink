@@ -331,7 +331,7 @@ jobs:
               - cpu=64
               - ram=128
               - family=c7i+c8i
-              - volume=80gb
+              - volume=150gb
               - ${{ needs.filter.outputs.spot_param }}
               - image=ubuntu24-full-x64
               - extras=s3-cache
@@ -342,8 +342,8 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             install-loopps: "false"
-            build-cache-version: go_core_tests
-            build-cache-write: never
+            build-cache-version: go_core_race_tests
+            build-cache-write: always
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -572,7 +572,6 @@ jobs:
             ./output.txt
             ./coverage.txt
           retention-days: 7
-
 
   clean:
     name: Clean Go Tidy & Generate
