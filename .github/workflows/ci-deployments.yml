@@ -134,7 +134,7 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' && needs.filter.outputs.should-run == 'true' }}
     needs: [filter]
     timeout-minutes: 35
-    runs-on: "runs-on=${{ github.run_id }}-deployment-${{ matrix.shard-id }}/cpu=8/ram=32/family=m6id+m6idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache"
+    runs-on: "runs-on=${{ github.run_id }}-deployment-${{ matrix.shard-id }}/cpu=8/ram=32/family=m6id+m8id/spot=co/image=ubuntu24-full-x64/extras=s3-cache"
     outputs:
       shard-count: ${{ strategy.job-total }}
     permissions:
@@ -171,7 +171,6 @@ jobs:
       - name: Setup Postgres
         uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
         with:
-          tmpfs: "true"
           image-tag: "16-alpine"
           postgres-options: "-c max_connections=1000 -c shared_buffers=2GB -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c client_min_messages=warning" # Turn off some prod-protections to make postgres go brrr. https://github.com/peterldowns/pgtestdb#how-do-i-make-it-go-faster
       - name: Setup DB

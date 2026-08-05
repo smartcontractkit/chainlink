@@ -15,9 +15,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -67,17 +67,18 @@ func getOCR2Spec100() OffchainReporting2OracleSpec100 {
 	}
 }
 
+//nolint:paralleltest // mutates database schema and global goose state
 func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	cfg, db := heavyweight.FullTestDBEmptyV2(t, nil)
 	lggr := logger.TestLogger(t)
-	p, err := migrate.NewProvider(testutils.Context(t), db.DB)
+	p, err := migrate.NewProvider(t.Context(), db.DB)
 	require.NoError(t, err)
-	results, err := p.UpTo(testutils.Context(t), 99)
+	results, err := p.UpTo(t.Context(), 99)
 	require.NoError(t, err)
 	assert.Len(t, results, 99)
 
 	pipelineORM := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	pipelineID, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
 	pipelineID2, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
@@ -321,12 +322,12 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
 
-	type jobIdAndContractId struct {
+	type jobIDAndContractID struct {
 		ID         int32
 		ContractID string
 	}
 
-	var jobsAndContracts []jobIdAndContractId
+	var jobsAndContracts []jobIDAndContractID
 	sql = `SELECT jobs.id, ocr2.contract_id
 FROM jobs 
 INNER JOIN offchainreporting2_oracle_specs as ocr2 
@@ -335,15 +336,16 @@ ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 	require.NoError(t, err)
 
 	require.Len(t, jobsAndContracts, 4)
-	require.Equal(t, jobIdAndContractId{ID: 11, ContractID: "empty"}, jobsAndContracts[0])
-	require.Equal(t, jobIdAndContractId{ID: 30, ContractID: "evm_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[1])
-	require.Equal(t, jobIdAndContractId{ID: 10, ContractID: "terra_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[2])
-	require.Equal(t, jobIdAndContractId{ID: 20, ContractID: "sol_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[3])
+	require.Equal(t, jobIDAndContractID{ID: 11, ContractID: "empty"}, jobsAndContracts[0])
+	require.Equal(t, jobIDAndContractID{ID: 30, ContractID: "evm_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[1])
+	require.Equal(t, jobIDAndContractID{ID: 10, ContractID: "terra_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[2])
+	require.Equal(t, jobIDAndContractID{ID: 20, ContractID: "sol_187246hr3781h9fd198fh391g8f924"}, jobsAndContracts[3])
 }
 
+//nolint:paralleltest // mutates database schema and global goose state
 func TestMigrate_101_GenericOCR2(t *testing.T) {
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	p, err := migrate.NewProvider(ctx, db.DB)
 	require.NoError(t, err)
 	results, err := p.UpTo(ctx, 100)
@@ -394,8 +396,9 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 	require.Equal(t, spec.JuelsPerFeeCoinPipeline, juels)
 }
 
+//nolint:paralleltest // mutates database schema and global goose state
 func TestMigrate(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
 
 	p, err := migrate.NewProvider(ctx, db.DB)
@@ -422,6 +425,7 @@ func TestMigrate(t *testing.T) {
 	require.Equal(t, int64(99), ver)
 }
 
+//nolint:paralleltest // modifies process environment variables
 func TestSetMigrationENVVars(t *testing.T) {
 	t.Run("ValidEVMConfig", func(t *testing.T) {
 		chainID := sqlutil.New(big.NewInt(1337))
@@ -450,11 +454,12 @@ func TestSetMigrationENVVars(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // mutates database schema and global goose state
 func TestNoTriggers(t *testing.T) {
 	_, db := heavyweight.FullTestDBEmptyV2(t, nil)
-	p, err := migrate.NewProvider(testutils.Context(t), db.DB)
+	p, err := migrate.NewProvider(t.Context(), db.DB)
 	require.NoError(t, err)
-	_, err = p.Up(testutils.Context(t))
+	_, err = p.Up(t.Context())
 	require.NoError(t, err)
 	row := db.QueryRow("select count(*) from information_schema.triggers")
 	var count int
@@ -464,7 +469,7 @@ func TestNoTriggers(t *testing.T) {
 }
 
 func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
-	ctx := testutils.Context(b)
+	ctx := b.Context()
 	previousMigration := int64(201)
 	backfillMigration := int64(202)
 	chainCount := 2
@@ -482,7 +487,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 
 	for j := range chainCount {
 		// Insert 100_000 block to database, can't do all at once, so batching by 10k
-		var blocks []logpoller.Block
+		blocks := make([]logpoller.Block, 0, maxLogsSize)
 		for i := range maxLogsSize {
 			blocks = append(blocks, logpoller.Block{
 				EVMChainID:           sqlutil.NewI(int64(j + 1)),
@@ -529,8 +534,9 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 	}
 }
 
+//nolint:paralleltest // mutates database schema and global goose state
 func TestRollback_247_TxStateEnumUpdate(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	_, db := heavyweight.FullTestDBV2(t, nil)
 	p, err := migrate.NewProvider(ctx, db.DB)
 	require.NoError(t, err)

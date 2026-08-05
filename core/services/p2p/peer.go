@@ -30,7 +30,7 @@ type PeerConfig struct {
 	PrivateKey crypto.Signer
 	// List of <ip>:<port> addresses.
 	ListenAddresses []string
-	// List of <host>:<port> addresses. If empty, defaults to ListenAddresses.
+	// List of advertised <ip>:<port> addresses. If empty, defaults to ListenAddresses.
 	AnnounceAddresses []string
 	Bootstrappers     []ragetypes.PeerInfo
 	// Every DeltaReconcile a Reconcile message is sent to every peer.

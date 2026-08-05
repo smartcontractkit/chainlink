@@ -198,15 +198,14 @@ jobs:
           build-cache-write: ${{ github.event_name == 'push' && 'default-branch-only' || 'never' }}
 
       - name: Notify Slack
-        # Skip for now as it's always failing on scheduled runs
-        if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' && 'false' == 'true' }}
-        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
+        uses: slackapi/slack-github-action@03ea5433c137af7c0495bc0cad1af10403fc800c # 3.0.2
         with:
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             channel: ${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}
-            text: "golangci-lint failed (${{ matrix.modules }}): <${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}|Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Report>"
+            text: "golangci-lint failed (${{ matrix.modules }}): <${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}|Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Report>\n${{ steps.golang-lint.outputs.golang-report-file-count }} files with ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues.\nBy severity: $${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\nBy linter: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
 
   # Fails if any golangci-lint matrix jobs fails and silently succeeds otherwise
   # Consolidates golangci-lint matrix job results under one required `lint` check
@@ -261,7 +260,7 @@ jobs:
         type:
           - cmd: go_core_tests
             os: runs-on=${{ github.run_id
-              }}-unit/cpu=48/ram=96/family=c7id+c8id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              }}-unit/cpu=48/ram=96/family=c7id+c8id/spot=co/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
             go-mod-directory: ""
@@ -273,7 +272,7 @@ jobs:
 
           - cmd: go_core_tests_integration
             os: runs-on=${{ github.run_id
-              }}-integ/cpu=48/ram=96/family=c7i+c8i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+              }}-integ/cpu=48/ram=96/family=c7i+c8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
             setup-solana: "true"
@@ -285,7 +284,7 @@ jobs:
 
           - cmd: go_core_fuzz
             os: runs-on=${{
-              github.run_id}}-fuzz/cpu=8/ram=32/family=m7id+m7idn+m8id+m8idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              github.run_id}}-fuzz/cpu=8/ram=32/family=m7id+m7idn+m8id+m8idn/spot=co/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "false"
             go-mod-directory: ""
@@ -298,7 +297,7 @@ jobs:
 
           - cmd: go_core_race_tests
             os: runs-on=${{
-              github.run_id}}-race/cpu=64/ram=128/family=c7i+c8i/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              github.run_id}}-race/cpu=64/ram=128/family=c7i+c8i/volume=150gb/spot=co/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "false"
             go-mod-directory: ""
@@ -306,8 +305,8 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             install-loopps: "false"
-            build-cache-version: go_core_tests
-            build-cache-write: never
+            build-cache-version: go_core_race_tests
+            build-cache-write: always
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -497,7 +496,7 @@ jobs:
           steps.print-races.outputs.post_to_slack == 'true'  &&
           (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') &&
           matrix.type.should-run == 'true'
-        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        uses: slackapi/slack-github-action@03ea5433c137af7c0495bc0cad1af10403fc800c # v3.0.2
         with:
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
@@ -536,7 +535,6 @@ jobs:
             ./output.txt
             ./coverage.txt
           retention-days: 7
-
 
   clean:
     name: Clean Go Tidy & Generate

@@ -94,7 +94,7 @@ jobs:
       pull-requests: read
       contents: read
     env:
-      SH_GO_RUNNER: runs-on=${{ github.run_id }}/cpu=32/ram=64/family=c6i/spot=false/extras=s3-cache+tmpfs
+      SH_GO_RUNNER: runs-on=${{ github.run_id }}/cpu=32/ram=64/family=c7i+c8i/spot=co/extras=s3-cache+tmpfs
       GH_GO_RUNNER: ubuntu24.04-8cores-32GB
     outputs:
       go-runner: ${{ steps.go-codeql.outputs.go-runner }}

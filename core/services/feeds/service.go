@@ -45,7 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	cryptoutils "github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -1465,7 +1464,7 @@ func (s *service) generateJob(ctx context.Context, spec string) (*job.Job, error
 	case job.FluxMonitor:
 		return nil, errors.New("job type fluxmonitor has been removed and is no longer supported")
 	case job.Workflow:
-		js, err = workflows.ValidatedWorkflowJobSpec(ctx, spec)
+		return nil, errors.New("job type workflow has been removed and is no longer supported")
 	case job.CCIP:
 		js, err = ccip.ValidatedCCIPSpec(spec)
 	case job.CCVCommitteeVerifier:
