@@ -10,9 +10,10 @@ are EVM/JD-specific and deliberately have no Stellar equivalent here).
 
 ```
 data-feeds/changeset/stellar/
-├── deploy_cache.go, deploy_proxy.go   # instantiate contracts, record AddressRefs
-├── configure_cache.go                 # SetFeedConfigs — descriptions + permissions
-├── remove_feeds.go, freeze_feeds.go   # remove feed configs, freeze/unfreeze feeds
+├── deploy.go                          # DeployCache / DeployProxy — instantiate + record AddressRefs
+├── set_feed_configs.go                # descriptions + workflow permissions
+├── remove_feed_configs.go             # remove feed configs
+├── set_feed_frozen.go                 # freeze/unfreeze feeds
 ├── feed_admin.go                      # grant/revoke feed-admin
 ├── ownership.go                       # transfer / accept / renounce (cache + proxy)
 ├── upgrade.go, recover_tokens.go      # new WASM / token recovery (cache + proxy)
@@ -22,6 +23,9 @@ data-feeds/changeset/stellar/
 ├── operation/operation.go             # one CLDF operation per on-chain call
 └── testdata/                          # e2e WASM fixtures — see testdata/README.md
 ```
+
+Every action file has a matching `_test.go`; shared test scaffolding (fake
+deps, env builder, datastore seeding) lives in `testutil_test.go`.
 
 Each changeset's `Apply` resolves a `datastore.AddressRef` (chain selector +
 `ContractType` + version + qualifier) to a `stellarApplyDeps` bundle — the
