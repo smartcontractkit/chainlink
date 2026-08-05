@@ -9,10 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"os"
 	"os/exec"
-	"path"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -26,12 +23,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 )
 
 //go:embed fixtures/fixtures.sql
 var fixturesSQL string
+
+//go:embed fixtures/users_only_fixture.sql
+var usersOnlyFixtureSQL string
 
 func FixturesSQL() string { return fixturesSQL }
 
@@ -43,11 +44,11 @@ func PrepareTestDB(lggr logger.Logger, dbURL url.URL, userOnly bool) error {
 	defer db.Close()
 	// we no longer create chainlink_test_pristine since pgtestdb handles template caching
 
-	fixturePath := "../store/fixtures/fixtures.sql"
+	fixtures := fixturesSQL
 	if userOnly {
-		fixturePath = "../store/fixtures/users_only_fixture.sql"
+		fixtures = usersOnlyFixtureSQL
 	}
-	if err = insertFixtures(dbURL, fixturePath); err != nil {
+	if err = insertFixtures(dbURL, fixtures); err != nil {
 		return err
 	}
 	if err = dropDanglingTestDBs(lggr, db); err != nil {
@@ -208,7 +209,7 @@ func checkSchema(dbURL url.URL, prevSchema string, restrictKey string) error {
 	return nil
 }
 
-func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
+func insertFixtures(dbURL url.URL, fixtures string) (err error) {
 	db, err := sql.Open(pgcommon.DriverPostgres, dbURL.String())
 	if err != nil {
 		return fmt.Errorf("unable to open postgres database for creating test db: %w", err)
@@ -219,18 +220,9 @@ func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
 		}
 	}()
 
-	_, filename, _, ok := runtime.Caller(1)
-	if !ok {
-		return errors.New("could not get runtime.Caller(1)")
-	}
-	filepath := path.Join(path.Dir(filename), pathToFixtures)
-	fixturesSQL, err := os.ReadFile(filepath)
-	if err != nil {
-		return err
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	_, err = db.ExecContext(ctx, string(fixturesSQL))
+	_, err = db.ExecContext(ctx, fixtures)
 	return err
 }
 

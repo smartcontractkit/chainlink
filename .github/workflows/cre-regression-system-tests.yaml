@@ -150,9 +150,7 @@ jobs:
         uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
           go_mod_path: system-tests/tests/go.mod
-          cache_key_id: integration-tests-v1
-          cache_builds: true
-          cache_restore_only: "true"
+          no_cache: true
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6
