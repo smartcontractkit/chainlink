@@ -42,3 +42,34 @@ func TestSetProxyCacheChangeset(t *testing.T) {
 	seedCacheRef(t, &cacheOnly, testContractID, "test-cache", "1.0.0")
 	require.Error(t, SetProxyCache{}.VerifyPreconditions(cacheOnly, req))
 }
+
+// CacheVersion resolves a cache recorded under a different version than the
+// proxy; empty CacheVersion falls back to Version (covered above).
+func TestSetProxyCacheChangeset_CrossVersion(t *testing.T) {
+	env, inv, _ := newTestEnv(t)
+	seedContractRefs(t, &env,
+		contractRefSpec{ProxyContract, testProxyAddress, "test-proxy", "1.1.0"},
+		contractRefSpec{CacheContract, testContractID, "test-cache", "1.0.0"},
+	)
+
+	req := &SetProxyCacheRequest{
+		ChainSel:       testChainSel,
+		Qualifier:      "test-proxy",
+		Version:        "1.1.0",
+		CacheQualifier: "test-cache",
+		CacheVersion:   "1.0.0",
+	}
+	require.NoError(t, SetProxyCache{}.VerifyPreconditions(env, req))
+
+	out, err := SetProxyCache{}.Apply(env, req)
+	require.NoError(t, err)
+	require.Equal(t, "set_cache", inv.calls[0].Function)
+
+	meta := outputMetadata(t, out, testProxyAddress)
+	require.Equal(t, testContractID, meta.Cache)
+
+	// without CacheVersion the cache ref must not resolve at the proxy's version
+	noCacheVersion := *req
+	noCacheVersion.CacheVersion = ""
+	require.Error(t, SetProxyCache{}.VerifyPreconditions(env, &noCacheVersion))
+}

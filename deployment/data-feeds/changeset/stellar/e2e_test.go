@@ -309,9 +309,12 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 
 	// --- proxy ownership: transfer -> accept -> renounce (renounce LAST) ---
 	proxyLiveUntil := nextLiveUntil(t, ch)
-	env = apply(t, env, TransferOwnership{}, &OwnershipRequest{
-		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion,
-		Contract: ProxyContract, NewOwner: deployer, LiveUntilLedger: proxyLiveUntil,
+	env = apply(t, env, TransferOwnership{}, &TransferOwnershipRequest{
+		OwnershipRequest: OwnershipRequest{
+			ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion,
+			Contract: ProxyContract,
+		},
+		NewOwner: deployer, LiveUntilLedger: proxyLiveUntil,
 	})
 	env = apply(t, env, AcceptOwnership{}, &OwnershipRequest{
 		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, Contract: ProxyContract,
@@ -357,9 +360,12 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 
 	// --- cache ownership: transfer -> accept -> renounce (renounce LAST) ---
 	cacheLiveUntil := nextLiveUntil(t, ch)
-	env = apply(t, env, TransferOwnership{}, &OwnershipRequest{
-		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion,
-		Contract: CacheContract, NewOwner: deployer, LiveUntilLedger: cacheLiveUntil,
+	env = apply(t, env, TransferOwnership{}, &TransferOwnershipRequest{
+		OwnershipRequest: OwnershipRequest{
+			ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion,
+			Contract: CacheContract,
+		},
+		NewOwner: deployer, LiveUntilLedger: cacheLiveUntil,
 	})
 	env = apply(t, env, AcceptOwnership{}, &OwnershipRequest{
 		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, Contract: CacheContract,

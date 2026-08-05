@@ -1,11 +1,6 @@
 package stellar
 
 import (
-	"fmt"
-
-	"github.com/Masterminds/semver/v3"
-
-	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	proxy "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_proxy"
@@ -18,6 +13,16 @@ type SetProxyCacheRequest struct {
 	Qualifier      string
 	Version        string
 	CacheQualifier string
+	CacheVersion   string // cache's datastore version; defaults to Version
+}
+
+// cacheVersion defaults an empty CacheVersion to Version: cache and proxy
+// usually share a release.
+func (req *SetProxyCacheRequest) cacheVersion() string {
+	if req.CacheVersion != "" {
+		return req.CacheVersion
+	}
+	return req.Version
 }
 
 var _ cldf.ChangeSetV2[*SetProxyCacheRequest] = SetProxyCache{}
@@ -34,23 +39,18 @@ func (SetProxyCache) VerifyPreconditions(env cldf.Environment, req *SetProxyCach
 	if err := verifyContractRef(env, req.ChainSel, ProxyContract, req.Qualifier, req.Version); err != nil {
 		return err
 	}
-	if err := verifyContractRef(env, req.ChainSel, CacheContract, req.CacheQualifier, req.Version); err != nil {
-		return err
-	}
-	return nil
+	return verifyContractRef(env, req.ChainSel, CacheContract, req.CacheQualifier, req.cacheVersion())
 }
 
 func (SetProxyCache) Apply(env cldf.Environment, req *SetProxyCacheRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	proxyDeps, err := resolveDeps(env, req.ChainSel, ProxyContract, req.Qualifier, req.Version)
+	proxyDeps, _, err := resolveContractDeps(env, req.ChainSel, ProxyContract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}
-	cacheRef, err := env.DataStore.Addresses().Get(
-		datastore.NewAddressRefKey(req.ChainSel, CacheContract, semver.MustParse(req.Version), req.CacheQualifier),
-	)
+	cacheRef, err := getAddressRef(env, req.ChainSel, CacheContract, req.CacheQualifier, req.cacheVersion())
 	if err != nil {
-		return out, fmt.Errorf("cache address ref not found for qualifier %q: %w", req.CacheQualifier, err)
+		return out, err
 	}
 
 	_, err = operations.ExecuteOperation(env.OperationsBundle, setProxyCacheOp, proxyDeps.deps, setProxyCacheInput{

@@ -43,7 +43,7 @@ func (AddFeedAdmin) VerifyPreconditions(env cldf.Environment, req *FeedAdminRequ
 
 func (AddFeedAdmin) Apply(env cldf.Environment, req *FeedAdminRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := resolveDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
+	d, _, err := resolveContractDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}
@@ -72,7 +72,7 @@ func (RemoveFeedAdmin) VerifyPreconditions(env cldf.Environment, req *FeedAdminR
 
 func (RemoveFeedAdmin) Apply(env cldf.Environment, req *FeedAdminRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := resolveDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
+	d, _, err := resolveContractDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}

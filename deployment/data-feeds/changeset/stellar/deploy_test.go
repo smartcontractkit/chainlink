@@ -126,3 +126,32 @@ func TestDeployProxyChangeset(t *testing.T) {
 	missing.CacheQualifier = "does-not-exist"
 	require.Error(t, DeployProxy{}.VerifyPreconditions(env, &missing))
 }
+
+// CacheVersion resolves a cache recorded under a different version than the
+// proxy being deployed; empty CacheVersion falls back to Version (covered above).
+func TestDeployProxyChangeset_CrossVersion(t *testing.T) {
+	env, _, _ := newTestEnv(t)
+
+	cacheAddr := "CCACHEFAKE0000000000000000000000000000000000000000000000"
+	seedCacheRef(t, &env, cacheAddr, "test-cache", "1.0.0")
+
+	req := &DeployProxyRequest{
+		ChainSel:       testChainSel,
+		WasmPath:       writeDummyWasm(t, "data_feeds_proxy.wasm"),
+		CacheQualifier: "test-cache",
+		CacheVersion:   "1.0.0",
+		Qualifier:      "test-proxy",
+		Version:        "1.1.0",
+	}
+	require.NoError(t, DeployProxy{}.VerifyPreconditions(env, req))
+
+	out, err := DeployProxy{}.Apply(env, req)
+	require.NoError(t, err)
+	meta := outputMetadata(t, out, testContractID)
+	require.Equal(t, cacheAddr, meta.Cache)
+
+	// without CacheVersion the cache ref must not resolve at the proxy's version
+	noCacheVersion := *req
+	noCacheVersion.CacheVersion = ""
+	require.Error(t, DeployProxy{}.VerifyPreconditions(env, &noCacheVersion))
+}

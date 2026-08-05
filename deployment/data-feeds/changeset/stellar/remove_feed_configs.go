@@ -1,8 +1,6 @@
 package stellar
 
 import (
-	"errors"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	cache "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache"
@@ -29,24 +27,12 @@ type removeFeedConfigsInput struct {
 }
 
 func (RemoveFeedConfigs) VerifyPreconditions(env cldf.Environment, req *RemoveFeedConfigsRequest) error {
-	if err := verifyContractRef(env, req.ChainSel, CacheContract, req.Qualifier, req.Version); err != nil {
-		return err
-	}
-	if err := validateAddress(req.Admin); err != nil {
-		return err
-	}
-	if len(req.DataIDs) == 0 {
-		return errors.New("DataIDs cannot be empty")
-	}
-	if _, err := dataIDsToBytes(req.DataIDs); err != nil {
-		return err
-	}
-	return nil
+	return verifyFeedPreconditions(env, req.ChainSel, req.Qualifier, req.Version, req.Admin, req.DataIDs)
 }
 
 func (RemoveFeedConfigs) Apply(env cldf.Environment, req *RemoveFeedConfigsRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := resolveDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
+	d, _, err := resolveContractDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}

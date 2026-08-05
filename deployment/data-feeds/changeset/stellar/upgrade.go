@@ -52,7 +52,7 @@ func (Upgrade) VerifyPreconditions(env cldf.Environment, req *UpgradeRequest) er
 
 func (Upgrade) Apply(env cldf.Environment, req *UpgradeRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := resolveDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
+	d, _, err := resolveContractDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}

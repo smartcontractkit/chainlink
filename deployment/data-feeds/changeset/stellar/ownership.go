@@ -9,32 +9,32 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 )
 
-// OwnershipRequest drives the ownership changesets for the cache or proxy.
+// OwnershipRequest identifies the cache or proxy whose ownership changes.
 type OwnershipRequest struct {
-	ChainSel        uint64
-	Qualifier       string
-	Version         string
-	Contract        datastore.ContractType // CacheContract or ProxyContract
-	NewOwner        string                 // TransferOwnership only
-	LiveUntilLedger uint32                 // TransferOwnership only; pending-transfer expiry ledger
+	ChainSel  uint64
+	Qualifier string
+	Version   string
+	Contract  datastore.ContractType // CacheContract or ProxyContract
+}
+
+// TransferOwnershipRequest begins a two-step ownership transfer to NewOwner.
+// The pending transfer expires at LiveUntilLedger unless accepted first.
+type TransferOwnershipRequest struct {
+	OwnershipRequest
+	NewOwner        string
+	LiveUntilLedger uint32 // pending-transfer expiry ledger
 }
 
 func (req *OwnershipRequest) verifyPreconditions(env cldf.Environment) error {
-	if _, ok := env.BlockChains.StellarChains()[req.ChainSel]; !ok {
-		return fmt.Errorf("stellar chain not found for chain selector %d", req.ChainSel)
-	}
 	if err := validateContract(req.Contract); err != nil {
 		return err
 	}
-	if err := verifyContractRef(env, req.ChainSel, req.Contract, req.Qualifier, req.Version); err != nil {
-		return err
-	}
-	return nil
+	return verifyContractRef(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
 }
 
 var (
-	_ cldf.ChangeSetV2[*OwnershipRequest] = TransferOwnership{}
-	_ cldf.ChangeSetV2[*OwnershipRequest] = AcceptOwnership{}
+	_ cldf.ChangeSetV2[*TransferOwnershipRequest] = TransferOwnership{}
+	_ cldf.ChangeSetV2[*OwnershipRequest]         = AcceptOwnership{}
 )
 
 type ownershipInput struct {
@@ -47,7 +47,7 @@ type ownershipInput struct {
 // TransferOwnership begins a two-step ownership transfer.
 type TransferOwnership struct{}
 
-func (TransferOwnership) VerifyPreconditions(env cldf.Environment, req *OwnershipRequest) error {
+func (TransferOwnership) VerifyPreconditions(env cldf.Environment, req *TransferOwnershipRequest) error {
 	if err := req.verifyPreconditions(env); err != nil {
 		return err
 	}
@@ -60,9 +60,9 @@ func (TransferOwnership) VerifyPreconditions(env cldf.Environment, req *Ownershi
 	return nil
 }
 
-func (TransferOwnership) Apply(env cldf.Environment, req *OwnershipRequest) (cldf.ChangesetOutput, error) {
+func (TransferOwnership) Apply(env cldf.Environment, req *TransferOwnershipRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := resolveDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
+	d, _, err := resolveContractDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}
@@ -93,7 +93,7 @@ func (AcceptOwnership) VerifyPreconditions(env cldf.Environment, req *OwnershipR
 
 func (AcceptOwnership) Apply(env cldf.Environment, req *OwnershipRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := resolveDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
+	d, _, err := resolveContractDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}

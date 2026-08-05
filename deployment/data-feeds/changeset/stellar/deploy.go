@@ -105,9 +105,19 @@ type DeployProxyRequest struct {
 	WasmPath       string
 	Owner          string // defaults to the chain's deployer address when empty
 	CacheQualifier string
+	CacheVersion   string // cache's datastore version; defaults to Version
 	Qualifier      string
 	Version        string
 	LabelSet       datastore.LabelSet
+}
+
+// cacheVersion defaults an empty CacheVersion to Version: cache and proxy
+// usually share a release.
+func (req *DeployProxyRequest) cacheVersion() string {
+	if req.CacheVersion != "" {
+		return req.CacheVersion
+	}
+	return req.Version
 }
 
 var _ cldf.ChangeSetV2[*DeployProxyRequest] = DeployProxy{}
@@ -123,7 +133,10 @@ type deployProxyInput struct {
 }
 
 func (DeployProxy) VerifyPreconditions(env cldf.Environment, req *DeployProxyRequest) error {
-	if err := verifyContractRef(env, req.ChainSel, CacheContract, req.CacheQualifier, req.Version); err != nil {
+	if _, err := semver.NewVersion(req.Version); err != nil {
+		return fmt.Errorf("invalid version %q: %w", req.Version, err)
+	}
+	if err := verifyContractRef(env, req.ChainSel, CacheContract, req.CacheQualifier, req.cacheVersion()); err != nil {
 		return err
 	}
 	if _, err := os.Stat(req.WasmPath); err != nil {
@@ -146,11 +159,9 @@ func (DeployProxy) Apply(env cldf.Environment, req *DeployProxyRequest) (cldf.Ch
 	if err != nil {
 		return out, err
 	}
-	cacheRef, err := env.DataStore.Addresses().Get(
-		datastore.NewAddressRefKey(req.ChainSel, CacheContract, semver.MustParse(req.Version), req.CacheQualifier),
-	)
+	cacheRef, err := getAddressRef(env, req.ChainSel, CacheContract, req.CacheQualifier, req.cacheVersion())
 	if err != nil {
-		return out, fmt.Errorf("cache address ref not found for qualifier %q: %w", req.CacheQualifier, err)
+		return out, err
 	}
 	owner, err := ownerOrSigner(ch, req.Owner)
 	if err != nil {

@@ -65,14 +65,8 @@ type setFeedConfigsInput struct {
 }
 
 func (SetFeedConfigs) VerifyPreconditions(env cldf.Environment, req *SetFeedConfigsRequest) error {
-	if err := verifyContractRef(env, req.ChainSel, CacheContract, req.Qualifier, req.Version); err != nil {
+	if err := verifyFeedPreconditions(env, req.ChainSel, req.Qualifier, req.Version, req.Admin, req.DataIDs); err != nil {
 		return err
-	}
-	if err := validateAddress(req.Admin); err != nil {
-		return err
-	}
-	if len(req.DataIDs) == 0 {
-		return errors.New("DataIDs cannot be empty")
 	}
 	if len(req.DataIDs) != len(req.Descriptions) {
 		return errors.New("DataIDs and Descriptions must have the same length")
@@ -80,18 +74,13 @@ func (SetFeedConfigs) VerifyPreconditions(env cldf.Environment, req *SetFeedConf
 	if len(req.Permissions) == 0 {
 		return errors.New("Permissions cannot be empty")
 	}
-	if _, err := dataIDsToBytes(req.DataIDs); err != nil {
-		return err
-	}
-	if _, err := req.permissions(); err != nil {
-		return err
-	}
-	return nil
+	_, err := req.permissions()
+	return err
 }
 
 func (SetFeedConfigs) Apply(env cldf.Environment, req *SetFeedConfigsRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := resolveDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
+	d, _, err := resolveContractDeps(env, req.ChainSel, CacheContract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}

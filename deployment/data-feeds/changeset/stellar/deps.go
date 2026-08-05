@@ -83,12 +83,16 @@ func ownerOrSigner(ch cldfstellar.Chain, owner string) (string, error) {
 
 func recordAddress(address string, chainSel uint64, contractType datastore.ContractType, qualifier, version string, labels datastore.LabelSet) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return out, fmt.Errorf("invalid version %q: %w", version, err)
+	}
 	out.DataStore = datastore.NewMemoryDataStore()
 	return out, out.DataStore.Addresses().Add(datastore.AddressRef{
 		Address:       address,
 		ChainSelector: chainSel,
 		Type:          contractType,
-		Version:       semver.MustParse(version),
+		Version:       v,
 		Qualifier:     qualifier,
 		Labels:        labels,
 	})
@@ -102,44 +106,39 @@ type stellarApplyDeps struct {
 
 // verifyContractRef checks the chain exists, the version parses, and an
 // AddressRef exists for the contract.
-func verifyContractRef(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, versionStr string) error {
+func verifyContractRef(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) error {
 	if _, ok := env.BlockChains.StellarChains()[chainSel]; !ok {
 		return fmt.Errorf("stellar chain not found for chain selector %d", chainSel)
 	}
-	version, err := semver.NewVersion(versionStr)
-	if err != nil {
-		return fmt.Errorf("invalid version %q: %w", versionStr, err)
-	}
-	if _, err := env.DataStore.Addresses().Get(
-		datastore.NewAddressRefKey(chainSel, contractType, version, qualifier),
-	); err != nil {
-		return fmt.Errorf("%s address ref not found for qualifier %q: %w", contractType, qualifier, err)
-	}
-	return nil
+	_, err := getAddressRef(env, chainSel, contractType, qualifier, version)
+	return err
 }
 
-// resolveDeps is resolveContractDeps for callers that don't need the AddressRef.
-func resolveDeps(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) (stellarApplyDeps, error) {
-	d, _, err := resolveContractDeps(env, chainSel, contractType, qualifier, version)
-	return d, err
-}
-
-// resolveContractDeps resolves the contract's AddressRef and bundles it with
-// the chain deps.
-func resolveContractDeps(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) (stellarApplyDeps, datastore.AddressRef, error) {
+// getAddressRef parses version and fetches the contract's AddressRef.
+func getAddressRef(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) (datastore.AddressRef, error) {
 	v, err := semver.NewVersion(version)
 	if err != nil {
-		return stellarApplyDeps{}, datastore.AddressRef{}, fmt.Errorf("invalid version %q: %w", version, err)
-	}
-	_, deps, err := chainDeps(env, chainSel)
-	if err != nil {
-		return stellarApplyDeps{}, datastore.AddressRef{}, err
+		return datastore.AddressRef{}, fmt.Errorf("invalid version %q: %w", version, err)
 	}
 	ref, err := env.DataStore.Addresses().Get(
 		datastore.NewAddressRefKey(chainSel, contractType, v, qualifier),
 	)
 	if err != nil {
-		return stellarApplyDeps{}, datastore.AddressRef{}, fmt.Errorf("%s address ref not found for qualifier %q: %w", contractType, qualifier, err)
+		return datastore.AddressRef{}, fmt.Errorf("%s address ref not found for qualifier %q: %w", contractType, qualifier, err)
+	}
+	return ref, nil
+}
+
+// resolveContractDeps resolves the contract's AddressRef and bundles it with
+// the chain deps.
+func resolveContractDeps(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) (stellarApplyDeps, datastore.AddressRef, error) {
+	_, deps, err := chainDeps(env, chainSel)
+	if err != nil {
+		return stellarApplyDeps{}, datastore.AddressRef{}, err
+	}
+	ref, err := getAddressRef(env, chainSel, contractType, qualifier, version)
+	if err != nil {
+		return stellarApplyDeps{}, datastore.AddressRef{}, err
 	}
 	return stellarApplyDeps{deps: deps, contractID: ref.Address}, ref, nil
 }

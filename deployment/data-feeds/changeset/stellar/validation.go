@@ -2,11 +2,13 @@ package stellar
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/stellar/go-stellar-sdk/strkey"
 )
 
@@ -27,6 +29,22 @@ func validateAddress(s string) error {
 		return nil
 	}
 	return fmt.Errorf("%q is not a valid Stellar account or contract address", s)
+}
+
+// verifyFeedPreconditions checks the preconditions shared by the cache feed
+// changesets: cache address ref, valid admin, non-empty parseable DataIDs.
+func verifyFeedPreconditions(env cldf.Environment, chainSel uint64, qualifier, version, admin string, dataIDs []string) error {
+	if err := verifyContractRef(env, chainSel, CacheContract, qualifier, version); err != nil {
+		return err
+	}
+	if err := validateAddress(admin); err != nil {
+		return err
+	}
+	if len(dataIDs) == 0 {
+		return errors.New("DataIDs cannot be empty")
+	}
+	_, err := dataIDsToBytes(dataIDs)
+	return err
 }
 
 // dataIDsToBytes converts hex feed IDs to [16]byte. Data IDs are canonically

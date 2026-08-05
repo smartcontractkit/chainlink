@@ -54,7 +54,7 @@ func (RecoverTokens) VerifyPreconditions(env cldf.Environment, req *RecoverToken
 
 func (RecoverTokens) Apply(env cldf.Environment, req *RecoverTokensRequest) (cldf.ChangesetOutput, error) {
 	var out cldf.ChangesetOutput
-	d, err := resolveDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
+	d, _, err := resolveContractDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
 	if err != nil {
 		return out, err
 	}
