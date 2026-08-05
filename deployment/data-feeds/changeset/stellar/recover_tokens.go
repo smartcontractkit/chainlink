@@ -26,6 +26,14 @@ var _ cldf.ChangeSetV2[*RecoverTokensRequest] = RecoverTokens{}
 // RecoverTokens recovers tokens accidentally sent to the cache or proxy.
 type RecoverTokens struct{}
 
+type recoverTokensInput struct {
+	ContractID string `json:"contract_id"`
+	IsProxy    bool   `json:"is_proxy"`
+	Token      string `json:"token"`
+	To         string `json:"to"`
+	Amount     int64  `json:"amount"`
+}
+
 func (RecoverTokens) VerifyPreconditions(env cldf.Environment, req *RecoverTokensRequest) error {
 	if err := validateContract(req.Contract); err != nil {
 		return err
@@ -59,14 +67,6 @@ func (RecoverTokens) Apply(env cldf.Environment, req *RecoverTokensRequest) (cld
 		Amount:     req.Amount,
 	})
 	return out, err
-}
-
-type recoverTokensInput struct {
-	ContractID string `json:"contract_id"`
-	IsProxy    bool   `json:"is_proxy"`
-	Token      string `json:"token"`
-	To         string `json:"to"`
-	Amount     int64  `json:"amount"`
 }
 
 var recoverTokensOp = operations.NewOperation(

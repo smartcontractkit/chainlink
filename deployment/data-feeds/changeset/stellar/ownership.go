@@ -40,6 +40,14 @@ var (
 	_ cldf.ChangeSetV2[*OwnershipRequest] = RenounceOwnership{}
 )
 
+// Ownership ops work for both contracts, selected by ContractID + IsProxy.
+type ownershipInput struct {
+	ContractID      string `json:"contract_id"`
+	IsProxy         bool   `json:"is_proxy"`
+	NewOwner        string `json:"new_owner"`
+	LiveUntilLedger uint32 `json:"live_until_ledger"`
+}
+
 // TransferOwnership begins a two-step ownership transfer on the cache or proxy.
 type TransferOwnership struct{}
 
@@ -71,6 +79,14 @@ func (TransferOwnership) Apply(env cldf.Environment, req *OwnershipRequest) (cld
 	return out, err
 }
 
+var transferOwnershipOp = operations.NewOperation(
+	"df:transfer-ownership", opVersion,
+	"Begins two-step ownership transfer",
+	func(b operations.Bundle, d StellarDeps, in ownershipInput) (void, error) {
+		return void{}, adminClient(d, in.ContractID, in.IsProxy).TransferOwnership(b.GetContext(), in.NewOwner, in.LiveUntilLedger)
+	},
+)
+
 // AcceptOwnership accepts a pending ownership transfer on the cache or proxy
 // (the caller signing the underlying transaction must be the pending owner).
 type AcceptOwnership struct{}
@@ -92,6 +108,14 @@ func (AcceptOwnership) Apply(env cldf.Environment, req *OwnershipRequest) (cldf.
 	return out, err
 }
 
+var acceptOwnershipOp = operations.NewOperation(
+	"df:accept-ownership", opVersion,
+	"Accepts a pending ownership transfer (caller must be the pending owner)",
+	func(b operations.Bundle, d StellarDeps, in ownershipInput) (void, error) {
+		return void{}, adminClient(d, in.ContractID, in.IsProxy).AcceptOwnership(b.GetContext())
+	},
+)
+
 // RenounceOwnership permanently renounces ownership of the cache or proxy.
 type RenounceOwnership struct{}
 
@@ -111,30 +135,6 @@ func (RenounceOwnership) Apply(env cldf.Environment, req *OwnershipRequest) (cld
 	})
 	return out, err
 }
-
-// Ownership ops work for both contracts, selected by ContractID + IsProxy.
-type ownershipInput struct {
-	ContractID      string `json:"contract_id"`
-	IsProxy         bool   `json:"is_proxy"`
-	NewOwner        string `json:"new_owner"`
-	LiveUntilLedger uint32 `json:"live_until_ledger"`
-}
-
-var transferOwnershipOp = operations.NewOperation(
-	"df:transfer-ownership", opVersion,
-	"Begins two-step ownership transfer",
-	func(b operations.Bundle, d StellarDeps, in ownershipInput) (void, error) {
-		return void{}, adminClient(d, in.ContractID, in.IsProxy).TransferOwnership(b.GetContext(), in.NewOwner, in.LiveUntilLedger)
-	},
-)
-
-var acceptOwnershipOp = operations.NewOperation(
-	"df:accept-ownership", opVersion,
-	"Accepts a pending ownership transfer (caller must be the pending owner)",
-	func(b operations.Bundle, d StellarDeps, in ownershipInput) (void, error) {
-		return void{}, adminClient(d, in.ContractID, in.IsProxy).AcceptOwnership(b.GetContext())
-	},
-)
 
 var renounceOwnershipOp = operations.NewOperation(
 	"df:renounce-ownership", opVersion,

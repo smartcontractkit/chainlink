@@ -26,6 +26,13 @@ var _ cldf.ChangeSetV2[*SetFeedFrozenRequest] = SetFeedFrozen{}
 // frozen (NoFeedState).
 type SetFeedFrozen struct{}
 
+type setFeedFrozenInput struct {
+	ContractID string     `json:"contract_id"`
+	Admin      string     `json:"admin"`
+	DataIDs    [][16]byte `json:"data_ids"`
+	Frozen     bool       `json:"frozen"`
+}
+
 func (SetFeedFrozen) VerifyPreconditions(env cldf.Environment, req *SetFeedFrozenRequest) error {
 	if err := verifyContractRef(env, req.ChainSel, CacheContract, req.Qualifier, req.Version); err != nil {
 		return err
@@ -60,13 +67,6 @@ func (SetFeedFrozen) Apply(env cldf.Environment, req *SetFeedFrozenRequest) (cld
 		Frozen:     req.Frozen,
 	})
 	return out, err
-}
-
-type setFeedFrozenInput struct {
-	ContractID string     `json:"contract_id"`
-	Admin      string     `json:"admin"`
-	DataIDs    [][16]byte `json:"data_ids"`
-	Frozen     bool       `json:"frozen"`
 }
 
 var setFeedFrozenOp = operations.NewOperation(

@@ -31,6 +31,16 @@ var _ cldf.ChangeSetV2[*DeployCacheRequest] = DeployCache{}
 // its address in the datastore under CacheContract.
 type DeployCache struct{}
 
+type deployOutput struct {
+	ContractID string `json:"contract_id"`
+}
+
+type deployCacheInput struct {
+	WasmPath string   `json:"wasm_path"`
+	Salt     [32]byte `json:"salt"`
+	Owner    string   `json:"owner"`
+}
+
 func (DeployCache) VerifyPreconditions(env cldf.Environment, req *DeployCacheRequest) error {
 	if _, ok := env.BlockChains.StellarChains()[req.ChainSel]; !ok {
 		return fmt.Errorf("stellar chain not found for chain selector %d", req.ChainSel)
@@ -72,10 +82,28 @@ func (DeployCache) Apply(env cldf.Environment, req *DeployCacheRequest) (cldf.Ch
 	return recordAddress(report.Output.ContractID, req.ChainSel, CacheContract, req.Qualifier, req.Version, req.LabelSet)
 }
 
+// deployCacheOp uploads the cache WASM and instantiates it via CreateContractV2
+// with __constructor(owner); the data-retention TTL is an on-chain constant,
+// not a constructor input.
+var deployCacheOp = operations.NewOperation(
+	"df-cache:deploy", opVersion,
+	"Deploys the DataFeedsCache Soroban contract",
+	func(b operations.Bundle, d StellarDeps, in deployCacheInput) (deployOutput, error) {
+		args := []xdr.ScVal{
+			scval.AddressToScVal(in.Owner),
+		}
+		cid, err := d.Deploy.DeployContractWithArgs(b.GetContext(), in.WasmPath, in.Salt, args)
+		if err != nil {
+			return deployOutput{}, err
+		}
+		return deployOutput{ContractID: cid}, nil
+	},
+)
+
 // DeployProxyRequest configures a DataFeedsProxy deployment. The cache passed
 // to __constructor(owner, cache) is resolved from the datastore by (ChainSel,
 // CacheContract, Version, CacheQualifier) — it must already be recorded.
-// Cross-contract lookups share the request's Version (see README).
+// Cross-contract lookups share the request's Version.
 type DeployProxyRequest struct {
 	ChainSel       uint64
 	WasmPath       string
@@ -91,6 +119,13 @@ var _ cldf.ChangeSetV2[*DeployProxyRequest] = DeployProxy{}
 // DeployProxy uploads and instantiates the DataFeedsProxy contract and records
 // its address in the datastore under ProxyContract.
 type DeployProxy struct{}
+
+type deployProxyInput struct {
+	WasmPath string   `json:"wasm_path"`
+	Salt     [32]byte `json:"salt"`
+	Owner    string   `json:"owner"`
+	Cache    string   `json:"cache"`
+}
 
 func (DeployProxy) VerifyPreconditions(env cldf.Environment, req *DeployProxyRequest) error {
 	if err := verifyContractRef(env, req.ChainSel, CacheContract, req.CacheQualifier, req.Version); err != nil {
@@ -138,41 +173,6 @@ func (DeployProxy) Apply(env cldf.Environment, req *DeployProxyRequest) (cldf.Ch
 		return out, err
 	}
 	return recordAddress(report.Output.ContractID, req.ChainSel, ProxyContract, req.Qualifier, req.Version, req.LabelSet)
-}
-
-type deployOutput struct {
-	ContractID string `json:"contract_id"`
-}
-
-type deployCacheInput struct {
-	WasmPath string   `json:"wasm_path"`
-	Salt     [32]byte `json:"salt"`
-	Owner    string   `json:"owner"`
-}
-
-// deployCacheOp uploads the cache WASM and instantiates it via CreateContractV2
-// with __constructor(owner); the data-retention TTL is an on-chain constant,
-// not a constructor input.
-var deployCacheOp = operations.NewOperation(
-	"df-cache:deploy", opVersion,
-	"Deploys the DataFeedsCache Soroban contract",
-	func(b operations.Bundle, d StellarDeps, in deployCacheInput) (deployOutput, error) {
-		args := []xdr.ScVal{
-			scval.AddressToScVal(in.Owner),
-		}
-		cid, err := d.Deploy.DeployContractWithArgs(b.GetContext(), in.WasmPath, in.Salt, args)
-		if err != nil {
-			return deployOutput{}, err
-		}
-		return deployOutput{ContractID: cid}, nil
-	},
-)
-
-type deployProxyInput struct {
-	WasmPath string   `json:"wasm_path"`
-	Salt     [32]byte `json:"salt"`
-	Owner    string   `json:"owner"`
-	Cache    string   `json:"cache"`
 }
 
 // deployProxyOp instantiates the proxy via __constructor(owner, cache).

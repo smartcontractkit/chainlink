@@ -30,6 +30,11 @@ var (
 	_ cldf.ChangeSetV2[*FeedAdminRequest] = RemoveFeedAdmin{}
 )
 
+type feedAdminInput struct {
+	ContractID string `json:"contract_id"`
+	Admin      string `json:"admin"`
+}
+
 // AddFeedAdmin grants feed-admin rights on the cache.
 type AddFeedAdmin struct{}
 
@@ -50,6 +55,15 @@ func (AddFeedAdmin) Apply(env cldf.Environment, req *FeedAdminRequest) (cldf.Cha
 	return out, err
 }
 
+var addFeedAdminOp = operations.NewOperation(
+	"df-cache:add-feed-admin", opVersion,
+	"Grants feed-admin rights on the cache",
+	func(b operations.Bundle, d StellarDeps, in feedAdminInput) (void, error) {
+		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
+		return void{}, c.AddFeedAdmin(b.GetContext(), in.Admin)
+	},
+)
+
 // RemoveFeedAdmin revokes feed-admin rights on the cache.
 type RemoveFeedAdmin struct{}
 
@@ -69,20 +83,6 @@ func (RemoveFeedAdmin) Apply(env cldf.Environment, req *FeedAdminRequest) (cldf.
 	})
 	return out, err
 }
-
-type feedAdminInput struct {
-	ContractID string `json:"contract_id"`
-	Admin      string `json:"admin"`
-}
-
-var addFeedAdminOp = operations.NewOperation(
-	"df-cache:add-feed-admin", opVersion,
-	"Grants feed-admin rights on the cache",
-	func(b operations.Bundle, d StellarDeps, in feedAdminInput) (void, error) {
-		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
-		return void{}, c.AddFeedAdmin(b.GetContext(), in.Admin)
-	},
-)
 
 var removeFeedAdminOp = operations.NewOperation(
 	"df-cache:remove-feed-admin", opVersion,

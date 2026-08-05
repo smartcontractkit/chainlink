@@ -27,6 +27,11 @@ var _ cldf.ChangeSetV2[*SetProxyCacheRequest] = SetProxyCache{}
 // SetProxyCache points the proxy at a cache contract.
 type SetProxyCache struct{}
 
+type setProxyCacheInput struct {
+	ContractID string `json:"contract_id"`
+	Cache      string `json:"cache"`
+}
+
 func (SetProxyCache) VerifyPreconditions(env cldf.Environment, req *SetProxyCacheRequest) error {
 	if err := verifyContractRef(env, req.ChainSel, ProxyContract, req.Qualifier, req.Version); err != nil {
 		return err
@@ -55,11 +60,6 @@ func (SetProxyCache) Apply(env cldf.Environment, req *SetProxyCacheRequest) (cld
 		Cache:      cacheRef.Address,
 	})
 	return out, err
-}
-
-type setProxyCacheInput struct {
-	ContractID string `json:"contract_id"`
-	Cache      string `json:"cache"`
 }
 
 var setProxyCacheOp = operations.NewOperation(

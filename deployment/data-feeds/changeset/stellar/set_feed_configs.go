@@ -30,11 +30,41 @@ type SetFeedConfigsRequest struct {
 	Permissions  []FeedPermission
 }
 
+// permissions converts the operator shape to the generated binding shape.
+func (req *SetFeedConfigsRequest) permissions() ([]cache.WorkflowPermission, error) {
+	out := make([]cache.WorkflowPermission, 0, len(req.Permissions))
+	for _, p := range req.Permissions {
+		if err := validateAddress(p.AllowedSender); err != nil {
+			return nil, fmt.Errorf("allowed sender: %w", err)
+		}
+		owner, err := workflowOwnerToBytes(p.AllowedWorkflowOwner)
+		if err != nil {
+			return nil, err
+		}
+		name, err := workflowNameToBytes(p.AllowedWorkflowName)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, cache.WorkflowPermission{
+			AllowedSender:        p.AllowedSender,
+			AllowedWorkflowOwner: owner,
+			AllowedWorkflowName:  name,
+		})
+	}
+	return out, nil
+}
+
 var _ cldf.ChangeSetV2[*SetFeedConfigsRequest] = SetFeedConfigs{}
 
 // SetFeedConfigs sets per-feed descriptions and workflow write-permissions on
 // the cache.
 type SetFeedConfigs struct{}
+
+type setFeedConfigsInput struct {
+	ContractID string                  `json:"contract_id"`
+	Admin      string                  `json:"admin"`
+	Entries    []cache.FeedConfigEntry `json:"entries"`
+}
 
 func (SetFeedConfigs) VerifyPreconditions(env cldf.Environment, req *SetFeedConfigsRequest) error {
 	if err := verifyContractRef(env, req.ChainSel, CacheContract, req.Qualifier, req.Version); err != nil {
@@ -59,30 +89,6 @@ func (SetFeedConfigs) VerifyPreconditions(env cldf.Environment, req *SetFeedConf
 		return err
 	}
 	return nil
-}
-
-// permissions converts the operator shape to the generated binding shape.
-func (req *SetFeedConfigsRequest) permissions() ([]cache.WorkflowPermission, error) {
-	out := make([]cache.WorkflowPermission, 0, len(req.Permissions))
-	for _, p := range req.Permissions {
-		if err := validateAddress(p.AllowedSender); err != nil {
-			return nil, fmt.Errorf("allowed sender: %w", err)
-		}
-		owner, err := workflowOwnerToBytes(p.AllowedWorkflowOwner)
-		if err != nil {
-			return nil, err
-		}
-		name, err := workflowNameToBytes(p.AllowedWorkflowName)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, cache.WorkflowPermission{
-			AllowedSender:        p.AllowedSender,
-			AllowedWorkflowOwner: owner,
-			AllowedWorkflowName:  name,
-		})
-	}
-	return out, nil
 }
 
 func (SetFeedConfigs) Apply(env cldf.Environment, req *SetFeedConfigsRequest) (cldf.ChangesetOutput, error) {
@@ -118,12 +124,6 @@ func (SetFeedConfigs) Apply(env cldf.Environment, req *SetFeedConfigsRequest) (c
 		Entries:    entries,
 	})
 	return out, err
-}
-
-type setFeedConfigsInput struct {
-	ContractID string                  `json:"contract_id"`
-	Admin      string                  `json:"admin"`
-	Entries    []cache.FeedConfigEntry `json:"entries"`
 }
 
 var setFeedConfigsOp = operations.NewOperation(

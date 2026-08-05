@@ -23,6 +23,12 @@ var _ cldf.ChangeSetV2[*RemoveFeedConfigsRequest] = RemoveFeedConfigs{}
 // RemoveFeedConfigs removes feed configs from the cache.
 type RemoveFeedConfigs struct{}
 
+type removeFeedConfigsInput struct {
+	ContractID string     `json:"contract_id"`
+	Admin      string     `json:"admin"`
+	DataIDs    [][16]byte `json:"data_ids"`
+}
+
 func (RemoveFeedConfigs) VerifyPreconditions(env cldf.Environment, req *RemoveFeedConfigsRequest) error {
 	if err := verifyContractRef(env, req.ChainSel, CacheContract, req.Qualifier, req.Version); err != nil {
 		return err
@@ -56,12 +62,6 @@ func (RemoveFeedConfigs) Apply(env cldf.Environment, req *RemoveFeedConfigsReque
 		DataIDs:    ids,
 	})
 	return out, err
-}
-
-type removeFeedConfigsInput struct {
-	ContractID string     `json:"contract_id"`
-	Admin      string     `json:"admin"`
-	DataIDs    [][16]byte `json:"data_ids"`
 }
 
 var removeFeedConfigsOp = operations.NewOperation(

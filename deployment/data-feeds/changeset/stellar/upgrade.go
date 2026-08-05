@@ -22,9 +22,23 @@ type UpgradeRequest struct {
 var _ cldf.ChangeSetV2[*UpgradeRequest] = Upgrade{}
 
 // Upgrade uploads a new WASM blob and points the contract at it. Apply chains
-// two operations: UploadWASM produces the code hash that UpgradeContract then
-// applies on-chain.
+// two operations: uploadWASMOp produces the code hash that upgradeContractOp
+// then applies on-chain.
 type Upgrade struct{}
+
+type uploadWASMInput struct {
+	WasmPath string `json:"wasm_path"`
+}
+
+type uploadWASMOutput struct {
+	WasmHash [32]byte `json:"wasm_hash"`
+}
+
+type upgradeContractInput struct {
+	ContractID  string   `json:"contract_id"`
+	IsProxy     bool     `json:"is_proxy"`
+	NewWasmHash [32]byte `json:"new_wasm_hash"`
+}
 
 func (Upgrade) VerifyPreconditions(env cldf.Environment, req *UpgradeRequest) error {
 	if err := validateContract(req.Contract); err != nil {
@@ -61,13 +75,6 @@ func (Upgrade) Apply(env cldf.Environment, req *UpgradeRequest) (cldf.ChangesetO
 	return out, err
 }
 
-type uploadWASMInput struct {
-	WasmPath string `json:"wasm_path"`
-}
-type uploadWASMOutput struct {
-	WasmHash [32]byte `json:"wasm_hash"`
-}
-
 var uploadWASMOp = operations.NewOperation(
 	"df:upload-wasm", opVersion,
 	"Uploads a WASM blob and returns its code hash (for upgrades)",
@@ -79,12 +86,6 @@ var uploadWASMOp = operations.NewOperation(
 		return uploadWASMOutput{WasmHash: [32]byte(h)}, nil
 	},
 )
-
-type upgradeContractInput struct {
-	ContractID  string   `json:"contract_id"`
-	IsProxy     bool     `json:"is_proxy"`
-	NewWasmHash [32]byte `json:"new_wasm_hash"`
-}
 
 var upgradeContractOp = operations.NewOperation(
 	"df:upgrade", opVersion,
