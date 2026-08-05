@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -29,8 +28,6 @@ func (t *Toolkit) Run(args []string) {
 	if len(args) < 1 {
 		fmt.Println("Available commands:")
 		fmt.Println("  deploy-workflows")
-		fmt.Println("  deploy-ocr3-contracts")
-		fmt.Println("  deploy-ocr3-jobspecs")
 		os.Exit(1)
 	}
 
@@ -42,10 +39,6 @@ func (t *Toolkit) Run(args []string) {
 		t.AptosKeys(cmdArgs)
 	case "deploy-workflows":
 		t.DeployWorkflows(cmdArgs)
-	case "deploy-ocr3-contracts":
-		t.ProvisionOCR3Contracts(cmdArgs)
-	case "deploy-ocr3-jobspecs":
-		t.DeployOCR3JobSpecs(cmdArgs)
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 		os.Exit(1)
@@ -67,69 +60,6 @@ func (t *Toolkit) AptosKeys(args []string) {
 	keys := mustFetchNodeKeys(*chainID, nodes, true)
 
 	mustWriteJSON(*artefacts+"/pubnodekeys.json", keys)
-}
-
-func (t *Toolkit) ProvisionOCR3Contracts(args []string) {
-	fs := flag.NewFlagSet("deploy-ocr3-contracts", flag.ExitOnError)
-	ethURL := fs.String("ethurl", "", "URL of the Ethereum node")
-	accountKey := fs.String("accountkey", "", "Private key of the deployer account")
-	chainID := fs.Int64("chainid", 1337, "Chain ID")
-	nodesListPath := fs.String("nodes", ".cache/NodesList.txt", "Path to file with list of nodes")
-	artefactsDir := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
-	ocrConfigFile := fs.String("ocrfile", "ocr_config.json", "Path to OCR config file")
-
-	if err := fs.Parse(args); err != nil || *ethURL == "" || *accountKey == "" {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	// Set environment variables required by setupenv
-	os.Setenv("ETH_URL", *ethURL)
-	os.Setenv("ETH_CHAIN_ID", strconv.FormatInt(*chainID, 10))
-	os.Setenv("ACCOUNT_KEY", *accountKey)
-	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-
-	env := helpers.SetupEnv(false)
-
-	nodes := mustReadNodesList(*nodesListPath)
-	nodeKeys := mustFetchNodeKeys(*chainID, nodes, true)
-
-	deployOCR3Contract(nodeKeys, env, *ocrConfigFile, *artefactsDir)
-}
-
-func (t *Toolkit) DeployOCR3JobSpecs(args []string) {
-	fs := flag.NewFlagSet("deploy-ocr3-jobspecs", flag.ExitOnError)
-
-	ethURL := fs.String("ethurl", "", "URL of the Ethereum node")
-	accountKey := fs.String("accountkey", "", "Private key of the deployer account")
-	chainID := fs.Int64("chainid", 1337, "Chain ID")
-	nodesListPath := fs.String("nodes", ".cache/NodesList.txt", "Path to file with list of nodes")
-	p2pPort := fs.Int64("p2pport", 6690, "P2P port")
-	artefactsDir := fs.String("artefacts", defaultArtefactsDir, "Custom artefacts directory location")
-
-	if err := fs.Parse(args); err != nil || *ethURL == "" || *accountKey == "" {
-		fs.Usage()
-		os.Exit(1)
-	}
-
-	os.Setenv("ETH_URL", *ethURL)
-	os.Setenv("ETH_CHAIN_ID", strconv.FormatInt(*chainID, 10))
-	os.Setenv("ACCOUNT_KEY", *accountKey)
-	os.Setenv("INSECURE_SKIP_VERIFY", "true")
-
-	env := helpers.SetupEnv(false)
-
-	nodes := mustReadNodesList(*nodesListPath)
-	nodeKeys := mustFetchNodeKeys(*chainID, nodes, true)
-	o := LoadOnchainMeta(*artefactsDir, env)
-
-	deployOCR3JobSpecs(
-		nodes,
-		*chainID,
-		nodeKeys,
-		*p2pPort,
-		o,
-	)
 }
 
 func (t *Toolkit) DeployWorkflows(args []string) {

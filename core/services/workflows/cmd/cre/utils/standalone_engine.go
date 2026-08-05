@@ -279,26 +279,11 @@ func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabili
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
 
-	streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
-	if err := registry.Add(ctx, streamsTrigger); err != nil {
-		return nil, err
-	}
-	caps = append(caps, streamsTrigger)
-
 	httpAction := fakes.NewDirectHTTPAction(lggr)
 	if err := registry.Add(ctx, httpserver.NewClientServer(httpAction)); err != nil {
 		return nil, err
 	}
 	caps = append(caps, httpAction)
-
-	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
-	if err != nil {
-		return nil, err
-	}
-	if err := registry.Add(ctx, fakeConsensus); err != nil {
-		return nil, err
-	}
-	caps = append(caps, fakeConsensus)
 
 	// generate deterministic signers - need to be configured on the Forwarder contract
 	nSigners := 4
