@@ -18,10 +18,10 @@ func TestParseExtraDataMap(t *testing.T) {
 	nonSolanaSelector := ccipocr3common.ChainSelector(chainsel.SUI_TESTNET.Selector)
 
 	tests := []struct {
-		name             string
-		input            map[string]any
-		sourceSelector   ccipocr3common.ChainSelector
-		want             *struct {
+		name           string
+		input          map[string]any
+		sourceSelector ccipocr3common.ChainSelector
+		want           *struct {
 			gasLimit      *big.Int
 			tokenReceiver [32]byte
 		}
