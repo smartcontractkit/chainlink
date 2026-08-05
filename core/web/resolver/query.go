@@ -632,6 +632,19 @@ func (r *Resolver) SuiKeys(ctx context.Context) (*SuiKeysPayloadResolver, error)
 	return NewSuiKeysPayload(keys), nil
 }
 
+func (r *Resolver) StellarKeys(ctx context.Context) (*StellarKeysPayloadResolver, error) {
+	if err := authenticateUser(ctx); err != nil {
+		return nil, err
+	}
+
+	keys, err := r.App.GetKeyStore().Stellar().GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewStellarKeysPayload(keys), nil
+}
+
 func (r *Resolver) StarkNetKeys(ctx context.Context) (*StarkNetKeysPayloadResolver, error) {
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
