@@ -38,7 +38,7 @@ jobs:
       version-tag: ${{ steps.version-info.outputs.version-tag }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.git-ref || github.sha }}
 
@@ -290,7 +290,7 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Deploy
         uses: ./.github/actions/deploy-image
         with:
@@ -313,7 +313,7 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Deploy
         uses: ./.github/actions/deploy-image
         with:
