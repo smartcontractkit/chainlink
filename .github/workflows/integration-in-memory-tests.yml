@@ -49,7 +49,7 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-          ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
+          ref: ${{ inputs.chainlink_version || inputs.cl_ref }}
 
       - name: Advanced Triggers
         uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
