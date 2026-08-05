@@ -106,7 +106,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260716141634-c0cc05ed05d8
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96
 	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260716214810-db5ecc877490
-	github.com/smartcontractkit/cre-sdk-go v1.9.0-capdev.1.0.20260625132924-dcceeb57cf3c
+	github.com/smartcontractkit/cre-sdk-go v1.17.0-capdev.1
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad
