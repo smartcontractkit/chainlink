@@ -198,15 +198,14 @@ jobs:
           build-cache-write: ${{ github.event_name == 'push' && 'default-branch-only' || 'never' }}
 
       - name: Notify Slack
-        # Skip for now as it's always failing on scheduled runs
-        if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' && 'false' == 'true' }}
-        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        if: ${{ failure() && needs.run-frequency.outputs.one-per-day-frequency == 'true' }}
+        uses: slackapi/slack-github-action@03ea5433c137af7c0495bc0cad1af10403fc800c # 3.0.2
         with:
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             channel: ${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}
-            text: "golangci-lint failed (${{ matrix.modules }}): <${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}|Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Report>"
+            text: "golangci-lint failed (${{ matrix.modules }}): <${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}|Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Report>\n${{ steps.golang-lint.outputs.golang-report-file-count }} files with ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues.\nBy severity: $${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\nBy linter: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
 
   # Fails if any golangci-lint matrix jobs fails and silently succeeds otherwise
   # Consolidates golangci-lint matrix job results under one required `lint` check
@@ -497,7 +496,7 @@ jobs:
           steps.print-races.outputs.post_to_slack == 'true'  &&
           (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') &&
           matrix.type.should-run == 'true'
-        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        uses: slackapi/slack-github-action@03ea5433c137af7c0495bc0cad1af10403fc800c # v3.0.2
         with:
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
