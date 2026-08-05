@@ -58,6 +58,57 @@ func TestHealthController_Readyz(t *testing.T) {
 	}
 }
 
+func TestHealthController_PublicReadyz(t *testing.T) {
+	t.Parallel()
+	var tt = []struct {
+		name   string
+		ready  bool
+		status int
+	}{
+		{
+			name:   "not ready",
+			ready:  false,
+			status: http.StatusServiceUnavailable,
+		},
+		{
+			name:   "ready",
+			ready:  true,
+			status: http.StatusOK,
+		},
+	}
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			app := cltest.NewApplicationWithKey(t)
+			healthChecker := new(mocks.Checker)
+			healthChecker.On("Start").Return(nil).Once()
+			healthChecker.On("IsReady").Return(tc.ready, nil)
+			healthChecker.On("Close").Return(nil).Once()
+
+			app.HealthChecker = healthChecker
+			require.NoError(t, app.Start(t.Context()))
+
+			client := app.NewHTTPClient(nil)
+
+			// Base path returns status only, no body.
+			resp, cleanup := client.Get("/public-readyz")
+			t.Cleanup(cleanup)
+			assert.Equal(t, tc.status, resp.StatusCode)
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			assert.Empty(t, body)
+
+			// ?full=true must NOT expose per-check details on this endpoint.
+			respFull, cleanupFull := client.Get("/public-readyz?full=true")
+			t.Cleanup(cleanupFull)
+			assert.Equal(t, tc.status, respFull.StatusCode)
+			bodyFull, err := io.ReadAll(respFull.Body)
+			require.NoError(t, err)
+			assert.Empty(t, bodyFull)
+		})
+	}
+}
+
 func TestHealthController_Health_status(t *testing.T) {
 	t.Parallel()
 	var tt = []struct {
