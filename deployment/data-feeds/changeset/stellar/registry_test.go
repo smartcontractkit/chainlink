@@ -22,13 +22,12 @@ func TestChangesetRegistryKeys(t *testing.T) {
 	r.Add("0007_remove_feed_admin", cldregistry.Configure(RemoveFeedAdmin{}).WithEnvInput())
 	r.Add("0008_transfer_ownership", cldregistry.Configure(TransferOwnership{}).WithEnvInput())
 	r.Add("0009_accept_ownership", cldregistry.Configure(AcceptOwnership{}).WithEnvInput())
-	r.Add("0010_renounce_ownership", cldregistry.Configure(RenounceOwnership{}).WithEnvInput())
-	r.Add("0011_upgrade", cldregistry.Configure(Upgrade{}).WithEnvInput())
-	r.Add("0012_recover_tokens", cldregistry.Configure(RecoverTokens{}).WithEnvInput())
-	r.Add("0013_set_proxy_cache", cldregistry.Configure(SetProxyCache{}).WithEnvInput())
+	r.Add("0010_upgrade", cldregistry.Configure(Upgrade{}).WithEnvInput())
+	r.Add("0011_recover_tokens", cldregistry.Configure(RecoverTokens{}).WithEnvInput())
+	r.Add("0012_set_proxy_cache", cldregistry.Configure(SetProxyCache{}).WithEnvInput())
 
 	keys := r.ListKeys()
-	require.Len(t, keys, 13)
+	require.Len(t, keys, 12)
 	for _, k := range keys {
 		t.Logf("registered: %s", k)
 	}

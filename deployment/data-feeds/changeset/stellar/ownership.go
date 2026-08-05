@@ -35,7 +35,6 @@ func (req *OwnershipRequest) verifyPreconditions(env cldf.Environment) error {
 var (
 	_ cldf.ChangeSetV2[*OwnershipRequest] = TransferOwnership{}
 	_ cldf.ChangeSetV2[*OwnershipRequest] = AcceptOwnership{}
-	_ cldf.ChangeSetV2[*OwnershipRequest] = RenounceOwnership{}
 )
 
 type ownershipInput struct {
@@ -110,33 +109,5 @@ var acceptOwnershipOp = operations.NewOperation(
 	"Accepts a pending ownership transfer (caller must be the pending owner)",
 	func(b operations.Bundle, d StellarDeps, in ownershipInput) (void, error) {
 		return void{}, adminClient(d, in.ContractID, in.IsProxy).AcceptOwnership(b.GetContext())
-	},
-)
-
-// RenounceOwnership permanently renounces ownership.
-type RenounceOwnership struct{}
-
-func (RenounceOwnership) VerifyPreconditions(env cldf.Environment, req *OwnershipRequest) error {
-	return req.verifyPreconditions(env)
-}
-
-func (RenounceOwnership) Apply(env cldf.Environment, req *OwnershipRequest) (cldf.ChangesetOutput, error) {
-	var out cldf.ChangesetOutput
-	d, err := resolveDeps(env, req.ChainSel, req.Contract, req.Qualifier, req.Version)
-	if err != nil {
-		return out, err
-	}
-	_, err = operations.ExecuteOperation(env.OperationsBundle, renounceOwnershipOp, d.deps, ownershipInput{
-		ContractID: d.contractID,
-		IsProxy:    req.Contract == ProxyContract,
-	})
-	return out, err
-}
-
-var renounceOwnershipOp = operations.NewOperation(
-	"df:renounce-ownership", opVersion,
-	"Renounces ownership permanently",
-	func(b operations.Bundle, d StellarDeps, in ownershipInput) (void, error) {
-		return void{}, adminClient(d, in.ContractID, in.IsProxy).RenounceOwnership(b.GetContext())
 	},
 )

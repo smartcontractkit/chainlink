@@ -41,7 +41,6 @@ var opVersion = semver.MustParse("1.0.0")
 type contractAdmin interface {
 	TransferOwnership(ctx context.Context, newOwner string, liveUntilLedger uint32) error
 	AcceptOwnership(ctx context.Context) error
-	RenounceOwnership(ctx context.Context) error
 	Upgrade(ctx context.Context, newWasmHash [32]byte) error
 	RecoverTokens(ctx context.Context, token, to string, amount int64) error
 }

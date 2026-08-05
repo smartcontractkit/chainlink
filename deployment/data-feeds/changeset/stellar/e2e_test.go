@@ -48,7 +48,8 @@ import (
 //   remove_feed_configs  (a) RemoveFeedConfigs changeset
 //   transfer_ownership   (a) TransferOwnership changeset (self-transfer)
 //   accept_ownership     (a) AcceptOwnership changeset
-//   renounce_ownership   (a) RenounceOwnership changeset (LAST — irreversible)
+//   renounce_ownership   (a) LoadCacheClient direct (LAST — irreversible;
+//                            deliberately no changeset)
 //   version              (a) LoadCacheClient direct
 //   type_and_version     (a) LoadCacheClient direct
 //   get_owner            (a) LoadCacheClient direct
@@ -76,7 +77,8 @@ import (
 //   set_cache            (a) SetProxyCache changeset
 //   transfer_ownership   (a) TransferOwnership changeset (self-transfer)
 //   accept_ownership     (a) AcceptOwnership changeset
-//   renounce_ownership   (a) RenounceOwnership changeset (LAST — irreversible)
+//   renounce_ownership   (a) LoadProxyClient direct (LAST — irreversible;
+//                            deliberately no changeset)
 //   version              (a) LoadProxyClient direct
 //   type_and_version     (a) LoadProxyClient direct
 //   get_owner            (a) LoadProxyClient direct
@@ -314,9 +316,8 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 	env = apply(t, env, AcceptOwnership{}, &OwnershipRequest{
 		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, Contract: ProxyContract,
 	})
-	env = apply(t, env, RenounceOwnership{}, &OwnershipRequest{
-		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, Contract: ProxyContract,
-	})
+	// renounce deliberately has no changeset; call the client directly
+	require.NoError(t, proxyClient.RenounceOwnership(ctx))
 
 	// --- cache upgrade + recover + config/admin removal --------------------
 	env = apply(t, env, Upgrade{}, &UpgradeRequest{
@@ -363,9 +364,8 @@ func TestStellarDataFeedsE2E(t *testing.T) {
 	env = apply(t, env, AcceptOwnership{}, &OwnershipRequest{
 		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, Contract: CacheContract,
 	})
-	env = apply(t, env, RenounceOwnership{}, &OwnershipRequest{
-		ChainSel: sel, Qualifier: e2eQualifier, Version: e2eVersion, Contract: CacheContract,
-	})
+	// renounce deliberately has no changeset; call the client directly
+	require.NoError(t, cacheClient.RenounceOwnership(ctx))
 }
 
 // skipInCI mirrors the Solana suite convention: container-backed e2e tests do
