@@ -6,6 +6,9 @@
 #   2. compiles + deploys the workflow
 #   3. watches results until Ctrl-C (stops env upon exit or Ctrl-C)
 #
+# Set KEEP_ENV=1 to leave containers running on exit, for reading logs after a
+# failure. Stop them yourself afterwards with `go run . env stop`.
+#
 # This is the iteration loop only. One-time setup is NOT done here — bootstrap
 # these once (see memory: chainlink-host-crossbuild-arm64) before first use:
 #   - ~/clcross/{bin/{cc,cxx},dyn/libstdc++.so*,lib/{libstdc++.a,libsupc++.a}}
@@ -46,6 +49,13 @@ command -v brotli >/dev/null || { echo "ERROR: brotli not found (brew install br
 cleanup() {
   trap - INT TERM EXIT
   echo ""
+  if [ -n "${KEEP_ENV:-}" ]; then
+    echo "==> KEEP_ENV set; leaving env up for inspection."
+    echo "    node logs:  docker logs capabilities-node3"
+    echo "    p2p proxy:  docker logs capabilities-node3 2>&1 | grep cre-p2p-proxy"
+    echo "    stop later: (cd $SCRIPT_DIR && go run . env stop)"
+    return
+  fi
   echo "==> Stopping local env..."
   go run . env stop || true
   

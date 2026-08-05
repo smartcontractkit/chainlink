@@ -89,6 +89,22 @@ func NewRegistry(lggr logger.Logger) *Registry {
 	}
 }
 
+// NewDelegatingRegistry returns a Registry that answers both capability lookups
+// and metadata from base instead of from an in-process map plus a registrysyncer
+// snapshot.
+//
+// This is the seam used when the node delegates its registry to an out-of-process
+// owner (the p2p proxy): the concrete *Registry type stays, so every consumer
+// that takes one is unaffected, but both halves of it now resolve remotely.
+func NewDelegatingRegistry(lggr logger.Logger, base core.CapabilitiesRegistry) *Registry {
+	r := &Registry{
+		CapabilitiesRegistryBase: base,
+		lggr:                     logger.Named(lggr, "CapabilitiesRegistry"),
+	}
+	r.SetLocalRegistry(base)
+	return r
+}
+
 // TestMetadataRegistry is a test implementation of the metadataRegistry
 // interface. It is used when ExternalCapabilitiesRegistry is not available.
 type TestMetadataRegistry struct {

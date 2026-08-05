@@ -92,3 +92,6 @@ require (
 	golang.org/x/text v0.40.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+// Local override: the CRE registry shim protocol lives in chainlink-common.
+replace github.com/smartcontractkit/chainlink-common => ../../../chainlink-common

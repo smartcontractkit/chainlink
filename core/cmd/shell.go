@@ -47,7 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/creregistry"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -294,8 +294,27 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		return nil, err
 	}
 
+	// When the p2p proxy is enabled the registry is served by that process
+	// (crecore) rather than held in this one; otherwise this is core's own
+	// in-process registry, unchanged.
+	capRegistry, closeCapRegistry, err := creregistry.Select(appLggr, cfg.Capabilities().Proxy())
+	if err != nil {
+		return nil, err
+	}
+	if closeCapRegistry != nil {
+		defer func() {
+			// Only release the registry if app construction fails; on success the
+			// application owns it for the process lifetime.
+			if err != nil {
+				if closeErr := closeCapRegistry(); closeErr != nil {
+					appLggr.Errorw("Failed to close CRE registry client", "err", closeErr)
+				}
+			}
+		}()
+	}
+
 	creOpts := cre.Opts{
-		CapabilitiesRegistry: capabilities.NewRegistry(appLggr),
+		CapabilitiesRegistry: capRegistry,
 		ExecutionHandlers:    &confidentialrelay.ExecutionHandlers{},
 	}
 	if cfg.CRE().WorkflowFetcher() != nil && cfg.CRE().WorkflowFetcher().URL() != "" {

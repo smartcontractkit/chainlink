@@ -632,12 +632,25 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		// its P2P key from the shared DB keystore table itself (via
 		// CL_DATABASE_URL + CL_PASSWORD_KEYSTORE); we do not export the key here.
 		proxyDBURL := cfg.Database().URL()
+
+		// The proxy also serves the CapabilitiesRegistry, which it reads from chain
+		// itself, so it needs the contract address and an RPC to reach it. Both come
+		// from the same ExternalRegistry config this node uses.
+		extRegistry := cfg.Capabilities().ExternalRegistry()
+		proxyEVMHTTPURL, uerr := evmHTTPURLForChain(cfg, extRegistry.ChainID())
+		if uerr != nil {
+			return nil, fmt.Errorf("cannot launch the CRE p2p proxy: %w", uerr)
+		}
+
 		proxyCmdFn, proxyGRPCOpts, rerr := loopRegistrarConfig.RegisterLOOP(plugins.CmdConfig{
 			ID:  "cre-p2p-proxy",
 			Cmd: cfg.Capabilities().Proxy().Command(),
 			Args: []string{
 				"--listen-addresses=" + strings.Join(cfg.P2P().V2().ListenAddresses(), ","),
 				fmt.Sprintf("--proxy-listen-address=:%d", cfg.Capabilities().Proxy().Port()),
+				"--capabilities-registry-address=" + extRegistry.Address(),
+				"--evm-chain-id=" + extRegistry.ChainID(),
+				"--evm-http-url=" + proxyEVMHTTPURL,
 			},
 			Env: []string{
 				// Sourced from resolved config, not os.Getenv: the node may receive
@@ -1368,4 +1381,28 @@ func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, c
 	}
 
 	return nil
+}
+
+// evmHTTPURLForChain returns an HTTP RPC URL for chainID, for handing to a
+// subprocess that has to read chain state itself.
+//
+// The proxy is launched with an explicit URL rather than being pointed at the
+// node's own relayer: it runs in its own process with no access to that, and the
+// registry it serves is read directly with an EVM client.
+func evmHTTPURLForChain(cfg GeneralConfig, chainID string) (string, error) {
+	if chainID == "" {
+		return "", errors.New("Capabilities.ExternalRegistry.ChainID is not set")
+	}
+	for _, c := range cfg.EVMConfigs() {
+		if c.ChainID == nil || c.ChainID.String() != chainID {
+			continue
+		}
+		for _, n := range c.Nodes {
+			if n.HTTPURL != nil {
+				return n.HTTPURL.String(), nil
+			}
+		}
+		return "", fmt.Errorf("no EVM node with an HTTPURL is configured for chain %s", chainID)
+	}
+	return "", fmt.Errorf("no EVM chain %s is configured", chainID)
 }
