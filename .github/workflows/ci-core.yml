@@ -261,7 +261,7 @@ jobs:
         type:
           - cmd: go_core_tests
             os: runs-on=${{ github.run_id
-              }}-unit/cpu=48/ram=96/family=c7id+c8id/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              }}-unit/cpu=48/ram=96/family=c7id+c8id/spot=co/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
             go-mod-directory: ""
@@ -273,7 +273,7 @@ jobs:
 
           - cmd: go_core_tests_integration
             os: runs-on=${{ github.run_id
-              }}-integ/cpu=48/ram=96/family=c7i+c8i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+              }}-integ/cpu=48/ram=96/family=c7i+c8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "true"
             setup-solana: "true"
@@ -285,7 +285,7 @@ jobs:
 
           - cmd: go_core_fuzz
             os: runs-on=${{
-              github.run_id}}-fuzz/cpu=8/ram=32/family=m7id+m7idn+m8id+m8idn/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              github.run_id}}-fuzz/cpu=8/ram=32/family=m7id+m7idn+m8id+m8idn/spot=co/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "false"
             go-mod-directory: ""
@@ -298,7 +298,7 @@ jobs:
 
           - cmd: go_core_race_tests
             os: runs-on=${{
-              github.run_id}}-race/cpu=64/ram=128/family=c7i+c8i/volume=80gb/spot=false/image=ubuntu24-full-x64/extras=s3-cache
+              github.run_id}}-race/cpu=64/ram=128/family=c7i+c8i/volume=150gb/spot=co/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "false"
             go-mod-directory: ""
@@ -306,8 +306,8 @@ jobs:
             setup-aptos: "false"
             setup-sui: "false"
             install-loopps: "false"
-            build-cache-version: go_core_tests
-            build-cache-write: never
+            build-cache-version: go_core_race_tests
+            build-cache-write: always
 
     name: Core Tests (${{ matrix.type.cmd }}) # Be careful modifying the job name, as it is used to fetch the job URL
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -536,7 +536,6 @@ jobs:
             ./output.txt
             ./coverage.txt
           retention-days: 7
-
 
   clean:
     name: Clean Go Tidy & Generate
