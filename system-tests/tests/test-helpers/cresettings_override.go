@@ -139,10 +139,10 @@ type creSettingsTarget struct {
 // without restarting the topology, and registers a t.Cleanup that restores the pre-test
 // baseline when the test finishes.
 //
-// Settings are applied to EVERY DON — mirroring prod, which delivers to all-nodes. A
-// given setting may be enforced on the workflow, capabilities, or gateway nodes, so
-// applying to only a subset could silently fail to take effect; the user therefore does
-// not choose which DONs are targeted.
+// Settings are applied to every DON that has worker (plugin) nodes — the workflow and
+// capabilities DONs — since CRE settings are enforced there and the delivery changeset
+// targets type=plugin nodes. Bootstrap-only DONs (e.g. bootstrap-gateway) have no such
+// nodes and are skipped. The user does not choose which DONs are targeted.
 //
 // For each DON it captures the DON's boot CL_CRE_SETTINGS as the baseline, merges the
 // overrides on top, and proposes+approves a `cresettings` job to every node of the DON.
@@ -163,8 +163,19 @@ func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, o CRESettingsOv
 	overrideDoc := overridesToDoc(o)
 	require.NotEmpty(t, overrideDoc, "no overrides provided")
 
-	targets := env.Dons.List()
-	require.NotEmpty(t, targets, "no DONs found in the environment")
+	// CRE settings are enforced on worker (plugin) nodes, and the delivery changeset filters
+	// proposals to type=plugin — so bootstrap-only DONs (e.g. bootstrap-gateway) have no
+	// matching nodes. Deliver only to DONs that have worker nodes.
+	require.NotEmpty(t, env.Dons.List(), "no DONs found in the environment")
+	targets := make([]*cre.Don, 0)
+	for _, don := range env.Dons.List() {
+		if don.WorkersCount() > 0 {
+			targets = append(targets, don)
+		} else {
+			t.Logf("[cresettings] skipping DON %q (no worker nodes)", don.Name)
+		}
+	}
+	require.NotEmpty(t, targets, "no DONs with worker nodes found in the environment")
 
 	// Claim the single-active-override slot before touching anything. Fails fast (with an
 	// actionable message) if another test's override is still active on the shared env.
