@@ -118,7 +118,7 @@ jobs:
              ]
           }'
 
-          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade)
+          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade | grep -v '^TestMain$')
 
           tests=$(echo "$test_names" | jq -c -R -s \
             --argjson run_id "${{ github.run_id }}" \
