@@ -8,8 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
+	proxy "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_proxy"
 )
 
 // SetProxyCacheRequest points an already-deployed DataFeedsProxy contract at a
@@ -51,9 +50,23 @@ func (SetProxyCache) Apply(env cldf.Environment, req *SetProxyCacheRequest) (cld
 		return out, fmt.Errorf("cache address ref not found for qualifier %q: %w", req.CacheQualifier, err)
 	}
 
-	_, err = operations.ExecuteOperation(env.OperationsBundle, operation.SetProxyCache, proxyDeps.deps, operation.SetProxyCacheInput{
+	_, err = operations.ExecuteOperation(env.OperationsBundle, setProxyCacheOp, proxyDeps.deps, setProxyCacheInput{
 		ContractID: proxyDeps.contractID,
 		Cache:      cacheRef.Address,
 	})
 	return out, err
 }
+
+type setProxyCacheInput struct {
+	ContractID string `json:"contract_id"`
+	Cache      string `json:"cache"`
+}
+
+var setProxyCacheOp = operations.NewOperation(
+	"df-proxy:set-cache", opVersion,
+	"Points the proxy at a cache contract",
+	func(b operations.Bundle, d StellarDeps, in setProxyCacheInput) (void, error) {
+		c := proxy.NewDataFeedsProxyClient(d.Invoker, in.ContractID)
+		return void{}, c.SetCache(b.GetContext(), in.Cache)
+	},
+)

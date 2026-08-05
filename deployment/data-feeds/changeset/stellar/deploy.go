@@ -6,13 +6,13 @@ import (
 	"os"
 
 	"github.com/Masterminds/semver/v3"
+	"github.com/stellar/go-stellar-sdk/xdr"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	"github.com/smartcontractkit/chainlink-stellar/bindings/scval"
 	stellardeploy "github.com/smartcontractkit/chainlink-stellar/deployment"
-
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
 )
 
 // DeployCacheRequest configures a DataFeedsCache deployment.
@@ -61,7 +61,7 @@ func (DeployCache) Apply(env cldf.Environment, req *DeployCacheRequest) (cldf.Ch
 	}
 
 	salt := stellardeploy.GenerateDeterministicSalt(owner, "data_feeds_cache-"+req.Qualifier)
-	report, err := operations.ExecuteOperation(env.OperationsBundle, operation.DeployCache, deps, operation.DeployCacheInput{
+	report, err := operations.ExecuteOperation(env.OperationsBundle, deployCacheOp, deps, deployCacheInput{
 		WasmPath: req.WasmPath,
 		Salt:     salt,
 		Owner:    owner,
@@ -128,7 +128,7 @@ func (DeployProxy) Apply(env cldf.Environment, req *DeployProxyRequest) (cldf.Ch
 	}
 
 	salt := stellardeploy.GenerateDeterministicSalt(owner, "data_feeds_proxy-"+req.Qualifier)
-	report, err := operations.ExecuteOperation(env.OperationsBundle, operation.DeployProxy, deps, operation.DeployProxyInput{
+	report, err := operations.ExecuteOperation(env.OperationsBundle, deployProxyOp, deps, deployProxyInput{
 		WasmPath: req.WasmPath,
 		Salt:     salt,
 		Owner:    owner,
@@ -139,3 +139,55 @@ func (DeployProxy) Apply(env cldf.Environment, req *DeployProxyRequest) (cldf.Ch
 	}
 	return recordAddress(report.Output.ContractID, req.ChainSel, ProxyContract, req.Qualifier, req.Version, req.LabelSet)
 }
+
+type deployOutput struct {
+	ContractID string `json:"contract_id"`
+}
+
+type deployCacheInput struct {
+	WasmPath string   `json:"wasm_path"`
+	Salt     [32]byte `json:"salt"`
+	Owner    string   `json:"owner"`
+}
+
+// deployCacheOp uploads the cache WASM and instantiates it via CreateContractV2
+// with __constructor(owner); the data-retention TTL is an on-chain constant,
+// not a constructor input.
+var deployCacheOp = operations.NewOperation(
+	"df-cache:deploy", opVersion,
+	"Deploys the DataFeedsCache Soroban contract",
+	func(b operations.Bundle, d StellarDeps, in deployCacheInput) (deployOutput, error) {
+		args := []xdr.ScVal{
+			scval.AddressToScVal(in.Owner),
+		}
+		cid, err := d.Deploy.DeployContractWithArgs(b.GetContext(), in.WasmPath, in.Salt, args)
+		if err != nil {
+			return deployOutput{}, err
+		}
+		return deployOutput{ContractID: cid}, nil
+	},
+)
+
+type deployProxyInput struct {
+	WasmPath string   `json:"wasm_path"`
+	Salt     [32]byte `json:"salt"`
+	Owner    string   `json:"owner"`
+	Cache    string   `json:"cache"`
+}
+
+// deployProxyOp instantiates the proxy via __constructor(owner, cache).
+var deployProxyOp = operations.NewOperation(
+	"df-proxy:deploy", opVersion,
+	"Deploys the DataFeedsProxy Soroban contract",
+	func(b operations.Bundle, d StellarDeps, in deployProxyInput) (deployOutput, error) {
+		args := []xdr.ScVal{
+			scval.AddressToScVal(in.Owner),
+			scval.AddressToScVal(in.Cache),
+		}
+		cid, err := d.Deploy.DeployContractWithArgs(b.GetContext(), in.WasmPath, in.Salt, args)
+		if err != nil {
+			return deployOutput{}, err
+		}
+		return deployOutput{ContractID: cid}, nil
+	},
+)

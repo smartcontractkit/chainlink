@@ -7,8 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
 )
 
 // RecoverTokensRequest recovers tokens accidentally sent to an already-deployed
@@ -53,7 +51,7 @@ func (RecoverTokens) Apply(env cldf.Environment, req *RecoverTokensRequest) (cld
 	if err != nil {
 		return out, err
 	}
-	_, err = operations.ExecuteOperation(env.OperationsBundle, operation.RecoverTokens, d.deps, operation.RecoverTokensInput{
+	_, err = operations.ExecuteOperation(env.OperationsBundle, recoverTokensOp, d.deps, recoverTokensInput{
 		ContractID: d.contractID,
 		IsProxy:    req.Contract == ProxyContract,
 		Token:      req.Token,
@@ -62,3 +60,19 @@ func (RecoverTokens) Apply(env cldf.Environment, req *RecoverTokensRequest) (cld
 	})
 	return out, err
 }
+
+type recoverTokensInput struct {
+	ContractID string `json:"contract_id"`
+	IsProxy    bool   `json:"is_proxy"`
+	Token      string `json:"token"`
+	To         string `json:"to"`
+	Amount     int64  `json:"amount"`
+}
+
+var recoverTokensOp = operations.NewOperation(
+	"df:recover-tokens", opVersion,
+	"Recovers tokens accidentally sent to the contract",
+	func(b operations.Bundle, d StellarDeps, in recoverTokensInput) (void, error) {
+		return void{}, adminClient(d, in.ContractID, in.IsProxy).RecoverTokens(b.GetContext(), in.Token, in.To, in.Amount)
+	},
+)

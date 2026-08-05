@@ -19,8 +19,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	cldflogger "github.com/smartcontractkit/chainlink-deployments-framework/pkg/logger"
-
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
 )
 
 const (
@@ -55,8 +53,8 @@ func newTestEnv(t *testing.T) (cldf.Environment, *fakeInvoker, *fakeDeployer) {
 
 	origDeps := newStellarDeps
 	t.Cleanup(func() { newStellarDeps = origDeps })
-	newStellarDeps = func(_ cldfstellar.Chain) (operation.StellarDeps, error) {
-		return operation.StellarDeps{Deploy: deployer, Invoker: invoker}, nil
+	newStellarDeps = func(_ cldfstellar.Chain) (StellarDeps, error) {
+		return StellarDeps{Deploy: deployer, Invoker: invoker}, nil
 	}
 
 	blockChains := cldfchain.NewBlockChains(map[uint64]cldfchain.BlockChain{

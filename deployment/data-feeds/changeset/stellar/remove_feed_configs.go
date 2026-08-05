@@ -5,8 +5,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
+	cache "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache"
 )
 
 // RemoveFeedConfigsRequest removes a batch of feed configs from an
@@ -51,10 +50,25 @@ func (RemoveFeedConfigs) Apply(env cldf.Environment, req *RemoveFeedConfigsReque
 	if err != nil {
 		return out, err
 	}
-	_, err = operations.ExecuteOperation(env.OperationsBundle, operation.RemoveFeedConfigs, d.deps, operation.RemoveFeedConfigsInput{
+	_, err = operations.ExecuteOperation(env.OperationsBundle, removeFeedConfigsOp, d.deps, removeFeedConfigsInput{
 		ContractID: d.contractID,
 		Admin:      req.Admin,
 		DataIDs:    ids,
 	})
 	return out, err
 }
+
+type removeFeedConfigsInput struct {
+	ContractID string     `json:"contract_id"`
+	Admin      string     `json:"admin"`
+	DataIDs    [][16]byte `json:"data_ids"`
+}
+
+var removeFeedConfigsOp = operations.NewOperation(
+	"df-cache:remove-feed-configs", opVersion,
+	"Removes feed configs from the cache",
+	func(b operations.Bundle, d StellarDeps, in removeFeedConfigsInput) (void, error) {
+		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
+		return void{}, c.RemoveFeedConfigs(b.GetContext(), in.Admin, in.DataIDs)
+	},
+)

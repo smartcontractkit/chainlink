@@ -7,8 +7,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	cache "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache"
-
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
 )
 
 // FeedPermission is the operator-facing shape of a workflow write-permission.
@@ -114,10 +112,25 @@ func (SetFeedConfigs) Apply(env cldf.Environment, req *SetFeedConfigsRequest) (c
 		}
 	}
 
-	_, err = operations.ExecuteOperation(env.OperationsBundle, operation.SetFeedConfigs, d.deps, operation.SetFeedConfigsInput{
+	_, err = operations.ExecuteOperation(env.OperationsBundle, setFeedConfigsOp, d.deps, setFeedConfigsInput{
 		ContractID: d.contractID,
 		Admin:      req.Admin,
 		Entries:    entries,
 	})
 	return out, err
 }
+
+type setFeedConfigsInput struct {
+	ContractID string                  `json:"contract_id"`
+	Admin      string                  `json:"admin"`
+	Entries    []cache.FeedConfigEntry `json:"entries"`
+}
+
+var setFeedConfigsOp = operations.NewOperation(
+	"df-cache:set-feed-configs", opVersion,
+	"Sets per-feed descriptions and workflow write-permissions on the cache",
+	func(b operations.Bundle, d StellarDeps, in setFeedConfigsInput) (void, error) {
+		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
+		return void{}, c.SetFeedConfigs(b.GetContext(), in.Admin, in.Entries)
+	},
+)

@@ -5,8 +5,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
+	cache "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache"
 )
 
 // SetFeedFrozenRequest freezes or unfreezes a batch of feeds on an
@@ -54,7 +53,7 @@ func (SetFeedFrozen) Apply(env cldf.Environment, req *SetFeedFrozenRequest) (cld
 	if err != nil {
 		return out, err
 	}
-	_, err = operations.ExecuteOperation(env.OperationsBundle, operation.SetFeedFrozen, d.deps, operation.SetFeedFrozenInput{
+	_, err = operations.ExecuteOperation(env.OperationsBundle, setFeedFrozenOp, d.deps, setFeedFrozenInput{
 		ContractID: d.contractID,
 		Admin:      req.Admin,
 		DataIDs:    ids,
@@ -62,3 +61,19 @@ func (SetFeedFrozen) Apply(env cldf.Environment, req *SetFeedFrozenRequest) (cld
 	})
 	return out, err
 }
+
+type setFeedFrozenInput struct {
+	ContractID string     `json:"contract_id"`
+	Admin      string     `json:"admin"`
+	DataIDs    [][16]byte `json:"data_ids"`
+	Frozen     bool       `json:"frozen"`
+}
+
+var setFeedFrozenOp = operations.NewOperation(
+	"df-cache:set-feed-frozen", opVersion,
+	"Freezes or unfreezes feeds on the cache",
+	func(b operations.Bundle, d StellarDeps, in setFeedFrozenInput) (void, error) {
+		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
+		return void{}, c.SetFeedFrozen(b.GetContext(), in.Admin, in.DataIDs, in.Frozen)
+	},
+)

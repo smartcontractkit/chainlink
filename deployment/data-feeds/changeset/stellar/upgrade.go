@@ -7,8 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
 )
 
 // UpgradeRequest points an already-deployed cache or proxy contract at a new
@@ -48,17 +46,50 @@ func (Upgrade) Apply(env cldf.Environment, req *UpgradeRequest) (cldf.ChangesetO
 		return out, err
 	}
 
-	uploadReport, err := operations.ExecuteOperation(env.OperationsBundle, operation.UploadWASM, d.deps, operation.UploadWASMInput{
+	uploadReport, err := operations.ExecuteOperation(env.OperationsBundle, uploadWASMOp, d.deps, uploadWASMInput{
 		WasmPath: req.WasmPath,
 	})
 	if err != nil {
 		return out, err
 	}
 
-	_, err = operations.ExecuteOperation(env.OperationsBundle, operation.UpgradeContract, d.deps, operation.UpgradeContractInput{
+	_, err = operations.ExecuteOperation(env.OperationsBundle, upgradeContractOp, d.deps, upgradeContractInput{
 		ContractID:  d.contractID,
 		IsProxy:     req.Contract == ProxyContract,
 		NewWasmHash: uploadReport.Output.WasmHash,
 	})
 	return out, err
 }
+
+type uploadWASMInput struct {
+	WasmPath string `json:"wasm_path"`
+}
+type uploadWASMOutput struct {
+	WasmHash [32]byte `json:"wasm_hash"`
+}
+
+var uploadWASMOp = operations.NewOperation(
+	"df:upload-wasm", opVersion,
+	"Uploads a WASM blob and returns its code hash (for upgrades)",
+	func(b operations.Bundle, d StellarDeps, in uploadWASMInput) (uploadWASMOutput, error) {
+		h, err := d.Deploy.UploadContractWASM(b.GetContext(), in.WasmPath)
+		if err != nil {
+			return uploadWASMOutput{}, err
+		}
+		return uploadWASMOutput{WasmHash: [32]byte(h)}, nil
+	},
+)
+
+type upgradeContractInput struct {
+	ContractID  string   `json:"contract_id"`
+	IsProxy     bool     `json:"is_proxy"`
+	NewWasmHash [32]byte `json:"new_wasm_hash"`
+}
+
+var upgradeContractOp = operations.NewOperation(
+	"df:upgrade", opVersion,
+	"Points the contract at a new WASM implementation",
+	func(b operations.Bundle, d StellarDeps, in upgradeContractInput) (void, error) {
+		return void{}, adminClient(d, in.ContractID, in.IsProxy).Upgrade(b.GetContext(), in.NewWasmHash)
+	},
+)

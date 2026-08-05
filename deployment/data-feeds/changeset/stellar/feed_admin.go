@@ -3,8 +3,7 @@ package stellar
 import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/stellar/operation"
+	cache "github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache"
 )
 
 // FeedAdminRequest grants or revokes feed-admin rights on an already-deployed
@@ -44,7 +43,7 @@ func (AddFeedAdmin) Apply(env cldf.Environment, req *FeedAdminRequest) (cldf.Cha
 	if err != nil {
 		return out, err
 	}
-	_, err = operations.ExecuteOperation(env.OperationsBundle, operation.AddFeedAdmin, d.deps, operation.FeedAdminInput{
+	_, err = operations.ExecuteOperation(env.OperationsBundle, addFeedAdminOp, d.deps, feedAdminInput{
 		ContractID: d.contractID,
 		Admin:      req.Admin,
 	})
@@ -64,9 +63,32 @@ func (RemoveFeedAdmin) Apply(env cldf.Environment, req *FeedAdminRequest) (cldf.
 	if err != nil {
 		return out, err
 	}
-	_, err = operations.ExecuteOperation(env.OperationsBundle, operation.RemoveFeedAdmin, d.deps, operation.FeedAdminInput{
+	_, err = operations.ExecuteOperation(env.OperationsBundle, removeFeedAdminOp, d.deps, feedAdminInput{
 		ContractID: d.contractID,
 		Admin:      req.Admin,
 	})
 	return out, err
 }
+
+type feedAdminInput struct {
+	ContractID string `json:"contract_id"`
+	Admin      string `json:"admin"`
+}
+
+var addFeedAdminOp = operations.NewOperation(
+	"df-cache:add-feed-admin", opVersion,
+	"Grants feed-admin rights on the cache",
+	func(b operations.Bundle, d StellarDeps, in feedAdminInput) (void, error) {
+		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
+		return void{}, c.AddFeedAdmin(b.GetContext(), in.Admin)
+	},
+)
+
+var removeFeedAdminOp = operations.NewOperation(
+	"df-cache:remove-feed-admin", opVersion,
+	"Revokes feed-admin rights on the cache",
+	func(b operations.Bundle, d StellarDeps, in feedAdminInput) (void, error) {
+		c := cache.NewDataFeedsCacheClient(d.Invoker, in.ContractID)
+		return void{}, c.RemoveFeedAdmin(b.GetContext(), in.Admin)
+	},
+)
