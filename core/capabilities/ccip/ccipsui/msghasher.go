@@ -289,7 +289,15 @@ func encodeBytes(b []byte) []byte {
 }
 
 func parseExtraDataMap(input map[string]any) (*big.Int, [32]byte, error) {
+	// gasLimit key differs by source family:
+	//   - SuiExtraArgsV1 (EVM/Sui sources, ABI/BCS) uses "gasLimit" (lowercase).
+	//   - Solana GenericExtraArgsV2 (Borsh, tag 0x181dcf10) uses "GasLimit" — the Borsh
+	//     struct field name emitted by ccipsolana.ExtraDataDecoder. Solana sends
+	//     GenericExtraArgsV2 to non-SVM dests (the Solana fee-quoter has no SuiExtraArgsV1).
 	outputGas, ok := input["gasLimit"]
+	if !ok {
+		outputGas, ok = input["GasLimit"]
+	}
 	if !ok {
 		return nil, [32]byte{}, errors.New("gas limit not found in extra data map")
 	}
@@ -298,9 +306,15 @@ func parseExtraDataMap(input map[string]any) (*big.Int, [32]byte, error) {
 		return nil, [32]byte{}, errors.New("gas limit not a *big.Int")
 	}
 
+	// tokenReceiver is carried by SuiExtraArgsV1 but NOT by Solana GenericExtraArgsV2.
+	// For Solana→Sui the on-chain Solana message cannot convey a separate token receiver,
+	// so the off-chain Any2SuiRampMessage is built with tokenReceiver = 0 (matching the
+	// EVM→Sui message-only convention). Default to zero here so the commit leaf hash and
+	// the execute-built Any2SuiRampMessage agree. Token Solana→Sui transfers are not
+	// supported by this path (Solana has no SuiExtraArgsV1 to carry a distinct token_receiver).
 	tokenReceiver, ok := input["tokenReceiver"]
 	if !ok {
-		return nil, [32]byte{}, errors.New("token receiver not found in extra data map")
+		return outputGasInt, [32]byte{}, nil
 	}
 
 	tokenReceiverBytes := [32]byte{}

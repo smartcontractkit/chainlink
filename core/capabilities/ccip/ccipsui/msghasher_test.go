@@ -59,6 +59,33 @@ func TestParseExtraDataMap(t *testing.T) {
 			want:      nil,
 			expectErr: true,
 		},
+		{
+			// Solana source emits GenericExtraArgsV2 (Borsh); ccipsolana.ExtraDataDecoder
+			// surfaces the gas limit under the struct field name "GasLimit" (capital) and
+			// does not include a tokenReceiver (GenericExtraArgsV2 has no token_receiver).
+			// parseExtraDataMap must accept the capital key and default tokenReceiver to zero.
+			name: "Solana GenericExtraArgsV2: capital GasLimit, no tokenReceiver",
+			input: map[string]any{
+				"GasLimit":                new(big.Int).SetInt64(1000000),
+				"AllowOutOfOrderExecution": true,
+			},
+			want: &struct {
+				gasLimit      *big.Int
+				tokenReceiver [32]byte
+			}{
+				gasLimit:      new(big.Int).SetInt64(1000000),
+				tokenReceiver: [32]byte{},
+			},
+			expectErr: false,
+		},
+		{
+			name: "no gas limit key of either casing",
+			input: map[string]any{
+				"tokenReceiver": [32]byte{0x01},
+			},
+			want:      nil,
+			expectErr: true,
+		},
 	}
 
 	// Run tests
