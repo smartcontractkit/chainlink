@@ -180,7 +180,7 @@ jobs:
       - runs-on=${{ github.run_id }}-${{ strategy.job-index }}
       - cpu=16
       - ram=32
-      - family=c6gd
+      - family=c7gd+c8g
       - ${{ needs.filter.outputs.spot_param }}
       - image=ubuntu24-full-arm64
       - extras=s3-cache
@@ -275,7 +275,7 @@ jobs:
               - runs-on=${{ github.run_id }}-unit
               - cpu=48
               - ram=96
-              - family=c7id+c8id
+              - family=c6id+c8id
               - ${{ needs.filter.outputs.spot_param }}
               - image=ubuntu24-full-x64
               - extras=s3-cache
@@ -311,7 +311,7 @@ jobs:
               - runs-on=${{ github.run_id }}-fuzz
               - cpu=8
               - ram=32
-              - family=m7id+m7idn+m8id+m8idn
+              - family=m6id+m6idn+m8id+m8idn
               - ${{ needs.filter.outputs.spot_param }}
               - image=ubuntu24-full-x64
               - extras=s3-cache

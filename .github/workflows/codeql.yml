@@ -115,7 +115,7 @@ jobs:
         shell: bash
         env:
           OPT_OUT: ${{ steps.pr-labels.outputs.check-label-found || 'false' }}
-          SH_GO_RUNNER: runs-on=${{ github.run_id }}/cpu=32/ram=64/family=c6i/${{ steps.spot-config.outputs.spot_param }}/extras=s3-cache+tmpfs
+          SH_GO_RUNNER: runs-on=${{ github.run_id }}/cpu=32/ram=64/family=c7i+c8i/${{ steps.spot-config.outputs.spot_param }}/extras=s3-cache+tmpfs
           GH_GO_RUNNER: ubuntu24.04-8cores-32GB
         run: |
           if [[ "$OPT_OUT" == "true" ]]; then

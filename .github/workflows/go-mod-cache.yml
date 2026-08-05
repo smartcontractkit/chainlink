@@ -73,7 +73,7 @@ jobs:
               - runs-on=${{ github.run_id }}
               - cpu=8
               - ram=16
-              - family=c6id
+              - family=c6id+c8id
               - ${{ needs.filter.outputs.spot_param }}
               - extras=s3-cache
             suffix: "Core (Self-hosted)"
@@ -82,7 +82,7 @@ jobs:
               - runs-on=${{ github.run_id }}
               - cpu=8
               - ram=16
-              - family=c6id
+              - family=c6id+c8id
               - ${{ needs.filter.outputs.spot_param }}
               - extras=s3-cache
             suffix: "Deployment (Self-hosted)"

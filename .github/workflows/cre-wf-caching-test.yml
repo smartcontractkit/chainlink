@@ -45,7 +45,7 @@ jobs:
       - runs-on=${{ github.run_id }}
       - cpu=32
       - ram=128
-      - family=m6id+m6idn
+      - family=m6id+m8id
       - ${{ needs.runner-config.outputs.spot_param }}
       - image=ubuntu24-full-x64
       - extras=s3-cache

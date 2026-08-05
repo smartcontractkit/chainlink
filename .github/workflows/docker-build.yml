@@ -58,9 +58,9 @@ jobs:
         shell: bash
         env:
           SH_RUNNER_LABEL_ARM64: runs-on=${{ github.run_id
-            }}/cpu=16/ram=64/family=m7g/${{ steps.spot-config.outputs.spot_param }}/image=ubuntu24-full-arm64/extras=s3-cache+tmpfs
+            }}/cpu=16/ram=64/family=m7g+m8g/${{ steps.spot-config.outputs.spot_param }}/image=ubuntu24-full-arm64/extras=s3-cache+tmpfs
           SH_RUNNER_LABEL_AMD64: runs-on=${{ github.run_id
-            }}/cpu=16/ram=64/family=m6i+m7i/${{ steps.spot-config.outputs.spot_param }}/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+            }}/cpu=16/ram=64/family=m7i+m8i/${{ steps.spot-config.outputs.spot_param }}/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
           GH_RUNNER_LABEL_ARM64: ubuntu-24.04-arm
           GH_RUNNER_LABEL_AMD64: ubuntu-24.04
         run: |
