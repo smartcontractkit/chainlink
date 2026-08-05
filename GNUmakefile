@@ -108,7 +108,6 @@ install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins
 install-plugins-local: ## Build & install local plugins
 	go install -ldflags="-s" \
 		./plugins/cmd/chainlink-medianpoc \
-		./plugins/cmd/chainlink-ocr3-capability \
 		./plugins/cmd/capabilities/log-event-trigger
 
 .PHONY: make install-plugins

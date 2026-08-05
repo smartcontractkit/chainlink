@@ -160,7 +160,6 @@ func (oc ConsensusCapOffchainConfig) MarshalYAML() (any, error) {
 
 func (oc *ConsensusCapOffchainConfig) ToProto() (proto.Message, error) {
 	// let's keep reqTimeout as nil if it's 0, so we can use the default value within `chainlink-common`.
-	// See: https://github.com/smartcontractkit/chainlink-common/blob/main/pkg/capabilities/consensus/ocr3/factory.go#L73
 	var reqTimeout *durationpb.Duration
 	if oc.RequestTimeout > 0 {
 		reqTimeout = durationpb.New(oc.RequestTimeout)
