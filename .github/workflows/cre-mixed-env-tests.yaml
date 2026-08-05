@@ -53,8 +53,9 @@ on:
         default: ""
         description:
           "Base-branch name (e.g. 'develop' or 'release/2.57.1'). Controls the missing-image
-          fallback: for a develop base the develop nightly is used; for any other base with no
-          published base image, mixed-env is skipped (no correct baseline to compare against)."
+          fallback: a release/* base with no published base image is skipped (no correct
+          baseline vs develop); every other base (develop, or a stacked feature branch) falls
+          back to the develop nightly."
   workflow_call:
     inputs:
       chainlink_image_repository_path:
@@ -97,8 +98,9 @@ on:
         default: ""
         description:
           "Base-branch name (e.g. 'develop' or 'release/2.57.1'). Controls the missing-image
-          fallback: for a develop base the develop nightly is used; for any other base with no
-          published base image, mixed-env is skipped (no correct baseline to compare against)."
+          fallback: a release/* base with no published base image is skipped (no correct
+          baseline vs develop); every other base (develop, or a stacked feature branch) falls
+          back to the develop nightly."
 
 jobs:
   define-test-matrix:
@@ -246,20 +248,26 @@ jobs:
             # it always compares against the branch the PR is merging into. Same build/repo as
             # the PR image.
             image="${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}"
-          elif [[ -z "${BASELINE_REF}" || "${BASE_REF_NAME}" == "develop" ]]; then
-            # Develop-targeted PR (or a non-PR dispatch/schedule run) with no base-sha image:
-            # the develop nightly is a valid stand-in for develop. Core variant (no -plugins)
-            # to match the PR image built by integration-tests.
+          elif [[ "${BASE_REF_NAME}" == release/* ]]; then
+            # Release-branch base with no published base-branch image: there is NO correct
+            # baseline. Falling back to the develop nightly would compare a release-based PR
+            # against develop and flood the run with false positives (the whole release<->develop
+            # divergence), so skip mixed-env instead of misleading. (Release-branch commits
+            # aren't force-built like develop, so their branch-tip image is often absent.)
+            echo "::warning::No baseline image for release base branch '${BASE_REF_NAME}' (looked for chainlink-integration-tests:${BASELINE_REF}). Skipping mixed-env: it can only run when the release base-branch image exists, to avoid comparing a release base against develop."
+            skip=true
+          else
+            # Everything else with no base-sha image: a develop-targeted PR, a non-PR
+            # dispatch/schedule run (empty ref), or a PR stacked on another feature branch
+            # (which ultimately targets develop). Fall back to the develop nightly. Core variant
+            # (no -plugins) to match the PR image built by integration-tests.
+            #
+            # For a stacked PR this compares the whole stack (parent branch + this PR) against
+            # develop, so a *parent* branch that changes runtime behavior can surface here as a
+            # marker. That's a real potential non-determinism (it'll be caught when the parent
+            # merges too); use the skip-mixed-env label if it's expected and you need to unblock.
             DATE="$(date +'%Y%m%d')"
             image="${REGISTRY}/chainlink:nightly-${DATE}"
-          else
-            # Non-develop base (e.g. a release branch) with no published base-branch image:
-            # there is NO correct baseline. Falling back to the develop nightly would compare a
-            # release-based PR against develop and flood the run with false positives, so skip
-            # mixed-env for this PR instead of misleading. (Release-branch commits aren't
-            # force-built like develop, so their branch-tip image is often absent.)
-            echo "::warning::No baseline image for base branch '${BASE_REF_NAME}' (looked for chainlink-integration-tests:${BASELINE_REF}). Skipping mixed-env: it can only run when the base-branch image exists, to avoid comparing a non-develop base against develop."
-            skip=true
           fi
           {
             echo "skip=${skip}"

@@ -32,11 +32,17 @@ It's the standard capabilities topology, except every multi-node DON is split **
   targeting a release branch (e.g. `release/2.57.1`) it's that release commit. Because it's precisely
   the branch your PR image derives from, the two halves differ **only** by your PR's changes — so the
   base branch's own churn never shows up as a false positive.
-  - If that image isn't published: a **develop**-targeted PR falls back to the latest cached `develop`
-    **nightly** build. For a **non-develop** base (release branch) there is no correct stand-in — the
-    develop nightly would be the wrong branch — so mixed-env is **skipped** for that PR (a warning is
-    logged) rather than compared against develop. Release-branch commits aren't force-built the way
-    `develop` is, so this skip can happen; when it does, the release PR simply doesn't get this check.
+  - If that image isn't published, the fallback depends on the base branch:
+    - **`develop` base** → the latest cached `develop` **nightly** build.
+    - **A stacked PR** (base is another feature branch that ultimately targets `develop`) → also the
+      **develop nightly**. This compares the *whole stack* (parent branch + your PR) against `develop`,
+      so a **parent** branch that changes runtime behavior can surface a marker here — that's a real
+      potential non-determinism (it'll be caught when the parent merges too); use the
+      [`skip-mixed-env` label](#required-check--emergency-bypass) if it's expected.
+    - **A release branch** (e.g. `release/2.57.1`) → **skipped** (a warning is logged). There's no correct
+      stand-in: the develop nightly would be the wrong branch and would flood the run with the whole
+      release↔develop divergence. Release-branch commits aren't force-built the way `develop` is, so
+      their branch-tip image is often absent, and when it is the release PR simply doesn't get this check.
 - Chains, capabilities, ports, and everything else are identical to the normal topology — only the per-node images change.
 
 ## What it checks
