@@ -2002,19 +2002,13 @@ func TestWorkflowRegistry_getTicker_WithTickerOverride(t *testing.T) {
 	require.Equal(t, (<-chan time.Time)(customCh), tickerCh)
 }
 
-type orphanRelease struct {
-	workflowID string
-	owner      string
-}
-
 // orphanSweepFakeHandler is a minimal evtHandler that returns a fixed spec list
-// and records every Handle / ReleaseOrphanedSpec call, so reconcileOrphanedSpecs
-// can be unit-tested in isolation.
+// and records every Handle call, so the reconciliation loop's orphaned-spec
+// behavior can be tested end to end.
 type orphanSweepFakeHandler struct {
-	mu       sync.Mutex
-	specs    []*job.WorkflowSpec
-	handled  []Event
-	released []orphanRelease
+	mu      sync.Mutex
+	specs   []*job.WorkflowSpec
+	handled []Event
 }
 
 func (h *orphanSweepFakeHandler) Close() error                { return nil }
@@ -2028,14 +2022,8 @@ func (h *orphanSweepFakeHandler) Handle(_ context.Context, event Event) error {
 func (h *orphanSweepFakeHandler) EmitActivationAbandoned(context.Context, Event, eventsv2.ActivationAbandonReason, error, int32) error {
 	return nil
 }
-func (h *orphanSweepFakeHandler) GetWorkflowSpecList(context.Context) ([]*job.WorkflowSpec, error) {
+func (h *orphanSweepFakeHandler) ListWorkflowSpecs(context.Context) ([]*job.WorkflowSpec, error) {
 	return h.specs, nil
-}
-func (h *orphanSweepFakeHandler) ReleaseOrphanedSpec(_ context.Context, workflowID, owner string) error {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.released = append(h.released, orphanRelease{workflowID, owner})
-	return nil
 }
 
 func (h *orphanSweepFakeHandler) SetWorkflowDon(commonCap.DON) {}
@@ -2046,56 +2034,293 @@ func (h *orphanSweepFakeHandler) Handled() []Event {
 	copy(cp, h.handled)
 	return cp
 }
-func (h *orphanSweepFakeHandler) Released() []orphanRelease {
+
+// OrphanDeletes returns the workflow IDs of every WorkflowDeleted event
+// dispatched to the handler. In these tests the engine registry is empty, so
+// every delete is sweep-generated.
+func (h *orphanSweepFakeHandler) OrphanDeletes() []string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	cp := make([]orphanRelease, len(h.released))
-	copy(cp, h.released)
-	return cp
+	var ids []string
+	for _, evt := range h.handled {
+		if evt.Name != WorkflowDeleted {
+			continue
+		}
+		if payload, ok := evt.Data.(WorkflowDeletedEvent); ok {
+			ids = append(ids, payload.WorkflowID.Hex())
+		}
+	}
+	return ids
 }
 
-// a persisted spec whose workflowID is absent from the registry metadata
-// (the union of all sources) and has no running engine is a downtime orphan —
-// it is released through ReleaseOrphanedSpec. Specs still present in metadata
-// (including paused workflows, which remain in metadata) are left alone.
-func Test_reconcileOrphanedSpecs_ReleasesEnginelessOrphansOnly(t *testing.T) {
+func newTestRegistryMetrics(t *testing.T) *metrics {
+	t.Helper()
+	m, err := newMetrics()
+	require.NoError(t, err)
+	return m
+}
+
+// Orphaned specs — rows whose workflow ID is absent from the union of every
+// source's metadata with no running engine — are released through the normal
+// WorkflowDeleted event path. Liveness is judged against the union regardless
+// of the row's Source attribution: IDs are content-addressed and may recur
+// across sources, and pre-attribution rows carry no source at all.
+func Test_reconcileOrphanedSpecs(t *testing.T) {
 	t.Parallel()
+
 	liveID := wfTypes.WorkflowID{1}
 	orphanID := wfTypes.WorkflowID{2}
-	h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
-		{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd"},
-		{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd"},
-	}}
-	w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: NewEngineRegistry()}
 
-	// liveWorkflowIDs is the union of all sources' metadata this tick; the
-	// live workflow (present in metadata) is retained, the orphan is released.
-	live := map[string]struct{}{liveID.Hex(): {}}
-	w.reconcileOrphanedSpecs(t.Context(), live)
+	t.Run("engine-less orphans are released regardless of attribution", func(t *testing.T) {
+		t.Parallel()
+		attributedOrphan := wfTypes.WorkflowID{3}
+		h := &orphanSweepFakeHandler{}
+		w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: NewEngineRegistry(), metrics: newTestRegistryMetrics(t)}
 
-	assert.Empty(t, h.Handled(), "orphan sweep must not dispatch events through Handle")
-	released := h.Released()
-	require.Len(t, released, 1, "exactly the orphan is released")
-	assert.Equal(t, orphanID.Hex(), released[0].workflowID)
-	assert.Equal(t, "aabbccdd", released[0].owner)
+		specs := []*job.WorkflowSpec{
+			{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd"}, // pre-attribution row
+			{WorkflowID: attributedOrphan.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}
+		w.reconcileOrphanedSpecs(t.Context(), specs, map[string]struct{}{liveID.Hex(): {}})
+
+		assert.ElementsMatch(t, []string{orphanID.Hex(), attributedOrphan.Hex()}, h.OrphanDeletes(),
+			"both orphans are released; the live spec is retained")
+	})
+
+	t.Run("row listed by any source is retained even when its attribution differs", func(t *testing.T) {
+		t.Parallel()
+		// Workflow IDs are content-addressed and may recur across sources: a
+		// row written by source-a whose ID is currently listed by source-b is
+		// live and must not be released.
+		h := &orphanSweepFakeHandler{}
+		w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: NewEngineRegistry(), metrics: newTestRegistryMetrics(t)}
+
+		specs := []*job.WorkflowSpec{
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}
+		w.reconcileOrphanedSpecs(t.Context(), specs, map[string]struct{}{orphanID.Hex(): {}})
+
+		assert.Empty(t, h.Handled(), "a row present in the union must never be released")
+	})
+
+	t.Run("engine-owned orphan is left to engine reconciliation", func(t *testing.T) {
+		t.Parallel()
+		er := NewEngineRegistry()
+		require.NoError(t, er.Add(orphanID, "test-source", &mockService{}))
+		h := &orphanSweepFakeHandler{}
+		w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: er, metrics: newTestRegistryMetrics(t)}
+
+		specs := []*job.WorkflowSpec{
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd"},
+		}
+		w.reconcileOrphanedSpecs(t.Context(), specs, map[string]struct{}{liveID.Hex(): {}})
+
+		assert.Empty(t, h.Handled(), "engine-owned orphan must not be released here")
+	})
+
+	t.Run("empty metadata union with persisted specs refuses to release", func(t *testing.T) {
+		t.Parallel()
+		// Every source succeeding while returning zero metadata is
+		// indistinguishable from endpoints serving empty state; releasing
+		// every row on that signal alone would emit an unrecoverable -1 each.
+		h := &orphanSweepFakeHandler{}
+		w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: NewEngineRegistry(), metrics: newTestRegistryMetrics(t)}
+
+		specs := []*job.WorkflowSpec{
+			{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd"},
+		}
+		w.reconcileOrphanedSpecs(t.Context(), specs, map[string]struct{}{})
+
+		assert.Empty(t, h.Handled(), "empty union with persisted specs must not release anything")
+	})
 }
 
-// An orphan with a registered engine is skipped: the engine-based deletion
-// path handles it (with drain/retry machinery).
-func Test_reconcileOrphanedSpecs_SkipsOrphansWithEngines(t *testing.T) {
+// fakeMetadataSource is a canned WorkflowMetadataSource for driving the
+// reconciliation loop: it returns fixed metadata or a fixed error.
+type fakeMetadataSource struct {
+	name     string
+	metadata []WorkflowMetadataView
+	err      error
+}
+
+func (s *fakeMetadataSource) ListWorkflowMetadata(context.Context, commonCap.DON) ([]WorkflowMetadataView, *types.Head, error) {
+	if s.err != nil {
+		return nil, nil, s.err
+	}
+	return s.metadata, &types.Head{Height: "1"}, nil
+}
+func (s *fakeMetadataSource) Name() string             { return s.name }
+func (s *fakeMetadataSource) SourceIdentifier() string { return s.name }
+func (s *fakeMetadataSource) Ready() error             { return nil }
+
+// failingShardMappingClient always fails shard-mapping lookups, driving the
+// shard-filter error path.
+type failingShardMappingClient struct{}
+
+func (f *failingShardMappingClient) GetWorkflowShardMapping(context.Context, []string) (*ringpb.GetWorkflowShardMappingResponse, error) {
+	return nil, assert.AnError
+}
+
+func (f *failingShardMappingClient) ReportWorkflowTriggerRegistration(context.Context, *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
+	return &ringpb.ReportWorkflowTriggerRegistrationResponse{Success: true}, nil
+}
+
+func (f *failingShardMappingClient) Close() error { return nil }
+
+var _ shardorchestrator.ClientInterface = (*failingShardMappingClient)(nil)
+
+// newSweepLoopRegistry builds a workflowRegistry wired for driving
+// syncUsingReconciliationStrategy directly: no contract source, injected fake
+// sources, and an unbuffered ticker channel the test controls.
+func newSweepLoopRegistry(t *testing.T, h evtHandler, er *EngineRegistry, sources []WorkflowMetadataSource, opts ...Option) (*workflowRegistry, chan time.Time) {
+	t.Helper()
+	tick := make(chan time.Time)
+	wr, err := NewWorkflowRegistry(
+		logger.TestLogger(t),
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+		"", // no contract source
+		"test-chain-selector",
+		Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+		h,
+		&testDonNotifier{don: commonCap.DON{ID: 1}},
+		er,
+		append([]Option{WithTicker(tick)}, opts...)...,
+	)
+	require.NoError(t, err)
+	wr.workflowSources = sources
+	return wr, tick
+}
+
+// runOneSweepTick drives the reconciliation loop through at least one complete
+// tick. The ticker channel is unbuffered, so the second send only succeeds
+// once the loop has fully processed the first tick — including the orphan
+// sweep decision — and returned to its select.
+func runOneSweepTick(t *testing.T, wr *workflowRegistry, tick chan time.Time) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wr.syncUsingReconciliationStrategy(ctx)
+	}()
+	tick <- time.Now()
+	tick <- time.Now() // barrier: the first tick has been fully processed
+	cancel()
+	<-done
+}
+
+// Test_syncLoop_OrphanedSpecs exercises orphaned-spec reconciliation end to
+// end through syncUsingReconciliationStrategy: orphans are released per
+// source, and a source failure only defers its own specs.
+func Test_syncLoop_OrphanedSpecs(t *testing.T) {
 	t.Parallel()
-	orphanID := wfTypes.WorkflowID{3}
-	er := NewEngineRegistry()
-	require.NoError(t, er.Add(orphanID, "test-source", &mockService{}))
-	h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
-		{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd"},
-	}}
-	w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: er}
 
-	// orphanID is absent from metadata (orphan), but has a running engine.
-	live := map[string]struct{}{}
-	w.reconcileOrphanedSpecs(t.Context(), live)
+	liveID := wfTypes.WorkflowID{1}
+	orphanID := wfTypes.WorkflowID{2}
+	liveMeta := WorkflowMetadataView{
+		WorkflowID:   liveID,
+		Owner:        []byte{0xaa, 0xbb, 0xcc, 0xdd},
+		Status:       WorkflowStatusActive,
+		WorkflowName: "live-wf",
+		BinaryURL:    "b1",
+		ConfigURL:    "c1",
+		Source:       "source-a",
+	}
 
-	assert.Empty(t, h.Handled(), "no events dispatched")
-	assert.Empty(t, h.Released(), "engine-owned orphan must not be released by the sweep")
+	t.Run("engine-less orphan is released through the event path", func(t *testing.T) {
+		t.Parallel()
+		h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+			{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}}
+		wr, tick := newSweepLoopRegistry(t, h, NewEngineRegistry(), []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-a", metadata: []WorkflowMetadataView{liveMeta}},
+		})
+
+		runOneSweepTick(t, wr, tick)
+
+		deletes := h.OrphanDeletes()
+		require.NotEmpty(t, deletes, "the orphan must be released")
+		for _, id := range deletes {
+			assert.Equal(t, orphanID.Hex(), id, "only the orphan is released")
+		}
+	})
+
+	t.Run("any failing source defers orphan cleanup", func(t *testing.T) {
+		t.Parallel()
+		// The union of source metadata is incomplete when a source fails: an
+		// absent row may belong to the failed source, so no row can be safely
+		// judged orphaned. Healthy sources still reconcile their engines.
+		okMeta := liveMeta
+		okMeta.Source = "source-ok"
+		h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+			{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-ok"},
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-bad"},
+		}}
+		wr, tick := newSweepLoopRegistry(t, h, NewEngineRegistry(), []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-ok", metadata: []WorkflowMetadataView{okMeta}},
+			&fakeMetadataSource{name: "source-bad", err: assert.AnError},
+		})
+
+		runOneSweepTick(t, wr, tick)
+
+		assert.NotEmpty(t, h.Handled(), "healthy source still reconciles")
+		assert.Empty(t, h.OrphanDeletes(), "no spec is released while any source is failing")
+	})
+
+	t.Run("shard filter error skips the source entirely", func(t *testing.T) {
+		t.Parallel()
+		h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+			{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}}
+		wr, tick := newSweepLoopRegistry(t, h, NewEngineRegistry(), []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-a", metadata: []WorkflowMetadataView{liveMeta}},
+		},
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(&failingShardMappingClient{}),
+		)
+
+		runOneSweepTick(t, wr, tick)
+
+		assert.Empty(t, h.Handled(), "no events dispatched and no spec released when the shard filter fails")
+	})
+
+	t.Run("workflow filtered to another shard is swept", func(t *testing.T) {
+		t.Parallel()
+		myID := wfTypes.WorkflowID{3}
+		movedID := wfTypes.WorkflowID{4}
+		myMeta := liveMeta
+		myMeta.WorkflowID = myID
+		movedMeta := liveMeta
+		movedMeta.WorkflowID = movedID
+		h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+			{WorkflowID: myID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+			{WorkflowID: movedID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}}
+		wr, tick := newSweepLoopRegistry(t, h, NewEngineRegistry(), []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-a", metadata: []WorkflowMetadataView{myMeta, movedMeta}},
+		},
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(&mockShardMappingClient{mappings: map[string]uint32{
+				myID.Hex():    0, // stays on this shard
+				movedID.Hex(): 1, // moved to another shard
+			}}),
+		)
+
+		runOneSweepTick(t, wr, tick)
+
+		// The moved workflow is absent from this shard's post-filter metadata
+		// and has no engine, so its spec is released here (-1); the receiving
+		// shard registers it (+1) under a distinct event_id — net level 0.
+		deletes := h.OrphanDeletes()
+		require.NotEmpty(t, deletes, "the shard-moved workflow must be swept")
+		for _, id := range deletes {
+			assert.Equal(t, movedID.Hex(), id, "only the moved workflow is released")
+		}
+	})
 }

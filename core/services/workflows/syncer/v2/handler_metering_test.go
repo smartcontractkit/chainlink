@@ -111,6 +111,18 @@ func (r *recordingSnapshotEmitter) Snapshots() []*meteringpb.MeterSnapshot {
 	return snapshots
 }
 
+// newTestSpecMeter builds a SpecMeter over rm and artifactsStore, or returns
+// nil (the no-op meter) when rm is nil.
+func newTestSpecMeter(t *testing.T, rm *resourcemanager.ResourceManager, artifactsStore WorkflowArtifactsStore, org orgresolver.OrgResolver) *SpecMeter {
+	t.Helper()
+	if rm == nil {
+		return nil
+	}
+	sm, err := NewSpecMeter(logger.TestLogger(t), rm, resourcemanager.ResourceIdentity{}, artifactsStore, org)
+	require.NoError(t, err)
+	return sm
+}
+
 func newMeteringTestHandler(t *testing.T, artifactsStore WorkflowArtifactsStore, rm *resourcemanager.ResourceManager) *eventHandler {
 	t.Helper()
 	lggr := logger.TestLogger(t)
@@ -140,7 +152,7 @@ func newMeteringTestHandler(t *testing.T, artifactsStore WorkflowArtifactsStore,
 		artifactsStore,
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		&testDonNotifier{},
-		WithResourceManager(rm),
+		WithSpecMeter(newTestSpecMeter(t, rm, artifactsStore, nil)),
 		WithEngineFactoryFn(mockEngineFactory),
 	)
 	require.NoError(t, err)
@@ -413,7 +425,7 @@ func Test_meterRecords(t *testing.T) {
 			},
 		}
 		h := newMeteringTestHandler(t, store, rm)
-		unregister := rm.Register(h)
+		unregister := rm.Register(h.specMeter)
 		t.Cleanup(unregister)
 
 		servicetest.Run(t, rm)
@@ -492,7 +504,7 @@ func newMeteringTestHandlerWithOrg(t *testing.T, artifactsStore WorkflowArtifact
 		artifactsStore,
 		workflowkey.MustNewXXXTestingOnly(big.NewInt(1)),
 		&testDonNotifier{},
-		WithResourceManager(rm),
+		WithSpecMeter(newTestSpecMeter(t, rm, artifactsStore, org)),
 		WithEngineFactoryFn(mockEngineFactory),
 		WithOrgResolver(org),
 	)
@@ -597,7 +609,7 @@ func Test_meterRecords_DonIDOnRecordAndSnapshot(t *testing.T) {
 
 	// Simulate a resolved workflow DON id (as SetWorkflowDon would store).
 	resolvedDon := "7"
-	h.resolvedDonID.Store(&resolvedDon)
+	h.specMeter.resolvedDonID.Store(&resolvedDon)
 
 	require.NoError(t, h.workflowRegisteredEvent(t.Context(), WorkflowRegisteredEvent{
 		Status:        WorkflowStatusPaused,
@@ -611,7 +623,7 @@ func Test_meterRecords_DonIDOnRecordAndSnapshot(t *testing.T) {
 	require.NotNil(t, records[0].Identity.GetDon())
 	assert.Equal(t, "7", records[0].Identity.GetDon().GetDonId(), "record identity must carry resolved don_id")
 
-	entries := h.GetUtilization(t.Context())
+	entries := h.specMeter.GetUtilization(t.Context())
 	require.Len(t, entries, 1)
 	require.NotNil(t, entries[0].Identity.Don)
 	assert.Equal(t, "7", entries[0].Identity.Don.DonID, "snapshot identity must carry resolved don_id")
@@ -750,16 +762,16 @@ func Test_meterRecords_FailOpenEquivalence(t *testing.T) {
 		return store, h
 	}
 
-	// RM nil
+	// No spec meter (metering disabled at construction)
 	nilStore, nilH := runCycle(t, nil, nil)
-	assert.Nil(t, nilH.resourceManager)
+	assert.Nil(t, nilH.specMeter)
 	assert.Nil(t, nilStore.spec, "spec should be deleted by the cycle")
 
 	// RM disabled
 	disabledEmitter := &recordingEmitter{}
 	disabledRM := newMeteringResourceManager(t, false, disabledEmitter)
 	disabledStore, disabledH := runCycle(t, disabledRM, disabledEmitter)
-	assert.NotNil(t, disabledH.resourceManager)
+	assert.NotNil(t, disabledH.specMeter)
 	assert.Empty(t, disabledEmitter.Records(), "disabled RM emits nothing")
 	assert.Nil(t, disabledStore.spec, "spec should be deleted by the cycle")
 
@@ -767,14 +779,16 @@ func Test_meterRecords_FailOpenEquivalence(t *testing.T) {
 	errEmitter := &recordingEmitter{err: errors.New("beholder unavailable")}
 	errRM := newMeteringResourceManager(t, true, errEmitter)
 	errStore, errH := runCycle(t, errRM, errEmitter)
-	assert.NotNil(t, errH.resourceManager)
+	assert.NotNil(t, errH.specMeter)
 	assert.Empty(t, errEmitter.Records(), "erroring emitter stores nothing")
 	assert.Nil(t, errStore.spec, "spec should be deleted by the cycle")
 }
 
 // The orphan sweep releases a paused tombstone (no engine) with exactly one -1
 // carrying the generation delete-id. This is the sweep's new load-bearing case:
-// workflows deleted on-chain while paused have a tombstone but no engine.
+// workflows deleted on-chain while paused have a tombstone but no engine. The
+// sweep dispatches an ordinary WorkflowDeleted event through Handle — the same
+// path as reconciliation-generated deletes.
 func Test_meterRecords_SweepReleasesPausedTombstone(t *testing.T) {
 	t.Parallel()
 	emitter := &recordingEmitter{}
@@ -791,7 +805,7 @@ func Test_meterRecords_SweepReleasesPausedTombstone(t *testing.T) {
 	}))
 	require.NoError(t, h.workflowPausedEvent(t.Context(), WorkflowPausedEvent{WorkflowID: wfID}))
 	// After pause the engine is popped; the tombstone has no engine → sweep path.
-	require.NoError(t, h.ReleaseOrphanedSpec(t.Context(), wfID.Hex(), "aabbccdd"))
+	require.NoError(t, h.Handle(t.Context(), Event{Name: WorkflowDeleted, Data: WorkflowDeletedEvent{WorkflowID: wfID}}))
 
 	records := emitter.Records()
 	require.Len(t, records, 2, "register +1 and sweep -1")

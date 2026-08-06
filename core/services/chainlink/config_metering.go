@@ -1,6 +1,8 @@
 package chainlink
 
 import (
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
@@ -25,10 +27,10 @@ func (b *meteringConfig) MeterSnapshotsEnabled() bool {
 // Product returns the deployment product identity dimension. The parsed config
 // defaults it to "cre" via docs.CoreDefaults so metering is never enabled with
 // an empty product dimension; a zero-value toml.Metering that has not been run
-// through setDefaults returns "unset" (the nil-pointer fallback below).
+// through setDefaults returns UnsetProduct (the nil-pointer fallback below).
 func (b *meteringConfig) Product() string {
 	if b.s.Product == nil {
-		return "unset"
+		return resourcemanager.UnsetProduct
 	}
 	return *b.s.Product
 }

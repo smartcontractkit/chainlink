@@ -187,12 +187,12 @@ func (_c *ORM_GetWorkflowSpec_Call) RunAndReturn(run func(context.Context, strin
 	return _c
 }
 
-// GetWorkflowSpecList provides a mock function with given fields: ctx
-func (_m *ORM) GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error) {
+// ListWorkflowSpecs provides a mock function with given fields: ctx
+func (_m *ORM) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetWorkflowSpecList")
+		panic("no return value specified for ListWorkflowSpecs")
 	}
 
 	var r0 []*job.WorkflowSpec
@@ -217,30 +217,30 @@ func (_m *ORM) GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, er
 	return r0, r1
 }
 
-// ORM_GetWorkflowSpecList_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetWorkflowSpecList'
-type ORM_GetWorkflowSpecList_Call struct {
+// ORM_ListWorkflowSpecs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListWorkflowSpecs'
+type ORM_ListWorkflowSpecs_Call struct {
 	*mock.Call
 }
 
-// GetWorkflowSpecList is a helper method to define mock.On call
+// ListWorkflowSpecs is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *ORM_Expecter) GetWorkflowSpecList(ctx interface{}) *ORM_GetWorkflowSpecList_Call {
-	return &ORM_GetWorkflowSpecList_Call{Call: _e.mock.On("GetWorkflowSpecList", ctx)}
+func (_e *ORM_Expecter) ListWorkflowSpecs(ctx interface{}) *ORM_ListWorkflowSpecs_Call {
+	return &ORM_ListWorkflowSpecs_Call{Call: _e.mock.On("ListWorkflowSpecs", ctx)}
 }
 
-func (_c *ORM_GetWorkflowSpecList_Call) Run(run func(ctx context.Context)) *ORM_GetWorkflowSpecList_Call {
+func (_c *ORM_ListWorkflowSpecs_Call) Run(run func(ctx context.Context)) *ORM_ListWorkflowSpecs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context))
 	})
 	return _c
 }
 
-func (_c *ORM_GetWorkflowSpecList_Call) Return(_a0 []*job.WorkflowSpec, _a1 error) *ORM_GetWorkflowSpecList_Call {
+func (_c *ORM_ListWorkflowSpecs_Call) Return(_a0 []*job.WorkflowSpec, _a1 error) *ORM_ListWorkflowSpecs_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ORM_GetWorkflowSpecList_Call) RunAndReturn(run func(context.Context) ([]*job.WorkflowSpec, error)) *ORM_GetWorkflowSpecList_Call {
+func (_c *ORM_ListWorkflowSpecs_Call) RunAndReturn(run func(context.Context) ([]*job.WorkflowSpec, error)) *ORM_ListWorkflowSpecs_Call {
 	_c.Call.Return(run)
 	return _c
 }

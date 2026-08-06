@@ -732,9 +732,9 @@ func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.Billi
 // newSyncerMeterIdentity builds the syncer's base metering identity from node
 // metering config. Product/tenant/environment/zone and logical node_id are read
 // from [Metering]. The workflow DON id (don_id) is resolved later by the
-// handler from the don notifier (the engine runs on the workflow DON), so it is
-// intentionally left empty here. Service/resource_pool are stamped by
-// syncer.WithIdentity.
+// registry from the don notifier (the engine runs on the workflow DON), so it
+// is intentionally left empty here. Service/resource_pool are stamped by
+// syncer.NewSpecMeter.
 func newSyncerMeterIdentity(cfg Config) resourcemanager.ResourceIdentity {
 	m := cfg.Metering()
 	if m == nil {
@@ -1057,13 +1057,23 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
 		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
-		syncerV2.WithResourceManager(resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
+	}
+
+	// The spec meter (and its ResourceManager) exists only when metering is
+	// enabled; a handler without one emits nothing. The meter owns the RM
+	// lifecycle and snapshot registration as a sub-service of the handler.
+	if meterRecordsEnabled || meterSnapshotsEnabled {
+		rm := resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
 			MeterRecordsEnabled:   meterRecordsEnabled,
 			MeterSnapshotsEnabled: meterSnapshotsEnabled,
 			Emitter:               beholder.GetEmitter(),
 			SnapshotInterval:      resourcemanager.DefaultSnapshotInterval,
-		})),
-		syncerV2.WithIdentity(meterIdentity),
+		})
+		specMeter, smErr := syncerV2.NewSpecMeter(lggr, rm, meterIdentity, artifactsStore, orgResolver)
+		if smErr != nil {
+			return nil, nil, fmt.Errorf("unable to create workflow spec meter: %w", smErr)
+		}
+		handlerOpts = append(handlerOpts, syncerV2.WithSpecMeter(specMeter))
 	}
 
 	mc := capCfg.WorkflowRegistry().ModuleCache()

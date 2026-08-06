@@ -844,6 +844,9 @@ type WorkflowSpec struct {
 	SpecType      WorkflowSpecType   `toml:"spec_type" db:"spec_type"`
 	Attributes    []byte             `db:"attributes"`
 	RegisteredAt  int64              `toml:"-" db:"registered_at"`
+	// Source records which workflow metadata source produced this spec (e.g.
+	// "ContractWorkflowSource").
+	Source string `toml:"-" db:"source"`
 	sdkWorkflow   *sdk.WorkflowSpec
 	rawSpec       []byte
 	config        []byte

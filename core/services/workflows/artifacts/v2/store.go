@@ -233,10 +233,10 @@ func (h *Store) GetWorkflowSpec(ctx context.Context, workflowID string) (*job.Wo
 	return spec, err
 }
 
-// GetWorkflowSpecList returns the persisted workflow specs (identity columns
-// only). It backs the metering snapshot path.
-func (h *Store) GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error) {
-	return h.orm.GetWorkflowSpecList(ctx)
+// ListWorkflowSpecs returns the persisted workflow specs (identity columns
+// only). It backs the orphan sweep and the metering snapshot path.
+func (h *Store) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error) {
+	return h.orm.ListWorkflowSpecs(ctx)
 }
 
 func (h *Store) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {

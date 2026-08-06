@@ -79,12 +79,8 @@ func (m *testEvtHandler) EmitActivationAbandoned(context.Context, Event, eventsv
 	return nil
 }
 
-func (m *testEvtHandler) GetWorkflowSpecList(context.Context) ([]*job.WorkflowSpec, error) {
+func (m *testEvtHandler) ListWorkflowSpecs(context.Context) ([]*job.WorkflowSpec, error) {
 	return nil, nil
-}
-
-func (m *testEvtHandler) ReleaseOrphanedSpec(context.Context, string, string) error {
-	return nil
 }
 
 func (m *testEvtHandler) SetWorkflowDon(capabilities.DON) {}

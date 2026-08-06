@@ -189,6 +189,8 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 			ConfigURL:     "http://example.com/config",
 			CreatedAt:     time.Now(),
 			SpecType:      job.WASMFile,
+			RegisteredAt:  1717171717,
+			Source:        "ContractWorkflowSource",
 		}
 
 		id, err := orm.UpsertWorkflowSpec(ctx, spec)
@@ -198,6 +200,21 @@ func Test_DeleteWorkflowSpec(t *testing.T) {
 		deletedSpec, err := orm.DeleteWorkflowSpec(ctx, spec.WorkflowID)
 		require.NoError(t, err)
 		require.NotNil(t, deletedSpec)
+
+		// The RETURNING clause must scan the full row back: the caller derives
+		// the metering delete event_id from the row's persisted registered_at.
+		assert.Equal(t, spec.WorkflowID, deletedSpec.WorkflowID)
+		assert.Equal(t, spec.WorkflowOwner, deletedSpec.WorkflowOwner)
+		assert.Equal(t, spec.WorkflowName, deletedSpec.WorkflowName)
+		assert.Equal(t, spec.WorkflowTag, deletedSpec.WorkflowTag)
+		assert.Equal(t, spec.Workflow, deletedSpec.Workflow)
+		assert.Equal(t, spec.Config, deletedSpec.Config)
+		assert.Equal(t, spec.Status, deletedSpec.Status)
+		assert.Equal(t, spec.BinaryURL, deletedSpec.BinaryURL)
+		assert.Equal(t, spec.ConfigURL, deletedSpec.ConfigURL)
+		assert.Equal(t, spec.SpecType, deletedSpec.SpecType)
+		assert.Equal(t, int64(1717171717), deletedSpec.RegisteredAt)
+		assert.Equal(t, "ContractWorkflowSource", deletedSpec.Source)
 
 		// Verify the record is deleted from the database
 		var dbSpec job.WorkflowSpec
@@ -262,6 +279,99 @@ func Test_DeleteWorkflowSpecs(t *testing.T) {
 
 	// empty slice is a no-op
 	require.NoError(t, orm.DeleteWorkflowSpecs(ctx, []string{}))
+}
+
+func Test_PauseWorkflowSpec(t *testing.T) {
+	t.Parallel()
+	t.Run("tombstones the row: status paused, artifacts cleared, registered_at preserved", func(t *testing.T) {
+		t.Parallel()
+		db := pgtest.NewSqlxDB(t)
+		ctx := t.Context()
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
+		_, err := orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
+			Workflow:      "test_workflow",
+			Config:        "test_config",
+			WorkflowID:    "cid-123",
+			WorkflowOwner: "owner-123",
+			WorkflowName:  "Test Workflow",
+			Status:        job.WorkflowSpecStatusActive,
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+			RegisteredAt:  1717171717,
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, orm.PauseWorkflowSpec(ctx, "cid-123"))
+
+		paused, err := orm.GetWorkflowSpec(ctx, "cid-123")
+		require.NoError(t, err)
+		assert.Equal(t, job.WorkflowSpecStatusPaused, paused.Status)
+		assert.Empty(t, paused.Workflow, "artifact payload must be cleared")
+		assert.Empty(t, paused.Config, "config payload must be cleared")
+		assert.Equal(t, int64(1717171717), paused.RegisteredAt, "registration generation must survive the tombstone")
+		assert.Equal(t, "owner-123", paused.WorkflowOwner)
+
+		// Idempotent: pausing again is a no-op.
+		require.NoError(t, orm.PauseWorkflowSpec(ctx, "cid-123"))
+	})
+
+	t.Run("pausing an absent row is a no-op", func(t *testing.T) {
+		t.Parallel()
+		db := pgtest.NewSqlxDB(t)
+		lggr := logger.TestLogger(t)
+		orm := &orm{ds: db, lggr: lggr}
+
+		require.NoError(t, orm.PauseWorkflowSpec(t.Context(), "non-existent-workflow-id"))
+	})
+}
+
+func Test_ListWorkflowSpecs(t *testing.T) {
+	t.Parallel()
+	db := pgtest.NewSqlxDB(t)
+	ctx := t.Context()
+	lggr := logger.TestLogger(t)
+	orm := &orm{ds: db, lggr: lggr}
+
+	want := map[string]struct {
+		owner        string
+		registeredAt int64
+		source       string
+	}{
+		"wf-1": {"owner-1", 100, "ContractWorkflowSource"},
+		"wf-2": {"owner-2", 200, "GRPCWorkflowSource"},
+		"wf-3": {"owner-3", 0, ""}, // pre-migration row: registered_at and source defaulted
+	}
+	for id, w := range want {
+		_, err := orm.UpsertWorkflowSpec(ctx, &job.WorkflowSpec{
+			Workflow:      "binary",
+			Config:        "config",
+			WorkflowID:    id,
+			WorkflowOwner: w.owner,
+			WorkflowName:  "wf",
+			Status:        job.WorkflowSpecStatusActive,
+			CreatedAt:     time.Now(),
+			SpecType:      job.WASMFile,
+			RegisteredAt:  w.registeredAt,
+			Source:        w.source,
+		})
+		require.NoError(t, err)
+	}
+
+	specs, err := orm.ListWorkflowSpecs(ctx)
+	require.NoError(t, err)
+	require.Len(t, specs, len(want))
+	for _, spec := range specs {
+		w, ok := want[spec.WorkflowID]
+		require.True(t, ok, "unexpected workflow_id %q", spec.WorkflowID)
+		assert.Equal(t, w.owner, spec.WorkflowOwner)
+		assert.Equal(t, w.registeredAt, spec.RegisteredAt)
+		assert.Equal(t, w.source, spec.Source)
+		// The projection deliberately omits the heavy artifact columns.
+		assert.Empty(t, spec.Workflow)
+		assert.Empty(t, spec.Config)
+	}
 }
 
 func Test_GetWorkflowSpec(t *testing.T) {

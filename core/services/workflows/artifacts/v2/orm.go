@@ -21,10 +21,10 @@ type WorkflowSpecsDS interface {
 	// GetWorkflowSpecByID returns the workflow spec for the given workflowID.
 	GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error)
 
-	// GetWorkflowSpecList returns the persisted workflow specs. It projects only
-	// the identity columns needed by the metering snapshot path (workflow_id and
-	// workflow_owner); other fields are left zero.
-	GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error)
+	// ListWorkflowSpecs returns the persisted workflow specs. It projects only
+	// identity columns (workflow_id, workflow_owner, registered_at); 
+	// other fields are left zero to keep returned batch size small
+	ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error)
 
 	// DeleteWorkflowSpec deletes the spec row for id. Idempotent: a missing row
 	// returns (nil, nil), not an error. The deleted row is returned so the
@@ -83,7 +83,8 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				updated_at,
 				spec_type,
 				attributes,
-				registered_at
+				registered_at,
+				source
 			) VALUES (
 				:workflow,
 				:config,
@@ -98,7 +99,8 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				:updated_at,
 				:spec_type,
 				:attributes,
-				:registered_at
+				:registered_at,
+				:source
 			) ON CONFLICT (workflow_id) DO UPDATE
 			SET
 				workflow = EXCLUDED.workflow,
@@ -113,7 +115,8 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				updated_at = EXCLUDED.updated_at,
 				spec_type = EXCLUDED.spec_type,
 				attributes = EXCLUDED.attributes,
-				registered_at = EXCLUDED.registered_at
+				registered_at = EXCLUDED.registered_at,
+				source = EXCLUDED.source
 			RETURNING id
 		`
 
@@ -150,11 +153,11 @@ func (orm *orm) GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSp
 	return &spec, nil
 }
 
-// GetWorkflowSpecList returns all persisted workflow specs, projecting the
+// ListWorkflowSpecs returns all persisted workflow specs, projecting the
 // identity columns needed by the orphan sweep and the metering snapshot path.
-func (orm *orm) GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error) {
+func (orm *orm) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error) {
 	query := `
-		SELECT workflow_id, workflow_owner, registered_at
+		SELECT workflow_id, workflow_owner, registered_at, source
 		FROM workflow_specs_v2
 	`
 
@@ -167,7 +170,10 @@ func (orm *orm) GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, e
 }
 
 func (orm *orm) DeleteWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error) {
-	query := `DELETE FROM workflow_specs_v2 WHERE workflow_id = $1 RETURNING *`
+	query := `DELETE FROM workflow_specs_v2 WHERE workflow_id = $1
+		RETURNING id, workflow, config, workflow_id, workflow_owner, workflow_name,
+			workflow_tag, status, binary_url, config_url, created_at, updated_at,
+			spec_type, attributes, registered_at, source`
 	var spec job.WorkflowSpec
 	err := orm.ds.GetContext(ctx, &spec, query, id)
 	if errors.Is(err, sql.ErrNoRows) {

@@ -1034,8 +1034,8 @@ func (m *mockArtifactStore) PauseWorkflowArtifacts(ctx context.Context, workflow
 	return m.artifactStore.PauseWorkflowArtifacts(ctx, workflowID)
 }
 
-func (m *mockArtifactStore) GetWorkflowSpecList(ctx context.Context) ([]*job.WorkflowSpec, error) {
-	return m.artifactStore.GetWorkflowSpecList(ctx)
+func (m *mockArtifactStore) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error) {
+	return m.artifactStore.ListWorkflowSpecs(ctx)
 }
 
 func (m *mockArtifactStore) DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error {
@@ -1350,7 +1350,7 @@ func (s *stubWorkflowArtifactsStore) UpsertWorkflowSpec(_ context.Context, spec 
 	return 1, nil
 }
 
-func (s *stubWorkflowArtifactsStore) GetWorkflowSpecList(context.Context) ([]*job.WorkflowSpec, error) {
+func (s *stubWorkflowArtifactsStore) ListWorkflowSpecs(context.Context) ([]*job.WorkflowSpec, error) {
 	if s.listErr != nil {
 		return nil, s.listErr
 	}
