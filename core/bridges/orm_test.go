@@ -161,6 +161,42 @@ func TestORM_TestCachedResponse(t *testing.T) {
 	require.Equal(t, []byte{111, 222, 2}, val)
 }
 
+func TestORM_BulkUpsertBridgeResponseSkipsDeletedSpecs(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	cfg := configtest.NewGeneralConfig(t, nil)
+	db := pgtest.NewSqlxDB(t)
+	orm := bridges.NewORM(db)
+
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *sqlutil.NewInterval(5*time.Minute))
+	require.NoError(t, err)
+	deletedSpecID, err := trORM.CreateSpec(ctx, pipeline.Pipeline{}, *sqlutil.NewInterval(5*time.Minute))
+	require.NoError(t, err)
+
+	_, err = db.ExecContext(ctx, `DELETE FROM pipeline_specs WHERE id = $1`, deletedSpecID)
+	require.NoError(t, err)
+
+	// The stale response for the deleted spec must not fail the whole batch.
+	require.NoError(t, orm.BulkUpsertBridgeResponse(ctx, []bridges.BridgeResponse{
+		{DotID: "live1", SpecID: specID, Value: []byte{1, 2, 3}, FinishedAt: time.Now()},
+		{DotID: "stale", SpecID: deletedSpecID, Value: []byte{4, 5, 6}, FinishedAt: time.Now()},
+		{DotID: "live2", SpecID: specID, Value: []byte{7, 8, 9}, FinishedAt: time.Now()},
+	}))
+
+	val, err := orm.GetCachedResponse(ctx, "live1", specID, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, []byte{1, 2, 3}, val)
+
+	val, err = orm.GetCachedResponse(ctx, "live2", specID, time.Second)
+	require.NoError(t, err)
+	require.Equal(t, []byte{7, 8, 9}, val)
+
+	_, err = orm.GetCachedResponse(ctx, "stale", deletedSpecID, time.Second)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no rows in result set")
+}
+
 func TestORM_CreateExternalInitiator(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()

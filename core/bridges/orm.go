@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -194,16 +195,33 @@ func (o *orm) UpsertBridgeResponse(ctx context.Context, dotId string, specId int
 }
 
 func (o *orm) BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeResponse) error {
-	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
-			VALUES (:dot_id, :spec_id, :value, :finished_at)
+	if len(responses) == 0 {
+		return nil
+	}
+
+	dotIDs := make([]string, len(responses))
+	specIDs := make([]int32, len(responses))
+	values := make([][]byte, len(responses))
+	finishedAt := make([]time.Time, len(responses))
+	for i, response := range responses {
+		dotIDs[i], specIDs[i] = response.DotID, response.SpecID
+		values[i], finishedAt[i] = response.Value, response.FinishedAt
+	}
+
+	// The bridge cache holds responses in memory indefinitely, so it keeps offering rows for
+	// pipeline specs that have since been deleted. Without the EXISTS guard one such row fails the
+	// whole batch on bridge_last_value_spec_id_fkey.
+	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
+			SELECT * FROM unnest($1::text[], $2::int[], $3::bytea[], $4::timestamptz[])
+				AS candidate(dot_id, spec_id, value, finished_at)
+			WHERE EXISTS (SELECT 1 FROM pipeline_specs WHERE id = candidate.spec_id)
 			ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 				DO UPDATE SET value = excluded.value, finished_at = excluded.finished_at;`
 
-	if _, err := o.ds.NamedExecContext(ctx, sql, responses); err != nil {
-		return err
-	}
+	_, err := o.ds.ExecContext(ctx, sql,
+		pq.Array(dotIDs), pq.Array(specIDs), pq.Array(values), pq.Array(finishedAt))
 
-	return nil
+	return err
 }
 
 // --- External Initiator
