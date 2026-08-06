@@ -34,6 +34,9 @@ outputs:
   golang-report-issue-count:
     description: The count of issues in the uploaded artifact
     value: ${{ steps.print.outputs.issue-count }}
+  golang-report-critical-issue-count:
+    description: The count of critical issues in the uploaded artifact
+    value: ${{ steps.print.outputs.critical-issue-count }}
   golang-report-per-source-count:
     description: The count of issues per source in the uploaded artifact
     value: ${{ steps.print.outputs.per-source-count }}
@@ -108,6 +111,7 @@ runs:
         cat ${REPORT_PATH}
         echo "file-count=$(jq '[.Issues[].Pos.Filename] | unique | length' ${REPORT_PATH_JSON})" | tee -a $GITHUB_OUTPUT
         echo "issue-count=$(jq '.Issues | length' ./${REPORT_PATH_JSON})" | tee -a $GITHUB_OUTPUT
+        echo "critical-issue-count=$(jq '[.Issues[].Severity | select(. == IN("high", "medium"))] | length' ${REPORT_PATH_JSON})" | tee -a $GITHUB_OUTPUT
         echo 'per-source-count<<EOF' | tee -a $GITHUB_OUTPUT
         echo "$(jq -r '.Issues[].FromLinter' ${REPORT_PATH_JSON} | sort | uniq -c | sort -nr)" | tee -a $GITHUB_OUTPUT
         echo 'EOF' | tee -a $GITHUB_OUTPUT
