@@ -159,4 +159,4 @@ runs:
         # Use a unique suffix for each lint report artifact to avoid duplication errors
         name: golangci-lint-report-${{ steps.suffix.outputs.suffix }}
         # N/B: value may be empty (no slash) OR `<path>/<to>/<module>/` (with slash tat the end)
-        path: ./${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}golangci-lint-report.xml
+        path: ./${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}golangci-lint-report.*
