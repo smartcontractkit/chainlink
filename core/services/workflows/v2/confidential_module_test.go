@@ -559,7 +559,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 		require.NoError(t, capturedReq.Payload.UnmarshalTo(&confReq))
 		require.NotNil(t, confReq.Execution.Restrictions)
 		require.NotNil(t, confReq.Execution.Restrictions.Capabilities)
-		assert.Equal(t, int32(7), confReq.Execution.Restrictions.Capabilities.MaxTotalCalls)
+		assert.Equal(t, uint32(7), confReq.Execution.Restrictions.Capabilities.MaxTotalCalls)
 	})
 
 	t.Run("restrictions consumed after execute", func(t *testing.T) {
@@ -657,7 +657,7 @@ func TestConfidentialModule_SetRestrictions(t *testing.T) {
 		require.NotNil(t, confReq.Execution.Requirements.Tee)
 		require.NotNil(t, confReq.Execution.Restrictions)
 		require.NotNil(t, confReq.Execution.Restrictions.Capabilities)
-		assert.Equal(t, int32(3), confReq.Execution.Restrictions.Capabilities.MaxTotalCalls)
+		assert.Equal(t, uint32(3), confReq.Execution.Restrictions.Capabilities.MaxTotalCalls)
 	})
 }
 
