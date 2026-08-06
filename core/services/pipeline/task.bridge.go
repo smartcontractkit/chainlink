@@ -179,7 +179,44 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		if bridgeConnManager == nil {
 			bridgeConnManager = bridgeconn.NewBridgeConnManager()
 		}
+		start := time.Now()
 		responseBytes, obsErr := bridgeConnManager.GetObservation(bridge, map[string]any(lookupPayload))
+		finish := time.Now()
+
+		statusCode := http.StatusOK
+		if obsErr != nil {
+			statusCode = http.StatusGatewayTimeout
+		}
+
+		if telemetryCh := GetTelemetryCh(ctx); telemetryCh != nil {
+			requestDataJSON, jsonErr := json.Marshal(lookupPayload)
+			if jsonErr != nil {
+				lggr.Warnw("Bridge task: failed to marshal request data for telemetry", "err", jsonErr)
+			}
+			bt := &BridgeTelemetry{
+				Name:                   t.Name,
+				RequestData:            requestDataJSON,
+				ResponseData:           responseBytes,
+				ResponseStatusCode:     statusCode,
+				RequestStartTimestamp:  start,
+				RequestFinishTimestamp: finish,
+				SpecID:                 t.specID,
+				DotID:                  t.DotID(),
+			}
+			if obsErr != nil {
+				bt.ResponseError = new(string)
+				*bt.ResponseError = obsErr.Error()
+			}
+
+			bt.resolveStreamID(t, vars, lggr)
+
+			select {
+			case telemetryCh <- bt:
+			default:
+				lggr.Warn("bridge task: telemetry channel is full, dropping telemetry")
+			}
+		}
+
 		if obsErr != nil {
 			lggr.Debugw("Bridge task: connection manager request failed",
 				"response", string(responseBytes),

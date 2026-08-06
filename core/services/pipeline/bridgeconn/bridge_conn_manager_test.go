@@ -34,12 +34,13 @@ func testBridge(t *testing.T, name string) bridges.BridgeType {
 
 func newTestManager() *bridgeConnManager {
 	return &bridgeConnManager{
-		cache: make(map[[32]byte][]byte),
+		cache: make(map[[32]byte]cacheEntry),
 		conns: make(map[string]*eaConn),
 		lggr:  logger.Nop(),
 		dial: func(_ context.Context, _ string, _ bool) (eaStreamClient, error) {
 			return nil, errStreamDialingDisabledForTest
 		},
+		clock: clockwork.NewRealClock(),
 	}
 }
 
@@ -139,7 +140,7 @@ func TestEAConn_HandleObservation(t *testing.T) {
 	cached, ok := m.cache[key]
 	m.mu.RUnlock()
 	require.True(t, ok)
-	assert.JSONEq(t, `{"result":"1"}`, string(cached))
+	assert.JSONEq(t, `{"result":"1"}`, string(cached.payload))
 	assert.InEpsilon(t, float64(1), observationsMetric(), 0)
 
 	// Unregistered key: discarded, counter unchanged.
@@ -205,6 +206,29 @@ func TestBridgeConnManager_GetObservation_CacheHitAndMiss(t *testing.T) {
 	_, registered := conn.assets[key]
 	conn.mu.Unlock()
 	assert.True(t, registered)
+}
+
+func TestBridgeConnManager_GetObservation_ExpiresAfterTTL(t *testing.T) {
+	t.Parallel()
+	m := newTestManager()
+	clock := clockwork.NewFakeClock()
+	m.clock = clock
+	bridge := testBridge(t, "ttlbridge")
+	requestData := map[string]any{"data": map[string]any{"endpoint": "crypto"}}
+
+	key, err := bridgeObservationCacheKey(bridge.Name.String(), requestData["data"].(map[string]any))
+	require.NoError(t, err)
+
+	m.PutObservation(key, []byte(`{"result":"9700"}`))
+
+	clock.Advance(observationTTL)
+	got, err := m.GetObservation(bridge, requestData)
+	require.NoError(t, err, "an entry at exactly the TTL boundary must not be treated as expired")
+	assert.JSONEq(t, `{"result":"9700"}`, string(got))
+
+	clock.Advance(time.Nanosecond)
+	_, err = m.GetObservation(bridge, requestData)
+	require.ErrorIs(t, err, ErrBridgeObservationExpired)
 }
 
 func TestBridgeConnManager_GetObservation_MissingDataField(t *testing.T) {

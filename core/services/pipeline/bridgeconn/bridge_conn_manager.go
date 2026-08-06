@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/goccy/go-json"
+	"github.com/jonboulle/clockwork"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -25,27 +27,41 @@ type BridgeConnManager interface {
 
 var (
 	ErrBridgeObservationNotFound = stdErrors.New("bridge observation not found")
+	ErrBridgeObservationExpired  = stdErrors.New("bridge observation expired")
 )
+
+// observationTTL bounds how long a cached observation may be served before it is
+// treated as stale. Hardcoded for now; may become configurable later.
+const observationTTL = 5 * time.Second
+
+// cacheEntry pairs a cached observation with the time it was stored, so
+// GetObservation can reject entries older than observationTTL.
+type cacheEntry struct {
+	payload  []byte
+	storedAt time.Time
+}
 
 // bridgeConnManager is a package-level singleton: one observation cache plus one
 // EAConn registry shared by every pipeline run in the process. It self-initializes
 // lazily as bridges are first used; there is no explicit start/close lifecycle.
 type bridgeConnManager struct {
 	mu    sync.RWMutex
-	cache map[[32]byte][]byte
+	cache map[[32]byte]cacheEntry
 
 	connsMu sync.Mutex
 	conns   map[string]*eaConn // bridge name -> EAConn
 	lggr    logger.Logger      // guarded by connsMu; set at most once, from NewBridgeConnManager
 
-	dial eaStreamDialer
+	dial  eaStreamDialer
+	clock clockwork.Clock
 }
 
 var defaultBridgeConnManager BridgeConnManager = &bridgeConnManager{
-	cache: make(map[[32]byte][]byte),
+	cache: make(map[[32]byte]cacheEntry),
 	conns: make(map[string]*eaConn),
 	lggr:  logger.Nop(),
 	dial:  dialGRPCStream,
+	clock: clockwork.NewRealClock(),
 }
 
 // NewBridgeConnManager returns the package-level singleton. Passing a logger sets
@@ -86,8 +102,11 @@ func (m *bridgeConnManager) GetObservation(bridge bridges.BridgeType, requestDat
 	if !ok {
 		return nil, fmt.Errorf("%w for bridge %q", ErrBridgeObservationNotFound, bridgeName)
 	}
-	payload := make([]byte, len(entry))
-	copy(payload, entry)
+	if m.clock.Now().Sub(entry.storedAt) > observationTTL {
+		return nil, fmt.Errorf("%w for bridge %q", ErrBridgeObservationExpired, bridgeName)
+	}
+	payload := make([]byte, len(entry.payload))
+	copy(payload, entry.payload)
 	return payload, nil
 }
 
@@ -98,7 +117,7 @@ func (m *bridgeConnManager) PutObservation(key [32]byte, observation []byte) {
 	copy(payload, observation)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.cache[key] = payload
+	m.cache[key] = cacheEntry{payload: payload, storedAt: m.clock.Now()}
 }
 
 // SeedObservation computes the bridge observation key from request data and
