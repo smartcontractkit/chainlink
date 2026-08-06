@@ -116,7 +116,13 @@ runs:
         echo "$(jq -r '.Issues[].FromLinter' ${REPORT_PATH_JSON} | sort | uniq -c | sort -nr)" | tee -a $GITHUB_OUTPUT
         echo 'EOF' | tee -a $GITHUB_OUTPUT
         echo 'per-severity-count<<EOF' | tee -a $GITHUB_OUTPUT
-        echo "$(jq -r '.Issues[].Severity | select(. != "") // "none"' ${REPORT_PATH_JSON} | sort | uniq -c | sort -nr)" | tee -a $GITHUB_OUTPUT
+        echo "$(jq -r '.Issues[].Severity | select(. != "") // "none"' ${REPORT_PATH_JSON} | sort | uniq -c | awk '
+          /high/   {print "1 "$0}
+          /medium/ {print "2 "$0}
+          /low/    {print "3 "$0}
+          /warn/   {print "4 "$0}
+          /none/   {print "5 "$0}
+          ' | sort -n | sed 's/^[1-5] //')" | tee -a $GITHUB_OUTPUT
         echo 'EOF' | tee -a $GITHUB_OUTPUT
 
       # Get a valid name for the upload-artifact step.
