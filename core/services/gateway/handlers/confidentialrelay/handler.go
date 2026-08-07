@@ -28,7 +28,10 @@ import (
 )
 
 const (
-	defaultCleanUpPeriod = 5 * time.Second
+	// defaultCleanUpPeriod is how often expired requests are swept and closed grace
+	// windows are forwarded, so it also bounds how far past its deadline a grace
+	// window can run.
+	defaultCleanUpPeriod = time.Second
 
 	defaultRequestTimeoutSec  = 30
 	defaultNodeSendTimeoutSec = 10
@@ -81,9 +84,11 @@ type activeRequest struct {
 	completed atomic.Bool
 
 	// graceStarted is set the first time the request holds F+1 signed responses, so
-	// the grace timer is armed once per request rather than on every later response.
-	graceStarted atomic.Bool
-	graceTimer   clockwork.Timer
+	// the grace deadline is armed once per request rather than moved forward by every
+	// later response. graceDeadline is guarded by mu and is only meaningful once
+	// graceStarted is set.
+	graceStarted  atomic.Bool
+	graceDeadline time.Time
 
 	createdAt time.Time
 	gwhandlers.Callback
@@ -123,20 +128,25 @@ func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawM
 	return copied
 }
 
-func (ar *activeRequest) setGraceTimer(t clockwork.Timer) {
+func (ar *activeRequest) armGraceDeadline(deadline time.Time) bool {
+	if !ar.graceStarted.CompareAndSwap(false, true) {
+		return false
+	}
 	ar.mu.Lock()
 	defer ar.mu.Unlock()
-	ar.graceTimer = t
+	ar.graceDeadline = deadline
+	return true
 }
 
-func (ar *activeRequest) stopGraceTimer() {
-	ar.mu.Lock()
-	t := ar.graceTimer
-	ar.graceTimer = nil
-	ar.mu.Unlock()
-	if t != nil {
-		t.Stop()
+// graceElapsed reports whether the request reached quorum and its grace window has
+// since closed, meaning the collected bundle should be forwarded now.
+func (ar *activeRequest) graceElapsed(now time.Time) bool {
+	if !ar.graceStarted.Load() {
+		return false
 	}
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+	return !ar.graceDeadline.IsZero() && !now.Before(ar.graceDeadline)
 }
 
 type relayBundler interface {
@@ -267,6 +277,7 @@ func (h *handler) Start(_ context.Context) error {
 			for {
 				select {
 				case <-ticker.Chan():
+					h.forwardGracedRequests(ctx)
 					h.removeExpiredRequests(ctx)
 				case <-h.stopCh:
 					return
@@ -500,12 +511,14 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 // signed responses. It bounds how long a request that will never reach earlyNeed
 // keeps waiting for the rest of the DON: without it such a request is held until
 // requestTimeout, long after the caller's own deadline has elapsed, so a bundle
-// that was viable within milliseconds is forwarded to nobody.
+// that was viable within milliseconds is forwarded to nobody. The deadline is swept
+// by the cleanup goroutine rather than a timer, so no completion path runs on an
+// untracked goroutine.
 func (h *handler) startQuorumGrace(l logger.Logger, ar *activeRequest, summary *BundleSummary) {
 	if h.quorumGrace <= 0 {
 		return
 	}
-	if !ar.graceStarted.CompareAndSwap(false, true) {
+	if !ar.armGraceDeadline(h.clock.Now().Add(h.quorumGrace)) {
 		return
 	}
 	l.Infow("relay quorum reached below earlyNeed; starting grace window",
@@ -516,17 +529,28 @@ func (h *handler) startQuorumGrace(l logger.Logger, ar *activeRequest, summary *
 		"nodes", len(h.donConfig.Members),
 		"grace", h.quorumGrace,
 	)
-	ar.setGraceTimer(h.clock.AfterFunc(h.quorumGrace, func() { h.onQuorumGraceElapsed(ar) }))
 }
 
-// onQuorumGraceElapsed forwards the bundle collected during the grace window.
-// Collected responses are never replaced, so the signed count only grows: a request
-// that armed the timer still holds at least minQuorum signed responses here. If the
-// earlyNeed path already answered, the send is a no-op.
-func (h *handler) onQuorumGraceElapsed(ar *activeRequest) {
-	ctx, cancel := h.stopCh.NewCtx()
-	defer cancel()
+// forwardGracedRequests forwards the bundle for every request whose grace window has
+// closed. Collected responses are never replaced, so the signed count only grows: a
+// request that armed the window still holds at least minQuorum signed responses here.
+func (h *handler) forwardGracedRequests(ctx context.Context) {
+	h.mu.RLock()
+	var graced []*activeRequest
+	now := h.clock.Now()
+	for _, ar := range h.activeRequests {
+		if ar.graceElapsed(now) {
+			graced = append(graced, ar)
+		}
+	}
+	h.mu.RUnlock()
 
+	for _, ar := range graced {
+		h.forwardAfterGrace(ctx, ar)
+	}
+}
+
+func (h *handler) forwardAfterGrace(ctx context.Context, ar *activeRequest) {
 	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
 	summary, err := h.bundler.Bundle(ar.req, ar.copiedResponses(), l)
 	if err != nil {
@@ -637,7 +661,6 @@ func (h *handler) sendResponseAndClearRequest(ctx context.Context, ar *activeReq
 		// Another path already answered this request.
 		return nil
 	}
-	ar.stopGraceTimer()
 
 	sendErr := ar.SendResponse(payload)
 
