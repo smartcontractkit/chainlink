@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/smartcontractkit/freeport"
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -59,6 +61,31 @@ type Contracts struct {
 // AdaptiveOracle, AdaptiveRateLogic, and a ReferenceRateAdapterMock standing in for a real reference
 // rate source) on a simulated backend, and wires them together exactly as the forge test suite does.
 func SetupAdaptiveOracleContracts(t *testing.T, referenceRate int64) (*bind.TransactOpts, *simulated.Backend, *toml.Node, *Contracts) {
+	return setupAdaptiveOracleContracts(t, referenceRate, func(owner *bind.TransactOpts, client bind.ContractBackend) common.Address {
+		adaptiveRateLogicAddress, _, _, err := generated.DeployAdaptiveRateLogic(owner, client)
+		require.NoError(t, err)
+		return adaptiveRateLogicAddress
+	})
+}
+
+// SetupAdaptiveOracleContractsWithCappedLogic is identical to SetupAdaptiveOracleContracts, except it
+// wires AdaptiveOracle up to CappedAdaptiveRateLogic instead of AdaptiveRateLogic. Unlike
+// AdaptiveRateLogic's geometric-convergence placeholder, CappedAdaptiveRateLogic has no memory of its
+// own: it always serves the current market rate as the adaptive rate, capped at the reference rate,
+// so a single report is enough to bring the two in line.
+func SetupAdaptiveOracleContractsWithCappedLogic(t *testing.T, referenceRate int64) (*bind.TransactOpts, *simulated.Backend, *toml.Node, *Contracts) {
+	return setupAdaptiveOracleContracts(t, referenceRate, func(owner *bind.TransactOpts, client bind.ContractBackend) common.Address {
+		cappedAdaptiveRateLogicAddress, _, _, err := generated.DeployCappedAdaptiveRateLogic(owner, client)
+		require.NoError(t, err)
+		return cappedAdaptiveRateLogicAddress
+	})
+}
+
+func setupAdaptiveOracleContracts(
+	t *testing.T,
+	referenceRate int64,
+	deployAdaptiveRateLogic func(owner *bind.TransactOpts, client bind.ContractBackend) common.Address,
+) (*bind.TransactOpts, *simulated.Backend, *toml.Node, *Contracts) {
 	owner := evmtestutils.MustNewSimTransactor(t)
 	startingBalance := new(big.Int)
 	startingBalance, _ = startingBalance.SetString("100000000000000000000", 10) // 100 eth
@@ -115,8 +142,7 @@ func SetupAdaptiveOracleContracts(t *testing.T, referenceRate int64) (*bind.Tran
 	require.NoError(t, err)
 	b.Commit()
 
-	adaptiveRateLogicAddress, _, _, err := generated.DeployAdaptiveRateLogic(owner, b.Client())
-	require.NoError(t, err)
+	adaptiveRateLogicAddress := deployAdaptiveRateLogic(owner, b.Client())
 	b.Commit()
 
 	adaptiveOracleAddress, _, adaptiveOracle, err := generated.DeployAdaptiveOracle(owner, b.Client(), owner.From, AdaptiveOracleDecimals, "ADAPTIVE")
@@ -168,7 +194,11 @@ func withRPCServer(host string, httpPort, wsPort int, modules []string) func(nod
 }
 
 // InitAdaptiveOracle sets payees/config on the DualAggregator (identical OCR2Abstract semantics to
-// the standard OCR2Aggregator) and starts the bootstrap node's job.
+// the standard OCR2Aggregator) and starts the bootstrap node's job. Uses libocr's canned
+// integration-test config, which hardcodes DeltaC (the OCR2 heartbeat) to 0 -- i.e. every round is
+// effectively heartbeat-eligible regardless of deviation. Fine for tests that only care about a
+// report landing at all; use InitAdaptiveOracleWithDeltaC instead if the test needs to distinguish
+// deviation-triggered reports from heartbeat-triggered ones (e.g. asserting reporting stops).
 func InitAdaptiveOracle(
 	t *testing.T,
 	lggr logger.Logger,
@@ -181,24 +211,127 @@ func InitAdaptiveOracle(
 	payees []common.Address,
 	specFn func(int64) string,
 ) (blockBeforeConfig *types.Block) {
+	signers, effectiveTransmitters, threshold, _, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
+		oracles,
+		1,
+		1000000000/100, // threshold PPB (1%)
+	)
+	require.NoError(t, err)
+
+	return initAdaptiveOracleWithConfig(
+		t, lggr, b, dualAggregator, owner, bootstrapNode, transmitters, payees, specFn,
+		signers, effectiveTransmitters, threshold, encodedConfigVersion, encodedConfig,
+	)
+}
+
+// InitAdaptiveOracleWithDeltaC is identical to InitAdaptiveOracle, except it builds the offchain
+// config directly so DeltaC (the OCR2 heartbeat -- the maximum age of the latest report before a
+// new one is forced regardless of deviation) can be set explicitly, decoupled from the deviation
+// threshold (alphaPPB). This matters for tests that assert a series of deviation-triggered reports
+// eventually *stops*: with DeltaC left at libocr's canned-test default of 0, every round would be
+// heartbeat-eligible too, and a "no further reports" assertion would be meaningless.
+func InitAdaptiveOracleWithDeltaC(
+	t *testing.T,
+	lggr logger.Logger,
+	b *simulated.Backend,
+	dualAggregator *generated.DualAggregator,
+	owner *bind.TransactOpts,
+	bootstrapNode *ocr2.Node,
+	oracles []confighelper2.OracleIdentityExtra,
+	transmitters []common.Address,
+	payees []common.Address,
+	specFn func(int64) string,
+	alphaPPB uint64,
+	deltaC time.Duration,
+) (blockBeforeConfig *types.Block) {
+	identities := make([]confighelper2.OracleIdentityExtra, len(oracles))
+	copy(identities, oracles)
+
+	s := make([]int, len(oracles))
+	for i := range s {
+		s[i] = 1
+	}
+
+	reportingPluginConfig := median.OffchainConfig{
+		AlphaReportInfinite: false,
+		AlphaReportPPB:      alphaPPB,
+		AlphaAcceptInfinite: false,
+		AlphaAcceptPPB:      alphaPPB,
+		DeltaC:              deltaC,
+	}.Encode()
+
+	minAnswer, maxAnswer := new(big.Int), new(big.Int)
+	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
+	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
+	maxAnswer.Sub(maxAnswer, big.NewInt(1))
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
+	require.NoError(t, err)
+
+	maxDurationInitialization := 50 * time.Millisecond
+	signers, transmitterAccounts, threshold, _, encodedConfigVersion, encodedConfig, err :=
+		confighelper2.ContractSetConfigArgsForTestsWithAuxiliaryArgs(
+			2*time.Second,        // deltaProgress
+			1*time.Second,        // deltaResend
+			1*time.Second,        // deltaRound
+			500*time.Millisecond, // deltaGrace
+			2*time.Second,        // deltaStage
+			3,                    // rMax
+			s,
+			identities,
+			reportingPluginConfig,
+			&maxDurationInitialization,
+			50*time.Millisecond, // maxDurationQuery
+			50*time.Millisecond, // maxDurationObservation
+			50*time.Millisecond, // maxDurationReport
+			50*time.Millisecond, // maxDurationShouldAcceptFinalizedReport
+			50*time.Millisecond, // maxDurationShouldTransmitAcceptedReport
+			1,                   // f
+			onchainConfig,
+			confighelper2.AuxiliaryArgs{},
+		)
+	require.NoError(t, err)
+
+	effectiveTransmitters := make([]common.Address, len(transmitterAccounts))
+	for i, a := range transmitterAccounts {
+		effectiveTransmitters[i] = common.HexToAddress(string(a))
+	}
+	signerAddresses := make([]common.Address, len(signers))
+	for i, s := range signers {
+		signerAddresses[i] = common.BytesToAddress(s)
+	}
+
+	return initAdaptiveOracleWithConfig(
+		t, lggr, b, dualAggregator, owner, bootstrapNode, transmitters, payees, specFn,
+		signerAddresses, effectiveTransmitters, threshold, encodedConfigVersion, encodedConfig,
+	)
+}
+
+func initAdaptiveOracleWithConfig(
+	t *testing.T,
+	lggr logger.Logger,
+	b *simulated.Backend,
+	dualAggregator *generated.DualAggregator,
+	owner *bind.TransactOpts,
+	bootstrapNode *ocr2.Node,
+	transmitters []common.Address,
+	payees []common.Address,
+	specFn func(int64) string,
+	signers []common.Address,
+	effectiveTransmitters []common.Address,
+	threshold uint8,
+	encodedConfigVersion uint64,
+	encodedConfig []byte,
+) (blockBeforeConfig *types.Block) {
 	_, err := dualAggregator.SetPayees(owner, transmitters, payees)
 	require.NoError(t, err)
 	b.Commit()
 	blockBeforeConfig, err = b.Client().BlockByNumber(t.Context(), nil)
 	require.NoError(t, err)
 
-	signers, effectiveTransmitters, threshold, _, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
-		oracles,
-		1,
-		1000000000/100, // threshold PPB
-	)
-	require.NoError(t, err)
-
 	minAnswer, maxAnswer := new(big.Int), new(big.Int)
 	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
 	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
 	maxAnswer.Sub(maxAnswer, big.NewInt(1))
-
 	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
 	require.NoError(t, err)
 

@@ -35,8 +35,8 @@ var (
 
 // AdaptiveRateLogicMetaData contains all meta data concerning the AdaptiveRateLogic contract.
 var AdaptiveRateLogicMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"getAdaptiveRate\",\"inputs\":[{\"name\":\"\",\"type\":\"int256\",\"internalType\":\"int256\"},{\"name\":\"referenceRate\",\"type\":\"int256\",\"internalType\":\"int256\"},{\"name\":\"marketRate\",\"type\":\"int256\",\"internalType\":\"int256\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"adaptiveRate\",\"type\":\"int256\",\"internalType\":\"int256\"}],\"stateMutability\":\"pure\"}]",
-	Bin: "0x6080604052348015600f57600080fd5b506101398061001f6000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c8063f96978f414610030575b600080fd5b61004361003e366004610077565b610055565b60405190815260200160405180910390f35b6000600261006385876100c8565b61006d91906100f0565b9695505050505050565b600080600080600060a0868803121561008f57600080fd5b505083359560208501359550604085013594606081013594506080013592509050565b634e487b7160e01b600052601160045260246000fd5b80820182811260008312801582168215821617156100e8576100e86100b2565b505092915050565b60008261010d57634e487b7160e01b600052601260045260246000fd5b600160ff1b821460001984141615610127576101276100b2565b50059056fea164736f6c634300081a000a",
+	ABI: "[{\"type\":\"function\",\"name\":\"getAdaptiveRate\",\"inputs\":[{\"name\":\"lastAdaptiveRate\",\"type\":\"int256\",\"internalType\":\"int256\"},{\"name\":\"\",\"type\":\"int256\",\"internalType\":\"int256\"},{\"name\":\"marketRate\",\"type\":\"int256\",\"internalType\":\"int256\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"},{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[{\"name\":\"adaptiveRate\",\"type\":\"int256\",\"internalType\":\"int256\"}],\"stateMutability\":\"pure\"}]",
+	Bin: "0x6080604052348015600f57600080fd5b506101398061001f6000396000f3fe608060405234801561001057600080fd5b506004361061002b5760003560e01c8063f96978f414610030575b600080fd5b61004361003e366004610077565b610055565b60405190815260200160405180910390f35b6000600261006385886100c8565b61006d91906100f0565b9695505050505050565b600080600080600060a0868803121561008f57600080fd5b505083359560208501359550604085013594606081013594506080013592509050565b634e487b7160e01b600052601160045260246000fd5b80820182811260008312801582168215821617156100e8576100e86100b2565b505092915050565b60008261010d57634e487b7160e01b600052601260045260246000fd5b600160ff1b821460001984141615610127576101276100b2565b50059056fea164736f6c634300081a000a",
 }
 
 // AdaptiveRateLogicABI is the input ABI used to generate the binding from.
@@ -208,10 +208,10 @@ func (_AdaptiveRateLogic *AdaptiveRateLogicTransactorRaw) Transact(opts *bind.Tr
 
 // GetAdaptiveRate is a free data retrieval call binding the contract method 0xf96978f4.
 //
-// Solidity: function getAdaptiveRate(int256 , int256 referenceRate, int256 marketRate, uint256 , uint256 ) pure returns(int256 adaptiveRate)
-func (_AdaptiveRateLogic *AdaptiveRateLogicCaller) GetAdaptiveRate(opts *bind.CallOpts, arg0 *big.Int, referenceRate *big.Int, marketRate *big.Int, arg3 *big.Int, arg4 *big.Int) (*big.Int, error) {
+// Solidity: function getAdaptiveRate(int256 lastAdaptiveRate, int256 , int256 marketRate, uint256 , uint256 ) pure returns(int256 adaptiveRate)
+func (_AdaptiveRateLogic *AdaptiveRateLogicCaller) GetAdaptiveRate(opts *bind.CallOpts, lastAdaptiveRate *big.Int, arg1 *big.Int, marketRate *big.Int, arg3 *big.Int, arg4 *big.Int) (*big.Int, error) {
 	var out []interface{}
-	err := _AdaptiveRateLogic.contract.Call(opts, &out, "getAdaptiveRate", arg0, referenceRate, marketRate, arg3, arg4)
+	err := _AdaptiveRateLogic.contract.Call(opts, &out, "getAdaptiveRate", lastAdaptiveRate, arg1, marketRate, arg3, arg4)
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -225,14 +225,14 @@ func (_AdaptiveRateLogic *AdaptiveRateLogicCaller) GetAdaptiveRate(opts *bind.Ca
 
 // GetAdaptiveRate is a free data retrieval call binding the contract method 0xf96978f4.
 //
-// Solidity: function getAdaptiveRate(int256 , int256 referenceRate, int256 marketRate, uint256 , uint256 ) pure returns(int256 adaptiveRate)
-func (_AdaptiveRateLogic *AdaptiveRateLogicSession) GetAdaptiveRate(arg0 *big.Int, referenceRate *big.Int, marketRate *big.Int, arg3 *big.Int, arg4 *big.Int) (*big.Int, error) {
-	return _AdaptiveRateLogic.Contract.GetAdaptiveRate(&_AdaptiveRateLogic.CallOpts, arg0, referenceRate, marketRate, arg3, arg4)
+// Solidity: function getAdaptiveRate(int256 lastAdaptiveRate, int256 , int256 marketRate, uint256 , uint256 ) pure returns(int256 adaptiveRate)
+func (_AdaptiveRateLogic *AdaptiveRateLogicSession) GetAdaptiveRate(lastAdaptiveRate *big.Int, arg1 *big.Int, marketRate *big.Int, arg3 *big.Int, arg4 *big.Int) (*big.Int, error) {
+	return _AdaptiveRateLogic.Contract.GetAdaptiveRate(&_AdaptiveRateLogic.CallOpts, lastAdaptiveRate, arg1, marketRate, arg3, arg4)
 }
 
 // GetAdaptiveRate is a free data retrieval call binding the contract method 0xf96978f4.
 //
-// Solidity: function getAdaptiveRate(int256 , int256 referenceRate, int256 marketRate, uint256 , uint256 ) pure returns(int256 adaptiveRate)
-func (_AdaptiveRateLogic *AdaptiveRateLogicCallerSession) GetAdaptiveRate(arg0 *big.Int, referenceRate *big.Int, marketRate *big.Int, arg3 *big.Int, arg4 *big.Int) (*big.Int, error) {
-	return _AdaptiveRateLogic.Contract.GetAdaptiveRate(&_AdaptiveRateLogic.CallOpts, arg0, referenceRate, marketRate, arg3, arg4)
+// Solidity: function getAdaptiveRate(int256 lastAdaptiveRate, int256 , int256 marketRate, uint256 , uint256 ) pure returns(int256 adaptiveRate)
+func (_AdaptiveRateLogic *AdaptiveRateLogicCallerSession) GetAdaptiveRate(lastAdaptiveRate *big.Int, arg1 *big.Int, marketRate *big.Int, arg3 *big.Int, arg4 *big.Int) (*big.Int, error) {
+	return _AdaptiveRateLogic.Contract.GetAdaptiveRate(&_AdaptiveRateLogic.CallOpts, lastAdaptiveRate, arg1, marketRate, arg3, arg4)
 }

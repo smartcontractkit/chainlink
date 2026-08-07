@@ -1,6 +1,6 @@
 // Package adaptiveoracle contains abigen-generated Go bindings for the v0.3-adaptive-oracle
-// contracts (DualAggregator, AdaptiveOracle, AdaptiveRateLogic) and the ReferenceRateAdapterMock
-// test helper, all sourced from https://github.com/smartcontractkit/svr-auction-don
+// contracts (DualAggregator, AdaptiveOracle, AdaptiveRateLogic, CappedAdaptiveRateLogic) and the
+// ReferenceRateAdapterMock test helper, all sourced from https://github.com/smartcontractkit/svr-auction-don
 // (contracts/src/v0.3-adaptive-oracle). These are copied in manually for this PoC smoke test,
 // following the same pattern used for the DualAggregator bindings in
 // core/internal/features/svr/dual_aggregator.go. If/when the svr-auction-don contracts are merged

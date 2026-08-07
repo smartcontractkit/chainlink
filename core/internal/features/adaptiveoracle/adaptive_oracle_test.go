@@ -158,24 +158,26 @@ fromBlock = %d
 	}
 	wg.Wait()
 
-	// The DualAggregator's own AggregatorInterface view exposes the adaptive rate:
-	// avg(referenceRate, initialPrice) = avg(700, 500) = 600.
+	// The DualAggregator's own AggregatorInterface view exposes the adaptive rate. lastAdaptiveRate
+	// starts at 0 (no reset yet), so avg(0, initialPrice) = avg(0, 500) = 250.
 	require.Eventually(t, func() bool {
 		answer, err := contracts.DualAggregator.LatestAnswer(nil)
 		require.NoError(t, err)
-		return answer.Cmp(big.NewInt((referenceRate+initialPrice)/2)) == 0
-	}, 1*time.Minute, 200*time.Millisecond, "expected DualAggregator to report the adaptive (averaged) rate")
+		return answer.Cmp(big.NewInt(initialPrice/2)) == 0
+	}, 1*time.Minute, 200*time.Millisecond, "expected DualAggregator to report the adaptive rate")
 
-	// AdaptiveOracle clamps to min(adaptive, reference); since adaptive (600) < reference (700),
-	// consumers should also see 600.
+	// AdaptiveOracle clamps to min(adaptive, reference); since adaptive (250) < reference (700),
+	// consumers should also see 250.
 	adaptiveOracleAnswer, err := contracts.AdaptiveOracle.LatestAnswer(nil)
 	require.NoError(t, err)
-	require.Equal(t, big.NewInt((referenceRate+initialPrice)/2), adaptiveOracleAnswer)
+	require.Equal(t, big.NewInt(initialPrice/2), adaptiveOracleAnswer)
 
-	// The original, untransformed market answer must be preserved for off-chain node logic.
+	// latestTransmissionDetails() returns the ADAPTIVE answer, not the original market answer --
+	// this is what the off-chain median plugin's deviation check reads (see
+	// DualAggregator::latestTransmissionDetails for why).
 	transmissionDetails, err := contracts.DualAggregator.LatestTransmissionDetails(nil)
 	require.NoError(t, err)
-	require.Equal(t, big.NewInt(initialPrice), transmissionDetails.LatestAnswer)
+	require.Equal(t, big.NewInt(initialPrice/2), transmissionDetails.LatestAnswer)
 
 	// Reset the adaptive rate back to the reference rate -- must take effect immediately.
 	_, err = contracts.AdaptiveOracle.ResetAnchors(owner)
@@ -192,7 +194,8 @@ fromBlock = %d
 
 	// Change the observed market price so the median plugin's deviation threshold triggers a new,
 	// distinct round -- proving the adaptive rate keeps moving per AdaptiveRateLogic after a reset,
-	// rather than staying frozen at the reference rate.
+	// rather than staying frozen at the reference rate. lastAdaptiveRate is now 700 (from the
+	// reset), so avg(700, changedPrice) = avg(700, 550) = 625.
 	priceLock.Lock()
 	currentPrice = changedPrice
 	priceLock.Unlock()
@@ -205,5 +208,5 @@ fromBlock = %d
 
 	finalTransmissionDetails, err := contracts.DualAggregator.LatestTransmissionDetails(nil)
 	require.NoError(t, err)
-	require.Equal(t, big.NewInt(changedPrice), finalTransmissionDetails.LatestAnswer, "original answer must still reflect the new market price")
+	require.Equal(t, big.NewInt((referenceRate+changedPrice)/2), finalTransmissionDetails.LatestAnswer, "latestTransmissionDetails must reflect the new adaptive rate")
 }
