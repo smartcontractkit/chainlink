@@ -19,11 +19,6 @@ on:
   # repository_dispatch with client_payload: {old_ref, new_ref, slack_thread_url}.
   repository_dispatch:
     types: [ccip-release-changelog]
-  # TEMP(ogt): branch testing only — workflow_dispatch registration requires
-  # the file on the default branch, so test via push until this lands on
-  # develop. REMOVE before merging.
-  push:
-    branches: [ogt/add-ccip-changelog-generator]
 
 permissions: {}
 
@@ -46,13 +41,6 @@ jobs:
           old="${IN_OLD:-$PAYLOAD_OLD}"
           new="${IN_NEW:-$PAYLOAD_NEW}"
           thread="${IN_THREAD:-$PAYLOAD_THREAD}"
-          # TEMP(ogt): defaults for push-triggered branch testing (push events
-          # carry no inputs). REMOVE with the push trigger before merging.
-          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-            old="${old:-v2.55.0}"
-            new="${new:-release/2.56.0}"
-            thread="${thread:-https://chainlink-core.slack.com/archives/C0BJNPH9E81/p1785450480680969}"
-          fi
           if [ -z "$old" ] || [ -z "$new" ]; then
             echo "::error::old_ref and new_ref are required"
             exit 1
