@@ -8,9 +8,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/config"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/bm"
+	dummytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dummy"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/llo/channeldefinitions"
 )
@@ -58,8 +58,8 @@ func (r *relayer) NewLLOProvider(ctx context.Context, rargs types.RelayArgs, par
 	if err != nil {
 		return nil, err
 	}
-	transmitter := bm.NewTransmitter(r.lggr, pargs.TransmitterID)
-	pluginCfg := new(config.PluginConfig)
+	transmitter := dummytransmitter.NewTransmitter(r.lggr, pargs.TransmitterID)
+	pluginCfg := new(lloconfig.PluginConfig)
 	if err = pluginCfg.Unmarshal(pargs.PluginConfig); err != nil {
 		return nil, err
 	}

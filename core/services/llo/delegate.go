@@ -13,11 +13,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
+	llodatasource "github.com/smartcontractkit/chainlink-data-streams/llo/datasource"
+	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/dev/v31"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/v31"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocr2plus "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
@@ -45,15 +46,15 @@ type delegate struct {
 	services.StateMachine
 
 	cfg          DelegateConfig
-	reportCodecs map[llotypes.ReportFormat]llocommon.ReportCodec
+	reportCodecs map[llotypes.ReportFormat]lloprotocol.ReportCodec
 
 	// src is the shared ShouldRetireCache. llov30.ShouldRetireCache and
 	// llov31.ShouldRetireCache have identical method sets, so this value serves
 	// both versions.
 	src llov30.ShouldRetireCache
-	// ds is the shared LLO data source (llocommon.DataSource); v30 and v31 both
+	// ds is the shared LLO data source (llodatasource.DataSource); v30 and v31 both
 	// consume it, lifecycle gating is driven by the round's DSOpts.
-	ds    llocommon.DataSource
+	ds    llodatasource.DataSource
 	telem telem.TelemeterService
 
 	oracles []Closer
@@ -74,7 +75,7 @@ type DelegateConfig struct {
 	ChannelDefinitionCache   llotypes.ChannelDefinitionCache
 	ReportingPluginConfig    llov30.Config
 	RetirementReportCache    retirement.RetirementReportCache
-	RetirementReportCodec    llocommon.RetirementReportCodec
+	RetirementReportCodec    lloprotocol.RetirementReportCodec
 	ShouldRetireCache        llov30.ShouldRetireCache
 	PluginMonitoringEndpoint telemetry.MultitypeMonitoringEndpoint
 	DonID                    uint32
@@ -209,7 +210,7 @@ func (d *delegate) Start(ctx context.Context) error {
 }
 
 // newOracleV30 builds an OCR3.0 oracle running the llo/v30 reporting plugin.
-func (d *delegate) newOracleV30(i int, configTracker ocr2types.ContractConfigTracker, lggr logger.Logger, ocrLogger ocrcommontypes.Logger, psrrc llocommon.PredecessorRetirementReportCache) (ocr2plus.Oracle, error) {
+func (d *delegate) newOracleV30(i int, configTracker ocr2types.ContractConfigTracker, lggr logger.Logger, ocrLogger ocrcommontypes.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) (ocr2plus.Oracle, error) {
 	return ocr2plus.NewOracle(ocr2plus.OCR3OracleArgs2[llotypes.ReportInfo]{
 		BinaryNetworkEndpointFactory: d.cfg.BinaryNetworkEndpointFactory,
 		V2Bootstrappers:              d.cfg.V2Bootstrappers,
@@ -232,7 +233,7 @@ func (d *delegate) newOracleV30(i int, configTracker ocr2types.ContractConfigTra
 					ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
 					DataSource:                       d.ds,
 					Logger:                           logger.Named(lggr, "ReportingPlugin"),
-					OnchainConfigCodec:               llocommon.EVMOnchainConfigCodec{},
+					OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
 					ReportCodecs:                     d.reportCodecs,
 					OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
 					ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
@@ -251,7 +252,7 @@ func (d *delegate) newOracleV30(i int, configTracker ocr2types.ContractConfigTra
 // newOracleV31 builds an OCR3.1 oracle running the llo/v31 reporting plugin. It
 // differs from v30 by the OCR3.1 oracle args (OCR3_1OracleArgs2), the "2"
 // network endpoint factory, and the required replicated KeyValueDatabaseFactory.
-func (d *delegate) newOracleV31(i int, configTracker ocr2types.ContractConfigTracker, lggr logger.Logger, ocrLogger ocrcommontypes.Logger, psrrc llocommon.PredecessorRetirementReportCache) (ocr2plus.Oracle, error) {
+func (d *delegate) newOracleV31(i int, configTracker ocr2types.ContractConfigTracker, lggr logger.Logger, ocrLogger ocrcommontypes.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) (ocr2plus.Oracle, error) {
 	factory := promwrapper31.NewReportingPluginFactory(
 		llov31.NewPluginFactory(llov31.PluginFactoryParams{
 			Config:                           llov31.Config{VerboseLogging: d.cfg.ReportingPluginConfig.VerboseLogging},
@@ -261,7 +262,7 @@ func (d *delegate) newOracleV31(i int, configTracker ocr2types.ContractConfigTra
 			ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
 			DataSource:                       d.ds,
 			Logger:                           logger.Named(lggr, "ReportingPlugin"),
-			OnchainConfigCodec:               llocommon.EVMOnchainConfigCodec{},
+			OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
 			ReportCodecs:                     d.reportCodecs,
 			OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
 			ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),

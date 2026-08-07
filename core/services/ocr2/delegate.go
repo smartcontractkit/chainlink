@@ -33,7 +33,7 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/chainlink-automation/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-automation/pkg/v3/plugin"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	functionsRelay "github.com/smartcontractkit/chainlink-evm/pkg/functions"
 
@@ -59,8 +59,8 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
-	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -170,7 +170,7 @@ type DelegateConfig interface {
 	OCR2() ocr2Config
 	JobPipeline() jobPipelineConfig
 	Insecure() insecureConfig
-	Mercury() de.Mercury
+	Mercury() dataengine.Mercury
 	Threshold() coreconfig.Threshold
 	Sharding() coreconfig.Sharding
 	RingStoreForShard0() *ring.Store
@@ -200,7 +200,7 @@ func (d *delegateConfig) Threshold() coreconfig.Threshold {
 	return d.threshold
 }
 
-func (d *delegateConfig) Mercury() de.Mercury {
+func (d *delegateConfig) Mercury() dataengine.Mercury {
 	return d.mercury
 }
 
@@ -244,9 +244,9 @@ type jobPipelineConfig interface {
 
 type mercuryConfig interface {
 	Credentials(credName string) *types.MercuryCredentials
-	Cache() de.MercuryCache
-	TLS() de.MercuryTLS
-	Transmitter() de.MercuryTransmitter
+	Cache() dataengine.MercuryCache
+	TLS() dataengine.MercuryTLS
+	Transmitter() dataengine.MercuryTransmitter
 	VerboseLogging() bool
 }
 
@@ -254,7 +254,7 @@ type thresholdConfig interface {
 	ThresholdKeyShare() string
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m de.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, ringStore *ring.Store) DelegateConfig {
+func NewDelegateConfig(ocr2Cfg ocr2Config, m dataengine.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, ringStore *ring.Store) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -1549,7 +1549,7 @@ func (d *Delegate) newServicesLLO(
 		ChannelDefinitionCache:   provider.ChannelDefinitionCache(),
 		RetirementReportCache:    d.retirementReportCache,
 		ShouldRetireCache:        provider.ShouldRetireCache(),
-		RetirementReportCodec:    llocommon.StandardRetirementReportCodec{},
+		RetirementReportCodec:    lloprotocol.StandardRetirementReportCodec{},
 		PluginMonitoringEndpoint: d.monitoringEndpointGen.GenMultitypeMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID),
 		DonID:                    pluginCfg.DonID,
 		ChainID:                  rid.ChainID,

@@ -1,6 +1,6 @@
 // Package bench contains a comparative micro-benchmark between the OCR3.0 LLO
 // plugin (chainlink-data-streams/llo/v30) and the OCR3.1 LLO plugin
-// (chainlink-data-streams/llo/v31).
+// (chainlink-data-streams/llo/dev/v31).
 //
 // The two plugins implement identical LLO application logic on top of different
 // OCR protocols. The performance question this benchmark answers is what that
@@ -43,9 +43,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
+	llodatasource "github.com/smartcontractkit/chainlink-data-streams/llo/datasource"
+	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/dev/v31"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/v31"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -134,13 +135,13 @@ func (m *mockChannelDefinitionCache) Name() string                   { return "b
 // staticDataSource fills every requested stream with a fixed decimal value.
 // This keeps the DataSource out of the measured critical path (no I/O, no
 // allocation-heavy pipeline) so the benchmark isolates plugin cost.
-type staticDataSource struct{ value *llocommon.Decimal }
+type staticDataSource struct{ value *lloprotocol.Decimal }
 
 func newStaticDataSource() *staticDataSource {
-	return &staticDataSource{value: llocommon.ToDecimal(decimal.NewFromInt(123456))}
+	return &staticDataSource{value: lloprotocol.ToDecimal(decimal.NewFromInt(123456))}
 }
 
-func (d *staticDataSource) Observe(_ context.Context, sv llocommon.StreamValues, _ llocommon.DSOpts) error {
+func (d *staticDataSource) Observe(_ context.Context, sv lloprotocol.StreamValues, _ llodatasource.DSOpts) error {
 	for k := range sv {
 		sv[k] = d.value
 	}
@@ -153,16 +154,16 @@ func (mockShouldRetireCache) ShouldRetire(ocrtypes.ConfigDigest) (bool, error) {
 
 type mockOnchainConfigCodec struct{}
 
-func (mockOnchainConfigCodec) Decode([]byte) (llocommon.OnchainConfig, error) {
-	return llocommon.OnchainConfig{}, nil
+func (mockOnchainConfigCodec) Decode([]byte) (lloprotocol.OnchainConfig, error) {
+	return lloprotocol.OnchainConfig{}, nil
 }
-func (mockOnchainConfigCodec) Encode(llocommon.OnchainConfig) ([]byte, error) { return nil, nil }
+func (mockOnchainConfigCodec) Encode(lloprotocol.OnchainConfig) ([]byte, error) { return nil, nil }
 
 // ---------------------------------------------------------------------------
 // Plugin construction
 // ---------------------------------------------------------------------------
 
-func reportCodecs() map[llotypes.ReportFormat]llocommon.ReportCodec {
+func reportCodecs() map[llotypes.ReportFormat]lloprotocol.ReportCodec {
 	// The same production codec set both plugins use (delegate.go). Only the
 	// JSON codec is exercised by this workload.
 	return corello.NewReportCodecs(logger.Nop(), 0)
@@ -175,7 +176,7 @@ func reportCodecs() map[llotypes.ReportFormat]llocommon.ReportCodec {
 // second and diverge from v31). The 1ns interval effectively reports every
 // round while keeping both plugins on identical reportability rules.
 func benchOffchainConfig() []byte {
-	b, err := llocommon.OffchainConfig{
+	b, err := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: 1,
 	}.Encode()
@@ -200,7 +201,7 @@ func buildV30(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) ocr3typ
 	factory := llov30.NewPluginFactory(llov30.PluginFactoryParams{
 		Config:                 llov30.Config{VerboseLogging: false},
 		ShouldRetireCache:      mockShouldRetireCache{},
-		RetirementReportCodec:  llocommon.StandardRetirementReportCodec{},
+		RetirementReportCodec:  lloprotocol.StandardRetirementReportCodec{},
 		ChannelDefinitionCache: &mockChannelDefinitionCache{defs: defs},
 		DataSource:             newStaticDataSource(),
 		Logger:                 logger.Nop(),
@@ -217,7 +218,7 @@ func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1
 	factory := llov31.NewPluginFactory(llov31.PluginFactoryParams{
 		Config:                 llov31.Config{VerboseLogging: false},
 		ShouldRetireCache:      mockShouldRetireCache{},
-		RetirementReportCodec:  llocommon.StandardRetirementReportCodec{},
+		RetirementReportCodec:  lloprotocol.StandardRetirementReportCodec{},
 		ChannelDefinitionCache: &mockChannelDefinitionCache{defs: defs},
 		DataSource:             newStaticDataSource(),
 		Logger:                 logger.Nop(),

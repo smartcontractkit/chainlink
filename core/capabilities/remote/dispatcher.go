@@ -45,14 +45,14 @@ type dispatcher struct {
 }
 
 type dispatcherMetrics struct {
-	sharedPeerMsgsRcvdCounter   metric.Int64Counter
-	rateLimitedMsgsCounter      metric.Int64Counter
-	invalidMsgsCounter          metric.Int64Counter
-	unknownCapMsgsCounter       metric.Int64Counter
-	receiveChannelUsageGauge    metric.Float64Gauge
-	receiverDroppedMsgsCounter  metric.Int64Counter
-	messagesSentCounter         metric.Int64Counter
-	sendErrorsCounter           metric.Int64Counter
+	sharedPeerMsgsRcvdCounter  metric.Int64Counter
+	rateLimitedMsgsCounter     metric.Int64Counter
+	invalidMsgsCounter         metric.Int64Counter
+	unknownCapMsgsCounter      metric.Int64Counter
+	receiveChannelUsageGauge   metric.Float64Gauge
+	receiverDroppedMsgsCounter metric.Int64Counter
+	messagesSentCounter        metric.Int64Counter
+	sendErrorsCounter          metric.Int64Counter
 }
 
 var _ types.Dispatcher = &dispatcher{}
