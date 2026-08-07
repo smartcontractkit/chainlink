@@ -111,7 +111,7 @@ runs:
         cat ${REPORT_PATH}
         echo "file-count=$(jq '[.Issues[].Pos.Filename] | unique | length' ${REPORT_PATH_JSON})" | tee -a $GITHUB_OUTPUT
         echo "issue-count=$(jq '.Issues | length' ./${REPORT_PATH_JSON})" | tee -a $GITHUB_OUTPUT
-        echo "critical-issue-count=$(jq '[.Issues[].Severity | select(. == IN("high", "medium"))] | length' ${REPORT_PATH_JSON})" | tee -a $GITHUB_OUTPUT
+        echo "critical-issue-count=$(jq '[.Issues[].Severity | select(. | IN("high", "medium"))] | length' ${REPORT_PATH_JSON})" | tee -a $GITHUB_OUTPUT
         echo 'per-source-count<<EOF' | tee -a $GITHUB_OUTPUT
         echo "$(jq -r '.Issues[].FromLinter' ${REPORT_PATH_JSON} | sort | uniq -c | sort -nr)" | tee -a $GITHUB_OUTPUT
         echo 'EOF' | tee -a $GITHUB_OUTPUT
