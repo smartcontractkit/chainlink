@@ -654,9 +654,13 @@ func TestConfidentialRelayHandler_QuorumGraceForwardsPartialBundle(t *testing.T)
 
 	// The grace window was armed by the 4th signed response and has not elapsed yet.
 	clock.Advance(defaultQuorumGraceMillis*time.Millisecond - time.Second)
+	h.forwardGracedRequests(t.Context())
 	require.NotNil(t, h.getActiveRequest(req.ID), "must not forward before the grace window elapses")
 
+	// The sweep delivers the bundle to the callback synchronously, so it can be read
+	// on this goroutine afterwards.
 	clock.Advance(2 * time.Second)
+	h.forwardGracedRequests(t.Context())
 
 	resp, err := cb.Wait(t.Context())
 	require.NoError(t, err)
@@ -697,9 +701,10 @@ func TestConfidentialRelayHandler_QuorumGraceYieldsToEarlyForward(t *testing.T) 
 	require.Equal(t, api.NoError, resp.ErrorCode)
 	require.Nil(t, h.getActiveRequest(req.ID))
 
-	// The grace timer armed at the second signed response is stopped on completion;
-	// firing it must not resurrect or re-answer the request.
+	// The grace window armed at the second signed response outlives the forward; the
+	// sweep must not resurrect or re-answer a completed request.
 	clock.Advance(2 * defaultQuorumGraceMillis * time.Millisecond)
+	h.forwardGracedRequests(t.Context())
 	require.Nil(t, h.getActiveRequest(req.ID))
 }
 
@@ -726,6 +731,7 @@ func TestConfidentialRelayHandler_QuorumGraceNotArmedBelowQuorum(t *testing.T) {
 	require.False(t, ar.graceStarted.Load(), "one signed response is below minQuorum=2")
 
 	clock.Advance(2 * defaultQuorumGraceMillis * time.Millisecond)
+	h.forwardGracedRequests(t.Context())
 	require.NotNil(t, h.getActiveRequest(req.ID), "only expiry may complete a below-quorum request")
 }
 
