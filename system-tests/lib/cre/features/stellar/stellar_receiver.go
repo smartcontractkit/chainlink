@@ -10,7 +10,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/stellar"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 )
 
@@ -27,13 +26,8 @@ func DeployStellarTestReceiver(ctx context.Context, chain *stellchain.Blockchain
 		return "", fmt.Errorf("failed to fund stellar deployer %s via friendbot: %w", owner, fundErr)
 	}
 
-	buildCfg, err := helpers.BuildStellarConfigFor(ctx, stellar.ReceiverWasm)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve stellar receiver WASM source: %w", err)
-	}
-
 	var salt [32]byte
-	return stellar.DeployReceiverForChain(ctx, stellarChain, buildCfg, salt)
+	return stellar.DeployReceiverForChain(ctx, stellarChain, salt)
 }
 
 // ReceiverReportCount reads the receiver's report_count (read-only simulate,
@@ -69,12 +63,7 @@ func DeployStellarRejectingReceiver(ctx context.Context, chain *stellchain.Block
 		return "", fmt.Errorf("failed to fund stellar deployer %s via friendbot: %w", owner, fundErr)
 	}
 
-	buildCfg, err := helpers.BuildStellarConfigFor(ctx, stellar.RejectingReceiverWasm)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve stellar rejecting receiver WASM source: %w", err)
-	}
-
 	var salt [32]byte
 	salt[0] = 0x52 // 'R' — distinct from the cooperative receiver's all-zero salt
-	return stellar.DeployRejectingReceiverForChain(ctx, stellarChain, buildCfg, salt)
+	return stellar.DeployRejectingReceiverForChain(ctx, stellarChain, salt)
 }
