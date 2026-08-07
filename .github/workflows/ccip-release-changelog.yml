@@ -61,8 +61,8 @@ jobs:
           echo "new_ref=$new" >> "$GITHUB_OUTPUT"
           echo "slack_thread_url=$thread" >> "$GITHUB_OUTPUT"
           # Artifact names may not contain / : " < > | * ? etc.
-          echo "safe_old=$(echo "$old" | sed 's/[^a-zA-Z0-9._-]/-/g')" >> "$GITHUB_OUTPUT"
-          echo "safe_new=$(echo "$new" | sed 's/[^a-zA-Z0-9._-]/-/g')" >> "$GITHUB_OUTPUT"
+          echo "safe_old=${old//[^a-zA-Z0-9._-]/-}" >> "$GITHUB_OUTPUT"
+          echo "safe_new=${new//[^a-zA-Z0-9._-]/-}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v6
         with:
