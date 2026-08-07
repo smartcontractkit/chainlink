@@ -646,17 +646,13 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			ID:  "cre-p2p-proxy",
 			Cmd: cfg.Capabilities().Proxy().Command(),
 			Args: []string{
-				"--listen-addresses=" + strings.Join(cfg.P2P().V2().ListenAddresses(), ","),
+				"--ocr.listen-addresses=" + strings.Join(cfg.P2P().V2().ListenAddresses(), ","),
 				fmt.Sprintf("--proxy-listen-address=:%d", cfg.Capabilities().Proxy().Port()),
 				"--capabilities-registry-address=" + extRegistry.Address(),
-				"--evm-chain-id=" + extRegistry.ChainID(),
-				"--evm-http-url=" + proxyEVMHTTPURL,
-			},
-			Env: []string{
-				// Sourced from resolved config, not os.Getenv: the node may receive
-				// these via secrets TOML / password file rather than env.
-				"CL_DATABASE_URL=" + proxyDBURL.String(),
-				"CL_PASSWORD_KEYSTORE=" + cfg.Password().Keystore(),
+				"--evm.chain-id=" + extRegistry.ChainID(),
+				"--evm.http-url=" + proxyEVMHTTPURL,
+				"--database.url=" + proxyDBURL.String(),
+				"--ocr.keystore-password=" + cfg.Password().Keystore(),
 			},
 		})
 		if rerr != nil {
