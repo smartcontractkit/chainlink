@@ -42,7 +42,8 @@ func TestRunTransactionReleasesEscrowAndAuditsLifecycle(t *testing.T) {
 	})
 
 	audit := &AuditLog{}
-	orchestrator := &Orchestrator{
+
+	cfg := OrchestratorConfig{
 		Directory:  directory,
 		Escrow:     NewInMemoryEscrow(),
 		Reputation: reputation,
@@ -54,9 +55,16 @@ func TestRunTransactionReleasesEscrowAndAuditsLifecycle(t *testing.T) {
 			AllowedRails:        []string{"evm-escrow"},
 			MinSellerReputation: 5,
 		},
+		Timeout:    10 * time.Second,
+		MaxRetries: 2,
 		ExecuteAs: func(_ context.Context, _ SignedIntent) ([]byte, map[string]string, error) {
 			return []byte("verified research deliverable"), map[string]string{"content-type": "text/plain"}, nil
 		},
+	}
+
+	orchestrator, err := NewOrchestrator(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 
 	receipt, err := orchestrator.RunTransaction(ctx, ServiceQuery{
@@ -116,19 +124,26 @@ func TestRunTransactionRefundsWhenVerificationFails(t *testing.T) {
 	directory := NewInMemoryDirectory()
 	directory.Register(AgentProfile{ID: sellerWallet.Address(), Capabilities: []string{"build"}, Pricing: map[string]Amount{"build": {Value: 3, Currency: "USDC", Rail: "x402"}}, Reputation: ReputationScore{Score: 1}})
 
-	orchestrator := &Orchestrator{
+	cfg := OrchestratorConfig{
 		Directory:  directory,
 		Escrow:     NewInMemoryEscrow(),
 		Reputation: reputation,
 		Audit:      &AuditLog{},
 		Wallet:     buyerWallet,
 		Policy:     Policy{MaxSpend: 10, AllowedCurrencies: []string{"USDC"}, AllowedRails: []string{"x402"}},
+		Timeout:    10 * time.Second,
+		MaxRetries: 2,
 		ExecuteAs: func(_ context.Context, _ SignedIntent) ([]byte, map[string]string, error) {
 			return []byte("bad output"), nil, nil
 		},
 		VerifyWith: func(_ context.Context, _ SignedIntent, _ Proof) (VerificationResult, error) {
 			return VerificationResult{Verified: false, Method: "oracle", Reason: "oracle rejected deliverable", Time: time.Now().UTC()}, nil
 		},
+	}
+
+	orchestrator, err := NewOrchestrator(cfg)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 
 	receipt, err := orchestrator.RunTransaction(ctx, ServiceQuery{Capability: "build", MaxPrice: Amount{Value: 10}, SettlementRail: "x402"}, ServiceRequest{Service: "build", EscrowTerms: EscrowTerms{ReleaseConditions: []string{"oracle"}, Expiration: time.Hour}}, sellerWallet)
@@ -151,7 +166,16 @@ func TestRunTransactionRefundsWhenVerificationFails(t *testing.T) {
 }
 
 func TestPolicyRejectsOverspendBeforeEscrow(t *testing.T) {
-	err := EvaluatePolicy(Policy{MaxSpend: 5}, AgentProfile{}, IntentTerms{ServiceRequest: ServiceRequest{Service: "agent-research", EscrowTerms: EscrowTerms{ReleaseConditions: []string{"proof"}, Expiration: time.Hour}}, Price: Amount{Value: 6, Currency: "LINK", Rail: "evm-escrow"}, Buyer: "buyer", Seller: "seller", Timestamp: time.Now().UTC()})
+	err := EvaluatePolicy(Policy{MaxSpend: 5}, AgentProfile{}, IntentTerms{
+		ServiceRequest: ServiceRequest{
+			Service:     "agent-research",
+			EscrowTerms: EscrowTerms{ReleaseConditions: []string{"proof"}, Expiration: time.Hour},
+		},
+		Price:     Amount{Value: 6, Currency: "LINK", Rail: "evm-escrow"},
+		Buyer:     "buyer",
+		Seller:    "seller",
+		Timestamp: time.Now().UTC(),
+	})
 	if err == nil || !strings.Contains(err.Error(), "exceeds max spend") {
 		t.Fatalf("expected overspend error, got %v", err)
 	}
@@ -200,4 +224,59 @@ func TestDirectoryFiltersRequiredMetadataAndAuditHashChain(t *testing.T) {
 	if entries[1].PreviousHash != entries[0].EntryHash {
 		t.Fatalf("previous hash = %q, want %q", entries[1].PreviousHash, entries[0].EntryHash)
 	}
+}
+
+func TestEdgeCases(t *testing.T) {
+	t.Run("nil wallet in SignIntent returns error", func(t *testing.T) {
+		_, err := SignIntent(IntentTerms{}, nil, nil)
+		if err == nil {
+			t.Fatal("expected error for nil wallets")
+		}
+	})
+
+	t.Run("empty hash in InMemoryEscrow.Lock returns error", func(t *testing.T) {
+		e := NewInMemoryEscrow()
+		intent := SignedIntent{Hash: "", Terms: IntentTerms{
+			ServiceRequest: ServiceRequest{
+				Service:     "test",
+				EscrowTerms: EscrowTerms{ReleaseConditions: []string{"proof"}, Expiration: time.Hour},
+			},
+			Price:     Amount{Value: 1, Currency: "LINK", Rail: "evm-escrow"},
+			Buyer:     "buyer",
+			Seller:    "seller",
+			Timestamp: time.Now().UTC(),
+		}}
+		_, err := e.Lock(context.Background(), intent)
+		if err == nil {
+			t.Fatal("expected error for empty hash")
+		}
+	})
+
+	t.Run("orchestrator handles nil execute as", func(t *testing.T) {
+		cfg := OrchestratorConfig{
+			Directory:  NewInMemoryDirectory(),
+			Escrow:     NewInMemoryEscrow(),
+			Reputation: NewInMemoryReputation(),
+			Audit:      &AuditLog{},
+			Wallet:     &Ed25519Wallet{address: "buyer"},
+			ExecuteAs:  nil,
+		}
+		_, err := NewOrchestrator(cfg)
+		if err == nil {
+			t.Fatal("expected error for nil ExecuteAs")
+		}
+	})
+
+	t.Run("SafeWallet handles nil inner wallet", func(t *testing.T) {
+		sw := NewSafeWallet(nil)
+		if sw.Address() != "" {
+			t.Error("expected empty address for nil wallet")
+		}
+		if _, err := sw.Sign([]byte("test")); err == nil {
+			t.Error("expected error for nil wallet Sign")
+		}
+		if sw.Verify("test", []byte("test"), []byte("sig")) {
+			t.Error("expected false for nil wallet Verify")
+		}
+	})
 }

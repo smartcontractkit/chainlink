@@ -14,6 +14,11 @@ import (
 	"time"
 )
 
+const (
+	minHashLength = 16
+	maxHashLength = 64
+)
+
 // Agent models the end-to-end Agent Commerce Protocol lifecycle.
 type Agent interface {
 	Discover(context.Context, ServiceQuery) ([]AgentProfile, error)
@@ -23,7 +28,7 @@ type Agent interface {
 	Settle(context.Context, SignedIntent, VerificationResult) (SettlementReceipt, error)
 }
 
-// Wallet signs and verifies protocol payloads and can be adapted to Chainlink-supported rails.
+// Wallet signs and verifies protocol payloads.
 type Wallet interface {
 	Address() string
 	Sign([]byte) ([]byte, error)
@@ -217,12 +222,21 @@ func ValidateIntentTerms(terms IntentTerms) error {
 }
 
 func SignIntent(terms IntentTerms, buyer, seller Wallet) (SignedIntent, error) {
-	if buyer == nil || seller == nil {
-		return SignedIntent{}, errors.New("buyer and seller wallets are required")
+	if buyer == nil {
+		return SignedIntent{}, errors.New("buyer wallet is required")
+	}
+	if seller == nil {
+		return SignedIntent{}, errors.New("seller wallet is required")
+	}
+	if err := ValidateIntentTerms(terms); err != nil {
+		return SignedIntent{}, err
 	}
 	hash, err := IntentHash(terms)
 	if err != nil {
 		return SignedIntent{}, err
+	}
+	if hash == "" {
+		return SignedIntent{}, errors.New("generated empty hash")
 	}
 	payload := []byte(hash)
 	bs, err := buyer.Sign(payload)
@@ -233,7 +247,18 @@ func SignIntent(terms IntentTerms, buyer, seller Wallet) (SignedIntent, error) {
 	if err != nil {
 		return SignedIntent{}, err
 	}
-	return SignedIntent{Terms: terms, Hash: hash, BuyerSignature: bs, SellerSignature: ss}, nil
+	if len(bs) == 0 {
+		return SignedIntent{}, errors.New("buyer signature is empty")
+	}
+	if len(ss) == 0 {
+		return SignedIntent{}, errors.New("seller signature is empty")
+	}
+	return SignedIntent{
+		Terms:           terms,
+		Hash:            hash,
+		BuyerSignature:  bs,
+		SellerSignature: ss,
+	}, nil
 }
 
 func VerifySignedIntent(intent SignedIntent, wallet Wallet) error {
@@ -293,20 +318,86 @@ func NewEd25519Wallet(registry *sync.Map) (*Ed25519Wallet, error) {
 	}
 	pub, priv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to generate key: %w", err)
 	}
 	sum := sha256.Sum256(pub)
 	address := hex.EncodeToString(sum[:20])
+	if address == "" {
+		return nil, errors.New("generated empty address")
+	}
 	registry.Store(address, pub)
-	return &Ed25519Wallet{address: address, priv: priv, pubkeys: registry}, nil
+	return &Ed25519Wallet{
+		address: address,
+		priv:    priv,
+		pubkeys: registry,
+	}, nil
 }
+
 func (w *Ed25519Wallet) Address() string { return w.address }
+
 func (w *Ed25519Wallet) Sign(payload []byte) ([]byte, error) {
+	if len(payload) == 0 {
+		return nil, errors.New("payload is empty")
+	}
 	return ed25519.Sign(w.priv, payload), nil
 }
+
 func (w *Ed25519Wallet) Verify(address string, payload, signature []byte) bool {
+	if address == "" || len(payload) == 0 || len(signature) == 0 {
+		return false
+	}
 	v, ok := w.pubkeys.Load(address)
-	return ok && ed25519.Verify(v.(ed25519.PublicKey), payload, signature)
+	if !ok {
+		return false
+	}
+	pubKey, ok := v.(ed25519.PublicKey)
+	if !ok || pubKey == nil {
+		return false
+	}
+	if len(pubKey) != ed25519.PublicKeySize {
+		return false
+	}
+	return ed25519.Verify(pubKey, payload, signature)
+}
+
+// SafeWallet wraps a Wallet with concurrency protection.
+type SafeWallet struct {
+	wallet Wallet
+	mu     sync.RWMutex
+}
+
+func NewSafeWallet(w Wallet) *SafeWallet {
+	return &SafeWallet{wallet: w}
+}
+
+func (s *SafeWallet) Address() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.wallet == nil {
+		return ""
+	}
+	return s.wallet.Address()
+}
+
+func (s *SafeWallet) Sign(payload []byte) ([]byte, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.wallet == nil {
+		return nil, errors.New("wallet is nil")
+	}
+	if len(payload) == 0 {
+		return nil, errors.New("payload is empty")
+	}
+	return s.wallet.Sign(payload)
+}
+
+func (s *SafeWallet) Verify(address string, payload, signature []byte) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.wallet == nil {
+		return false
+	}
+	return s.wallet.Verify(address, payload, signature)
 }
 
 type InMemoryDirectory struct {
@@ -317,11 +408,13 @@ type InMemoryDirectory struct {
 func NewInMemoryDirectory() *InMemoryDirectory {
 	return &InMemoryDirectory{profiles: map[string]AgentProfile{}}
 }
+
 func (d *InMemoryDirectory) Register(profile AgentProfile) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.profiles[profile.ID] = profile
 }
+
 func (d *InMemoryDirectory) Discover(q ServiceQuery) []AgentProfile {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -358,19 +451,33 @@ type InMemoryEscrow struct {
 func NewInMemoryEscrow() *InMemoryEscrow {
 	return &InMemoryEscrow{locked: map[string]EscrowReceipt{}, released: map[string]bool{}}
 }
+
 func (e *InMemoryEscrow) Lock(_ context.Context, intent SignedIntent) (EscrowReceipt, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
 	if err := ValidateIntentTerms(intent.Terms); err != nil {
 		return EscrowReceipt{}, err
+	}
+	if len(intent.Hash) < minHashLength {
+		return EscrowReceipt{}, errors.New("intent hash too short")
 	}
 	if _, ok := e.locked[intent.Hash]; ok {
 		return EscrowReceipt{}, errors.New("escrow already locked")
 	}
-	r := EscrowReceipt{EscrowID: "escrow-" + intent.Hash[:16], IntentHash: intent.Hash, Buyer: intent.Terms.Buyer, Seller: intent.Terms.Seller, Amount: intent.Terms.Price, ExpiresAt: intent.Terms.Timestamp.Add(intent.Terms.EscrowTerms.Expiration)}
+	escrowID := "escrow-" + intent.Hash[:minHashLength]
+	r := EscrowReceipt{
+		EscrowID:   escrowID,
+		IntentHash: intent.Hash,
+		Buyer:      intent.Terms.Buyer,
+		Seller:     intent.Terms.Seller,
+		Amount:     intent.Terms.Price,
+		ExpiresAt:  intent.Terms.Timestamp.Add(intent.Terms.EscrowTerms.Expiration),
+	}
 	e.locked[intent.Hash] = r
 	return r, nil
 }
+
 func (e *InMemoryEscrow) Release(_ context.Context, escrowID string) (SettlementReceipt, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -382,8 +489,17 @@ func (e *InMemoryEscrow) Release(_ context.Context, escrowID string) (Settlement
 		return SettlementReceipt{}, errors.New("escrow already settled")
 	}
 	e.released[escrowID] = true
-	return SettlementReceipt{SettlementID: "settle-" + r.IntentHash[:16], EscrowID: escrowID, To: r.Seller, Amount: r.Amount, Rail: r.Amount.Rail, Status: "released", Timestamp: time.Now().UTC()}, nil
+	return SettlementReceipt{
+		SettlementID: "settle-" + r.IntentHash[:minHashLength],
+		EscrowID:     escrowID,
+		To:           r.Seller,
+		Amount:       r.Amount,
+		Rail:         r.Amount.Rail,
+		Status:       "released",
+		Timestamp:    time.Now().UTC(),
+	}, nil
 }
+
 func (e *InMemoryEscrow) Refund(_ context.Context, escrowID string) (SettlementReceipt, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -395,8 +511,17 @@ func (e *InMemoryEscrow) Refund(_ context.Context, escrowID string) (SettlementR
 		return SettlementReceipt{}, errors.New("escrow already settled")
 	}
 	e.released[escrowID] = true
-	return SettlementReceipt{SettlementID: "refund-" + r.IntentHash[:16], EscrowID: escrowID, To: r.Buyer, Amount: r.Amount, Rail: r.Amount.Rail, Status: "refunded", Timestamp: time.Now().UTC()}, nil
+	return SettlementReceipt{
+		SettlementID: "refund-" + r.IntentHash[:minHashLength],
+		EscrowID:     escrowID,
+		To:           r.Buyer,
+		Amount:       r.Amount,
+		Rail:         r.Amount.Rail,
+		Status:       "refunded",
+		Timestamp:    time.Now().UTC(),
+	}, nil
 }
+
 func (e *InMemoryEscrow) find(id string) (EscrowReceipt, error) {
 	for _, r := range e.locked {
 		if r.EscrowID == id {
@@ -414,6 +539,7 @@ type InMemoryReputation struct {
 func NewInMemoryReputation() *InMemoryReputation {
 	return &InMemoryReputation{scores: map[string]ReputationScore{}}
 }
+
 func (r *InMemoryReputation) Update(_ context.Context, ev ReputationEvent) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -428,6 +554,7 @@ func (r *InMemoryReputation) Update(_ context.Context, ev ReputationEvent) error
 	r.scores[ev.AgentID] = s
 	return nil
 }
+
 func (r *InMemoryReputation) Query(_ context.Context, id string) (ReputationScore, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -463,9 +590,18 @@ func (l *AuditLog) Store(kind, ref string, payload any) error {
 		return err
 	}
 	entrySum := sha256.Sum256(entryPayload)
-	l.entries = append(l.entries, AuditEntry{Kind: kind, Ref: ref, Payload: b, PayloadHash: hex.EncodeToString(payloadSum[:]), PreviousHash: previousHash, EntryHash: hex.EncodeToString(entrySum[:]), Timestamp: timestamp})
+	l.entries = append(l.entries, AuditEntry{
+		Kind:         kind,
+		Ref:          ref,
+		Payload:      b,
+		PayloadHash:  hex.EncodeToString(payloadSum[:]),
+		PreviousHash: previousHash,
+		EntryHash:    hex.EncodeToString(entrySum[:]),
+		Timestamp:    timestamp,
+	})
 	return nil
 }
+
 func (l *AuditLog) Entries() []AuditEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -475,6 +611,7 @@ func (l *AuditLog) Entries() []AuditEntry {
 }
 
 func canonicalJSON(v any) ([]byte, error) { return json.Marshal(v) }
+
 func contains(values []string, want string) bool {
 	for _, v := range values {
 		if v == want {
