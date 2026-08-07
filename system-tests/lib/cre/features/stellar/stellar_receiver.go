@@ -41,7 +41,7 @@ func ReceiverReportCount(ctx context.Context, chain *stellchain.Blockchain, cont
 }
 
 // ReceiverLastValueU64 reads the receiver's last_value_u64 (read-only simulate)
-// so the write→read roundtrip test can assert payload integrity.
+// so the write read roundtrip test can assert payload integrity.
 func ReceiverLastValueU64(ctx context.Context, chain *stellchain.Blockchain, contractID string) (uint64, error) {
 	stellarChain, err := stellarCldfChain(chain)
 	if err != nil {
