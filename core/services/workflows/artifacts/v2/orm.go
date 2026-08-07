@@ -23,7 +23,7 @@ type WorkflowSpecsDS interface {
 	GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error)
 
 	// ListWorkflowSpecs returns the persisted workflow specs. It projects only
-	// identity columns (workflow_id, workflow_owner, registered_at); 
+	// identity columns (workflow_id, workflow_owner, registered_at);
 	// other fields are left zero to keep returned batch size small
 	ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error)
 
