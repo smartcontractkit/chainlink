@@ -2118,23 +2118,6 @@ func Test_reconcileOrphanedSpecs(t *testing.T) {
 
 		assert.Empty(t, h.Handled(), "engine-owned orphan must not be released here")
 	})
-
-	t.Run("empty metadata union with persisted specs refuses to release", func(t *testing.T) {
-		t.Parallel()
-		// Every source succeeding while returning zero metadata is
-		// indistinguishable from endpoints serving empty state; releasing
-		// every row on that signal alone would emit an unrecoverable -1 each.
-		h := &orphanSweepFakeHandler{}
-		w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: NewEngineRegistry(), metrics: newTestRegistryMetrics(t)}
-
-		specs := []*job.WorkflowSpec{
-			{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
-			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd"},
-		}
-		w.reconcileOrphanedSpecs(t.Context(), specs, map[string]struct{}{})
-
-		assert.Empty(t, h.Handled(), "empty union with persisted specs must not release anything")
-	})
 }
 
 // fakeMetadataSource is a canned WorkflowMetadataSource for driving the

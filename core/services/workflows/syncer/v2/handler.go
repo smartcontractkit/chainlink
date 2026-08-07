@@ -346,7 +346,7 @@ func NewEventHandler(
 	eh.Service, eh.eng = services.Config{
 		Name: "EventHandler",
 		// The workflow store and the spec meter are started and stopped
-		// alongside the handler. 
+		// alongside the handler.
 		NewSubServices: func(logger.Logger) []services.Service {
 			var subs []services.Service
 			if eh.workflowStore != nil {
