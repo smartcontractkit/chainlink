@@ -44,7 +44,7 @@ func TestSetProxyCacheChangeset(t *testing.T) {
 }
 
 // CacheVersion resolves a cache recorded under a different version than the
-// proxy; empty CacheVersion falls back to Version (covered above).
+// proxy; empty CacheVersion falls back to Version.
 func TestSetProxyCacheChangeset_CrossVersion(t *testing.T) {
 	env, inv, _ := newTestEnv(t)
 	seedContractRefs(t, &env,

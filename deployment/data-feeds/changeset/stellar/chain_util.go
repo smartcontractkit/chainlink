@@ -2,8 +2,11 @@ package stellar
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/stellar/go-stellar-sdk/xdr"
@@ -17,26 +20,20 @@ import (
 	stellardeploy "github.com/smartcontractkit/chainlink-stellar/deployment"
 )
 
-// StellarDeps bundles deploy and invoke chain I/O for the operations. The
-// same chainlink-stellar Deployer satisfies both fields.
 type StellarDeps struct {
 	Deploy  SorobanContractDeployer
 	Invoker bindings.Invoker
 }
 
-// SorobanContractDeployer is the deploy surface needed from chainlink-stellar's
-// Deployer, defined locally so upstream need not export it.
 type SorobanContractDeployer interface {
 	DeployContractWithArgs(ctx context.Context, wasmPath string, salt [32]byte, ctorArgs []xdr.ScVal) (string, error)
 	UploadContractWASM(ctx context.Context, wasmPath string) (xdr.Hash, error)
 }
 
-// void is the output for operations that return no payload.
 type void struct{}
 
 var opVersion = semver.MustParse("1.0.0")
 
-// contractAdmin is the ownership/upgrade/recovery surface shared by the
 // generated cache and proxy clients.
 type contractAdmin interface {
 	TransferOwnership(ctx context.Context, newOwner string, liveUntilLedger uint32) error
@@ -52,7 +49,6 @@ func adminClient(d StellarDeps, contractID string, isProxy bool) contractAdmin {
 	return cache.NewDataFeedsCacheClient(d.Invoker, contractID)
 }
 
-// newStellarDeps is a package-level var so unit tests can substitute fakes.
 var newStellarDeps = func(ch cldfstellar.Chain) (StellarDeps, error) {
 	d, err := stellardeploy.NewDeployerFromChain(ch)
 	if err != nil {
@@ -70,7 +66,6 @@ func chainDeps(env cldf.Environment, chainSel uint64) (cldfstellar.Chain, Stella
 	return ch, deps, err
 }
 
-// ownerOrSigner defaults an empty owner to the chain's deployer signer.
 func ownerOrSigner(ch cldfstellar.Chain, owner string) (string, error) {
 	if owner != "" {
 		return owner, nil
@@ -81,31 +76,11 @@ func ownerOrSigner(ch cldfstellar.Chain, owner string) (string, error) {
 	return ch.Signer.Address(), nil
 }
 
-func recordAddress(address string, chainSel uint64, contractType datastore.ContractType, qualifier, version string, labels datastore.LabelSet) (cldf.ChangesetOutput, error) {
-	var out cldf.ChangesetOutput
-	v, err := semver.NewVersion(version)
-	if err != nil {
-		return out, fmt.Errorf("invalid version %q: %w", version, err)
-	}
-	out.DataStore = datastore.NewMemoryDataStore()
-	return out, out.DataStore.Addresses().Add(datastore.AddressRef{
-		Address:       address,
-		ChainSelector: chainSel,
-		Type:          contractType,
-		Version:       v,
-		Qualifier:     qualifier,
-		Labels:        labels,
-	})
-}
-
-// stellarApplyDeps pairs a resolved contract address with its chain deps.
 type stellarApplyDeps struct {
 	deps       StellarDeps
 	contractID string
 }
 
-// verifyContractRef checks the chain exists, the version parses, and an
-// AddressRef exists for the contract.
 func verifyContractRef(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) error {
 	if _, ok := env.BlockChains.StellarChains()[chainSel]; !ok {
 		return fmt.Errorf("stellar chain not found for chain selector %d", chainSel)
@@ -114,7 +89,6 @@ func verifyContractRef(env cldf.Environment, chainSel uint64, contractType datas
 	return err
 }
 
-// getAddressRef parses version and fetches the contract's AddressRef.
 func getAddressRef(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) (datastore.AddressRef, error) {
 	v, err := semver.NewVersion(version)
 	if err != nil {
@@ -129,8 +103,6 @@ func getAddressRef(env cldf.Environment, chainSel uint64, contractType datastore
 	return ref, nil
 }
 
-// resolveContractDeps resolves the contract's AddressRef and bundles it with
-// the chain deps.
 func resolveContractDeps(env cldf.Environment, chainSel uint64, contractType datastore.ContractType, qualifier, version string) (stellarApplyDeps, datastore.AddressRef, error) {
 	_, deps, err := chainDeps(env, chainSel)
 	if err != nil {
@@ -141,4 +113,47 @@ func resolveContractDeps(env cldf.Environment, chainSel uint64, contractType dat
 		return stellarApplyDeps{}, datastore.AddressRef{}, err
 	}
 	return stellarApplyDeps{deps: deps, contractID: ref.Address}, ref, nil
+}
+
+// dataIDsToBytes converts hex feed IDs to [16]byte. Data IDs are canonically
+// left-aligned, so short values are left-justified with trailing zero padding.
+func dataIDsToBytes(ids []string) ([][16]byte, error) {
+	out := make([][16]byte, 0, len(ids))
+	for _, id := range ids {
+		v, ok := new(big.Int).SetString(id, 0)
+		if !ok {
+			return nil, fmt.Errorf("invalid data_id: %q", id)
+		}
+		if v.BitLen() > 128 {
+			return nil, fmt.Errorf("data_id too long: %q (%d bits)", id, v.BitLen())
+		}
+		var b [16]byte
+		copy(b[:], v.Bytes())
+		out = append(out, b)
+	}
+	return out, nil
+}
+
+// workflowNameToBytes right-pads an ASCII workflow name into [10]byte.
+func workflowNameToBytes(s string) ([10]byte, error) {
+	var out [10]byte
+	if len(s) > len(out) {
+		return out, fmt.Errorf("workflow name %q exceeds %d bytes", s, len(out))
+	}
+	copy(out[:], s)
+	return out, nil
+}
+
+// workflowOwnerToBytes decodes a 20-byte hex workflow owner.
+func workflowOwnerToBytes(hexStr string) ([20]byte, error) {
+	var out [20]byte
+	b, err := hex.DecodeString(strings.TrimPrefix(hexStr, "0x"))
+	if err != nil {
+		return out, fmt.Errorf("invalid workflow owner %q: %w", hexStr, err)
+	}
+	if len(b) != len(out) {
+		return out, fmt.Errorf("workflow owner must be %d bytes, got %d", len(out), len(b))
+	}
+	copy(out[:], b)
+	return out, nil
 }

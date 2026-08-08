@@ -28,11 +28,8 @@ const (
 	testProxyAddress = "CBPROXY00000000000000000000000000000000000000000000000AA"
 )
 
-// testChainSel is a real chain selector so ChainMetadata methods resolve.
 var testChainSel = chainsel.STELLAR_TESTNET.Selector
 
-// newTestEnv returns an Environment with one fake Stellar chain. It swaps the
-// newStellarDeps seam to fakes and restores it on cleanup.
 func newTestEnv(t *testing.T) (cldf.Environment, *fakeInvoker, *fakeDeployer) {
 	t.Helper()
 
@@ -79,8 +76,6 @@ type contractRefSpec struct {
 	version      string
 }
 
-// seedContractRefs replaces env.DataStore with one holding the given refs.
-// Call once per test with every ref the test needs.
 func seedContractRefs(t *testing.T, env *cldf.Environment, refs ...contractRefSpec) {
 	t.Helper()
 	ds := datastore.NewMemoryDataStore()
@@ -106,7 +101,6 @@ func seedProxyRef(t *testing.T, env *cldf.Environment, address, qualifier, versi
 	seedContractRefs(t, env, contractRefSpec{ProxyContract, address, qualifier, version})
 }
 
-// seedContractMetadata merges a contract metadata record into env.DataStore.
 func seedContractMetadata(t *testing.T, env *cldf.Environment, address string, meta ContractMetadata) {
 	t.Helper()
 	ds := datastore.NewMemoryDataStore()
@@ -119,7 +113,6 @@ func seedContractMetadata(t *testing.T, env *cldf.Environment, address string, m
 	env.DataStore = ds.Seal()
 }
 
-// outputMetadata returns the ContractMetadata a changeset recorded for address.
 func outputMetadata(t *testing.T, out cldf.ChangesetOutput, address string) ContractMetadata {
 	t.Helper()
 	rec, err := out.DataStore.Seal().ContractMetadata().Get(datastore.NewContractMetadataKey(testChainSel, address))
@@ -129,8 +122,6 @@ func outputMetadata(t *testing.T, out cldf.ChangesetOutput, address string) Cont
 	return meta
 }
 
-// writeDummyWasm writes a placeholder wasm file for VerifyPreconditions' path
-// check; the contents are never read.
 func writeDummyWasm(t *testing.T, name string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)

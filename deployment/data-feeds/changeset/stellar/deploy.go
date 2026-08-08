@@ -83,6 +83,23 @@ func (DeployCache) Apply(env cldf.Environment, req *DeployCacheRequest) (cldf.Ch
 
 // The cache constructor takes only the owner; the data-retention TTL is an
 // on-chain constant.
+func recordAddress(address string, chainSel uint64, contractType datastore.ContractType, qualifier, version string, labels datastore.LabelSet) (cldf.ChangesetOutput, error) {
+	var out cldf.ChangesetOutput
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return out, fmt.Errorf("invalid version %q: %w", version, err)
+	}
+	out.DataStore = datastore.NewMemoryDataStore()
+	return out, out.DataStore.Addresses().Add(datastore.AddressRef{
+		Address:       address,
+		ChainSelector: chainSel,
+		Type:          contractType,
+		Version:       v,
+		Qualifier:     qualifier,
+		Labels:        labels,
+	})
+}
+
 var deployCacheOp = operations.NewOperation(
 	"df-cache:deploy", opVersion,
 	"Deploys the DataFeedsCache Soroban contract",
