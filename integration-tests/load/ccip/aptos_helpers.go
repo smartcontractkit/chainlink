@@ -265,7 +265,7 @@ func subscribeAptosTransmitEvents(
 					dst:    event.DestChainSelector,
 					seqNum: event.SequenceNumber,
 				},
-				timestamp: uint64(time.Now().Unix()), // todo: do we require a real timestamp here?
+				timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115 // todo: do we require a real timestamp here?
 			}
 
 			metricPipe <- data
@@ -399,7 +399,7 @@ func subscribeAptosCommitEvents(
 							dst:    chainSelector,
 							seqNum: i,
 						},
-						timestamp: uint64(time.Now().Unix()), // todo: do we require a real timestamp here?
+						timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115 // todo: do we require a real timestamp here?
 					}
 					metricPipe <- data
 					seenMessages[mr.SourceChainSelector] = append(seenMessages[mr.SourceChainSelector], i)
@@ -550,7 +550,7 @@ func subscribeAptosExecutionEvents(
 					dst:    chainSelector,
 					seqNum: event.SequenceNumber,
 				},
-				timestamp: uint64(time.Now().Unix()), // todo: do we require a real timestamp here?
+				timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115 // todo: do we require a real timestamp here?
 			}
 			metricPipe <- data
 			seenMessages[event.SourceChainSelector] = append(seenMessages[event.SourceChainSelector], event.SequenceNumber)
