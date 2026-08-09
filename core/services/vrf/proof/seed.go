@@ -78,6 +78,7 @@ func TestXXXSeedData(t *testing.T, preSeed *big.Int, blockHash common.Hash,
 	blockNum int) PreSeedData {
 	seedAsSeed, err := BigToSeed(big.NewInt(0x10))
 	require.NoError(t, err, "seed %x out of range", 0x10)
+	require.Positive(t, blockNum)
 	return PreSeedData{
 		PreSeed:   seedAsSeed,
 		BlockNum:  uint64(blockNum),

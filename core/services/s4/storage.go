@@ -2,6 +2,8 @@ package s4
 
 import (
 	"context"
+	"fmt"
+	"math"
 
 	"github.com/jonboulle/clockwork"
 
@@ -136,7 +138,11 @@ func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature [
 	if now > record.Expiration {
 		return ErrPastExpiration
 	}
-	if record.Expiration-now > int64(s.contraints.MaxExpirationLengthSec)*1000 {
+	expSecs := s.contraints.MaxExpirationLengthSec * 1000
+	if expSecs > math.MaxInt64 {
+		return fmt.Errorf("expiration seconds overflows int64: %d", expSecs)
+	}
+	if record.Expiration-now > int64(expSecs) {
 		return ErrExpirationTooLong
 	}
 
