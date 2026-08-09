@@ -16,16 +16,13 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/onsi/gomega"
 	"github.com/pelletier/go-toml/v2"
-
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
 	"github.com/stretchr/testify/require"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"

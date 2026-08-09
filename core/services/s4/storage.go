@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/jonboulle/clockwork"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

@@ -16,11 +16,12 @@ import (
 
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"

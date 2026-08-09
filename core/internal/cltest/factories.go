@@ -11,18 +11,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
-	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -196,7 +195,6 @@ NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0,0
 ) RETURNING *`, NewEIP55Address(), &ocrKeyID, &transmitterAddress))
 	return spec
 }
-
 
 func MustInsertExternalInitiator(t *testing.T, orm bridges.ORM) (ei bridges.ExternalInitiator) {
 	return MustInsertExternalInitiatorWithOpts(t, orm, ExternalInitiatorOpts{})

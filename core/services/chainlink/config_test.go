@@ -17,6 +17,8 @@ import (
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/config/configtest"
@@ -24,15 +26,11 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
-	"github.com/smartcontractkit/chainlink-framework/multinode"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

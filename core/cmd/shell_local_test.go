@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"

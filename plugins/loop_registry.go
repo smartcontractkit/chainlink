@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 

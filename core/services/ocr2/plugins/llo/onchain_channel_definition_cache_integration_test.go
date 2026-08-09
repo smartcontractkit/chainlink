@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	llotypes2 "github.com/smartcontractkit/chainlink-data-streams/llo/types"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -35,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"

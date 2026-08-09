@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )

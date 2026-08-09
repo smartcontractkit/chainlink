@@ -37,27 +37,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
-
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
-
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
-	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
-	"github.com/smartcontractkit/chainlink-framework/multinode"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
-	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/cosmoskey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
@@ -72,18 +54,32 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tonkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/tronkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/cache"
-
+	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
+	// Force import of pgtest to ensure that txdb is registered as a DB driver
+	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -95,15 +91,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	// Force import of pgtest to ensure that txdb is registered as a DB driver
-	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )
 
 const (

@@ -16,7 +16,6 @@ import (
 	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"

@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 

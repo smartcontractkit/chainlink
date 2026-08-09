@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"

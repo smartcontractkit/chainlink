@@ -22,9 +22,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/multi_ocr3_helper"
 	kschaintype "github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
@@ -47,7 +44,9 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
-	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"    // Register EVM plugin config factories
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm" // Register EVM plugin config factories
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana" // Register Solana plugin config factories
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipton"    // Register Ton plugin config factories
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"

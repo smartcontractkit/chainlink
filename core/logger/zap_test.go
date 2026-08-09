@@ -8,13 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"go.uber.org/zap/zaptest/observer"
-
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func newTestLogger(t *testing.T, cfg Config) Logger {

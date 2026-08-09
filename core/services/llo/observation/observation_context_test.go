@@ -19,14 +19,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
-
 	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-
-	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"

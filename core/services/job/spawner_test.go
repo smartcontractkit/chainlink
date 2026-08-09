@@ -7,12 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -24,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmrelayer "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"

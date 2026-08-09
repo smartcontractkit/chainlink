@@ -7,12 +7,13 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"gopkg.in/guregu/null.v4"
+
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocr2plus "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"

@@ -11,9 +11,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"

@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	dontimeCfg "github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime/pb"
 	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	ringconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ring/config"

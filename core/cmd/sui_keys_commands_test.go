@@ -6,14 +6,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"

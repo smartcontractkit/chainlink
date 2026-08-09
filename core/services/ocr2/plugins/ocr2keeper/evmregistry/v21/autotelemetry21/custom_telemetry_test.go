@@ -4,14 +4,14 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-
-	evm "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21"
 )
 
 // const historySize = 4

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -25,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	legacytelem "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 )
 
 var _ telemetry.MultitypeMonitoringEndpoint = &mockMonitoringEndpoint{}

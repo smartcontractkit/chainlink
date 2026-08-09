@@ -12,6 +12,9 @@ import (
 	geth_common "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -31,11 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	s4mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
-
-	"github.com/stretchr/testify/mock"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func newOffchainRequest(t *testing.T, sender []byte, ageSec uint64) (*api.Message, functions.RequestID) {

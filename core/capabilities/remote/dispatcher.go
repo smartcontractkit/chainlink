@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -45,14 +44,14 @@ type dispatcher struct {
 }
 
 type dispatcherMetrics struct {
-	sharedPeerMsgsRcvdCounter   metric.Int64Counter
-	rateLimitedMsgsCounter      metric.Int64Counter
-	invalidMsgsCounter          metric.Int64Counter
-	unknownCapMsgsCounter       metric.Int64Counter
-	receiveChannelUsageGauge    metric.Float64Gauge
-	receiverDroppedMsgsCounter  metric.Int64Counter
-	messagesSentCounter         metric.Int64Counter
-	sendErrorsCounter           metric.Int64Counter
+	sharedPeerMsgsRcvdCounter  metric.Int64Counter
+	rateLimitedMsgsCounter     metric.Int64Counter
+	invalidMsgsCounter         metric.Int64Counter
+	unknownCapMsgsCounter      metric.Int64Counter
+	receiveChannelUsageGauge   metric.Float64Gauge
+	receiverDroppedMsgsCounter metric.Int64Counter
+	messagesSentCounter        metric.Int64Counter
+	sendErrorsCounter          metric.Int64Counter
 }
 
 var _ types.Dispatcher = &dispatcher{}

@@ -25,17 +25,15 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/guregu/null.v4"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"

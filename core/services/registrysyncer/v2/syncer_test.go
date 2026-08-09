@@ -34,10 +34,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	registrysyncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"

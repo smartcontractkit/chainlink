@@ -438,7 +438,7 @@ func (n *Nurse) totalProfileBytes() (uint64, error) {
 		size += p.Size()
 	}
 	if size > math.MaxInt64 {
-		return 0, fmt.Errorf("total profile size overflows int64")
+		return 0, errors.New("total profile size overflows int64")
 	}
 	return uint64(size), nil
 }

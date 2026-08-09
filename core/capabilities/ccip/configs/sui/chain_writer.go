@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
-
 	types "github.com/smartcontractkit/chainlink-common/pkg/types/sui"
 )
 

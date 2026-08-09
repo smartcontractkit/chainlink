@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo/config"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/bm"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/llo/channeldefinitions"
 )
 

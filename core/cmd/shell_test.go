@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"

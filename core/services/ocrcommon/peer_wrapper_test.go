@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/freeport"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"

@@ -12,10 +12,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"

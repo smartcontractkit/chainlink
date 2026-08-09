@@ -5,6 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -12,15 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	s4_svc "github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
-
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"google.golang.org/protobuf/proto"
-
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 func createPluginConfig(maxEntries uint) *s4.PluginConfig {

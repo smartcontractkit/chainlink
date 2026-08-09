@@ -9,20 +9,17 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
-	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) ccipocr3.ExecutePluginReport {

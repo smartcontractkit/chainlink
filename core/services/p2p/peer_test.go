@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/freeport"
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

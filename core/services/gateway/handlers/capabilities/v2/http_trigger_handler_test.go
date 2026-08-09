@@ -1871,7 +1871,6 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 
 		// Setup: node1, node2, node3 succeed, node4 fails indefinitely
 		mockDon.On("SendToNode", mock.Anything, "node1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-
 			if callCount.Add(1) == 3 {
 				close(broadcastComplete)
 			}

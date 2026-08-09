@@ -16,9 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"

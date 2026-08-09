@@ -8,10 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
-
 	"math/big"
 	"math/rand"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -26,8 +25,9 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
