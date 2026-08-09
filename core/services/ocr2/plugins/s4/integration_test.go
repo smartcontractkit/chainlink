@@ -154,7 +154,7 @@ func checkNoUnconfirmedRows(ctx context.Context, t *testing.T, orm s4_svc.ORM, l
 
 func TestS4Integration_HappyDON(t *testing.T) {
 	don := newDON(t, 4, createPluginConfig(100))
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// injecting new records
 	rows := generateTestOrmRows(t, 10, time.Minute)
@@ -180,7 +180,7 @@ func TestS4Integration_HappyDON(t *testing.T) {
 
 func TestS4Integration_HappyDON_4X(t *testing.T) {
 	don := newDON(t, 4, createPluginConfig(100))
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// injecting new records to all nodes
 	for o := 0; o < don.size; o++ {
@@ -209,7 +209,7 @@ func TestS4Integration_HappyDON_4X(t *testing.T) {
 
 func TestS4Integration_WrongSignature(t *testing.T) {
 	don := newDON(t, 4, createPluginConfig(100))
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// injecting new records
 	rows := generateTestOrmRows(t, 10, time.Minute)
@@ -246,7 +246,7 @@ func TestS4Integration_MaxObservations(t *testing.T) {
 	config := createPluginConfig(100)
 	config.MaxObservationEntries = 5
 	don := newDON(t, 4, config)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// injecting new records
 	rows := generateTestOrmRows(t, 10, time.Minute)
@@ -273,7 +273,7 @@ func TestS4Integration_Expired(t *testing.T) {
 	config := createPluginConfig(100)
 	config.MaxObservationEntries = 5
 	don := newDON(t, 4, config)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// injecting expiring records
 	rows := generateTestOrmRows(t, 10, time.Millisecond)
@@ -298,7 +298,7 @@ func TestS4Integration_NSnapshotShards(t *testing.T) {
 	config := createPluginConfig(10000)
 	config.NSnapshotShards = 4
 	don := newDON(t, 4, config)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// injecting lots of new records (to be close to normal address distribution)
 	rows := generateTestOrmRows(t, 1000, time.Minute)
@@ -324,7 +324,7 @@ func TestS4Integration_NSnapshotShards(t *testing.T) {
 
 func TestS4Integration_OneNodeOutOfSync(t *testing.T) {
 	don := newDON(t, 4, createPluginConfig(100))
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// injecting same confirmed records to all nodes but the last one
 	rows := generateConfirmedTestOrmRows(t, 10, time.Minute)
@@ -351,7 +351,7 @@ func TestS4Integration_OneNodeOutOfSync(t *testing.T) {
 
 func TestS4Integration_RandomState(t *testing.T) {
 	don := newDON(t, 4, createPluginConfig(1000))
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	type user struct {
 		privateKey *ecdsa.PrivateKey

@@ -20,7 +20,7 @@ import (
 )
 
 func TestIntegration_Launcher(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	uni := it.NewTestUniverse(ctx, t, lggr)
 	// We need 3*f + 1 p2pIDs to have enough nodes to bootstrap

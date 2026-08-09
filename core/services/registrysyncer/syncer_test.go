@@ -190,7 +190,7 @@ func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
 }
 
 func TestReader_Integration(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
 	_, err := reg.AddCapabilities(owner, []kcr_v1.CapabilitiesRegistryCapability{writeChainCapability})
@@ -373,7 +373,7 @@ func TestReader_Integration(t *testing.T) {
 }
 
 func TestSyncer_DBIntegration(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	reg, regAddress, owner, sim := startNewChainWithRegistry(t)
 
 	_, err := reg.AddCapabilities(owner, []kcr_v1.CapabilitiesRegistryCapability{writeChainCapability})

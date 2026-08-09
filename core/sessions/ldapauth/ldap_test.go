@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -40,7 +39,7 @@ func setupAuthenticationProvider(t *testing.T, ldapClient ldapauth.LDAPClient) (
 
 func TestORM_FindUser_Empty(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -63,7 +62,7 @@ func TestORM_FindUser_Empty(t *testing.T) {
 
 func TestORM_FindUser_NoGroups(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -103,7 +102,7 @@ func TestORM_FindUser_NoGroups(t *testing.T) {
 
 func TestORM_FindUser_NotActive(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -143,7 +142,7 @@ func TestORM_FindUser_NotActive(t *testing.T) {
 
 func TestORM_FindUser_Single(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -201,7 +200,7 @@ func TestORM_FindUser_Single(t *testing.T) {
 
 func TestORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// Initialize LDAP Authentication Provider with mock client
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -215,7 +214,7 @@ func TestORM_FindUser_FallbackMatchLocalAdmin(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Success(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	// Initialize LDAP Authentication Provider with mock client
 	mockLdapClient := mocks.NewLDAPClient(t)
 	db, ldapAuthProvider := setupAuthenticationProvider(t, mockLdapClient)
@@ -234,7 +233,7 @@ func TestORM_FindUserByAPIToken_Success(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	cfg := ldapauth.TestConfig{}
 
 	// Initialize LDAP Authentication Provider with mock client
@@ -254,7 +253,7 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 }
 
 func TestORM_DeleteAuthToken(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// Initialize LDAP Authentication Provider with mock client
 	mockLdapClient := mocks.NewLDAPClient(t)
@@ -282,7 +281,7 @@ func TestORM_DeleteAuthToken(t *testing.T) {
 
 func TestORM_ListUsers_Full(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -416,7 +415,7 @@ func TestORM_ListUsers_Full(t *testing.T) {
 
 func TestORM_CreateSession_UpstreamBind(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -478,7 +477,7 @@ func TestORM_CreateSession_UpstreamBind(t *testing.T) {
 
 func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)
@@ -515,7 +514,7 @@ func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 
 func TestORM_SetPassword_LocalAdminFallbackLogin(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	mockLdapClient := mocks.NewLDAPClient(t)
 	mockLdapConnProvider := mocks.NewLDAPConn(t)

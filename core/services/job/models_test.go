@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
@@ -362,7 +361,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			w := &job.WorkflowSpec{
 				Workflow: tt.fields.Workflow,
 			}
-			err := w.Validate(testutils.Context(t))
+			err := w.Validate(t.Context())
 			require.Equal(t, tt.wantError, err != nil)
 			if !tt.wantError {
 				assert.NotEmpty(t, w.WorkflowID)
@@ -381,7 +380,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			Config:   configLocation,
 		}
 
-		err := w.Validate(testutils.Context(t))
+		err := w.Validate(t.Context())
 		require.NoError(t, err)
 		require.NotEmpty(t, w.WorkflowID)
 	})
@@ -406,7 +405,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 		err := toml.Unmarshal([]byte(tomlSpec), &w)
 		require.NoError(t, err)
 
-		err = w.Validate(testutils.Context(t))
+		err = w.Validate(t.Context())
 		require.NoError(t, err)
 		require.NotEmpty(t, w.WorkflowID)
 		assert.Equal(t, "0123456789012345678901234567890123456788", w.WorkflowOwner)

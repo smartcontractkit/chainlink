@@ -87,7 +87,6 @@ type ackKey struct {
 type pubRegState struct {
 	callback        <-chan commoncap.TriggerResponse
 	request         commoncap.TriggerRegistrationRequest
-	cancel          context.CancelFunc
 	registrationErr error // non-nil if RegisterTrigger returned an error; used to suppress retries
 }
 

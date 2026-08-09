@@ -245,7 +245,7 @@ func newJSONRPCHTTPRequestObject(t *testing.T, messageID string, userURL string,
 	}
 	rawMsg, err := json.Marshal(&request)
 	require.NoError(t, err)
-	req, err := http.NewRequestWithContext(testutils.Context(t), "POST", userURL, bytes.NewBuffer(rawMsg))
+	req, err := http.NewRequestWithContext(t.Context(), "POST", userURL, bytes.NewBuffer(rawMsg))
 	require.NoError(t, err)
 	return req
 }

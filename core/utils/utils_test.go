@@ -261,7 +261,7 @@ func TestWithCloseChan(t *testing.T) {
 		t.Parallel()
 
 		ch := make(chan struct{})
-		ctx, cancel := utils.WithCloseChan(testutils.Context(t), ch)
+		ctx, cancel := utils.WithCloseChan(t.Context(), ch)
 		defer cancel()
 
 		close(ch)
@@ -274,7 +274,7 @@ func TestWithCloseChan(t *testing.T) {
 
 		ch := make(chan struct{})
 		defer close(ch)
-		ctx, cancel := utils.WithCloseChan(testutils.Context(t), ch)
+		ctx, cancel := utils.WithCloseChan(t.Context(), ch)
 		cancel()
 
 		assertCtxCancelled(ctx, t)
@@ -285,7 +285,7 @@ func TestWithCloseChan(t *testing.T) {
 
 		ch := make(chan struct{})
 		defer close(ch)
-		pctx, pcancel := context.WithCancel(testutils.Context(t))
+		pctx, pcancel := context.WithCancel(t.Context())
 		ctx, cancel := utils.WithCloseChan(pctx, ch)
 		defer cancel()
 

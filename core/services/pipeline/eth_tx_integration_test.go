@@ -55,7 +55,7 @@ type asyncEthTxEnv struct {
 func newAsyncEthTxEnv(t *testing.T) *asyncEthTxEnv {
 	t.Helper()
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 
 	owner := evmtestutils.MustNewSimTransactor(t)
@@ -148,7 +148,7 @@ observationSource   = '''
 
 func (e *asyncEthTxEnv) runUntilFinished(t *testing.T, data string, failOnRevert bool) pipeline.Run {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	dot := fmt.Sprintf(`
 submit_tx [type=ethtx to="%s"

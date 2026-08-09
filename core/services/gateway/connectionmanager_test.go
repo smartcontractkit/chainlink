@@ -18,7 +18,6 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -227,11 +226,11 @@ func TestConnectionManager_SendToNode_Failures(t *testing.T) {
 	mgr := newConnectionManager(t, config, clock)
 
 	donMgr := mgr.DONConnectionManager("my_don_1")
-	err := donMgr.SendToNode(testutils.Context(t), nodes[0].Address, nil)
+	err := donMgr.SendToNode(t.Context(), nodes[0].Address, nil)
 	require.Error(t, err)
 
 	message := &jsonrpc.Request[json.RawMessage]{}
-	err = donMgr.SendToNode(testutils.Context(t), "some_other_node", message)
+	err = donMgr.SendToNode(t.Context(), "some_other_node", message)
 	require.Error(t, err)
 }
 
@@ -243,7 +242,7 @@ func TestConnectionManager_CleanStartClose(t *testing.T) {
 	clock := clockwork.NewFakeClock()
 	mgr := newConnectionManager(t, config, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 
 	err = mgr.Close()
@@ -383,11 +382,11 @@ Address = "0x0001020304050607080900010203040506070809"
 	donMgr := mgr.DONConnectionManager(config.ShardDONID("myDON", 0))
 	require.NotNil(t, donMgr)
 
-	err := donMgr.SendToNode(testutils.Context(t), "0x0001020304050607080900010203040506070809", nil)
+	err := donMgr.SendToNode(t.Context(), "0x0001020304050607080900010203040506070809", nil)
 	require.Error(t, err, "nil request should fail")
 
 	message := &jsonrpc.Request[json.RawMessage]{}
-	err = donMgr.SendToNode(testutils.Context(t), "0xdeadbeef", message)
+	err = donMgr.SendToNode(t.Context(), "0xdeadbeef", message)
 	require.Error(t, err, "unknown node should fail")
 }
 
@@ -413,7 +412,7 @@ Address = "0x0001020304050607080900010203040506070809"
 	cfg := parseTOMLConfig(t, tomlConfig)
 	mgr := newConnectionManager(t, cfg, clockwork.NewFakeClock())
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 
 	err = mgr.Close()
@@ -473,7 +472,7 @@ func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
 	clock := clockwork.NewRealClock()
 	mgr := newConnectionManager(t, cfg, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
 
@@ -490,11 +489,11 @@ func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
 
 	// Verify connection works initially.
 	msg := &jsonrpc.Request[json.RawMessage]{ID: "pre-check"}
-	require.NoError(t, donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg))
+	require.NoError(t, donMgr.SendToNode(t.Context(), nodes[0].Address, msg))
 
 	assert.Eventually(t, func() bool {
 		msg := &jsonrpc.Request[json.RawMessage]{ID: "test"}
-		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+		return donMgr.SendToNode(t.Context(), nodes[0].Address, msg) != nil
 	}, 6*time.Second, 200*time.Millisecond, "connection should be closed by read deadline")
 }
 
@@ -507,7 +506,7 @@ func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
 	clock := clockwork.NewRealClock()
 	mgr := newConnectionManager(t, cfg, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
 
@@ -533,7 +532,7 @@ func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
 
 	assert.Never(t, func() bool {
 		msg := &jsonrpc.Request[json.RawMessage]{ID: "alive-check"}
-		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+		return donMgr.SendToNode(t.Context(), nodes[0].Address, msg) != nil
 	}, 5*time.Second, 500*time.Millisecond, "connection should stay alive when pongs are received")
 }
 
@@ -546,7 +545,7 @@ func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
 	clock := clockwork.NewRealClock()
 	mgr := newConnectionManager(t, cfg, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
 
@@ -562,7 +561,7 @@ func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
 
 	assert.Never(t, func() bool {
 		msg := &jsonrpc.Request[json.RawMessage]{ID: "test"}
-		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+		return donMgr.SendToNode(t.Context(), nodes[0].Address, msg) != nil
 	}, 4*time.Second, 500*time.Millisecond, "connection should stay alive when deadline enforcement is disabled")
 }
 

@@ -74,11 +74,12 @@ func FinalSeedV2Plus(s PreSeedDataV2Plus) (finalSeed *big.Int) {
 	return utils.MustHash(string(seedHashMsg)).Big()
 }
 
-func TestXXXSeedData(t *testing.T, preSeed *big.Int, blockHash common.Hash,
-	blockNum int) PreSeedData {
+func TestXXXSeedData(t *testing.T, preSeed *big.Int, blockHash common.Hash, blockNum int) PreSeedData {
 	seedAsSeed, err := BigToSeed(big.NewInt(0x10))
 	require.NoError(t, err, "seed %x out of range", 0x10)
-	require.Positive(t, blockNum)
+	if blockNum < 0 {
+		t.Fatalf("negative blockNum %d", blockNum)
+	}
 	return PreSeedData{
 		PreSeed:   seedAsSeed,
 		BlockNum:  uint64(blockNum),

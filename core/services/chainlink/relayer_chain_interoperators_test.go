@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -85,7 +85,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
 
-	testctx := testutils.Context(t)
+	testctx := t.Context()
 
 	tests := []struct {
 		name                    string

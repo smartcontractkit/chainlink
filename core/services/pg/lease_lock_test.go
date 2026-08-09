@@ -35,7 +35,7 @@ func Test_LeaseLock(t *testing.T) {
 		}
 		leaseLock1 := newLeaseLock(t, db, cfg)
 
-		err := leaseLock1.TakeAndHold(testutils.Context(t))
+		err := leaseLock1.TakeAndHold(t.Context())
 		require.NoError(t, err)
 
 		var clientID uuid.UUID
@@ -47,7 +47,7 @@ func Test_LeaseLock(t *testing.T) {
 		leaseLock2 := newLeaseLock(t, db, cfg)
 		go func() {
 			defer leaseLock2.Release()
-			require.NoError(t, leaseLock2.TakeAndHold(testutils.Context(t)))
+			require.NoError(t, leaseLock2.TakeAndHold(t.Context()))
 			close(started2)
 		}()
 
@@ -84,7 +84,7 @@ func Test_LeaseLock(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 1, rowsAffected)
 
-		conn, err := db.Connx(testutils.Context(t))
+		conn, err := db.Connx(t.Context())
 		require.NoError(t, err)
 
 		pg.SetConn(leaseLock, conn)
@@ -94,7 +94,7 @@ func Test_LeaseLock(t *testing.T) {
 
 		gotLease := make(chan struct{})
 		go func() {
-			errInternal := leaseLock.TakeAndHold(testutils.Context(t))
+			errInternal := leaseLock.TakeAndHold(t.Context())
 			require.NoError(t, errInternal)
 			close(gotLease)
 		}()
@@ -130,7 +130,7 @@ func Test_LeaseLock(t *testing.T) {
 		}
 		leaseLock := newLeaseLock(t, db, cfg)
 
-		err := leaseLock.TakeAndHold(testutils.Context(t))
+		err := leaseLock.TakeAndHold(t.Context())
 		require.NoError(t, err)
 		defer leaseLock.Release()
 
@@ -163,13 +163,13 @@ func Test_LeaseLock(t *testing.T) {
 		}
 		leaseLock := newLeaseLock(t, db, cfg)
 
-		err := leaseLock.TakeAndHold(testutils.Context(t))
+		err := leaseLock.TakeAndHold(t.Context())
 		require.NoError(t, err)
 
 		leaseLock.Release()
 
 		leaseLock2 := newLeaseLock(t, db, cfg)
-		err = leaseLock2.TakeAndHold(testutils.Context(t))
+		err = leaseLock2.TakeAndHold(t.Context())
 		defer leaseLock2.Release()
 		require.NoError(t, err)
 	})
@@ -205,7 +205,7 @@ func Test_LeaseLock(t *testing.T) {
 		}
 		leaseLock1 := newLeaseLock(t, db, cfg)
 
-		err := leaseLock1.TakeAndHold(testutils.Context(t))
+		err := leaseLock1.TakeAndHold(t.Context())
 		defer leaseLock1.Release()
 		require.NoError(t, err)
 	})

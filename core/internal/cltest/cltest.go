@@ -228,7 +228,7 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...any) *TestApplication {
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...any) *TestApplication {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
 	chainID := *sqlutil.New(&FixtureChainID)
@@ -260,7 +260,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	t.Helper()
 	testutils.SkipShortDB(t)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var lggr logger.Logger
 	for _, dep := range flagsAndDeps {
@@ -698,7 +698,7 @@ func (ta *TestApplication) Stop() error {
 }
 
 func (ta *TestApplication) MustSeedNewSession(email string) (id string) {
-	ctx := testutils.Context(ta.t)
+	ctx := ta.t.Context()
 	session := NewSession()
 	ta.Logger.Infof("TestApplication creating session (id: %s, email: %s, last used: %s)", session.ID, email, session.LastUsed.String())
 	err := ta.GetDB().GetContext(ctx, &id, `INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id`, session.ID, email, session.LastUsed)
@@ -720,7 +720,7 @@ type User struct {
 
 func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	ta.t.Helper()
-	ctx := testutils.Context(ta.t)
+	ctx := ta.t.Context()
 
 	if user == nil {
 		user = &User{}
@@ -794,7 +794,7 @@ func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Sh
 
 // NewKeyStore returns a new, unlocked keystore
 func NewKeyStore(t testing.TB, ds sqlutil.DataSource) keystore.Master {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	keystore := keystore.NewInMemory(ds, commonkeystore.FastScryptParams, logger.TestLogger(t).Infof)
 	require.NoError(t, keystore.Unlock(ctx, Password))
 	logPubKeys(t, keystore)
@@ -835,27 +835,27 @@ type HTTPClientCleaner struct {
 }
 
 func (r *HTTPClientCleaner) Get(path string, headers ...map[string]string) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Get(testutils.Context(r.t), path, headers...)
+	resp, err := r.HTTPClient.Get(r.t.Context(), path, headers...)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Post(path string, body io.Reader) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Post(testutils.Context(r.t), path, body)
+	resp, err := r.HTTPClient.Post(r.t.Context(), path, body)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Put(path string, body io.Reader) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Put(testutils.Context(r.t), path, body)
+	resp, err := r.HTTPClient.Put(r.t.Context(), path, body)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Patch(path string, body io.Reader, headers ...map[string]string) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Patch(testutils.Context(r.t), path, body, headers...)
+	resp, err := r.HTTPClient.Patch(r.t.Context(), path, body, headers...)
 	return bodyCleaner(r.t, resp, err)
 }
 
 func (r *HTTPClientCleaner) Delete(path string) (*http.Response, func()) {
-	resp, err := r.HTTPClient.Delete(testutils.Context(r.t), path)
+	resp, err := r.HTTPClient.Delete(r.t.Context(), path)
 	return bodyCleaner(r.t, resp, err)
 }
 
@@ -1001,7 +1001,7 @@ const (
 // of job spec errors.
 func WaitForSpecErrorV2(t *testing.T, ds sqlutil.DataSource, jobID int32, count int) []job.SpecError {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	g := gomega.NewWithT(t)
 	var jse []job.SpecError
@@ -1029,7 +1029,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 
 	var pr []pipeline.Run
 	gomega.NewWithT(t).Eventually(func() bool {
-		prs, _, err := jo.PipelineRuns(testutils.Context(t), &jobID, 0, 1000)
+		prs, _, err := jo.PipelineRuns(t.Context(), &jobID, 0, 1000)
 		require.NoError(t, err)
 
 		var matched []pipeline.Run
@@ -1065,7 +1065,7 @@ func WaitForPipeline(t testing.TB, nodeID int, jobID int32, expectedPipelineRuns
 // AssertPipelineRunsStays asserts that the number of pipeline runs for a particular job remains at the provided values
 func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db sqlutil.DataSource, want int) []pipeline.Run {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	g := gomega.NewWithT(t)
 
 	var prs []pipeline.Run
@@ -1083,7 +1083,7 @@ func AssertEthTxAttemptCountStays(t testing.TB, txStore txmgr.TestEvmTxStore, wa
 
 	var txaIds []int64
 	g.Consistently(func() []txmgr.TxAttempt {
-		attempts, err := txStore.GetAllTxAttempts(testutils.Context(t))
+		attempts, err := txStore.GetAllTxAttempts(t.Context())
 		assert.NoError(t, err)
 		return attempts
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
@@ -1120,7 +1120,7 @@ type TransactionReceipter interface {
 
 func RequireTxSuccessful(t testing.TB, client TransactionReceipter, txHash common.Hash) *types.Receipt {
 	t.Helper()
-	r, err := client.TransactionReceipt(testutils.Context(t), txHash)
+	r, err := client.TransactionReceipt(t.Context(), txHash)
 	require.NoError(t, err)
 	require.NotNil(t, r)
 	require.Equal(t, uint64(1), r.Status)
@@ -1204,7 +1204,7 @@ func unauthenticatedHTTP(t testing.TB, method string, url string, body io.Reader
 	t.Helper()
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
-	request, err := http.NewRequestWithContext(testutils.Context(t), method, url, body)
+	request, err := http.NewRequestWithContext(t.Context(), method, url, body)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", "application/json")
 	for key, value := range headers {
@@ -1233,7 +1233,7 @@ func NewSession(optionalSessionID ...string) clsessions.Session {
 
 func AllExternalInitiators(t testing.TB, ds sqlutil.DataSource) []bridges.ExternalInitiator {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var all []bridges.ExternalInitiator
 	err := ds.SelectContext(ctx, &all, `SELECT * FROM external_initiators`)
@@ -1348,7 +1348,7 @@ func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected
 
 func WaitForCount(t *testing.T, ds sqlutil.DataSource, tableName string, want int64) {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	var count int64
 	var err error
 	require.Eventually(t, func() bool {
@@ -1360,7 +1360,7 @@ func WaitForCount(t *testing.T, ds sqlutil.DataSource, tableName string, want in
 
 func AssertCountStays(t testing.TB, ds sqlutil.DataSource, tableName string, want int64) {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	g := gomega.NewWithT(t)
 	var count int64
 	var err error
@@ -1373,7 +1373,7 @@ func AssertCountStays(t testing.TB, ds sqlutil.DataSource, tableName string, wan
 
 func AssertRecordEventually(t *testing.T, ds sqlutil.DataSource, model any, stmt string, check func() bool) {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.Eventually(t, func() bool {
 		err := ds.GetContext(ctx, model, stmt)
 		require.NoError(t, err, "unable to find record in DB")

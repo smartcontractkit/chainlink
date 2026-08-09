@@ -33,13 +33,13 @@ func TestInMemoryORM(t *testing.T) {
 	orm := s4.NewInMemoryORM()
 
 	t.Run("row not found", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		_, err := orm.Get(ctx, sqlutil.New(address.Big()), slotId)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
 
 	t.Run("insert and get", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := orm.Update(ctx, row)
 		assert.NoError(t, err)
 
@@ -49,7 +49,7 @@ func TestInMemoryORM(t *testing.T) {
 	})
 
 	t.Run("update and get", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		row.Version = 5
 		err := orm.Update(ctx, row)
 		assert.NoError(t, err)
@@ -70,7 +70,7 @@ func TestInMemoryORM(t *testing.T) {
 
 func TestInMemoryORM_DeleteExpired(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := s4.NewInMemoryORM()
 	baseTime := time.Now().Add(time.Minute).UTC()
@@ -104,7 +104,7 @@ func TestInMemoryORM_DeleteExpired(t *testing.T) {
 
 func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := s4.NewInMemoryORM()
 	expiration := time.Now().Add(100 * time.Second).UnixMilli()
@@ -134,7 +134,7 @@ func TestInMemoryORM_GetUnconfirmedRows(t *testing.T) {
 
 func TestInMemoryORM_GetSnapshot(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := s4.NewInMemoryORM()
 	expiration := time.Now().Add(100 * time.Second).UnixMilli()

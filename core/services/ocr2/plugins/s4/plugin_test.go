@@ -186,7 +186,7 @@ func TestPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
-	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, nil)
+	should, err := plugin.ShouldTransmitAcceptedReport(t.Context(), types.ReportTimestamp{}, nil)
 	assert.NoError(t, err)
 	assert.False(t, should)
 }
@@ -213,7 +213,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
+		should, err := plugin.ShouldAcceptFinalizedReport(t.Context(), types.ReportTimestamp{}, report)
 		assert.NoError(t, err)
 		assert.False(t, should)
 		assert.Len(t, ormRows, 10)
@@ -230,7 +230,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
+		should, err := plugin.ShouldAcceptFinalizedReport(t.Context(), types.ReportTimestamp{}, report)
 		assert.NoError(t, err) // errors just logged
 		assert.False(t, should)
 	})
@@ -244,7 +244,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
+		should, err := plugin.ShouldAcceptFinalizedReport(t.Context(), types.ReportTimestamp{}, report)
 		assert.NoError(t, err)
 		assert.False(t, should)
 		assert.Empty(t, ormRows)
@@ -266,7 +266,7 @@ func TestPlugin_Query(t *testing.T) {
 
 		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(rows, nil).Once()
 
-		queryBytes, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
+		queryBytes, err := plugin.Query(t.Context(), types.ReportTimestamp{})
 		assert.NoError(t, err)
 
 		query := &s4.Query{}
@@ -282,7 +282,7 @@ func TestPlugin_Query(t *testing.T) {
 		empty := make([]*s4_svc.SnapshotRow, 0)
 		orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(empty, nil).Once()
 
-		query, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
+		query, err := plugin.Query(t.Context(), types.ReportTimestamp{})
 		assert.NoError(t, err)
 		assert.NotNil(t, query)
 	})
@@ -310,7 +310,7 @@ func TestPlugin_Query(t *testing.T) {
 			}
 			orm.On("GetSnapshot", mock.Anything, mock.Anything).Return(versions[from:to], nil).Once()
 
-			query, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
+			query, err := plugin.Query(t.Context(), types.ReportTimestamp{})
 			assert.NoError(t, err)
 
 			qq := &s4.Query{}
@@ -345,7 +345,7 @@ func TestPlugin_Observation(t *testing.T) {
 		orm.On("DeleteExpired", mock.Anything, uint(10), mock.Anything, mock.Anything).Return(int64(10), nil).Once()
 		orm.On("GetUnconfirmedRows", mock.Anything, config.MaxObservationEntries).Return(ormRows, nil).Once()
 
-		observation, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, []byte{})
+		observation, err := plugin.Observation(t.Context(), types.ReportTimestamp{}, []byte{})
 		assert.NoError(t, err)
 
 		rows := &s4.Rows{}
@@ -392,7 +392,7 @@ func TestPlugin_Observation(t *testing.T) {
 		queryBytes, err := proto.Marshal(query)
 		assert.NoError(t, err)
 
-		observation, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, queryBytes)
+		observation, err := plugin.Observation(t.Context(), types.ReportTimestamp{}, queryBytes)
 		assert.NoError(t, err)
 
 		rows := &s4.Rows{}
@@ -451,7 +451,7 @@ func TestPlugin_Observation(t *testing.T) {
 		orm.On("Get", mock.Anything, snapshot[1].Address, snapshot[1].SlotId).Return(ormRows[1], nil).Once()
 		orm.On("Get", mock.Anything, snapshot[2].Address, snapshot[2].SlotId).Return(ormRows[2], nil).Once()
 
-		observation, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, queryBytes)
+		observation, err := plugin.Observation(t.Context(), types.ReportTimestamp{}, queryBytes)
 		assert.NoError(t, err)
 
 		rows := &s4.Rows{}
@@ -482,7 +482,7 @@ func TestPlugin_Report(t *testing.T) {
 			Observation: observation,
 		},
 	}
-	ok, report, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, nil, aos)
+	ok, report, err := plugin.Report(t.Context(), types.ReportTimestamp{}, nil, aos)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
@@ -491,7 +491,7 @@ func TestPlugin_Report(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, reportRows.Rows, 10)
 
-	ok2, report2, err2 := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, nil, aos)
+	ok2, report2, err2 := plugin.Report(t.Context(), types.ReportTimestamp{}, nil, aos)
 	assert.NoError(t, err2)
 	assert.True(t, ok2)
 

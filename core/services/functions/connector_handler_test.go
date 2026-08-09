@@ -96,7 +96,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 	handler.SetConnector(connector)
 
-	err = handler.Start(testutils.Context(t))
+	err = handler.Start(t.Context())
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		assert.NoError(t, handler.Close())
@@ -123,7 +123,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			}
 			require.NoError(t, msg.Sign(privateKey))
 
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			snapshot := []*s4.SnapshotRow{
 				{SlotId: 1, Version: 1, Expiration: 1},
 				{SlotId: 2, Version: 2, Expiration: 2},
@@ -162,7 +162,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		})
 
 		t.Run("secrets_set", func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			key := s4.Key{
 				Address: addr,
 				SlotId:  3,
@@ -270,13 +270,13 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			}
 			require.NoError(t, msg.Sign(privateKey))
 			allowlist.On("Allow", addr).Return(true).Once()
-			err2 := handler.HandleGatewayMessage(testutils.Context(t), "gw1", gatewayRequest(t, &msg))
+			err2 := handler.HandleGatewayMessage(t.Context(), "gw1", gatewayRequest(t, &msg))
 			require.NoError(t, err2)
 		})
 	})
 
 	t.Run("heartbeat success", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		msg, internalId := newOffchainRequest(t, addr.Bytes(), 0)
 		require.NoError(t, msg.Sign(privateKey))
 
@@ -319,7 +319,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	})
 
 	t.Run("heartbeat internal error", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		msg, _ := newOffchainRequest(t, addr.Bytes(), 0)
 		require.NoError(t, msg.Sign(privateKey))
 
@@ -353,7 +353,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	})
 
 	t.Run("heartbeat sender address doesn't match", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		msg, _ := newOffchainRequest(t, geth_common.BytesToAddress([]byte("0x1234")).Bytes(), 0)
 		require.NoError(t, msg.Sign(privateKey))
 
@@ -371,7 +371,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	})
 
 	t.Run("heartbeat request too old", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		msg, _ := newOffchainRequest(t, addr.Bytes(), 10_000)
 		require.NoError(t, msg.Sign(privateKey))
 

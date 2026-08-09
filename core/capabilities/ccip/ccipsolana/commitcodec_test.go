@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 var randomBlessedCommitReport = func() cciptypes.CommitPluginReport {
@@ -145,7 +144,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			report := tc.report(randomBlessedCommitReport())
 			commitCodec := NewCommitPluginCodecV1()
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			encodedReport, err := commitCodec.Encode(ctx, report)
 			if tc.expErr {
 				assert.Error(t, err)
@@ -161,7 +160,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 
 func BenchmarkCommitPluginCodecV1_Encode(b *testing.B) {
 	commitCodec := NewCommitPluginCodecV1()
-	ctx := testutils.Context(b)
+	ctx := b.Context()
 
 	rep := randomBlessedCommitReport()
 	for b.Loop() {
@@ -172,7 +171,7 @@ func BenchmarkCommitPluginCodecV1_Encode(b *testing.B) {
 
 func BenchmarkCommitPluginCodecV1_Decode(b *testing.B) {
 	commitCodec := NewCommitPluginCodecV1()
-	ctx := testutils.Context(b)
+	ctx := b.Context()
 	encodedReport, err := commitCodec.Encode(ctx, randomBlessedCommitReport())
 	require.NoError(b, err)
 
@@ -184,7 +183,7 @@ func BenchmarkCommitPluginCodecV1_Decode(b *testing.B) {
 
 func BenchmarkCommitPluginCodecV1_Encode_Decode(b *testing.B) {
 	commitCodec := NewCommitPluginCodecV1()
-	ctx := testutils.Context(b)
+	ctx := b.Context()
 
 	rep := randomBlessedCommitReport()
 	for b.Loop() {
@@ -242,7 +241,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 		require.NoError(t, err)
 
 		commitCodec := NewCommitPluginCodecV1()
-		decode, err := commitCodec.Decode(testutils.Context(t), buf.Bytes())
+		decode, err := commitCodec.Decode(t.Context(), buf.Bytes())
 		require.NoError(t, err)
 		mr := decode.UnblessedMerkleRoots[0]
 
@@ -297,7 +296,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 		require.NoError(t, err)
 
 		commitCodec := NewCommitPluginCodecV1()
-		decode, err := commitCodec.Decode(testutils.Context(t), buf.Bytes())
+		decode, err := commitCodec.Decode(t.Context(), buf.Bytes())
 		require.NoError(t, err)
 		require.Nilf(t, decode.UnblessedMerkleRoots, "UnblessedMerkleRoots should be nil")
 		require.Nilf(t, decode.BlessedMerkleRoots, "BlessedMerkleRoots should be nil")
@@ -316,7 +315,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 	t.Run("decode Borsh encoded commit report", func(t *testing.T) {
 		rep := randomBlessedCommitReport()
 		commitCodec := NewCommitPluginCodecV1()
-		decode, err := commitCodec.Encode(testutils.Context(t), rep)
+		decode, err := commitCodec.Encode(t.Context(), rep)
 		require.NoError(t, err)
 
 		decoder := agbinary.NewBorshDecoder(decode)

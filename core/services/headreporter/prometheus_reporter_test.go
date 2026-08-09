@@ -39,12 +39,12 @@ func Test_PrometheusReporter(t *testing.T) {
 		reporter.SetBackend(backend)
 
 		head := headreporter.NewHead()
-		err := reporter.ReportNewHead(testutils.Context(t), &head)
+		err := reporter.ReportNewHead(t.Context(), &head)
 		require.NoError(t, err)
 
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).Return()
-		err = reporter.ReportPeriodic(testutils.Context(t))
+		err = reporter.ReportPeriodic(t.Context())
 		require.NoError(t, err)
 	})
 
@@ -56,7 +56,7 @@ func Test_PrometheusReporter(t *testing.T) {
 		reporter.SetBackend(backend)
 
 		head := headreporter.NewHead()
-		err := reporter.ReportNewHead(testutils.Context(t), &head)
+		err := reporter.ReportNewHead(t.Context(), &head)
 		require.NoError(t, err)
 	})
 
@@ -69,7 +69,7 @@ func Test_PrometheusReporter(t *testing.T) {
 		etx := txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
 		txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
 		txmgrtest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
-		require.NoError(t, txStore.UpdateTxAttemptBroadcastBeforeBlockNum(testutils.Context(t), etx.ID, 7))
+		require.NoError(t, txStore.UpdateTxAttemptBroadcastBeforeBlockNum(t.Context(), etx.ID, 7))
 
 		backend := headreporter.NewMockPrometheusBackend(t)
 		backend.On("SetUnconfirmedTransactions", evmtestutils.FixtureChainID, int64(3)).Return()
@@ -82,13 +82,13 @@ func Test_PrometheusReporter(t *testing.T) {
 		reporter.SetBackend(backend)
 
 		head := headreporter.NewHead()
-		err := reporter.ReportNewHead(testutils.Context(t), &head)
+		err := reporter.ReportNewHead(t.Context(), &head)
 		require.NoError(t, err)
 
 		backend.On("SetPipelineTaskRunsQueued", 0).Return()
 		backend.On("SetPipelineRunsQueued", 0).Return()
 
-		err = reporter.ReportPeriodic(testutils.Context(t))
+		err = reporter.ReportPeriodic(t.Context())
 		require.NoError(t, err)
 	})
 
@@ -109,13 +109,13 @@ func Test_PrometheusReporter(t *testing.T) {
 		reporter.SetBackend(backend)
 
 		head := headreporter.NewHead()
-		err := reporter.ReportNewHead(testutils.Context(t), &head)
+		err := reporter.ReportNewHead(t.Context(), &head)
 		require.NoError(t, err)
 
 		backend.On("SetPipelineTaskRunsQueued", 3).Return()
 		backend.On("SetPipelineRunsQueued", 2).Return()
 
-		err = reporter.ReportPeriodic(testutils.Context(t))
+		err = reporter.ReportPeriodic(t.Context())
 		require.NoError(t, err)
 	})
 }

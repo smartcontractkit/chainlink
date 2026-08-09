@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -62,7 +61,7 @@ func setupHandler(t *testing.T) (*handler, *mocks.HTTPClient, *handlermocks.DON,
 
 func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	handler, httpClient, don, nodes := setupHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	nodeAddr := nodes[0].Address
 	payload := Request{
 		Method:    "GET",
@@ -235,7 +234,7 @@ func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, method
 
 func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	handler, _, don, nodes := setupHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	msg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "", "")
 	codec := api.JsonRPCCodec{}
 
@@ -367,7 +366,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 
 func TestHandleComputeActionMessage(t *testing.T) {
 	handler, httpClient, don, nodes := setupHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	nodeAddr := nodes[0].Address
 	payload := Request{
 		Method:    "GET",
@@ -577,7 +576,7 @@ func TestPruneCallbacks(t *testing.T) {
 
 func TestHandlerStartClose(t *testing.T) {
 	handler, _, _, _ := setupHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	handler.config.CallbackPruneIntervalSec = 1
 	handler.config.CallbackMaxAgeSec = 1

@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
@@ -230,7 +229,7 @@ func Test_createDON(t *testing.T) {
 			if tt.expect != nil {
 				tt.expect(t, tt.args, tt.args.oracleCreator, tt.args.homeChainReader)
 			}
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 
 			latestConfigs, err := getConfigsForDon(ctx, tt.args.homeChainReader, tt.args.don)
 			require.NoError(t, err)
@@ -491,7 +490,7 @@ func Test_updateDON(t *testing.T) {
 			if tt.expect != nil {
 				tt.expect(t, tt.args, tt.args.oracleCreator, tt.args.homeChainReader)
 			}
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 
 			latestConfigs, err := getConfigsForDon(ctx, tt.args.homeChainReader, tt.args.don)
 			require.NoError(t, err)
@@ -812,7 +811,7 @@ func Test_launcher_processDiff(t *testing.T) {
 				homeChainReader: tt.fields.homeChainReader,
 				oracleCreator:   tt.fields.oracleCreator,
 			}
-			err := l.processDiff(testutils.Context(t), tt.args.diff)
+			err := l.processDiff(t.Context(), tt.args.diff)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {

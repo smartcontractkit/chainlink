@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	bhsmocks "github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore/mocks"
 )
@@ -237,7 +236,7 @@ func TestStartHeartbeats(t *testing.T) {
 				return tests[0].latest, nil
 			})
 
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(t.Context())
 		mockTimer := bhsmocks.NewTimer(t)
 
 		mockBHS.On("StoreEarliest", ctx).Return(nil).Once()
@@ -282,7 +281,7 @@ func TestStartHeartbeats(t *testing.T) {
 				return tests[0].latest, nil
 			})
 
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(t.Context())
 		mockTimer := bhsmocks.NewTimer(t)
 
 		mockBHS.On("StoreEarliest", ctx).Return(expectedError).Once()
@@ -338,7 +337,7 @@ func TestStartHeartbeats(t *testing.T) {
 		defer mockBHS.AssertExpectations(t)
 		defer mockLogger.AssertExpectations(t)
 
-		feeder.StartHeartbeats(testutils.Context(t), mockTimer)
+		feeder.StartHeartbeats(t.Context(), mockTimer)
 	})
 }
 
@@ -381,7 +380,7 @@ func (test testCase) testFeeder(t *testing.T) {
 			return test.latest, nil
 		})
 
-	err := feeder.Run(testutils.Context(t))
+	err := feeder.Run(t.Context())
 	if test.expectedErrMsg == "" {
 		require.NoError(t, err)
 	} else {
@@ -480,7 +479,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 		})
 
 	// Run feeder and assert correct results.
-	err = feeder.Run(testutils.Context(t))
+	err = feeder.Run(t.Context())
 	if test.expectedErrMsg == "" {
 		require.NoError(t, err)
 	} else {
@@ -578,7 +577,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 		})
 
 	// Run feeder and assert correct results.
-	err = feeder.Run(testutils.Context(t))
+	err = feeder.Run(t.Context())
 	if test.expectedErrMsg == "" {
 		require.NoError(t, err)
 	} else {
@@ -610,20 +609,20 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 		})
 
 	// Should store block 100
-	require.NoError(t, feeder.Run(testutils.Context(t)))
+	require.NoError(t, feeder.Run(t.Context()))
 	require.ElementsMatch(t, []uint64{100}, bhs.Stored)
 
 	// Remove 100 from the BHS and try again, it should not be stored since it's cached in the
 	// feeder
 	bhs.Stored = nil
-	require.NoError(t, feeder.Run(testutils.Context(t)))
+	require.NoError(t, feeder.Run(t.Context()))
 	require.Empty(t, bhs.Stored)
 
 	// Run the feeder on a later block and make sure the cache is pruned
 	feeder.latestBlock = func(ctx context.Context) (uint64, error) {
 		return 500, nil
 	}
-	require.NoError(t, feeder.Run(testutils.Context(t)))
+	require.NoError(t, feeder.Run(t.Context()))
 	require.Empty(t, feeder.stored)
 }
 

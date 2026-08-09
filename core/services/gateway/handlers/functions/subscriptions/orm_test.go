@@ -31,7 +31,7 @@ func setupORM(t *testing.T) (subscriptions.ORM, error) {
 }
 
 func seedSubscriptions(t *testing.T, orm subscriptions.ORM, amount int) []subscriptions.StoredSubscription {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	storedSubscriptions := make([]subscriptions.StoredSubscription, 0)
 	for i := amount; i > 0; i-- {
 		cs := subscriptions.StoredSubscription{
@@ -55,7 +55,7 @@ func seedSubscriptions(t *testing.T, orm subscriptions.ORM, amount int) []subscr
 func TestORM_GetSubscriptions(t *testing.T) {
 	t.Parallel()
 	t.Run("fetch first page", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		storedSubscriptions := seedSubscriptions(t, orm, 2)
@@ -66,7 +66,7 @@ func TestORM_GetSubscriptions(t *testing.T) {
 	})
 
 	t.Run("fetch second page", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		storedSubscriptions := seedSubscriptions(t, orm, 2)
@@ -81,7 +81,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 	t.Parallel()
 
 	t.Run("create a subscription", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		expected := subscriptions.StoredSubscription{
@@ -105,7 +105,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 	})
 
 	t.Run("update a subscription", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 
@@ -150,7 +150,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 	})
 
 	t.Run("update a deleted subscription", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 
@@ -188,7 +188,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 	})
 
 	t.Run("create a subscription with same id but different router address", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		var (
 			db   = pgtest.NewSqlxDB(t)
 			lggr = logger.Test(t)

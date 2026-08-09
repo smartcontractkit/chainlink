@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/freeport"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 )
@@ -36,7 +35,7 @@ func TestPeer_CleanStartClose(t *testing.T) {
 
 	peer, err := p2p.NewPeer(peerConfig, lggr)
 	require.NoError(t, err)
-	err = peer.Start(testutils.Context(t))
+	err = peer.Start(t.Context())
 	require.NoError(t, err)
 	err = peer.Close()
 	require.NoError(t, err)

@@ -83,7 +83,7 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 func MustCreateBridge(t testing.TB, ds sqlutil.DataSource, opts BridgeOpts) (bta *bridges.BridgeTypeAuthentication, bt *bridges.BridgeType) {
 	bta, bt = NewBridgeType(t, opts)
 	orm := bridges.NewORM(ds)
-	err := orm.CreateBridgeType(testutils.Context(t), bt)
+	err := orm.CreateBridgeType(t.Context(), bt)
 	require.NoError(t, err)
 	return bta, bt
 }
@@ -127,7 +127,7 @@ type RandomKey struct {
 }
 
 func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2, common.Address) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	chainIDs := r.chainIDs
 	if chainIDs == nil {
 		chainIDs = []sqlutil.Big{*sqlutil.New(&FixtureChainID)}
@@ -148,7 +148,7 @@ func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2
 }
 
 func (r RandomKey) MustInsertWithState(t testing.TB, keystore keystore.Eth) (ethkey.State, common.Address) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	k, address := r.MustInsert(t, keystore)
 	state, err := keystore.GetStateForKey(ctx, k)
 	require.NoError(t, err)
@@ -180,7 +180,7 @@ func MustInsertHead(t *testing.T, ds sqlutil.DataSource, number int64) *evmtypes
 	h := evmtypes.NewHead(big.NewInt(number), evmutils.NewHash(), evmutils.NewHash(), sqlutil.New(&FixtureChainID))
 	horm := heads.NewORM(FixtureChainID, ds, 0)
 
-	err := horm.IdempotentInsertHead(testutils.Context(t), &h)
+	err := horm.IdempotentInsertHead(t.Context(), &h)
 	require.NoError(t, err)
 	return &h
 }
@@ -208,7 +208,7 @@ type ExternalInitiatorOpts struct {
 }
 
 func MustInsertExternalInitiatorWithOpts(t *testing.T, orm bridges.ORM, opts ExternalInitiatorOpts) (ei bridges.ExternalInitiator) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	var prefix string
 	if opts.NamePrefix != "" {
 		prefix = opts.NamePrefix

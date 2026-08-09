@@ -459,7 +459,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 
 	// create the chain writer service
 	txm, gasEstimator := makeTestEvmTxm(t, db, simClient, chainStore)
-	require.NoError(t, txm.Start(testutils.Context(t)), "failed to start tx manager")
+	require.NoError(t, txm.Start(t.Context()), "failed to start tx manager")
 	t.Cleanup(func() { require.NoError(t, txm.Close()) })
 
 	chainWriter, err := writer.NewChainWriterService(
@@ -470,7 +470,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		chainWriterConfigRaw(transmitters[0], assets.GWei(1)),
 		nil)
 	require.NoError(t, err, "failed to create chain writer")
-	require.NoError(t, chainWriter.Start(testutils.Context(t)), "failed to start chain writer")
+	require.NoError(t, chainWriter.Start(t.Context()), "failed to start chain writer")
 	t.Cleanup(func() { require.NoError(t, chainWriter.Close()) })
 
 	lggr := logger.Test(t)
@@ -603,7 +603,7 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 	)
 
 	broadcaster := heads.NewBroadcaster(logger.Nop())
-	require.NoError(t, broadcaster.Start(testutils.Context(t)), "failed to start head broadcaster")
+	require.NoError(t, broadcaster.Start(t.Context()), "failed to start head broadcaster")
 	t.Cleanup(func() { require.NoError(t, broadcaster.Close()) })
 
 	ht := heads.NewTracker(
@@ -615,12 +615,12 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 		headSaver,
 		mailbox.NewMonitor("contract_transmitter_test", logger.Nop()),
 	)
-	require.NoError(t, ht.Start(testutils.Context(t)), "failed to start head tracker")
+	require.NoError(t, ht.Start(t.Context()), "failed to start head tracker")
 	t.Cleanup(func() { require.NoError(t, ht.Close()) })
 
 	lp := logpoller.NewLogPoller(logpoller.NewORM(ormChainID, db, logger.Nop()),
 		ethClient, logger.Nop(), ht, lpOpts)
-	require.NoError(t, lp.Start(testutils.Context(t)), "failed to start log poller")
+	require.NoError(t, lp.Start(t.Context()), "failed to start log poller")
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })
 
 	// logic for building components (from evm/evm_txm.go) -------

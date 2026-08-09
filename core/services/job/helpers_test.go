@@ -276,7 +276,7 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 
 func makeOCR2Keeper21JobSpec(t testing.TB, ks keystore.Master, transmitter common.Address, chainID *big.Int) *job.Job {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	bootstrapNodePort := freeport.GetOne(t)
 	bootstrapPeerID := "peerId"

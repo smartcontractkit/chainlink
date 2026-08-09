@@ -163,7 +163,7 @@ func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
 }
 
 func TestReader_Integration(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	// Create a simulated backend similar to V1 tests
@@ -391,7 +391,7 @@ func TestReader_Integration(t *testing.T) {
 }
 
 func TestSyncer_V2_DBIntegration(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	// Create a simulated backend similar to V1 tests
@@ -558,7 +558,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 }
 
 func TestSyncer_V2_LocalNode(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	var pid p2ptypes.PeerID
@@ -673,7 +673,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 }
 
 func TestReader_V2_FamilyOperations(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	// Create a simulated backend

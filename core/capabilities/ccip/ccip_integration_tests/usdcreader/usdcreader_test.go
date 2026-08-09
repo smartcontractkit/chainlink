@@ -37,7 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -47,7 +46,7 @@ const ChainID = 1337
 func Test_USDCReader_MessageHashes(t *testing.T) {
 	finalityDepth := 5
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	ethereumChain := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
 	ethereumDomainCCTP := reader.CCTPDestDomains[uint64(ethereumChain)]
 	avalancheChain := cciptypes.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
@@ -264,7 +263,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 
 	for _, tc := range testCases {
 		b.Run(tc.name, func(b *testing.B) {
-			ctx := testutils.Context(b)
+			ctx := b.Context()
 			sourceChain := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
 			sourceDomainCCTP := reader.CCTPDestDomains[uint64(sourceChain)]
 			destChain := cciptypes.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
@@ -318,7 +317,7 @@ func populateDatabase(b *testing.B,
 	startNonce int64,
 	numOfMessages int,
 	finalityDepth int) {
-	ctx := testutils.Context(b)
+	ctx := b.Context()
 
 	abi, err := usdc_reader_tester.USDCReaderTesterMetaData.GetAbi()
 	require.NoError(b, err)

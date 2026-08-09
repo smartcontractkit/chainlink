@@ -19,7 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
@@ -328,7 +328,7 @@ func (f fakeContractTransmitter) FromAccount(context.Context) (ocrtypes.Account,
 }
 
 func TestContractTransmitter(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	ct := ocrcommon.NewOCR3ContractTransmitterAdapter(fakeContractTransmitter{})
 
 	require.NoError(t, ct.Transmit(ctx, configDigest, seqNr, rwi, signatures))

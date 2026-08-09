@@ -148,10 +148,3 @@ func GetChainWriterConfig(publicKeyStr string) (types.ChainWriterConfig, error) 
 		// FeeStrategy: chainwriter.DefaultFeeStrategy,
 	}, nil
 }
-
-// Helper function to convert a string to a string pointer
-//
-//go:fix inline
-func strPtr(s string) *string {
-	return new(s)
-}

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -600,7 +600,7 @@ UpdateInterval="1m"
 					tc.overrides(c, s)
 				}
 			})
-			s, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), tc.toml, nil)
+			s, err := validate.ValidatedOracleSpecToml(t.Context(), c.OCR2(), c.Insecure(), tc.toml, nil)
 			tc.assertion(t, s, err)
 		})
 	}

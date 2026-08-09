@@ -11,7 +11,7 @@ import (
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
@@ -45,7 +45,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 		dd1 := tt.dd1
 		dd2 := tt.dd2
 
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 
 		t.Run(tt.name+" StoreAnnouncement writes a value", func(t *testing.T) {
 			ann := []byte{1, 2, 3}

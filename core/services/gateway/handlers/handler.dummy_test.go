@@ -10,7 +10,7 @@ import (
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -50,7 +50,7 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	require.NoError(t, err)
 	connMgr.SetHandler("", handler)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// User request
 	msg := api.Message{

@@ -84,7 +84,7 @@ func (g *relayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
@@ -133,7 +133,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 				result <- false
 			}
 		}()
-		require.NoError(t, spawner.Start(testutils.Context(t)))
+		require.NoError(t, spawner.Start(t.Context()))
 		assert.True(t, <-result, "failed to signal to dependents")
 	})
 
@@ -167,7 +167,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobA.Type: delegateA,
 			jobB.Type: delegateB,
 		}, lggr, nil)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		require.NoError(t, spawner.Start(ctx))
 		err := spawner.CreateJob(ctx, nil, jobA)
 		require.NoError(t, err)
@@ -218,7 +218,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobA.Type: delegateA,
 		}, lggr, nil)
 
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := orm.CreateJob(ctx, jobA)
 		require.NoError(t, err)
 		delegateA.jobID = jobA.ID
@@ -253,7 +253,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobA.Type: delegateA,
 		}, lggr, nil)
 
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := orm.CreateJob(ctx, jobA)
 		require.NoError(t, err)
 		jobSpecIDA := jobA.ID
@@ -343,7 +343,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		}, lggr, nil)
 		servicetest.Run(t, spawner)
 
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err = spawner.CreateJob(ctx, nil, jobOCR2Keeper)
 		require.NoError(t, err)
 		jobSpecID := jobOCR2Keeper.ID

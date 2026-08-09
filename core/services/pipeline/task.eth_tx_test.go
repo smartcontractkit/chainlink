@@ -593,7 +593,7 @@ func TestETHTxTask(t *testing.T) {
 			test.setupClientMocks(keyStore, txManager)
 			task.HelperSetDependencies(legacyChains, keyStore, test.specGasLimit, pipeline.DirectRequestJobType)
 
-			result, runInfo := task.Run(testutils.Context(t), lggr, test.vars, test.inputs)
+			result, runInfo := task.Run(t.Context(), lggr, test.vars, test.inputs)
 			assert.Equal(t, test.expectedRunInfo, runInfo)
 
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {

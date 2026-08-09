@@ -17,7 +17,6 @@ import (
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -159,7 +158,7 @@ func requireChanMsg[T capabilities.TriggerResponse](t *testing.T, ch <-chan capa
 
 func TestTriggerExecute(t *testing.T) {
 	th := setup(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	Config, _ := workflowTriggerConfig(th, []string{address1}, []string{"daily_price_update", "ad_hoc_price_update"})
 	triggerReq := capabilities.TriggerRegistrationRequest{
@@ -323,7 +322,7 @@ func TestTriggerExecute(t *testing.T) {
 
 func TestRegisterNoAllowedSenders(t *testing.T) {
 	th := setup(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	Config, _ := workflowTriggerConfig(th, []string{}, []string{"daily_price_update"})
 
 	triggerReq := capabilities.TriggerRegistrationRequest{
@@ -342,7 +341,7 @@ func TestRegisterNoAllowedSenders(t *testing.T) {
 
 func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 	th := setup(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
 	Config, _ := workflowTriggerConfig(th, []string{address2}, []string{"daily_price_update"})
 	triggerReq := capabilities.TriggerRegistrationRequest{
@@ -401,7 +400,7 @@ func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 
 func TestRegisterUnregister(t *testing.T) {
 	th := setup(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	Config, err := workflowTriggerConfig(th, []string{address1}, []string{"daily_price_update"})
 	require.NoError(t, err)
 

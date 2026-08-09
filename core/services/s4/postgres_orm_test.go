@@ -57,7 +57,7 @@ func TestNewPostgresOrm(t *testing.T) {
 
 func TestPostgresORM_UpdateAndGet(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t, "test")
 	rows := generateTestRows(t, 10)
@@ -89,7 +89,7 @@ func TestPostgresORM_UpdateAndGet(t *testing.T) {
 
 func TestPostgresORM_UpdateSimpleFlow(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t, "test")
 	row := generateTestRows(t, 1)[0]
@@ -117,7 +117,7 @@ func TestPostgresORM_UpdateSimpleFlow(t *testing.T) {
 
 func TestPostgresORM_DeleteExpired(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t, "test")
 
@@ -150,14 +150,14 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 	orm := setupORM(t, "test")
 
 	t.Run("no rows", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		rows, err := orm.GetSnapshot(ctx, s4.NewFullAddressRange())
 		assert.NoError(t, err)
 		assert.Empty(t, rows)
 	})
 
 	t.Run("with rows", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		rows := generateTestRows(t, 100)
 
 		for _, row := range rows {
@@ -166,7 +166,7 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 		}
 
 		t.Run("full range", func(t *testing.T) {
-			snapshot, err := orm.GetSnapshot(testutils.Context(t), s4.NewFullAddressRange())
+			snapshot, err := orm.GetSnapshot(t.Context(), s4.NewFullAddressRange())
 			assert.NoError(t, err)
 			assert.Len(t, snapshot, len(rows))
 
@@ -191,7 +191,7 @@ func TestPostgresORM_GetSnapshot(t *testing.T) {
 		t.Run("half range", func(t *testing.T) {
 			ar, err := s4.NewInitialAddressRangeForIntervals(2)
 			assert.NoError(t, err)
-			snapshot, err := orm.GetSnapshot(testutils.Context(t), ar)
+			snapshot, err := orm.GetSnapshot(t.Context(), ar)
 			assert.NoError(t, err)
 			for _, sr := range snapshot {
 				assert.True(t, ar.Contains(sr.Address))
@@ -206,14 +206,14 @@ func TestPostgresORM_GetUnconfirmedRows(t *testing.T) {
 	orm := setupORM(t, "test")
 
 	t.Run("no rows", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		rows, err := orm.GetUnconfirmedRows(ctx, 5)
 		assert.NoError(t, err)
 		assert.Empty(t, rows)
 	})
 
 	t.Run("with rows", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		rows := generateTestRows(t, 10)
 
 		for _, row := range rows {
@@ -234,7 +234,7 @@ func TestPostgresORM_GetUnconfirmedRows(t *testing.T) {
 
 func TestPostgresORM_Namespace(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	ormA := setupORM(t, "a")
 	ormB := setupORM(t, "b")
@@ -268,7 +268,7 @@ func TestPostgresORM_Namespace(t *testing.T) {
 
 func TestPostgresORM_BigIntVersion(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t, "test")
 	row := generateTestRows(t, 1)[0]

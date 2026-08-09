@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -69,7 +68,7 @@ func TestShell_SolanaKeys(t *testing.T) {
 
 	t.Run("ListSolanaKeys", func(tt *testing.T) {
 		defer cleanup()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, r := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Solana().Create(ctx)
 		require.NoError(t, err)
@@ -91,7 +90,7 @@ func TestShell_SolanaKeys(t *testing.T) {
 
 	t.Run("DeleteSolanaKey", func(tt *testing.T) {
 		defer cleanup()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, _ := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Solana().Create(ctx)
 		require.NoError(t, err)
@@ -113,7 +112,7 @@ func TestShell_SolanaKeys(t *testing.T) {
 	t.Run("ImportExportSolanaKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, _ := app.NewShellAndRenderer()
 
 		_, err := app.GetKeyStore().Solana().Create(ctx)
