@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
@@ -51,7 +51,7 @@ func TestFingerprint(t *testing.T) {
 		},
 		{
 			name: "successful outcome",
-			msg: &llocommon.LLOOutcomeTelemetry{
+			msg: &lloprotocol.LLOOutcomeTelemetry{
 				DonId:                           donID,
 				ConfigDigest:                    configDigest,
 				ObservationTimestampNanoseconds: uint64(ot.UnixNano()),
@@ -63,7 +63,7 @@ func TestFingerprint(t *testing.T) {
 		},
 		{
 			name: "successful report",
-			msg: &llocommon.LLOReportTelemetry{
+			msg: &lloprotocol.LLOReportTelemetry{
 				DonId:                           donID,
 				ChannelId:                       channelID,
 				ConfigDigest:                    configDigest,
@@ -121,12 +121,12 @@ func TestSample(t *testing.T) {
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
 	t0 := time.Unix(1600000000, 0)
-	msg0 := &llocommon.LLOOutcomeTelemetry{
+	msg0 := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(t0.UnixNano()),
 	}
-	msg1 := &llocommon.LLOOutcomeTelemetry{
+	msg1 := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(t0.Add(50 * time.Millisecond).UnixNano()),
@@ -153,7 +153,7 @@ func TestPruningLoop(t *testing.T) {
 	samplr.prunePeriod = time.Second
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
-	msg := &llocommon.LLOOutcomeTelemetry{
+	msg := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(time.Now().UnixNano()),
@@ -168,7 +168,7 @@ func TestPruningLoop(t *testing.T) {
 		return flag != nil
 	}
 
-	msg2 := &llocommon.LLOOutcomeTelemetry{
+	msg2 := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(time.Now().Add(10 * time.Second).UnixNano()),

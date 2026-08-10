@@ -19,14 +19,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
-
 	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
+	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 
-	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -118,7 +117,7 @@ func TestObservationContext_Observe(t *testing.T) { //nolint:paralleltest // sub
 		val, err := oc.Observe(ctx, streamID2, opts)
 		require.NoError(t, err)
 
-		assert.Equal(t, "12.34", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "12.34", val.(*lloprotocol.Decimal).String())
 	})
 	t.Run("returns error in case of erroring pipeline", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		_, err := oc.Observe(ctx, streamID3, opts)
@@ -127,22 +126,22 @@ func TestObservationContext_Observe(t *testing.T) { //nolint:paralleltest // sub
 	t.Run("returns values for multiple stream IDs within the same job based on streamID tag with a single pipeline execution", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		val, err := oc.Observe(ctx, streamID4, opts)
 		require.NoError(t, err)
-		assert.Equal(t, "12.34", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "12.34", val.(*lloprotocol.Decimal).String())
 
 		val, err = oc.Observe(ctx, streamID5, opts)
 		require.NoError(t, err)
-		assert.Equal(t, "56.78", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "56.78", val.(*lloprotocol.Decimal).String())
 
 		val, err = oc.Observe(ctx, streamID6, opts)
 		require.NoError(t, err)
-		assert.Equal(t, "90.12", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "90.12", val.(*lloprotocol.Decimal).String())
 
 		assert.Equal(t, int32(1), multiPipelineDecimal.runCount.Load())
 
 		// returns cached values on subsequent calls
 		val, err = oc.Observe(ctx, streamID6, opts)
 		require.NoError(t, err)
-		assert.Equal(t, "90.12", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "90.12", val.(*lloprotocol.Decimal).String())
 
 		assert.Equal(t, int32(1), multiPipelineDecimal.runCount.Load())
 	})
@@ -150,25 +149,25 @@ func TestObservationContext_Observe(t *testing.T) { //nolint:paralleltest // sub
 		val, err := oc.Observe(ctx, streamID7, opts)
 		require.NoError(t, err)
 
-		assert.Equal(t, "1.23", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "1.23", val.(*lloprotocol.Decimal).String())
 	})
 	t.Run("returns value from int64 value", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		val, err := oc.Observe(ctx, streamID8, opts)
 		require.NoError(t, err)
 
-		assert.Equal(t, "5", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "5", val.(*lloprotocol.Decimal).String())
 	})
 	t.Run("partial extraction failure in multi-stream pipeline", func(t *testing.T) { //nolint:paralleltest // shares ObservationContext setup
 		val, err := oc.Observe(ctx, streamID9, opts)
 		require.NoError(t, err)
-		assert.Equal(t, "100.5", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "100.5", val.(*lloprotocol.Decimal).String())
 
 		_, err = oc.Observe(ctx, streamID10, opts)
 		require.Error(t, err, "unparseable value should fail extraction")
 
 		val, err = oc.Observe(ctx, streamID11, opts)
 		require.NoError(t, err)
-		assert.Equal(t, "200.5", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "200.5", val.(*lloprotocol.Decimal).String())
 
 		assert.Equal(t, int32(1), multiPipelinePartialFail.runCount.Load())
 	})
@@ -311,21 +310,21 @@ result3 -> result3_parse -> multiply3;
 
 		val, err := oc.Observe(ctx, streams.StreamID(1), opts)
 		require.NoError(t, err)
-		assert.Equal(t, "900.0022", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "900.0022", val.(*lloprotocol.Decimal).String())
 		val, err = oc.Observe(ctx, streams.StreamID(2), opts)
 		require.NoError(t, err)
-		assert.Equal(t, "123.456", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "123.456", val.(*lloprotocol.Decimal).String())
 		val, err = oc.Observe(ctx, streams.StreamID(3), opts)
 		require.NoError(t, err)
-		assert.Equal(t, "124.456", val.(*llocommon.Decimal).String())
+		assert.Equal(t, "124.456", val.(*lloprotocol.Decimal).String())
 
 		val, err = oc.Observe(ctx, jobStreamID, opts)
 		require.NoError(t, err)
-		assert.Equal(t, &llocommon.Quote{
+		assert.Equal(t, &lloprotocol.Quote{
 			Bid:       decimal.NewFromFloat32(123.456),
 			Benchmark: decimal.NewFromFloat32(900.0022),
 			Ask:       decimal.NewFromFloat32(124.456),
-		}, val.(*llocommon.Quote))
+		}, val.(*lloprotocol.Quote))
 	})
 }
 
@@ -363,7 +362,7 @@ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
 
 	type result struct {
 		strmID uint32
-		val    llocommon.StreamValue
+		val    lloprotocol.StreamValue
 		err    error
 	}
 
@@ -389,9 +388,9 @@ func TestObservationContext_Observe_concurrentAtomicOutput(t *testing.T) {
 			require.NoError(t, r.err, "pipeline %d, stream %d", i, r.strmID)
 			require.NotNil(t, r.val, "pipeline %d, stream %d: nil value", i, r.strmID)
 		}
-		assert.Equal(t, strconv.Itoa(i*10+1), group[0].val.(*llocommon.Decimal).String(), "pipeline %d sid1", i)
-		assert.Equal(t, strconv.Itoa(i*10+2), group[1].val.(*llocommon.Decimal).String(), "pipeline %d sid2", i)
-		assert.Equal(t, strconv.Itoa(i*10+3), group[2].val.(*llocommon.Decimal).String(), "pipeline %d sid3", i)
+		assert.Equal(t, strconv.Itoa(i*10+1), group[0].val.(*lloprotocol.Decimal).String(), "pipeline %d sid1", i)
+		assert.Equal(t, strconv.Itoa(i*10+2), group[1].val.(*lloprotocol.Decimal).String(), "pipeline %d sid2", i)
+		assert.Equal(t, strconv.Itoa(i*10+3), group[2].val.(*lloprotocol.Decimal).String(), "pipeline %d sid3", i)
 		assert.Equal(t, int32(1), pipelines[i].runCount.Load(), "pipeline %d should have run exactly once", i)
 	}
 }
