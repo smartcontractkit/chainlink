@@ -320,8 +320,7 @@ func Test_Handler(t *testing.T) {
 }
 
 const (
-	binaryLocation = "test/simple/cmd/testmodule.wasm"
-	binaryCmd      = "core/capabilities/compute/test/simple/cmd"
+	binaryCmd      = "core/services/workflows/cmd/cre/examples/v2/simple_cron"
 	noDagBinaryCmd = "core/services/workflows/cmd/cre/examples/v2/simple_cron"
 )
 
@@ -1346,15 +1345,6 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	secretsURL := "http://example.com/secrets"
 	wfOwnerBytes := testutils.NewAddress().Bytes()
 	wfOwner := hex.EncodeToString(wfOwnerBytes)
-
-	t.Run("DAG workflow", func(t *testing.T) { //nolint:paralleltest // shares eventHandler setup
-		binary := wasmtest.GetTestBinary(t, binaryCmd, true)
-		workflowID, err := pkgworkflows.GenerateWorkflowID(wfOwnerBytes, testutils.RandomizeName(t.Name()), binary, config, secretsURL)
-		require.NoError(t, err)
-		engine, err := eventHandler.engineFactoryFn(ctx, hex.EncodeToString(workflowID[:]), wfOwner, workflowName, config, binary)
-		require.NoError(t, err)
-		require.NotNil(t, engine)
-	})
 
 	t.Run("NoDAG workflow", func(t *testing.T) { //nolint:paralleltest // shares eventHandler setup
 		binary := wasmtest.GetTestBinary(t, noDagBinaryCmd, true)

@@ -5,17 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -26,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -453,53 +449,7 @@ func (w *launcher) addRemoteCapability(ctx context.Context, cid string, capabili
 	switch capability.CapabilityType {
 	case capabilities.CapabilityTypeTrigger:
 		newTriggerFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
-			var aggregator remotetypes.Aggregator
-			switch {
-			case strings.HasPrefix(info.ID, "streams-trigger"):
-				v := info.ID[strings.LastIndexAny(info.ID, "@")+1:] // +1 to skip the @; also gracefully handle the case where there is no @ (which should not happen)
-				version, err := semver.NewVersion(v)
-				if err != nil {
-					return nil, fmt.Errorf("could not extract version from %s (%s): %w", info.ID, v, err)
-				}
-				switch version.Major() {
-				case 1: // legacy streams trigger
-					codec := streams.NewCodec(w.lggr)
-
-					signers, err := signersFor(remoteDON, localRegistry)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get signers for streams-trigger: %w", err)
-					}
-
-					// deprecated pre-LLO Mercury aggregator
-					aggregator = triggers.NewMercuryRemoteAggregator(
-						codec,
-						signers,
-						int(remoteDON.F+1),
-						info.ID,
-						w.lggr,
-					)
-				case 2: // LLO
-					// TODO: add a flag in capability onchain config to indicate whether it's OCR based
-					// the "SignedReport" aggregator is generic
-					signers, err := signersFor(remoteDON, localRegistry)
-					if err != nil {
-						return nil, fmt.Errorf("failed to get signers for llo-trigger: %w", err)
-					}
-
-					const maxAgeSec = 120 // TODO move to capability onchain config
-					aggregator = aggregation.NewSignedReportRemoteAggregator(
-						signers,
-						int(remoteDON.F+1),
-						info.ID,
-						maxAgeSec,
-						w.lggr,
-					)
-				default:
-					return nil, fmt.Errorf("unsupported stream trigger %s", info.ID)
-				}
-			default:
-				aggregator = aggregation.NewDefaultModeAggregator(uint32(remoteDON.F) + 1)
-			}
+			aggregator := aggregation.NewDefaultModeAggregator(uint32(remoteDON.F) + 1)
 
 			shimKey := shimKey(capability.ID, remoteDON.ID, "") // empty method name for V1
 			triggerCap, alreadyExists := w.cachedShims.triggerSubscribers[shimKey]

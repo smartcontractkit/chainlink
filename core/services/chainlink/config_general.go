@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -549,7 +549,7 @@ func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 	return &prometheusConfig{s: g.secrets.Prometheus}
 }
 
-func (g *generalConfig) Mercury() de.Mercury {
+func (g *generalConfig) Mercury() dataengine.Mercury {
 	return &mercuryConfig{c: g.c.Mercury, s: g.secrets.Mercury}
 }
 

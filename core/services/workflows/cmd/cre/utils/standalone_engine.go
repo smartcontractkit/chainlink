@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -11,9 +12,8 @@ import (
 	"google.golang.org/grpc/credentials"
 	"gopkg.in/yaml.v3"
 
-	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	httpserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/http/server"
@@ -24,14 +24,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
@@ -115,15 +113,6 @@ func NewStandaloneEngine(
 	if err != nil {
 		return nil, nil, err
 	}
-	rl, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
-		GlobalRPS:      defaultRPS,
-		GlobalBurst:    defaultBurst,
-		PerSenderRPS:   defaultRPS,
-		PerSenderBurst: defaultBurst,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   1000000000,
 		PerOwner: 1000000000,
@@ -143,35 +132,7 @@ func NewStandaloneEngine(
 	}
 
 	if module.IsLegacyDAG() {
-		sdkSpec, specErr := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
-		if specErr != nil {
-			return nil, nil, specErr
-		}
-
-		cfg := workflows.Config{
-			Lggr:                 lggr,
-			Workflow:             *sdkSpec,
-			WorkflowID:           defaultWorkflowID,
-			WorkflowOwner:        defaultOwner,
-			WorkflowName:         name,
-			Registry:             registry,
-			Store:                store.NewInMemoryStore(lggr, clockwork.NewRealClock()),
-			Config:               config,
-			Binary:               binary,
-			SecretsFetcher:       SecretsFor,
-			RateLimiter:          rl,
-			WorkflowLimits:       workflowLimits,
-			NewWorkerTimeout:     time.Minute,
-			StepTimeout:          time.Minute,
-			MaxExecutionDuration: time.Minute,
-			BillingClient:        billingClient,
-		}
-
-		engine, engineErr := workflows.NewEngine(ctx, cfg)
-		if engineErr != nil {
-			return nil, nil, engineErr
-		}
-		return engine, nil, nil
+		return nil, nil, errors.New("legacy DAG workflows are not supported")
 	}
 
 	secretsFetcher, err := NewFileBasedSecrets(secrets)
@@ -318,26 +279,11 @@ func NewCapabilities(ctx context.Context, lggr logger.Logger, registry *capabili
 func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capabilities.Registry) ([]services.Service, error) {
 	caps := make([]services.Service, 0)
 
-	streamsTrigger := fakes.NewFakeStreamsTrigger(lggr, 6)
-	if err := registry.Add(ctx, streamsTrigger); err != nil {
-		return nil, err
-	}
-	caps = append(caps, streamsTrigger)
-
 	httpAction := fakes.NewDirectHTTPAction(lggr)
 	if err := registry.Add(ctx, httpserver.NewClientServer(httpAction)); err != nil {
 		return nil, err
 	}
 	caps = append(caps, httpAction)
-
-	fakeConsensus, err := fakes.NewFakeConsensus(lggr, fakes.DefaultFakeConsensusConfig())
-	if err != nil {
-		return nil, err
-	}
-	if err := registry.Add(ctx, fakeConsensus); err != nil {
-		return nil, err
-	}
-	caps = append(caps, fakeConsensus)
 
 	// generate deterministic signers - need to be configured on the Forwarder contract
 	nSigners := 4

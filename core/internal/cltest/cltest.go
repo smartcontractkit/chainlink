@@ -51,8 +51,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -321,26 +319,19 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
+	var sharedPeer p2ptypes.SharedPeer
+	for _, dep := range flagsAndDeps {
+		peerWrapper, _ := dep.(p2ptypes.PeerWrapper)
+		if peerWrapper != nil {
+			sharedPeer = sharedPeerFromPeer{Peer: peerWrapper.GetPeer()}
+			break
+		}
+	}
+
 	var syncerFetcherFunc wftypes.FetcherFunc
 	for _, dep := range flagsAndDeps {
 		syncerFetcherFunc, _ = dep.(wftypes.FetcherFunc)
 		if syncerFetcherFunc != nil {
-			break
-		}
-	}
-
-	var computeFetcherFactory compute.FetcherFactory
-	for _, dep := range flagsAndDeps {
-		computeFetcherFactory, _ = dep.(compute.FetcherFactory)
-		if computeFetcherFactory != nil {
-			break
-		}
-	}
-
-	var peerWrapper p2ptypes.PeerWrapper
-	for _, dep := range flagsAndDeps {
-		peerWrapper, _ = dep.(p2ptypes.PeerWrapper)
-		if peerWrapper != nil {
 			break
 		}
 	}
@@ -409,14 +400,13 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	appInstance, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
 		Opts: cre.Opts{
-			CapabilitiesRegistry:    capabilitiesRegistry,
-			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
-			CapabilitiesDispatcher:  dispatcher,
-			CapabilitiesPeerWrapper: peerWrapper,
-			FetcherFunc:             syncerFetcherFunc,
-			FetcherFactoryFn:        computeFetcherFactory,
-			BillingClient:           billingClient,
-			UseLocalTimeProvider:    cfg.CRE().UseLocalTimeProvider(),
+			CapabilitiesRegistry:   capabilitiesRegistry,
+			ExecutionHandlers:      &confidentialrelay.ExecutionHandlers{},
+			CapabilitiesDispatcher: dispatcher,
+			CapabilitiesSharedPeer: sharedPeer,
+			FetcherFunc:            syncerFetcherFunc,
+			BillingClient:          billingClient,
+			UseLocalTimeProvider:   cfg.CRE().UseLocalTimeProvider(),
 		},
 		Config:   cfg,
 		DS:       ds,
@@ -1415,4 +1405,14 @@ func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 
 	err = tx.Commit()
 	require.NoError(t, err)
+}
+
+// sharedPeerFromPeer adapts a p2ptypes.Peer to a p2ptypes.SharedPeer for tests
+// that inject a peer wrapper; DON-based connection updates are a no-op.
+type sharedPeerFromPeer struct {
+	p2ptypes.Peer
+}
+
+func (s sharedPeerFromPeer) UpdateConnectionsByDONs(_ context.Context, _ []p2ptypes.DonPair, _ p2ptypes.StreamConfig) error {
+	return nil
 }

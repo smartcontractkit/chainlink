@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -126,10 +127,14 @@ func (c RMNNopConfig) ToRMNRemoteSigner() rmn_remote.RMNRemoteSigner {
 }
 
 func (c RMNNopConfig) SetBit(bitmap *big.Int, value bool) {
+	nodeIndex := math.MaxInt64
+	if c.NodeIndex < math.MaxInt64 {
+		nodeIndex = int(c.NodeIndex)
+	}
 	if value {
-		bitmap.SetBit(bitmap, int(c.NodeIndex), 1)
+		bitmap.SetBit(bitmap, nodeIndex, 1)
 	} else {
-		bitmap.SetBit(bitmap, int(c.NodeIndex), 0)
+		bitmap.SetBit(bitmap, nodeIndex, 0)
 	}
 }
 

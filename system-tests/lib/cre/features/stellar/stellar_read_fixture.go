@@ -7,7 +7,6 @@ import (
 	cldfstellar "github.com/smartcontractkit/chainlink-deployments-framework/chain/stellar"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/stellar"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 )
 
@@ -23,15 +22,10 @@ func DeployStellarReadFixture(ctx context.Context, chain *stellchain.Blockchain)
 		return "", fmt.Errorf("failed to fund stellar deployer %s via friendbot: %w", owner, fundErr)
 	}
 
-	buildCfg, err := helpers.BuildStellarConfigFor(ctx, stellar.ReadFixtureWasm)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve stellar read fixture WASM source: %w", err)
-	}
-
 	var salt [32]byte
 	// Distinct salt from the receiver deploy (all-zero) when both run in one suite.
 	salt[0] = 0x52 // 'R' — distinct from the all-zero receiver salt
-	return stellar.DeployReadFixtureForChain(ctx, stellarChain, buildCfg, salt)
+	return stellar.DeployReadFixtureForChain(ctx, stellarChain, salt)
 }
 
 // stellarCldfChain builds the cldf stellar chain from the environment blockchain.
