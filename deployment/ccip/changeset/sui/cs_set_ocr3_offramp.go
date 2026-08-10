@@ -5,22 +5,24 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/smartcontractkit/mcms"
 	"golang.org/x/crypto/blake2b"
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	cld_ops "github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	offrampops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip_offramp"
+	mcmsops "github.com/smartcontractkit/chainlink-sui/deployment/ops/mcms"
+	suiutils "github.com/smartcontractkit/chainlink-sui/deployment/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -46,6 +48,8 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 
 	ab := cldf.NewMemoryAddressBook()
 
+	mcmsProposals := []mcms.TimelockProposal{}
+
 	for _, remoteSelector := range config.RemoteChainSels {
 		suiChains := e.BlockChains.SuiChains()
 		suiChain := suiChains[remoteSelector]
@@ -65,6 +69,11 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 				},
 			},
 			CCIPOnChainState: state,
+		}
+
+		// If timelock proposal is to be generated, disable signer in deps
+		if config.MCMS != nil {
+			deps.SuiChain.Signer = nil
 		}
 
 		// DonIds for the chain
@@ -150,7 +159,7 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 			addr := "0x" + hex.EncodeToString(hash[:])
 			execTransmitters = append(execTransmitters, addr)
 		}
-		_, err = operations.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigCommitInput)
+		_, err = cld_ops.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigCommitInput)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -169,9 +178,41 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 			Transmitters:                   execTransmitters,
 		}
 
-		_, err = operations.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigExecInput)
+		report, err := cld_ops.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigExecInput)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
+		}
+
+		genericReport := report.ToGenericReport()
+		if config.MCMS != nil {
+			defs := []cld_ops.Definition{genericReport.Def}
+			inputs := []any{genericReport.Input}
+
+			suiTimelockConfig := suiutils.TimelockConfig{
+				MCMSAction:   config.MCMS.MCMSAction,
+				MinDelay:     config.MCMS.MinDelay,
+				OverrideRoot: config.MCMS.OverrideRoot,
+			}
+			mcmsState := suiState[remoteSelector].MCMSState(false)
+			mcmsConfig := mcmsops.ProposalGenerateInput{
+				ChainSelector:      remoteSelector,
+				Defs:               defs,
+				Inputs:             inputs,
+				MmcsPackageID:      mcmsState.PackageID,
+				McmsStateObjID:     mcmsState.StateObjectID,
+				TimelockObjID:      mcmsState.TimelockObjectID,
+				AccountObjID:       mcmsState.AccountStateObjectID,
+				RegistryObjID:      mcmsState.RegistryObjectID,
+				DeployerStateObjID: mcmsState.DeployerStateObjectID,
+				TimelockConfig:     suiTimelockConfig,
+			}
+
+			result, err := cld_ops.ExecuteSequence(e.OperationsBundle, mcmsops.MCMSDynamicProposalGenerateSeq, deps.SuiChain, mcmsConfig)
+			if err != nil {
+				return cldf.ChangesetOutput{}, fmt.Errorf("failed to generate MCMS proposal: %w", err)
+			}
+
+			mcmsProposals = append(mcmsProposals, result.Output)
 		}
 	}
 
@@ -181,8 +222,9 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: ab,
-		DataStore:   ds,
+		AddressBook:           ab,
+		DataStore:             ds,
+		MCMSTimelockProposals: mcmsProposals,
 	}, nil
 }
 

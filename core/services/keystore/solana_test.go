@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/solkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -20,7 +19,7 @@ func Test_SolanaKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db)
-	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))
+	require.NoError(t, keyStore.Unlock(t.Context(), cltest.Password))
 	ks := keyStore.Solana()
 	reset := func() {
 		ctx := context.Background() // Executed on cleanup
@@ -44,7 +43,7 @@ func Test_SolanaKeyStore_E2E(t *testing.T) {
 
 	t.Run("creates a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
@@ -54,7 +53,7 @@ func Test_SolanaKeyStore_E2E(t *testing.T) {
 
 	t.Run("imports and exports a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		exportJSON, err := ks.Export(key.ID(), cltest.Password)
@@ -79,7 +78,7 @@ func Test_SolanaKeyStore_E2E(t *testing.T) {
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		newKey, err := solkey.New()
 		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
@@ -102,7 +101,7 @@ func Test_SolanaKeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := ks.EnsureKey(ctx)
 		assert.NoError(t, err)
 
@@ -116,18 +115,18 @@ func Test_SolanaKeyStore_E2E(t *testing.T) {
 
 	t.Run("sign tx", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		newKey, err := solkey.New()
 		require.NoError(t, err)
 		require.NoError(t, ks.Add(ctx, newKey))
 
 		// sign unknown ID
-		_, err = ks.Sign(testutils.Context(t), "not-real", nil)
+		_, err = ks.Sign(t.Context(), "not-real", nil)
 		assert.Error(t, err)
 
 		// sign known key
 		payload := []byte{1}
-		sig, err := ks.Sign(testutils.Context(t), newKey.ID(), payload)
+		sig, err := ks.Sign(t.Context(), newKey.ID(), payload)
 		require.NoError(t, err)
 
 		directSig, err := newKey.Sign(payload)

@@ -1,9 +1,6 @@
-#
-# Workflow to run in-memory integration tests
-# Test matrix is defined in .github/integration-in-memory-tests.yml
-#
 name: Integration In-Memory Tests
 run-name: Integration In-Memory Tests
+
 on:
   merge_group:
   pull_request:
@@ -16,8 +13,19 @@ on:
         description: "The ref to checkout, defaults to the calling branch"
         required: false
         type: string
+  workflow_call:
+    inputs:
+      chainlink_version:
+        description: "The version of Chainlink repository to use for the tests. If empty, defaults to github.sha."
+        required: false
+        type: string
+        default: ""
+      slack_channel_id:
+        description: "Slack channel ID to notify test results"
+        required: false
+        type: string
+        default: ""
 
-# Only run 1 of this workflow at a time per PR
 concurrency:
   group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--integration-tests
   cancel-in-progress: true
@@ -25,27 +33,23 @@ concurrency:
 jobs:
   changes:
     environment:
-      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
       name: integration
       deployment: false
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
-      issues: read
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
+      pull-requests: read # advanced-triggers lists PR files via GitHub API
+    if: github.actor != 'dependabot[bot]' && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
     outputs:
       run-tests: ${{ steps.advanced-triggers.outputs.run-tests }}
-      should_use_self_hosted_runner: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref }}
+          ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
 
       - name: Advanced Triggers
         uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
@@ -62,7 +66,7 @@ jobs:
               - "deployment/**"
             workflow-files:
               - ".github/workflows/integration-in-memory-tests.yml"
-              - ".github/integration-in-memory-tests.yml"
+              - ".github/in-memory-tests.json"
               - ".github/actions/**/*.y*ml"
             core-test-files:
               - "testdata/**"
@@ -85,93 +89,333 @@ jobs:
                 - '**/ccip/**'
                 - '**/*ccip*/**'
 
-      - name: Get PR Labels (runs-on-opt-out)
-        id: label-runs-on-opt-out
-        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+  define-test-matrix:
+    name: Define Test Matrix
+    runs-on: ubuntu-latest
+    needs: [changes]
+    # `changes` only runs for pull_request/merge_group, so a 'skipped' result means we
+    # arrived via schedule, workflow_dispatch, or workflow_call and should always run.
+    # Do NOT gate on `github.event_name == 'workflow_call'`: inside a reusable workflow
+    # the github context belongs to the *caller*, so event_name is the caller's trigger
+    # (e.g. 'schedule' for the nightly) and never 'workflow_call'.
+    # Tag pushes stay a no-op, as before.
+    if: always() && github.actor != 'dependabot[bot]' && github.event_name != 'push' && (needs.changes.result == 'skipped' || needs.changes.outputs.run-tests == 'true')
+    outputs:
+      matrix: ${{ steps.define-matrix.outputs.matrix }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v7
         with:
-          check-label: "runs-on-opt-out"
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
 
-  run-ccip-integration-in-memory-tests-for-pr:
-    name: Run CCIP Tests For PR
+      - name: Define test matrix
+        id: define-matrix
+        shell: bash
+        run: |
+          # shellcheck disable=SC1083,SC2016
+          tests=$(jq -c \
+            --argjson run_id "${{ github.run_id }}" \
+            --arg run_attempt "${{ github.run_attempt }}" '
+            to_entries
+            | map(.value + {
+                # Stable, human-readable id for artifact names. `.name` is unique across
+                # entries; sanitized so it is always a legal artifact name. Deliberately
+                # not the array index, which shifts whenever an entry is added or removed.
+                test_id: (.value.name | gsub("[^A-Za-z0-9._-]"; "_")),
+                job_timeout: (((.value.timeout | rtrimstr("m") | tonumber) + 5)),
+                # The runner label only needs per-run uniqueness, so the index is fine
+                # here and keeps the label short enough for runs-on.
+                runs_on: (if .value.runs_on == "" or .value.runs_on == null then "ubuntu-latest" else "runs-on=\($run_id)-\(.key)-\($run_attempt)/\(.value.runs_on)/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs" end)
+              })
+          ' .github/in-memory-tests.json)
+
+          echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
+
+      - name: Check matrix covers all in-memory tests
+        # Warning-only: some tests intentionally run in other workflows. Flip to
+        # blocking (exit 1) once legacy exclusions are moved or listed explicitly.
+        shell: bash
+        run: |
+          REGEXES=$(jq -r '[.[].test] | join("|")' .github/in-memory-tests.json)
+          grep -rhoE '^func Test[A-Za-z0-9_]+\(t \*testing\.T' \
+            integration-tests/smoke/ccip --include='*_test.go' \
+            | sed -E 's/^func ([^(]+).*/\1/' | sort -u > /tmp/all_tests.txt
+          UNCOVERED=$(grep -vE "$REGEXES" /tmp/all_tests.txt || true)
+          if [ -n "$UNCOVERED" ]; then
+            echo "Tests in integration-tests/smoke/ccip not covered by any matrix entry:"
+            echo "$UNCOVERED"
+            echo "::warning title=Tests not in in-memory matrix::$(echo "$UNCOVERED" | paste -sd, -)"
+          fi
+
+  compile-tests:
+    name: Compile In-Memory Test Binaries
+    needs: [define-test-matrix]
+    runs-on: runs-on=${{ github.run_id }}-inmem-compile/cpu=32/ram=64/family=c7i+c8i/spot=co/volume=100GB/extras=s3-cache
+    environment:
+      name: integration
+      deployment: false
     permissions:
-      actions: read
-      checks: write
-      pull-requests: write
       id-token: write
       contents: read
-    needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.run-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@run-e2e-tests/v1
-    with:
-      workflow_name: Run CCIP Integration Tests For PR
-      chainlink_version: ${{ inputs.cl_ref || github.sha }}
-      test_path: .github/integration-in-memory-tests.yml
-      test_trigger: PR Integration CCIP Tests
-      skip_image_build: true # in-memory tests do not require an image
-      use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
-      quarantine: "true"
-    secrets:
-      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
-      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
-      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
-      TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
 
-  run-ccip-integration-in-memory-tests-for-merge-queue:
-    name: Run CCIP Integration In Memory Tests For Merge Queue
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
+      - name: Checkout the repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
+
+      - name: Set up Go for compilation
+        id: setup-go
+        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        with:
+          go_mod_path: integration-tests/go.mod
+          cache_key_id: integration-tests-v1
+          cache_builds: true
+          cache_restore_only: ${{ github.ref_name != 'develop' }}
+          should_tidy: false
+          gati_token: ${{ steps.github-token.outputs.access-token }}
+
+      - name: Compile E2E test binaries and tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Restored mod cache contains shallow VCS clones that can be in an
+          # inconsistent state after tar restore, breaking fetches of new
+          # pseudo-versions ("shallow file has changed since we read it").
+          # Drop them; only private repos re-clone, public zips stay cached.
+          rm -rf "$(go env GOMODCACHE)/cache/vcs"
+          mkdir -p integration-tests/bin
+          (cd integration-tests && go test -c -ldflags="-s -w" -o ./bin/ccip-inmemory.test ./smoke/ccip)
+          # Pre-build preparetest so matrix jobs skip ~1min of module downloads + compile each
+          go build -o integration-tests/bin/preparetest ./core/store/cmd/preparetest
+          GOBIN="$PWD/integration-tests/bin" go install gotest.tools/gotestsum@v1.13.0
+
+      - name: Upload Pre-Compiled Test Binaries
+        # Artifacts instead of S3 cache because some matrix jobs run on ubuntu-latest
+        # (no runs-on/action S3 backend). Artifacts work across all runner types.
+        uses: actions/upload-artifact@v7
+        with:
+          name: inmemory-test-bins
+          path: integration-tests/bin/
+          retention-days: 1
+
+  run-tests:
+    name: ${{ matrix.tests.name }}
+    runs-on: ${{ matrix.tests.runs_on }}
+    timeout-minutes: ${{ matrix.tests.job_timeout }}
+    strategy:
+      fail-fast: false
+      matrix:
+        tests: ${{ fromJson(needs.define-test-matrix.outputs.matrix) }}
+    needs: [define-test-matrix, compile-tests]
+    environment:
+      name: integration
+      deployment: false
+    env:
+      ENABLE_AUTO_QUARANTINE: "true"
     permissions:
-      actions: read
-      checks: write
-      pull-requests: write
-      id-token: write
       contents: read
-    needs: changes
-    if: github.event_name == 'merge_group' && needs.changes.outputs.run-tests == 'true'
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@run-e2e-tests/v1
-    with:
-      workflow_name: Run CCIP Integration Tests For Merge Queue
-      chainlink_version: ${{ inputs.cl_ref || github.sha }}
-      test_path: .github/integration-in-memory-tests.yml
-      test_trigger: Merge Queue Integration CCIP Tests
-      slack_notification_after_tests: on_failure
-      slack_notification_after_tests_channel_id: "#ccip-testing"
-      slack_notification_after_tests_name: CCIP Integration Tests In Merge Queue
-      use-self-hosted-runners: ${{ needs.changes.outputs.should_use_self_hosted_runner }}
-      skip_image_build: true # in-memory tests do not require an image
-      quarantine: "true"
-    secrets:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-      QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-      QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-      MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
-      AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
-      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-      OPTIONAL_GATI_LAMBDA_URL: ${{  secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL}}
-      TRUNK_API_KEY: ${{ secrets.TRUNK_API_KEY }}
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        if: matrix.tests.runs_on != 'ubuntu-latest'
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+
+      - name: Free Disk Space
+        if: matrix.tests.free_disk
+        uses: smartcontractkit/.github/actions/free-disk-space@free-disk-space/v1
+
+      - name: Checkout the repo
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
+          persist-credentials: false
+
+      # No Go module operations happen in this job (test binary and preparetest
+      # are pre-compiled), so no module cache is needed.
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: integration-tests/go.mod
+          cache: false
+
+      - name: Download Pre-Compiled Test Binaries
+        uses: actions/download-artifact@v7
+        with:
+          name: inmemory-test-bins
+          path: integration-tests/bin/
+
+      - name: Add Test Binaries to PATH
+        shell: bash
+        run: |
+          chmod +x integration-tests/bin/*
+          echo "$GITHUB_WORKSPACE/integration-tests/bin" >> "$GITHUB_PATH"
+
+      - name: Setup LOOP Plugins
+        if: matrix.tests.plugins
+        uses: ./.github/actions/setup-loop-plugins
+        with:
+          install-public: "true"
+          install-private: "false"
+          install-local: "false"
+
+      - name: Setup Aptos CLI
+        if: matrix.tests.aptos != ''
+        uses: ./.github/actions/setup-aptos
+        with:
+          version: ${{ matrix.tests.aptos }}
+
+      - name: Setup Sui CLI
+        if: matrix.tests.sui != ''
+        uses: ./.github/actions/setup-sui
+        with:
+          version: ${{ matrix.tests.sui }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Postgres
+        id: postgres
+        uses: smartcontractkit/.github/actions/setup-postgres@setup-postgres/v1
+        with:
+          tmpfs: "true"
+          image-tag: "16-alpine"
+          postgres-options: "-c max_connections=1000 -c shared_buffers=2GB -c fsync=off -c synchronous_commit=off -c full_page_writes=off -c client_min_messages=warning"
+
+      - name: Prepare DB
+        shell: bash
+        env:
+          CL_DATABASE_URL: ${{ steps.postgres.outputs.database-url }}
+        run: preparetest
+
+      - name: Run Tests
+        id: run-tests
+        shell: bash
+        working-directory: integration-tests/smoke/ccip
+        continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
+        env:
+          RUN_QUARANTINED_TESTS: "true"
+          CL_DATABASE_URL: ${{ steps.postgres.outputs.database-url }}
+          TEST_RUN: ${{ matrix.tests.test }}
+          TEST_TIMEOUT: ${{ matrix.tests.timeout }}
+          PARALLEL: ${{ matrix.tests.parallel }}
+        run: |
+          gotestsum --jsonfile=/tmp/gotest.log --junitfile=/tmp/junit.xml \
+            --format=github-actions --raw-command -- \
+            go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip \
+              ../../bin/ccip-inmemory.test -test.v -test.run "${TEST_RUN}" \
+              -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL}"
+
+      - name: Ensure Junit XML file exists
+        if: always()
+        shell: bash
+        run: |
+          if [ ! -f /tmp/junit.xml ]; then
+            echo "Warning: /tmp/junit.xml not found. Creating empty report."
+            echo '<testsuites name="empty" tests="0" failures="0" errors="0" time="0"></testsuites>' > /tmp/junit.xml
+          fi
+
+      - name: Branch Out Upload
+        if: ${{ !cancelled() }}
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
+        with:
+          junit-file-path: /tmp/junit.xml
+          trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
+          trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
+          trunk-org-slug: chainlink
+          trunk-token: ${{ secrets.TRUNK_API_KEY }}
+          artifact-name: ${{ matrix.tests.test_id }}_test_logs
+
+      - name: Collect Diagnostic Logs on Failure
+        if: ${{ steps.run-tests.outcome != 'success' || cancelled() }}
+        shell: bash
+        run: |
+          docker ps -a || true
+          mkdir -p /tmp/failure_logs
+          cp -r integration-tests/smoke/ccip/logs /tmp/failure_logs/ || true
+          cp -r integration-tests/smoke/ccip/db_dumps /tmp/failure_logs/ || true
+          cp /tmp/gotest.log /tmp/failure_logs/ || true
+          cp /tmp/junit.xml /tmp/failure_logs/ || true
+
+      - name: Upload Diagnostic Logs on Failure
+        if: ${{ steps.run-tests.outcome != 'success' || cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.tests.test_id }}_failure_logs
+          path: /tmp/failure_logs
+          retention-days: 7
 
   check-integration-test-results:
     if: always()
     name: Integration Tests
     runs-on: ubuntu-latest
-    needs:
-      [
-        run-ccip-integration-in-memory-tests-for-pr,
-        run-ccip-integration-in-memory-tests-for-merge-queue,
-      ]
+    # Every job in the chain is listed so a failure upstream of the tests cannot report
+    # green here by leaving the downstream jobs 'skipped'.
+    needs: [changes, define-test-matrix, compile-tests, run-tests]
     steps:
-      - name: Fail the job if ccip tests in PR not successful
-        if: always() && needs.run-ccip-integration-in-memory-tests-for-pr.result == 'failure'
-        run: exit 1
+      - name: Check test status
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          MATRIX_RESULT: ${{ needs.define-test-matrix.result }}
+          COMPILE_RESULT: ${{ needs.compile-tests.result }}
+          TESTS_RESULT: ${{ needs.run-tests.result }}
+        run: |
+          fail_on() {
+            case "$2" in
+              failure|cancelled)
+                echo "$1 $2."
+                return 1
+                ;;
+            esac
+          }
+          status=0
+          fail_on "Path filtering (changes) job" "$CHANGES_RESULT" || status=1
+          fail_on "Test matrix definition" "$MATRIX_RESULT" || status=1
+          fail_on "Compilation of in-memory test binaries" "$COMPILE_RESULT" || status=1
+          fail_on "Integration in-memory tests" "$TESTS_RESULT" || status=1
+          if [ "$status" -ne 0 ]; then
+            exit 1
+          fi
+          echo "Integration in-memory tests passed or were skipped."
 
-      - name: Fail the job if ccip tests in merge queue not successful
-        if: always() && needs.run-ccip-integration-in-memory-tests-for-merge-queue.result == 'failure'
-        run: exit 1
+  notify-slack:
+    name: Notify Slack
+    if: always() && (inputs.slack_channel_id != '' || (github.event_name == 'merge_group' && needs.check-integration-test-results.result == 'failure'))
+    needs: [check-integration-test-results]
+    runs-on: ubuntu-latest
+    environment:
+      name: integration
+      deployment: false
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repo for slack action
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
+
+      - name: Notify Slack
+        uses: ./.github/actions/notify-slack-jobs-result
+        with:
+          status: ${{ needs.check-integration-test-results.result }}
+          job_name: "Integration In-Memory Tests"
+          run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
+          slack_channel_id: ${{ inputs.slack_channel_id || '#ccip-testing' }}
+          slack_bot_token: ${{ secrets.QA_SLACK_API_KEY }}

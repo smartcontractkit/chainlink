@@ -7,7 +7,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 )
 
 var (
@@ -48,7 +48,7 @@ type AppConfig interface {
 	JobDistributor() JobDistributor
 	JobPipeline() JobPipeline
 	Log() Log
-	Mercury() de.Mercury
+	Mercury() dataengine.Mercury
 	OCR() OCR
 	OCR2() OCR2
 	P2P() P2P

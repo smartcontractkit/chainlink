@@ -39,7 +39,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
@@ -554,14 +554,14 @@ func generateLLOOCR3Config(nca []NodeKeys) LLOOCR3Config {
 	f := uint8(1)
 
 	// LLO onchain config: production config has no predecessor.
-	onchainConfig, err := (&llocommon.EVMOnchainConfigCodec{}).Encode(llocommon.OnchainConfig{
+	onchainConfig, err := (&lloprotocol.EVMOnchainConfigCodec{}).Encode(lloprotocol.OnchainConfig{
 		Version:                 1,
 		PredecessorConfigDigest: nil,
 	})
 	helpers.PanicErr(err)
 
 	// LLO reporting plugin (offchain) config.
-	reportingPluginConfig, err := llocommon.OffchainConfig{
+	reportingPluginConfig, err := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     1,
 		DefaultMinReportIntervalNanoseconds: uint64(time.Second),
 		EnableObservationCompression:        true,

@@ -21,10 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -41,7 +39,7 @@ import (
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 
@@ -72,7 +70,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
 
@@ -164,7 +162,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			db := pgtest.NewSqlxDB(t)
 			lggr := logger.TestLogger(t)
 			orm := localauth.NewORM(db, time.Minute, lggr, audit.NoopLogger)
@@ -195,7 +193,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 }
 
 func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	orm := localauth.NewORM(db, time.Minute, lggr, audit.NoopLogger)
@@ -233,7 +231,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			db := pgtest.NewSqlxDB(t)
 			lggr := logger.TestLogger(t)
 			orm := localauth.NewORM(db, time.Minute, lggr, audit.NoopLogger)
@@ -273,7 +271,7 @@ func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			lggr := logger.TestLogger(t)
 			tfi := cmd.NewFileAPIInitializer(test.file)
 			user, err := tfi.Initialize(ctx, orm, lggr)
@@ -585,7 +583,7 @@ func getFuncName(i any) string {
 func TestShell_emitNodeConfig(t *testing.T) {
 	// t.Parallel() // beholder tester uses t.SetEnv and cannot use t.Parallel
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {

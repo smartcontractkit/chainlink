@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
@@ -272,6 +271,7 @@ GasLimitDefault = 300000
 Local = false
 PollPeriod = '3s'
 TxAcceptanceState = 3
+RequestSizeLimit = 0
 
 [MultiNode]
 Enabled = false

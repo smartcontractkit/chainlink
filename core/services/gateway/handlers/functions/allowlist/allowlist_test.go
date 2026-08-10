@@ -63,13 +63,13 @@ func TestUpdateAndCheck(t *testing.T) {
 		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.Test(t))
 		require.NoError(t, err)
 
-		err = allowlist.Start(testutils.Context(t))
+		err = allowlist.Start(t.Context())
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			assert.NoError(t, allowlist.Close())
 		})
 
-		require.NoError(t, allowlist.UpdateFromContract(testutils.Context(t)))
+		require.NoError(t, allowlist.UpdateFromContract(t.Context()))
 		require.False(t, allowlist.Allow(common.Address{}))
 		require.True(t, allowlist.Allow(common.HexToAddress(addr1)))
 		require.True(t, allowlist.Allow(common.HexToAddress(addr2)))
@@ -104,13 +104,13 @@ func TestUpdateAndCheck(t *testing.T) {
 		allowlist, err := allowlist.NewOnchainAllowlist(client, config, orm, logger.Test(t))
 		require.NoError(t, err)
 
-		err = allowlist.Start(testutils.Context(t))
+		err = allowlist.Start(t.Context())
 		require.NoError(t, err)
 		t.Cleanup(func() {
 			assert.NoError(t, allowlist.Close())
 		})
 
-		require.NoError(t, allowlist.UpdateFromContract(testutils.Context(t)))
+		require.NoError(t, allowlist.UpdateFromContract(t.Context()))
 		require.False(t, allowlist.Allow(common.Address{}))
 		require.True(t, allowlist.Allow(common.HexToAddress(addr1)))
 		require.True(t, allowlist.Allow(common.HexToAddress(addr2)))
@@ -137,7 +137,7 @@ func TestUpdatePeriodically(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-with_ToS_V1.0.0", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(t.Context())
 		client := clienttest.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
@@ -181,7 +181,7 @@ func TestUpdatePeriodically(t *testing.T) {
 	})
 
 	t.Run("OK-with_ToS_V1.1.0", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(t.Context())
 		client := clienttest.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
@@ -229,7 +229,7 @@ func TestUpdateFromContract(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-fetch_complete_list_of_allowed_senders", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(t.Context())
 		client := clienttest.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 
@@ -272,7 +272,7 @@ func TestUpdateFromContract(t *testing.T) {
 	})
 
 	t.Run("OK-iterate_over_list_of_allowed_senders", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(testutils.Context(t))
+		ctx, cancel := context.WithCancel(t.Context())
 		client := clienttest.NewClient(t)
 		client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 

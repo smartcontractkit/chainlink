@@ -7,15 +7,12 @@ import (
 
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
-
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/jmoiron/sqlx"
-
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -35,7 +32,7 @@ func setupORM(t *testing.T) (*sqlx.DB, sessions.AuthenticationProvider) {
 
 func TestORM_FindUser(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	db, orm := setupORM(t)
 	user1 := cltest.MustRandomUser(t)
@@ -69,7 +66,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			db := pgtest.NewSqlxDB(t)
 			orm := localauth.NewORM(db, test.sessionDuration, logger.TestLogger(t), &audit.AuditLoggerService{})
 
@@ -99,7 +96,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 
 func TestORM_DeleteUser(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	_, orm := setupORM(t)
 
 	u := cltest.MustRandomUser(t)
@@ -114,7 +111,7 @@ func TestORM_DeleteUser(t *testing.T) {
 
 func TestORM_DeleteUserSession(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	db, orm := setupORM(t)
 
@@ -137,7 +134,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 }
 
 func TestORM_DeleteUserCascade(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db, orm := setupORM(t)
 
 	u := cltest.MustRandomUser(t)
@@ -160,7 +157,7 @@ func TestORM_DeleteUserCascade(t *testing.T) {
 
 func TestORM_ClearNonCurrentSessions_scopedToUser(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	db, orm := setupORM(t)
 
@@ -207,7 +204,7 @@ func TestORM_CreateSession(t *testing.T) {
 	_, orm := setupORM(t)
 
 	initial := cltest.MustRandomUser(t)
-	require.NoError(t, orm.CreateUser(testutils.Context(t), &initial))
+	require.NoError(t, orm.CreateUser(t.Context(), &initial))
 
 	tests := []struct {
 		name        string
@@ -228,7 +225,7 @@ func TestORM_CreateSession(t *testing.T) {
 				Password: test.password,
 			}
 
-			sessionID, err := orm.CreateSession(testutils.Context(t), sessionRequest)
+			sessionID, err := orm.CreateSession(t.Context(), sessionRequest)
 			if test.wantSession {
 				require.NoError(t, err)
 				assert.NotEmpty(t, sessionID)
@@ -242,7 +239,7 @@ func TestORM_CreateSession(t *testing.T) {
 
 func TestORM_WebAuthn(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	_, orm := setupORM(t)
 
@@ -323,7 +320,7 @@ func TestORM_WebAuthn(t *testing.T) {
 
 func TestOrm_GenerateAuthToken(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	_, orm := setupORM(t)
 

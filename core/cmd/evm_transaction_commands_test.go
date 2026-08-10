@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -171,7 +170,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	evmTxes, err := txStore.GetAllTxes(testutils.Context(t))
+	evmTxes, err := txStore.GetAllTxes(t.Context())
 	require.NoError(t, err)
 	require.Len(t, evmTxes, 1)
 	evmTx := evmTxes[0]
@@ -186,7 +185,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	assert.Equal(t, value.String(), output.Value)
 	assert.Equal(t, fmt.Sprintf("%d", *evmTx.Sequence), output.Nonce)
 
-	attempts, err := txStore.GetAllTxAttempts(testutils.Context(t))
+	attempts, err := txStore.GetAllTxAttempts(t.Context())
 	require.NoError(t, err)
 	require.Len(t, attempts, 1)
 	assert.Equal(t, attempts[0].Hash, output.Hash)
@@ -241,7 +240,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 
 	assert.NoError(t, client.SendEther(c))
 
-	evmTxes, err := txStore.GetAllTxes(testutils.Context(t))
+	evmTxes, err := txStore.GetAllTxes(t.Context())
 	require.NoError(t, err)
 	require.Len(t, evmTxes, 1)
 	evmTx := evmTxes[0]
@@ -256,7 +255,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	assert.Equal(t, value.String(), output.Value)
 	assert.Equal(t, fmt.Sprintf("%d", *evmTx.Sequence), output.Nonce)
 
-	attempts, err := txStore.GetAllTxAttempts(testutils.Context(t))
+	attempts, err := txStore.GetAllTxAttempts(t.Context())
 	require.NoError(t, err)
 	require.Len(t, attempts, 1)
 	assert.Equal(t, attempts[0].Hash, output.Hash)

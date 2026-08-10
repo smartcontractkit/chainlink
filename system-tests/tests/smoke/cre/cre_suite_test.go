@@ -7,11 +7,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 //////////// SMOKE TESTS /////////////
@@ -234,6 +236,7 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 
 const solanaConfigPath = "/configs/workflow-don-solana.toml"
 
+//nolint:paralleltest // isolate local cre env run
 func Test_CRE_V2_Solana_Write(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana Write", func(t *testing.T) {
@@ -251,8 +254,19 @@ func Test_CRE_V2_Solana_LogTrigger(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // single test
 func Test_CRE_V2_Solana_Read_Accounts(t *testing.T) {
 	runSolanaReadBucket(t, solana_config.ReadBucketAccountCalls)
+}
+
+//nolint:paralleltest // single test
+func Test_CRE_V2_Solana_Read_Block(t *testing.T) {
+	runSolanaReadBucket(t, solana_config.ReadBucketBlockCalls)
+}
+
+//nolint:paralleltest // single test
+func Test_CRE_V2_Solana_Read_Tx(t *testing.T) {
+	runSolanaReadBucket(t, solana_config.ReadBucketTxCalls)
 }
 
 func runSolanaReadBucket(t *testing.T, bucket solana_config.ReadBucket) {
@@ -320,11 +334,18 @@ func Test_CRE_V2_DurableEmitter(t *testing.T) {
 	ExecuteDurableEmitterTest(t, testEnv)
 }
 
+//nolint:paralleltest // subtests share the same sharding config
 func Test_CRE_V2_Sharding(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
 	)
-
-	ExecuteShardingTest(t, testEnv)
+	t.Run("ExecuteShardingTestWithCronTrigger", func(t *testing.T) {
+		ExecuteShardingTestWithCronTrigger(t, testEnv)
+	})
+	t.Run("ExecuteShardingTestWithEVMLogTrigger", func(t *testing.T) {
+		// Reinitialize OperationsBundle so that it can reexecute shard config updates instead of caching them.
+		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle = operations.NewBundle(t.Context, logger.TestLogger(t), operations.NewMemoryReporter())
+		ExecuteShardingTestWithEVMLogTrigger(t, testEnv)
+	})
 }

@@ -21,7 +21,7 @@ import (
 
 func TestGetSnapshotEmpty(t *testing.T) {
 	t.Run("OK-no_rows", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		psqlORM := setupORM(t, "test")
 		lggr := logger.TestLogger(t)
 		orm := s4.NewCachedORMWrapper(psqlORM, lggr)
@@ -34,7 +34,7 @@ func TestGetSnapshotEmpty(t *testing.T) {
 
 func TestGetSnapshotCacheFilled(t *testing.T) {
 	t.Run("OK_with_rows_already_cached", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		rows := generateTestSnapshotRows(t, 100)
 
 		fullAddressRange := s4.NewFullAddressRange()
@@ -77,7 +77,7 @@ func TestGetSnapshotCacheFilled(t *testing.T) {
 
 func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 	t.Run("OK-GetSnapshot_cache_invalidated_after_update", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		rows := generateTestSnapshotRows(t, 100)
 
 		fullAddressRange := s4.NewFullAddressRange()
@@ -120,7 +120,7 @@ func TestUpdateInvalidatesSnapshotCache(t *testing.T) {
 	})
 
 	t.Run("OK-GetSnapshot_cache_not_invalidated_after_update", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		rows := generateTestSnapshotRows(t, 5)
 
 		addressRange := &s4.AddressRange{
@@ -173,7 +173,7 @@ func TestGet(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("OK-Get_underlaying_ORM_returns_a_row", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		underlayingORM := mocks.NewORM(t)
 		expectedRow := &s4.Row{
 			Address: address,
@@ -187,7 +187,7 @@ func TestGet(t *testing.T) {
 		require.Equal(t, expectedRow, row)
 	})
 	t.Run("NOK-Get_underlaying_ORM_returns_an_error", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		underlayingORM := mocks.NewORM(t)
 		underlayingORM.On("Get", mock.Anything, address, slotID).Return(nil, errors.New("some_error")).Once()
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
@@ -205,7 +205,7 @@ func TestDeletedExpired(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("OK-DeletedExpired_underlaying_ORM_returns_a_row", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		var expectedDeleted int64 = 10
 		underlayingORM := mocks.NewORM(t)
 		underlayingORM.On("DeleteExpired", mock.Anything, limit, now).Return(expectedDeleted, nil).Once()
@@ -216,7 +216,7 @@ func TestDeletedExpired(t *testing.T) {
 		require.Equal(t, expectedDeleted, actualDeleted)
 	})
 	t.Run("NOK-DeletedExpired_underlaying_ORM_returns_an_error", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		var expectedDeleted int64
 		underlayingORM := mocks.NewORM(t)
 		underlayingORM.On("DeleteExpired", mock.Anything, limit, now).Return(expectedDeleted, errors.New("some_error")).Once()
@@ -234,7 +234,7 @@ func TestGetUnconfirmedRows(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("OK-GetUnconfirmedRows_underlaying_ORM_returns_a_row", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		address := sqlutil.New(testutils.NewAddress().Big())
 		var slotID uint = 1
 
@@ -251,7 +251,7 @@ func TestGetUnconfirmedRows(t *testing.T) {
 		require.Equal(t, expectedRow, actualRow)
 	})
 	t.Run("NOK-GetUnconfirmedRows_underlaying_ORM_returns_an_error", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		underlayingORM := mocks.NewORM(t)
 		underlayingORM.On("GetUnconfirmedRows", mock.Anything, limit).Return(nil, errors.New("some_error")).Once()
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)

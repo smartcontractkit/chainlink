@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 )
 
@@ -17,7 +16,7 @@ func TestOffchainTransmitter(t *testing.T) {
 	transmitter := functions.NewOffchainTransmitter(1)
 	ch := transmitter.ReportChannel()
 	report := &functions.OffchainResponse{RequestId: []byte("testID")}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	require.NoError(t, transmitter.TransmitReport(ctx, report))
 	require.Equal(t, report, <-ch)

@@ -7,21 +7,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-
-	"github.com/stretchr/testify/require"
 )
 
 func Test_VRFKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := keystore.ExposedNewMaster(t, db)
-	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))
+	require.NoError(t, keyStore.Unlock(t.Context(), cltest.Password))
 	ks := keyStore.VRF()
 	reset := func() {
 		ctx := context.Background() // Executed during cleanup
@@ -45,7 +43,7 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 
 	t.Run("creates a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.ID())
@@ -55,7 +53,7 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 
 	t.Run("imports and exports a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		exportJSON, err := ks.Export(key.ID(), cltest.Password)
@@ -74,7 +72,7 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		newKey, err := vrfkey.NewV2()
 		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
@@ -93,7 +91,7 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 
 	t.Run("fails to add an already added key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 
 		k, err := vrfkey.NewV2()
 		require.NoError(t, err)
@@ -108,7 +106,7 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 
 	t.Run("fails to delete a key that doesn't exists", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 
 		k, err := vrfkey.NewV2()
 		require.NoError(t, err)
@@ -124,7 +122,7 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 
 	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 
 		exportedKey := `{"PublicKey":"0xd2377bc6be8a2c5ce163e1867ee42ef111e320686f940a98e52e9c019ca0606800","vrf_key":{"address":"b94276ad4e5452732ec0cccf30ef7919b67844b6","crypto":{"cipher":"aes-128-ctr","ciphertext":"ff66d61d02dba54a61bab1ceb8414643f9e76b7351785d2959e2c8b50ee69a92","cipherparams":{"iv":"75705da271b11e330a27b8d593a3930c"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"efe5b372e4fe79d0af576a79d65a1ee35d0792d9c92b70107b5ada1817ea7c7b"},"mac":"e4d0bb08ffd004ab03aeaa42367acbd9bb814c6cfd981f5157503f54c30816e7"},"version":3}}`
 		importedKey, err := ks.Import(ctx, []byte(exportedKey), "p4SsW0rD1!@#_")
@@ -134,7 +132,7 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 
 	t.Run("fails to import an already imported key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 
 		exportedKey := `{"PublicKey":"0xd2377bc6be8a2c5ce163e1867ee42ef111e320686f940a98e52e9c019ca0606800","vrf_key":{"address":"b94276ad4e5452732ec0cccf30ef7919b67844b6","crypto":{"cipher":"aes-128-ctr","ciphertext":"ff66d61d02dba54a61bab1ceb8414643f9e76b7351785d2959e2c8b50ee69a92","cipherparams":{"iv":"75705da271b11e330a27b8d593a3930c"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"efe5b372e4fe79d0af576a79d65a1ee35d0792d9c92b70107b5ada1817ea7c7b"},"mac":"e4d0bb08ffd004ab03aeaa42367acbd9bb814c6cfd981f5157503f54c30816e7"},"version":3}}`
 		importedKey, err := ks.Import(ctx, []byte(exportedKey), "p4SsW0rD1!@#_")
@@ -166,7 +164,7 @@ func Test_VRFKeyStore_E2E(t *testing.T) {
 		})
 
 		t.Run("generates a proof for a key", func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			k, err := vrfkey.NewV2()
 			require.NoError(t, err)
 			err = ks.Add(ctx, k)

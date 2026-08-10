@@ -101,6 +101,12 @@ jobs:
             "Test_CRE_V2_Solana_Read_Accounts": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
+          "Test_CRE_V2_Solana_Read_Block": [
+               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
+             ],
+          "Test_CRE_V2_Solana_Read_Tx": [
+               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
+             ],
             "Test_CRE_V2_Sharding": [
                {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
              ],
@@ -112,7 +118,7 @@ jobs:
              ]
           }'
 
-          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade)
+          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade | grep -v '^TestMain$')
 
           tests=$(echo "$test_names" | jq -c -R -s \
             --argjson run_id "${{ github.run_id }}" \
@@ -177,9 +183,7 @@ jobs:
         uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
           go_mod_path: system-tests/tests/go.mod
-          cache_key_id: integration-tests-v1
-          cache_builds: true
-          cache_restore_only: "true"
+          no_cache: true
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6
@@ -219,7 +223,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/go/bin/gotestsum
-          key: gotestsum-1.13.0
+          key: ${{ runner.os }}-${{ runner.arch }}-gotestsum-1.13.0
 
       - name: Set up gotestsum
         shell: bash
@@ -232,17 +236,11 @@ jobs:
             echo "::endgroup::"
           fi
 
-      - name: Install Aptos CLI
+      - name: Setup Aptos CLI
         if: ${{ matrix.tests.test_name == 'Test_CRE_V2_Aptos_Suite' }}
-        uses: aptos-labs/actions/install-aptos-cli@fdd3a3a628c840d5c35086a87e9cc3141b635505 # 2026-05-20
+        uses: ./.github/actions/setup-aptos
         with:
-          CLI_VERSION: 7.8.0
-
-      - name: Setup Stellar CRE contracts
-        if: ${{ contains(matrix.tests.test_name, 'Stellar') }}
-        uses: ./.github/actions/setup-stellar-cre-contracts
-        with:
-          working-directory: system-tests/lib
+          version: "7.8.0"
 
       - name: Start observability stack (Beholder suite)
         if: contains(matrix.tests.test_name, 'Beholder_Suite')

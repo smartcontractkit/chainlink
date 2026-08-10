@@ -198,14 +198,6 @@ func provisionWorkflowDON(
 	fmt.Println()
 	deployForwarder(env, artefactsDir)
 
-	onchainMeta, _ = provisionOCR3(
-		env,
-		nodeSet,
-		chainID,
-		p2pPort,
-		ocrConfigFile,
-		artefactsDir,
-	)
 	distributeFunds(nodeSet.NodeKeys, env)
 
 	// We don't technically need the capability registry as a dependency
@@ -213,5 +205,5 @@ func provisionWorkflowDON(
 	// We could remove it so that we can execute provisioning in parallel
 	deployKeystoneWorkflowsTo(nodeSet, reg)
 
-	return onchainMeta
+	return LoadOnchainMeta(artefactsDir, env)
 }

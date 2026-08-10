@@ -24,6 +24,18 @@ const (
 	HealthStatusFailing = "failing"
 )
 
+// PublicReadyz is a minimal readiness endpoint intended for public load balancer health checks.
+// Unlike Readyz, it never returns per-check details regardless of query parameters, to avoid
+// leaking internal service state on publicly reachable endpoints.
+func (hc *HealthController) PublicReadyz(c *gin.Context) {
+	ready, _ := hc.App.GetHealthChecker().IsReady()
+	if !ready {
+		c.Status(http.StatusServiceUnavailable)
+		return
+	}
+	c.Status(http.StatusOK)
+}
+
 // NOTE: We only implement the k8s readiness check, *not* the liveness check. Liveness checks are only recommended in cases
 // where the app doesn't crash itself on panic, and if implemented incorrectly can cause cascading failures.
 // See the following for more information:

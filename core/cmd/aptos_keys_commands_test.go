@@ -12,10 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -70,7 +68,7 @@ func TestShell_AptosKeys(t *testing.T) {
 
 	t.Run("ListAptosKeys", func(tt *testing.T) {
 		defer cleanup()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, r := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Aptos().Create(ctx)
 		require.NoError(t, err)
@@ -92,7 +90,7 @@ func TestShell_AptosKeys(t *testing.T) {
 
 	t.Run("DeleteAptosKey", func(tt *testing.T) {
 		defer cleanup()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, _ := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Aptos().Create(ctx)
 		require.NoError(t, err)
@@ -114,7 +112,7 @@ func TestShell_AptosKeys(t *testing.T) {
 	t.Run("ImportExportAptosKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, _ := app.NewShellAndRenderer()
 
 		_, err := app.GetKeyStore().Aptos().Create(ctx)

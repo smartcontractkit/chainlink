@@ -5,15 +5,15 @@ import (
 	"fmt"
 	"sort"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"golang.org/x/exp/maps"
-
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 

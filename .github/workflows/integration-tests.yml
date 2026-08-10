@@ -42,7 +42,6 @@ env:
   CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/${{ inputs.ecr_name || 'chainlink-integration-tests' }}
   CHAINLINK_REF: ${{ inputs.cl_ref || github.sha }}
   TEST_SUITE: smoke
-  MOD_CACHE_VERSION: 2
 
 jobs:
   enforce-ctf-version:
@@ -212,6 +211,7 @@ jobs:
       should-use-self-hosted-runners: ${{ steps.label-runs-on-opt-out.outputs.check-label-found == 'false' }}
       run-e2e-tests-label-found: ${{ steps.label-runs-e2e-tests.outputs.check-label-found || 'false' }}
       skip-e2e-regression-label-found: ${{ steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
+      skip-mixed-env-label-found: ${{ steps.label-skip-mixed-env.outputs.check-label-found || 'false' }}
     steps:
       - name: Get PR Labels (runs-on-opt-out)
         if: github.event_name == 'pull_request'
@@ -233,6 +233,13 @@ jobs:
         uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
         with:
           check-label: "skip-e2e-regression"
+
+      - name: Get PR Labels (skip-mixed-env)
+        if: github.event_name == 'pull_request'
+        id: label-skip-mixed-env
+        uses: smartcontractkit/.github/actions/get-pr-labels@get-pr-labels/v1
+        with:
+          check-label: "skip-mixed-env"
 
       - name: Set runner labels
         id: runner-labels
@@ -371,6 +378,7 @@ jobs:
     outputs:
       should-run: ${{ steps.cre-e2e-tests.outputs.should-run }}
       with-regression: ${{ steps.cre-regression-tests.outputs.with-regression }}
+      run-mixed-env: ${{ steps.cre-mixed-env-tests.outputs.run-mixed-env }}
     steps:
       - name: CRE E2E Tests
         id: cre-e2e-tests
@@ -435,6 +443,38 @@ jobs:
 
           echo "with-regression=${SHOULD_RUN_REGRESSION}" | tee -a "$GITHUB_OUTPUT"
 
+      - name: CRE Mixed-Env Tests
+        id: cre-mixed-env-tests
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          IS_DEFAULT_BRANCH: ${{ github.ref_name == 'develop' }}
+          SKIP_MIXED_ENV_LABEL_FOUND: ${{ needs.labels.outputs.skip-mixed-env-label-found }}
+        run: |
+          RUN_MIXED_ENV="false"
+
+          # -- PULL REQUEST --
+          # Emergency escape hatch: apply the `skip-mixed-env` label to bypass the
+          # (required) mixed-env check without an admin. The job is then skipped, which
+          # the ETH Smoke Tests gate treats as a non-blocking warning. Like the regression
+          # tests, mixed-env is not run in the merge queue, so the bypass carries through.
+          if [[ "$GITHUB_EVENT_NAME" == 'pull_request' ]]; then
+            if [[ "$SKIP_MIXED_ENV_LABEL_FOUND" != 'true' ]]; then
+              RUN_MIXED_ENV="true"
+            fi
+
+          # -- PUSH --
+          elif [[ "$GITHUB_EVENT_NAME" == 'push' ]]; then
+            if [[ "$IS_DEFAULT_BRANCH" == 'true' ]]; then
+              RUN_MIXED_ENV="true"
+            fi
+
+          # -- WORKFLOW DISPATCH --
+          elif [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            RUN_MIXED_ENV="true"
+          fi
+
+          echo "run-mixed-env=${RUN_MIXED_ENV}" | tee -a "$GITHUB_OUTPUT"
+
   run-core-cre-e2e-tests:
     name: Run Core CRE E2E Tests
     needs: [build-chainlink, run-core-cre-e2e-tests-setup, compile-tests]
@@ -469,6 +509,31 @@ jobs:
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+    secrets: inherit
+
+  run-core-cre-mixed-env-tests:
+    name: Run Core CRE Mixed-Env Tests
+    needs: [build-chainlink, run-core-cre-e2e-tests-setup, compile-tests]
+    permissions:
+      actions: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    if: needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' && needs.run-core-cre-e2e-tests-setup.outputs.run-mixed-env == 'true'
+    uses: ./.github/workflows/cre-mixed-env-tests.yaml
+    with:
+      ecr: "sdlc"
+      chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
+      chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
+      chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+      # Base-branch commit this PR is built on top of, so the mixed-env baseline is the exact
+      # branch the PR image derives from (develop or a release branch) and the 2-2 split
+      # isolates only the PR's changes. Empty for non-PR events; the workflow then falls back
+      # to the develop nightly. base_ref_name gates that fallback: develop uses the nightly,
+      # any other base without a published image is skipped (no correct baseline).
+      baseline_ref: ${{ github.event.pull_request.base.sha }}
+      base_ref_name: ${{ github.event.pull_request.base.ref }}
     secrets: inherit
 
   run-ccip-v1-6-e2e-tests-setup:
@@ -668,6 +733,7 @@ jobs:
         run-ccip-v1-6-e2e-tests,
         run-core-cre-e2e-tests,
         run-core-cre-e2e-regression-tests,
+        run-core-cre-mixed-env-tests,
       ]
     steps:
       - name: Check all E2E test results
@@ -676,6 +742,7 @@ jobs:
           CCIP_RESULT: ${{ needs.run-ccip-v1-6-e2e-tests.result }}
           CRE_RESULT: ${{ needs.run-core-cre-e2e-tests.result }}
           CRE_REGRESSION_RESULT: ${{ needs.run-core-cre-e2e-regression-tests.result }}
+          CRE_MIXED_ENV_RESULT: ${{ needs.run-core-cre-mixed-env-tests.result }}
           BUILD_RESULT: ${{ needs.build-chainlink.result }}
         run: |
           check_result() {
@@ -700,6 +767,7 @@ jobs:
           check_result "CCIP v1.6 E2E tests" "${CCIP_RESULT}" || failed=1
           check_result "Core CRE E2E tests" "${CRE_RESULT}" || failed=1
           check_result "Core CRE E2E regression tests" "${CRE_REGRESSION_RESULT}" || failed=1
+          check_result "Core CRE mixed-env tests" "${CRE_MIXED_ENV_RESULT}" || failed=1
           check_result "Chainlink image build" "${BUILD_RESULT}" || failed=1
 
           if [[ "$failed" -eq 1 ]]; then

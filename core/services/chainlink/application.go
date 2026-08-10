@@ -26,8 +26,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -49,11 +47,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -85,7 +83,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
@@ -445,9 +442,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			CapabilitiesRegistry:    opts.CapabilitiesRegistry,
 			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
 			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
-			CapabilitiesPeerWrapper: opts.CapabilitiesPeerWrapper,
+			CapabilitiesSharedPeer:  opts.CapabilitiesSharedPeer,
 			FetcherFunc:             opts.FetcherFunc,
-			FetcherFactoryFn:        opts.FetcherFactoryFn,
 			BillingClient:           opts.BillingClient,
 			LinkingClient:           opts.LinkingClient,
 			Meter:                   meter,
@@ -600,7 +596,16 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	legacyEVMTelemReporter := headreporter.NewLegacyEVMTelemetryReporter(telemetryManager, globalLogger, evmChainIDs...)
 	loopTelemReporter := headreporter.NewTelemetryReporter(telemetryManager, globalLogger, relayChainInterops.GetIDToRelayerMap())
-	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, legacyEVMTelemReporter, loopTelemReporter)
+	headReporters := []headreporter.HeadReporter{promReporter, legacyEVMTelemReporter, loopTelemReporter}
+	if headMetrics, metricsErr := headreporter.NewBeholderHeadMetrics(); metricsErr != nil {
+		globalLogger.Errorw("Failed to initialize head reporter Beholder metrics; skipping head metrics reporters", "err", metricsErr)
+	} else {
+		headReporters = append(headReporters, headreporter.NewEVMMetricsReporter(headMetrics, globalLogger, evmChainIDs...))
+		if relayerMetricsReporter := headreporter.NewRelayerMetricsReporter(headMetrics, globalLogger, relayChainInterops.GetIDToRelayerMap()); relayerMetricsReporter != nil {
+			headReporters = append(headReporters, relayerMetricsReporter)
+		}
+	}
+	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, headReporters...)
 	srvcs = append(srvcs, headReporter)
 	for _, chain := range legacyEVMChains.Slice() {
 		legacyChain, ok := chain.(legacyevm.Chain)
@@ -671,16 +676,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		}
 	)
 
-	delegates[job.Workflow] = workflows.NewDelegate(
-		globalLogger,
-		opts.CapabilitiesRegistry,
-		opts.DonTimeStore,
-		workflowORM,
-		creServices.WorkflowRateLimiter,
-		creServices.WorkflowLimits,
-		workflows.WithBillingClient(creServices.BillingClient),
-		workflows.WithWorkflowRegistry(cfg.Capabilities().WorkflowRegistry().Address(), cfg.Capabilities().WorkflowRegistry().ChainID()),
-	)
+	// Workflow job type has been removed; use a deprecated delegate so existing jobs
+	// surface a visible error in the UI rather than silently doing nothing.
+	delegates[job.Workflow] = &job.DeprecatedDelegate{Type: job.Workflow}
 
 	// FluxMonitor has been removed; use a deprecated delegate so existing jobs
 	// surface a visible error in the UI rather than silently doing nothing.
@@ -702,7 +700,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		creServices.GetPeerID,
 		peerWrapper,
 		opts.NewOracleFactoryFn,
-		opts.FetcherFactoryFn,
 		creServices.OrgResolver,
 		atomicSettings,
 		creServices.OCRConfigService,
