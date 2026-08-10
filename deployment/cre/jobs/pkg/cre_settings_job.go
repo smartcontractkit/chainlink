@@ -48,7 +48,7 @@ type ShardAssignmentJob struct {
 }
 
 func (j ShardAssignmentJob) ResolveJob() (string, error) {
-	settings := fmt.Sprintf("config_type = \"shard_assignment\"\n%s", j.ShardAssignment)
+	settings := "config_type = \"shard_assignment\"\n" + j.ShardAssignment
 	t, err := template.New("s").ParseFS(templates.FS, templateName)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse %s: %w", templateName, err)
