@@ -62,8 +62,6 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 		d.lggr.Infow("Updated shard assignment config", "hash", spec.Hash)
 
 	case ConfigTypeSettings:
-		fallthrough
-	default:
 		if err := d.atomicSettings.Store(core.SettingsUpdate{
 			Settings: spec.Settings,
 			Hash:     spec.Hash,
@@ -71,6 +69,9 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 			return nil, fmt.Errorf("failed to update settings: %w", err)
 		}
 		d.lggr.Infow("Updated settings", "hash", spec.Hash, "settings", spec.Settings)
+
+	default:
+		return nil, fmt.Errorf("unknown config_type %q", configType)
 	}
 
 	return nil, nil
