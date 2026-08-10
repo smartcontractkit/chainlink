@@ -27,9 +27,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/moby/moby/client"
@@ -56,11 +58,12 @@ const (
 )
 
 // Only one CRE settings override may be active at a time. Overrides mutate settings on
-// the SHARED Local CRE environment, so two override tests running concurrently would
-// clobber each other's document. These package-level vars enforce that and fail the
-// second test fast with an actionable message. Re-application by the SAME test is
-// allowed (keyed on the owning test name), so apply -> Reset -> apply within one test,
-// or two applies from the same test, are both fine.
+// the SHARED Local CRE environment, so a second active override — whether from another
+// test running concurrently or from the same test applying again before reverting —
+// would clobber the first one's document. These package-level vars enforce that and fail
+// fast with an actionable message. To change settings within one test, call
+// handle.Reset(t) (which releases the claim) before applying again; to apply several
+// scopes together, compose them in one ApplyCRESettings call.
 var (
 	creSettingsActiveMu    sync.Mutex
 	creSettingsActiveOwner string // t.Name() of the test currently holding an override; "" if none
@@ -69,17 +72,28 @@ var (
 func claimCRESettingsOverride(owner string) error {
 	creSettingsActiveMu.Lock()
 	defer creSettingsActiveMu.Unlock()
-	if creSettingsActiveOwner != "" && creSettingsActiveOwner != owner {
+	switch creSettingsActiveOwner {
+	case "":
+		creSettingsActiveOwner = owner
+		return nil
+	case owner:
+		// Same test applying again without reverting first. Each ApplyCRESettings rebuilds
+		// from the boot baseline and REPLACES the previous override, so a silent second apply
+		// would drop the first. Make it a loud error instead.
+		return fmt.Errorf(
+			"this test already has an active CRE settings override; call handle.Reset(t) before " +
+				"applying again — each ApplyCRESettings replaces the previous override rather than " +
+				"stacking on it. To apply several scopes together, compose them in one " +
+				"ApplyCRESettings call (e.g. Global(...), Org(id, ...), Workflow(id, ...)).\n" +
+				"See core/scripts/cre/environment/docs/cresettings-override-README.md")
+	default:
 		return fmt.Errorf(
 			"a CRE settings override from %q is still active on the shared environment.\n"+
 				"Settings-override tests mutate shared state and must run serially: remove t.Parallel() "+
-				"from this test (and do not add it to the CRE_TEST_PARALLEL_ENABLED set). If you meant to "+
-				"change settings within one test, call handle.Reset(t) before applying again.\n"+
+				"from this test (and do not add it to the CRE_TEST_PARALLEL_ENABLED set).\n"+
 				"See core/scripts/cre/environment/docs/cresettings-override-README.md",
 			creSettingsActiveOwner)
 	}
-	creSettingsActiveOwner = owner
-	return nil
 }
 
 func releaseCRESettingsOverride(owner string) {
@@ -88,21 +102,6 @@ func releaseCRESettingsOverride(owner string) {
 	if creSettingsActiveOwner == owner {
 		creSettingsActiveOwner = ""
 	}
-}
-
-// CRESettingsOverrides is a scoped set of CRE settings overrides to apply for the
-// duration of a test. All values are strings, as required by the settings schema.
-// Keys are dotted setting paths, e.g. "PerWorkflow.HTTPAction.CallLimit" or
-// "PerOrg.BaseTriggerRetransmitEnabled".
-type CRESettingsOverrides struct {
-	// Global applies to every org/owner/workflow (the [global] scope).
-	Global map[string]string
-	// Org is keyed by org id (the [org.<id>] scope).
-	Org map[string]map[string]string
-	// Owner is keyed by workflow-owner hex WITHOUT the 0x prefix (the [owner.<id>] scope).
-	Owner map[string]map[string]string
-	// Workflow is keyed by workflow id hex WITHOUT the 0x prefix (the [workflow.<id>] scope).
-	Workflow map[string]map[string]string
 }
 
 // CRESettingsHandle tracks an applied override so a test can revert it. ApplyCRESettings
@@ -123,32 +122,104 @@ type creSettingsTarget struct {
 	appliedHash  string
 }
 
-// ApplyCRESettings overrides CRE settings across the whole environment at runtime,
-// without restarting the topology, and registers a t.Cleanup that restores the pre-test
-// baseline when the test finishes.
+// TOMLFile wraps a TOML settings fragment as an *fstest.MapFile. It is used internally by
+// the scope options below; exported for building a settings tree by hand if ever needed.
+func TOMLFile(content string) *fstest.MapFile { return &fstest.MapFile{Data: []byte(content)} }
+
+// Option contributes one scope's settings to an ApplyCRESettings call. Compose several in a
+// single call to apply multiple scopes together (see ApplyCRESettings).
+type Option func(fstest.MapFS) error
+
+// Global applies the TOML fragment to the [global] scope (every org/owner/workflow).
+func Global(toml string) Option {
+	return func(files fstest.MapFS) error { files["global.toml"] = TOMLFile(toml); return nil }
+}
+
+// Org applies the TOML fragment to the [org.<id>] scope. id is the org id (no 0x prefix).
+func Org(id, toml string) Option { return scopedOption("org", id, toml) }
+
+// Owner applies the TOML fragment to the [owner.<id>] scope. id is the workflow-owner hex (no 0x prefix).
+func Owner(id, toml string) Option { return scopedOption("owner", id, toml) }
+
+// Workflow applies the TOML fragment to the [workflow.<id>] scope. id is the workflow id hex (no 0x prefix).
+func Workflow(id, toml string) Option { return scopedOption("workflow", id, toml) }
+
+func scopedOption(scope, id, toml string) Option {
+	return func(files fstest.MapFS) error {
+		if id == "" {
+			return fmt.Errorf("%s scope requires a non-empty id", scope)
+		}
+		files[scope+"/"+id+".toml"] = TOMLFile(toml)
+		return nil
+	}
+}
+
+// FromFS applies a whole tree of settings files laid out like prod (global.toml,
+// org/<id>.toml, owner/<id>.toml, workflow/<id>.toml) — for on-disk fixtures via
+// os.DirFS("testdata/...") or an embed.FS. It composes with the other options.
+func FromFS(src fs.FS) Option {
+	return func(files fstest.MapFS) error {
+		return fs.WalkDir(src, ".", func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			data, readErr := fs.ReadFile(src, path)
+			if readErr != nil {
+				return readErr
+			}
+			files[path] = &fstest.MapFile{Data: data}
+			return nil
+		})
+	}
+}
+
+// ApplyCRESettings overrides CRE settings across the whole environment at runtime, without
+// restarting the topology, and registers a t.Cleanup that restores the pre-test baseline
+// when the test finishes.
+//
+// Compose one or more scope options in a SINGLE call — Global, Org, Owner, Workflow (or
+// FromFS for an on-disk tree):
+//
+//	ApplyCRESettings(t, env,
+//	    Global("[PerWorkflow.HTTPAction]\nCallLimit = '9'"),
+//	    Workflow(wfID, "[PerWorkflow]\nExecutionConcurrencyLimit = '1'"),
+//	)
+//
+// Each option's string is that scope's settings TOML with no scope prefix (the scope and id
+// come from the option). Internally the options build a prod-style settings tree that is
+// combined by the deployment CombineCRESettingsFiles helper and merged onto each DON's
+// baseline.
+//
+// IMPORTANT: pass every scope you want in ONE call. Calling ApplyCRESettings again REPLACES
+// the previous settings (each call rebuilds from the boot baseline) rather than adding to
+// them — use Reset then apply again only when you deliberately want to swap.
 //
 // Settings are applied to every DON that has worker (plugin) nodes — the workflow and
 // capabilities DONs — since CRE settings are enforced there and the delivery changeset
-// targets type=plugin nodes. Bootstrap-only DONs (e.g. bootstrap-gateway) have no such
-// nodes and are skipped. The user does not choose which DONs are targeted.
+// targets type=plugin nodes. Bootstrap-only DONs (e.g. bootstrap-gateway) are skipped.
 //
-// For each DON it captures the DON's boot CL_CRE_SETTINGS as the baseline, merges the
-// overrides on top, and proposes a `cresettings` job to the DON's worker nodes, which
-// auto-approve and apply it live.
-//
-// It fails the test (require) if proposing to any DON fails. Application is confirmed
-// best-effort via the nodes' "Updated settings" logs, emitted via t.Logf for visibility.
-func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, o CRESettingsOverrides) *CRESettingsHandle {
+// It fails the test if an option, combining, or proposing fails; application is confirmed
+// best-effort via the nodes' "Updated settings" logs.
+func ApplyCRESettings(t *testing.T, env *ttypes.TestEnvironment, opts ...Option) *CRESettingsHandle {
 	t.Helper()
 
 	require.NotNil(t, env, "test environment must not be nil")
 	require.NotNil(t, env.CreEnvironment, "CreEnvironment must not be nil")
 	require.NotNil(t, env.CreEnvironment.CldfEnvironment, "CldfEnvironment must not be nil")
 	require.NotNil(t, env.Dons, "Dons must not be nil")
+	require.NotEmpty(t, opts, "at least one settings option is required (e.g. helpers.Global(...))")
 
-	// The same overrides are layered onto every targeted DON; only the baseline differs.
-	overrideDoc := overridesToDoc(o)
-	require.NotEmpty(t, overrideDoc, "no overrides provided")
+	// Build the prod-style settings tree from the options, then combine it exactly like prod
+	// and layer the result onto each DON's baseline below.
+	files := fstest.MapFS{}
+	for _, opt := range opts {
+		require.NoError(t, opt(files), "invalid CRE settings option")
+	}
+	combined, combineErr := cre_jobs.CombineCRESettingsFiles(t.TempDir(), files)
+	require.NoError(t, combineErr, "failed to combine CRE settings files")
+	overrideDoc := map[string]any{}
+	require.NoError(t, toml.Unmarshal(combined, &overrideDoc), "combined CRE settings is not valid TOML")
+	require.NotEmpty(t, overrideDoc, "no settings provided")
 
 	// CRE settings are enforced on worker (plugin) nodes, and the delivery changeset filters
 	// proposals to type=plugin — so bootstrap-only DONs (e.g. bootstrap-gateway) have no
@@ -288,40 +359,6 @@ func deliverCRESettings(env *ttypes.TestEnvironment, don *cre.Don, settingsTOML 
 		return fmt.Errorf("propose settings job: %w", err)
 	}
 	return nil
-}
-
-// overridesToDoc converts the scoped overrides into a nested map matching the settings
-// document shape: {global:{...}, org:{<id>:{...}}, owner:{...}, workflow:{...}}. Dotted
-// keys ("PerWorkflow.HTTPAction.CallLimit") are expanded into nested tables so the
-// marshalled TOML is scoped correctly.
-func overridesToDoc(o CRESettingsOverrides) map[string]any {
-	doc := map[string]any{}
-	for k, v := range o.Global {
-		setNested(doc, append([]string{"global"}, strings.Split(k, ".")...), v)
-	}
-	addScoped := func(scope string, byID map[string]map[string]string) {
-		for id, m := range byID {
-			for k, v := range m {
-				setNested(doc, append([]string{scope, id}, strings.Split(k, ".")...), v)
-			}
-		}
-	}
-	addScoped("org", o.Org)
-	addScoped("owner", o.Owner)
-	addScoped("workflow", o.Workflow)
-	return doc
-}
-
-func setNested(m map[string]any, path []string, val string) {
-	for i := 0; i < len(path)-1; i++ {
-		child, ok := m[path[i]].(map[string]any)
-		if !ok {
-			child = map[string]any{}
-			m[path[i]] = child
-		}
-		m = child
-	}
-	m[path[len(path)-1]] = val
 }
 
 // renderSettings merges overrideDoc (may be nil) onto the DON's boot baseline (a

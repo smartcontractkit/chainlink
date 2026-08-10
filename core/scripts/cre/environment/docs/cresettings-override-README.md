@@ -13,13 +13,11 @@ test ends.
 func Test_CRE_MyThing(t *testing.T) {
     testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 
-    // Scope the override to THIS test's workflow so it can't affect any other test;
-    // it auto-reverts when the test ends.
-    t_helpers.ApplyCRESettings(t, testEnv, t_helpers.CRESettingsOverrides{
-        Workflow: map[string]map[string]string{
-            myWorkflowID: {"PerWorkflow.HTTPAction.CallLimit": "1"}, // myWorkflowID: hex, no 0x
-        },
-    })
+    // Scope the override with an option — here to THIS test's workflow, so it can't affect
+    // any other test. It auto-reverts when the test ends. myWorkflowID is hex, no 0x.
+    t_helpers.ApplyCRESettings(t, testEnv,
+        t_helpers.Workflow(myWorkflowID, "[PerWorkflow.HTTPAction]\nCallLimit = '1'"),
+    )
 
     // ... trigger the workflow and assert its behaviour under the override ...
 }
@@ -47,7 +45,7 @@ This is the in-test analogue of the production settings rollout in `chainlink-de
 
 | Production rollout (CLD) | This helper (in a test) |
 |---|---|
-| Edit `settings/*.toml`, regenerate the compiled `settings.toml` | Pass a `CRESettingsOverrides{}` |
+| Edit `settings/*.toml`, regenerate the compiled `settings.toml` | Pass the same settings as scope options — `Global`/`Org`/`Owner`/`Workflow` (or `FromFS` for a file tree), combined by the same `CombineCRESettingsFiles` |
 | Durable pipeline emits `job_propose_arbitrary` → `jobName: CRESettings`, `template: cre-settings`, `donName: all-nodes` | Calls the **same** `ProposeJobSpec{Template: CRESettings}` changeset, targeting every node of every DON |
 | Sign + execute the proposal | Auto-approves the proposal on each node |
 | Nodes apply it live via `loop.AtomicSettings.Store` (no restart) | Same — no restart |
@@ -59,24 +57,31 @@ and reverted afterwards. If you understand the CLD settings rollout, you underst
 ## The API
 
 ```go
-type CRESettingsOverrides struct {
-    Global   map[string]string             // [global]         — applies to everything
-    Org      map[string]map[string]string  // [org.<id>]       — keyed by org id
-    Owner    map[string]map[string]string  // [owner.<id>]     — keyed by workflow-owner hex (no 0x)
-    Workflow map[string]map[string]string  // [workflow.<id>]  — keyed by workflow id hex (no 0x)
-}
+// Apply one or more scope options to every DON, register auto-revert, and return a handle.
+func ApplyCRESettings(t *testing.T, env *TestEnvironment, opts ...Option) *CRESettingsHandle
 
-// Apply to every DON, register auto-revert, and return a handle.
-func ApplyCRESettings(t *testing.T, env *TestEnvironment, o CRESettingsOverrides) *CRESettingsHandle
+// Scope options — each takes that scope's settings TOML (no scope prefix):
+func Global(toml string) Option        // [global]        — every org/owner/workflow
+func Org(id, toml string) Option       // [org.<id>]      — id: org id
+func Owner(id, toml string) Option     // [owner.<id>]    — id: workflow-owner hex (no 0x)
+func Workflow(id, toml string) Option  // [workflow.<id>] — id: workflow id hex (no 0x)
+func FromFS(fsys fs.FS) Option         // a whole prod-style file tree (os.DirFS / embed.FS)
 
 func (h *CRESettingsHandle) Reset(t *testing.T)             // revert now (also happens automatically)
 func (h *CRESettingsHandle) AppliedTOML(donName string) string  // the document that was applied
 func (h *CRESettingsHandle) BaselineTOML(donName string) string // the document it reverts to
 ```
 
-- **Keys** are the dotted setting path exactly as in the schema
-  (`PerWorkflow.HTTPAction.CallLimit`, `PerOrg.BaseTriggerRetransmitEnabled`, …).
-- **Values** are always strings.
+- Each option's string is just that scope's settings — **no scope prefix** (the scope and id
+  come from the option), identical to a prod `settings/*.toml`. Group related settings under a
+  table, e.g. `[PerWorkflow.HTTPAction]` then `CallLimit = '9'`.
+- **Setting values are quoted strings** (`CallLimit = '9'`, `Enabled = 'true'`).
+- **Pass every scope in ONE call.** Each `ApplyCRESettings` call rebuilds from the boot
+  baseline and *replaces* any prior override rather than stacking on it, so a second apply
+  while one is still active is **refused with an error** (it would silently drop the first).
+  To swap settings within a test, call `Reset` first, then apply again.
+- Under the hood the options build a prod-style file tree combined by the deployment
+  `CombineCRESettingsFiles` — the same code that builds the compiled `settings.toml`.
 - The canonical list of settings and their formats lives in
   `chainlink-common/pkg/settings/cresettings/defaults.toml`.
 
@@ -104,61 +109,55 @@ scope you pick is also your **blast radius**:
 
 ### Examples
 
+Each option's string is plain settings TOML — no scope prefix — exactly like a
+`settings/*.toml` file (leading indentation is fine; TOML ignores it). For an on-disk
+fixture instead of inline strings, use `t_helpers.FromFS(os.DirFS("testdata/..."))`.
+
 **Workflow — one workflow only (preferred)**
 
 ```go
-t_helpers.ApplyCRESettings(t, testEnv, t_helpers.CRESettingsOverrides{
-    Workflow: map[string]map[string]string{
-        workflowID: { // workflowID has NO 0x prefix
-            "PerWorkflow.HTTPAction.CallLimit":  "9",
-            "PerWorkflow.HTTPTrigger.RateLimit": "every5s:2",
-        },
-    },
-})
+t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Workflow(workflowID, `
+[PerWorkflow.HTTPAction]
+CallLimit = '9'
+[PerWorkflow.HTTPTrigger]
+RateLimit = 'every5s:2'`)) // workflowID has NO 0x prefix
 ```
 
 **Owner — one workflow owner only**
 
 ```go
-t_helpers.ApplyCRESettings(t, testEnv, t_helpers.CRESettingsOverrides{
-    Owner: map[string]map[string]string{
-        ownerHex: {"PerOwner.WorkflowExecutionConcurrencyLimit": "5"}, // ownerHex has NO 0x prefix
-    },
-})
+t_helpers.ApplyCRESettings(t, testEnv, // ownerHex has NO 0x prefix
+    t_helpers.Owner(ownerHex, "[PerOwner]\nWorkflowExecutionConcurrencyLimit = '5'"),
+)
 ```
 
 **Org — one org only**
 
 ```go
-t_helpers.ApplyCRESettings(t, testEnv, t_helpers.CRESettingsOverrides{
-    Org: map[string]map[string]string{
-        orgID: {
-            "PerOrg.BaseTriggerRetransmitEnabled":      "false",
-            "PerOrg.WorkflowExecutionConcurrencyLimit": "42",
-        },
-    },
-})
+t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Org(orgID, `
+[PerOrg]
+BaseTriggerRetransmitEnabled = 'false'
+WorkflowExecutionConcurrencyLimit = '42'`))
 ```
 
 **Global — the whole environment (escape hatch)**
 
 ```go
-t_helpers.ApplyCRESettings(t, testEnv, t_helpers.CRESettingsOverrides{
-    Global: map[string]string{
-        "PerWorkflow.HTTPAction.CallLimit":      "7",
-        "PerWorkflow.ExecutionConcurrencyLimit": "3",
-    },
-})
+t_helpers.ApplyCRESettings(t, testEnv, t_helpers.Global(`
+[PerWorkflow.HTTPAction]
+CallLimit = '7'
+[PerWorkflow]
+ExecutionConcurrencyLimit = '3'`))
 ```
 
-**Several scopes at once (merged)**
+**Several scopes at once — compose the options in one call**
 
 ```go
-t_helpers.ApplyCRESettings(t, testEnv, t_helpers.CRESettingsOverrides{
-    Workflow: map[string]map[string]string{workflowID: {"PerWorkflow.ExecutionConcurrencyLimit": "1"}},
-    Org:      map[string]map[string]string{orgID: {"PerOrg.BaseTriggerRetransmitEnabled": "false"}},
-    Global:   map[string]string{"PerWorkflow.HTTPAction.CallLimit": "11"},
-})
+t_helpers.ApplyCRESettings(t, testEnv,
+    t_helpers.Global("[PerWorkflow.HTTPAction]\nCallLimit = '11'"),
+    t_helpers.Org(orgID, "[PerOrg]\nBaseTriggerRetransmitEnabled = 'false'"),
+    t_helpers.Workflow(workflowID, "[PerWorkflow]\nExecutionConcurrencyLimit = '1'"),
+)
 ```
 
 All scopes merge into a single document (layered on each DON's baseline) and are delivered
@@ -208,9 +207,10 @@ from this test (and do not add it to the CRE_TEST_PARALLEL_ENABLED set). ...
 ```
 
 **If you see this:** make the failing test serial — remove its `t.Parallel()` and keep it
-out of the parallel set. Re-applying settings *within one test* is fine: call `h.Reset(t)`
-before applying again, or just apply again from the same test (the guard keys on the owning
-test, so it won't trip on itself).
+out of the parallel set. To change settings again *within one test*, call `h.Reset(t)`
+before the next `ApplyCRESettings`; a second apply while an override is still active is
+refused (with a message telling you to `Reset` first), since it would silently replace the
+first override.
 
 The guard coordinates override-vs-override. What keeps an *unrelated* concurrent test from
 seeing your change is running serially (the default) **plus** scoping narrowly — see
@@ -235,9 +235,9 @@ Call `Reset` to revert **inside the test body** — e.g. to assert behaviour bef
 after, or to A/B two settings in one test:
 
 ```go
-h := t_helpers.ApplyCRESettings(t, testEnv, t_helpers.CRESettingsOverrides{
-    Global: map[string]string{"PerWorkflow.HTTPAction.CallLimit": "1"},
-})
+h := t_helpers.ApplyCRESettings(t, testEnv,
+    t_helpers.Global("[PerWorkflow.HTTPAction]\nCallLimit = '1'"),
+)
 // ... assert the tight limit is enforced ...
 
 h.Reset(t) // back to baseline now
@@ -273,7 +273,7 @@ the schema **before** delivering anything.
 | Best-effort convergence log can't read container logs | **Ignored** — it's only a visibility aid; the authoritative success signal is that every node approved the job. |
 | Flipping a **registration-time** setting *after* the workflow is registered | **Silently no-op** for that workflow (see the live-vs-restart table). Apply it *before* deploying the workflow. |
 | Overriding a scope nothing matches (e.g. an org id no running workflow uses) | Delivered fine, simply never consulted. Not an error. |
-| Two override tests running **concurrently** on the shared environment | **Fails fast** at `ApplyCRESettings` — the second override is refused while the first is active, with an actionable message. Keep override tests serial; do **not** call `t.Parallel()`. Re-applying within one test is fine (`Reset` first, or apply again from the same test). |
+| Two override tests running **concurrently** on the shared environment | **Fails fast** at `ApplyCRESettings` — the second override is refused while the first is active, with an actionable message. Keep override tests serial; do **not** call `t.Parallel()`. To re-apply within one test, `Reset` first — a second apply while one is active is refused. |
 | An *unrelated* concurrent test caught by a `Global` override's blast radius | **Not caught by the guard** — it only coordinates override-vs-override. Prevented by running serially (the CRE default) and by scoping narrowly (Workflow/Owner). |
 
 **Short version:** authoring mistakes (bad keys / values / ids) and overlapping override
