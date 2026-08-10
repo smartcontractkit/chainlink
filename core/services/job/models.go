@@ -1079,7 +1079,4 @@ type CRESettingsSpec struct {
 
 	Hash     string `toml:"hash"`
 	Settings string `toml:"settings"`
-
-	ConfigType      string `toml:"config_type"`
-	ShardAssignment string `toml:"shard_assignment"`
 }

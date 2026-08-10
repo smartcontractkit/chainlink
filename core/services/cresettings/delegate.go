@@ -45,16 +45,19 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 	}
 
 	spec := j.CRESettingsSpec
-	configType := spec.ConfigType
-	if configType == "" {
-		configType = ConfigTypeSettings
-		d.lggr.Infow("No config_type specified, defaulting to settings", "default", configType)
+	configType := ConfigTypeSettings
+	if spec.Settings != "" {
+		if ct, ok := extractConfigType(spec.Settings); ok {
+			configType = ct
+		} else {
+			d.lggr.Infow("No config_type specified, defaulting to settings")
+		}
 	}
 
 	switch configType {
 	case ConfigTypeShardAssignment:
 		if err := d.shardAssignmentSettings.Store(core.SettingsUpdate{
-			Settings: spec.ShardAssignment,
+			Settings: spec.Settings,
 			Hash:     spec.Hash,
 		}); err != nil {
 			return nil, fmt.Errorf("failed to store shard assignment settings: %w", err)

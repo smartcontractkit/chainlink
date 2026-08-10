@@ -40,39 +40,47 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
 
-	configType := spec.ConfigType
-	if configType == "" {
-		configType = ConfigTypeSettings
+	configType := ConfigTypeSettings
+	if spec.Settings != "" {
+		ct, ok := extractConfigType(spec.Settings)
+		if ok {
+			configType = ct
+		}
 	}
 
 	switch configType {
 	case ConfigTypeShardAssignment:
-		if _, err = ParseShardAssignmentConfig(spec.ShardAssignment); err != nil {
+		if _, err = ParseShardAssignmentConfig(spec.Settings); err != nil {
 			return jb, errors.Wrap(err, "invalid shard_assignment config")
 		}
-		shaSum := sha256.Sum256([]byte(spec.ShardAssignment))
-		hash := hex.EncodeToString(shaSum[:])
-		if spec.Hash == "" {
-			spec.Hash = hash
-		} else if spec.Hash != hash {
-			return jb, fmt.Errorf("invalid sha256 hash %s: calculated %s from: \n%s", spec.Hash, hash, spec.ShardAssignment)
-		}
-
 	case ConfigTypeSettings:
-		fallthrough
-	default:
-		_, err = settings.NewTOMLGetter([]byte(spec.Settings))
-		if err != nil {
+		if _, err = settings.NewTOMLGetter([]byte(spec.Settings)); err != nil {
 			return jb, errors.Wrap(err, "invalid settings toml")
 		}
-		shaSum := sha256.Sum256([]byte(spec.Settings))
-		hash := hex.EncodeToString(shaSum[:])
-		if spec.Hash == "" {
-			spec.Hash = hash
-		} else if spec.Hash != hash {
-			return jb, fmt.Errorf("invalid sha256 hash %s: calculated %s from: \n%s", spec.Hash, hash, spec.Settings)
-		}
+	default:
+		return jb, fmt.Errorf("unknown config_type %q", configType)
+	}
+
+	shaSum := sha256.Sum256([]byte(spec.Settings))
+	hash := hex.EncodeToString(shaSum[:])
+	if spec.Hash == "" {
+		spec.Hash = hash
+	} else if spec.Hash != hash {
+		return jb, fmt.Errorf("invalid sha256 hash %s: calculated %s from: \n%s", spec.Hash, hash, spec.Settings)
 	}
 
 	return jb, nil
+}
+
+func extractConfigType(settings string) (string, bool) {
+	tree, err := toml.Load(settings)
+	if err != nil {
+		return "", false
+	}
+	v := tree.Get("config_type")
+	if v == nil {
+		return "", false
+	}
+	s, ok := v.(string)
+	return s, ok
 }
