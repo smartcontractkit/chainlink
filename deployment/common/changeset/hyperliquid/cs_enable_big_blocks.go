@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
 var EnableBigBlockChangeset = cldf.CreateChangeSet(enableBigBlocksLogic, enableBigBlocksPreCondition)
@@ -55,10 +54,6 @@ type enableBigBlocksDetailConfig struct {
 }
 
 func enableBigBlocksPreCondition(env cldf.Environment, cfg EnableBigBlocksConfig) error {
-	_, err := stateview.LoadOnchainState(env)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
 	return nil
 }
 
