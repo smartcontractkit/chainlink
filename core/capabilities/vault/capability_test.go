@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	coreCapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -53,7 +52,7 @@ func TestCapability_CapabilityCall(t *testing.T) {
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
 
-	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+	requestID := vault.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
 		WorkflowID:          workflowID,
 		WorkflowExecutionID: workflowExecutionID,
 		ReferenceID:         referenceID,
@@ -151,7 +150,7 @@ func TestCapability_CapabilityCall_DuringSubscriptionPhase(t *testing.T) {
 	workflowID := "test-workflow-id"
 	referenceID := "0"
 
-	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+	requestID := vault.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
 		WorkflowID:  workflowID,
 		ReferenceID: referenceID,
 	})
@@ -467,7 +466,7 @@ func TestCapability_CapabilityCall_SecretIdentifierOwnerMismatch(t *testing.T) {
 			require.NoError(t, err)
 			servicetest.Run(t, capability)
 
-			requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+			requestID := vault.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
 				WorkflowID:          "wf-id",
 				WorkflowExecutionID: "exec-id",
 				ReferenceID:         "ref-id",
@@ -809,7 +808,7 @@ func TestCapability_CapabilityCall_ReturnsIncorrectType(t *testing.T) {
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
 
-	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+	requestID := vault.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
 		WorkflowID:          workflowID,
 		WorkflowExecutionID: workflowExecutionID,
 		ReferenceID:         referenceID,
@@ -885,7 +884,7 @@ func TestCapability_CapabilityCall_TimeOut(t *testing.T) {
 	workflowExecutionID := "test-workflow-execution-id"
 	referenceID := "test-reference-id"
 
-	requestID := vaultutils.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
+	requestID := vault.BuildWorkflowGetSecretsRequestID(capabilities.RequestMetadata{
 		WorkflowID:          workflowID,
 		WorkflowExecutionID: workflowExecutionID,
 		ReferenceID:         referenceID,
