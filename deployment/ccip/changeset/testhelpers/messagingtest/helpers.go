@@ -248,8 +248,9 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		destFamily, err := chain_selectors.GetSelectorFamily(tc.DestChain)
 		require.NoError(tc.T, err)
 		if destFamily == chain_selectors.FamilySui {
-			// Sui replay is a no-op in nodetestutils; only EVM log replay matters. Use
-			// SleepReplayAndSettle because ReplayAsync returns before the poller finishes.
+			// Only the EVM source needs log replay; the Sui destination is observed via the
+			// SuiEventEmitter, not via relayer replay. Use SleepReplayAndSettle because
+			// ReplayAsync returns before the poller finishes.
 			SleepReplayAndSettle(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain)
 		} else {
 			SleepReplayAndSettle(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)
