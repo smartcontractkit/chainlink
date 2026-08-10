@@ -10,7 +10,6 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -282,7 +281,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
 	atomicSettings := loop.NewAtomicSettings(commoncresettings.DefaultGetter)
-	shardAssignmentHolder := &atomic.Pointer[cresettings.ShardAssignmentConfig]{}
+	shardAssignmentSettings := loop.NewAtomicSettings(nil)
 	limitsFactory := limits.Factory{
 		Meter:    meter,
 		Logger:   globalLogger.Named("Limits"),
@@ -465,7 +464,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			WorkflowKey:             workflowKey,
 			JWTGenerator:            jwtGenerator,
 			ShardOrchestratorClient: shardOrchestratorClient,
-			ShardAssignmentHolder:   shardAssignmentHolder,
+			ShardAssignmentSettings: shardAssignmentSettings,
 		},
 	)
 	if err != nil {
@@ -696,8 +695,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// surface a visible error in the UI rather than silently doing nothing.
 	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
-	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentHolder)
-
+	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings)
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,

@@ -12,20 +12,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignment *atomic.Pointer[ShardAssignmentConfig]) *delegate {
+func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignmentSettings *loop.AtomicSettings) *delegate {
 	return &delegate{
-		lggr:            lggr,
-		atomicSettings:  atomicSettings,
-		shardAssignment: shardAssignment,
+		lggr:                    lggr,
+		atomicSettings:          atomicSettings,
+		shardAssignmentSettings: shardAssignmentSettings,
 	}
 }
 
 var _ job.Delegate = (*delegate)(nil)
 
 type delegate struct {
-	lggr            logger.Logger
-	atomicSettings  *loop.AtomicSettings
-	shardAssignment *atomic.Pointer[ShardAssignmentConfig]
+	lggr                    logger.Logger
+	atomicSettings          *loop.AtomicSettings
+	shardAssignmentSettings *loop.AtomicSettings
 
 	activeJobID atomic.Pointer[int32]
 }
@@ -49,11 +49,12 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 
 	switch configType {
 	case ConfigTypeShardAssignment:
-		saCfg, err := ParseShardAssignmentConfig(spec.ShardAssignment)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse shard_assignment config: %w", err)
+		if err := d.shardAssignmentSettings.Store(core.SettingsUpdate{
+			Settings: spec.ShardAssignment,
+			Hash:     spec.Hash,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to store shard assignment settings: %w", err)
 		}
-		d.shardAssignment.Store(saCfg)
 		d.lggr.Infow("Updated shard assignment config", "hash", spec.Hash)
 
 	case ConfigTypeSettings:

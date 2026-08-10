@@ -2,31 +2,36 @@ package shardownership
 
 import (
 	"context"
-	"sync/atomic"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
 var nopLogger = logger.Nop()
 
+func storeShardAssignment(t *testing.T, settings *loop.AtomicSettings, toml string) {
+	t.Helper()
+	require.NoError(t, settings.Store(core.SettingsUpdate{Settings: toml, Hash: "test"}))
+}
+
 func TestManualShardResolver_PerOwnerAssignment(t *testing.T) {
 	t.Parallel()
-	holder := &atomic.Pointer[cresettings.ShardAssignmentConfig]{}
-	holder.Store(&cresettings.ShardAssignmentConfig{
-		PerOwnerAssignment: map[string][]uint32{
-			"f39fd6e51aad88f6f4ce6ab8827279cfffb92266": {1, 0},
-			"70997970c51812dc3a010c7d01b50e0d17dc79c8": {0, 2},
-		},
-		StaticDefaultAssignment: []uint32{0},
-	})
+	settings := loop.NewAtomicSettings(nil)
+	storeShardAssignment(t, settings, `
+static_default_assignment = [0]
 
-	r := NewManualShardResolver(holder, nopLogger)
+[per_owner_assignment]
+  "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" = [1, 0]
+  "0x70997970c51812dc3a010c7d01b50e0d17dc79c8" = [0, 2]
+`)
+
+	r := NewManualShardResolver(settings, nopLogger)
 
 	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 	require.NoError(t, err)
@@ -41,13 +46,12 @@ func TestManualShardResolver_PerOwnerAssignment(t *testing.T) {
 
 func TestManualShardResolver_StaticDefaultFallback(t *testing.T) {
 	t.Parallel()
-	holder := &atomic.Pointer[cresettings.ShardAssignmentConfig]{}
-	holder.Store(&cresettings.ShardAssignmentConfig{
-		PerOwnerAssignment:      map[string][]uint32{},
-		StaticDefaultAssignment: []uint32{0},
-	})
+	settings := loop.NewAtomicSettings(nil)
+	storeShardAssignment(t, settings, `
+static_default_assignment = [0]
+`)
 
-	r := NewManualShardResolver(holder, nopLogger)
+	r := NewManualShardResolver(settings, nopLogger)
 
 	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
 	require.NoError(t, err)
@@ -57,13 +61,12 @@ func TestManualShardResolver_StaticDefaultFallback(t *testing.T) {
 
 func TestManualShardResolver_HashedOwnerDelegatesToRingOCR(t *testing.T) {
 	t.Parallel()
-	holder := &atomic.Pointer[cresettings.ShardAssignmentConfig]{}
-	holder.Store(&cresettings.ShardAssignmentConfig{
-		PerOwnerAssignment:    map[string][]uint32{},
-		HashedOwnerAssignment: map[string]bool{"f39fd6e51aad88f6f4ce6ab8827279cfffb92266": true},
-	})
+	settings := loop.NewAtomicSettings(nil)
+	storeShardAssignment(t, settings, `
+hashed_owner_assignment = ["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"]
+`)
 
-	r := NewManualShardResolver(holder, nopLogger)
+	r := NewManualShardResolver(settings, nopLogger)
 
 	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 	require.NoError(t, err)
@@ -73,14 +76,13 @@ func TestManualShardResolver_HashedOwnerDelegatesToRingOCR(t *testing.T) {
 
 func TestManualShardResolver_HashedDefaultDelegatesToRingOCR(t *testing.T) {
 	t.Parallel()
-	holder := &atomic.Pointer[cresettings.ShardAssignmentConfig]{}
-	holder.Store(&cresettings.ShardAssignmentConfig{
-		PerOwnerAssignment:      map[string][]uint32{},
-		HashedDefaultAssignment: true,
-		StaticDefaultAssignment: []uint32{0},
-	})
+	settings := loop.NewAtomicSettings(nil)
+	storeShardAssignment(t, settings, `
+hashed_default_assignment = true
+static_default_assignment = [0]
+`)
 
-	r := NewManualShardResolver(holder, nopLogger)
+	r := NewManualShardResolver(settings, nopLogger)
 
 	_, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
 	require.NoError(t, err)
@@ -89,8 +91,8 @@ func TestManualShardResolver_HashedDefaultDelegatesToRingOCR(t *testing.T) {
 
 func TestManualShardResolver_NilConfig(t *testing.T) {
 	t.Parallel()
-	holder := &atomic.Pointer[cresettings.ShardAssignmentConfig]{}
-	r := NewManualShardResolver(holder, nopLogger)
+	settings := loop.NewAtomicSettings(nil)
+	r := NewManualShardResolver(settings, nopLogger)
 
 	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
 	require.NoError(t, err)
@@ -100,15 +102,15 @@ func TestManualShardResolver_NilConfig(t *testing.T) {
 
 func TestManualShardResolver_ResolveShards(t *testing.T) {
 	t.Parallel()
-	holder := &atomic.Pointer[cresettings.ShardAssignmentConfig]{}
-	holder.Store(&cresettings.ShardAssignmentConfig{
-		PerOwnerAssignment: map[string][]uint32{
-			"f39fd6e51aad88f6f4ce6ab8827279cfffb92266": {1},
-		},
-		StaticDefaultAssignment: []uint32{0},
-	})
+	settings := loop.NewAtomicSettings(nil)
+	storeShardAssignment(t, settings, `
+static_default_assignment = [0]
 
-	r := NewManualShardResolver(holder, nopLogger)
+[per_owner_assignment]
+  "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" = [1]
+`)
+
+	r := NewManualShardResolver(settings, nopLogger)
 
 	wfIDs := []string{"wf-1", "wf-2"}
 	owners := []string{"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "0x0000000000000000000000000000000000000001"}
@@ -120,16 +122,16 @@ func TestManualShardResolver_ResolveShards(t *testing.T) {
 
 func TestOverrideShardResolver_ManualWins(t *testing.T) {
 	t.Parallel()
-	holder := &atomic.Pointer[cresettings.ShardAssignmentConfig]{}
-	holder.Store(&cresettings.ShardAssignmentConfig{
-		PerOwnerAssignment: map[string][]uint32{
-			"f39fd6e51aad88f6f4ce6ab8827279cfffb92266": {1},
-		},
-		StaticDefaultAssignment: []uint32{0},
-	})
+	settings := loop.NewAtomicSettings(nil)
+	storeShardAssignment(t, settings, `
+static_default_assignment = [0]
+
+[per_owner_assignment]
+  "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" = [1]
+`)
 
 	mockRing := &mockRingOCRResolver{mappings: map[string]uint32{"wf-1": 0}}
-	r := NewOverrideShardResolver(holder, mockRingOCRShardResolverFromMock(mockRing), nopLogger)
+	r := NewOverrideShardResolver(settings, &shardResolverAdapter{inner: mockRing}, nopLogger)
 
 	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
 	require.NoError(t, err)
@@ -139,13 +141,13 @@ func TestOverrideShardResolver_ManualWins(t *testing.T) {
 
 func TestOverrideShardResolver_RingOCRWinsForHashed(t *testing.T) {
 	t.Parallel()
-	holder := &atomic.Pointer[cresettings.ShardAssignmentConfig]{}
-	holder.Store(&cresettings.ShardAssignmentConfig{
-		HashedDefaultAssignment: true,
-	})
+	settings := loop.NewAtomicSettings(nil)
+	storeShardAssignment(t, settings, `
+hashed_default_assignment = true
+`)
 
 	mockRing := &mockRingOCRResolver{mappings: map[string]uint32{"wf-1": 1}}
-	r := NewOverrideShardResolver(holder, mockRingOCRShardResolverFromMock(mockRing), nopLogger)
+	r := NewOverrideShardResolver(settings, &shardResolverAdapter{inner: mockRing}, nopLogger)
 
 	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
 	require.NoError(t, err)
@@ -155,16 +157,17 @@ func TestOverrideShardResolver_RingOCRWinsForHashed(t *testing.T) {
 
 func TestOverrideShardResolver_ResolveShards_Mixed(t *testing.T) {
 	t.Parallel()
-	holder := &atomic.Pointer[cresettings.ShardAssignmentConfig]{}
-	holder.Store(&cresettings.ShardAssignmentConfig{
-		PerOwnerAssignment: map[string][]uint32{
-			"f39fd6e51aad88f6f4ce6ab8827279cfffb92266": {1},
-		},
-		HashedDefaultAssignment: true,
-	})
+	settings := loop.NewAtomicSettings(nil)
+	storeShardAssignment(t, settings, fmt.Sprintf(`
+static_default_assignment = [0]
+hashed_default_assignment = true
+
+[per_owner_assignment]
+  "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" = [1]
+`))
 
 	mockRing := &mockRingOCRResolver{mappings: map[string]uint32{"wf-2": 0}}
-	r := NewOverrideShardResolver(holder, mockRingOCRShardResolverFromMock(mockRing), nopLogger)
+	r := NewOverrideShardResolver(settings, &shardResolverAdapter{inner: mockRing}, nopLogger)
 
 	wfIDs := []string{"wf-1", "wf-2"}
 	owners := []string{"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266", "0x0000000000000000000000000000000000000001"}
@@ -191,10 +194,6 @@ func (m *mockRingOCRResolver) ResolveShards(_ context.Context, workflowIDs []str
 		}
 	}
 	return result, nil
-}
-
-func mockRingOCRShardResolverFromMock(mock *mockRingOCRResolver) ShardResolver {
-	return &shardResolverAdapter{inner: mock}
 }
 
 type shardResolverAdapter struct {

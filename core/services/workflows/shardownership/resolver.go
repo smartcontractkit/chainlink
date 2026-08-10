@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"maps"
 	"strings"
-	"sync/atomic"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
@@ -63,24 +63,27 @@ func (r *ringOCRShardResolver) GetRoutingResponse(ctx context.Context, workflowI
 }
 
 type manualShardResolver struct {
-	config *atomic.Pointer[cresettings.ShardAssignmentConfig]
-	lggr   logger.Logger
+	settings *loop.AtomicSettings
+	lggr     logger.Logger
 }
 
-func NewManualShardResolver(config *atomic.Pointer[cresettings.ShardAssignmentConfig], lggr logger.Logger) ShardResolver {
-	return &manualShardResolver{config: config, lggr: logger.Named(lggr, "ManualShardResolver")}
+func NewManualShardResolver(settings *loop.AtomicSettings, lggr logger.Logger) ShardResolver {
+	return &manualShardResolver{settings: settings, lggr: logger.Named(lggr, "ManualShardResolver")}
 }
 
 func (m *manualShardResolver) ResolveShard(_ context.Context, _ string, ownerHex string) (uint32, bool, error) {
-	cfg := m.config.Load()
-	if cfg == nil {
-		return 0, false, nil
+	cfg, err := loadShardAssignmentConfig(m.settings)
+	if err != nil || cfg == nil {
+		return 0, false, err
 	}
 	return resolveManual(cfg, ownerHex)
 }
 
 func (m *manualShardResolver) ResolveShards(_ context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {
-	cfg := m.config.Load()
+	cfg, err := loadShardAssignmentConfig(m.settings)
+	if err != nil {
+		return nil, err
+	}
 	if cfg == nil {
 		return map[string]uint32{}, nil
 	}
@@ -98,6 +101,17 @@ func (m *manualShardResolver) ResolveShards(_ context.Context, workflowIDs []str
 		}
 	}
 	return result, nil
+}
+
+func loadShardAssignmentConfig(settings *loop.AtomicSettings) (*cresettings.ShardAssignmentConfig, error) {
+	if settings == nil {
+		return nil, nil
+	}
+	update, err := settings.Load()
+	if err != nil || update.Settings == "" {
+		return nil, err
+	}
+	return cresettings.ParseShardAssignmentConfig(update.Settings)
 }
 
 func resolveManual(cfg *cresettings.ShardAssignmentConfig, ownerHex string) (uint32, bool, error) {
@@ -128,16 +142,19 @@ type overrideShardResolver struct {
 	lggr    logger.Logger
 }
 
-func NewOverrideShardResolver(config *atomic.Pointer[cresettings.ShardAssignmentConfig], ringOCR ShardResolver, lggr logger.Logger) ShardResolver {
+func NewOverrideShardResolver(settings *loop.AtomicSettings, ringOCR ShardResolver, lggr logger.Logger) ShardResolver {
 	return &overrideShardResolver{
-		manual:  &manualShardResolver{config: config, lggr: logger.Named(lggr, "ManualShardResolver")},
+		manual:  &manualShardResolver{settings: settings, lggr: logger.Named(lggr, "ManualShardResolver")},
 		ringOCR: ringOCR,
 		lggr:    logger.Named(lggr, "OverrideShardResolver"),
 	}
 }
 
 func (o *overrideShardResolver) ResolveShard(ctx context.Context, workflowID string, ownerHex string) (uint32, bool, error) {
-	cfg := o.manual.config.Load()
+	cfg, err := loadShardAssignmentConfig(o.manual.settings)
+	if err != nil {
+		return 0, false, err
+	}
 	if cfg != nil {
 		owner := normalizeOwner(ownerHex)
 		if shards, ok := cfg.PerOwnerAssignment[owner]; ok && len(shards) > 0 {
@@ -157,7 +174,10 @@ func (o *overrideShardResolver) ResolveShard(ctx context.Context, workflowID str
 }
 
 func (o *overrideShardResolver) ResolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {
-	cfg := o.manual.config.Load()
+	cfg, err := loadShardAssignmentConfig(o.manual.settings)
+	if err != nil {
+		return nil, err
+	}
 	if cfg == nil {
 		return o.ringOCR.ResolveShards(ctx, workflowIDs, ownerHexes)
 	}

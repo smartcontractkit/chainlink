@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
-	"sync/atomic"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
@@ -44,7 +43,6 @@ import (
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
@@ -103,7 +101,7 @@ type Opts struct {
 
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 
-	ShardAssignmentHolder *atomic.Pointer[cresettings.ShardAssignmentConfig]
+	ShardAssignmentSettings *loop.AtomicSettings
 }
 
 // Services contains all CRE-related services
@@ -991,11 +989,11 @@ func newWorkflowRegistrySyncerV2(
 	var shardResolver shardownership.ShardResolver
 	switch assignmentMode {
 	case toml.ShardAssignmentModeManualOnly:
-		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentHolder, lggr)
+		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentSettings, lggr)
 		lggr.Infow("Using manual-only shard assignment mode")
 	case toml.ShardAssignmentModeRingOCROverrides:
 		ringOCR := shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
-		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentHolder, ringOCR, lggr)
+		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentSettings, ringOCR, lggr)
 		lggr.Infow("Using ringocr-with-overrides shard assignment mode")
 	default:
 		shardResolver = shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
