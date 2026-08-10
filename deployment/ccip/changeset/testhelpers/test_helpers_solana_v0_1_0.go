@@ -183,9 +183,9 @@ func ReplayLogs(t *testing.T, oc cldf_offchain.Client, replayBlocks map[uint64]u
 //
 // No settle sleep is needed: RescanFrom only enqueues the re-scan and returns, but the subsequent
 // confirm step (ValidateCommit / ConfirmMultipleCommits / ConfirmExecWithSeqNrsForAll) polls the
-// destination offramp with its own timeout and will wait for the commit/exec to land. In the
-// Docker/devenv env ReplayLogs routes to the relayer's Replay -> RescanFromCheckpoint; in the
-// memory/nodetestutils env Sui replay is a no-op (see Node.ReplayLogs), so this is safe there.
+// destination offramp with its own timeout and will wait for the commit/exec to land. In both the
+// Docker/devenv and memory/nodetestutils envs ReplayLogs routes to the relayer's Replay ->
+// RescanFromCheckpoint.
 func ReplaySuiSourceFromCheckpoint(t *testing.T, env cldf.Environment, sourceChain, startCheckpoint uint64) {
 	t.Helper()
 	ReplayLogs(t, env.Offchain, map[uint64]uint64{sourceChain: startCheckpoint})
