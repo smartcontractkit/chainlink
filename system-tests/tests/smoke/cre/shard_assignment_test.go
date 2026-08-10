@@ -221,7 +221,7 @@ func proposeAndApproveShardAssignmentJob(t *testing.T, testEnv *ttypes.TestEnvir
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: "shard-assignment"},
 	}
 
-	report, err := operations.ExecuteSequence(
+	report, err := operations.ExecuteOperation(
 		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle,
 		ring_ops.ProposeShardAssignmentJob,
 		ring_ops.ProposeShardAssignmentJobDeps{Env: *testEnv.CreEnvironment.CldfEnvironment},
