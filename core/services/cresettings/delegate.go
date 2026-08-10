@@ -1,3 +1,6 @@
+// cresettings jobs are used to distribute updates for CRE settings overrides.
+// See: https://pkg.go.dev/github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings
+// Only one Job of type CRESettings may run at a time. Attempts to create a second job will fail.
 package cresettings
 
 import (
