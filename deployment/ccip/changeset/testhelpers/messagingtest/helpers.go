@@ -138,6 +138,14 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		startBlock = &seq
 	}
 
+	var suiSourceStart *uint64
+	if sourceFamily == chain_selectors.FamilySui {
+		tip, err := tc.Env.BlockChains.SuiChains()[tc.SourceChain].Client.GetLatestCheckpoint(tc.T.Context())
+		require.NoError(tc.T, err)
+		seq := tip.GetSequenceNumber()
+		suiSourceStart = &seq
+	}
+
 	msg, err := sourceAdapter.BuildMessage(testhelpers.MessageComponents{
 		DestChainSelector: tc.DestChain,
 		Receiver:          tc.Receiver,
@@ -249,6 +257,10 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	}
 	// return all message sent events.
 	out.AllMsgSentEvents = msgSentEvents
+
+	if suiSourceStart != nil && tc.Env.Offchain != nil {
+		testhelpers.ReplaySuiSourceFromCheckpoint(tc.T, tc.Env, tc.SourceChain, *suiSourceStart)
+	}
 
 	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
 	// we need to replay missed logs
