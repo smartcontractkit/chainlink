@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -2058,8 +2058,9 @@ type ConfidentialRelayConfig struct {
 
 // LinkingConfig holds the configuration for connecting to the CRE linking service
 type LinkingConfig struct {
-	URL        *string `toml:",omitempty"`
-	TLSEnabled *bool   `toml:",omitempty"`
+	URL            *string                `toml:",omitempty"`
+	TLSEnabled     *bool                  `toml:",omitempty"`
+	RequestTimeout *commonconfig.Duration `toml:",omitempty"`
 }
 
 func (c *CreConfig) setFrom(f *CreConfig) {
@@ -2103,6 +2104,9 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		}
 		if v := f.Linking.TLSEnabled; v != nil {
 			c.Linking.TLSEnabled = v
+		}
+		if v := f.Linking.RequestTimeout; v != nil {
+			c.Linking.RequestTimeout = v
 		}
 	}
 
@@ -2151,6 +2155,11 @@ func (l *LinkingConfig) ValidateConfig() error {
 	if l.TLSEnabled == nil {
 		val := true
 		l.TLSEnabled = &val
+	}
+	if l.RequestTimeout == nil {
+		l.RequestTimeout = commonconfig.MustNewDuration(2 * time.Second)
+	} else if l.RequestTimeout.Duration() <= 0 {
+		return configutils.ErrInvalid{Name: "RequestTimeout", Value: l.RequestTimeout.String(), Msg: "must be positive"}
 	}
 	return nil
 }
@@ -2971,32 +2980,40 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled                            *bool
-	CACertFile                         *string
-	Endpoint                           *string
-	InsecureConnection                 *bool
-	ResourceAttributes                 map[string]string `toml:",omitempty"`
-	TraceSampleRatio                   *float64
-	EmitterBatchProcessor              *bool
-	EmitterExportTimeout               *commonconfig.Duration
-	AuthHeadersTTL                     *commonconfig.Duration
-	ChipIngressEndpoint                *string
-	ChipIngressInsecureConnection      *bool
-	ChipIngressBatchEmitterEnabled     *bool
-	DurableEmitterEnabled              *bool
-	DurableEmitterRetransmitBatchSize  *int
-	DurableEmitterEventTTL             *commonconfig.Duration
-	DurableEmitterMaxQueuePayloadBytes *int64
-	HeartbeatInterval                  *commonconfig.Duration
-	LogLevel                           *string
-	LogStreamingEnabled                *bool
-	LogBatchProcessor                  *bool
-	LogExportTimeout                   *commonconfig.Duration
-	LogExportMaxBatchSize              *int
-	LogExportInterval                  *commonconfig.Duration
-	LogMaxQueueSize                    *int
-
-	MetricCardinalityLimit *int
+	Enabled                                *bool
+	CACertFile                             *string
+	Endpoint                               *string
+	InsecureConnection                     *bool
+	ResourceAttributes                     map[string]string `toml:",omitempty"`
+	TraceSampleRatio                       *float64
+	EmitterBatchProcessor                  *bool
+	EmitterExportTimeout                   *commonconfig.Duration
+	AuthHeadersTTL                         *commonconfig.Duration
+	ChipIngressEndpoint                    *string
+	ChipIngressInsecureConnection          *bool
+	ChipIngressBatchEmitterEnabled         *bool
+	ChipIngressBufferSize                  *uint
+	ChipIngressMaxBatchSize                *uint
+	ChipIngressMaxConcurrentSends          *int
+	ChipIngressSendInterval                *commonconfig.Duration
+	ChipIngressSendTimeout                 *commonconfig.Duration
+	ChipIngressDrainTimeout                *commonconfig.Duration
+	ChipIngressMaxGRPCRequestSize          *int
+	DurableEmitterEnabled                  *bool
+	DurableEmitterRetransmitBatchSize      *int
+	DurableEmitterEventTTL                 *commonconfig.Duration
+	DurableEmitterMaxQueuePayloadBytes     *int64
+	DurableEmitterInsertBatchFlushInterval *commonconfig.Duration
+	HeartbeatInterval                      *commonconfig.Duration
+	LogLevel                               *string
+	LogStreamingEnabled                    *bool
+	LogBatchProcessor                      *bool
+	LogExportTimeout                       *commonconfig.Duration
+	LogExportMaxBatchSize                  *int
+	LogExportInterval                      *commonconfig.Duration
+	LogMaxQueueSize                        *int
+	MetricViewsDenyAttributes              []string
+	MetricCardinalityLimit                 *int
 
 	PrometheusBridge PrometheusBridge `toml:",omitempty"`
 }
@@ -3038,6 +3055,27 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.ChipIngressBatchEmitterEnabled; v != nil {
 		b.ChipIngressBatchEmitterEnabled = v
 	}
+	if v := f.ChipIngressBufferSize; v != nil {
+		b.ChipIngressBufferSize = v
+	}
+	if v := f.ChipIngressMaxBatchSize; v != nil {
+		b.ChipIngressMaxBatchSize = v
+	}
+	if v := f.ChipIngressMaxConcurrentSends; v != nil {
+		b.ChipIngressMaxConcurrentSends = v
+	}
+	if v := f.ChipIngressSendInterval; v != nil {
+		b.ChipIngressSendInterval = v
+	}
+	if v := f.ChipIngressSendTimeout; v != nil {
+		b.ChipIngressSendTimeout = v
+	}
+	if v := f.ChipIngressDrainTimeout; v != nil {
+		b.ChipIngressDrainTimeout = v
+	}
+	if v := f.ChipIngressMaxGRPCRequestSize; v != nil {
+		b.ChipIngressMaxGRPCRequestSize = v
+	}
 	if v := f.DurableEmitterEnabled; v != nil {
 		b.DurableEmitterEnabled = v
 	}
@@ -3049,6 +3087,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	}
 	if v := f.DurableEmitterMaxQueuePayloadBytes; v != nil {
 		b.DurableEmitterMaxQueuePayloadBytes = v
+	}
+	if v := f.DurableEmitterInsertBatchFlushInterval; v != nil {
+		b.DurableEmitterInsertBatchFlushInterval = v
 	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v
@@ -3074,6 +3115,9 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.LogMaxQueueSize; v != nil {
 		b.LogMaxQueueSize = v
 	}
+	if v := f.MetricViewsDenyAttributes; v != nil {
+		b.MetricViewsDenyAttributes = v
+	}
 	if v := f.MetricCardinalityLimit; v != nil {
 		b.MetricCardinalityLimit = v
 	}
@@ -3095,6 +3139,27 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	}
 	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
+	}
+	if v := b.ChipIngressBufferSize; v != nil && *v == 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressBufferSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressMaxBatchSize; v != nil && *v == 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxBatchSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressMaxConcurrentSends; v != nil && *v <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxConcurrentSends", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressSendInterval; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressSendInterval", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressSendTimeout; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressSendTimeout", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressDrainTimeout; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressDrainTimeout", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressMaxGRPCRequestSize; v != nil && *v <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxGRPCRequestSize", Value: *v, Msg: "must be greater than 0"})
 	}
 	return err
 }

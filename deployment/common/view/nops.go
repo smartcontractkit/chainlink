@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 
@@ -301,7 +302,7 @@ func ApprovedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 		Filter: &jobv1.ListJobsRequest_Filter{
 			NodeIds: nodeIDs,
 		},
-	})
+	}, grpc.MaxCallRecvMsgSize(50*1024*1024)) // Raise the default max receive message size (4 MB) to 50 MB
 	if err != nil {
 		return nodeJobsView, proposedJobsView, fmt.Errorf("failed to list jobs for nodes %v: %w", nodeIDs, err)
 	}
@@ -325,7 +326,7 @@ func ApprovedJobspecs(ctx context.Context, lggr logger.Logger, nodeIDs []string,
 			Filter: &jobv1.ListProposalsRequest_Filter{
 				JobIds: slices.Collect(maps.Keys(jobs)),
 			},
-		})
+		}, grpc.MaxCallRecvMsgSize(50*1024*1024)) // Raise the default max receive message size (4 MB) to 50 MB
 		if err != nil {
 			// don't block on single node error
 			lggr.Warnf("failed to list job proposals on node %s: %v", nodeID, err)

@@ -1,10 +1,10 @@
 package web
 
 import (
+	"github.com/gin-gonic/gin"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/gin-gonic/gin"
 )
 
 // TxAttemptsController lists TxAttempts requests.

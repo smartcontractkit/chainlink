@@ -264,6 +264,146 @@ func ptrDuration(d time.Duration) *config.Duration {
 	return config.MustNewDuration(d)
 }
 
+func TestTelemetryConfig_ChipIngressBufferSize(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  uint
+	}{
+		{"ChipIngressBufferSizeSet", toml.Telemetry{ChipIngressBufferSize: new(uint(1000))}, 1000},
+		{"ChipIngressBufferSizeNil", toml.Telemetry{ChipIngressBufferSize: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressBufferSize())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressMaxBatchSize(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  uint
+	}{
+		{"ChipIngressMaxBatchSizeSet", toml.Telemetry{ChipIngressMaxBatchSize: new(uint(500))}, 500},
+		{"ChipIngressMaxBatchSizeNil", toml.Telemetry{ChipIngressMaxBatchSize: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressMaxBatchSize())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressMaxConcurrentSends(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  int
+	}{
+		{"ChipIngressMaxConcurrentSendsSet", toml.Telemetry{ChipIngressMaxConcurrentSends: new(10)}, 10},
+		{"ChipIngressMaxConcurrentSendsNil", toml.Telemetry{ChipIngressMaxConcurrentSends: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressMaxConcurrentSends())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressSendInterval(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"ChipIngressSendIntervalSet", toml.Telemetry{ChipIngressSendInterval: ptrDuration(100 * time.Millisecond)}, 100 * time.Millisecond},
+		{"ChipIngressSendIntervalNil", toml.Telemetry{ChipIngressSendInterval: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressSendInterval())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressSendTimeout(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"ChipIngressSendTimeoutSet", toml.Telemetry{ChipIngressSendTimeout: ptrDuration(3 * time.Second)}, 3 * time.Second},
+		{"ChipIngressSendTimeoutNil", toml.Telemetry{ChipIngressSendTimeout: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressSendTimeout())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressDrainTimeout(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  time.Duration
+	}{
+		{"ChipIngressDrainTimeoutSet", toml.Telemetry{ChipIngressDrainTimeout: ptrDuration(10 * time.Second)}, 10 * time.Second},
+		{"ChipIngressDrainTimeoutNil", toml.Telemetry{ChipIngressDrainTimeout: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressDrainTimeout())
+		})
+	}
+}
+
+func TestTelemetryConfig_ChipIngressMaxGRPCRequestSize(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  int
+	}{
+		{"ChipIngressMaxGRPCRequestSizeSet", toml.Telemetry{ChipIngressMaxGRPCRequestSize: new(10485760)}, 10485760},
+		{"ChipIngressMaxGRPCRequestSizeNil", toml.Telemetry{ChipIngressMaxGRPCRequestSize: nil}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.ChipIngressMaxGRPCRequestSize())
+		})
+	}
+}
+
 func TestTelemetryConfig_HeartbeatInterval(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -409,6 +549,27 @@ func TestTelemetryConfig_LogMaxQueueSize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tc := telemetryConfig{s: tt.telemetry}
 			assert.Equal(t, tt.expected, tc.LogMaxQueueSize())
+		})
+	}
+}
+
+func TestTelemetryConfig_MetricViewsDenyAttributes(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  []string
+	}{
+		{"DenylistSet", toml.Telemetry{MetricViewsDenyAttributes: []string{"event_id"}}, []string{"event_id"}},
+		{"DenylistNil", toml.Telemetry{MetricViewsDenyAttributes: nil}, nil},
+		{"DenylistEmpty", toml.Telemetry{MetricViewsDenyAttributes: []string{}}, []string{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.MetricViewsDenyAttributes())
 		})
 	}
 }

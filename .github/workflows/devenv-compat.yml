@@ -17,7 +17,8 @@ on:
         type: boolean
         default: false
       refs:
-        description: "Git refs to test, should be used only for tool testing purposes.
+        description:
+          "Git refs to test, should be used only for tool testing purposes.
           In all other cases refs are detected automatically either from Git or
           RANE SOT"
         required: false
@@ -59,7 +60,8 @@ on:
         default: "2"
         type: string
       tag-version-ceiling:
-        description: "Version ceiling for compatibility testing (tags newer than this
+        description:
+          "Version ceiling for compatibility testing (tags newer than this
           version will be excluded)"
         required: false
         type: string
@@ -128,7 +130,7 @@ jobs:
 
       # We need to login to ECR to allow the test to pull the Job Distributor (main) and Chainlink (sdlc) images
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@e7f100cf4c008499ea8adda475de1042d6975c7b # v6.2.0
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}

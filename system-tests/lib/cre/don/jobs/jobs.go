@@ -27,7 +27,7 @@ var loadNodeProposalIDs = func(ctx context.Context, node *cre.Node) (map[string]
 
 	proposalIDsBySpec := make(map[string]string, len(jd.JobProposals))
 	for _, proposal := range jd.JobProposals {
-		proposalIDsBySpec[proposal.LatestSpec.Definition] = proposal.Id
+		proposalIDsBySpec[proposal.LatestSpec.Definition] = proposal.LatestSpec.Id
 	}
 
 	return proposalIDsBySpec, nil
@@ -35,7 +35,7 @@ var loadNodeProposalIDs = func(ctx context.Context, node *cre.Node) (map[string]
 
 // defined as variables to allow for easy testing
 var approveJobProposalSpec = func(ctx context.Context, node *cre.Node, proposalID string) error {
-	approvedSpec, err := node.Clients.GQLClient.ApproveJobProposalSpec(ctx, proposalID, false)
+	approvedSpec, err := node.Clients.GQLClient.ApproveJobProposalSpec(ctx, proposalID, true)
 	if err != nil {
 		return err
 	}

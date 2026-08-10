@@ -1,6 +1,7 @@
 package jobs_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder/stellar"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	"github.com/smartcontractkit/chainlink/deployment/cre/test"
@@ -25,8 +27,9 @@ import (
 )
 
 const (
-	testStellarOCRQualifier = "stellar-ocr-qualifier"
-	testStellarFwdQualifier = "test-stellar-fwd-qualifier"
+	testStellarOCRQualifier     = "stellar-ocr-qualifier"
+	testStellarFwdQualifier     = "test-stellar-fwd-qualifier"
+	testStellarForwarderAddress = "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC"
 )
 
 func minimalStellarCapInput(nodeID string) jobs.StellarCapabilityInput {
@@ -50,11 +53,11 @@ func seedStellarOCR3(t *testing.T, ds *datastore.MemoryDataStore, ocrSel uint64)
 	}))
 }
 
-// seedStellarAddresses seeds the OCR3 contract + CapabilitiesRegistry for the
+// seedStellarAddresses seeds the OCR3 contract + CapabilitiesRegistry + forwarders for the
 // VerifyPreconditions tests, which run against a bare MemoryDataStore (no harness), so
 // resolveCapRegAddress needs the registry present. No forwarder address is seeded: the
 // Stellar cap proposal no longer resolves a deployed forwarder from the datastore.
-func seedStellarAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel uint64) {
+func seedStellarAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel, stellarSel uint64) {
 	t.Helper()
 	seedStellarOCR3(t, ds, ocrSel)
 	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
@@ -63,6 +66,13 @@ func seedStellarAddresses(t *testing.T, ds *datastore.MemoryDataStore, ocrSel ui
 		Version:       semver.MustParse("2.0.0"),
 		Address:       "0x2222222222222222222222222222222222222222",
 		Qualifier:     testStellarOCRQualifier,
+	}))
+	require.NoError(t, ds.Addresses().Add(datastore.AddressRef{
+		ChainSelector: stellarSel,
+		Type:          stellar.ForwarderContract,
+		Version:       semver.MustParse("1.0.0"),
+		Address:       testStellarForwarderAddress,
+		Qualifier:     testStellarFwdQualifier,
 	}))
 }
 
@@ -99,7 +109,7 @@ func TestProposeStellarCapJobSpec_VerifyPreconditions_success(t *testing.T) {
 	stellarSel := chainsel.STELLAR_LOCALNET.Selector
 
 	ds := datastore.NewMemoryDataStore()
-	seedStellarAddresses(t, ds, ocrSel)
+	seedStellarAddresses(t, ds, ocrSel, stellarSel)
 	env.DataStore = ds.Seal()
 
 	in := freshStellarBase(ocrSel, stellarSel)
@@ -114,7 +124,7 @@ func TestProposeStellarCapJobSpec_VerifyPreconditions_requiredFields(t *testing.
 	stellarSel := chainsel.STELLAR_LOCALNET.Selector
 
 	ds := datastore.NewMemoryDataStore()
-	seedStellarAddresses(t, ds, ocrSel)
+	seedStellarAddresses(t, ds, ocrSel, stellarSel)
 	env.DataStore = ds.Seal()
 
 	base := freshStellarBase(ocrSel, stellarSel)
@@ -171,9 +181,8 @@ type stellarCapTestSetup struct {
 func setupStellarCapTest(t *testing.T) stellarCapTestSetup {
 	t.Helper()
 
-	// The harness deploys the CapabilitiesRegistry itself (at test.RegistryQualifier);
-	// the Apply input below points OCRContractQualifier at it. No addresses are seeded.
 	ds := datastore.NewMemoryDataStore()
+	seedStellarAddresses(t, ds, chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector, chainsel.STELLAR_LOCALNET.Selector)
 
 	h := test.NewTestHarness(t, test.WithDatastore(ds))
 	env := h.Runtime.Environment()
@@ -231,6 +240,62 @@ func TestProposeStellarCapJobSpec_Apply_success(t *testing.T) {
 
 	out := setup.rt.State().Outputs[task.ID()]
 	assert.Len(t, out.Reports, 1)
+}
+
+func TestProposeStellarCapJobSpec_Apply_forwarderLookbackLedgers(t *testing.T) {
+	setup := setupStellarCapTest(t)
+
+	const (
+		inputLookback  int64 = 123 // DON-wide value
+		overrideCustom int64 = 999 // explicit per-node override
+	)
+
+	input := setup.baseInput
+	input.ForwarderLookbackLedgers = inputLookback
+
+	nodeCount := len(input.StellarCapabilityInputs)
+	require.GreaterOrEqual(t, nodeCount, 2, "need at least 2 nodes to distinguish override from default")
+
+	// Explicit per-node override on the first node only; the rest inherit the DON-wide value.
+	input.StellarCapabilityInputs[0].OverrideDefaultCfg.ForwarderLookbackLedgers = overrideCustom
+
+	task := runtime.ChangesetTask(jobs.ProposeStellarCapJobSpec{}, input)
+	require.NoError(t, setup.rt.Exec(task))
+
+	out := setup.rt.State().Outputs[task.ID()]
+	require.NotNil(t, out)
+	require.Len(t, out.Reports, 1)
+
+	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
+	assert.Equal(t, 1, strings.Count(outputStr, `"forwarderLookbackLedgers":999`),
+		"expected exactly one per-node override to be preserved")
+	assert.Equal(t, nodeCount-1, strings.Count(outputStr, `"forwarderLookbackLedgers":123`),
+		"expected every other node to inherit the DON-wide value")
+}
+
+// With neither the DON-wide input nor any per-node override set, the field is
+// omitted entirely and the worker applies actions.DefaultForwarderLookbackLedgers.
+// The changeset deliberately does not duplicate that default — same division of
+// responsibility as EVM's ForwarderLookbackBlocks.
+func TestProposeStellarCapJobSpec_Apply_forwarderLookbackLedgersOmittedWhenUnset(t *testing.T) {
+	setup := setupStellarCapTest(t)
+
+	input := setup.baseInput
+	input.ForwarderLookbackLedgers = 0
+	for i := range input.StellarCapabilityInputs {
+		input.StellarCapabilityInputs[i].OverrideDefaultCfg.ForwarderLookbackLedgers = 0
+	}
+
+	task := runtime.ChangesetTask(jobs.ProposeStellarCapJobSpec{}, input)
+	require.NoError(t, setup.rt.Exec(task))
+
+	out := setup.rt.State().Outputs[task.ID()]
+	require.NotNil(t, out)
+	require.Len(t, out.Reports, 1)
+
+	outputStr := fmt.Sprintf("%v", out.Reports[0].Output)
+	assert.NotContains(t, outputStr, `"forwarderLookbackLedgers"`,
+		"omitempty should drop the field entirely so the worker's own default applies")
 }
 
 func TestProposeStellarCapJobSpec_Apply_duplicateNodeIDs(t *testing.T) {

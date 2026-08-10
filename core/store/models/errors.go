@@ -6,6 +6,8 @@ import (
 )
 
 // JSONAPIErrors holds errors conforming to the JSONAPI spec.
+//
+//nolint:errname // JSONAPIErrors is a collection of JSONAPIError items matching JSONAPI spec.
 type JSONAPIErrors struct {
 	Errors []JSONAPIError `json:"errors"`
 }
@@ -35,7 +37,7 @@ func NewJSONAPIErrorsWith(detail string) *JSONAPIErrors {
 // Error collapses the collection of errors into a collection of comma separated
 // strings.
 func (jae *JSONAPIErrors) Error() string {
-	var messages []string
+	messages := make([]string, 0, len(jae.Errors))
 	for _, e := range jae.Errors {
 		messages = append(messages, e.Detail)
 	}

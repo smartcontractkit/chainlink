@@ -29,12 +29,12 @@ import (
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/internal"
@@ -434,7 +434,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
-			platform.KeyWorkflowTag, payload.Tag,
+			platform.KeyWorkflowTag, payload.WorkflowTag,
 			platform.KeyOrganizationID, orgID,
 			platform.WorkflowRegistryAddress, h.workflowRegistryAddress,
 			platform.WorkflowRegistryChainSelector, h.workflowRegistryChainSelector,
@@ -459,7 +459,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		h.lggr.Debugw("handled event (WorkflowPaused)", "workflowID", wfID, "workflowName", payload.WorkflowName, "workflowOwner", hex.EncodeToString(payload.WorkflowOwner),
-			"workflowTag", payload.Tag, "type", event.Name)
+			"workflowTag", payload.WorkflowTag, "type", event.Name)
 		return nil
 	case WorkflowDeleted:
 		payload, ok := event.Data.(WorkflowDeletedEvent)
@@ -738,37 +738,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, workflowID string, o
 	h.lggr.Debugw("Finished creating module for workflowID", "workflowID", workflowID)
 
 	if module.IsLegacyDAG() { // V1 aka "DAG"
-		sdkSpec, specErr := host.GetWorkflowSpec(ctx, moduleConfig, binary, config)
-		if specErr != nil {
-			return nil, fmt.Errorf("failed to get workflow sdk spec: %w", specErr)
-		}
-
-		// WorkflowRegistry V2 contract does not contain secrets
-		emptySecretsFetcher := func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error) {
-			return map[string]string{}, nil
-		}
-
-		cfg := workflows.Config{
-			Lggr:           h.lggr,
-			Workflow:       *sdkSpec,
-			WorkflowID:     workflowID,
-			WorkflowOwner:  owner, // this gets hex encoded in the engine.
-			WorkflowName:   name,
-			Registry:       h.capRegistry,
-			Store:          h.workflowStore,
-			Config:         config,
-			Binary:         binary,
-			SecretsFetcher: emptySecretsFetcher,
-			RateLimiter:    h.ratelimiter,
-			WorkflowLimits: h.workflowLimits,
-
-			BillingClient:           h.billingClient,
-			ShardOrchestratorClient: h.shardOrchestratorClient,
-			ShardingEnabled:         h.shardingEnabled,
-			MyShardID:               h.myShardID,
-			ShardRoutingSteady:      h.shardRoutingSteady,
-		}
-		return workflows.NewEngine(ctx, cfg)
+		return nil, errors.New("legacy DAG workflows are not supported")
 	}
 
 	// V2 aka "NoDAG"

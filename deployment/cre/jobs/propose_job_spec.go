@@ -202,6 +202,7 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 				DKGContractAddress:         dkgContractAddr,
 				VaultRequestExpiryDuration: jobInput.VaultRequestExpiryDuration,
 				Auth0:                      jobInput.Auth0,
+				ExternalJobID:              jobInput.ExternalJobID,
 				DONFilters:                 input.DONFilters,
 				ExtraLabels:                input.ExtraLabels,
 			},

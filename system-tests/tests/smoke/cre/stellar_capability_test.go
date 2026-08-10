@@ -1,8 +1,10 @@
 package cre
 
 import (
+	"context"
 	"encoding/hex"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -13,7 +15,9 @@ import (
 
 	"github.com/stellar/go-stellar-sdk/xdr"
 
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
+	stellarfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	thelpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -40,7 +44,7 @@ const (
 func executeStellarReadLatestLedgerTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
-	stellarChain blockchains.Blockchain,
+	stellarChain *stellchain.Blockchain,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
@@ -62,7 +66,7 @@ func executeStellarReadLatestLedgerTest(
 func executeStellarReadContractSmokeTest(
 	t *testing.T,
 	tenv *configuration.TestEnvironment,
-	stellarChain blockchains.Blockchain,
+	stellarChain *stellchain.Blockchain,
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
@@ -141,12 +145,77 @@ func executeStellarReadContractSmokeTest(
 	lggr.Info().Int("cases", len(steps)).Str("expected_log", expectLogReadContractBatchOK).Msg("Stellar ReadContract capability test passed")
 }
 
+// executeStellarWriteTest deploys a CRE receiver + a workflow that generates an
+// ed25519 OCR report and submits it via WriteReport through the Soroban CRE
+// forwarder, then asserts the receiver recorded the report on-chain with payload integrity check.
+func executeStellarWriteTest(
+	t *testing.T,
+	tenv *configuration.TestEnvironment,
+	stellarChain *stellchain.Blockchain,
+	userLogsCh <-chan *workflowevents.UserLogs,
+	baseMessageCh <-chan *commonevents.BaseMessage,
+) {
+	lggr := framework.L
+	ctx := context.Background()
+
+	receiverID, err := stellarfeature.DeployStellarTestReceiver(ctx, stellarChain)
+	require.NoError(t, err, "failed to deploy Stellar CRE test receiver")
+	lggr.Info().Str("receiver", receiverID).Msg("Deployed Stellar CRE test receiver")
+
+	writeDon := stellarWriteDon(t, tenv)
+	workers, err := writeDon.Workers()
+	require.NoError(t, err, "failed to list Stellar DON workers")
+	require.NotEmpty(t, workers, "Stellar DON has no worker nodes")
+	requiredSignatures := (len(workers)-1)/3 + 1
+
+	// Use a deterministic payload: hex "6400000000000000" is bytes [0x64, 0x00, ...]
+	// which the receiver's last_value_u64() reads as little-endian u64 = 100.
+	const reportPayloadHex = "6400000000000000"
+	const expectedValue uint64 = 100
+
+	workflowName := thelpers.UniqueStellarWorkflowName("stellar-write-workflow")
+	workflowConfig := thelpers.StellarWriteWorkflowConfig{
+		ChainSelector:      stellarChain.ChainSelector(),
+		WorkflowName:       workflowName,
+		ReceiverContractID: receiverID,
+		ReportPayloadHex:   reportPayloadHex,
+		RequiredSignatures: requiredSignatures,
+	}
+
+	const workflowFileLocation = "./stellar/stellarwrite/main.go"
+	workflowID := thelpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+	expectedLog := "Stellar write consensus succeeded"
+	thelpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, thelpers.WorkflowEngineInitErrorLog, expectedLog, thelpers.StellarWorkflowTimeout, thelpers.WithUserLogWorkflowID(workflowID))
+
+	// Assert the report was delivered and the payload matches on-chain.
+	require.Eventually(t, func() bool {
+		n, cErr := stellarfeature.ReceiverReportCount(ctx, stellarChain, receiverID)
+		if cErr != nil {
+			lggr.Warn().Err(cErr).Msg("stellar receiver report_count query failed; retrying")
+			return false
+		}
+		if n == 0 {
+			return false
+		}
+		val, vErr := stellarfeature.ReceiverLastValueU64(ctx, stellarChain, receiverID)
+		if vErr != nil {
+			lggr.Warn().Err(vErr).Msg("stellar receiver last_value_u64 query failed; retrying")
+			return false
+		}
+		lggr.Info().Uint64("on_chain_value", val).Uint64("expected_value", expectedValue).Msg("Stellar write on-chain value read")
+		return val == expectedValue
+	}, 2*time.Minute, 5*time.Second, "Stellar receiver did not record the expected payload value %d", expectedValue)
+
+	lggr.Info().Str("expected_log", expectedLog).Uint64("payload_value", expectedValue).Msg("Stellar write capability test passed")
+}
+
 // setupStellarScenario provisions an isolated per-test context for a Stellar read scenario:
 // its own funded keys (SetupTestEnvironmentWithPerTestKeys), the resolved Stellar chain, and a
 // chip sink capturing that scenario's workflow logs. Call it at the top of each scenario subtest.
 func setupStellarScenario(t *testing.T, tenv *configuration.TestEnvironment) (
 	*configuration.TestEnvironment,
-	blockchains.Blockchain,
+	*stellchain.Blockchain,
 	<-chan *workflowevents.UserLogs,
 	<-chan *commonevents.BaseMessage,
 ) {
@@ -170,4 +239,21 @@ func marshalScVal(v xdr.ScVal, err error) string {
 		panic(err)
 	}
 	return b
+}
+
+// stellarWriteDon returns the DON hosting the Stellar capability (the one whose
+// workers submit reports). It keys off the capability flag rather than the chain
+// ID like findAptosDonForChain does: Stellar (and Solana) chain IDs are strings
+// (network passphrase / genesis hashes), so the framework deliberately excludes
+// them from the numeric chain-capability index that GetEnabledChainIDsForCapability
+// reads (see NodeSet.ValidateChainCapabilities), scoping them via
+// supported_stellar_chains instead. DonsWithFlag is the same accessor the Stellar
+// feature uses to resolve DONs.
+func stellarWriteDon(t *testing.T, tenv *configuration.TestEnvironment) *crelib.Don {
+	t.Helper()
+	require.NotNil(t, tenv.Dons, "test environment DON metadata is required")
+
+	dons := tenv.Dons.DonsWithFlag(crelib.StellarCapability)
+	require.NotEmpty(t, dons, "could not find a DON hosting the Stellar capability")
+	return dons[0]
 }

@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -127,6 +127,15 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	destAdapter, ok := tc.DeployedEnv.Adapters[tc.DestChain]
 	if !ok {
 		tc.T.Errorf("unsupported dest chain: %v", tc.DestChain)
+	}
+
+	destFamily, err := chain_selectors.GetSelectorFamily(tc.DestChain)
+	require.NoError(tc.T, err)
+	if destFamily == chain_selectors.FamilySui {
+		tip, err := tc.Env.BlockChains.SuiChains()[tc.DestChain].Client.GetLatestCheckpoint(tc.T.Context())
+		require.NoError(tc.T, err)
+		seq := tip.GetSequenceNumber()
+		startBlock = &seq
 	}
 
 	msg, err := sourceAdapter.BuildMessage(testhelpers.MessageComponents{

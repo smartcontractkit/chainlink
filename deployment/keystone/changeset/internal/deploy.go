@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"slices"
 	"sort"
@@ -265,6 +266,9 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRe
 		}
 		f := don.F
 		if f == 0 {
+			if len(nodes)/3 > math.MaxUint8 {
+				return nil, fmt.Errorf("unable to calculate f with %d nodes: overflows uint8", len(nodes))
+			}
 			// TODO: fallback to a default value for compatibility - change to error
 			f = uint8(len(nodes) / 3)
 			lggr.Warnw("F not set for don - falling back to default", "don", don.Name, "f", f)

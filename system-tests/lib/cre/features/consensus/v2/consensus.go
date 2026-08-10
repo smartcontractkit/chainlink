@@ -9,6 +9,7 @@ import (
 	"text/template"
 
 	"dario.cat/mergo"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
@@ -225,7 +226,9 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 	}
 
 	// Add non-EVM OCR selectors when present so consensus can select the correct
-	// offchain key bundle path for report generation.
+	// onchain key bundle when signing reports. Each selector drives an entry in the
+	// consensus job's onchainSigningStrategy.Config (name -> keyBundleID); without it
+	// the multi-chain keyring has no bundle for that family and report signing fails.
 	for _, blockchain := range creEnv.Blockchains {
 		if blockchain.IsFamily(chainselectors.FamilyAptos) {
 			inputs["chainSelectorAptos"] = blockchain.ChainSelector()
@@ -240,10 +243,13 @@ func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, boots
 			continue
 		}
 	}
+	if creEnv.FreshExternalJobIDs {
+		inputs["externalJobID"] = uuid.NewString()
+	}
 
 	input := cre_jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
-		Environment: cre.EnvironmentName,
+		Environment: creEnv.CldfEnvironment.Name,
 		DONName:     don.Name,
 		JobName:     "consensus-worker",
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},

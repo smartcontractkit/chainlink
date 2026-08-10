@@ -565,9 +565,9 @@ func (w *workflowRegistry) generateReconciliationEvents(
 					CreatedAt:     wfMeta.CreatedAt,
 					Status:        wfMeta.Status,
 					WorkflowName:  wfMeta.WorkflowName,
+					WorkflowTag:   wfMeta.Tag,
 					BinaryURL:     wfMeta.BinaryURL,
 					ConfigURL:     wfMeta.ConfigURL,
-					Tag:           wfMeta.Tag,
 					Attributes:    wfMeta.Attributes,
 					Source:        wfMeta.Source,
 				}
@@ -638,6 +638,7 @@ func (w *workflowRegistry) generateReconciliationEvents(
 					CreatedAt:     wfMeta.CreatedAt,
 					Status:        wfMeta.Status,
 					WorkflowName:  wfMeta.WorkflowName,
+					WorkflowTag:   wfMeta.Tag,
 					Source:        wfMeta.Source,
 				}
 				events = append(

@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
-
-	"slices"
 
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"

@@ -10,10 +10,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	cosmosmodels "github.com/smartcontractkit/chainlink/v2/core/store/models/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -23,7 +23,7 @@ type CosmosTransfersController struct {
 	App chainlink.Application
 }
 
-var ErrCosmosNotEnabled = errChainDisabled{name: "Cosmos", tomlKey: "Cosmos.Enabled"}
+var ErrCosmosNotEnabled = chainDisabledError{name: "Cosmos", tomlKey: "Cosmos.Enabled"}
 
 // Create sends native coins from the Chainlink's account to a specified address.
 func (tc *CosmosTransfersController) Create(c *gin.Context) {

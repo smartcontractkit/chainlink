@@ -65,7 +65,7 @@ func (r *UpdatePasswordPayloadResolver) ToUpdatePasswordSuccess() (*UpdatePasswo
 
 func (r *UpdatePasswordPayloadResolver) ToInputErrors() (*InputErrorsResolver, bool) {
 	if r.inputErrs != nil {
-		var errs []*InputErrorResolver
+		errs := make([]*InputErrorResolver, 0, len(r.inputErrs))
 
 		for path, message := range r.inputErrs {
 			errs = append(errs, NewInputError(path, message))

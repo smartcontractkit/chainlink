@@ -40,12 +40,14 @@ type ProposeStellarCapJobSpecInput struct {
 	Domain      string `json:"domain" yaml:"domain"`
 	DONName     string `json:"donName" yaml:"donName"`
 
-	ChainSelector        uint64        `json:"chainSelector" yaml:"chainSelector"`
-	BootstrapperOCR3Urls []string      `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
-	OCRContractQualifier string        `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
-	OCRChainSelector     uint64        `json:"ocrChainSelector" yaml:"ocrChainSelector"`
-	ForwardersQualifier  string        `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
-	DeltaStage           time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
+	ChainSelector        uint64   `json:"chainSelector" yaml:"chainSelector"`
+	BootstrapperOCR3Urls []string `json:"bootstrapperOCR3Urls" yaml:"bootstrapperOCR3Urls"`
+	OCRContractQualifier string   `json:"ocrContractQualifier" yaml:"ocrContractQualifier"`
+	OCRChainSelector     uint64   `json:"ocrChainSelector" yaml:"ocrChainSelector"`
+	ForwardersQualifier  string   `json:"forwardersContractQualifier" yaml:"forwardersContractQualifier"`
+	// ForwarderLookbackLedgers defines how many ledgers back to search for the ReportProcessed event (default 100).
+	ForwarderLookbackLedgers int64         `json:"forwarderLookbackLedgers" yaml:"forwarderLookbackLedgers,omitempty"`
+	DeltaStage               time.Duration `json:"deltaStage" yaml:"deltaStage,omitempty"`
 
 	StellarCapabilityInputs []StellarCapabilityInput `json:"stellarCapabilityInputs" yaml:"stellarCapabilityInputs"`
 }
@@ -92,6 +94,11 @@ func (u ProposeStellarCapJobSpec) VerifyPreconditions(e cldf.Environment, input 
 		return fmt.Errorf("chain selector %d belongs to family %q, expected %q", input.ChainSelector, family, chainselectors.FamilyStellar)
 	}
 
+	forwarderAddr, err := resolveStellarForwarderAddress(e, input.ChainSelector, input.ForwardersQualifier)
+	if err != nil {
+		return err
+	}
+
 	chainIDStr, err := chainselectors.GetChainIDFromSelector(input.ChainSelector)
 	if err != nil {
 		return fmt.Errorf("failed to get chainID from selector: %w", err)
@@ -109,6 +116,9 @@ func (u ProposeStellarCapJobSpec) VerifyPreconditions(e cldf.Environment, input 
 		if err = validateOverrideNetwork(ov.Network, stellarNetwork, capInput.NodeID); err != nil {
 			return err
 		}
+		if err = validateOverrideForwarder(ov.CREForwarderAddress, forwarderAddr, capInput.NodeID); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -123,6 +133,11 @@ func (u ProposeStellarCapJobSpec) Apply(e cldf.Environment, input ProposeStellar
 	chainIDStr, err := chainselectors.GetChainIDFromSelector(input.ChainSelector)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get chain ID from selector: %w", err)
+	}
+
+	forwarderAddr, err := resolveStellarForwarderAddress(e, input.ChainSelector, input.ForwardersQualifier)
+	if err != nil {
+		return cldf.ChangesetOutput{}, err
 	}
 
 	jobName := fmt.Sprintf("stellar-cap-v2-%s-%s", chainName, input.Zone)
@@ -149,9 +164,17 @@ func (u ProposeStellarCapJobSpec) Apply(e cldf.Environment, input ProposeStellar
 		cfg := capInput.OverrideDefaultCfg
 		cfg.ChainID = chainIDStr
 		cfg.Network = stellarNetwork
+		cfg.CREForwarderAddress = forwarderAddr
 		cfg.DeltaStage = input.DeltaStage
 		if capInput.OverrideDefaultCfg.DeltaStage != 0 {
 			cfg.DeltaStage = capInput.OverrideDefaultCfg.DeltaStage
+		}
+		// Fall back to the DON-wide value; a non-zero per-node override wins.
+		// If neither is set the field is omitted and the worker applies its own
+		// default (actions.DefaultForwarderLookbackLedgers), matching how EVM
+		// leaves ForwarderLookbackBlocks to the worker.
+		if cfg.ForwarderLookbackLedgers == 0 {
+			cfg.ForwarderLookbackLedgers = input.ForwarderLookbackLedgers
 		}
 
 		enc, err := json.Marshal(cfg)

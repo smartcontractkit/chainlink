@@ -7,27 +7,31 @@ import (
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
-	ocr2plus "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
+	llodatasource "github.com/smartcontractkit/chainlink-data-streams/llo/datasource"
+	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/dev/v31"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocr2plus "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
+	promwrapper31 "github.com/smartcontractkit/chainlink/v2/core/services/ocr3_1/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 )
@@ -42,10 +46,15 @@ type delegate struct {
 	services.StateMachine
 
 	cfg          DelegateConfig
-	reportCodecs map[llotypes.ReportFormat]llocommon.ReportCodec
+	reportCodecs map[llotypes.ReportFormat]lloprotocol.ReportCodec
 
-	src   llov30.ShouldRetireCache
-	ds    llov30.DataSource
+	// src is the shared ShouldRetireCache. llov30.ShouldRetireCache and
+	// llov31.ShouldRetireCache have identical method sets, so this value serves
+	// both versions.
+	src llov30.ShouldRetireCache
+	// ds is the shared LLO data source (llodatasource.DataSource); v30 and v31 both
+	// consume it, lifecycle gating is driven by the round's DSOpts.
+	ds    llodatasource.DataSource
 	telem telem.TelemeterService
 
 	oracles []Closer
@@ -66,7 +75,7 @@ type DelegateConfig struct {
 	ChannelDefinitionCache   llotypes.ChannelDefinitionCache
 	ReportingPluginConfig    llov30.Config
 	RetirementReportCache    retirement.RetirementReportCache
-	RetirementReportCodec    llocommon.RetirementReportCodec
+	RetirementReportCodec    lloprotocol.RetirementReportCodec
 	ShouldRetireCache        llov30.ShouldRetireCache
 	PluginMonitoringEndpoint telemetry.MultitypeMonitoringEndpoint
 	DonID                    uint32
@@ -86,6 +95,16 @@ type DelegateConfig struct {
 	OnchainKeyring         ocr3types.OnchainKeyring[llotypes.ReportInfo]
 	LocalConfig            ocr2types.LocalConfig
 	NewOCR3DB              func(pluginID int32) ocr3types.Database
+
+	// OCR3.1 (only required when OCR31 is true; see chainlink-data-streams
+	// llo/config.PluginConfig.OCRVersion)
+	OCR31 bool
+	// BinaryNetworkEndpoint2Factory is the OCR3.1 ("2") network endpoint factory
+	// (peerWrapper.Peer3_1). Required when OCR31 is true.
+	BinaryNetworkEndpoint2Factory ocr2types.BinaryNetworkEndpoint2Factory
+	// KeyValueDatabaseFactory provides the replicated per-configDigest key-value
+	// store the OCR3.1 protocol requires. Required when OCR31 is true.
+	KeyValueDatabaseFactory ocr3_1types.KeyValueDatabaseFactory
 }
 
 func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
@@ -104,6 +123,14 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	}
 	if cfg.ShouldRetireCache == nil {
 		return nil, errors.New("ShouldRetireCache must not be nil")
+	}
+	if cfg.OCR31 {
+		if cfg.KeyValueDatabaseFactory == nil {
+			return nil, errors.New("KeyValueDatabaseFactory must not be nil when running OCR3.1")
+		}
+		if cfg.BinaryNetworkEndpoint2Factory == nil {
+			return nil, errors.New("BinaryNetworkEndpoint2Factory must not be nil when running OCR3.1")
+		}
 	}
 	var codecLggr logger.Logger
 	if cfg.ReportingPluginConfig.VerboseLogging {
@@ -124,11 +151,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		SampleTelemetry:             cfg.SampleTelemetry,
 	})
 
-	ds := observation.NewDataSource(
-		logger.Named(lggr, "DataSource"),
-		cfg.Registry,
-		t,
-	)
+	ds := observation.NewDataSource(logger.Named(lggr, "DataSource"), cfg.Registry, t)
 
 	notifier, ok := cfg.ContractTransmitter.(transmitter.TransmitNotifier)
 	if ok {
@@ -166,43 +189,13 @@ func (d *delegate) Start(ctx context.Context) error {
 				// This is a performance optimization
 			})
 
-			oracle, err := ocr2plus.NewOracle(ocr2plus.OCR3OracleArgs2[llotypes.ReportInfo]{
-				BinaryNetworkEndpointFactory: d.cfg.BinaryNetworkEndpointFactory,
-				V2Bootstrappers:              d.cfg.V2Bootstrappers,
-				ContractConfigTracker:        configTracker,
-				ContractTransmitter:          d.cfg.ContractTransmitter,
-				Database:                     d.cfg.NewOCR3DB(int32(i)), // //nolint:gosec // G115 // impossible due to check on line 119
-				LocalConfig:                  d.cfg.LocalConfig,
-				Logger:                       ocrLogger,
-				MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,
-				OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
-				OffchainKeyring:              d.cfg.OffchainKeyring,
-				OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(d.cfg.OnchainKeyring),
-				ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
-					llov30.NewPluginFactory(
-						llov30.PluginFactoryParams{
-							Config:                           d.cfg.ReportingPluginConfig,
-							PredecessorRetirementReportCache: psrrc,
-							ShouldRetireCache:                d.src,
-							RetirementReportCodec:            d.cfg.RetirementReportCodec,
-							ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
-							DataSource:                       d.ds,
-							Logger:                           logger.Named(lggr, "ReportingPlugin"),
-							OnchainConfigCodec:               llocommon.EVMOnchainConfigCodec{},
-							ReportCodecs:                     d.reportCodecs,
-							OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
-							ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
-							DonID:                            d.cfg.DonID,
-						},
-					),
-					lggr,
-					"",
-					d.cfg.ChainID,
-					"llo",
-				),
-				MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
-			})
-
+			var oracle ocr2plus.Oracle
+			var err error
+			if d.cfg.OCR31 {
+				oracle, err = d.newOracleV31(i, configTracker, lggr, ocrLogger, psrrc)
+			} else {
+				oracle, err = d.newOracleV30(i, configTracker, lggr, ocrLogger, psrrc)
+			}
 			if err != nil {
 				return fmt.Errorf("%w: failed to create new OCR oracle", err)
 			}
@@ -213,6 +206,89 @@ func (d *delegate) Start(ctx context.Context) error {
 		}
 
 		return merr
+	})
+}
+
+// newOracleV30 builds an OCR3.0 oracle running the llo/v30 reporting plugin.
+func (d *delegate) newOracleV30(i int, configTracker ocr2types.ContractConfigTracker, lggr logger.Logger, ocrLogger ocrcommontypes.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) (ocr2plus.Oracle, error) {
+	return ocr2plus.NewOracle(ocr2plus.OCR3OracleArgs2[llotypes.ReportInfo]{
+		BinaryNetworkEndpointFactory: d.cfg.BinaryNetworkEndpointFactory,
+		V2Bootstrappers:              d.cfg.V2Bootstrappers,
+		ContractConfigTracker:        configTracker,
+		ContractTransmitter:          d.cfg.ContractTransmitter,
+		Database:                     d.cfg.NewOCR3DB(int32(i)), //nolint:gosec // G115 // impossible due to ContractConfigTrackers length check
+		LocalConfig:                  d.cfg.LocalConfig,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,
+		OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
+		OffchainKeyring:              d.cfg.OffchainKeyring,
+		OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(d.cfg.OnchainKeyring),
+		ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
+			llov30.NewPluginFactory(
+				llov30.PluginFactoryParams{
+					Config:                           d.cfg.ReportingPluginConfig,
+					PredecessorRetirementReportCache: psrrc,
+					ShouldRetireCache:                d.src,
+					RetirementReportCodec:            d.cfg.RetirementReportCodec,
+					ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
+					DataSource:                       d.ds,
+					Logger:                           logger.Named(lggr, "ReportingPlugin"),
+					OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
+					ReportCodecs:                     d.reportCodecs,
+					OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
+					ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
+					DonID:                            d.cfg.DonID,
+				},
+			),
+			lggr,
+			"",
+			d.cfg.ChainID,
+			"llo",
+		),
+		MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
+	})
+}
+
+// newOracleV31 builds an OCR3.1 oracle running the llo/v31 reporting plugin. It
+// differs from v30 by the OCR3.1 oracle args (OCR3_1OracleArgs2), the "2"
+// network endpoint factory, and the required replicated KeyValueDatabaseFactory.
+func (d *delegate) newOracleV31(i int, configTracker ocr2types.ContractConfigTracker, lggr logger.Logger, ocrLogger ocrcommontypes.Logger, psrrc lloprotocol.PredecessorRetirementReportCache) (ocr2plus.Oracle, error) {
+	factory := promwrapper31.NewReportingPluginFactory(
+		llov31.NewPluginFactory(llov31.PluginFactoryParams{
+			Config:                           llov31.Config{VerboseLogging: d.cfg.ReportingPluginConfig.VerboseLogging},
+			PredecessorRetirementReportCache: psrrc,
+			ShouldRetireCache:                d.src,
+			RetirementReportCodec:            d.cfg.RetirementReportCodec,
+			ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
+			DataSource:                       d.ds,
+			Logger:                           logger.Named(lggr, "ReportingPlugin"),
+			OnchainConfigCodec:               lloprotocol.EVMOnchainConfigCodec{},
+			ReportCodecs:                     d.reportCodecs,
+			OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
+			ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
+			DonID:                            d.cfg.DonID,
+			BlobThreshold:                    0, // 0 => llov31.DefaultBlobThreshold
+		}),
+		lggr,
+		"",
+		d.cfg.ChainID,
+		"llo",
+	)
+	return ocr2plus.NewOracle(ocr2plus.OCR3_1OracleArgs2[llotypes.ReportInfo]{
+		BinaryNetworkEndpointFactory: d.cfg.BinaryNetworkEndpoint2Factory,
+		V2Bootstrappers:              d.cfg.V2Bootstrappers,
+		ContractConfigTracker:        configTracker,
+		ContractTransmitter:          d.cfg.ContractTransmitter,
+		Database:                     d.cfg.NewOCR3DB(int32(i)), //nolint:gosec // G115 // impossible due to ContractConfigTrackers length check
+		KeyValueDatabaseFactory:      d.cfg.KeyValueDatabaseFactory,
+		LocalConfig:                  d.cfg.LocalConfig,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           d.cfg.OCR3MonitoringEndpoint,
+		OffchainConfigDigester:       d.cfg.OffchainConfigDigester,
+		OffchainKeyring:              d.cfg.OffchainKeyring,
+		OnchainKeyring:               ocr3shims.OnchainKeyringAsOnchainKeyring2(d.cfg.OnchainKeyring),
+		ReportingPluginFactory:       factory,
+		MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": d.cfg.JobName.ValueOrZero()}, prometheus.DefaultRegisterer),
 	})
 }
 

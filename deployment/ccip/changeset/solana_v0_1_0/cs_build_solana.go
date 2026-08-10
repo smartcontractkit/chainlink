@@ -149,7 +149,7 @@ func replaceKeysForUpgrade(e cldf.Environment, keys map[cldf.ContractType]string
 
 		// Replace declare_id!("..."); with the new key
 		updatedContent := regexp.MustCompile(`declare_id!\(".*?"\);`).ReplaceAllString(string(content), fmt.Sprintf(`declare_id!("%s");`, key))
-		err = os.WriteFile(fullPath, []byte(updatedContent), 0600)
+		err = os.WriteFile(fullPath, []byte(updatedContent), 0600) //nolint:gosec // G703
 		if err != nil {
 			return fmt.Errorf("failed to write updated keys to file %s: %w", fullPath, err)
 		}
@@ -192,7 +192,7 @@ func syncRouterAndCommon() error {
 
 	updatedContent := declareRegex.ReplaceAllString(string(commonContent), declareID)
 
-	return os.WriteFile(commonFile, []byte(updatedContent), 0600)
+	return os.WriteFile(commonFile, []byte(updatedContent), 0600) //nolint:gosec // G703
 }
 
 func generateVanityKeys(e cldf.Environment, keys map[cldf.ContractType]string) error {

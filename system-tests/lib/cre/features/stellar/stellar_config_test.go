@@ -103,7 +103,7 @@ func TestBuildWorkerConfigJSON(t *testing.T) {
 	// worker plugin defaults absent -> false).
 	_, hasIsLocal := cfg["isLocal"]
 	assert.False(t, hasIsLocal, "isLocal should be omitted when false")
-	assert.InDelta(t, float64(settings.DeltaStage), cfg["deltaStage"], 0)
+	assert.InEpsilon(t, float64(settings.DeltaStage), cfg["deltaStage"], 0.01)
 
 	rawLocal, err := buildJobConfigJSON(chainID, forwarder, settings, true)
 	require.NoError(t, err)

@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
-	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -551,31 +551,40 @@ func TestConfig_Marshal(t *testing.T) {
 		Release:     new("v1.2.3"),
 	}
 	full.Telemetry = toml.Telemetry{
-		Enabled:                            new(true),
-		CACertFile:                         new("cert-file"),
-		Endpoint:                           new("example.com/collector"),
-		InsecureConnection:                 new(true),
-		ResourceAttributes:                 map[string]string{"Baz": "test", "Foo": "bar"},
-		TraceSampleRatio:                   new(0.01),
-		EmitterBatchProcessor:              new(true),
-		EmitterExportTimeout:               commoncfg.MustNewDuration(1 * time.Second),
-		AuthHeadersTTL:                     commoncfg.MustNewDuration(0 * time.Second),
-		ChipIngressEndpoint:                new("example.com/chip-ingress"),
-		ChipIngressInsecureConnection:      new(false),
-		ChipIngressBatchEmitterEnabled:     new(true),
-		DurableEmitterEnabled:              new(false),
-		DurableEmitterRetransmitBatchSize:  new(500),
-		DurableEmitterEventTTL:             commoncfg.MustNewDuration(1 * time.Hour),
-		DurableEmitterMaxQueuePayloadBytes: new(int64(1073741824)),
-		HeartbeatInterval:                  commoncfg.MustNewDuration(1 * time.Second),
-		LogStreamingEnabled:                new(false),
-		LogLevel:                           new("info"),
-		LogBatchProcessor:                  new(true),
-		LogExportTimeout:                   commoncfg.MustNewDuration(1 * time.Second),
-		LogExportMaxBatchSize:              new(512),
-		LogExportInterval:                  ptrDuration(1 * time.Second),
-		LogMaxQueueSize:                    new(2048),
-		MetricCardinalityLimit:             new(100000),
+		Enabled:                                new(true),
+		CACertFile:                             new("cert-file"),
+		Endpoint:                               new("example.com/collector"),
+		InsecureConnection:                     new(true),
+		ResourceAttributes:                     map[string]string{"Baz": "test", "Foo": "bar"},
+		TraceSampleRatio:                       new(0.01),
+		EmitterBatchProcessor:                  new(true),
+		EmitterExportTimeout:                   commoncfg.MustNewDuration(1 * time.Second),
+		AuthHeadersTTL:                         commoncfg.MustNewDuration(0 * time.Second),
+		ChipIngressEndpoint:                    new("example.com/chip-ingress"),
+		ChipIngressInsecureConnection:          new(false),
+		ChipIngressBatchEmitterEnabled:         new(true),
+		ChipIngressBufferSize:                  new(uint(10000)),
+		ChipIngressMaxBatchSize:                new(uint(1000)),
+		ChipIngressMaxConcurrentSends:          new(10),
+		ChipIngressSendInterval:                commoncfg.MustNewDuration(500 * time.Millisecond),
+		ChipIngressSendTimeout:                 commoncfg.MustNewDuration(10 * time.Second),
+		ChipIngressDrainTimeout:                commoncfg.MustNewDuration(30 * time.Second),
+		ChipIngressMaxGRPCRequestSize:          new(10485760),
+		DurableEmitterEnabled:                  new(false),
+		DurableEmitterRetransmitBatchSize:      new(500),
+		DurableEmitterEventTTL:                 commoncfg.MustNewDuration(1 * time.Hour),
+		DurableEmitterMaxQueuePayloadBytes:     new(int64(1073741824)),
+		DurableEmitterInsertBatchFlushInterval: commoncfg.MustNewDuration(50 * time.Millisecond),
+		HeartbeatInterval:                      commoncfg.MustNewDuration(1 * time.Second),
+		LogStreamingEnabled:                    new(false),
+		LogLevel:                               new("info"),
+		LogBatchProcessor:                      new(true),
+		LogExportTimeout:                       commoncfg.MustNewDuration(1 * time.Second),
+		LogExportMaxBatchSize:                  new(512),
+		LogExportInterval:                      ptrDuration(1 * time.Second),
+		LogMaxQueueSize:                        new(2048),
+		MetricViewsDenyAttributes:              []string{"event_id"},
+		MetricCardinalityLimit:                 new(100000),
 
 		PrometheusBridge: toml.PrometheusBridge{
 			Enabled:  new(true),
@@ -594,8 +603,9 @@ func TestConfig_Marshal(t *testing.T) {
 			URL: new("https://workflow.fetcher.url"),
 		},
 		Linking: &toml.LinkingConfig{
-			URL:        new(""),
-			TLSEnabled: new(true),
+			URL:            new(""),
+			TLSEnabled:     new(true),
+			RequestTimeout: commoncfg.MustNewDuration(2 * time.Second),
 		},
 		ConfidentialRelay: &toml.ConfidentialRelayConfig{
 			Enabled:          new(bool),

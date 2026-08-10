@@ -1,0 +1,434 @@
+name: CRE Mixed-Env Tests
+
+# Dedicated workflow for the "mixed-env" topology (2 nodes on the PR image, 2 on a
+# develop image) that fails a job if PR and develop nodes disagree — see
+# core/scripts/cre/environment/docs/mixed-env.md. Kept separate from
+# cre-system-tests.yaml so that workflow stays simple; this one is 100% mixed-env
+# so it needs no per-topology conditionals.
+
+on:
+  workflow_dispatch:
+    inputs:
+      chainlink_image_repository_path:
+        description:
+          "ECR repository name used to compose the PR image with chainlink_image_tag."
+        required: true
+        type: string
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "Chainlink (PR) image tag to use."
+      ecr:
+        required: false
+        type: choice
+        options:
+          - "sdlc"
+          - "public"
+        default: "sdlc"
+        description: "SDLC or public ECR registry for the Chainlink image."
+      chainlink_version:
+        required: false
+        type: string
+        default: ""
+        description: "Chainlink repo ref to check out. Defaults to github.sha."
+      mixed_env_baseline_image:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Full baseline (develop) chainlink image ref. If empty, defaults to the
+          develop nightly image."
+      baseline_ref:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Base-branch sha this PR is built on top of (the CI auto-merge base). Used to pick
+          chainlink-integration-tests:<baseline_ref> as the baseline side so the 2-2 split
+          isolates only the PR's changes. Works for any base branch (develop or a release
+          branch). Ignored when mixed_env_baseline_image is set."
+      base_ref_name:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Base-branch name (e.g. 'develop' or 'release/2.57.1'). Controls the missing-image
+          fallback: a release/* base with no published base image is skipped (no correct
+          baseline vs develop); every other base (develop, or a stacked feature branch) falls
+          back to the develop nightly."
+  workflow_call:
+    inputs:
+      chainlink_image_repository_path:
+        description:
+          "ECR repository name used to compose the PR image with chainlink_image_tag."
+        required: true
+        type: string
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "Chainlink (PR) image tag to use."
+      ecr:
+        type: string
+        required: true
+        description: "SDLC (sdlc) or public (public) ECR registry for the Chainlink image."
+      chainlink_version:
+        required: false
+        type: string
+        default: ""
+        description: "Chainlink repo ref to check out. Defaults to github.sha."
+      mixed_env_baseline_image:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Full baseline (develop) chainlink image ref. If empty, defaults to the
+          develop nightly image."
+      baseline_ref:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Base-branch sha this PR is built on top of (the CI auto-merge base). Used to pick
+          chainlink-integration-tests:<baseline_ref> as the baseline side so the 2-2 split
+          isolates only the PR's changes. Works for any base branch (develop or a release
+          branch). Ignored when mixed_env_baseline_image is set."
+      base_ref_name:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Base-branch name (e.g. 'develop' or 'release/2.57.1'). Controls the missing-image
+          fallback: a release/* base with no published base image is skipped (no correct
+          baseline vs develop); every other base (develop, or a stacked feature branch) falls
+          back to the develop nightly."
+
+jobs:
+  define-test-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.define-matrix.outputs.matrix }}
+    permissions:
+      contents: read
+    steps:
+      - name: Define mixed-env test matrix
+        id: define-matrix
+        shell: bash
+        run: |
+          # Tests worth running under mixed-env: the OCR3/DON2DON-heavy ones.
+          TESTS='[
+            "Test_CRE_V2_Suite_Bucket_A",
+            "Test_CRE_V2_Suite_Bucket_B",
+            "Test_CRE_V2_EVM_Read_HeavyCalls",
+            "Test_CRE_V2_EVM_Read_StateQueries",
+            "Test_CRE_V2_EVM_Read_TxArtifacts"
+          ]'
+          matrix=$(jq -c -n \
+            --argjson tests "$TESTS" \
+            --argjson run_id "${{ github.run_id }}" \
+            --arg run_attempt "${{ github.run_attempt }}" '
+            $tests | to_entries | map({
+              test_name: .value,
+              test_id: .key,
+              runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+            })')
+          echo "matrix=$matrix" | tee -a "${GITHUB_OUTPUT}"
+
+  run-mixed-env-tests:
+    name: ${{ matrix.tests.test_name }} (mixed-env)
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        tests: ${{ fromJson(needs.define-test-matrix.outputs.matrix) }}
+    needs: [define-test-matrix]
+    runs-on: ${{ matrix.tests.runs_on }}
+    environment:
+      name: integration
+      deployment: false
+    timeout-minutes: 10
+    env:
+      ENABLE_AUTO_QUARANTINE: "true"
+      # PR image; the develop/baseline image is resolved in the render step below.
+      CHAINLINK_IMAGE_FULL: ${{ inputs.ecr == 'public' && format('public.ecr.aws/{0}:{1}', inputs.chainlink_image_repository_path, inputs.chainlink_image_tag) || format('{0}.dkr.ecr.{1}.amazonaws.com/{2}:{3}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.QA_AWS_REGION, inputs.chainlink_image_repository_path, inputs.chainlink_image_tag) }}
+      CTF_CHIP_INGRESS_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-ingress:da84cb72d3a160e02896247d46ab4b9806ebee2f
+      CTF_CHIP_CONFIG_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/atlas-chip-config:7b4e9ee68fd1c737dd3480b5a3ced0188f29b969
+
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.chainlink_version || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        id: setup-go
+        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        with:
+          go_mod_path: system-tests/tests/go.mod
+          # No Go build/restore: mixed-env runs the pre-compiled cre-smoke.test binary
+          # (restored below), and the non-determinism gate reuses that same binary — so
+          # nothing is compiled here and cache restore would only waste ~30-60s per run.
+          no_cache: true
+
+      - name: Restore Pre-Compiled Test Binaries from S3 Cache
+        uses: actions/cache/restore@v6
+        with:
+          path: system-tests/tests/bin/
+          key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_CTF_READ_ACCESS_ROLE_ARN }}
+          role-duration-seconds: 1800
+          mask-aws-account-id: true
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        with:
+          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER,
+            secrets.AWS_ACCOUNT_ID_PROD) }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Authenticate to ECR (public)
+        id: login-ecr-public
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        with:
+          registry-type: public
+        env:
+          AWS_REGION: us-east-1
+
+      - name: Cache gotestsum
+        id: cache-gotestsum
+        uses: actions/cache@v6
+        with:
+          path: ~/go/bin/gotestsum
+          key: ${{ runner.os }}-${{ runner.arch }}-gotestsum-1.13.0
+
+      - name: Set up gotestsum
+        shell: bash
+        run: |
+          if [ -f ~/go/bin/gotestsum ]; then
+            echo "Using cached gotestsum"
+          else
+            echo "::group::Install gotestsum"
+            go install gotest.tools/gotestsum@v1.13.0
+            echo "::endgroup::"
+          fi
+
+      - name: Resolve baseline (develop side) image
+        id: baseline
+        shell: bash
+        env:
+          BASELINE_IMAGE_OVERRIDE: ${{ inputs.mixed_env_baseline_image }}
+          BASELINE_REF: ${{ inputs.baseline_ref }}
+          BASE_REF_NAME: ${{ inputs.base_ref_name }}
+          ECR_ACCOUNT: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          ECR_REGION: ${{ secrets.QA_AWS_REGION }}
+        run: |
+          REGISTRY="${ECR_ACCOUNT}.dkr.ecr.${ECR_REGION}.amazonaws.com"
+          skip=false
+          image=""
+          if [[ -n "${BASELINE_IMAGE_OVERRIDE}" ]]; then
+            # Explicit override (e.g. the nightly full-matrix sweep pins yesterday's nightly).
+            image="${BASELINE_IMAGE_OVERRIDE}"
+          elif [[ -n "${BASELINE_REF}" ]] && docker manifest inspect "${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}" >/dev/null 2>&1; then
+            # Preferred: the exact base-branch commit this PR is built on top of (the base sha
+            # the CI auto-merge was based on). The PR image = this commit + the PR's changes, so
+            # the 2-2 split isolates ONLY the PR's changes and never surfaces the base branch's
+            # own drift as a false positive. Works for ANY base branch (develop or release) --
+            # it always compares against the branch the PR is merging into. Same build/repo as
+            # the PR image.
+            image="${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}"
+          elif [[ "${BASE_REF_NAME}" == release/* ]]; then
+            # Release-branch base with no published base-branch image: there is NO correct
+            # baseline. Falling back to the develop nightly would compare a release-based PR
+            # against develop and flood the run with false positives (the whole release<->develop
+            # divergence), so skip mixed-env instead of misleading. (Release-branch commits
+            # aren't force-built like develop, so their branch-tip image is often absent.)
+            echo "::warning::No baseline image for release base branch '${BASE_REF_NAME}' (looked for chainlink-integration-tests:${BASELINE_REF}). Skipping mixed-env: it can only run when the release base-branch image exists, to avoid comparing a release base against develop."
+            skip=true
+          else
+            # Everything else with no base-sha image: a develop-targeted PR, a non-PR
+            # dispatch/schedule run (empty ref), or a PR stacked on another feature branch
+            # (which ultimately targets develop). Fall back to the develop nightly. Core variant
+            # (no -plugins) to match the PR image built by integration-tests.
+            #
+            # For a stacked PR this compares the whole stack (parent branch + this PR) against
+            # develop, so a *parent* branch that changes runtime behavior can surface here as a
+            # marker. That's a real potential non-determinism (it'll be caught when the parent
+            # merges too); use the skip-mixed-env label if it's expected and you need to unblock.
+            DATE="$(date +'%Y%m%d')"
+            image="${REGISTRY}/chainlink:nightly-${DATE}"
+          fi
+          {
+            echo "skip=${skip}"
+            echo "image=${image}"
+          } >> "$GITHUB_OUTPUT"
+          if [[ "${skip}" == "true" ]]; then
+            echo "Mixed-env skipped (no valid baseline for base branch '${BASE_REF_NAME}')."
+          else
+            echo "Baseline (develop side) image: ${image}"
+          fi
+
+      - name: Verify images exist & render mixed-env topology
+        if: ${{ steps.baseline.outputs.skip != 'true' }}
+        working-directory: core/scripts/cre/environment
+        shell: bash
+        env:
+          CRE_PR_IMAGE: ${{ env.CHAINLINK_IMAGE_FULL }}
+          CRE_BASELINE_IMAGE: ${{ steps.baseline.outputs.image }}
+        run: |
+          export CRE_PR_IMAGE CRE_BASELINE_IMAGE
+          echo "PR image:       ${CRE_PR_IMAGE}"
+          echo "Baseline image: ${CRE_BASELINE_IMAGE}"
+          # Fail fast with a clear error if either image is missing from the registry
+          # (e.g. a transient build/registry failure, or the develop nightly hasn't been
+          # published yet) instead of failing deep inside env start.
+          missing=0
+          for img in "${CRE_PR_IMAGE}" "${CRE_BASELINE_IMAGE}"; do
+            if docker manifest inspect "${img}" >/dev/null 2>&1; then
+              echo "Found image: ${img}"
+            else
+              echo "::error::Required mixed-env image is not available in the registry: ${img}"
+              missing=1
+            fi
+          done
+          if [[ "${missing}" -ne 0 ]]; then
+            echo "Re-run once the image is available, or override the develop side via the mixed_env_baseline_image input."
+            exit 1
+          fi
+          bash configs/render-mixed-env.sh
+
+      - name: Start local CRE
+        id: start-local-cre
+        if: ${{ steps.baseline.outputs.skip != 'true' }}
+        uses: ./.github/actions/start-local-cre-environment
+        with:
+          jd-image:
+            "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
+            }}.amazonaws.com/job-distributor:0.28.0"
+          # Empty on purpose: images are baked per-node into the rendered TOML, and a
+          # non-empty CTF_CHAINLINK_IMAGE would force every node onto one image.
+          chainlink-image: ""
+          chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
+            secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
+          ctf-configs: configs/mixed-env-don.toml
+          retry-count: "3"
+          retry-delay-seconds: "15"
+          cleanup-on-error: "false"
+          working-directory: core/scripts/cre/environment
+
+      - name: Setup GitHub token using GATI
+        id: github-token
+        if: ${{ steps.baseline.outputs.skip != 'true' }}
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
+      - name: Run CRE Smoke system tests (mixed-env)
+        id: run-tests
+        if: ${{ steps.baseline.outputs.skip != 'true' }}
+        shell: bash
+        working-directory: system-tests/tests
+        continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
+        env:
+          TEST_NAME: ${{ matrix.tests.test_name }}
+          TEST_TIMEOUT: 7m
+          RUN_QUARANTINED_TESTS: "true"
+          TOPOLOGY_NAME: mixed-env
+          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
+          PARALLEL_COUNT: "10"
+          CRE_TEST_PARALLEL_ENABLED: "true"
+        run: |
+          echo "Starting test: '${TEST_NAME}' (mixed-env)"
+          if [ -f "./bin/cre-smoke.test" ]; then
+            echo "Using precompiled binary"
+            (
+              cd smoke/cre && \
+              gotestsum \
+                --jsonfile=/tmp/gotest.log \
+                --junitfile=/tmp/junit-report.xml \
+                --format=github-actions \
+                --raw-command -- \
+                go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre ../../bin/cre-smoke.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1 -test.parallel="${PARALLEL_COUNT}"
+            )
+          else
+            echo "No precompiled binary found. Building from scratch..."
+            gotestsum \
+              --jsonfile=/tmp/gotest.log \
+              --junitfile=/tmp/junit-report.xml \
+              --format=github-actions \
+              -- \
+              -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel="${PARALLEL_COUNT}" \
+              github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre
+          fi
+
+          exit_code="$?"
+          if [ "$exit_code" -eq 0 ]; then
+            echo "tests_result=✅ Tests passed" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Check for non-determinism
+        # Hard gate. The smoke step above is continue-on-error (auto-quarantine), which
+        # would swallow the in-test TestMain scan, so re-scan the live node containers
+        # here and fail the job on any marker.
+        #
+        # Reuse the pre-compiled cre-smoke.test binary rather than `go run`: TestMain runs
+        # the container scan (test-helpers/nondeterminism_scan.go) after m.Run() and exits
+        # non-zero on any marker, so a non-matching -test.run executes zero tests but still
+        # triggers the scan — with NO Go build (Set up Go runs with no_cache). Fall back to
+        # `go run` only if the pre-compiled binary is unavailable.
+        if: ${{ always() && steps.baseline.outputs.skip != 'true' }}
+        shell: bash
+        working-directory: system-tests/tests
+        env:
+          CRE_NONDETERMINISM_CHECK: "true"
+        run: |
+          if [ -f "./bin/cre-smoke.test" ]; then
+            echo "Scanning via pre-compiled binary (no Go build)"
+            ./bin/cre-smoke.test -test.run '^$' -test.v
+          else
+            echo "No pre-compiled binary; falling back to 'go run'"
+            go run ./cmd/mixed-env-nondeterminism-check
+          fi
+
+      - name:
+          Analyze and upload test results (${{ steps.run-tests.outputs.tests_result
+          }})
+        if: ${{ !cancelled() && steps.baseline.outputs.skip != 'true' }}
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
+        with:
+          junit-file-path: "/tmp/junit-report.xml"
+          trunk-org-slug: chainlink
+          trunk-token: ${{ secrets.TRUNK_API_KEY }}
+          trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
+          trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
+          artifact-name: mixed-env-${{ matrix.tests.test_id }}_test_logs
+
+      - name: Show Docker containers status
+        if: failure() || cancelled()
+        shell: bash
+        run: docker ps -a
+
+      - name: Save Smoke tests Docker logs
+        if: failure() || cancelled()
+        shell: bash
+        working-directory: system-tests/tests/smoke/cre
+        run: |
+          mkdir -p logs
+          for c in $(docker ps -a --format '{{.Names}}'); do
+            docker logs "$c" > "logs/${c}.log" 2>&1
+          done

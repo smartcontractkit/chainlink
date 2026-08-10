@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/lib
 
-go 1.26.4
+go 1.26.5
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
@@ -34,19 +34,18 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/sethvargo/go-retry v0.3.0
-	github.com/smartcontractkit/chain-selectors v1.0.106
+	github.com/smartcontractkit/chain-selectors v1.0.107
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260708114855-e953eeb028a7
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260722132939-a30c486b1187
-	github.com/smartcontractkit/chainlink-common/keystore v1.2.1-0.20260623104656-f39eba3e2bc6
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260807174914-2721e136dcd9
+	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.111.1-0.20260612191326-e31c0ae4cd54
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260716150153-cd1826496e2d
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260810110946-8174b6bb7fc9
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260713161920-de075095648b
-	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260714170805-29c5577b5f55
+	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260804191526-b7a850ae7648
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea
 	github.com/smartcontractkit/chainlink-protos/linking-service/go v0.0.0-20260512230622-65f10f4cd305
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260716141634-c0cc05ed05d8
-	github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260714222251-887c274c6b64
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6-0.20260708113039-95f97b2d25e9
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
@@ -62,7 +61,7 @@ require (
 	go.uber.org/ratelimit v0.3.1
 	go.uber.org/zap v1.28.0
 	golang.org/x/sync v0.22.0
-	google.golang.org/grpc v1.82.0
+	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11
 	k8s.io/api v0.35.3
 	k8s.io/apimachinery v0.35.3
@@ -456,17 +455,17 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-aptos/codec v0.0.0-20260716230027-bd85997bc03c // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260715130435-1e32cea69af1 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260730150638-e7b61c05cec1 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb // indirect
 	github.com/smartcontractkit/chainlink-ccv v0.1.1-0.20260716164331-d938b371c5d6 // indirect
-	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260716165322-7f2edff6e954 // indirect
-	github.com/smartcontractkit/chainlink-data-streams v1.0.0 // indirect
+	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260724142814-45996a1bcb72 // indirect
+	github.com/smartcontractkit/chainlink-data-streams v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20260423135514-5b1a7565a99c // indirect
-	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260714194015-527495d10a6c // indirect
-	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260714194015-527495d10a6c // indirect
+	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20260724153515-bb6a2de39bcb // indirect
+	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260723212800-b2f21d31b1d2 // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20260625152110-9afcf56e4053 // indirect
 	github.com/smartcontractkit/chainlink-protos/billing/go v0.0.0-20251024234028-0988426d98f4 // indirect
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/committee-verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
@@ -482,8 +481,9 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.3.0 // indirect
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1 // indirect
-	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260714222251-887c274c6b64 // indirect
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260714190119-005bb9a612c3 // indirect
+	github.com/smartcontractkit/chainlink-stellar v0.0.3 // indirect
+	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260727172856-734bee1b2489 // indirect
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260728151254-66dc095d5ccf // indirect
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
@@ -498,8 +498,8 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
-	github.com/stellar/go-stellar-sdk v0.5.0 // indirect
-	github.com/stellar/go-xdr v0.0.0-20260423131911-a87d4d0789c3 // indirect
+	github.com/stellar/go-stellar-sdk v0.6.0 // indirect
+	github.com/stellar/go-xdr v0.0.0-20260529210834-0bf8f4956364 // indirect
 	github.com/stephenlacy/go-ethereum-hdwallet v0.0.0-20230913225845-a4fa94429863 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/objx v0.5.3 // indirect

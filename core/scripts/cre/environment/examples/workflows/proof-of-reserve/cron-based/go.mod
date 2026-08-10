@@ -1,10 +1,10 @@
 module github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based
 
-go 1.26.4
+go 1.26.5
 
 require (
 	github.com/ethereum/go-ethereum v1.17.1
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260625162847-bdf9e82b2f75
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260722120418-c1a1e0e75034
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20251222115927-36a18321243c
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260622152157-c8e129347b8b
 	github.com/smartcontractkit/cre-sdk-go v1.5.0
@@ -74,7 +74,7 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260528204832-58c7145c53f8 // indirect
+	github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260716165322-7f2edff6e954 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20260403184524-b6409238958d // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/supranational/blst v0.3.16 // indirect
@@ -114,8 +114,8 @@ require (
 	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260401024825-9d38bb4040a9 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260401024825-9d38bb4040a9 // indirect
-	google.golang.org/grpc v1.80.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260414002931-afd174a4e478 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
+	google.golang.org/grpc v1.82.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )

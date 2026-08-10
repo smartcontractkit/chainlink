@@ -27,7 +27,7 @@ func NewCSAKeyResource(key csakey.KeyV2) *CSAKeyResource {
 }
 
 func NewCSAKeyResources(keys []csakey.KeyV2) []CSAKeyResource {
-	rs := []CSAKeyResource{}
+	rs := make([]CSAKeyResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewCSAKeyResource(key))
 	}

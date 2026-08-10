@@ -1,0 +1,63 @@
+[Feature]
+LogPoller = true
+
+[OCR2]
+Enabled = true
+ContractPollInterval = '1s'
+DatabaseTimeout = '1s'
+
+[P2P]
+EnableExperimentalRageP2P = true
+
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:5001']
+
+[Capabilities]
+[Capabilities.Peering]
+[Capabilities.Peering.V2]
+Enabled = false
+
+[Capabilities.SharedPeering]
+Enabled = true
+
+[Capabilities.SharedPeering.StreamConfig]
+
+[Capabilities.Dispatcher]
+SendToSharedPeer = true
+
+[Capabilities.Dispatcher.RateLimit]
+
+[Capabilities.ExternalRegistry]
+Address = '0x1234567890123456789012345678901234567890'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+
+[Capabilities.WorkflowRegistry]
+Address = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'
+NetworkID = 'evm'
+ChainID = '1337'
+ContractVersion = '2.0.0'
+SyncStrategy = 'reconciliation'
+AdditionalSources = []
+
+[Capabilities.WorkflowRegistry.WorkflowStorage]
+ArtifactStorageHost = 'localhost'
+URL = 'localhost'
+TLSEnabled = false
+
+[Capabilities.WorkflowRegistry.ModuleCache]
+
+[Capabilities.GatewayConnector]
+ChainIDForNodeKey = '1337'
+DonID = 'doesnt-matter-for-gateway-node'
+Gateways = []
+
+[CRE]
+UseLocalTimeProvider = false
+EnableDKGRecipient = true
+DebugMode = true
+
+[CRE.WorkflowFetcher]
+URL = 'file:///home/chainlink/workflows'

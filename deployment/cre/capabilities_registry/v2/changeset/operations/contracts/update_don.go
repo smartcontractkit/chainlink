@@ -71,11 +71,11 @@ type UpdateDONOutput struct {
 
 // CapabilityConfig is a struct that holds a capability and its configuration
 type CapabilityConfig struct {
-	Capability Capability
+	Capability Capability `json:"capability" yaml:"capability"`
 	// Config is the capability configuration. It will be marshalled to proto config.
 	// It is untyped here because is has to be deserialized from JSON/YAML for any possible capability
 	// If nil, a default config based on the capability type is used
-	Config map[string]any
+	Config map[string]any `json:"config" yaml:"config"`
 }
 
 type Capability struct {
