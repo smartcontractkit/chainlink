@@ -2,10 +2,11 @@ package s4
 
 import (
 	"context"
-
-	"github.com/jonboulle/clockwork"
+	"fmt"
+	"math"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -136,7 +137,11 @@ func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature [
 	if now > record.Expiration {
 		return ErrPastExpiration
 	}
-	if record.Expiration-now > int64(s.contraints.MaxExpirationLengthSec)*1000 {
+	expSecs := s.contraints.MaxExpirationLengthSec * 1000
+	if expSecs > math.MaxInt64 {
+		return fmt.Errorf("expiration seconds overflows int64: %d", expSecs)
+	}
+	if record.Expiration-now > int64(expSecs) {
 		return ErrExpirationTooLong
 	}
 

@@ -14,9 +14,8 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
 var _ Key = &mockKey{}

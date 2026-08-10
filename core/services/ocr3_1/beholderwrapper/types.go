@@ -12,7 +12,6 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/beholderwrapper/metrics"
 )
 

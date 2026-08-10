@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 

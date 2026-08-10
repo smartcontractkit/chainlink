@@ -47,7 +47,7 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 	backend evmtypes.Backend,
 	flagsAndDeps ...any,
 ) *TestApplication {
-	bid, err := backend.Client().ChainID(testutils.Context(t))
+	bid, err := backend.Client().ChainID(t.Context())
 	require.NoError(t, err)
 	if bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
@@ -73,7 +73,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	backend evmtypes.Backend,
 	flagsAndDeps ...any,
 ) *TestApplication {
-	bid, err := backend.Client().ChainID(testutils.Context(t))
+	bid, err := backend.Client().ChainID(t.Context())
 	require.NoError(t, err)
 	if bid.Cmp(testutils.SimulatedChainID) != 0 {
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())

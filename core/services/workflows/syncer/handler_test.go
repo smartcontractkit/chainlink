@@ -1346,7 +1346,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	wfOwnerBytes := testutils.NewAddress().Bytes()
 	wfOwner := hex.EncodeToString(wfOwnerBytes)
 
-	t.Run("NoDAG workflow", func(t *testing.T) { //nolint:paralleltest // shares eventHandler setup
+	t.Run("NoDAG workflow", func(t *testing.T) {
 		binary := wasmtest.GetTestBinary(t, noDagBinaryCmd, true)
 		workflowID, err := pkgworkflows.GenerateWorkflowID(wfOwnerBytes, testutils.RandomizeName(t.Name()), binary, config, secretsURL)
 		require.NoError(t, err)

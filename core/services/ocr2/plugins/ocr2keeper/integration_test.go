@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic2_0"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -114,7 +113,7 @@ func setupNode(
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	mercury mercury.MercuryEndpointMock,
 ) (chainlink.Application, string, common.Address, ocr2key.KeyBundle) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(port)))
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 	cfg, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -167,16 +166,16 @@ type Node struct {
 
 func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	jb, err := validate.ValidatedOracleSpecToml(testutils.Context(t), c.OCR2(), c.Insecure(), spec, nil)
+	jb, err := validate.ValidatedOracleSpecToml(t.Context(), c.OCR2(), c.Insecure(), spec, nil)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(testutils.Context(t), &jb)
+	err = node.App.AddJobV2(t.Context(), &jb)
 	require.NoError(t, err)
 }
 
 func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(testutils.Context(t), &jb)
+	err = node.App.AddJobV2(t.Context(), &jb)
 	require.NoError(t, err)
 }
 
@@ -195,7 +194,7 @@ func accountsToAddress(accounts []ocrTypes.Account) (addresses []common.Address,
 }
 
 func getUpkeepIDFromTx(t *testing.T, registry *keeper_registry_wrapper2_0.KeeperRegistry, registrationTx *gethtypes.Transaction, backend evmtypes.Backend) *big.Int {
-	receipt, err := backend.Client().TransactionReceipt(testutils.Context(t), registrationTx.Hash())
+	receipt, err := backend.Client().TransactionReceipt(t.Context(), registrationTx.Hash())
 	require.NoError(t, err)
 	parsedLog, err := registry.ParseUpkeepRegistered(*receipt.Logs[0])
 	require.NoError(t, err)
@@ -435,7 +434,7 @@ func setupForwarderForNode(
 	backend evmtypes.Backend,
 	recipient common.Address,
 	linkAddr common.Address) common.Address {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend.Client(), linkAddr, caller.From, recipient, []byte{})
 	require.NoError(t, err)
 	backend.Commit()
@@ -447,7 +446,7 @@ func setupForwarderForNode(
 
 	// add forwarder address to be tracked in db
 	forwarderORM := forwarders.NewORM(app.GetDB())
-	chainID, err := backend.Client().ChainID(testutils.Context(t))
+	chainID, err := backend.Client().ChainID(t.Context())
 	require.NoError(t, err)
 	_, err = forwarderORM.CreateForwarder(ctx, faddr, sqlutil.Big(*chainID))
 	require.NoError(t, err)

@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/messagecache"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -88,7 +87,6 @@ type ackKey struct {
 type pubRegState struct {
 	callback        <-chan commoncap.TriggerResponse
 	request         commoncap.TriggerRegistrationRequest
-	cancel          context.CancelFunc
 	registrationErr error // non-nil if RegisterTrigger returned an error; used to suppress retries
 }
 

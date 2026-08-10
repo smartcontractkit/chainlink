@@ -85,7 +85,7 @@ func TestChipIngressBatchClient_HappyPath(t *testing.T) {
 	})
 
 	// Send telemetry
-	testCtx := testutils.Context(t)
+	testCtx := t.Context()
 	chipIngressClient.Send(testCtx, telemPayload1)
 	chipIngressClient.Send(testCtx, telemPayload3)
 	time.Sleep(sendInterval * 2)
@@ -123,7 +123,7 @@ func TestChipIngressBatchClient_MultipleBatches(t *testing.T) {
 		batchCount.Add(1)
 	})
 
-	testCtx := testutils.Context(t)
+	testCtx := t.Context()
 	// Send multiple messages to trigger multiple batches
 	for i := range 10 {
 		chipIngressClient.Send(testCtx, telemPayload)
@@ -181,7 +181,7 @@ func TestChipIngressBatchClient_DifferentTelemetryTypes(t *testing.T) {
 		}
 	})
 
-	testCtx := testutils.Context(t)
+	testCtx := t.Context()
 	chipIngressClient.Send(testCtx, payloadOCR)
 	chipIngressClient.Send(testCtx, payloadOCR2)
 
@@ -210,7 +210,7 @@ func TestChipIngressBatchClient_ContextCancellation(t *testing.T) {
 	}
 
 	// Create a cancelled context
-	ctx, cancel := context.WithCancel(testutils.Context(t))
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	// Should not panic or block when context is cancelled
@@ -244,7 +244,7 @@ func TestChipIngressBatchClient_WorkerReuse(t *testing.T) {
 		messageCount.Add(uint32(len(batch.Events)))
 	})
 
-	testCtx := testutils.Context(t)
+	testCtx := t.Context()
 	// Send multiple messages with same contract and type - should reuse worker
 	for range 5 {
 		chipIngressClient.Send(testCtx, telemPayload)
@@ -284,7 +284,7 @@ func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
 		}
 	})
 
-	testCtx := testutils.Context(t)
+	testCtx := t.Context()
 	chipIngressClient.Send(testCtx, telemPayload)
 
 	g.Eventually(func() string {

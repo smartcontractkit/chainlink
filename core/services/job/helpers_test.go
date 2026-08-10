@@ -8,14 +8,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/freeport"
-
-	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -277,7 +276,7 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 
 func makeOCR2Keeper21JobSpec(t testing.TB, ks keystore.Master, transmitter common.Address, chainID *big.Int) *job.Job {
 	t.Helper()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	bootstrapNodePort := freeport.GetOne(t)
 	bootstrapPeerID := "peerId"

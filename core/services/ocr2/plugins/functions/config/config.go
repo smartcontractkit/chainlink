@@ -6,9 +6,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	decryptionPluginConfig "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin/config"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	decryptionPluginConfig "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin/config"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
