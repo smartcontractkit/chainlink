@@ -4,15 +4,14 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
-	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
-
-	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
-	"github.com/stretchr/testify/require"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
+	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 )
 
 func TestS4ReportingPluginFactory_NewReportingPlugin(t *testing.T) {

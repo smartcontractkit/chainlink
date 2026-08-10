@@ -13,7 +13,6 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )

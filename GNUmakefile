@@ -108,7 +108,6 @@ install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins
 install-plugins-local: ## Build & install local plugins
 	go install -ldflags="-s" \
 		./plugins/cmd/chainlink-medianpoc \
-		./plugins/cmd/chainlink-ocr3-capability \
 		./plugins/cmd/capabilities/log-event-trigger
 
 .PHONY: make install-plugins
@@ -224,7 +223,7 @@ gomodslocalupdate: gomods ## Run gomod-local-update
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.53.0
+	go install github.com/vektra/mockery/v2@v2.53.6
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen

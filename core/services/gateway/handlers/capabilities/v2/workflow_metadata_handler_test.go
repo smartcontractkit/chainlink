@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
@@ -64,7 +63,7 @@ func TestSyncMetadata(t *testing.T) {
 	require.Empty(t, handler.authorizedKeys)
 
 	// Start the aggregator to enable data collection
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	err := handler.agg.Start(ctx)
 	require.NoError(t, err)
 	defer handler.agg.Close()
@@ -112,7 +111,7 @@ func TestSyncMetadata(t *testing.T) {
 func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	err := handler.agg.Start(ctx)
 	require.NoError(t, err)
 	defer handler.agg.Close()
@@ -215,7 +214,7 @@ func TestSendMetadataPullRequestVerifyPayload(t *testing.T) {
 
 func TestOnMetadataPush(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	err := handler.agg.Start(ctx)
 	require.NoError(t, err)
@@ -259,7 +258,7 @@ func TestOnMetadataPush(t *testing.T) {
 
 func TestOnMetadataPushInvalidJSON(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	invalidJSON := json.RawMessage(`{"invalid": json}`)
 	resp := &jsonrpc.Response[json.RawMessage]{
@@ -273,7 +272,7 @@ func TestOnMetadataPushInvalidJSON(t *testing.T) {
 
 func TestOnMetadataPullResponse(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	err := handler.agg.Start(ctx)
 	require.NoError(t, err)
@@ -370,7 +369,7 @@ func TestOnMetadataPullResponse(t *testing.T) {
 
 func TestOnMetadataPullResponseInvalidJSON(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	invalidJSON := json.RawMessage(`[{"invalid": json}]`)
 	resp := &jsonrpc.Response[json.RawMessage]{
@@ -384,7 +383,7 @@ func TestOnMetadataPullResponseInvalidJSON(t *testing.T) {
 
 func TestStartAndClose(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	err := handler.Start(ctx)
 	require.NoError(t, err)
@@ -802,7 +801,7 @@ func TestValidateAuthMetadata(t *testing.T) {
 
 func TestOnMetadataPushWithValidation(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	err := handler.agg.Start(ctx)
 	require.NoError(t, err)
@@ -868,7 +867,7 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 
 func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	err := handler.agg.Start(ctx)
 	require.NoError(t, err)

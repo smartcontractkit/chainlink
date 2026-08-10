@@ -28,10 +28,18 @@ import (
 )
 
 const (
-	defaultCleanUpPeriod = 5 * time.Second
+	// defaultCleanUpPeriod is how often expired requests are swept and closed grace
+	// windows are forwarded, so it also bounds how far past its deadline a grace
+	// window can run.
+	defaultCleanUpPeriod = time.Second
 
 	defaultRequestTimeoutSec  = 30
 	defaultNodeSendTimeoutSec = 10
+
+	// defaultQuorumGraceMillis bounds the extra wait after quorum is reached. It must
+	// stay well below the caller's own HTTP deadline, which is what actually cuts the
+	// request short when the DON never produces 2F+1 signed responses.
+	defaultQuorumGraceMillis = 10_000
 
 	// Re-exported from chainlink-common for local use and test convenience.
 	MethodSecretsGet     = relaytypes.MethodSecretsGet
@@ -75,6 +83,13 @@ type activeRequest struct {
 	mu        sync.Mutex
 	completed atomic.Bool
 
+	// graceStarted is set the first time the request holds F+1 signed responses, so
+	// the grace deadline is armed once per request rather than moved forward by every
+	// later response. graceDeadline is guarded by mu and is only meaningful once
+	// graceStarted is set.
+	graceStarted  atomic.Bool
+	graceDeadline time.Time
+
 	createdAt time.Time
 	gwhandlers.Callback
 }
@@ -113,6 +128,27 @@ func (ar *activeRequest) copiedResponses() map[string]jsonrpc.Response[json.RawM
 	return copied
 }
 
+func (ar *activeRequest) armGraceDeadline(deadline time.Time) bool {
+	if !ar.graceStarted.CompareAndSwap(false, true) {
+		return false
+	}
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+	ar.graceDeadline = deadline
+	return true
+}
+
+// graceElapsed reports whether the request reached quorum and its grace window has
+// since closed, meaning the collected bundle should be forwarded now.
+func (ar *activeRequest) graceElapsed(now time.Time) bool {
+	if !ar.graceStarted.Load() {
+		return false
+	}
+	ar.mu.Lock()
+	defer ar.mu.Unlock()
+	return !ar.graceDeadline.IsZero() && !now.Before(ar.graceDeadline)
+}
+
 type relayBundler interface {
 	Bundle(req jsonrpc.Request[json.RawMessage], resps map[string]jsonrpc.Response[json.RawMessage], l logger.Logger) (*BundleSummary, error)
 }
@@ -124,6 +160,15 @@ type Config struct {
 	// clamped to RequestTimeoutSec. It must stay below it so that one node whose connection
 	// accepts no writes cannot delay delivery to the rest of the DON.
 	NodeSendTimeoutSec int `json:"nodeSendTimeoutSec"`
+
+	// QuorumGraceMillis is how long the handler keeps collecting responses after the
+	// first F+1 signed responses arrive, before forwarding whatever it has. It bounds
+	// the wait for a DON that answers with quorum but never reaches 2F+1 signed
+	// responses, which would otherwise hold the request until RequestTimeoutSec and
+	// forward a long-viable bundle after the caller's own deadline has passed.
+	// Clamped to RequestTimeoutSec; a negative value disables the grace window and
+	// restores waiting until expiry.
+	QuorumGraceMillis int `json:"quorumGraceMillis"`
 }
 
 type handler struct {
@@ -139,6 +184,7 @@ type handler struct {
 	perNodeRateLimiters   map[string]limits.RateLimiter
 	requestTimeout        time.Duration
 	nodeSendTimeout       time.Duration
+	quorumGrace           time.Duration
 
 	activeRequests map[string]*activeRequest
 	metrics        *metrics
@@ -173,6 +219,16 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		cfg.NodeSendTimeoutSec = cfg.RequestTimeoutSec
 	}
 
+	switch {
+	case cfg.QuorumGraceMillis == 0:
+		cfg.QuorumGraceMillis = defaultQuorumGraceMillis
+	case cfg.QuorumGraceMillis < 0:
+		cfg.QuorumGraceMillis = 0
+	}
+	if maxGraceMillis := cfg.RequestTimeoutSec * 1000; cfg.QuorumGraceMillis > maxGraceMillis {
+		cfg.QuorumGraceMillis = maxGraceMillis
+	}
+
 	globalNodeRateLimiter, err := limitsFactory.MakeRateLimiter(cresettings.Default.GatewayConfidentialRelayGlobalRate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create global node rate limiter: %w", err)
@@ -198,6 +254,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonId),
 		requestTimeout:        time.Duration(cfg.RequestTimeoutSec) * time.Second,
 		nodeSendTimeout:       time.Duration(cfg.NodeSendTimeoutSec) * time.Second,
+		quorumGrace:           time.Duration(cfg.QuorumGraceMillis) * time.Millisecond,
 		globalNodeRateLimiter: globalNodeRateLimiter,
 		perNodeRateLimiters:   perNodeRateLimiters,
 		activeRequests:        make(map[string]*activeRequest),
@@ -220,6 +277,7 @@ func (h *handler) Start(_ context.Context) error {
 			for {
 				select {
 				case <-ticker.Chan():
+					h.forwardGracedRequests(ctx)
 					h.removeExpiredRequests(ctx)
 				case <-h.stopCh:
 					return
@@ -431,6 +489,9 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 			fmt.Errorf("relay quorum unreachable: %d signed responses, at most %d possible, need %d (collected=%d nodes=%d remaining=%d errors=%d undecodable=%d)",
 				summary.Signed(), maxPossibleSigned, minQuorum, summary.Total(), nodes, remaining, summary.Error(), summary.Undecodable())))
 	}
+	if !expired && summary.Signed() >= minQuorum {
+		h.startQuorumGrace(l, ar, summary)
+	}
 	l.Debugw("waiting for more signed relay responses before forwarding bundle",
 		"signed", summary.Signed(),
 		"earlyNeed", earlyNeed,
@@ -444,6 +505,89 @@ func (h *handler) forwardBundleOrTerminateIfReady(ctx context.Context, l logger.
 		"nodeErrors", summary.NodeErrorsFormatted(),
 	)
 	return nil
+}
+
+// startQuorumGrace arms the grace window the first time a request holds minQuorum
+// signed responses. It bounds how long a request that will never reach earlyNeed
+// keeps waiting for the rest of the DON: without it such a request is held until
+// requestTimeout, long after the caller's own deadline has elapsed, so a bundle
+// that was viable within milliseconds is forwarded to nobody. The deadline is swept
+// by the cleanup goroutine rather than a timer, so no completion path runs on an
+// untracked goroutine.
+func (h *handler) startQuorumGrace(l logger.Logger, ar *activeRequest, summary *BundleSummary) {
+	if h.quorumGrace <= 0 {
+		return
+	}
+	if !ar.armGraceDeadline(h.clock.Now().Add(h.quorumGrace)) {
+		return
+	}
+	l.Infow("relay quorum reached below earlyNeed; starting grace window",
+		"signed", summary.Signed(),
+		"minQuorum", h.donConfig.F+1,
+		"earlyNeed", 2*h.donConfig.F+1,
+		"collected", summary.Total(),
+		"nodes", len(h.donConfig.Members),
+		"grace", h.quorumGrace,
+	)
+}
+
+// forwardGracedRequests forwards the bundle for every request whose grace window has
+// closed. Collected responses are never replaced, so the signed count only grows: a
+// request that armed the window still holds at least minQuorum signed responses here.
+func (h *handler) forwardGracedRequests(ctx context.Context) {
+	h.mu.RLock()
+	var graced []*activeRequest
+	now := h.clock.Now()
+	for _, ar := range h.activeRequests {
+		if ar.graceElapsed(now) {
+			graced = append(graced, ar)
+		}
+	}
+	h.mu.RUnlock()
+
+	for _, ar := range graced {
+		h.forwardAfterGrace(ctx, ar)
+	}
+}
+
+func (h *handler) forwardAfterGrace(ctx context.Context, ar *activeRequest) {
+	l := logger.With(h.lggr, "method", ar.req.Method, "requestID", ar.req.ID)
+	summary, err := h.bundler.Bundle(ar.req, ar.copiedResponses(), l)
+	if err != nil {
+		l.Errorw("failed to build relay response bundle after quorum grace", "error", err)
+		if sendErr := h.sendResponseAndClearRequest(ctx, ar, h.constructErrorResponse(ar.req, api.FatalError, err)); sendErr != nil {
+			l.Errorw("error returning bundle failure after quorum grace", "error", sendErr)
+		}
+		return
+	}
+
+	minQuorum := h.donConfig.F + 1
+	nodes := len(h.donConfig.Members)
+	if summary.Signed() < minQuorum {
+		l.Warnw("quorum grace elapsed below quorum; leaving request to expiry",
+			"signed", summary.Signed(),
+			"minQuorum", minQuorum,
+			"collected", summary.Total(),
+			"nodes", nodes,
+		)
+		return
+	}
+
+	l.Infow("quorum grace elapsed; forwarding partial signed bundle",
+		"signed", summary.Signed(),
+		"minQuorum", minQuorum,
+		"earlyNeed", 2*h.donConfig.F+1,
+		"collected", summary.Total(),
+		"nodes", nodes,
+		"unanswered", nodes-summary.Total(),
+		"grace", h.quorumGrace,
+		"errors", summary.Error(),
+		"undecodable", summary.Undecodable(),
+		"nodeErrors", summary.NodeErrorsFormatted(),
+	)
+	if err := h.forwardBundle(ctx, l, ar, summary); err != nil {
+		l.Errorw("error forwarding bundle after quorum grace", "error", err)
+	}
 }
 
 // forwardBundle sends a previously-built bundle to the enclave. The gateway makes
@@ -509,8 +653,8 @@ func (h *handler) fanOutToNodes(ctx context.Context, l logger.Logger, ar *active
 
 // sendResponseAndClearRequest claims the request, sends payload, and removes it from
 // activeRequests. Concurrent completion paths (node-message forward,
-// terminal-state forward, expiry) may all race here; only the first claimer
-// sends. Metrics are recorded only after a successful send so losers do not
+// terminal-state forward, quorum grace, expiry) may all race here; only the first
+// claimer sends. Metrics are recorded only after a successful send so losers do not
 // double-count.
 func (h *handler) sendResponseAndClearRequest(ctx context.Context, ar *activeRequest, payload gwhandlers.UserCallbackPayload) error {
 	if !ar.completed.CompareAndSwap(false, true) {

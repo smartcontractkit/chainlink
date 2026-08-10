@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
@@ -106,7 +105,7 @@ func (ks *aptos) Import(ctx context.Context, keyJSON []byte, password string) (a
 		return aptoskey.Key{}, errors.Wrap(err, "AptosKeyStore#ImportKey failed to decrypt key")
 	}
 	if _, found := ks.keyRing.Aptos[key.ID()]; found {
-		return aptoskey.Key{}, fmt.Errorf("key with ID %s already exists", key.ID())
+		return aptoskey.Key{}, fmt.Errorf("%w: key with ID %s already exists", ErrKeyExists, key.ID())
 	}
 	return key, ks.safeAddKey(ctx, key)
 }
@@ -167,7 +166,7 @@ type AptosLooppSigner struct {
 	core.UnimplementedKeystore
 }
 
-var _ loop.Keystore = &AptosLooppSigner{}
+var _ core.Keystore = &AptosLooppSigner{}
 
 // Returns a list of Aptos Public Keys
 func (s *AptosLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {

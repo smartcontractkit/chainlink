@@ -266,7 +266,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	if sb > math.MaxInt64 {
 		t.Fatalf("start block overflows int64: %d", sb)
 	}
-	startBlock := int64(sb)
+	startBlock := int64(sb) //nolint:gosec // G115
 
 	l.Info().Int64("Starting Block", startBlock).Msg("STARTING EVENT EMISSION")
 	startTime := time.Now()
@@ -304,7 +304,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	}
 	// use ridciuously high end block so that we don't have to find out the block number of the last block in which logs were emitted
 	// as that's not trivial to do (i.e.  just because chain was at block X when log emission ended it doesn't mean all events made it to that block)
-	endBlock := int64(eb) + 10000
+	endBlock := int64(eb) + 10000 //nolint:gosec // G115
 
 	allNodesLogCountMatches, err := checkIfAllNodesHaveLogCount("5m", startBlock, endBlock, totalLogsEmitted, expectedFilters, l, nil, lpTestEnv)
 	require.NoError(t, err, "Error checking if CL nodes have expected log count")
@@ -417,7 +417,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	if sb > math.MaxInt64 {
 		t.Fatalf("start block overflows int64: %d", sb)
 	}
-	startBlock := int64(sb)
+	startBlock := int64(sb) //nolint:gosec // G115
 
 	l.Info().Int64("Starting Block", startBlock).Msg("STARTING EVENT EMISSION")
 	startTime := time.Now()

@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -168,7 +167,7 @@ func TestMedianTask(t *testing.T) {
 					AllowedFaults: test.allowedFaults,
 					Lax:           test.lax,
 				}
-				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
+				output, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)
 				if output.Error != nil {
@@ -201,7 +200,7 @@ func TestMedianTask(t *testing.T) {
 					AllowedFaults: test.allowedFaults,
 					Lax:           test.lax,
 				}
-				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+				output, runInfo := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)
 				if output.Error != nil {
@@ -248,7 +247,7 @@ func TestMedianTask(t *testing.T) {
 					AllowedFaults: test.allowedFaults,
 					Lax:           test.lax,
 				}
-				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+				output, runInfo := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)
 				if output.Error != nil {
@@ -384,7 +383,7 @@ func TestMedianTask_CountNilsAsFaults(t *testing.T) {
 				AllowedFaults:     test.allowedFaults,
 				CountNilsAsFaults: test.countNilsAsFaults,
 			}
-			output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
+			output, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			if output.Error != nil {
@@ -408,7 +407,7 @@ func TestMedianTask_CountNilsAsFaults(t *testing.T) {
 			Lax:               "true",
 			CountNilsAsFaults: "true",
 		}
-		output, _ := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: mustDecimal(t, "1")}})
+		output, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), []pipeline.Result{{Value: mustDecimal(t, "1")}})
 		require.Error(t, output.Error)
 		require.Contains(t, output.Error.Error(), "lax and countNilsAsFaults cannot both be enabled")
 	})

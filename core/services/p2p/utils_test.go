@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 )
 
@@ -18,12 +17,12 @@ const (
 
 func TestInMemoryDiscovererDatabase(t *testing.T) {
 	db := p2p.NewInMemoryDiscovererDatabase()
-	require.NoError(t, db.StoreAnnouncement(testutils.Context(t), peerID1, []byte(ann1)))
-	require.NoError(t, db.StoreAnnouncement(testutils.Context(t), peerID2, []byte(ann2)))
-	state, err := db.ReadAnnouncements(testutils.Context(t), []string{peerID1, peerID2})
+	require.NoError(t, db.StoreAnnouncement(t.Context(), peerID1, []byte(ann1)))
+	require.NoError(t, db.StoreAnnouncement(t.Context(), peerID2, []byte(ann2)))
+	state, err := db.ReadAnnouncements(t.Context(), []string{peerID1, peerID2})
 	require.NoError(t, err)
 	require.Equal(t, map[string][]byte{peerID1: []byte(ann1), peerID2: []byte(ann2)}, state)
-	state, err = db.ReadAnnouncements(testutils.Context(t), []string{peerID2})
+	state, err = db.ReadAnnouncements(t.Context(), []string{peerID2})
 	require.NoError(t, err)
 	require.Equal(t, map[string][]byte{peerID2: []byte(ann2)}, state)
 }
