@@ -48,11 +48,11 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260805141018-c1d260f42355
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260807174914-2721e136dcd9
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
-	github.com/smartcontractkit/chainlink-data-streams v1.0.0
+	github.com/smartcontractkit/chainlink-data-streams v1.1.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.111.1-0.20260612191326-e31c0ae4cd54
-	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260728111445-96c471be2872
+	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260810110946-8174b6bb7fc9
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260713161920-de075095648b
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260804191526-b7a850ae7648
@@ -60,7 +60,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1
-	github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260727172856-734bee1b2489
+	github.com/smartcontractkit/chainlink-stellar v0.0.3
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260728151254-66dc095d5ccf
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260728151254-66dc095d5ccf

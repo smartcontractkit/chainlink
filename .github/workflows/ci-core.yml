@@ -205,7 +205,7 @@ jobs:
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             channel: ${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}
-            text: ":red-warn: golangci-lint: `${{ matrix.modules }}` module has ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues across ${{ steps.golang-lint.outputs.golang-report-file-count }} files: <${{ format('https://github.com/{0}/actions/runs/{1}/jobs/{2}', github.repository, github.run_id, github.job) }}|View Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Download Report>\nBy severity: ${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\nBy linter: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
+            text: ":red-warn: golangci-lint: `${{ matrix.modules }}` module has ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues across ${{ steps.golang-lint.outputs.golang-report-file-count }} files: <${{ format('https://github.com/{0}/actions/runs/{1}/jobs/{2}', github.repository, github.run_id, github.job_id) }}|View Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Download Report>\nBy severity: ${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\nBy linter: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
 
   # Fails if any golangci-lint matrix jobs fails and silently succeeds otherwise
   # Consolidates golangci-lint matrix job results under one required `lint` check

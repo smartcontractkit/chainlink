@@ -181,10 +181,16 @@ func setupNode(
 		// [OCR2]
 		c.OCR2.Enabled = new(true)
 		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+		// Unique per-node root for the OCR3.1 (llo/v31) pebble key-value store so the
+		// nodes in this process don't share state and nothing is written to ~/.chainlink-data.
+		c.OCR2.KeyValueStoreRootDir = new(t.TempDir())
 
 		// [P2P]
 		c.P2P.PeerID = new(p2pKey.PeerID())
 		c.P2P.TraceLogging = new(true)
+		// Required for OCR3.1 (llo/v31) networking (the "2" endpoint factory needs
+		// the experimental ragep2p host). Backward-compatible with OCR3.0.
+		c.P2P.EnableExperimentalRageP2P = new(true)
 
 		// [P2P.V2]
 		c.P2P.V2.Enabled = new(true)

@@ -758,7 +758,7 @@ func CreateKeys(t *testing.T,
 }
 
 func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
-	chainIDBig := sqlutil.NewI(int64(chainID))
+	chainIDBig := sqlutil.New(big.NewInt(0).SetUint64(chainID))
 	chain := v2toml.Defaults(chainIDBig)
 	chain.GasEstimator.LimitDefault = new(uint64(5e6))
 	chain.LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
