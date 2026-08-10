@@ -27,8 +27,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
 )
 
@@ -118,6 +121,7 @@ type workflowRegistry struct {
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardRoutingSteady      shardRoutingSteadyObserver
+	shardResolver           shardownership.ShardResolver
 
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
 	myShardID       uint32
@@ -296,6 +300,12 @@ func WithShardID(shardID uint32) Option {
 func WithRegistryShardRoutingObserver(signal shardRoutingSteadyObserver) Option {
 	return func(wr *workflowRegistry) {
 		wr.shardRoutingSteady = signal
+	}
+}
+
+func WithRegistryShardResolver(resolver shardownership.ShardResolver) Option {
+	return func(wr *workflowRegistry) {
+		wr.shardResolver = resolver
 	}
 }
 
@@ -787,17 +797,19 @@ func (w *workflowRegistry) syncAllowlistedRequests(ctx context.Context) {
 }
 
 func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows []WorkflowMetadataView) ([]WorkflowMetadataView, error) {
-	if w.shardOrchestratorClient == nil {
+	if w.shardResolver == nil {
 		return workflows, nil
 	}
 	if len(workflows) == 0 {
 		return workflows, nil
 	}
 	workflowIDs := make([]string, 0, len(workflows))
+	ownerHexes := make([]string, 0, len(workflows))
 	for _, wf := range workflows {
 		workflowIDs = append(workflowIDs, wf.WorkflowID.Hex())
+		ownerHexes = append(ownerHexes, hex.EncodeToString(wf.Owner))
 	}
-	resp, err := w.shardOrchestratorClient.GetWorkflowShardMapping(ctx, workflowIDs)
+	mappings, err := w.shardResolver.ResolveShards(ctx, workflowIDs, ownerHexes)
 	if err != nil {
 		if w.shardRoutingSteady != nil {
 			w.shardRoutingSteady.Invalidate()
@@ -805,12 +817,18 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 		return nil, fmt.Errorf("shard mapping unavailable: %w", err)
 	}
 	if w.shardRoutingSteady != nil {
-		w.shardRoutingSteady.ObserveRoutingSteady(resp.GetRoutingSteady())
+		if rr, ok := w.shardResolver.(interface {
+			GetRoutingResponse(ctx context.Context, workflowIDs []string) (*ringpb.GetWorkflowShardMappingResponse, error)
+		}); ok {
+			if resp, rErr := rr.GetRoutingResponse(ctx, workflowIDs); rErr == nil && resp != nil {
+				w.shardRoutingSteady.ObserveRoutingSteady(resp.GetRoutingSteady())
+			}
+		}
 	}
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
 	for _, wf := range workflows {
 		id := wf.WorkflowID.Hex()
-		if shardID, ok := resp.Mappings[id]; ok && shardID == w.myShardID {
+		if shardID, ok := mappings[id]; ok && shardID == w.myShardID {
 			filtered = append(filtered, wf)
 		}
 	}

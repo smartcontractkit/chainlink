@@ -11,9 +11,11 @@ import (
 )
 
 const (
-	templateName = "cre-settings.tmpl"
+	templateName           = "cre-settings.tmpl"
+	shardAssignmentTmplName = "shard-assignment.tmpl"
 	// We expect there to only be 1 CRESettings job per node, and they share a fixed UUID for clarity.
 	externalJobUUID = "8561c20c-7d06-421e-a155-3baf21b1622b"
+	shardAssignmentJobUUID = "a3f8c1d2-4e5b-6a7c-8d9e-0f1a2b3c4d5e"
 )
 
 type CRESettingsJob struct {
@@ -35,6 +37,32 @@ func (j CRESettingsJob) ResolveJob() (string, error) {
 
 	b := &bytes.Buffer{}
 	err = t.ExecuteTemplate(b, templateName, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	return b.String(), nil
+}
+
+type ShardAssignmentJob struct {
+	ShardAssignment string `yaml:"shard_assignment"` // toml
+}
+
+func (j ShardAssignmentJob) ResolveJob() (string, error) {
+	t, err := template.New("s").ParseFS(templates.FS, shardAssignmentTmplName)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse %s: %w", shardAssignmentTmplName, err)
+	}
+
+	shaSum := sha256.Sum256([]byte(j.ShardAssignment))
+	data := map[string]any{
+		"ExternalJobID":    shardAssignmentJobUUID,
+		"Hash":             hex.EncodeToString(shaSum[:]),
+		"ShardAssignment":  j.ShardAssignment,
+	}
+
+	b := &bytes.Buffer{}
+	err = t.ExecuteTemplate(b, shardAssignmentTmplName, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}

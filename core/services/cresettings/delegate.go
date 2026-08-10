@@ -1,6 +1,3 @@
-// cresettings jobs are used to distribute updates for CRE settings overrides.
-// See: https://pkg.go.dev/github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings
-// Only one Job of type CRESettings may run at a time. Attempts to create a second job will fail.
 package cresettings
 
 import (
@@ -11,20 +8,24 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings) *delegate {
-	return &delegate{lggr: lggr, atomicSettings: atomicSettings}
+func NewDelegate(lggr logger.Logger, atomicSettings *loop.AtomicSettings, shardAssignment *atomic.Pointer[ShardAssignmentConfig]) *delegate {
+	return &delegate{
+		lggr:            lggr,
+		atomicSettings:  atomicSettings,
+		shardAssignment: shardAssignment,
+	}
 }
 
 var _ job.Delegate = (*delegate)(nil)
 
-// delegate manages job.CRESettings jobs.
-// It ensures that only one job is created at a time, and broadcasts changes via loop.AtomicSettings.
 type delegate struct {
-	lggr           logger.Logger
-	atomicSettings *loop.AtomicSettings
+	lggr            logger.Logger
+	atomicSettings  *loop.AtomicSettings
+	shardAssignment *atomic.Pointer[ShardAssignmentConfig]
 
 	activeJobID atomic.Pointer[int32]
 }
@@ -40,15 +41,34 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 		return nil, fmt.Errorf("another %s job is already active: %d", job.CRESettings, activeJobID)
 	}
 
-	if err := d.atomicSettings.Store(core.SettingsUpdate{
-		Settings: j.CRESettingsSpec.Settings,
-		Hash:     j.CRESettingsSpec.Hash,
-	}); err != nil {
-		return nil, fmt.Errorf("failed to update settings: %w", err)
+	spec := j.CRESettingsSpec
+	configType := spec.ConfigType
+	if configType == "" {
+		configType = ConfigTypeSettings
 	}
-	d.lggr.Infow("Updated settings", "hash", j.CRESettingsSpec.Hash, "settings", j.CRESettingsSpec.Settings)
 
-	return nil, nil // no active services
+	switch configType {
+	case ConfigTypeShardAssignment:
+		saCfg, err := ParseShardAssignmentConfig(spec.ShardAssignment)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse shard_assignment config: %w", err)
+		}
+		d.shardAssignment.Store(saCfg)
+		d.lggr.Infow("Updated shard assignment config", "hash", spec.Hash)
+
+	case ConfigTypeSettings:
+		fallthrough
+	default:
+		if err := d.atomicSettings.Store(core.SettingsUpdate{
+			Settings: spec.Settings,
+			Hash:     spec.Hash,
+		}); err != nil {
+			return nil, fmt.Errorf("failed to update settings: %w", err)
+		}
+		d.lggr.Infow("Updated settings", "hash", spec.Hash, "settings", spec.Settings)
+	}
+
+	return nil, nil
 }
 
 func (d *delegate) AfterJobCreated(j job.Job) {}

@@ -15,13 +15,12 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -3364,7 +3363,14 @@ type Sharding struct {
 	ShardIndex               *uint16
 	ShardOrchestratorPort    *uint16
 	ShardOrchestratorAddress *commonconfig.URL
+	ShardAssignmentMode      *string
 }
+
+const (
+	ShardAssignmentModeRingOCROnly      = "ringocr-only"
+	ShardAssignmentModeManualOnly       = "manual-only"
+	ShardAssignmentModeRingOCROverrides = "ringocr-with-overrides"
+)
 
 func (s *Sharding) setFrom(f *Sharding) {
 	if f.ShardingEnabled != nil {
@@ -3394,18 +3400,27 @@ func (s *Sharding) setFrom(f *Sharding) {
 	if f.ShardOrchestratorAddress != nil {
 		s.ShardOrchestratorAddress = f.ShardOrchestratorAddress
 	}
+
+	if f.ShardAssignmentMode != nil {
+		s.ShardAssignmentMode = f.ShardAssignmentMode
+	}
 }
 
 func (s *Sharding) ValidateConfig() (err error) {
-	// If sharding is enabled and ShardIndex > 0, ShardOrchestratorAddress must be specified
 	if s.ShardingEnabled != nil && *s.ShardingEnabled {
 		if s.ShardIndex != nil && *s.ShardIndex > 0 {
-			if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
-				err = errors.Join(err, configutils.ErrInvalid{
-					Name:  "ShardOrchestratorAddress",
-					Value: s.ShardOrchestratorAddress,
-					Msg:   "must be specified when ShardingEnabled is true and ShardIndex > 0",
-				})
+			mode := ShardAssignmentModeRingOCROnly
+			if s.ShardAssignmentMode != nil {
+				mode = *s.ShardAssignmentMode
+			}
+			if mode != ShardAssignmentModeManualOnly {
+				if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
+					err = errors.Join(err, configutils.ErrInvalid{
+						Name:  "ShardOrchestratorAddress",
+						Value: s.ShardOrchestratorAddress,
+						Msg:   "must be specified when ShardingEnabled is true and ShardIndex > 0",
+					})
+				}
 			}
 		}
 	}

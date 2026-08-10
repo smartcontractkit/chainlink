@@ -10,12 +10,13 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
 func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{
-		ExternalJobID: uuid.New(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
+		ExternalJobID: uuid.New(),
 	}
 
 	tree, err := toml.Load(tomlString)
@@ -39,16 +40,38 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
 
-	_, err = settings.NewTOMLGetter([]byte(jb.CRESettingsSpec.Settings))
-	if err != nil {
-		return jb, errors.Wrap(err, "invalid settings toml")
+	configType := spec.ConfigType
+	if configType == "" {
+		configType = ConfigTypeSettings
 	}
-	shaSum := sha256.Sum256([]byte(spec.Settings))
-	hash := hex.EncodeToString(shaSum[:])
-	if spec.Hash == "" {
-		spec.Hash = hash
-	} else if spec.Hash != hash {
-		return jb, fmt.Errorf("invalid sha256 hash %s: calculated %s from: \n%s", spec.Hash, hash, spec.Settings)
+
+	switch configType {
+	case ConfigTypeShardAssignment:
+		if _, err = ParseShardAssignmentConfig(spec.ShardAssignment); err != nil {
+			return jb, errors.Wrap(err, "invalid shard_assignment config")
+		}
+		shaSum := sha256.Sum256([]byte(spec.ShardAssignment))
+		hash := hex.EncodeToString(shaSum[:])
+		if spec.Hash == "" {
+			spec.Hash = hash
+		} else if spec.Hash != hash {
+			return jb, fmt.Errorf("invalid sha256 hash %s: calculated %s from: \n%s", spec.Hash, hash, spec.ShardAssignment)
+		}
+
+	case ConfigTypeSettings:
+		fallthrough
+	default:
+		_, err = settings.NewTOMLGetter([]byte(spec.Settings))
+		if err != nil {
+			return jb, errors.Wrap(err, "invalid settings toml")
+		}
+		shaSum := sha256.Sum256([]byte(spec.Settings))
+		hash := hex.EncodeToString(shaSum[:])
+		if spec.Hash == "" {
+			spec.Hash = hash
+		} else if spec.Hash != hash {
+			return jb, fmt.Errorf("invalid sha256 hash %s: calculated %s from: \n%s", spec.Hash, hash, spec.Settings)
+		}
 	}
 
 	return jb, nil
