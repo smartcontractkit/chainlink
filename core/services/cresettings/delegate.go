@@ -48,6 +48,7 @@ func (d *delegate) ServicesForSpec(ctx context.Context, j job.Job) ([]job.Servic
 	configType := spec.ConfigType
 	if configType == "" {
 		configType = ConfigTypeSettings
+		d.lggr.Infow("No config_type specified, defaulting to settings", "default", configType)
 	}
 
 	switch configType {
