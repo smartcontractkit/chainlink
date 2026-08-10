@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -61,7 +60,7 @@ func TestShell_CreateUser(t *testing.T) {
 }
 
 func TestShell_ChangeRole(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
@@ -101,7 +100,7 @@ func TestShell_ChangeRole(t *testing.T) {
 }
 
 func TestShell_DeleteUser(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
@@ -136,7 +135,7 @@ func TestShell_DeleteUser(t *testing.T) {
 }
 
 func TestShell_ListUsers(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)

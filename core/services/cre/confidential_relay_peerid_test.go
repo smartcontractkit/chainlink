@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 

@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 )
 
@@ -29,7 +28,7 @@ func runFetcherTest(t *testing.T, adapterJSONResponse, expectedSecrets, expected
 	assert.NoError(t, err, "Unexpected error")
 
 	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
-	encryptedSecrets, userError, err := ea.FetchEncryptedSecrets(testutils.Context(t), []byte("urls to secrets"), "requestID1234", "TestJob")
+	encryptedSecrets, userError, err := ea.FetchEncryptedSecrets(t.Context(), []byte("urls to secrets"), "requestID1234", "TestJob")
 
 	if expectedError != nil {
 		assert.Equal(t, expectedError.Error(), err.Error(), "Unexpected error")
@@ -52,7 +51,7 @@ func runRequestTest(t *testing.T, adapterJSONResponse, expectedUserResult, expec
 	assert.NoError(t, err, "Unexpected error")
 
 	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
-	userResult, userError, domains, err := ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "", &functions.RequestData{})
+	userResult, userError, domains, err := ea.RunComputation(t.Context(), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "", &functions.RequestData{})
 
 	if expectedError != nil {
 		assert.Equal(t, expectedError.Error(), err.Error(), "Unexpected error")
@@ -179,7 +178,7 @@ func TestRunComputation_CorrectAdapterRequest(t *testing.T) {
 		SecretsLocation: 88,
 		Args:            []string{"arg1", "arg2"},
 	}
-	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", reqData)
+	_, _, _, err = ea.RunComputation(t.Context(), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", reqData)
 	assert.Error(t, err)
 }
 
@@ -193,7 +192,7 @@ func TestRunComputation_HTTP500(t *testing.T) {
 	assert.NoError(t, err)
 
 	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
-	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
+	_, _, _, err = ea.RunComputation(t.Context(), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 	assert.Error(t, err)
 }
 
@@ -208,7 +207,7 @@ func TestRunComputation_ContextRespected(t *testing.T) {
 	assert.NoError(t, err)
 
 	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 0, 0)
-	ctx, cancel := context.WithTimeout(testutils.Context(t), 10*time.Millisecond)
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Millisecond)
 	defer cancel()
 	_, _, _, err = ea.RunComputation(ctx, "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 	assert.Error(t, err)
@@ -239,7 +238,7 @@ func TestRunComputationRetrial(t *testing.T) {
 		assert.NoError(t, err)
 
 		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1, 1*time.Nanosecond)
-		_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
+		_, _, _, err = ea.RunComputation(t.Context(), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 		assert.NoError(t, err)
 	})
 
@@ -262,7 +261,7 @@ func TestRunComputationRetrial(t *testing.T) {
 		assert.NoError(t, err)
 
 		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1, 1*time.Nanosecond)
-		_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
+		_, _, _, err = ea.RunComputation(t.Context(), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 		assert.Error(t, err)
 	})
 
@@ -285,7 +284,7 @@ func TestRunComputationRetrial(t *testing.T) {
 		assert.NoError(t, err)
 
 		ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000, 1, 1*time.Nanosecond)
-		_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
+		_, _, _, err = ea.RunComputation(t.Context(), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 		assert.Error(t, err)
 	})
 }

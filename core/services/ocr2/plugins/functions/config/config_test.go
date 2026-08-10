@@ -3,11 +3,11 @@ package config_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 )
 
 func TestS4ConfigDecoder(t *testing.T) {

@@ -7,7 +7,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 

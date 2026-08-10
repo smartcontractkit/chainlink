@@ -23,14 +23,10 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
-	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
-
-	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
-
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	cldlegacysolmcms "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/solana"
 	pdasol "github.com/smartcontractkit/cld-changesets/pkg/family/solana"
@@ -65,6 +61,8 @@ import (
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf_solana "github.com/smartcontractkit/chainlink-deployments-framework/chain/solana"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
+	cldftesthelpers "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils/testhelpers"
 	cldf_offchain "github.com/smartcontractkit/chainlink-deployments-framework/offchain"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry"
@@ -178,6 +176,19 @@ func ReplayLogs(t *testing.T, oc cldf_offchain.Client, replayBlocks map[uint64]u
 			t.Logf("failed to replay logs: %v", err)
 		}
 	}
+}
+
+// ReplaySuiSourceFromCheckpoint replays a Sui source chain from the given checkpoint sequence so
+// the relayer re-indexes onramp events (e.g. CCIPMessageSent) it had already advanced past.
+//
+// No settle sleep is needed: RescanFrom only enqueues the re-scan and returns, but the subsequent
+// confirm step (ValidateCommit / ConfirmMultipleCommits / ConfirmExecWithSeqNrsForAll) polls the
+// destination offramp with its own timeout and will wait for the commit/exec to land. In the
+// Docker/devenv env ReplayLogs routes to the relayer's Replay -> RescanFromCheckpoint; in the
+// memory/nodetestutils env Sui replay is a no-op (see Node.ReplayLogs), so this is safe there.
+func ReplaySuiSourceFromCheckpoint(t *testing.T, env cldf.Environment, sourceChain, startCheckpoint uint64) {
+	t.Helper()
+	ReplayLogs(t, env.Offchain, map[uint64]uint64{sourceChain: startCheckpoint})
 }
 
 func WaitForEventFilterRegistration(t *testing.T, oc cldf_offchain.Client, chainSel uint64, eventName string, address []byte) error {
@@ -1895,6 +1906,19 @@ func TransferMultiple(
 	expectedExecutionStates := make(map[SourceDestPair]map[uint64]int)
 	expectedTokenBalances := make(TokenBalanceAccumulator)
 
+	suiSourceStarts := make(map[uint64]uint64)
+	for _, tt := range requests {
+		family, err := chainsel.GetSelectorFamily(tt.SourceChain)
+		require.NoError(t, err)
+		if family == chainsel.FamilySui {
+			if _, ok := suiSourceStarts[tt.SourceChain]; !ok {
+				seq, err := LatestBlock(ctx, env, tt.SourceChain)
+				require.NoError(t, err)
+				suiSourceStarts[tt.SourceChain] = seq
+			}
+		}
+	}
+
 	for _, tt := range requests {
 		t.Run(tt.Name, func(t *testing.T) {
 			pairId := SourceDestPair{
@@ -1963,6 +1987,12 @@ func TransferMultiple(
 				)
 			}
 		})
+	}
+
+	// Replay each Sui source lane from its captured pre-send checkpoint so the relayer
+	// re-indexes the onramp events it advanced past (replaces the removed RescanRecent).
+	for src, seq := range suiSourceStarts {
+		ReplaySuiSourceFromCheckpoint(t, env, src, seq)
 	}
 
 	return startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances

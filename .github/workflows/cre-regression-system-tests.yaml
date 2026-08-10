@@ -204,12 +204,6 @@ jobs:
             echo "::endgroup::"
           fi
 
-      - name: Setup Stellar CRE contracts
-        if: ${{ contains(matrix.tests.test_name, 'Stellar') }}
-        uses: ./.github/actions/setup-stellar-cre-contracts
-        with:
-          working-directory: system-tests/lib
-
       - name: Start local CRE${{ matrix.tests.cre_version }}
         id: start-local-cre
         uses: ./.github/actions/start-local-cre-environment
