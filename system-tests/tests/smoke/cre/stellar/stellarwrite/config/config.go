@@ -18,7 +18,8 @@ type Config struct {
 	ReportPayloadHex string `yaml:"reportPayloadHex"`
 	// RequiredSignatures is the number of OCR signatures to include in the
 	// submitted report; the Soroban forwarder expects exactly f+1.
-	RequiredSignatures int `yaml:"requiredSignatures"`
+	RequiredSignatures int    `yaml:"requiredSignatures"`
+	CronSchedule       string `yaml:"cronSchedule"`
 	// ExpectFailure, when true, treats a non-success tx status as the success
 	// condition (negative test).
 	ExpectFailure bool `yaml:"expectFailure"`

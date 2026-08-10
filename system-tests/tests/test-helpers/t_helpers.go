@@ -408,6 +408,7 @@ type StellarWriteWorkflowConfig struct {
 	ReportPayloadHex   string `yaml:"reportPayloadHex"`
 	RequiredSignatures int    `yaml:"requiredSignatures"`
 	ExpectFailure      bool   `yaml:"expectFailure"`
+	CronSchedule       string `yaml:"cronSchedule"`
 }
 
 // WorkflowRegistrationConfig holds configuration for workflow registration

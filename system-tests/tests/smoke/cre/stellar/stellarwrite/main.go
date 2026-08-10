@@ -36,9 +36,13 @@ func main() {
 }
 
 func RunStellarWriteWorkflow(cfg config.Config, logger *slog.Logger, secretsProvider sdk.SecretsProvider) (sdk.Workflow[config.Config], error) {
+	schedule := cfg.CronSchedule
+	if schedule == "" {
+		schedule = "*/30 * * * * *"
+	}
 	return sdk.Workflow[config.Config]{
 		sdk.Handler(
-			cron.Trigger(&cron.Config{Schedule: "*/30 * * * * *"}),
+			cron.Trigger(&cron.Config{Schedule: schedule}),
 			onStellarWriteTrigger,
 		),
 	}, nil

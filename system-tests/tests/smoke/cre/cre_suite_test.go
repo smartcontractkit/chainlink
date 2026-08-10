@@ -309,6 +309,12 @@ func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
 		executeStellarWriteTest(t, env, chain, userLogsCh, baseMessageCh)
 	})
+
+	t.Run("StellarDFCacheWrite", func(t *testing.T) {
+		t.Parallel()
+		env, chain, userLogsCh, baseMessageCh := setupStellarScenario(t, testEnv)
+		executeStellarDFCacheWriteTest(t, env, chain, userLogsCh, baseMessageCh)
+	})
 }
 
 func Test_CRE_V2_Module_Cache(t *testing.T) {

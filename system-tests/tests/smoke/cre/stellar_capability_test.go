@@ -3,6 +3,7 @@ package cre
 import (
 	"context"
 	"encoding/hex"
+	"math/big"
 	"testing"
 	"time"
 
@@ -15,7 +16,10 @@ import (
 
 	"github.com/stellar/go-stellar-sdk/xdr"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	stellarfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	thelpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
@@ -180,6 +184,7 @@ func executeStellarWriteTest(
 		ReceiverContractID: receiverID,
 		ReportPayloadHex:   reportPayloadHex,
 		RequiredSignatures: requiredSignatures,
+		CronSchedule:       thelpers.StellarTestCronSchedule(),
 	}
 
 	const workflowFileLocation = "./stellar/stellarwrite/main.go"
@@ -208,6 +213,83 @@ func executeStellarWriteTest(
 	}, 2*time.Minute, 5*time.Second, "Stellar receiver did not record the expected payload value %d", expectedValue)
 
 	lggr.Info().Str("expected_log", expectedLog).Uint64("payload_value", expectedValue).Msg("Stellar write capability test passed")
+}
+
+func executeStellarDFCacheWriteTest(
+	t *testing.T,
+	tenv *configuration.TestEnvironment,
+	stellarChain *stellchain.Blockchain,
+	userLogsCh <-chan *workflowevents.UserLogs,
+	baseMessageCh <-chan *commonevents.BaseMessage,
+) {
+	lggr := framework.L
+	ctx := context.Background()
+
+	writeDon := stellarWriteDon(t, tenv)
+	workers, err := writeDon.Workers()
+	require.NoError(t, err, "failed to list Stellar DON workers")
+	require.NotEmpty(t, workers, "Stellar DON has no worker nodes")
+	requiredSignatures := (len(workers)-1)/3 + 1
+
+	workflowName := thelpers.UniqueStellarWorkflowName("stellar-df-cache-write")
+	forwarderAddr := stellarfeature.StellarForwarderAddress(tenv.CreEnvironment, stellarChain.ChainSelector())
+	registryChainBC, err := tenv.CreEnvironment.RegistryChain()
+	require.NoError(t, err, "failed to resolve registry chain")
+	registryChain, ok := registryChainBC.(*evm.Blockchain)
+	require.True(t, ok, "registry chain must be EVM, got %T", registryChainBC)
+	var workflowOwner [20]byte
+	copy(workflowOwner[:], registryChain.SethClient.MustGetRootKeyAddress().Bytes())
+	var workflowNameB [10]byte
+	copy(workflowNameB[:], workflows.HashTruncateName(workflowName))
+
+	var feedID [32]byte
+	copy(feedID[:], []byte("DF-25510-TEST-FEED"))
+	var dataID [16]byte
+	copy(dataID[:], feedID[:16])
+	answer := big.NewInt(123_456_789)
+	reportTS := uint64(time.Now().Unix())
+
+	cacheID, err := stellarfeature.DeployAndConfigureStellarDFCache(
+		ctx, stellarChain, dataID, "DF-25510 test feed",
+		forwarderAddr, workflowOwner, workflowNameB,
+	)
+	require.NoError(t, err, "failed to deploy and configure Stellar DF cache")
+	lggr.Info().Str("cache", cacheID).Msg("Deployed and configured Stellar DF cache")
+
+	payload, err := stellarfeature.BuildDFReportPayload([]stellarfeature.DFReportEntry{{
+		DataID:    feedID,
+		Answer:    answer,
+		Timestamp: reportTS,
+	}})
+	require.NoError(t, err, "failed to build DF report payload")
+
+	workflowConfig := thelpers.StellarWriteWorkflowConfig{
+		ChainSelector:      stellarChain.ChainSelector(),
+		WorkflowName:       workflowName,
+		ReceiverContractID: cacheID,
+		RequiredSignatures: requiredSignatures,
+		ReportPayloadHex:   hex.EncodeToString(payload),
+		CronSchedule:       thelpers.StellarTestCronSchedule(),
+	}
+
+	const workflowFileLocation = "./stellar/stellarwrite/main.go"
+	workflowID := thelpers.CompileAndDeployWorkflow(t, tenv, lggr, workflowName, &workflowConfig, workflowFileLocation)
+
+	expectedLog := "Stellar write consensus succeeded"
+	thelpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, thelpers.WorkflowEngineInitErrorLog, expectedLog, thelpers.StellarWorkflowTimeout, thelpers.WithUserLogWorkflowID(workflowID))
+
+	require.Eventually(t, func() bool {
+		round, rErr := stellarfeature.DFCacheLatestRound(ctx, stellarChain, cacheID, dataID)
+		if rErr != nil {
+			lggr.Warn().Err(rErr).Msg("DF cache latest_round query failed; retrying")
+			return false
+		}
+		if round == nil {
+			return false
+		}
+		return round.Answer.Cmp(answer) == 0 && round.Timestamp == reportTS
+	}, 2*time.Minute, 5*time.Second, "DF cache did not record the expected round")
+	lggr.Info().Str("cache", cacheID).Msg("Stellar DF cache write test passed")
 }
 
 // setupStellarScenario provisions an isolated per-test context for a Stellar read scenario:
