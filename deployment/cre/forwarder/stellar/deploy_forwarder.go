@@ -12,7 +12,6 @@ import (
 	stellarforwarder "github.com/smartcontractkit/chainlink-stellar/deployment/cre/forwarder"
 
 	crestellar "github.com/smartcontractkit/chainlink/deployment/cre/stellar"
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 var _ cldf.ChangeSetV2[*DeployForwarderRequest] = DeployForwarder{}
@@ -74,11 +73,7 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 		return out, fmt.Errorf("failed to build stellar deployer for chain selector %d: %w", req.ChainSel, err)
 	}
 
-	buildCfg, err := helpers.BuildStellarConfigFor(env.GetContext(), crestellar.ForwarderWasm)
-	if err != nil {
-		return out, fmt.Errorf("failed to resolve forwarder WASM build config: %w", err)
-	}
-	wasm, err := helpers.BuildStellar(env.GetContext(), buildCfg)
+	wasm, err := crestellar.Artifact(crestellar.ForwarderWasm)
 	if err != nil {
 		return out, fmt.Errorf("failed to source forwarder WASM: %w", err)
 	}

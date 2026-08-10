@@ -13,7 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 

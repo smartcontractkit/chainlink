@@ -50,10 +50,10 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
-	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
@@ -61,6 +61,7 @@ import (
 	functionsRelay "github.com/smartcontractkit/chainlink-evm/pkg/functions"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmrelay "github.com/smartcontractkit/chainlink-evm/pkg/relay"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
@@ -166,7 +167,7 @@ type DelegateConfig interface {
 	OCR2() ocr2Config
 	JobPipeline() jobPipelineConfig
 	Insecure() insecureConfig
-	Mercury() de.Mercury
+	Mercury() dataengine.Mercury
 	Threshold() coreconfig.Threshold
 	Sharding() coreconfig.Sharding
 	RingStoreForShard0() *ring.Store
@@ -196,7 +197,7 @@ func (d *delegateConfig) Threshold() coreconfig.Threshold {
 	return d.threshold
 }
 
-func (d *delegateConfig) Mercury() de.Mercury {
+func (d *delegateConfig) Mercury() dataengine.Mercury {
 	return d.mercury
 }
 
@@ -240,9 +241,9 @@ type jobPipelineConfig interface {
 
 type mercuryConfig interface {
 	Credentials(credName string) *types.MercuryCredentials
-	Cache() de.MercuryCache
-	TLS() de.MercuryTLS
-	Transmitter() de.MercuryTransmitter
+	Cache() dataengine.MercuryCache
+	TLS() dataengine.MercuryTLS
+	Transmitter() dataengine.MercuryTransmitter
 	VerboseLogging() bool
 }
 
@@ -250,7 +251,7 @@ type thresholdConfig interface {
 	ThresholdKeyShare() string
 }
 
-func NewDelegateConfig(ocr2Cfg ocr2Config, m de.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, ringStore *ring.Store) DelegateConfig {
+func NewDelegateConfig(ocr2Cfg ocr2Config, m dataengine.Mercury, t coreconfig.Threshold, i insecureConfig, jp jobPipelineConfig, pluginProcessCfg plugins.RegistrarConfig, s coreconfig.Sharding, ringStore *ring.Store) DelegateConfig {
 	return &delegateConfig{
 		ocr2:            ocr2Cfg,
 		RegistrarConfig: pluginProcessCfg,
@@ -1545,7 +1546,7 @@ func (d *Delegate) newServicesLLO(
 		ChannelDefinitionCache:   provider.ChannelDefinitionCache(),
 		RetirementReportCache:    d.retirementReportCache,
 		ShouldRetireCache:        provider.ShouldRetireCache(),
-		RetirementReportCodec:    llocommon.StandardRetirementReportCodec{},
+		RetirementReportCodec:    lloprotocol.StandardRetirementReportCodec{},
 		PluginMonitoringEndpoint: d.monitoringEndpointGen.GenMultitypeMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID),
 		DonID:                    pluginCfg.DonID,
 		ChainID:                  rid.ChainID,
@@ -1567,7 +1568,22 @@ func (d *Delegate) newServicesLLO(
 		NewOCR3DB: func(pluginID int32) ocr3types.Database {
 			return NewDB(d.ds, spec.ID, pluginID, lggr)
 		},
+
+		OCR31: pluginCfg.IsOCR31(),
 	}
+
+	// OCR3.1 (llo/v31) additionally requires the "2" network endpoint factory and
+	// a persistent replicated key-value store, wired here the same way the vault
+	// and DKG OCR3.1 plugins are (pebble under OCR2().KeyValueStoreRootDir()).
+	if pluginCfg.IsOCR31() {
+		fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
+		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700)); err != nil {
+			return nil, fmt.Errorf("failed to create LLO key value store directory: %w", err)
+		}
+		cfg.BinaryNetworkEndpoint2Factory = d.peerWrapper.Peer3_1
+		cfg.KeyValueDatabaseFactory = kvdb.NewPebbleKeyValueDatabaseFactory(fullPath)
+	}
+
 	oracle, err := llo.NewDelegate(cfg)
 	if err != nil {
 		return nil, err
