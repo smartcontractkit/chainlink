@@ -2,7 +2,6 @@ package shardownership
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,7 +21,7 @@ func storeShardAssignment(t *testing.T, settings *loop.AtomicSettings, toml stri
 
 func TestManualShardResolver_PerOwnerAssignment(t *testing.T) {
 	t.Parallel()
-	settings := loop.NewAtomicSettings(nil)
+	settings := &loop.AtomicSettings{}
 	storeShardAssignment(t, settings, `
 static_default_assignment = [0]
 
@@ -46,7 +45,7 @@ static_default_assignment = [0]
 
 func TestManualShardResolver_StaticDefaultFallback(t *testing.T) {
 	t.Parallel()
-	settings := loop.NewAtomicSettings(nil)
+	settings := &loop.AtomicSettings{}
 	storeShardAssignment(t, settings, `
 static_default_assignment = [0]
 `)
@@ -61,7 +60,7 @@ static_default_assignment = [0]
 
 func TestManualShardResolver_HashedOwnerDelegatesToRingOCR(t *testing.T) {
 	t.Parallel()
-	settings := loop.NewAtomicSettings(nil)
+	settings := &loop.AtomicSettings{}
 	storeShardAssignment(t, settings, `
 hashed_owner_assignment = ["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"]
 `)
@@ -76,7 +75,7 @@ hashed_owner_assignment = ["0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"]
 
 func TestManualShardResolver_HashedDefaultDelegatesToRingOCR(t *testing.T) {
 	t.Parallel()
-	settings := loop.NewAtomicSettings(nil)
+	settings := &loop.AtomicSettings{}
 	storeShardAssignment(t, settings, `
 hashed_default_assignment = true
 static_default_assignment = [0]
@@ -91,7 +90,7 @@ static_default_assignment = [0]
 
 func TestManualShardResolver_NilConfig(t *testing.T) {
 	t.Parallel()
-	settings := loop.NewAtomicSettings(nil)
+	settings := &loop.AtomicSettings{}
 	r := NewManualShardResolver(settings, nopLogger)
 
 	shard, found, err := r.ResolveShard(context.Background(), "wf-1", "0x0000000000000000000000000000000000000001")
@@ -102,7 +101,7 @@ func TestManualShardResolver_NilConfig(t *testing.T) {
 
 func TestManualShardResolver_ResolveShards(t *testing.T) {
 	t.Parallel()
-	settings := loop.NewAtomicSettings(nil)
+	settings := &loop.AtomicSettings{}
 	storeShardAssignment(t, settings, `
 static_default_assignment = [0]
 
@@ -122,7 +121,7 @@ static_default_assignment = [0]
 
 func TestOverrideShardResolver_ManualWins(t *testing.T) {
 	t.Parallel()
-	settings := loop.NewAtomicSettings(nil)
+	settings := &loop.AtomicSettings{}
 	storeShardAssignment(t, settings, `
 static_default_assignment = [0]
 
@@ -141,7 +140,7 @@ static_default_assignment = [0]
 
 func TestOverrideShardResolver_RingOCRWinsForHashed(t *testing.T) {
 	t.Parallel()
-	settings := loop.NewAtomicSettings(nil)
+	settings := &loop.AtomicSettings{}
 	storeShardAssignment(t, settings, `
 hashed_default_assignment = true
 `)
@@ -157,14 +156,14 @@ hashed_default_assignment = true
 
 func TestOverrideShardResolver_ResolveShards_Mixed(t *testing.T) {
 	t.Parallel()
-	settings := loop.NewAtomicSettings(nil)
-	storeShardAssignment(t, settings, fmt.Sprintf(`
+	settings := &loop.AtomicSettings{}
+	storeShardAssignment(t, settings, `
 static_default_assignment = [0]
 hashed_default_assignment = true
 
 [per_owner_assignment]
   "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" = [1]
-`))
+`)
 
 	mockRing := &mockRingOCRResolver{mappings: map[string]uint32{"wf-2": 0}}
 	r := NewOverrideShardResolver(settings, &shardResolverAdapter{inner: mockRing}, nopLogger)

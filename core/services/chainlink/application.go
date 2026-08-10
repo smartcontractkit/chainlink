@@ -280,8 +280,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to marshal cre settings TOML: %w", err)
 	}
 	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
-	atomicSettings := loop.NewAtomicSettings(commoncresettings.DefaultGetter)
-	shardAssignmentSettings := loop.NewAtomicSettings(nil)
+	atomicSettings := &loop.AtomicSettings{}
+	atomicSettings.SetGetter(commoncresettings.DefaultGetter)
+	shardAssignmentSettings := &loop.AtomicSettings{}
 	limitsFactory := limits.Factory{
 		Meter:    meter,
 		Logger:   globalLogger.Named("Limits"),
