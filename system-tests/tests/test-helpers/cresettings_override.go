@@ -26,6 +26,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"strings"
@@ -39,7 +40,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -80,7 +80,7 @@ func claimCRESettingsOverride(owner string) error {
 		// Same test applying again without reverting first. Each ApplyCRESettings rebuilds
 		// from the boot baseline and REPLACES the previous override, so a silent second apply
 		// would drop the first. Make it a loud error instead.
-		return fmt.Errorf(
+		return errors.New(
 			"this test already has an active CRE settings override; call handle.Reset(t) before " +
 				"applying again — each ApplyCRESettings replaces the previous override rather than " +
 				"stacking on it. To apply several scopes together, compose them in one " +
