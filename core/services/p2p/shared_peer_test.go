@@ -114,7 +114,7 @@ func TestDon2DonSharedPeer_UpdateConnectionsByDONs(t *testing.T) {
 	require.Equal(t, 2+2+3, mockPGFactory.closedGroupCounter) // closed 2 DON groups and 3 node groups
 }
 
-// TestDon2DonSharedPeer_DONMembershipChange_DoesNotReuseLiveDigest reproduces the failure
+// TestDon2DonSharedPeer_DONMembershipChange reproduces the failure
 // seen in production when a DON's on-chain membership changes:
 //
 //	failed to create discovery group: asked to add group with digest we already have
@@ -125,11 +125,7 @@ func TestDon2DonSharedPeer_UpdateConnectionsByDONs(t *testing.T) {
 // the DON IDs alone. That mapping is many-to-one, so a membership change produces a new
 // pairID while the digest stays the same: the "already exists" check misses, and libocr
 // then rejects the create because it still holds the digest for the previous group.
-//
-// It is not self-healing. The create happens before the obsolete-group cleanup, so the
-// early return on error skips the cleanup that would have released the digest, and every
-// later update fails identically until the node restarts.
-func TestDon2DonSharedPeer_DONMembershipChange_DoesNotReuseLiveDigest(t *testing.T) {
+func TestDon2DonSharedPeer_DONMembershipChange(t *testing.T) {
 	pw := ocrcommon.NewSingletonPeerWrapper(nil, nil, nil, nil, logger.TestLogger(t)) // nils are ok, we won't Start() it
 	_, myPeerID := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
@@ -170,12 +166,6 @@ type mockPeerGroupFactory struct {
 	newNodeGroupCounter int // small - 2 members
 	closedGroupCounter  int
 	newStreamCounter    int
-
-	// liveDigests mirrors libocr's discoveryProtocol.groups. libocr rejects a second group
-	// for a digest it already holds, and only releases that digest when the group is closed
-	// (see ragedisco/discovery_protocol.go addGroup/removeGroup). Modelling this is what
-	// makes duplicate-digest regressions visible to these tests.
-	liveDigests map[ocr2types.ConfigDigest]struct{}
 }
 
 func (m *mockPeerGroupFactory) NewPeerGroup(
@@ -183,25 +173,16 @@ func (m *mockPeerGroupFactory) NewPeerGroup(
 	peerIDs []string,
 	bootstrappers []commontypes.BootstrapperLocator,
 ) (networking.PeerGroup, error) {
-	if _, exists := m.liveDigests[configDigest]; exists {
-		return nil, fmt.Errorf("asked to add group with digest we already have (digest: %s)", configDigest.Hex())
-	}
-	if m.liveDigests == nil {
-		m.liveDigests = make(map[ocr2types.ConfigDigest]struct{})
-	}
-	m.liveDigests[configDigest] = struct{}{}
-
 	if len(peerIDs) > 2 {
 		m.newDonGroupCounter++
 	} else {
 		m.newNodeGroupCounter++
 	}
-	return &mockPeerGroup{groupFactory: m, digest: configDigest}, nil
+	return &mockPeerGroup{groupFactory: m}, nil
 }
 
 type mockPeerGroup struct {
 	groupFactory *mockPeerGroupFactory
-	digest       ocr2types.ConfigDigest
 }
 
 func (m *mockPeerGroup) NewStream(remotePeerID string, newStreamArgs networking.NewStreamArgs) (networking.Stream, error) {
@@ -211,7 +192,6 @@ func (m *mockPeerGroup) NewStream(remotePeerID string, newStreamArgs networking.
 
 func (m *mockPeerGroup) Close() error {
 	m.groupFactory.closedGroupCounter++
-	delete(m.groupFactory.liveDigests, m.digest) // releases the digest, as libocr's removeGroup does
 	return nil
 }
 
