@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -770,7 +771,11 @@ func SendRequestSol(
 			return nil, err
 		}
 
-		tokenIndexes = append(tokenIndexes, byte(len(base.AccountMetaSlice)-requiredAccounts))
+		idx := len(base.AccountMetaSlice) - requiredAccounts
+		if idx > math.MaxUint8 {
+			return nil, fmt.Errorf("too many token accounts, overflows uint8: %d", idx)
+		}
+		tokenIndexes = append(tokenIndexes, byte(idx)) //nolint:gosec // G115
 		base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
 		maps.Copy(addressTables, tokenAddressTables)
 	}
