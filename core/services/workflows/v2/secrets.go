@@ -28,7 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
@@ -162,7 +161,7 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	if err != nil {
 		return nil, err
 	}
-	vaultRequestID := vaultutils.BuildWorkflowGetSecretsRequestID(metadata)
+	vaultRequestID := vault.BuildWorkflowGetSecretsRequestID(metadata)
 	s.lggr.Debugw("get secrets request received", "vaultRequestID", vaultRequestID, "metadata", metadata)
 	s.callCounter.mu.Lock()
 	secretsCalled := s.callCounter.called + 1
@@ -306,7 +305,7 @@ func (s *secretsFetcher) GetRawSecrets(ctx context.Context, request *sdkpb.GetSe
 	if err != nil {
 		return nil, err
 	}
-	vaultRequestID := vaultutils.BuildWorkflowGetSecretsRequestID(metadata)
+	vaultRequestID := vault.BuildWorkflowGetSecretsRequestID(metadata)
 	vp := &vault.GetSecretsRequest{
 		Requests: make([]*vault.SecretRequest, 0),
 	}
