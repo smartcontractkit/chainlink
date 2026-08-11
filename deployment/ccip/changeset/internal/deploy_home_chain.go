@@ -27,10 +27,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 	focr "github.com/smartcontractkit/chainlink-deployments-framework/offchain/ocr"
 	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -255,17 +256,14 @@ func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Con
 		// see https://github.com/smartcontractkit/chainlink-ccip/blob/8529b8c89093d0cd117b73645ea64b2d2a8092f4/chains/evm/contracts/capability/CCIPHome.sol#L511-L514.
 		minTransmitterReq := 3*int(chainConfig.FChain) + 1
 		var numNonzeroTransmitters int
-		var nodeWithZeroTransmitter []any
 		for _, node := range configForOCR3.Nodes {
 			if len(node.TransmitterKey) > 0 {
 				numNonzeroTransmitters++
-			} else {
-				nodeWithZeroTransmitter = append(nodeWithZeroTransmitter, string(node.P2pId[:]))
 			}
 		}
 		if numNonzeroTransmitters < minTransmitterReq {
-			return fmt.Errorf("number of transmitters (%d) is less than 3 * fChain + 1 (%d), chain selector %d. Nodes with zero transmitter: %v",
-				numNonzeroTransmitters, minTransmitterReq, chainSel, nodeWithZeroTransmitter)
+			return fmt.Errorf("number of transmitters (%d) is less than 3 * fChain + 1 (%d), chain selector %d",
+				numNonzeroTransmitters, minTransmitterReq, chainSel)
 		}
 	}
 
