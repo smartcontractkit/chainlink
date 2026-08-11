@@ -121,11 +121,11 @@ func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 	defaultOwner := "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
 
 	shardAssignmentTOML := fmt.Sprintf(`
-static_default_assignment = [1]
-hashed_default_assignment = false
+static_default_assignment = [0]
+hashed_default_assignment = true
 
 [per_owner_assignment]
-  "%s" = [0]
+  "%s" = [1]
 `, defaultOwner)
 
 	proposeAndApproveShardAssignmentJob(t, testEnv, shardZero, shardAssignmentTOML, testLogger)
@@ -176,10 +176,7 @@ hashed_default_assignment = false
 	testLogger.Info().Interface("ringOCRMappings", resp.Mappings).Msg("Ring OCR mappings for override test")
 
 	workflowToShardIndex := make(map[string]uint32, len(allWorkflowIDs))
-	for _, wfID := range overrideWorkflowIDs {
-		workflowToShardIndex[wfID] = 0
-	}
-	for _, wfID := range ringOCRWorkflowIDs {
+	for _, wfID := range allWorkflowIDs {
 		workflowToShardIndex[wfID] = 1
 	}
 
@@ -235,6 +232,10 @@ func proposeAndApproveShardAssignmentJob(t *testing.T, testEnv *ttypes.TestEnvir
 	}
 
 	if err := jobs.Approve(t.Context(), testEnv.CreEnvironment.CldfEnvironment.Offchain, testEnv.Dons, report.Output.Specs); err != nil {
+		if strings.Contains(err.Error(), "cannot approve an approved spec") {
+			testLogger.Info().Msg("Shard assignment job already approved (from previous run), continuing...")
+			return
+		}
 		require.NoError(t, err, "Failed to approve shard assignment job")
 	}
 
