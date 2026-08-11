@@ -364,29 +364,6 @@ func pairID(donA, donB capabilities.DON) string {
 	return fmt.Sprintf("%d-%d-%s-%s", donA.ID, donB.ID, hex.EncodeToString(hashPeersA[:]), hex.EncodeToString(hashPeersB[:]))
 }
 
-// donPairDigest derives a discovery group's digest from the full pairID, i.e. from both
-// DON IDs *and* both member lists.
-//
-// Including membership is deliberate: it makes the digest 1:1 with the discoveryGroups
-// map key, which is also pairID. A digest built from the DON IDs alone is many-to-one
-// with respect to pairID, since a membership change produces a new pairID but the same
-// digest. That mismatch previously caused NewPeerGroup to fail with "asked to add group
-// with digest we already have" whenever a DON's membership changed.
-//
-// Closing obsolete groups before creating new ones (see updateConnections) is what
-// actually resolves that ordering; keying the digest on pairID as well means the two
-// maps cannot drift even if a Close() fails or the caller ever presents two pairIDs for
-// the same DON pair in one update.
-//
-// This is safe because a discovery group's digest is a purely local identifier:
-//   - it is never sent on the wire (ragedisco Announcements carry only addrs + counter),
-//     and peers are discovered via a flat, digest-agnostic oracle set, so nodes need not
-//     agree on it;
-//   - discovery groups carry no Streams (see the type comment above), so it never
-//     participates in stream-name matching between peers.
-//
-// Only the 2-byte prefix is interpreted by libocr, to namespace stream names; the
-// remaining 30 bytes are unconstrained.
 func donPairDigest(donA, donB capabilities.DON) ocr2types.ConfigDigest {
 	var digest ocr2types.ConfigDigest
 	binary.BigEndian.PutUint16(digest[:], uint16(ocr2types.ConfigDigestPrefixDONToDONDiscoveryGroup))
