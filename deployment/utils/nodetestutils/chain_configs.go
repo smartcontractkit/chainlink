@@ -65,6 +65,22 @@ func createSuiChainConfig(chainID string, chain cldf_sui.Chain) chainlink.RawCon
 	}
 	chainConfig["Nodes"] = []any{node}
 
+	// ChainPoller: scan the local testnet from genesis so the poller observes every CCIP source
+	// event via normal forward polling once the relayer has bound the OnRamp and registered its
+	// event selectors. chainlink-sui >= 7b267cdd removed the automatic rescan-on-bind that used to
+	// recover events the poller processed before their selector was registered, and 7707daf9 changed
+	// the computeStartSequence error-fallback from 0 to 299_000_000 (which stalls on a local testnet
+	// whose tip is far below that). Setting StartCheckpointSequence explicitly takes the no-error
+	// branch of computeStartSequence, sidestepping both: it never calls getLatestCheckpointSequence,
+	// so it cannot fall back to 299_000_000, and forward scanning from 0 re-indexes any event emitted
+	// before/during bind without relying on the removed bind-time rescan. ReplayCheckpointCount=0 makes
+	// the harness's explicit ReplaySuiSourceFromCheckpoint rescan all the way to the tip instead of the
+	// default 100-checkpoint window, as belt-and-suspenders (re-inserts are idempotent).
+	chainConfig["ChainPoller"] = map[string]any{
+		"StartCheckpointSequence": uint64(0),
+		"ReplayCheckpointCount":   uint64(0),
+	}
+
 	return chainConfig
 }
 
