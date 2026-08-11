@@ -348,22 +348,14 @@ func Test_CRE_V2_Sharding(t *testing.T) {
 		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle = operations.NewBundle(t.Context, logger.TestLogger(t), operations.NewMemoryReporter())
 		ExecuteShardingTestWithEVMLogTrigger(t, testEnv)
 	})
-}
-
-//nolint:paralleltest // subtests share the same sharding config
-func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
-		t,
-		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
-	)
-	ExecuteManualShardAssignmentTest(t, testEnv)
-}
-
-//nolint:paralleltest // subtests share the same sharding config
-func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
-	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
-		t,
-		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-ringocr-overrides.toml"),
-	)
-	ExecuteRingOCROverridesTest(t, testEnv)
+	t.Run("ExecuteShardManualAssignmentTest", func(t *testing.T) {
+		// Reinitialize OperationsBundle so that it can reexecute shard config updates instead of caching them.
+		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle = operations.NewBundle(t.Context, logger.TestLogger(t), operations.NewMemoryReporter())
+		ExecuteManualShardAssignmentTest(t, testEnv)
+	})
+	t.Run("ExecuteRingOCROverridesTest", func(t *testing.T) {
+		// Reinitialize OperationsBundle so that it can reexecute shard config updates instead of caching them.
+		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle = operations.NewBundle(t.Context, logger.TestLogger(t), operations.NewMemoryReporter())
+		ExecuteRingOCROverridesTest(t, testEnv)
+	})
 }

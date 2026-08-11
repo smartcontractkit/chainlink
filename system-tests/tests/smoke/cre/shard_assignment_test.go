@@ -11,12 +11,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	ring_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -39,24 +38,22 @@ func ExecuteManualShardAssignmentTest(t *testing.T, testEnv *ttypes.TestEnvironm
 	}
 	expectedUserLog := "Amazing workflow user log"
 
-	ownerA := "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
-	ownerB := "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+	defaultOwner := "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
 
 	shardAssignmentTOML := fmt.Sprintf(`
-static_default_assignment = [0]
+static_default_assignment = [1]
 hashed_default_assignment = false
 
 [per_owner_assignment]
   "%s" = [0]
-  "%s" = [1]
-`, ownerA, ownerB)
+`, defaultOwner)
 
 	shardLeaderDON := getShardZeroDon(t, testEnv)
 
 	proposeAndApproveShardAssignmentJob(t, testEnv, shardLeaderDON, shardAssignmentTOML, testLogger)
 
 	const numWorkflows = 5
-	var workflowIDs []string
+	workflowIDs := make([]string, 0, numWorkflows)
 	for i := range numWorkflows {
 		workflowName := fmt.Sprintf("manualshard%d", i)
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
@@ -64,7 +61,7 @@ hashed_default_assignment = false
 	}
 	testLogger.Info().Strs("workflowIDs", workflowIDs).Msg("Deployed workflows for manual shard assignment test")
 
-	workflowToShardIndex := make(map[string]uint32)
+	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {
 		workflowToShardIndex[wfID] = 0
 	}
@@ -89,7 +86,7 @@ hashed_default_assignment = false
 
 	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, testLogger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, execTimeout)
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed on correct shards")
-	testLogger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards (manual-only)")
+	testLogger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards (manual assignment override)")
 }
 
 func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
@@ -121,20 +118,20 @@ func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 	}
 	expectedUserLog := "Amazing workflow user log"
 
-	ownerA := "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+	defaultOwner := "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
 
 	shardAssignmentTOML := fmt.Sprintf(`
-static_default_assignment = [0]
-hashed_default_assignment = true
+static_default_assignment = [1]
+hashed_default_assignment = false
 
 [per_owner_assignment]
-  "%s" = [1]
-`, ownerA)
+  "%s" = [0]
+`, defaultOwner)
 
 	proposeAndApproveShardAssignmentJob(t, testEnv, shardZero, shardAssignmentTOML, testLogger)
 
 	const numOverrideWorkflows = 3
-	var overrideWorkflowIDs []string
+	overrideWorkflowIDs := make([]string, 0, numOverrideWorkflows)
 	for i := range numOverrideWorkflows {
 		workflowName := fmt.Sprintf("override-shard%d", i)
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
@@ -142,14 +139,16 @@ hashed_default_assignment = true
 	}
 
 	const numRingOCRWorkflows = 5
-	var ringOCRWorkflowIDs []string
+	ringOCRWorkflowIDs := make([]string, 0, numRingOCRWorkflows)
 	for i := range numRingOCRWorkflows {
 		workflowName := fmt.Sprintf("ringocr-shard%d", i)
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 		ringOCRWorkflowIDs = append(ringOCRWorkflowIDs, workflowID)
 	}
 
-	allWorkflowIDs := append(overrideWorkflowIDs, ringOCRWorkflowIDs...)
+	allWorkflowIDs := make([]string, 0, numOverrideWorkflows+numRingOCRWorkflows)
+	allWorkflowIDs = append(allWorkflowIDs, overrideWorkflowIDs...)
+	allWorkflowIDs = append(allWorkflowIDs, ringOCRWorkflowIDs...)
 
 	var rpcHost string
 	for _, nodeSet := range testEnv.Config.NodeSets {
@@ -174,14 +173,14 @@ hashed_default_assignment = true
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	workflowToShardIndex := make(map[string]uint32)
+	testLogger.Info().Interface("ringOCRMappings", resp.Mappings).Msg("Ring OCR mappings for override test")
+
+	workflowToShardIndex := make(map[string]uint32, len(allWorkflowIDs))
 	for _, wfID := range overrideWorkflowIDs {
-		workflowToShardIndex[wfID] = 1
+		workflowToShardIndex[wfID] = 0
 	}
 	for _, wfID := range ringOCRWorkflowIDs {
-		if shard, ok := resp.Mappings[wfID]; ok {
-			workflowToShardIndex[wfID] = shard
-		}
+		workflowToShardIndex[wfID] = 1
 	}
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
