@@ -226,10 +226,8 @@ func (sp *don2DonSharedPeer) stateEqual(desiredDONPairsIDs map[string]struct{}, 
 func (sp *don2DonSharedPeer) updateConnections(donPairs []p2ptypes.DonPair, desiredDONPairsIDs map[string]struct{}, desiredRemotePeers map[ragetypes.PeerID]struct{}, streamConfig p2ptypes.StreamConfig) error {
 	sp.mu.Lock()
 	defer sp.mu.Unlock()
-	// Remove obsolete groups. This also covers DON pairs whose membership changed: the new
-	// membership yields a new pairID, so the entry under the old pairID is no longer desired
-	// and is closed here, releasing its digest inside libocr.
-	//
+
+	// Remove obsolete groups.
 	// This must run *before* the groups are created below. If it ran after, a creation failure
 	// would return early and skip it, leaving stale groups open forever so that every later
 	// update failed the same way. Closing first also avoids briefly holding two registrations
