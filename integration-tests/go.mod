@@ -62,7 +62,7 @@ require (
 
 require (
 	github.com/bytecodealliance/wasmtime-go/v47 v47.0.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260710151514-27b5a126dabe // indirect
+	github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260729184203-90b4cdd48536 // indirect
 )
 
 require (
