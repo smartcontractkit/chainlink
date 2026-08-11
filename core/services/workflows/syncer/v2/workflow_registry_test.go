@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"

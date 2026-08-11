@@ -2,7 +2,6 @@ package chainlink
 
 import (
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 

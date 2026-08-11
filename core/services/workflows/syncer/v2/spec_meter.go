@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	meteringpb "github.com/smartcontractkit/chainlink-protos/metering/go"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
@@ -157,10 +156,6 @@ func (sm *SpecMeter) baseIdentity() resourcemanager.ResourceIdentity {
 		}
 	}
 	return id
-}
-
-func (sm *SpecMeter) ResourceIdentity() resourcemanager.ResourceIdentity {
-	return sm.baseIdentity()
 }
 
 // GetUtilization implements resourcemanager.Meterable: it returns one
