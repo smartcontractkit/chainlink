@@ -467,7 +467,7 @@ func BuildOCR3ConfigForCCIPHome(
 	addressCodec := ccipcommon.NewAddressCodec(map[string]ccipcommon.ChainSpecificAddressCodec{
 		chain_selectors.FamilyEVM:    ccipevm.AddressCodec{},
 		chain_selectors.FamilySolana: ccipsolana.AddressCodec{},
-		chain_selectors.FamilyAptos: ccipaptos.AddressCodec{},
+		chain_selectors.FamilyAptos:  ccipaptos.AddressCodec{},
 	})
 
 	// check if we have info from this node for another chain in the same destFamily
