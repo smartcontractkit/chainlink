@@ -161,6 +161,15 @@ hashed_default_assignment = true
 
 	shardOrchClient := newShardOrchestratorClient(t, rpcHost+":60051")
 
+	testLogger.Info().Msg("Reporting shard status to ALL nodes' Arbiters...")
+	initializeAllArbiterStates(t, testEnv, shardZero, len(shardDONs))
+
+	testLogger.Info().Msg("Diagnostic: Verifying store connection (direct registration)...")
+	verifyStoreConnection(t, shardOrchClient)
+
+	testLogger.Info().Msg("Diagnostic: Verifying Ring OCR rounds are completing...")
+	waitForRingOCRRounds(t, shardOrchClient)
+
 	testLogger.Info().Msg("Waiting for workflows to be registered via Ring OCR...")
 	waitForWorkflowsRegistered(t, shardOrchClient, workflowIDs)
 
@@ -171,6 +180,7 @@ hashed_default_assignment = true
 	require.NotNil(t, resp)
 
 	testLogger.Info().Interface("mappings", resp.Mappings).Msg("Ring OCR workflow mappings")
+	require.Len(t, resp.Mappings, len(workflowIDs), "All deployed workflows should be mapped")
 
 	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {
