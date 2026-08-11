@@ -178,16 +178,35 @@ func ReplayLogs(t *testing.T, oc cldf_offchain.Client, replayBlocks map[uint64]u
 	}
 }
 
-// ReplaySuiSourceFromCheckpoint replays a Sui source chain from the given checkpoint sequence so
-// the relayer re-indexes onramp events (e.g. CCIPMessageSent) it had already advanced past.
+// suiSourceReplaySettle is how long ReplaySuiSourceFromCheckpoint waits before issuing the replay
+// so the relayer has bound the OnRamp and registered the CCIPMessageSent event selector.
+// chainlink-sui >= 7b267cdd (commit 7b267cdd) removed the automatic rescan-on-bind that used to
+// recover onramp events the poller processed before their selector was registered; without it,
+// replaying before the selector exists causes filterEvents to discard the re-scanned event. Settling
+// first lets the bind complete, so the manual replay re-indexes the event. It also covers the case
+// where computeStartSequence hit the 299_000_000 fallback (commit 7707daf9, RPC not ready at poller
+// start): RescanFrom re-emits the below-watermark checkpoints directly, bypassing the stalled live
+// poller. The replay window is the default ReplayCheckpointCount (100), re-scanning only ~100
+// checkpoints from the pre-send tip — matching the prior bind-rescan volume, not the whole chain.
+// Tunable down once Sui chainreader bind timing is confirmed.
+const suiSourceReplaySettle = 30 * time.Second
+
+// ReplaySuiSourceFromCheckpoint settles (so the relayer has registered its CCIP event selectors) and
+// then replays a Sui source chain from the given checkpoint sequence so the relayer re-indexes onramp
+// events (e.g. CCIPMessageSent) it had already advanced past.
 //
-// No settle sleep is needed: RescanFrom only enqueues the re-scan and returns, but the subsequent
-// confirm step (ValidateCommit / ConfirmMultipleCommits / ConfirmExecWithSeqNrsForAll) polls the
-// destination offramp with its own timeout and will wait for the commit/exec to land. In the
-// Docker/devenv env ReplayLogs routes to the relayer's Replay -> RescanFromCheckpoint; in the
-// memory/nodetestutils env Sui replay is a no-op (see Node.ReplayLogs), so this is safe there.
+// The settle is required: RescanFrom only enqueues the re-scan, and if the CCIPMessageSent selector
+// is not yet registered when those checkpoints are re-scanned the events are discarded (the auto
+// rescan-on-bind that previously fired at bind time was removed in chainlink-sui 7b267cdd). The
+// subsequent confirm step (ValidateCommit / ConfirmMultipleCommits / ConfirmExecWithSeqNrsForAll)
+// polls the destination offramp with its own timeout and waits for the commit/exec to land. In both
+// the Docker/devenv and memory/nodetestutils envs ReplayLogs routes to the relayer's Replay ->
+// RescanFromCheckpoint.
 func ReplaySuiSourceFromCheckpoint(t *testing.T, env cldf.Environment, sourceChain, startCheckpoint uint64) {
 	t.Helper()
+	// Wait for the relayer to bind the OnRamp and register the CCIPMessageSent selector before
+	// replaying; otherwise filterEvents discards the re-scanned event.
+	time.Sleep(suiSourceReplaySettle)
 	ReplayLogs(t, env.Offchain, map[uint64]uint64{sourceChain: startCheckpoint})
 }
 
