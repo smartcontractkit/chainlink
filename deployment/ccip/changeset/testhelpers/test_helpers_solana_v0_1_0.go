@@ -192,12 +192,12 @@ func ReplayLogs(t *testing.T, oc cldf_offchain.Client, replayBlocks map[uint64]u
 // checkpoints from the pre-send tip — matching the prior bind-rescan volume, not the whole chain.
 // This is a blind sleep (WaitForEventFilterRegistration is a no-op for Sui — the harness has no
 // signal for when the relayer registered its CCIP event selectors), so the value is a
-// flake-risk-vs-wall-clock trade-off rather than a derived constant. 15s leaves comfortable margin
+// flake-risk-vs-wall-clock trade-off rather than a derived constant. 20s leaves comfortable margin
 // over a realistic bind: the relayer is already running and the Sui RPC is synced by the time the
 // test reaches the replay, and the upgrade end-to-end test self-settles via its long pre-work with
 // no explicit sleep. Drop further only if CI stays green across slow/loaded runners — below ~10s
 // risks racing the bind under load.
-const suiSourceReplaySettle = 15 * time.Second
+const suiSourceReplaySettle = 20 * time.Second
 
 // ReplaySuiSourceFromCheckpoint settles (so the relayer has registered its CCIP event selectors) and
 // then replays a Sui source chain from the given checkpoint sequence so the relayer re-indexes onramp
