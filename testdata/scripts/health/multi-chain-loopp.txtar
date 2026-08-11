@@ -182,6 +182,7 @@ ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.Rela
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.PluginRelayerConfigEmitter
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain
+ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.BalanceMonitor
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.MultiNode
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.StellarTxm
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarRelayer
@@ -797,6 +798,15 @@ ok WorkflowStore
       "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain",
       "attributes": {
         "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.BalanceMonitor",
+      "attributes": {
+        "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.BalanceMonitor",
         "status": "passing",
         "output": ""
       }
