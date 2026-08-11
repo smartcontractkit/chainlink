@@ -110,6 +110,12 @@ jobs:
             "Test_CRE_V2_Sharding": [
                {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
              ],
+            "Test_CRE_V2_ShardManualAssignment": [
+               {"topology":"workflow-gateway-sharded-manual","configs":"configs/workflow-gateway-sharded-manual.toml"}
+             ],
+            "Test_CRE_V2_ShardRingOCROverrides": [
+               {"topology":"workflow-gateway-sharded-ringocr-overrides","configs":"configs/workflow-gateway-sharded-ringocr-overrides.toml"}
+             ],
             "Test_CRE_V2_Module_Cache": [
                {"topology":"workflow-gateway-cache-test","configs":"configs/workflow-gateway-don-cache-test.toml"}
              ],
