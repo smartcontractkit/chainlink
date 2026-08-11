@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -18,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-	"go.opentelemetry.io/otel/attribute"
 )
 
 // server manages all external users of a local executable capability.
