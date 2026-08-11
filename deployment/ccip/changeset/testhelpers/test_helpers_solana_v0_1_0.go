@@ -197,7 +197,7 @@ func ReplayLogs(t *testing.T, oc cldf_offchain.Client, replayBlocks map[uint64]u
 // test reaches the replay, and the upgrade end-to-end test self-settles via its long pre-work with
 // no explicit sleep. Drop further only if CI stays green across slow/loaded runners — below ~10s
 // risks racing the bind under load.
-const suiSourceReplaySettle = 20 * time.Second
+const suiSourceReplaySettle = 25 * time.Second
 
 // ReplaySuiSourceFromCheckpoint settles (so the relayer has registered its CCIP event selectors) and
 // then replays a Sui source chain from the given checkpoint sequence so the relayer re-indexes onramp
