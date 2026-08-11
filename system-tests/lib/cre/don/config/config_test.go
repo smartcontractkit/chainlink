@@ -8,10 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-
-	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func derefBool(p *bool) bool {
@@ -49,7 +48,7 @@ func TestMeteringNodeConfig_NodeIDUniqueness(t *testing.T) {
 
 	dm := &cre.DonMetadata{Name: "capabilities"}
 	seen := make(map[string]struct{})
-	for i := 0; i < 4; i++ {
+	for i := range 4 {
 		got := meteringNodeConfig(dm, i)
 		nodeID := derefStr(got.NodeID)
 		expected := "capabilities-node-" + strconv.Itoa(i)
