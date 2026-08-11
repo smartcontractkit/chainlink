@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	evmConfigMocks "github.com/smartcontractkit/chainlink-evm/pkg/config/mocks"
 	evmMonMocks "github.com/smartcontractkit/chainlink-evm/pkg/monitor/mocks"
-
 	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"

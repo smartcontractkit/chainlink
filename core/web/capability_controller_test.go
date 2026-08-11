@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	capmock "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	appmocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"

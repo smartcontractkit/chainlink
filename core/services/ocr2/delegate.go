@@ -19,6 +19,14 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/libocr/commontypes"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	kvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/keyvaluedatabase"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
+
 	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
 	ocr2keepers20coordinator "github.com/smartcontractkit/chainlink-automation/pkg/v2/coordinator"
@@ -53,13 +61,6 @@ import (
 	functionsRelay "github.com/smartcontractkit/chainlink-evm/pkg/functions"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmrelay "github.com/smartcontractkit/chainlink-evm/pkg/relay"
-	"github.com/smartcontractkit/libocr/commontypes"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	kvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/keyvaluedatabase"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/smdkg/dkgocr/oracleargs"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"

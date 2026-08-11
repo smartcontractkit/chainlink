@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
@@ -167,7 +166,7 @@ type AptosLooppSigner struct {
 	core.UnimplementedKeystore
 }
 
-var _ loop.Keystore = &AptosLooppSigner{}
+var _ core.Keystore = &AptosLooppSigner{}
 
 // Returns a list of Aptos Public Keys
 func (s *AptosLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {

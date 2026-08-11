@@ -18,7 +18,6 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"

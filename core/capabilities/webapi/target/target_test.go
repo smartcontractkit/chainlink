@@ -11,16 +11,14 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
@@ -152,7 +150,7 @@ func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Req
 
 func TestRegisterUnregister(t *testing.T) {
 	th := setup(t, defaultConfig)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	regReq := capabilities.RegisterToWorkflowRequest{
 		Metadata: capabilities.RegistrationMetadata{
@@ -197,7 +195,7 @@ func TestRegisterUnregister(t *testing.T) {
 
 func TestCapability_Execute(t *testing.T) {
 	th := setup(t, defaultConfig)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	th.connector.EXPECT().DonID(matches.AnyContext).Return("donID", nil)
 	th.connector.EXPECT().GatewayIDs(matches.AnyContext).Return([]string{"gateway1", "gateway2"}, nil)
 

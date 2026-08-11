@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 )
 
@@ -25,7 +24,7 @@ func TestWorkflowMetadataAggregator_StartStop(t *testing.T) {
 	testMetrics := createTestMetrics(t)
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 100*time.Millisecond, testMetrics)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	err := agg.Start(ctx)
 	require.NoError(t, err)
@@ -377,7 +376,7 @@ func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 	require.Len(t, agg.observations, 2)
 	require.Len(t, agg.observedAt, 2)
 
-	err = agg.Start(testutils.Context(t))
+	err = agg.Start(t.Context())
 	require.NoError(t, err)
 	// Wait for cleanup interval to pass
 	time.Sleep(cleanupInterval + 100*time.Millisecond)

@@ -44,7 +44,7 @@ func createRequest(t *testing.T, orm functions.ORM) (functions.RequestID, common
 }
 
 func createRequestWithTimestamp(t *testing.T, orm functions.ORM, ts time.Time) (functions.RequestID, common.Hash) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	id := newRequestID()
 	txHash := utils.RandomHash()
 	newReq := &functions.Request{
@@ -64,7 +64,7 @@ func createRequestWithTimestamp(t *testing.T, orm functions.ORM, ts time.Time) (
 
 func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	id1, txHash1, ts1 := createRequest(t, orm)
@@ -90,14 +90,14 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	require.Equal(t, functions.IN_PROGRESS, req2.State)
 
 	t.Run("missing ID", func(t *testing.T) {
-		req, err := orm.FindById(testutils.Context(t), newRequestID())
+		req, err := orm.FindById(t.Context(), newRequestID())
 		require.Error(t, err)
 		require.Nil(t, req)
 	})
 
 	t.Run("duplicated", func(t *testing.T) {
 		newReq := &functions.Request{RequestID: id1, RequestTxHash: &txHash1, ReceivedAt: ts1}
-		err := orm.CreateRequest(testutils.Context(t), newReq)
+		err := orm.CreateRequest(t.Context(), newReq)
 		require.Error(t, err)
 		require.ErrorIs(t, err, functions.ErrDuplicateRequestID)
 	})
@@ -105,7 +105,7 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 
 func TestORM_SetResult(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	id, _, ts := createRequest(t, orm)
@@ -126,7 +126,7 @@ func TestORM_SetResult(t *testing.T) {
 
 func TestORM_SetError(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	id, _, ts := createRequest(t, orm)
@@ -149,7 +149,7 @@ func TestORM_SetError(t *testing.T) {
 
 func TestORM_SetError_Internal(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	id, _, ts := createRequest(t, orm)
@@ -169,7 +169,7 @@ func TestORM_SetError_Internal(t *testing.T) {
 
 func TestORM_SetFinalized(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	id, _, _ := createRequest(t, orm)
@@ -186,7 +186,7 @@ func TestORM_SetFinalized(t *testing.T) {
 
 func TestORM_SetConfirmed(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	id, _, _ := createRequest(t, orm)
@@ -201,7 +201,7 @@ func TestORM_SetConfirmed(t *testing.T) {
 
 func TestORM_StateTransitions(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	now := time.Now()
@@ -245,7 +245,7 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 	id1, _ := createRequestWithTimestamp(t, orm, now.Add(1*time.Minute))
 
 	t.Run("with limit", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		result, err := orm.FindOldestEntriesByState(ctx, functions.IN_PROGRESS, 2)
 		require.NoError(t, err)
 		require.Len(t, result, 2, "incorrect results length")
@@ -260,14 +260,14 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 	})
 
 	t.Run("with no limit", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		result, err := orm.FindOldestEntriesByState(ctx, functions.IN_PROGRESS, 20)
 		require.NoError(t, err)
 		require.Len(t, result, 3, "incorrect results length")
 	})
 
 	t.Run("no matching entries", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		result, err := orm.FindOldestEntriesByState(ctx, functions.RESULT_READY, 10)
 		require.NoError(t, err)
 		require.Empty(t, result, "incorrect results length")
@@ -276,7 +276,7 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 
 func TestORM_TimeoutExpiredResults(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	now := time.Now()
@@ -325,7 +325,7 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 
 func TestORM_PruneOldestRequests(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	now := time.Now()
@@ -369,7 +369,7 @@ func TestORM_PruneOldestRequests(t *testing.T) {
 
 func TestORM_PruneOldestRequests_Large(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	orm := setupORM(t)
 	now := time.Now()

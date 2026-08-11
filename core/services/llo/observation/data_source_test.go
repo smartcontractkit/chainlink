@@ -20,9 +20,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"

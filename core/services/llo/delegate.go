@@ -9,6 +9,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/guregu/null.v4"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocr2plus "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -19,13 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
-	ocr2plus "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3shims"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"
