@@ -126,6 +126,7 @@ func TestDon2DonSharedPeer_UpdateConnectionsByDONs(t *testing.T) {
 // pairID while the digest stays the same: the "already exists" check misses, and libocr
 // then rejects the create because it still holds the digest for the previous group.
 func TestDon2DonSharedPeer_DONMembershipChange(t *testing.T) {
+	t.Parallel()
 	pw := ocrcommon.NewSingletonPeerWrapper(nil, nil, nil, nil, logger.TestLogger(t)) // nils are ok, we won't Start() it
 	_, myPeerID := newKeyPair(t)
 	_, peerID2 := newKeyPair(t)
