@@ -646,8 +646,11 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			ID:  "cre-p2p-proxy",
 			Cmd: cfg.Capabilities().Proxy().Command(),
 			Args: []string{
+				// One instance, configured as it is here. The binary also has an "embed" subcommand
+				// for running several in one process, which is for local runs rather than for us.
+				"run",
 				"--ocr.listen-addresses=" + strings.Join(cfg.P2P().V2().ListenAddresses(), ","),
-				fmt.Sprintf("--proxy-listen-address=:%d", cfg.Capabilities().Proxy().Port()),
+				fmt.Sprintf("--proxy.listen-address=:%d", cfg.Capabilities().Proxy().Port()),
 				"--capabilities-registry-address=" + extRegistry.Address(),
 				"--evm.chain-id=" + extRegistry.ChainID(),
 				"--evm.http-url=" + proxyEVMHTTPURL,
