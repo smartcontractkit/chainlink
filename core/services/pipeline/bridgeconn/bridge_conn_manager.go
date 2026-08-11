@@ -32,7 +32,7 @@ var (
 
 // observationTTL bounds how long a cached observation may be served before it is
 // treated as stale. Hardcoded for now; may become configurable later.
-const observationTTL = 5 * time.Second
+const observationTTL = 60 * time.Second
 
 // cacheEntry pairs a cached observation with the time it was stored, so
 // GetObservation can reject entries older than observationTTL.
