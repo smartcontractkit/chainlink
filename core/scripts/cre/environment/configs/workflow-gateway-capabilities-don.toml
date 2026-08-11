@@ -40,7 +40,8 @@
   name = "workflow"
   don_family = "test-don-family"
   don_types = ["workflow"]
-  override_mode = "each"
+  enable_metering = true
+  override_mode = "all"
   http_port_range_start = 10100
 
   # even though this DON is not using any capability for chain with ID 2337 we still need it to be connected to it,
@@ -57,112 +58,23 @@
     image = "postgres:12.0"
     port = 13000
 
-  # override_mode = "each": one node_specs block per node so each node gets a
-  # distinct [Metering].NodeID (node_id must be unique per node for snapshot
-  # dedup / cross-node median). Keep count in sync with nodes = 4.
-  [[nodesets.node_specs]]
+ [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Telemetry]
-      Enabled = true
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      InsecureConnection = true
-
-      [Metering]
-      MeterRecordsEnabled = true
-      MeterSnapshotsEnabled = true
-      Product = 'cre'
-      Tenant = 'local-cre'
-      NumericTenantID = '1'
-      Environment = 'local'
-      Zone = 'wf-zone-a'
-      NodeID = 'clp-cre-wf-zone-a-1'
-      """
-
-  [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Telemetry]
-      Enabled = true
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      InsecureConnection = true
-
-      [Metering]
-      MeterRecordsEnabled = true
-      MeterSnapshotsEnabled = true
-      Product = 'cre'
-      Tenant = 'local-cre'
-      NumericTenantID = '1'
-      Environment = 'local'
-      Zone = 'wf-zone-a'
-      NodeID = 'clp-cre-wf-zone-a-2'
-      """
-
-  [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Telemetry]
-      Enabled = true
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      InsecureConnection = true
-
-      [Metering]
-      MeterRecordsEnabled = true
-      MeterSnapshotsEnabled = true
-      Product = 'cre'
-      Tenant = 'local-cre'
-      NumericTenantID = '1'
-      Environment = 'local'
-      Zone = 'wf-zone-a'
-      NodeID = 'clp-cre-wf-zone-a-3'
-      """
-
-  [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Telemetry]
-      Enabled = true
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      InsecureConnection = true
-
-      [Metering]
-      MeterRecordsEnabled = true
-      MeterSnapshotsEnabled = true
-      Product = 'cre'
-      Tenant = 'local-cre'
-      NumericTenantID = '1'
-      Environment = 'local'
-      Zone = 'wf-zone-a'
-      NodeID = 'clp-cre-wf-zone-a-4'
-      """
+      user_config_overrides = ""
 
 [[nodesets]]
   nodes = 4
   name = "capabilities"
   don_family = "test-don-family"
   don_types = ["capabilities"]
+  enable_metering = true
   exposes_remote_capabilities = true
-  override_mode = "each"
+  override_mode = "all"
   http_port_range_start = 10200
 
   # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
@@ -176,8 +88,6 @@
     image = "postgres:12.0"
     port = 13100
 
-  # override_mode = "each": one node_specs block per node so each node gets a
-  # distinct [Metering].NodeID. Keep count in sync with nodes = 4.
   [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
@@ -185,94 +95,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Telemetry]
-      Enabled = true
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      InsecureConnection = true
-
-      [Metering]
-      MeterRecordsEnabled = true
-      MeterSnapshotsEnabled = true
-      Product = 'cre'
-      Tenant = 'local-cre'
-      NumericTenantID = '1'
-      Environment = 'local'
-      Zone = 'cap-zone-a'
-      NodeID = 'clp-cre-cap-zone-a-1'
-      """
-
-  [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Telemetry]
-      Enabled = true
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      InsecureConnection = true
-
-      [Metering]
-      MeterRecordsEnabled = true
-      MeterSnapshotsEnabled = true
-      Product = 'cre'
-      Tenant = 'local-cre'
-      NumericTenantID = '1'
-      Environment = 'local'
-      Zone = 'cap-zone-a'
-      NodeID = 'clp-cre-cap-zone-a-2'
-      """
-
-  [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Telemetry]
-      Enabled = true
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      InsecureConnection = true
-
-      [Metering]
-      MeterRecordsEnabled = true
-      MeterSnapshotsEnabled = true
-      Product = 'cre'
-      Tenant = 'local-cre'
-      NumericTenantID = '1'
-      Environment = 'local'
-      Zone = 'cap-zone-a'
-      NodeID = 'clp-cre-cap-zone-a-3'
-      """
-
-  [[nodesets.node_specs]]
-    roles = ["plugin"]
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "core/chainlink.Dockerfile"
-      docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      # image = "chainlink-tmp:latest"
-      user_config_overrides = """
-      [Telemetry]
-      Enabled = true
-      ChipIngressEndpoint = 'chip-ingress:50051'
-      InsecureConnection = true
-
-      [Metering]
-      MeterRecordsEnabled = true
-      MeterSnapshotsEnabled = true
-      Product = 'cre'
-      Tenant = 'local-cre'
-      NumericTenantID = '1'
-      Environment = 'local'
-      Zone = 'cap-zone-a'
-      NodeID = 'clp-cre-cap-zone-a-4'
-      """
+      user_config_overrides = ""
 
 [[nodesets]]
   nodes = 1
