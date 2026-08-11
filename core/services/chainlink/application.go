@@ -26,8 +26,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -49,11 +47,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	configtoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -454,7 +452,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
 			CapabilitiesSharedPeer:  opts.CapabilitiesSharedPeer,
 			FetcherFunc:             opts.FetcherFunc,
-			FetcherFactoryFn:        opts.FetcherFactoryFn,
 			BillingClient:           opts.BillingClient,
 			LinkingClient:           opts.LinkingClient,
 			Meter:                   meter,
@@ -711,7 +708,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		creServices.GetPeerID,
 		peerWrapper,
 		opts.NewOracleFactoryFn,
-		opts.FetcherFactoryFn,
 		creServices.OrgResolver,
 		atomicSettings,
 		creServices.OCRConfigService,

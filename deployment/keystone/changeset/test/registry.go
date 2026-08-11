@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"math"
 	"sort"
 	"testing"
 	"time"
@@ -297,6 +298,7 @@ func addDons(
 		// add the don
 		isPublic := true
 		f := len(don.P2PIDs)/3 + 1
+		require.LessOrEqual(t, f, math.MaxUint8)
 		tx, err := registry.AddDON(chain.DeployerKey, internal.PeerIDsToBytes(don.P2PIDs), capConfigs, isPublic, acceptsWorkflows, uint8(f))
 		if err != nil {
 			err2 := cldf.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)

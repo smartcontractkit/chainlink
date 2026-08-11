@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,12 +13,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
+	module_dummy_receiver "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_dummy_receiver/ccip_dummy_receiver"
+	module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
+	codec "github.com/smartcontractkit/chainlink-sui/codec"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
@@ -346,6 +351,8 @@ type evm2SuiMessagingFixtures struct {
 	setup                  messagingtest.TestSetup
 	receiverByte           []byte
 	receiverObjectIDs      [][32]byte
+	receiverPkgID          string
+	receiverStateObjID     string
 	srcFQDestConfig        evm_fee_quoter.FeeQuoterDestChainConfig
 	nativeFeeToken         string
 }
@@ -439,6 +446,7 @@ func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
 		e: e, sourceChain: sourceChain, destChain: destChain,
 		state: state, setup: setup,
 		receiverByte: receiverByte, receiverObjectIDs: receiverObjectIDs,
+		receiverPkgID: outputMap.PackageId, receiverStateObjID: outputMap.Objects.CCIPReceiverStateObjectId,
 		srcFQDestConfig: srcFQDestConfig, nativeFeeToken: "0x0",
 	}
 }
@@ -467,6 +475,24 @@ func Test_CCIP_Messaging_EVM2Sui_Success(t *testing.T) {
 	})
 
 	waitForSuiRPCSync(t, fx.e.Env.BlockChains.SuiChains()[fx.destChain])
+
+	// The message was delivered (ccip_receive ran) but it carries no token transfer
+	// (message-only), so the receiver must have stored zero dest token amounts.
+	ctx := testcontext.Get(t)
+	suiChain := fx.e.Env.BlockChains.SuiChains()[fx.destChain]
+	receiverContract, err := module_dummy_receiver.NewDummyReceiver(fx.receiverPkgID, suiChain.Client)
+	require.NoError(t, err)
+	receiverStateObj := codec.Object{Id: fx.receiverStateObjID}
+	devInspectOpts := &suiBind.CallOpts{
+		Signer:           suiChain.Signer,
+		WaitForExecution: true,
+	}
+	counter, err := receiverContract.DevInspect().GetCounter(ctx, devInspectOpts, receiverStateObj)
+	require.NoError(t, err)
+	require.Positive(t, counter, "dummy receiver ccip_receive did not run for the message-only case")
+	destTokenAmounts, err := receiverContract.DevInspect().GetDestTokenAmounts(ctx, devInspectOpts, receiverStateObj)
+	require.NoError(t, err)
+	require.Empty(t, destTokenAmounts, "message-only path must store no dest token amounts")
 }
 
 // evm2SuiRevertHarness is shared mlt wiring for EVM→Sui source-revert cases (split across two CI jobs).
@@ -503,6 +529,87 @@ func newEVM2SuiRevertHarness(t *testing.T) evm2SuiRevertHarness {
 		mlt.WithDeployedEnv(fx.e),
 	)
 	return evm2SuiRevertHarness{fx: fx, mltSetup: mltSetup, invalidSel: invalidSel}
+}
+
+func Test_CCIP_ReceiverReverts_EVM2Sui(t *testing.T) {
+	fx := prepareEVM2SuiMessagingTest(t)
+	var nonce uint64
+
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, fx.state, fx.e.Env.Offchain, fx.sourceChain, fx.destChain)
+
+	// Control: a message to the working dummy receiver succeeds, proving the lane commits and executes.
+	messagingtest.Run(t,
+		messagingtest.TestCase{
+			TestSetup:              fx.setup,
+			Nonce:                  &nonce,
+			ValidationType:         messagingtest.ValidationTypeExec,
+			Receiver:               fx.receiverByte,
+			MsgData:                []byte("control: receiver works"),
+			ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, fx.receiverObjectIDs, [32]byte{}),
+			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+		},
+	)
+
+	// Failing receiver leg: same registered receiver, but the Sui extra-args receiver object IDs
+	// (the trailing object arguments to ccip_receive: the shared Clock and the receiver state
+	// object) pass an unresolvable state object id -> ccip_receive cannot load
+	// &mut CCIPReceiverState -> the execute PTB aborts.
+	var clockObj [32]byte
+	copy(clockObj[:], hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000006",
+	))
+	bogusStateObj := common.HexToHash("0xdeadbeef") // no such object exists on chain
+	bogusReceiverObjectIDs := [][32]byte{clockObj, bogusStateObj}
+
+	out := messagingtest.Run(t,
+		messagingtest.TestCase{
+			TestSetup:      fx.setup,
+			Nonce:          &nonce,
+			ValidationType: messagingtest.ValidationTypeCommit, // validate commit only; exec will not succeed
+			Receiver:       fx.receiverByte,
+			MsgData:        []byte("receiver leg reverts"),
+			ExtraArgs:      testhelpers.MakeSuiExtraArgs(1000000, true, bogusReceiverObjectIDs, [32]byte{}),
+		},
+	)
+	require.NotEmpty(t, out.MsgSentEvent.SequenceNumber)
+	seqBogus := out.MsgSentEvent.SequenceNumber
+
+	// Let the DON attempt execution of the failing message (it reverts atomically).
+	messagingtest.SleepReplayAndSettle(t, fx.e.Env, 30*time.Second, fx.sourceChain)
+
+	// Assert the reverting receiver leg did NOT persist SUCCESS. The execution-state entry lives
+	// inside the (reverted) execute PTB, so it is absent and get_execution_state aborts
+	// EUnknownSequenceNumber instead of returning SUCCESS -- the atomic-rollback guarantee.
+	ctx := testhelpers.Context(t)
+	suiChain := fx.e.Env.BlockChains.SuiChains()[fx.destChain]
+	suiState, err := sui_deployment.LoadOnchainStatesui(fx.e.Env)
+	require.NoError(t, err)
+
+	offrampContract, err := module_offramp.NewOfframp(suiState[fx.destChain].EffectiveOffRampPackageID(), suiChain.Client)
+	require.NoError(t, err)
+
+	offRampStateObj := codec.Object{Id: suiState[fx.destChain].OffRampStateObjectId}
+	devInspectOpts := &suiBind.CallOpts{
+		Signer:           suiChain.Signer,
+		WaitForExecution: true,
+	}
+
+	_, err = offrampContract.DevInspect().GetExecutionState(ctx, devInspectOpts, offRampStateObj, fx.sourceChain, seqBogus)
+	require.Error(t, err, "reverting receiver leg must not persist EXECUTION_STATE_SUCCESS (execute PTB must roll back atomically)")
+
+	// Recovery: a subsequent message to the same receiver still succeeds, proving the reverted
+	// leg did not corrupt receiver or lane state.
+	messagingtest.Run(t,
+		messagingtest.TestCase{
+			TestSetup:              fx.setup,
+			Nonce:                  &nonce,
+			ValidationType:         messagingtest.ValidationTypeExec,
+			Receiver:               fx.receiverByte,
+			MsgData:                []byte("recovery: receiver still works after revert"),
+			ExtraArgs:              testhelpers.MakeSuiExtraArgs(1000000, true, fx.receiverObjectIDs, [32]byte{}),
+			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+		},
+	)
 }
 
 func Test_CCIP_Messaging_EVM2Sui_Revert_Part1(t *testing.T) {

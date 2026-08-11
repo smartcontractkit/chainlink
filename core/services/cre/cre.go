@@ -33,9 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
@@ -82,8 +80,7 @@ type Opts struct {
 	CapabilitiesDispatcher remotetypes.Dispatcher
 	CapabilitiesSharedPeer p2ptypes.SharedPeer
 
-	FetcherFunc      wftypes.FetcherFunc
-	FetcherFactoryFn compute.FetcherFactory
+	FetcherFunc wftypes.FetcherFunc
 
 	BillingClient metering.BillingClient
 	LinkingClient linkingclient.LinkingServiceClient

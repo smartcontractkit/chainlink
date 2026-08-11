@@ -135,7 +135,7 @@ func TestFunctionsReporting_Query(t *testing.T) {
 	reqs := []functions_srv.Request{newRequest(), newRequest()}
 	orm.On("FindOldestEntriesByState", mock.Anything, functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
 
-	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
+	q, err := plugin.Query(t.Context(), types.ReportTimestamp{})
 	require.NoError(t, err)
 
 	queryProto := &encoding.Query{}
@@ -155,7 +155,7 @@ func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 	reqs[1].CoordinatorContractAddress = &common.Address{2}
 	orm.On("FindOldestEntriesByState", mock.Anything, functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
 
-	q, err := plugin.Query(testutils.Context(t), types.ReportTimestamp{})
+	q, err := plugin.Query(t.Context(), types.ReportTimestamp{})
 	require.NoError(t, err)
 
 	queryProto := &encoding.Query{}
@@ -188,7 +188,7 @@ func TestFunctionsReporting_Observation(t *testing.T) {
 	//   - one has timed out
 	//   - one doesn't exist
 	query := newMarshalledQuery(t, req1.RequestID, req1.RequestID, req2.RequestID, req3.RequestID, req4.RequestID, nonexistentId, req4.RequestID)
-	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, query)
+	obs, err := plugin.Observation(t.Context(), types.ReportTimestamp{}, query)
 	require.NoError(t, err)
 
 	observationProto := &encoding.Observation{}
@@ -218,7 +218,7 @@ func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 	marshalled, err := proto.Marshal(&queryProto)
 	require.NoError(t, err)
 
-	obs, err := plugin.Observation(testutils.Context(t), types.ReportTimestamp{}, marshalled)
+	obs, err := plugin.Observation(t.Context(), types.ReportTimestamp{}, marshalled)
 	require.NoError(t, err)
 	observationProto := &encoding.Observation{}
 	err = proto.Unmarshal(obs, observationProto)
@@ -243,14 +243,14 @@ func TestFunctionsReporting_Report(t *testing.T) {
 	}
 
 	// Two observations are not enough to produce a report
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.False(t, produced)
 	require.Nil(t, reportBytes)
 	require.NoError(t, err)
 
 	// Three observations with the same requestID should produce a report
 	obs = append(obs, newObservation(t, 3, procReq1, procReq2))
-	produced, reportBytes, err = plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err = plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.True(t, produced)
 	require.NoError(t, err)
 
@@ -283,7 +283,7 @@ func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 		newObservation(t, 3, procReq1, procReq2),
 	}
 
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.True(t, produced)
 	require.NoError(t, err)
 
@@ -323,7 +323,7 @@ func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 		newObservation(t, 3, procReq3, procReq1, procReq2),
 	}
 
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.True(t, produced)
 	require.NoError(t, err)
 
@@ -353,7 +353,7 @@ func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 		newObservation(t, 3, procReq1, procReq2),
 	}
 
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.True(t, produced)
 	require.NoError(t, err)
 
@@ -383,8 +383,8 @@ func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 		newObservation(t, 3, procReq3, procReq2, procReq1),
 	}
 
-	produced1, reportBytes1, err1 := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
-	produced2, reportBytes2, err2 := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced1, reportBytes1, err1 := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
+	produced2, reportBytes2, err2 := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.True(t, produced1)
 	require.True(t, produced2)
 	require.NoError(t, err1)
@@ -407,7 +407,7 @@ func TestFunctionsReporting_Report_IncorrectObservation(t *testing.T) {
 
 	// There are 4 observations but all are coming from the same node
 	obs := []types.AttributedObservation{newObservation(t, 1, req, req, req, req)}
-	produced, reportBytes, err := plugin.Report(testutils.Context(t), types.ReportTimestamp{}, query, obs)
+	produced, reportBytes, err := plugin.Report(t.Context(), types.ReportTimestamp{}, query, obs)
 	require.False(t, produced)
 	require.Nil(t, reportBytes)
 	require.NoError(t, err)
@@ -450,21 +450,21 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 	// Attempting to transmit 2 requests, out of which:
 	//   - one was already accepted for transmission earlier
 	//   - one has timed out
-	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req3, req4))
+	should, err := plugin.ShouldAcceptFinalizedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req3, req4))
 	require.NoError(t, err)
 	require.False(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one is ready
 	//   - one was already accepted for transmission earlier
-	should, err = plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
+	should, err = plugin.ShouldAcceptFinalizedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
 	require.NoError(t, err)
 	require.True(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one doesn't exist
 	//   - one has timed out
-	should, err = plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req4))
+	should, err = plugin.ShouldAcceptFinalizedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req4))
 	require.NoError(t, err)
 	require.True(t, should)
 }
@@ -479,7 +479,7 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport_OffchainTransmission(t *
 	orm.On("SetFinalized", mock.Anything, req1.RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	offchainTransmitter.On("TransmitReport", mock.Anything, mock.Anything).Return(nil)
 
-	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1))
+	should, err := plugin.ShouldAcceptFinalizedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req1))
 	require.NoError(t, err)
 	require.False(t, should)
 }
@@ -503,21 +503,21 @@ func TestFunctionsReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 	// Attempting to transmit 2 requests, out of which:
 	//   - one was already confirmed on chain
 	//   - one has timed out
-	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req5, req4))
+	should, err := plugin.ShouldTransmitAcceptedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req5, req4))
 	require.NoError(t, err)
 	require.False(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one is ready
 	//   - one in finalized
-	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
+	should, err = plugin.ShouldTransmitAcceptedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req2, req3))
 	require.NoError(t, err)
 	require.True(t, should)
 
 	// Attempting to transmit 2 requests, out of which:
 	//   - one doesn't exist
 	//   - one is ready
-	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req2))
+	should, err = plugin.ShouldTransmitAcceptedReport(t.Context(), types.ReportTimestamp{}, getReportBytes(t, codec, req1, req2))
 	require.NoError(t, err)
 	require.True(t, should)
 }

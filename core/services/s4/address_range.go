@@ -56,7 +56,7 @@ func NewInitialAddressRangeForIntervals(intervals uint) (*AddressRange, error) {
 		return NewFullAddressRange(), nil
 	}
 
-	divisor := big.NewInt(int64(intervals))
+	divisor := big.NewInt(0).SetUint64(uint64(intervals))
 	maxPlusOne := bigmath.Add(MaxAddress.ToInt(), big.NewInt(1))
 	interval := bigmath.Div(maxPlusOne, divisor)
 

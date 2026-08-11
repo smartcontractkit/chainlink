@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 )
 

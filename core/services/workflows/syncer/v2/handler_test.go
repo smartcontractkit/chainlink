@@ -13,20 +13,6 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
-	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
-	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/emptypb"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
-
-	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
-	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow/server"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -34,26 +20,33 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basicaction"
+	"github.com/smartcontractkit/cre-sdk-go/internal_testing/capabilities/basictrigger"
+
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
+	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
-
-	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
@@ -61,10 +54,12 @@ import (
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	artifacts "github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
 
 type mockFetchResp struct {
@@ -222,10 +217,9 @@ func Test_Handler(t *testing.T) {
 }
 
 const (
-	binaryLocation = "test/simple/cmd/testmodule.wasm"
-	binaryCmd      = "core/capabilities/compute/test/simple/cmd"
-	noTeeV2Cmd     = "core/services/workflows/test/wasm/v2/cmd/without_tee"
-	withTeeV2Cmd   = "core/services/workflows/test/wasm/v2/cmd/with_tee"
+	binaryCmd    = "core/services/workflows/test/wasm/v2/cmd/without_tee"
+	noTeeV2Cmd   = "core/services/workflows/test/wasm/v2/cmd/without_tee"
+	withTeeV2Cmd = "core/services/workflows/test/wasm/v2/cmd/with_tee"
 )
 
 func Test_workflowRegisteredHandler(t *testing.T) {

@@ -3,14 +3,13 @@ package streams
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 type mockRegistry struct{}
@@ -36,12 +35,12 @@ func Test_Delegate(t *testing.T) {
 	t.Run("ServicesForSpec", func(t *testing.T) {
 		jb := job.Job{PipelineSpec: &pipeline.Spec{ID: 1}}
 		t.Run("no error if job is missing streamID", func(t *testing.T) {
-			_, err := d.ServicesForSpec(testutils.Context(t), jb)
+			_, err := d.ServicesForSpec(t.Context(), jb)
 			require.NoError(t, err)
 		})
 		jb.StreamID = new(uint32(42))
 		t.Run("returns services", func(t *testing.T) {
-			srvs, err := d.ServicesForSpec(testutils.Context(t), jb)
+			srvs, err := d.ServicesForSpec(t.Context(), jb)
 			require.NoError(t, err)
 
 			assert.Len(t, srvs, 2)

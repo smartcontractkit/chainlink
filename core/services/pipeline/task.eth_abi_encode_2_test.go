@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -355,7 +354,7 @@ func TestETHABIEncodeTask2(t *testing.T) {
 				Data:     test.data,
 			}
 
-			result, _ := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
+			result, _ := task.Run(t.Context(), logger.TestLogger(t), test.vars, test.inputs)
 
 			if test.expectedErrorCause != nil {
 				require.Equal(t, test.expectedErrorCause, errors.Cause(result.Error))

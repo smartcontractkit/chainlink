@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	sfmocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -23,7 +22,7 @@ import (
 func TestNewConnector_Success(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	keyV2, err := ethkey.NewV2()
 	require.NoError(t, err)
@@ -53,7 +52,7 @@ func TestNewConnector_Success(t *testing.T) {
 func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	t.Parallel()
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	addresses := []string{
 		"0x00000000DE801ceE9471ADf23370c48b011f82a6",

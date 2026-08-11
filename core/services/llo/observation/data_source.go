@@ -16,8 +16,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	llocommon "github.com/smartcontractkit/chainlink-data-streams/llo/common"
-	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
+	llodatasource "github.com/smartcontractkit/chainlink-data-streams/llo/datasource"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
@@ -147,8 +149,6 @@ func (e *ObservationFailedError) Unwrap() error {
 	return e.inner
 }
 
-var _ llov30.DataSource = &dataSource{}
-
 type dataSource struct {
 	wg                     sync.WaitGroup
 	lggr                   logger.Logger
@@ -165,7 +165,12 @@ type dataSource struct {
 	loopWakeCh chan struct{}
 }
 
-func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llov30.DataSource {
+var _ llodatasource.DataSource = &dataSource{}
+
+// NewDataSource returns the shared LLO data source. llo/v30 and llo/v31 both
+// consume llodatasource.DataSource, so a single implementation serves both OCR
+// protocol versions; lifecycle gating is driven by opts.LifeCycleStage().
+func NewDataSource(lggr logger.Logger, registry Registry, t Telemeter) llodatasource.DataSource {
 	return newDataSource(lggr, registry, t)
 }
 
@@ -192,13 +197,39 @@ func (d *dataSource) signalObservationLoopWake() {
 	}
 }
 
-// Observe starts or refreshes the background observation loop for the plugin's stream set, then fills streamValues
-// from the in-memory cache (backed by pipeline observations registered for each stream ID).
-func (d *dataSource) Observe(ctx context.Context, streamValues llocommon.StreamValues, opts llov30.DSOpts) error {
+// Observe gates the background observation loop on the round's lifecycle stage
+// (only a Production instance runs pipeline observations), then fills
+// streamValues from the in-memory cache. The stage is carried by opts and is
+// derived by each plugin version from its own state (v30 from the previous
+// outcome, v31 from the KeyValueState), so a single implementation serves both.
+func (d *dataSource) Observe(ctx context.Context, streamValues lloprotocol.StreamValues, opts llodatasource.DSOpts) error {
+	return d.observe(ctx, streamValues, opts, d.inProduction(opts))
+}
+
+// inProduction reports whether this OCR instance is the Production instance (the
+// only one that should run pipeline observations).
+func (d *dataSource) inProduction(opts llodatasource.DSOpts) bool {
+	if opts == nil {
+		// setObservableStreams logs the nil-opts case; stay silent here to avoid
+		// a duplicate warning per round.
+		return false
+	}
+	if opts.LifeCycleStage() != lloprotocol.LifeCycleStageProduction {
+		d.lggr.Debugw("Observe: LLO OCR instance is not in production lifecycle stage",
+			"configDigest", opts.ConfigDigest().String(), "stage", opts.LifeCycleStage())
+		return false
+	}
+	return true
+}
+
+// observe starts or refreshes the background observation loop for the plugin's stream set, then fills streamValues
+// from the in-memory cache (backed by pipeline observations registered for each stream ID). inProduction gates the
+// loop: when false the observable stream set is cleared and no pipelines run this round.
+func (d *dataSource) observe(ctx context.Context, streamValues lloprotocol.StreamValues, opts telem.DSOpts, inProduction bool) error {
 	// Observation loop logic
 	{
 		// setObservableStreams copies stream IDs and deadline into internal state (the plugin's map is not retained).
-		d.setObservableStreams(ctx, streamValues, opts)
+		d.setObservableStreams(ctx, streamValues, opts, inProduction)
 
 		if !d.observationLoopStarted.Load() {
 			loopStartedCh := make(chan struct{})
@@ -283,7 +314,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 
 			startTS := time.Now()
 			ctx, cancel := context.WithTimeout(stopChanCtx, osv.observationTimeout)
-			lggr := logger.With(d.lggr, "observationTimestamp", osv.opts.ObservationTimestamp(), "configDigest", osv.opts.ConfigDigest(), "seqNr", osv.opts.OutCtx().SeqNr)
+			lggr := logger.With(d.lggr, "observationTimestamp", osv.opts.ObservationTimestamp(), "configDigest", osv.opts.ConfigDigest(), "seqNr", osv.opts.SeqNr())
 
 			var mu sync.Mutex
 			var wg sync.WaitGroup
@@ -320,7 +351,7 @@ func (d *dataSource) startObservationLoop(loopStartedCh chan struct{}) {
 				wg.Add(1)
 				go func(streamIDs []streams.StreamID) {
 					defer wg.Done()
-					local := make(llocommon.StreamValues, len(streamIDs))
+					local := make(lloprotocol.StreamValues, len(streamIDs))
 					var hadErr bool
 					for _, sid := range streamIDs {
 						local[sid] = nil
@@ -425,8 +456,8 @@ type streamsRefreshPlan struct {
 // in groups; the worker observe list is built from p.StreamIDs() filtered to keys present in streamValues so we never
 // run Observe for pipeline siblings the plugin did not request this round. Unregistered drivers go to missingStreamIDs;
 // each increments promMissingStreamCount and triggers a single Warn when missingStreamIDs is non-empty.
-func (d *dataSource) buildStreamsRefreshPlan(streamValues llocommon.StreamValues, observationTimeout time.Duration, lggr logger.Logger) streamsRefreshPlan {
-	candidatesValues := make(llocommon.StreamValues, len(streamValues))
+func (d *dataSource) buildStreamsRefreshPlan(streamValues lloprotocol.StreamValues, observationTimeout time.Duration, lggr logger.Logger) streamsRefreshPlan {
+	candidatesValues := make(lloprotocol.StreamValues, len(streamValues))
 	for streamID := range streamValues {
 		// Plugin-scope keys that need refresh become drivers; pipelines are collected below and scoped to these keys.
 		if val, expiresAt := d.cache.Get(streamID); val != nil {
@@ -490,36 +521,30 @@ func (d *dataSource) Close() error {
 }
 
 type observableStreamValues struct {
-	opts               llov30.DSOpts
-	streamValues       llocommon.StreamValues
+	opts               telem.DSOpts
+	streamValues       lloprotocol.StreamValues
 	observationTimeout time.Duration
 }
 
-// setObservableStreams updates the stream set and observation deadline (T) used by the background loop when in production.
-func (d *dataSource) setObservableStreams(ctx context.Context, streamValues llocommon.StreamValues, opts llov30.DSOpts) {
+// setObservableStreams updates the stream set and observation deadline (T) used by the background loop. When
+// inProduction is false (v30 non-production instance) the observable set is left unchanged/empty so no pipelines run.
+func (d *dataSource) setObservableStreams(ctx context.Context, streamValues lloprotocol.StreamValues, opts telem.DSOpts, inProduction bool) {
 	if opts == nil || len(streamValues) == 0 {
 		d.lggr.Warnw("setObservableStreams: no observable streams to set",
 			"opts", opts, "observable_streams", len(streamValues))
 		return
 	}
 
-	outCtx := opts.OutCtx()
-	outcome, err := opts.OutcomeCodec().Decode(outCtx.PreviousOutcome)
-	if err != nil {
-		d.lggr.Errorw("setObservableStreams: failed to decode outcome", "error", err)
-		return
-	}
-
-	if outcome.LifeCycleStage != llocommon.LifeCycleStageProduction {
+	if !inProduction {
 		d.lggr.Debugw(
 			"setObservableStreams: LLO OCR instance is not in production lifecycle stage",
-			"configDigest", opts.ConfigDigest().String(), "stage", outcome.LifeCycleStage)
+			"configDigest", opts.ConfigDigest().String())
 		return
 	}
 
 	osv := &observableStreamValues{
 		opts:               opts,
-		streamValues:       make(llocommon.StreamValues, len(streamValues)),
+		streamValues:       make(lloprotocol.StreamValues, len(streamValues)),
 		observationTimeout: 250 * time.Millisecond,
 	}
 

@@ -6,7 +6,7 @@ import (
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	de "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	dataengine "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -1477,19 +1477,19 @@ func (_c *GeneralConfig_LogConfiguration_Call) RunAndReturn(run func(config.Logf
 }
 
 // Mercury provides a mock function with no fields
-func (_m *GeneralConfig) Mercury() de.Mercury {
+func (_m *GeneralConfig) Mercury() dataengine.Mercury {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for Mercury")
 	}
 
-	var r0 de.Mercury
-	if rf, ok := ret.Get(0).(func() de.Mercury); ok {
+	var r0 dataengine.Mercury
+	if rf, ok := ret.Get(0).(func() dataengine.Mercury); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(de.Mercury)
+			r0 = ret.Get(0).(dataengine.Mercury)
 		}
 	}
 
@@ -1513,12 +1513,12 @@ func (_c *GeneralConfig_Mercury_Call) Run(run func()) *GeneralConfig_Mercury_Cal
 	return _c
 }
 
-func (_c *GeneralConfig_Mercury_Call) Return(_a0 de.Mercury) *GeneralConfig_Mercury_Call {
+func (_c *GeneralConfig_Mercury_Call) Return(_a0 dataengine.Mercury) *GeneralConfig_Mercury_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *GeneralConfig_Mercury_Call) RunAndReturn(run func() de.Mercury) *GeneralConfig_Mercury_Call {
+func (_c *GeneralConfig_Mercury_Call) RunAndReturn(run func() dataengine.Mercury) *GeneralConfig_Mercury_Call {
 	_c.Call.Return(run)
 	return _c
 }
