@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
@@ -165,6 +166,52 @@ func (e *Engine) logger() logger.SugaredLogger {
 	e.lggrMu.RLock()
 	defer e.lggrMu.RUnlock()
 	return e.lggr
+}
+
+func (e *Engine) safeModuleExecute(ctx context.Context, req *sdkpb.ExecuteRequest, executor host.ExecutionHelper) (*sdkpb.ExecutionResult, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			count := e.recordModulePanic(ctx)
+			e.logger().Criticalw("Panic during workflow module execution; rethrowing for clean restart",
+				"panic", r, "modulePanicCount", count, "maxModulePanics", MaxModulePanics, "stack", string(debug.Stack()))
+			panic(r)
+		}
+	}()
+	return e.cfg.Module.Execute(ctx, req, executor)
+}
+
+func (e *Engine) recordModulePanic(ctx context.Context) uint64 {
+	if e.cfg.PanicStore == nil {
+		return 0
+	}
+	// The passed ctx may be cancelled by the failing execution; detach it so the
+	// durable write still lands before the process dies.
+	recCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+
+	count, err := recordModulePanic(recCtx, e.cfg.PanicStore, e.cfg.WorkflowID)
+	if err != nil {
+		e.logger().Errorw("Failed to record module panic for loop guard", "err", err)
+		return 0
+	}
+	return count
+}
+
+func (e *Engine) checkModulePanicQuarantine(ctx context.Context) error {
+	if e.cfg.PanicStore == nil {
+		return nil
+	}
+	count, err := modulePanicCount(ctx, e.cfg.PanicStore, e.cfg.WorkflowID)
+	if err != nil {
+		e.logger().Errorw("Failed to read module panic count for loop guard", "err", err)
+		return nil
+	}
+	if count >= MaxModulePanics {
+		e.logger().Criticalw("Workflow quarantined after repeated host panics; refusing to execute",
+			"modulePanicCount", count, "maxModulePanics", MaxModulePanics)
+		return fmt.Errorf("workflow quarantined after %d module panics", count)
+	}
+	return nil
 }
 
 // setLogger updates the logger in a thread-safe manner.
@@ -436,6 +483,13 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 }
 
 func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
+	// Every boot runs this before subscribing to triggers, so it is the single
+	// gate that stops a quarantined workflow from executing (subscription- or
+	// trigger-phase) and crash-looping the node.
+	if err := e.checkModulePanicQuarantine(ctx); err != nil {
+		return err
+	}
+
 	// call into the workflow to get trigger subscriptions
 	subCtx, subCancel, err := e.cfg.LocalLimiters.TriggerSubscriptionTime.WithTimeout(ctx)
 	if err != nil {
@@ -465,7 +519,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		return fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 	}
-	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
+	result, err := e.safeModuleExecute(subCtx, &sdkpb.ExecuteRequest{
 		Request:         &sdkpb.ExecuteRequest_Subscribe{},
 		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
 		Config:          e.cfg.WorkflowConfig,
@@ -990,7 +1044,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	execHelper.initLimiters(e.cfg.LocalLimiters)
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
 	var result *sdkpb.ExecutionResult
-	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
+	result, execErr = e.safeModuleExecute(execCtx, &sdkpb.ExecuteRequest{
 		Request: &sdkpb.ExecuteRequest_Trigger{
 			Trigger: &sdkpb.Trigger{
 				Id:      tid,

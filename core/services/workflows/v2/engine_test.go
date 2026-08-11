@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -91,6 +92,53 @@ func TestEngine_Init(t *testing.T) {
 	require.NoError(t, engine.Start(t.Context()))
 
 	require.NoError(t, <-initDoneCh)
+
+	module.EXPECT().Close().Once()
+	require.NoError(t, engine.Close())
+}
+
+// atThresholdPanicStore reports every workflow as already at MaxModulePanics, so
+// the loop guard treats it as quarantined regardless of key.
+type atThresholdPanicStore struct{}
+
+func (atThresholdPanicStore) Store(context.Context, string, []byte) error { return nil }
+func (atThresholdPanicStore) Delete(context.Context, string) error        { return nil }
+func (atThresholdPanicStore) Get(context.Context, string) ([]byte, error) {
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(v2.MaxModulePanics))
+	return buf, nil
+}
+
+func TestEngine_QuarantinedWorkflowIsNotExecuted(t *testing.T) {
+	t.Parallel()
+
+	module := modulemocks.NewModuleV2(t)
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil).Maybe()
+
+	initDoneCh := make(chan error)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.PanicStore = atThresholdPanicStore{}
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	// Module starts and closes, but Execute is never expected: quarantine must
+	// block execution.
+	module.EXPECT().Start().Once()
+	require.NoError(t, engine.Start(t.Context()))
+
+	initErr := <-initDoneCh
+	require.Error(t, initErr)
+	require.Contains(t, initErr.Error(), "quarantined")
 
 	module.EXPECT().Close().Once()
 	require.NoError(t, engine.Close())

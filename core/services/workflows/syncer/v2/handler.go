@@ -97,6 +97,8 @@ type eventHandler struct {
 	cacheMetrics        *CacheMetrics
 	moduleEngineVersion string
 
+	panicStore v2.ModulePanicStore
+
 	// WorkflowRegistryAddress is the address of the workflow registry contract
 	workflowRegistryAddress string
 	// WorkflowRegistryChainSelector is the chain selector for the workflow registry
@@ -237,6 +239,12 @@ func WithModuleStore(store artifacts.SerialisedModuleStore) func(*eventHandler) 
 func WithModuleCacheMetrics(cm *CacheMetrics) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.cacheMetrics = cm
+	}
+}
+
+func WithPanicStore(store v2.ModulePanicStore) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.panicStore = store
 	}
 }
 
@@ -675,7 +683,19 @@ func (h *eventHandler) createWorkflowSpec(ctx context.Context, payload WorkflowR
 		return nil, fmt.Errorf("failed to upsert workflow spec: %w", err)
 	}
 
+	// reset the module-panic loop guard on redeploy
+	h.clearModulePanicCount(ctx, wfID)
+
 	return entry, nil
+}
+
+func (h *eventHandler) clearModulePanicCount(ctx context.Context, workflowID string) {
+	if h.panicStore == nil {
+		return
+	}
+	if err := v2.ClearModulePanic(ctx, h.panicStore, workflowID); err != nil {
+		h.lggr.Warnw("Failed to clear module panic count", "workflowID", workflowID, "err", err)
+	}
 }
 
 // fetchOrganizationID fetches the organization ID for the given workflow owner using the OrgResolver
@@ -845,6 +865,7 @@ func (h *eventHandler) workflowDeletedEvent(
 	}
 
 	h.cleanupModuleCache(payload.WorkflowID.Hex())
+	h.clearModulePanicCount(ctx, payload.WorkflowID.Hex())
 
 	_, err := h.engineRegistry.Pop(payload.WorkflowID)
 	if errors.Is(err, ErrNotFound) {
@@ -1048,6 +1069,7 @@ func (h *eventHandler) newV2EngineConfig(
 		UseLocalTimeProvider:  h.useLocalTimeProvider,
 		DonTimeStore:          h.donTimeStore,
 		ExecutionsStore:       h.workflowStore,
+		PanicStore:            h.panicStore,
 		WorkflowID:            workflowID,
 		WorkflowOwner:         owner,
 		WorkflowName:          name,
