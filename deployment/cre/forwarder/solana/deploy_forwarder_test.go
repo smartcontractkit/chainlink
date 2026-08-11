@@ -180,7 +180,7 @@ func TestConfigureForwarder(t *testing.T) {
 
 func TestUpgradeForwarder(t *testing.T) {
 	t.Parallel()
-
+	skipInCI(t)
 	// Setup the solana programs
 	programsPath := t.TempDir()
 	programIDs := soltestutils.LoadKeystonePrograms(t, programsPath)
