@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
@@ -1964,6 +1965,7 @@ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
 	}
 	wr := &workflowRegistry{
 		shardOrchestratorClient: client,
+		shardResolver:           shardownership.NewRingOCRShardResolver(client, logger.TestLogger(t)),
 		myShardID:               1,
 		shardingEnabled:         true,
 	}
