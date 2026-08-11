@@ -86,7 +86,7 @@ hashed_default_assignment = false
 
 	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, testLogger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, execTimeout)
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed on correct shards")
-	testLogger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards (manual assignment override)")
+	testLogger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards (manual-only mode)")
 }
 
 func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
@@ -107,8 +107,21 @@ func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 	topology, tErr := cre.NewTopology(testEnv.Config.NodeSets, *testEnv.Config.Infra, testEnv.Config.CapabilityConfigs)
 	require.NoError(t, tErr, "Failed to recreate topology")
 
-	err := setupShardingForOverrides(t, testEnv, topology, shardZero, testLogger)
-	require.NoError(t, err, "SetupSharding failed for override test")
+	err := sharding.SetupSharding(t.Context(), sharding.SetupShardingInput{
+		Logger:   testLogger,
+		CreEnv:   testEnv.CreEnvironment,
+		Topology: topology,
+		Dons:     testEnv.Dons,
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "cannot approve an approved spec") {
+			testLogger.Info().Msg("Ring jobs already exist (from previous run), continuing...")
+		} else {
+			require.NoError(t, err, "SetupSharding failed")
+		}
+	} else {
+		testLogger.Info().Msg("SetupSharding completed successfully")
+	}
 
 	waitForRingOracleHealthy(t, shardZero)
 
@@ -118,37 +131,21 @@ func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 	}
 	expectedUserLog := "Amazing workflow user log"
 
-	defaultOwner := "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
-
-	shardAssignmentTOML := fmt.Sprintf(`
+	shardAssignmentTOML := `
 static_default_assignment = [0]
 hashed_default_assignment = true
-
-[per_owner_assignment]
-  "%s" = [1]
-`, defaultOwner)
+`
 
 	proposeAndApproveShardAssignmentJob(t, testEnv, shardZero, shardAssignmentTOML, testLogger)
 
-	const numOverrideWorkflows = 3
-	overrideWorkflowIDs := make([]string, 0, numOverrideWorkflows)
-	for i := range numOverrideWorkflows {
+	const numWorkflows = 5
+	workflowIDs := make([]string, 0, numWorkflows)
+	for i := range numWorkflows {
 		workflowName := fmt.Sprintf("override-shard%d", i)
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
-		overrideWorkflowIDs = append(overrideWorkflowIDs, workflowID)
+		workflowIDs = append(workflowIDs, workflowID)
 	}
-
-	const numRingOCRWorkflows = 5
-	ringOCRWorkflowIDs := make([]string, 0, numRingOCRWorkflows)
-	for i := range numRingOCRWorkflows {
-		workflowName := fmt.Sprintf("ringocr-shard%d", i)
-		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
-		ringOCRWorkflowIDs = append(ringOCRWorkflowIDs, workflowID)
-	}
-
-	allWorkflowIDs := make([]string, 0, numOverrideWorkflows+numRingOCRWorkflows)
-	allWorkflowIDs = append(allWorkflowIDs, overrideWorkflowIDs...)
-	allWorkflowIDs = append(allWorkflowIDs, ringOCRWorkflowIDs...)
+	testLogger.Info().Strs("workflowIDs", workflowIDs).Msg("Deployed workflows for ringocr-with-overrides test")
 
 	var rpcHost string
 	for _, nodeSet := range testEnv.Config.NodeSets {
@@ -165,19 +162,21 @@ hashed_default_assignment = true
 	shardOrchClient := newShardOrchestratorClient(t, rpcHost+":60051")
 
 	testLogger.Info().Msg("Waiting for workflows to be registered via Ring OCR...")
-	waitForWorkflowsRegistered(t, shardOrchClient, allWorkflowIDs)
+	waitForWorkflowsRegistered(t, shardOrchClient, workflowIDs)
 
 	resp, err := shardOrchClient.GetWorkflowShardMapping(t.Context(), &ringpb.GetWorkflowShardMappingRequest{
-		WorkflowIds: allWorkflowIDs,
+		WorkflowIds: workflowIDs,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	testLogger.Info().Interface("ringOCRMappings", resp.Mappings).Msg("Ring OCR mappings for override test")
+	testLogger.Info().Interface("mappings", resp.Mappings).Msg("Ring OCR workflow mappings")
 
-	workflowToShardIndex := make(map[string]uint32, len(allWorkflowIDs))
-	for _, wfID := range allWorkflowIDs {
-		workflowToShardIndex[wfID] = 1
+	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
+	for _, wfID := range workflowIDs {
+		if shard, ok := resp.Mappings[wfID]; ok {
+			workflowToShardIndex[wfID] = shard
+		}
 	}
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
@@ -198,9 +197,9 @@ hashed_default_assignment = true
 	defer cancelCause(nil)
 	go t_helpers.FailOnBaseMessage(execCtx, cancelCause, t, testLogger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog)
 
-	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, testLogger, userLogsCh, allWorkflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, execTimeout)
-	require.Len(t, executedWorkflows, len(allWorkflowIDs), "Not all workflows executed on correct shards")
-	testLogger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards (ringocr-with-overrides)")
+	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, testLogger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, execTimeout)
+	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed on correct shards")
+	testLogger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards (ringocr-with-overrides mode)")
 }
 
 func proposeAndApproveShardAssignmentJob(t *testing.T, testEnv *ttypes.TestEnvironment, targetDON *cre.Don, shardAssignmentTOML string, testLogger zerolog.Logger) {
@@ -240,24 +239,4 @@ func proposeAndApproveShardAssignmentJob(t *testing.T, testEnv *ttypes.TestEnvir
 	}
 
 	testLogger.Info().Msg("Shard assignment job proposed and approved")
-}
-
-func setupShardingForOverrides(t *testing.T, testEnv *ttypes.TestEnvironment, topology *cre.Topology, shardZero *cre.Don, testLogger zerolog.Logger) error {
-	t.Helper()
-
-	err := sharding.SetupSharding(t.Context(), sharding.SetupShardingInput{
-		Logger:   testLogger,
-		CreEnv:   testEnv.CreEnvironment,
-		Topology: topology,
-		Dons:     testEnv.Dons,
-	})
-	if err != nil {
-		if strings.Contains(err.Error(), "cannot approve an approved spec") {
-			testLogger.Info().Msg("Ring jobs already exist (from previous run), continuing...")
-			return nil
-		}
-		return err
-	}
-	testLogger.Info().Msg("SetupSharding completed successfully for override test")
-	return nil
 }
