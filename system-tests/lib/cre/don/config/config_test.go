@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
-
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
