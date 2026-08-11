@@ -25,7 +25,7 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 )
 
-var EnableBigBlockChangeset = cldf.CreateChangeSet(enableBigBlocksLogic, enableBigBlocksPreCondition)
+var EnableBigBlockChangeset = cldf.CreateLegacyChangeSet(enableBigBlocksLogic)
 
 type EnableBigBlocksConfig struct {
 	APIURL    string
@@ -51,10 +51,6 @@ type enableBigBlocksDetailConfig struct {
 	URL               string        // RPC URL
 	VerifyingContract string        // Verifying contract address
 	RequestTimeout    time.Duration // HTTP request timeout
-}
-
-func enableBigBlocksPreCondition(env cldf.Environment, cfg EnableBigBlocksConfig) error {
-	return nil
 }
 
 func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf.ChangesetOutput, error) {
