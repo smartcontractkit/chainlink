@@ -27,7 +27,7 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--integration-tests
+  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}-integration-in-memory-tests
   cancel-in-progress: true
 
 jobs:
@@ -47,12 +47,14 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v7
         with:
-          persist-credentials: false
+          # merge_group needs the merge base in the local repo so advanced-triggers
+          # can run git diff. Keep credentials only when we need the extra fetch.
+          persist-credentials: ${{ github.event_name == 'merge_group' }}
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
 
       - name: Advanced Triggers
-        uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
+        uses: smartcontractkit/.github/actions/advanced-triggers@08769ac0a2d63b4f42cd6244b554a26b3736f671 # DEBUG: Checking new version works
         id: advanced-triggers
         with:
           file-sets: |
