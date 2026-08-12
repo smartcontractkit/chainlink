@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -18,8 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -95,7 +92,7 @@ func sendNodeReponse(t *testing.T, handler handlers.Handler, userRequestMsg api.
 				},
 			}
 		}
-		_ = handler.HandleNodeMessage(testutils.Context(t), jsonResp, nodes[id].Address)
+		_ = handler.HandleNodeMessage(t.Context(), jsonResp, nodes[id].Address)
 	}
 }
 
@@ -105,7 +102,7 @@ func TestFunctionsHandler_Minimal(t *testing.T) {
 
 	// empty message should always error out
 	msg := &api.Message{}
-	err = handler.HandleLegacyUserMessage(testutils.Context(t), msg, nil)
+	err = handler.HandleLegacyUserMessage(t.Context(), msg, nil)
 	require.Error(t, err)
 }
 
@@ -137,7 +134,7 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 			subscriptions.On("GetMaxUserBalance", common.HexToAddress(user.Address)).Return(big.NewInt(1000), nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-			require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, cb))
+			require.NoError(t, handler.HandleLegacyUserMessage(t.Context(), &userRequestMsg, cb))
 
 			done := make(chan struct{})
 			go func() {
@@ -185,7 +182,7 @@ func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
 			cb := hc.NewCallback()
 			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-			require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, cb))
+			require.NoError(t, handler.HandleLegacyUserMessage(t.Context(), &userRequestMsg, cb))
 
 			done := make(chan struct{})
 			go func() {
@@ -220,7 +217,7 @@ func TestFunctionsHandler_HandleUserMessage_InvalidMethod(t *testing.T) {
 
 	allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 	cb := hc.NewCallback()
-	err := handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, cb)
+	err := handler.HandleLegacyUserMessage(t.Context(), &userRequestMsg, cb)
 	require.Error(t, err)
 }
 
@@ -232,7 +229,7 @@ func TestFunctionsHandler_HandleUserMessage_Timeout(t *testing.T) {
 	allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 	subscriptions.On("GetMaxUserBalance", common.HexToAddress(user.Address)).Return(big.NewInt(1000), nil)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	require.NoError(t, handler.HandleLegacyUserMessage(testutils.Context(t), &userRequestMsg, cb))
+	require.NoError(t, handler.HandleLegacyUserMessage(t.Context(), &userRequestMsg, cb))
 
 	// wait on a response from Gateway to the user
 	response, err := cb.Wait(t.Context())

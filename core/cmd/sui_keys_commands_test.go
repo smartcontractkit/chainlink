@@ -6,17 +6,14 @@ import (
 	"os"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -71,7 +68,7 @@ func TestShell_SuiKeys(t *testing.T) {
 
 	t.Run("ListSuiKeys", func(tt *testing.T) {
 		defer cleanup()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, r := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Sui().Create(ctx)
 		require.NoError(t, err)
@@ -93,7 +90,7 @@ func TestShell_SuiKeys(t *testing.T) {
 
 	t.Run("DeleteSuiKey", func(tt *testing.T) {
 		defer cleanup()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, _ := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Sui().Create(ctx)
 		require.NoError(t, err)
@@ -115,7 +112,7 @@ func TestShell_SuiKeys(t *testing.T) {
 	t.Run("ImportExportSuiKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(t)
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		client, _ := app.NewShellAndRenderer()
 
 		_, err := app.GetKeyStore().Sui().Create(ctx)

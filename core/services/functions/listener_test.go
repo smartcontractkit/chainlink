@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
-
 	log_mocks "github.com/smartcontractkit/chainlink/v2/common/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -210,7 +209,7 @@ func TestFunctionsListener_HandleOffchainRequest_Success(t *testing.T) {
 		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
 	}
-	require.NoError(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
+	require.NoError(t, uni.service.HandleOffchainRequest(t.Context(), request))
 }
 
 func TestFunctionsListener_HandleOffchainRequest_Invalid(t *testing.T) {
@@ -226,15 +225,15 @@ func TestFunctionsListener_HandleOffchainRequest_Invalid(t *testing.T) {
 		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
 	}
-	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
+	require.Error(t, uni.service.HandleOffchainRequest(t.Context(), request))
 
 	request.RequestInitiator = SubscriptionOwner.Bytes()
 	request.SubscriptionOwner = []byte("invalid_address")
-	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
+	require.Error(t, uni.service.HandleOffchainRequest(t.Context(), request))
 
 	request.SubscriptionOwner = SubscriptionOwner.Bytes()
 	request.Timestamp = 1
-	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
+	require.Error(t, uni.service.HandleOffchainRequest(t.Context(), request))
 }
 
 func TestFunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
@@ -254,7 +253,7 @@ func TestFunctionsListener_HandleOffchainRequest_InternalError(t *testing.T) {
 		Timestamp:         uint64(time.Now().Unix()),
 		Data:              functions_service.RequestData{},
 	}
-	require.Error(t, uni.service.HandleOffchainRequest(testutils.Context(t), request))
+	require.Error(t, uni.service.HandleOffchainRequest(t.Context(), request))
 }
 
 func TestFunctionsListener_HandleOracleRequestV1_ComputationError(t *testing.T) {
@@ -380,7 +379,7 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 		sentMessage = args[1].([]byte)
 	})
 
-	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	require.NoError(t, uni.service.Start(t.Context()))
 	<-doneCh
 	uni.service.Close()
 

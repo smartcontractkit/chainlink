@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -25,6 +26,8 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/burn_mint_erc677"
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
+	module_dummy_receiver "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_dummy_receiver/ccip_dummy_receiver"
+	codec "github.com/smartcontractkit/chainlink-sui/codec"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
@@ -1427,6 +1430,319 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 		require.Contains(t, err.Error(), "execution reverted")
 		t.Log("Expected error: ", err)
 	})
+}
+
+// Sui offramp must surface the destination (local) token amount to CCIP receivers, not the unconverted source-chain amount.
+//
+// Flow: send 1e18 of an 18-dec EVM token + a message to a registered Sui dummy receiver (the 9-dec
+// Sui counterpart). The pool converts 18->9 and mints 1e9. The dummy receiver stores the amount it
+// reads via client::get_token_and_amount into CCIPReceiverState.dest_token_amounts.
+func Test_CCIP_EVM2Sui_DestTokenAmount_ReportsLocalAmount(t *testing.T) {
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
+
+	// Token pool setup on both SUI (9-dec LINK, burn-mint) and EVM (18-dec token).
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: sourceChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	}) // sourceChain=EVM, destChain=SUI
+	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	testhelpers.MintAndAllow(
+		t,
+		e.Env,
+		state,
+		map[uint64][]testhelpers.MintTokenInfo{
+			sourceChain: {
+				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
+			},
+		},
+	)
+
+	// Deploy + register the Sui dummy receiver (it stores the receiver-visible amount).
+	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+			SuiChainSelector: destChain,
+			McmsOwner:        "0x1",
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutput := output[0].Reports[0]
+	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+	require.True(t, ok)
+
+	id := strings.TrimPrefix(outputMap.PackageId, "0x")
+	receiverByteDecoded, err := hex.DecodeString(id)
+	require.NoError(t, err)
+
+	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
+			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       outputMap.Objects.OwnerCapObjectId,
+			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
+			DummyReceiverPackageId: outputMap.PackageId,
+		}),
+	})
+	require.NoError(t, err)
+
+	receiverByte := receiverByteDecoded
+
+	var clockObj [32]byte
+	copy(clockObj[:], hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000006",
+	))
+
+	var stateObj [32]byte
+	copy(stateObj[:], hexutil.MustDecode(
+		outputMap.Objects.CCIPReceiverStateObjectId,
+	))
+
+	receiverObjectIDs := [][32]byte{clockObj, stateObj}
+
+	// Token + message to the dummy receiver: 1e18 source (18 dec) -> 1e9 local (9 dec).
+	// Token lands in the signer wallet (suiAddr) so the  existing balance check stays meaningful;
+	// the message leg runs (gas > 0) and ccip_receive stores the receiver-visible amount.
+	tcs := []testhelpers.TestTransferRequest{
+		{
+			Name:             "token+message, receiver sees local amount",
+			SourceChain:      sourceChain,
+			DestChain:        destChain,
+			Data:             []byte("Hello Sui from EVM"),
+			Receiver:         receiverByte, // receiver contract pkgId -> ccip_receive runs
+			TokenReceiverATA: suiAddr[:],   // wallet that actually receives the minted token
+			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, receiverObjectIDs, suiAddr),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  suiTokenBytes,
+					Amount: big.NewInt(1e9),
+				},
+			},
+		},
+	}
+
+	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
+
+	err = testhelpers.ConfirmMultipleCommits(
+		t,
+		e.Env,
+		state,
+		startBlocks,
+		false,
+		expectedSeqNums,
+	)
+	require.NoError(t, err)
+
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+		t,
+		e.Env,
+		state,
+		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+		startBlocks,
+	)
+	require.Equal(t, expectedExecutionStates, execStates)
+
+	// Unchanged-path guard: the pool minted the correct local amount to the wallet.
+	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
+
+	// dest_token_amounts[0].amount must be the local amount (1e9), NOT the source amount (1e18).
+	suiChain := e.Env.BlockChains.SuiChains()[destChain]
+	receiverContract, err := module_dummy_receiver.NewDummyReceiver(outputMap.PackageId, suiChain.Client)
+	require.NoError(t, err)
+
+	receiverStateObj := codec.Object{Id: outputMap.Objects.CCIPReceiverStateObjectId}
+	devInspectOpts := &suiBind.CallOpts{
+		Signer:           suiChain.Signer,
+		WaitForExecution: true,
+	}
+
+	// ccip_receive ran (counter incremented) and stored exactly one token amount.
+	counter, err := receiverContract.DevInspect().GetCounter(ctx, devInspectOpts, receiverStateObj)
+	require.NoError(t, err)
+	require.Positive(t, counter, "dummy receiver ccip_receive did not run")
+
+	destTokenAmounts, err := receiverContract.DevInspect().GetDestTokenAmounts(ctx, devInspectOpts, receiverStateObj)
+	require.NoError(t, err)
+	require.Len(t, destTokenAmounts, 1, "expected exactly one dest token amount stored by the receiver")
+
+	// GetDestTokenAmounts already decodes each TokenAmount (token + amount); read the amount
+	// directly. Calling get_token_amount_amount separately is not viable via DevInspect because its
+	// &TokenAmount argument is a plain struct (not an object/UID) and cannot be encoded as a MoveCall
+	// arg.
+	receiverVisibleAmount := destTokenAmounts[0].Amount
+	require.NotNil(t, receiverVisibleAmount)
+
+	// The fix: receiver sees the local (minted) amount, not the source-chain amount.
+	require.Equalf(t, 0, receiverVisibleAmount.Cmp(big.NewInt(1e9)),
+		"receiver-visible amount must be the local amount (1e9), got %s", receiverVisibleAmount.String())
+	require.NotEqualf(t, 0, receiverVisibleAmount.Cmp(big.NewInt(1e18)),
+		"receiver is seeing the unconverted source amount (1e18)")
+}
+
+// Test_CCIP_ReceiverNotRegistered_EVM2Sui covers destination-side receiver-failure handling for
+// the two cases that behave identically on the Sui offramp:
+//  1. Receiver package id NOT registered in the receiver registry (a real, deployed package that
+//     was never registered).
+//  2. Receiver address that does not exist on Sui (Invalid 32-byte address).
+//
+// On-chain (offramp.move pre_execute_single_report): has_valid_message_receiver =
+// (!data.is_empty() || gas_limit != 0) && is_registered_receiver(...). When the receiver is not
+// registered, NO Any2SuiMessage is created, the receiver callback is skipped, execution is marked
+// SUCCESS, and the message is permanently dropped (terminal, no retry). A token leg in the same
+// message completes independently -- assets are released without the receiver-side app logic ever
+// running. This test locks in that behavior: SUCCESS, token delivered (token+message case), and the
+// unregistered receiver's state unchanged (ccip_receive never ran).
+func Test_CCIP_ReceiverNotRegistered_EVM2Sui(t *testing.T) {
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
+
+	// Token pool setup (needed for the token+message case); harmless for message-only cases.
+	updatedEnv, evmToken, _, err := testhelpers.HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e.Env, destChain, sourceChain, []testhelpers.TokenPoolRateLimiterConfig{
+		{
+			RemoteChainSelector: sourceChain,
+			OutboundIsEnabled:   false,
+			OutboundCapacity:    100000,
+			OutboundRate:        100,
+			InboundIsEnabled:    false,
+			InboundCapacity:     100000,
+			InboundRate:         100,
+		},
+	})
+	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	testhelpers.MintAndAllow(
+		t,
+		e.Env,
+		state,
+		map[uint64][]testhelpers.MintTokenInfo{
+			sourceChain: {
+				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
+			},
+		},
+	)
+
+	// Deploy a dummy receiver but DO NOT register it -> a valid, deployed package id that is not in
+	// the receiver registry. We can still DevInspect its CCIPReceiverState to prove ccip_receive
+	// never ran.
+	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+			SuiChainSelector: destChain,
+			McmsOwner:        "0x1",
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutput := output[0].Reports[0]
+	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+	require.True(t, ok)
+
+	unregisteredReceiverByte, err := hex.DecodeString(strings.TrimPrefix(outputMap.PackageId, "0x"))
+	require.NoError(t, err)
+
+	// Invalid 32-byte address: valid Sui address format, but no package exists and it is not
+	// registered. (Distinct from the source-side "invalid receiver" revert test, which uses a
+	// malformed non-32-byte address that the onramp rejects at send time.)
+	nonexistentReceiver := common.HexToHash("0xdeadbeef00000000000000000000000000000000000000000000000000deadbeef")
+
+	// Receiver object IDs are irrelevant when the receiver is not registered (no ccip_receive call),
+	// so pass empty -- mirrors Test_CCIP_EVM2Sui_ZeroReceiver.
+	emptyReceiverObjectIDs := [][32]byte{}
+
+	tcs := []testhelpers.TestTransferRequest{
+		{
+			Name:           "message-only to unregistered (deployed) receiver -> success, message dropped",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Data:           []byte("msg to unregistered receiver"),
+			Receiver:       unregisteredReceiverByte,
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExtraArgs:      testhelpers.MakeSuiExtraArgs(1000000, true, emptyReceiverObjectIDs, [32]byte{}),
+		},
+		{
+			Name:             "token+message to unregistered (deployed) receiver -> success, token delivered, message dropped",
+			SourceChain:      sourceChain,
+			DestChain:        destChain,
+			Data:             []byte("token+msg to unregistered receiver"),
+			Receiver:         unregisteredReceiverByte,
+			TokenReceiverATA: suiAddr[:], // wallet receives the minted token
+			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens: []router.ClientEVMTokenAmount{
+				{Token: evmToken.Address(), Amount: big.NewInt(1e18)},
+			},
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(1000000, true, emptyReceiverObjectIDs, suiAddr),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{Token: suiTokenBytes, Amount: big.NewInt(1e9)},
+			},
+		},
+		{
+			Name:           "message-only to nonexistent (garbage) receiver -> success, message dropped",
+			SourceChain:    sourceChain,
+			DestChain:      destChain,
+			Data:           []byte("msg to nonexistent receiver"),
+			Receiver:       nonexistentReceiver[:],
+			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
+			ExtraArgs:      testhelpers.MakeSuiExtraArgs(1000000, true, emptyReceiverObjectIDs, [32]byte{}),
+		},
+	}
+
+	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
+
+	err = testhelpers.ConfirmMultipleCommits(t, e.Env, state, startBlocks, false, expectedSeqNums)
+	require.NoError(t, err)
+
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
+		t,
+		e.Env,
+		state,
+		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
+		startBlocks,
+	)
+	// All three cases: offramp skips the unregistered/nonexistent receiver and marks SUCCESS.
+	require.Equal(t, expectedExecutionStates, execStates)
+
+	// Token leg of the token+message case was still delivered (assets released without app logic).
+	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
+
+	// Prove the message was dropped: the unregistered (deployed) receiver's ccip_receive never ran.
+	suiChain := e.Env.BlockChains.SuiChains()[destChain]
+	receiverContract, err := module_dummy_receiver.NewDummyReceiver(outputMap.PackageId, suiChain.Client)
+	require.NoError(t, err)
+	receiverStateObj := codec.Object{Id: outputMap.Objects.CCIPReceiverStateObjectId}
+	devInspectOpts := &suiBind.CallOpts{Signer: suiChain.Signer, WaitForExecution: true}
+
+	counter, err := receiverContract.DevInspect().GetCounter(ctx, devInspectOpts, receiverStateObj)
+	require.NoError(t, err)
+	require.Zero(t, counter, "unregistered receiver's ccip_receive must not have run (message dropped)")
+
+	destTokenAmounts, err := receiverContract.DevInspect().GetDestTokenAmounts(ctx, devInspectOpts, receiverStateObj)
+	require.NoError(t, err)
+	require.Empty(t, destTokenAmounts, "unregistered receiver must have stored no dest token amounts")
 }
 
 func Test_CCIPPureTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {

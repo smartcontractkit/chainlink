@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -594,7 +593,7 @@ func TestETHTxTask(t *testing.T) {
 			test.setupClientMocks(keyStore, txManager)
 			task.HelperSetDependencies(legacyChains, keyStore, test.specGasLimit, pipeline.DirectRequestJobType)
 
-			result, runInfo := task.Run(testutils.Context(t), lggr, test.vars, test.inputs)
+			result, runInfo := task.Run(t.Context(), lggr, test.vars, test.inputs)
 			assert.Equal(t, test.expectedRunInfo, runInfo)
 
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {

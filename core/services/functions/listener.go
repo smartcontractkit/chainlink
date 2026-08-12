@@ -16,9 +16,8 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"

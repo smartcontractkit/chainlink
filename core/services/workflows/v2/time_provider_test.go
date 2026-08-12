@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

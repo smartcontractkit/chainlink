@@ -20,9 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
@@ -65,6 +64,7 @@ type Core struct {
 	Mercury              Mercury              `toml:",omitempty"`
 	Capabilities         Capabilities         `toml:",omitempty"`
 	Telemetry            Telemetry            `toml:",omitempty"`
+	Metering             Metering             `toml:",omitempty"`
 	Workflows            Workflows            `toml:",omitempty"`
 	CRE                  CreConfig            `toml:",omitempty"`
 	Billing              Billing              `toml:",omitempty"`
@@ -113,6 +113,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.JobDistributor.setFrom(&f.JobDistributor)
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
+	c.Metering.setFrom(&f.Metering)
 	c.CRE.setFrom(&f.CRE)
 	c.Billing.setFrom(&f.Billing)
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
@@ -3160,6 +3161,75 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	}
 	if v := b.ChipIngressMaxGRPCRequestSize; v != nil && *v <= 0 {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxGRPCRequestSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	return err
+}
+
+// Metering configures durable resource metering emission and the coarse
+// deployment/node identity dimensions stamped on emitted MeterRecords and
+// MeterSnapshots. These are passed via loop.EnvConfig to every LOOP plugin.
+type Metering struct {
+	// MeterRecordsEnabled enables durable MeterRecord emission for LOOP plugins.
+	MeterRecordsEnabled *bool
+	// MeterSnapshotsEnabled enables durable MeterSnapshot emission. Requires
+	// MeterRecordsEnabled to be true.
+	MeterSnapshotsEnabled *bool
+	// Product is the deployment product identity dimension, e.g. "cre".
+	Product *string
+	// Tenant is the human-readable tenant name, e.g. "mainline".
+	Tenant *string
+	// NumericTenantID is the numbered tenant identifier as a string.
+	NumericTenantID *string
+	// Environment is the deployment environment dimension, e.g. "production".
+	Environment *string
+	// Zone is the deployment zone dimension, e.g. "wf-zone-a".
+	Zone *string
+	// NodeID is the node's logical name, e.g. "clp-cre-wf-zone-a-1" (NOT the CSA
+	// public key)
+	NodeID *string
+}
+
+func (b *Metering) setFrom(f *Metering) {
+	if v := f.MeterRecordsEnabled; v != nil {
+		b.MeterRecordsEnabled = v
+	}
+	if v := f.MeterSnapshotsEnabled; v != nil {
+		b.MeterSnapshotsEnabled = v
+	}
+	if v := f.Product; v != nil {
+		b.Product = v
+	}
+	if v := f.Tenant; v != nil {
+		b.Tenant = v
+	}
+	if v := f.NumericTenantID; v != nil {
+		b.NumericTenantID = v
+	}
+	if v := f.Environment; v != nil {
+		b.Environment = v
+	}
+	if v := f.Zone; v != nil {
+		b.Zone = v
+	}
+	if v := f.NodeID; v != nil {
+		b.NodeID = v
+	}
+}
+
+func (b *Metering) ValidateConfig() (err error) {
+	if b.MeterSnapshotsEnabled != nil && *b.MeterSnapshotsEnabled && (b.MeterRecordsEnabled == nil || !*b.MeterRecordsEnabled) {
+		err = errors.Join(err, configutils.ErrInvalid{
+			Name:  "MeterSnapshotsEnabled",
+			Value: true,
+			Msg:   "requires MeterRecordsEnabled to be true",
+		})
+	}
+	if b.MeterRecordsEnabled != nil && *b.MeterRecordsEnabled && (b.NodeID == nil || *b.NodeID == "") {
+		err = errors.Join(err, configutils.ErrInvalid{
+			Name:  "NodeID",
+			Value: "",
+			Msg:   "must be non-empty when MeterRecordsEnabled is true (an empty NodeID collapses per-node snapshot dedup scope DON-wide)",
+		})
 	}
 	return err
 }

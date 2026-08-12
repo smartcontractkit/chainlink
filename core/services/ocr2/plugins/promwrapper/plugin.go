@@ -13,6 +13,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 

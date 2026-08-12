@@ -4,7 +4,6 @@ import (
 	"github.com/getsentry/sentry-go"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

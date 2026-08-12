@@ -7,12 +7,11 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers/logevent"
 )
 
 const (

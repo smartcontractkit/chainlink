@@ -27,6 +27,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 
+	"github.com/smartcontractkit/wsrpc/credentials"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
@@ -35,9 +37,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc/mtls"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
-	"github.com/smartcontractkit/wsrpc/credentials"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -181,10 +180,16 @@ func setupNode(
 		// [OCR2]
 		c.OCR2.Enabled = new(true)
 		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+		// Unique per-node root for the OCR3.1 (llo/v31) pebble key-value store so the
+		// nodes in this process don't share state and nothing is written to ~/.chainlink-data.
+		c.OCR2.KeyValueStoreRootDir = new(t.TempDir())
 
 		// [P2P]
 		c.P2P.PeerID = new(p2pKey.PeerID())
 		c.P2P.TraceLogging = new(true)
+		// Required for OCR3.1 (llo/v31) networking (the "2" endpoint factory needs
+		// the experimental ragep2p host). Backward-compatible with OCR3.0.
+		c.P2P.EnableExperimentalRageP2P = new(true)
 
 		// [P2P.V2]
 		c.P2P.V2.Enabled = new(true)

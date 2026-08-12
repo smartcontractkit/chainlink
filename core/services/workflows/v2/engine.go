@@ -37,7 +37,6 @@ import (
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"

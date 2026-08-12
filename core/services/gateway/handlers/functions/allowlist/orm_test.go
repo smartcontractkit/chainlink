@@ -24,7 +24,7 @@ func setupORM(t *testing.T) (allowlist.ORM, error) {
 }
 
 func seedAllowedSenders(t *testing.T, orm allowlist.ORM, amount int) []common.Address {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	storedAllowedSenders := make([]common.Address, amount)
 	for i := range amount {
 		address := testutils.NewAddress()
@@ -39,7 +39,7 @@ func seedAllowedSenders(t *testing.T, orm allowlist.ORM, amount int) []common.Ad
 func TestORM_GetAllowedSenders(t *testing.T) {
 	t.Parallel()
 	t.Run("fetch first page", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		storedAllowedSenders := seedAllowedSenders(t, orm, 2)
@@ -50,7 +50,7 @@ func TestORM_GetAllowedSenders(t *testing.T) {
 	})
 
 	t.Run("fetch second page", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		storedAllowedSenders := seedAllowedSenders(t, orm, 2)
@@ -65,7 +65,7 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-create_an_allowed_sender", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		expected := testutils.NewAddress()
@@ -79,7 +79,7 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 	})
 
 	t.Run("OK-create_an_existing_allowed_sender", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		expected := testutils.NewAddress()
@@ -96,7 +96,7 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 	})
 
 	t.Run("OK-create_multiple_allowed_senders_in_one_query", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		expected := []common.Address{testutils.NewAddress(), testutils.NewAddress()}
@@ -111,7 +111,7 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 	})
 
 	t.Run("OK-create_multiple_allowed_senders_with_duplicates", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		addr1 := testutils.NewAddress()
@@ -131,7 +131,7 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 
 	// this scenario can happen if the allowlist is empty but we call CreateAllowedSenders
 	t.Run("OK-empty_list", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		err = orm.CreateAllowedSenders(ctx, []common.Address{})
@@ -143,7 +143,7 @@ func TestORM_DeleteAllowedSenders(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-delete_blocked_sender_from_allowed_list", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		add1 := testutils.NewAddress()
@@ -167,7 +167,7 @@ func TestORM_DeleteAllowedSenders(t *testing.T) {
 	})
 
 	t.Run("OK-delete_non_existing_blocked_sender_from_allowed_list", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		add1 := testutils.NewAddress()
@@ -196,7 +196,7 @@ func TestORM_PurgeAllowedSenders(t *testing.T) {
 	t.Parallel()
 
 	t.Run("OK-purge_allowed_list", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm, err := setupORM(t)
 		require.NoError(t, err)
 		add1 := testutils.NewAddress()
@@ -219,7 +219,7 @@ func TestORM_PurgeAllowedSenders(t *testing.T) {
 	})
 
 	t.Run("OK-purge_allowed_list_for_contract_address", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		orm1, err := setupORM(t)
 		require.NoError(t, err)
 		add1 := testutils.NewAddress()

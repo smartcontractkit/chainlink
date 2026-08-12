@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

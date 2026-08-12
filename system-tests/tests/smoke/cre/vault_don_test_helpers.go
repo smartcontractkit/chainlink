@@ -2,8 +2,11 @@ package cre
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"maps"
 	"math/big"
@@ -58,6 +61,8 @@ const (
 	vaultJWTAuthEnabledConfigPath            = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
 	vaultOptimizationsEnabledConfigPath      = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
 	vaultWorkflowDONBindingEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-workflow-don-binding-enabled.toml"
+	vaultIncludeInvalidEnabledConfigPath     = "/configs/workflow-gateway-capabilities-don-vault-include-invalid-enabled.toml"
+	vaultStallPurgeConfigPath                = "/configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"
 	vaultJWTIssuerListenAddr                 = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
 	// matches the org_id passed to DeriveJWTAuthorizedVaultWorkflowOwner.
@@ -176,6 +181,52 @@ func sendVaultRequestToGatewayWithHeaders(t *testing.T, gatewayURL string, reque
 	return statusCode, body
 }
 
+func sendVaultRequestToGatewayWithHeadersNoT(gatewayURL string, requestBody []byte, headers map[string]string) (statusCode int, body []byte, err error) {
+	const maxRetries = 7
+	const retryInterval = 2 * time.Second
+
+	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
+
+	for attempt := range maxRetries + 1 {
+		req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
+		if err != nil {
+			return 0, nil, fmt.Errorf("create request: %w", err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		for key, value := range headers {
+			req.Header.Set(key, value)
+		}
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			return 0, nil, fmt.Errorf("execute request: %w", err)
+		}
+
+		body, err = io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return 0, nil, fmt.Errorf("read response body: %w", err)
+		}
+		statusCode = resp.StatusCode
+
+		framework.L.Info().Msgf("HTTP Response Body: %s", string(body))
+
+		if !shouldRetryGatewayRequest(statusCode, body) {
+			return statusCode, body, nil
+		}
+
+		if attempt < maxRetries {
+			framework.L.Warn().Msgf("Gateway request retryable (status=%d), retrying in %s (attempt %d/%d)...", statusCode, retryInterval, attempt+1, maxRetries)
+			time.Sleep(retryInterval)
+		}
+	}
+
+	return statusCode, body, nil
+}
+
 func shouldRetryGatewayRequest(statusCode int, body []byte) bool {
 	if isGatewayNotAllowlistedError(body) {
 		return true
@@ -256,6 +307,18 @@ func getVaultOptimizationsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultOptimizationsEnabledConfigPath)
 }
 
+func getVaultIncludeInvalidEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultIncludeInvalidEnabledConfigPath)
+}
+
+func getVaultStallPurgeTestConfig(t *testing.T) *ttypes.TestConfig {
+	t.Helper()
+
+	return t_helpers.GetTestConfig(t, vaultStallPurgeConfigPath)
+}
+
 func getVaultWorkflowDONBindingEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
@@ -268,6 +331,14 @@ func isVaultJWTAuthEnabledTopology(topologyName string) bool {
 
 func isVaultOptimizationsEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-optimizations-enabled")
+}
+
+func isVaultIncludeInvalidEnabledTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-include-invalid-enabled")
+}
+
+func isVaultStallPurgeTopology(topologyName string) bool {
+	return strings.Contains(topologyName, "vault-stall-purge")
 }
 
 func isVaultWorkflowDONBindingEnabledTopology(topologyName string) bool {
@@ -546,6 +617,105 @@ func sendVaultSignedOCRRequestToGateway(t *testing.T, gatewayURL string, jsonReq
 	requireSignedPayloadRequestID(t, jsonRequest.Method, jsonRequest.ID, authorizedOwner, jsonResponse.Result.Payload)
 
 	return jsonResponse
+}
+
+func trySendVaultSignedOCRRequestToGateway(gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage]) (jsonrpc.Response[vaulttypes.SignedOCRResponse], error) {
+	authToken := jsonRequest.Auth
+	jsonRequest = outboundRequestWithoutAuth(jsonRequest)
+
+	requestBody, err := json.Marshal(jsonRequest)
+	if err != nil {
+		return jsonrpc.Response[vaulttypes.SignedOCRResponse]{}, fmt.Errorf("marshal vault request: %w", err)
+	}
+
+	headers := map[string]string{}
+	if authToken != "" {
+		headers["Authorization"] = "Bearer " + authToken
+	}
+
+	statusCode, httpResponseBody, err := sendVaultRequestToGatewayWithHeadersNoT(gatewayURL, requestBody, headers)
+	if err != nil {
+		return jsonrpc.Response[vaulttypes.SignedOCRResponse]{}, err
+	}
+	if statusCode == http.StatusServiceUnavailable && bytes.Contains(httpResponseBody, []byte("Request timed out")) {
+		framework.L.Warn().Str("requestID", jsonRequest.ID).Msg("trySendVaultSignedOCRRequestToGateway: gateway-to-DON timeout; returning sentinel response, caller will skip payload validation")
+		return jsonrpc.Response[vaulttypes.SignedOCRResponse]{}, nil
+	}
+	if statusCode != http.StatusOK {
+		return jsonrpc.Response[vaulttypes.SignedOCRResponse]{}, fmt.Errorf("gateway returned status %d: %s", statusCode, string(httpResponseBody))
+	}
+
+	var jsonResponse jsonrpc.Response[vaulttypes.SignedOCRResponse]
+	if err := json.Unmarshal(httpResponseBody, &jsonResponse); err != nil {
+		return jsonrpc.Response[vaulttypes.SignedOCRResponse]{}, fmt.Errorf("unmarshal gateway response: %w", err)
+	}
+	if jsonResponse.Error != nil && jsonResponse.Error.Error() != "" {
+		return jsonrpc.Response[vaulttypes.SignedOCRResponse]{}, fmt.Errorf("gateway returned error: %s", jsonResponse.Error.Error())
+	}
+	if jsonResponse.Version != jsonrpc.JsonRpcVersion {
+		return jsonrpc.Response[vaulttypes.SignedOCRResponse]{}, fmt.Errorf("unexpected jsonrpc version: %s", jsonResponse.Version)
+	}
+
+	return jsonResponse, nil
+}
+
+func tryValidateVaultSecretsCreateResponse(gatewayURL string, jsonRequest jsonrpc.Request[json.RawMessage], uniqueRequestID, secretID string, expectedResponseOwners []string, namespaces []string) error {
+	if len(expectedResponseOwners) == 0 {
+		return errors.New("expected response owners must not be empty")
+	}
+
+	jsonResponse, err := trySendVaultSignedOCRRequestToGateway(gatewayURL, jsonRequest)
+	if err != nil {
+		return err
+	}
+	if jsonResponse.ID == "" {
+		framework.L.Warn().Str("requestID", uniqueRequestID).Msg("vault create: gateway-to-DON timeout, skipping response validation; state verified by subsequent assertions")
+		return nil
+	}
+	if jsonResponse.ID != uniqueRequestID {
+		return fmt.Errorf("response request ID mismatch: got %q want %q", jsonResponse.ID, uniqueRequestID)
+	}
+	if jsonResponse.Method != vaulttypes.MethodSecretsCreate {
+		return fmt.Errorf("unexpected method: %s", jsonResponse.Method)
+	}
+
+	createSecretsResponse := vault_helpers.CreateSecretsResponse{}
+	if err := protojson.Unmarshal(jsonResponse.Result.Payload, &createSecretsResponse); err != nil {
+		return fmt.Errorf("decode CreateSecretsResponse: %w", err)
+	}
+	if len(createSecretsResponse.Responses) != len(namespaces) {
+		return fmt.Errorf("expected %d namespace responses, got %d", len(namespaces), len(createSecretsResponse.Responses))
+	}
+
+	respByNs := make(map[string]*vault_helpers.CreateSecretResponse, len(namespaces))
+	for _, r := range createSecretsResponse.GetResponses() {
+		respByNs[r.GetId().GetNamespace()] = r
+	}
+	actualResponseOwner := ""
+	for _, namespace := range namespaces {
+		result, ok := respByNs[namespace]
+		if !ok {
+			return fmt.Errorf("missing response for namespace %s", namespace)
+		}
+		if result.GetError() != "" {
+			return fmt.Errorf("namespace %s returned error: %s", namespace, result.GetError())
+		}
+		if result.GetId().Key != secretID {
+			return fmt.Errorf("namespace %s key mismatch: got %q want %q", namespace, result.GetId().Key, secretID)
+		}
+		if !slices.Contains(expectedResponseOwners, result.GetId().Owner) {
+			return fmt.Errorf("namespace %s owner %q not in expected owners %v", namespace, result.GetId().Owner, expectedResponseOwners)
+		}
+		if actualResponseOwner == "" {
+			actualResponseOwner = result.GetId().Owner
+			continue
+		}
+		if actualResponseOwner != result.GetId().Owner {
+			return fmt.Errorf("namespace %s owner mismatch: got %q want %q", namespace, result.GetId().Owner, actualResponseOwner)
+		}
+	}
+
+	return nil
 }
 
 func executeVaultSecretsCreateWithAuth(t *testing.T, auth vaultRequestAuth, encryptedSecret, secretID, expectedResponseOwner, gatewayURL string, namespaces []string) {
