@@ -42,11 +42,10 @@ const (
 	// confidentialCleanupWait matches the CLI's own cleanup grace period.
 	confidentialCleanupWait = 15 * time.Second
 
-	// These are resolved against the CRE environment directory rather than used
-	// as-is: the CLI defaults assume a working directory of
-	// core/scripts/cre/environment, but this test runs from smoke/cre.
+	// Resolved against the CRE environment directory rather than used as-is: the
+	// CLI defaults assume a working directory of core/scripts/cre/environment,
+	// but this test runs from smoke/cre.
 	confidentialCapabilityDefaultsConfig = "configs/capability_defaults.toml"
-	confidentialSetupConfig              = "configs/setup.toml"
 )
 
 // startConfidentialCreEnvironment starts a local CRE environment with extra
@@ -60,7 +59,7 @@ func startConfidentialCreEnvironment(
 	extraAllowedPorts []int,
 	extraFeatures ...crelib.Feature,
 ) error {
-	in, err := confidentialPreConfigure(ctx, relativePathToRepoRoot, environmentDirPath)
+	in, err := confidentialPreConfigure(relativePathToRepoRoot, environmentDirPath)
 	if err != nil {
 		return err
 	}
@@ -149,9 +148,13 @@ func startConfidentialCreEnvironment(
 }
 
 // confidentialPreConfigure clears any prior environment state and loads the
-// topology config. Purging before RunSetup matters: a stale state file from a
-// different topology would otherwise be merged into this run.
-func confidentialPreConfigure(ctx context.Context, relativePathToRepoRoot, environmentDirPath string) (*envconfig.Config, error) {
+// topology config, so a stale state file from a different topology is not
+// merged into this run.
+//
+// This deliberately skips crescriptenv.RunSetup, matching `cre env start`,
+// which only runs setup under --auto-setup (off by default, and unset in CI).
+// Setup installs host tooling such as Bun, which is unavailable on CI runners.
+func confidentialPreConfigure(relativePathToRepoRoot, environmentDirPath string) (*envconfig.Config, error) {
 	_ = stopConfidentialCreEnvironment(relativePathToRepoRoot)
 
 	if err := framework.RemoveTestContainers(); err != nil {
@@ -175,17 +178,6 @@ func confidentialPreConfigure(ctx context.Context, relativePathToRepoRoot, envir
 	}
 	if err := os.Setenv("CTF_CONFIGS", ctfConfigs); err != nil {
 		return nil, fmt.Errorf("failed to set CTF_CONFIGS: %w", err)
-	}
-
-	if setupErr := crescriptenv.RunSetup(
-		ctx,
-		crescriptenv.SetupConfig{ConfigPath: filepath.Join(environmentDirPath, confidentialSetupConfig)},
-		true,  // noPrompt
-		false, // purge
-		false, // withBilling
-		relativePathToRepoRoot,
-	); setupErr != nil {
-		return nil, errors.Wrap(setupErr, "failed to run setup")
 	}
 
 	if pkErr := creenv.SetDefaultPrivateKeyIfEmpty(blockchain.DefaultAnvilPrivateKey); pkErr != nil {
