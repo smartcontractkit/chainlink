@@ -75,6 +75,7 @@ type EngineConfig struct {
 	ShardingEnabled         bool
 	MyShardID               uint32
 	ShardRoutingSteady      *shardownership.SteadySignal
+	ShardResolver           shardownership.ShardResolver
 }
 
 type EngineLimiters struct {

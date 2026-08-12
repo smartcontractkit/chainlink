@@ -362,3 +362,21 @@ func Test_CRE_V2_Sharding(t *testing.T) {
 		ExecuteShardingTestWithEVMLogTrigger(t, testEnv)
 	})
 }
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
+	)
+	ExecuteManualShardAssignmentTest(t, testEnv)
+}
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-ringocr-overrides.toml"),
+	)
+	ExecuteRingOCROverridesTest(t, testEnv)
+}

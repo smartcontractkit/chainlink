@@ -14,10 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
@@ -26,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
@@ -1967,6 +1970,7 @@ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
 	}
 	wr := &workflowRegistry{
 		shardOrchestratorClient: client,
+		shardResolver:           shardownership.NewRingOCRShardResolver(client, logger.TestLogger(t)),
 		myShardID:               1,
 		shardingEnabled:         true,
 	}
@@ -1975,6 +1979,155 @@ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, filtered, 1)
 	require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
+}
+
+func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
+	wf1 := wfTypes.WorkflowID([32]byte{1})
+	wf2 := wfTypes.WorkflowID([32]byte{2})
+	owner1 := []byte{0xaa, 0xbb, 0xcc, 0xdd, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	owner2 := []byte{0x11, 0x22, 0x33, 0x44, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	workflows := []WorkflowMetadataView{
+		{WorkflowID: wf1, Owner: owner1, WorkflowName: "wf1"},
+		{WorkflowID: wf2, Owner: owner2, WorkflowName: "wf2"},
+	}
+
+	const manualConfigTOML = `static_default_assignment = [0]
+
+[per_owner_assignment]
+  "aabbccdd00000000000000000000000000000000" = [1]
+`
+
+	newReg := func(t *testing.T, opts ...Option) *workflowRegistry {
+		t.Helper()
+		wr, err := NewWorkflowRegistry(
+			logger.TestLogger(t),
+			func(_ context.Context, _ []byte) (types.ContractReader, error) { return nil, nil },
+			"", "test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			&eventHandler{},
+			&testDonNotifier{don: commonCap.DON{ID: 1}},
+			NewEngineRegistry(),
+			opts...,
+		)
+		require.NoError(t, err)
+		return wr
+	}
+
+	t.Run("ringocr-only: WithShardOrchestratorClient auto-wires resolver", func(t *testing.T) {
+		t.Parallel()
+		client := &mockShardMappingClient{mappings: map[string]uint32{
+			wf1.Hex(): 0,
+			wf2.Hex(): 1,
+		}}
+		wr := newReg(t,
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(client),
+		)
+		require.NotNil(t, wr.shardResolver, "resolver must be auto-wired from non-nil client")
+
+		filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+		require.NoError(t, err)
+		require.Len(t, filtered, 1)
+		require.Equal(t, wf1.Hex(), filtered[0].WorkflowID.Hex())
+	})
+
+	t.Run("manual-only: nil client does not auto-wire; explicit resolver used", func(t *testing.T) {
+		t.Parallel()
+		settings := &loop.AtomicSettings{}
+		require.NoError(t, settings.Store(core.SettingsUpdate{
+			Settings: manualConfigTOML,
+			Hash:     "test",
+		}))
+		manual := shardownership.NewManualShardResolver(settings, logger.TestLogger(t))
+		wr := newReg(t,
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(nil),
+			WithRegistryShardResolver(manual),
+		)
+		require.NotNil(t, wr.shardResolver, "resolver must be set via WithRegistryShardResolver")
+
+		// owner aabbccdd -> shard 1 (per_owner), owner 11223344 -> shard 0 (static default)
+		filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+		require.NoError(t, err)
+		require.Len(t, filtered, 1)
+		require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
+	})
+
+	t.Run("ringocr-with-overrides: explicit resolver not overwritten by auto-wire", func(t *testing.T) {
+		t.Parallel()
+		settings := &loop.AtomicSettings{}
+		require.NoError(t, settings.Store(core.SettingsUpdate{
+			Settings: manualConfigTOML,
+			Hash:     "test",
+		}))
+		ringClient := &mockShardMappingClient{mappings: map[string]uint32{
+			wf1.Hex(): 0,
+			wf2.Hex(): 1,
+		}}
+		override := shardownership.NewOverrideShardResolver(settings,
+			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
+			logger.TestLogger(t))
+		wr := newReg(t,
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(ringClient),
+			WithRegistryShardResolver(override),
+		)
+
+		// If auto-wire had overwritten the override, wf1 would pass (ringClient
+		// maps it to shard 0). With the override, manual wins for owner
+		// aabbccdd -> shard 1, so only wf2 (static default shard 0) passes.
+		filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+		require.NoError(t, err)
+		require.Len(t, filtered, 1)
+		require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
+	})
+
+	t.Run("explicit resolver before WithShardOrchestratorClient is preserved", func(t *testing.T) {
+		t.Parallel()
+		settings := &loop.AtomicSettings{}
+		require.NoError(t, settings.Store(core.SettingsUpdate{
+			Settings: manualConfigTOML,
+			Hash:     "test",
+		}))
+		ringClient := &mockShardMappingClient{mappings: map[string]uint32{
+			wf1.Hex(): 0,
+		}}
+		override := shardownership.NewOverrideShardResolver(settings,
+			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
+			logger.TestLogger(t))
+		wr := newReg(t,
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithRegistryShardResolver(override),
+			WithShardOrchestratorClient(ringClient),
+		)
+
+		// Same expectation: override resolver preserved, wf1 filtered to shard 1
+		filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+		require.NoError(t, err)
+		require.Len(t, filtered, 1)
+		require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
+	})
+
+	t.Run("nil client without explicit resolver: no filtering", func(t *testing.T) {
+		t.Parallel()
+		wr := newReg(t,
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(nil),
+		)
+		require.Nil(t, wr.shardResolver, "resolver must be nil when client is nil and no explicit resolver")
+
+		filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+		require.NoError(t, err)
+		require.Len(t, filtered, 2, "nil resolver means no filtering — all workflows pass through")
+	})
 }
 
 func TestWorkflowRegistry_getTicker_nonPositiveDuration(t *testing.T) {
