@@ -54,7 +54,7 @@ jobs:
           ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
 
       - name: Advanced Triggers
-        uses: smartcontractkit/.github/actions/advanced-triggers@08769ac0a2d63b4f42cd6244b554a26b3736f671 # DEBUG: Checking new version works
+        uses: smartcontractkit/.github/actions/advanced-triggers@advanced-triggers/v1
         id: advanced-triggers
         with:
           file-sets: |
