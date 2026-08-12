@@ -3480,7 +3480,7 @@ func (s *Sharding) setFrom(f *Sharding) {
 func (s *Sharding) ValidateConfig() (err error) {
 	if s.ShardingEnabled != nil && *s.ShardingEnabled {
 		if s.ShardIndex != nil && *s.ShardIndex > 0 {
-			mode := ShardAssignmentModeRingOCROnly
+			mode := ShardAssignmentModeManualOnly
 			if s.ShardAssignmentMode != nil {
 				mode = *s.ShardAssignmentMode
 			}

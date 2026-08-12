@@ -585,7 +585,7 @@ ArbiterRetryInterval = '12s'
 ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
-ShardAssignmentMode = 'ringocr-only'
+ShardAssignmentMode = 'manual-only'
 
 [LOOPP]
 GRPCServerMaxRecvMsgSize = '32.00mb'
