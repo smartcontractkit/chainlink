@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -133,7 +134,14 @@ type ServerRequest struct {
 	// Metadata.WorkflowDonID to match the authenticated calling DON.
 	workflowDONBindingGate limits.GateLimiter
 
-	mux  sync.Mutex
+	// stateMux guards requesters, responseSentToRequester, and response.
+	// It is held only for short map/field operations, never during capability execution.
+	stateMux sync.Mutex
+
+	// executionClaimed is set to true exactly once (via CAS) by the message that
+	// wins the right to execute the capability. All other messages skip execution.
+	executionClaimed atomic.Bool
+
 	lggr logger.Logger
 
 	metrics *srMetrics
@@ -178,9 +186,6 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) error {
 	e.metrics.countExecutionRequest(ctx)
 
-	e.mux.Lock()
-	defer e.mux.Unlock()
-
 	if msg.Sender == nil {
 		return errors.New("sender missing from message")
 	}
@@ -190,22 +195,35 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 		return fmt.Errorf("failed to convert message sender to PeerID: %w", err)
 	}
 
+	e.stateMux.Lock()
 	if err := e.addRequester(requester); err != nil {
+		e.stateMux.Unlock()
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
 
-	e.lggr.Debugw("OnMessage called for request", "calls", len(e.requesters),
-		"hasResponse", e.response != nil, "requester", requester.String(), "minRequsters", e.callingDon.F+1)
+	quorumReached := e.minimumRequiredRequestsReceived()
+	hasResponse := e.hasResponse()
+	e.stateMux.Unlock()
 
-	if e.minimumRequiredRequestsReceived() && !e.hasResponse() {
+	e.lggr.Debugw("OnMessage called for request", "requester", requester.String(),
+		"quorumReached", quorumReached, "hasResponse", hasResponse, "minRequesters", e.callingDon.F+1)
+
+	// Only one message wins the right to execute. All others skip execution
+	// and either wait for the executor's fan-out or self-send if the response
+	// is already available.
+	if quorumReached && !hasResponse && e.executionClaimed.CompareAndSwap(false, true) {
 		switch e.method {
 		case types.MethodExecute:
 			e.executeRequest(ctx, msg, executeCapabilityRequest)
 		default:
+			e.stateMux.Lock()
 			e.setError(types.Error_INTERNAL_ERROR, "unknown method %s"+e.method)
+			e.stateMux.Unlock()
 		}
 	}
 
+	e.stateMux.Lock()
+	defer e.stateMux.Unlock()
 	if err := e.sendResponses(ctx); err != nil {
 		return fmt.Errorf("failed to send responses: %w", err)
 	}
@@ -223,8 +241,14 @@ func (e *ServerRequest) Evictable(minRetention time.Duration) bool {
 }
 
 func (e *ServerRequest) Cancel(ctx context.Context, err types.Error, msg string) error {
-	e.mux.Lock()
-	defer e.mux.Unlock()
+	// If execution has been claimed, the executor will set the response when it
+	// finishes. Cancelling at that point would race with the executor's result.
+	if e.executionClaimed.Load() {
+		return nil
+	}
+
+	e.stateMux.Lock()
+	defer e.stateMux.Unlock()
 
 	if !e.hasResponse() {
 		e.setError(err, msg)
@@ -245,12 +269,15 @@ func (e *ServerRequest) executeRequest(ctx context.Context, msg *types.MessageBo
 	success := false
 	start := time.Now()
 	responsePayload, err := method(ctxWithTimeout, e.lggr, e.capability, msg.Payload, e.callingDon.ID, e.workflowDONBindingGate)
+
+	e.stateMux.Lock()
 	if err != nil {
 		e.setError(types.Error_INTERNAL_ERROR, err.Error())
 	} else {
 		success = true
 		e.setResult(responsePayload)
 	}
+	e.stateMux.Unlock()
 
 	e.metrics.countExecution(ctx, success)
 	e.metrics.recordExecutionDuration(ctx, time.Since(start), success)
