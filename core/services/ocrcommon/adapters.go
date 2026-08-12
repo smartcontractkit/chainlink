@@ -237,19 +237,32 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) getKeyBundleFromInfo(info []byte) 
 	return name, kb, nil
 }
 
+// OCR3AttestationReportContext maps an OCR3 (configDigest, seqNr) pair onto the OCR2
+// ReportContext that this adapter signs over. Anything that verifies signatures produced by
+// this adapter must build its digest from the same ReportContext, so keep this the single
+// source of truth rather than reconstructing it at the verification site.
+//
+// Note in particular that this is NOT ocr2key.ReportToSigData3: that helper hashes a two-word
+// context (configDigest, seqNr) whereas the OCR2 ReportContext used here hashes three words
+// (configDigest, epoch+round, extraHash).
+func OCR3AttestationReportContext(configDigest ocrtypes.ConfigDigest, seqNr uint64) ocrtypes.ReportContext {
+	return ocrtypes.ReportContext{
+		ReportTimestamp: ocrtypes.ReportTimestamp{
+			ConfigDigest: configDigest,
+			//nolint:gosec // G115: preserves the pre-existing adapter behaviour; seqNr does not reach uint32 max in practice
+			Epoch: uint32(seqNr),
+			Round: 0,
+		},
+		ExtraHash: [32]byte{},
+	}
+}
+
 func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
 	_, kb, err := a.getKeyBundleFromInfo(r.Info)
 	if err != nil {
 		return nil, fmt.Errorf("sign: failed to get key bundle from report info: %w", err)
 	}
-	return kb.Sign(ocrtypes.ReportContext{
-		ReportTimestamp: ocrtypes.ReportTimestamp{
-			ConfigDigest: digest,
-			Epoch:        uint32(seqNr),
-			Round:        0,
-		},
-		ExtraHash: [32]byte(make([]byte, 32)),
-	}, r.Report)
+	return kb.Sign(OCR3AttestationReportContext(digest, seqNr), r.Report)
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest ocrtypes.ConfigDigest, seqNr uint64, ri ocr3types.ReportWithInfo[[]byte], signature []byte) bool {
@@ -268,14 +281,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicK
 		a.lggr.Warnf("verify: publicKey not found: %v", kbName)
 		return false
 	}
-	return kb.Verify(publicKey, ocrtypes.ReportContext{
-		ReportTimestamp: ocrtypes.ReportTimestamp{
-			ConfigDigest: digest,
-			Epoch:        uint32(seqNr),
-			Round:        0,
-		},
-		ExtraHash: [32]byte(make([]byte, 32)),
-	}, ri.Report, signature)
+	return kb.Verify(publicKey, OCR3AttestationReportContext(digest, seqNr), ri.Report, signature)
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) MaxSignatureLength() int {

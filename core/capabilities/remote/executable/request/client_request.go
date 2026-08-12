@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -560,7 +561,11 @@ func (c *ClientRequest) verifyAttestation(resp commoncap.CapabilityResponse) err
 	if err != nil {
 		return fmt.Errorf("failed to convert response to report data: %w", err)
 	}
-	sigData := ocr2key.ReportToSigData3(attestation.ConfigDigest, attestation.SequenceNumber, reportData[:])
+	// The capability DON signs these reports through OCR3OnchainKeyringMultiChainAdapter, which maps
+	// the OCR3 (configDigest, seqNr) pair onto an OCR2 ReportContext. The digest must therefore be
+	// built from that same ReportContext -- ReportToSigData3 hashes a different (two-word) context
+	// and never matches what the capability DON actually signed.
+	sigData := ocr2key.ReportToSigData(ocrcommon.OCR3AttestationReportContext(attestation.ConfigDigest, attestation.SequenceNumber), reportData[:])
 	signed := make([]bool, len(c.signers))
 	for _, sig := range attestation.Sigs {
 		if int(sig.Signer) >= len(c.signers) {
