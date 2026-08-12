@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
 	"github.com/smartcontractkit/chainlink-confidential-compute/tests/testhelpers"
+	cctypes "github.com/smartcontractkit/chainlink-confidential-compute/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/confidentialcompute"
@@ -102,39 +102,30 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 			Int("count", len(enclaves.Enclaves)).
 			Msg("Local enclaves ready")
 
-		// 3. The capability carries the enclave list into the on-chain registry
-		//    config; the relay handler reads it from there to decide where to route.
-		confidentialcompute.ResetDeliveryState()
-		cap, err := confidentialcompute.New(
-			confidentialWorkflowsApp,
-			confidentialWorkflowsCapVersion,
-			confidentialWorkflowsApp,
-			enclaves.Enclaves,
-		)
-		require.NoError(t, err, "failed to build confidential-workflows capability")
-
-		// 4. Start the CRE environment in-process so the capability above can be
-		//    injected, then let the standard helper build the test environment
-		//    from the state file it wrote. The confidential relay feature comes
-		//    from the standard feature set, configured by the topology TOML.
-		require.NoError(t, startConfidentialCreEnvironment(
-			t.Context(),
-			tconf.RelativePathToRepoRoot,
-			tconf.EnvironmentDirPath,
-			[]crelib.InstallableCapability{cap},
-			confidentialEnclavePorts(t, enclaves),
-		), "failed to start confidential CRE environment")
-
+		// 3. Build the environment the standard way. The capability and the relay
+		//    come from the standard feature set, configured by the topology TOML,
+		//    so nothing here has to be injected as Go values.
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, tconf)
+
+		// 4. Publish the enclave list to the capability's on-chain registry config,
+		//    which the relay handler reads to decide where to route. The capability
+		//    registers with an empty list and refreshes from the registry on a timer,
+		//    so this can land after the environment is already running.
+		publishEnclaves(t, testEnv, testLogger, enclaves.Enclaves)
 
 		// 5. Point the proxy at the real gateway now that it exists.
 		gatewayURL := confidentialGatewayURL(t, testEnv)
 		require.NoError(t, gwProxy.SetTarget(gatewayURL), "failed to set gateway proxy target")
 		testLogger.Info().Str("gatewayURL", gatewayURL).Msg("Gateway proxy target set")
 
-		// 6. The engine's pre-enclave secret fetch reads VaultPublicKey and
-		//    Threshold from the vault capability's registry config, which is
-		//    registered empty. Without this, GetSecret fails inside the workflow.
+		// 6. The vault DON only serves its public key once DKG has produced a
+		//    result package on every worker. Fetching before then times out, and
+		//    how long DKG takes tracks how loaded the runner is.
+		ensureVaultDKGResultPackages(t, testEnv)
+
+		// 6a. The engine's pre-enclave secret fetch reads VaultPublicKey and
+		//     Threshold from the vault capability's registry config, which is
+		//     registered empty. Without this, GetSecret fails inside the workflow.
 		vaultPublicKey := injectVaultPublicKey(t, testEnv, testLogger, gatewayURL)
 
 		// 6b. The enclaves boot with no signer set and no master public key, so they
@@ -217,6 +208,49 @@ func confidentialGatewayURL(t *testing.T, testEnv *ttypes.TestEnvironment) strin
 
 // injectVaultPublicKey writes the vault DON's DKG public key and threshold into
 // the vault capability's registry config.
+// publishEnclaves writes the enclave list into the capability's on-chain
+// registry config and waits for the capability to pick it up.
+//
+// The capability refreshes from the registry on a ticker
+// (DefaultEnclaveRefreshIntervalSeconds, 10s), so this waits two intervals
+// rather than one: a single interval races a refresh that started just before
+// the transaction landed and therefore read the old config.
+func publishEnclaves(
+	t *testing.T,
+	testEnv *ttypes.TestEnvironment,
+	testLogger zerolog.Logger,
+	enclaves []cctypes.Enclave,
+) {
+	t.Helper()
+
+	ctx := t.Context()
+
+	require.IsType(t, &evm.Blockchain{}, testEnv.CreEnvironment.Blockchains[0], "expected EVM blockchain")
+	sethClient := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+
+	capRegAddr := crecontracts.MustGetAddressFromDataStore(
+		testEnv.CreEnvironment.CldfEnvironment.DataStore,
+		testEnv.CreEnvironment.Blockchains[0].ChainSelector(), //nolint:staticcheck // mirrors system-tests usage
+		keystone_changeset.CapabilitiesRegistry.String(),
+		testEnv.CreEnvironment.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
+		"",
+	)
+
+	config, err := confidentialcompute.MarshalRegistryConfig(enclaves)
+	require.NoError(t, err, "failed to encode enclave list for the registry")
+
+	require.NoError(t,
+		crelib.UpdateDONCapabilityConfig(ctx, sethClient, capRegAddr, confidentialWorkflowDONName, confidentialWorkflowsApp, config),
+		"failed to publish enclave list to the capabilities registry",
+	)
+
+	testLogger.Info().
+		Int("count", len(enclaves)).
+		Dur("wait", confidentialEnclaveRefreshWait).
+		Msg("Published enclave list; waiting for the capability to refresh from the registry")
+	time.Sleep(confidentialEnclaveRefreshWait)
+}
+
 func injectVaultPublicKey(t *testing.T, testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, gatewayURL string) string {
 	t.Helper()
 
@@ -388,18 +422,4 @@ func confidentialWorkflowDONContainers(testEnv *ttypes.TestEnvironment) []string
 		}
 	}
 	return names
-}
-
-// confidentialEnclavePorts returns the enclave host-server ports as ints so they
-// can be added to the gateway's outbound whitelist.
-func confidentialEnclavePorts(t *testing.T, result *testhelpers.LocalEnclaveResult) []int {
-	t.Helper()
-
-	ports := make([]int, 0, len(result.HTTPPorts)+len(result.ConfigHTTPPorts))
-	for _, p := range append(append([]string{}, result.HTTPPorts...), result.ConfigHTTPPorts...) {
-		n, err := strconv.Atoi(p)
-		require.NoError(t, err, "enclave port %q is not numeric", p)
-		ports = append(ports, n)
-	}
-	return ports
 }

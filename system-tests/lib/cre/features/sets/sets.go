@@ -4,6 +4,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	aptos_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/aptos"
 	confidential_relay_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/confidentialrelay"
+	confidential_workflows_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/confidentialworkflows"
 	consensus_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v2"
 	cron_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/cron"
 	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
@@ -28,5 +29,6 @@ func New() cre.Features {
 		&stellar_feature.Stellar{},
 		&vault_feature.Vault{},
 		&confidential_relay_feature.ConfidentialRelay{},
+		&confidential_workflows_feature.ConfidentialWorkflows{},
 	)
 }

@@ -368,11 +368,6 @@ jobs:
 
       - name: Start local CRE${{ matrix.tests.cre_version }}
         id: start-local-cre
-        # This test starts the environment in-process, to pass runtime-computed
-        # capabilities and features as Go values, and tears down any environment
-        # already running. Starting one here is torn down and rebuilt, which
-        # leaves the vault DON unable to publish its public key in time.
-        if: ${{ !contains(matrix.tests.test_name, 'ConfidentialWorkflows') }}
         uses: ./.github/actions/start-local-cre-environment
         with:
           jd-image:
@@ -382,6 +377,9 @@ jobs:
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           ctf-configs: ${{ matrix.tests.configs }}
+          # The confidential workflows test starts enclaves on the harness's
+          # default ports; the gateway needs them allowlisted to reach them.
+          env-start-extra-args: ${{ contains(matrix.tests.test_name, 'ConfidentialWorkflows') && '-e 8080,8081,8082,8083' || '' }}
           retry-count: "3"
           retry-delay-seconds: "15"
           cleanup-on-error: "false"

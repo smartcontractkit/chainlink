@@ -1,11 +1,11 @@
-// Package confidentialcompute registers a confidential compute capability (e.g.
-// confidential-workflows, confidential-http) with a CRE DON: it proposes the standardcapabilities job
-// that runs the capability binary on each worker node, and writes the enclave
-// list into the capability's on-chain registry config.
+// Package confidentialcompute holds the pieces shared by confidential compute
+// capabilities (e.g. confidential-workflows, confidential-http): reading the
+// enclave list from configuration, sealing the capability's API key to each
+// node, and building the on-chain registry entry that publishes the enclaves.
 //
-// The confidential relay handler reads that registry config to discover which
-// enclaves to route requests to, so the enclave list must be supplied before
-// the environment starts.
+// The confidential relay handler reads that registry entry to discover which
+// enclaves it may route to, so the list must be supplied before the environment
+// starts. Features under cre/features consume these.
 package confidentialcompute
 
 import (
@@ -18,118 +18,23 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/nacl/box"
+	"google.golang.org/protobuf/proto"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cctypes "github.com/smartcontractkit/chainlink-confidential-compute/types"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 )
 
 // apiKey is the API key the capability presents to the enclaves. Enclaves in
 // tests are started with a matching key; a real key is not needed, but using a
 // non-empty one keeps the encrypt/decrypt path exercised.
 const apiKey = "foobar"
-
-var jobTemplate = `
-type = "standardcapabilities"
-schemaVersion = 1
-externalJobID = "%s"
-forwardingAllowed = false
-command = "%s"
-name = "%s"
-config = %s
-`
-
-// jobsDelivered guards against the job spec function being invoked more than
-// once per capability name for a single environment.
-var jobsDelivered = make(map[string]bool)
-
-// ResetDeliveryState clears the jobsDelivered guard so job specs can be
-// re-delivered when a new CRE environment is created (e.g. across subtests).
-func ResetDeliveryState() {
-	jobsDelivered = make(map[string]bool)
-}
-
-// New returns an InstallableCapability for a confidential compute capability.
-// name is both the DON capability flag and the registered LabelledName (e.g.
-// "confidential-http"); binaryName is the capability binary the node runs.
-// Pass a nil enclaves slice to register the capability with an empty enclave
-// list, which is enough to satisfy config validation for capabilities the test
-// does not exercise.
-func New(name, version, binaryName string, enclaves []cctypes.Enclave) (*capabilities.Capability, error) {
-	return capabilities.New( //nolint:staticcheck // SA1019 mirrors existing capability registrations
-		name,
-		capabilities.WithJobSpecFn(jobSpec(name, binaryName)),
-		capabilities.WithCapabilityRegistryV2ConfigFn(registryConfigFn(name, version, enclaves)),
-	)
-}
-
-func jobSpec(name string, binaryName string) cre.JobSpecFn {
-	return func(input *cre.JobSpecInput) (cre.DonJobs, error) {
-		if jobsDelivered[name] {
-			return nil, nil
-		}
-		jobsDelivered[name] = true
-
-		donJobs := make(cre.DonJobs, 0)
-		for _, don := range input.Dons.List() {
-			if !don.HasFlag(name) {
-				continue
-			}
-
-			workerNodes, wErr := don.Workers()
-			if wErr != nil {
-				return nil, errors.Wrap(wErr, "failed to find worker nodes")
-			}
-
-			encryptedAPIKeys := make([]string, 0, len(workerNodes))
-			for _, workerNode := range workerNodes {
-				publicKey, kErr := workflowEncryptionKey(workerNode)
-				if kErr != nil {
-					return nil, kErr
-				}
-
-				ctxt, sErr := box.SealAnonymous(nil, []byte(apiKey), &publicKey, rand.Reader)
-				if sErr != nil {
-					return nil, errors.Wrap(sErr, "failed to seal API key")
-				}
-				encryptedAPIKeys = append(encryptedAPIKeys, hex.EncodeToString(ctxt))
-			}
-
-			for _, workerNode := range workerNodes {
-				// Keep liveness detection aggressive in e2e so failover traffic starts
-				// only after each node has had a chance to observe a dead enclave.
-				config := map[string]any{
-					"InsecureSkipTLSVerify":  true,
-					"EncryptedAPIKeys":       strings.Join(encryptedAPIKeys, ","),
-					"EnableCache":            true,
-					"EnableProactiveRefresh": true,
-					"MaxRetries":             3,
-					"RetryBackoffSeconds":    5,
-				}
-				configBytes, mErr := json.Marshal(config)
-				if mErr != nil {
-					return nil, errors.Wrap(mErr, "failed to marshal capability config")
-				}
-				donJobs = append(donJobs, &jobv1.ProposeJobRequest{
-					NodeId: workerNode.JobDistributorDetails.NodeID,
-					Spec:   fmt.Sprintf(jobTemplate, uuid.NewString(), binaryName, name, fmt.Sprintf("'%s'", string(configBytes))),
-				})
-			}
-		}
-
-		return donJobs, nil
-	}
-}
 
 // workflowEncryptionKey reads a node's workflow public encryption key, which is
 // used to seal the capability's API key so it is not stored in plaintext.
@@ -187,6 +92,94 @@ func workflowEncryptionKey(workerNode *cre.Node) ([32]byte, error) {
 // enclaves, letting a topology declare them instead of passing Go values.
 const EnclavesConfigKey = "enclaves"
 
+// EncryptedAPIKeys seals the capability's API key to each worker node's workflow
+// public key, so it is never stored in plaintext. The capability is configured
+// with every node's sealed copy; each node decrypts only its own.
+func EncryptedAPIKeys(workerNodes []*cre.Node) ([]string, error) {
+	encrypted := make([]string, 0, len(workerNodes))
+	for _, workerNode := range workerNodes {
+		publicKey, kErr := workflowEncryptionKey(workerNode)
+		if kErr != nil {
+			return nil, kErr
+		}
+
+		ctxt, sErr := box.SealAnonymous(nil, []byte(apiKey), &publicKey, rand.Reader)
+		if sErr != nil {
+			return nil, errors.Wrap(sErr, "failed to seal API key")
+		}
+		encrypted = append(encrypted, hex.EncodeToString(ctxt))
+	}
+
+	return encrypted, nil
+}
+
+// JobConfigJSON builds the capability job's config. Liveness detection is kept
+// aggressive so failover traffic starts only once each node has had a chance to
+// observe a dead enclave.
+func JobConfigJSON(encryptedAPIKeys []string) (string, error) {
+	config := map[string]any{
+		"InsecureSkipTLSVerify":  true,
+		"EncryptedAPIKeys":       strings.Join(encryptedAPIKeys, ","),
+		"EnableCache":            true,
+		"EnableProactiveRefresh": true,
+		"MaxRetries":             3,
+		"RetryBackoffSeconds":    5,
+	}
+
+	configBytes, err := json.Marshal(config)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal capability config")
+	}
+
+	return string(configBytes), nil
+}
+
+// RegistryCapabilityConfig builds the on-chain registry entry that publishes the
+// enclave list, which is how the confidential relay handler discovers where it
+// may route requests.
+func RegistryCapabilityConfig(name, version string, enclaves []cctypes.Enclave) (keystone_changeset.DONCapabilityWithConfig, error) {
+	wrappedConfig, err := values.WrapMap(cctypes.EnclavesList{Enclaves: enclaves})
+	if err != nil {
+		return keystone_changeset.DONCapabilityWithConfig{}, errors.Wrap(err, "failed to wrap enclave list config")
+	}
+
+	return keystone_changeset.DONCapabilityWithConfig{
+		Capability: kcr.CapabilitiesRegistryCapability{
+			LabelledName:   name,
+			Version:        version,
+			CapabilityType: 1, // ACTION
+		},
+		Config: &capabilitiespb.CapabilityConfig{
+			DefaultConfig: values.Proto(wrappedConfig).GetMapValue(),
+			LocalOnly:     true,
+		},
+	}, nil
+}
+
+// MarshalRegistryConfig encodes an enclave list as the capability's on-chain
+// registry config, for publishing enclaves to a DON that is already running.
+//
+// A fresh CapabilityConfig is built rather than decoding and re-encoding what is
+// already on-chain, so config left by a broken earlier run cannot corrupt this one.
+func MarshalRegistryConfig(enclaves []cctypes.Enclave) ([]byte, error) {
+	wrappedConfig, err := values.WrapMap(cctypes.EnclavesList{Enclaves: enclaves})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to wrap enclave list config")
+	}
+
+	// LocalOnly must match what RegistryCapabilityConfig writes at startup, or
+	// updating the enclave list would silently change the capability's scope.
+	encoded, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
+		DefaultConfig: values.Proto(wrappedConfig).GetMapValue(),
+		LocalOnly:     true,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal capability config")
+	}
+
+	return encoded, nil
+}
+
 // MarshalEnclaves encodes an enclave list for EnclavesConfigKey, for callers
 // that discover their enclaves at runtime and hand them to the environment as
 // configuration.
@@ -227,46 +220,4 @@ func EnclavesFromConfig(nodeSet *cre.NodeSet, name string) ([]cctypes.Enclave, e
 	}
 
 	return enclaves, nil
-}
-
-// registryConfigFn writes the enclave list into the capability's on-chain
-// registry config, which is how the confidential relay handler discovers the
-// enclaves it may route to.
-func registryConfigFn(name string, version string, enclaves []cctypes.Enclave) cre.CapabilityRegistryConfigFn {
-	return func(donFlags []string, nodeSet *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
-		if !flags.HasFlag(donFlags, name) {
-			return nil, nil
-		}
-
-		// Go-supplied enclaves win; otherwise use whatever the topology declared,
-		// so callers that only learn their enclaves at runtime and callers that
-		// can configure them up front are both served.
-		list := enclaves
-		if len(list) == 0 {
-			fromConfig, cErr := EnclavesFromConfig(nodeSet, name)
-			if cErr != nil {
-				return nil, cErr
-			}
-			list = fromConfig
-		}
-
-		wrappedConfig, err := values.WrapMap(cctypes.EnclavesList{Enclaves: list})
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to wrap enclave list config")
-		}
-
-		return []keystone_changeset.DONCapabilityWithConfig{
-			{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   name,
-					Version:        version,
-					CapabilityType: 1, // ACTION
-				},
-				Config: &capabilitiespb.CapabilityConfig{
-					DefaultConfig: values.Proto(wrappedConfig).GetMapValue(),
-					LocalOnly:     true,
-				},
-			},
-		}, nil
-	}
 }

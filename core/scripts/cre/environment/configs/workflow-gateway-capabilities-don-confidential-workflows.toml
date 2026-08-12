@@ -20,6 +20,14 @@
     trustEnclaves = true
     requireBFTQuorum = true
 
+# The "enclaves" value is a JSON array of enclaves the capability routes to.
+# Whoever starts the enclaves supplies it, since their addresses are only known
+# once they are running; absent it, the capability registers an empty list.
+[capability_configs.confidential-workflows]
+  binary_name = "confidential-workflows"
+  [capability_configs.confidential-workflows.values]
+    version = "1.0.0-alpha"
+
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
 
