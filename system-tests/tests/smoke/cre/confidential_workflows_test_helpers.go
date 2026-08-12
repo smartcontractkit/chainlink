@@ -65,6 +65,10 @@ const (
 
 	// confidentialWorkflowSrcDir holds the WASM workflow the test compiles.
 	confidentialWorkflowSrcDir = "testdata/confidentialworkflow"
+
+	// confidentialEnclaveRegion is recorded on each enclave descriptor. Descriptor
+	// hashes cover it, so it must match what the enclave itself reports.
+	confidentialEnclaveRegion = "us-west-2"
 )
 
 // ---------------------------------------------------------------------------

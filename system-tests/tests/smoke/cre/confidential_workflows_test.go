@@ -47,10 +47,6 @@ const (
 
 	// confidentialVaultThreshold matches the 4-node F=1 vault DON.
 	confidentialVaultThreshold = 1
-
-	// confidentialEnclaveRegion is recorded on each enclave descriptor. Descriptor
-	// hashes cover it, so it must match what the enclave itself reports.
-	confidentialEnclaveRegion = "us-west-2"
 )
 
 // Test_CRE_V2_ConfidentialWorkflows_Relay exercises the confidential workflows
