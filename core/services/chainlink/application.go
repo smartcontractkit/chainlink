@@ -651,7 +651,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				"run",
 				"--ocr.listen-addresses=" + strings.Join(cfg.P2P().V2().ListenAddresses(), ","),
 				fmt.Sprintf("--proxy.listen-address=:%d", cfg.Capabilities().Proxy().Port()),
-				"--capabilities-registry-address=" + extRegistry.Address(),
+				"--capabilities-registry.address=" + extRegistry.Address(),
 				"--evm.chain-id=" + extRegistry.ChainID(),
 				"--evm.http-url=" + proxyEVMHTTPURL,
 				"--database.url=" + proxyDBURL.String(),
