@@ -142,6 +142,14 @@ type ServerRequest struct {
 	// wins the right to execute the capability. All other messages skip execution.
 	executionClaimed atomic.Bool
 
+	// executionDone is closed by the executor after it writes the response under stateMux.
+	// Cancel waits on this channel to avoid a race where it could acquire stateMux
+	// between "executor finishes capability call" and "executor writes response",
+	// see no response, and set a timeout error. The executor would then overwrite
+	// with success, but all requesters would already be marked as sent — leaving
+	// them with the timeout error while the success response is lost.
+	executionDone chan struct{}
+
 	lggr logger.Logger
 
 	metrics *srMetrics
@@ -178,6 +186,7 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 		requestTimeout:          requestTimeout,
 		capMethodName:           capMethodName,
 		workflowDONBindingGate:  workflowDONBindingGate,
+		executionDone:           make(chan struct{}),
 		lggr:                    lggr,
 		metrics:                 m,
 	}, nil
@@ -202,11 +211,12 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	}
 
 	quorumReached := e.minimumRequiredRequestsReceived()
+	calls := len(e.requesters)
 	hasResponse := e.hasResponse()
 	e.stateMux.Unlock()
 
 	e.lggr.Debugw("OnMessage called for request", "requester", requester.String(),
-		"quorumReached", quorumReached, "hasResponse", hasResponse, "minRequesters", e.callingDon.F+1)
+		"quorumReached", quorumReached, "hasResponse", hasResponse, "minRequesters", e.callingDon.F+1, "calls", calls)
 
 	// Only one message wins the right to execute. All others skip execution
 	// and either wait for the executor's fan-out or self-send if the response
@@ -219,6 +229,7 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 			e.stateMux.Lock()
 			e.setError(types.Error_INTERNAL_ERROR, "unknown method %s"+e.method)
 			e.stateMux.Unlock()
+			close(e.executionDone)
 		}
 	}
 
@@ -241,15 +252,21 @@ func (e *ServerRequest) Evictable(minRetention time.Duration) bool {
 }
 
 func (e *ServerRequest) Cancel(ctx context.Context, err types.Error, msg string) error {
-	// If execution has been claimed, the executor will set the response when it
-	// finishes. Cancelling at that point would race with the executor's result.
+	// If execution has been claimed, wait for it to complete so we can overwrite
+	// the response with the cancellation error.
 	if e.executionClaimed.Load() {
-		return nil
+		select {
+		case <-e.executionDone:
+			// Execution finished, safe to overwrite response
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 
 	e.stateMux.Lock()
 	defer e.stateMux.Unlock()
 
+	// Only set cancellation error if no response exists (matches original behavior)
 	if !e.hasResponse() {
 		e.setError(err, msg)
 		if err := e.sendResponses(ctx); err != nil {
@@ -278,6 +295,8 @@ func (e *ServerRequest) executeRequest(ctx context.Context, msg *types.MessageBo
 		e.setResult(responsePayload)
 	}
 	e.stateMux.Unlock()
+
+	close(e.executionDone)
 
 	e.metrics.countExecution(ctx, success)
 	e.metrics.recordExecutionDuration(ctx, time.Since(start), success)
