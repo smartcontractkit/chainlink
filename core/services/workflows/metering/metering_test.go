@@ -2018,7 +2018,7 @@ func Test_toRateCard_GasDecimalPoints(t *testing.T) {
 			RateCards: successRates,
 			GasTokensPerCredit: map[uint64]string{
 				5009297550715157269: "230140614074074", // ETH mainnet
-				6142183432164934935: "1000000000",       // Solana mainnet
+				6142183432164934935: "1000000000",      // Solana mainnet
 			},
 			GasDecimalPoints: map[uint64]uint32{
 				5009297550715157269: 18, // ETH
