@@ -13,15 +13,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
+	p2p "github.com/smartcontractkit/capabilities/libs/x/rage"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/p2p"
-	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
 type peerWrapper struct {
-	peer        types.Peer
+	peer        p2p.Peer
 	keystoreP2P keystore.P2P
 	p2pConfig   config.P2P
 	privateKey  crypto.Signer
@@ -29,7 +29,7 @@ type peerWrapper struct {
 	ds          sqlutil.DataSource
 }
 
-var _ types.PeerWrapper = &peerWrapper{}
+var _ p2p.PeerWrapper = &peerWrapper{}
 
 func NewExternalPeerWrapper(keystoreP2P keystore.P2P, p2pConfig config.P2P, ds sqlutil.DataSource, lggr logger.Logger) *peerWrapper {
 	return &peerWrapper{
@@ -40,7 +40,7 @@ func NewExternalPeerWrapper(keystoreP2P keystore.P2P, p2pConfig config.P2P, ds s
 	}
 }
 
-func (e *peerWrapper) GetPeer() types.Peer {
+func (e *peerWrapper) GetPeer() p2p.Peer {
 	return e.peer
 }
 
@@ -84,7 +84,7 @@ func convertBootstrapperLocators(bootstrappers []commontypes.BootstrapperLocator
 		for i, a := range b.Addrs {
 			addrs[i] = ragetypes.Address(a)
 		}
-		var rageID types.PeerID
+		var rageID p2p.PeerID
 		err := rageID.UnmarshalText([]byte(b.PeerID))
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal v2 peer ID (%q) from BootstrapperLocator: %w", b.PeerID, err)

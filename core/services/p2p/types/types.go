@@ -1,53 +1,20 @@
+// Package types re-exports the DON-to-DON peer types now living in capabilities/libs/x/rage, so
+// callers that only need the type/interface definitions (not the peer implementation itself, which
+// moved) can keep importing this path unchanged.
 package types
 
 import (
-	"context"
-
-	"github.com/smartcontractkit/libocr/ragep2p"
+	"github.com/smartcontractkit/capabilities/libs/x/rage"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
-const PeerIDLength = 32
-
-type PeerID = ragetypes.PeerID
-
-type Peer interface {
-	services.Service
-	ID() PeerID
-	UpdateConnections(peers map[PeerID]StreamConfig) error
-	Send(peerID PeerID, msg []byte) error
-	Receive() <-chan Message
-	IsBootstrap() bool
-}
-
-type DonPair [2]capabilities.DON
-type SharedPeer interface {
-	Peer
-	UpdateConnectionsByDONs(ctx context.Context, donPairs []DonPair, streamConfig StreamConfig) error
-}
-
-type PeerWrapper interface {
-	services.Service
-	GetPeer() Peer
-}
-
-type Signer interface {
-	Initialize() error
-	Sign(data []byte) ([]byte, error)
-}
-
-type Message struct {
-	Sender  PeerID
-	Payload []byte
-}
-
-type StreamConfig struct {
-	IncomingMessageBufferSize int
-	OutgoingMessageBufferSize int
-	MaxMessageLenBytes        int
-	MessageRateLimiter        ragep2p.TokenBucketParams
-	BytesRateLimiter          ragep2p.TokenBucketParams
-}
+type (
+	PeerID       = ragetypes.PeerID
+	Peer         = rage.Peer
+	DonPair      = rage.DonPair
+	SharedPeer   = rage.SharedPeer
+	PeerWrapper  = rage.PeerWrapper
+	Signer       = rage.Signer
+	Message      = rage.Message
+	StreamConfig = rage.StreamConfig
+)

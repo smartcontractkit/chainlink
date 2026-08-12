@@ -29,7 +29,6 @@ import (
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
@@ -838,7 +837,7 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 }
 
 func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.LocalRegistry {
-	workflowDonNodes := []p2ptypes.PeerID{
+	workflowDonNodes := []ragetypes.PeerID{
 		pid,
 		coreCap.RandomUTF8BytesWord(),
 		coreCap.RandomUTF8BytesWord(),
@@ -848,7 +847,7 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.Loc
 	dID := uint32(1)
 	localRegistry := registrysyncer.NewLocalRegistry(
 		logger.TestLogger(t),
-		func() (p2ptypes.PeerID, error) { return pid, nil },
+		func() (ragetypes.PeerID, error) { return pid, nil },
 		map[registrysyncer.DonID]registrysyncer.DON{
 			registrysyncer.DonID(dID): {
 				DON: capabilities.DON{
@@ -861,7 +860,7 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.Loc
 				},
 			},
 		},
-		map[p2ptypes.PeerID]registrysyncer.NodeInfo{
+		map[ragetypes.PeerID]registrysyncer.NodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorID:      1,
 				WorkflowDONId:       dID,
@@ -902,7 +901,7 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.Loc
 }
 
 func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPublicKey [32]byte, vaultPublicKey []byte) *registrysyncer.LocalRegistry {
-	workflowDonNodes := []p2ptypes.PeerID{
+	workflowDonNodes := []ragetypes.PeerID{
 		pid,
 	}
 
@@ -920,7 +919,7 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 	dID := uint32(1)
 	localRegistry := registrysyncer.NewLocalRegistry(
 		logger.TestLogger(t),
-		func() (p2ptypes.PeerID, error) { return pid, nil },
+		func() (ragetypes.PeerID, error) { return pid, nil },
 		map[registrysyncer.DonID]registrysyncer.DON{
 			registrysyncer.DonID(dID): {
 				DON: capabilities.DON{
@@ -938,7 +937,7 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 				},
 			},
 		},
-		map[p2ptypes.PeerID]registrysyncer.NodeInfo{
+		map[ragetypes.PeerID]registrysyncer.NodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorID:      1,
 				WorkflowDONId:       dID,

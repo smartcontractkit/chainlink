@@ -1,55 +1,30 @@
-// Note: the proto_path below directive ensures the generated protobuf's file descriptor has a fully
-// qualified path, ensuring we avoid conflicts with other files called messages.proto
-//
-//go:generate protoc --proto_path=../../../../ --go_out=../../../../ --go_opt=paths=source_relative core/capabilities/remote/types/messages.proto
+// Package types re-exports the DON-to-DON dispatcher types now living in
+// capabilities/libs/x/don2don/types, so callers that only need the type/interface definitions (not
+// the dispatcher implementation itself, which moved) can keep importing this path unchanged.
 package types
 
 import (
-	"context"
-
-	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	don2dontypes "github.com/smartcontractkit/capabilities/libs/x/don2don/types"
 )
 
 const (
-	MethodRegisterTrigger          = "RegisterTrigger"
-	MethodUnregisterTrigger        = "UnregisterTrigger"
-	MethodTriggerRegistrationCheck = "TriggerRegistrationCheck"
-	MethodTriggerEvent             = "TriggerEvent"
-	MethodExecute                  = "Execute"
-	MethodTriggerEventAck          = "TriggerEventACK"
+	MethodRegisterTrigger          = don2dontypes.MethodRegisterTrigger
+	MethodUnregisterTrigger        = don2dontypes.MethodUnregisterTrigger
+	MethodTriggerRegistrationCheck = don2dontypes.MethodTriggerRegistrationCheck
+	MethodTriggerEvent             = don2dontypes.MethodTriggerEvent
+	MethodExecute                  = don2dontypes.MethodExecute
+	MethodTriggerEventAck          = don2dontypes.MethodTriggerEventAck
 )
 
-type Dispatcher interface {
-	services.Service
-	SetReceiver(capabilityID string, donID uint32, receiver Receiver) error
-	RemoveReceiver(capabilityID string, donID uint32)
-	SetReceiverForMethod(capabilityID string, donID uint32, method string, receiver Receiver) error
-	RemoveReceiverForMethod(capabilityID string, donID uint32, method string)
-	Send(peerID p2ptypes.PeerID, msgBody *MessageBody) error
-}
+type (
+	Dispatcher      = don2dontypes.Dispatcher
+	Receiver        = don2dontypes.Receiver
+	ReceiverService = don2dontypes.ReceiverService
+	Aggregator      = don2dontypes.Aggregator
+	DON             = don2dontypes.DON
+	MessageHasher   = don2dontypes.MessageHasher
 
-type Receiver interface {
-	Receive(ctx context.Context, msg *MessageBody)
-}
-
-type ReceiverService interface {
-	services.Service
-	Receiver
-}
-
-type Aggregator interface {
-	Aggregate(eventID string, responses [][]byte) (commoncap.TriggerResponse, error)
-}
-
-// NOTE: this type will become part of the Registry (KS-108)
-type DON struct {
-	ID      string
-	Members []p2ptypes.PeerID
-	F       uint8
-}
-
-type MessageHasher interface {
-	Hash(msg *MessageBody) ([32]byte, error)
-}
+	MessageBody                      = don2dontypes.MessageBody
+	MessageBody_TriggerEventMetadata = don2dontypes.MessageBody_TriggerEventMetadata
+	TriggerEventMetadata             = don2dontypes.TriggerEventMetadata
+)

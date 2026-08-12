@@ -16,6 +16,9 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/libocr/networking"
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
@@ -34,13 +37,15 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
 
+	remote "github.com/smartcontractkit/capabilities/libs/x/don2don"
+	remotetypes "github.com/smartcontractkit/capabilities/libs/x/don2don/types"
+	p2ptypes "github.com/smartcontractkit/capabilities/libs/x/rage"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
-	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	capStreams "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -48,7 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2pmain "github.com/smartcontractkit/chainlink/v2/core/services/p2p"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	p2pwrapper "github.com/smartcontractkit/chainlink/v2/core/services/p2p/wrapper"
 	registrysyncerV1 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	registrysyncerV2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
@@ -608,19 +612,48 @@ func (w *dispatcherWrapper) newSubservices(
 		if len(bootstrappers) == 0 {
 			bootstrappers = cfg.P2P().V2().DefaultBootstrappers()
 		}
-		w.don2DonSharedPeer = p2pmain.NewDon2DonSharedPeer(singletonPeerWrapper, bootstrappers, lggr)
+		w.don2DonSharedPeer = p2ptypes.NewDon2DonSharedPeer(singletonPeerSource{singletonPeerWrapper}, bootstrappers, lggr)
 		subs = append(subs, w.don2DonSharedPeer)
 
 		signer = p2pmain.NewSigner(keyStore.P2P(), cfg.P2P().PeerID())
 	}
 
-	remoteDispatcher, err := remote.NewDispatcher(capCfg.Dispatcher(), w.externalPeerWrapper, w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr)
+	remoteDispatcher, err := remote.NewDispatcher(donDispatcherConfig(capCfg.Dispatcher()), w.externalPeerWrapper, w.don2DonSharedPeer, signer, opts.CapabilitiesRegistry, lggr)
 	if err != nil {
 		return nil, fmt.Errorf("could not create dispatcher: %w", err)
 	}
 	w.dispatcher = remoteDispatcher
 	subs = append(subs, remoteDispatcher)
 	return subs, nil
+}
+
+// singletonPeerSource adapts *ocrcommon.SingletonPeerWrapper's fields into the methods
+// p2ptypes.PeerSource (rage.PeerSource) needs. SingletonPeerWrapper is shared with plain OCR jobs
+// and stays a field-based struct for that; this is the only place D2D reaches into it.
+type singletonPeerSource struct {
+	spw *ocrcommon.SingletonPeerWrapper
+}
+
+func (s singletonPeerSource) PeerGroupFactory() networking.PeerGroupFactory {
+	return s.spw.PeerGroupFactory
+}
+func (s singletonPeerSource) PeerID() ragetypes.PeerID { return ragetypes.PeerID(s.spw.PeerID) }
+
+// donDispatcherConfig adapts core's config.Dispatcher view onto a node's TOML into the plain struct
+// don2don.NewDispatcher takes.
+func donDispatcherConfig(cfg config.Dispatcher) remote.DispatcherConfig {
+	rl := cfg.RateLimit()
+	return remote.DispatcherConfig{
+		SupportedVersion:   cfg.SupportedVersion(),
+		ReceiverBufferSize: cfg.ReceiverBufferSize(),
+		RateLimit: remote.DispatcherRateLimit{
+			GlobalRPS:      rl.GlobalRPS(),
+			GlobalBurst:    rl.GlobalBurst(),
+			PerSenderRPS:   rl.PerSenderRPS(),
+			PerSenderBurst: rl.PerSenderBurst(),
+		},
+		SendToSharedPeer: cfg.SendToSharedPeer(),
+	}
 }
 
 func newLocalTestMetadataRegistry(localCfg config.LocalCapabilities) *capabilities.TestMetadataRegistry {

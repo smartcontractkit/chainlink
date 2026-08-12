@@ -21,15 +21,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 
+	remote "github.com/smartcontractkit/capabilities/libs/x/don2don"
+	"github.com/smartcontractkit/capabilities/libs/x/don2don/aggregation"
+	"github.com/smartcontractkit/capabilities/libs/x/don2don/executable"
+	"github.com/smartcontractkit/capabilities/libs/x/don2don/transmission"
+	remotetypes "github.com/smartcontractkit/capabilities/libs/x/don2don/types"
+	p2ptypes "github.com/smartcontractkit/capabilities/libs/x/rage"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
-	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 

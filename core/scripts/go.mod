@@ -15,6 +15,12 @@ replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examp
 // (pulled in transitively by mcms v0.47.x). Pin to the version the rest of the repo uses.
 replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
 
+// Local override: rage/don2don are moving from core into capabilities/libs/x.
+replace github.com/smartcontractkit/capabilities/libs => ../../../capabilities/libs
+
+// libs/go.mod replaces chainlink-common locally too; match it here so both resolve to the same copy.
+replace github.com/smartcontractkit/chainlink-common => ../../../chainlink-common
+
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
@@ -44,10 +50,11 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/rs/zerolog v1.35.1
 	github.com/shopspring/decimal v1.4.0
+	github.com/smartcontractkit/capabilities/libs v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chain-selectors v1.0.106
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260805174449-86b0bd040b49
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260807193849-47d010760510
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-data-streams v1.0.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.111.1-0.20260612191326-e31c0ae4cd54

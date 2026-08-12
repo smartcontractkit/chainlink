@@ -30,7 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
+	"github.com/smartcontractkit/capabilities/libs/x/don2don/transmission"
+
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
