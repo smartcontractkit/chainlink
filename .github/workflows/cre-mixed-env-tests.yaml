@@ -181,6 +181,22 @@ jobs:
           path: system-tests/tests/bin/
           key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
 
+      - name: Compute WASM cache key
+        id: wasm-key
+        shell: bash
+        run: |
+          GO_VERSION=$(go env GOVERSION)
+          echo "key=${{ runner.os }}-${{ runner.arch }}-wasmcache-cre-${GO_VERSION}-${{ hashFiles('core/scripts/cre/environment/examples/workflows/**', 'core/scripts/cre/environment/go.mod', 'core/scripts/cre/environment/go.sum') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore WASM cache
+        id: wasm-cache-restore
+        uses: actions/cache/restore@v6
+        with:
+          path: .wasm-cache/
+          key: ${{ steps.wasm-key.outputs.key }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-wasmcache-cre-
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
@@ -432,3 +448,10 @@ jobs:
           for c in $(docker ps -a --format '{{.Names}}'); do
             docker logs "$c" > "logs/${c}.log" 2>&1
           done
+
+      - name: Save WASM cache
+        if: success() && steps.wasm-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .wasm-cache/
+          key: ${{ steps.wasm-cache-restore.outputs.cache-primary-key }}

@@ -346,7 +346,8 @@ jobs:
         id: wasm-key
         shell: bash
         run: |
-          echo "key=${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}" >> "$GITHUB_OUTPUT"
+          GO_VERSION=$(go env GOVERSION)
+          echo "key=${{ runner.os }}-${{ runner.arch }}-wasmcache-${GO_VERSION}-${{ hashFiles('go.mod', 'go.sum', 'core/internal/testutils/wasmtest/**', 'core/services/workflows/test/wasm/**', 'core/services/workflows/cmd/cre/examples/**', 'core/services/job/testdata/wasm/**') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore WASM test binaries cache
         if: ${{ matrix.type.should-run == 'true' }}
@@ -592,9 +593,9 @@ jobs:
             # Not a scheduled event - no frequencies to set. They default to false.
             exit 0
           fi
-          
-          curent_day=$(date +%u)
-          if [ "$curent_day" -ge 6 ]; then
+
+          current_day=$(date +%u)
+          if [ "$current_day" -ge 6 ]; then
             # Weekend
             exit 0
           fi

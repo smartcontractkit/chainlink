@@ -12,6 +12,8 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/wasmbuild"
 )
 
 type Language = string
@@ -53,31 +55,23 @@ func CompileWorkflowToDir(ctx context.Context, workflowFilePath, workflowName, o
 		return "", errors.Wrap(lErr, "failed to detect workflow language")
 	}
 
-	var workflowWasmAbsPath string
-	var err error
 	switch language {
 	case LanguageGo:
-		workflowWasmAbsPath, err = compileGoWorkflow(ctx, workflowFilePath, workflowName, outputDir)
+		return compileGoWorkflow(ctx, workflowFilePath, workflowName, outputDir)
 	case LanguageTS:
-		workflowWasmAbsPath, err = compileTSWorkflow(ctx, workflowFilePath, workflowName, outputDir)
+		workflowWasmAbsPath, err := compileTSWorkflow(ctx, workflowFilePath, workflowName, outputDir)
+		if err != nil {
+			return "", fmt.Errorf("failed to compile %s workflow: %w", language, err)
+		}
+		compressedPath, err := compressWorkflow(workflowWasmAbsPath)
+		if err != nil {
+			return "", errors.Wrap(err, "failed to compress workflow")
+		}
+		_ = os.Remove(workflowWasmAbsPath)
+		return compressedPath, nil
 	default:
 		return "", fmt.Errorf("unsupported workflow language: %s", language)
 	}
-
-	if err != nil {
-		return "", fmt.Errorf("failed to compile %s workflow: %w", language, err)
-	}
-
-	compressedWorkflowWasmPath, compressedWorkflowWasmPathErr := compressWorkflow(workflowWasmAbsPath)
-	if compressedWorkflowWasmPathErr != nil {
-		return "", errors.Wrap(compressedWorkflowWasmPathErr, "failed to compress workflow")
-	}
-
-	defer func() {
-		_ = os.Remove(workflowWasmAbsPath)
-	}()
-
-	return compressedWorkflowWasmPath, nil
 }
 
 func delectLanguage(workflowFilePath string) (Language, error) {
@@ -110,28 +104,29 @@ func compileTSWorkflow(ctx context.Context, workflowFilePath, workflowName, outp
 }
 
 func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName, outputDir string) (string, error) {
-	workflowWasmPath := filepath.Join(outputDir, workflowName+".wasm")
+	pkgDir := filepath.Dir(workflowFilePath)
 
-	goModTidyCmd := exec.CommandContext(ctx, "go", "mod", "tidy")
-	goModTidyCmd.Dir = filepath.Dir(workflowFilePath)
-	if output, err := goModTidyCmd.CombinedOutput(); err != nil {
-		return "", errors.Wrapf(err, "failed to run go mod tidy: %s", string(output))
+	compressed, err := wasmbuild.Build(ctx, wasmbuild.Config{
+		PkgDir:   pkgDir,
+		Compress: true,
+	})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to compile Go workflow to WASM")
 	}
 
-	compileCmd := exec.CommandContext(ctx, "go", "build", "-o", workflowWasmPath, filepath.Base(workflowFilePath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
-	compileCmd.Dir = filepath.Dir(workflowFilePath)
-	compileCmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=wasip1", "GOARCH=wasm")
-	if output, err := compileCmd.CombinedOutput(); err != nil {
-		fmt.Fprint(os.Stderr, string(output))
-		return "", errors.Wrap(err, "failed to compile workflow")
+	outputData := []byte(base64.StdEncoding.EncodeToString(compressed))
+	outputFile := filepath.Join(outputDir, workflowName+".br.b64")
+
+	if err := os.WriteFile(outputFile, outputData, 0o644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
+		return "", errors.Wrap(err, "failed to write output file")
 	}
 
-	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(workflowWasmPath)
-	if workflowWasmAbsPathErr != nil {
-		return "", errors.Wrap(workflowWasmAbsPathErr, "failed to get absolute path of the workflow WASM file")
+	outputFileAbsPath, err := filepath.Abs(outputFile)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get absolute path of the output file")
 	}
 
-	return workflowWasmAbsPath, nil
+	return outputFileAbsPath, nil
 }
 
 func compressWorkflow(workflowWasmPath string) (string, error) {

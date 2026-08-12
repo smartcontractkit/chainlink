@@ -5,6 +5,9 @@ go 1.26.5
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
 
+// DEBUG: Testing local changes
+replace github.com/smartcontractkit/chainlink-common => ../../../chainlink-common
+
 replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/system-tests/lib => ../lib
@@ -326,7 +329,7 @@ require (
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b // indirect
 	github.com/alitto/pond/v2 v2.5.0 // indirect
-	github.com/andybalholm/brotli v1.2.1 // indirect
+	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/apache/arrow-go/v18 v18.6.0 // indirect
 	github.com/aptos-labs/aptos-go-sdk v1.13.0
 	github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c // indirect

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
@@ -30,7 +31,7 @@ func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
 	forwardingAllowed = false
 	command = "consensus"
 	config = """"""
-	
+
 	[oracle_factory]
 	enabled = true
 	bootstrap_peers = ["12D3KooWBAzThfs9pD4WcsFKCi68EUz2fZgZskDBT6JcJRndPss5@cl-keystone-two-bt-0:5001"]
@@ -375,7 +376,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 		configLocation := "testdata/config.json"
 
 		w := &job.WorkflowSpec{
-			Workflow: createTestBinary(t),
+			Workflow: wasmtest.GetTestBinaryPath(t, "core/services/job/testdata/wasm"),
 			SpecType: job.WASMFile,
 			Config:   configLocation,
 		}
@@ -386,7 +387,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 	})
 
 	t.Run("WASM can validate from TOML", func(t *testing.T) {
-		const wasmWorkfowTomlTemplate = `
+		const wasmWorkflowTomlTemplate = `
 			workflow_owner = "%s"
 			workflow_name = "%s"
 			spec_type = "%s"
@@ -394,11 +395,11 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			config = "%s"
 		`
 		configLocation := "testdata/config.json"
-		tomlSpec := fmt.Sprintf(wasmWorkfowTomlTemplate,
+		tomlSpec := fmt.Sprintf(wasmWorkflowTomlTemplate,
 			"0x0123456789012345678901234567890123456788",
 			"wf-2",
 			job.WASMFile,
-			createTestBinary(t),
+			wasmtest.GetTestBinaryPath(t, "core/services/job/testdata/wasm"),
 			configLocation,
 		)
 		var w job.WorkflowSpec

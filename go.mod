@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.5.0
-	github.com/andybalholm/brotli v1.2.1
+	github.com/andybalholm/brotli v1.2.2
 	github.com/aptos-labs/aptos-go-sdk v1.13.0
 	github.com/avast/retry-go/v4 v4.7.0
 	github.com/buger/jsonparser v1.2.0
@@ -425,6 +425,9 @@ require (
 	pgregory.net/rapid v1.2.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+// DEBUG: Testing local changes
+replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
 
 replace github.com/fbsobreira/gotron-sdk => github.com/smartcontractkit/chainlink-tron/relayer/gotron-sdk v0.0.5-0.20260218133534-cbd44da2856b
 

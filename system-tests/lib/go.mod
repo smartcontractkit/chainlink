@@ -5,6 +5,9 @@ go 1.26.5
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../../
 
+// DEBUG: Testing local changes
+replace github.com/smartcontractkit/chainlink-common => ../../../chainlink-common
+
 replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 // chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
@@ -15,7 +18,7 @@ require (
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/alitto/pond/v2 v2.5.0
-	github.com/andybalholm/brotli v1.2.1
+	github.com/andybalholm/brotli v1.2.2
 	github.com/aptos-labs/aptos-go-sdk v1.13.0
 	github.com/avast/retry-go/v5 v5.0.0
 	github.com/cockroachdb/errors v1.12.0
