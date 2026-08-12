@@ -183,16 +183,74 @@ func workflowEncryptionKey(workerNode *cre.Node) ([32]byte, error) {
 	return publicKey, nil
 }
 
+// EnclavesConfigKey is the capability config value holding a JSON array of
+// enclaves, letting a topology declare them instead of passing Go values.
+const EnclavesConfigKey = "enclaves"
+
+// MarshalEnclaves encodes an enclave list for EnclavesConfigKey, for callers
+// that discover their enclaves at runtime and hand them to the environment as
+// configuration.
+func MarshalEnclaves(enclaves []cctypes.Enclave) (string, error) {
+	encoded, err := json.Marshal(enclaves)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal enclave list")
+	}
+
+	return string(encoded), nil
+}
+
+// EnclavesFromConfig reads the enclave list a topology declared for the named
+// capability. Returns nil when the capability has no config or no enclaves key.
+func EnclavesFromConfig(nodeSet *cre.NodeSet, name string) ([]cctypes.Enclave, error) {
+	if nodeSet == nil {
+		return nil, nil
+	}
+
+	capConfig, ok := nodeSet.CapabilityConfigs[name]
+	if !ok || capConfig.Values == nil {
+		return nil, nil
+	}
+
+	raw, ok := capConfig.Values[EnclavesConfigKey]
+	if !ok {
+		return nil, nil
+	}
+
+	encoded, ok := raw.(string)
+	if !ok {
+		return nil, errors.Errorf("capability %q: %q must be a JSON string, got %T", name, EnclavesConfigKey, raw)
+	}
+
+	var enclaves []cctypes.Enclave
+	if err := json.Unmarshal([]byte(encoded), &enclaves); err != nil {
+		return nil, errors.Wrapf(err, "capability %q: failed to parse %q", name, EnclavesConfigKey)
+	}
+
+	return enclaves, nil
+}
+
 // registryConfigFn writes the enclave list into the capability's on-chain
 // registry config, which is how the confidential relay handler discovers the
 // enclaves it may route to.
 func registryConfigFn(name string, version string, enclaves []cctypes.Enclave) cre.CapabilityRegistryConfigFn {
-	return func(donFlags []string, _ *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
+	return func(donFlags []string, nodeSet *cre.NodeSet) ([]keystone_changeset.DONCapabilityWithConfig, error) {
 		if !flags.HasFlag(donFlags, name) {
 			return nil, nil
 		}
 
-		wrappedConfig, err := values.WrapMap(cctypes.EnclavesList{Enclaves: enclaves})
+		// Go-supplied enclaves win; otherwise use whatever the topology declared,
+		// so callers that only learn their enclaves at runtime and callers that
+		// can configure them up front are both served.
+		list := enclaves
+		if len(list) == 0 {
+			fromConfig, cErr := EnclavesFromConfig(nodeSet, name)
+			if cErr != nil {
+				return nil, cErr
+			}
+			list = fromConfig
+		}
+
+		wrappedConfig, err := values.WrapMap(cctypes.EnclavesList{Enclaves: list})
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to wrap enclave list config")
 		}

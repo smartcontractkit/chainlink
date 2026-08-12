@@ -13,6 +13,13 @@
 # is built from a chainlink-confidential-compute checkout and mounted at
 # ./binaries/confidential-workflows (see .github/workflows/cre-system-tests.yaml).
 
+# Fake enclaves emit a sentinel attestation document rather than real PCRs, so
+# attestation validation is relaxed. INSECURE; for tests only.
+[capability_configs.confidential-relay]
+  [capability_configs.confidential-relay.values]
+    trustEnclaves = true
+    requireBFTQuorum = true
+
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
 

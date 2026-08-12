@@ -38,7 +38,6 @@ import (
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/confidentialrelay"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
@@ -189,92 +188,6 @@ func startFakeStorageService(t *testing.T, enclaveHost string) (string, *fakeSto
 	t.Cleanup(grpcSrv.Stop)
 
 	return fmt.Sprintf("%s:%d", enclaveHost, lis.Addr().(*net.TCPAddr).Port), svc
-}
-
-// ---------------------------------------------------------------------------
-// Confidential relay feature wrapper
-// ---------------------------------------------------------------------------
-
-// testConfidentialRelayFeature wraps the real ConfidentialRelay feature and
-// injects trusted measurements into the DON's capability config before
-// PreEnvStartup runs, so the relay handler will accept attestations from the
-// enclaves this test started.
-type testConfidentialRelayFeature struct {
-	inner    confidentialrelay.ConfidentialRelay
-	pcrsJSON string
-}
-
-func (f *testConfidentialRelayFeature) Flag() crelib.CapabilityFlag {
-	return f.inner.Flag()
-}
-
-func (f *testConfidentialRelayFeature) PreEnvStartup(
-	ctx context.Context,
-	testLogger zerolog.Logger,
-	don *crelib.DonMetadata,
-	topology *crelib.Topology,
-	creEnv *crelib.Environment,
-) (*crelib.PreEnvStartupOutput, error) {
-	if don.CapabilityConfigs == nil {
-		don.CapabilityConfigs = make(map[crelib.CapabilityFlag]crelib.CapabilityConfig)
-	}
-	cfg, ok := don.CapabilityConfigs[crelib.ConfidentialRelayCapability]
-	if !ok {
-		cfg = crelib.CapabilityConfig{Values: make(map[string]any)}
-	}
-	if cfg.Values == nil {
-		cfg.Values = make(map[string]any)
-	}
-	cfg.Values["trustedPCRs"] = f.pcrsJSON
-	don.CapabilityConfigs[crelib.ConfidentialRelayCapability] = cfg
-
-	return f.inner.PreEnvStartup(ctx, testLogger, don, topology, creEnv)
-}
-
-func (f *testConfidentialRelayFeature) PostEnvStartup(
-	ctx context.Context,
-	testLogger zerolog.Logger,
-	don *crelib.Don,
-	dons *crelib.Dons,
-	creEnv *crelib.Environment,
-) error {
-	return f.inner.PostEnvStartup(ctx, testLogger, don, dons, creEnv)
-}
-
-// newTestConfidentialRelayFeature builds the relay feature for a set of enclaves.
-// Fake enclaves emit a sentinel attestation document instead of real PCRs, so the
-// trusted value is the fake measurements placeholder and attestation validation is
-// relaxed. Real Nitro enclaves keep full validation against their measurements.
-func newTestConfidentialRelayFeature(t *testing.T, enclaves []cctypes.Enclave, fake bool) crelib.Feature {
-	t.Helper()
-
-	var pcrsJSON string
-	if fake {
-		// Marshaling the raw "fake-measurements" bytes as json.RawMessage would fail
-		// since it is not valid JSON, so encode it as a JSON string array.
-		b, err := json.Marshal([]string{cctypes.FakeMeasurements})
-		require.NoError(t, err, "failed to marshal fake measurements")
-		pcrsJSON = string(b)
-	} else {
-		// Each enclave bakes in per-CID WireGuard keys, so measurements differ per
-		// enclave. The relay accepts a JSON array and tries each until one matches.
-		var allPCRs []json.RawMessage
-		for _, enc := range enclaves {
-			for _, tv := range enc.TrustedValues {
-				if string(tv) != "invalid" {
-					allPCRs = append(allPCRs, json.RawMessage(tv))
-				}
-			}
-		}
-		b, err := json.Marshal(allPCRs)
-		require.NoError(t, err, "failed to marshal PCR measurements")
-		pcrsJSON = string(b)
-	}
-
-	return crelib.Feature(&testConfidentialRelayFeature{
-		inner:    confidentialrelay.ConfidentialRelay{TrustEnclaves: fake, RequireBFTQuorum: true},
-		pcrsJSON: pcrsJSON,
-	})
 }
 
 // ---------------------------------------------------------------------------

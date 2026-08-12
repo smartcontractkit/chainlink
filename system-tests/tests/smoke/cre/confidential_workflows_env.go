@@ -16,7 +16,6 @@ import (
 
 	crescriptenv "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/environment"
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	gateway "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/gateway"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	envconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
 	feature_sets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
@@ -57,7 +56,6 @@ func startConfidentialCreEnvironment(
 	environmentDirPath string,
 	extraCapabilities []crelib.InstallableCapability,
 	extraAllowedPorts []int,
-	extraFeatures ...crelib.Feature,
 ) error {
 	in, err := confidentialPreConfigure(relativePathToRepoRoot, environmentDirPath)
 	if err != nil {
@@ -84,9 +82,6 @@ func startConfidentialCreEnvironment(
 	for _, c := range extraCapabilities {
 		extraFlags = append(extraFlags, c.Flag())
 	}
-	for _, f := range extraFeatures {
-		extraFlags = append(extraFlags, string(f.Flag()))
-	}
 
 	envDependencies := crelib.NewEnvironmentDependencies(
 		flags.NewExtensibleCapabilityFlagsProvider(extraFlags),
@@ -96,19 +91,12 @@ func startConfidentialCreEnvironment(
 		return errors.Wrap(err, "failed to validate environment configuration")
 	}
 
-	// Start from the default feature set and add the test's own features, so the
-	// relay feature does not have to be registered globally in features/sets.
+	// The standard feature set carries the confidential relay; the topology's
+	// capability config supplies its settings.
 	features := feature_sets.New()
-	for _, f := range extraFeatures {
-		features.Add(f)
-	}
 
-	allowedPorts := append([]int{in.Fake.Port, in.FakeHTTP.Port}, extraAllowedPorts...)
-	gatewayWhitelistConfig := gateway.WhitelistConfig{
-		ExtraAllowedPorts: allowedPorts,
-		// The enclaves reach the gateway from outside the Docker network.
-		ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
-	}
+	// Same allowlist `cre env start` grants, plus this test's enclave ports.
+	gatewayWhitelistConfig := crescriptenv.DefaultGatewayWhitelistConfig(in, extraAllowedPorts)
 
 	output, startErr := crescriptenv.StartCLIEnvironment(
 		ctx,

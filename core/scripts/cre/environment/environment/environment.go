@@ -363,18 +363,7 @@ func startCmd() *cobra.Command {
 			}
 
 			features := feature_set.New()
-			extraAllowedPorts := append([]int(nil), extraAllowedGatewayPorts...)
-			if in.Fake != nil {
-				extraAllowedPorts = append(extraAllowedPorts, in.Fake.Port)
-			}
-			if in.FakeHTTP != nil {
-				extraAllowedPorts = append(extraAllowedPorts, in.FakeHTTP.Port)
-			}
-
-			gatewayWhitelistConfig := gateway.WhitelistConfig{
-				ExtraAllowedPorts:   extraAllowedPorts,
-				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
-			}
+			gatewayWhitelistConfig := DefaultGatewayWhitelistConfig(in, extraAllowedGatewayPorts)
 			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, nil, features, nil, envDependencies, gatewayWhitelistConfig)
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
@@ -853,6 +842,25 @@ func statusCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+// DefaultGatewayWhitelistConfig builds the Gateway Connector's outbound allowlist:
+// the caller's extra ports plus the fake service ports the config declares. Shared
+// by `cre env start` and by tests that call StartCLIEnvironment directly, so both
+// grant the same access.
+func DefaultGatewayWhitelistConfig(in *envconfig.Config, extraAllowedPorts []int) gateway.WhitelistConfig {
+	ports := append([]int(nil), extraAllowedPorts...)
+	if in.Fake != nil {
+		ports = append(ports, in.Fake.Port)
+	}
+	if in.FakeHTTP != nil {
+		ports = append(ports, in.FakeHTTP.Port)
+	}
+
+	return gateway.WhitelistConfig{
+		ExtraAllowedPorts:   ports,
+		ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
+	}
 }
 
 func StartCLIEnvironment(

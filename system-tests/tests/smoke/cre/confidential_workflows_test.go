@@ -113,18 +113,16 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		)
 		require.NoError(t, err, "failed to build confidential-workflows capability")
 
-		relayFeature := newTestConfidentialRelayFeature(t, enclaves.Enclaves, fake)
-
-		// 4. Start the CRE environment in-process so the capability and feature
-		//    above can be injected, then let the standard helper build the test
-		//    environment from the state file it wrote.
+		// 4. Start the CRE environment in-process so the capability above can be
+		//    injected, then let the standard helper build the test environment
+		//    from the state file it wrote. The confidential relay feature comes
+		//    from the standard feature set, configured by the topology TOML.
 		require.NoError(t, startConfidentialCreEnvironment(
 			t.Context(),
 			tconf.RelativePathToRepoRoot,
 			tconf.EnvironmentDirPath,
 			[]crelib.InstallableCapability{cap},
 			confidentialEnclavePorts(t, enclaves),
-			relayFeature,
 		), "failed to start confidential CRE environment")
 
 		testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, tconf)
