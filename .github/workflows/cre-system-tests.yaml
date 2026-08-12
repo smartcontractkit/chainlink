@@ -31,6 +31,42 @@ on:
           "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
+      mixed_env:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "Run in mixed-env mode: split every multi-node DON 2-2 across the PR image and a
+          baseline (develop) image, and fail on any non-determinism marker."
+      mixed_env_baseline_image:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Mixed-env only. Full baseline (develop) image ref. If empty, it is resolved from
+          baseline_ref/base_ref_name, else the develop nightly."
+      baseline_ref:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Mixed-env only. Base-branch sha this PR builds on; picks
+          chainlink-integration-tests:<baseline_ref> as the baseline so the split isolates
+          only the PR's changes."
+      base_ref_name:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Mixed-env only. Base-branch name; controls the missing-image fallback (a release/*
+          base skips, everything else uses the develop nightly)."
+      full_matrix:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "Mixed-env only. Also include the chain-specific / special-topology variants (the
+          nightly full sweep). Per-PR runs leave this false."
   workflow_call:
     inputs:
       chainlink_image_repository_path:
@@ -57,6 +93,42 @@ on:
           "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
+      mixed_env:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "Run in mixed-env mode: split every multi-node DON 2-2 across the PR image and a
+          baseline (develop) image, and fail on any non-determinism marker."
+      mixed_env_baseline_image:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Mixed-env only. Full baseline (develop) image ref. If empty, it is resolved from
+          baseline_ref/base_ref_name, else the develop nightly."
+      baseline_ref:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Mixed-env only. Base-branch sha this PR builds on; picks
+          chainlink-integration-tests:<baseline_ref> as the baseline so the split isolates
+          only the PR's changes."
+      base_ref_name:
+        required: false
+        type: string
+        default: ""
+        description:
+          "Mixed-env only. Base-branch name; controls the missing-image fallback (a release/*
+          base skips, everything else uses the develop nightly)."
+      full_matrix:
+        required: false
+        type: boolean
+        default: false
+        description:
+          "Mixed-env only. Also include the chain-specific / special-topology variants (the
+          nightly full sweep). Per-PR runs leave this false."
 
 jobs:
   define-test-matrix:
@@ -76,6 +148,44 @@ jobs:
         id: define-matrix
         shell: bash
         run: |
+          # Mixed-env mode runs a curated set on the 2-2 mixed-env topologies (see
+          # docs/mixed-env.md) rather than the auto-discovered full suite; it emits its own
+          # matrix and exits before the normal discovery below.
+          if [[ "${{ inputs.mixed_env }}" == "true" ]]; then
+            # Per-PR set: the OCR3/DON2DON-heavy EVM tests on the base mixed-env topology.
+            ENTRIES='[
+              {"test_name":"Test_CRE_V2_Suite_Bucket_A","topology":"mixed-env","configs":"configs/mixed-env-don.toml"},
+              {"test_name":"Test_CRE_V2_Suite_Bucket_B","topology":"mixed-env","configs":"configs/mixed-env-don.toml"},
+              {"test_name":"Test_CRE_V2_EVM_Read_HeavyCalls","topology":"mixed-env","configs":"configs/mixed-env-don.toml"},
+              {"test_name":"Test_CRE_V2_EVM_Read_StateQueries","topology":"mixed-env","configs":"configs/mixed-env-don.toml"},
+              {"test_name":"Test_CRE_V2_EVM_Read_TxArtifacts","topology":"mixed-env","configs":"configs/mixed-env-don.toml"}
+            ]'
+            # Nightly full sweep: add the chain-specific / special-topology variants.
+            if [[ "${{ inputs.full_matrix }}" == "true" ]]; then
+              FULL='[
+                {"test_name":"Test_CRE_V2_Aptos_Suite","topology":"mixed-env-aptos","configs":"configs/mixed-env-aptos-don.toml"},
+                {"test_name":"Test_CRE_V2_Stellar_Suite","topology":"mixed-env-stellar","configs":"configs/mixed-env-stellar-don.toml"},
+                {"test_name":"Test_CRE_V2_Solana_Write","topology":"mixed-env-solana","configs":"configs/mixed-env-solana-don.toml"},
+                {"test_name":"Test_CRE_V2_Solana_LogTrigger","topology":"mixed-env-solana","configs":"configs/mixed-env-solana-don.toml"},
+                {"test_name":"Test_CRE_V2_Solana_Read_Accounts","topology":"mixed-env-solana","configs":"configs/mixed-env-solana-don.toml"},
+                {"test_name":"Test_CRE_V2_Sharding","topology":"mixed-env-sharded","configs":"configs/mixed-env-sharded-don.toml"},
+                {"test_name":"Test_CRE_V2_Module_Cache","topology":"mixed-env-cache-test","configs":"configs/mixed-env-cache-test-don.toml"},
+                {"test_name":"Test_CRE_V2_HTTP_Action_Multi_Gateway","topology":"mixed-env-multi-gateway","configs":"configs/mixed-env-multi-gateway-don.toml"}
+              ]'
+              ENTRIES=$(jq -c -n --argjson a "$ENTRIES" --argjson b "$FULL" '$a + $b')
+            fi
+            matrix=$(jq -c -n \
+              --argjson entries "$ENTRIES" \
+              --argjson run_id "${{ github.run_id }}" \
+              --arg run_attempt "${{ github.run_attempt }}" '
+              $entries | to_entries | map(.value + {
+                test_id: .key,
+                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
+              })')
+            echo "matrix=$matrix" | tee -a "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
           TOPOLOGIES_JSON='[
             {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
           ]'
@@ -320,14 +430,89 @@ jobs:
           done
           exit 1
 
+      # --- mixed-env only: resolve the baseline (develop side) image ---
+      - name: Resolve mixed-env baseline (develop side) image
+        id: baseline
+        if: ${{ inputs.mixed_env }}
+        shell: bash
+        env:
+          BASELINE_IMAGE_OVERRIDE: ${{ inputs.mixed_env_baseline_image }}
+          BASELINE_REF: ${{ inputs.baseline_ref }}
+          BASE_REF_NAME: ${{ inputs.base_ref_name }}
+          ECR_ACCOUNT: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          ECR_REGION: ${{ secrets.QA_AWS_REGION }}
+        run: |
+          REGISTRY="${ECR_ACCOUNT}.dkr.ecr.${ECR_REGION}.amazonaws.com"
+          skip=false
+          image=""
+          if [[ -n "${BASELINE_IMAGE_OVERRIDE}" ]]; then
+            # Explicit override (e.g. the nightly sweep pins a previous nightly).
+            image="${BASELINE_IMAGE_OVERRIDE}"
+          elif [[ -n "${BASELINE_REF}" ]] && docker manifest inspect "${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}" >/dev/null 2>&1; then
+            # The exact base-branch commit this PR builds on, so the 2-2 split isolates only
+            # the PR's changes. Works for any base branch (develop or release).
+            image="${REGISTRY}/chainlink-integration-tests:${BASELINE_REF}"
+          elif [[ "${BASE_REF_NAME}" == release/* ]]; then
+            # Release base with no published base image: no correct baseline (the develop
+            # nightly would be the wrong branch), so skip rather than mislead.
+            echo "::warning::No baseline image for release base '${BASE_REF_NAME}'; skipping mixed-env to avoid comparing a release base against develop."
+            skip=true
+          else
+            # develop base, non-PR run, or a stacked feature branch -> develop nightly.
+            DATE="$(date +'%Y%m%d')"
+            image="${REGISTRY}/chainlink:nightly-${DATE}"
+          fi
+          {
+            echo "skip=${skip}"
+            echo "image=${image}"
+          } >> "$GITHUB_OUTPUT"
+          if [[ "${skip}" == "true" ]]; then
+            echo "Mixed-env skipped (no valid baseline for base branch '${BASE_REF_NAME}')."
+          else
+            echo "Baseline (develop side) image: ${image}"
+          fi
+
+      - name: Verify images exist & render mixed-env topology
+        if: ${{ inputs.mixed_env && steps.baseline.outputs.skip != 'true' }}
+        working-directory: core/scripts/cre/environment
+        shell: bash
+        env:
+          CRE_PR_IMAGE: ${{ env.CHAINLINK_IMAGE_FULL }}
+          CRE_BASELINE_IMAGE: ${{ steps.baseline.outputs.image }}
+        run: |
+          export CRE_PR_IMAGE CRE_BASELINE_IMAGE
+          echo "PR image:       ${CRE_PR_IMAGE}"
+          echo "Baseline image: ${CRE_BASELINE_IMAGE}"
+          echo "Config:         ${{ matrix.tests.configs }}"
+          # Fail fast with a clear error if either image is missing from the registry.
+          missing=0
+          for img in "${CRE_PR_IMAGE}" "${CRE_BASELINE_IMAGE}"; do
+            if docker manifest inspect "${img}" >/dev/null 2>&1; then
+              echo "Found image: ${img}"
+            else
+              echo "::error::Required mixed-env image is not available in the registry: ${img}"
+              missing=1
+            fi
+          done
+          if [[ "${missing}" -ne 0 ]]; then
+            echo "Re-run once the image is available, or override the develop side via the mixed_env_baseline_image input."
+            exit 1
+          fi
+          bash configs/render-mixed-env.sh "${{ matrix.tests.configs }}"
+
       - name: Start local CRE${{ matrix.tests.cre_version }}
         id: start-local-cre
+        # Skip only in mixed-env mode when there is no valid baseline (see resolve step).
+        if: ${{ !inputs.mixed_env || steps.baseline.outputs.skip != 'true' }}
         uses: ./.github/actions/start-local-cre-environment
         with:
           jd-image:
             "${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION
             }}.amazonaws.com/job-distributor:0.28.0"
-          chainlink-image: "${{ env.CHAINLINK_IMAGE_FULL }}"
+          # Mixed-env bakes per-node images into the rendered TOML, so the single image must
+          # be empty (a non-empty value forces every node onto one image). !cond && A || ''
+          # avoids the empty-string-is-falsy ternary trap.
+          chainlink-image: "${{ !inputs.mixed_env && env.CHAINLINK_IMAGE_FULL || '' }}"
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           ctf-configs: ${{ matrix.tests.configs }}
@@ -338,6 +523,7 @@ jobs:
 
       - name: Setup GitHub token using GATI
         id: github-token
+        if: ${{ !inputs.mixed_env || steps.baseline.outputs.skip != 'true' }}
         uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
         with:
           aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
@@ -348,6 +534,7 @@ jobs:
 
       - name: Run CRE Smoke system tests
         id: run-tests
+        if: ${{ !inputs.mixed_env || steps.baseline.outputs.skip != 'true' }}
         shell: bash
         working-directory: system-tests/tests
         continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
@@ -386,6 +573,27 @@ jobs:
           exit_code="$?"
           if [ "$exit_code" -eq 0 ]; then
             echo "tests_result=✅ Tests passed" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Check for non-determinism (mixed-env)
+        # Hard gate (mixed-env only). The smoke step above is continue-on-error
+        # (auto-quarantine), which would swallow the in-test TestMain scan, so re-scan the
+        # live node containers here and fail the job on any marker. Reuses the pre-compiled
+        # cre-smoke.test binary — TestMain runs the container scan after m.Run() and exits
+        # non-zero on any marker, so a non-matching -test.run triggers the scan with no Go
+        # build. Falls back to `go run` only if the binary is missing.
+        if: ${{ always() && inputs.mixed_env && steps.baseline.outputs.skip != 'true' }}
+        shell: bash
+        working-directory: system-tests/tests
+        env:
+          CRE_NONDETERMINISM_CHECK: "true"
+        run: |
+          if [ -f "./bin/cre-smoke.test" ]; then
+            echo "Scanning via pre-compiled binary (no Go build)"
+            ./bin/cre-smoke.test -test.run '^$' -test.v
+          else
+            echo "No pre-compiled binary; falling back to 'go run'"
+            go run ./cmd/mixed-env-nondeterminism-check
           fi
 
       - name:

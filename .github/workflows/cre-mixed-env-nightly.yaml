@@ -67,9 +67,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: ./.github/workflows/cre-mixed-env-tests.yaml
+    uses: ./.github/workflows/cre-system-tests.yaml
     secrets: inherit
     with:
+      mixed_env: true
       ecr: "sdlc"
       chainlink_image_repository_path: "chainlink"
       # "today" side = the develop nightly Docker Build just published.
