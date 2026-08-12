@@ -27,6 +27,8 @@ import (
 const (
 	testQualifier = "test-deploy"
 	testVersion   = "1.0.0"
+	// testUpgradedVersion is the version an upgraded forwarder is recorded under.
+	testUpgradedVersion = "1.1.0"
 )
 
 var testSelector = chain_selectors.TEST_22222222222222222222222222222222222222222222.Selector

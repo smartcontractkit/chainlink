@@ -1,0 +1,88 @@
+name: ccip-release-changelog
+
+on:
+  workflow_dispatch:
+    inputs:
+      old_ref:
+        description: "Old git ref (SHA, tag, or branch) that built the current release image, e.g. v2.55.0"
+        required: true
+        type: string
+      new_ref:
+        description: "New git ref (SHA, tag, or branch) for the new release image, e.g. release/2.56.0"
+        required: true
+        type: string
+      slack_thread_url:
+        description: "Optional Slack thread URL to post the summary + full report into"
+        required: false
+        type: string
+  # Reserved for a future Slack slash-command trigger posting a
+  # repository_dispatch with client_payload: {old_ref, new_ref, slack_thread_url}.
+  repository_dispatch:
+    types: [ccip-release-changelog]
+
+permissions: {}
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Resolve inputs (workflow_dispatch or repository_dispatch)
+        id: inputs
+        env:
+          IN_OLD: ${{ inputs.old_ref }}
+          IN_NEW: ${{ inputs.new_ref }}
+          IN_THREAD: ${{ inputs.slack_thread_url }}
+          PAYLOAD_OLD: ${{ github.event.client_payload.old_ref }}
+          PAYLOAD_NEW: ${{ github.event.client_payload.new_ref }}
+          PAYLOAD_THREAD: ${{ github.event.client_payload.slack_thread_url }}
+        run: |
+          old="${IN_OLD:-$PAYLOAD_OLD}"
+          new="${IN_NEW:-$PAYLOAD_NEW}"
+          thread="${IN_THREAD:-$PAYLOAD_THREAD}"
+          if [ -z "$old" ] || [ -z "$new" ]; then
+            echo "::error::old_ref and new_ref are required"
+            exit 1
+          fi
+          echo "old_ref=$old" >> "$GITHUB_OUTPUT"
+          echo "new_ref=$new" >> "$GITHUB_OUTPUT"
+          echo "slack_thread_url=$thread" >> "$GITHUB_OUTPUT"
+          # Artifact names may not contain / : " < > | * ? etc.
+          echo "safe_old=${old//[^a-zA-Z0-9._-]/-}" >> "$GITHUB_OUTPUT"
+          echo "safe_new=${new//[^a-zA-Z0-9._-]/-}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # full history + tags for ref resolution and git log
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Generate changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # compare API on public CCIP repos
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN_RELENG }}
+          SLACK_THREAD: ${{ steps.inputs.outputs.slack_thread_url }}
+          OLD_REF: ${{ steps.inputs.outputs.old_ref }}
+          NEW_REF: ${{ steps.inputs.outputs.new_ref }}
+        run: |
+          args=(--old "$OLD_REF" --new "$NEW_REF" --out ccip-release-changelog.md)
+          if [ -n "$SLACK_THREAD" ]; then
+            if [ -z "$SLACK_BOT_TOKEN" ]; then
+              echo "::error::slack_thread_url given but SLACK_BOT_TOKEN_RELENG secret is not available"
+              exit 1
+            fi
+            args+=(--slack-thread "$SLACK_THREAD")
+          fi
+          go run ./tools/ccip/ccip-release-changelog/cmd/ccip-release-changelog "${args[@]}"
+
+      - name: Upload report artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ccip-release-changelog-${{ steps.inputs.outputs.safe_old }}-${{ steps.inputs.outputs.safe_new }}
+          path: ccip-release-changelog.md
+          retention-days: 90
+          if-no-files-found: warn

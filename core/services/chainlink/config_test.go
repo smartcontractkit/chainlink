@@ -589,6 +589,16 @@ func TestConfig_Marshal(t *testing.T) {
 			Prefixes: []string{"ocr_"},
 		},
 	}
+	full.Metering = toml.Metering{
+		MeterRecordsEnabled:   new(true),
+		MeterSnapshotsEnabled: new(true),
+		Product:               new("cre"),
+		Tenant:                new("mainline"),
+		NumericTenantID:       new("42"),
+		Environment:           new("production"),
+		Zone:                  new("wf-zone-a"),
+		NodeID:                new("clp-cre-wf-zone-a-1"),
+	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: new(true),
 		EnableDKGRecipient:   new(false),
@@ -628,6 +638,7 @@ func TestConfig_Marshal(t *testing.T) {
 		PollingInterval:        commoncfg.MustNewDuration(time.Hour),
 		EnabledOCR2PluginTypes: &enabledOCR2PluginTypes,
 	}
+	mode := "ringocr-only"
 	full.Sharding = toml.Sharding{
 		ShardingEnabled:          new(false),
 		ArbiterPort:              new(uint16(9876)),
@@ -636,6 +647,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ShardIndex:               new(uint16(0)),
 		ShardOrchestratorPort:    new(uint16(50051)),
 		ShardOrchestratorAddress: &commoncfg.URL{},
+		ShardAssignmentMode:      &mode,
 	}
 	full.LOOPP = toml.LOOPP{
 		GRPCServerMaxRecvMsgSize: new((utils.FileSize)(42 * utils.MB)),

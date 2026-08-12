@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -25,6 +27,15 @@ import (
 
 var Version1_0_0 = semver.MustParse("1.0.0")
 
+const (
+	// extendPadding is added on top of the size the new binary needs, so that a slightly larger
+	// binary can be deployed later without extending the program data account again.
+	extendPadding = 1024
+
+	programVisibilityTimeout      = 2 * time.Minute
+	programVisibilityPollInterval = 500 * time.Millisecond
+)
+
 var (
 	DeployForwarderOp = operations.NewOperation(
 		"deploy-forwarder-op",
@@ -43,6 +54,12 @@ var (
 		Version1_0_0,
 		"Sets upgrade forwarder's upgrade authority for Solana Chain",
 		setUpgradeAuthority,
+	)
+	UpgradeForwarderOp = operations.NewOperation(
+		"upgrade-forwarder-op",
+		Version1_0_0,
+		"Upgrades the forwarder program in place from a buffer account for Solana Chain",
+		upgradeForwarder,
 	)
 	ConfigureForwarderOp = operations.NewOperation(
 		"configure-forwarder-op",
@@ -82,6 +99,19 @@ type (
 	}
 
 	SetUpgradeAuthorityOutput struct {
+		Proposals []mcms.TimelockProposal // will be returned in case if timelock config is passed
+	}
+
+	UpgradeForwarderInput struct {
+		ChainSel  uint64
+		ProgramID solana.PublicKey
+		// BufferID is the buffer account holding the new binary, as written by a deploy operation
+		// run with IsUpgrade set.
+		BufferID solana.PublicKey
+		MCMS     *cldfproposalutils.TimelockConfig // if set, assumes current upgrade authority is the timelock
+	}
+
+	UpgradeForwarderOutput struct {
 		Proposals []mcms.TimelockProposal // will be returned in case if timelock config is passed
 	}
 
@@ -197,6 +227,135 @@ func setUpgradeAuthority(b operations.Bundle, deps Deps, in SetUpgradeAuthorityI
 	out.Proposals = []mcms.TimelockProposal{*proposal}
 
 	return out, nil
+}
+
+// upgradeForwarder replaces the deployed forwarder binary with the one held in the buffer account.
+// The forwarder state and its oracles configs live in separate accounts, so they survive the
+// upgrade and no re-initialization is needed.
+func upgradeForwarder(b operations.Bundle, deps Deps, in UpgradeForwarderInput) (UpgradeForwarderOutput, error) {
+	var out UpgradeForwarderOutput
+
+	deployer := deps.Chain.DeployerKey.PublicKey()
+	upgradeAuthority := deployer
+	if in.MCMS != nil {
+		timelockSignerPDA, err := helpers.FetchTimelockSigner(deps.Datastore.Addresses().Filter(datastore.AddressRefByChainSelector(in.ChainSel)))
+		if err != nil {
+			return out, fmt.Errorf("failed to get timelock signer: %w", err)
+		}
+		upgradeAuthority = timelockSignerPDA
+	}
+
+	// The buffer is created by the deployer key, but the upgrade instruction requires it to be
+	// owned by the program's upgrade authority.
+	if !upgradeAuthority.Equals(deployer) {
+		ixn := helpers.SetUpgradeAuthority(&deps.Env, in.BufferID, deployer, upgradeAuthority, true)
+		if err := deps.Chain.Confirm([]solana.Instruction{ixn}); err != nil {
+			return out, fmt.Errorf("failed to confirm set buffer authority: %w", err)
+		}
+	}
+
+	if err := extendProgramIfNeeded(b, deps, in.ProgramID, in.BufferID, deployer); err != nil {
+		return out, err
+	}
+
+	// The upgrade already refunds the buffer rent to the spill address, the close keeps the buffer
+	// from lingering if the runtime leaves it allocated.
+	upgradeIxn := helpers.UpgradeProgram(&deps.Env, in.ProgramID, in.BufferID, deployer, upgradeAuthority)
+	closeIxn := helpers.CloseBuffer(&deps.Env, in.BufferID, deployer, upgradeAuthority)
+
+	if in.MCMS == nil {
+		if err := deps.Chain.Confirm([]solana.Instruction{upgradeIxn, closeIxn}); err != nil {
+			return out, fmt.Errorf("failed to confirm upgrade instructions: %w", err)
+		}
+
+		if err := waitForProgramVisibility(b, deps); err != nil {
+			return out, err
+		}
+
+		return out, nil
+	}
+
+	mcmsTxns := make([]mcmsTypes.Transaction, 0, 2)
+	for _, ixn := range []solana.Instruction{upgradeIxn, closeIxn} {
+		tx, err := helpers.BuildMCMSTxn(
+			ixn,
+			solana.BPFLoaderUpgradeableProgramID.String(),
+			cldf.ContractType(solana.BPFLoaderUpgradeableProgramID.String()))
+		if err != nil {
+			return out, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		mcmsTxns = append(mcmsTxns, *tx)
+	}
+
+	proposal, err := helpers.BuildProposalsForTxns(
+		deps.Env, in.ChainSel, "proposal to upgrade keystone forwarder in Solana", in.MCMS.MinDelay, mcmsTxns)
+	if err != nil {
+		return out, fmt.Errorf("failed to build proposal: %w", err)
+	}
+	out.Proposals = []mcms.TimelockProposal{*proposal}
+
+	return out, nil
+}
+
+// waitForProgramVisibility blocks until the slot the upgrade landed in has passed. A program
+// upgraded in a given slot only becomes invocable in the next one, so returning earlier would hand
+// the caller a program that rejects every instruction addressed to it.
+func waitForProgramVisibility(b operations.Bundle, deps Deps) error {
+	ctx, cancel := context.WithTimeout(b.GetContext(), programVisibilityTimeout)
+	defer cancel()
+
+	// The upgrade is confirmed by now, so it landed in this slot at the latest.
+	upgradeSlot, err := deps.Chain.Client.GetSlot(ctx, cldfsol.SolDefaultCommitment)
+	if err != nil {
+		return fmt.Errorf("failed to get the slot of the upgrade: %w", err)
+	}
+
+	for {
+		slot, err := deps.Chain.Client.GetSlot(ctx, cldfsol.SolDefaultCommitment)
+		if err != nil {
+			return fmt.Errorf("failed to get current slot: %w", err)
+		}
+		if slot > upgradeSlot {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timed out waiting for the upgraded program to become visible: %w", ctx.Err())
+		case <-time.After(programVisibilityPollInterval):
+		}
+	}
+}
+
+// extendProgramIfNeeded grows the program data account when the new binary does not fit in it.
+// Extending is permissionless, so it is always paid for and signed by the deployer, even when the
+// timelock owns the program.
+func extendProgramIfNeeded(b operations.Bundle, deps Deps, programID, bufferID, payer solana.PublicKey) error {
+	bufferSize, err := helpers.GetSolAccountSize(b.GetContext(), deps.Chain, bufferID)
+	if err != nil {
+		return fmt.Errorf("failed to get buffer size: %w", err)
+	}
+	programDataSize, err := helpers.GetSolAccountSize(b.GetContext(), deps.Chain, helpers.ProgramDataAddress(programID))
+	if err != nil {
+		return fmt.Errorf("failed to get program data size: %w", err)
+	}
+	if bufferSize <= programDataSize {
+		b.Logger.Debugf("buffer size %d fits in program data size %d, no extend needed", bufferSize, programDataSize)
+		return nil
+	}
+
+	extraBytes := bufferSize - programDataSize + extendPadding
+	if extraBytes > math.MaxUint32 {
+		return fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32)
+	}
+
+	//nolint:gosec // G115 we check for overflow above
+	ixn := helpers.ExtendProgram(programID, payer, uint32(extraBytes))
+	if err := deps.Chain.Confirm([]solana.Instruction{ixn}); err != nil {
+		return fmt.Errorf("failed to confirm extend program: %w", err)
+	}
+
+	return nil
 }
 
 func configureForwarder(b operations.Bundle, deps Deps, in ConfigureForwarderInput) (ConfigureForwarderOutput, error) {

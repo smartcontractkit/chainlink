@@ -53,6 +53,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	configtoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -245,23 +246,28 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	var ringStoreForShard0 *ring.Store
 	var shardOrchestratorClient shardorchestrator.ClientInterface
 	if cfg.Sharding().ShardingEnabled() {
-		shardIdx := cfg.Sharding().ShardIndex()
-		if shardIdx == 0 {
-			ringStoreForShard0 = ring.NewStore()
-			server := shardorchestrator.NewServer(ringStoreForShard0, globalLogger)
-			shardOrchestratorClient = shardorchestrator.NewLocalClient(server, globalLogger)
-			globalLogger.Infow("ShardOrchestrator in-process client created", "shardID", shardIdx)
+		assignmentMode := cfg.Sharding().ShardAssignmentMode()
+		if assignmentMode == configtoml.ShardAssignmentModeManualOnly {
+			globalLogger.Infow("Sharding enabled in manual-only mode; skipping ShardOrchestrator infrastructure")
 		} else {
-			shardOrchestratorAddr := cfg.Sharding().ShardOrchestratorAddress()
-			if shardOrchestratorAddr == nil {
-				return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress when sharding is enabled", shardIdx)
+			shardIdx := cfg.Sharding().ShardIndex()
+			if shardIdx == 0 {
+				ringStoreForShard0 = ring.NewStore()
+				server := shardorchestrator.NewServer(ringStoreForShard0, globalLogger)
+				shardOrchestratorClient = shardorchestrator.NewLocalClient(server, globalLogger)
+				globalLogger.Infow("ShardOrchestrator in-process client created", "shardID", shardIdx)
+			} else {
+				shardOrchestratorAddr := cfg.Sharding().ShardOrchestratorAddress()
+				if shardOrchestratorAddr == nil {
+					return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress when sharding is enabled", shardIdx)
+				}
+				client, err := shardorchestrator.NewClient(shardOrchestratorAddr.String(), globalLogger.Named("ShardOrchestratorClient"))
+				if err != nil {
+					return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
+				}
+				shardOrchestratorClient = client
+				globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardIdx, "serverAddress", shardOrchestratorAddr.String())
 			}
-			client, err := shardorchestrator.NewClient(shardOrchestratorAddr.String(), globalLogger.Named("ShardOrchestratorClient"))
-			if err != nil {
-				return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
-			}
-			shardOrchestratorClient = client
-			globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardIdx, "serverAddress", shardOrchestratorAddr.String())
 		}
 	} else {
 		globalLogger.Debug("Sharding not enabled, running without shard orchestrator client")
@@ -272,7 +278,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		return nil, fmt.Errorf("failed to marshal cre settings TOML: %w", err)
 	}
 	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
-	atomicSettings := loop.NewAtomicSettings(commoncresettings.DefaultGetter)
+	atomicSettings := &loop.AtomicSettings{}
+	atomicSettings.SetGetter(commoncresettings.DefaultGetter)
+	shardAssignmentSettings := &loop.AtomicSettings{}
 	limitsFactory := limits.Factory{
 		Meter:    meter,
 		Logger:   globalLogger.Named("Limits"),
@@ -286,7 +294,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(),
 		cfg.Database(), cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(),
-		beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
+		cfg.Metering(), beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
 
 	relayerFactory := RelayerFactory{
 		Logger:                opts.Logger,
@@ -454,6 +462,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			WorkflowKey:             workflowKey,
 			JWTGenerator:            jwtGenerator,
 			ShardOrchestratorClient: shardOrchestratorClient,
+			ShardAssignmentSettings: shardAssignmentSettings,
 		},
 	)
 	if err != nil {
@@ -684,8 +693,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	// surface a visible error in the UI rather than silently doing nothing.
 	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
-	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings)
-
+	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings)
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
 	stdcapDelegate := standardcapabilities.NewDelegate(
 		globalLogger,

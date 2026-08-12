@@ -248,6 +248,12 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 			ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
 		})
 	}
+
+	if isVaultIncludeInvalidEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
+		t.Run("include_invalid_pending_items_liveness", func(t *testing.T) {
+			ExecuteVaultIncludeInvalidLivenessSmokeTest(t, fixture, testEnv)
+		})
+	}
 }
 
 func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
@@ -518,7 +524,70 @@ func ExecuteVaultJWTDisabledTest(t *testing.T, fixture *vaultScenarioFixture) {
 	})
 }
 
-// ExecuteVaultBlobBatchingSmokeTest issues many concurrent Vault create calls so OCR observes a large
+// ExecuteVaultIncludeInvalidLivenessSmokeTest verifies that an erroring workflow GetSecrets for a
+// deleted secret does not stall concurrent valid gateway creates while include-invalid is enabled.
+func ExecuteVaultIncludeInvalidLivenessSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
+	t.Helper()
+	testLogger := framework.L
+
+	gwURL := fixture.GatewayURL.String()
+	vaultPublicKey := fixture.VaultPublicKey
+
+	sc := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+	owner := sc.MustGetRootKeyAddress().Hex()
+	wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+	wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+	require.NoError(t, err)
+	requireVaultLinkOwner(t, sc, common.HexToAddress(wfRegAddr), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()])
+	vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+	encryptedSecret, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-include-invalid-liveness", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+	require.NoError(t, err)
+	auth := newAllowlistVaultRequestAuth(owner, sc, wfReg)
+
+	deletedSecretID := uniqueVaultSecretID("includeinvaliddeleted")
+	liveSecretID := uniqueVaultSecretID("includeinvalidlive")
+	namespaces := []string{"main"}
+
+	executeVaultSecretsCreateWithAuth(t, auth, encryptedSecret, deletedSecretID, owner, gwURL, namespaces)
+	executeVaultSecretsDeleteWithAuth(t, auth, deletedSecretID, owner, gwURL, namespaces)
+
+	ulCh := make(chan *workflowevents.UserLogs, 1000)
+	bmCh := make(chan *commonevents.BaseMessage, 1000)
+	sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
+	})
+
+	workflowID := startVaultSecretsWorkflowPhasesTest(t, testEnv, "include-invalid-liveness", []vaultWorkflowPhase{
+		{
+			Name: "deleted-secret-not-found",
+			Checks: []vaultWorkflowCheck{
+				{Name: "get-deleted-not-found", SecretKey: deletedSecretID, SecretNamespace: "main", ExpectNotFound: true},
+			},
+		},
+	})
+
+	liveCreateRequestID := uuid.New().String()
+	liveCreateRequest := newVaultJSONRequest(t, liveCreateRequestID, vaulttypes.MethodSecretsCreate, &vault_helpers.CreateSecretsRequest{
+		RequestId:        liveCreateRequestID,
+		EncryptedSecrets: buildEncryptedSecrets(liveSecretID, auth.requestOwner, encryptedSecret, namespaces),
+	})
+	auth.apply(t, &liveCreateRequest)
+
+	createDone := make(chan struct{})
+	createErrCh := make(chan error, 1)
+	go func() {
+		defer close(createDone)
+		createErrCh <- tryValidateVaultSecretsCreateResponse(gwURL, liveCreateRequest, liveCreateRequestID, liveSecretID, []string{owner}, namespaces)
+	}()
+
+	waitForVaultWorkflowPhase(t, workflowID, "deleted-secret-not-found", ulCh, bmCh)
+	<-createDone
+	require.NoError(t, <-createErrCh)
+}
+
 // local pending queue and exercises batched pending-queue blobs (beyond the legacy per-blob single-item cap).
 func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
 	t.Helper()
@@ -886,6 +955,11 @@ func TestVaultJSONOmitUnpopulatedEnabled_CRESettingDefaultsDisabled(t *testing.T
 	require.False(t, cresettings.Default.VaultJSONOmitUnpopulatedEnabled.DefaultValue)
 }
 
+func TestVaultIncludeInvalidPendingItemsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
+	t.Parallel()
+	require.False(t, cresettings.Default.VaultIncludeInvalidPendingItemsEnabled.DefaultValue)
+}
+
 func TestVaultSignedResponseRequestIDEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	t.Parallel()
 	require.False(t, cresettings.Default.VaultSignedResponseRequestIDEnabled.DefaultValue)
@@ -896,11 +970,12 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 
 	testCases := []struct {
-		name                  string
-		configPath            string
-		wantJWTGate           string
-		wantLinking           bool
-		wantOptimizationsGate string
+		name                   string
+		configPath             string
+		wantJWTGate            string
+		wantLinking            bool
+		wantOptimizationsGate  string
+		wantIncludeInvalidGate string
 	}{
 		{
 			name:        "enabled",
@@ -921,6 +996,13 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			wantLinking:           false,
 			wantOptimizationsGate: "true",
 		},
+		{
+			name:                   "include_invalid_enabled",
+			configPath:             vaultIncludeInvalidEnabledConfigPath,
+			wantJWTGate:            "false",
+			wantLinking:            false,
+			wantIncludeInvalidGate: "true",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -932,7 +1014,7 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 				switch nodeSet.Name {
 				case "workflow", "capabilities":
 				case "bootstrap-gateway":
-					if tc.wantOptimizationsGate != "true" {
+					if tc.wantOptimizationsGate != "true" && tc.wantIncludeInvalidGate != "true" {
 						continue
 					}
 				default:
@@ -944,10 +1026,16 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 					if tc.wantOptimizationsGate != "" {
 						require.Equal(t, "false", tc.wantOptimizationsGate)
 					}
+					if tc.wantIncludeInvalidGate != "" {
+						require.Equal(t, "false", tc.wantIncludeInvalidGate)
+					}
 				} else {
 					var settings map[string]string
 					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
 					if tc.wantOptimizationsGate == "true" {
+						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
+					} else if tc.wantIncludeInvalidGate == "true" {
+						require.Equal(t, "true", settings["VaultIncludeInvalidPendingItemsEnabled"])
 						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
 					} else {
 						require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
@@ -967,6 +1055,30 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {
+	t.Parallel()
+
+	cfg := &envconfig.Config{}
+	require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, vaultStallPurgeConfigPath).EnvironmentConfigPath))
+
+	for _, nodeSet := range cfg.NodeSets {
+		if nodeSet.Name != "capabilities" {
+			continue
+		}
+		settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
+		require.NotEmpty(t, settingsRaw)
+		var configuredSettings map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal([]byte(settingsRaw), &configuredSettings))
+		require.JSONEq(t, `"true"`, string(configuredSettings["VaultIncludeInvalidPendingItemsEnabled"]))
+		require.JSONEq(t, `"false"`, string(configuredSettings["VaultOptimizationsEnabled"]))
+		require.JSONEq(t, `"3"`, string(configuredSettings["VaultPendingQueueStallThreshold"]))
+		require.JSONEq(t, `"4kb"`, string(configuredSettings["VaultMaxObservationSizeLimit"]))
+		var perOwner map[string]string
+		require.NoError(t, json.Unmarshal(configuredSettings["PerOwner"], &perOwner))
+		require.Equal(t, "8kb", perOwner["VaultCiphertextSizeLimit"])
 	}
 }
 
