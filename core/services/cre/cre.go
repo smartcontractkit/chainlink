@@ -1019,11 +1019,11 @@ func newWorkflowRegistrySyncerV2(
 	var shardResolver shardownership.ShardResolver
 	switch assignmentMode {
 	case toml.ShardAssignmentModeManualOnly:
-		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentSettings, lggr)
+		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentSettings, orgResolver, lggr)
 		lggr.Infow("Using manual-only shard assignment mode")
 	case toml.ShardAssignmentModeRingOCROverrides:
 		ringOCR := shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
-		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentSettings, ringOCR, lggr)
+		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentSettings, orgResolver, ringOCR, lggr)
 		lggr.Infow("Using ringocr-with-overrides shard assignment mode")
 	default:
 		shardResolver = shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)

@@ -52,7 +52,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["60051:50051", "19876:9876"]
-      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-with-overrides\"\n"
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-with-overrides\"\n[CRE.Linking]\nURL = \"host.docker.internal:18124\"\n"
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -61,7 +61,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["19877:9876"]
-      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-with-overrides\"\n"
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-with-overrides\"\n[CRE.Linking]\nURL = \"host.docker.internal:18124\"\n"
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -70,7 +70,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["19878:9876"]
-      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-with-overrides\"\n"
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-with-overrides\"\n[CRE.Linking]\nURL = \"host.docker.internal:18124\"\n"
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -79,7 +79,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["19879:9876"]
-      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-with-overrides\"\n"
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-with-overrides\"\n[CRE.Linking]\nURL = \"host.docker.internal:18124\"\n"
 
 [[nodesets]]
   nodes = 4
@@ -104,7 +104,7 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-with-overrides\"\n"
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-with-overrides\"\n[CRE.Linking]\nURL = \"host.docker.internal:18124\"\n"
 
 [[nodesets]]
   nodes = 1
