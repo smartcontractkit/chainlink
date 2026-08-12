@@ -284,6 +284,9 @@ type Option func(*workflowRegistry)
 func WithShardOrchestratorClient(client shardorchestrator.ClientInterface) Option {
 	return func(wr *workflowRegistry) {
 		wr.shardOrchestratorClient = client
+		if wr.shardResolver == nil && client != nil {
+			wr.shardResolver = shardownership.NewRingOCRShardResolver(client, wr.lggr)
+		}
 	}
 }
 
