@@ -92,7 +92,8 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 
 		// 2. Start the enclaves. This is the whole point of depending on
 		//    chainlink-confidential-compute's harness from this repository.
-		enclaveCfg := testhelpers.DefaultLocalEnclaveSetupConfig(confidentialComputeRoot(t), confidentialWorkflowsApp)
+		ccRoot := confidentialComputeRoot(t)
+		enclaveCfg := testhelpers.DefaultLocalEnclaveSetupConfig(ccRoot, confidentialWorkflowsApp)
 		enclaveCfg.Region = confidentialEnclaveRegion
 		enclaves := testhelpers.SetupLocalEnclaves(t, enclaveCfg)
 		t.Cleanup(enclaves.CleanupAll)
@@ -147,10 +148,11 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		storeConfidentialWorkflowSecret(t, testEnv, testLogger, gatewayURL, vaultPublicKey,
 			confidentialSecretName, "s3cret-from-vault")
 
-		// 7. Compile and serve the workflow. ConsumerAddress is left empty, which
-		//    the workflow treats as "skip the chain-write leg".
+		// 7. Compile and serve the workflow from the confidential-compute checkout.
+		//    ConsumerAddress is left empty, which the workflow treats as "skip the
+		//    chain-write leg".
 		configJSON := fmt.Sprintf(`{"echo_url":%q}`, confidentialEchoURL)
-		artifacts := serveConfidentialWorkflow(t, configJSON, testhelpers.DetectHostIP())
+		artifacts := buildAndServeConfidentialWorkflow(t, ccRoot, configJSON, testhelpers.DetectHostIP())
 		testLogger.Info().
 			Str("binaryURL", artifacts.BinaryURL).
 			Str("configURL", artifacts.ConfigURL).
