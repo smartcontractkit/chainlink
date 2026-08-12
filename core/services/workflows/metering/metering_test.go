@@ -2007,3 +2007,194 @@ func Test_Report_ConcurrentSettleAndFormatReport(t *testing.T) {
 
 	<-done
 }
+
+func Test_toRateCard_GasDecimalPoints(t *testing.T) {
+	t.Parallel()
+
+	t.Run("parses gas_decimal_points from response", func(t *testing.T) {
+		t.Parallel()
+
+		resp := &billing.GetWorkflowExecutionRatesResponse{
+			RateCards: successRates,
+			GasTokensPerCredit: map[uint64]string{
+				5009297550715157269: "230140614074074", // ETH mainnet
+				6142183432164934935: "1000000000",       // Solana mainnet
+			},
+			GasDecimalPoints: map[uint64]uint32{
+				5009297550715157269: 18, // ETH
+				6142183432164934935: 9,  // Solana
+			},
+		}
+
+		rateCard, gasPrecision, err := toRateCard(resp)
+		require.NoError(t, err)
+
+		require.Contains(t, rateCard, "GAS.5009297550715157269")
+		require.Contains(t, rateCard, "GAS.6142183432164934935")
+
+		assert.Equal(t, uint32(18), gasPrecision["GAS.5009297550715157269"])
+		assert.Equal(t, uint32(9), gasPrecision["GAS.6142183432164934935"])
+	})
+
+	t.Run("defaults to 18 when gas_decimal_points is absent", func(t *testing.T) {
+		t.Parallel()
+
+		resp := &billing.GetWorkflowExecutionRatesResponse{
+			RateCards: successRates,
+			GasTokensPerCredit: map[uint64]string{
+				5009297550715157269: "230140614074074",
+			},
+		}
+
+		_, gasPrecision, err := toRateCard(resp)
+		require.NoError(t, err)
+
+		assert.Equal(t, uint32(18), gasPrecision["GAS.5009297550715157269"])
+	})
+
+	t.Run("uses 0 precision when gas_decimal_points value is 0 (capability emits integers)", func(t *testing.T) {
+		t.Parallel()
+
+		resp := &billing.GetWorkflowExecutionRatesResponse{
+			RateCards: successRates,
+			GasTokensPerCredit: map[uint64]string{
+				5009297550715157269: "230140614074074",
+			},
+			GasDecimalPoints: map[uint64]uint32{
+				5009297550715157269: 0,
+			},
+		}
+
+		_, gasPrecision, err := toRateCard(resp)
+		require.NoError(t, err)
+
+		assert.Equal(t, uint32(0), gasPrecision["GAS.5009297550715157269"])
+	})
+}
+
+func Test_Report_Settle_GasDecimalPoints(t *testing.T) {
+	t.Parallel()
+
+	t.Run("uses chain-specific decimal points for gas settlement", func(t *testing.T) {
+		t.Parallel()
+
+		solanaChainSelector := uint64(6142183432164934935)
+		solanaGasUnit := "GAS.6142183432164934935"
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+				GasTokensPerCredit: map[uint64]string{
+					solanaChainSelector: "1000000000", // 1B lamports per credit
+				},
+				GasDecimalPoints: map[uint64]uint32{
+					solanaChainSelector: 9, // Solana has 9 decimals
+				},
+			}, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		_, err := report.Deduct("ref1", ByResource(solanaGasUnit, "solana-write", decimal.NewFromInt(1)))
+		require.NoError(t, err)
+
+		// SpendValue is "0.000005" SOL (5000 lamports).
+		// With 9 decimal precision: 0.000005 * 10^9 = 5000 lamports.
+		// At 1B lamports/credit, that's 5000 / 1e9 = 0.000005 credits.
+		require.NoError(t, report.Settle("ref1", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: solanaGasUnit, SpendValue: "0.000005"},
+		}, CapDON_N: 1}))
+
+		assert.False(t, report.meteringMode, "should not switch to metering mode")
+
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+			if req == nil {
+				return false
+			}
+			// 5000 lamports / 1e9 lamports_per_credit = 0.000005 credits
+			return req.CreditsConsumed == "0.000005"
+		})).Return(&emptypb.Empty{}, nil)
+
+		require.NoError(t, report.SendReceipt(t.Context()))
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("defaults to 18 decimal points when billing service does not provide gas_decimal_points", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "200000000000000", // ETH mainnet
+				},
+			}, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		_, err := report.Deduct("ref1", ByResource(testUnitGas, "evm-write", decimal.NewFromInt(1)))
+		require.NoError(t, err)
+
+		// SpendValue "0.000700000000000000" ETH with 18 decimals = 700000000000000 wei.
+		// At 200000000000000 wei/credit, that's 3.5 credits.
+		require.NoError(t, report.Settle("ref1", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testUnitGas, SpendValue: "0.000700000000000000"},
+		}, CapDON_N: 1}))
+
+		assert.False(t, report.meteringMode)
+
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+			return req.CreditsConsumed == "3.5"
+		})).Return(&emptypb.Empty{}, nil)
+
+		require.NoError(t, report.SendReceipt(t.Context()))
+		billingClient.AssertExpectations(t)
+	})
+
+	t.Run("does not shift when decimal_points is 0 (capability emits fixed-point integers)", func(t *testing.T) {
+		t.Parallel()
+
+		billingClient := mocks.NewBillingClient(t)
+		billingClient.EXPECT().GetWorkflowExecutionRates(mock.Anything, mock.Anything).
+			Return(&billing.GetWorkflowExecutionRatesResponse{
+				RateCards: successRates,
+				GasTokensPerCredit: map[uint64]string{
+					5009297550715157269: "200000000000000", // ETH mainnet
+				},
+				GasDecimalPoints: map[uint64]uint32{
+					5009297550715157269: 0, // capability already emits integers
+				},
+			}, nil)
+		report := newTestReport(t, logger.Nop(), billingClient)
+
+		billingClient.EXPECT().ReserveCredits(mock.Anything, mock.Anything).
+			Return(&successReserveResponse, nil)
+		require.NoError(t, report.Reserve(t.Context()))
+
+		_, err := report.Deduct("ref1", ByResource(testUnitGas, "evm-write", decimal.NewFromInt(1)))
+		require.NoError(t, err)
+
+		// SpendValue "700000000000000" is already in wei (fixed-point).
+		// With precision 0, no shift is applied.
+		// At 200000000000000 wei/credit, that's 3.5 credits.
+		require.NoError(t, report.Settle("ref1", capabilities.ResponseMetadata{Metering: []capabilities.MeteringNodeDetail{
+			{Peer2PeerID: "xyz", SpendUnit: testUnitGas, SpendValue: "700000000000000"},
+		}, CapDON_N: 1}))
+
+		assert.False(t, report.meteringMode)
+
+		billingClient.EXPECT().SubmitWorkflowReceipt(mock.Anything, mock.MatchedBy(func(req *billing.SubmitWorkflowReceiptRequest) bool {
+			return req.CreditsConsumed == "3.5"
+		})).Return(&emptypb.Empty{}, nil)
+
+		require.NoError(t, report.SendReceipt(t.Context()))
+		billingClient.AssertExpectations(t)
+	})
+}

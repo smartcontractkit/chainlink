@@ -129,6 +129,7 @@ type Report struct {
 	meteringModeErr error
 	steps           map[string]ReportStep
 	rateCard        map[string]decimal.Decimal
+	gasPrecision    map[string]uint32
 
 	// workflowRegistryAddress is the address of the workflow registry contract used for billing.
 	// This value is used for ALL workflows regardless of source (contract, GRPC, or file).
@@ -167,6 +168,7 @@ func NewReport(
 		metrics:                 metrics,
 		workflowRegistryAddress: workflowRegistryAddress,
 		rateCard:                make(map[string]decimal.Decimal),
+		gasPrecision:            make(map[string]uint32),
 		engineVersion:           engineVersion,
 
 		reserved: false,
@@ -211,7 +213,7 @@ func NewReport(
 			report.switchToMeteringMode(err)
 		}
 
-		report.rateCard, err = toRateCard(resp)
+		report.rateCard, report.gasPrecision, err = toRateCard(resp)
 		if err != nil {
 			report.switchToMeteringMode(err)
 		}
@@ -448,10 +450,14 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 			}
 
 			if isGasSpendType(unit) {
-				// TODO: this decimal shift should be temporary and converted when write capabilities
-				// are converted to provide spend as big.Int fixed point values
-				// WARNING: 18 is a magic number here and assumes all gas tokens will have the same level of precision
-				value = value.Shift(18) // shift to fixed point value
+				// decimal precision is provided per chain by the billing service via gas_decimal_points.
+				// default to 18 (EVM) when not provided for backward compatibility.
+				// a precision of 0 means the capability already emits fixed-point integers and no shift is needed.
+				precision := uint32(18)
+				if p, ok := r.gasPrecision[unit]; ok {
+					precision = p
+				}
+				value = value.Shift(int32(precision)) // shift to fixed point value
 			}
 
 			if val, convertErr := r.balance.ConvertToBalance(unit, value); convertErr == nil {
@@ -817,14 +823,14 @@ func (r *Report) switchToMeteringMode(err error) {
 	r.meteringMode = true
 }
 
-func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]decimal.Decimal, error) {
+func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]decimal.Decimal, map[string]uint32, error) {
 	rates := resp.GetRateCards()
 
 	rateCard := map[string]decimal.Decimal{}
 	for _, rate := range rates {
 		conversionDeci, err := decimal.NewFromString(rate.UnitsPerCredit)
 		if err != nil {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert unit %s's value %s to decimal", rate.ResourceType, rate.UnitsPerCredit)
+			return map[string]decimal.Decimal{}, nil, fmt.Errorf("could not convert unit %s's value %s to decimal", rate.ResourceType, rate.UnitsPerCredit)
 		}
 
 		rateCard[rate.ResourceType.String()] = conversionDeci
@@ -833,17 +839,28 @@ func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]dec
 	// credits per gas are provided in the form of map[chainselector] -> <gasRate>string
 	// each entry should be converted to a usable rate card with form of GAS.[chainselector] -> <unitsPerCredit>decimal
 	gasCredits := resp.GetGasTokensPerCredit()
+	gasDecimalPoints := resp.GetGasDecimalPoints()
+	gasPrecision := map[string]uint32{}
 
 	for chainSelector, gasRate := range gasCredits {
 		conversionDeci, err := decimal.NewFromString(gasRate)
 		if err != nil {
-			return map[string]decimal.Decimal{}, fmt.Errorf("could not convert gas rate %d's value %s to decimal", chainSelector, gasRate)
+			return map[string]decimal.Decimal{}, nil, fmt.Errorf("could not convert gas rate %d's value %s to decimal", chainSelector, gasRate)
 		}
 
-		rateCard[fmt.Sprintf("GAS.%d", chainSelector)] = conversionDeci
+		key := fmt.Sprintf("GAS.%d", chainSelector)
+		rateCard[key] = conversionDeci
+
+		// default to 18 (EVM) if not provided by the billing service.
+		// a value of 0 means the capability already emits fixed-point integers and no shift is needed.
+		precision := uint32(18)
+		if dp, ok := gasDecimalPoints[chainSelector]; ok {
+			precision = dp
+		}
+		gasPrecision[key] = precision
 	}
 
-	return rateCard, nil
+	return rateCard, gasPrecision, nil
 }
 
 func medianSpend(spends []decimal.Decimal) decimal.Decimal {
