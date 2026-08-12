@@ -450,6 +450,7 @@ type GenerateConfigsInput struct {
 	Topology                  *Topology
 	Provider                  infra.Provider
 	ChipRouterInternalGRPCURL string
+	EnableMetering            bool
 }
 
 func (g *GenerateConfigsInput) Validate() error {
@@ -1283,6 +1284,10 @@ type NodeSet struct {
 	RegistryBasedLaunchAllowlist []string `toml:"registry_based_launch_allowlist"`
 	// GatewayDonID is the gateway DON used for multi-gateway HTTP action routing on gateway nodesets.
 	GatewayDonID string `toml:"gateway_don_id"`
+
+	// EnableMetering turns on framework-generated [Metering] node config for this
+	// nodeset's worker nodes (durable MeterRecord/MeterSnapshot emission).
+	EnableMetering bool `toml:"enable_metering"`
 
 	chainCapabilityIndex      map[CapabilityFlag][]uint64
 	chainCapabilityIndexBuilt bool

@@ -18,11 +18,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/billing"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	nodeauthjwt "github.com/smartcontractkit/chainlink-common/pkg/nodeauth/jwt"
+	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	commonsrv "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -33,15 +35,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/localcapmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
@@ -81,8 +82,7 @@ type Opts struct {
 	CapabilitiesDispatcher remotetypes.Dispatcher
 	CapabilitiesSharedPeer p2ptypes.SharedPeer
 
-	FetcherFunc      wftypes.FetcherFunc
-	FetcherFactoryFn compute.FetcherFactory
+	FetcherFunc wftypes.FetcherFunc
 
 	BillingClient metering.BillingClient
 	LinkingClient linkingclient.LinkingServiceClient
@@ -99,6 +99,8 @@ type Opts struct {
 	JWTGenerator nodeauthjwt.JWTGenerator
 
 	ShardOrchestratorClient shardorchestrator.ClientInterface
+
+	ShardAssignmentSettings *loop.AtomicSettings
 }
 
 // Services contains all CRE-related services
@@ -295,6 +297,10 @@ func (s *Services) newSubservices(
 		return srvs, nil
 	}
 
+	// Build the syncer's base metering identity once from node metering config;
+	// the handler resolves the workflow DON id later from the don notifier.
+	meterIdentity := newSyncerMeterIdentity(cfg)
+
 	wfSyncer, billingClient, wfSyncerSrvcs, err := newWorkflowRegistrySyncer(
 		cfg,
 		relayerChainInterops,
@@ -308,6 +314,7 @@ func (s *Services) newSubservices(
 		opts.LimitsFactory,
 		s.OrgResolver,
 		s.GatewayConnectorWrapper,
+		meterIdentity,
 	)
 	if err != nil {
 		return nil, err
@@ -336,6 +343,7 @@ type Config interface {
 	CRE() config.CRE
 	P2P() config.P2P
 	Sharding() config.Sharding
+	Metering() config.Metering
 }
 
 // RelayerChainInterops is the minimal interface needed for relayer chain interops
@@ -691,6 +699,30 @@ func newBillingClient(lggr logger.Logger, cfg Config, opts Opts) (metering.Billi
 	return billing.NewWorkflowClient(lggr, cfg.Billing().URL(), workflowOpts...)
 }
 
+// newSyncerMeterIdentity builds the syncer's base metering identity from node
+// metering config. Product/tenant/environment/zone and logical node_id are read
+// from [Metering]. The workflow DON id (don_id) is resolved later by the
+// registry from the don notifier (the engine runs on the workflow DON), so it
+// is intentionally left empty here. Service/resource_pool are stamped by
+// syncer.NewSpecMeter.
+func newSyncerMeterIdentity(cfg Config) resourcemanager.ResourceIdentity {
+	m := cfg.Metering()
+	if m == nil {
+		return resourcemanager.ResourceIdentity{}
+	}
+	id := resourcemanager.ResourceIdentity{
+		Product:         m.Product(),
+		Tenant:          m.Tenant(),
+		NumericTenantID: m.NumericTenantID(),
+		Environment:     m.Environment(),
+		Zone:            m.Zone(),
+	}
+	if nodeID := m.NodeID(); nodeID != "" {
+		id.Don = &resourcemanager.DonIdentity{NodeID: nodeID}
+	}
+	return id
+}
+
 func newShardOrchestratorClient(cfg Config, lggr logger.Logger) (*shardorchestrator.Client, error) {
 	shardID := cfg.Sharding().ShardIndex()
 	if shardID == 0 {
@@ -906,6 +938,7 @@ func newWorkflowRegistrySyncerV2(
 	lf limits.Factory,
 	orgResolver orgresolver.OrgResolver,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
+	meterIdentity resourcemanager.ResourceIdentity,
 ) (syncerV2.WorkflowRegistrySyncer, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 	wfReg := capCfg.WorkflowRegistry()
@@ -982,6 +1015,24 @@ func newWorkflowRegistrySyncerV2(
 		shardRoutingSteady = shardownership.NewSteadySignal(shardownership.WithSteadySignalMetrics(steadyMetrics))
 	}
 
+	assignmentMode := cfg.Sharding().ShardAssignmentMode()
+	var shardResolver shardownership.ShardResolver
+	switch assignmentMode {
+	case toml.ShardAssignmentModeManualOnly:
+		shardResolver = shardownership.NewManualShardResolver(opts.ShardAssignmentSettings, lggr)
+		lggr.Infow("Using manual-only shard assignment mode")
+	case toml.ShardAssignmentModeRingOCROverrides:
+		ringOCR := shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
+		shardResolver = shardownership.NewOverrideShardResolver(opts.ShardAssignmentSettings, ringOCR, lggr)
+		lggr.Infow("Using ringocr-with-overrides shard assignment mode")
+	default:
+		shardResolver = shardownership.NewRingOCRShardResolver(shardOrchestratorClient, lggr)
+		lggr.Infow("Using ringocr-only shard assignment mode")
+	}
+	meteringCfg := cfg.Metering()
+	meterRecordsEnabled := meteringCfg != nil && meteringCfg.MeterRecordsEnabled()
+	meterSnapshotsEnabled := meteringCfg != nil && meteringCfg.MeterSnapshotsEnabled()
+
 	handlerOpts := []syncerV2.EventHandlerOption{
 		syncerV2.WithBillingClient(billingClient),
 		syncerV2.WithWorkflowRegistry(capCfg.WorkflowRegistry().Address(), selector),
@@ -990,6 +1041,24 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithLocalSecretOverrides(lggr, cfg.CRE().LocalSecretOverrides()),
 		syncerV2.WithShardExecutionGuard(shardOrchestratorClient, shardingEnabled, shardIndex),
 		syncerV2.WithShardRoutingSteady(shardRoutingSteady),
+		syncerV2.WithShardResolver(shardResolver),
+	}
+
+	// The spec meter (and its ResourceManager) exists only when metering is
+	// enabled; a handler without one emits nothing. The meter owns the RM
+	// lifecycle and snapshot registration as a sub-service of the handler.
+	if meterRecordsEnabled || meterSnapshotsEnabled {
+		rm := resourcemanager.NewResourceManager(lggr, resourcemanager.ResourceManagerConfig{
+			MeterRecordsEnabled:   meterRecordsEnabled,
+			MeterSnapshotsEnabled: meterSnapshotsEnabled,
+			Emitter:               beholder.GetEmitter(),
+			SnapshotInterval:      resourcemanager.DefaultSnapshotInterval,
+		})
+		specMeter, smErr := syncerV2.NewSpecMeter(lggr, rm, meterIdentity, artifactsStore, orgResolver)
+		if smErr != nil {
+			return nil, nil, fmt.Errorf("unable to create workflow spec meter: %w", smErr)
+		}
+		handlerOpts = append(handlerOpts, syncerV2.WithSpecMeter(specMeter))
 	}
 
 	mc := capCfg.WorkflowRegistry().ModuleCache()
@@ -1091,6 +1160,7 @@ func newWorkflowRegistrySyncerV2(
 		syncerV2.WithCentralizedOwnerVerification(engineLimiters.CentralizedWorkflowOwnerVerificationEnabled, lf.Settings),
 		syncerV2.WithAdditionalSources(addSourceConfigs),
 		syncerV2.WithShardOrchestratorClient(shardOrchestratorClient),
+		syncerV2.WithRegistryShardResolver(shardResolver),
 		syncerV2.WithMaxConcurrency(wfReg.MaxConcurrency()),
 		syncerV2.WithMaxActivationRetries(wfReg.MaxActivationRetries()),
 	}
@@ -1141,6 +1211,7 @@ func newWorkflowRegistrySyncer(
 	lf limits.Factory,
 	orgResolver orgresolver.OrgResolver,
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper,
+	meterIdentity resourcemanager.ResourceIdentity,
 ) (syncerV2.WorkflowRegistrySyncer, metering.BillingClient, []commonsrv.Service, error) {
 	capCfg := cfg.Capabilities()
 
@@ -1189,6 +1260,7 @@ func newWorkflowRegistrySyncer(
 			lf,
 			orgResolver,
 			gatewayConnectorWrapper,
+			meterIdentity,
 		)
 		return syncer, billingClient, srvcs, err
 	default:

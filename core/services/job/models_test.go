@@ -8,19 +8,17 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
 )
 
 func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
@@ -32,7 +30,7 @@ func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
 	forwardingAllowed = false
 	command = "consensus"
 	config = """"""
-	
+
 	[oracle_factory]
 	enabled = true
 	bootstrap_peers = ["12D3KooWBAzThfs9pD4WcsFKCi68EUz2fZgZskDBT6JcJRndPss5@cl-keystone-two-bt-0:5001"]
@@ -363,7 +361,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			w := &job.WorkflowSpec{
 				Workflow: tt.fields.Workflow,
 			}
-			err := w.Validate(testutils.Context(t))
+			err := w.Validate(t.Context())
 			require.Equal(t, tt.wantError, err != nil)
 			if !tt.wantError {
 				assert.NotEmpty(t, w.WorkflowID)
@@ -382,7 +380,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			Config:   configLocation,
 		}
 
-		err := w.Validate(testutils.Context(t))
+		err := w.Validate(t.Context())
 		require.NoError(t, err)
 		require.NotEmpty(t, w.WorkflowID)
 	})
@@ -407,7 +405,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 		err := toml.Unmarshal([]byte(tomlSpec), &w)
 		require.NoError(t, err)
 
-		err = w.Validate(testutils.Context(t))
+		err = w.Validate(t.Context())
 		require.NoError(t, err)
 		require.NotEmpty(t, w.WorkflowID)
 		assert.Equal(t, "0123456789012345678901234567890123456788", w.WorkflowOwner)

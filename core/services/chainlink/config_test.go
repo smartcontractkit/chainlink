@@ -17,22 +17,20 @@ import (
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/config/configtest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
-	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
-	"github.com/smartcontractkit/chainlink-framework/multinode"
-
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -591,6 +589,16 @@ func TestConfig_Marshal(t *testing.T) {
 			Prefixes: []string{"ocr_"},
 		},
 	}
+	full.Metering = toml.Metering{
+		MeterRecordsEnabled:   new(true),
+		MeterSnapshotsEnabled: new(true),
+		Product:               new("cre"),
+		Tenant:                new("mainline"),
+		NumericTenantID:       new("42"),
+		Environment:           new("production"),
+		Zone:                  new("wf-zone-a"),
+		NodeID:                new("clp-cre-wf-zone-a-1"),
+	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: new(true),
 		EnableDKGRecipient:   new(false),
@@ -630,6 +638,7 @@ func TestConfig_Marshal(t *testing.T) {
 		PollingInterval:        commoncfg.MustNewDuration(time.Hour),
 		EnabledOCR2PluginTypes: &enabledOCR2PluginTypes,
 	}
+	mode := "ringocr-only"
 	full.Sharding = toml.Sharding{
 		ShardingEnabled:          new(false),
 		ArbiterPort:              new(uint16(9876)),
@@ -638,6 +647,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ShardIndex:               new(uint16(0)),
 		ShardOrchestratorPort:    new(uint16(50051)),
 		ShardOrchestratorAddress: &commoncfg.URL{},
+		ShardAssignmentMode:      &mode,
 	}
 	full.LOOPP = toml.LOOPP{
 		GRPCServerMaxRecvMsgSize: new((utils.FileSize)(42 * utils.MB)),
@@ -1686,25 +1696,25 @@ BackupURL = "foo-bar?password=asdf"
 AllowSimplePasswords = false`,
 			exp: `invalid secrets: 2 errors:
 	- Database: 2 errors:
-		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 
+		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
-	
-		- BackupURL: invalid value (*****): missing or insufficiently complex password: 
+
+		- BackupURL: invalid value (*****): missing or insufficiently complex password:
 	Expected password complexity:
 	Must be at least 16 characters long
 	Must not comprise:
 		Leading or trailing whitespace
 		A user's API email
-	
+
 	Faults:
 		password is less than 16 characters long
-	. Database should be secured by a password matching the following complexity requirements: 
+	. Database should be secured by a password matching the following complexity requirements:
 	Must have a length of 16-50 characters
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
-	
+
 	- Password.Keystore: empty: must be provided and non-empty`},
 
 		{name: "invalid-urls-allowed",

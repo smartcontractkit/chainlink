@@ -13,10 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-
-	"github.com/jmoiron/sqlx"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
@@ -503,7 +502,7 @@ func getTxnReceiptDB(db *sqlx.DB, txesID int64) ([]v2.TxnReceiptDB, error) {
 			FROM evm.receipts
 			WHERE tx_hash IN (SELECT hash FROM attempts)
 		)
-		SELECT r.tx_hash, 
+		SELECT r.tx_hash,
 			r.receipt,
 			t.from_address,
 			t.meta->>'SubId' as sub_id,

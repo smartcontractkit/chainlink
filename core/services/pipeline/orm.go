@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -312,10 +311,10 @@ func (o *orm) UpdateTaskRunResult(ctx context.Context, taskID uuid.UUID, result 
 func (o *orm) InsertFinishedRuns(ctx context.Context, runs []*Run, saveSuccessfulTaskRuns bool) error {
 	err := o.transact(ctx, func(tx *orm) error {
 		pipelineRunsQuery := `
-INSERT INTO pipeline_runs 
+INSERT INTO pipeline_runs
 	(pipeline_spec_id, pruning_key, meta, all_errors, fatal_errors, inputs, outputs, created_at, finished_at, state)
-VALUES 
-	(:pipeline_spec_id, :pruning_key, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state) 
+VALUES
+	(:pipeline_spec_id, :pruning_key, :meta, :all_errors, :fatal_errors, :inputs, :outputs, :created_at, :finished_at, :state)
 RETURNING id
 	`
 

@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -36,7 +35,7 @@ func setupAuthenticationProvider(t *testing.T) (*sqlx.DB, sessions.Authenticatio
 
 func TestORM_FindUser_Empty(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	// Init OIDC authenticator
 	_, oidcAuthProvider := setupAuthenticationProvider(t)
 	// Find user
@@ -46,7 +45,7 @@ func TestORM_FindUser_Empty(t *testing.T) {
 
 func TestORM_FindUser_Single(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
@@ -67,7 +66,7 @@ func TestORM_FindUser_Single(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Success(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 
@@ -84,7 +83,7 @@ func TestORM_FindUserByAPIToken_Success(t *testing.T) {
 }
 
 func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	// Init OIDC authenticator
 	cfg := oidcauth.TestConfig{}
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -101,7 +100,7 @@ func TestORM_FindUserByAPIToken_Expired(t *testing.T) {
 }
 
 func TestORM_DeleteAuthToken(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
@@ -127,7 +126,7 @@ func TestORM_DeleteAuthToken(t *testing.T) {
 }
 
 func TestORM_ListUsers(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	// Init OIDC authenticator
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	users := []sessions.User{
@@ -164,7 +163,7 @@ func TestORM_ListUsers(t *testing.T) {
 
 func TestORM_CreateSession(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
 
@@ -184,7 +183,7 @@ func TestORM_CreateSession(t *testing.T) {
 
 func TestORM_DeleteSession(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
 
@@ -207,7 +206,7 @@ func TestORM_DeleteSession(t *testing.T) {
 
 func TestORM_ClearNonConcurrentSession(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
 
@@ -230,7 +229,7 @@ func TestORM_ClearNonConcurrentSession(t *testing.T) {
 
 func Test_AuthorizeUserWithSession_Success(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
 
@@ -257,7 +256,7 @@ func Test_AuthorizeUserWithSession_Success(t *testing.T) {
 
 func Test_AuthorizeUserWithSession_Expired(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	cfg := oidcauth.TestConfig{}
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
@@ -288,7 +287,7 @@ func Test_AuthorizeUserWithSession_Expired(t *testing.T) {
 
 func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
 
@@ -314,7 +313,7 @@ func Test_AuthorizeUserWithSession_SessionRoleMatchesUserRole(t *testing.T) {
 
 func TestORM_CreateSession_LocalAdminFallbackLogin(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db, oidcAuthProvider := setupAuthenticationProvider(t)
 	user1 := cltest.MustRandomUser(t)
 

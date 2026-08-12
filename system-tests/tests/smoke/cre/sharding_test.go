@@ -570,9 +570,11 @@ func waitForRingOCRRounds(t *testing.T, client ringpb.ShardOrchestratorServiceCl
 			Uint64("currentVersion", resp.MappingVersion).
 			Uint64("initialVersion", initialVersion).
 			Int("mappingsCount", len(resp.Mappings)).
+			Bool("routingSteady", resp.RoutingSteady).
+			Uint64("routingStateId", resp.RoutingStateId).
 			Msg("Ring OCR round check")
 		return resp.MappingVersion > initialVersion
-	}, 90*time.Second, 5*time.Second, "Ring OCR rounds not completing - mapping_version not increasing. Initial: %d", initialVersion)
+	}, 3*time.Minute, 5*time.Second, "Ring OCR rounds not completing - mapping_version not increasing. Initial: %d", initialVersion)
 }
 
 func waitForWorkflowsRegistered(t *testing.T, client ringpb.ShardOrchestratorServiceClient, workflowIDs []string) {

@@ -11,12 +11,10 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 )
 

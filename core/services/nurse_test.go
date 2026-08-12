@@ -30,7 +30,7 @@ type mockConfig struct {
 	goroutineThreshold   int
 }
 
-var (
+const (
 	testInterval = 50 * time.Millisecond
 	testDuration = 20 * time.Millisecond
 	testRate     = 100
