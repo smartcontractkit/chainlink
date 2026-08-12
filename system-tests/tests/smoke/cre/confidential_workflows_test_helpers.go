@@ -1,7 +1,6 @@
 package cre
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
@@ -14,13 +13,11 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 
-	"github.com/andybalholm/brotli"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -287,48 +284,46 @@ type confidentialWorkflowArtifacts struct {
 	BinaryHash  []byte
 }
 
-// buildAndServeConfidentialWorkflow compiles the test workflow to wasip1/wasm,
-// brotli-compresses and base64-encodes it (the format the syncer expects), writes
-// both binary and config to a temp dir, and serves them over HTTP bound to
-// 0.0.0.0 so the host, the Docker containers and the enclaves can all fetch them.
-func buildAndServeConfidentialWorkflow(t *testing.T, configJSON string, hostIP string) confidentialWorkflowArtifacts {
+// serveConfidentialWorkflow publishes the prebuilt workflow artifact and its
+// config over HTTP, bound to 0.0.0.0 so the host, the Docker containers and the
+// enclaves can all fetch them.
+//
+// The workflow is committed as a prebuilt brotli+base64 blob rather than Go
+// source, matching how this repository ships its other WASM workflows. Building
+// it here is not possible: it depends on cre-sdk-go versions that predate the
+// removal of the in-TEE HTTP API, and those versions do not pass this
+// repository's dependency validation. Regenerate it from
+// chainlink-confidential-compute (tests/e2e/testdata/workflow) and copy the
+// result over.
+func serveConfidentialWorkflow(t *testing.T, configJSON string, hostIP string) confidentialWorkflowArtifacts {
 	t.Helper()
 
-	srcDir, err := filepath.Abs(confidentialWorkflowSrcDir)
-	require.NoError(t, err, "resolving workflow source path")
+	srcPath, err := filepath.Abs(filepath.Join(confidentialWorkflowSrcDir, confidentialWorkflowBinaryFilename))
+	require.NoError(t, err, "resolving prebuilt workflow path")
 
+	encoded, err := os.ReadFile(srcPath)
+	require.NoError(t, err, "reading prebuilt workflow artifact at %s", srcPath)
+	require.NotEmpty(t, encoded, "prebuilt workflow artifact is empty")
+
+	// The syncer and the enclave both expect base64-encoded brotli; hash the
+	// decoded bytes so the value matches what the enclave verifies.
+	compressed, err := base64.StdEncoding.DecodeString(string(encoded))
+	require.NoError(t, err, "prebuilt workflow artifact is not valid base64")
+	hash := sha256.Sum256(compressed)
+
+	// The syncer's file fetcher reads both files from disk inside the container,
+	// so they have to exist as real files the test can copy in.
 	tmpDir := t.TempDir()
-	outFile := filepath.Join(tmpDir, "workflow-test.wasm")
-
-	cmd := exec.Command("go", "build", "-o", outFile, ".")
-	cmd.Dir = srcDir
-	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm", "CGO_ENABLED=0")
-	output, err := cmd.CombinedOutput()
-	require.NoError(t, err, "compiling confidential workflow WASM: %s", string(output))
-
-	raw, err := os.ReadFile(outFile)
-	require.NoError(t, err, "reading compiled WASM")
-
-	var compressed bytes.Buffer
-	w := brotli.NewWriter(&compressed)
-	_, err = w.Write(raw)
-	require.NoError(t, err, "brotli compressing WASM")
-	require.NoError(t, w.Close(), "closing brotli writer")
-
-	binary := compressed.Bytes()
-	hash := sha256.Sum256(binary)
-	encoded := base64.StdEncoding.EncodeToString(binary)
-
 	require.NoError(t,
-		os.WriteFile(filepath.Join(tmpDir, confidentialWorkflowBinaryFilename), []byte(encoded), 0o600),
-		"writing workflow binary artifact")
+		os.WriteFile(filepath.Join(tmpDir, confidentialWorkflowBinaryFilename), encoded, 0o600),
+		"staging workflow binary artifact")
 	require.NoError(t,
 		os.WriteFile(filepath.Join(tmpDir, confidentialWorkflowConfigFilename), []byte(configJSON), 0o600),
-		"writing workflow config artifact")
+		"staging workflow config artifact")
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/"+confidentialWorkflowBinaryFilename, func(rw http.ResponseWriter, _ *http.Request) {
-		_, _ = rw.Write([]byte(encoded))
+		_, _ = rw.Write(encoded)
 	})
 	mux.HandleFunc("/"+confidentialWorkflowConfigFilename, func(rw http.ResponseWriter, _ *http.Request) {
 		_, _ = rw.Write([]byte(configJSON))

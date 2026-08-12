@@ -150,7 +150,7 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		// 7. Compile and serve the workflow. ConsumerAddress is left empty, which
 		//    the workflow treats as "skip the chain-write leg".
 		configJSON := fmt.Sprintf(`{"echo_url":%q}`, confidentialEchoURL)
-		artifacts := buildAndServeConfidentialWorkflow(t, configJSON, testhelpers.DetectHostIP())
+		artifacts := serveConfidentialWorkflow(t, configJSON, testhelpers.DetectHostIP())
 		testLogger.Info().
 			Str("binaryURL", artifacts.BinaryURL).
 			Str("configURL", artifacts.ConfigURL).

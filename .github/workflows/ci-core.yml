@@ -157,7 +157,6 @@ jobs:
           module-patterns: |
             **
             !core/scripts/cre/environment/examples/workflows/**
-            !system-tests/tests/smoke/cre/testdata/**
 
   golangci:
     name: GolangCI Lint
