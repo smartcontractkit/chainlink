@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -171,7 +173,11 @@ func (r *server) Start(ctx context.Context) error {
 		}
 
 		// Initialize parallel executor with the configured max parallel requests
-		r.parallelExecutor = remote.NewParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests), "executable_server")
+		slotUsageAttrs := []attribute.KeyValue{
+			attribute.String("capabilityID", r.capabilityID),
+			attribute.String("capMethodName", r.capMethodName),
+		}
+		r.parallelExecutor = remote.NewParallelExecutor(int(cfg.remoteExecutableConfig.ServerMaxParallelRequests), "executable_server", slotUsageAttrs...)
 
 		r.wg.Go(func() {
 			ticker := time.NewTicker(getServerTickerInterval(cfg))

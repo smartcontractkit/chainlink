@@ -23,10 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 )
 
-var EnableBigBlockChangeset = cldf.CreateChangeSet(enableBigBlocksLogic, enableBigBlocksPreCondition)
+var EnableBigBlockChangeset = cldf.CreateLegacyChangeSet(enableBigBlocksLogic)
 
 type EnableBigBlocksConfig struct {
 	APIURL    string
@@ -52,14 +51,6 @@ type enableBigBlocksDetailConfig struct {
 	URL               string        // RPC URL
 	VerifyingContract string        // Verifying contract address
 	RequestTimeout    time.Duration // HTTP request timeout
-}
-
-func enableBigBlocksPreCondition(env cldf.Environment, cfg EnableBigBlocksConfig) error {
-	_, err := stateview.LoadOnchainState(env)
-	if err != nil {
-		return fmt.Errorf("failed to load onchain state: %w", err)
-	}
-	return nil
 }
 
 func enableBigBlocksLogic(env cldf.Environment, cfg EnableBigBlocksConfig) (cldf.ChangesetOutput, error) {

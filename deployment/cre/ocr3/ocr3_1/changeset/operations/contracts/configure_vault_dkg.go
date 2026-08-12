@@ -37,6 +37,12 @@ type ConfigureVaultDKGInput struct {
 type DKGDon struct {
 	contracts.DonNodeSet
 	RecipientPublicKeys []string `json:"recipientPublicKeys" yaml:"recipientPublicKeys"`
+	// PreviousInstanceID, when set, makes this a resharing DKG instead of a fresh dealing.
+	// It must be the currently-live DKG instance ID (e.g.
+	// "sanmarinodkg/v1/<dkgContract>/<configDigest>"). Resharing preserves the group
+	// (master) public key while changing the participant/share set; a fresh dealing
+	// (nil) generates a NEW group key. Leave nil only for the very first DKG config.
+	PreviousInstanceID *string `json:"previousInstanceID,omitempty" yaml:"previousInstanceID,omitempty"`
 }
 
 type ConfigureVaultDKG struct{}
@@ -135,5 +141,6 @@ func dkgOffchainConfig(don DKGDon, threshold int) *ocr3_1.DKGOffchainConfig {
 		T:                   threshold,
 		DealerPublicKeys:    don.RecipientPublicKeys,
 		RecipientPublicKeys: don.RecipientPublicKeys,
+		PreviousInstanceID:  don.PreviousInstanceID,
 	}
 }

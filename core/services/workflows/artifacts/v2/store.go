@@ -3,7 +3,6 @@ package v2
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -234,22 +233,24 @@ func (h *Store) GetWorkflowSpec(ctx context.Context, workflowID string) (*job.Wo
 	return spec, err
 }
 
+// ListWorkflowSpecs returns the persisted workflow specs (identity columns
+// only). It backs the orphan sweep and the metering snapshot path.
+func (h *Store) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error) {
+	return h.orm.ListWorkflowSpecs(ctx)
+}
+
 func (h *Store) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) (int64, error) {
 	return h.orm.UpsertWorkflowSpec(ctx, spec)
 }
 
-// DeleteWorkflowArtifacts removes the workflow spec from the database. If not found, returns nil.
-func (h *Store) DeleteWorkflowArtifacts(ctx context.Context, workflowID string) error {
-	err := h.orm.DeleteWorkflowSpec(ctx, workflowID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			h.lggr.Warnw("failed to delete workflow spec: not found", "workflowID", workflowID)
-			return nil
-		}
-		return fmt.Errorf("failed to delete workflow spec: %w", err)
-	}
+// DeleteWorkflowArtifacts removes the workflow spec from the database. If not
+// found, returns (nil, nil).
+func (h *Store) DeleteWorkflowArtifacts(ctx context.Context, workflowID string) (*job.WorkflowSpec, error) {
+	return h.orm.DeleteWorkflowSpec(ctx, workflowID)
+}
 
-	return nil
+func (h *Store) PauseWorkflowArtifacts(ctx context.Context, workflowID string) error {
+	return h.orm.PauseWorkflowSpec(ctx, workflowID)
 }
 
 func (h *Store) DeleteWorkflowArtifactsBatch(ctx context.Context, workflowIDs []string) error {

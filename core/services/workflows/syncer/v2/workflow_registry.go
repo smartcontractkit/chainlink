@@ -29,9 +29,11 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/versioning"
+	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
 const name = "WorkflowRegistrySyncer"
@@ -145,6 +147,8 @@ type evtHandler interface {
 
 	Handle(ctx context.Context, event Event) error
 	EmitActivationAbandoned(ctx context.Context, event Event, reason eventsv2.ActivationAbandonReason, activationErr error, retryCount int32) error
+	ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error)
+	SetWorkflowDon(don capabilities.DON)
 }
 
 type donNotifier interface {
@@ -427,11 +431,12 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				return
 			}
 			w.lggr.Debugw("read from don received channel while waiting to start reconciliation sync")
-			_, err := w.workflowDonNotifier.WaitForDon(ctx)
+			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
 				w.hooks.OnStartFailure(fmt.Errorf("failed to start workflow sync strategy: %w", err))
 				return
 			}
+			w.handler.SetWorkflowDon(don)
 			w.syncUsingReconciliationStrategy(ctx)
 		})
 
@@ -835,7 +840,7 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 }
 
 // syncUsingReconciliationStrategy syncs workflow registry contract state by polling the workflow metadata state and comparing to local state.
-// NOTE: In this mode paused states will be treated as a deleted workflow. Workflows will not be registered as paused.
+// NOTE: Paused workflows are retained as tombstones (status=paused, artifact payload cleared).
 // This function processes each source independently to ensure that failure in one source doesn't affect workflows from other sources.
 func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) {
 	ticker := w.getTicker(w.syncTickInterval)
@@ -858,6 +863,23 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			totalWorkflowsFetched := 0
 			reconcileReport := newReconcileReport()
 
+			// Persisted specs are listed once per tick and reconciled against
+			// the union of every source's metadata after the loop (see
+			// reconcileOrphanedSpecs); a listing failure skips only orphan
+			// reconciliation this tick — engines still reconcile.
+			persistedSpecs, specsErr := w.handler.ListWorkflowSpecs(ctx)
+			if specsErr != nil {
+				persistedSpecs = nil
+				w.lggr.Warnw("failed to list persisted workflow specs; skipping orphaned-spec reconciliation this tick", "err", specsErr)
+			}
+
+			// metadataUnion collects every source's (post-shard) workflow IDs;
+			// allSourcesHealthy stays true only when every source fetched and
+			// filtered successfully, so orphan reconciliation never judges
+			// rows against incomplete metadata.
+			metadataUnion := make(map[string]struct{})
+			allSourcesHealthy := true
+
 			for _, source := range w.workflowSources {
 				sourceName := source.Name()
 				sourceIdentifier := source.SourceIdentifier()
@@ -877,6 +899,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				w.metrics.recordSourceFetch(ctx, sourceName, len(workflows), duration, fetchErr)
 
 				if fetchErr != nil {
+					allSourcesHealthy = false
 					w.lggr.Errorw("Failed to fetch from source, skipping reconciliation for this source",
 						"source", sourceName, "error", fetchErr, "durationMs", duration.Milliseconds())
 					// KEY: Skip this source entirely - no events generated, no deletions
@@ -893,7 +916,8 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				if w.shardingEnabled {
 					filteredWorkflowsMetadata, err = w.filterWorkflowsByShard(ctx, workflows)
 					if err != nil {
-						w.lggr.Errorw("failed to filter workflows by shard",
+						allSourcesHealthy = false
+						w.lggr.Errorw("failed to filter workflows by shard, skipping reconciliation for this source",
 							"err", err,
 							"source", sourceName)
 						continue
@@ -904,6 +928,10 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 						"shardID", w.myShardID,
 						"source", sourceName,
 					)
+				}
+
+				for _, wfMeta := range filteredWorkflowsMetadata {
+					metadataUnion[wfMeta.WorkflowID.Hex()] = struct{}{}
 				}
 
 				// Generate events only for this source's engines (using sourceIdentifier for engine registry lookups)
@@ -1016,6 +1044,10 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 				)
 			}
 
+			if allSourcesHealthy && len(w.workflowSources) > 0 {
+				w.reconcileOrphanedSpecs(ctx, persistedSpecs, metadataUnion)
+			}
+
 			w.metrics.recordFetchedWorkflows(ctx, totalWorkflowsFetched)
 			w.lggr.Debugw("reconciled events", "report", reconcileReport)
 
@@ -1033,6 +1065,47 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 			}
 			w.metrics.recordDrainingWorkflows(ctx, drainingWorkflows)
 			w.metrics.incrementCompletedSyncs(ctx)
+		}
+	}
+}
+
+// reconcileOrphanedSpecs releases persisted specs whose workflow ID is absent
+// from all sources' metadata, catching workflows deleted while the node was
+// down — no engine exists at the next tick, so engine reconciliation can't
+// generate the delete event. Liveness is checked against the union of all
+// sources (not per-source) because workflow IDs are content-addressed and a row
+// is live if any source lists it. The caller guarantees all sources succeeded;
+// if any source errored, the sweep is skipped entirely.
+func (w *workflowRegistry) reconcileOrphanedSpecs(ctx context.Context, specs []*job.WorkflowSpec, metadataUnion map[string]struct{}) {
+	if len(specs) == 0 {
+		return
+	}
+	for _, spec := range specs {
+		if spec == nil || spec.WorkflowID == "" {
+			continue
+		}
+		if _, live := metadataUnion[spec.WorkflowID]; live {
+			continue
+		}
+		wfIDBytes, derr := hex.DecodeString(spec.WorkflowID)
+		if derr != nil || len(wfIDBytes) != len(wftypes.WorkflowID{}) {
+			w.lggr.Warnw("orphaned-spec reconciliation: skipping unparseable persisted workflow_id", "workflowID", spec.WorkflowID, "err", derr)
+			continue
+		}
+		var wfID wftypes.WorkflowID
+		copy(wfID[:], wfIDBytes)
+		if _, engineFound := w.engineRegistry.Get(wfID); engineFound {
+			// Engine-owned: per-source reconciliation deletes it with drain
+			// machinery; this path only handles engine-less leftovers.
+			continue
+		}
+		w.lggr.Debugw("orphaned workflow spec absent from all sources' metadata; releasing",
+			"workflowID", spec.WorkflowID, "owner", spec.WorkflowOwner)
+		if herr := w.handleWithMetrics(ctx, Event{
+			Name: WorkflowDeleted,
+			Data: WorkflowDeletedEvent{WorkflowID: wfID},
+		}); herr != nil {
+			w.lggr.Warnw("failed to release orphaned workflow spec", "workflowID", spec.WorkflowID, "err", herr)
 		}
 	}
 }

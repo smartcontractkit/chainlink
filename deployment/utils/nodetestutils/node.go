@@ -175,10 +175,9 @@ func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 			fmt.Printf("ReplayFromBlock: family: %q chainID: %q\n", family, chainID)
 			continue
 		}
-		if family == "sui" {
-			fmt.Printf("ReplayFromBlock: family: %q chainID: %q\n", family, chainID)
-			continue
-		}
+		// Sui replay is supported via App.ReplayFromBlock -> SuiRelayer.Replay, which re-scans
+		// a window of checkpoints so events emitted before the relayer registered its event
+		// selectors are re-indexed. Skipping it leaves pre-bind CCIPMessageSent events unindexed.
 		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil {
 			return err
 		}
