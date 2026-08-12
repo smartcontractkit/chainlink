@@ -145,9 +145,7 @@ type ServerRequest struct {
 	// executionDone is closed by the executor after it writes the response under stateMux.
 	// Cancel waits on this channel to avoid a race where it could acquire stateMux
 	// between "executor finishes capability call" and "executor writes response",
-	// see no response, and set a timeout error. The executor would then overwrite
-	// with success, but all requesters would already be marked as sent — leaving
-	// them with the timeout error while the success response is lost.
+	// see no response, and set and send timeout error when actually we want to send the real response.
 	executionDone chan struct{}
 
 	lggr logger.Logger
