@@ -26,15 +26,24 @@ To prevent index/branch lock conflicts:
 - Runners: Prefer `ubuntu-latest`. Use `runs-on` for larger runners (verify API first).
 - Scope: One change per trial. Keep cache status identical across comparison runs.
 - Validation: Lint YAML (`actionlint` or dry-run) before pushing.
-- Tools: Use `gh` CLI and workflow scripts for monitoring/comparisons.
 </constraints>
 
 <tools>
-- Monitor: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py [run_id] [trial-name]`
-  - Outputs `report.json`, `report.md`, and runner logs to `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/`
-  - Quick analysis: Inspect `## Longest Jobs (Bottlenecks)` in `report.md` or query `jq '.slowest_jobs[] | select(.is_outlier)' report.json` / `jq '([.jobs[].duration_seconds] | add / length) as $avg | .jobs[] | select(.duration_seconds > $avg * 1.5)' report.json`.
-- Compare: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py [trial-1] [trial-2]`
-  - Outputs `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1]-[trial-2]-comparison.md`
+If not already installed, prompt user to install [octometrics](https://github.com/kalverra/octometrics)
+
+```sh
+# Get data on specific workflow run, PR, or commit
+octometrics [url] --format [json|md] -f .github/.agents/skills/optimize-workflow/trials/[workflow]/[description-of-run].[json|md]
+
+# See cleaned up logs of job run
+octometrics log [job_run_id]
+
+# Compare two workflow runs or commits against each other
+octometrics compare -o <owner> -r <repo> --workflow-runs <run_id_1>,<run_id_2> --format json
+octometrics compare -o <owner> -r <repo> --commits <sha_1>,<sha_2> --format json
+```
+
+Use `gh` CLI for anything not covered by octometrics.
 </tools>
 
 <resources>
