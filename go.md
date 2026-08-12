@@ -523,8 +523,9 @@ flowchart LR
 	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/fake
 	click chainlink/system-tests/lib href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests --> chainlink-confidential-compute/tests/testhelpers
-	chainlink/system-tests/tests --> chainlink/core/scripts
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/cron
+	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based
+	chainlink/system-tests/tests --> chainlink/system-tests/lib
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/consensus
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
