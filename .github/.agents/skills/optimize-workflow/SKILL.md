@@ -32,18 +32,18 @@ To prevent index/branch lock conflicts:
 If not already installed, prompt user to install [octometrics](https://github.com/kalverra/octometrics)
 
 ```sh
+octometrics -h # Help menu
 # Get data on specific workflow run, PR, or commit
-octometrics [url] --format [json|md] -f .github/.agents/skills/optimize-workflow/trials/[workflow]/[description-of-run].[json|md]
+octometrics [url] --format [json|md] -f .github/.agents/skills/optimize-workflow/trials/[workflow]/[description-of-run].[json|md] --download-logs
 
 # See cleaned up logs of job run
 octometrics log [job_run_id]
 
-# Compare two workflow runs or commits against each other
-octometrics compare -o <owner> -r <repo> --workflow-runs <run_id_1>,<run_id_2> --format json
-octometrics compare -o <owner> -r <repo> --commits <sha_1>,<sha_2> --format json
+# Compare two runs
+octometrics [before-url] --vs [after-url] --format [json|md] -f .github/.agents/skills/optimize-workflow/trials/[workflow]/[description-of-comparison].[json|md]
 ```
 
-Use `gh` CLI for anything not covered by octometrics.
+Use `octometrics` first to gather data. If data is missing or incomplete, then use `gh` CLI.
 </tools>
 
 <resources>
