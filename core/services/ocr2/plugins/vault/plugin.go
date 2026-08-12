@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"slices"
 	"sort"
 	"sync"
@@ -2922,6 +2923,16 @@ func (r *ReportingPlugin) generateJSONReport(id string, requestType vaultcommon.
 }
 
 func wrapReportWithKeyBundleInfo(report []byte, reportInfo []byte) (ocr3types.ReportWithInfo[[]byte], error) {
+	// TEMPORARY CANARY — DO NOT MERGE. On PR-built nodes (mixed-env only, gated by
+	// CRE_CANARY_NONDETERMINISM) perturb the SIGNED report bytes (.Report) so vault OCR3
+	// nodes disagree during report attestation — the state/outcome has already been
+	// committed by this point, so this is a clean report-phase divergence. libocr then
+	// logs "This is commonly caused by non-determinism in the ReportingPlugin". (Changing
+	// ReportInfo instead only affects the unsigned .Info and breaks routing, not attestation.)
+	if os.Getenv("CRE_CANARY_NONDETERMINISM") != "" {
+		report = append(append([]byte{}, report...), 0x00)
+	}
+
 	infos, err := structpb.NewStruct(map[string]any{
 		// Use the EVM key bundle to sign the report.
 		"keyBundleName": "evm",
