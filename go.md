@@ -356,6 +356,10 @@ flowchart LR
 	click chainlink-common/pkg/values href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-common/pkg/workflows/sdk/v2/pb --> chainlink-common/pkg/values
 	click chainlink-common/pkg/workflows/sdk/v2/pb href "https://github.com/smartcontractkit/chainlink-common"
+	chainlink-confidential-compute --> tdh2/go/tdh2
+	click chainlink-confidential-compute href "https://github.com/smartcontractkit/chainlink-confidential-compute"
+	chainlink-confidential-compute/tests/testhelpers --> chainlink-confidential-compute
+	click chainlink-confidential-compute/tests/testhelpers href "https://github.com/smartcontractkit/chainlink-confidential-compute"
 	chainlink-data-streams --> chainlink-common/keystore
 	chainlink-data-streams --> chainlink-evm/gethwrappers
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
@@ -513,13 +517,14 @@ flowchart LR
 	chainlink/load-tests --> chainlink-testing-framework/havoc
 	chainlink/load-tests --> chainlink/integration-tests
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/lib --> chainlink-confidential-compute
 	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/chiprouter
 	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/dockercompose
 	chainlink/system-tests/lib --> chainlink-testing-framework/framework/components/fake
 	click chainlink/system-tests/lib href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests --> chainlink-confidential-compute/tests/testhelpers
+	chainlink/system-tests/tests --> chainlink/core/scripts
 	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/cron
-	chainlink/system-tests/tests --> chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based
-	chainlink/system-tests/tests --> chainlink/system-tests/lib
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/consensus
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmread-negative
 	chainlink/system-tests/tests --> chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative
@@ -724,6 +729,12 @@ flowchart LR
 	end
 	click chainlink-common-repo href "https://github.com/smartcontractkit/chainlink-common"
 
+	subgraph chainlink-confidential-compute-repo[chainlink-confidential-compute]
+		 chainlink-confidential-compute
+		 chainlink-confidential-compute/tests/testhelpers
+	end
+	click chainlink-confidential-compute-repo href "https://github.com/smartcontractkit/chainlink-confidential-compute"
+
 	subgraph chainlink-evm-repo[chainlink-evm]
 		 chainlink-evm
 		 chainlink-evm/contracts/cre/gobindings
@@ -826,5 +837,5 @@ flowchart LR
 	click testrig-repo href "https://github.com/smartcontractkit/testrig"
 
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-repo,chainlink-aptos-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-solana-repo,chainlink-stellar-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo,testrig-repo outline
+	class chainlink-repo,chainlink-aptos-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-confidential-compute-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-solana-repo,chainlink-stellar-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo,testrig-repo outline
 ```
