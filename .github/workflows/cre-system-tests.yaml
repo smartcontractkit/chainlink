@@ -118,7 +118,7 @@ jobs:
                {"topology":"workflow-gateway-capabilities-multi-gateway","configs":"configs/workflow-gateway-capabilities-multi-gateway-don.toml"}
              ],
             "Test_CRE_V2_ConfidentialWorkflows_Relay": [
-               {"topology":"workflow-gateway-capabilities-confidential-workflows","configs":"configs/workflow-gateway-capabilities-don-confidential-workflows.toml","timeout_minutes":25,"test_timeout":"20m"}
+               {"topology":"workflow-gateway-capabilities-confidential-workflows","configs":"configs/workflow-gateway-capabilities-don-confidential-workflows.toml"}
              ]
           }'
 
@@ -370,9 +370,6 @@ jobs:
 
       - name: Start local CRE${{ matrix.tests.cre_version }}
         id: start-local-cre
-        # The confidential workflows test starts the environment in-process, so it
-        # can pass runtime-computed capabilities and features as Go values.
-        if: ${{ !contains(matrix.tests.test_name, 'ConfidentialWorkflows') }}
         uses: ./.github/actions/start-local-cre-environment
         with:
           jd-image:

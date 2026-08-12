@@ -66,8 +66,10 @@ const (
 	HTTPActionCapability        CapabilityFlag = "http-action"
 	SolanaCapability            CapabilityFlag = "solana"
 	ConfidentialRelayCapability CapabilityFlag = "confidential-relay"
-	AptosCapability             CapabilityFlag = "aptos"
-	StellarCapability           CapabilityFlag = "stellar"
+	// ConfidentialWorkflowsCapability doubles as the enclave application name.
+	ConfidentialWorkflowsCapability CapabilityFlag = "confidential-workflows"
+	AptosCapability                 CapabilityFlag = "aptos"
+	StellarCapability               CapabilityFlag = "stellar"
 	// Add more capabilities as needed
 )
 

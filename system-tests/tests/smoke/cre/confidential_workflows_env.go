@@ -77,16 +77,10 @@ func startConfidentialCreEnvironment(
 		}
 	}
 
-	// Config.Validate rejects capability flags the built-in provider doesn't know,
-	// and confidential-workflows / confidential-relay are not among them. Extend
-	// the provider with every flag this run declares.
-	// don-time is absent from the extensible provider's built-in globals, unlike
-	// the default provider's, so the topology's use of it must be declared here.
-	extraFlags := []string{
-		string(crelib.ConfidentialRelayCapability),
-		confidentialWorkflowsApp,
-		string(crelib.DONTimeCapability),
-	}
+	// Config.Validate rejects capability flags the provider doesn't know, so every
+	// flag this run declares has to be present. don-time is absent from the
+	// extensible provider's built-in globals, unlike the default provider's.
+	extraFlags := []string{string(crelib.DONTimeCapability)}
 	for _, c := range extraCapabilities {
 		extraFlags = append(extraFlags, c.Flag())
 	}

@@ -46,7 +46,7 @@ import (
 const (
 	// confidentialWorkflowsApp is the enclave application, the DON capability flag
 	// and the capability binary name; all three share this value.
-	confidentialWorkflowsApp = "confidential-workflows"
+	confidentialWorkflowsApp = string(crelib.ConfidentialWorkflowsCapability)
 
 	// confidentialWorkflowsCapVersion is the version the capability registers under.
 	confidentialWorkflowsCapVersion = "1.0.0-alpha"
