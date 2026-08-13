@@ -660,19 +660,18 @@ jobs:
 
       - name: Set up Go for compilation
         id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        uses: actions/setup-go@v7
         with:
-          # Key the cache on go.sum hash; restore-only on PRs to eliminate upload overhead and cache thrashing.
-          go_mod_path: ./system-tests/tests/go.mod
-          cache_key_id: integration-tests-v1
-          cache_builds: true
-          cache_restore_only: ${{ github.ref_name != 'develop' }}
-          should_tidy: false
-          no_cache: false
-          gati_token: ${{ steps.github-token.outputs.access-token }}
+          go-version-file: system-tests/tests/go.mod
+          cache: true
+          cache-dependency-path: |
+            system-tests/tests/go.sum
+            integration-tests/go.sum
 
-      # No cache-hit short-circuit: ctf-setup-go@v0.4.0 exposes no `cache-hit` output,
-      # and this job's purpose is to (re)populate the shared build cache regardless.
+      - name: Configure Go private modules
+        shell: bash
+        run: go env -w GOPRIVATE=github.com/smartcontractkit/*
+
       - name: Compile E2E tests
         shell: bash
         env:
@@ -682,6 +681,11 @@ jobs:
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/.gotmp"
           export GOTMPDIR="$GITHUB_WORKSPACE/.gotmp"
+
+          # Restored mod cache contains shallow VCS clones that can be in an
+          # inconsistent state after tar restore, breaking fetches of new
+          # pseudo-versions ("shallow file has changed since we read it").
+          rm -rf "$(go env GOMODCACHE)/cache/vcs"
 
           mkdir -p "$GITHUB_WORKSPACE/system-tests/tests/bin"
           mkdir -p "$GITHUB_WORKSPACE/integration-tests/bin"
