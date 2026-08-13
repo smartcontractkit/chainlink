@@ -195,8 +195,18 @@ hashed_default_assignment = true
 	testLogger.Info().Interface("mappings", resp.Mappings).Msg("Ring OCR workflow mappings")
 	require.Len(t, resp.Mappings, len(workflowIDs), "All deployed workflows should be mapped")
 
-	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	const overrideShard uint32 = 1
+
+	testLogger.Info().Uint32("overrideShard", overrideShard).Msg("Waiting for all workflows to converge on override shard via Ring OCR...")
+	waitForAllWorkflowsOnShard(t, shardOrchClient, workflowIDs, overrideShard)
+
+	resp, err = shardOrchClient.GetWorkflowShardMapping(t.Context(), &ringpb.GetWorkflowShardMappingRequest{
+		WorkflowIds: workflowIDs,
+	})
+	require.NoError(t, err)
+	testLogger.Info().Interface("mappings", resp.Mappings).Msg("Ring OCR workflow mappings after convergence")
+
+	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {
 		workflowToShardIndex[wfID] = overrideShard
 	}
