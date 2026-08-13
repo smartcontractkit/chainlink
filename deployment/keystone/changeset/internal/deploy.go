@@ -270,7 +270,7 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRe
 				return nil, fmt.Errorf("unable to calculate f with %d nodes: overflows uint8", len(nodes))
 			}
 			// TODO: fallback to a default value for compatibility - change to error
-			f = uint8(len(nodes) / 3)
+			f = uint8(len(nodes) / 3) //nolint:gosec // G115
 			lggr.Warnw("F not set for don - falling back to default", "don", don.Name, "f", f)
 		}
 		donsToRegister = append(donsToRegister, DONToRegister{
