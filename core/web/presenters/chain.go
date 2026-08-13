@@ -2,7 +2,6 @@ package presenters
 
 import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 

@@ -7,7 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/config/configdoc"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 

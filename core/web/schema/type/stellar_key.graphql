@@ -1,0 +1,8 @@
+type StellarKey {
+	id: ID!
+	account: String!
+}
+
+type StellarKeysPayload {
+	results: [StellarKey!]!
+}

@@ -7,14 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/google/uuid"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -40,7 +38,7 @@ func TestJobKVStore(t *testing.T) {
 	jb, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 	jb.ID = jobID
-	require.NoError(t, jobORM.CreateJob(testutils.Context(t), &jb))
+	require.NoError(t, jobORM.CreateJob(t.Context(), &jb))
 
 	var values = [][]byte{
 		[]byte("Hello"),
@@ -77,7 +75,7 @@ func TestJobKVStore(t *testing.T) {
 }
 
 func TestJobKVStore_PruneExpiredEntries(t *testing.T) {
-	ctx, cancel := context.WithCancel(testutils.Context(t))
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	config := configtest.NewTestGeneralConfig(t)
@@ -96,12 +94,12 @@ func TestJobKVStore_PruneExpiredEntries(t *testing.T) {
 	jb1, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 	jb1.ID = jobID1
-	require.NoError(t, jobORM.CreateJob(testutils.Context(t), &jb1))
+	require.NoError(t, jobORM.CreateJob(t.Context(), &jb1))
 
 	jb2, err := cron.ValidatedCronSpec(fmt.Sprintf(testspecs.CronSpecTemplate, uuid.New()))
 	require.NoError(t, err)
 	jb2.ID = jobID2
-	require.NoError(t, jobORM.CreateJob(testutils.Context(t), &jb2))
+	require.NoError(t, jobORM.CreateJob(t.Context(), &jb2))
 
 	testData := []struct {
 		key   string

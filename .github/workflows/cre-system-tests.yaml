@@ -84,7 +84,8 @@ jobs:
             "Test_CRE_V2_Suite_Bucket_B": [
                {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
                {"topology":"workflow-gateway-capabilities-vault-jwt_auth-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"},
-               {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"}
+               {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"},
+               {"topology":"workflow-gateway-capabilities-vault-stall-purge","configs":"configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"}
              ],
             "Test_CRE_V2_Aptos_Suite": [
                {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
@@ -110,6 +111,12 @@ jobs:
             "Test_CRE_V2_Sharding": [
                {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
              ],
+            "Test_CRE_V2_ShardManualAssignment": [
+               {"topology":"workflow-gateway-sharded-manual","configs":"configs/workflow-gateway-sharded-manual.toml"}
+             ],
+            "Test_CRE_V2_ShardRingOCROverrides": [
+               {"topology":"workflow-gateway-sharded-ringocr-overrides","configs":"configs/workflow-gateway-sharded-ringocr-overrides.toml"}
+             ],
             "Test_CRE_V2_Module_Cache": [
                {"topology":"workflow-gateway-cache-test","configs":"configs/workflow-gateway-don-cache-test.toml"}
              ],
@@ -118,7 +125,7 @@ jobs:
              ]
           }'
 
-          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade)
+          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade | grep -v '^TestMain$')
 
           tests=$(echo "$test_names" | jq -c -R -s \
             --argjson run_id "${{ github.run_id }}" \
@@ -183,9 +190,7 @@ jobs:
         uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
         with:
           go_mod_path: system-tests/tests/go.mod
-          cache_key_id: integration-tests-v1
-          cache_builds: true
-          cache_restore_only: "true"
+          no_cache: true
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6
@@ -243,12 +248,6 @@ jobs:
         uses: ./.github/actions/setup-aptos
         with:
           version: "7.8.0"
-
-      - name: Setup Stellar CRE contracts
-        if: ${{ contains(matrix.tests.test_name, 'Stellar') }}
-        uses: ./.github/actions/setup-stellar-cre-contracts
-        with:
-          working-directory: system-tests/lib
 
       - name: Start observability stack (Beholder suite)
         if: contains(matrix.tests.test_name, 'Beholder_Suite')

@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -28,7 +28,7 @@ import (
 func TestDon2DonSharedPeer_WithRealSingletonPeerWrapper(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
-	k, err := keyStore.P2P().Create(testutils.Context(t))
+	k, err := keyStore.P2P().Create(t.Context())
 	require.NoError(t, err)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {

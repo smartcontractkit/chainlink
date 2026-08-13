@@ -5,18 +5,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/jmoiron/sqlx"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -30,7 +27,7 @@ func clearJobsDb(t *testing.T, db *sqlx.DB) {
 }
 
 func TestPipelineORM_Integration(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	const DotStr = `
         // data source 1
         ds1          [type=bridge name=voter_turnout];
@@ -128,7 +125,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
 	t.Run("creates task DAGs", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		clearJobsDb(t, db)
 
 		orm := pipeline.NewORM(db, logger.TestLogger(t), config.JobPipeline().MaxSuccessfulRuns())
@@ -172,7 +169,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 
 		// Need a job in order to create a run
-		require.NoError(t, jobORM.CreateJob(testutils.Context(t), dbSpec))
+		require.NoError(t, jobORM.CreateJob(t.Context(), dbSpec))
 
 		var pipelineSpecs []pipeline.Spec
 		sql := `SELECT pipeline_specs.*, job_pipeline_specs.job_id FROM pipeline_specs JOIN job_pipeline_specs ON (pipeline_specs.id = job_pipeline_specs.pipeline_spec_id);`
@@ -182,7 +179,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		pipelineSpecID := pipelineSpecs[0].ID
 
 		// Create the run
-		runID, _, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), pipelineSpecs[0], pipeline.NewVarsFrom(nil), true)
+		runID, _, err := runner.ExecuteAndInsertFinishedRun(t.Context(), pipelineSpecs[0], pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 
 		// Check the DB for the pipeline.Run

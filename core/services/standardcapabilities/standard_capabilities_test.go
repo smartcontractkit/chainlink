@@ -13,12 +13,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -103,6 +101,66 @@ func TestStandardCapabilities_ForwardsPluginEnvFile(t *testing.T) {
 		require.Error(t, err, "Start should fail when the env file is missing")
 		require.Contains(t, err.Error(), "failed to parse capabilities env file")
 		require.False(t, registerCalled, "RegisterLOOP must not be called when env-file parsing fails")
+	})
+}
+
+func TestStandardCapabilities_InitialiseDependenciesRoundTrip(t *testing.T) {
+	t.Parallel()
+	want := core.StandardCapabilitiesDependencies{
+		Config: "test-config",
+	}
+
+	std := NewStandardCapabilities(
+		logger.TestLogger(t),
+		"not/found/path/to/binary",
+		want.Config,
+		&capturingRegistrar{},
+		want,
+	)
+
+	got := std.initialiseDependencies()
+
+	require.Equal(t, want.Config, got.Config, "config should be re-delivered to LOOP Initialise dependencies")
+}
+
+// TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP asserts that the
+// host-resolved capability DON ID is carried on the dependencies delivered to
+// the capability LOOP at Initialise. Without this, a trigger producer silently
+// falls back to the consumer workflow's DON for metering identity and event
+// labels even when the node knows which DON it is serving.
+func TestStandardCapabilities_CapabilityDonIDDeliveredToLOOP(t *testing.T) {
+	t.Parallel()
+	t.Run("nonzero DON ID round-trips when the DON is known", func(t *testing.T) {
+		t.Parallel()
+		const knownDonID = uint32(42)
+		std := NewStandardCapabilities(
+			logger.TestLogger(t),
+			"not/found/path/to/binary",
+			"{}",
+			&capturingRegistrar{},
+			core.StandardCapabilitiesDependencies{CapabilityDonID: knownDonID},
+		)
+
+		got := std.initialiseDependencies()
+
+		require.Equal(t, knownDonID, got.CapabilityDonID,
+			"the host-resolved capability DON ID must reach the LOOP at Initialise")
+	})
+
+	t.Run("zero DON ID is preserved when the host could not resolve one", func(t *testing.T) {
+		t.Parallel()
+		std := NewStandardCapabilities(
+			logger.TestLogger(t),
+			"not/found/path/to/binary",
+			"{}",
+			&capturingRegistrar{},
+			core.StandardCapabilitiesDependencies{},
+		)
+
+		got := std.initialiseDependencies()
+
+		require.Zero(t, got.CapabilityDonID,
+			"an unresolved DON ID stays zero so the LOOP can fall back to the workflow DON")
 	})
 }
 

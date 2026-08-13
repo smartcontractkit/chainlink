@@ -4,7 +4,6 @@ import (
 	"context"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
 	"github.com/smartcontractkit/chainlink/v2/core/utils/abihelpers"
 )
 

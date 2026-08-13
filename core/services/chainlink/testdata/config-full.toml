@@ -416,6 +416,16 @@ Foo = 'bar'
 Enabled = true
 Prefixes = ['ocr_']
 
+[Metering]
+MeterRecordsEnabled = true
+MeterSnapshotsEnabled = true
+Product = 'cre'
+Tenant = 'mainline'
+NumericTenantID = '42'
+Environment = 'production'
+Zone = 'wf-zone-a'
+NodeID = 'clp-cre-wf-zone-a-1'
+
 [Workflows]
 [Workflows.Limits]
 Global = 200
@@ -467,6 +477,7 @@ ArbiterRetryInterval = '12s'
 ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
+ShardAssignmentMode = 'manual-only'
 
 [LOOPP]
 GRPCServerMaxRecvMsgSize = '42.00mb'

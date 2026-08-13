@@ -12,11 +12,9 @@ import (
 	"net/http/httptrace"
 	"slices"
 	"strings"
-
 	"time"
 
 	"github.com/docker/go-connections/nat"
-
 	"github.com/doyensec/safeurl"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"

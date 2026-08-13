@@ -1,0 +1,222 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/bench
+cpu: Apple M5 Max
+                                                   │ core/services/ocr2/plugins/llo/bench/bench_results.txt │
+                                                   │                         sec/op                         │
+FullRound/ch=10_str=1/v30-18                                                                   34.72µ ±  3%
+FullRound/ch=10_str=1/v31-18                                                                   39.77µ ±  1%
+FullRound/ch=100_str=1/v30-18                                                                  315.7µ ±  0%
+FullRound/ch=100_str=1/v31-18                                                                  397.1µ ±  1%
+FullRound/ch=100_str=10/v30-18                                                                 2.205m ±  1%
+FullRound/ch=100_str=10/v31-18                                                                 2.236m ±  0%
+FullRound/ch=1000_str=1/v30-18                                                                 3.229m ±  0%
+FullRound/ch=1000_str=1/v31-18                                                                 4.317m ±  0%
+FullRound/ch=1000_str=10/v30-18                                                                22.96m ±  1%
+FullRound/ch=1000_str=10/v31-18                                                                23.15m ±  0%
+Observation/ch=10_str=1/v30-18                                                                 6.466µ ±  0%
+Observation/ch=10_str=1/v31-18                                                                 8.004µ ±  1%
+Observation/ch=100_str=1/v30-18                                                                60.00µ ±  1%
+Observation/ch=100_str=1/v31-18                                                                81.50µ ±  0%
+Observation/ch=100_str=10/v30-18                                                               432.4µ ±  0%
+Observation/ch=100_str=10/v31-18                                                               383.4µ ±  0%
+Observation/ch=1000_str=1/v30-18                                                               613.5µ ±  0%
+Observation/ch=1000_str=1/v31-18                                                               946.5µ ±  1%
+Observation/ch=1000_str=10/v30-18                                                              4.225m ±  1%
+Observation/ch=1000_str=10/v31-18                                                              3.807m ±  2%
+StateAdvance/ch=10_str=1/v30_Outcome-18                                                        19.90µ ±  0%
+StateAdvance/ch=10_str=1/v31_StateTransition-18                                                21.80µ ± 12%
+StateAdvance/ch=100_str=1/v30_Outcome-18                                                       183.5µ ±  0%
+StateAdvance/ch=100_str=1/v31_StateTransition-18                                               219.6µ ±  1%
+StateAdvance/ch=100_str=10/v30_Outcome-18                                                      1.473m ±  0%
+StateAdvance/ch=100_str=10/v31_StateTransition-18                                              1.481m ±  0%
+StateAdvance/ch=1000_str=1/v30_Outcome-18                                                      1.861m ±  0%
+StateAdvance/ch=1000_str=1/v31_StateTransition-18                                              2.335m ±  0%
+StateAdvance/ch=1000_str=10/v30_Outcome-18                                                     15.30m ±  1%
+StateAdvance/ch=1000_str=10/v31_StateTransition-18                                             15.55m ±  1%
+Reports/ch=10_str=1/v30-18                                                                     8.476µ ±  0%
+Reports/ch=10_str=1/v31-18                                                                     8.777µ ±  0%
+Reports/ch=100_str=1/v30-18                                                                    75.05µ ±  0%
+Reports/ch=100_str=1/v31-18                                                                    79.41µ ±  1%
+Reports/ch=100_str=10/v30-18                                                                   357.8µ ±  0%
+Reports/ch=100_str=10/v31-18                                                                   383.8µ ±  1%
+Reports/ch=1000_str=1/v30-18                                                                   756.3µ ±  1%
+Reports/ch=1000_str=1/v31-18                                                                   819.7µ ±  0%
+Reports/ch=1000_str=10/v30-18                                                                  3.424m ±  2%
+Reports/ch=1000_str=10/v31-18                                                                  3.660m ±  2%
+geomean                                                                                        464.1µ
+
+                                │ core/services/ocr2/plugins/llo/bench/bench_results.txt │
+                                │                        obs_B/op                        │
+FullRound/ch=10_str=1/v30-18                                                  180.0 ± 0%
+FullRound/ch=10_str=1/v31-18                                                  172.0 ± 0%
+FullRound/ch=100_str=1/v30-18                                                1.620k ± 0%
+FullRound/ch=100_str=1/v31-18                                                1.612k ± 0%
+FullRound/ch=100_str=10/v30-18                                               16.89k ± 0%
+FullRound/ch=100_str=10/v31-18                                               16.89k ± 0%
+FullRound/ch=1000_str=1/v30-18                                               16.89k ± 0%
+FullRound/ch=1000_str=1/v31-18                                               16.89k ± 0%
+FullRound/ch=1000_str=10/v30-18                                              169.9k ± 0%
+FullRound/ch=1000_str=10/v31-18                                              169.9k ± 0%
+geomean                                                                      6.727k
+
+                                │ core/services/ocr2/plugins/llo/bench/bench_results.txt │
+                                │                      outcome_B/op                      │
+FullRound/ch=10_str=1/v30-18                                                  482.0 ± 0%
+FullRound/ch=100_str=1/v30-18                                                4.622k ± 0%
+FullRound/ch=100_str=10/v30-18                                               27.97k ± 0%
+FullRound/ch=1000_str=1/v30-18                                               49.51k ± 0%
+FullRound/ch=1000_str=10/v30-18                                              283.5k ± 0%
+geomean                                                                      15.43k
+
+                                │ core/services/ocr2/plugins/llo/bench/bench_results.txt │
+                                │                      report_B/op                       │
+FullRound/ch=10_str=1/v30-18                                                 2.541k ± 0%
+FullRound/ch=10_str=1/v31-18                                                 2.541k ± 0%
+FullRound/ch=100_str=1/v30-18                                                25.59k ± 0%
+FullRound/ch=100_str=1/v31-18                                                25.59k ± 0%
+FullRound/ch=100_str=10/v30-18                                               44.49k ± 0%
+FullRound/ch=100_str=10/v31-18                                               44.49k ± 0%
+FullRound/ch=1000_str=1/v30-18                                               257.9k ± 0%
+FullRound/ch=1000_str=1/v31-18                                               257.9k ± 0%
+FullRound/ch=1000_str=10/v30-18                                              446.9k ± 0%
+FullRound/ch=1000_str=10/v31-18                                              446.9k ± 0%
+geomean                                                                      50.65k
+
+                                │ core/services/ocr2/plugins/llo/bench/bench_results.txt │
+                                │                       reports/op                       │
+FullRound/ch=10_str=1/v30-18                                                  10.00 ± 0%
+FullRound/ch=10_str=1/v31-18                                                  10.00 ± 0%
+FullRound/ch=100_str=1/v30-18                                                 100.0 ± 0%
+FullRound/ch=100_str=1/v31-18                                                 100.0 ± 0%
+FullRound/ch=100_str=10/v30-18                                                100.0 ± 0%
+FullRound/ch=100_str=10/v31-18                                                100.0 ± 0%
+FullRound/ch=1000_str=1/v30-18                                               1.000k ± 0%
+FullRound/ch=1000_str=1/v31-18                                               1.000k ± 0%
+FullRound/ch=1000_str=10/v30-18                                              1.000k ± 0%
+FullRound/ch=1000_str=10/v31-18                                              1.000k ± 0%
+geomean                                                                       158.5
+
+                                                   │ core/services/ocr2/plugins/llo/bench/bench_results.txt │
+                                                   │                          B/op                          │
+FullRound/ch=10_str=1/v30-18                                                                   64.18Ki ± 0%
+FullRound/ch=10_str=1/v31-18                                                                   64.38Ki ± 0%
+FullRound/ch=100_str=1/v30-18                                                                  617.4Ki ± 0%
+FullRound/ch=100_str=1/v31-18                                                                  586.4Ki ± 0%
+FullRound/ch=100_str=10/v30-18                                                                 4.477Mi ± 0%
+FullRound/ch=100_str=10/v31-18                                                                 3.788Mi ± 0%
+FullRound/ch=1000_str=1/v30-18                                                                 6.626Mi ± 0%
+FullRound/ch=1000_str=1/v31-18                                                                 6.669Mi ± 0%
+FullRound/ch=1000_str=10/v30-18                                                                43.71Mi ± 0%
+FullRound/ch=1000_str=10/v31-18                                                                36.53Mi ± 0%
+Observation/ch=10_str=1/v30-18                                                                 11.46Ki ± 0%
+Observation/ch=10_str=1/v31-18                                                                 9.344Ki ± 0%
+Observation/ch=100_str=1/v30-18                                                                119.9Ki ± 0%
+Observation/ch=100_str=1/v31-18                                                                80.11Ki ± 0%
+Observation/ch=100_str=10/v30-18                                                               946.7Ki ± 0%
+Observation/ch=100_str=10/v31-18                                                               517.1Ki ± 0%
+Observation/ch=1000_str=1/v30-18                                                               1.328Mi ± 0%
+Observation/ch=1000_str=1/v31-18                                                               1.029Mi ± 0%
+Observation/ch=1000_str=10/v30-18                                                              9.117Mi ± 0%
+Observation/ch=1000_str=10/v31-18                                                              4.753Mi ± 0%
+StateAdvance/ch=10_str=1/v30_Outcome-18                                                        33.69Ki ± 0%
+StateAdvance/ch=10_str=1/v31_StateTransition-18                                                34.02Ki ± 0%
+StateAdvance/ch=100_str=1/v30_Outcome-18                                                       320.3Ki ± 0%
+StateAdvance/ch=100_str=1/v31_StateTransition-18                                               297.4Ki ± 0%
+StateAdvance/ch=100_str=10/v30_Outcome-18                                                      2.748Mi ± 0%
+StateAdvance/ch=100_str=10/v31_StateTransition-18                                              2.417Mi ± 0%
+StateAdvance/ch=1000_str=1/v30_Outcome-18                                                      3.496Mi ± 0%
+StateAdvance/ch=1000_str=1/v31_StateTransition-18                                              3.435Mi ± 0%
+StateAdvance/ch=1000_str=10/v30_Outcome-18                                                     26.46Mi ± 0%
+StateAdvance/ch=1000_str=10/v31_StateTransition-18                                             23.00Mi ± 0%
+Reports/ch=10_str=1/v30-18                                                                     18.90Ki ± 0%
+Reports/ch=10_str=1/v31-18                                                                     19.80Ki ± 0%
+Reports/ch=100_str=1/v30-18                                                                    177.1Ki ± 0%
+Reports/ch=100_str=1/v31-18                                                                    190.9Ki ± 0%
+Reports/ch=100_str=10/v30-18                                                                   823.5Ki ± 0%
+Reports/ch=100_str=10/v31-18                                                                   871.7Ki ± 0%
+Reports/ch=1000_str=1/v30-18                                                                   1.803Mi ± 0%
+Reports/ch=1000_str=1/v31-18                                                                   2.040Mi ± 0%
+Reports/ch=1000_str=10/v30-18                                                                  8.135Mi ± 0%
+Reports/ch=1000_str=10/v31-18                                                                  8.619Mi ± 0%
+geomean                                                                                        842.7Ki
+
+                                                   │ core/services/ocr2/plugins/llo/bench/bench_results.txt │
+                                                   │                       allocs/op                        │
+FullRound/ch=10_str=1/v30-18                                                                    1.209k ± 0%
+FullRound/ch=10_str=1/v31-18                                                                    1.292k ± 0%
+FullRound/ch=100_str=1/v30-18                                                                   10.92k ± 0%
+FullRound/ch=100_str=1/v31-18                                                                   11.05k ± 0%
+FullRound/ch=100_str=10/v30-18                                                                  86.50k ± 0%
+FullRound/ch=100_str=10/v31-18                                                                  76.57k ± 0%
+FullRound/ch=1000_str=1/v30-18                                                                  110.3k ± 0%
+FullRound/ch=1000_str=1/v31-18                                                                  110.6k ± 0%
+FullRound/ch=1000_str=10/v30-18                                                                 878.4k ± 0%
+FullRound/ch=1000_str=10/v31-18                                                                 771.4k ± 0%
+Observation/ch=10_str=1/v30-18                                                                   205.0 ± 0%
+Observation/ch=10_str=1/v31-18                                                                   223.0 ± 0%
+Observation/ch=100_str=1/v30-18                                                                 1.933k ± 0%
+Observation/ch=100_str=1/v31-18                                                                 1.777k ± 0%
+Observation/ch=100_str=10/v30-18                                                                14.61k ± 0%
+Observation/ch=100_str=10/v31-18                                                                9.412k ± 0%
+Observation/ch=1000_str=1/v30-18                                                                19.07k ± 0%
+Observation/ch=1000_str=1/v31-18                                                                17.13k ± 0%
+Observation/ch=1000_str=10/v30-18                                                               148.9k ± 0%
+Observation/ch=1000_str=10/v31-18                                                               93.33k ± 0%
+StateAdvance/ch=10_str=1/v30_Outcome-18                                                          683.0 ± 0%
+StateAdvance/ch=10_str=1/v31_StateTransition-18                                                  698.0 ± 0%
+StateAdvance/ch=100_str=1/v30_Outcome-18                                                        6.131k ± 0%
+StateAdvance/ch=100_str=1/v31_StateTransition-18                                                5.984k ± 0%
+StateAdvance/ch=100_str=10/v30_Outcome-18                                                       55.12k ± 0%
+StateAdvance/ch=100_str=10/v31_StateTransition-18                                               49.95k ± 0%
+StateAdvance/ch=1000_str=1/v30_Outcome-18                                                       63.20k ± 0%
+StateAdvance/ch=1000_str=1/v31_StateTransition-18                                               61.32k ± 0%
+StateAdvance/ch=1000_str=10/v30_Outcome-18                                                      562.3k ± 0%
+StateAdvance/ch=1000_str=10/v31_StateTransition-18                                              507.0k ± 0%
+Reports/ch=10_str=1/v30-18                                                                       320.0 ± 0%
+Reports/ch=10_str=1/v31-18                                                                       320.0 ± 0%
+Reports/ch=100_str=1/v30-18                                                                     2.855k ± 0%
+Reports/ch=100_str=1/v31-18                                                                     2.870k ± 0%
+Reports/ch=100_str=10/v30-18                                                                    16.76k ± 0%
+Reports/ch=100_str=10/v31-18                                                                    16.78k ± 0%
+Reports/ch=1000_str=1/v30-18                                                                    28.08k ± 0%
+Reports/ch=1000_str=1/v31-18                                                                    28.11k ± 0%
+Reports/ch=1000_str=10/v30-18                                                                   167.1k ± 0%
+Reports/ch=1000_str=10/v31-18                                                                   167.2k ± 0%
+geomean                                                                                         15.35k
+
+                                │ core/services/ocr2/plugins/llo/bench/bench_results.txt │
+                                │                       kvkeys/op                        │
+FullRound/ch=10_str=1/v31-18                                                  11.00 ± 0%
+FullRound/ch=100_str=1/v31-18                                                 101.0 ± 0%
+FullRound/ch=100_str=10/v31-18                                                101.0 ± 0%
+FullRound/ch=1000_str=1/v31-18                                               1.001k ± 0%
+FullRound/ch=1000_str=10/v31-18                                              1.001k ± 0%
+geomean                                                                       162.2
+
+                                │ core/services/ocr2/plugins/llo/bench/bench_results.txt │
+                                │                      kvread_B/op                       │
+FullRound/ch=10_str=1/v31-18                                                  456.0 ± 0%
+FullRound/ch=100_str=1/v31-18                                                4.236k ± 0%
+FullRound/ch=100_str=10/v31-18                                               16.78k ± 0%
+FullRound/ch=1000_str=1/v31-18                                               43.78k ± 0%
+FullRound/ch=1000_str=10/v31-18                                              169.8k ± 0%
+geomean                                                                      11.92k
+
+                                │ core/services/ocr2/plugins/llo/bench/bench_results.txt │
+                                │                      kvwrite_B/op                      │
+FullRound/ch=10_str=1/v31-18                                                  152.0 ± 0%
+FullRound/ch=100_str=1/v31-18                                                1.412k ± 0%
+FullRound/ch=100_str=10/v31-18                                               1.412k ± 0%
+FullRound/ch=1000_str=1/v31-18                                               14.01k ± 0%
+FullRound/ch=1000_str=10/v31-18                                              14.01k ± 0%
+geomean                                                                      2.264k
+
+                                │ core/services/ocr2/plugins/llo/bench/bench_results.txt │
+                                │                     precursor_B/op                     │
+FullRound/ch=10_str=1/v31-18                                                  482.0 ± 0%
+FullRound/ch=100_str=1/v31-18                                                4.622k ± 0%
+FullRound/ch=100_str=10/v31-18                                               27.97k ± 0%
+FullRound/ch=1000_str=1/v31-18                                               49.51k ± 0%
+FullRound/ch=1000_str=10/v31-18                                              283.5k ± 0%
+geomean                                                                      15.43k

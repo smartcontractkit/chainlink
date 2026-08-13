@@ -4,11 +4,11 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestUserSubscriptions(t *testing.T) {

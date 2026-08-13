@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
@@ -45,8 +46,6 @@ import (
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	clevmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	writertestutils "github.com/smartcontractkit/chainlink-evm/pkg/writer/testutils"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"

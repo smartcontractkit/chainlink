@@ -5,16 +5,15 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -54,7 +53,7 @@ func TestStorage_Errors(t *testing.T) {
 			Version: 0,
 		}
 		ormMock.On("Get", mock.Anything, sqlutil.New(key.Address.Big()), key.SlotId).Return(nil, s4.ErrNotFound)
-		_, _, err := storage.Get(testutils.Context(t), key)
+		_, _, err := storage.Get(t.Context(), key)
 		assert.ErrorIs(t, err, s4.ErrNotFound)
 	})
 
@@ -64,14 +63,14 @@ func TestStorage_Errors(t *testing.T) {
 			SlotId:  constraints.MaxSlotsPerUser + 1,
 			Version: 0,
 		}
-		_, _, err := storage.Get(testutils.Context(t), key)
+		_, _, err := storage.Get(t.Context(), key)
 		assert.ErrorIs(t, err, s4.ErrSlotIdTooBig)
 
 		record := &s4.Record{
 			Payload:    make([]byte, 10),
 			Expiration: now.Add(time.Minute).UnixMilli(),
 		}
-		err = storage.Put(testutils.Context(t), key, record, []byte{})
+		err = storage.Put(t.Context(), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrSlotIdTooBig)
 	})
 
@@ -85,7 +84,7 @@ func TestStorage_Errors(t *testing.T) {
 			Payload:    make([]byte, constraints.MaxPayloadSizeBytes+1),
 			Expiration: now.Add(time.Minute).UnixMilli(),
 		}
-		err := storage.Put(testutils.Context(t), key, record, []byte{})
+		err := storage.Put(t.Context(), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrPayloadTooBig)
 	})
 
@@ -99,7 +98,7 @@ func TestStorage_Errors(t *testing.T) {
 			Payload:    make([]byte, 10),
 			Expiration: now.UnixMilli() - 1,
 		}
-		err := storage.Put(testutils.Context(t), key, record, []byte{})
+		err := storage.Put(t.Context(), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrPastExpiration)
 	})
 
@@ -113,7 +112,7 @@ func TestStorage_Errors(t *testing.T) {
 			Payload:    make([]byte, 10),
 			Expiration: now.UnixMilli() + 10000000,
 		}
-		err := storage.Put(testutils.Context(t), key, record, []byte{})
+		err := storage.Put(t.Context(), key, record, []byte{})
 		assert.ErrorIs(t, err, s4.ErrExpirationTooLong)
 	})
 
@@ -133,7 +132,7 @@ func TestStorage_Errors(t *testing.T) {
 		assert.NoError(t, err)
 
 		signature[0]++
-		err = storage.Put(testutils.Context(t), key, record, signature)
+		err = storage.Put(t.Context(), key, record, signature)
 		assert.ErrorIs(t, err, s4.ErrWrongSignature)
 	})
 
@@ -155,7 +154,7 @@ func TestStorage_Errors(t *testing.T) {
 		ormMock.ExpectedCalls = make([]*mock.Call, 0)
 		ormMock.On("Update", mock.Anything, mock.Anything).Return(s4.ErrVersionTooLow).Once()
 
-		err = storage.Put(testutils.Context(t), key, record, signature)
+		err = storage.Put(t.Context(), key, record, signature)
 		assert.ErrorIs(t, err, s4.ErrVersionTooLow)
 	})
 }
@@ -190,10 +189,10 @@ func TestStorage_PutAndGet(t *testing.T) {
 		Signature:  signature,
 	}, nil)
 
-	err = storage.Put(testutils.Context(t), key, record, signature)
+	err = storage.Put(t.Context(), key, record, signature)
 	assert.NoError(t, err)
 
-	rec, metadata, err := storage.Get(testutils.Context(t), key)
+	rec, metadata, err := storage.Get(t.Context(), key)
 	assert.NoError(t, err)
 	assert.False(t, metadata.Confirmed)
 	assert.Equal(t, signature, metadata.Signature)
@@ -223,7 +222,7 @@ func TestStorage_List(t *testing.T) {
 	assert.NoError(t, err)
 	ormMock.On("GetSnapshot", mock.Anything, addressRange).Return(ormRows, nil)
 
-	rows, err := storage.List(testutils.Context(t), address)
+	rows, err := storage.List(t.Context(), address)
 	require.NoError(t, err)
 	assert.Len(t, rows, 2)
 	for _, row := range rows {

@@ -77,10 +77,14 @@ func schemaCommitRefFromGoMod(ctx context.Context, repoRoot, targetModule string
 // getSchemaSetFromGoMod resolves SchemaSets from chainlink-protos commits pinned in go.mod:
 //   - workflows (chip-cre.json) for CRE/workflow telemetry
 //   - node-platform (chip-schemas.json) for PluginRelayerConfigEmitter / common.v1.ChainPluginConfig
+//   - metering (chip-cll.meter.json) for durable resource metering (MeterRecord/MeterSnapshot on
+//     the cll.meter domain); without this, ChIP Ingress rejects those events at pre-publish encode
+//     time with "Subject 'cll-meter-metering.v1.MeterRecord' not found" and drops them silently.
 func getSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.SchemaSet, error) {
 	const (
 		workflowsModule    = "github.com/smartcontractkit/chainlink-protos/workflows/go"
 		nodePlatformModule = "github.com/smartcontractkit/chainlink-protos/node-platform"
+		meteringModule     = "github.com/smartcontractkit/chainlink-protos/metering/go"
 	)
 
 	repoRoot, err := filepath.Abs(relativePathToRepoRoot)
@@ -100,6 +104,12 @@ func getSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.SchemaSet, err
 	}
 	framework.L.Info().Msgf("Extracted commit ref for %s: %s (from version: %s)", nodePlatformModule, npRef, npVer)
 
+	meteringRef, meteringVer, err := schemaCommitRefFromGoMod(ctx, repoRoot, meteringModule)
+	if err != nil {
+		return nil, err
+	}
+	framework.L.Info().Msgf("Extracted commit ref for %s: %s (from version: %s)", meteringModule, meteringRef, meteringVer)
+
 	return []chipingressset.SchemaSet{
 		{
 			URI:        chainlinkProtosGitURI,
@@ -112,6 +122,12 @@ func getSchemaSetFromGoMod(ctx context.Context) ([]chipingressset.SchemaSet, err
 			Ref:        npRef,
 			SchemaDir:  "node-platform",
 			ConfigFile: "chip-schemas.json",
+		},
+		{
+			URI:        chainlinkProtosGitURI,
+			Ref:        meteringRef,
+			SchemaDir:  "metering",
+			ConfigFile: "chip-cll.meter.json",
 		},
 	}, nil
 }
@@ -1045,6 +1061,6 @@ func fetchAndRegisterProtosCmd() *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&chipIngressGRPCURL, "chip-ingress-grpc-url", "h", "localhost:"+chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT, "Chip Ingress GRPC URL")
+	cmd.Flags().StringVarP(&chipIngressGRPCURL, "chip-ingress-grpc-url", "u", "localhost:"+chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT, "Chip Ingress GRPC URL")
 	return cmd
 }

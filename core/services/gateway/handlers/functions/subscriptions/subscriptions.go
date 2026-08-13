@@ -85,7 +85,7 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 		orm:                orm,
 		client:             client,
 		router:             router,
-		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
+		blockConfirmations: big.NewInt(0).SetUint64(uint64(config.BlockConfirmations)),
 		lggr:               logger.Named(lggr, "OnchainSubscriptions"),
 		stopCh:             make(services.StopChan),
 	}, nil

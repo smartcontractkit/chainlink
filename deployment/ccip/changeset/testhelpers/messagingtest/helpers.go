@@ -138,6 +138,14 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		startBlock = &seq
 	}
 
+	var suiSourceStart *uint64
+	if sourceFamily == chain_selectors.FamilySui {
+		tip, err := tc.Env.BlockChains.SuiChains()[tc.SourceChain].Client.GetLatestCheckpoint(tc.T.Context())
+		require.NoError(tc.T, err)
+		seq := tip.GetSequenceNumber()
+		suiSourceStart = &seq
+	}
+
 	msg, err := sourceAdapter.BuildMessage(testhelpers.MessageComponents{
 		DestChainSelector: tc.DestChain,
 		Receiver:          tc.Receiver,
@@ -250,6 +258,10 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// return all message sent events.
 	out.AllMsgSentEvents = msgSentEvents
 
+	if suiSourceStart != nil && tc.Env.Offchain != nil {
+		testhelpers.ReplaySuiSourceFromCheckpoint(tc.T, tc.Env, tc.SourceChain, *suiSourceStart)
+	}
+
 	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
 	// we need to replay missed logs
 	if !tc.Replayed {
@@ -257,8 +269,10 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		destFamily, err := chain_selectors.GetSelectorFamily(tc.DestChain)
 		require.NoError(tc.T, err)
 		if destFamily == chain_selectors.FamilySui {
-			// Sui replay is a no-op in nodetestutils; only EVM log replay matters. Use
-			// SleepReplayAndSettle because ReplayAsync returns before the poller finishes.
+			// The Sui destination is observed via the SuiEventEmitter, so only the EVM source
+			// needs log replay here; Sui-source re-indexing is handled above by
+			// ReplaySuiSourceFromCheckpoint. Use SleepReplayAndSettle because ReplayAsync
+			// returns before the poller finishes.
 			SleepReplayAndSettle(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain)
 		} else {
 			SleepReplayAndSettle(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)

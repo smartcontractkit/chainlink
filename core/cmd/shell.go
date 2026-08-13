@@ -36,8 +36,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -48,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
