@@ -112,10 +112,10 @@ jobs:
             "Test_CRE_V2_Solana_Read_Accounts": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
-          "Test_CRE_V2_Solana_Read_Block": [
+            "Test_CRE_V2_Solana_Read_Block": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
-          "Test_CRE_V2_Solana_Read_Tx": [
+            "Test_CRE_V2_Solana_Read_Tx": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
             "Test_CRE_V2_Sharding": [
@@ -194,6 +194,12 @@ jobs:
         with:
           ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: system-tests/tests/go.mod
+          cache: false
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6

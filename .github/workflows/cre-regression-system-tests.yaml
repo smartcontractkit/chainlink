@@ -169,6 +169,12 @@ jobs:
           ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: system-tests/tests/go.mod
+          cache: false
+
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6
         with:
