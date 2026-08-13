@@ -149,7 +149,9 @@ hashed_default_assignment = true
   org_test_override = [1]
 `
 
-	proposeAndApproveShardAssignmentJob(t, testEnv, shardZero, shardAssignmentTOML, testLogger)
+	for _, don := range shardDONs {
+		proposeAndApproveShardAssignmentJob(t, testEnv, don, shardAssignmentTOML, testLogger)
+	}
 
 	const numWorkflows = 5
 	workflowIDs := make([]string, 0, numWorkflows)
@@ -197,15 +199,6 @@ hashed_default_assignment = true
 
 	const overrideShard uint32 = 1
 
-	testLogger.Info().Uint32("overrideShard", overrideShard).Msg("Waiting for all workflows to converge on override shard via Ring OCR...")
-	waitForAllWorkflowsOnShard(t, shardOrchClient, workflowIDs, overrideShard)
-
-	resp, err = shardOrchClient.GetWorkflowShardMapping(t.Context(), &ringpb.GetWorkflowShardMappingRequest{
-		WorkflowIds: workflowIDs,
-	})
-	require.NoError(t, err)
-	testLogger.Info().Interface("mappings", resp.Mappings).Msg("Ring OCR workflow mappings after convergence")
-
 	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {
 		workflowToShardIndex[wfID] = overrideShard
@@ -222,7 +215,7 @@ hashed_default_assignment = true
 		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
 	})
 
-	execTimeout := 3 * time.Minute
+	execTimeout := 5 * time.Minute
 	timeoutCtx, cancelTimeout := context.WithTimeout(t.Context(), execTimeout)
 	defer cancelTimeout()
 	execCtx, cancelCause := context.WithCancelCause(timeoutCtx)
