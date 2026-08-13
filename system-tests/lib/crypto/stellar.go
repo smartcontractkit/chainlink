@@ -25,7 +25,7 @@ func NewStellarKey(password string) (*StellarKey, error) {
 		return nil, fmt.Errorf("failed to create stellar key: %w", err)
 	}
 
-	enc, err := key.ToEncryptedJSON(password, keystore.DefaultScryptParams)
+	enc, err := key.ToEncryptedJSON(password, keystore.FastScryptParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt stellar key: %w", err)
 	}

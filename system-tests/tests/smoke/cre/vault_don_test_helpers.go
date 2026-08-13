@@ -367,7 +367,7 @@ func setupVaultScenarioFixture(t *testing.T, baseConfig *ttypes.TestConfig, useP
 	ensureVaultDKGResultPackages(t, testEnv)
 	gatewayURL := mustVaultGatewayURL(t, testEnv)
 	vaultPublicKey := FetchVaultPublicKey(t, gatewayURL.String())
-	updateVaultCapabilityConfigInRegistry(t, testEnv, vaultPublicKey)
+	updateVaultCapabilityConfigInRegistry(t, testEnv, gatewayURL.String(), vaultPublicKey)
 
 	return &vaultScenarioFixture{
 		TestEnv:        testEnv,
@@ -1455,7 +1455,7 @@ func executeVaultBinaryEncodedSharesSmokeTest(
 // so that the vault@1.0.0 capability config includes DefaultConfig with VaultPublicKey
 // and Threshold. This is required for workflows that call runtime.GetSecret().
 // Uses the original deployer key (not per-test key) since the registry is owned by the deployer.
-func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnvironment, vaultPublicKey string) {
+func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnvironment, gatewayURL, vaultPublicKey string) {
 	t.Helper()
 	testLogger := framework.L
 	testLogger.Info().Msg("Updating vault capability config in capabilities registry with VaultPublicKey...")
@@ -1540,7 +1540,19 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 	require.NoError(t, err, "UpdateDONByName tx failed")
 
 	testLogger.Info().Msg("Waiting for registry syncer to propagate the on-chain config change...")
-	time.Sleep(15 * time.Second) // registry syncer polls every 12s; one tick + margin
+	require.Eventually(t, func() bool {
+		uniqueRequestID := uuid.New().String()
+		getPublicKeyRequest := jsonrpc.Request[vault_helpers.GetPublicKeyRequest]{
+			Version: jsonrpc.JsonRpcVersion,
+			ID:      uniqueRequestID,
+			Method:  vaulttypes.MethodPublicKeyGet,
+			Params:  &vault_helpers.GetPublicKeyRequest{},
+		}
+		requestBody, err := json.Marshal(getPublicKeyRequest)
+		require.NoError(t, err, "failed to marshal public key request")
+		statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+		return statusCode == http.StatusOK
+	}, time.Second*30, time.Second*1)
 }
 
 func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {

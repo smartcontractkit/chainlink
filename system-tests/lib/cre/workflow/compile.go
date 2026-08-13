@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/andybalholm/brotli"
 	"github.com/pkg/errors"
@@ -111,12 +112,7 @@ func compileTSWorkflow(ctx context.Context, workflowFilePath, workflowName, outp
 
 func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName, outputDir string) (string, error) {
 	workflowWasmPath := filepath.Join(outputDir, workflowName+".wasm")
-
-	goModTidyCmd := exec.CommandContext(ctx, "go", "mod", "tidy")
-	goModTidyCmd.Dir = filepath.Dir(workflowFilePath)
-	if output, err := goModTidyCmd.CombinedOutput(); err != nil {
-		return "", errors.Wrapf(err, "failed to run go mod tidy: %s", string(output))
-	}
+	compileStart := time.Now()
 
 	compileCmd := exec.CommandContext(ctx, "go", "build", "-o", workflowWasmPath, filepath.Base(workflowFilePath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
 	compileCmd.Dir = filepath.Dir(workflowFilePath)
@@ -125,6 +121,7 @@ func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName, outp
 		fmt.Fprint(os.Stderr, string(output))
 		return "", errors.Wrap(err, "failed to compile workflow")
 	}
+	fmt.Fprintf(os.Stderr, "compileGoWorkflow: %s took %s\n", workflowName, time.Since(compileStart))
 
 	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(workflowWasmPath)
 	if workflowWasmAbsPathErr != nil {
