@@ -1068,8 +1068,8 @@ ShardOrchestratorPort = 50051 # Default
 # Required when ShardingEnabled=true and ShardIndex > 0.
 ShardOrchestratorAddress = '' # Default
 # ShardAssignmentMode controls how workflows are assigned to shards.
-# One of: "ringocr-only" (default), "manual-only", "ringocr-with-overrides".
-ShardAssignmentMode = 'ringocr-only' # Default
+# One of: "manual-only" (default), "ringocr-only", "ringocr-with-overrides".
+ShardAssignmentMode = 'manual-only' # Default
 
 # Local Out-Of-Process Plugins
 [LOOPP]
