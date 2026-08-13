@@ -76,25 +76,49 @@ jobs:
         id: define-matrix
         shell: bash
         run: |
-          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/regression/cre/*_test.go)
+          run_id="${{ github.run_id }}"
+          run_attempt="${{ github.run_attempt }}"
 
-          per_test_configs='{
-            "Test_CRE_V2_Stellar_Regression": "configs/workflow-gateway-don-stellar.toml"
-          }'
-
-          tests=$(echo "$test_names" | jq -c -R -s \
-            --argjson run_id "${{ github.run_id }}" \
-            --arg run_attempt "${{ github.run_attempt }}" \
-            --argjson per "$per_test_configs" '
-            split("\n") | map(select(length>0))
-            | to_entries
-            | map({
-                test_name: .value,
-                test_id: .key,
-                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
-                configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
-              })
-          ')
+          tests=$(jq -c -n \
+            --arg run_id "$run_id" \
+            --arg run_attempt "$run_attempt" \
+            '[
+              {
+                test_name: "Regression Bucket 1",
+                test_pattern: "Test_CRE_V2_Consensus_Regression|Test_CRE_V2_Cron_Regression|Test_CRE_V2_HTTP_Regression|Test_CRE_V2_EVM_BalanceAt_Invalid_Address_Regression|Test_CRE_V2_EVM_CallContract_Invalid_Addr_To_Read_Regression",
+                test_id: 0,
+                runs_on: "runs-on=\($run_id)-0-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
+                configs: "configs/workflow-gateway-capabilities-don.toml"
+              },
+              {
+                test_name: "Regression Bucket 2",
+                test_pattern: "Test_CRE_V2_EVM_CallContract_Invalid_Balance_Reader_Contract_Regression|Test_CRE_V2_EVM_EstimateGas_Invalid_To_Address_Regression|Test_CRE_V2_EVM_FilterLogs_Invalid_Addresses_Regression|Test_CRE_V2_EVM_FilterLogs_Invalid_FromBlock_Regression|Test_CRE_V2_EVM_FilterLogs_Invalid_ToBlock_Regression",
+                test_id: 1,
+                runs_on: "runs-on=\($run_id)-1-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
+                configs: "configs/workflow-gateway-capabilities-don.toml"
+              },
+              {
+                test_name: "Regression Bucket 3",
+                test_pattern: "Test_CRE_V2_EVM_GetTransactionByHash_Invalid_Hash_Regression|Test_CRE_V2_EVM_GetTransactionReceipt_Invalid_Hash_Regression|Test_CRE_V2_EVM_HeaderByNumber_Invalid_Block_Regression|Test_CRE_V2_EVM_WriteReport_Invalid_Receiver_Regression|Test_CRE_V2_EVM_WriteReport_Failing_On_Receiver",
+                test_id: 2,
+                runs_on: "runs-on=\($run_id)-2-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
+                configs: "configs/workflow-gateway-capabilities-don.toml"
+              },
+              {
+                test_name: "Regression Bucket 4",
+                test_pattern: "Test_CRE_V2_EVM_WriteReport_Corrupt_Receiver_Address_Regression|Test_CRE_V2_EVM_WriteReport_Invalid_Gas_Regression|Test_CRE_V2_EVM_LogTrigger_Invalid_Address_Regression|Test_CRE_V2_HTTP_Action_CRUD_Regression",
+                test_id: 3,
+                runs_on: "runs-on=\($run_id)-3-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
+                configs: "configs/workflow-gateway-capabilities-don.toml"
+              },
+              {
+                test_name: "Regression Stellar",
+                test_pattern: "Test_CRE_V2_Stellar_Regression",
+                test_id: 4,
+                runs_on: "runs-on=\($run_id)-4-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
+                configs: "configs/workflow-gateway-don-stellar.toml"
+              }
+            ]')
 
           echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
 
@@ -144,13 +168,6 @@ jobs:
         with:
           ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
-
-      - name: Set up Go
-        id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
-        with:
-          go_mod_path: system-tests/tests/go.mod
-          no_cache: true
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6
@@ -226,10 +243,11 @@ jobs:
         continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
         env:
           TEST_NAME: ${{ matrix.tests.test_name }}
+          TEST_PATTERN: ${{ matrix.tests.test_pattern }}
           TEST_TIMEOUT: 7m # let's leave 3 minutes for other steps (the whole job times out after 10 minutes)
           CRE_TEST_PARALLEL_ENABLED: "true"
         run: |
-          echo "Starting test: '${TEST_NAME}'"
+          echo "Starting test: '${TEST_NAME}' (pattern: '${TEST_PATTERN}')"
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
 
           if [ -f "./bin/cre-regression.test" ]; then
@@ -241,7 +259,7 @@ jobs:
                 --junitfile=/tmp/junit-report-regression.xml \
                 --format=github-actions \
                 --raw-command -- \
-                go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre ../../bin/cre-regression.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1
+                go tool test2json -t -p github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre ../../bin/cre-regression.test -test.v -test.run "^(${TEST_PATTERN})$" -test.timeout "${TEST_TIMEOUT}" -test.count=1
             )
           else
             echo "No precompiled binary found. Building from scratch..."
@@ -250,7 +268,7 @@ jobs:
               --junitfile=/tmp/junit-report-regression.xml \
               --format=github-actions \
               -- \
-              -v -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 \
+              -v -run "^(${TEST_PATTERN})$" -timeout "${TEST_TIMEOUT}" -count=1 \
               github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre
           fi
 
