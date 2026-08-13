@@ -9,12 +9,13 @@ jobs:
   sync:
     name: Sync
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
         with:
-          persist-credentials: false
           ref: develop
-        if: env.GITHUB_REPOSITORY != 'smartcontractkit/chainlink'
+        if: github.repository != 'smartcontractkit/chainlink'
       - name: Sync
         run: |
           git remote add upstream "https://github.com/smartcontractkit/chainlink.git"
@@ -27,4 +28,4 @@ jobs:
             git fetch upstream
             git push origin upstream/develop:develop
           fi
-        if: env.GITHUB_REPOSITORY != 'smartcontractkit/chainlink'
+        if: github.repository != 'smartcontractkit/chainlink'
