@@ -81,8 +81,8 @@ jobs:
         id: define-matrix
         shell: bash
         run: |
-          if [[ -n "${{ inputs.test_matrix }}" ]]; then
-            echo "matrix=${{ inputs.test_matrix }}" | tee -a "${GITHUB_OUTPUT}"
+          if [[ -n '${{ inputs.test_matrix }}' ]]; then
+            echo 'matrix=${{ inputs.test_matrix }}' | tee -a "$GITHUB_OUTPUT"
             exit 0
           fi
 
