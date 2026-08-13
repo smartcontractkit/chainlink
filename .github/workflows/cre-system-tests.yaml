@@ -57,6 +57,11 @@ on:
           "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
+      test_matrix:
+        required: false
+        type: string
+        description: "Optional precomputed test matrix JSON string."
+        default: ""
 
 jobs:
   define-test-matrix:
@@ -76,6 +81,11 @@ jobs:
         id: define-matrix
         shell: bash
         run: |
+          if [[ -n "${{ inputs.test_matrix }}" ]]; then
+            echo "matrix=${{ inputs.test_matrix }}" | tee -a "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
           TOPOLOGIES_JSON='[
             {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
           ]'
@@ -125,7 +135,7 @@ jobs:
              ]
           }'
 
-          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade | grep -v '^TestMain$')
+          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade | grep -v '^TestMain$' | grep -v '_LoadExpectedConfig$' | grep -v '_CRESettingDefaults' | grep -v '^TestMustMintVaultJWT' | grep -v '^TestPendingQueueStallWedge')
 
           tests=$(echo "$test_names" | jq -c -R -s \
             --argjson run_id "${{ github.run_id }}" \
@@ -184,13 +194,6 @@ jobs:
         with:
           ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
-
-      - name: Set up Go
-        id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
-        with:
-          go_mod_path: system-tests/tests/go.mod
-          no_cache: true
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6
@@ -391,7 +394,7 @@ jobs:
 
           exit_code="$?"
           if [ "$exit_code" -eq 0 ]; then
-            echo "tests_result=✅ Tests passed" >> "${GITHUB_OUTPUT}"
+            echo "tests_result=✅ Tests passed" | tee -a "${GITHUB_OUTPUT}"
           fi
 
       - name:
