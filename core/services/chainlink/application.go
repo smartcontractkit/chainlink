@@ -370,7 +370,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		// running a local libocr peer.
 		proxyAddr := ""
 		if cfg.Capabilities().Proxy().Enabled() {
-			proxyAddr = fmt.Sprintf("localhost:%d", cfg.Capabilities().Proxy().Port())
+			proxyAddr = fmt.Sprintf("localhost:%d", cfg.Capabilities().Proxy().GRPCPort())
 		}
 		peerWrapper = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), opts.DS, proxyAddr, globalLogger)
 		srvcs = append(srvcs, peerWrapper)
@@ -650,7 +650,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 				// for running several in one process, which is for local runs rather than for us.
 				"run",
 				"--ocr.listen-addresses=" + strings.Join(cfg.P2P().V2().ListenAddresses(), ","),
-				fmt.Sprintf("--proxy.listen-address=:%d", cfg.Capabilities().Proxy().Port()),
+				fmt.Sprintf("--grpc.port=%d", cfg.Capabilities().Proxy().GRPCPort()),
+				fmt.Sprintf("--http.port=%d", cfg.Capabilities().Proxy().HTTPPort()),
 				"--capabilities-registry.address=" + extRegistry.Address(),
 				"--evm.chain-id=" + extRegistry.ChainID(),
 				"--evm.http-url=" + proxyEVMHTTPURL,

@@ -16,8 +16,8 @@ type stubProxyConfig struct {
 	port    uint16
 }
 
-func (s stubProxyConfig) Enabled() bool { return s.enabled }
-func (s stubProxyConfig) Port() uint16  { return s.port }
+func (s stubProxyConfig) Enabled() bool    { return s.enabled }
+func (s stubProxyConfig) GRPCPort() uint16 { return s.port }
 
 func TestSelect_DisabledUsesInProcessRegistry(t *testing.T) {
 	ctx := context.Background()

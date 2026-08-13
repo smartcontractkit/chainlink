@@ -93,12 +93,17 @@ type Capabilities interface {
 }
 
 // CapabilitiesProxy configures the out-of-process p2p proxy. When Enabled, the
-// node launches the proxy binary as a LOOP and routes OCR and DON-to-DON
-// networking through the proxy's gRPC on Port instead of the local libocr peer.
+// node launches the proxy binary as a LOOP (passed GRPCPort as --grpc.port and
+// HTTPPort as --http.port) and routes OCR and DON-to-DON networking through the
+// proxy's gRPC on GRPCPort instead of the local libocr peer. HTTPPort serves
+// the proxy's /metrics, /debug/pprof and health endpoints - it is not only
+// prometheus's, since the proxy binary can register other routes on it too.
+// Both are required: the proxy binary's shared servers have no default port.
 type CapabilitiesProxy interface {
 	Enabled() bool
 	Command() string
-	Port() uint16
+	GRPCPort() uint16
+	HTTPPort() uint16
 }
 
 // LocalCapabilities provides configuration for registry-based capability launching.

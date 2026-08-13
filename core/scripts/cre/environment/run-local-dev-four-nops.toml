@@ -67,7 +67,8 @@
 [Capabilities.Proxy]
 Enabled = true
 Command = '/usr/local/bin/crecore'
-Port = 50051
+GRPCPort = 50051
+HTTPPort = 50052
 '''
 
 [[nodesets]]
@@ -100,7 +101,8 @@ Port = 50051
 [Capabilities.Proxy]
 Enabled = true
 Command = '/usr/local/bin/crecore'
-Port = 50051
+GRPCPort = 50051
+HTTPPort = 50052
 '''
 
 [[nodesets]]

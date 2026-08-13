@@ -376,7 +376,8 @@ proxyMode = 'gateway'
 [Capabilities.Proxy]
 Enabled = false
 Command = '/opt/chainlink/binaries/cre-p2p-proxy'
-Port = 50051
+GRPCPort = 50051
+HTTPPort = 50052
 
 [Telemetry]
 Enabled = true

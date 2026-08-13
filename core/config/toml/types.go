@@ -2771,12 +2771,14 @@ type Capabilities struct {
 
 // CapabilitiesProxy configures an out-of-process p2p proxy. When Enabled, the
 // node launches the proxy binary (Command) as a LOOP and routes its OCR and
-// DON-to-DON networking through the proxy's gRPC on Port instead of the local
-// libocr peer.
+// DON-to-DON networking through the proxy's gRPC on GRPCPort instead of the
+// local libocr peer. HTTPPort serves the proxy's /metrics, /debug/pprof and
+// health endpoints, and whatever else the proxy binary registers on it.
 type CapabilitiesProxy struct {
-	Enabled *bool   `toml:",omitempty"`
-	Command *string `toml:",omitempty"`
-	Port    *uint16 `toml:",omitempty"`
+	Enabled  *bool   `toml:",omitempty"`
+	Command  *string `toml:",omitempty"`
+	GRPCPort *uint16 `toml:",omitempty"`
+	HTTPPort *uint16 `toml:",omitempty"`
 }
 
 func (c *CapabilitiesProxy) setFrom(f *CapabilitiesProxy) {
@@ -2786,8 +2788,11 @@ func (c *CapabilitiesProxy) setFrom(f *CapabilitiesProxy) {
 	if f.Command != nil {
 		c.Command = f.Command
 	}
-	if f.Port != nil {
-		c.Port = f.Port
+	if f.GRPCPort != nil {
+		c.GRPCPort = f.GRPCPort
+	}
+	if f.HTTPPort != nil {
+		c.HTTPPort = f.HTTPPort
 	}
 }
 

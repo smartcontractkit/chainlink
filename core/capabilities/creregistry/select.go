@@ -17,7 +17,7 @@ import (
 // the whole config interface.
 type ProxyConfig interface {
 	Enabled() bool
-	Port() uint16
+	GRPCPort() uint16
 }
 
 // Select returns the CapabilitiesRegistry the node should use.
@@ -37,7 +37,7 @@ func Select(lggr logger.Logger, cfg ProxyConfig) (*capabilities.Registry, func()
 
 	// crecore is launched as a LOOP on loopback, so the registry lives at the
 	// same address the OCR proxy client already uses.
-	addr := fmt.Sprintf("127.0.0.1:%d", cfg.Port())
+	addr := fmt.Sprintf("127.0.0.1:%d", cfg.GRPCPort())
 
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {

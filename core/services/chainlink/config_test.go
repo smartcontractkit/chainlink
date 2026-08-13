@@ -519,9 +519,10 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 		Proxy: toml.CapabilitiesProxy{
-			Enabled: ptr(false),
-			Command: ptr("/opt/chainlink/binaries/cre-p2p-proxy"),
-			Port:    ptr(uint16(50051)),
+			Enabled:  ptr(false),
+			Command:  ptr("/opt/chainlink/binaries/cre-p2p-proxy"),
+			GRPCPort: ptr(uint16(50051)),
+			HTTPPort: ptr(uint16(50052)),
 		},
 	}
 	full.Workflows = toml.Workflows{

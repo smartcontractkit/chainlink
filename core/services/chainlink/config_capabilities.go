@@ -49,11 +49,18 @@ func (c *capabilitiesProxy) Command() string {
 	return *c.c.Command
 }
 
-func (c *capabilitiesProxy) Port() uint16 {
-	if c.c.Port == nil {
+func (c *capabilitiesProxy) GRPCPort() uint16 {
+	if c.c.GRPCPort == nil {
 		return 0
 	}
-	return *c.c.Port
+	return *c.c.GRPCPort
+}
+
+func (c *capabilitiesProxy) HTTPPort() uint16 {
+	if c.c.HTTPPort == nil {
+		return 0
+	}
+	return *c.c.HTTPPort
 }
 
 func (c *capabilitiesConfig) ExternalRegistry() config.CapabilitiesExternalRegistry {
