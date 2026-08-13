@@ -134,15 +134,10 @@ jobs:
 
       - name: Set up Go
         id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        uses: actions/setup-go@v7
         with:
-          go_mod_path: integration-tests/go.mod
-          cache_key_id: integration-tests-v1
-          cache_builds: true
-          cache_restore_only: "true"
-          should_tidy: false
-          no_cache: false
-          gati_token: ${{ steps.github-token.outputs.access-token }}
+          go-version-file: integration-tests/go.mod
+          cache: false # Using pre-compiled binaries, only need go setup for gotestsum
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6
