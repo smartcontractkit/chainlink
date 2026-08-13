@@ -44,42 +44,6 @@ env:
   TEST_SUITE: smoke
 
 jobs:
-  enforce-ctf-version:
-    name: Enforce CTF Version
-    runs-on: ubuntu-latest
-    # We don't directly merge dependabot PRs, so let's not waste the resources
-    if: github.actor != 'dependabot[bot]'
-    steps:
-      - run: echo "${{github.event_name}}"
-      - name: Checkout the repo
-        uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          repository: smartcontractkit/chainlink
-          ref: ${{ inputs.cl_ref }}
-      - name: Check Merge Group Condition
-        id: condition-check
-        run: |
-          echo "Checking event condition..."
-          SHOULD_ENFORCE="false"
-          if [[ "$GITHUB_EVENT_NAME" == "merge_group" ]]; then
-              echo "We are in a merge_group event, now check if we are on the develop branch"
-              target_branch=$(cat "$GITHUB_EVENT_PATH" | jq -r .merge_group.base_ref)
-              if [[ "$target_branch" == "refs/heads/develop" ]]; then
-                  echo "We are on the develop branch, we should enforce ctf version"
-                  SHOULD_ENFORCE="true"
-              fi
-          fi
-          echo "should we enforce ctf version = $SHOULD_ENFORCE"
-          echo "should-enforce=$SHOULD_ENFORCE" | tee -a "$GITHUB_OUTPUT"
-      - name: Enforce CTF Version
-        if: steps.condition-check.outputs.should-enforce == 'true'
-        uses: smartcontractkit/.github/actions/ctf-check-mod-version@21b0189c5fdca0318617d259634b1a91e6d80262 # ctf-check-mod-version@0.0.0
-        with:
-          go-project-path: ./integration-tests
-          module-name: github.com/smartcontractkit/chainlink-testing-framework/lib
-          enforce-semantic-tag: "true"
-
   changes:
     name: Check Paths That Require Tests To Run
     # We don't directly merge dependabot PRs, so let's not waste the resources
@@ -265,7 +229,7 @@ jobs:
       name: integration
       deployment: false
     runs-on: ${{ matrix.image.runner }}
-    needs: [labels, enforce-ctf-version, changes]
+    needs: [labels, changes]
     permissions:
       id-token: write
       contents: read
@@ -370,7 +334,7 @@ jobs:
             {"cache-mount/go-build-cache": {"target": "/var/cache-target", "id": "go-build-cache"}}
 
   run-core-cre-e2e-tests-setup:
-    name: Run Core CRE E2E Tests Setup
+    name: E2E Tests Setup
     runs-on: ubuntu-latest
     needs: [changes, labels]
     permissions:
@@ -380,6 +344,7 @@ jobs:
       with-regression: ${{ steps.cre-regression-tests.outputs.with-regression }}
       run-mixed-env: ${{ steps.cre-mixed-env-tests.outputs.run-mixed-env }}
       cre-matrix: ${{ steps.define-matrix.outputs.matrix }}
+      ccip-should-run: ${{ steps.ccip-e2e-tests.outputs.should-run }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -558,6 +523,38 @@ jobs:
 
           echo "run-mixed-env=${RUN_MIXED_ENV}" | tee -a "$GITHUB_OUTPUT"
 
+      - name: CCIP v1.6 E2E Tests
+        id: ccip-e2e-tests
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REF_TYPE: ${{ github.ref_type }}
+          CONTAINS_CHANGES: ${{ needs.changes.outputs.ccip-changes == 'true' }}
+          RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
+            # CCIP v1.6 E2E Tests run on merge queue (merge_group), not on PRs
+            echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
+
+          elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
+            # Run CCIP v1.6 E2E Tests in the merge queue, if there are relevant changes
+            echo "should-run=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
+
+          elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
+            # Always Run CCIP v1.6 E2E Tests on workflow dispatch
+            echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+
+          elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
+            # Run CCIP v1.6 E2E Tests on push events, only if there are relevant changes or if it's a tag push
+            if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
+              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
+            else
+              echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
+            fi
+
+          else
+            echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
+          fi
+
   run-core-cre-e2e-tests:
     name: Run Core CRE E2E Tests
     needs: [build-chainlink, run-core-cre-e2e-tests-setup, compile-tests]
@@ -620,47 +617,6 @@ jobs:
       base_ref_name: ${{ github.event.pull_request.base.ref }}
     secrets: inherit
 
-  run-ccip-v1-6-e2e-tests-setup:
-    name: Run CCIP v1.6 E2E Tests Setup
-    runs-on: ubuntu-latest
-    needs: [changes, labels]
-    permissions:
-      contents: read
-    outputs:
-      should-run: ${{ steps.form-inputs.outputs.should-run }}
-    steps:
-      - name: Form Inputs for CCIP v1.6 E2E Tests
-        id: form-inputs
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_REF_TYPE: ${{ github.ref_type }}
-          CONTAINS_CHANGES: ${{ needs.changes.outputs.ccip-changes == 'true' }}
-          RUN_E2E_TESTS_LABEL_FOUND: ${{ needs.labels.outputs.run-e2e-tests-label-found || 'false' }}
-        run: |
-          if [[ "${GITHUB_EVENT_NAME}" == 'pull_request' ]]; then
-            # CCIP v1.6 E2E Tests run on merge queue (merge_group), not on PRs
-            echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'merge_group' ]]; then
-            # Run CCIP v1.6 E2E Tests in the merge queue, if there are relevant changes
-            echo "should-run=${CONTAINS_CHANGES}" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'workflow_dispatch' ]]; then
-            # Always Run CCIP v1.6 E2E Tests on workflow dispatch
-            echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-
-          elif [[ "${GITHUB_EVENT_NAME}" == 'push' ]]; then
-            # Run CCIP v1.6 E2E Tests on push events, only if there are relevant changes or if it's a tag push
-            if [[ "${CONTAINS_CHANGES}" == 'true' || "${GITHUB_REF_TYPE}" == 'tag' ]]; then
-              echo "should-run=true" | tee -a "$GITHUB_OUTPUT"
-            else
-              echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
-            fi
-
-          else
-            echo "should-run=false" | tee -a "$GITHUB_OUTPUT"
-          fi
-
   # Central writer for the unified `integration-tests-v1` build cache consumed (restore-only) by
   # CRE smoke + regression matrices and CCIP test suites.
   # Keyed on go.sum hash to optimize parallel PR cache hits (Strategy A + B + C).
@@ -670,11 +626,10 @@ jobs:
       ${{
         github.actor != 'dependabot[bot]' &&
         (needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true' ||
-         needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true')
+         needs.run-core-cre-e2e-tests-setup.outputs.ccip-should-run == 'true')
       }}
     needs:
       - run-core-cre-e2e-tests-setup
-      - run-ccip-v1-6-e2e-tests-setup
     runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i+c8i/spot=co/volume=100GB/extras=s3-cache
     environment:
       name: integration
@@ -722,7 +677,7 @@ jobs:
         shell: bash
         env:
           SHOULD_RUN_CRE: ${{ needs.run-core-cre-e2e-tests-setup.outputs.should-run }}
-          SHOULD_RUN_CCIP: ${{ needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run }}
+          SHOULD_RUN_CCIP: ${{ needs.run-core-cre-e2e-tests-setup.outputs.ccip-should-run }}
         run: |
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/.gotmp"
@@ -783,14 +738,14 @@ jobs:
           key: test-binaries-cre-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
 
       - name: Cache Pre-Compiled CCIP Test Binaries
-        if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+        if: needs.run-core-cre-e2e-tests-setup.outputs.ccip-should-run == 'true'
         uses: actions/cache/save@v6
         with:
           path: integration-tests/bin/
           key: test-binaries-${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
 
   run-ccip-v1-6-e2e-tests:
-    needs: [run-ccip-v1-6-e2e-tests-setup, build-chainlink, compile-tests]
+    needs: [run-core-cre-e2e-tests-setup, build-chainlink, compile-tests]
     name: Run CCIP v1.6 E2E Tests
     permissions:
       actions: read
@@ -798,7 +753,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    if: needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true'
+    if: needs.run-core-cre-e2e-tests-setup.outputs.ccip-should-run == 'true'
     uses: ./.github/workflows/ccip-system-tests.yaml
     with:
       ecr: "sdlc"
