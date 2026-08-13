@@ -48,10 +48,6 @@ const (
 	// and the capability binary name; all three share this value.
 	confidentialWorkflowsApp = string(crelib.ConfidentialWorkflowsCapability)
 
-	// confidentialWorkflowDONName is the workflow DON's on-chain name, taken from
-	// the nodeset name in the topology.
-	confidentialWorkflowDONName = "workflow"
-
 	// confidentialEnclaveRefreshWait covers two of the capability's registry
 	// refresh intervals, so a refresh already in flight when the enclave list
 	// lands cannot be mistaken for the one that picks it up.

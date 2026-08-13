@@ -4,22 +4,27 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/big"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink-confidential-compute/tests/testhelpers"
 	cctypes "github.com/smartcontractkit/chainlink-confidential-compute/types"
+	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/confidentialcompute"
@@ -47,6 +52,10 @@ const (
 
 	// confidentialVaultThreshold matches the 4-node F=1 vault DON.
 	confidentialVaultThreshold = 1
+
+	// confidentialDONPageLimit bounds the getDONs page read when locating a
+	// capability's DON. The topology has a handful of DONs, so one page covers it.
+	confidentialDONPageLimit = 100
 )
 
 // Test_CRE_V2_ConfidentialWorkflows_Relay exercises the confidential workflows
@@ -239,16 +248,56 @@ func publishEnclaves(
 	config, err := confidentialcompute.MarshalRegistryConfig(enclaves)
 	require.NoError(t, err, "failed to encode enclave list for the registry")
 
+	donName := donNameForCapability(t, sethClient, capRegAddr, confidentialWorkflowsApp)
+
 	require.NoError(t,
-		crelib.UpdateDONCapabilityConfig(ctx, sethClient, capRegAddr, confidentialWorkflowDONName, confidentialWorkflowsApp, config),
+		crelib.UpdateDONCapabilityConfig(ctx, sethClient, capRegAddr, donName, confidentialWorkflowsApp, config),
 		"failed to publish enclave list to the capabilities registry",
 	)
 
 	testLogger.Info().
+		Str("don", donName).
 		Int("count", len(enclaves)).
 		Dur("wait", confidentialEnclaveRefreshWait).
 		Msg("Published enclave list; waiting for the capability to refresh from the registry")
 	time.Sleep(confidentialEnclaveRefreshWait)
+}
+
+// donNameForCapability returns the registry name of the DON providing the named
+// capability. The registry derives DON names from the topology, so the name is
+// resolved rather than assumed: a wrong name makes getDONByName revert with an
+// opaque custom error, whereas this reports which DONs actually exist.
+func donNameForCapability(
+	t *testing.T,
+	sethClient *seth.Client,
+	capabilitiesRegistryAddr string,
+	capabilityName string,
+) string {
+	t.Helper()
+
+	capReg, err := capabilities_registry_v2.NewCapabilitiesRegistry(
+		common.HexToAddress(capabilitiesRegistryAddr), sethClient.Client,
+	)
+	require.NoError(t, err, "failed to create capabilities registry wrapper")
+
+	allDONs, err := capReg.GetDONs(&bind.CallOpts{Context: t.Context()}, big.NewInt(0), big.NewInt(confidentialDONPageLimit))
+	require.NoError(t, err, "failed to list DONs from the capabilities registry")
+
+	names := make([]string, 0, len(allDONs))
+	for i := range allDONs {
+		names = append(names, allDONs[i].Name)
+		// The registry keys capabilities as "name@version".
+		for _, capabilityConfig := range allDONs[i].CapabilityConfigurations {
+			if strings.HasPrefix(capabilityConfig.CapabilityId, capabilityName+"@") {
+				return allDONs[i].Name
+			}
+		}
+	}
+
+	require.FailNowf(t, "capability is not registered on any DON",
+		"no DON provides capability %q; DONs present: %s", capabilityName, strings.Join(names, ", "))
+
+	return ""
 }
 
 func injectVaultPublicKey(t *testing.T, testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, gatewayURL string) string {
