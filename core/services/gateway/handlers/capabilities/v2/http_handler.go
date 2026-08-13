@@ -45,7 +45,8 @@ const (
 type gatewayHandler struct {
 	services.StateMachine
 	config                 ServiceConfig
-	don                    handlers.DON
+	shards                 []*shardEndpoint          // all DON shards served by this handler, across the full DON×shard matrix
+	nodeAddrToShard        map[string]*shardEndpoint // node address -> owning shard, for routing responses back to the correct shard conn manager
 	lggr                   logger.Logger
 	httpClient             network.HTTPClient
 	globalNodeRateLimiter  limits.RateLimiter            // Global rate limiter shared across all incoming node requests from workflow DON
@@ -116,7 +117,7 @@ type RetryConfig struct {
 	Multiplier float64 `json:"multiplier"`
 }
 
-func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory) (*gatewayHandler, error) {
+func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory) (*gatewayHandler, error) {
 	var cfg ServiceConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -124,12 +125,18 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	}
 	cfg = WithDefaults(cfg)
 
+	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, shardsConnMgrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build shard endpoints: %w", err)
+	}
+	members := allMembers(shards)
+
 	globalNodeRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPGlobalRate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create global node rate limiter: %w", err)
 	}
-	perNodeRateLimiters := make(map[string]limits.RateLimiter, len(donConfig.Members))
-	for _, member := range donConfig.Members {
+	perNodeRateLimiters := make(map[string]limits.RateLimiter, len(members))
+	for _, member := range members {
 		var rl limits.RateLimiter
 		rl, err = lf.MakeRateLimiter(cresettings.Default.GatewayHTTPPerNodeRate)
 		if err != nil {
@@ -153,17 +160,18 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		return nil, fmt.Errorf("failed to create mtls concurrency limiter: %w", err)
 	}
 
-	metrics, err := metrics.NewMetrics(donConfig)
+	metrics, err := metrics.NewMetrics(members)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
 	}
 
-	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig, metrics)
-	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter, metrics)
+	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, metrics)
+	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, metrics)
 	return &gatewayHandler{
 		config:                 cfg,
-		don:                    don,
-		lggr:                   logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
+		shards:                 shards,
+		nodeAddrToShard:        nodeAddrToShard,
+		lggr:                   logger.Named(lggr, handlerName),
 		httpClient:             httpClient,
 		globalNodeRateLimiter:  globalNodeRateLimiter,
 		perNodeRateLimiters:    perNodeRateLimiters,
@@ -524,11 +532,15 @@ func (h *gatewayHandler) sendResponseToNode(ctx context.Context, requestID strin
 		Params:  &rawParams,
 	}
 
-	err = h.don.SendToNode(ctx, nodeAddr, req)
+	shard, ok := h.nodeAddrToShard[nodeAddr]
+	if !ok {
+		return fmt.Errorf("cannot route response to unknown node %s (no owning shard)", nodeAddr)
+	}
+	err = shard.connMgr.SendToNode(ctx, nodeAddr, req)
 	if err != nil {
 		return err
 	}
 
-	h.lggr.Debugw("sent response to node", "to", nodeAddr)
+	h.lggr.Debugw("sent response to node", "to", nodeAddr, "shard", shard.donID)
 	return nil
 }

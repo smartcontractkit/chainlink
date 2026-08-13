@@ -36,7 +36,7 @@ const (
 )
 
 func createTestMetrics(t *testing.T, donConfig *config.DONConfig) *metrics.Metrics {
-	m, err := metrics.NewMetrics(donConfig)
+	m, err := metrics.NewMetrics(donConfig.Members)
 	require.NoError(t, err)
 	return m
 }
@@ -80,7 +80,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 
 		require.True(t, exists)
 		require.Equal(t, callback, saved.Callback)
-		require.NotNil(t, saved.responseAggregator)
+		require.NotNil(t, saved.responseAggregators)
 	})
 
 	t.Run("successful trigger request with missing 0x prefix", func(t *testing.T) {
@@ -115,7 +115,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 
 		require.True(t, exists)
 		require.Equal(t, callback, saved.Callback)
-		require.NotNil(t, saved.responseAggregator)
+		require.NotNil(t, saved.responseAggregators)
 	})
 
 	t.Run("successful trigger request with padded workflow ID", func(t *testing.T) {
@@ -151,7 +151,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 
 		require.True(t, exists)
 		require.Equal(t, callback, saved.Callback)
-		require.NotNil(t, saved.responseAggregator)
+		require.NotNil(t, saved.responseAggregators)
 	})
 
 	t.Run("successful trigger request with padded workflow ID and missing 0x prefix", func(t *testing.T) {
@@ -187,7 +187,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 
 		require.True(t, exists)
 		require.Equal(t, callback, saved.Callback)
-		require.NotNil(t, saved.responseAggregator)
+		require.NotNil(t, saved.responseAggregators)
 	})
 
 	t.Run("invalid JSON params", func(t *testing.T) {
@@ -674,7 +674,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
 	testMetrics := createTestMetrics(t, donConfig)
-	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	handler := newTestTriggerHandler(t, lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)
 
@@ -738,7 +738,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_SendsToNodesInParallel(t *t
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
 	testMetrics := createTestMetrics(t, donConfig)
-	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	handler := newTestTriggerHandler(t, lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)
 
@@ -804,7 +804,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_SlowNodeDoesNotBlockOthers(
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
 	testMetrics := createTestMetrics(t, donConfig)
-	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	handler := newTestTriggerHandler(t, lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)
 
@@ -859,9 +859,9 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 	ctx := t.Context()
 
 	// Setup metadata handler with test data
-	err := handler.workflowMetadataHandler.agg.Start(ctx)
+	err := handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].donID].Start(ctx)
 	require.NoError(t, err)
-	defer handler.workflowMetadataHandler.agg.Close()
+	defer handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].donID].Close()
 
 	// Create test keys
 	privateKey := createTestPrivateKey(t)
@@ -1003,9 +1003,9 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T
 	handler, mockDon := createTestTriggerHandler(t)
 	ctx := t.Context()
 
-	err := handler.workflowMetadataHandler.agg.Start(ctx)
+	err := handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].donID].Start(ctx)
 	require.NoError(t, err)
-	defer handler.workflowMetadataHandler.agg.Close()
+	defer handler.workflowMetadataHandler.aggs[handler.workflowMetadataHandler.shards[0].donID].Close()
 
 	privateKey := createTestPrivateKey(t)
 	signerAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
@@ -1681,11 +1681,25 @@ func createTestMetadataHandler(t *testing.T) *WorkflowMetadataHandler {
 	}
 	cfg := WithDefaults(ServiceConfig{})
 	testMetrics := createTestMetrics(t, donConfig)
-	return NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
+	shardedDONs := []config.ShardedDONConfig{
+		{DonName: donConfig.DonId, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
+	}
+	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{{mockDon}})
+	require.NoError(t, err)
+	return NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
 }
 
 func createTestUserRateLimiter() limits.RateLimiter {
 	return limits.UnlimitedRateLimiter()
+}
+
+func newTestTriggerHandler(t *testing.T, lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, mockDon *handlermocks.DON, metadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, testMetrics *metrics.Metrics) *httpTriggerHandler {
+	shardedDONs := []config.ShardedDONConfig{
+		{DonName: donConfig.DonId, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
+	}
+	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{{mockDon}})
+	require.NoError(t, err)
+	return NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics)
 }
 
 func createTestTriggerHandler(t *testing.T) (*httpTriggerHandler, *handlermocks.DON) {
@@ -1712,7 +1726,7 @@ func createTestTriggerHandlerWithConfig(t *testing.T, cfg ServiceConfig) (*httpT
 	userRateLimiter := createTestUserRateLimiter()
 	testMetrics := createTestMetrics(t, donConfig)
 
-	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	handler := newTestTriggerHandler(t, lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	return handler, mockDon
 }
 
@@ -1739,7 +1753,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 
 	t.Run("successful rate limit check with CRE context", func(t *testing.T) {
 		userRateLimiter := createTestUserRateLimiter() // Unlimited
-		handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+		handler := newTestTriggerHandler(t, lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 
 		privateKey := createTestPrivateKey(t)
 		workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
@@ -1785,7 +1799,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 	t.Run("rate limit exceeded returns proper error", func(t *testing.T) {
 		// Create a rate limiter with very restrictive limits
 		restrictiveRateLimiter := limits.WorkflowRateLimiter(1, 0)
-		handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, restrictiveRateLimiter, testMetrics)
+		handler := newTestTriggerHandler(t, lggr, cfg, donConfig, mockDon, metadataHandler, restrictiveRateLimiter, testMetrics)
 
 		privateKey := createTestPrivateKey(t)
 		workflowID := "0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"
@@ -1849,7 +1863,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 	metadataHandler := createTestMetadataHandler(t)
 	userRateLimiter := createTestUserRateLimiter()
 	testMetrics := createTestMetrics(t, donConfig)
-	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	handler := newTestTriggerHandler(t, lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
 	privateKey := createTestPrivateKey(t)
 	registerWorkflow(t, handler, workflowID, privateKey)
 
