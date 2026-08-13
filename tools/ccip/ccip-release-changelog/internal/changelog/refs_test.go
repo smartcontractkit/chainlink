@@ -121,3 +121,30 @@ func TestResolveRef_SuggestsNearMiss(t *testing.T) {
 		t.Errorf("error should suggest release/9.99.0, got: %v", err)
 	}
 }
+
+func TestNormalizeRef(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		// CCIP image tags invert to their source git tags.
+		"2.56.1-ccip-rc.2":       "v2.56.1-rc.2",
+		"2.34.0-ccip-beta.0":     "v2.34.0-beta.0",
+		"2.56.1-ccip-rc.2-arm64": "v2.56.1-rc.2",
+		"2.56.1-ccip-rc.0-amd64": "v2.56.1-rc.0",
+		// Hybrid: image tag with a "v" prefix (git-tag-shaped mistake).
+		"v2.56.1-ccip-rc.1":       "v2.56.1-rc.1",
+		"v2.56.1-ccip-rc.1-arm64": "v2.56.1-rc.1",
+		// Full image URIs.
+		"public.ecr.aws/chainlink/ccip:2.56.1-ccip-rc.2": "v2.56.1-rc.2",
+		// Plain git refs pass through untouched.
+		"v2.55.0":        "v2.55.0",
+		"v2.56.1-rc.2":   "v2.56.1-rc.2",
+		"release/2.57.2": "release/2.57.2",
+		"eee47b86a6826870b0d8e92e8f979f3b8cce9134": "eee47b86a6826870b0d8e92e8f979f3b8cce9134",
+	}
+	for in, want := range cases {
+		if got := NormalizeRef(in); got != want {
+			t.Errorf("NormalizeRef(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

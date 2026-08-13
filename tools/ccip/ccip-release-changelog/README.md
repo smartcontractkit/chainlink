@@ -36,6 +36,20 @@ refs, then `origin/<ref>`, then an on-demand `git fetch origin <ref>` (into
 found anywhere, the error suggests similarly named remote refs (e.g. asking
 for `v2.56.1` when only `release/2.56.1` and `v2.56.1-rc.N` exist).
 
+You can also pass **CCIP image tags or image URIs** directly — the exact
+version string used across the release process:
+
+```
+--old 2.56.1-ccip-rc.2
+--old v2.56.1-ccip-rc.2   # hybrid form (v-prefix + -ccip-) also accepted
+--old public.ecr.aws/chainlink/ccip:2.56.1-ccip-rc.2
+```
+
+`build-publish.yml` derives the image tag from the git tag that built it
+(`v2.56.1-rc.2` → image `2.56.1-ccip-rc.2`), so the tool inverts that mapping
+locally — **no image is ever pulled or inspected**. The report header notes
+the mapping (`image tag → git tag`) for the audit trail.
+
 Environment:
 
 - `GITHUB_TOKEN` / `GH_TOKEN` — GitHub compare API auth. Falls back to

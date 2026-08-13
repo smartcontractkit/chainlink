@@ -19,7 +19,10 @@ type PluginPin struct {
 // one git ref.
 type DepSnapshot struct {
 	Ref string
-	SHA string
+	// ResolvedRef is the git ref actually used for resolution when it differs
+	// from Ref (e.g. a CCIP image tag normalized to its source git tag).
+	ResolvedRef string
+	SHA         string
 	// Modules maps go.mod module path -> version string (tracked modules only).
 	Modules map[string]string
 	// Plugins maps plugins.public.yaml key -> plugin pin (tracked plugins only).
@@ -100,9 +103,11 @@ func ParsePluginsYAML(data []byte) (map[string]PluginPin, error) {
 }
 
 // LoadSnapshot resolves ref and loads the dependency snapshot at that ref
-// from the local core-repo checkout.
+// from the local core-repo checkout. CCIP image tags (e.g. 2.56.1-ccip-rc.2)
+// are normalized to their source git tag first.
 func LoadSnapshot(ctx context.Context, g gitRunner, ref string) (DepSnapshot, error) {
-	sha, err := g.ResolveRef(ctx, ref)
+	normalized := NormalizeRef(ref)
+	sha, err := g.ResolveRef(ctx, normalized)
 	if err != nil {
 		return DepSnapshot{}, err
 	}
@@ -124,10 +129,11 @@ func LoadSnapshot(ctx context.Context, g gitRunner, ref string) (DepSnapshot, er
 	if err != nil {
 		return DepSnapshot{}, err
 	}
-	return DepSnapshot{
-		Ref: ref, SHA: sha,
-		Modules: modules, Plugins: pluginRefs,
-	}, nil
+	snap := DepSnapshot{Ref: ref, SHA: sha, Modules: modules, Plugins: pluginRefs}
+	if normalized != ref {
+		snap.ResolvedRef = normalized
+	}
+	return snap, nil
 }
 
 // repoPin holds the resolved pins of one tracked repo at one ref.
