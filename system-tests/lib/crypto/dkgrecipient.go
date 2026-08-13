@@ -21,7 +21,7 @@ func NewDKGRecipientKey(password string) (*DKGRecipientKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	d, err := key.ToEncryptedJSON(password, keystore.DefaultScryptParams)
+	d, err := key.ToEncryptedJSON(password, keystore.FastScryptParams)
 	if err != nil {
 		return nil, err
 	}

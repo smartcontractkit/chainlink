@@ -270,6 +270,7 @@ func generateNodeTomlConfig(input cre.GenerateConfigsInput, nodeConfigTransforme
 func baseNodeConfig(commonInputs *commonInputs, donMetadata *cre.DonMetadata, nodeMetadata *cre.NodeMetadata) corechainlink.Config {
 	c := corechainlink.Config{
 		Core: coretoml.Core{
+			InsecureFastScrypt: new(true),
 			Feature: coretoml.Feature{
 				LogPoller: new(true),
 			},
