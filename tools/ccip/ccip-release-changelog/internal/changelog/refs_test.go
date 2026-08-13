@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -83,5 +84,40 @@ func TestResolveRef_UnknownRef(t *testing.T) {
 	g := gitRunner{dir: local}
 	if _, err := g.ResolveRef(context.Background(), "release/does-not-exist"); err == nil {
 		t.Error("expected error for unknown ref")
+	}
+}
+
+// TestResolveRef_FetchesMissingTag creates a tag in the remote AFTER the
+// local clone's initial fetch: ResolveRef must fetch it on demand.
+func TestResolveRef_FetchesMissingTag(t *testing.T) {
+	t.Parallel()
+
+	local, remoteSHA := setupOriginOnlyBranch(t)
+	remote := filepath.Join(filepath.Dir(local), "remote")
+	gitCmd(t, remote, "tag", "v9.99.1")
+
+	g := gitRunner{dir: local}
+	got, err := g.ResolveRef(context.Background(), "v9.99.1")
+	if err != nil {
+		t.Fatalf("ResolveRef failed: %v", err)
+	}
+	if got != remoteSHA {
+		t.Errorf("ResolveRef = %s, want %s", got, remoteSHA)
+	}
+}
+
+// TestResolveRef_SuggestsNearMiss checks the error hints at similarly named
+// remote refs (e.g. user passed "9.99.0" while "release/9.99.0" exists).
+func TestResolveRef_SuggestsNearMiss(t *testing.T) {
+	t.Parallel()
+
+	local, _ := setupOriginOnlyBranch(t)
+	g := gitRunner{dir: local}
+	_, err := g.ResolveRef(context.Background(), "9.99.0")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "release/9.99.0") {
+		t.Errorf("error should suggest release/9.99.0, got: %v", err)
 	}
 }

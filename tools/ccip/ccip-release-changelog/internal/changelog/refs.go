@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -26,19 +27,75 @@ func (g gitRunner) run(ctx context.Context, args ...string) (string, error) {
 }
 
 // ResolveRef resolves any git ref (SHA, tag, branch) to a commit SHA.
-// If the ref does not resolve locally, it falls back to the remote-tracking
-// branch origin/<ref> (release branches often exist only remotely).
+// Resolution order: local ref, then the remote-tracking branch origin/<ref>
+// (release branches often exist only remotely), then an on-demand fetch of
+// <ref> from origin (for tags/branches never fetched locally).
 func (g gitRunner) ResolveRef(ctx context.Context, ref string) (string, error) {
 	out, err := g.run(ctx, "rev-parse", "--verify", ref+"^{commit}")
 	if err == nil {
 		return strings.TrimSpace(out), nil
 	}
-	if !strings.HasPrefix(ref, "origin/") && !strings.HasPrefix(ref, "refs/") {
+	prefixed := strings.HasPrefix(ref, "origin/") || strings.HasPrefix(ref, "refs/")
+	if !prefixed {
 		if out, ferr := g.run(ctx, "rev-parse", "--verify", "origin/"+ref+"^{commit}"); ferr == nil {
 			return strings.TrimSpace(out), nil
 		}
+		// Last resort: fetch the ref by name (or SHA) from origin. Fetches
+		// into FETCH_HEAD only; no local branches/tags are created.
+		if _, ferr := g.run(ctx, "fetch", "origin", ref); ferr == nil {
+			fmt.Fprintf(os.Stderr, "note: %q was not present locally; fetched from origin\n", ref)
+			if out, rerr := g.run(ctx, "rev-parse", "--verify", "FETCH_HEAD^{commit}"); rerr == nil {
+				return strings.TrimSpace(out), nil
+			}
+		}
 	}
-	return "", fmt.Errorf("resolving ref %q: %w", ref, err)
+	suggestions := g.suggestRefs(ctx, ref)
+	msg := fmt.Sprintf("resolving ref %q: not found locally and could not be fetched from origin", ref)
+	if len(suggestions) > 0 {
+		msg += fmt.Sprintf(". Did you mean: %s?", strings.Join(suggestions, ", "))
+	}
+	return "", fmt.Errorf("%s", msg)
+}
+
+// suggestRefs finds remote refs resembling ref (e.g. for "v2.56.1" the tag
+// may not exist while "release/2.56.1" and "v2.56.1-rc.3" do). Best-effort:
+// returns nil on any error.
+func (g gitRunner) suggestRefs(ctx context.Context, ref string) []string {
+	// Reduce to the version-ish core so both naming families can match:
+	// tags are vX.Y.Z[-suffix], branches are release/X.Y.Z.
+	core := strings.TrimPrefix(strings.TrimPrefix(ref, "refs/tags/"), "refs/heads/")
+	core = strings.TrimPrefix(core, "release/")
+	core = strings.TrimPrefix(core, "v")
+	out, err := g.run(ctx, "ls-remote", "origin",
+		"refs/tags/v"+core+"*",
+		"refs/tags/*"+core+"*",
+		"refs/heads/release/"+core+"*",
+		"refs/heads/"+core+"*")
+	if err != nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var refs []string
+	for line := range strings.SplitSeq(strings.TrimSpace(out), "\n") {
+		if line == "" {
+			continue
+		}
+		_, name, ok := strings.Cut(line, "\t")
+		if !ok || strings.HasSuffix(name, "^{}") {
+			continue // skip peeled annotated-tag lines
+		}
+		name = strings.TrimPrefix(name, "refs/tags/")
+		name = strings.TrimPrefix(name, "refs/heads/")
+		if !seen[name] {
+			seen[name] = true
+			refs = append(refs, name)
+		}
+	}
+	const maxSuggestions = 8
+	if len(refs) > maxSuggestions {
+		refs = refs[:maxSuggestions]
+	}
+	return refs
 }
 
 // FileAtRef returns the contents of path at the given ref.

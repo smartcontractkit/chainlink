@@ -29,9 +29,12 @@ go run ./tools/ccip/ccip-release-changelog/cmd/ccip-release-changelog \
     [--out report.md] [--slack-thread https://<ws>.slack.com/archives/<channel>/p<ts>]
 ```
 
-Refs can be SHAs, tags, or branch names. If a branch only exists remotely
-(e.g. `release/2.56.0` has never been checked out locally), the tool
-automatically falls back to `origin/<ref>`.
+Both `--old` and `--new` accept any ref: SHAs, tags (`v2.55.0`,
+`v2.56.1-rc.3`), or branches (`release/2.57.2`). Resolution order: local
+refs, then `origin/<ref>`, then an on-demand `git fetch origin <ref>` (into
+`FETCH_HEAD` only — no local branches/tags are created). If a ref can't be
+found anywhere, the error suggests similarly named remote refs (e.g. asking
+for `v2.56.1` when only `release/2.56.1` and `v2.56.1-rc.N` exist).
 
 Environment:
 
