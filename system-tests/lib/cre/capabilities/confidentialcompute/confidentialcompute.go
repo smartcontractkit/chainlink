@@ -27,7 +27,6 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
@@ -69,7 +68,7 @@ func workflowEncryptionKey(workerNode *cre.Node) ([32]byte, error) {
 			} `json:"attributes"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal(body, &workflowKeysResp); err != nil {
+	if err = json.Unmarshal(body, &workflowKeysResp); err != nil {
 		return publicKey, errors.Wrap(err, "failed to unmarshal workflow keys response")
 	}
 	if len(workflowKeysResp.Data) == 0 {

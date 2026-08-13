@@ -18,13 +18,12 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	"github.com/smartcontractkit/chainlink-confidential-compute/tests/testhelpers"
 	cctypes "github.com/smartcontractkit/chainlink-confidential-compute/types"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crelib "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/confidentialcompute"
@@ -239,7 +238,7 @@ func publishEnclaves(
 
 	capRegAddr := crecontracts.MustGetAddressFromDataStore(
 		testEnv.CreEnvironment.CldfEnvironment.DataStore,
-		testEnv.CreEnvironment.Blockchains[0].ChainSelector(), //nolint:staticcheck // mirrors system-tests usage
+		testEnv.CreEnvironment.Blockchains[0].ChainSelector(),
 		keystone_changeset.CapabilitiesRegistry.String(),
 		testEnv.CreEnvironment.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 		"",
@@ -312,7 +311,7 @@ func injectVaultPublicKey(t *testing.T, testEnv *ttypes.TestEnvironment, testLog
 
 	capRegAddr := crecontracts.MustGetAddressFromDataStore(
 		testEnv.CreEnvironment.CldfEnvironment.DataStore,
-		testEnv.CreEnvironment.Blockchains[0].ChainSelector(), //nolint:staticcheck // mirrors system-tests usage
+		testEnv.CreEnvironment.Blockchains[0].ChainSelector(),
 		keystone_changeset.CapabilitiesRegistry.String(),
 		testEnv.CreEnvironment.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 		"",
@@ -365,7 +364,7 @@ func registerConfidentialWorkflow(
 
 	wfRegistryRef := crecontracts.MustGetAddressRefFromDataStore(
 		testEnv.CreEnvironment.CldfEnvironment.DataStore,
-		testEnv.CreEnvironment.Blockchains[0].ChainSelector(), //nolint:staticcheck // mirrors system-tests usage
+		testEnv.CreEnvironment.Blockchains[0].ChainSelector(),
 		keystone_changeset.WorkflowRegistry.String(),
 		testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
 		"",
@@ -433,8 +432,8 @@ func waitForConfidentialWorkflowExecution(
 	deadline := time.Now().Add(timeout)
 	for {
 		for _, name := range containers {
-			out, _ := exec.Command("docker", "logs", "--tail", "10000", name).CombinedOutput()
-			for _, line := range bytes.Split(out, []byte{'\n'}) {
+			out, _ := exec.CommandContext(t.Context(), "docker", "logs", "--tail", "10000", name).CombinedOutput()
+			for line := range bytes.SplitSeq(out, []byte{'\n'}) {
 				if bytes.Contains(line, needleMsg) && bytes.Contains(line, needleID) {
 					testLogger.Info().Str("container", name).Msg("Found successful execution log")
 					return

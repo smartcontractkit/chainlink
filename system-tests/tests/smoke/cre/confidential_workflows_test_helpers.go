@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -22,13 +23,12 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-confidential-compute/tests/testhelpers"
 	cctypes "github.com/smartcontractkit/chainlink-confidential-compute/types"
@@ -46,7 +46,11 @@ import (
 const (
 	// confidentialWorkflowsApp is the enclave application, the DON capability flag
 	// and the capability binary name; all three share this value.
-	confidentialWorkflowsApp = string(crelib.ConfidentialWorkflowsCapability)
+	confidentialWorkflowsApp = crelib.ConfidentialWorkflowsCapability
+
+	// confidentialServerReadHeaderTimeout bounds header reads on the test's local
+	// HTTP servers.
+	confidentialServerReadHeaderTimeout = 10 * time.Second
 
 	// confidentialEnclaveRefreshWait covers two of the capability's registry
 	// refresh intervals, so a refresh already in flight when the enclave list
@@ -117,10 +121,10 @@ func newDeferredGatewayProxy(t *testing.T, port int) *deferredGatewayProxy {
 		rp.ServeHTTP(w, r)
 	})
 
-	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	require.NoError(t, err, "failed to listen on port %d for gateway proxy", port)
 
-	p.server = &http.Server{Handler: handler}
+	p.server = &http.Server{Handler: handler, ReadHeaderTimeout: confidentialServerReadHeaderTimeout}
 	go func() { _ = p.server.Serve(listener) }()
 	t.Cleanup(func() { _ = p.server.Close() })
 
@@ -170,7 +174,7 @@ func (f *fakeStorageService) DownloadArtifact(_ context.Context, req *storage_se
 		return nil, status.Errorf(codes.NotFound, "fake storage: artifact with id %q not found (expected a bare id, not a URL)", req.GetId())
 	}
 	if u == "" {
-		return nil, fmt.Errorf("fake storage: artifact url not set yet")
+		return nil, errors.New("fake storage: artifact url not set yet")
 	}
 	return &storage_service.DownloadArtifactResponse{Url: u}, nil
 }
@@ -181,7 +185,8 @@ func (f *fakeStorageService) DownloadArtifact(_ context.Context, req *storage_se
 func startFakeStorageService(t *testing.T, enclaveHost string) (string, *fakeStorageService) {
 	t.Helper()
 
-	lis, err := net.Listen("tcp", "0.0.0.0:0")
+	// Binds every interface because the enclave dials it from outside this process.
+	lis, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "0.0.0.0:0")
 	require.NoError(t, err, "fake storage listener")
 
 	svc := &fakeStorageService{}
@@ -225,7 +230,7 @@ func buildAndServeConfidentialWorkflow(t *testing.T, ccRoot string, configJSON s
 	tmpDir := t.TempDir()
 	outFile := filepath.Join(tmpDir, "workflow-test.wasm")
 
-	cmd := exec.Command("go", "build", "-o", outFile, ".")
+	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", outFile, ".")
 	cmd.Dir = srcDir
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm", "CGO_ENABLED=0")
 	output, err := cmd.CombinedOutput()
@@ -261,9 +266,10 @@ func buildAndServeConfidentialWorkflow(t *testing.T, ccRoot string, configJSON s
 		_, _ = rw.Write([]byte(configJSON))
 	})
 
-	listener, err := net.Listen("tcp", "0.0.0.0:0")
+	// Binds every interface because the enclave fetches artifacts over the host network.
+	listener, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "0.0.0.0:0")
 	require.NoError(t, err, "workflow artifact listener")
-	srv := &http.Server{Handler: mux}
+	srv := &http.Server{Handler: mux, ReadHeaderTimeout: confidentialServerReadHeaderTimeout}
 	go func() { _ = srv.Serve(listener) }()
 	t.Cleanup(func() { _ = srv.Close() })
 
@@ -310,7 +316,7 @@ func configureEnclaves(
 	require.NoError(t, err, "failed to hex-decode vault public key")
 
 	// don.F for an N-node DON is N/3; the enclave's own F/T is 2*don.F + 1.
-	donF := uint32(len(workers) / 3)
+	donF := uint32(len(workers) / 3) //nolint:gosec // G115: the worker count comes from the topology
 	quorum := 2*donF + 1
 
 	config := cctypes.EnclaveConfig{
@@ -375,7 +381,7 @@ func storeConfidentialWorkflowSecret(
 
 	wfRegAddr := crecontracts.MustGetAddressFromDataStore(
 		testEnv.CreEnvironment.CldfEnvironment.DataStore,
-		testEnv.CreEnvironment.Blockchains[0].ChainSelector(), //nolint:staticcheck // mirrors system-tests usage
+		testEnv.CreEnvironment.Blockchains[0].ChainSelector(),
 		keystone_changeset.WorkflowRegistry.String(),
 		testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
 		"",

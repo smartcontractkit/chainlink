@@ -6,22 +6,25 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cctypes "github.com/smartcontractkit/chainlink-confidential-compute/types"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )
 
 func nodeSetWithValues(name string, values map[string]any) *cre.NodeSet {
 	return &cre.NodeSet{
 		CapabilityConfigs: map[cre.CapabilityFlag]cre.CapabilityConfig{
-			cre.CapabilityFlag(name): {Values: values},
+			name: {Values: values},
 		},
 	}
 }
 
 func TestEnclavesFromConfig(t *testing.T) {
+	t.Parallel()
+
 	const name = "confidential-workflows"
 
 	t.Run("parses declared enclaves", func(t *testing.T) {
+		t.Parallel()
+
 		ns := nodeSetWithValues(name, map[string]any{
 			EnclavesConfigKey: `[{"enclaveURL":"http://10.0.0.1:8080","enclaveAuthHeader":"key-a"},` +
 				`{"enclaveURL":"http://10.0.0.1:8081"}]`,
@@ -36,6 +39,8 @@ func TestEnclavesFromConfig(t *testing.T) {
 	})
 
 	t.Run("round-trips a marshalled enclave list", func(t *testing.T) {
+		t.Parallel()
+
 		encoded, err := MarshalEnclaves([]cctypes.Enclave{{
 			EnclaveURL:    "http://10.0.0.2:8080",
 			TrustedValues: [][]byte{[]byte("fake-measurements")},
@@ -52,6 +57,8 @@ func TestEnclavesFromConfig(t *testing.T) {
 	})
 
 	t.Run("returns nil when unconfigured", func(t *testing.T) {
+		t.Parallel()
+
 		for _, tc := range []struct {
 			desc    string
 			nodeSet *cre.NodeSet
@@ -62,6 +69,8 @@ func TestEnclavesFromConfig(t *testing.T) {
 			{"different capability", nodeSetWithValues("confidential-http", map[string]any{EnclavesConfigKey: "[]"})},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
+				t.Parallel()
+
 				got, err := EnclavesFromConfig(tc.nodeSet, name)
 				require.NoError(t, err)
 				require.Nil(t, got)
@@ -70,11 +79,15 @@ func TestEnclavesFromConfig(t *testing.T) {
 	})
 
 	t.Run("errors on a non-string value", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := EnclavesFromConfig(nodeSetWithValues(name, map[string]any{EnclavesConfigKey: 42}), name)
 		require.ErrorContains(t, err, "must be a JSON string")
 	})
 
 	t.Run("errors on malformed JSON", func(t *testing.T) {
+		t.Parallel()
+
 		_, err := EnclavesFromConfig(nodeSetWithValues(name, map[string]any{EnclavesConfigKey: "{not json"}), name)
 		require.ErrorContains(t, err, "failed to parse")
 	})
