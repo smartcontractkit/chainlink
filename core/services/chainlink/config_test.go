@@ -638,7 +638,7 @@ func TestConfig_Marshal(t *testing.T) {
 		PollingInterval:        commoncfg.MustNewDuration(time.Hour),
 		EnabledOCR2PluginTypes: &enabledOCR2PluginTypes,
 	}
-	mode := "ringocr-only"
+	mode := "manual-only"
 	full.Sharding = toml.Sharding{
 		ShardingEnabled:          new(false),
 		ArbiterPort:              new(uint16(9876)),
