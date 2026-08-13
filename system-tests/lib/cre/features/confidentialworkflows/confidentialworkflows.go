@@ -11,16 +11,19 @@ import (
 	"context"
 	"fmt"
 
+	"dario.cat/mergo"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
+	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities/confidentialcompute"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 )
 
@@ -71,10 +74,10 @@ func (o *ConfidentialWorkflows) PreEnvStartup(
 // PostEnvStartup proposes the capability job on each worker node, sealing the
 // capability's API key to every node's workflow key.
 func (o *ConfidentialWorkflows) PostEnvStartup(
-	_ context.Context,
+	ctx context.Context,
 	_ zerolog.Logger,
 	don *cre.Don,
-	_ *cre.Dons,
+	dons *cre.Dons,
 	creEnv *cre.Environment,
 ) error {
 	if !don.HasFlag(flag) {
@@ -129,8 +132,26 @@ func (o *ConfidentialWorkflows) PostEnvStartup(
 		return errors.Wrapf(err, "precondition verification failed for %s worker job", flag)
 	}
 
-	if _, err := (cre_jobs.ProposeJobSpec{}).Apply(*creEnv.CldfEnvironment, input); err != nil {
+	report, err := (cre_jobs.ProposeJobSpec{}).Apply(*creEnv.CldfEnvironment, input)
+	if err != nil {
 		return errors.Wrapf(err, "failed to propose %s worker job spec", flag)
+	}
+
+	// Proposing only queues the spec in Job Distributor; without approval the
+	// nodes never run it and the capability never registers locally.
+	specs := make(map[string][]string)
+	for _, r := range report.Reports {
+		out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
+		if !ok {
+			return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
+		}
+		if mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice); mErr != nil {
+			return errors.Wrapf(mErr, "failed to merge %s worker job specs", flag)
+		}
+	}
+
+	if aErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs); aErr != nil {
+		return errors.Wrapf(aErr, "failed to approve %s worker jobs", flag)
 	}
 
 	return nil

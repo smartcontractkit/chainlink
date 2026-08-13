@@ -441,10 +441,60 @@ func waitForConfidentialWorkflowExecution(
 			}
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("timed out after %s waiting for a successful execution of workflow %s", timeout, workflowID)
+			t.Fatalf("timed out after %s waiting for a successful execution of workflow %s\n%s",
+				timeout, workflowID, confidentialExecutionDiagnostics(t, containers))
 		}
 		time.Sleep(5 * time.Second)
 	}
+}
+
+// confidentialExecutionDiagnostics summarises why no execution succeeded, so a
+// timeout reports the node-side cause instead of only the absence of a success
+// log. Returns one deduplicated line per distinct error.
+func confidentialExecutionDiagnostics(t *testing.T, containers []string) string {
+	t.Helper()
+
+	needles := [][]byte{
+		[]byte("Workflow Engine initialization failed"),
+		[]byte("Workflow execution failed"),
+		[]byte("failed to get regions from"),
+		[]byte("no compatible capability found"),
+	}
+
+	seen := map[string]bool{}
+	var found []string
+	for _, name := range containers {
+		out, _ := exec.CommandContext(t.Context(), "docker", "logs", "--tail", "10000", name).CombinedOutput()
+		for line := range bytes.SplitSeq(out, []byte{'\n'}) {
+			for _, needle := range needles {
+				if !bytes.Contains(line, needle) {
+					continue
+				}
+				// Key on the message alone; every node logs the same failure.
+				key := string(needle)
+				if !seen[key] {
+					seen[key] = true
+					found = append(found, fmt.Sprintf("  [%s] %s", name, truncateForLog(line, 400)))
+				}
+				break
+			}
+		}
+	}
+
+	if len(found) == 0 {
+		return "no workflow engine or execution errors found in the node logs"
+	}
+
+	return "node-side errors:\n" + strings.Join(found, "\n")
+}
+
+// truncateForLog shortens a log line so a failure message stays readable.
+func truncateForLog(line []byte, maxLen int) string {
+	if len(line) <= maxLen {
+		return string(line)
+	}
+
+	return string(line[:maxLen]) + "... (truncated)"
 }
 
 // confidentialWorkflowDONContainers returns the chainlink container names for
