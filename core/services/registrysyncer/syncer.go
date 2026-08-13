@@ -254,18 +254,18 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*LocalRegis
 
 	idsToNodes := map[p2ptypes.PeerID]NodeInfo{}
 	for _, node := range nodes {
+		// The hashed capability IDs and the raw capability DON IDs are not carried into the
+		// snapshot: nothing ever read either, and the resolved CapabilityIDs below is what callers
+		// actually ask for.
 		nodeInfo := NodeInfo{
 			NodeOperatorID:      node.NodeOperatorId,
 			ConfigCount:         node.ConfigCount,
-			WorkflowDONId:       node.WorkflowDONId,
+			WorkflowDONID:       node.WorkflowDONId,
 			Signer:              node.Signer,
 			P2pID:               node.P2pId,
 			EncryptionPublicKey: node.EncryptionPublicKey,
-			CapabilitiesDONIds:  node.CapabilitiesDONIds,
-			HashedCapabilityIDs: make([][32]byte, len(node.HashedCapabilityIds)),
 			CapabilityIDs:       make([]string, len(node.HashedCapabilityIds)),
 		}
-		copy(nodeInfo.HashedCapabilityIDs, node.HashedCapabilityIds)
 
 		// Backfill capability IDs
 		for i, hashedCapID := range node.HashedCapabilityIds {

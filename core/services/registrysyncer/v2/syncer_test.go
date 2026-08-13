@@ -340,45 +340,36 @@ func TestReader_Integration(t *testing.T) {
 	assert.Equal(t, expectedDON, gotDon.DON)
 	assert.Equal(t, configb, gotDon.CapabilityConfigurations[cid].Config)
 
-	hashedID, err := registrysyncer_v2.HashCapabilityID(cid)
-	require.NoError(t, err, "Failed to hash capability ID")
-
 	// Test V2 node info with string capability IDs
 	expectedNodesInfo := []registrysyncer.NodeInfo{
 		{
 			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
-			WorkflowDONId:       1,
+			WorkflowDONID:       1,
 			Signer:              signersSet[0],
 			P2pID:               p2ptypes.PeerID(nodeSet[0]),
 			EncryptionPublicKey: encPubKey1,
 			CapabilityIDs:       []string{cid}, // V2 uses string IDs
-			CapabilitiesDONIds:  []*big.Int{},
-			HashedCapabilityIDs: [][32]byte{hashedID},
 			CsaKey:              csaKey1,
 		},
 		{
 			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
-			WorkflowDONId:       1,
+			WorkflowDONID:       1,
 			Signer:              signersSet[1],
 			P2pID:               p2ptypes.PeerID(nodeSet[1]),
 			EncryptionPublicKey: encPubKey2,
 			CapabilityIDs:       []string{cid}, // V2 uses string IDs
-			CapabilitiesDONIds:  []*big.Int{},
-			HashedCapabilityIDs: [][32]byte{hashedID},
 			CsaKey:              csaKey2,
 		},
 		{
 			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
-			WorkflowDONId:       1,
+			WorkflowDONID:       1,
 			Signer:              signersSet[2],
 			P2pID:               p2ptypes.PeerID(nodeSet[2]),
 			EncryptionPublicKey: encPubKey3,
 			CapabilityIDs:       []string{cid}, // V2 uses string IDs
-			CapabilitiesDONIds:  []*big.Int{},
-			HashedCapabilityIDs: [][32]byte{hashedID},
 			CsaKey:              csaKey3,
 		},
 	}

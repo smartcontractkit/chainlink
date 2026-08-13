@@ -2,7 +2,6 @@ package registrysyncer_test
 
 import (
 	"encoding/hex"
-	"math/big"
 	"testing"
 	"time"
 
@@ -116,32 +115,24 @@ func generateState(t *testing.T) registrysyncer.LocalRegistry {
 				Signer:              randomWord(),
 				P2pID:               nodes[0],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIDs: [][32]byte{capabilityID, capabilityID2},
-				CapabilitiesDONIds:  []*big.Int{},
 			},
 			nodes[1]: {
 				NodeOperatorID:      1,
 				Signer:              randomWord(),
 				P2pID:               nodes[1],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIDs: [][32]byte{capabilityID, capabilityID2},
-				CapabilitiesDONIds:  []*big.Int{},
 			},
 			nodes[2]: {
 				NodeOperatorID:      1,
 				Signer:              randomWord(),
 				P2pID:               nodes[2],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIDs: [][32]byte{capabilityID, capabilityID2},
-				CapabilitiesDONIds:  []*big.Int{},
 			},
 			nodes[3]: {
 				NodeOperatorID:      1,
 				Signer:              randomWord(),
 				P2pID:               nodes[3],
 				EncryptionPublicKey: randomWord(),
-				HashedCapabilityIDs: [][32]byte{capabilityID, capabilityID2},
-				CapabilitiesDONIds:  []*big.Int{},
 			},
 		},
 	}

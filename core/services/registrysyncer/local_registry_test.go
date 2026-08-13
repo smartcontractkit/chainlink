@@ -63,7 +63,10 @@ func TestLocalRegistry_LocalNode(t *testing.T) {
 			return types.PeerID{}, assert.AnError
 		}, idsToDons, idsToNodes, idsToCapabilities)
 		_, err := broken.LocalNode(context.Background())
-		require.ErrorContains(t, err, "unable to get local node: peerWrapper hasn't started yet")
+		// The shared snapshot wraps whatever actually failed instead of reporting a fixed cause, so
+		// the reason the peer ID could not be read survives rather than being replaced by a guess.
+		require.ErrorContains(t, err, "unable to get local node peer ID")
+		require.ErrorIs(t, err, assert.AnError)
 	})
 }
 

@@ -1,211 +1,37 @@
 package registrysyncer
 
 import (
-	"context"
-	"encoding/hex"
-	"errors"
-	"fmt"
-	"math"
-	"math/big"
-	"sync"
+	"maps"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/capabilities/libs/x/registrysyncer"
 	"github.com/smartcontractkit/libocr/ragep2p/types"
-	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 )
 
-type DonID uint32
+// The registry snapshot, and the lookups over it, now live in the capabilities repo's
+// libs/x/registrysyncer, which crecore shares. They are aliased rather than wrapped so that a
+// snapshot handed to a launcher here and one served by crecore are the same type answering the same
+// way, and so nothing in core that names these types has to change.
+//
+// What stays here is only what core alone needs: the copy a launcher is handed (DeepCopyLocalRegistry
+// below), the ORM's own table (orm.go), and the on-chain read that fills a snapshot in (syncer.go).
+type (
+	DonID                   = registrysyncer.DonID
+	DON                     = registrysyncer.DON
+	CapabilityConfiguration = registrysyncer.CapabilityConfiguration
+	Capability              = registrysyncer.Capability
+	NodeInfo                = registrysyncer.NodeInfo
+	LocalRegistry           = registrysyncer.LocalRegistry
+)
 
-type DON struct {
-	capabilities.DON
-	CapabilityConfigurations map[string]CapabilityConfiguration
-}
-
-type CapabilityConfiguration struct {
-	Config []byte
-}
-
-func (c CapabilityConfiguration) Unmarshal() (capabilities.CapabilityConfiguration, error) {
-	cconf := &capabilitiespb.CapabilityConfig{}
-	err := proto.Unmarshal(c.Config, cconf)
-	if err != nil {
-		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
-	}
-
-	var remoteTriggerConfig *capabilities.RemoteTriggerConfig
-	var remoteTargetConfig *capabilities.RemoteTargetConfig
-
-	switch cconf.GetRemoteConfig().(type) {
-	case *capabilitiespb.CapabilityConfig_RemoteTriggerConfig:
-		prtc := cconf.GetRemoteTriggerConfig()
-		remoteTriggerConfig = &capabilities.RemoteTriggerConfig{
-			RegistrationRefresh:     prtc.RegistrationRefresh.AsDuration(),
-			RegistrationExpiry:      prtc.RegistrationExpiry.AsDuration(),
-			MinResponsesToAggregate: prtc.MinResponsesToAggregate,
-			MessageExpiry:           prtc.MessageExpiry.AsDuration(),
-		}
-	case *capabilitiespb.CapabilityConfig_RemoteTargetConfig:
-		prtc := cconf.GetRemoteTargetConfig()
-		remoteTargetConfig = &capabilities.RemoteTargetConfig{
-			RequestHashExcludedAttributes: prtc.RequestHashExcludedAttributes,
-		}
-	}
-
-	dc, err := values.FromMapValueProto(cconf.DefaultConfig)
-	if err != nil {
-		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
-	}
-
-	rc, err := values.FromMapValueProto(cconf.RestrictedConfig)
-	if err != nil {
-		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
-	}
-
-	var methodConfigs map[string]capabilities.CapabilityMethodConfig
-	if cconf.MethodConfigs != nil {
-		methodConfigs = make(map[string]capabilities.CapabilityMethodConfig, len(cconf.MethodConfigs))
-		for method, methodConfig := range cconf.MethodConfigs {
-			var config capabilities.CapabilityMethodConfig
-			switch remoteCfg := methodConfig.RemoteConfig.(type) {
-			case *capabilitiespb.CapabilityMethodConfig_RemoteTriggerConfig:
-				config = capabilities.CapabilityMethodConfig{
-					RemoteTriggerConfig: &capabilities.RemoteTriggerConfig{
-						RegistrationRefresh:     remoteCfg.RemoteTriggerConfig.RegistrationRefresh.AsDuration(),
-						RegistrationExpiry:      remoteCfg.RemoteTriggerConfig.RegistrationExpiry.AsDuration(),
-						MinResponsesToAggregate: remoteCfg.RemoteTriggerConfig.MinResponsesToAggregate,
-						MessageExpiry:           remoteCfg.RemoteTriggerConfig.MessageExpiry.AsDuration(),
-						MaxBatchSize:            remoteCfg.RemoteTriggerConfig.MaxBatchSize,
-						BatchCollectionPeriod:   remoteCfg.RemoteTriggerConfig.BatchCollectionPeriod.AsDuration(),
-					},
-				}
-			case *capabilitiespb.CapabilityMethodConfig_RemoteExecutableConfig:
-				config = capabilities.CapabilityMethodConfig{
-					RemoteExecutableConfig: &capabilities.RemoteExecutableConfig{
-						TransmissionSchedule:      capabilities.TransmissionSchedule(remoteCfg.RemoteExecutableConfig.TransmissionSchedule),
-						DeltaStage:                remoteCfg.RemoteExecutableConfig.DeltaStage.AsDuration(),
-						RequestTimeout:            remoteCfg.RemoteExecutableConfig.RequestTimeout.AsDuration(),
-						ServerMaxParallelRequests: remoteCfg.RemoteExecutableConfig.ServerMaxParallelRequests,
-						RequestHasherType:         capabilities.RequestHasherType(remoteCfg.RemoteExecutableConfig.RequestHasherType),
-					},
-				}
-			default:
-				return capabilities.CapabilityConfiguration{}, fmt.Errorf("unknown method config type for method %s", method)
-			}
-
-			if methodConfig.AggregatorConfig != nil {
-				config.AggregatorConfig = &capabilities.AggregatorConfig{
-					AggregatorType: capabilities.AggregatorType(methodConfig.AggregatorConfig.AggregatorType),
-				}
-			}
-
-			methodConfigs[method] = config
-		}
-	}
-
-	var ocr3Configs map[string]ocrtypes.ContractConfig
-	if cconf.Ocr3Configs != nil {
-		ocr3Configs = make(map[string]ocrtypes.ContractConfig, len(cconf.Ocr3Configs))
-		for name, pbCfg := range cconf.Ocr3Configs {
-			signers := make([]ocrtypes.OnchainPublicKey, len(pbCfg.Signers))
-			for i, s := range pbCfg.Signers {
-				signers[i] = s
-			}
-			transmitters := make([]ocrtypes.Account, len(pbCfg.Transmitters))
-			for i, t := range pbCfg.Transmitters {
-				// OCR3 transmitter accounts cross the loop boundary as hex-encoded text.
-				// Keep LocalRegistry aligned with the external OCR config service so the
-				// imported registry path and the direct registry path serialize the same way.
-				transmitters[i] = ocrtypes.Account(hex.EncodeToString(t))
-			}
-			if pbCfg.F > math.MaxUint8 {
-				return capabilities.CapabilityConfiguration{}, fmt.Errorf("OCR3Config %q: F value %d exceeds uint8 max", name, pbCfg.F)
-			}
-			ocr3Configs[name] = ocrtypes.ContractConfig{
-				ConfigCount:           pbCfg.ConfigCount,
-				Signers:               signers,
-				Transmitters:          transmitters,
-				F:                     uint8(pbCfg.F), //#nosec G115 - bounds checked above
-				OnchainConfig:         pbCfg.OnchainConfig,
-				OffchainConfigVersion: pbCfg.OffchainConfigVersion,
-				OffchainConfig:        pbCfg.OffchainConfig,
-			}
-		}
-	}
-
-	var oracleFactoryConfigs map[string]values.Map
-	if cconf.OracleFactoryConfigs != nil {
-		oracleFactoryConfigs = make(map[string]values.Map, len(cconf.OracleFactoryConfigs))
-		for name, pbMap := range cconf.OracleFactoryConfigs {
-			var m *values.Map
-			m, err = values.FromMapValueProto(pbMap)
-			if err != nil {
-				return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal oracle factory config %q: %w", name, err)
-			}
-			if m != nil {
-				oracleFactoryConfigs[name] = *m
-			}
-		}
-	}
-
-	sc, err := values.FromMapValueProto(cconf.SpecConfig)
-	if err != nil {
-		return capabilities.CapabilityConfiguration{}, fmt.Errorf("failed to unmarshal capability configuration: %w", err)
-	}
-
-	return capabilities.CapabilityConfiguration{
-		DefaultConfig:          dc,
-		RestrictedKeys:         cconf.RestrictedKeys,
-		RestrictedConfig:       rc,
-		RemoteTriggerConfig:    remoteTriggerConfig,
-		RemoteTargetConfig:     remoteTargetConfig,
-		CapabilityMethodConfig: methodConfigs,
-		LocalOnly:              cconf.LocalOnly,
-		Ocr3Configs:            ocr3Configs,
-		OracleFactoryConfigs:   oracleFactoryConfigs,
-		SpecConfig:             sc,
-	}, nil
-}
-
-type Capability struct {
-	ID             string
-	CapabilityType capabilities.CapabilityType
-}
-
-type NodeInfo struct {
-	NodeOperatorID      uint32
-	ConfigCount         uint32
-	WorkflowDONId       uint32
-	Signer              [32]byte
-	P2pID               [32]byte
-	EncryptionPublicKey [32]byte
-	CapabilitiesDONIds  []*big.Int
-	HashedCapabilityIDs [][32]byte
-	CapabilityIDs       []string
-
-	// V2 specific fields
-	CsaKey [32]byte
-}
-
-type LocalRegistry struct {
-	core.UnimplementedCapabilitiesRegistryMetadata
-
-	Logger            logger.Logger
-	GetPeerID         func() (types.PeerID, error)
-	IDsToDONs         map[DonID]DON
-	IDsToNodes        map[types.PeerID]NodeInfo
-	IDsToCapabilities map[string]Capability
-
-	cacheMu             sync.RWMutex
-	cachedLocalNodePeer types.PeerID
-	cachedLocalNode     capabilities.Node
-}
-
+// NewLocalRegistry returns a snapshot by value, as core's callers have always taken it.
+//
+// The shared constructor returns a pointer - a LocalRegistry carries the mutex guarding its
+// local-node cache, so handing one back by value copies a lock - and this cannot call it and
+// dereference the result for the same reason. It builds the value directly instead, which is what
+// the shared constructor does too.
 func NewLocalRegistry(
 	lggr logger.Logger,
 	getPeerID func() (types.PeerID, error),
@@ -220,178 +46,6 @@ func NewLocalRegistry(
 		IDsToNodes:        idsToNodes,
 		IDsToCapabilities: idsToCapabilities,
 	}
-}
-
-func (l *LocalRegistry) LocalNode(ctx context.Context) (capabilities.Node, error) {
-	// Load the current nodes PeerWrapper, this gets us the current node's
-	// PeerID, allowing us to contextualize registry information in terms of DON ownership
-	// (eg. get my current DON configuration, etc).
-	pid, err := l.GetPeerID()
-	if err != nil {
-		return capabilities.Node{}, errors.New("unable to get local node: peerWrapper hasn't started yet")
-	}
-
-	l.cacheMu.RLock()
-	if l.cachedLocalNodePeer != (types.PeerID{}) && l.cachedLocalNodePeer == pid {
-		node := l.cachedLocalNode
-		l.cacheMu.RUnlock()
-		return node, nil
-	}
-	l.cacheMu.RUnlock()
-
-	l.cacheMu.Lock()
-	defer l.cacheMu.Unlock()
-	if l.cachedLocalNodePeer != (types.PeerID{}) && l.cachedLocalNodePeer == pid {
-		return l.cachedLocalNode, nil
-	}
-
-	// cache miss
-	if l.cachedLocalNodePeer != (types.PeerID{}) {
-		l.Logger.Errorw("node's peerID changed at runtime, this should never happen", "cachedLocalNodePeer", l.cachedLocalNodePeer, "currentPeerID", pid)
-	}
-	n, err := l.NodeByPeerID(ctx, pid)
-	if err != nil {
-		return n, err
-	}
-	l.cachedLocalNode = n
-	l.cachedLocalNodePeer = pid
-	return n, nil
-}
-
-func (l *LocalRegistry) NodeByPeerID(ctx context.Context, peerID types.PeerID) (capabilities.Node, error) {
-	err := l.ensureNotEmpty()
-	if err != nil {
-		return capabilities.Node{}, err
-	}
-	nodeInfo, ok := l.IDsToNodes[peerID]
-	if !ok {
-		return capabilities.Node{}, errors.New("could not find peerID " + peerID.String())
-	}
-
-	var workflowDON capabilities.DON
-	var capabilityDONs []capabilities.DON
-	for _, d := range l.IDsToDONs {
-		for _, p := range d.Members {
-			if p == peerID {
-				if d.AcceptsWorkflows {
-					// The CapabilitiesRegistry enforces that the DON ID is strictly
-					// greater than 0, so if the ID is 0, it means we've not set `workflowDON` initialized above yet.
-					if workflowDON.ID == 0 {
-						workflowDON = d.DON
-						l.Logger.Debugw("Workflow DON identified", "workflowDONID", workflowDON.ID)
-					} else {
-						l.Logger.Errorw("Configuration error: node belongs to more than one workflowDON", "peerID", peerID)
-					}
-				}
-
-				capabilityDONs = append(capabilityDONs, d.DON)
-			}
-		}
-	}
-
-	return capabilities.Node{
-		PeerID:              &peerID,
-		NodeOperatorID:      nodeInfo.NodeOperatorID,
-		Signer:              nodeInfo.Signer,
-		EncryptionPublicKey: nodeInfo.EncryptionPublicKey,
-		WorkflowDON:         workflowDON,
-		CapabilityDONs:      capabilityDONs,
-	}, nil
-}
-
-func (l *LocalRegistry) DONsForCapability(ctx context.Context, capabilityID string) ([]capabilities.DONWithNodes, error) {
-	err := l.ensureNotEmpty()
-	if err != nil {
-		return []capabilities.DONWithNodes{}, err
-	}
-
-	foundDONs := []capabilities.DONWithNodes{}
-	for _, don := range l.IDsToDONs {
-		for cid := range don.CapabilityConfigurations {
-			if cid == capabilityID {
-				nodes, err := l.nodesForDON(ctx, don.DON)
-				if err != nil {
-					return nil, fmt.Errorf("could not fetch nodes for DON %d: %w", don.ID, err)
-				}
-				donWithNodes := capabilities.DONWithNodes{DON: don.DON, Nodes: nodes}
-				foundDONs = append(foundDONs, donWithNodes)
-			}
-		}
-	}
-
-	if len(foundDONs) == 0 {
-		return nil, fmt.Errorf("could not find DON for capability %s", capabilityID)
-	}
-
-	for _, d := range foundDONs {
-		nodes := []capabilities.Node{}
-		for _, n := range d.DON.Members {
-			node, err := l.NodeByPeerID(ctx, n)
-			if err != nil {
-				return nil, fmt.Errorf("could not find node for peerID %s: %w", n.String(), err)
-			}
-
-			nodes = append(nodes, node)
-		}
-		(&d).Nodes = nodes
-	}
-
-	return foundDONs, nil
-}
-
-func (l *LocalRegistry) nodesForDON(ctx context.Context, don capabilities.DON) ([]capabilities.Node, error) {
-	nodes := []capabilities.Node{}
-	for _, n := range don.Members {
-		node, err := l.NodeByPeerID(ctx, n)
-		if err != nil {
-			return nil, fmt.Errorf("could not find node for peerID %s: %w", n.String(), err)
-		}
-
-		nodes = append(nodes, node)
-	}
-	return nodes, nil
-}
-
-func (l *LocalRegistry) DONByID(ctx context.Context, donID uint32) (capabilities.DON, error) {
-	if err := l.ensureNotEmpty(); err != nil {
-		return capabilities.DON{}, err
-	}
-	d, ok := l.IDsToDONs[DonID(donID)]
-	if !ok {
-		return capabilities.DON{}, fmt.Errorf("could not find don %d", donID)
-	}
-	return d.DON, nil
-}
-
-func (l *LocalRegistry) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
-	err := l.ensureNotEmpty()
-	if err != nil {
-		return capabilities.CapabilityConfiguration{}, err
-	}
-	d, ok := l.IDsToDONs[DonID(donID)]
-	if !ok {
-		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find don %d", donID)
-	}
-
-	cc, ok := d.CapabilityConfigurations[capabilityID]
-	if !ok {
-		return capabilities.CapabilityConfiguration{}, fmt.Errorf("could not find capability configuration for capability %s and donID %d", capabilityID, donID)
-	}
-
-	return cc.Unmarshal()
-}
-
-func (l *LocalRegistry) ensureNotEmpty() error {
-	if len(l.IDsToDONs) == 0 {
-		return errors.New("empty local registry. no DONs registered in the local registry")
-	}
-	if len(l.IDsToNodes) == 0 {
-		return errors.New("empty local registry. no nodes registered in the local registry")
-	}
-	if len(l.IDsToCapabilities) == 0 {
-		return errors.New("empty local registry. no capabilities registered in the local registry")
-	}
-	return nil
 }
 
 func DeepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
@@ -412,12 +66,10 @@ func DeepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 			Config:           don.Config,
 		}
 		copy(d.Members, don.Members)
+		// A config is a value wrapping a byte slice that is never written through, so copying the
+		// values into a map of this DON's own is copy enough.
 		capCfgs := make(map[string]CapabilityConfiguration, len(don.CapabilityConfigurations))
-		for capID, capCfg := range don.CapabilityConfigurations {
-			capCfgs[capID] = CapabilityConfiguration{
-				Config: capCfg.Config,
-			}
-		}
+		maps.Copy(capCfgs, don.CapabilityConfigurations)
 		lrCopy.IDsToDONs[id] = DON{
 			DON:                      d,
 			CapabilityConfigurations: capCfgs,
@@ -435,18 +87,14 @@ func DeepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 		nodeInfo := NodeInfo{
 			NodeOperatorID:      node.NodeOperatorID,
 			ConfigCount:         node.ConfigCount,
-			WorkflowDONId:       node.WorkflowDONId,
+			WorkflowDONID:       node.WorkflowDONID,
 			Signer:              node.Signer,
 			P2pID:               node.P2pID,
 			EncryptionPublicKey: node.EncryptionPublicKey,
-			HashedCapabilityIDs: make([][32]byte, len(node.HashedCapabilityIDs)),
 			CapabilityIDs:       make([]string, len(node.CapabilityIDs)),
-			CapabilitiesDONIds:  make([]*big.Int, len(node.CapabilitiesDONIds)),
 			CsaKey:              node.CsaKey,
 		}
-		copy(nodeInfo.HashedCapabilityIDs, node.HashedCapabilityIDs)
 		copy(nodeInfo.CapabilityIDs, node.CapabilityIDs)
-		copy(nodeInfo.CapabilitiesDONIds, node.CapabilitiesDONIds)
 		lrCopy.IDsToNodes[id] = nodeInfo
 	}
 

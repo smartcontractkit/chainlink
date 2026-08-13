@@ -1372,7 +1372,6 @@ func addDON(registry *registrysyncer.LocalRegistry, donID uint32, configVersion 
 			Signer:              RandomUTF8BytesWord(),
 			P2pID:               peerID,
 			EncryptionPublicKey: RandomUTF8BytesWord(),
-			HashedCapabilityIDs: hashedCapabilityIDs,
 		}
 	}
 }

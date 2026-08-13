@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"strings"
 	"sync"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
@@ -280,31 +278,19 @@ func (s *registrySyncer) importOnchainRegistry(ctx context.Context) (*registrysy
 
 	idsToNodes := map[p2ptypes.PeerID]registrysyncer.NodeInfo{}
 	for _, node := range nodes {
-		nodeInfo := registrysyncer.NodeInfo{
+		// The hashed capability IDs and the raw capability DON IDs are not carried into the
+		// snapshot: nothing ever read either, and CapabilityIDs already holds the resolved form
+		// that callers actually ask for.
+		idsToNodes[node.P2pId] = registrysyncer.NodeInfo{
 			NodeOperatorID:      node.NodeOperatorId,
 			ConfigCount:         node.ConfigCount,
-			WorkflowDONId:       node.WorkflowDONId,
+			WorkflowDONID:       node.WorkflowDONId,
 			Signer:              node.Signer,
 			P2pID:               node.P2pId,
 			EncryptionPublicKey: node.EncryptionPublicKey,
-			CapabilitiesDONIds:  make([]*big.Int, 0, len(node.CapabilitiesDONIds)),
-			HashedCapabilityIDs: make([][32]byte, 0, len(node.CapabilityIds)),
 			CsaKey:              node.CsaKey,
 			CapabilityIDs:       node.CapabilityIds,
 		}
-		copy(nodeInfo.CapabilitiesDONIds, node.CapabilitiesDONIds)
-
-		// Backfill hashed capability IDs
-		for _, capID := range node.CapabilityIds {
-			hashedCapID, err := HashCapabilityID(capID)
-			if err != nil {
-				s.lggr.Warnw("failed to hash capability ID, skipping", "capabilityID", capID, "error", err)
-				continue
-			}
-			nodeInfo.HashedCapabilityIDs = append(nodeInfo.HashedCapabilityIDs, hashedCapID)
-		}
-
-		idsToNodes[node.P2pId] = nodeInfo
 	}
 
 	return &registrysyncer.LocalRegistry{
@@ -465,23 +451,4 @@ func parseCapabilityMetadata(metadata []byte) (capabilityType, responseType uint
 	}
 
 	return meta.CapabilityType, meta.ResponseType, nil
-}
-
-// parseCapabilityID parses a V2 capability ID (e.g., "write-chain@1.0.1") into name and version parts
-func parseCapabilityID(capabilityID string) (name, version string, err error) {
-	parts := strings.Split(capabilityID, "@")
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid capability ID format: %s (expected format: name@version)", capabilityID)
-	}
-	return parts[0], parts[1], nil
-}
-
-// hashCapabilityID creates a hashed capability ID from a V2 capability ID string
-func HashCapabilityID(capabilityID string) ([32]byte, error) {
-	name, version, err := parseCapabilityID(capabilityID)
-	if err != nil {
-		return [32]byte{}, err
-	}
-
-	return common.HashedCapabilityID(name, version)
 }

@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -330,36 +331,30 @@ func TestReader_Integration(t *testing.T) {
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
-			WorkflowDONId:       1,
+			WorkflowDONID:       1,
 			Signer:              signersSet[0],
 			P2pID:               nodeSet[0],
 			EncryptionPublicKey: encPubKey1,
-			HashedCapabilityIDs: [][32]byte{hid},
-			CapabilitiesDONIds:  []*big.Int{},
 			CapabilityIDs:       []string{cid},
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
-			WorkflowDONId:       1,
+			WorkflowDONID:       1,
 			Signer:              signersSet[1],
 			P2pID:               nodeSet[1],
 			EncryptionPublicKey: encPubKey2,
-			HashedCapabilityIDs: [][32]byte{hid},
-			CapabilitiesDONIds:  []*big.Int{},
 			CapabilityIDs:       []string{cid},
 		},
 		{
 			// The first NodeOperatorId has id 1 since the id is auto-incrementing.
 			NodeOperatorID:      uint32(1),
 			ConfigCount:         1,
-			WorkflowDONId:       1,
+			WorkflowDONID:       1,
 			Signer:              signersSet[2],
 			P2pID:               nodeSet[2],
 			EncryptionPublicKey: encPubKey3,
-			HashedCapabilityIDs: [][32]byte{hid},
-			CapabilitiesDONIds:  []*big.Int{},
 			CapabilityIDs:       []string{cid},
 		},
 	}

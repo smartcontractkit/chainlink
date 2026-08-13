@@ -59,8 +59,6 @@ func (tt *TestTopology) IDsToNodesMaker(triggerCapID [32]byte) map[p2ptypes.Peer
 			Signer:              RandomUTF8BytesWord(),
 			P2pID:               tt.capabilityDonNodes[i],
 			EncryptionPublicKey: RandomUTF8BytesWord(),
-			HashedCapabilityIDs: [][32]byte{triggerCapID},
-			CapabilitiesDONIds:  nil,
 		}
 	}
 	for i := range tt.workflowDonNodes {

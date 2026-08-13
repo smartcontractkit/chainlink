@@ -863,28 +863,28 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.Loc
 		map[ragetypes.PeerID]registrysyncer.NodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorID:      1,
-				WorkflowDONId:       dID,
+				WorkflowDONID:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
 				P2pID:               workflowDonNodes[0],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[1]: {
 				NodeOperatorID:      1,
-				WorkflowDONId:       dID,
+				WorkflowDONID:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
 				P2pID:               workflowDonNodes[1],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[2]: {
 				NodeOperatorID:      1,
-				WorkflowDONId:       dID,
+				WorkflowDONID:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
 				P2pID:               workflowDonNodes[2],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[3]: {
 				NodeOperatorID:      1,
-				WorkflowDONId:       dID,
+				WorkflowDONID:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
 				P2pID:               workflowDonNodes[3],
 				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
@@ -940,7 +940,7 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 		map[ragetypes.PeerID]registrysyncer.NodeInfo{
 			workflowDonNodes[0]: {
 				NodeOperatorID:      1,
-				WorkflowDONId:       dID,
+				WorkflowDONID:       dID,
 				Signer:              coreCap.RandomUTF8BytesWord(),
 				P2pID:               workflowDonNodes[0],
 				EncryptionPublicKey: workflowPublicKey,
