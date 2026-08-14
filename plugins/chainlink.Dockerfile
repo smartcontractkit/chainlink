@@ -56,11 +56,13 @@ RUN --mount=type=cache,id=go-mod-cache,target=/go/pkg/mod \
 FROM deps-base AS build-remote-plugins
 ARG CL_INSTALL_PRIVATE_PLUGINS=false
 ARG CL_INSTALL_TESTING_PLUGINS=false
+ARG CL_LOOPINSTALL_CONCURRENCY=16
 
 COPY plugins/plugins.public.yaml plugins/plugins.private.yaml plugins/plugins.testing.yaml ./plugins/
 COPY plugins/scripts/ ./plugins/scripts/
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
+    CL_LOOPINSTALL_CONCURRENCY=${CL_LOOPINSTALL_CONCURRENCY} \
     GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token
 RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     --mount=type=cache,id=go-mod-cache,target=/go/pkg/mod \
@@ -69,12 +71,12 @@ RUN --mount=type=secret,id=GIT_AUTH_TOKEN \
     trap 'rm -f "$GIT_CONFIG_GLOBAL"' EXIT && \
     ./plugins/scripts/setup_git_auth.sh && \
     mkdir -p /gobins "${CL_LOOPINSTALL_OUTPUT_DIR}" && \
-    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-public && \
+    GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} CL_LOOPINSTALL_CONCURRENCY=${CL_LOOPINSTALL_CONCURRENCY} make install-plugins-public && \
     if [ "${CL_INSTALL_PRIVATE_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-private; \
+        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} CL_LOOPINSTALL_CONCURRENCY=${CL_LOOPINSTALL_CONCURRENCY} make install-plugins-private; \
     fi && \
     if [ "${CL_INSTALL_TESTING_PLUGINS}" = "true" ]; then \
-        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} make install-plugins-testing; \
+        GOBIN=/gobins CL_LOOPINSTALL_OUTPUT_DIR=${CL_LOOPINSTALL_OUTPUT_DIR} CL_LOOPINSTALL_CONCURRENCY=${CL_LOOPINSTALL_CONCURRENCY} make install-plugins-testing; \
     fi && \
     mkdir -p /tmp/lib && \
     ./plugins/scripts/copy_loopinstall_libs.sh \
