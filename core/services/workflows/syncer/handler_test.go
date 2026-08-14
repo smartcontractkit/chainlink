@@ -18,12 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/wasmbuild"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -320,9 +320,19 @@ func Test_Handler(t *testing.T) {
 }
 
 const (
-	binaryCmd      = "core/services/workflows/cmd/cre/examples/v2/simple_cron"
-	noDagBinaryCmd = "core/services/workflows/cmd/cre/examples/v2/simple_cron"
+	binaryCmd      = "../cmd/cre/examples/v2/simple_cron"
+	noDagBinaryCmd = "../cmd/cre/examples/v2/simple_cron"
 )
+
+func getTestBinary(t *testing.T, pkgDir string) []byte {
+	t.Helper()
+	binary, err := wasmbuild.Compile(t.Context(), wasmbuild.Config{
+		PkgDir:   pkgDir,
+		Compress: true,
+	})
+	require.NoError(t, err)
+	return binary
+}
 
 func Test_workflowRegisteredHandler(t *testing.T) {
 	t.Parallel()
@@ -332,7 +342,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	config := []byte("")
 	wfOwner := testutils.NewAddress().Bytes()
 
-	binary := wasmtest.GetTestBinary(t, binaryCmd, true)
+	binary := getTestBinary(t, binaryCmd)
 	encodedBinary := []byte(base64.StdEncoding.EncodeToString(binary))
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
@@ -899,7 +909,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
+			binary        = getTestBinary(t, binaryCmd)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com/secrets/" + workflowName
@@ -995,7 +1005,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
+			binary        = getTestBinary(t, binaryCmd)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com/secrets/" + workflowName
@@ -1055,7 +1065,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
+			binary        = getTestBinary(t, binaryCmd)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			secretsURL    = "http://example.com/secrets/" + workflowName
@@ -1157,7 +1167,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			emitter      = custmsg.NewLabeler()
 			workflowName = testutils.RandomizeName(t.Name())
 
-			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
+			binary        = getTestBinary(t, binaryCmd)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			updateConfig  = []byte("updated")
@@ -1347,7 +1357,7 @@ func TestEngineFactoryFn_SuccessfulCreation(t *testing.T) {
 	wfOwner := hex.EncodeToString(wfOwnerBytes)
 
 	t.Run("NoDAG workflow", func(t *testing.T) {
-		binary := wasmtest.GetTestBinary(t, noDagBinaryCmd, true)
+		binary := getTestBinary(t, noDagBinaryCmd)
 		workflowID, err := pkgworkflows.GenerateWorkflowID(wfOwnerBytes, testutils.RandomizeName(t.Name()), binary, config, secretsURL)
 		require.NoError(t, err)
 		engine, err := eventHandler.engineFactoryFn(ctx, hex.EncodeToString(workflowID[:]), wfOwner, workflowName, config, binary)
