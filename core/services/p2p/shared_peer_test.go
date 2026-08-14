@@ -1,6 +1,8 @@
 package p2p_test
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"fmt"
 	"testing"
 
@@ -211,4 +213,12 @@ func (m *mockStream) ReceiveMessages() <-chan []byte {
 func (m *mockStream) Close() error {
 	close(m.msgCh)
 	return nil
+}
+
+func newKeyPair(t *testing.T) (ed25519.PrivateKey, ragetypes.PeerID) {
+	_, privKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	peerID, err := ragetypes.PeerIDFromPrivateKey(privKey)
+	require.NoError(t, err)
+	return privKey, peerID
 }

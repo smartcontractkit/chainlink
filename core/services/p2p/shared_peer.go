@@ -58,6 +58,8 @@ type don2DonSharedPeer struct {
 
 var _ p2ptypes.SharedPeer = &don2DonSharedPeer{}
 
+const defaultRecvChSize = 10000
+
 type remotePeer struct {
 	// A PeerGroup with exactly two members, connecting our peer with a single remote peer.
 	peerPairGroup networking.PeerGroup

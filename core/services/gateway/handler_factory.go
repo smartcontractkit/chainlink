@@ -17,14 +17,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/confidentialrelay"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 )
 
 const (
-	FunctionsHandlerType         HandlerType = "functions"
 	DummyHandlerType             HandlerType = "dummy"
 	WebAPICapabilitiesType       HandlerType = "web-api-capabilities" //  Handler for v0.1 HTTP capabilities for DAG workflows
 	HTTPCapabilityType           HandlerType = "http-capabilities"    // Handler for v1.0 HTTP capabilities for NoDAG workflows
@@ -78,8 +76,6 @@ func (hf *handlerFactory) NewHandler(
 	don := shardsConnMgrs[0][0]
 
 	switch handlerType {
-	case FunctionsHandlerType:
-		return functions.NewFunctionsHandlerFromConfig(handlerConfig, donConfig, don, hf.legacyChains, hf.ds, hf.lggr)
 	case DummyHandlerType:
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
 	case WebAPICapabilitiesType:
