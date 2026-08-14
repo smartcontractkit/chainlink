@@ -15,29 +15,40 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	registryclient "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/client"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/registrytest"
-	regserver "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/server"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+
+	regserver "github.com/smartcontractkit/capabilities/libs/x/registry"
+	"github.com/smartcontractkit/capabilities/libs/x/registry/registrytest"
 )
 
+// notSynced is the snapshot source for these tests: they never publish one, and the shim's
+// registration path does not read metadata, so a metadata call failing is the correct behaviour
+// rather than something the tests need to arrange around.
+func notSynced() (*regserver.LocalRegistry, error) {
+	return nil, errors.New("registry not synced yet")
+}
+
 // newShim builds a shim over the real registry, with the shim's
-// per-capability listeners and the client's dials both resolved through one
-// in-memory address book. That keeps the shim's real behaviour under test — one
-// listener and one address per capability — without needing permission to bind a
-// port, which some sandboxes withhold and which otherwise turns into silently
-// skipped tests.
-func newShim(t *testing.T, reg *regserver.Registry) *LOOPShim {
+// per-capability listeners, the registry's dial-back and the client's dials all
+// resolved through one in-memory address book. That keeps the shim's real
+// behaviour under test — one listener and one address per capability — without
+// needing permission to bind a port, which some sandboxes withhold and which
+// otherwise turns into silently skipped tests.
+func newShim(t *testing.T) (*LOOPShim, *regserver.Registry) {
 	t.Helper()
 
 	book := registrytest.NewAddrBook()
+	reg := regserver.New(logger.Test(t), notSynced,
+		book.DialOption(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+
 	client := registryclient.New(logger.Test(t), registrytest.Serve(t, reg),
 		book.DialOption(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	shim := NewLOOPShim(logger.Test(t), client, "")
 	shim.listen = func(string) (net.Listener, error) { return book.Listen(), nil }
 	t.Cleanup(func() { _ = shim.Close() })
-	return shim
+	return shim, reg
 }
 
 // fakeExecutable is an in-process capability, i.e. what a LOOP still hands over.
@@ -68,8 +79,7 @@ func TestLOOPShim_AddServesCapabilityAndAnnouncesItsAddress(t *testing.T) {
 	outputs, err := values.NewMap(map[string]any{"out": int64(5)})
 	require.NoError(t, err)
 
-	reg := regserver.New(logger.Test(t))
-	shim := newShim(t, reg)
+	shim, reg := newShim(t)
 
 	impl := &fakeExecutable{
 		info:     capabilities.MustNewCapabilityInfo("act@1.0.0", capabilities.CapabilityTypeAction, "act"),
@@ -77,7 +87,7 @@ func TestLOOPShim_AddServesCapabilityAndAnnouncesItsAddress(t *testing.T) {
 	}
 	require.NoError(t, shim.Add(ctx, impl))
 
-	require.Len(t, reg.List(t.Context()), 1)
+	require.Len(t, reg.ListHandles(t.Context()), 1)
 	addr := addressOf(t, reg, "act@1.0.0")
 	require.NotEmpty(t, addr, "the shim must announce a concrete address, not an empty one")
 
@@ -99,8 +109,7 @@ func TestLOOPShim_AddServesCapabilityAndAnnouncesItsAddress(t *testing.T) {
 func TestLOOPShim_AddUsesADistinctAddressPerCapability(t *testing.T) {
 	ctx := context.Background()
 
-	reg := regserver.New(logger.Test(t))
-	shim := newShim(t, reg)
+	shim, reg := newShim(t)
 
 	// Core hosts many capabilities arriving one at a time, which is exactly why it
 	// cannot use the single-address client: each needs its own listener.
@@ -110,7 +119,7 @@ func TestLOOPShim_AddUsesADistinctAddressPerCapability(t *testing.T) {
 		}))
 	}
 
-	require.Len(t, reg.List(t.Context()), 2)
+	require.Len(t, reg.ListHandles(t.Context()), 2)
 	addrA, addrB := addressOf(t, reg, "a@1.0.0"), addressOf(t, reg, "b@1.0.0")
 	require.NotEmpty(t, addrA)
 	require.NotEmpty(t, addrB)
@@ -120,8 +129,7 @@ func TestLOOPShim_AddUsesADistinctAddressPerCapability(t *testing.T) {
 func TestLOOPShim_AddRejectsLiveDuplicate(t *testing.T) {
 	ctx := context.Background()
 
-	reg := regserver.New(logger.Test(t))
-	shim := newShim(t, reg)
+	shim, reg := newShim(t)
 
 	impl := &fakeExecutable{
 		info: capabilities.MustNewCapabilityInfo("act@1.0.0", capabilities.CapabilityTypeAction, "act"),
@@ -133,7 +141,7 @@ func TestLOOPShim_AddRejectsLiveDuplicate(t *testing.T) {
 	err := shim.Add(ctx, impl)
 	require.Error(t, err)
 	require.ErrorIs(t, err, registry.ErrCapabilityAlreadyExists)
-	assert.Len(t, reg.List(t.Context()), 1)
+	assert.Len(t, reg.ListHandles(t.Context()), 1)
 }
 
 // stateCapability reports a connection state, as a capability backed by a gRPC
@@ -148,8 +156,7 @@ func (s *stateCapability) GetState() connectivity.State { return s.state }
 func TestLOOPShim_AddReplacesDeadRegistrationOnRestart(t *testing.T) {
 	ctx := context.Background()
 
-	reg := regserver.New(logger.Test(t))
-	shim := newShim(t, reg)
+	shim, reg := newShim(t)
 
 	info := capabilities.MustNewCapabilityInfo("act@1.0.0", capabilities.CapabilityTypeAction, "act")
 
@@ -164,7 +171,7 @@ func TestLOOPShim_AddReplacesDeadRegistrationOnRestart(t *testing.T) {
 	fresh := &stateCapability{fakeExecutable: &fakeExecutable{info: info}, state: connectivity.Ready}
 	require.NoError(t, shim.Add(ctx, fresh))
 
-	require.Len(t, reg.List(t.Context()), 1)
+	require.Len(t, reg.ListHandles(t.Context()), 1)
 	secondAddr := addressOf(t, reg, "act@1.0.0")
 	assert.NotEqual(t, firstAddr, secondAddr, "the replacement is served at its own address")
 
@@ -197,8 +204,7 @@ func TestLOOPShim_AddRollsBackWhenRegistrationFails(t *testing.T) {
 func TestLOOPShim_AddRejectsTypeMismatch(t *testing.T) {
 	ctx := context.Background()
 
-	reg := regserver.New(logger.Test(t))
-	shim := newShim(t, reg)
+	shim, reg := newShim(t)
 
 	// Declared a trigger but only implements the executable surface: this must be
 	// caught at registration, not when a workflow first subscribes.
@@ -206,14 +212,13 @@ func TestLOOPShim_AddRejectsTypeMismatch(t *testing.T) {
 		info: capabilities.MustNewCapabilityInfo("act@1.0.0", capabilities.CapabilityTypeTrigger, "act"),
 	}
 	require.Error(t, shim.Add(ctx, impl))
-	assert.Empty(t, reg.List(t.Context()))
+	assert.Empty(t, reg.ListHandles(t.Context()))
 }
 
 func TestLOOPShim_RemoveStopsServing(t *testing.T) {
 	ctx := context.Background()
 
-	reg := regserver.New(logger.Test(t))
-	shim := newShim(t, reg)
+	shim, reg := newShim(t)
 
 	impl := &fakeExecutable{
 		info: capabilities.MustNewCapabilityInfo("act@1.0.0", capabilities.CapabilityTypeAction, "act"),
@@ -222,7 +227,7 @@ func TestLOOPShim_RemoveStopsServing(t *testing.T) {
 	addr := addressOf(t, reg, "act@1.0.0")
 
 	require.NoError(t, shim.Remove(ctx, "act@1.0.0"))
-	_, getErr := reg.Get(t.Context(), "act@1.0.0")
+	_, getErr := reg.GetHandle(t.Context(), "act@1.0.0")
 	assert.Error(t, getErr, "Remove must reach the registry")
 
 	// The listener is gone, so re-adding under the same ID must work.
@@ -234,8 +239,7 @@ func TestLOOPShim_RemoveStopsServing(t *testing.T) {
 func TestLOOPShim_ClosePreventsFurtherAdds(t *testing.T) {
 	ctx := context.Background()
 
-	reg := regserver.New(logger.Test(t))
-	shim := newShim(t, reg)
+	shim, reg := newShim(t)
 
 	require.NoError(t, shim.Close())
 
@@ -244,7 +248,7 @@ func TestLOOPShim_ClosePreventsFurtherAdds(t *testing.T) {
 	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "closed")
-	assert.Empty(t, reg.List(t.Context()))
+	assert.Empty(t, reg.ListHandles(t.Context()))
 }
 
 type addressableStateCapability struct {
@@ -286,7 +290,7 @@ func newShimWithUnreachableRegistry(t *testing.T) *LOOPShim {
 func addressOf(t *testing.T, reg *regserver.Registry, id string) string {
 	t.Helper()
 
-	h, err := reg.Get(t.Context(), id)
+	h, err := reg.GetHandle(t.Context(), id)
 	if err != nil {
 		return ""
 	}

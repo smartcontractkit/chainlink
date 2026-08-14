@@ -138,7 +138,7 @@ func TestLauncher(t *testing.T) {
 		require.NoError(t, launcher.Start(t.Context()))
 		defer launcher.Close()
 
-		dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
+		dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*don2don.triggerPublisher")).Return(nil)
 		dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.server")).Return(nil)
 
 		require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
@@ -335,7 +335,7 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
-	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
+	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*don2don.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.client")).Return(nil)
 	dispatcher.On("Ready").Return(nil).Maybe()
 	awaitRegistrationMessageCh := make(chan struct{})
@@ -489,7 +489,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
-	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
+	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*don2don.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.client")).Return(nil)
 
 	err = launcher.OnNewRegistry(t.Context(), localRegistry)
@@ -549,7 +549,7 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 	require.NoError(t, err)
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
-	dispatcher.On("SetReceiver", fullTriggerCapID, triggerCapDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
+	dispatcher.On("SetReceiver", fullTriggerCapID, triggerCapDonID, mock.AnythingOfType("*don2don.triggerSubscriber")).Return(nil)
 
 	require.NoError(t, launcher.OnNewRegistry(t.Context(), localRegistry))
 
@@ -604,7 +604,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 		"SetReceiver",
 		fullTriggerCapID,
 		capabilitiesDONID,
-		mock.AnythingOfType("*remote.triggerPublisher"),
+		mock.AnythingOfType("*don2don.triggerPublisher"),
 	).Return(remote.ErrReceiverExists)
 
 	launcher, err := NewLauncher(
@@ -667,7 +667,7 @@ func TestLauncher_SuccessfullyFilterDon2Don(t *testing.T) {
 		"SetReceiver",
 		fullTriggerCapID,
 		capabilitiesDONID,
-		mock.AnythingOfType("*remote.triggerPublisher"),
+		mock.AnythingOfType("*don2don.triggerPublisher"),
 	).Return(remote.ErrReceiverExists)
 
 	launcher, err := NewLauncher(
@@ -1173,7 +1173,7 @@ func TestLauncher_V2CapabilitiesAddViaCombinedClient(t *testing.T) {
 	launcher.p2pStreamConfig = customStreamConfig
 	servicetest.Run(t, launcher)
 
-	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
+	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*don2don.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiverForMethod", fullExecutableCapID, capDonID, "Write", mock.AnythingOfType("*executable.client")).Return(nil)
 
 	// first test the initial CombinedClient creation
@@ -1327,7 +1327,7 @@ func TestLauncher_V2CapabilitiesExposeRemotely(t *testing.T) {
 	require.NoError(t, launcher.Start(t.Context()))
 	defer launcher.Close()
 
-	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
+	dispatcher.On("SetReceiverForMethod", fullTriggerCapID, capDonID, "StreamsTrigger", mock.AnythingOfType("*don2don.triggerPublisher")).Return(nil)
 	dispatcher.On("SetReceiverForMethod", fullExecutableCapID, capDonID, "Write", mock.AnythingOfType("*executable.server")).Return(nil)
 
 	err = launcher.OnNewRegistry(t.Context(), localRegistry)
