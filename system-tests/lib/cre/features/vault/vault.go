@@ -21,8 +21,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
-
 	vaultprotos "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -30,6 +28,8 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/common/strategies"
 	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"

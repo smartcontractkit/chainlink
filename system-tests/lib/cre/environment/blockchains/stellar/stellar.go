@@ -13,10 +13,10 @@ import (
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_stellar_provider "github.com/smartcontractkit/chainlink-deployments-framework/chain/stellar/provider"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )

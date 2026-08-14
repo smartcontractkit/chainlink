@@ -15,6 +15,7 @@ import (
 	cldf_jd "github.com/smartcontractkit/chainlink-deployments-framework/offchain/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 

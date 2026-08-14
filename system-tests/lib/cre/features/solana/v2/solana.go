@@ -20,11 +20,11 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
 	cre_sol "github.com/smartcontractkit/chainlink/deployment/cre/forwarder/solana"

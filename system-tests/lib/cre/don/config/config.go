@@ -16,13 +16,13 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/libocr/commontypes"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmconfigtoml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/libocr/commontypes"
+
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"

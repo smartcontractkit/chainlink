@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	cldfstellar "github.com/smartcontractkit/chainlink-deployments-framework/chain/stellar"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/stellar"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 )

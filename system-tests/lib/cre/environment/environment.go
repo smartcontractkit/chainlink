@@ -12,7 +12,6 @@ import (
 	"github.com/rs/zerolog"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
@@ -23,6 +22,7 @@ import (
 	ctfchiprouter "github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
+
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"

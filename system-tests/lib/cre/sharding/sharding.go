@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
+
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	ring_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
