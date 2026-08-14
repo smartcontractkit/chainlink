@@ -58,7 +58,7 @@ RUN --mount=type=cache,id=go-mod-cache,target=/go/pkg/mod \
 FROM deps-base AS build-remote-plugins
 ARG CL_INSTALL_PRIVATE_PLUGINS=true
 ARG CL_INSTALL_TESTING_PLUGINS=false
-ARG CL_LOOPINSTALL_CONCURRENCY=16
+ARG CL_LOOPINSTALL_CONCURRENCY=8
 
 COPY plugins/plugins.public.yaml plugins/plugins.private.yaml plugins/plugins.testing.yaml ./plugins/
 COPY plugins/scripts/ ./plugins/scripts/
