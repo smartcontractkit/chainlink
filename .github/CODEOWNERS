@@ -50,16 +50,6 @@
 # Keeper/Automation-related services
 /core/services/ocr2/plugins/ocr2keeper/ @smartcontractkit/dev-services
 
-# Chainlink Functions
-/core/services/functions/ @smartcontractkit/dev-services
-/core/services/ocr2/plugins/functions/ @smartcontractkit/dev-services
-/core/services/s4/ @smartcontractkit/dev-services
-/core/services/ocr2/plugins/s4/ @smartcontractkit/dev-services
-/core/services/ocr2/plugins/threshold/ @smartcontractkit/dev-services
-/core/services/relay/evm/functions/ @smartcontractkit/dev-services
-/core/scripts/functions/ @smartcontractkit/dev-services
-/core/scripts/gateway/ @smartcontractkit/dev-services
-
 # Keystone
 /core/services/registrysyncer/ @smartcontractkit/keystone
 /core/services/workflows/ @smartcontractkit/keystone
