@@ -307,9 +307,26 @@ jobs:
           repository: smartcontractkit/chainlink
           ref: ${{ env.CHAINLINK_REF }}
 
+      - name: Compute Docker build context fingerprint
+        id: ctx-fingerprint
+        if: steps.explain.outputs.build-image == 'true'
+        shell: bash
+        env:
+          DOCKERFILE: ${{ matrix.image.dockerfile }}
+        run: |
+          hash=$({
+            git ls-tree HEAD -- "${DOCKERFILE}" .dockerignore go.mod go.sum \
+              GNUmakefile package.json tools/bin/ldflags \
+              plugins/plugins.public.yaml plugins/plugins.private.yaml \
+              plugins/plugins.testing.yaml
+            git ls-tree -r HEAD -- plugins/scripts/
+            git ls-tree -r HEAD | grep '\.go$' | grep -v '_test\.go'
+          } | awk '{print $3}' | sort | sha256sum | cut -c1-16)
+          echo "hash=${hash}" | tee -a "$GITHUB_OUTPUT"
+
       - name: Build Chainlink Image
         if: steps.explain.outputs.build-image == 'true'
-        uses: smartcontractkit/.github/actions/ctf-build-image@ctf-build-image/v1
+        uses: smartcontractkit/.github/actions/ctf-build-image@dff9fb6507f6bea3fdedd807819030b253f692d8 # DEBUG: Check new cache-key approach
         with:
           image-tag: ${{ inputs.evm-ref || env.CHAINLINK_REF }}${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
@@ -332,6 +349,7 @@ jobs:
           # It also has mysterious failures when trying to upload
           cache-map: |
             {"cache-mount/go-build-cache": {"target": "/var/cache-target", "id": "go-build-cache"}}
+          context-cache-key: ${{ matrix.image.cache-scope }}-${{ inputs.evm-ref || 'no-override' }}-${{ steps.ctx-fingerprint.outputs.hash }}
 
   run-core-cre-e2e-tests-setup:
     name: E2E Tests Setup
