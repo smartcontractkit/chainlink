@@ -1,4 +1,4 @@
-package changelog
+package engine
 
 import (
 	"bytes"
@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"regexp"
 	"strings"
 )
 
@@ -27,43 +26,14 @@ func (g gitRunner) run(ctx context.Context, args ...string) (string, error) {
 	return out.String(), nil
 }
 
-// ccipImageTag matches CCIP release image tags. build-publish.yml derives
-// the image tag from the pushed git tag by inserting "-ccip" before the
-// prerelease identifier (v2.34.0-rc.1 -> 2.34.0-ccip-rc.1), so the mapping is
-// invertible without contacting the registry. An optional arch suffix
-// (-amd64/-arm64, as shown in the ECR console) is ignored.
-var ccipImageTag = regexp.MustCompile(`^(\d+\.\d+\.\d+)-ccip-(.+?)(?:-(?:amd64|arm64))?$`)
-
-// ccipGitTagWithCCIP matches the common mistake of adding a "v" prefix to an
-// image tag (or inserting "-ccip-" into a git tag). Git tags are vX.Y.Z-rc.N
-// (no "-ccip-"); image tags are X.Y.Z-ccip-rc.N (no "v"). Strip "-ccip-" and
-// keep the "v" to recover the real git tag.
-var ccipGitTagWithCCIP = regexp.MustCompile(`^v(\d+\.\d+\.\d+)-ccip-(.+?)(?:-(?:amd64|arm64))?$`)
-
-// NormalizeRef maps a CCIP image tag or image URI to the git tag that built
-// the image, so release engineers can pass the version they actually work
-// with (e.g. "2.56.1-ccip-rc.2" or
-// "public.ecr.aws/chainlink/ccip:2.56.1-ccip-rc.2"). It also handles the
-// hybrid "v2.56.1-ccip-rc.2" (image tag with a "v" prefix). Anything else is
-// returned unchanged.
-func NormalizeRef(ref string) string {
-	// Accept a full image URI: git refnames never contain ":".
-	if i := strings.LastIndex(ref, ":"); i >= 0 {
-		ref = ref[i+1:]
-	}
-	if m := ccipGitTagWithCCIP.FindStringSubmatch(ref); m != nil {
-		return "v" + m[1] + "-" + m[2]
-	}
-	if m := ccipImageTag.FindStringSubmatch(ref); m != nil {
-		return "v" + m[1] + "-" + m[2]
-	}
-	return ref
-}
-
 // ResolveRef resolves any git ref (SHA, tag, branch) to a commit SHA.
 // Resolution order: local ref, then the remote-tracking branch origin/<ref>
 // (release branches often exist only remotely), then an on-demand fetch of
 // <ref> from origin (for tags/branches never fetched locally).
+//
+// ResolveRef is intentionally product-agnostic: product-specific ref shapes
+// (e.g. CCIP image tags) are normalized BEFORE this is called — see
+// a Product.NormalizeRef hook supplied by the caller (see product.go).
 func (g gitRunner) ResolveRef(ctx context.Context, ref string) (string, error) {
 	out, err := g.run(ctx, "rev-parse", "--verify", ref+"^{commit}")
 	if err == nil {

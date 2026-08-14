@@ -1,4 +1,4 @@
-package changelog
+package engine
 
 import (
 	"os"
@@ -39,13 +39,13 @@ func syntheticReport() *Report {
 		},
 	}
 
-	ccipCfg := TrackedRepos[0]
-	tonCfg := TrackedRepos[4]
-	evmCfg := TrackedRepos[5]
-	solCfg := TrackedRepos[3]
-	coreCfg := TrackedRepos[6]
+	ccipCfg := testProduct.Repos[0]
+	tonCfg := testProduct.Repos[4]
+	evmCfg := testProduct.Repos[5]
+	solCfg := testProduct.Repos[3]
+	coreCfg := testProduct.Repos[6]
 
-	rep := &Report{
+	rep := &Report{ProductName: testProduct.DisplayName,
 		Old: oldSnap, New: newSnap,
 		Generated: time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC),
 	}
@@ -98,11 +98,11 @@ func syntheticReport() *Report {
 	}
 
 	broken := RepoReport{
-		Config: TrackedRepos[1], // aptos
+		Config: testProduct.Repos[1], // aptos
 		Err:    "compare smartcontractkit/chainlink-aptos abc...def: HTTP 404: Not Found",
 	}
 
-	rep.Repos = []RepoReport{ccip, broken, RepoReport{Config: TrackedRepos[2], Status: "identical"}, sol, ton, evm, core}
+	rep.Repos = []RepoReport{ccip, broken, RepoReport{Config: testProduct.Repos[2], Status: "identical"}, sol, ton, evm, core}
 
 	for _, rr := range rep.Repos {
 		rep.Flags = append(rep.Flags, repoFlags(rr, oldSnap, newSnap)...)

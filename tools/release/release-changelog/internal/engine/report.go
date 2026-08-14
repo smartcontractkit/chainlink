@@ -1,4 +1,4 @@
-package changelog
+package engine
 
 import (
 	"fmt"
@@ -83,7 +83,7 @@ func pluralize(n int) string {
 // RenderMarkdown produces the full audit document.
 func RenderMarkdown(rep *Report) string {
 	var b strings.Builder
-	b.WriteString("# CCIP Release Changelog\n\n")
+	fmt.Fprintf(&b, "# %s Release Changelog\n\n", rep.ProductName)
 	fmt.Fprintf(&b, "- **Old**: %s\n", refLine(rep.Old))
 	fmt.Fprintf(&b, "- **New**: %s\n", refLine(rep.New))
 	fmt.Fprintf(&b, "- **Generated**: %s\n", rep.Generated.Format("2006-01-02 15:04 UTC"))
@@ -176,7 +176,7 @@ func RenderMarkdown(rep *Report) string {
 // RenderSlackSummary produces the compact Slack message (mrkdwn format).
 func RenderSlackSummary(rep *Report) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "*CCIP Release Changelog* `%s` → `%s`\n", rep.Old.Ref, rep.New.Ref)
+	fmt.Fprintf(&b, "*%s Release Changelog* `%s` → `%s`\n", rep.ProductName, rep.Old.Ref, rep.New.Ref)
 	fmt.Fprintf(&b, "<https://github.com/smartcontractkit/chainlink/compare/%s...%s|core compare> · ", shortSHA(rep.Old.SHA), shortSHA(rep.New.SHA))
 	fmt.Fprintf(&b, "<https://github.com/smartcontractkit/chainlink/blob/%s/CHANGELOG.md|core changelog>\n\n", rep.New.SHA)
 
