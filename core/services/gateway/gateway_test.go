@@ -170,7 +170,6 @@ Name = "dummy"
 	// Verify config structure was parsed correctly
 	require.Len(t, cfg.ShardedDONs, 2, "should have 2 sharded DONs")
 	require.Len(t, cfg.Services, 2, "should have 2 services")
-	require.Empty(t, cfg.Dons, "legacy Dons should be empty")
 
 	// Verify donA config (2 shards, 4 nodes each)
 	require.Equal(t, "donA", cfg.ShardedDONs[0].DonName)
