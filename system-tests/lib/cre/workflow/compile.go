@@ -13,6 +13,8 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/wasmbuild"
 )
 
 type Language = string
@@ -114,13 +116,18 @@ func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName, outp
 	workflowWasmPath := filepath.Join(outputDir, workflowName+".wasm")
 	compileStart := time.Now()
 
-	compileCmd := exec.CommandContext(ctx, "go", "build", "-o", workflowWasmPath, filepath.Base(workflowFilePath)) // #nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
-	compileCmd.Dir = filepath.Dir(workflowFilePath)
-	compileCmd.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=wasip1", "GOARCH=wasm")
-	if output, err := compileCmd.CombinedOutput(); err != nil {
-		fmt.Fprint(os.Stderr, string(output))
+	pkgDir := filepath.Dir(workflowFilePath)
+	wasmBytes, err := wasmbuild.Compile(ctx, wasmbuild.Config{
+		PkgDir: pkgDir,
+	})
+	if err != nil {
 		return "", errors.Wrap(err, "failed to compile workflow")
 	}
+
+	if err := os.WriteFile(workflowWasmPath, wasmBytes, 0644); err != nil {
+		return "", errors.Wrap(err, "failed to write WASM file")
+	}
+
 	fmt.Fprintf(os.Stderr, "compileGoWorkflow: %s took %s\n", workflowName, time.Since(compileStart))
 
 	workflowWasmAbsPath, workflowWasmAbsPathErr := filepath.Abs(workflowWasmPath)

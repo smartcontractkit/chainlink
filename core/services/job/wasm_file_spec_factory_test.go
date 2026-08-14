@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
-	"os/exec"
 	"strings"
 	"testing"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/wasmbuild"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -88,11 +88,13 @@ func TestWasmFileSpecFactory(t *testing.T) {
 func createTestBinary(t *testing.T) string {
 	const testBinaryLocation = "testdata/wasm/testmodule.wasm"
 
-	cmd := exec.Command("go", "build", "-o", testBinaryLocation, "github.com/smartcontractkit/chainlink/v2/core/services/job/testdata/wasm")
-	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
+	binary, err := wasmbuild.Compile(t.Context(), wasmbuild.Config{
+		PkgDir: "testdata/wasm",
+	})
+	require.NoError(t, err)
 
-	output, err := cmd.CombinedOutput()
-	require.NoError(t, err, string(output))
+	err = os.WriteFile(testBinaryLocation, binary, 0600)
+	require.NoError(t, err)
 
 	return testBinaryLocation
 }
