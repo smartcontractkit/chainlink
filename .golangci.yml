@@ -92,12 +92,6 @@ linters:
           deny:
             - pkg: github.com/smartcontractkit/chainlink-common/pkg/logger
             - pkg: github.com/smartcontractkit/chainlink/core/logger
-    gocritic:
-      enabled-checks:
-        - ruleguard
-      settings:
-        ruleguard:
-          rules: "${base-path}/tools/gorules/rules.go"
     exhaustive:
       default-signifies-exhaustive: true
     gosec:
