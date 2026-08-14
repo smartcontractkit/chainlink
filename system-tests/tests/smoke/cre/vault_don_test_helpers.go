@@ -1550,8 +1550,16 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 		}
 		requestBody, err := json.Marshal(getPublicKeyRequest)
 		require.NoError(t, err, "failed to marshal public key request")
-		statusCode, _ := sendVaultRequestToGateway(t, gatewayURL, requestBody)
-		return statusCode == http.StatusOK
+		statusCode, body := sendVaultRequestToGateway(t, gatewayURL, requestBody)
+		if statusCode != http.StatusOK {
+			return false
+		}
+
+		var jsonResponse jsonrpc.Response[vault_helpers.GetPublicKeyResponse]
+		if err := json.Unmarshal(body, &jsonResponse); err != nil {
+			return false
+		}
+		return jsonResponse.Result.PublicKey == vaultPublicKey
 	}, time.Second*30, time.Second*1)
 }
 
