@@ -29,8 +29,10 @@ runs:
           [[ -z "${img// }" ]] && continue
           log_name="${img//[^a-zA-Z0-9]/_}"
           (
+            set +e
             docker pull "$img" > "$RUNNER_TEMP/prefetch-${log_name}.log" 2>&1
-            echo "$?" > "$RUNNER_TEMP/prefetch-${log_name}.exit"
+            rc=$?
+            echo "$rc" > "$RUNNER_TEMP/prefetch-${log_name}.exit"
           ) &
           echo "$!" >> "$pids_file"
           echo "Started background pull of ${img}"

@@ -109,8 +109,10 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
 
-	queue := worker.New(ctx, 10)
+	poolCtx, poolCancel := context.WithCancel(ctx)
+	queue := worker.New(poolCtx, 10)
 	defer queue.StopAndWait() // Ensure cleanup on any exit path
+	defer poolCancel()        // Cancel in-flight tasks before StopAndWait() on return
 
 	// Chip Router startup is fully independent of blockchain startup, so run it in
 	// the background and await it before the topology stage that consumes its URL.

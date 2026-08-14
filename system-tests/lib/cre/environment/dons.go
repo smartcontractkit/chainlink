@@ -245,20 +245,15 @@ func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, b
 	// assignment is not safe for concurrent sends on the same client, so
 	// serialize per blockchain while funding across blockchains in parallel.
 	chainLocks := make(map[bcpkg.Blockchain]*sync.Mutex, len(blockchains))
-	var chainLocksMu sync.Mutex
+	for _, bc := range blockchains {
+		chainLocks[bc] = &sync.Mutex{}
+	}
 
 	var eg errgroup.Group
 	for i := range tasks {
 		task := tasks[i]
 		eg.Go(func() error {
-			chainLocksMu.Lock()
-			mu, ok := chainLocks[task.bc]
-			if !ok {
-				mu = &sync.Mutex{}
-				chainLocks[task.bc] = mu
-			}
-			chainLocksMu.Unlock()
-
+			mu := chainLocks[task.bc]
 			mu.Lock()
 			defer mu.Unlock()
 			return task.bc.Fund(ctx, task.address, task.amount)
