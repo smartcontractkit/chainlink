@@ -56,4 +56,3 @@ func GetTestBinary(tb testing.TB, outputPath string, compress bool) []byte {
 
 	return binary
 }
-
