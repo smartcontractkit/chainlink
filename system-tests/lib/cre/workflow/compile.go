@@ -124,7 +124,7 @@ func compileGoWorkflow(ctx context.Context, workflowFilePath, workflowName, outp
 		return "", errors.Wrap(err, "failed to compile workflow")
 	}
 
-	if err := os.WriteFile(workflowWasmPath, wasmBytes, 0644); err != nil {
+	if err := os.WriteFile(workflowWasmPath, wasmBytes, 0644); err != nil { //nolint:gosec // G306: we want it to be readable by everyone
 		return "", errors.Wrap(err, "failed to write WASM file")
 	}
 
