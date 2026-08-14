@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -108,14 +109,23 @@ func SetupTestEnvironment(
 		return nil, pkgerrors.Wrap(err, "input validation failed")
 	}
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Chip Router")))
-	_, err := ctfchiprouter.NewWithContext(ctx, input.ChipRouterInput)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to start chip router")
+	queue := worker.New(ctx, 10)
+	defer queue.StopAndWait() // Ensure cleanup on any exit path
+
+	// Chip Router startup is fully independent of blockchain startup, so run it in
+	// the background and await it before the topology stage that consumes its URL.
+	type chipRouterStartResult struct {
+		duration time.Duration
 	}
 
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Chip Router started in %.2f seconds", input.StageGen.Elapsed().Seconds())))
-	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting %d blockchain(s)", len(input.BlockchainsInput))))
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Chip Router and %d blockchain(s)", len(input.BlockchainsInput))))
+	chipRouterFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
+		start := time.Now()
+		if _, err := ctfchiprouter.NewWithContext(ctx, input.ChipRouterInput); err != nil {
+			return nil, err
+		}
+		return &chipRouterStartResult{duration: time.Since(start)}, nil
+	})
 
 	deployedBlockchains, startErr := blockchains.Start(
 		ctx,
@@ -127,6 +137,12 @@ func SetupTestEnvironment(
 	if startErr != nil {
 		return nil, pkgerrors.Wrap(startErr, "failed to start blockchains")
 	}
+
+	chipRouterResult, chipRouterErr := worker.AwaitAs[*chipRouterStartResult](ctx, chipRouterFuture)
+	if chipRouterErr != nil {
+		return nil, pkgerrors.Wrap(chipRouterErr, "failed to start chip router")
+	}
+	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Chip Router started in %.2f seconds (overlapped with blockchain startup)", chipRouterResult.duration.Seconds())))
 
 	creEnvironment := &cre.Environment{
 		Blockchains:           deployedBlockchains.Outputs,
@@ -210,9 +226,6 @@ func SetupTestEnvironment(
 
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.WrapAndNext("Applied Features in %.2f seconds", input.StageGen.Elapsed().Seconds())))
 	fmt.Print(libformat.PurpleText("%s", input.StageGen.Wrap("Starting Job Distributor and DONs")))
-
-	queue := worker.New(ctx, 10)
-	defer queue.StopAndWait() // Ensure cleanup on any exit path
 
 	jdStartedFuture := queue.SubmitAny(func(ctx context.Context) (any, error) {
 		// TODO: pass context after we update the CTF to accept context, when creating new JD instance

@@ -169,6 +169,17 @@ jobs:
           path: system-tests/tests/bin/
           key: test-binaries-cre-${{ inputs.chainlink_version || github.sha }}
 
+      # Public images need no auth: start pulling them in the background as early
+      # as possible so "Start local CRE" doesn't wait on testcontainers' lazy pulls.
+      - name: Prefetch public CRE images
+        uses: ./.github/actions/prefetch-cre-images
+        with:
+          phase: start
+          images: |
+            postgres:12.0
+            postgres:16
+            ghcr.io/foundry-rs/foundry:stable
+
       # Required to pull private ECR images such as Job Distributor (main) and Chip Ingress (main),
       # and also the Chainlink image when inputs.ecr is "sdlc".
       - name: Configure AWS Credentials
@@ -197,6 +208,17 @@ jobs:
         env:
           AWS_REGION: us-east-1
 
+      - name: Prefetch private CRE images
+        uses: ./.github/actions/prefetch-cre-images
+        with:
+          phase: start
+          images: |
+            ${{ env.CHAINLINK_IMAGE_FULL }}
+            ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor:0.28.0
+            ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1
+            ${{ env.CTF_CHIP_INGRESS_IMAGE }}
+            ${{ env.CTF_CHIP_CONFIG_IMAGE }}
+
       - name: Cache gotestsum
         id: cache-gotestsum
         uses: actions/cache@v6
@@ -214,6 +236,11 @@ jobs:
             go install gotest.tools/gotestsum@v1.13.0
             echo "::endgroup::"
           fi
+
+      - name: Wait for CRE image prefetch
+        uses: ./.github/actions/prefetch-cre-images
+        with:
+          phase: wait
 
       - name: Start local CRE${{ matrix.tests.cre_version }}
         id: start-local-cre
