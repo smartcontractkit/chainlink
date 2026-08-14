@@ -290,11 +290,10 @@ func encodeBytes(b []byte) []byte {
 }
 
 func parseExtraDataMap(input map[string]any, sourceChainSelector ccipocr3common.ChainSelector) (*big.Int, [32]byte, error) {
-	// gasLimit key differs by source family:
-	//   - SuiExtraArgsV1 (EVM/Sui sources, ABI/BCS) uses "gasLimit" (lowercase).
-	//   - Solana GenericExtraArgsV2 (Borsh, tag 0x181dcf10) uses "GasLimit" — the Borsh
-	//     struct field name emitted by ccipsolana.ExtraDataDecoder. Solana sends
-	//     GenericExtraArgsV2 to non-SVM dests (the Solana fee-quoter has no SuiExtraArgsV1).
+	// gasLimit key differs by source family and destination extra-args type:
+	//   - SuiExtraArgsV1 (EVM and Solana sources, ABI/BCS/Borsh) uses "gasLimit" (lowercase).
+	//   - Solana GenericExtraArgsV2 (Borsh, tag 0x181dcf10, used for non-SVM/non-Sui dests)
+	//     uses "GasLimit" — the Borsh struct field name emitted by ccipsolana.ExtraDataDecoder.
 	// Casing tolerance here is only to locate the gas limit; it carries no behavioral risk.
 	outputGas, ok := input["gasLimit"]
 	if !ok {
@@ -313,13 +312,13 @@ func parseExtraDataMap(input map[string]any, sourceChainSelector ccipocr3common.
 	sourceFamily, err := chainsel.GetSelectorFamily(uint64(sourceChainSelector))
 	isSolanaSource := err == nil && sourceFamily == chainsel.FamilySolana
 
-	// tokenReceiver is carried by SuiExtraArgsV1 but NOT by Solana GenericExtraArgsV2.
-	// For Solana→Sui the on-chain Solana message cannot convey a separate token receiver, so
-	// the off-chain Any2SuiRampMessage is built with tokenReceiver = 0 (matching the EVM→Sui
-	// message-only convention). Default to zero ONLY for Solana sources: SuiExtraArgsV1
-	// (EVM/Sui sources) must carry tokenReceiver, so a missing key there is a malformed/partial
-	// decode and must error rather than silently produce a wrong hash. Token Solana→Sui
-	// transfers are not supported by this path (Solana has no SuiExtraArgsV1).
+	// tokenReceiver is carried by SuiExtraArgsV1 (EVM and Solana sources) but NOT by Solana
+	// GenericExtraArgsV2, which Solana uses only for non-SVM/non-Sui destinations and for
+	// token-less messaging. For a Solana source lacking the key, default to zero: that is the
+	// message-only case where the off-chain Any2SuiRampMessage is built with tokenReceiver = 0
+	// and the Sui offramp accepts tokenReceiver == 0 only when there are no token transfers.
+	// SuiExtraArgsV1 always carries tokenReceiver, so a missing key from any non-Solana source
+	// is a malformed/partial decode and must error rather than silently produce a wrong hash.
 	tokenReceiver, ok := input["tokenReceiver"]
 	if !ok {
 		if !isSolanaSource {

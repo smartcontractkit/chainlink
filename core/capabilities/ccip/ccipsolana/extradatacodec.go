@@ -27,6 +27,9 @@ var (
 
 	// bytes4(keccak256("CCIP EVMExtraArgsV2"));
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
+
+	// bytes4(keccak256("CCIP SuiExtraArgsV1"));
+	suiExtraArgsV1Tag = hexutil.MustDecode("0x21ea4ca9")
 )
 
 // ExtraDataDecoder is a helper struct for decoding extra data
@@ -60,6 +63,21 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 		}
 		val = reflect.ValueOf(args)
 		typ = reflect.TypeFor[fee_quoter.SVMExtraArgsV1]()
+	case string(suiExtraArgsV1Tag):
+		var args fee_quoter.SuiExtraArgsV1
+		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
+		if err := args.UnmarshalWithDecoder(decoder); err != nil {
+			return nil, fmt.Errorf("failed to decode extra args: %w", err)
+		}
+		// SuiExtraArgsV1 only travels on Solana→Sui messages and is consumed solely by the
+		// Sui execute codec/hasher and the Sui relayer, which read the EVM/ABI-style lowercase
+		// keys. gas_limit is widened from Borsh u128 to *big.Int.
+		return map[string]any{
+			"gasLimit":                 args.GasLimit.BigInt(),
+			"allowOutOfOrderExecution": args.AllowOutOfOrderExecution,
+			"tokenReceiver":            args.TokenReceiver,
+			"receiverObjectIds":        args.ReceiverObjectIds,
+		}, nil
 	default:
 		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs[:4])
 	}

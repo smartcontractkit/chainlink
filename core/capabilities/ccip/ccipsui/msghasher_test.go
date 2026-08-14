@@ -110,6 +110,47 @@ func TestParseExtraDataMap(t *testing.T) {
 			expectErr: false,
 		},
 		{
+			// Solana→Sui token transfer: ccipsolana.ExtraDataDecoder decodes SuiExtraArgsV1
+			// (tag 0x21ea4ca9) into lowercase keys matching the EVM/ABI convention. The non-zero
+			// tokenReceiver must flow through unchanged so the Sui offramp releases tokens to it.
+			name: "Solana SuiExtraArgsV1: lowercase keys, non-zero tokenReceiver (token transfer)",
+			input: map[string]any{
+				"gasLimit":                 new(big.Int).SetInt64(1000000),
+				"allowOutOfOrderExecution": true,
+				"tokenReceiver":            tokenReceiverExample,
+				"receiverObjectIds":        [][32]byte{[32]byte{0xFF}},
+			},
+			sourceSelector: solanaSelector,
+			want: &struct {
+				gasLimit      *big.Int
+				tokenReceiver [32]byte
+			}{
+				gasLimit:      new(big.Int).SetInt64(1000000),
+				tokenReceiver: tokenReceiverExample,
+			},
+			expectErr: false,
+		},
+		{
+			// Solana→Sui messaging with no tokens: SuiExtraArgsV1 defaults tokenReceiver to zero,
+			// which the Sui offramp accepts only when there are no token transfers.
+			name: "Solana SuiExtraArgsV1: lowercase keys, zero tokenReceiver (messaging, no tokens)",
+			input: map[string]any{
+				"gasLimit":                 new(big.Int).SetInt64(1000000),
+				"allowOutOfOrderExecution": false,
+				"tokenReceiver":            [32]byte{},
+				"receiverObjectIds":        [][32]byte{},
+			},
+			sourceSelector: solanaSelector,
+			want: &struct {
+				gasLimit      *big.Int
+				tokenReceiver [32]byte
+			}{
+				gasLimit:      new(big.Int).SetInt64(1000000),
+				tokenReceiver: [32]byte{},
+			},
+			expectErr: false,
+		},
+		{
 			name: "no gas limit key of either casing",
 			input: map[string]any{
 				"tokenReceiver": [32]byte{0x01},
