@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	jdchangesets "github.com/smartcontractkit/cld-changesets/jd/changesets"
+	jdchangesets "github.com/smartcontractkit/cld-changesets/jd/changesets/jobs"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
