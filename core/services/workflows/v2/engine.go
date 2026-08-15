@@ -936,9 +936,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	// event emission. Set alongside executionStatus at each outcome site below.
 	var execErr error
 	execErrClass := events.ErrorClassificationUnspecified
+	// JSON-encoded workflow output; set on the success path only.
+	var executionResult string
 	var execHelper *ExecutionHelper
 	defer func() {
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, execErrClass, lggr)
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, execErrClass, executionResult, lggr)
 		if execHelper != nil {
 			endTime := e.cfg.Clock.Now()
 			profile, emitErr := events.EmitExecutionProfile(
@@ -1106,6 +1108,18 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
+	if result != nil && result.GetValue() != nil {
+		resultJSON, jsonErr := protojson.Marshal(result.GetValue())
+		switch {
+		case jsonErr != nil:
+			executionLogger.Warnw("Failed to marshal workflow execution result; omitting from finished event", "error", jsonErr)
+		case int64(len(resultJSON)) > int64(moduleExecuteMaxResponseSizeBytes):
+			executionLogger.Warnw("Workflow execution result exceeds response size limit; omitting from finished event",
+				"resultBytes", len(resultJSON), "limitBytes", int64(moduleExecuteMaxResponseSizeBytes))
+		default:
+			executionResult = string(resultJSON)
+		}
+	}
 	e.cfg.Hooks.OnResultReceived(result)
 }
 

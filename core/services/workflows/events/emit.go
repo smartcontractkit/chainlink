@@ -270,7 +270,7 @@ func classifiedExecutionStatus(status eventsv2.ExecutionStatus, errClass ErrorCl
 	}
 }
 
-func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string, execErr error, errClass ErrorClassification, lggr logger.Logger) error {
+func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string, execErr error, errClass ErrorClassification, result string, lggr logger.Logger) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.WorkflowExecutionFinished{
@@ -307,6 +307,7 @@ func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, s
 		Status:              executionStatus,
 		Error:               errMsg,
 		ClassifiedStatus:    classifiedExecutionStatus(executionStatus, errClass),
+		Result:              result,
 	}
 
 	// Emit both v1 and v2 events
