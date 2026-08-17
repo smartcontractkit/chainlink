@@ -42,7 +42,9 @@ func (c *MessageCache[EventID, PeerID]) Insert(eventID EventID, peerID PeerID, t
 // Return true if there are messages from at least <minCount> peers,
 // received more recently than <minTimestamp>.
 // Return all messages that satisfy the above condition.
-// Ready() will return true at most once per event if <once> is true.
+// If <once> is true, Ready() returns false once MarkDelivered has been called
+// for the event. Call MarkDelivered only after the caller has successfully
+// consumed the aggregated result (e.g. after aggregation succeeds).
 func (c *MessageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, minTimestamp int64, once bool) (bool, [][]byte) {
 	ev, ok := c.events[eventID]
 	if !ok {
@@ -64,9 +66,6 @@ func (c *MessageCache[EventID, PeerID]) Ready(eventID EventID, minCount uint32, 
 		}
 	}
 	if countAboveMinTimestamp >= minCount {
-		if once {
-			ev.wasReady = true
-		}
 		return true, accPayloads
 	}
 	return false, nil

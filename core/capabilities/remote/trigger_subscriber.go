@@ -371,12 +371,7 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 
 			nowMs := time.Now().UnixMilli()
 			creationTs := s.messageCache.Insert(key, sender, nowMs, msg.Payload)
-
-			ready := false
-			var payloads [][]byte
-			if !s.messageCache.WasReady(key) {
-				ready, payloads = s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), false)
-			}
+			ready, payloads := s.messageCache.Ready(key, cfg.remoteConfig.MinResponsesToAggregate, nowMs-cfg.remoteConfig.MessageExpiry.Milliseconds(), true)
 			if !ready {
 				s.mu.Unlock()
 				s.lggr.Debugw("trigger event received", "triggerEventId", meta.TriggerEventId, "workflowId", workflowID, "triggerID", triggerID, "sender", sender, "ready", ready, "nowTs", nowMs, "creationTs", creationTs, "minResponsesToAggregate", cfg.remoteConfig.MinResponsesToAggregate)
