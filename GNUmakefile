@@ -107,9 +107,7 @@ install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins
 	go install -ldflags="-s" \
-		./plugins/cmd/chainlink-medianpoc \
-		./plugins/cmd/chainlink-ocr3-capability \
-		./plugins/cmd/capabilities/log-event-trigger
+		./plugins/cmd/chainlink-medianpoc
 
 .PHONY: make install-plugins
 install-plugins: install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall
@@ -224,7 +222,7 @@ gomodslocalupdate: gomods ## Run gomod-local-update
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.53.0
+	go install github.com/vektra/mockery/v2@v2.53.6
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -291,15 +289,8 @@ gocs: ## Run gocs to generate changeset markdown files.
 	go run github.com/smartcontractkit/gocs/cmd/gocs@v0.2.0
 
 .PHONY: dependabot
-ifndef DEPENDABOT_SEVERITY
-DEPENDABOT_SEVERITY := "critical,high"
-endif
-dependabot: gomods
-	gh api --paginate -H "Accept: application/vnd.github+json" --method GET \
-	  '/repos/smartcontractkit/chainlink/dependabot/alerts?state=open&ecosystem=Go&severity=$(DEPENDABOT_SEVERITY)' \
-	  --jq '.[] | select(.security_vulnerability.first_patched_version != null) | .dependency.manifest_path |= rtrimstr("go.mod") | "./\(.dependency.manifest_path) \(.security_vulnerability.package.name) \(.security_vulnerability.first_patched_version.identifier)"' | \
-	  go tool dependabot && \
-	gomods tidy
+dependabot:
+	echo "Deprecated: manually trigger the CI workflow instead"
 
 help:
 	@echo ""

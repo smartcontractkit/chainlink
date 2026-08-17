@@ -1,11 +1,13 @@
 package v2
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -70,7 +71,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.NoError(t, err)
 
 		handler.callbacksMu.Lock()
@@ -105,7 +106,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.NoError(t, err)
 
 		handler.callbacksMu.Lock()
@@ -141,7 +142,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.NoError(t, err)
 
 		handler.callbacksMu.Lock()
@@ -177,7 +178,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.NoError(t, err)
 
 		handler.callbacksMu.Lock()
@@ -201,7 +202,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err := handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err := handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
@@ -220,7 +221,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err := handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err := handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
@@ -243,7 +244,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "empty request ID")
 
@@ -273,7 +274,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "must not contain '/'")
 
@@ -303,7 +304,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid method")
 
@@ -338,12 +339,12 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 		// First request should succeed
 		req.Auth = createTestJWTToken(t, req, privateKey)
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback1, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback1, time.Now())
 		require.NoError(t, err)
 
 		// Second request with same ID should fail
 		req.Auth = createTestJWTToken(t, req, privateKey)
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback2, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback2, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "in-flight request")
 
@@ -378,11 +379,11 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 		// First request should succeed
 		req.Auth = createTestJWTToken(t, req, privateKey)
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback1, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback1, time.Now())
 		require.NoError(t, err)
 
 		// Second request with same ID should fail
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback2, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback2, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "token has already been used")
 
@@ -403,7 +404,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err := handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err := handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 	})
 }
@@ -435,7 +436,7 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 		req.Auth = createTestJWTToken(t, req, privateKey)
 
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.NoError(t, err)
 		// Create node responses
 		rawRes := json.RawMessage(`{"result":"success"}`)
@@ -446,14 +447,14 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 		}
 
 		// Send responses from multiple nodes (need (N+F)//2+1 = (3+1)//2+1 = 3 for N=3, F=1)
-		err = handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node1")
+		err = handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "node1")
 		require.NoError(t, err)
 
-		err = handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node2")
+		err = handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "node2")
 		require.NoError(t, err)
 
 		// Third response should trigger aggregation
-		err = handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node3")
+		err = handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "node3")
 		require.NoError(t, err)
 
 		// Check that callback was called
@@ -478,7 +479,7 @@ func TestHttpTriggerHandler_HandleNodeTriggerResponse(t *testing.T) {
 			Result:  &rawRes,
 		}
 
-		err := handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node1")
+		err := handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "node1")
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "callback not found")
 	})
@@ -488,7 +489,7 @@ func TestHttpTriggerHandler_ServiceLifecycle(t *testing.T) {
 	t.Run("start and stop", func(t *testing.T) {
 		handler, _ := createTestTriggerHandler(t)
 
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := handler.Start(ctx)
 		require.NoError(t, err)
 
@@ -499,7 +500,7 @@ func TestHttpTriggerHandler_ServiceLifecycle(t *testing.T) {
 	t.Run("double start and close should errors", func(t *testing.T) {
 		handler, _ := createTestTriggerHandler(t)
 
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := handler.Start(ctx)
 		require.NoError(t, err)
 
@@ -558,7 +559,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 		req.Auth = createTestJWTToken(t, req, privateKey)
 		callback := hc.NewCallback()
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.NoError(t, err)
 
 		// Manually set the callback's createdAt to the past to simulate expiration
@@ -570,7 +571,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 		handler.callbacksMu.Unlock()
 
 		// Manually trigger reaping
-		handler.reapExpiredCallbacks(testutils.Context(t))
+		handler.reapExpiredCallbacks(t.Context())
 
 		// Verify callback was removed
 		handler.callbacksMu.Lock()
@@ -584,7 +585,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 		callback := hc.NewCallback()
 
 		mockDon.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(nil).Times(3)
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.NoError(t, err)
 
 		// Optionally, set createdAt to now (should not be expired)
@@ -596,7 +597,7 @@ func TestHttpTriggerHandler_ReapExpiredCallbacks(t *testing.T) {
 		handler.callbacksMu.Unlock()
 
 		// Manually trigger reaping
-		handler.reapExpiredCallbacks(testutils.Context(t))
+		handler.reapExpiredCallbacks(t.Context())
 
 		// Verify callback still exists
 		handler.callbacksMu.Lock()
@@ -701,10 +702,10 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 		// Final retry: node3 succeeds
 		mockDon.On("SendToNode", mock.Anything, "node3", mock.Anything).Return(nil).Once()
 
-		err := handler.Start(testutils.Context(t))
+		err := handler.Start(t.Context())
 		require.NoError(t, err)
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.NoError(t, err)
 
 		mockDon.AssertExpectations(t)
@@ -713,9 +714,149 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 	})
 }
 
+func TestHttpTriggerHandler_HandleUserTriggerRequest_SendsToNodesInParallel(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	const nodeDelay = 200 * time.Millisecond
+	cfg := WithDefaults(ServiceConfig{
+		MaxTriggerRequestDurationMs: 5000,
+		NodeSendTimeoutMs:           5000,
+	})
+
+	donConfig := &config.DONConfig{
+		DonId: "test-don",
+		F:     1,
+		Members: []config.NodeConfig{
+			{Address: "node1"},
+			{Address: "node2"},
+			{Address: "node3"},
+		},
+	}
+
+	mockDon := handlermocks.NewDON(t)
+	metadataHandler := createTestMetadataHandler(t)
+	userRateLimiter := createTestUserRateLimiter()
+	testMetrics := createTestMetrics(t, donConfig)
+	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	privateKey := createTestPrivateKey(t)
+	registerWorkflow(t, handler, workflowID, privateKey)
+
+	rawParams := json.RawMessage(`{"input":{},"workflow":{"workflowID":"0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"}}`)
+	req := &jsonrpc.Request[json.RawMessage]{
+		ID:      "test-request-parallel",
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawParams,
+		Version: "2.0",
+	}
+	req.Auth = createTestJWTToken(t, req, privateKey)
+	callback := hc.NewCallback()
+
+	// Every node takes nodeDelay to respond. If sends were sequential the whole
+	// round would take ~3*nodeDelay; in parallel it should take ~nodeDelay.
+	for _, addr := range []string{"node1", "node2", "node3"} {
+		mockDon.On("SendToNode", mock.Anything, addr, mock.Anything).Run(func(args mock.Arguments) {
+			time.Sleep(nodeDelay)
+		}).Return(nil).Once()
+	}
+
+	err := handler.Start(t.Context())
+	require.NoError(t, err)
+
+	start := time.Now()
+	err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
+	require.NoError(t, err)
+	elapsed := time.Since(start)
+
+	require.Less(t, elapsed, 2*nodeDelay, "sends to DON members should happen in parallel, not sequentially")
+
+	mockDon.AssertExpectations(t)
+	err = handler.Close()
+	require.NoError(t, err)
+}
+
+func TestHttpTriggerHandler_HandleUserTriggerRequest_SlowNodeDoesNotBlockOthers(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	const nodeSendTimeoutMs = 100
+	cfg := WithDefaults(ServiceConfig{
+		MaxTriggerRequestDurationMs: 5000,
+		NodeSendTimeoutMs:           nodeSendTimeoutMs,
+		RetryConfig: RetryConfig{
+			InitialIntervalMs: 10,
+			MaxIntervalTimeMs: 50,
+			Multiplier:        2,
+		},
+	})
+
+	donConfig := &config.DONConfig{
+		DonId: "test-don",
+		F:     1,
+		Members: []config.NodeConfig{
+			{Address: "node1"},
+			{Address: "node2"},
+			{Address: "node3"},
+		},
+	}
+
+	mockDon := handlermocks.NewDON(t)
+	metadataHandler := createTestMetadataHandler(t)
+	userRateLimiter := createTestUserRateLimiter()
+	testMetrics := createTestMetrics(t, donConfig)
+	handler := NewHTTPTriggerHandler(lggr, cfg, donConfig, mockDon, metadataHandler, userRateLimiter, testMetrics)
+	privateKey := createTestPrivateKey(t)
+	registerWorkflow(t, handler, workflowID, privateKey)
+
+	rawParams := json.RawMessage(`{"input":{},"workflow":{"workflowID":"0x1234567890abcdef1234567890abcdef12345678901234567890abcdef123456"}}`)
+	req := &jsonrpc.Request[json.RawMessage]{
+		ID:      "test-request-slow-node",
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawParams,
+		Version: "2.0",
+	}
+	req.Auth = createTestJWTToken(t, req, privateKey)
+	callback := hc.NewCallback()
+
+	// node2 and node3 respond immediately and must not be re-sent even though
+	// node1 hangs past its per-node timeout on the first attempt.
+	mockDon.On("SendToNode", mock.Anything, "node2", mock.Anything).Return(nil).Once()
+	mockDon.On("SendToNode", mock.Anything, "node3", mock.Anything).Return(nil).Once()
+
+	var node1Attempts atomic.Int32
+	mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.Anything).RunAndReturn(
+		func(ctx context.Context, nodeAddress string, req *jsonrpc.Request[json.RawMessage]) error {
+			if node1Attempts.Add(1) == 1 {
+				deadline, ok := ctx.Deadline()
+				require.True(t, ok, "per-node context should carry a deadline")
+				require.WithinDuration(t, time.Now().Add(nodeSendTimeoutMs*time.Millisecond), deadline, 50*time.Millisecond,
+					"per-node timeout should be applied, not the overall request duration")
+
+				<-ctx.Done()
+				return ctx.Err()
+			}
+			return nil
+		}).Twice()
+
+	err := handler.Start(t.Context())
+	require.NoError(t, err)
+
+	start := time.Now()
+	err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
+	require.NoError(t, err)
+	elapsed := time.Since(start)
+
+	require.Less(t, elapsed, 2*time.Second,
+		"a hung node should be retried after its per-node timeout, not after the full request duration")
+
+	mockDon.AssertExpectations(t)
+	err = handler.Close()
+	require.NoError(t, err)
+}
+
 func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing.T) {
 	handler, mockDon := createTestTriggerHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// Setup metadata handler with test data
 	err := handler.workflowMetadataHandler.agg.Start(ctx)
@@ -860,7 +1001,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_JWTAuthorization(t *testing
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_WorkflowLookup(t *testing.T) {
 	handler, mockDon := createTestTriggerHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	err := handler.workflowMetadataHandler.agg.Start(ctx)
 	require.NoError(t, err)
@@ -1083,7 +1224,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowID must be lowercase")
 
@@ -1113,7 +1254,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowOwner must be lowercase")
 
@@ -1141,7 +1282,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid params JSON")
 
@@ -1169,7 +1310,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid params JSON")
 
@@ -1206,7 +1347,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.NoError(t, err)
 	})
 
@@ -1229,7 +1370,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid params JSON")
 
@@ -1257,7 +1398,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowID must be a valid hex string")
 
@@ -1287,7 +1428,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowOwner must be a valid hex string")
 
@@ -1318,7 +1459,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowName cannot exceed 64 characters")
 
@@ -1349,7 +1490,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowTag cannot exceed 32 characters")
 
@@ -1377,7 +1518,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowName is required when workflowID is not provided")
 
@@ -1406,7 +1547,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowOwner is required when workflowID is not provided")
 
@@ -1435,7 +1576,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowTag is required when workflowID is not provided")
 
@@ -1463,7 +1604,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowID must be a valid hex string")
 
@@ -1493,7 +1634,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Validation(t *testing.T) {
 			Params:  &rawParams,
 		}
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "workflowOwner must be a valid hex string")
 
@@ -1637,7 +1778,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 		mockDon.EXPECT().SendToNode(mock.Anything, "node2", mock.Anything).Return(nil)
 		mockDon.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil)
 
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.NoError(t, err)
 	})
 
@@ -1679,7 +1820,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_RateLimiting(t *testing.T) 
 		callback := hc.NewCallback()
 
 		// First request should consume the burst capacity and exceed the rate limit
-		err = handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+		err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		require.Error(t, err)
 		r, err := callback.Wait(t.Context())
 		require.NoError(t, err)
@@ -1725,42 +1866,39 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 
 		// Use channel to signal when initial broadcast is complete
 		broadcastComplete := make(chan struct{})
-		callCount := 0
+		var callCount atomic.Int64
 
 		// Setup: node1, node2, node3 succeed, node4 fails indefinitely
 		mockDon.On("SendToNode", mock.Anything, "node1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			callCount++
-			if callCount == 3 {
+			if callCount.Add(1) == 3 {
 				close(broadcastComplete)
 			}
 		}).Once()
 		mockDon.On("SendToNode", mock.Anything, "node2", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			callCount++
-			if callCount == 3 {
+			if callCount.Add(1) == 3 {
 				close(broadcastComplete)
 			}
 		}).Once()
 		mockDon.On("SendToNode", mock.Anything, "node3", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			callCount++
-			if callCount == 3 {
+			if callCount.Add(1) == 3 {
 				close(broadcastComplete)
 			}
 		}).Once()
 		mockDon.On("SendToNode", mock.Anything, "node4", mock.Anything).Return(errors.New("connection error"))
 
-		err := handler.Start(testutils.Context(t))
+		err := handler.Start(t.Context())
 		require.NoError(t, err)
 
 		// Start the trigger request in a goroutine
 		errCh := make(chan error, 1)
 		go func() {
-			errCh <- handler.HandleUserTriggerRequest(testutils.Context(t), req, callback, time.Now())
+			errCh <- handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
 		}()
 
 		// Wait for initial broadcast
 		select {
 		case <-broadcastComplete:
-		case <-testutils.Context(t).Done():
+		case <-t.Context().Done():
 			t.Fatal("Context cancelled waiting for initial broadcast to complete")
 		}
 
@@ -1773,16 +1911,16 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 
 		// Send responses from node1 and node2 to reach threshold (need 3 for quorum with F=1).
 		// Node4 is not included in the quorum since it failed to connect.
-		err = handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node1")
+		err = handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "node1")
 		require.NoError(t, err)
 
-		err = handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node2")
+		err = handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "node2")
 		require.NoError(t, err)
 
-		err = handler.HandleNodeTriggerResponse(testutils.Context(t), nodeResp, "node3")
+		err = handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "node3")
 		require.NoError(t, err)
 
-		payload, err := callback.Wait(testutils.Context(t))
+		payload, err := callback.Wait(t.Context())
 		require.NoError(t, err)
 		require.NotEmpty(t, payload.RawResponse)
 		require.Equal(t, api.NoError, payload.ErrorCode)
@@ -1790,7 +1928,7 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 		select {
 		case err = <-errCh:
 			require.NoError(t, err)
-		case <-testutils.Context(t).Done():
+		case <-t.Context().Done():
 			t.Fatal("Context cancelled waiting for HandleUserTriggerRequest to complete")
 		}
 

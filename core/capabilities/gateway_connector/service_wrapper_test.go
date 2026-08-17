@@ -123,7 +123,7 @@ func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ec
 
 	ethKeystore := &keystest.FakeChainStore{Addresses: keystest.Addresses{keystoreKeyV2.Address}}
 	gc := config.Capabilities().GatewayConnector()
-	wrapper := gatewayconnector.NewGatewayConnectorServiceWrapper(gc, ethKeystore, nil, big.NewInt(1), clockwork.NewFakeClock(), lggr)
+	wrapper := gatewayconnector.NewGatewayConnectorServiceWrapper(gc, ethKeystore, nil, big.NewInt(1), clockwork.NewFakeClock(), lggr, nil)
 	return wrapper, nil
 }
 
@@ -173,6 +173,7 @@ func setupAutoDiscoverTest(
 		big.NewInt(1),
 		clockwork.NewFakeClock(),
 		lggr,
+		nil,
 	), nil
 }
 
@@ -183,7 +184,7 @@ func TestGatewayConnectorServiceWrapper_CleanStartClose(t *testing.T) {
 	wrapper, err := generateWrapper(t, key, key)
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	err = wrapper.Start(ctx)
 	require.NoError(t, err)
 
@@ -200,7 +201,7 @@ func TestGatewayConnectorServiceWrapper_NonexistentKey(t *testing.T) {
 	wrapper, err := generateWrapper(t, key, keystoreKey)
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	err = wrapper.Start(ctx)
 	require.Error(t, err)
 }
@@ -228,7 +229,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscoverNodeAddress(t *testing.T) {
 	wrapper, err := setupAutoDiscoverTest(t, nil, orderedKeyProvider, []ethkey.KeyV2{key1V2, keystoreKeyV2}, addressToKey)
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	err = wrapper.Start(ctx)
 	require.NoError(t, err)
 
@@ -301,7 +302,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscover(t *testing.T) {
 			wrapper, err := setupAutoDiscoverTest(t, tt.nodeAddress, tt.orderedKeyProvider, keystoreKeysV2, nil)
 			require.NoError(t, err)
 
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			err = wrapper.Start(ctx)
 			if tt.wantErr {
 				require.Error(t, err)

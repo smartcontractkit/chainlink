@@ -12,7 +12,7 @@ import (
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+	"github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -36,7 +36,7 @@ func NewP2PSignerEnc(n *deployment.Node, registryChainSel uint64) (*P2PSignerEnc
 	if err != nil {
 		return nil, err
 	}
-	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
+	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(registryChainID, 10), chainsel.FamilyEVM)
 	if err != nil {
 		return nil, err
 	}

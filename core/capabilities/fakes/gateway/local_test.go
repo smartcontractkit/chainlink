@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/freeport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/freeport"
 
 	httptypedapi "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http"
 )

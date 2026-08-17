@@ -1,0 +1,172 @@
+# Mixed-env topology (template).
+#
+# This is the standard workflow-gateway-capabilities topology, except every
+# multi-node DON runs 2 nodes on the PR image and 2 nodes on the develop image,
+# so any behavioral divergence between the two code versions surfaces as a
+# consensus/DON2DON log warning (see docs/mixed-env.md).
+#
+# Do NOT edit the two image refs by hand — render this template into
+# configs/mixed-env-don.toml with:
+#
+#   CRE_PR_IMAGE=<pr image>  CRE_BASELINE_IMAGE=<develop image> \
+#     ./configs/render-mixed-env.sh
+#
+# The rendered configs/mixed-env-don.toml is gitignored.
+#
+# IMPORTANT: do not set CTF_CHAINLINK_IMAGE when using this topology — a non-empty
+# value forces every node onto a single image and defeats the mix.
+
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  container_name = "anvil-2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte hex string
+  # change to your version
+  image = "job-distributor:0.28.0"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+[infra]
+  # either "docker" or "kubernetes"
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_family = "test-don-family"
+  don_types = ["workflow"]
+  # "each" lets us assign a different image per node (2 PR + 2 develop).
+  override_mode = "each"
+  http_port_range_start = 10100
+
+  # even though this DON is not using any capability for chain with ID 2337 we still need it to be connected to it,
+  # because bootstrap job for capability DON will be created on the boostrap node from this DON
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]] # node 0 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+  [[nodesets.node_specs]] # node 1 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+  [[nodesets.node_specs]] # node 2 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+  [[nodesets.node_specs]] # node 3 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 4
+  name = "capabilities"
+  don_family = "test-don-family"
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "each"
+  http_port_range_start = 10200
+
+  # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
+  # to identify nodes in the gateway configuration (required by vault and gateway-based HTTP capabilities)
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  capabilities = ["vault", "evm-2337"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+
+  [[nodesets.node_specs]] # node 0 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+  [[nodesets.node_specs]] # node 1 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+  [[nodesets.node_specs]] # node 2 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+  [[nodesets.node_specs]] # node 3 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_family = "test-don-family"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  supported_evm_chains = [1337, 2337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  # The bootstrap/gateway node does not run the reporting plugin, so its code
+  # version does not affect the non-determinism signal. Keep it on develop for stability.
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      # 5002 is the web API capabilities port for incoming requests
+      # 15002 is the vault port for incoming requests
+      custom_ports = ["5002:5002","15002:15002"]
+      user_config_overrides = ""

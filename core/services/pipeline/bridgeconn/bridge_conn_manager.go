@@ -15,7 +15,6 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )

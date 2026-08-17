@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -595,8 +596,11 @@ func getAffectedPrograms(e cldf.Environment, c IDLConfig, chainState solanastate
 // Build instruction to interact with Anchor IDL using the list of ids above for each message
 func buildIdlInstruction(programID solana.PublicKey, accountsForIx solana.AccountMetaSlice, idlInstruction int, params []byte) (solana.GenericInstruction, error) {
 	data := binary.LittleEndian.AppendUint64([]byte{}, IdlIxTag) // 8-byte Extend instruction identifier
-	data = append(data, byte(idlInstruction))                    // Append the numeric ID of the operation
-	data = append(data, params...)                               // Append any additional parameters
+	if idlInstruction > math.MaxUint8 {
+		return solana.GenericInstruction{}, fmt.Errorf("invalid idl instruction: does not fit in byte: %d", idlInstruction)
+	}
+	data = append(data, byte(idlInstruction)) //nolint:gosec //G115 // Append the numeric ID of the operation
+	data = append(data, params...)            // Append any additional parameters
 
 	instruction := solana.NewInstruction(
 		programID,

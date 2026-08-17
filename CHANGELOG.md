@@ -1,5 +1,46 @@
 # Changelog Chainlink Core
 
+## 2.60.0
+
+### Minor Changes
+
+- [#23372](https://github.com/smartcontractkit/chainlink/pull/23372) [`7e14931`](https://github.com/smartcontractkit/chainlink/commit/7e1493120d585bdc67764835d73db3655d6d9973) - #added adds V2 call_capability to wasm with proper response handling #bugfix
+
+- [#23327](https://github.com/smartcontractkit/chainlink/pull/23327) [`d2f97d2`](https://github.com/smartcontractkit/chainlink/commit/d2f97d2cd6c5fcca678123f954b499049850b6bd) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23037](https://github.com/smartcontractkit/chainlink/pull/23037) [`003236a`](https://github.com/smartcontractkit/chainlink/commit/003236a45e91c858c09226eba4bb0efcf228be09) - #internal Add node-measured round-trip metrics to the confidential workflows ConfidentialModule: `enclave_execution_time_ms` (histogram) and `enclave_execution_failures` (counter), labeled by workflow. These are trusted (node-measured) and complement the non-attested `enclave.*` metrics forwarded from the enclave.
+
+- [#23375](https://github.com/smartcontractkit/chainlink/pull/23375) [`3e2a831`](https://github.com/smartcontractkit/chainlink/commit/3e2a83144bc06c43c34a12ebe82723e2ca9c9a6c) - #internal Move `BuildWorkflowGetSecretsRequestID` to chainlink-common's vault capability package and use it in place of the `vaultutils` copy, so all consumers derive the VaultDON GetSecrets request ID from a single definition.
+
+## 2.59.0
+
+### Minor Changes
+
+- [#23261](https://github.com/smartcontractkit/chainlink/pull/23261) [`9f65859`](https://github.com/smartcontractkit/chainlink/commit/9f65859dba91b912652644f0fe008cef281073fb) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23284](https://github.com/smartcontractkit/chainlink/pull/23284) [`545a34e`](https://github.com/smartcontractkit/chainlink/commit/545a34e9ed063c6e5a1a3fe5827c06db0def1bd5) - #internal Confidential relay: on the workflow node, briefly wait (after attestation and Workflow-DON authorization pass) for a not-yet-registered execution handler before failing the enclave's relay callback. This lets a node that has not yet started its copy of the DON-shared execution register and sign in time, instead of failing the callback outright and eroding the relay quorum. The wait is bounded so a callback for an execution the node never runs still fails promptly.
+
+## 2.58.0
+
+### Minor Changes
+
+- [#23196](https://github.com/smartcontractkit/chainlink/pull/23196) [`9aa8015`](https://github.com/smartcontractkit/chainlink/commit/9aa80150fdd193ce879a933597403da3c1dee828) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23085](https://github.com/smartcontractkit/chainlink/pull/23085) [`850a738`](https://github.com/smartcontractkit/chainlink/commit/850a7385948f954747779cebeed8c451890ed833) - #added Add `Telemetry.MetricViewsDenyAttributes` config option to drop specified metric attribute keys from Beholder default views.
+
+- [#22987](https://github.com/smartcontractkit/chainlink/pull/22987) [`76d6194`](https://github.com/smartcontractkit/chainlink/commit/76d619492ff3beb82643bb0654e9cac55b39fd17) - #changed Chip-ingress batch emitter defaults tuned from staging/prod capacity analysis:
+  `ChipIngressBufferSize` 1000 → 10000, `ChipIngressMaxBatchSize` 500 → 1000,
+  `ChipIngressSendInterval` 100ms → 500ms, `ChipIngressSendTimeout` 3s → 10s,
+  `ChipIngressDrainTimeout` 10s → 30s.
+
+- [#23251](https://github.com/smartcontractkit/chainlink/pull/23251) [`e5d93d4`](https://github.com/smartcontractkit/chainlink/commit/e5d93d41424034fcf165b22495e281be49ea8e86) - Add feedAddress to meta metrics. #internal
+
 ## 2.57.0
 
 ### Minor Changes
@@ -70,7 +111,7 @@
 
 - [#22809](https://github.com/smartcontractkit/chainlink/pull/22809) [`af55120`](https://github.com/smartcontractkit/chainlink/commit/af5512049c60904b10489e7f1b0dc72bdefea241) - #internal Confidential workflows: stop setting the deprecated outside-envelope `ConfidentialWorkflowRequest.binary_url`. `binary_url` stays in the hashed `WorkflowExecution` (PublicData); the enclave reads it there.
 
-## 2.51.0
+## 2.56.0
 
 ### Minor Changes
 

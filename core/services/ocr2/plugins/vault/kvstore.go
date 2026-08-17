@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"

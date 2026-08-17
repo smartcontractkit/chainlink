@@ -8,16 +8,14 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // ToCalldataFunc is a function that takes in the OCR3 report and signature data and processes them.

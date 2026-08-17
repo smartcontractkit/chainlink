@@ -13,24 +13,21 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/contracts"
-
+	keystonechangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	evmreadcontracts "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/contracts"
 	evm_logTrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/contracts"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
-
-	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
-	keystonechangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 // smoke
@@ -214,24 +211,6 @@ func keysFromMap(m map[string]blockchains.Blockchain) []string {
 	return keys
 }
 
-func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput blockchains.Blockchain, msgEmitter *evmreadcontracts.MessageEmitter, expectedUserLog string, workflowConfig evm_logTrigger_config.Config) uint64 {
-	lggr.Info().Msgf("Emitting event to be picked up by workflow for chain '%s'", chainID)
-	sethClient := bcOutput.(*evm.Blockchain).SethClient
-	emittingTx, err := msgEmitter.EmitMessage(sethClient.NewTXOpts(), expectedUserLog)
-	if err != nil {
-		lggr.Info().Msgf("Failed to emit transaction for chain '%s': %v", chainID, err)
-		return 0
-	}
-
-	emittingReceipt, err := sethClient.WaitMined(t.Context(), lggr, sethClient.Client, emittingTx)
-	if err != nil {
-		lggr.Info().Msgf("Failed to emit receipt for chain '%s': %v", chainID, err)
-		return 0
-	}
-	lggr.Info().Msgf("Transaction for chain '%s' mined at '%d' with emitted message %q", chainID, emittingReceipt.BlockNumber.Uint64(), expectedUserLog)
-	return emittingReceipt.BlockNumber.Uint64()
-}
-
 func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain blockchains.Blockchain) (evm_logTrigger_config.Config, *evmreadcontracts.MessageEmitter) {
 	t.Helper()
 
@@ -331,31 +310,13 @@ func executeEVMLogTriggerTestForChain(
 
 	message := "Data for log trigger chain " + chainID
 	// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
-	var emittedEventCount int64
-	ticker := time.NewTicker(10 * time.Second)
 
 	singleAckFound, stopACKLogScans := startTriggerEventACKLogWatch(t, lggr)
 	defer stopACKLogScans()
 
-	// create a context that will be cancelled as soon as we either find the log we are looking for or timeout
+	// create a context that will be canceled as soon as we either find the log we are looking for or timeout
 	emitCtx, emitCancelFn := context.WithCancel(t.Context())
-	go func() {
-		defer func() {
-			emitCancelFn()
-			ticker.Stop()
-		}()
-		for {
-			select {
-			case <-emitCtx.Done():
-				return
-			case <-ticker.C:
-				lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
-				blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
-				lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
-				emittedEventCount++
-			}
-		}
-	}()
+	startEVMLogTriggerEventEmitter(emitCtx, t, lggr, chainID, bcOutput, msgEmitter, message)
 	expectedUserLog := "OnTrigger decoded message: message:" + message
 
 	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))

@@ -413,6 +413,7 @@ DurableEmitterEnabled = true
 DurableEmitterRetransmitBatchSize = 500
 DurableEmitterEventTTL = '1h0m0s'
 DurableEmitterMaxQueuePayloadBytes = 1073741824
+DurableEmitterInsertBatchFlushInterval = '50ms'
 HeartbeatInterval = '1s'
 LogLevel = 'info'
 LogStreamingEnabled = false
@@ -421,11 +422,22 @@ LogExportTimeout = '1s'
 LogExportMaxBatchSize = 512
 LogExportInterval = '1s'
 LogMaxQueueSize = 2048
+MetricViewsDenyAttributes = ['event_id']
 MetricCardinalityLimit = 100000
 
 [Telemetry.PrometheusBridge]
 Enabled = false
 Prefixes = ['go_']
+
+[Metering]
+MeterRecordsEnabled = false
+MeterSnapshotsEnabled = false
+Product = 'cre'
+Tenant = ''
+NumericTenantID = ''
+Environment = ''
+Zone = ''
+NodeID = ''
 
 [Workflows]
 [Workflows.Limits]
@@ -447,6 +459,7 @@ URL = ''
 [CRE.Linking]
 URL = ''
 TLSEnabled = true
+RequestTimeout = '2s'
 
 [CRE.ConfidentialRelay]
 Enabled = false
@@ -477,6 +490,7 @@ ArbiterRetryInterval = '12s'
 ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
+ShardAssignmentMode = 'manual-only'
 
 [LOOPP]
 GRPCServerMaxRecvMsgSize = '32.00mb'

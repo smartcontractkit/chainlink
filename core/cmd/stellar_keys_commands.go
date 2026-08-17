@@ -3,7 +3,6 @@ package cmd
 import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/stellarkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 

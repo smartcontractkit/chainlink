@@ -46,21 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/solkey"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
-	solread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
-
-	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
-	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
-	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
-	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
-	aptoswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite/config"
-	aptoswriteroundtrip_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/config"
-	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
-	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
-	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
-	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
-	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -78,10 +63,22 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
+	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
+	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
+	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
 	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
+	aptoswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite/config"
+	aptoswriteroundtrip_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/config"
+	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
 	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
+	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
+	solread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
+	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
@@ -417,6 +414,7 @@ type StellarWriteWorkflowConfig struct {
 type WorkflowRegistrationConfig struct {
 	WorkflowName            string
 	WorkflowLocation        string
+	WorkflowTag             string
 	ConfigFilePath          string
 	CompressedWasmPath      string
 	SecretsURL              string
@@ -718,6 +716,7 @@ func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConf
 		wfRegCfg.DonID,
 		wfRegCfg.DonFamily,
 		wfRegCfg.WorkflowName,
+		wfRegCfg.WorkflowTag,
 		binaryURL,
 		configURL,
 		nil, // no secrets yet
@@ -815,6 +814,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	workflowRegConfig := &WorkflowRegistrationConfig{
 		WorkflowName:            workflowName,
 		WorkflowLocation:        workflowFileLocation,
+		WorkflowTag:             creworkflow.DefaultWorkflowTag,
 		ConfigFilePath:          workflowConfigPath,
 		CompressedWasmPath:      compressedWorkflowWasmPath,
 		WorkflowRegistryAddr:    common.HexToAddress(workflowRegistryAddress.Address),
@@ -967,16 +967,17 @@ func UniqueStellarWorkflowName(base string) string {
 	return fmt.Sprintf("%s-%d-%d", base, time.Now().UnixNano(), stellarWorkflowNameSeq.Add(1))
 }
 
-// MustStellarChainInEnv returns the first Stellar chain in the environment, failing
-// the test if none is present.
-func MustStellarChainInEnv(t *testing.T, tenv *ttypes.TestEnvironment) blockchains.Blockchain {
+// MustStellarChainInEnv returns the first Stellar chain in the environment, failing the test if none is present.
+func MustStellarChainInEnv(t *testing.T, tenv *ttypes.TestEnvironment) *stellchain.Blockchain {
 	t.Helper()
 	require.NotNil(t, tenv, "Stellar suite requires a test environment")
 	require.NotNil(t, tenv.CreEnvironment, "Stellar suite requires a CRE environment")
 	require.NotEmpty(t, tenv.CreEnvironment.Blockchains, "Stellar suite expects at least one blockchain in the environment")
 	for _, bc := range tenv.CreEnvironment.Blockchains {
 		if bc.IsFamily(blockchain.FamilyStellar) {
-			return bc
+			concrete, ok := bc.(*stellchain.Blockchain)
+			require.True(t, ok, "expected concrete *stellar.Blockchain, got %T", bc)
+			return concrete
 		}
 	}
 	require.FailNow(t, "Stellar suite expects a Stellar chain in the environment (use config workflow-gateway-don-stellar.toml)")
@@ -985,11 +986,9 @@ func MustStellarChainInEnv(t *testing.T, tenv *ttypes.TestEnvironment) blockchai
 
 // MustDeployStellarReadFixture deploys the read_fixture contract and returns its
 // C-address, failing the test on error.
-func MustDeployStellarReadFixture(t *testing.T, stellarChain blockchains.Blockchain) string {
+func MustDeployStellarReadFixture(t *testing.T, stellarChain *stellchain.Blockchain) string {
 	t.Helper()
-	concreteChain, ok := stellarChain.(*stellchain.Blockchain)
-	require.True(t, ok, "expected concrete *stellar.Blockchain, got %T", stellarChain)
-	fixtureID, err := stellarfeature.DeployStellarReadFixture(context.Background(), concreteChain)
+	fixtureID, err := stellarfeature.DeployStellarReadFixture(context.Background(), stellarChain)
 	require.NoError(t, err, "failed to deploy Stellar CRE read fixture")
 	framework.L.Info().Str("fixture", fixtureID).Msg("Deployed Stellar ReadContract fixture")
 	return fixtureID

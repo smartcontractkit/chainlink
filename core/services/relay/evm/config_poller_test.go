@@ -35,10 +35,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
-	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	"github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -109,7 +108,7 @@ func TestConfigPoller(t *testing.T) {
 	}
 
 	t.Run("LatestConfig errors if there is no config in logs and config store is unconfigured", func(t *testing.T) {
-		cp, err := evm.NewConfigPoller(ctx, lggr, evm.CPConfig{ethClient, lp, ocrAddress, nil, ld})
+		cp, err := evm.NewConfigPoller(ctx, lggr, evm.CPConfig{Client: ethClient, DestinationChainPoller: lp, AggregatorContractAddress: ocrAddress, ConfigStoreAddress: nil, LogDecoder: ld})
 		require.NoError(t, err)
 
 		_, err = cp.LatestConfig(testutils.Context(t), 0)
@@ -118,7 +117,7 @@ func TestConfigPoller(t *testing.T) {
 	})
 
 	t.Run("happy path (with config store)", func(t *testing.T) {
-		cp, err := evm.NewConfigPoller(ctx, lggr, evm.CPConfig{ethClient, lp, ocrAddress, &configStoreContractAddr, ld})
+		cp, err := evm.NewConfigPoller(ctx, lggr, evm.CPConfig{Client: ethClient, DestinationChainPoller: lp, AggregatorContractAddress: ocrAddress, ConfigStoreAddress: &configStoreContractAddr, LogDecoder: ld})
 		require.NoError(t, err)
 		// Should have no config to begin with.
 		_, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))

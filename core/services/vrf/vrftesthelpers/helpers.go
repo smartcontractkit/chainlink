@@ -55,7 +55,7 @@ func CreateAndStartBHSJob(
 	jb, err := blockhashstore.ValidatedSpec(s.Toml())
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.JobSpawner().CreateJob(ctx, nil, &jb))
 	require.Eventually(t, func() bool {
 		jbs := app.JobSpawner().ActiveJobs()
@@ -96,7 +96,7 @@ func CreateAndStartBlockHeaderFeederJob(
 	jb, err := blockheaderfeeder.ValidatedSpec(s.Toml())
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.JobSpawner().CreateJob(ctx, nil, &jb))
 	require.Eventually(t, func() bool {
 		jbs := app.JobSpawner().ActiveJobs()

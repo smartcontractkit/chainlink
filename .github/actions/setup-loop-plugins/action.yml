@@ -1,0 +1,109 @@
+name: Setup LOOP Plugins
+description: Setup and cache LOOP plugins
+inputs:
+  install-public:
+    description: Whether to install public plugins
+    required: false
+    default: "true"
+  install-private:
+    description: Whether to install private plugins
+    required: false
+    default: "false"
+  install-testing:
+    description: Whether to install testing plugins
+    required: false
+    default: "false"
+  install-local:
+    description: Whether to install local plugins
+    required: false
+    default: "true"
+  cache-version:
+    description: Cache version bust knob
+    required: false
+    default: "v1"
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve Cache Keys and Directories
+      id: keys
+      shell: bash
+      run: |
+        echo "bin=$HOME/.cache/cl-loop-plugins/bin" | tee -a "$GITHUB_OUTPUT"
+        echo "gocache=$HOME/.cache/cl-loop-plugins/gocache" | tee -a "$GITHUB_OUTPUT"
+        echo "goversion=$(go env GOVERSION)" | tee -a "$GITHUB_OUTPUT"
+
+        FILES=""
+        [ "${{ inputs.install-public }}" = "true" ] && FILES="$FILES plugins/plugins.public.yaml"
+        [ "${{ inputs.install-private }}" = "true" ] && FILES="$FILES plugins/plugins.private.yaml"
+        [ "${{ inputs.install-testing }}" = "true" ] && FILES="$FILES plugins/plugins.testing.yaml"
+
+        MANIFEST_HASH=""
+        if [ -n "$FILES" ]; then
+          MANIFEST_HASH=$(cat $FILES 2>/dev/null | shasum -a 256 | awk '{print $1}')
+        fi
+        echo "manifesthash=$MANIFEST_HASH" | tee -a "$GITHUB_OUTPUT"
+
+    - name: Restore Binaries Cache (Tier 1)
+      id: bin-cache
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ steps.keys.outputs.bin }}
+        key: ${{ runner.os }}-${{ runner.arch }}-loopbin-${{ inputs.cache-version }}-${{ steps.keys.outputs.goversion }}-${{ steps.keys.outputs.manifesthash }}
+
+    - name: Restore Go Build Cache (Tier 2)
+      id: gocache-cache
+      if: ${{ steps.bin-cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ steps.keys.outputs.gocache }}
+        key: ${{ runner.os }}-${{ runner.arch }}-loopgocache-${{ inputs.cache-version }}-${{ steps.keys.outputs.goversion }}-${{ steps.keys.outputs.manifesthash }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-loopgocache-${{ inputs.cache-version }}-${{ steps.keys.outputs.goversion }}-
+
+    - name: Build public plugins
+      if: ${{ steps.bin-cache.outputs.cache-hit != 'true' && inputs.install-public == 'true' }}
+      shell: bash
+      env:
+        GOBIN: ${{ steps.keys.outputs.bin }}
+        GOCACHE: ${{ steps.keys.outputs.gocache }}
+      run: make install-plugins-public
+
+    - name: Build private plugins
+      if: ${{ steps.bin-cache.outputs.cache-hit != 'true' && inputs.install-private == 'true' }}
+      shell: bash
+      env:
+        GOBIN: ${{ steps.keys.outputs.bin }}
+        GOCACHE: ${{ steps.keys.outputs.gocache }}
+      run: make install-plugins-private
+
+    - name: Build testing plugins
+      if: ${{ steps.bin-cache.outputs.cache-hit != 'true' && inputs.install-testing == 'true' }}
+      shell: bash
+      env:
+        GOBIN: ${{ steps.keys.outputs.bin }}
+        GOCACHE: ${{ steps.keys.outputs.gocache }}
+      run: make install-plugins-testing
+
+    - name: Save Binaries Cache (Tier 1)
+      if: ${{ steps.bin-cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ steps.keys.outputs.bin }}
+        key: ${{ runner.os }}-${{ runner.arch }}-loopbin-${{ inputs.cache-version }}-${{ steps.keys.outputs.goversion }}-${{ steps.keys.outputs.manifesthash }}
+
+    - name: Save Go Build Cache (Tier 2)
+      if: ${{ steps.bin-cache.outputs.cache-hit != 'true' && steps.gocache-cache.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ steps.keys.outputs.gocache }}
+        key: ${{ runner.os }}-${{ runner.arch }}-loopgocache-${{ inputs.cache-version }}-${{ steps.keys.outputs.goversion }}-${{ steps.keys.outputs.manifesthash }}
+
+    - name: Export plugin bin to PATH
+      shell: bash
+      run: echo "${{ steps.keys.outputs.bin }}" >> "$GITHUB_PATH"
+
+    - name: Install local plugins
+      if: ${{ inputs.install-local == 'true' }}
+      shell: bash
+      run: make install-plugins-local

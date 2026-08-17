@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"

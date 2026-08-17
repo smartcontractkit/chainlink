@@ -36,8 +36,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -48,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -56,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
+	gatewayv2metrics "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	gatewaynetwork "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
@@ -65,7 +65,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	workflowsmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	syncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
@@ -85,6 +85,7 @@ func metricViews() []sdkmetric.View {
 		ocr3beholderwrapper.MetricViews(),
 		ocr3_1beholderwrapper.MetricViews(),
 		gatewaynetwork.HTTPClientMetricViews(),
+		gatewayv2metrics.MetricViews(),
 	)
 }
 
@@ -172,8 +173,9 @@ func newBeholderClient(
 		LogMaxQueueSize:                cfgTelemetry.LogMaxQueueSize(),
 		// Due to OpenTelemetry semantics, histogram bucket boundaries must be set
 		// when the Beholder client is constructed.
-		MetricViews:            metricViews(),
-		MetricCardinalityLimit: cfgTelemetry.MetricCardinalityLimit(),
+		MetricViews:               metricViews(),
+		MetricViewsDenyAttributes: cfgTelemetry.MetricViewsDenyAttributes(),
+		MetricCardinalityLimit:    cfgTelemetry.MetricCardinalityLimit(),
 	}
 
 	if cfgTracing.Enabled() {
@@ -296,7 +298,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		ExecutionHandlers:    &confidentialrelay.ExecutionHandlers{},
 	}
 	if cfg.CRE().WorkflowFetcher() != nil && cfg.CRE().WorkflowFetcher().URL() != "" {
-		creOpts.FetcherFunc, err = syncer.NewFetcherFunc(cfg.CRE().WorkflowFetcher().URL(), appLggr)
+		creOpts.FetcherFunc, err = syncerv2.NewFetcherFunc(cfg.CRE().WorkflowFetcher().URL(), appLggr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create workflow fetcher: %w", err)
 		}

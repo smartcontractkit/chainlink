@@ -12,8 +12,6 @@ import (
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"
 	stellarreceiver "github.com/smartcontractkit/chainlink-stellar/deployment/cre/receiver"
-
-	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 const ReceiverContract datastore.ContractType = "StellarReceiver"
@@ -24,12 +22,11 @@ var _ cldf.ChangeSetV2[*ReportCountRequest] = ReportCount{}
 type DeployReceiver struct{}
 
 type DeployReceiverRequest struct {
-	ChainSel    uint64
-	Qualifier   string
-	Version     string
-	LabelSet    datastore.LabelSet
-	Salt        [32]byte
-	BuildConfig *helpers.BuildStellarConfig
+	ChainSel  uint64
+	Qualifier string
+	Version   string
+	LabelSet  datastore.LabelSet
+	Salt      [32]byte
 }
 
 func (cs DeployReceiver) VerifyPreconditions(env cldf.Environment, req *DeployReceiverRequest) error {
@@ -47,9 +44,6 @@ func (cs DeployReceiver) VerifyPreconditions(env cldf.Environment, req *DeployRe
 	}
 	if _, err := semver.NewVersion(req.Version); err != nil {
 		return fmt.Errorf("invalid receiver version %q: %w", req.Version, err)
-	}
-	if req.BuildConfig == nil {
-		return errors.New("build config is required to source the receiver WASM")
 	}
 	return nil
 }
@@ -72,7 +66,7 @@ func (cs DeployReceiver) Apply(env cldf.Environment, req *DeployReceiverRequest)
 		return out, fmt.Errorf("failed to build stellar deployer for chain selector %d: %w", req.ChainSel, err)
 	}
 
-	wasm, err := helpers.BuildStellar(env.GetContext(), *req.BuildConfig)
+	wasm, err := Artifact(ReceiverWasm)
 	if err != nil {
 		return out, fmt.Errorf("failed to source receiver WASM: %w", err)
 	}
@@ -153,13 +147,13 @@ func (cs ReportCount) Apply(env cldf.Environment, req *ReportCountRequest) (cldf
 // DeployReceiverForChain deploys the CRE test receiver directly from a CLDF
 // stellar chain. It is exposed for test helpers that do not have a full
 // cldf.Environment available.
-func DeployReceiverForChain(ctx context.Context, ch cldfstellar.Chain, buildCfg helpers.BuildStellarConfig, salt [32]byte) (string, error) {
+func DeployReceiverForChain(ctx context.Context, ch cldfstellar.Chain, salt [32]byte) (string, error) {
 	deployer, err := stellardeployment.NewDeployerFromChain(ch)
 	if err != nil {
 		return "", fmt.Errorf("failed to build stellar deployer: %w", err)
 	}
 
-	wasm, err := helpers.BuildStellar(ctx, buildCfg)
+	wasm, err := Artifact(ReceiverWasm)
 	if err != nil {
 		return "", fmt.Errorf("failed to source receiver WASM: %w", err)
 	}
@@ -177,4 +171,48 @@ func ReportCountForChain(ctx context.Context, ch cldfstellar.Chain, contractID s
 	}
 
 	return stellarreceiver.ReportCount(ctx, deployer, contractID)
+}
+
+// DeployRejectingReceiverForChain deploys the CRE rejecting test receiver (always
+// returns Err from on_report) directly from a CLDF stellar chain. Used by write
+// regression tests to exercise the forwarder's TransmissionState::Failed path.
+func DeployRejectingReceiverForChain(ctx context.Context, ch cldfstellar.Chain, salt [32]byte) (string, error) {
+	deployer, err := stellardeployment.NewDeployerFromChain(ch)
+	if err != nil {
+		return "", fmt.Errorf("failed to build stellar deployer: %w", err)
+	}
+
+	wasm, err := Artifact(RejectingReceiverWasm)
+	if err != nil {
+		return "", fmt.Errorf("failed to source rejecting receiver WASM: %w", err)
+	}
+
+	contractID, err := deployer.DeployContractBytes(ctx, wasm, salt)
+	if err != nil {
+		return "", fmt.Errorf("failed to deploy rejecting receiver: %w", err)
+	}
+	return contractID, nil
+}
+
+// ReceiverLastValueU64ForChain reads the last_value_u64 from a CRE test receiver
+// directly from a CLDF stellar chain. Used by the write→read roundtrip test to
+// assert payload integrity (the first 8 bytes of the report payload as u64).
+func ReceiverLastValueU64ForChain(ctx context.Context, ch cldfstellar.Chain, contractID string) (uint64, error) {
+	deployer, err := stellardeployment.NewDeployerFromChain(ch)
+	if err != nil {
+		return 0, fmt.Errorf("failed to build stellar deployer: %w", err)
+	}
+
+	sv, err := deployer.SimulateContract(ctx, contractID, "last_value_u64", nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to simulate last_value_u64 on %s: %w", contractID, err)
+	}
+	if sv == nil {
+		return 0, fmt.Errorf("nil return from last_value_u64 on %s", contractID)
+	}
+	u64, ok := sv.GetU64()
+	if !ok {
+		return 0, fmt.Errorf("last_value_u64 did not return u64 (got scval type %v)", sv.Type)
+	}
+	return uint64(u64), nil
 }

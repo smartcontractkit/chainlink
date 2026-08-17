@@ -18,8 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -172,7 +170,6 @@ Name = "dummy"
 	// Verify config structure was parsed correctly
 	require.Len(t, cfg.ShardedDONs, 2, "should have 2 sharded DONs")
 	require.Len(t, cfg.Services, 2, "should have 2 services")
-	require.Empty(t, cfg.Dons, "legacy Dons should be empty")
 
 	// Verify donA config (2 shards, 4 nodes each)
 	require.Equal(t, "donA", cfg.ShardedDONs[0].DonName)
@@ -337,7 +334,7 @@ ServiceName = "svcA"
 	gatewayObj, err := gateway.NewGatewayFromConfig(cfg, factory, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	req := newJSONRpcRequest(t, "r1", "svcA.action1", []byte(`{}`))
 	response, statusCode := gatewayObj.ProcessRequest(ctx, req, "")
@@ -448,7 +445,7 @@ func TestGateway_ProcessRequest_ParseError(t *testing.T) {
 	t.Parallel()
 
 	gw, _ := newGatewayWithMockHandler(t)
-	response, statusCode := gw.ProcessRequest(testutils.Context(t), []byte("{{}"), "")
+	response, statusCode := gw.ProcessRequest(t.Context(), []byte("{{}"), "")
 	requireJSONRPCError(t, response, "", jsonrpc.ErrParse, "invalid character '{' looking for beginning of object key string")
 	require.Equal(t, 400, statusCode)
 }
@@ -461,7 +458,7 @@ func TestGateway_ProcessRequest_RequestIDTooLong(t *testing.T) {
 	longID := strings.Repeat("x", 201) // > 200 triggers the check
 	req := newJSONRpcRequest(t, longID, "testDON", []byte(`{"type":"new"}`))
 
-	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
+	response, statusCode := gw.ProcessRequest(t.Context(), req, "")
 	require.Equal(t, 400, statusCode)
 
 	expectedMsg := fmt.Sprintf("request ID is too long: %d. max is 200 characters", len(longID))
@@ -473,7 +470,7 @@ func TestGateway_ProcessRequest_MessageValidationError(t *testing.T) {
 
 	gw, _ := newGatewayWithMockHandler(t)
 	req := newSignedLegacyRequest(t, "abc", "request", api.NullChar, []byte{})
-	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
+	response, statusCode := gw.ProcessRequest(t.Context(), req, "")
 	requireJSONRPCError(t, response, "abc", jsonrpc.ErrParse, "DON ID ending with null bytes")
 	require.Equal(t, 400, statusCode)
 }
@@ -483,7 +480,7 @@ func TestGateway_ProcessRequest_MissingDonId(t *testing.T) {
 
 	gw, _ := newGatewayWithMockHandler(t)
 	req := newSignedLegacyRequest(t, "abc", "request", "", []byte{})
-	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
+	response, statusCode := gw.ProcessRequest(t.Context(), req, "")
 	requireJSONRPCError(t, response, "abc", jsonrpc.ErrInvalidRequest, "Service name not found: request")
 	require.Equal(t, 400, statusCode)
 }
@@ -493,7 +490,7 @@ func TestGateway_ProcessRequest_IncorrectDonId(t *testing.T) {
 
 	gw, _ := newGatewayWithMockHandler(t)
 	req := newSignedLegacyRequest(t, "abc", "request", "unknownDON", []byte{})
-	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
+	response, statusCode := gw.ProcessRequest(t.Context(), req, "")
 	requireJSONRPCError(t, response, "abc", jsonrpc.ErrInvalidParams, "Unsupported DON ID: unknownDON")
 	require.Equal(t, 400, statusCode)
 }
@@ -515,7 +512,7 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 
 	method := "request"
 	req := newSignedLegacyRequest(t, "abcd", method, "testDON", []byte{})
-	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
+	response, statusCode := gw.ProcessRequest(t.Context(), req, "")
 	requireJSONRPCResult(t, method, response, "abcd",
 		`{"signature":"","body":{"message_id":"abcd","method":"request","don_id":"testDON","receiver":"","payload":{"result":"OK"}}}`)
 	require.Equal(t, 200, statusCode)
@@ -543,7 +540,7 @@ func TestGateway_NewRequest_HandlerResponse(t *testing.T) {
 	})
 
 	req := newJSONRpcRequest(t, "abcd", "testDON", []byte(`{"type":"new"}`))
-	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
+	response, statusCode := gw.ProcessRequest(t.Context(), req, "")
 	requireJSONRPCResult(t, "testDON", response, "abcd", `{"result":"OK"}`)
 	require.Equal(t, 200, statusCode)
 }
@@ -553,7 +550,7 @@ func TestGateway_ProcessRequest_HandlerTimeout(t *testing.T) {
 
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	timeoutCtx, cancel := context.WithTimeout(testutils.Context(t), time.Millisecond*10)
+	timeoutCtx, cancel := context.WithTimeout(t.Context(), time.Millisecond*10)
 	defer cancel()
 
 	req := newSignedLegacyRequest(t, "abcd", "request", "testDON", []byte{})
@@ -569,7 +566,7 @@ func TestGateway_ProcessRequest_HandlerError(t *testing.T) {
 	handler.On("HandleLegacyUserMessage", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("failure"))
 
 	req := newSignedLegacyRequest(t, "abcd", "request", "testDON", []byte{})
-	response, statusCode := gw.ProcessRequest(testutils.Context(t), req, "")
+	response, statusCode := gw.ProcessRequest(t.Context(), req, "")
 	requireJSONRPCError(t, response, "abcd", jsonrpc.ErrInvalidRequest, "failure")
 	require.Equal(t, 400, statusCode)
 }
@@ -639,7 +636,7 @@ func TestGateway_NewStyleConfig_UserMessageRouting(t *testing.T) {
 		logger.Test(t),
 	)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// Test 1: workflows.execute should route to workflows handler
 	req := newJSONRpcRequest(t, "req1", "workflows.execute", []byte(`{"workflow_id":"abc"}`))
@@ -710,7 +707,7 @@ func TestGateway_NewStyleConfig_NodeResponseRouting(t *testing.T) {
 		logger.Test(t),
 	)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	// Send user requests to establish context in handlers
 	req := newJSONRpcRequest(t, "wf1", "workflows.execute", []byte(`{}`))
