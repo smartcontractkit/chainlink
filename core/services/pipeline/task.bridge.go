@@ -23,6 +23,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
@@ -187,6 +188,10 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		if obsErr != nil {
 			statusCode = http.StatusGatewayTimeout
 		}
+
+		elapsed := finish.Sub(start)
+		promBridgeLatency.WithLabelValues(t.Name, statusCodeGroup(statusCode)).Set(elapsed.Seconds())
+		promBridgeLatencyHist.WithLabelValues(t.Name, statusCodeGroup(statusCode)).Observe(float64(elapsed.Milliseconds()))
 
 		if telemetryCh := GetTelemetryCh(ctx); telemetryCh != nil {
 			requestDataJSON, jsonErr := json.Marshal(lookupPayload)
