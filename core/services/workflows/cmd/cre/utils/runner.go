@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )

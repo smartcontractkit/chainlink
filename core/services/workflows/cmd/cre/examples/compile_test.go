@@ -1,15 +1,12 @@
 package examples
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
+	"github.com/smartcontractkit/chainlink-common/pkg/wasmbuild"
 )
-
-const pathPrefix = "core/services/workflows/cmd/cre/examples"
 
 func Test_AllExampleWorkflowsCompileToWASM(t *testing.T) {
 	t.Parallel()
@@ -23,7 +20,10 @@ func Test_AllExampleWorkflowsCompileToWASM(t *testing.T) {
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
-			binary := wasmtest.GetTestBinary(t, filepath.Join(pathPrefix, path), false)
+			binary, err := wasmbuild.Compile(t.Context(), wasmbuild.Config{
+				PkgDir: path,
+			})
+			require.NoError(t, err)
 			require.NotEmpty(t, binary)
 		})
 	}

@@ -27,6 +27,7 @@ import (
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
