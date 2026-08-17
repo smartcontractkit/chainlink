@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
+	stvault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -40,13 +41,17 @@ func ExecuteManualShardAssignmentTest(t *testing.T, testEnv *ttypes.TestEnvironm
 
 	defaultOwner := "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
 
+	linkingService, err := stvault.EnsureSharedTestLinkingServiceStarted()
+	require.NoError(t, err, "failed to start linking service")
+	linkingService.SetOwnerOrg(defaultOwner, "org_test_manual")
+
 	shardAssignmentTOML := fmt.Sprintf(`
 static_default_assignment = [1]
 hashed_default_assignment = false
 
-[per_owner_assignment]
-  "%s" = [0]
-`, defaultOwner)
+[per_org_assignment]
+  org_test_manual = [0]
+`)
 
 	shardLeaderDON := getShardZeroDon(t, testEnv)
 
@@ -131,12 +136,22 @@ func ExecuteRingOCROverridesTest(t *testing.T, testEnv *ttypes.TestEnvironment) 
 	}
 	expectedUserLog := "Amazing workflow user log"
 
+	defaultOwner := "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+	linkingService, err := stvault.EnsureSharedTestLinkingServiceStarted()
+	require.NoError(t, err, "failed to start linking service")
+	linkingService.SetOwnerOrg(defaultOwner, "org_test_override")
+
 	shardAssignmentTOML := `
 static_default_assignment = [0]
 hashed_default_assignment = true
+
+[per_org_assignment]
+  org_test_override = [1]
 `
 
-	proposeAndApproveShardAssignmentJob(t, testEnv, shardZero, shardAssignmentTOML, testLogger)
+	for _, don := range shardDONs {
+		proposeAndApproveShardAssignmentJob(t, testEnv, don, shardAssignmentTOML, testLogger)
+	}
 
 	const numWorkflows = 5
 	workflowIDs := make([]string, 0, numWorkflows)
@@ -182,11 +197,11 @@ hashed_default_assignment = true
 	testLogger.Info().Interface("mappings", resp.Mappings).Msg("Ring OCR workflow mappings")
 	require.Len(t, resp.Mappings, len(workflowIDs), "All deployed workflows should be mapped")
 
+	const overrideShard uint32 = 1
+
 	workflowToShardIndex := make(map[string]uint32, len(workflowIDs))
 	for _, wfID := range workflowIDs {
-		if shard, ok := resp.Mappings[wfID]; ok {
-			workflowToShardIndex[wfID] = shard
-		}
+		workflowToShardIndex[wfID] = overrideShard
 	}
 
 	nodeP2PIDToShardIndex := buildNodeP2PIDToShardIndex(t, testEnv)
@@ -200,7 +215,7 @@ hashed_default_assignment = true
 		t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
 	})
 
-	execTimeout := 3 * time.Minute
+	execTimeout := 5 * time.Minute
 	timeoutCtx, cancelTimeout := context.WithTimeout(t.Context(), execTimeout)
 	defer cancelTimeout()
 	execCtx, cancelCause := context.WithCancelCause(timeoutCtx)

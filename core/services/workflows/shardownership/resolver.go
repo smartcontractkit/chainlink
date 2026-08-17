@@ -19,6 +19,10 @@ type ShardResolver interface {
 	ResolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error)
 }
 
+type OrgResolver interface {
+	Get(ctx context.Context, owner string) (string, error)
+}
+
 type ringOCRShardResolver struct {
 	client shardorchestrator.ClientInterface
 	lggr   logger.Logger
@@ -62,23 +66,24 @@ func (r *ringOCRShardResolver) GetRoutingResponse(ctx context.Context, workflowI
 }
 
 type manualShardResolver struct {
-	settings *loop.AtomicSettings
-	lggr     logger.Logger
+	settings    *loop.AtomicSettings
+	orgResolver OrgResolver
+	lggr        logger.Logger
 }
 
-func NewManualShardResolver(settings *loop.AtomicSettings, lggr logger.Logger) ShardResolver {
-	return &manualShardResolver{settings: settings, lggr: logger.Named(lggr, "ManualShardResolver")}
+func NewManualShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, lggr logger.Logger) ShardResolver {
+	return &manualShardResolver{settings: settings, orgResolver: orgResolver, lggr: logger.Named(lggr, "ManualShardResolver")}
 }
 
-func (m *manualShardResolver) ResolveShard(_ context.Context, _ string, ownerHex string) (uint32, bool, error) {
+func (m *manualShardResolver) ResolveShard(ctx context.Context, _ string, ownerHex string) (uint32, bool, error) {
 	cfg, err := loadShardAssignmentConfig(m.settings)
 	if err != nil || cfg == nil {
 		return 0, false, err
 	}
-	return resolveManual(cfg, ownerHex)
+	return resolveManual(ctx, cfg, ownerHex, m.orgResolver)
 }
 
-func (m *manualShardResolver) ResolveShards(_ context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {
+func (m *manualShardResolver) ResolveShards(ctx context.Context, workflowIDs []string, ownerHexes []string) (map[string]uint32, error) {
 	cfg, err := loadShardAssignmentConfig(m.settings)
 	if err != nil {
 		return nil, err
@@ -91,7 +96,7 @@ func (m *manualShardResolver) ResolveShards(_ context.Context, workflowIDs []str
 		if i >= len(ownerHexes) {
 			break
 		}
-		shardID, found, err := resolveManual(cfg, ownerHexes[i])
+		shardID, found, err := resolveManual(ctx, cfg, ownerHexes[i], m.orgResolver)
 		if err != nil {
 			return nil, err
 		}
@@ -113,11 +118,20 @@ func loadShardAssignmentConfig(settings *loop.AtomicSettings) (*cresettings.Shar
 	return cresettings.ParseShardAssignmentConfig(update.Settings)
 }
 
-func resolveManual(cfg *cresettings.ShardAssignmentConfig, ownerHex string) (uint32, bool, error) {
+func resolveManual(ctx context.Context, cfg *cresettings.ShardAssignmentConfig, ownerHex string, orgResolver OrgResolver) (uint32, bool, error) {
 	owner := normalizeOwner(ownerHex)
 
 	if shards, ok := cfg.PerOwnerAssignment[owner]; ok && len(shards) > 0 {
 		return shards[0], true, nil
+	}
+
+	if orgResolver != nil && len(cfg.PerOrgAssignment) > 0 {
+		orgID, err := orgResolver.Get(ctx, ownerHex)
+		if err == nil && orgID != "" {
+			if shards, ok := cfg.PerOrgAssignment[orgID]; ok && len(shards) > 0 {
+				return shards[0], true, nil
+			}
+		}
 	}
 
 	if cfg.HashedOwnerAssignment[owner] {
@@ -136,16 +150,18 @@ func resolveManual(cfg *cresettings.ShardAssignmentConfig, ownerHex string) (uin
 }
 
 type overrideShardResolver struct {
-	manual  *manualShardResolver
-	ringOCR ShardResolver
-	lggr    logger.Logger
+	manual      *manualShardResolver
+	orgResolver OrgResolver
+	ringOCR     ShardResolver
+	lggr        logger.Logger
 }
 
-func NewOverrideShardResolver(settings *loop.AtomicSettings, ringOCR ShardResolver, lggr logger.Logger) ShardResolver {
+func NewOverrideShardResolver(settings *loop.AtomicSettings, orgResolver OrgResolver, ringOCR ShardResolver, lggr logger.Logger) ShardResolver {
 	return &overrideShardResolver{
-		manual:  &manualShardResolver{settings: settings, lggr: logger.Named(lggr, "ManualShardResolver")},
-		ringOCR: ringOCR,
-		lggr:    logger.Named(lggr, "OverrideShardResolver"),
+		manual:      &manualShardResolver{settings: settings, orgResolver: orgResolver, lggr: logger.Named(lggr, "ManualShardResolver")},
+		orgResolver: orgResolver,
+		ringOCR:     ringOCR,
+		lggr:        logger.Named(lggr, "OverrideShardResolver"),
 	}
 }
 
@@ -155,18 +171,12 @@ func (o *overrideShardResolver) ResolveShard(ctx context.Context, workflowID str
 		return 0, false, err
 	}
 	if cfg != nil {
-		owner := normalizeOwner(ownerHex)
-		if shards, ok := cfg.PerOwnerAssignment[owner]; ok && len(shards) > 0 {
-			return shards[0], true, nil
+		shardID, found, err := resolveManual(ctx, cfg, ownerHex, o.orgResolver)
+		if err != nil {
+			return 0, false, err
 		}
-		if cfg.HashedOwnerAssignment[owner] {
-			return o.ringOCR.ResolveShard(ctx, workflowID, ownerHex)
-		}
-		if cfg.HashedDefaultAssignment {
-			return o.ringOCR.ResolveShard(ctx, workflowID, ownerHex)
-		}
-		if len(cfg.StaticDefaultAssignment) > 0 {
-			return cfg.StaticDefaultAssignment[0], true, nil
+		if found {
+			return shardID, true, nil
 		}
 	}
 	return o.ringOCR.ResolveShard(ctx, workflowID, ownerHex)
@@ -188,20 +198,15 @@ func (o *overrideShardResolver) ResolveShards(ctx context.Context, workflowIDs [
 		if i >= len(ownerHexes) {
 			break
 		}
-		owner := normalizeOwner(ownerHexes[i])
-		if shards, ok := cfg.PerOwnerAssignment[owner]; ok && len(shards) > 0 {
-			result[wfID] = shards[0]
-			continue
+		shardID, found, err := resolveManual(ctx, cfg, ownerHexes[i], o.orgResolver)
+		if err != nil {
+			return nil, err
 		}
-		if cfg.HashedOwnerAssignment[owner] || cfg.HashedDefaultAssignment {
+		if found {
+			result[wfID] = shardID
+		} else {
 			ringWorkflowIDs = append(ringWorkflowIDs, wfID)
-			continue
 		}
-		if len(cfg.StaticDefaultAssignment) > 0 {
-			result[wfID] = cfg.StaticDefaultAssignment[0]
-			continue
-		}
-		ringWorkflowIDs = append(ringWorkflowIDs, wfID)
 	}
 
 	if len(ringWorkflowIDs) > 0 {

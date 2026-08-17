@@ -13,6 +13,7 @@ func TestParseShardAssignmentConfig_Empty(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, cfg.StaticDefaultAssignment)
 	assert.Empty(t, cfg.PerOwnerAssignment)
+	assert.Empty(t, cfg.PerOrgAssignment)
 	assert.Empty(t, cfg.HashedOwnerAssignment)
 	assert.False(t, cfg.HashedDefaultAssignment)
 }
@@ -50,6 +51,52 @@ func TestParseShardAssignmentConfig_OwnerNormalization(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []uint32{1}, cfg.PerOwnerAssignment["f39fd6e51aad88f6f4ce6ab8827279cfffb92266"])
 	assert.Equal(t, []uint32{0}, cfg.PerOwnerAssignment["70997970c51812dc3a010c7d01b50e0d17dc79c8"])
+}
+
+func TestParseShardAssignmentConfig_PerOrgAssignment(t *testing.T) {
+	t.Parallel()
+	raw := `
+static_default_assignment = [0]
+
+[per_org_assignment]
+  org_4wfzBbaifbL32SMN = [1, 2]
+  org_mE8piSzea082U52J = [0, 2]
+`
+	cfg, err := ParseShardAssignmentConfig(raw)
+	require.NoError(t, err)
+	assert.Len(t, cfg.PerOrgAssignment, 2)
+	assert.Equal(t, []uint32{1, 2}, cfg.PerOrgAssignment["org_4wfzBbaifbL32SMN"])
+	assert.Equal(t, []uint32{0, 2}, cfg.PerOrgAssignment["org_mE8piSzea082U52J"])
+}
+
+func TestParseShardAssignmentConfig_PerOrgAndPerOwner(t *testing.T) {
+	t.Parallel()
+	raw := `
+static_default_assignment = [0]
+
+[per_owner_assignment]
+  "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266" = [1]
+
+[per_org_assignment]
+  org_4wfzBbaifbL32SMN = [2]
+`
+	cfg, err := ParseShardAssignmentConfig(raw)
+	require.NoError(t, err)
+	assert.Len(t, cfg.PerOwnerAssignment, 1)
+	assert.Len(t, cfg.PerOrgAssignment, 1)
+	assert.Equal(t, []uint32{1}, cfg.PerOwnerAssignment["f39fd6e51aad88f6f4ce6ab8827279cfffb92266"])
+	assert.Equal(t, []uint32{2}, cfg.PerOrgAssignment["org_4wfzBbaifbL32SMN"])
+}
+
+func TestParseShardAssignmentConfig_EmptyPerOrgShardList(t *testing.T) {
+	t.Parallel()
+	raw := `
+[per_org_assignment]
+  org_4wfzBbaifbL32SMN = []
+`
+	_, err := ParseShardAssignmentConfig(raw)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "must not be empty")
 }
 
 func TestParseShardAssignmentConfig_HashedDefaultTrue(t *testing.T) {
