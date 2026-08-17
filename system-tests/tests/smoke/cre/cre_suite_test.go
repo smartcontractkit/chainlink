@@ -34,25 +34,44 @@ To execute tests start the local CRE first:
  1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-chip-ingress-stack` (deprecated: `--with-beholder`)
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_"`.
 */
-func Test_CRE_V2_Suite_Bucket_A(t *testing.T) {
-	runSuiteBucket(t, suite_config.SuiteBucketA)
+func TestCRE_V2_Suite_Bucket_A_E2E(t *testing.T) {
+	runSuiteBucket(t, suite_config.SuiteBucketA, topology)
 }
 
-func Test_CRE_V2_Suite_Bucket_B(t *testing.T) {
-	runSuiteBucket(t, suite_config.SuiteBucketB)
+func TestCRE_V2_Suite_Bucket_B_E2E(t *testing.T) {
+	vaultTopologies := []string{
+		"workflow-gateway-capabilities",
+		"workflow-gateway-capabilities-vault-jwt_auth-enabled",
+		"workflow-gateway-capabilities-vault-optimizations-enabled",
+		"workflow-gateway-capabilities-vault-stall-purge",
+	}
+
+	if topology != "" {
+		runSuiteBucket(t, suite_config.SuiteBucketB, topology)
+		return
+	}
+
+	for _, top := range vaultTopologies {
+		t.Run(top, func(t *testing.T) {
+			if parallelEnabled {
+				t.Parallel()
+			}
+			runSuiteBucket(t, suite_config.SuiteBucketB, top)
+		})
+	}
 }
 
-func Test_CRE_V2_Suite_Bucket_C(t *testing.T) {
-	runSuiteBucket(t, suite_config.SuiteBucketC)
+func TestCRE_V2_Suite_Bucket_C_E2E(t *testing.T) {
+	runSuiteBucket(t, suite_config.SuiteBucketC, topology)
 }
 
-func runSuiteBucket(t *testing.T, bucket suite_config.SuiteBucket) {
+func runSuiteBucket(t *testing.T, bucket suite_config.SuiteBucket, top string) {
 	require.NoError(t, suite_config.ValidateSuiteBucketRegistry(), "invalid suite bucket registry")
 
 	scenarios, err := suite_config.ScenariosForSuiteBucket(bucket)
 	require.NoErrorf(t, err, "failed to load suite bucket %q", bucket)
 
-	executeSuiteScenarios(t, topology, scenarios)
+	executeSuiteScenarios(t, top, scenarios)
 }
 
 func executeSuiteScenarios(t *testing.T, topology string, scenarios []suite_config.SuiteScenario) {
@@ -204,7 +223,7 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 	}
 }
 
-func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
+func TestCRE_V2_EVM_Write_LogTrigger_E2E(t *testing.T) {
 	t.Run("EVM Write - "+topology, func(t *testing.T) {
 		if parallelEnabled {
 			t.Parallel()
@@ -223,15 +242,15 @@ func Test_CRE_V2_EVM_Write_LogTrigger(t *testing.T) {
 	})
 }
 
-func Test_CRE_V2_EVM_Read_HeavyCalls(t *testing.T) {
+func TestCRE_V2_EVM_Read_HeavyCalls_E2E(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketHeavyCalls)
 }
 
-func Test_CRE_V2_EVM_Read_StateQueries(t *testing.T) {
+func TestCRE_V2_EVM_Read_StateQueries_E2E(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketStateQueries)
 }
 
-func Test_CRE_V2_EVM_Read_TxArtifacts(t *testing.T) {
+func TestCRE_V2_EVM_Read_TxArtifacts_E2E(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketTxArtifacts)
 }
 
@@ -250,14 +269,14 @@ func runEVMReadBucket(t *testing.T, bucket evm_config.ReadBucket) {
 const solanaConfigPath = "/configs/workflow-don-solana.toml"
 
 //nolint:paralleltest // isolate local cre env run
-func Test_CRE_V2_Solana_Write(t *testing.T) {
+func TestCRE_V2_Solana_Write_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana Write", func(t *testing.T) {
 		ExecuteSolanaWriteTest(t, testEnv)
 	})
 }
 
-func Test_CRE_V2_Solana_LogTrigger(t *testing.T) {
+func TestCRE_V2_Solana_LogTrigger_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana LogTrigger", func(t *testing.T) {
 		ExecuteSolanaLogTriggerTest(t, testEnv)
@@ -268,17 +287,17 @@ func Test_CRE_V2_Solana_LogTrigger(t *testing.T) {
 }
 
 //nolint:paralleltest // single test
-func Test_CRE_V2_Solana_Read_Accounts(t *testing.T) {
+func TestCRE_V2_Solana_Read_Accounts_E2E(t *testing.T) {
 	runSolanaReadBucket(t, solana_config.ReadBucketAccountCalls)
 }
 
 //nolint:paralleltest // single test
-func Test_CRE_V2_Solana_Read_Block(t *testing.T) {
+func TestCRE_V2_Solana_Read_Block_E2E(t *testing.T) {
 	runSolanaReadBucket(t, solana_config.ReadBucketBlockCalls)
 }
 
 //nolint:paralleltest // single test
-func Test_CRE_V2_Solana_Read_Tx(t *testing.T) {
+func TestCRE_V2_Solana_Read_Tx_E2E(t *testing.T) {
 	runSolanaReadBucket(t, solana_config.ReadBucketTxCalls)
 }
 
@@ -294,7 +313,7 @@ func runSolanaReadBucket(t *testing.T, bucket solana_config.ReadBucket) {
 	})
 }
 
-func Test_CRE_V2_Aptos_Suite(t *testing.T) {
+func TestCRE_V2_Aptos_Suite_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-aptos.toml"))
 	t.Run("Aptos", func(t *testing.T) {
 		ExecuteAptosTest(t, testEnv)
@@ -302,7 +321,7 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 }
 
 //nolint:paralleltest // isolate local cre env run
-func Test_CRE_V2_Stellar_Suite(t *testing.T) {
+func TestCRE_V2_Stellar_Suite_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
 
 	t.Run("Stellar GetLatestLedger", func(t *testing.T) {
@@ -324,31 +343,31 @@ func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 	})
 }
 
-func Test_CRE_V2_Module_Cache(t *testing.T) {
+func TestCRE_V2_Module_Cache_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-cache-test.toml"))
 
 	ExecuteModuleCacheTest(t, testEnv)
 }
 
-func Test_CRE_V2_HTTP_Action_Regression_Suite(t *testing.T) {
+func TestCRE_V2_HTTP_Action_Regression_Suite_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	ExecuteHTTPActionRegressionTest(t, testEnv)
 }
 
-func Test_CRE_V2_Beholder_Suite(t *testing.T) {
+func TestCRE_V2_Beholder_Suite_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), "--with-dashboards")
 
 	ExecuteLogStreamingTest(t, testEnv)
 }
 
-func Test_CRE_V2_DurableEmitter(t *testing.T) {
+func TestCRE_V2_DurableEmitter_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	ExecuteDurableEmitterTest(t, testEnv)
 }
 
 //nolint:paralleltest // subtests share the same sharding config
-func Test_CRE_V2_Sharding(t *testing.T) {
+func TestCRE_V2_Sharding_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
@@ -364,7 +383,7 @@ func Test_CRE_V2_Sharding(t *testing.T) {
 }
 
 //nolint:paralleltest // subtests share the same sharding config
-func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
+func TestCRE_V2_ShardManualAssignment_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
@@ -373,7 +392,7 @@ func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
 }
 
 //nolint:paralleltest // subtests share the same sharding config
-func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
+func TestCRE_V2_ShardRingOCROverrides_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-ringocr-overrides.toml"),

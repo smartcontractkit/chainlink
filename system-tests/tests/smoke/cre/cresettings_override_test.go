@@ -45,7 +45,7 @@ const (
 )
 
 //nolint:paralleltest // mutates settings on the shared environment; must run serially
-func Test_CRE_CRESettings_Override(t *testing.T) {
+func TestCRE_CRESettings_Override_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 
 	// 1) Workflow scope (preferred) — isolated to a single workflow. Reverted explicitly

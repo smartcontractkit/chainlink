@@ -116,11 +116,11 @@ jobs:
         run: |
           # Tests worth running under mixed-env: the OCR3/DON2DON-heavy ones.
           TESTS='[
-            "Test_CRE_V2_Suite_Bucket_A",
-            "Test_CRE_V2_Suite_Bucket_B",
-            "Test_CRE_V2_EVM_Read_HeavyCalls",
-            "Test_CRE_V2_EVM_Read_StateQueries",
-            "Test_CRE_V2_EVM_Read_TxArtifacts"
+            "TestCRE_V2_Suite_Bucket_A_E2E",
+            "TestCRE_V2_Suite_Bucket_B_E2E",
+            "TestCRE_V2_EVM_Read_HeavyCalls_E2E",
+            "TestCRE_V2_EVM_Read_StateQueries_E2E",
+            "TestCRE_V2_EVM_Read_TxArtifacts_E2E"
           ]'
           matrix=$(jq -c -n \
             --argjson tests "$TESTS" \

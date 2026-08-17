@@ -72,84 +72,24 @@ jobs:
           ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
       - name: Define test matrix
         id: define-matrix
-        shell: bash
         run: |
-          TOPOLOGIES_JSON='[
-            {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"}
-          ]'
-
-          PER_TEST_TOPOLOGIES_JSON='{
-            "Test_CRE_V2_Suite_Bucket_B": [
-               {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
-               {"topology":"workflow-gateway-capabilities-vault-jwt_auth-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"},
-               {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"},
-               {"topology":"workflow-gateway-capabilities-vault-stall-purge","configs":"configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"}
-             ],
-            "Test_CRE_V2_Aptos_Suite": [
-               {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
-             ],
-            "Test_CRE_V2_Stellar_Suite": [
-               {"topology":"workflow-gateway-stellar","configs":"configs/workflow-gateway-don-stellar.toml"}
-             ],
-            "Test_CRE_V2_Solana_Write": [
-               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
-             ],
-            "Test_CRE_V2_Solana_LogTrigger": [
-               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
-             ],
-            "Test_CRE_V2_Solana_Read_Accounts": [
-               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
-             ],
-          "Test_CRE_V2_Solana_Read_Block": [
-               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
-             ],
-          "Test_CRE_V2_Solana_Read_Tx": [
-               {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
-             ],
-            "Test_CRE_V2_Sharding": [
-               {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
-             ],
-            "Test_CRE_V2_ShardManualAssignment": [
-               {"topology":"workflow-gateway-sharded-manual","configs":"configs/workflow-gateway-sharded-manual.toml"}
-             ],
-            "Test_CRE_V2_ShardRingOCROverrides": [
-               {"topology":"workflow-gateway-sharded-ringocr-overrides","configs":"configs/workflow-gateway-sharded-ringocr-overrides.toml"}
-             ],
-            "Test_CRE_V2_Module_Cache": [
-               {"topology":"workflow-gateway-cache-test","configs":"configs/workflow-gateway-don-cache-test.toml"}
-             ],
-            "Test_CRE_V2_HTTP_Action_Multi_Gateway": [
-               {"topology":"workflow-gateway-capabilities-multi-gateway","configs":"configs/workflow-gateway-capabilities-multi-gateway-don.toml"}
-             ]
-          }'
-
-          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/smoke/cre/*_test.go | grep -v Test_Upgrade | grep -v '^TestMain$')
-
-          tests=$(echo "$test_names" | jq -c -R -s \
-            --argjson run_id "${{ github.run_id }}" \
-            --arg run_attempt "${{ github.run_attempt }}" \
-            --argjson tops "$TOPOLOGIES_JSON" \
-            --argjson per "$PER_TEST_TOPOLOGIES_JSON" '
-            (split("\n") | map(select(length>0))) as $names
-            | [ $names[] as $name | $tops[] | {test_name:$name} + . ] as $baseAll
-            | ($baseAll | map(select(.test_name as $n | ($per[$n] | type) == "array" | not))) as $base
-            | [ $per | to_entries[] as $e
-                | $e.value[] | {test_name: $e.key} + .
-              ] as $extra
-            | ($base + $extra)
-            | to_entries
-            | map(.value + {
-                test_id: .key,
-                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
-              })
-          ')
-
-          echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
+          go run ./tools/ci-matrix \
+            --dir=system-tests/tests/smoke/cre \
+            --pattern='^TestCRE_.*_E2E$' \
+            --run-id='${{ github.run_id }}' \
+            --attempt='${{ github.run_attempt }}' \
+            --github-output
 
   run-system-tests:
-    name: ${{ matrix.tests.test_name }} ${{ matrix.tests.topology != '' && format(' ({0})', matrix.tests.topology) || '' }}
+    name: ${{ matrix.tests.test_name }}
     permissions:
       contents: read
       id-token: write
@@ -244,7 +184,7 @@ jobs:
           fi
 
       - name: Setup Aptos CLI
-        if: ${{ matrix.tests.test_name == 'Test_CRE_V2_Aptos_Suite' }}
+        if: ${{ contains(matrix.tests.test_name, 'Aptos') }}
         uses: ./.github/actions/setup-aptos
         with:
           version: "7.8.0"
@@ -336,7 +276,7 @@ jobs:
           chainlink-image: "${{ env.CHAINLINK_IMAGE_FULL }}"
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
-          ctf-configs: ${{ matrix.tests.configs }}
+          ctf-configs: ${{ matrix.tests.configs || 'configs/workflow-gateway-capabilities-don.toml' }}
           retry-count: "3"
           retry-delay-seconds: "15"
           cleanup-on-error: "false"
