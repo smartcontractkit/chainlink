@@ -6,6 +6,7 @@ GitHub Actions in the Chainlink Go monorepo.
 - Prefer runs-on runners when ubuntu-latest is insufficient.
 - Minimize YAML and shell in workflows.
 - Resolve smartcontractkit/.github from a local clone. Ask the user for the path if you cannot find it.
+- Use `echo "key=value" | tee -a "$GITHUB_OUTPUT"` instead of `echo "key=value" >> "${GITHUB_OUTPUT}"`
 </rules>
 
 <docs>

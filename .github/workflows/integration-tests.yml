@@ -541,7 +541,7 @@ jobs:
       }}
     needs:
       - test-setup
-    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i+c8i/spot=co/volume=100GB/extras=s3-cache
+    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c8in+c6in/spot=co/volume=100gb:gp3:500mbs:4000iops/extras=s3-cache
     environment:
       name: integration
       deployment: false
@@ -571,19 +571,33 @@ jobs:
 
       - name: Set up Go for compilation
         id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        uses: actions/setup-go@v7
         with:
-          # Key the cache on go.sum hash; restore-only on PRs to eliminate upload overhead and cache thrashing.
-          go_mod_path: ./system-tests/tests/go.mod
-          cache_key_id: integration-tests-v1
-          cache_builds: true
-          cache_restore_only: ${{ github.ref_name != 'develop' }}
-          should_tidy: false
-          no_cache: false
-          gati_token: ${{ steps.github-token.outputs.access-token }}
+          go-version-file: system-tests/tests/go.mod
+          cache: true
+          cache-dependency-path: |
+            system-tests/tests/go.sum
+            integration-tests/go.sum
 
-      # No cache-hit short-circuit: ctf-setup-go@v0.4.0 exposes no `cache-hit` output,
-      # and this job's purpose is to (re)populate the shared build cache regardless.
+      - name: Configure Go private modules
+        shell: bash
+        run: go env -w GOPRIVATE=github.com/smartcontractkit/*
+
+      - name: Compute WASM cache key
+        id: wasm-key
+        shell: bash
+        run: |
+          echo "key=${{ runner.os }}-${{ runner.arch }}-wasmcache-${{ hashFiles('go.mod', 'go.sum', 'system-tests/tests/go.mod', 'system-tests/tests/go.sum', 'system-tests/lib/**', 'core/capabilities/compute/**', 'core/services/workflows/**') }}" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Restore WASM test binaries cache
+        id: wasm-cache-restore
+        uses: actions/cache/restore@v6
+        with:
+          path: .wasm-cache/
+          key: ${{ steps.wasm-key.outputs.key }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-wasmcache-
+
       - name: Compile E2E tests
         shell: bash
         env:
@@ -593,6 +607,11 @@ jobs:
           set -euo pipefail
           mkdir -p "$GITHUB_WORKSPACE/.gotmp"
           export GOTMPDIR="$GITHUB_WORKSPACE/.gotmp"
+
+          # Restored mod cache contains shallow VCS clones that can be in an
+          # inconsistent state after tar restore, breaking fetches of new
+          # pseudo-versions ("shallow file has changed since we read it").
+          rm -rf "$(go env GOMODCACHE)/cache/vcs"
 
           mkdir -p "$GITHUB_WORKSPACE/system-tests/tests/bin"
           mkdir -p "$GITHUB_WORKSPACE/integration-tests/bin"
@@ -640,6 +659,13 @@ jobs:
           if [ -n "$ccip_pid" ]; then wait "$ccip_pid"; fi
 
           rm -rf "$GITHUB_WORKSPACE/.gotmp"
+
+      - name: Save WASM test binaries cache
+        if: steps.wasm-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: .wasm-cache/
+          key: ${{ steps.wasm-key.outputs.key }}
 
       - name: Cache Pre-Compiled CRE Test Binaries
         if: needs.test-setup.outputs.cre-should-run == 'true'

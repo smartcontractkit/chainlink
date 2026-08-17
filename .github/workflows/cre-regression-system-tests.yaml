@@ -158,11 +158,10 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go
-        id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        uses: actions/setup-go@v7
         with:
-          go_mod_path: system-tests/tests/go.mod
-          no_cache: true
+          go-version-file: system-tests/tests/go.mod
+          cache: false
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6
@@ -268,7 +267,7 @@ jobs:
 
           exit_code="$?"
           if [ "$exit_code" -eq 0 ]; then
-            echo "tests_result=✅ Tests passed" >> "$GITHUB_OUTPUT"
+            echo "tests_result=✅ Tests passed" | tee -a "$GITHUB_OUTPUT"
           fi
 
           echo "⚠️⚠️⚠️ Add 'skip-e2e-regression' label to skip this step if necessary ⚠️⚠️⚠️"
