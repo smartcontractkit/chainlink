@@ -598,6 +598,14 @@ for the wrong reason; (2) there could be a second, still-undiscovered skip path 
 - **K5 — Richer Apply tab (E3 follow-up).** Show visual stage/phase progress, not just a raw log stream; make the log
   pane optional and collapsed by default; error events should persist until the user dismisses them rather than
   scrolling away in the stream.
+- **K6 — Remove the namespace shown under the page title.** A single namespace no longer reflects reality — a
+  reconciler-managed set of DONs can span multiple namespaces — so pinning one in the header is misleading. Drop it
+  (namespace is still available per-node/per-chart where it's actually accurate).
+- **K7 — Promote Apply to a primary, always-visible action.** Add a big green "Apply" button to the left of the
+  existing "Save" button (main nav/header area, not buried in the Apply tab) — this is the primary action point for
+  the tool. Clicking it should switch to the Apply tab *and* immediately trigger a run (reusing E3's existing
+  save-before-apply flow, K5's richer progress view once that lands), rather than requiring the user to navigate to
+  the tab and click Run Apply separately.
 
 ---
 
