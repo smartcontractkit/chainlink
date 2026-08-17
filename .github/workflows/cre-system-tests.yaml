@@ -81,7 +81,7 @@ jobs:
       - name: Define test matrix
         id: define-matrix
         run: |
-          go run ./tools/ci-matrix \
+          go -C tools/ci run . matrix \
             --dir=system-tests/tests/smoke/cre \
             --pattern='^TestCRE_.*_E2E$' \
             --run-id='${{ github.run_id }}' \
