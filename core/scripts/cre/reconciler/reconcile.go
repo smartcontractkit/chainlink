@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/infra"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/nodeconfig"
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/onchain"
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 // Reconciler orchestrates the full reconcile flow.
@@ -30,6 +29,16 @@ type Reconciler struct {
 	confirm           bool
 	restartWorkerPods bool
 	waitAtBreakpoint  bool
+	breakpointWaiter  func(ctx context.Context, instructions string) error
+}
+
+// SetBreakpointWaiter overrides the CLI's blocking Scanln/exit-42 breakpoint
+// handoff (see injectTOML) with a caller-supplied waiter — used by the UI's
+// streaming apply endpoint to pause in-process until the operator confirms
+// via a separate request, instead of blocking on stdin or exiting. Pass nil
+// to restore the default CLI behavior.
+func (r *Reconciler) SetBreakpointWaiter(waiter func(ctx context.Context, instructions string) error) {
+	r.breakpointWaiter = waiter
 }
 
 // NewReconciler creates a Reconciler from the CLI flags. The deployer key is
@@ -95,16 +104,6 @@ func NewReconciler(desiredPath, statePath, chartDir, kubeconfig, env string, con
 	}, nil
 }
 
-// onChainComplete reports whether the on-chain deploy+configure phase actually
-// finished (contracts deployed, DON IDs resolved, workflow registry configured).
-// Phase alone is not reliable because older runs could mark phase=done before
-// on-chain was implemented.
-func (r *Reconciler) onChainComplete() bool {
-	return r.state.WorkflowReg != nil &&
-		r.state.HasAddress(keystone_changeset.CapabilitiesRegistry.String()) &&
-		len(r.state.DONIDs) > 0
-}
-
 // Run executes the full reconcile flow: discovery → provisioning → config-write → job-sync.
 // It persists state after each phase and returns ErrBreakpoint if the TOML breakpoint
 // is reached and --wait-at-breakpoint=false.
@@ -117,27 +116,30 @@ func (r *Reconciler) Run(ctx context.Context) error {
 		return errors.Wrap(err, "discovery failed")
 	}
 
-	// Runs unconditionally, every invocation — including once on-chain work is
-	// already complete and Apply would otherwise be skipped below — so a node
-	// label that broke after the initial apply is still caught.
-	if err := onchain.ValidateNodeLabels(r.desired, r.cv, r.state); err != nil {
+	// Runs unconditionally, every invocation, so a node label that broke after
+	// the initial apply is still caught.
+	if err := onchain.ValidateNodeLabels(ctx, r.desired, r.cv, r.state); err != nil {
 		return errors.Wrap(err, "node label preflight failed")
 	}
 
 	d := onchain.NewDeployer(r.k8s, r.log, r.confirmStep)
 
-	var onChainChanged bool
-	if !r.onChainComplete() {
-		if err := r.requireDiscoveryComplete(); err != nil {
-			return err
-		}
-		changed, err := d.Apply(ctx, r.desired, r.cv, r.state, r.persistState)
-		if err != nil {
-			return errors.Wrap(err, "on-chain provisioning failed")
-		}
-		onChainChanged = changed
-		r.persistState()
+	// Always call Apply — it must not be skipped just because on-chain state
+	// already looks "complete" (contracts deployed, DON IDs resolved, workflow
+	// registry configured): that coarse check can't see a desired-state change
+	// (e.g. a DON's capability list) that needs PreEnvStartup/Configure CapReg
+	// or Configure WorkflowReg to re-run. Apply already gates each of those
+	// phases internally (actual-state check for deploy, per-phase input hash
+	// for the rest — see hash.go), so it correctly no-ops when nothing changed;
+	// skipping the call to Apply entirely bypassed that hash comparison outright.
+	if err := r.requireDiscoveryComplete(); err != nil {
+		return err
 	}
+	onChainChanged, err := d.Apply(ctx, r.desired, r.cv, r.state, r.persistState)
+	if err != nil {
+		return errors.Wrap(err, "on-chain provisioning failed")
+	}
+	r.persistState()
 
 	// injectTOML runs every time (no one-shot gate): it diffs freshly generated
 	// TOML against the chart's current layer per node and is a no-op — no patch,
@@ -404,7 +406,7 @@ func (r *Reconciler) discover(ctx context.Context) error {
 }
 
 // T1: Generate TOML patch for all nodes and write into chart values.
-func (r *Reconciler) injectTOML(_ context.Context) error {
+func (r *Reconciler) injectTOML(ctx context.Context) error {
 	r.log.Info().Msg("=== T1: TOML injection ===")
 
 	if err := r.refreshNodeConfigFiles(); err != nil {
@@ -574,7 +576,15 @@ func (r *Reconciler) injectTOML(_ context.Context) error {
 
 	r.state.Phase = domain.PhaseConfigWritten
 
-	r.printBreakpointInstructions()
+	instructions := r.breakpointInstructionsText()
+	if r.breakpointWaiter != nil {
+		if err := r.breakpointWaiter(ctx, instructions); err != nil {
+			return err
+		}
+		return nil // continue in-process to syncJobs (which restores gateway handlers)
+	}
+
+	fmt.Print(instructions)
 	if r.waitAtBreakpoint {
 		fmt.Print("  4. Press Enter here to continue once the nodes have re-rolled (Ctrl-C to abort)... ")
 		var resp string
@@ -831,15 +841,15 @@ func (r *Reconciler) persistState() {
 	}
 }
 
-func (r *Reconciler) printBreakpointInstructions() {
-	fmt.Println()
-	fmt.Println("========================================================")
-	fmt.Println("  TOML patch written! Manual steps required:")
-	fmt.Println("========================================================")
-	fmt.Println()
-	fmt.Printf("  1. Commit the patched chart values YAML")
-	fmt.Printf("  2. Run: .deploy %s\n", r.desired.JD.Environment)
-	fmt.Println("  3. Wait for the nodes to re-roll")
+func (r *Reconciler) breakpointInstructionsText() string {
+	var b strings.Builder
+	b.WriteString("\n========================================================\n")
+	b.WriteString("  TOML patch written! Manual steps required:\n")
+	b.WriteString("========================================================\n\n")
+	b.WriteString("  1. Commit the patched chart values YAML\n")
+	fmt.Fprintf(&b, "  2. Run: .deploy %s\n", r.desired.JD.Environment)
+	b.WriteString("  3. Wait for the nodes to re-roll\n")
+	return b.String()
 }
 
 func truncStr(s string, n int) string {

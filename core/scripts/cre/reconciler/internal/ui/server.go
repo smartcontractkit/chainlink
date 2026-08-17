@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -21,6 +23,20 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/nodeconfig"
 )
 
+// ApplyRunner executes the reconcile apply flow for the UI's streaming apply
+// endpoint: log lines go to the supplied logger, and onBreakpoint is invoked
+// (instead of the CLI's blocking stdin prompt / exit-42 handoff) when the
+// TOML breakpoint is reached, blocking until it returns.
+//
+// Defined here — rather than the Server importing the top-level reconciler
+// package's Reconciler/NewReconciler directly — because the top-level
+// reconciler package already imports this ui package (cmd.go's runServe);
+// importing back would be a cycle. cmd.go supplies the concrete
+// implementation to NewServer instead.
+type ApplyRunner interface {
+	RunApply(ctx context.Context, log zerolog.Logger, onBreakpoint func(ctx context.Context, instructions string) error) error
+}
+
 type Server struct {
 	desiredPath    string
 	statePath      string
@@ -28,11 +44,17 @@ type Server struct {
 	env            string
 	namespace      string
 	kubeconfig     string
+	addr           string
 	log            zerolog.Logger
 	mux            *http.ServeMux
+	applyRunner    ApplyRunner
+
+	applyMu           sync.Mutex
+	applyRunning      bool
+	breakpointConfirm chan struct{}
 }
 
-func NewServer(desiredPath, statePath, chartValuesDir, env, namespace, kubeconfig string, log zerolog.Logger) *Server {
+func NewServer(desiredPath, statePath, chartValuesDir, env, namespace, kubeconfig, addr string, log zerolog.Logger, applyRunner ApplyRunner) *Server {
 	s := &Server{
 		desiredPath:    desiredPath,
 		statePath:      statePath,
@@ -40,8 +62,10 @@ func NewServer(desiredPath, statePath, chartValuesDir, env, namespace, kubeconfi
 		env:            env,
 		namespace:      namespace,
 		kubeconfig:     kubeconfig,
+		addr:           addr,
 		log:            log,
 		mux:            http.NewServeMux(),
+		applyRunner:    applyRunner,
 	}
 	s.registerRoutes()
 	return s
@@ -52,21 +76,51 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/chains/discovered", s.handleChainsDiscovered)
 	s.mux.HandleFunc("/api/desired", s.handleDesired)
 	s.mux.HandleFunc("/api/state", s.handleState)
+	s.mux.HandleFunc("/api/diff", s.handleDiff)
 	s.mux.HandleFunc("/api/capabilities", s.handleCapabilities)
 	s.mux.HandleFunc("/api/preview-toml", s.handlePreviewTOML)
 	s.mux.HandleFunc("/api/health", s.handleHealth)
 	s.mux.HandleFunc("/api/jd/check", s.handleJDCheck)
+
+	// /api/apply executes real infra changes (on-chain deploys, K8s config
+	// patches) with zero auth beyond this loopback check — never expose it
+	// on a non-loopback address.
+	if s.applyRunner != nil {
+		if isLoopbackAddr(s.addr) {
+			s.mux.HandleFunc("/api/apply", s.handleApply)
+			s.mux.HandleFunc("/api/apply/confirm", s.handleApplyConfirm)
+		} else {
+			s.log.Warn().Str("addr", s.addr).Msg("refusing to expose /api/apply on a non-loopback address")
+		}
+	}
+
 	s.mux.HandleFunc("/", s.handleStatic)
 }
 
-func (s *Server) ListenAndServe(addr string) error {
-	s.log.Info().Msgf("Web UI available at http://%s", addr)
+// isLoopbackAddr reports whether addr (host, or host:port) resolves to the
+// loopback interface. An empty host (e.g. ":8089") is treated as loopback
+// since Go's net/http binds that to all interfaces, but this tool's --addr
+// default and documented usage are always localhost-bound.
+func isLoopbackAddr(addr string) bool {
+	host := addr
+	if h, _, err := net.SplitHostPort(addr); err == nil {
+		host = h
+	}
+	if host == "" || host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+func (s *Server) ListenAndServe() error {
+	s.log.Info().Msgf("Web UI available at http://%s", s.addr)
 	srv := &http.Server{
-		Addr:              addr,
+		Addr:              s.addr,
 		Handler:           s.withCORS(s.mux),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
-		WriteTimeout:      30 * time.Second,
+		WriteTimeout:      0, // /api/apply is a long-lived stream; no server-wide write deadline
 		IdleTimeout:       60 * time.Second,
 	}
 	return srv.ListenAndServe()
@@ -137,10 +191,43 @@ type DONResponse struct {
 }
 
 type StateResponse struct {
-	Phase     string              `json:"phase"`
-	Addresses []domain.AddressRef `json:"addresses"`
-	DONIDs    map[string]uint64   `json:"donIds"`
-	HasState  bool                `json:"hasState"`
+	Phase       string              `json:"phase"`
+	Addresses   []domain.AddressRef `json:"addresses"`
+	DONIDs      map[string]uint64   `json:"donIds"`
+	PhaseHashes map[string]string   `json:"phaseHashes,omitempty"`
+	HasState    bool                `json:"hasState"`
+}
+
+// DiffContractResponse mirrors one row of cmd.go's `reconciler diff` "Contracts" section.
+type DiffContractResponse struct {
+	Type    string `json:"type"`
+	Have    bool   `json:"have"`
+	Address string `json:"address,omitempty"`
+}
+
+// DiffDONResponse mirrors one row of cmd.go's `reconciler diff` "DONs" section.
+type DiffDONResponse struct {
+	Name         string   `json:"name"`
+	Nodes        int      `json:"nodes"`
+	Capabilities []string `json:"capabilities"`
+	Status       string   `json:"status"` // "configure" or "have"
+	DONID        uint64   `json:"donId,omitempty"`
+}
+
+// DiffResponse is a JSON-serializable rewrite of cmd.go's runDiff, plus the
+// raw stored phase hashes (see domain.StateFile.PhaseHashes) so the UI can
+// show what each on-chain phase's memoized cache key currently is. It does
+// NOT recompute fresh hashes to say whether a phase would rerun — that
+// requires rebuilding the live topology (K8s + discovered node state), which
+// is exactly what running apply itself does; the TOML-injection phase is
+// diffed live for the same reason it has no phase-hash key (see injectTOML).
+type DiffResponse struct {
+	Contracts             []DiffContractResponse `json:"contracts"`
+	DONs                  []DiffDONResponse       `json:"dons"`
+	WorkflowRegConfigured bool                    `json:"workflowRegConfigured"`
+	NodeConfigWritten     int                     `json:"nodeConfigWritten"`
+	NodeConfigTotal       int                     `json:"nodeConfigTotal"`
+	PhaseHashes           map[string]string       `json:"phaseHashes"`
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -315,11 +402,208 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.writeJSON(w, http.StatusOK, StateResponse{
-		Phase:     string(st.Phase),
-		Addresses: st.Addresses,
-		DONIDs:    st.DONIDs,
-		HasState:  true,
+		Phase:       string(st.Phase),
+		Addresses:   st.Addresses,
+		DONIDs:      st.DONIDs,
+		PhaseHashes: st.PhaseHashes,
+		HasState:    true,
 	})
+}
+
+// handleDiff returns what `reconciler diff` would print, as JSON, for the
+// UI's Status tab — no on-chain/K8s calls, just desired.toml + chart values +
+// state.toml comparison.
+func (s *Server) handleDiff(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	ds, err := domain.LoadDesiredState(s.desiredPath)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "failed to load desired state: "+err.Error())
+		return
+	}
+	cv, err := domain.LoadChartValues(s.chartValuesDir, s.env)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "failed to load chart values: "+err.Error())
+		return
+	}
+	st, err := domain.LoadState(s.statePath)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if st == nil {
+		st = &domain.StateFile{}
+	}
+
+	resp := DiffResponse{PhaseHashes: st.PhaseHashes}
+
+	for _, t := range []string{"CapabilitiesRegistry", "WorkflowRegistry"} {
+		c := DiffContractResponse{Type: t, Have: st.HasAddress(t)}
+		if c.Have {
+			c.Address = st.GetAddress(t)
+		}
+		resp.Contracts = append(resp.Contracts, c)
+	}
+
+	for _, don := range ds.DONs {
+		d := DiffDONResponse{
+			Name:         don.Name,
+			Nodes:        len(cv.NodeNamesForDONName(don.Name)),
+			Capabilities: don.Capabilities,
+			Status:       "configure",
+		}
+		if id, ok := st.DONIDs[don.Name]; ok {
+			d.Status = "have"
+			d.DONID = id
+		}
+		resp.DONs = append(resp.DONs, d)
+	}
+
+	resp.WorkflowRegConfigured = st.WorkflowReg != nil
+
+	resp.NodeConfigTotal = len(st.NodeConfigFiles)
+	for key, filePath := range st.NodeConfigFiles {
+		nodeName := key
+		if idx := strings.LastIndex(key, "/"); idx >= 0 {
+			nodeName = key[idx+1:]
+		}
+		if _, exists, err := infra.ReadLayerValue(filePath, nodeName, "30-cre"); err == nil && exists {
+			resp.NodeConfigWritten++
+		}
+	}
+
+	s.writeJSON(w, http.StatusOK, resp)
+}
+
+// ndjsonEvent is one newline-delimited JSON event streamed by /api/apply.
+// type is one of: "log", "breakpoint", "done", "error".
+type ndjsonEvent struct {
+	Type         string `json:"type"`
+	Message      string `json:"message,omitempty"`
+	Instructions string `json:"instructions,omitempty"`
+}
+
+// ndjsonEncoder writes ndjsonEvents to a streaming HTTP response, flushing
+// after each one. It also implements io.Writer so it can back a zerolog
+// Logger directly — each log line becomes one "log" event.
+type ndjsonEncoder struct {
+	w       http.ResponseWriter
+	flusher http.Flusher
+	mu      sync.Mutex
+}
+
+func (e *ndjsonEncoder) writeEvent(ev ndjsonEvent) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	data, err := json.Marshal(ev)
+	if err != nil {
+		return
+	}
+	_, _ = e.w.Write(data)
+	_, _ = e.w.Write([]byte("\n"))
+	e.flusher.Flush()
+}
+
+func (e *ndjsonEncoder) Write(p []byte) (int, error) {
+	for line := range strings.SplitSeq(strings.TrimRight(string(p), "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		e.writeEvent(ndjsonEvent{Type: "log", Message: line})
+	}
+	return len(p), nil
+}
+
+// handleApply runs the full reconcile apply flow, streaming its log output
+// and pausing at the TOML breakpoint (if reached) for a caller of
+// /api/apply/confirm to unblock, instead of the CLI's stdin prompt / exit-42.
+// Single-flight: rejects a second apply while one is already running.
+func (s *Server) handleApply(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	s.applyMu.Lock()
+	if s.applyRunning {
+		s.applyMu.Unlock()
+		s.writeError(w, http.StatusConflict, "an apply is already running")
+		return
+	}
+	s.applyRunning = true
+	s.applyMu.Unlock()
+	defer func() {
+		s.applyMu.Lock()
+		s.applyRunning = false
+		s.breakpointConfirm = nil
+		s.applyMu.Unlock()
+	}()
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		s.writeError(w, http.StatusInternalServerError, "streaming not supported by this response writer")
+		return
+	}
+	// This route is exempted from any server-wide write deadline (see
+	// ListenAndServe) since a real apply run can take much longer than a
+	// typical request — but SetWriteDeadline is still worth calling
+	// explicitly in case that default ever changes.
+	if rc := http.NewResponseController(w); rc != nil {
+		_ = rc.SetWriteDeadline(time.Time{})
+	}
+
+	w.Header().Set("Content-Type", "application/x-ndjson")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+
+	enc := &ndjsonEncoder{w: w, flusher: flusher}
+	log := zerolog.New(enc).With().Timestamp().Logger()
+
+	onBreakpoint := func(ctx context.Context, instructions string) error {
+		ch := make(chan struct{})
+		s.applyMu.Lock()
+		s.breakpointConfirm = ch
+		s.applyMu.Unlock()
+
+		enc.writeEvent(ndjsonEvent{Type: "breakpoint", Instructions: instructions})
+
+		select {
+		case <-ch:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	if err := s.applyRunner.RunApply(r.Context(), log, onBreakpoint); err != nil {
+		enc.writeEvent(ndjsonEvent{Type: "error", Message: err.Error()})
+		return
+	}
+	enc.writeEvent(ndjsonEvent{Type: "done"})
+}
+
+// handleApplyConfirm unblocks a handleApply call currently paused at the TOML
+// breakpoint. Returns 409 if no apply is waiting.
+func (s *Server) handleApplyConfirm(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	s.applyMu.Lock()
+	ch := s.breakpointConfirm
+	s.breakpointConfirm = nil
+	s.applyMu.Unlock()
+
+	if ch == nil {
+		s.writeError(w, http.StatusConflict, "no apply is currently waiting at a breakpoint")
+		return
+	}
+	close(ch)
+	s.writeJSON(w, http.StatusOK, map[string]string{"status": "confirmed"})
 }
 
 func (s *Server) handleCapabilities(w http.ResponseWriter, _ *http.Request) {

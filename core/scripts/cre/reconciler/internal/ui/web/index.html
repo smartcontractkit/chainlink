@@ -34,6 +34,7 @@
             <button class="tab-inactive" data-tab="configs">Cap Configs</button>
             <button class="tab-inactive" data-tab="chains">Chains</button>
             <button class="tab-inactive" data-tab="status">Status</button>
+            <button class="tab-inactive" data-tab="apply">Apply</button>
             <button class="tab-inactive" data-tab="jd">JD</button>
         </nav>
     </div>
@@ -118,6 +119,39 @@
     <div id="tab-status" class="tab-content hidden">
         <div id="statusContent" class="space-y-4">
             <div class="text-center text-gray-400 py-8">Loading state...</div>
+        </div>
+        <div id="diffContent" class="space-y-4 mt-4">
+            <div class="text-center text-gray-400 py-8">Loading diff...</div>
+        </div>
+    </div>
+
+    <!-- Apply Tab -->
+    <div id="tab-apply" class="tab-content hidden">
+        <div class="max-w-4xl space-y-4">
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-semibold">Apply</h2>
+                        <p class="text-xs text-gray-500">
+                            Runs the same flow as <code class="bg-gray-100 px-1 rounded">reconciler apply</code> — on-chain provisioning,
+                            TOML config generation, and job sync — against the currently saved desired.toml. Only one apply can run at a time.
+                        </p>
+                    </div>
+                    <button id="btnRunApply" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium flex-shrink-0">
+                        Run Apply
+                    </button>
+                </div>
+
+                <div id="applyBreakpoint" class="hidden mb-4 p-4 border border-yellow-300 bg-yellow-50 rounded-lg">
+                    <h3 class="text-sm font-semibold text-yellow-800 mb-1">Breakpoint reached — manual steps required</h3>
+                    <pre id="applyBreakpointInstructions" class="text-xs text-yellow-900 whitespace-pre-wrap mb-3"></pre>
+                    <button id="btnConfirmBreakpoint" class="px-3 py-1.5 bg-yellow-600 text-white rounded text-xs font-medium hover:bg-yellow-700">
+                        I've completed these steps — continue
+                    </button>
+                </div>
+
+                <pre id="applyLog" class="bg-gray-900 text-gray-100 text-xs font-mono rounded-lg p-4 h-96 overflow-auto whitespace-pre-wrap"></pre>
+            </div>
         </div>
     </div>
 

@@ -21,7 +21,7 @@ type NodeRole string
 
 const (
 	RoleStandard  NodeRole = "standard"
-	RoleBootstrap NodeRole = "boot"
+	RoleBootstrap NodeRole = "bootstrap"
 	RoleGateway   NodeRole = "gateway"
 )
 

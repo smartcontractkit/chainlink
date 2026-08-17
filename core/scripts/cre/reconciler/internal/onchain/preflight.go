@@ -1,13 +1,15 @@
 package onchain
 
 import (
+	"context"
 	stderrors "errors"
 	"fmt"
 
 	"github.com/pkg/errors"
 
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 // ValidateNodeLabels checks every chart-declared node's JD labels (p2p_id,
@@ -21,7 +23,14 @@ import (
 //
 // Requires discovery to have already populated state.NodeRuntime[name].CSAKey
 // (from this run or a prior one) for every chart node.
-func ValidateNodeLabels(desired *domain.DesiredState, cv *domain.ChartValues, state *domain.StateFile) error {
+//
+// Deliberately calls offchainClient.ListNodes directly rather than
+// deployment.NodeInfo: NodeInfo's conversion (NewNodeFromJD) additionally
+// requires each node to have an EVM ChainConfig registered in JD, which
+// bootstrap/gateway nodes legitimately don't — this check only needs JD
+// labels, so it must not pull in an EVM-chain requirement (see phase_plan.md's
+// B4 decision: chain-capability checks stay out of early preflight).
+func ValidateNodeLabels(ctx context.Context, desired *domain.DesiredState, cv *domain.ChartValues, state *domain.StateFile) error {
 	offchainClient, err := buildOffchainClient(desired.JD)
 	if err != nil {
 		return errors.Wrap(err, "failed to build JD client for label preflight")
@@ -48,21 +57,26 @@ func ValidateNodeLabels(desired *domain.DesiredState, cv *domain.ChartValues, st
 		return stderrors.Join(errs...)
 	}
 
-	nodes, err := deployment.NodeInfo(lookupIDs, offchainClient)
+	resp, err := offchainClient.ListNodes(ctx, &nodev1.ListNodesRequest{
+		Filter: &nodev1.ListNodesRequest_Filter{
+			Enabled:    1,
+			PublicKeys: lookupIDs,
+		},
+	})
 	if err != nil {
 		return errors.Wrap(err, "failed to load node info from JD for label preflight")
 	}
 
-	seen := make(map[string]bool, len(nodes))
-	for _, n := range nodes {
-		chartNode, ok := nodeByCSA[n.CSAKey]
+	seen := make(map[string]bool, len(resp.GetNodes()))
+	for _, n := range resp.GetNodes() {
+		chartNode, ok := nodeByCSA[n.GetPublicKey()]
 		if !ok {
 			continue
 		}
 		seen[chartNode.Name] = true
 
-		labels := make(map[string]string, len(n.Labels))
-		for _, l := range n.Labels {
+		labels := make(map[string]string, len(n.GetLabels()))
+		for _, l := range n.GetLabels() {
 			if l.Value != nil {
 				labels[l.Key] = *l.Value
 			}

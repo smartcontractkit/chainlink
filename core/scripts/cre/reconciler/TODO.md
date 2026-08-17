@@ -529,6 +529,78 @@ scope for this cut). Never log the keys.
 
 ---
 
+## I. Vault capability
+
+### I1 — Vault capability panics on apply: missing DKG key discovery  ·  TODO · P0 (bug)
+**Problem.** Applying a DON with the `vault` capability panics in
+`system-tests/lib/cre/features/vault/vault.go:220` (`workerNode.Keys.DKGKey.PubKey` — nil pointer). Nothing populates
+`NodeMetadata.Keys.DKGKey` for reconciler-managed nodes.
+
+**Root cause.** The node already generates its own DKG recipient key — `nodeconfig.Generate()`
+(`internal/nodeconfig/nodeconfig.go:63-68`) unconditionally sets `CRE.EnableDKGRecipient = true`, which makes
+`core/cmd/shell_local.go` call `DKGRecipient().EnsureKey()` at node startup, the same pattern as CSA/Workflow keys.
+The node exposes the resulting public key at `GET /v2/keys/dkgrecipient`. **Nothing reads it back** — this is a
+missing discovery step, not a missing key-generation step. (Confirmed via investigation, per user's steer: "doesn't
+the node generate that key? if so, why not read it the same way we do with evm and p2p keys?" — read-back, not
+reconciler-side generation, is the right shape.)
+
+**Proposed scope (mirrors the existing CSA/P2P/Solana/Aptos discovery pattern — B1):**
+1. Add a DKG public-key reader to the vendored `clclient` (temporary `replace` directive into a local sibling
+   checkout — same mechanism B1 already used for the Solana key-read addition).
+2. Add the matching method to the reconciler's `discovery.Client` interface + `nodeapi.go` implementation.
+3. Add `DKGPubKey string` to `domain.NodeRuntimeInfo`, populated during discovery for nodes whose DON needs vault
+   (capability-gated, same as Aptos/Solana — most nodes won't have a DKG key).
+4. Add `hydrateDiscoveredDKGKeys` in `internal/onchain/hydrate.go`, wired into `buildTopology` alongside
+   `hydrateDiscoveredEVMAddresses`, setting `nodeMeta.Keys.DKGKey = &crypto.DKGRecipientKey{PubKey: ...}`.
+
+**Open decision.** A node applying vault for the first time hasn't re-rolled with `EnableDKGRecipient` yet, so
+discovery finds nothing. Decide: fail with a clear "re-roll required, retry" error (matching the TOML-injection
+breakpoint pattern), or fold DKG-readiness into the existing breakpoint/re-roll flow so the operator doesn't hit a
+second surprise failure after confirming the first breakpoint. Needs a decision before implementing — not just a
+nil-check to silence the panic.
+
+**Depends on / relates to:** B1 (same discovery pattern), A1 (vault capability changes should feed the
+PreEnvStartup+CapReg hash like any other capability).
+
+---
+
+## J. Bugs reported after Phase 8 (not yet re-verified as fixed)
+
+### J1 — Capability add/remove still doesn't reconfigure CapReg  ·  TODO · P0 (bug)
+**Problem, user-repro'd against current tree.** This looks like the same class of bug the Phase 8
+`onChainComplete()` removal (see A1/A2 history) was meant to fix, but the user reports it's still broken:
+- **Remove an existing capability** from a DON → CapReg contract is not modified.
+- **Add a new capability** to a DON → CapReg contract is not modified, and PreEnvStartup does not run either.
+
+Repro steps: launch UI → add/remove a capability on a DON → Save → Apply (via UI).
+
+**Status.** Not yet re-investigated. Removing the outer `onChainComplete()` gate in `Run()` was necessary but
+apparently not sufficient on its own. Two candidate causes to check before assuming a fix: (1) the
+`pre_env_startup_capreg` hash input (`internal/onchain/hash.go`) may not actually cover whatever field the UI writes
+when a capability is added/removed from a DON — i.e. the hash doesn't change, so `PhaseNeedsRun` correctly says "skip"
+for the wrong reason; (2) there could be a second, still-undiscovered skip path between "capability config saved via
+`/api/desired`" and the CapReg-configure step actually being invoked. Trace one concrete add/remove through
+`hashPreEnvStartupCapReg` end-to-end before touching code.
+
+**Depends on / relates to:** A1 (hash inputs), the Phase 8 `onChainComplete()` removal (reconcile.go).
+
+---
+
+## K. UI enhancements (new requests, not scoped)
+
+- **K1 — Show all chain families in the UI, not just EVM RPCs.** The chain list/editor reads as EVM-only today;
+  Solana/Aptos chains (supported end-to-end since Phase 4/5, C2) should be visible and editable the same way.
+- **K2 — Light/dark mode toggle**, dark as the default.
+- **K3 — General visual polish.** Evaluate a lightweight CSS/JS library (ideally one that fits Chainlink's existing
+  style/stack, if a suitable one exists) instead of continuing to hand-roll styles in `index.html`/`app.js`.
+- **K4 — Family auto-suggest popup.** Once the first DON family is defined (E1), prompt "add all DONs to this
+  family?" since that's the common case — saves clicking through the per-DON Family select for every DON.
+- **K5 — Richer Apply tab (E3 follow-up).** Show visual stage/phase progress, not just a raw log stream; make the log
+  pane optional and collapsed by default; error events should persist until the user dismisses them rather than
+  scrolling away in the stream.
+
+---
+
 ## Suggested sequencing for the eventual implementation plan
 1. **P0 correctness first:** B3 (OCR2 role gating), C1 (EVM precondition validation), Phase 11 (token env-only), token rotation.
 2. **Reconciliation core:** A3 → A2 → A1 (they build on each other). A1 is per-phase input-hash memoization backed by

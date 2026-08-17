@@ -648,7 +648,7 @@ Complete the new gateway model, unify deployer key handling, and parallelize saf
 
 ---
 
-## Phase 8: UI Apply Flow And Diff/Status
+## Phase 8: UI Apply Flow And Diff/Status  ·  DONE
 
 ### Goal
 
@@ -659,6 +659,35 @@ Expose apply and reconciliation insight in the UI without weakening safety.
 - E3
 - E4
 
+### Decided (differs from the steps below — see TODO.md E3/E4 for the full writeup)
+
+- **Streaming transport: plain streamed `fetch()`, not SSE/websocket.** `POST /api/apply` (a POST, not GET, since the
+  endpoint triggers a real action and `EventSource` is GET-only) streams newline-delimited JSON events
+  (`log`/`breakpoint`/`done`/`error`) via `http.Flusher.Flush()`; the frontend reads `resp.body.getReader()` and
+  splits on `\n`. No new dependency, no separate SSE/websocket library.
+- **Breakpoint resume happens in the same process, same request lifetime — not a second CLI invocation.**
+  `Reconciler.SetBreakpointWaiter(func(ctx, instructions) error)` (`reconcile.go`) replaces the CLI's
+  `fmt.Scanln`/`ErrBreakpoint` exit-42 handoff when set (nil preserves the CLI's existing behavior exactly). The UI's
+  waiter emits a `"breakpoint"` event and blocks on a channel; `POST /api/apply/confirm` closes it, resuming
+  `injectTOML` → `SyncJobs` in the same `Run(ctx)` call that's still streaming the response.
+- **No new auth: localhost-only gate, done via `NewServer`'s new `addr` param.** `registerRoutes` only registers
+  `/api/apply`/`/api/apply/confirm` when `isLoopbackAddr(addr)`; otherwise they don't exist on the mux at all (not just
+  hidden — literally unrouted). `ListenAndServe`'s server-wide `WriteTimeout` changed from 30s to 0 (unbounded), since
+  this route is intentionally long-lived.
+- **`ApplyRunner` interface in `ui`, not a direct `Reconciler` reference — avoids a would-be import cycle.** The
+  top-level `reconciler` package (`cmd.go`) already imports `internal/ui`; `ui` importing back to build/run a
+  `Reconciler` directly would cycle. `ui.ApplyRunner.RunApply(ctx, log, onBreakpoint) error` is the seam; `cmd.go`'s
+  `serveApplyRunner` implements it by constructing a **fresh** `Reconciler` per apply call (always picks up whatever
+  was last saved via `/api/desired`) and wiring `SetBreakpointWaiter` before calling `Run`.
+- **E4's diff endpoint shows stored phase hashes, not a live rerun/skip verdict.** The original plan's "per-phase-hash
+  `willRerun bool`" would require recomputing each phase's *current* input hash — every hash builder in
+  `internal/onchain/hash.go` needs a live `*cre.Topology`, i.e. real K8s discovery, to build its input. Computing that
+  from a status-page GET would mean re-running most of what `apply` already does, just to answer a status question —
+  duplicating `Deployer` machinery outside of an actual apply, and turning a cheap poll into an expensive one.
+  `GET /api/diff` instead mirrors `cmd.go`'s `runDiff` (contracts/DONs/workflow-reg/node-config, all actual-state reads,
+  no live topology needed) plus the **raw stored** `PhaseHashes` map — same category of tradeoff as the
+  TOML-injection phase already having no hash key at all (diffed live instead, for the identical reason).
+
 ### Files to inspect first
 
 - [internal/ui/server.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/ui/server.go)
@@ -667,40 +696,52 @@ Expose apply and reconciliation insight in the UI without weakening safety.
 - [internal/domain/state.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/internal/domain/state.go)
 - [reconcile.go](/Users/bartektofel/Desktop/repos/chainlink/core/scripts/cre/reconciler/reconcile.go)
 
-### Implementation steps
+### Implementation steps (as actually implemented)
 
-1. Add `/api/apply` with:
-   - localhost-only access
-   - single-flight locking
-   - streaming logs
-2. Build an execution view in the UI:
-   - current phase
-   - live log tail
-   - final success/failure state
-3. At the TOML breakpoint:
-   - stop execution
-   - show manual instructions
-   - resume only after operator confirmation
-4. Build a diff/status screen using Phase 3 hashes and persisted state.
-5. Do not build a second reconciliation model for the UI.
+1. `reconcile.go`: added `Reconciler.breakpointWaiter` field + `SetBreakpointWaiter` setter; `injectTOML`'s breakpoint
+   tail calls it (when set) instead of the CLI's `Scanln`/`ErrBreakpoint` path; refactored the printed instructions
+   text into `breakpointInstructionsText() string` so both the CLI `fmt.Print` and the waiter's event share one source.
+2. `internal/ui/server.go`:
+   - Added `ApplyRunner` interface + `Server.applyRunner`/`addr`/`applyMu`/`applyRunning`/`breakpointConfirm` fields.
+   - `NewServer` gained `addr string` and `applyRunner ApplyRunner` params; `ListenAndServe` dropped its `addr` param
+     (uses `s.addr`) and its `WriteTimeout` is now `0`.
+   - `registerRoutes` conditionally wires `/api/apply`+`/api/apply/confirm` behind `isLoopbackAddr(s.addr)`.
+   - `ndjsonEncoder` (implements `io.Writer` + a `writeEvent` helper) backs a per-request `zerolog.Logger` and streams
+     `log`/`breakpoint`/`done`/`error` events.
+   - `handleApply`: single-flight guard, builds the encoder + logger, defines `onBreakpoint` (emits the event, blocks
+     on a channel stored on `Server`), calls `applyRunner.RunApply(r.Context(), log, onBreakpoint)`.
+   - `handleApplyConfirm`: closes the stored channel, 409 if none is waiting.
+   - `handleDiff` (`GET /api/diff`): JSON rewrite of `runDiff`'s contracts/DONs/workflow-reg/node-config comparison,
+     plus `resp.PhaseHashes = st.PhaseHashes`. `StateResponse` also gained `PhaseHashes map[string]string`.
+3. `cmd.go`: added `serveApplyRunner` (implements `ui.ApplyRunner` by constructing a fresh `Reconciler` and calling
+   `Run`); `runServe` wires it into `ui.NewServer(..., flagAddr, log, runner)` and calls `server.ListenAndServe()`.
+4. UI: new "Apply" tab (`index.html`) — Run Apply button, scrolling log `<pre>`, a breakpoint banner with instructions
+   + confirm button. `app.js`'s `runApply()` does the `fetch()` + `getReader()` NDJSON loop; `confirmBreakpoint()` POSTs
+   `/api/apply/confirm`. Status tab gained a `loadDiff()` call (badges for contracts/DONs/workflow-reg/node-config,
+   plus a phase-hash-cache list) alongside the existing `loadState()`.
+5. No second reconciliation model was introduced — the UI drives the exact same `Reconciler.Run` the CLI does, through
+   `ApplyRunner`; the diff view reads the same `domain`/`infra` accessors `runDiff` already used.
 
 ### Tests to add or update
 
-- UI handler tests for apply and streaming behavior
-- state/status response tests
-- any small frontend logic tests if a harness exists
+- UI handler tests for apply and streaming behavior — deferred to the user's own verification pass, per their standing
+  instruction in this workstream not to have the agent run/iterate on build+test after a fix is reported (see
+  `feedback_reconciler_no_self_verify` memory); `server_test.go`'s `setupTestServer` was updated to the new `NewServer`
+  signature (`addr`, `applyRunner: nil`) so existing tests keep compiling.
+- state/status response tests — same deferral.
+- No frontend logic test harness exists in this tree; none added.
 
 ### Validation
 
-- Run:
-  - `go test ./core/scripts/cre/reconciler/internal/ui`
-  - `go test ./core/scripts/cre/reconciler/...`
+- Deferred to the user's own `go build`/`go test` pass per their explicit instruction for this workstream.
 
 ### Exit criteria
 
-- UI can run apply with live logs.
-- UI pauses at the TOML breakpoint and resumes only on confirmation.
-- Diff/status accurately reflects hashed skip/rerun behavior.
+- UI can run apply with live logs. ✅ (`/api/apply` NDJSON stream + Apply tab)
+- UI pauses at the TOML breakpoint and resumes only on confirmation. ✅ (`SetBreakpointWaiter` + `/api/apply/confirm`)
+- Diff/status accurately reflects hashed skip/rerun behavior. **Partially** — the Status tab now shows a diff section
+  and the raw stored phase hashes, but does **not** predict whether a phase would rerun on the next apply (see
+  "Decided" above for why that needs a live topology build, not a cheap status-page computation).
 
 ---
 

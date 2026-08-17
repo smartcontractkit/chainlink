@@ -1,6 +1,7 @@
 package onchain
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ func TestValidateNodeLabels_SkipsWhenJDNotConfigured(t *testing.T) {
 	cv := &domain.ChartValues{Nodes: []domain.ChartNodeInfo{{Name: "node-0"}}}
 	state := &domain.StateFile{}
 
-	err := ValidateNodeLabels(desired, cv, state)
+	err := ValidateNodeLabels(context.Background(), desired, cv, state)
 	require.NoError(t, err)
 }
 
@@ -37,7 +38,7 @@ func TestValidateNodeLabels_MissingDiscoveredCSAKey(t *testing.T) {
 	}}
 	state := &domain.StateFile{} // no NodeRuntime entry for node-0
 
-	err := ValidateNodeLabels(desired, cv, state)
+	err := ValidateNodeLabels(context.Background(), desired, cv, state)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "node-0: no discovered CSA key")
 }

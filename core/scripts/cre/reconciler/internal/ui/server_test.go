@@ -92,7 +92,7 @@ deploy:
 `), 0600))
 
 	log := zerolog.Nop()
-	server := NewServer(desiredPath, statePath, dir, "dev", "my-repo-nodeset", "", log)
+	server := NewServer(desiredPath, statePath, dir, "dev", "my-repo-nodeset", "", "localhost:8089", log, nil)
 
 	return server, dir
 }

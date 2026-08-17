@@ -33,22 +33,6 @@ func TestStateFile_PhaseDiscoveryRoundtrip(t *testing.T) {
 	require.Equal(t, "https://node-0.example", loaded.NodeRuntime["node-0"].APIURL)
 }
 
-func TestOnChainComplete(t *testing.T) {
-	t.Parallel()
-
-	r := &Reconciler{state: &domain.StateFile{Phase: domain.PhaseDone}}
-	require.False(t, r.onChainComplete())
-
-	r.state.SetAddress(domain.AddressRef{Type: "CapabilitiesRegistry", Address: "0xabc"})
-	require.False(t, r.onChainComplete())
-
-	r.state.DONIDs = map[string]uint64{"workflow": 1}
-	require.False(t, r.onChainComplete())
-
-	r.state.WorkflowReg = &domain.WorkflowRegState{ChainSelector: 1}
-	require.True(t, r.onChainComplete())
-}
-
 func TestAdvancePhaseAfterDiscovery(t *testing.T) {
 	t.Parallel()
 

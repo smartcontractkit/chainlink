@@ -305,16 +305,45 @@ func runServe(_ context.Context) error {
 		log.Info().Msgf("Created empty desired state file: %s", flagDesired)
 	}
 
-	server := ui.NewServer(flagDesired, flagState, flagChartDir, flagEnv, namespace, flagKubeconfig, log)
+	runner := &serveApplyRunner{
+		desiredPath: flagDesired,
+		statePath:   flagState,
+		chartDir:    flagChartDir,
+		kubeconfig:  flagKubeconfig,
+		env:         flagEnv,
+	}
+	server := ui.NewServer(flagDesired, flagState, flagChartDir, flagEnv, namespace, flagKubeconfig, flagAddr, log, runner)
 
 	log.Info().Msgf("Desired state: %s", flagDesired)
 	log.Info().Msgf("State file: %s", flagState)
 	log.Info().Msgf("Repo root (chart-dir): %s", flagChartDir)
 	log.Info().Msgf("Environment: %s", flagEnv)
 
-	if err := server.ListenAndServe(flagAddr); err != nil {
+	if err := server.ListenAndServe(); err != nil {
 		return errors.Wrap(err, "web server failed")
 	}
 
 	return nil
+}
+
+// serveApplyRunner implements ui.ApplyRunner for the "serve" command's
+// /api/apply endpoint: each call builds a fresh Reconciler from the current
+// desired.toml/state.toml (so edits saved via the UI since the last apply are
+// picked up) and runs it, routing its logger and TOML breakpoint through the
+// caller-supplied streaming hooks instead of the CLI's stdin/exit-42 flow.
+type serveApplyRunner struct {
+	desiredPath string
+	statePath   string
+	chartDir    string
+	kubeconfig  string
+	env         string
+}
+
+func (a *serveApplyRunner) RunApply(ctx context.Context, log zerolog.Logger, onBreakpoint func(ctx context.Context, instructions string) error) error {
+	rec, err := NewReconciler(a.desiredPath, a.statePath, a.chartDir, a.kubeconfig, a.env, false, false, true, log)
+	if err != nil {
+		return err
+	}
+	rec.SetBreakpointWaiter(onBreakpoint)
+	return rec.Run(ctx)
 }

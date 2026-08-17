@@ -63,7 +63,7 @@
         });
         document.getElementById('tab-' + tabName).classList.remove('hidden');
 
-        if (tabName === 'status') loadState();
+        if (tabName === 'status') { loadState(); loadDiff(); }
         if (tabName === 'configs') renderCapConfigs();
         if (tabName === 'chains') renderChains();
     }
@@ -368,7 +368,7 @@
 
     function nodeInDonHTML(node) {
         const role = node.nodeType || 'standard';
-        const badgeClass = role === 'boot' ? 'badge-boot' : role === 'gateway' ? 'badge-gateway' : 'badge-standard';
+        const badgeClass = role === 'bootstrap' ? 'badge-boot' : role === 'gateway' ? 'badge-gateway' : 'badge-standard';
         return `
         <div class="node-in-don" data-node="${node.name}">
             <div class="flex items-center gap-2">
@@ -707,6 +707,164 @@
         }
     }
 
+    async function loadDiff() {
+        const container = document.getElementById('diffContent');
+        try {
+            const d = await apiGet('/api/diff');
+
+            const contractsHTML = (d.contracts || []).map(c => `
+                <div class="status-row">
+                    <span class="status-label">${c.type}</span>
+                    <span class="status-value">
+                        <span class="phase-badge ${c.have ? 'phase-done' : 'phase-none'}">${c.have ? 'have' : 'deploy'}</span>
+                        ${c.have ? `<span class="font-mono text-xs ml-2">${c.address}</span>` : ''}
+                    </span>
+                </div>
+            `).join('') || '<div class="text-sm text-gray-400">No DONs configured yet</div>';
+
+            const donsHTML = (d.dons || []).map(don => `
+                <div class="status-row">
+                    <span class="status-label">${don.name}</span>
+                    <span class="status-value">
+                        <span class="phase-badge ${don.status === 'have' ? 'phase-done' : 'phase-none'}">${don.status === 'have' ? 'have (id ' + don.donId + ')' : 'configure'}</span>
+                        <span class="text-xs text-gray-400 ml-2">${don.nodes} nodes</span>
+                    </span>
+                </div>
+            `).join('') || '<div class="text-sm text-gray-400">No DONs configured yet</div>';
+
+            const phaseHashesHTML = d.phaseHashes && Object.keys(d.phaseHashes).length > 0
+                ? Object.entries(d.phaseHashes).map(([key, hash]) => `
+                    <div class="status-row">
+                        <span class="status-label">${key}</span>
+                        <span class="status-value font-mono text-xs">${hash.slice(0, 12)}…</span>
+                    </div>
+                `).join('')
+                : '<div class="text-sm text-gray-400">No phase-hash cache entries yet</div>';
+
+            container.innerHTML = `
+            <div class="grid grid-cols-2 gap-4">
+                <div class="status-card">
+                    <h3>Contracts</h3>
+                    ${contractsHTML}
+                </div>
+                <div class="status-card">
+                    <h3>DONs</h3>
+                    ${donsHTML}
+                </div>
+                <div class="status-card">
+                    <h3>Workflow Registry</h3>
+                    <span class="phase-badge ${d.workflowRegConfigured ? 'phase-done' : 'phase-none'}">${d.workflowRegConfigured ? 'configured' : 'pending'}</span>
+                </div>
+                <div class="status-card">
+                    <h3>Node Config (30-cre layer)</h3>
+                    <span class="phase-badge ${d.nodeConfigWritten === d.nodeConfigTotal && d.nodeConfigTotal > 0 ? 'phase-done' : 'phase-none'}">${d.nodeConfigWritten}/${d.nodeConfigTotal} nodes written</span>
+                </div>
+                <div class="status-card col-span-2">
+                    <h3>Phase-Hash Cache</h3>
+                    <p class="text-xs text-gray-400 mb-2">Stored input hashes for memoized phases — a phase reruns only when its freshly computed hash differs. Recomputing "would rerun" requires a live apply (K8s + discovery), so only the stored values are shown here.</p>
+                    ${phaseHashesHTML}
+                </div>
+            </div>
+        `;
+        } catch (e) {
+            container.innerHTML = `<div class="status-card"><p class="text-sm text-red-500">${e.message}</p></div>`;
+        }
+    }
+
+    // --- Apply (streaming) ---
+
+    let applyRunning = false;
+
+    function appendApplyLog(line) {
+        const log = document.getElementById('applyLog');
+        log.textContent += line + '\n';
+        log.scrollTop = log.scrollHeight;
+    }
+
+    async function runApply() {
+        if (applyRunning) return;
+        // Always save first — the operator may have forgotten to click Save
+        // after editing, and applying against a stale desired.toml would be
+        // silently wrong.
+        if (!(await saveDesired())) return;
+        applyRunning = true;
+
+        const btn = document.getElementById('btnRunApply');
+        const breakpoint = document.getElementById('applyBreakpoint');
+        btn.disabled = true;
+        btn.textContent = 'Running…';
+        breakpoint.classList.add('hidden');
+        document.getElementById('applyLog').textContent = '';
+
+        try {
+            const resp = await fetch('/api/apply', { method: 'POST' });
+            if (!resp.ok) {
+                const body = await resp.json().catch(() => ({}));
+                throw new Error(body.error || resp.statusText);
+            }
+
+            const reader = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+
+                let newlineIdx;
+                while ((newlineIdx = buffer.indexOf('\n')) >= 0) {
+                    const line = buffer.slice(0, newlineIdx);
+                    buffer = buffer.slice(newlineIdx + 1);
+                    if (!line.trim()) continue;
+
+                    let ev;
+                    try {
+                        ev = JSON.parse(line);
+                    } catch {
+                        continue;
+                    }
+
+                    if (ev.type === 'log') {
+                        appendApplyLog(ev.message);
+                    } else if (ev.type === 'breakpoint') {
+                        document.getElementById('applyBreakpointInstructions').textContent = ev.instructions;
+                        breakpoint.classList.remove('hidden');
+                    } else if (ev.type === 'done') {
+                        appendApplyLog('=== apply complete ===');
+                        toast('Apply complete', 'success');
+                        loadState();
+                        loadDiff();
+                    } else if (ev.type === 'error') {
+                        appendApplyLog('=== error: ' + ev.message + ' ===');
+                        toast('Apply failed: ' + ev.message, 'error');
+                    }
+                }
+            }
+        } catch (e) {
+            appendApplyLog('=== error: ' + e.message + ' ===');
+            toast('Apply failed: ' + e.message, 'error');
+        } finally {
+            applyRunning = false;
+            btn.disabled = false;
+            btn.textContent = 'Run Apply';
+            breakpoint.classList.add('hidden');
+        }
+    }
+
+    async function confirmBreakpoint() {
+        const btn = document.getElementById('btnConfirmBreakpoint');
+        btn.disabled = true;
+        try {
+            await apiPost('/api/apply/confirm', {});
+            document.getElementById('applyBreakpoint').classList.add('hidden');
+        } catch (e) {
+            toast('Confirm failed: ' + e.message, 'error');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
     // --- Actions ---
 
     window.updateDONName = function (idx, name) {
@@ -742,7 +900,7 @@
     // bootstrap DON, otherwise it's a workflow DON.
     function donTypeForNodes(nodes) {
         if (nodes.some(n => n.nodeType === 'gateway')) return 'gateway';
-        if (nodes.some(n => n.nodeType === 'boot')) return 'bootstrap';
+        if (nodes.some(n => n.nodeType === 'bootstrap')) return 'bootstrap';
         return 'workflow';
     }
 
@@ -883,16 +1041,28 @@
     }
 
     // --- Save ---
-    async function save() {
+
+    // saveDesired posts the current in-editor state to /api/desired. Returns
+    // true on success, false (after toasting the reason) on failure — shared
+    // by the Save button and runApply, which must save before every run so an
+    // apply never executes against a stale desired.toml.
+    async function saveDesired() {
         syncCapConfigsFromDOM();
         syncConfigInputs();
-        if (blockedByUnservedGateways()) return;
+        if (blockedByUnservedGateways()) return false;
         const payload = { infra: state.infra, jd: state.jd, chains: state.chains, dons: state.dons, families: state.families, capabilityConfigs: state.capabilityConfigs };
         try {
             await apiPost('/api/desired', payload);
-            toast('Desired state saved', 'success');
+            return true;
         } catch (e) {
             toast('Save failed: ' + e.message, 'error');
+            return false;
+        }
+    }
+
+    async function save() {
+        if (await saveDesired()) {
+            toast('Desired state saved', 'success');
         }
     }
 
@@ -1057,6 +1227,8 @@
         document.getElementById('btnAddCapConfig').addEventListener('click', window.addCapConfig);
         document.getElementById('btnAddFamily').addEventListener('click', window.addFamily);
         document.getElementById('btnCheckJD').addEventListener('click', checkJD);
+        document.getElementById('btnRunApply').addEventListener('click', runApply);
+        document.getElementById('btnConfirmBreakpoint').addEventListener('click', confirmBreakpoint);
         document.getElementById('btnLoadChains').addEventListener('click', () => loadDiscoveredChains(false));
         document.getElementById('btnClosePreview').addEventListener('click', () => {
             document.getElementById('previewModal').classList.add('hidden');
