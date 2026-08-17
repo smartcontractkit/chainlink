@@ -5,6 +5,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
+const defaultAuthTimestampToleranceSec = 5
+
 type ConnectorConfig struct {
 	NodeAddress               string
 	DonId                     string
@@ -29,12 +31,12 @@ func (ConnectorConfig) From(c config.GatewayConnector) ConnectorConfig {
 		AuthTimestampToleranceSec: c.AuthTimestampToleranceSec(),
 	}
 
-	// AuthTimestampToleranceSec should be at least 5 seconds
+	// AuthTimestampToleranceSec defaults to 5 seconds
 	// Under network instability nodes may lose connection to the gateway
 	// having a smaller tolerance range would reduce the chances of success on retries.
 	// this is what happened on https://smartcontract-it.atlassian.net/browse/INCIDENT-2556
-	if r.AuthTimestampToleranceSec < 5 {
-		r.AuthTimestampToleranceSec = 5
+	if r.AuthTimestampToleranceSec == 0 {
+		r.AuthTimestampToleranceSec = defaultAuthTimestampToleranceSec
 	}
 
 	if len(c.Gateways()) != 0 {
