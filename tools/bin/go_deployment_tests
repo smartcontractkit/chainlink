@@ -52,7 +52,7 @@ if [[ -z "$TEST_PACKAGE_OUTPUT" ]]; then
 fi
 mapfile -t TEST_PACKAGES <<<"$TEST_PACKAGE_OUTPUT"
 
-SHARD_PACKAGE_OUTPUT=$(printf '%s\n' "${TEST_PACKAGES[@]}" | go -C tools/ci run . testshard list --shard-count "$GO_TEST_SHARD_COUNT" --shard-index "$GO_TEST_SHARD_INDEX")
+SHARD_PACKAGE_OUTPUT=$(printf '%s\n' "${TEST_PACKAGES[@]}" | go -C "$SCRIPT_PATH/../ci" run . testshard list --shard-count "$GO_TEST_SHARD_COUNT" --shard-index "$GO_TEST_SHARD_INDEX")
 if [[ $? -ne 0 ]]; then
   exit 1
 fi
