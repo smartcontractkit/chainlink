@@ -15,9 +15,10 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/sethvargo/go-retry"
 
-	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"
-	aptosplatform "github.com/smartcontractkit/chainlink-aptos/bindings/platform"
+	"github.com/smartcontractkit/chainlink-aptos/bindings/bind"                   //nolint:depguard // used for tests
+	aptosplatform "github.com/smartcontractkit/chainlink-aptos/bindings/platform" //nolint:depguard // used for tests
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+
 	aptoschangeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/aptos"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"

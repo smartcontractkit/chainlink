@@ -1539,8 +1539,16 @@ func updateVaultCapabilityConfigInRegistry(t *testing.T, testEnv *ttypes.TestEnv
 	_, err = deployerClient.Decode(capReg.UpdateDONByName(deployerClient.NewTXOpts(), don.Name, updateParams))
 	require.NoError(t, err, "UpdateDONByName tx failed")
 
-	testLogger.Info().Msg("Waiting for registry syncer to propagate the on-chain config change...")
-	time.Sleep(15 * time.Second) // registry syncer polls every 12s; one tick + margin
+	testLogger.Info().Msg("Waiting for registry syncer to propagate the on-chain config change to workflow nodes...")
+	var dbPort, nodeCount int
+	for _, nodeSet := range testEnv.Config.NodeSets {
+		if slices.Contains(nodeSet.Capabilities, string(cre.WorkflowDON)) || slices.Contains(nodeSet.DONTypes, string(cre.WorkflowDON)) {
+			dbPort = nodeSet.DbInput.Port
+			nodeCount = len(nodeSet.NodeSpecs)
+			break
+		}
+	}
+	require.NoError(t, creworkflow.WaitForVaultConfigPropagation(t.Context(), dbPort, nodeCount, vaultPublicKey))
 }
 
 func allowlistRequest(t *testing.T, owner string, request jsonrpc.Request[json.RawMessage], sethClient *seth.Client, wfRegistryContract *workflow_registry_v2_wrapper.WorkflowRegistry) {

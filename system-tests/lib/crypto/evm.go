@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"

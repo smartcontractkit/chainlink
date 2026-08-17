@@ -17,6 +17,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 

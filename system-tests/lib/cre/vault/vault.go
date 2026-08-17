@@ -8,6 +8,7 @@ import (
 	"github.com/scylladb/go-reflectx"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/postgres"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/vault"
 )
 
