@@ -15,11 +15,83 @@ import (
 	"strings"
 )
 
+// TopologyConfig defines the topology name and configuration file path for a test run.
+type TopologyConfig struct {
+	Topology string `json:"topology"`
+	Configs  string `json:"configs"`
+}
+
+var defaultTopology = TopologyConfig{
+	Topology: "workflow-gateway-capabilities",
+	Configs:  "configs/workflow-gateway-capabilities-don.toml",
+}
+
+var perTestTopologies = map[string]TopologyConfig{
+	"TestCRE_V2_Aptos_Suite_E2E": {
+		Topology: "workflow-gateway-aptos",
+		Configs:  "configs/workflow-gateway-don-aptos.toml",
+	},
+	"TestCRE_V2_Stellar_Suite_E2E": {
+		Topology: "workflow-gateway-stellar",
+		Configs:  "configs/workflow-gateway-don-stellar.toml",
+	},
+	"TestCRE_V2_Solana_Write_E2E": {
+		Topology: "workflow",
+		Configs:  "configs/workflow-don-solana.toml",
+	},
+	"TestCRE_V2_Solana_LogTrigger_E2E": {
+		Topology: "workflow",
+		Configs:  "configs/workflow-don-solana.toml",
+	},
+	"TestCRE_V2_Solana_Read_Accounts_E2E": {
+		Topology: "workflow",
+		Configs:  "configs/workflow-don-solana.toml",
+	},
+	"TestCRE_V2_Solana_Read_Block_E2E": {
+		Topology: "workflow",
+		Configs:  "configs/workflow-don-solana.toml",
+	},
+	"TestCRE_V2_Solana_Read_Tx_E2E": {
+		Topology: "workflow",
+		Configs:  "configs/workflow-don-solana.toml",
+	},
+	"TestCRE_V2_Sharding_E2E": {
+		Topology: "workflow-gateway-sharded",
+		Configs:  "configs/workflow-gateway-sharded-don.toml",
+	},
+	"TestCRE_V2_ShardManualAssignment_E2E": {
+		Topology: "workflow-gateway-sharded-manual",
+		Configs:  "configs/workflow-gateway-sharded-manual.toml",
+	},
+	"TestCRE_V2_ShardRingOCROverrides_E2E": {
+		Topology: "workflow-gateway-sharded-ringocr-overrides",
+		Configs:  "configs/workflow-gateway-sharded-ringocr-overrides.toml",
+	},
+	"TestCRE_V2_Module_Cache_E2E": {
+		Topology: "workflow-gateway-cache-test",
+		Configs:  "configs/workflow-gateway-don-cache-test.toml",
+	},
+	"TestCRE_V2_HTTP_Action_Multi_Gateway_E2E": {
+		Topology: "workflow-gateway-capabilities-multi-gateway",
+		Configs:  "configs/workflow-gateway-capabilities-multi-gateway-don.toml",
+	},
+}
+
+// GetTopologyForTest returns the topology and config file for a given test name.
+func GetTopologyForTest(testName string) TopologyConfig {
+	if cfg, ok := perTestTopologies[testName]; ok {
+		return cfg
+	}
+	return defaultTopology
+}
+
 // Entry represents one test job item in the matrix JSON array.
 type Entry struct {
 	TestName string `json:"test_name"`
 	TestID   string `json:"test_id"`
 	RunsOn   string `json:"runs_on"`
+	Topology string `json:"topology"`
+	Configs  string `json:"configs"`
 }
 
 // ScanDir scans all Go test files in dir and discovers test/example function names matching rePattern.
@@ -80,10 +152,13 @@ func BuildMatrix(testNames []string, runID, runAttempt, runnerSpec string) []Ent
 	entries := make([]Entry, 0, len(testNames))
 	for idx, name := range testNames {
 		runsOn := fmt.Sprintf("runs-on=%s-%d-%s/%s", runID, idx, runAttempt, runnerSpec)
+		topCfg := GetTopologyForTest(name)
 		entries = append(entries, Entry{
 			TestName: name,
 			TestID:   name,
 			RunsOn:   runsOn,
+			Topology: topCfg.Topology,
+			Configs:  topCfg.Configs,
 		})
 	}
 	return entries

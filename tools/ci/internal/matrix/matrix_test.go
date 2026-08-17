@@ -40,20 +40,31 @@ func TestCRE_V2_Solana_Write_E2E(t *testing.T) {}
 func TestBuildMatrix(t *testing.T) {
 	t.Parallel()
 	testNames := []string{
-		"TestCRE_Aptos_E2E",
-		"TestCRE_Solana_E2E",
+		"TestCRE_V2_Aptos_Suite_E2E",
+		"TestCRE_V2_Solana_Write_E2E",
+		"TestCRE_V2_Suite_Bucket_A_E2E",
 	}
 
 	entries := BuildMatrix(testNames, "12345", "2", "cpu=16/ram=64")
-	require.Len(t, entries, 2)
+	require.Len(t, entries, 3)
 
-	require.Equal(t, "TestCRE_Aptos_E2E", entries[0].TestName)
-	require.Equal(t, "TestCRE_Aptos_E2E", entries[0].TestID)
+	require.Equal(t, "TestCRE_V2_Aptos_Suite_E2E", entries[0].TestName)
+	require.Equal(t, "TestCRE_V2_Aptos_Suite_E2E", entries[0].TestID)
 	require.Equal(t, "runs-on=12345-0-2/cpu=16/ram=64", entries[0].RunsOn)
+	require.Equal(t, "workflow-gateway-aptos", entries[0].Topology)
+	require.Equal(t, "configs/workflow-gateway-don-aptos.toml", entries[0].Configs)
 
-	require.Equal(t, "TestCRE_Solana_E2E", entries[1].TestName)
-	require.Equal(t, "TestCRE_Solana_E2E", entries[1].TestID)
+	require.Equal(t, "TestCRE_V2_Solana_Write_E2E", entries[1].TestName)
+	require.Equal(t, "TestCRE_V2_Solana_Write_E2E", entries[1].TestID)
 	require.Equal(t, "runs-on=12345-1-2/cpu=16/ram=64", entries[1].RunsOn)
+	require.Equal(t, "workflow", entries[1].Topology)
+	require.Equal(t, "configs/workflow-don-solana.toml", entries[1].Configs)
+
+	require.Equal(t, "TestCRE_V2_Suite_Bucket_A_E2E", entries[2].TestName)
+	require.Equal(t, "TestCRE_V2_Suite_Bucket_A_E2E", entries[2].TestID)
+	require.Equal(t, "runs-on=12345-2-2/cpu=16/ram=64", entries[2].RunsOn)
+	require.Equal(t, "workflow-gateway-capabilities", entries[2].Topology)
+	require.Equal(t, "configs/workflow-gateway-capabilities-don.toml", entries[2].Configs)
 }
 
 func TestScanDir_Empty(t *testing.T) {
