@@ -223,6 +223,6 @@ formatters:
         - standard
         - default
         - prefix(github.com/smartcontractkit/)
-        - prefix(github.com/smartcontractkit/chainlink)
+        - prefix(github.com/smartcontractkit/chainlink/)
   exclusions:
     generated: lax
