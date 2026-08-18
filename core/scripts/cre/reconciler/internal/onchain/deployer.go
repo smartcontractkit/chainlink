@@ -202,13 +202,13 @@ func (d *Deployer) Apply(
 		}
 	}
 
-	if err := d.skipUnlessConfirmed("P7: Resolve DON IDs from CapReg contract", fmt.Sprintf("DONs: %d", len(desired.DONs))); err != nil {
+	if err = d.skipUnlessConfirmed("P7: Resolve DON IDs from CapReg contract", fmt.Sprintf("DONs: %d", len(desired.DONs))); err != nil {
 		return false, err
 	}
-	if err := d.resolveDONIDs(capReg, desired, cv, state); err != nil {
+	if err = d.resolveDONIDs(capReg, desired, cv, state); err != nil {
 		return false, errors.Wrap(err, "failed to resolve DON IDs")
 	}
-	if err := d.syncAddressBook(env, state); err != nil {
+	if err = d.syncAddressBook(env, state); err != nil {
 		return false, errors.Wrap(err, "failed to sync address book after resolving DON IDs")
 	}
 	persist()

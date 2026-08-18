@@ -223,11 +223,11 @@ type DiffDONResponse struct {
 // diffed live for the same reason it has no phase-hash key (see injectTOML).
 type DiffResponse struct {
 	Contracts             []DiffContractResponse `json:"contracts"`
-	DONs                  []DiffDONResponse       `json:"dons"`
-	WorkflowRegConfigured bool                    `json:"workflowRegConfigured"`
-	NodeConfigWritten     int                     `json:"nodeConfigWritten"`
-	NodeConfigTotal       int                     `json:"nodeConfigTotal"`
-	PhaseHashes           map[string]string       `json:"phaseHashes"`
+	DONs                  []DiffDONResponse      `json:"dons"`
+	WorkflowRegConfigured bool                   `json:"workflowRegConfigured"`
+	NodeConfigWritten     int                    `json:"nodeConfigWritten"`
+	NodeConfigTotal       int                    `json:"nodeConfigTotal"`
+	PhaseHashes           map[string]string      `json:"phaseHashes"`
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {

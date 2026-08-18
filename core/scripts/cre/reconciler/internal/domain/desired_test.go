@@ -716,8 +716,8 @@ func TestGatewayDONForNode(t *testing.T) {
 	}
 
 	require.Equal(t, "gateway-don", ds.GatewayDONForNode(cv, "node-gw-0"))
-	require.Equal(t, "", ds.GatewayDONForNode(cv, "node-cap-0"))
-	require.Equal(t, "", ds.GatewayDONForNode(cv, "node-unknown"))
+	require.Empty(t, ds.GatewayDONForNode(cv, "node-cap-0"))
+	require.Empty(t, ds.GatewayDONForNode(cv, "node-unknown"))
 }
 
 func TestStripChainSuffix(t *testing.T) {

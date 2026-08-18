@@ -105,7 +105,7 @@ func validateNodeRolesPresent(
 			continue
 		}
 		if len(nodeMeta.Roles) == 0 {
-			errs = append(errs, fmt.Errorf("DON %s node %s: no roles assigned", donMeta.Name, nodeNames[i]))
+			errs = append(errs, fmt.Errorf("DON %s node %s: no roles assigned", donMeta.Name, nodeNames[i])) //nolint:gosec // guarded by the i >= len(nodeNames) check above
 		}
 	}
 	return stderrors.Join(errs...)

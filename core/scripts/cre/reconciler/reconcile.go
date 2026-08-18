@@ -578,10 +578,7 @@ func (r *Reconciler) injectTOML(ctx context.Context) error {
 
 	instructions := r.breakpointInstructionsText()
 	if r.breakpointWaiter != nil {
-		if err := r.breakpointWaiter(ctx, instructions); err != nil {
-			return err
-		}
-		return nil // continue in-process to syncJobs (which restores gateway handlers)
+		return r.breakpointWaiter(ctx, instructions)
 	}
 
 	fmt.Print(instructions)
