@@ -56,7 +56,7 @@ func TestConfigPoller(t *testing.T) {
 	var ec simulated.Client
 	var linkTokenAddress common.Address
 	var accessAddress common.Address
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	ld := evm.OCR2AggregatorLogDecoder
 
@@ -111,7 +111,7 @@ func TestConfigPoller(t *testing.T) {
 		cp, err := evm.NewConfigPoller(ctx, lggr, evm.CPConfig{Client: ethClient, DestinationChainPoller: lp, AggregatorContractAddress: ocrAddress, ConfigStoreAddress: nil, LogDecoder: ld})
 		require.NoError(t, err)
 
-		_, err = cp.LatestConfig(testutils.Context(t), 0)
+		_, err = cp.LatestConfig(t.Context(), 0)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "no logs found for config on contract")
 	})
@@ -120,11 +120,11 @@ func TestConfigPoller(t *testing.T) {
 		cp, err := evm.NewConfigPoller(ctx, lggr, evm.CPConfig{Client: ethClient, DestinationChainPoller: lp, AggregatorContractAddress: ocrAddress, ConfigStoreAddress: &configStoreContractAddr, LogDecoder: ld})
 		require.NoError(t, err)
 		// Should have no config to begin with.
-		_, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
+		_, configDigest, err := cp.LatestConfigDetails(t.Context())
 		require.NoError(t, err)
 		require.Equal(t, ocrtypes2.ConfigDigest{}, configDigest)
 		// Should error because there are no logs for config at block 0
-		_, err = cp.LatestConfig(testutils.Context(t), 0)
+		_, err = cp.LatestConfig(t.Context(), 0)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "config details missing while trying to lookup config in store")
 
@@ -137,23 +137,23 @@ func TestConfigPoller(t *testing.T) {
 			DeltaC:              10,
 		}, ocrContract, user)
 		b.Commit()
-		latest, err := ec.BlockByNumber(testutils.Context(t), nil)
+		latest, err := ec.BlockByNumber(t.Context(), nil)
 		require.NoError(t, err)
 		// Ensure we capture this config set log.
-		require.NoError(t, lp.Replay(testutils.Context(t), latest.Number().Int64()-1))
+		require.NoError(t, lp.Replay(t.Context(), latest.Number().Int64()-1))
 
 		// Send blocks until we see the config updated.
 		var configBlock uint64
 		var digest [32]byte
 		gomega.NewGomegaWithT(t).Eventually(func() bool {
 			b.Commit()
-			configBlock, digest, err = cp.LatestConfigDetails(testutils.Context(t))
+			configBlock, digest, err = cp.LatestConfigDetails(t.Context())
 			require.NoError(t, err)
 			return ocrtypes2.ConfigDigest{} != digest
 		}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 		// Assert the config returned is the one we configured.
-		newConfig, err := cp.LatestConfig(testutils.Context(t), configBlock)
+		newConfig, err := cp.LatestConfig(t.Context(), configBlock)
 		require.NoError(t, err)
 		// Note we don't check onchainConfig, as that is populated in the contract itself.
 		assert.Equal(t, digest, [32]byte(newConfig.ConfigDigest))
@@ -192,7 +192,7 @@ func TestConfigPoller(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
-				changedInBlock, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
+				changedInBlock, configDigest, err := cp.LatestConfigDetails(t.Context())
 				require.NoError(t, err)
 
 				assert.Equal(t, 0, int(changedInBlock))
@@ -208,10 +208,10 @@ func TestConfigPoller(t *testing.T) {
 				}, ocrContract, user)
 				b.Commit()
 
-				changedInBlock, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
+				changedInBlock, configDigest, err := cp.LatestConfigDetails(t.Context())
 				require.NoError(t, err)
 
-				latest, err := ec.BlockByNumber(testutils.Context(t), nil)
+				latest, err := ec.BlockByNumber(t.Context(), nil)
 				require.NoError(t, err)
 
 				onchainDetails, err := ocrContract.LatestConfigDetails(nil)
@@ -228,7 +228,7 @@ func TestConfigPoller(t *testing.T) {
 			cp, err := evm.NewConfigPollerWithParams(ctx, lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
-			_, _, err = cp.LatestConfigDetails(testutils.Context(t))
+			_, _, err = cp.LatestConfigDetails(t.Context())
 			assert.EqualError(t, err, "something exploded")
 
 			failingClient.AssertExpectations(t)
@@ -265,7 +265,7 @@ func TestConfigPoller(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns error", func(t *testing.T) {
-				_, err := cp.LatestConfig(testutils.Context(t), 0)
+				_, err := cp.LatestConfig(t.Context(), 0)
 				require.Error(t, err)
 
 				assert.Contains(t, err.Error(), "config details missing while trying to lookup config in store")
@@ -305,7 +305,7 @@ func TestConfigPoller(t *testing.T) {
 				onchainDetails, err = ocrContract.LatestConfigDetails(nil)
 				require.NoError(t, err)
 
-				newConfig, err := cp.LatestConfig(testutils.Context(t), 0)
+				newConfig, err := cp.LatestConfig(t.Context(), 0)
 				require.NoError(t, err)
 
 				assert.Equal(t, onchainDetails.ConfigDigest, [32]byte(newConfig.ConfigDigest))
@@ -326,7 +326,7 @@ func TestConfigPoller(t *testing.T) {
 			cp, err := evm.NewConfigPollerWithParams(ctx, lggr, failingClient, mp, ocrAddress, &configStoreContractAddr, ld)
 			require.NoError(t, err)
 
-			_, err = cp.LatestConfig(testutils.Context(t), 0)
+			_, err = cp.LatestConfig(t.Context(), 0)
 			assert.EqualError(t, err, "failed to get latest config details: something exploded")
 
 			failingClient.AssertExpectations(t)

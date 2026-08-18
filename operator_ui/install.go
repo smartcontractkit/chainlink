@@ -148,7 +148,7 @@ func decompressTgzSubpath(file io.Reader, destPath string, subPath string) error
 
 func writeFile(target string, header *tar.Header, tr *tar.Reader) error {
 	/* #nosec G110 */
-	f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
+	f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode)) //nolint:gosec // G115
 	if err != nil {
 		return fmt.Errorf("failed to open file: %w", err)
 	}

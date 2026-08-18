@@ -317,7 +317,6 @@ require (
 	github.com/hashicorp/go-metrics v0.5.4 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.8.0 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-version v1.9.0 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
@@ -483,7 +482,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1 // indirect
 	github.com/smartcontractkit/chainlink-stellar v0.0.3 // indirect
 	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260727172856-734bee1b2489 // indirect
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260810193751-3c67a2c8c126 // indirect
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260818034831-7bbba9ff0944 // indirect
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
@@ -493,7 +492,6 @@ require (
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/mcms v0.47.2-0.20260611004209-3f43937dcffd // indirect
-	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20260626090144-2343efd61516 // indirect
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.2 // indirect

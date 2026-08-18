@@ -107,8 +107,7 @@ install-plugins-testing: ## Build & install testing only LOOPP binaries (plugins
 .PHONY: install-plugins-local
 install-plugins-local: ## Build & install local plugins
 	go install -ldflags="-s" \
-		./plugins/cmd/chainlink-medianpoc \
-		./plugins/cmd/capabilities/log-event-trigger
+		./plugins/cmd/chainlink-medianpoc
 
 .PHONY: make install-plugins
 install-plugins: install-plugins-local install-plugins-public ## Build and install local and public plugins via loopinstall

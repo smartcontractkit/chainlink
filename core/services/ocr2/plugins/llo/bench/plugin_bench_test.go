@@ -6,10 +6,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
 const (
