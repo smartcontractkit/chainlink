@@ -519,8 +519,8 @@ require (
 	github.com/smartcontractkit/chainlink-protos/svr v1.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260716141634-c0cc05ed05d8 // indirect
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1 // indirect
-	github.com/smartcontractkit/chainlink-stellar v0.0.4-0.20260813175509-e357d4a1dfe3 // indirect
-	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260813175509-e357d4a1dfe3 // indirect
+	github.com/smartcontractkit/chainlink-stellar v0.0.4-0.20260818133452-515505bf941b // indirect
+	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260818133452-515505bf941b // indirect
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260728151254-66dc095d5ccf // indirect
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/chiprouter v1.0.4 // indirect

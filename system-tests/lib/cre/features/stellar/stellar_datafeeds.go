@@ -20,7 +20,7 @@ func DeployStellarDataFeedsCache(
 	ctx context.Context,
 	chain *stellchain.Blockchain,
 	creEnv *cre.Environment,
-	dataID [16]byte,
+	dataID [32]byte,
 	description string,
 	workflowOwner [20]byte,
 	workflowName [10]byte,
@@ -71,7 +71,7 @@ func DeployStellarDataFeedsCache(
 }
 
 // StellarDataFeedsLatestRound reads the cache's latest_round for the data id
-func StellarDataFeedsLatestRound(ctx context.Context, chain *stellchain.Blockchain, cacheID string, dataID [16]byte) (*data_feeds_cache.RoundData, error) {
+func StellarDataFeedsLatestRound(ctx context.Context, chain *stellchain.Blockchain, cacheID string, dataID [32]byte) (*data_feeds_cache.RoundData, error) {
 	stellarChain, err := stellarCldfChain(chain)
 	if err != nil {
 		return nil, err
@@ -80,5 +80,9 @@ func StellarDataFeedsLatestRound(ctx context.Context, chain *stellchain.Blockcha
 	if err != nil {
 		return nil, fmt.Errorf("failed to build stellar deployer: %w", err)
 	}
-	return data_feeds_cache.NewDataFeedsCacheClient(deployer, cacheID).LatestRound(ctx, dataID)
+	rounds, err := data_feeds_cache.NewDataFeedsCacheClient(deployer, cacheID).LatestRound(ctx, [][32]byte{dataID})
+	if err != nil {
+		return nil, err
+	}
+	return rounds[0], nil
 }

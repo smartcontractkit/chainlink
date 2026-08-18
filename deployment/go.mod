@@ -60,7 +60,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.11.0
 	github.com/smartcontractkit/chainlink-solana v1.3.1-0.20260605202330-b5a89c32fdc1
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1
-	github.com/smartcontractkit/chainlink-stellar v0.0.4-0.20260813175509-e357d4a1dfe3
+	github.com/smartcontractkit/chainlink-stellar v0.0.4-0.20260818133452-515505bf941b
 	github.com/smartcontractkit/chainlink-sui v0.0.0-20260728151254-66dc095d5ccf
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96
 	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260728151254-66dc095d5ccf
@@ -458,7 +458,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.3.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260716141634-c0cc05ed05d8 // indirect
-	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260813175509-e357d4a1dfe3 // indirect
+	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260818133452-515505bf941b // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5 // indirect
 	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260716214810-db5ecc877490 // indirect

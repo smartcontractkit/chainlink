@@ -27,7 +27,7 @@ const stellarDataFeedsWorkflowFile = "./stellar/datafeeds/write/main.go"
 
 const stellarDataFeedsAnswer int64 = 1234567890
 
-var stellarDataFeedsDataID = [16]byte{0x01, 0x8e, 0x16, 0xc3, 0x9e, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}
+var stellarDataFeedsDataID = [32]byte{0x01, 0x8e, 0x16, 0xc3, 0x9e, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}
 
 func executeStellarDataFeedsWriteTest(
 	t *testing.T,
@@ -52,14 +52,11 @@ func executeStellarDataFeedsWriteTest(
 
 	requiredSignatures := stellarRequiredSignatures(t, tenv)
 
-	var wireID [32]byte
-	copy(wireID[:16], stellarDataFeedsDataID[:])
-
 	workflowConfig := datafeedswrite_config.Config{
 		ChainSelector:      stellarChain.ChainSelector(),
 		WorkflowName:       workflowName,
 		CacheContractID:    cacheID,
-		DataIDHex:          hex.EncodeToString(wireID[:]),
+		DataIDHex:          hex.EncodeToString(stellarDataFeedsDataID[:]),
 		Answer:             stellarDataFeedsAnswer,
 		RequiredSignatures: requiredSignatures,
 	}
