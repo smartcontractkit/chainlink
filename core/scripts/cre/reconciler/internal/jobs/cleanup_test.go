@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
 	webclient "github.com/smartcontractkit/chainlink/deployment/environment/web/sdk/client"
 	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 )

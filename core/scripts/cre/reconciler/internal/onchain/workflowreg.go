@@ -9,7 +9,6 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldflogger "github.com/smartcontractkit/chainlink-deployments-framework/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"

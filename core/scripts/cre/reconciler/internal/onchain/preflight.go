@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
-
 	"github.com/smartcontractkit/chainlink/core/scripts/cre/reconciler/internal/domain"
 )
 

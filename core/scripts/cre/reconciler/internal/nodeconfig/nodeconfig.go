@@ -7,9 +7,9 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	coretoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	corechainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
