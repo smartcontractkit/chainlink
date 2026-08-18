@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/wasmbuild"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	linkingclient "github.com/smartcontractkit/chainlink-protos/linking-service/go/v1"
@@ -52,7 +53,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -220,10 +220,20 @@ func Test_Handler(t *testing.T) {
 }
 
 const (
-	binaryCmd    = "core/services/workflows/test/wasm/v2/cmd/without_tee"
-	noTeeV2Cmd   = "core/services/workflows/test/wasm/v2/cmd/without_tee"
-	withTeeV2Cmd = "core/services/workflows/test/wasm/v2/cmd/with_tee"
+	binaryCmd    = "../../test/wasm/v2/cmd/without_tee"
+	noTeeV2Cmd   = "../../test/wasm/v2/cmd/without_tee"
+	withTeeV2Cmd = "../../test/wasm/v2/cmd/with_tee"
 )
+
+func getTestBinary(t *testing.T, pkgDir string) []byte {
+	t.Helper()
+	binary, err := wasmbuild.Compile(t.Context(), wasmbuild.Config{
+		PkgDir:   pkgDir,
+		Compress: true,
+	})
+	require.NoError(t, err)
+	return binary
+}
 
 func Test_workflowRegisteredHandler(t *testing.T) {
 	t.Parallel()
@@ -236,7 +246,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 	config := []byte("")
 	wfOwner := testutils.NewAddress().Bytes()
 
-	binary := wasmtest.GetTestBinary(t, binaryCmd, true)
+	binary := getTestBinary(t, binaryCmd)
 	encodedBinary := []byte(base64.StdEncoding.EncodeToString(binary))
 	workflowTag := "workflow-tag"
 	signedURLParameter := "?auth=abc123"
@@ -695,7 +705,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			db                    = pgtest.NewSqlxDB(t)
 			orm                   = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter               = custmsg.NewLabeler()
-			binary                = wasmtest.GetTestBinary(t, withTeeV2Cmd, true)
+			binary                = getTestBinary(t, withTeeV2Cmd)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
 			config                = []byte("")
 			workflowName          = testutils.RandomizeName(t.Name())
@@ -811,7 +821,7 @@ func Test_workflowRegisteredHandler_confidentialRouting(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary                = wasmtest.GetTestBinary(t, noTeeV2Cmd, true)
+			binary                = getTestBinary(t, noTeeV2Cmd)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
 			config                = []byte("")
 			wfOwner               = testutils.NewAddress().Bytes()
@@ -1055,7 +1065,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
+			binary        = getTestBinary(t, binaryCmd)
 			encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 			config        = []byte("")
 			workflowName  = testutils.RandomizeName(t.Name())
@@ -1158,7 +1168,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary                = wasmtest.GetTestBinary(t, binaryCmd, true)
+			binary                = getTestBinary(t, binaryCmd)
 			config                = []byte("")
 			workflowName          = testutils.RandomizeName(t.Name())
 			workflowEncryptionKey = workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
@@ -1209,7 +1219,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			orm     = artifacts.NewWorkflowRegistryDS(db, lggr)
 			emitter = custmsg.NewLabeler()
 
-			binary                = wasmtest.GetTestBinary(t, binaryCmd, true)
+			binary                = getTestBinary(t, binaryCmd)
 			encodedBinary         = []byte(base64.StdEncoding.EncodeToString(binary))
 			config                = []byte("")
 			workflowName          = testutils.RandomizeName(t.Name())
@@ -1638,7 +1648,7 @@ func Test_Handler_OrganizationID(t *testing.T) { //nolint:paralleltest // behold
 		lggr          = logger.TestLogger(t)
 		lf            = limits.Factory{Logger: lggr}
 		mockORM       = mocks.NewORM(t)
-		binary        = wasmtest.GetTestBinary(t, binaryCmd, true)
+		binary        = getTestBinary(t, binaryCmd)
 		encodedBinary = []byte(base64.StdEncoding.EncodeToString(binary))
 		config        = []byte("")
 		workflowName  = testutils.RandomizeName(t.Name())

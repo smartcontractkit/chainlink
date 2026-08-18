@@ -10,11 +10,11 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/stellarkey"
+	"github.com/smartcontractkit/smdkg/dkgocr/dkgocrtypes"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 )
 

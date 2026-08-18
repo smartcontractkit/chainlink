@@ -509,14 +509,15 @@ func UpdateVaultCapabilityConfig(ctx context.Context, sethClient *seth.Client, c
 }
 
 // WaitForVaultConfigPropagation waits until every workflow node's local registry snapshot
-// (registry_syncer_states) shows a non-nil DefaultConfig for the vault capability.
+// (registry_syncer_states) contains the specified expectedPublicKey (or a non-nil DefaultConfig
+// if expectedPublicKey is empty) for the vault capability.
 //
 // It connects directly to each node's PostgreSQL database using the shared postgres server
 // exposed at dbPort, with one database per node named db_0 … db_{nodeCount-1}.
 //
 // If dbPort or nodeCount is 0 (e.g. Kubernetes provider or missing state file), the function
 // falls back to a static wait of vaultConfigStaticPropagationWait.
-func WaitForVaultConfigPropagation(ctx context.Context, dbPort, nodeCount int) error {
+func WaitForVaultConfigPropagation(ctx context.Context, dbPort, nodeCount int, expectedPublicKey string) error {
 	if dbPort == 0 || nodeCount == 0 {
 		fmt.Printf("\n⚙️ Node DB info unavailable; waiting %s for vault config propagation\n", vaultConfigStaticPropagationWait)
 		select {
@@ -556,7 +557,7 @@ func WaitForVaultConfigPropagation(ctx context.Context, dbPort, nodeCount int) e
 		for nodeIndex := range pending {
 			// capture for goroutine
 			eg.Go(func() error {
-				ready, msg := hasVaultCapabilityConfigOnNode(tickCtx, dbPort, nodeIndex)
+				ready, msg := hasVaultCapabilityConfigOnNode(tickCtx, dbPort, nodeIndex, expectedPublicKey)
 				results <- checkResult{index: nodeIndex, ready: ready, msg: msg}
 				return nil
 			})
@@ -594,8 +595,8 @@ func WaitForVaultConfigPropagation(ctx context.Context, dbPort, nodeCount int) e
 }
 
 // hasVaultCapabilityConfigOnNode queries db_{nodeIndex} at dbPort and returns true when the latest
-// registry_syncer_states row contains a non-nil DefaultConfig for the vault capability.
-func hasVaultCapabilityConfigOnNode(ctx context.Context, dbPort, nodeIndex int) (bool, string) {
+// registry_syncer_states row contains expectedPublicKey (or non-nil DefaultConfig) for the vault capability.
+func hasVaultCapabilityConfigOnNode(ctx context.Context, dbPort, nodeIndex int, expectedPublicKey string) (bool, string) {
 	dsn := fmt.Sprintf(
 		"host=127.0.0.1 port=%d user=%s password=%s dbname=db_%d sslmode=disable connect_timeout=3",
 		dbPort, postgres.User, postgres.Password, nodeIndex,
@@ -634,11 +635,21 @@ func hasVaultCapabilityConfigOnNode(ctx context.Context, dbPort, nodeIndex int) 
 			return false, fmt.Sprintf("failed to unmarshal vault capability config protobuf: %v", unmarshalErr)
 		}
 
+		if expectedPublicKey != "" {
+			if VaultConfigHasPublicKey(capCfg, expectedPublicKey) {
+				return true, ""
+			}
+			continue
+		}
+
 		if capCfg.DefaultConfig != nil {
 			return true, ""
 		}
 	}
 
+	if expectedPublicKey != "" {
+		return false, fmt.Sprintf("vault capability %s with public key %s not yet set in any DON snapshot", vault_helpers.CapabilityID, expectedPublicKey)
+	}
 	return false, fmt.Sprintf("vault capability %s DefaultConfig not yet set in any DON snapshot", vault_helpers.CapabilityID)
 }
 

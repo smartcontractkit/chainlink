@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/wasmbuild"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
@@ -51,7 +52,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -1511,9 +1511,11 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 
 func TestEngine_WASMBinary_Simple(t *testing.T) {
 	t.Parallel()
-	cmd := "core/services/workflows/test/wasm/v2/cmd"
 	log := logger.Test(t)
-	binaryB := wasmtest.GetTestBinary(t, cmd, false)
+	binaryB, err := wasmbuild.Compile(t.Context(), wasmbuild.Config{
+		PkgDir: "../test/wasm/v2/cmd",
+	})
+	require.NoError(t, err)
 	module, err := host.NewModule(t.Context(), &host.ModuleConfig{
 		Logger:         log,
 		IsUncompressed: true,
@@ -1594,8 +1596,10 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 }
 
 func TestEngine_WASMBinary_With_Config(t *testing.T) {
-	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
-	binaryB := wasmtest.GetTestBinary(t, cmd, false)
+	binaryB, err := wasmbuild.Compile(t.Context(), wasmbuild.Config{
+		PkgDir: "../test/wasm/v2/cmd/with_config",
+	})
+	require.NoError(t, err)
 
 	// Define a custom config to validate against
 	giveName := "Foo"
@@ -1691,8 +1695,10 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 
 func TestSecretsFetcher_Integration(t *testing.T) {
 	t.Parallel()
-	cmd := "core/services/workflows/test/wasm/v2/cmd/with_secrets"
-	binaryB := wasmtest.GetTestBinary(t, cmd, false)
+	binaryB, err := wasmbuild.Compile(t.Context(), wasmbuild.Config{
+		PkgDir: "../test/wasm/v2/cmd/with_secrets",
+	})
+	require.NoError(t, err)
 
 	// Define a custom config to validate against
 	giveName := "Foo"

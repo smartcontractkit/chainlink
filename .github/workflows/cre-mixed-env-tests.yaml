@@ -171,14 +171,14 @@ jobs:
           persist-credentials: false
 
       - name: Set up Go
-        id: setup-go
-        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+
+        uses: actions/setup-go@v7
         with:
-          go_mod_path: system-tests/tests/go.mod
+          go-version-file: system-tests/tests/go.mod
           # No Go build/restore: mixed-env runs the pre-compiled cre-smoke.test binary
           # (restored below), and the non-determinism gate reuses that same binary — so
           # nothing is compiled here and cache restore would only waste ~30-60s per run.
-          no_cache: true
+          cache: false
 
       - name: Restore Pre-Compiled Test Binaries from S3 Cache
         uses: actions/cache/restore@v6

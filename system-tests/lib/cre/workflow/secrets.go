@@ -14,12 +14,13 @@ import (
 	"github.com/goccy/go-yaml"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	vaulttypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
