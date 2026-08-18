@@ -65,7 +65,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	workflowsmonitoring "github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	syncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
@@ -298,7 +298,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		ExecutionHandlers:    &confidentialrelay.ExecutionHandlers{},
 	}
 	if cfg.CRE().WorkflowFetcher() != nil && cfg.CRE().WorkflowFetcher().URL() != "" {
-		creOpts.FetcherFunc, err = syncer.NewFetcherFunc(cfg.CRE().WorkflowFetcher().URL(), appLggr)
+		creOpts.FetcherFunc, err = syncerv2.NewFetcherFunc(cfg.CRE().WorkflowFetcher().URL(), appLggr)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create workflow fetcher: %w", err)
 		}

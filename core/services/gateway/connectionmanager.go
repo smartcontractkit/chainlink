@@ -93,27 +93,6 @@ type connAttempt struct {
 
 func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock, gMetrics *monitoring.GatewayMetrics, lggr logger.Logger, lf limits.Factory) (ConnectionManager, error) {
 	dons := make(map[string]*donConnectionManager)
-	for _, donConfig := range gwConfig.Dons {
-		if donConfig.DonId == "" {
-			return nil, errors.New("empty DON ID")
-		}
-		_, ok := dons[donConfig.DonId]
-		if ok {
-			return nil, fmt.Errorf("duplicate DON ID %s", donConfig.DonId)
-		}
-		nodes, err := buildNodeStates(donConfig.Members, donConfig.DonId, lggr)
-		if err != nil {
-			return nil, err
-		}
-		dons[donConfig.DonId] = &donConnectionManager{
-			donConfig:  &donConfig,
-			nodes:      nodes,
-			handlers:   make(map[string]handlers.Handler),
-			shutdownCh: make(chan struct{}),
-			gMetrics:   gMetrics,
-			lggr:       logger.Named(lggr, "DONConnectionManager."+donConfig.DonId),
-		}
-	}
 	for _, shardedDON := range gwConfig.ShardedDONs {
 		for shardIdx, shard := range shardedDON.Shards {
 			donID := config.ShardDONID(shardedDON.DonName, shardIdx)

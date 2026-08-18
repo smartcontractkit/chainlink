@@ -158,7 +158,6 @@ flowchart LR
 	chainlink/v2 --> chainlink-ton/cciplib
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
-	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	cre-sdk-go --> chainlink-protos/cre/go
 	click cre-sdk-go href "https://github.com/smartcontractkit/cre-sdk-go"
@@ -179,9 +178,6 @@ flowchart LR
 	smdkg --> libocr
 	smdkg --> tdh2/go/tdh2
 	click smdkg href "https://github.com/smartcontractkit/smdkg"
-	tdh2/go/ocr2/decryptionplugin --> libocr
-	tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
-	click tdh2/go/ocr2/decryptionplugin href "https://github.com/smartcontractkit/tdh2"
 	tdh2/go/tdh2
 	click tdh2/go/tdh2 href "https://github.com/smartcontractkit/tdh2"
 	wsrpc
@@ -278,14 +274,8 @@ flowchart LR
 	end
 	click cre-sdk-go-repo href "https://github.com/smartcontractkit/cre-sdk-go"
 
-	subgraph tdh2-repo[tdh2]
-		 tdh2/go/ocr2/decryptionplugin
-		 tdh2/go/tdh2
-	end
-	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
-
 	classDef outline stroke-dasharray:6,fill:none;
-	class chainlink-aptos-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo,tdh2-repo outline
+	class chainlink-aptos-repo,chainlink-ccip-repo,chainlink-ccv-repo,chainlink-common-repo,chainlink-evm-repo,chainlink-framework-repo,chainlink-protos-repo,chainlink-sui-repo,chainlink-testing-framework-repo,chainlink-ton-repo,cre-sdk-go-repo outline
 ```
 ## All modules
 ```mermaid
@@ -605,7 +595,6 @@ flowchart LR
 	chainlink/v2 --> chainlink-ton/cciplib
 	chainlink/v2 --> cre-sdk-go/capabilities/networking/http
 	chainlink/v2 --> cre-sdk-go/capabilities/scheduler/cron
-	chainlink/v2 --> tdh2/go/ocr2/decryptionplugin
 	click chainlink/v2 href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2/tools/test --> testrig
 	click chainlink/v2/tools/test href "https://github.com/smartcontractkit/chainlink"
@@ -650,9 +639,6 @@ flowchart LR
 	smdkg --> libocr
 	smdkg --> tdh2/go/tdh2
 	click smdkg href "https://github.com/smartcontractkit/smdkg"
-	tdh2/go/ocr2/decryptionplugin --> libocr
-	tdh2/go/ocr2/decryptionplugin --> tdh2/go/tdh2
-	click tdh2/go/ocr2/decryptionplugin href "https://github.com/smartcontractkit/tdh2"
 	tdh2/go/tdh2
 	click tdh2/go/tdh2 href "https://github.com/smartcontractkit/tdh2"
 	testrig --> testrig/tools/test
@@ -824,12 +810,6 @@ flowchart LR
 		 cre-sdk-go/capabilities/scheduler/cron
 	end
 	click cre-sdk-go-repo href "https://github.com/smartcontractkit/cre-sdk-go"
-
-	subgraph tdh2-repo[tdh2]
-		 tdh2/go/ocr2/decryptionplugin
-		 tdh2/go/tdh2
-	end
-	click tdh2-repo href "https://github.com/smartcontractkit/tdh2"
 
 	subgraph testrig-repo[testrig]
 		 testrig

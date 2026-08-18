@@ -27,7 +27,7 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--integration-tests
+  group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}-integration-in-memory-tests
   cancel-in-progress: true
 
 jobs:
@@ -47,7 +47,9 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@v7
         with:
-          persist-credentials: false
+          # merge_group needs the merge base in the local repo so advanced-triggers
+          # can run git diff. Keep credentials only when we need the extra fetch.
+          persist-credentials: ${{ github.event_name == 'merge_group' }}
           repository: smartcontractkit/chainlink
           ref: ${{ inputs.chainlink_version || inputs.cl_ref || github.sha }}
 
@@ -360,9 +362,9 @@ jobs:
           path: /tmp/failure_logs
           retention-days: 7
 
-  check-integration-test-results:
+  check-integration-in-memory-test-results:
     if: always()
-    name: Integration Tests
+    name: Integration In-Memory Tests
     runs-on: ubuntu-latest
     # Every job in the chain is listed so a failure upstream of the tests cannot report
     # green here by leaving the downstream jobs 'skipped'.
@@ -395,8 +397,8 @@ jobs:
 
   notify-slack:
     name: Notify Slack
-    if: always() && (inputs.slack_channel_id != '' || (github.event_name == 'merge_group' && needs.check-integration-test-results.result == 'failure'))
-    needs: [check-integration-test-results]
+    if: always() && (inputs.slack_channel_id != '' || (github.event_name == 'merge_group' && needs.check-integration-in-memory-test-results.result == 'failure'))
+    needs: [check-integration-in-memory-test-results]
     runs-on: ubuntu-latest
     environment:
       name: integration
@@ -414,7 +416,7 @@ jobs:
       - name: Notify Slack
         uses: ./.github/actions/notify-slack-jobs-result
         with:
-          status: ${{ needs.check-integration-test-results.result }}
+          status: ${{ needs.check-integration-in-memory-test-results.result }}
           job_name: "Integration In-Memory Tests"
           run_url: ${{ format('{0}/{1}/actions/runs/{2}', github.server_url, github.repository, github.run_id) }}
           slack_channel_id: ${{ inputs.slack_channel_id || '#ccip-testing' }}

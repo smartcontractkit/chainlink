@@ -85,6 +85,17 @@ func resolveCapRegAddress(e cldf.Environment, ocrChainSelector uint64, qualifier
 	return nil
 }
 
+// resolveOCR3ContractAddress verifies a standalone OCR3Capability@1.0.0 contract exists in the datastore
+// for the given qualifier. Used by the legacy OCR3 flow (UseStandaloneOCR3Contract), where the oracle
+// factory reads its OCR3 config from a dedicated contract instead of the CapabilitiesRegistry.
+func resolveOCR3ContractAddress(e cldf.Environment, ocrChainSelector uint64, qualifier string) error {
+	addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(ocrChainSelector, qualifier)
+	if _, err := e.DataStore.Addresses().Get(addrRefKey); err != nil {
+		return fmt.Errorf("failed to get OCR3Capability address for ref key %s: %w", addrRefKey, err)
+	}
+	return nil
+}
+
 func resolveContractAddresses(
 	e cldf.Environment,
 	ocrChainSelector uint64,

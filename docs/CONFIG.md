@@ -2947,6 +2947,7 @@ ArbiterRetryInterval = '12s' # Default
 ShardIndex = 0 # Default
 ShardOrchestratorPort = 50051 # Default
 ShardOrchestratorAddress = '' # Default
+ShardAssignmentMode = 'manual-only' # Default
 ```
 Sharding holds settings for node sharding configuration.
 
@@ -2996,6 +2997,13 @@ ShardOrchestratorAddress = '' # Default
 ```
 ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
 Required when ShardingEnabled=true and ShardIndex > 0.
+
+### ShardAssignmentMode
+```toml
+ShardAssignmentMode = 'manual-only' # Default
+```
+ShardAssignmentMode controls how workflows are assigned to shards.
+One of: "manual-only" (default), "ringocr-only", "ringocr-with-overrides".
 
 ## LOOPP
 ```toml

@@ -1833,8 +1833,8 @@ github.com/smartcontractkit/chainlink-stellar v0.0.3 h1:4kCD4aznUip14U058v0nMzk0
 github.com/smartcontractkit/chainlink-stellar v0.0.3/go.mod h1:3/LaXFXZH64X1ohaawxJKIPo/KA4qOVDEmPpN0ChEZ8=
 github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260727172856-734bee1b2489 h1:z6inZEs6BcVKARjvnUNJQ4+7N4905L/Y1eDBFtkkRDI=
 github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260727172856-734bee1b2489/go.mod h1:uZEMU0BN48tmRP/Hu+RdnM70g17pgAv4s/Nux7asr2U=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20260810193751-3c67a2c8c126 h1:cxcxjXLyAMf3aZOwyqm58dkY/sFnziOcIFKN2nIi80s=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20260810193751-3c67a2c8c126/go.mod h1:ayMAswIoOUfKXjnPml593ODmVTgUO4FBTFpG1zjdr/I=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20260818034831-7bbba9ff0944 h1:r3d4FVFi6drl+NsY49fR2sK4f2ky4dJsFYy9TpGjdrE=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20260818034831-7bbba9ff0944/go.mod h1:ayMAswIoOUfKXjnPml593ODmVTgUO4FBTFpG1zjdr/I=
 github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 h1:3R9f6pguDIjei+nKx5dUT9j6fX8urGmlZA7Ad3x9UBs=
 github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96/go.mod h1:pSW9q0/YqQE5R65Z/2zsyD9c50JZf+yRJJvN6Jo3LCU=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6-0.20260708113039-95f97b2d25e9 h1:wZI7WwMuK+GHUIY38HTgEZU6wdBaH9jaiBLPAmJSfxQ=
@@ -1883,8 +1883,6 @@ github.com/smartcontractkit/quarantine v0.0.0-20251203215908-fd0551c6adf9 h1:MOE
 github.com/smartcontractkit/quarantine v0.0.0-20251203215908-fd0551c6adf9/go.mod h1:iwy4yWFuK+1JeoIRTaSOA9pl+8Kf//26zezxEXrAQEQ=
 github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb h1:kLHdQQkijaPGsBbtV2rJgpzVpQ96e7T10pzjNlWfK8U=
 github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb/go.mod h1:4s5hj/nlMF9WV+T5Uhy4n9IYpRpzfJzT+vTKkNT7T+Y=
-github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20260626090144-2343efd61516 h1:kAPHGWh+7nXLvU9aQ+FLmy6k6wNJK/IPzFAl7QpGRaM=
-github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20260626090144-2343efd61516/go.mod h1:ceeXxY+DgWnlTDjvaOlYuP+NrcNnvSbrzFwVXYJpkP4=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c h1:S1AFIjfHT95ev6gqHKBGy1zj3Tz0fIN3XzkaDUn77wY=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c/go.mod h1:NSc7hgOQbXG3DAwkOdWnZzLTZENXSwDJ7Va1nBp0YU0=
 github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 h1:zxcODLrFytOKmAd8ty8S/XK6WcIEJEgRBaL7sY/7l4Y=

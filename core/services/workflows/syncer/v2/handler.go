@@ -123,6 +123,7 @@ type eventHandler struct {
 	shardingEnabled         bool
 	myShardID               uint32
 	shardRoutingSteady      *shardownership.SteadySignal
+	shardResolver           shardownership.ShardResolver
 
 	metrics *metrics
 }
@@ -184,6 +185,12 @@ func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingE
 func WithShardRoutingSteady(signal *shardownership.SteadySignal) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.shardRoutingSteady = signal
+	}
+}
+
+func WithShardResolver(resolver shardownership.ShardResolver) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardResolver = resolver
 	}
 }
 
@@ -1205,6 +1212,7 @@ func (h *eventHandler) newV2EngineConfig(
 		ShardingEnabled:         h.shardingEnabled,
 		MyShardID:               h.myShardID,
 		ShardRoutingSteady:      h.shardRoutingSteady,
+		ShardResolver:           h.shardResolver,
 	}
 }
 

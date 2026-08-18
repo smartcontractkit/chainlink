@@ -3434,7 +3434,14 @@ type Sharding struct {
 	ShardIndex               *uint16
 	ShardOrchestratorPort    *uint16
 	ShardOrchestratorAddress *commonconfig.URL
+	ShardAssignmentMode      *string
 }
+
+const (
+	ShardAssignmentModeRingOCROnly      = "ringocr-only"
+	ShardAssignmentModeManualOnly       = "manual-only"
+	ShardAssignmentModeRingOCROverrides = "ringocr-with-overrides"
+)
 
 func (s *Sharding) setFrom(f *Sharding) {
 	if f.ShardingEnabled != nil {
@@ -3464,18 +3471,27 @@ func (s *Sharding) setFrom(f *Sharding) {
 	if f.ShardOrchestratorAddress != nil {
 		s.ShardOrchestratorAddress = f.ShardOrchestratorAddress
 	}
+
+	if f.ShardAssignmentMode != nil {
+		s.ShardAssignmentMode = f.ShardAssignmentMode
+	}
 }
 
 func (s *Sharding) ValidateConfig() (err error) {
-	// If sharding is enabled and ShardIndex > 0, ShardOrchestratorAddress must be specified
 	if s.ShardingEnabled != nil && *s.ShardingEnabled {
 		if s.ShardIndex != nil && *s.ShardIndex > 0 {
-			if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
-				err = errors.Join(err, configutils.ErrInvalid{
-					Name:  "ShardOrchestratorAddress",
-					Value: s.ShardOrchestratorAddress,
-					Msg:   "must be specified when ShardingEnabled is true and ShardIndex > 0",
-				})
+			mode := ShardAssignmentModeManualOnly
+			if s.ShardAssignmentMode != nil {
+				mode = *s.ShardAssignmentMode
+			}
+			if mode != ShardAssignmentModeManualOnly {
+				if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
+					err = errors.Join(err, configutils.ErrInvalid{
+						Name:  "ShardOrchestratorAddress",
+						Value: s.ShardOrchestratorAddress,
+						Msg:   "must be specified when ShardingEnabled is true and ShardIndex > 0",
+					})
+				}
 			}
 		}
 	}

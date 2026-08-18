@@ -29,19 +29,21 @@ const defaultConfig = `
 [nodeServerConfig]
 Path = "/node"
 
-[[dons]]
-DonId = "my_don_1"
-HandlerName = "dummy"
+[[shardedDONs]]
+DonName = "my_don_1"
+F = 0
 
-[[dons.members]]
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "example_node"
 Address = "0x68902D681C28119F9B2531473A417088BF008E59"
 
-[[dons]]
-DonId = "my_don_2"
-HandlerName = "dummy"
+[[shardedDONs]]
+DonName = "my_don_2"
+F = 0
 
-[[dons.members]]
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "example_node"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 `
@@ -59,28 +61,42 @@ func TestConnectionManager_NewConnectionManager_InvalidConfig(t *testing.T) {
 
 	invalidCases := map[string]string{
 		"duplicate DON ID": `
-[[dons]]
-DonId = "my_don"
-[[dons]]
-DonId = "my_don"
-`,
-		"duplicate node address": `
-[[dons]]
-DonId = "my_don"
-[[dons.members]]
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "node_1"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
-[[dons.members]]
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "node_2"
+Address = "0x1111111111111111111111111111111111111111"
+`,
+		"duplicate node address": `
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "node_1"
+Address = "0x68902d681c28119f9b2531473a417088bf008e59"
+[[shardedDONs.Shards.Nodes]]
 Name = "node_2"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 `,
 		"duplicate node address with different casing": `
-[[dons]]
-DonId = "my_don"
-[[dons.members]]
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "node_1"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
-[[dons.members]]
+[[shardedDONs.Shards.Nodes]]
 Name = "node_2"
 Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 `,
@@ -111,13 +127,14 @@ Path = "/node"
 AuthGatewayId = "my_gateway_no_3"
 AuthTimestampToleranceSec = 5
 AuthChallengeLen = 100
-[[dons]]
-DonId = "my_don_1"
-HandlerName = "dummy"
+[[shardedDONs]]
+DonName = "my_don_1"
+F = 0
+[[shardedDONs.Shards]]
 `)
 
 	for i := range nNodes {
-		config.WriteString(`[[dons.members]]` + "\n")
+		config.WriteString(`[[shardedDONs.Shards.Nodes]]` + "\n")
 		config.WriteString(fmt.Sprintf(`Name = "node_%d"`, i) + "\n")
 		config.WriteString(fmt.Sprintf(`Address = "%s"`, nodes[i].Address) + "\n")
 	}
