@@ -31,6 +31,11 @@ on:
           "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
+      test_matrix:
+        required: false
+        type: string
+        description: "Pre-computed test matrix JSON"
+        default: ""
   workflow_call:
     inputs:
       chainlink_image_repository_path:
@@ -57,9 +62,15 @@ on:
           "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
+      test_matrix:
+        required: false
+        type: string
+        description: "Pre-computed test matrix JSON"
+        default: ""
 
 jobs:
   define-test-matrix:
+    if: inputs.test_matrix == ''
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
@@ -93,11 +104,12 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    needs: [define-test-matrix]
+    if: !failure() && !cancelled()
     strategy:
       fail-fast: false
       matrix:
-        tests: ${{fromJson(needs.define-test-matrix.outputs.matrix)}}
-    needs: [define-test-matrix]
+        tests: ${{ fromJson(inputs.test_matrix != '' && inputs.test_matrix || needs.define-test-matrix.outputs.matrix) }}
     # we need a `test_id` and `run_attempt` here to stop runner stealing
     # see: https://runs-on.com/guides/troubleshoot/#runner-stealing-and-matrix-jobs
     runs-on: ${{ matrix.tests.runs_on }}

@@ -95,6 +95,8 @@ func TestCRE_GRPCSource_Lifecycle_E2E(t *testing.T) {
 // To run locally:
 //  1. Start CRE: go run . env start --with-chip-ingress-stack (deprecated: --with-beholder)
 //  2. Run test: go test -timeout 15m -run "^TestCRE_GRPCSource_AuthRejection_E2E$"
+//
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_GRPCSource_AuthRejection_E2E(t *testing.T) {
 	// Set up test environment
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))

@@ -101,9 +101,15 @@ on:
           fallback: a release/* base with no published base image is skipped (no correct
           baseline vs develop); every other base (develop, or a stacked feature branch) falls
           back to the develop nightly."
+      test_matrix:
+        required: false
+        type: string
+        description: "Pre-computed test matrix JSON"
+        default: ""
 
 jobs:
   define-test-matrix:
+    if: inputs.test_matrix == ''
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
@@ -138,11 +144,12 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    needs: [define-test-matrix]
+    if: !failure() && !cancelled()
     strategy:
       fail-fast: false
       matrix:
-        tests: ${{ fromJson(needs.define-test-matrix.outputs.matrix) }}
-    needs: [define-test-matrix]
+        tests: ${{ fromJson(inputs.test_matrix != '' && inputs.test_matrix || needs.define-test-matrix.outputs.matrix) }}
     runs-on: ${{ matrix.tests.runs_on }}
     environment:
       name: integration

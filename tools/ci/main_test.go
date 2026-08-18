@@ -74,3 +74,26 @@ func TestChangelogSubcommand(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, stdout.String(), "Formatted changelog for version 1.0.0")
 }
+
+func TestMatrixSuiteSubcommand(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	rootCmd := cmd.NewRootCmd(nil, &stdout, &stderr)
+	rootCmd.SetArgs([]string{"matrix", "--suite=ccip", "--run-id=10", "--attempt=1"})
+
+	err := rootCmd.Execute()
+	require.NoError(t, err)
+	require.Contains(t, stdout.String(), `"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency"`)
+}
+
+func TestMatrixSetupSubcommand(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	rootCmd := cmd.NewRootCmd(nil, &stdout, &stderr)
+	rootCmd.SetArgs([]string{"matrix", "setup", "--ccip=true", "--cre-mixed-env=true", "--run-id=10", "--attempt=1"})
+
+	err := rootCmd.Execute()
+	require.NoError(t, err)
+	require.Contains(t, stdout.String(), `"ccip-matrix":`)
+	require.Contains(t, stdout.String(), `"cre-mixed-env-matrix":`)
+}

@@ -235,7 +235,24 @@ jobs:
       ccip-should-run: ${{ steps.gate.outputs.ccip-should-run }}
       build-core-image: ${{ steps.gate.outputs.build-core-image }}
       build-plugins-image: ${{ steps.gate.outputs.build-plugins-image }}
+      cre-matrix: ${{ steps.matrices.outputs.cre-matrix }}
+      cre-regression-matrix: ${{ steps.matrices.outputs.cre-regression-matrix }}
+      cre-mixed-env-matrix: ${{ steps.matrices.outputs.cre-mixed-env-matrix }}
+      ccip-matrix: ${{ steps.matrices.outputs.ccip-matrix }}
     steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+          ref: ${{ env.CHAINLINK_REF }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
       - name: Evaluate Gating Decisions
         id: gate
         env:
@@ -325,6 +342,25 @@ jobs:
           | **Core CRE Mixed-Env Tests** | \`${cre_run_mixed_env}\` | skip-mixed-env: \`${SKIP_MIXED}\` |
           | **CCIP v1.6 E2E Tests** | \`${ccip_should_run}\` | Event: \`${EVENT}\`, changes: \`${CCIP_CHANGED}\` |
           EOF
+
+      - name: Generate Test Matrices
+        id: matrices
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          CRE_RUN: ${{ steps.gate.outputs.cre-should-run }}
+          CRE_REG_RUN: ${{ steps.gate.outputs.cre-with-regression }}
+          CRE_MIXED_RUN: ${{ steps.gate.outputs.cre-run-mixed-env }}
+          CCIP_RUN: ${{ steps.gate.outputs.ccip-should-run }}
+        run: |
+          go -C tools/ci run . matrix setup \
+            --cre="${CRE_RUN}" \
+            --cre-regression="${CRE_REG_RUN}" \
+            --cre-mixed-env="${CRE_MIXED_RUN}" \
+            --ccip="${CCIP_RUN}" \
+            --run-id="${RUN_ID}" \
+            --attempt="${RUN_ATTEMPT}" \
+            --github-output
 
   build-chainlink:
     name: Build Chainlink Image ${{ matrix.image.name }}
@@ -444,6 +480,7 @@ jobs:
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+      test_matrix: ${{ needs.test-setup.outputs.cre-matrix }}
     secrets: inherit
 
   run-core-cre-e2e-regression-tests:
@@ -462,6 +499,7 @@ jobs:
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+      test_matrix: ${{ needs.test-setup.outputs.cre-regression-matrix }}
     secrets: inherit
 
   run-core-cre-mixed-env-tests:
@@ -487,6 +525,7 @@ jobs:
       # any other base without a published image is skipped (no correct baseline).
       baseline_ref: ${{ github.event.pull_request.base.sha }}
       base_ref_name: ${{ github.event.pull_request.base.ref }}
+      test_matrix: ${{ needs.test-setup.outputs.cre-mixed-env-matrix }}
     secrets: inherit
 
   # Central writer for the unified `integration-tests-v1` build cache consumed (restore-only) by
@@ -632,6 +671,7 @@ jobs:
       chainlink_image_repository_path: ${{ inputs.ecr_name || 'chainlink-integration-tests' }}
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       chainlink_image_tag: ${{ inputs.evm-ref && format('{0}', inputs.evm-ref) || inputs.cl_ref && format('{0}', inputs.cl_ref) || format('{0}', github.sha) }}
+      test_matrix: ${{ needs.test-setup.outputs.ccip-matrix }}
     secrets: inherit
 
   check-e2e-test-results:

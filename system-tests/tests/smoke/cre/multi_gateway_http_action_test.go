@@ -108,6 +108,8 @@ func TestMultiGatewayTopology_LoadExpectedConfig(t *testing.T) {
 // to multi-don-test-org (linking service + CL_CRE_SETTINGS override to gateway_don_eu), runs an
 // HTTP GET workflow, and expects EU gateway outbound logs while the US gateway stays idle.
 // Skips unless TOPOLOGY_NAME contains "multi-gateway".
+//
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_HTTP_Action_Multi_Gateway_E2E(t *testing.T) {
 	if topology != "" && !isMultiGatewayTopology(topology) {
 		t.Skipf("skipping multi-gateway HTTP action test: TOPOLOGY_NAME=%q does not match %q", topology, multiGatewayTopologyMarker)

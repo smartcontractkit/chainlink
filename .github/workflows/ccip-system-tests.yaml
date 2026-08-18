@@ -57,9 +57,46 @@ on:
           "The version of Chainlink repository to use for the tests. If
           empty, defaults to github.sha."
         default: ""
+      test_matrix:
+        required: false
+        type: string
+        description: "Pre-computed test matrix JSON"
+        default: ""
+  workflow_call:
+    inputs:
+      chainlink_image_repository_path:
+        description:
+          "ECR repository name used to compose image with chainlink_image_tag
+          (for example: chainlink-integration-tests or chainlink or
+          chainlink/chainlink)."
+        required: true
+        type: string
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "Chainlink image tag to use."
+      ecr:
+        type: string
+        required: true
+        description:
+          "Whether to use the SDLC (sdlc) or public ECR registry (public) for
+          the Chainlink image."
+      chainlink_version:
+        required: false
+        type: string
+        description:
+          "The version of Chainlink repository to use for the tests. If
+          empty, defaults to github.sha."
+        default: ""
+      test_matrix:
+        required: false
+        type: string
+        description: "Pre-computed test matrix JSON"
+        default: ""
 
 jobs:
   define-test-matrix:
+    if: inputs.test_matrix == ''
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.define-matrix.outputs.matrix }}
@@ -92,11 +129,12 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    needs: [define-test-matrix]
+    if: !failure() && !cancelled()
     strategy:
       fail-fast: false
       matrix:
-        tests: ${{ fromJson(needs.define-test-matrix.outputs.matrix) }}
-    needs: [define-test-matrix]
+        tests: ${{ fromJson(inputs.test_matrix != '' && inputs.test_matrix || needs.define-test-matrix.outputs.matrix) }}
     runs-on: ${{ matrix.tests.runs_on }}
     environment:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments

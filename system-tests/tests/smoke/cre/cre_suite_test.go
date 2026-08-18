@@ -34,10 +34,12 @@ To execute tests start the local CRE first:
  1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-chip-ingress-stack` (deprecated: `--with-beholder`)
  2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_"`.
 */
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_Suite_Bucket_A_E2E(t *testing.T) {
 	runSuiteBucket(t, suite_config.SuiteBucketA, topology)
 }
 
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_Suite_Bucket_B_E2E(t *testing.T) {
 	vaultTopologies := []string{
 		"workflow-gateway-capabilities",
@@ -61,6 +63,7 @@ func TestCRE_V2_Suite_Bucket_B_E2E(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_Suite_Bucket_C_E2E(t *testing.T) {
 	runSuiteBucket(t, suite_config.SuiteBucketC, topology)
 }
@@ -242,14 +245,17 @@ func TestCRE_V2_EVM_Write_LogTrigger_E2E(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_EVM_Read_HeavyCalls_E2E(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketHeavyCalls)
 }
 
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_EVM_Read_StateQueries_E2E(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketStateQueries)
 }
 
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_EVM_Read_TxArtifacts_E2E(t *testing.T) {
 	runEVMReadBucket(t, evm_config.ReadBucketTxArtifacts)
 }
@@ -276,6 +282,7 @@ func TestCRE_V2_Solana_Write_E2E(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_Solana_LogTrigger_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, solanaConfigPath))
 	t.Run("Solana LogTrigger", func(t *testing.T) {
@@ -343,24 +350,28 @@ func TestCRE_V2_Stellar_Suite_E2E(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_Module_Cache_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-cache-test.toml"))
 
 	ExecuteModuleCacheTest(t, testEnv)
 }
 
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_HTTP_Action_Regression_Suite_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
 	ExecuteHTTPActionRegressionTest(t, testEnv)
 }
 
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_Beholder_Suite_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t), "--with-dashboards")
 
 	ExecuteLogStreamingTest(t, testEnv)
 }
 
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_DurableEmitter_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 	ExecuteDurableEmitterTest(t, testEnv)
