@@ -1088,7 +1088,6 @@ func newWorkflowRegistrySyncer(
 		meterIdentity,
 	)
 	return syncer, billingClient, srvcs, err
-
 }
 
 // NewServices creates and initializes all CRE services

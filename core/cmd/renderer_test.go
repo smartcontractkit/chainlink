@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )

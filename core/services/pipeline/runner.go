@@ -382,7 +382,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	}
 
 	scheduler := newScheduler(pipeline, run, vars, l)
-	go scheduler.Run()
+	go scheduler.Run() //nolint:gosec // G118
 
 	// This is "just in case" for cleaning up any stray reports.
 	// Normally the scheduler loop doesn't stop until all in progress runs report back
