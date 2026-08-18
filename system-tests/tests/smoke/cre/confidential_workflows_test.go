@@ -93,7 +93,12 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		gwProxy := newDeferredGatewayProxy(t, confidentialGatewayProxyPort)
 		enclaveHost := confidentialEnclaveHostAddr(fake)
 		storageAddr, storageSvc := startFakeStorageService(t, enclaveHost)
-
+		// Both env vars below configure the enclave *host servers*, not this repo:
+		// the harness launches them with this process's environment inherited
+		// (testhelpers.MustSetupEnclaveWithEnv appends to os.Environ())
+		// REQUIRE_BFT_QUORUM makes each host demand a 2f+1 BFT supermajority of node
+		// signatures instead of f+1 (enclave/nitro/host), matching the relay's
+		// requireBFTQuorum = true in the topology TOML.
 		t.Setenv("REQUIRE_BFT_QUORUM", "true")
 		t.Setenv("ENCLAVE_SETTINGS", fmt.Sprintf(
 			`{"storageKey":%q,"storageServiceUrl":%q,"storageServiceTls":false,"gatewayUrl":%q}`,
