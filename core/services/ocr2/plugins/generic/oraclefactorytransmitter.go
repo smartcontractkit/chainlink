@@ -1,36 +1,19 @@
 package generic
 
 import (
-	"context"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/ocrcommon"
 )
 
-var _ ocr3types.ContractTransmitter[[]byte] = (*contractTransmitter)(nil)
-
-type contractTransmitter struct {
-	impl          ocr3types.ContractTransmitter[[]byte]
-	transmitterID string
-}
-
-func NewContractTransmitter(transmitterID string, impl ocr3types.ContractTransmitter[[]byte]) *contractTransmitter {
-	return &contractTransmitter{
-		impl:          impl,
-		transmitterID: transmitterID,
-	}
-}
-
-func (ct *contractTransmitter) Transmit(
-	ctx context.Context,
-	configDigest types.ConfigDigest,
-	seqNr uint64,
-	reportWithInfo ocr3types.ReportWithInfo[[]byte],
-	attributedOnchainSignature []types.AttributedOnchainSignature,
-) error {
-	return ct.impl.Transmit(ctx, configDigest, seqNr, reportWithInfo, attributedOnchainSignature)
-}
-
-func (ct *contractTransmitter) FromAccount(ctx context.Context) (types.Account, error) {
-	return types.Account(ct.transmitterID), nil
+// NewContractTransmitter wraps impl so that FromAccount answers with
+// transmitterID, the account this oracle is registered under.
+//
+// The wrapper itself lives in chainlink-common: a capability hosted outside the
+// node needs the same thing for the same reason - libocr checks the account
+// against the oracle's entry in the configuration - and it cannot import core to
+// get it. This remains as the name core reaches it by.
+func NewContractTransmitter(transmitterID string, impl ocr3types.ContractTransmitter[[]byte]) ocr3types.ContractTransmitter[[]byte] {
+	return ocrcommon.TransmitterWithAccount(types.Account(transmitterID), impl)
 }

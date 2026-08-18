@@ -21,6 +21,10 @@ replace github.com/smartcontractkit/capabilities/libs => ../../../capabilities/l
 // libs/go.mod replaces chainlink-common locally too; match it here so both resolve to the same copy.
 replace github.com/smartcontractkit/chainlink-common => ../../../chainlink-common
 
+// Matches the chainlink-common replace above: keystore is its own module, so a local
+// chainlink-common is only half-applied without this.
+replace github.com/smartcontractkit/chainlink-common/keystore => ../../../chainlink-common/keystore
+
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (

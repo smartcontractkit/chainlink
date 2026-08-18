@@ -14,7 +14,7 @@ import (
 
 // HTTPPortArg is the required command-line argument naming the port of the
 // runner binary's HTTP server, which serves the limits reload endpoint.
-const HTTPPortArg = "--http_port"
+const HTTPPortArg = "--http.port"
 
 func ValidatedCapabilityRunnerSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{
@@ -52,8 +52,8 @@ func ValidatedCapabilityRunnerSpec(tomlString string) (job.Job, error) {
 	return jb, nil
 }
 
-// HTTPPortFromArgs extracts the required --http_port argument, accepting both
-// "--http_port=8080" and "--http_port 8080" forms.
+// HTTPPortFromArgs extracts the required --http.port argument, accepting both
+// "--http.port=8080" and "--http.port 8080" forms.
 func HTTPPortFromArgs(args []string) (int, error) {
 	for i, arg := range args {
 		var v string

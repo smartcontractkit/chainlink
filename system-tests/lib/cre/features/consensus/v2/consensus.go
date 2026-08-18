@@ -1,33 +1,27 @@
 package v2
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
-	"text/template"
 
-	"dario.cat/mergo"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
-	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
-	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
 	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 )
@@ -75,10 +69,38 @@ func (c *Consensus) PreEnvStartup(
 
 const ContractQualifier = "capability_consensus"
 
-// configTemplate defines the JSON template for consensus capability configuration.
-// This allows overriding limits and other settings from capability_defaults.toml.
-// If empty, the capability will use hardcoded defaults.
-const configTemplate = `{}`
+// The consensus binary runs as a capability runner rather than as a standard
+// capability: it hosts no node of its own, so its rage networking, the keys it
+// signs with and the OCR configuration it runs under all come from the crecore
+// process beside it. Those two addresses are the ones the node launches crecore
+// with, so they must match the [Capabilities.Proxy] block in the topology config
+// (GRPCPort), which is what enables crecore in the first place.
+const (
+	// creCoreGRPCTarget is crecore's single gRPC address: the OCR proxy (rage
+	// networking plus signing) and the capabilities registry are both served on it.
+	creCoreGRPCTarget = "localhost:50051"
+
+	// runnerHTTPPort serves the runner's /metrics, /debug/pprof, health endpoints
+	// and - the part the node needs - the settings reload endpoint it is notified
+	// on. Loopback inside the node's container, so one port suffices for every
+	// node; it only has to avoid crecore's 50051/50052.
+	runnerHTTPPort = 50053
+)
+
+// consensusFlagPrefix is the namespace the consensus binary registers its own
+// settings under, so a value from capability_defaults.toml becomes a flag.
+const consensusFlagPrefix = "--consensus."
+
+// consensusValueFlags maps the keys accepted under
+// [capability_configs.consensus.values] to the binary's flag names. Unknown keys
+// are rejected rather than dropped: a value set in the TOML and silently ignored
+// looks like the binary disagreeing with its configuration.
+var consensusValueFlags = map[string]string{
+	"RequestBatchSize":             "request-batch-size",
+	"MaxRequestSizeBytes":          "max-request-size-bytes",
+	"MaxRequestOutcomeSize":        "max-request-outcome-size",
+	"KeyBundleIDForValueConsensus": "key-bundle-id-for-value-consensus",
+}
 
 func (c *Consensus) PostEnvStartup(
 	ctx context.Context,
@@ -94,7 +116,7 @@ func (c *Consensus) PostEnvStartup(
 		creEnv,
 	)
 	if jobsErr != nil {
-		return fmt.Errorf("failed to create OCR3 jobs: %w", jobsErr)
+		return fmt.Errorf("failed to create consensus jobs: %w", jobsErr)
 	}
 
 	return nil
@@ -116,24 +138,9 @@ func createJobs(
 		return fmt.Errorf("failed to get command for consensus capability: %w", commandErr)
 	}
 
-	var nodeSet cre.NodeSetWithCapabilityConfigs
-	for _, ns := range dons.AsNodeSetWithChainCapabilities() {
-		if ns.GetName() == don.Name {
-			nodeSet = ns
-			break
-		}
-	}
-	if nodeSet == nil {
-		return fmt.Errorf("could not find node set for Don named '%s'", don.Name)
-	}
-
-	configStr, configErr := buildCapabilityConfig(
-		flag,
-		configTemplate,
-		capabilityConfig,
-	)
+	configFlags, configErr := buildConfigFlags(capabilityConfig)
 	if configErr != nil {
-		return fmt.Errorf("failed to build consensus capability config: %w", configErr)
+		return configErr
 	}
 
 	bootstrap, isBootstrap := dons.Bootstrap()
@@ -141,62 +148,144 @@ func createJobs(
 		return errors.New("could not find bootstrap node in topology, exactly one bootstrap node is required")
 	}
 
-	specs := make(map[string][]string)
-	// Create node job
-	if nodeSpecs, err := proposeNodeJob(creEnv, don, command, []string{formatBootstrapPeer(bootstrap)}, configStr); err != nil {
-		return err
-	} else if err := mergo.Merge(&specs, nodeSpecs); err != nil {
-		return fmt.Errorf("failed to merge node job specs: %w", err)
+	specs := make(cre.DonJobs, 0, len(don.Nodes))
+	for _, node := range don.Nodes {
+		// Only worker nodes run the capability; the bootstrap node has no capability
+		// DON membership and nothing to reach consensus over.
+		if !node.HasRole(cre.RoleWorker) {
+			continue
+		}
+		spec, specErr := capabilityRunnerJobSpec(node, don, creEnv, command, formatBootstrapPeer(bootstrap), configFlags)
+		if specErr != nil {
+			return specErr
+		}
+		specs = append(specs, spec)
+	}
+	if len(specs) == 0 {
+		return fmt.Errorf("no worker nodes found in %s DON to run the consensus capability", don.GetName())
 	}
 
-	if err := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs); err != nil {
-		return fmt.Errorf("failed to approve Consensus jobs: %w", err)
+	if err := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, specs); err != nil {
+		return fmt.Errorf("failed to create consensus jobs: %w", err)
 	}
 
 	return nil
 }
 
-// buildCapabilityConfig generates a JSON config string from template and config data.
-// Returns empty string if no config is provided, allowing the capability to use defaults.
-func buildCapabilityConfig(
-	capabilityFlag cre.CapabilityFlag,
-	configTemplate string,
-	capConfig cre.CapabilityConfig,
-) (string, error) {
-	// Merge global defaults with DON-specific overrides
-	templateData := capConfig.Values
-
-	// If no config provided, return empty string (capability will use hardcoded defaults)
-	if len(templateData) == 0 {
-		return "", nil
+// capabilityRunnerJobSpec builds the capabilityrunner job that launches the
+// consensus binary on one node.
+//
+// The node supervises the process over the empty LOOP and notifies it of CRE
+// settings updates on --http.port; everything else the binary needs it is told
+// here, since a process that hosts no node of its own cannot look any of it up:
+// the peer whose identity crecore holds on its behalf, the registry that says
+// which DON it is and what OCR configuration that DON runs under, and the peers
+// to dial before it has heard of anyone.
+func capabilityRunnerJobSpec(node *cre.Node, don *cre.Don, creEnv *cre.Environment, command, bootstrapPeer string, configFlags []string) (*jobv1.ProposeJobRequest, error) {
+	if node.JobDistributorDetails == nil {
+		return nil, fmt.Errorf("node %s has no job distributor details", node.Name)
 	}
-
-	// When template is "{}", marshal config map directly to JSON to pass through arbitrary fields from TOML
-	if strings.TrimSpace(configTemplate) == "{}" {
-		configBytes, err := json.Marshal(templateData)
-		if err != nil {
-			return "", errors.Wrapf(err, "failed to marshal %s config to JSON", capabilityFlag)
-		}
-		return string(configBytes), nil
+	peerID := strings.TrimPrefix(node.PeerID(), "p2p_")
+	if peerID == "" {
+		return nil, fmt.Errorf("node %s has no P2P peer ID", node.Name)
 	}
-
-	// For template-based configs, parse and execute the template
-	tmpl, err := template.New(capabilityFlag + "-config").Parse(configTemplate)
+	transmitAccount, err := transmitAccountFor(node, creEnv)
 	if err != nil {
-		return "", errors.Wrapf(err, "failed to parse %s config template", capabilityFlag)
+		return nil, err
 	}
 
-	var configBuffer bytes.Buffer
-	if err := tmpl.Execute(&configBuffer, templateData); err != nil {
-		return "", errors.Wrapf(err, "failed to execute %s config template", capabilityFlag)
+	args := []string{
+		// One instance, configured as it is here. The binary also has an "embed"
+		// subcommand for running several in one process, which is for local runs
+		// rather than for the node.
+		"run",
+		fmt.Sprintf("--http.port=%d", runnerHTTPPort),
+		"--ocr.proxy-address=" + creCoreGRPCTarget,
+		"--ocr.peer-id=" + peerID,
+		"--ocr.transmit-account=" + transmitAccount,
+		"--capabilities.proxy-url=" + creCoreGRPCTarget,
+		fmt.Sprintf("--capabilities.capability-don-id=%d", don.ID),
+		"--consensus.bootstrappers=" + bootstrapPeer,
 	}
-	configStr := configBuffer.String()
+	args = append(args, configFlags...)
 
-	if err := credon.ValidateTemplateSubstitution(configStr, capabilityFlag); err != nil {
-		return "", errors.Wrapf(err, "%s config template validation failed", capabilityFlag)
+	quoted := make([]string, 0, len(args))
+	for _, a := range args {
+		quoted = append(quoted, fmt.Sprintf("%q", a))
 	}
 
-	return configStr, nil
+	return &jobv1.ProposeJobRequest{
+		NodeId: node.JobDistributorDetails.NodeID,
+		Spec: fmt.Sprintf(`
+type = "capabilityrunner"
+schemaVersion = 1
+externalJobID = "%s"
+name = "consensus-worker"
+command = "%s"
+args = [%s]
+`,
+			uuid.NewString(),
+			command,
+			strings.Join(quoted, ", "),
+		),
+	}, nil
+}
+
+// buildConfigFlags turns [capability_configs.consensus.values] into
+// --consensus.* flags. An empty set leaves every field at the binary's own
+// default, which is what the commented-out capability_defaults.toml entries mean.
+func buildConfigFlags(capConfig cre.CapabilityConfig) ([]string, error) {
+	keys := make([]string, 0, len(capConfig.Values))
+	for k := range capConfig.Values {
+		keys = append(keys, k)
+	}
+	// Sorted so the args - and so the job spec a node is proposed - are the same
+	// on every run rather than following map iteration order.
+	sort.Strings(keys)
+
+	flags := make([]string, 0, len(keys))
+	for _, k := range keys {
+		name, ok := consensusValueFlags[k]
+		if !ok {
+			return nil, fmt.Errorf("unknown consensus capability config value %q; the consensus binary accepts %s",
+				k, strings.Join(sortedKeys(consensusValueFlags), ", "))
+		}
+		flags = append(flags, fmt.Sprintf("%s%s=%v", consensusFlagPrefix, name, capConfig.Values[k]))
+	}
+	return flags, nil
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// transmitAccountFor returns the account the node is registered to transmit from:
+// its EVM address on the registry chain, as lowercase hex with no 0x prefix.
+//
+// The presentation is the point, not just the address. libocr compares this to the
+// config as an account string, and the config's copy is produced by whoever decodes
+// it: for a capability read out of the CapabilitiesRegistry that is
+// capabilitiespb.OCR3ConfigFromProto, which renders each on-chain transmitter as
+// hex.EncodeToString of its 20 bytes. So this renders it the same way rather than
+// reading it back from JD, which reports the EIP-55 form and would never match.
+func transmitAccountFor(node *cre.Node, creEnv *cre.Environment) (string, error) {
+	chainID, err := chainselectors.ChainIdFromSelector(creEnv.RegistryChainSelector)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve the registry chain ID for node %s: %w", node.Name, err)
+	}
+	if node.Keys == nil {
+		return "", fmt.Errorf("node %s has no keys", node.Name)
+	}
+	key, ok := node.Keys.EVM[chainID]
+	if !ok || key == nil {
+		return "", fmt.Errorf("node %s has no EVM key for the registry chain %d, so it has no account to transmit from", node.Name, chainID)
+	}
+	return hex.EncodeToString(key.PublicAddress.Bytes()), nil
 }
 
 func formatBootstrapPeer(bootstrap *cre.Node) string {
@@ -204,88 +293,4 @@ func formatBootstrapPeer(bootstrap *cre.Node) string {
 		strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"),
 		bootstrap.Host,
 		cre.OCRPeeringPort)
-}
-
-func proposeNodeJob(creEnv *cre.Environment, don *cre.Don, command string, bootstrapPeers []string, configStr string) (map[string][]string, error) {
-	capRegVersion, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
-	if !ok {
-		return nil, errors.New("CapabilitiesRegistry version not found in contract versions")
-	}
-
-	inputs := job_types.JobSpecInput{
-		"command":            command,
-		"chainSelectorEVM":   creEnv.RegistryChainSelector,
-		"bootstrapPeers":     bootstrapPeers,
-		"useCapRegOCRConfig": true,
-		"capRegVersion":      capRegVersion.String(),
-	}
-
-	// Add config if provided (allows overriding limits from capability_defaults.toml)
-	if configStr != "" {
-		inputs["config"] = configStr
-	}
-
-	// Add non-EVM OCR selectors when present so consensus can select the correct
-	// onchain key bundle when signing reports. Each selector drives an entry in the
-	// consensus job's onchainSigningStrategy.Config (name -> keyBundleID); without it
-	// the multi-chain keyring has no bundle for that family and report signing fails.
-	for _, blockchain := range creEnv.Blockchains {
-		if blockchain.IsFamily(chainselectors.FamilyAptos) {
-			inputs["chainSelectorAptos"] = blockchain.ChainSelector()
-			continue
-		}
-		if blockchain.IsFamily(chainselectors.FamilySolana) {
-			inputs["chainSelectorSolana"] = blockchain.ChainSelector()
-			continue
-		}
-		if blockchain.IsFamily(chainselectors.FamilyStellar) {
-			inputs["chainSelectorStellar"] = blockchain.ChainSelector()
-			continue
-		}
-	}
-	if creEnv.FreshExternalJobIDs {
-		inputs["externalJobID"] = uuid.NewString()
-	}
-
-	input := cre_jobs.ProposeJobSpecInput{
-		Domain:      offchain.ProductLabel,
-		Environment: creEnv.CldfEnvironment.Name,
-		DONName:     don.Name,
-		JobName:     "consensus-worker",
-		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-		DONFilters: []offchain.TargetDONFilter{
-			{Key: offchain.FilterKeyDONName, Value: don.Name},
-		},
-		Template: job_types.Consensus,
-		Inputs:   inputs,
-	}
-
-	proposer := cre_jobs.ProposeJobSpec{}
-	if verErr := proposer.VerifyPreconditions(*creEnv.CldfEnvironment, input); verErr != nil {
-		return nil, fmt.Errorf("precondition verification failed for Consensus node job: %w", verErr)
-	}
-
-	report, applyErr := proposer.Apply(*creEnv.CldfEnvironment, input)
-	if applyErr != nil {
-		if strings.Contains(applyErr.Error(), "no aptos ocr2 config for node") {
-			return nil, fmt.Errorf(
-				"failed to propose Consensus node job spec: %w; Aptos workflows require Aptos OCR2 key bundles on all workflow DON nodes",
-				applyErr,
-			)
-		}
-		return nil, fmt.Errorf("failed to propose Consensus node job spec: %w", applyErr)
-	}
-
-	specs := make(map[string][]string)
-	for _, r := range report.Reports {
-		out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
-		if !ok {
-			return nil, fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
-		}
-		if mergeErr := mergo.Merge(&specs, out.Specs); mergeErr != nil {
-			return nil, fmt.Errorf("failed to merge node job specs: %w", mergeErr)
-		}
-	}
-
-	return specs, nil
 }

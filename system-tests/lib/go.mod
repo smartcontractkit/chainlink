@@ -11,6 +11,10 @@ replace github.com/smartcontractkit/capabilities/libs => ../../../capabilities/l
 
 replace github.com/smartcontractkit/chainlink-common => ../../../chainlink-common
 
+// Matches the chainlink-common replace above: keystore is its own module, so a local
+// chainlink-common is only half-applied without this.
+replace github.com/smartcontractkit/chainlink-common/keystore => ../../../chainlink-common/keystore
+
 // chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
 // (pulled in transitively by mcms v0.47.x). Pin to the version the rest of the repo uses.
 replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12

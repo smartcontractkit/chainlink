@@ -100,7 +100,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 // without any new settings update still needs to be pointed at what is already
 // on disk. After that it reloads on every settings update.
 //
-// A reload is a GET to localhost:{http_port}/reload/<file>; 2xx means the runner
+// A reload is a GET to localhost:{http.port}/reload/<file>; 2xx means the runner
 // reloaded successfully, anything else is a failure. The file itself is written
 // by the fileBackedSettings wrapper before the update reaches this subscriber,
 // so by the time one arrives here the on-disk state already matches it.

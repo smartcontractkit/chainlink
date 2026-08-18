@@ -643,27 +643,39 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		// itself, so it needs the contract address and an RPC to reach it. Both come
 		// from the same ExternalRegistry config this node uses.
 		extRegistry := cfg.Capabilities().ExternalRegistry()
-		proxyEVMHTTPURL, uerr := evmHTTPURLForChain(cfg, extRegistry.ChainID())
+		proxyEVMRPC, uerr := evmRPCFor(cfg, extRegistry.ChainID())
 		if uerr != nil {
 			return nil, fmt.Errorf("cannot launch the CRE p2p proxy: %w", uerr)
 		}
 
+		proxyArgs := []string{
+			// One instance, configured as it is here. The binary also has an "embed" subcommand
+			// for running several in one process, which is for local runs rather than for us.
+			"run",
+			"--ocr.listen-addresses=" + strings.Join(cfg.P2P().V2().ListenAddresses(), ","),
+			fmt.Sprintf("--grpc.port=%d", cfg.Capabilities().Proxy().GRPCPort()),
+			fmt.Sprintf("--http.port=%d", cfg.Capabilities().Proxy().HTTPPort()),
+			"--capabilities-registry.address=" + extRegistry.Address(),
+			"--evm.chain-id=" + extRegistry.ChainID(),
+			"--evm.http-url=" + proxyEVMRPC.HTTPURL,
+			"--database.url=" + proxyDBURL.String(),
+			"--ocr.keystore-password=" + cfg.Password().Keystore(),
+		}
+		// The proxy's pool needs heads: without either of these it can neither
+		// subscribe nor poll, so it declares the node unreachable and never reads the
+		// registry it serves at all. Both are this node's own settings, so the proxy
+		// gets heads the same way core does rather than a way of its own.
+		if proxyEVMRPC.WSURL != "" {
+			proxyArgs = append(proxyArgs, "--evm.ws-url="+proxyEVMRPC.WSURL)
+		}
+		if proxyEVMRPC.HeadsPollInterval > 0 {
+			proxyArgs = append(proxyArgs, "--evm.new-heads-poll-interval="+proxyEVMRPC.HeadsPollInterval.String())
+		}
+
 		proxyCmdFn, proxyGRPCOpts, rerr := loopRegistrarConfig.RegisterLOOP(plugins.CmdConfig{
-			ID:  "cre-p2p-proxy",
-			Cmd: cfg.Capabilities().Proxy().Command(),
-			Args: []string{
-				// One instance, configured as it is here. The binary also has an "embed" subcommand
-				// for running several in one process, which is for local runs rather than for us.
-				"run",
-				"--ocr.listen-addresses=" + strings.Join(cfg.P2P().V2().ListenAddresses(), ","),
-				fmt.Sprintf("--grpc.port=%d", cfg.Capabilities().Proxy().GRPCPort()),
-				fmt.Sprintf("--http.port=%d", cfg.Capabilities().Proxy().HTTPPort()),
-				"--capabilities-registry.address=" + extRegistry.Address(),
-				"--evm.chain-id=" + extRegistry.ChainID(),
-				"--evm.http-url=" + proxyEVMHTTPURL,
-				"--database.url=" + proxyDBURL.String(),
-				"--ocr.keystore-password=" + cfg.Password().Keystore(),
-			},
+			ID:   "cre-p2p-proxy",
+			Cmd:  cfg.Capabilities().Proxy().Command(),
+			Args: proxyArgs,
 		})
 		if rerr != nil {
 			return nil, fmt.Errorf("failed to register p2p proxy LOOP: %w", rerr)
@@ -1390,26 +1402,61 @@ func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, c
 	return nil
 }
 
-// evmHTTPURLForChain returns an HTTP RPC URL for chainID, for handing to a
-// subprocess that has to read chain state itself.
+// evmRPCForChain is how a subprocess that reads chain state itself is told to
+// reach chainID: one node's URLs, and the head-polling interval this node's own
+// pool uses.
 //
-// The proxy is launched with an explicit URL rather than being pointed at the
+// It is the node's configuration passed through rather than a configuration of
+// its own. The subprocess's EVM client is the same client core runs, and it
+// decides between subscribing to heads and polling for them the same way: a
+// websocket if there is one, HTTP polling if NewHeadsPollInterval is set, and an
+// error if neither. So a proxy told only the HTTP URL would fail against a chain
+// core reads fine - which is the failure this carries both to avoid.
+type evmRPCForChain struct {
+	// HTTPURL and WSURL belong to one node rather than being the first of each:
+	// the client pairs the two lists positionally, so mixing nodes would have it
+	// treat one node's websocket as another's. WSURL is empty when that node has
+	// none, which is only valid if the pool polls instead.
+	HTTPURL string
+	WSURL   string
+
+	// HeadsPollInterval is this chain's NodePool.NewHeadsPollInterval. Zero means
+	// this node subscribes rather than polls, and so should the subprocess.
+	HeadsPollInterval time.Duration
+}
+
+// evmRPCFor returns how to reach chainID, as the node itself is configured to.
+//
+// The proxy is launched with explicit URLs rather than being pointed at the
 // node's own relayer: it runs in its own process with no access to that, and the
 // registry it serves is read directly with an EVM client.
-func evmHTTPURLForChain(cfg GeneralConfig, chainID string) (string, error) {
+func evmRPCFor(cfg GeneralConfig, chainID string) (evmRPCForChain, error) {
 	if chainID == "" {
-		return "", errors.New("Capabilities.ExternalRegistry.ChainID is not set")
+		return evmRPCForChain{}, errors.New("Capabilities.ExternalRegistry.ChainID is not set")
 	}
 	for _, c := range cfg.EVMConfigs() {
 		if c.ChainID == nil || c.ChainID.String() != chainID {
 			continue
 		}
+		rpc := evmRPCForChain{HeadsPollInterval: c.NodePool.NewHeadsPollInterval.Duration()}
 		for _, n := range c.Nodes {
-			if n.HTTPURL != nil {
-				return n.HTTPURL.String(), nil
+			if n.HTTPURL == nil {
+				continue
+			}
+			if n.WSURL != nil {
+				rpc.HTTPURL, rpc.WSURL = n.HTTPURL.String(), n.WSURL.String()
+				return rpc, nil
+			}
+			// Keep looking for a node with both, and settle for this one's HTTP URL
+			// if none has.
+			if rpc.HTTPURL == "" {
+				rpc.HTTPURL = n.HTTPURL.String()
 			}
 		}
-		return "", fmt.Errorf("no EVM node with an HTTPURL is configured for chain %s", chainID)
+		if rpc.HTTPURL == "" {
+			return evmRPCForChain{}, fmt.Errorf("no EVM node with an HTTPURL is configured for chain %s", chainID)
+		}
+		return rpc, nil
 	}
-	return "", fmt.Errorf("no EVM chain %s is configured", chainID)
+	return evmRPCForChain{}, fmt.Errorf("no EVM chain %s is configured", chainID)
 }

@@ -447,5 +447,9 @@ exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000
 // Local override: the CRE registry shim protocol lives in chainlink-common.
 replace github.com/smartcontractkit/chainlink-common => ../chainlink-common
 
+// Matches the chainlink-common replace above: keystore is its own module, so a local
+// chainlink-common is only half-applied without this.
+replace github.com/smartcontractkit/chainlink-common/keystore => ../chainlink-common/keystore
+
 // Local override: rage/don2don are moving from core into capabilities/libs/x.
 replace github.com/smartcontractkit/capabilities/libs => ../capabilities/libs
