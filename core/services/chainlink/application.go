@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -1017,8 +1018,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 		app.logger.Info("Gracefully exiting...")
 
 		// Stop services in the reverse order from which they were started
-		for i := len(app.srvcs) - 1; i >= 0; i-- {
-			service := app.srvcs[i]
+		for _, service := range slices.Backward(app.srvcs) {
 			app.logger.Debugw("Closing service...", "name", service.Name())
 			err = stderrors.Join(err, service.Close())
 		}

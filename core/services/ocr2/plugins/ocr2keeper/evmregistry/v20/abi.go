@@ -54,7 +54,7 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 	}
 
 	result = EVMAutomationUpkeepResult20{
-		Block:    uint32(block.Uint64()),
+		Block:    uint32(block.Uint64()), //nolint:gosec // G115
 		ID:       id,
 		Eligible: true,
 	}

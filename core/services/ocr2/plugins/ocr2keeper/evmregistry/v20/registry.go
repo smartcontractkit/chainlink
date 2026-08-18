@@ -762,11 +762,11 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 
 	for i, req := range uReqs {
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for config id %s with message '%s' in get config", ids[i], req.Error)
+			r.lggr.Debugf("error encountered for config id %s with message '%s' in get config", ids[i], req.Error) //nolint:gosec // G115
 			multiErr = errors.Join(multiErr, req.Error)
 		} else {
 			var err error
-			results[i], err = r.packer.UnpackUpkeepResult(ids[i], *uResults[i])
+			results[i], err = r.packer.UnpackUpkeepResult(ids[i], *uResults[i]) //nolint:gosec // G115
 			if err != nil {
 				return nil, fmt.Errorf("failed to unpack result: %w", err)
 			}

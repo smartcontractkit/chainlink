@@ -26,7 +26,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"

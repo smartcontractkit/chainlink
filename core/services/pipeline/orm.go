@@ -491,7 +491,7 @@ WHERE pipeline_runs.id = batched_pipeline_runs.id`,
 		}
 		rowsDeleted += rowsAffected
 
-		return uint(rowsAffected), err
+		return uint(rowsAffected), err //nolint:gosec // G115
 	})
 	if err != nil {
 		return errors.Wrap(err, "DeleteRunsOlderThan failed")
