@@ -45,6 +45,9 @@ func workflowEncryptionKey(workerNode *cre.Node) ([32]byte, error) {
 	if err != nil {
 		return publicKey, errors.Wrap(err, "failed to create request to get workflow keys")
 	}
+	if len(apiClient.Cookies) == 0 {
+		return publicKey, errors.New("no session cookie available for get workflow keys request")
+	}
 	req.AddCookie(apiClient.Cookies[0])
 
 	resp, err := apiClient.GetClient().Do(req)
