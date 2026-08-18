@@ -1,5 +1,5 @@
 # Configuration for gRPC source integration test
-# This is used by Test_CRE_GRPCSource_Lifecycle to start a CRE environment
+# This is used by TestCRE_GRPCSource_Lifecycle_E2E to start a CRE environment
 # with v2 registries for testing alternative workflow sources.
 
 # ----- BLOCKCHAIN CONFIGURATION -----
