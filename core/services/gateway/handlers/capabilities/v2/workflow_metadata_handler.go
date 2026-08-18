@@ -14,8 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/aggregation"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -42,10 +40,12 @@ type WorkflowMetadataHandler struct {
 	authorizedKeys  map[string]map[gateway.AuthorizedKey]struct{} // map of workflow ID to authorized keys
 	workflowRefToID map[workflowReference]string                  // map of workflow reference to workflow ID
 	workflowIDToRef map[string]workflowReference                  // map of workflow ID to workflow reference
-	agg             *aggregation.WorkflowMetadataAggregator
+	workflowShards  map[string][]*shardEndpoint                   // map of workflow ID to the shards it is assigned to (quorum reached)
+	// aggs holds one WorkflowMetadataAggregator per shard, keyed by shard donID.
+	aggs            map[string]*aggregation.WorkflowMetadataAggregator
+	shards          []*shardEndpoint
+	nodeAddrToShard map[string]*shardEndpoint
 	config          ServiceConfig
-	don             handlers.DON
-	donConfig       *config.DONConfig
 	stopCh          services.StopChan
 	metrics         *metrics.Metrics
 	jwtCache        *jwtReplayCache // JWT replay protection cache
@@ -53,18 +53,23 @@ type WorkflowMetadataHandler struct {
 	startTime       time.Time // time when Start() was called
 }
 
-// NewWorkflowMetadataHandler creates a new WorkflowMetadataHandler.
-func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, don handlers.DON, donConfig *config.DONConfig, metrics *metrics.Metrics) *WorkflowMetadataHandler {
-	// f+1 identical responses from workflow are needed for workflow metadata to be registered
-	threshold := donConfig.F + 1
+// NewWorkflowMetadataHandler creates a new WorkflowMetadataHandler spanning the
+// full DON×shard matrix. Each shard gets its own aggregator with threshold F+1.
+func NewWorkflowMetadataHandler(lggr logger.Logger, cfg ServiceConfig, shards []*shardEndpoint, nodeAddrToShard map[string]*shardEndpoint, metrics *metrics.Metrics) *WorkflowMetadataHandler {
+	aggs := make(map[string]*aggregation.WorkflowMetadataAggregator, len(shards))
+	for _, shard := range shards {
+		threshold := shard.f + 1
+		aggs[shard.donID] = aggregation.NewWorkflowMetadataAggregator(lggr, threshold, time.Duration(cfg.CleanUpPeriodMs)*time.Millisecond, metrics)
+	}
 	return &WorkflowMetadataHandler{
 		lggr:            logger.Named(lggr, "HTTPTriggerWorkflowMetadataHandler"),
 		authorizedKeys:  make(map[string]map[gateway.AuthorizedKey]struct{}),
 		workflowRefToID: make(map[workflowReference]string),
 		workflowIDToRef: make(map[string]workflowReference),
-		agg:             aggregation.NewWorkflowMetadataAggregator(lggr, threshold, time.Duration(cfg.CleanUpPeriodMs)*time.Millisecond, metrics),
-		don:             don,
-		donConfig:       donConfig,
+		workflowShards:  make(map[string][]*shardEndpoint),
+		aggs:            aggs,
+		shards:          shards,
+		nodeAddrToShard: nodeAddrToShard,
 		config:          cfg,
 		stopCh:          make(services.StopChan),
 		metrics:         metrics,
@@ -102,42 +107,60 @@ func (h *WorkflowMetadataHandler) Authorize(workflowID string, token string, req
 	return &key, nil
 }
 
-// syncMetadata aggregates the authorized keys and workflow selectors from the WorkflowMetadataAggregator and updates the local cache.
-// Should be called periodically to keep the authorized keys up to date.
+// syncMetadata aggregates the authorized keys and workflow selectors from each
+// shard's WorkflowMetadataAggregator and updates the local cache. A workflow is
+// considered assigned to a shard once that shard's aggregator reports it (i.e.
+// F+1 of the shard's nodes observed it).
 func (h *WorkflowMetadataHandler) syncMetadata(ctx context.Context) {
-	metadata, err := h.agg.Aggregate()
-	if err != nil {
-		h.lggr.Errorw("Failed to aggregate auth data", "error", err)
-		return
-	}
 	authorizedKeys := make(map[string]map[gateway.AuthorizedKey]struct{})
 	workflowRefToID := make(map[workflowReference]string)
 	workflowIDToRef := make(map[string]workflowReference)
-	for _, data := range metadata {
-		workflowRef := workflowReference{
-			workflowOwner: data.WorkflowSelector.WorkflowOwner,
-			workflowName:  data.WorkflowSelector.WorkflowName,
-			workflowTag:   data.WorkflowSelector.WorkflowTag,
-		}
-		// Only the first aggregated workflow reference is used because
-		// workflow reference is unique (enforced by workflow registry)
-		// workflow reference and workflow ID mapping in the gateway eventually becomes consistent
-		// with the mapping on-chain
-		if _, exists := workflowIDToRef[data.WorkflowSelector.WorkflowID]; exists {
-			h.lggr.Debug("Duplicate workflow ID found", "workflowID", data.WorkflowSelector.WorkflowID)
-			continue
-		}
-		if _, exists := workflowRefToID[workflowRef]; exists {
-			h.lggr.Debugw("Duplicate workflow reference found", "workflowRef", workflowRef, "workflowID", data.WorkflowSelector.WorkflowID)
-			continue
-		}
-		workflowIDToRef[data.WorkflowSelector.WorkflowID] = workflowRef
-		workflowRefToID[workflowRef] = data.WorkflowSelector.WorkflowID
-		authorizedKeys[data.WorkflowSelector.WorkflowID] = make(map[gateway.AuthorizedKey]struct{})
-		for _, key := range data.AuthorizedKeys {
-			authorizedKeys[data.WorkflowSelector.WorkflowID][key] = struct{}{}
+	workflowShards := make(map[string][]*shardEndpoint)
+
+	for _, shard := range h.shards {
+		agg := h.aggs[shard.donID]
+		metadata := agg.Aggregate()
+		for _, data := range metadata {
+			workflowID := data.WorkflowSelector.WorkflowID
+			workflowRef := workflowReference{
+				workflowOwner: data.WorkflowSelector.WorkflowOwner,
+				workflowName:  data.WorkflowSelector.WorkflowName,
+				workflowTag:   data.WorkflowSelector.WorkflowTag,
+			}
+
+			// Case 1: this workflow ID was already registered. If the reference
+			// matches, this is the same workflow reported by another shard —
+			// append the shard to its fan-out list. If the reference differs,
+			// it's a conflicting observation; drop it.
+			if existingRef, idExists := workflowIDToRef[workflowID]; idExists {
+				if existingRef == workflowRef {
+					workflowShards[workflowID] = append(workflowShards[workflowID], shard)
+				} else {
+					h.lggr.Debugw("Duplicate workflow ID with conflicting reference, dropping",
+						"workflowID", workflowID, "existingRef", existingRef, "conflictingRef", workflowRef)
+				}
+				continue
+			}
+
+			// Case 2: this workflow reference was already registered under a
+			// different workflow ID. First-wins by reference; drop the duplicate.
+			if _, refExists := workflowRefToID[workflowRef]; refExists {
+				h.lggr.Debugw("Duplicate workflow reference found, dropping",
+					"workflowRef", workflowRef, "workflowID", workflowID)
+				continue
+			}
+
+			// Case 3: new workflow ID and reference — register it.
+			workflowIDToRef[workflowID] = workflowRef
+			workflowRefToID[workflowRef] = workflowID
+			authorizedKeys[workflowID] = make(map[gateway.AuthorizedKey]struct{})
+			for _, key := range data.AuthorizedKeys {
+				authorizedKeys[workflowID][key] = struct{}{}
+			}
+			workflowShards[workflowID] = append(workflowShards[workflowID], shard)
 		}
 	}
+
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -155,11 +178,13 @@ func (h *WorkflowMetadataHandler) syncMetadata(ctx context.Context) {
 	h.authorizedKeys = authorizedKeys
 	h.workflowRefToID = workflowRefToID
 	h.workflowIDToRef = workflowIDToRef
+	h.workflowShards = workflowShards
 	h.metrics.RecordLoadedMetadataSize(ctx, int64(len(h.workflowIDToRef)), h.lggr)
 }
 
-// sendMetadataPullRequest sends a request to all nodes in the DON to pull the latest metadata.
-// no retries are performed, as the caller is expected to poll periodically.
+// sendMetadataPullRequest sends a request to all nodes in every shard to pull
+// the latest metadata. no retries are performed, as the caller is expected to
+// poll periodically.
 func (h *WorkflowMetadataHandler) sendMetadataPullRequest() error {
 	timeout := time.Duration(h.config.MetadataPullRequestTimeoutMs) * time.Millisecond
 	ctx, cancel := h.stopCh.CtxWithTimeout(timeout)
@@ -171,12 +196,14 @@ func (h *WorkflowMetadataHandler) sendMetadataPullRequest() error {
 		Method:  gateway.MethodPullWorkflowMetadata,
 	}
 	var combinedErr error
-	for _, member := range h.donConfig.Members {
-		h.metrics.IncrementTriggerCapabilityRequestCount(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
-		err := h.don.SendToNode(ctx, member.Address, req)
-		if err != nil {
-			h.metrics.IncrementTriggerCapabilityRequestFailures(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
-			combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to send pull request to node %s: %w", member.Address, err))
+	for _, shard := range h.shards {
+		for _, member := range shard.members {
+			h.metrics.IncrementTriggerCapabilityRequestCount(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
+			err := shard.connMgr.SendToNode(ctx, member.Address, req)
+			if err != nil {
+				h.metrics.IncrementTriggerCapabilityRequestFailures(ctx, member.Address, gateway.MethodPullWorkflowMetadata, h.lggr)
+				combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to send pull request to node %s (shard %s): %w", member.Address, shard.donID, err))
+			}
 		}
 	}
 	return combinedErr
@@ -193,8 +220,12 @@ func (h *WorkflowMetadataHandler) OnMetadataPush(ctx context.Context, resp *json
 	if err != nil {
 		return err
 	}
+	agg, err := h.aggForNode(nodeAddr)
+	if err != nil {
+		return err
+	}
 	var combinedErr error
-	err = h.agg.Collect(&metadata, nodeAddr)
+	err = agg.Collect(&metadata, nodeAddr)
 	if err != nil {
 		combinedErr = errors.Join(combinedErr, fmt.Errorf("failed to collect observation: %w", err))
 	}
@@ -214,12 +245,36 @@ func (h *WorkflowMetadataHandler) OnMetadataPullResponse(ctx context.Context, re
 			return err
 		}
 	}
+	agg, err := h.aggForNode(nodeAddr)
+	if err != nil {
+		return err
+	}
 	var combinedErr error
 	for _, data := range metadata {
-		err := h.agg.Collect(&data, nodeAddr)
+		err := agg.Collect(&data, nodeAddr)
 		combinedErr = errors.Join(combinedErr, err)
 	}
 	return combinedErr
+}
+
+// aggForNode returns the per-shard aggregator that owns the given node address.
+func (h *WorkflowMetadataHandler) aggForNode(nodeAddr string) (*aggregation.WorkflowMetadataAggregator, error) {
+	shard, ok := h.nodeAddrToShard[nodeAddr]
+	if !ok {
+		return nil, fmt.Errorf("received metadata from unknown node %s (no owning shard)", nodeAddr)
+	}
+	return h.aggs[shard.donID], nil
+}
+
+// WorkflowShards returns the shards a workflow is currently assigned to (those
+// whose quorum reported the workflow's metadata). The returned slice is a copy.
+func (h *WorkflowMetadataHandler) WorkflowShards(workflowID string) []*shardEndpoint {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	shards := h.workflowShards[workflowID]
+	out := make([]*shardEndpoint, len(shards))
+	copy(out, shards)
+	return out
 }
 
 // Start begins the periodic pull loop.
@@ -227,9 +282,10 @@ func (h *WorkflowMetadataHandler) Start(ctx context.Context) error {
 	return h.StartOnce("WorkflowMetadataHandler", func() error {
 		h.lggr.Info("Starting HTTP Trigger Metadata Handler")
 		h.startTime = time.Now()
-		err := h.agg.Start(ctx)
-		if err != nil {
-			return err
+		for _, shard := range h.shards {
+			if err := h.aggs[shard.donID].Start(ctx); err != nil {
+				return fmt.Errorf("failed to start aggregator for shard %s: %w", shard.donID, err)
+			}
 		}
 		h.runTicker(time.Duration(h.config.MetadataPullIntervalMs)*time.Millisecond, func(ctx context.Context) {
 			err2 := h.sendMetadataPullRequest()
@@ -322,8 +378,10 @@ func (h *WorkflowMetadataHandler) GetWorkflowReference(workflowID string) (workf
 func (h *WorkflowMetadataHandler) Close() error {
 	return h.StopOnce("WorkflowMetadataHandler", func() error {
 		h.lggr.Info("Stopping HTTP Trigger Metadata Handler")
-		if err := h.agg.Close(); err != nil {
-			h.lggr.Errorw("Failed to close WorkflowMetadataAggregator", "error", err)
+		for _, shard := range h.shards {
+			if err := h.aggs[shard.donID].Close(); err != nil {
+				h.lggr.Errorw("Failed to close WorkflowMetadataAggregator", "shard", shard.donID, "error", err)
+			}
 		}
 		close(h.stopCh)
 		h.wg.Wait()
