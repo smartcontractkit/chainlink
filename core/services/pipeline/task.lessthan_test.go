@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -75,7 +74,7 @@ func TestLessThanTask_Happy(t *testing.T) {
 			t.Run("without vars through job DAG", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
 				task := pipeline.LessThanTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0), Right: test.right}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.left}}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.left}}))
 			})
 			t.Run("without vars through input param", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(nil)
@@ -84,7 +83,7 @@ func TestLessThanTask_Happy(t *testing.T) {
 					Left:     fmt.Sprintf("%v", test.left),
 					Right:    test.right,
 				}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 			t.Run("with vars", func(t *testing.T) {
 				vars := pipeline.NewVarsFrom(map[string]any{
@@ -96,7 +95,7 @@ func TestLessThanTask_Happy(t *testing.T) {
 					Left:     "$(foo.bar)",
 					Right:    "$(chain.link)",
 				}
-				assertOK(task.Run(testutils.Context(t), logger.TestLogger(t), vars, []pipeline.Result{}))
+				assertOK(task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{}))
 			})
 		})
 	}
@@ -129,7 +128,7 @@ func TestLessThanTask_Unhappy(t *testing.T) {
 				Left:     test.left,
 				Right:    test.right,
 			}
-			result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), test.vars, test.inputs)
+			result, runInfo := task.Run(t.Context(), logger.TestLogger(t), test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)
 			assert.False(t, runInfo.IsRetryable)
 			require.ErrorIs(t, result.Error, test.wantErrorCause)

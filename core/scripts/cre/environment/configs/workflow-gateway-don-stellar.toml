@@ -35,7 +35,7 @@
   # Stellar chains this DON supports (string network ids), used for key generation and node relayer config.
   supported_stellar_chains = ["baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"]
   # Workflow runtime limits need both the EVM registry chain (1337) and the Stellar chain selector.
-  env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","17301180955411967724":"true"}},"ExecutionTimestampsEnabled":"true"}}', CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","17301180955411967724":"true"}},"ExecutionTimestampsEnabled":"true","ChainRead":{"CallLimit":"32"}}}', CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["cron", "consensus", "don-time"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 

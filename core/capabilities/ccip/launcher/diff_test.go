@@ -5,9 +5,9 @@ import (
 	"reflect"
 	"testing"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/stretchr/testify/require"
+
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"

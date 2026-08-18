@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -124,7 +123,7 @@ func TestMeanTask(t *testing.T) {
 					AllowedFaults: test.allowedFaults,
 					Precision:     test.precision,
 				}
-				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
+				output, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), test.inputs)
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)
 				if output.Error != nil {
@@ -153,7 +152,7 @@ func TestMeanTask(t *testing.T) {
 					AllowedFaults: test.allowedFaults,
 					Precision:     test.precision,
 				}
-				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+				output, runInfo := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)
 				if output.Error != nil {
@@ -199,7 +198,7 @@ func TestMeanTask(t *testing.T) {
 					AllowedFaults: test.allowedFaults,
 					Precision:     test.precision,
 				}
-				output, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), vars, nil)
+				output, runInfo := task.Run(t.Context(), logger.TestLogger(t), vars, nil)
 				assert.False(t, runInfo.IsPending)
 				assert.False(t, runInfo.IsRetryable)
 				if output.Error != nil {

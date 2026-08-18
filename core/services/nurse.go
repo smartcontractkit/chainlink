@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -432,11 +434,14 @@ func (n *Nurse) totalProfileBytes() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	var size uint64
+	var size int64
 	for _, p := range profiles {
-		size += uint64(p.Size())
+		size += p.Size()
 	}
-	return size, nil
+	if size > math.MaxInt64 {
+		return 0, errors.New("total profile size overflows int64")
+	}
+	return uint64(size), nil
 }
 
 func (n *Nurse) listProfiles() ([]fs.FileInfo, error) {

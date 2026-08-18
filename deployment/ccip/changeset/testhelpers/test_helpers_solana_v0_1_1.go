@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"regexp"
 	"testing"
@@ -580,9 +581,17 @@ func deriveCCIPSendAccounts(
 
 		isStartOfToken := re.MatchString(derivation.CurrentStage)
 		if isStartOfToken {
-			tokenIndices = append(tokenIndices, tokenIndex-byte(cap(solRouter.NewCcipSendInstructionBuilder().AccountMetaSlice)))
+			accountMetaCap := cap(solRouter.NewCcipSendInstructionBuilder().AccountMetaSlice)
+			if accountMetaCap > math.MaxUint8 {
+				return nil, nil, nil, fmt.Errorf("cap overflows byte: %d", accountMetaCap)
+			}
+			tokenIndices = append(tokenIndices, tokenIndex-byte(accountMetaCap))
 		}
-		tokenIndex += byte(len(derivation.AccountsToSave))
+		accountMetaLen := len(derivation.AccountsToSave)
+		if accountMetaLen > math.MaxUint8 {
+			return nil, nil, nil, fmt.Errorf("len overflows byte: %d", accountMetaLen)
+		}
+		tokenIndex += byte(accountMetaLen)
 
 		for _, meta := range derivation.AccountsToSave {
 			derivedAccounts = append(derivedAccounts, &solana.AccountMeta{

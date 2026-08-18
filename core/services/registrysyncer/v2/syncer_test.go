@@ -34,10 +34,9 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	registrysyncer_v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
@@ -164,7 +163,7 @@ func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
 }
 
 func TestReader_Integration(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	// Create a simulated backend similar to V1 tests
@@ -392,7 +391,7 @@ func TestReader_Integration(t *testing.T) {
 }
 
 func TestSyncer_V2_DBIntegration(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	// Create a simulated backend similar to V1 tests
@@ -559,7 +558,7 @@ func TestSyncer_V2_DBIntegration(t *testing.T) {
 }
 
 func TestSyncer_V2_LocalNode(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	var pid p2ptypes.PeerID
@@ -674,7 +673,7 @@ func TestSyncer_V2_LocalNode(t *testing.T) {
 }
 
 func TestReader_V2_FamilyOperations(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 
 	// Create a simulated backend

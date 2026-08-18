@@ -1,6 +1,0 @@
-# Keystone CRIB deployments
-*.sh
-!*-sample.sh
-keystone
-.cache/
-artefacts/

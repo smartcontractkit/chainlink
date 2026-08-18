@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
 
 func TestNewOracleFactory(t *testing.T) {
@@ -49,7 +49,7 @@ func TestNewOracleFactory_WithOCRConfigService(t *testing.T) {
 // mockOCRConfigService is a minimal mock for testing OracleFactory setup.
 type mockOCRConfigService struct {
 	services.Service
-	registrysyncer.Listener
+	v2.Listener
 }
 
 func (m *mockOCRConfigService) GetConfigTracker(

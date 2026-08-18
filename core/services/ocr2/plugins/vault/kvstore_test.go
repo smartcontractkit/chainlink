@@ -6,12 +6,13 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 )

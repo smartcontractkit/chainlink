@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 

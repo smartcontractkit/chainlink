@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
@@ -96,13 +95,13 @@ func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	func() {
 		defer func() { assert.NoError(t, conn.Close()) }()
 		clientConnWrapper.Reset(conn)
-		writeErr := clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("hello"))
+		writeErr := clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("hello"))
 		require.NoError(t, writeErr)
 		<-ssl.connWrapper.ReadChannel() // consumed by server
 	}()
 
 	// try to write without a connection
-	writeErr := clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("failed send"))
+	writeErr := clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("failed send"))
 	require.Error(t, writeErr)
 
 	// re-connect, write another message, disconnect
@@ -110,7 +109,7 @@ func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
 	clientConnWrapper.Reset(conn)
-	writeErr = clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("hello again"))
+	writeErr = clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("hello again"))
 	require.NoError(t, writeErr)
 	<-ssl.connWrapper.ReadChannel() // consumed by server
 }

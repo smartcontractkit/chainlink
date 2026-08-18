@@ -9,7 +9,6 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/mock"
-
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"

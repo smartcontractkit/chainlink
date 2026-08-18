@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 )
 

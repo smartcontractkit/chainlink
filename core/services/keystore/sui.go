@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
 
@@ -172,7 +171,7 @@ type SuiLoopSinger struct {
 	core.UnimplementedKeystore
 }
 
-var _ loop.Keystore = &SuiLoopSinger{}
+var _ core.Keystore = &SuiLoopSinger{}
 
 // Returns a list of Sui Public Keys
 func (s *SuiLoopSinger) Accounts(ctx context.Context) (accounts []string, err error) {
