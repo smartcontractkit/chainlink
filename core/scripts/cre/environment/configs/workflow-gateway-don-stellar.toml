@@ -9,6 +9,7 @@
 
 [[blockchains]]
   type = "stellar"
+  image = "stellar/quickstart:pr968-v653-b1315.2-latest"
   chain_id = "baefd734b8d3e48472cff83912375fedbc7573701912fe308af730180f97d74a"
   # Pin the standalone network to mainnet's live protocol (26) so local/CI matches
   docker_cmd_params = ["--protocol-version", "26"]
