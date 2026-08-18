@@ -329,7 +329,7 @@ func configureEnclaves(
 	require.NoError(t, err, "failed to marshal enclave config")
 
 	enclaveType := cctypes.EnclaveTypeNitro
-	if UseFakeEnclaveForTest() {
+	if testhelpers.UseFakeEnclave() {
 		enclaveType = cctypes.EnclaveTypeFake
 	}
 
@@ -354,11 +354,6 @@ func configureEnclaves(
 		require.NoError(t, err, "failed to set config on enclave %d (%s)", i, configURL)
 		testLogger.Info().Int("enclave", i).Str("configURL", configURL).Msg("Enclave configured")
 	}
-}
-
-// UseFakeEnclaveForTest reports whether the harness selected fake enclaves.
-func UseFakeEnclaveForTest() bool {
-	return testhelpers.UseFakeEnclave()
 }
 
 // storeConfidentialWorkflowSecret encrypts a secret to the vault's public key and
