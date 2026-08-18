@@ -56,20 +56,16 @@ func UpdateDONCapabilityConfig(
 		return errors.Errorf("capability %q is not configured on DON %q", capabilityName, donName)
 	}
 
-  if _, err := sethClient.Decode(capReg.UpdateDON(sethClient.NewTXOpts(), don.Id, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{                                    
+	_, err = sethClient.Decode(capReg.UpdateDON(sethClient.NewTXOpts(), don.Id, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
 		Name:                     don.Name,
 		Config:                   don.Config,
 		CapabilityConfigurations: updated,
 		Nodes:                    don.NodeP2PIds,
 		F:                        don.F,
 		IsPublic:                 don.IsPublic,
-	})
+	}))
 	if err != nil {
 		return errors.Wrapf(err, "failed to submit updateDON for DON %q", donName)
-	}
-
-	if _, err := bind.WaitMined(ctx, sethClient.Client, tx); err != nil {
-		return errors.Wrapf(err, "failed waiting for updateDON of DON %q to be mined", donName)
 	}
 
 	return nil
