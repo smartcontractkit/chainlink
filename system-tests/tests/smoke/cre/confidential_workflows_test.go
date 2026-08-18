@@ -76,6 +76,10 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 	testLogger := framework.L
 
 	t.Run("Confidential Workflows Relay - "+topology, func(t *testing.T) {
+		// Resolved first so the test skips before standing up anything when the
+		// confidential-compute checkout is not available.
+		ccRoot := confidentialComputeRoot(t)
+
 		fake := testhelpers.UseFakeEnclave()
 		testLogger.Info().Bool("fakeEnclaves", fake).Msg("Starting confidential workflows relay test")
 
@@ -100,7 +104,6 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 
 		// 2. Start the enclaves. This is the whole point of depending on
 		//    chainlink-confidential-compute's harness from this repository.
-		ccRoot := confidentialComputeRoot(t)
 		enclaveCfg := testhelpers.DefaultLocalEnclaveSetupConfig(ccRoot, confidentialWorkflowsApp)
 		enclaveCfg.Region = confidentialEnclaveRegion
 		enclaves := testhelpers.SetupLocalEnclaves(t, enclaveCfg)
@@ -187,14 +190,16 @@ func confidentialEnclaveHostAddr(fake bool) string {
 }
 
 // confidentialComputeRoot resolves the chainlink-confidential-compute checkout the
-// enclave harness builds and runs the enclave from.
+// enclave harness builds and runs the enclave from. The test is skipped when it is
+// not set, so a local `go test ./...` does not fail on a missing checkout.
 func confidentialComputeRoot(t *testing.T) string {
 	t.Helper()
 
 	root := os.Getenv("CONFIDENTIAL_COMPUTE_ROOT")
-	require.NotEmpty(t, root,
-		"CONFIDENTIAL_COMPUTE_ROOT must point at a chainlink-confidential-compute checkout; "+
+	if root == "" {
+		t.Skip("CONFIDENTIAL_COMPUTE_ROOT must point at a chainlink-confidential-compute checkout; " +
 			"CI sets this from the confidential-workflows gitRef in plugins/plugins.public.yaml")
+	}
 
 	abs, err := filepath.Abs(root)
 	require.NoError(t, err, "resolving CONFIDENTIAL_COMPUTE_ROOT")
