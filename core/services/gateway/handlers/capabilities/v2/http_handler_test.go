@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	triggermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/mocks"
 	handlermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
@@ -37,7 +38,8 @@ func TestNewGatewayHandler(t *testing.T) {
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+		shardedDONs, connMgrs := shardedArgs(donConfig, mockDon)
+		handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.NotNil(t, handler.responseCache)
@@ -52,7 +54,8 @@ func TestNewGatewayHandler(t *testing.T) {
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(invalidConfig, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+		shardedDONs, connMgrs := shardedArgs(donConfig, mockDon)
+		handler, err := NewGatewayHandler(invalidConfig, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
 		require.Error(t, err)
 		require.Nil(t, handler)
 	})
@@ -69,7 +72,8 @@ func TestNewGatewayHandler(t *testing.T) {
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
 
-		handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+		shardedDONs, connMgrs := shardedArgs(donConfig, mockDon)
+		handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
 		require.NoError(t, err)
 		require.NotNil(t, handler)
 		require.Equal(t, defaultCleanUpPeriodMs, handler.config.CleanUpPeriodMs) // Default value
@@ -80,7 +84,7 @@ func TestHandleNodeMessage(t *testing.T) {
 	handler := createTestHandler(t)
 
 	t.Run("successful node message handling", func(t *testing.T) {
-		mockDon := handler.don.(*handlermocks.DON)
+		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 		// Prepare outbound request
@@ -121,7 +125,7 @@ func TestHandleNodeMessage(t *testing.T) {
 	})
 
 	t.Run("successful node message handling with MultiHeaders", func(t *testing.T) {
-		mockDon := handler.don.(*handlermocks.DON)
+		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 		// Prepare outbound request
@@ -219,7 +223,7 @@ func TestHandleNodeMessage(t *testing.T) {
 			Result: &rawRequest,
 		}
 
-		mockDon := handler.don.(*handlermocks.DON)
+		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 		// First call: should fetch from HTTP client and cache the response
 		httpResp := &network.HTTPResponse{
 			StatusCode: 200,
@@ -265,7 +269,7 @@ func TestHandleNodeMessage(t *testing.T) {
 			Result: &rawRequest,
 		}
 
-		mockDon := handler.don.(*handlermocks.DON)
+		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 		httpResp := &network.HTTPResponse{
 			StatusCode: 500,
@@ -430,7 +434,8 @@ func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+	shardedDONs, connMgrs := shardedArgs(donConfig, mockDon)
+	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 	mockCache := newMockResponseCache()
@@ -453,6 +458,15 @@ func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 
 func serviceCfg() ServiceConfig {
 	return WithDefaults(ServiceConfig{})
+}
+
+// shardedArgs builds the multi-shard arguments for NewGatewayHandler from a
+// legacy single-shard DONConfig and its connection manager, producing a
+// one-DON one-shard matrix.
+func shardedArgs(donConfig *config.DONConfig, mockDon *handlermocks.DON) ([]config.ShardedDONConfig, [][]handlers.DON) {
+	return []config.ShardedDONConfig{
+		{DonName: donConfig.DonId, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
+	}, [][]handlers.DON{{mockDon}}
 }
 
 func createTestHandler(t *testing.T) *gatewayHandler {
@@ -483,7 +497,8 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandle
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
 	lggr := logger.Test(t)
 
-	handler, err := NewGatewayHandler(configBytes, donConfig, mockDon, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+	shardedDONs, connMgrs := shardedArgs(donConfig, mockDon)
+	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
 	require.NoError(t, err)
 	require.NotNil(t, handler)
 
@@ -670,7 +685,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 
 func TestMakeOutgoingRequest_SendResponseUsesIndependentContext(t *testing.T) {
 	handler := createTestHandler(t)
-	mockDon := handler.don.(*handlermocks.DON)
+	mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 
 	outboundReq := gateway_common.OutboundHTTPRequest{
@@ -734,7 +749,7 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 			Result: &rawRequest,
 		}
 
-		mockDon := handler.don.(*handlermocks.DON)
+		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 		httpResp := &network.HTTPResponse{
 			StatusCode: 200,
@@ -778,7 +793,7 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 			Result: &rawRequest,
 		}
 
-		mockDon := handler.don.(*handlermocks.DON)
+		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 		httpResp := &network.HTTPResponse{
 			StatusCode: 200,
@@ -822,7 +837,7 @@ func TestMakeOutgoingRequestCachingBehavior(t *testing.T) {
 			Result: &rawRequest,
 		}
 
-		mockDon := handler.don.(*handlermocks.DON)
+		mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 		mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
 		httpResp := &network.HTTPResponse{
 			StatusCode: 200,
@@ -864,7 +879,7 @@ func setupRateLimitingTest(t *testing.T, cfg ServiceConfig) (*gatewayHandler, *j
 	}
 
 	mockHTTPClient := handler.httpClient.(*httpmocks.HTTPClient)
-	mockDon := handler.don.(*handlermocks.DON)
+	mockDon := handler.shards[0].connMgr.(*handlermocks.DON)
 
 	return handler, resp, mockHTTPClient, mockDon
 }

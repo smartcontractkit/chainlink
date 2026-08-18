@@ -1,1 +1,0 @@
-All generated artefacts will be saved here.

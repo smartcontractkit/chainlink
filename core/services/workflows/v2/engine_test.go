@@ -1705,7 +1705,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := *newNode(t).PeerID
 	localRegistry := v2.CreateLocalRegistry(t, peer)
 	localNode, err := localRegistry.LocalNode(t.Context())
 	require.NoError(t, err)

@@ -159,6 +159,7 @@ func decodeCapRegReportingPluginConfig(data []byte) (capRegPluginResult, error) 
 			MaxOutcomeLengthBytes:     eCfg.MaxOutcomeLengthBytes,
 			MaxReportCount:            eCfg.MaxReportCount,
 			MaxBatchSize:              eCfg.MaxBatchSize,
+			MinResponsesToAggregate:   eCfg.MinResponsesToAggregate,
 		}}, nil
 	}
 
