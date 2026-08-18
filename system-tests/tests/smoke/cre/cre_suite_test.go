@@ -320,6 +320,7 @@ func runSolanaReadBucket(t *testing.T, bucket solana_config.ReadBucket) {
 	})
 }
 
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_Aptos_Suite_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-aptos.toml"))
 	t.Run("Aptos", func(t *testing.T) {

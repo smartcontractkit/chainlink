@@ -77,8 +77,8 @@ func newMatrixSetupCmd(stdout io.Writer) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "setup",
-		Short: "Generate all enabled test matrices for integration-tests workflow setup",
+		Use:     "setup",
+		Short:   "Generate all enabled test matrices for integration-tests workflow setup",
 		Example: `  go run ./tools/ci matrix setup --cre=true --ccip=true --run-id=123 --attempt=1 --github-output`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			matrices, err := matrix.GenerateSetupMatrices(matrix.SetupOptions{

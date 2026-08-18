@@ -194,13 +194,13 @@ func TestCRE_V2_Suite_Bucket_A_E2E(t *testing.T) {}
 	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "sample_test.go"), []byte(sampleContent), 0600))
 
 	matrices, err := GenerateSetupMatrices(SetupOptions{
-		RunID:            "999",
-		RunAttempt:       "2",
-		CRESmoke:         true,
-		CRESmokeDir:      tempDir,
-		CRERegression:    false,
-		CREMixedEnv:      true,
-		CCIP:             true,
+		RunID:         "999",
+		RunAttempt:    "2",
+		CRESmoke:      true,
+		CRESmokeDir:   tempDir,
+		CRERegression: false,
+		CREMixedEnv:   true,
+		CCIP:          true,
 	})
 	require.NoError(t, err)
 	require.Contains(t, matrices, "cre-matrix")

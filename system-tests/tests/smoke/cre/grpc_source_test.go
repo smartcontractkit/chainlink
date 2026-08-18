@@ -49,6 +49,8 @@ const (
 // To run locally:
 //  1. Start the test (it will start the environment automatically):
 //     go test -timeout 20m -run "^Test_CRE_GRPCSource_Lifecycle$" ./smoke/cre/...
+//
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_GRPCSource_Lifecycle_E2E(t *testing.T) {
 	t.Skip("Skipping: gRPC source tests require V2 workflow registry syncer - needs investigation for CI environment differences")
 

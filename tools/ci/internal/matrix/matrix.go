@@ -243,7 +243,7 @@ func BuildSuiteMatrix(suite SuiteType, opts SuiteOptions) ([]Entry, error) {
 			}
 			entries = append(entries, Entry{
 				TestName: name,
-				TestID:   fmt.Sprintf("%d", idx),
+				TestID:   strconv.Itoa(idx),
 				RunsOn:   runsOn,
 				Configs:  cfg,
 			})
@@ -260,7 +260,7 @@ func BuildSuiteMatrix(suite SuiteType, opts SuiteOptions) ([]Entry, error) {
 			runsOn := fmt.Sprintf("runs-on=%s-%d-%s/%s", runID, idx, attempt, runner)
 			entries = append(entries, Entry{
 				TestName: name,
-				TestID:   fmt.Sprintf("%d", idx),
+				TestID:   strconv.Itoa(idx),
 				RunsOn:   runsOn,
 			})
 		}
@@ -276,7 +276,7 @@ func BuildSuiteMatrix(suite SuiteType, opts SuiteOptions) ([]Entry, error) {
 			runsOn := fmt.Sprintf("runs-on=%s-%d-%s/%s", runID, idx, attempt, runner)
 			entries = append(entries, Entry{
 				TestName:            t.Name,
-				TestID:              fmt.Sprintf("%d", idx),
+				TestID:              strconv.Itoa(idx),
 				RunsOn:              runsOn,
 				Timeout:             t.Timeout,
 				SelectedNetwork:     t.SelectedNetwork,
