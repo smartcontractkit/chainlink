@@ -6,11 +6,13 @@ import (
 
 func EncodeEntries(dataID [32]byte, answer int64, timestamp uint64) ([]byte, error) {
 	sign := answer >> 63
+	signWord := xdr.Uint64(sign) //nolint:gosec // G115: two's-complement sign extension
+	loWord := xdr.Uint64(answer) //nolint:gosec // G115: bit-preserving low word
 	answerVal, err := xdr.NewScVal(xdr.ScValTypeScvI256, xdr.Int256Parts{
 		HiHi: xdr.Int64(sign),
-		HiLo: xdr.Uint64(sign),
-		LoHi: xdr.Uint64(sign),
-		LoLo: xdr.Uint64(answer),
+		HiLo: signWord,
+		LoHi: signWord,
+		LoLo: loWord,
 	})
 	if err != nil {
 		return nil, err

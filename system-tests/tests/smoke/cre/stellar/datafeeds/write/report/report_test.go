@@ -9,6 +9,7 @@ import (
 )
 
 func TestEncodeEntriesRoundTrips(t *testing.T) {
+	t.Parallel()
 	var dataID [32]byte
 	for i := range dataID {
 		dataID[i] = 0xAB
@@ -43,6 +44,7 @@ func TestEncodeEntriesRoundTrips(t *testing.T) {
 }
 
 func TestEncodeEntriesNegativeAnswer(t *testing.T) {
+	t.Parallel()
 	var dataID [32]byte
 	dataID[0] = 1
 	b, err := EncodeEntries(dataID, -42, 1)
