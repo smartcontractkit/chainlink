@@ -38,7 +38,6 @@ import (
 	v2toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmlptesting "github.com/smartcontractkit/chainlink-evm/pkg/logpoller/testing"
-	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
