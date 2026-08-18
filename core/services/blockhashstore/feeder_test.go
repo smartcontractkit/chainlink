@@ -411,9 +411,9 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 	}
 
 	// Assert search window.
-	latest := int64(test.latest)                              //nolint:gosec // G115
-	fromBlock := mathutil.Max(latest-int64(test.lookback), 0) //nolint:gosec // G115
-	toBlock := mathutil.Max(latest-int64(test.wait), 0)       //nolint:gosec // G115
+	latest := int64(test.latest) //nolint:gosec // G115
+	fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
+	toBlock := mathutil.Max(latest-int64(test.wait), 0)
 
 	// Construct request logs.
 	var requestLogs []logpoller.Log
@@ -509,9 +509,9 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 	}
 
 	// Assert search window.
-	latest := int64(test.latest)                              //nolint:gosec // G115
-	fromBlock := mathutil.Max(latest-int64(test.lookback), 0) //nolint:gosec // G115
-	toBlock := mathutil.Max(latest-int64(test.wait), 0)       //nolint:gosec // G115
+	latest := int64(test.latest) //nolint:gosec // G115
+	fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
+	toBlock := mathutil.Max(latest-int64(test.wait), 0)
 
 	// Construct request logs.
 	var requestLogs []logpoller.Log
