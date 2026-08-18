@@ -20,7 +20,7 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
+	bcpkg "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -202,9 +202,18 @@ func StartDONs(
 	return &startedDONs, nil
 }
 
-func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, blockchains []blockchains.Blockchain, fundingAmountPerChainFamily map[string]uint64) error {
+func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, blockchains []bcpkg.Blockchain, fundingAmountPerChainFamily map[string]uint64) error {
+	type fundTask struct {
+		bc      bcpkg.Blockchain
+		address string
+		amount  uint64
+	}
+
+	fundedDonNames := make([]string, 0, len(dons.List()))
+	tasks := make([]fundTask, 0)
 	for _, don := range dons.List() {
 		testLogger.Info().Msgf("Funding nodes for DON %s", don.Name)
+		fundedDonNames = append(fundedDonNames, don.Name)
 		for _, bc := range blockchains {
 			if !flags.RequiresForwarderContract(don.Flags, bc.ChainID()) && !bc.IsFamily(chainselectors.FamilySolana) { // for now, we can only write to solana, so we consider forwarder is always present
 				continue
@@ -227,20 +236,41 @@ func FundNodes(ctx context.Context, testLogger zerolog.Logger, dons *cre.Dons, b
 					continue // Skip nodes without keys for this chain
 				}
 
-				err := bc.Fund(ctx, address, fundingAmount)
-				if err != nil {
-					return err
-				}
+				tasks = append(tasks, fundTask{bc: bc, address: address, amount: fundingAmount})
 			}
 		}
+	}
 
-		testLogger.Info().Msgf("Funded nodes for DON %s", don.Name)
+	// Funding txs for a chain originate from the same root key, and EVM nonce
+	// assignment is not safe for concurrent sends on the same client, so
+	// serialize per blockchain while funding across blockchains in parallel.
+	chainLocks := make(map[bcpkg.Blockchain]*sync.Mutex, len(blockchains))
+	for _, bc := range blockchains {
+		chainLocks[bc] = &sync.Mutex{}
+	}
+
+	var eg errgroup.Group
+	for i := range tasks {
+		task := tasks[i]
+		eg.Go(func() error {
+			mu := chainLocks[task.bc]
+			mu.Lock()
+			defer mu.Unlock()
+			return task.bc.Fund(ctx, task.address, task.amount)
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	for _, name := range fundedDonNames {
+		testLogger.Info().Msgf("Funded nodes for DON %s", name)
 	}
 
 	return nil
 }
 
-func nodeAddress(node *cre.Node, chainFamily string, bc blockchains.Blockchain) (string, error) {
+func nodeAddress(node *cre.Node, chainFamily string, bc bcpkg.Blockchain) (string, error) {
 	switch chainFamily {
 	case chainselectors.FamilyEVM, chainselectors.FamilyTron:
 		evmKey, ok := node.Keys.EVM[bc.ChainID()]

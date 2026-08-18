@@ -21,25 +21,46 @@ To prevent index/branch lock conflicts:
 - Delete remote trial refs on cleanup: `git push origin --delete trial/[trial-name]`
 </git_workflow>
 
-<constraints>
-- Git: Direct ref pushes only. No local branch switching during trials.
-- Runners: Prefer `ubuntu-latest`. Use `runs-on` for larger runners (verify API first).
-- Scope: One change per trial. Keep cache status identical across comparison runs.
-- Validation: Lint YAML (`actionlint` or dry-run) before pushing.
-- Tools: Use `gh` CLI and workflow scripts for monitoring/comparisons.
-</constraints>
-
 <tools>
-- Monitor: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_monitor.py [run_id] [trial-name]`
-  - Outputs `report.json`, `report.md`, and runner logs to `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-name]/`
-  - Quick analysis: Inspect `## Longest Jobs (Bottlenecks)` in `report.md` or query `jq '.slowest_jobs[] | select(.is_outlier)' report.json` / `jq '([.jobs[].duration_seconds] | add / length) as $avg | .jobs[] | select(.duration_seconds > $avg * 1.5)' report.json`.
-- Compare: `python3 .github/.agents/skills/optimize-workflow/scripts/workflow_compare.py [trial-1] [trial-2]`
-  - Outputs `.github/.agents/skills/optimize-workflow/trials/[workflow]/[trial-1]-[trial-2]-comparison.md`
+<octometrics>
+Use [octometrics](https://github.com/kalverra/octometrics) CLI for workflow analysis and comparison.
+
+```sh
+octometrics -h # Help message
+octometrics [url] --download-logs --format [json|md] -f [output-file].[json|md] # Gather workflow run/job run/commit/pr CI run metrics and logs
+octometrics logs [job-run-id|job.run.url] # See job logs
+octometrics [before-url] --vs [after-url] --format [json|md] -f [output-file].[json|md] # Compare workflow run/job run metrics and logs
+```
+</octometrics>
+<available-runners>
+Use [available-runners API](https://go.runs-on.com/api) to find valid `runs-on` runner configs.
+
+```sh
+curl -sG "https://go.runs-on.com/api/finder" [params] | jq [jq filters]
+```
+<params>
+region - AWS region (e.g., us-east-1) or all (default: all, searches all regions). Multiple regions can be specified separated by comma or plus sign (e.g., us-east-1,us-west-2 or us-east-1+us-west-2). When multiple regions are specified, only instances available in all specified regions are returned.
+cpu - CPU range in format min-max or single value (e.g., 2-4 or 4) or all (default: all)
+ram - RAM in GB, format min-max or single value (e.g., 8-16 or 8) or all (default: all)
+gpu - GPU count range in format min-max or single value (e.g., 1-2 or 1) or all (default: all)
+passmark - PassMark score range (optional, format: min-max or single value)
+arch - Architecture filter (optional, can be multiple): arm64, amd64, or x86_64
+platform - Platform filter (optional, can be multiple): linux, linux/unix, or windows
+family - Instance family or partial instance type filter (optional, comma or plus separated): Supports exact family names (e.g., m5), partial matching (e.g., m7 matches m7a, m7g, etc.), wildcard patterns (e.g., m5.* or m5.), or exact instance types (e.g., m5.large). Multiple families can be specified with commas or plus signs (e.g., m5,m7a or m5+m7a)
+</params>
+</available-runners>
 </tools>
 
+<constraints>
+- Git: Use worktrees for local trial branches. Avoid local checkout of trial branches to prevent index/branch lock conflicts.
+- Runners: Prefer `ubuntu-latest`. Use `runs-on` for larger runners. Verify all `runs-on` runners through <available-runners> before use.
+- Scope: One change per trial. Keep cache status identical across comparison runs.
+- Validation: Lint YAML (`actionlint` or dry-run) before pushing.
+- Tools: Use `octometrics` for analysis and data gathering. Only use `gh` CLI as a backup when `octometrics` is insufficient
+</constraints>
+
 <resources>
-- [runs-on docs](https://runs-on.com/docs/) | [spot pricing](https://runs-on.com/docs/costs/spot-pricing/)
-- [available runners](https://go.runs-on.com/api)
+- [runs-on docs](https://runs-on.com/docs/)
 - [GitHub Actions docs](https://docs.github.com/en/actions)
 </resources>
 

@@ -6,6 +6,7 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
@@ -54,28 +55,37 @@ func Start(
 	inputs []*blockchain.Input,
 	deployers map[blockchain.ChainFamily]Deployer,
 ) (*DeployedBlockchains, error) {
-	outputs := make([]Blockchain, 0, len(inputs))
+	outputs := make([]Blockchain, len(inputs))
 
-	for _, input := range inputs {
-		chainFamily, chErr := blockchain.TypeToFamily(input.Type)
-		if chErr != nil {
-			return nil, chErr
-		}
+	eg, egCtx := errgroup.WithContext(ctx)
+	for i := range inputs {
+		eg.Go(func() error {
+			in := inputs[i]
 
-		deployer, ok := deployers[chainFamily]
-		if !ok {
-			if err := framework.PrintFailedContainerLogs(30); err != nil {
-				testLogger.Error().Err(err).Msg("failed to print failed Docker container logs")
+			chainFamily, chErr := blockchain.TypeToFamily(in.Type)
+			if chErr != nil {
+				return chErr
 			}
-			return nil, fmt.Errorf("no deployer found for blockchain type %s", input.Type)
-		}
 
-		deployedBlockchain, deployErr := deployer.Deploy(ctx, input)
-		if deployErr != nil {
-			return nil, pkgerrors.Wrapf(deployErr, "failed to deploy blockchain of type %s", input.Type)
-		}
+			deployer, ok := deployers[chainFamily]
+			if !ok {
+				if err := framework.PrintFailedContainerLogs(30); err != nil {
+					testLogger.Error().Err(err).Msg("failed to print failed Docker container logs")
+				}
+				return fmt.Errorf("no deployer found for blockchain type %s", in.Type)
+			}
 
-		outputs = append(outputs, deployedBlockchain)
+			deployedBlockchain, deployErr := deployer.Deploy(egCtx, in)
+			if deployErr != nil {
+				return pkgerrors.Wrapf(deployErr, "failed to deploy blockchain of type %s", in.Type)
+			}
+
+			outputs[i] = deployedBlockchain
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	cldfBlockchains := make([]cldf_chain.BlockChain, 0, len(outputs))

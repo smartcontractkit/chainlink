@@ -2,10 +2,12 @@ package cre
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
@@ -29,16 +31,31 @@ type Topology struct {
 
 func NewTopology(nodeSet []*NodeSet, provider infra.Provider, capabilityConfigs map[CapabilityFlag]CapabilityConfig) (*Topology, error) {
 	dm := make([]*DonMetadata, len(nodeSet))
+	ids := make([]uint64, len(nodeSet))
 	for i := range nodeSet {
 		id := nodeSet[i].ContractDonID
 		if id == 0 {
 			id = libc.MustSafeUint64FromInt(i + 1)
 		}
-		d, err := NewDonMetadata(nodeSet[i], id, provider, capabilityConfigs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create DON metadata: %w", err)
-		}
-		dm[i] = d
+		ids[i] = id
+	}
+
+	// NewDonMetadata mutates the shared capabilityConfigs map (chain-specific
+	// defaults are copied into it), so each nodeset gets its own clone to make
+	// the per-nodeset work safe to parallelize.
+	var eg errgroup.Group
+	for i := range nodeSet {
+		eg.Go(func() error {
+			d, err := NewDonMetadata(nodeSet[i], ids[i], provider, maps.Clone(capabilityConfigs))
+			if err != nil {
+				return fmt.Errorf("failed to create DON metadata: %w", err)
+			}
+			dm[i] = d
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	donsMetadata, err := NewDonsMetadata(dm, provider)

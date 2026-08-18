@@ -1,0 +1,68 @@
+name: Prefetch CRE images
+description: >
+  Starts background docker pulls for CRE environment images (phase "start") and
+  waits for them to complete (phase "wait"). Offloads image pulls off the
+  critical path of the "Start local CRE" step.
+
+inputs:
+  images:
+    description: Newline-separated list of Docker image references to prefetch. Only used when phase is "start".
+    required: false
+    default: ""
+  phase:
+    description: 'The value "start" launches background pulls; "wait" blocks until they finish.'
+    required: false
+    default: "start"
+
+runs:
+  using: composite
+  steps:
+    - name: Start background image pulls
+      if: ${{ inputs.phase == 'start' }}
+      shell: bash
+      env:
+        PREFETCH_IMAGES: ${{ inputs.images }}
+      run: |
+        set -euo pipefail
+        pids_file="$RUNNER_TEMP/cre-image-prefetch.pids"
+        while IFS= read -r img; do
+          [[ -z "${img// }" ]] && continue
+          log_name="${img//[^a-zA-Z0-9]/_}"
+          (
+            set +e
+            docker pull "$img" > "$RUNNER_TEMP/prefetch-${log_name}.log" 2>&1
+            rc=$?
+            echo "$rc" > "$RUNNER_TEMP/prefetch-${log_name}.exit"
+          ) &
+          echo "$!" >> "$pids_file"
+          echo "Started background pull of ${img}"
+        done <<< "${PREFETCH_IMAGES}"
+
+    - name: Wait for background image pulls
+      if: ${{ inputs.phase == 'wait' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        pids_file="$RUNNER_TEMP/cre-image-prefetch.pids"
+        if [[ ! -f "$pids_file" ]]; then
+          echo "No prefetch PIDs file found; nothing to wait for."
+          exit 0
+        fi
+        while IFS= read -r pid; do
+          [[ -z "$pid" ]] && continue
+          while kill -0 "$pid" 2>/dev/null; do sleep 1; done
+        done < "$pids_file"
+        failed=0
+        for f in "$RUNNER_TEMP"/prefetch-*.exit; do
+          [[ -f "$f" ]] || continue
+          if [[ "$(cat "$f")" != "0" ]]; then
+            failed=1
+            log="${f%.exit}.log"
+            echo "::error::Prefetch pull failed:"
+            [[ -f "$log" ]] && tail -n 20 "$log"
+          fi
+        done
+        if [[ "$failed" -ne 0 ]]; then
+          exit 1
+        fi
+        echo "All CRE image prefetch pulls completed successfully."
