@@ -17,12 +17,14 @@ var relevantExtensions = map[string]bool{
 	".sum": true,
 }
 
-// isExcludedFromUnitTests returns true for long-running E2E suites or example scripts.
+// isExcludedFromUnitTests returns true for long-running E2E suites (deployment, system-tests,
+// integration-tests, example scripts, or non-unit tool directories).
 func isExcludedFromUnitTests(relPath string) bool {
 	clean := filepath.ToSlash(filepath.Clean(relPath))
 	clean = strings.TrimPrefix(clean, "./")
 
-	if strings.HasPrefix(clean, "system-tests") ||
+	if strings.HasPrefix(clean, "deployment") ||
+		strings.HasPrefix(clean, "system-tests") ||
 		strings.HasPrefix(clean, "integration-tests") ||
 		strings.HasPrefix(clean, "core/scripts/cre/environment/examples/workflows") {
 		return true
@@ -144,7 +146,7 @@ func FindAffectedModules(repoRoot string, files []string) ([]ModulePackages, err
 }
 
 // FindTestPackages maps changed files to unique Go test package patterns relative to repo root,
-// skipping full E2E test suites (system-tests, integration-tests, workflow examples).
+// skipping E2E test suites (deployment, system-tests, integration-tests, workflow examples).
 func FindTestPackages(repoRoot string, files []string) ([]string, error) {
 	absRoot, err := filepath.Abs(repoRoot)
 	if err != nil {

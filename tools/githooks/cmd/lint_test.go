@@ -24,6 +24,7 @@ func TestRootCmd(t *testing.T) {
 	assert.Contains(t, buf.String(), "githooks provides tooling for Git hooks")
 	assert.Contains(t, buf.String(), "lint")
 	assert.Contains(t, buf.String(), "test")
+	assert.Contains(t, buf.String(), "tidy")
 }
 
 func TestLintCmdHelp(t *testing.T) {
@@ -55,4 +56,18 @@ func TestTestCmdHelp(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, buf.String(), "Discovers affected Go test packages for changed/staged files")
 	assert.Contains(t, buf.String(), "--short")
+}
+
+func TestTidyCmdHelp(t *testing.T) {
+	t.Parallel()
+
+	root := cmd.NewRootCmd()
+	buf := new(bytes.Buffer)
+	root.SetOut(buf)
+	root.SetErr(buf)
+	root.SetArgs([]string{"tidy", "--help"})
+
+	err := root.Execute()
+	require.NoError(t, err)
+	assert.Contains(t, buf.String(), "Run go mod tidy in parallel on all changed Go modules")
 }

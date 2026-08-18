@@ -31,23 +31,27 @@ func TestFindTestPackages(t *testing.T) {
 			expected: []string{"./core/logger"},
 		},
 		{
-			name:     "single go file in deployment",
-			files:    []string{"deployment/environment.go"},
-			expected: []string{"./deployment"},
-		},
-		{
 			name:     "tools package file",
 			files:    []string{"tools/ci-testshard/main.go", "tools/githooks/internal/modules/modules.go"},
 			expected: []string{"./tools/ci-testshard", "./tools/githooks/internal/modules"},
 		},
 		{
-			name: "skips full E2E suites system-tests and integration-tests and example workflows",
+			name:     "deployment files are excluded (E2E)",
+			files:    []string{"deployment/environment.go", "deployment/sub/env.go"},
+			expected: []string{},
+		},
+		{
+			name: "skips full E2E suites system-tests, integration-tests, deployment, and example workflows",
 			files: []string{
+				"deployment/environment.go",
 				"system-tests/lib/suite.go",
 				"system-tests/tests/smoke/cre/solana/main_test.go",
 				"integration-tests/smoke/vrf_test.go",
 				"integration-tests/load/ocr_test.go",
 				"core/scripts/cre/environment/examples/workflows/cron/main.go",
+				"tools/benchmark/job.go",
+				"tools/docker/test.go",
+				"tools/secrets/key.go",
 			},
 			expected: []string{},
 		},
@@ -60,7 +64,7 @@ func TestFindTestPackages(t *testing.T) {
 				"system-tests/lib/suite.go",
 				"integration-tests/smoke/test.go",
 			},
-			expected: []string{"./core/logger", "./deployment", "./tools/ci-testshard"},
+			expected: []string{"./core/logger", "./tools/ci-testshard"},
 		},
 		{
 			name:     "root go.mod change triggers core and tools packages",
@@ -68,9 +72,14 @@ func TestFindTestPackages(t *testing.T) {
 			expected: []string{"./core/...", "./tools/..."},
 		},
 		{
-			name:     "deployment go.mod change triggers deployment packages",
+			name:     "deployment go.mod change is skipped (E2E)",
 			files:    []string{"deployment/go.mod"},
-			expected: []string{"./deployment/..."},
+			expected: []string{},
+		},
+		{
+			name:     "tools go.mod change triggers that tool",
+			files:    []string{"tools/test/go.mod"},
+			expected: []string{"./tools/test/..."},
 		},
 		{
 			name:     "system-tests or integration-tests go.mod change is skipped",

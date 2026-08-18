@@ -5,12 +5,25 @@
 ## Features
 
 - **Module & Package Resolution:** Automatically maps changed or staged Go files to their enclosing `go.mod` module roots and specific package paths (e.g. `./core/logger`).
+- **Parallel Module Tidy:** Runs `go mod tidy` in parallel across all affected modules.
 - **Targeted Linting:** Runs `golangci-lint` only against the exact changed packages within affected modules instead of scanning whole modules or the entire repository.
-- **Targeted Unit Testing:** Discovers changed test packages and executes `tools/test` with `-short` directly on those packages.
+- **Targeted Unit Testing:** Discovers changed test packages and executes `tools/test` with `-short` directly on those packages (aligned with CI unit test scope).
 - **Dependency Changes:** Automatically runs on all packages (`./...`) if a module's `go.mod` or `go.sum` is modified.
 - **Lefthook Integration:** Seamlessly works with Lefthook staged/push file filters and `stage_fixed`.
 
 ## Commands
+
+### `tidy`
+
+Runs `go mod tidy` in parallel across all changed Go modules.
+
+```bash
+# Tidy all affected modules from staged files
+go -C tools/githooks run . tidy
+
+# Tidy specific modules by passing changed file paths
+go -C tools/githooks run . tidy core/services/app.go deployment/environment.go
+```
 
 ### `lint`
 
@@ -38,17 +51,24 @@ Runs unit tests (`tools/test`) in `-short` mode only on affected packages.
 go -C tools/githooks run . test
 
 # Run short tests on specific changed files
-go -C tools/githooks run . test core/logger/logger_test.go deployment/environment.go
+go -C tools/githooks run . test core/logger/logger_test.go tools/ci-testshard/main.go
 
 # Flags
 #   --short      Run tests in -short mode (default: true)
 go -C tools/githooks run . test --short=false
 ```
 
-## Running Tests
+## Running Tests & Benchmarks
 
 ```bash
 cd tools/githooks
+
+# Run all unit tests
 go test ./...
+
+# Run standard Go benchmarks with memory allocation metrics
+go test -bench=. -benchmem ./...
+
+# Lint tool codebase
 golangci-lint run
 ```

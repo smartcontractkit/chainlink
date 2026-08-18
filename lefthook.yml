@@ -25,6 +25,16 @@ pre-commit:
       run: typos {staged_files}
       fail_text: "typos failed or missing. Install: brew install typos-cli (or cargo install typos-cli)"
 
+    # Tidy go.mod/go.sum in parallel for changed modules
+    go-mod-tidy:
+      tags: gomod
+      glob:
+        - "**/*.go"
+        - "**/go.mod"
+        - "**/go.sum"
+      run: go -C tools/githooks run . tidy {staged_files}
+      stage_fixed: true
+
     # Lint only changed modules + packages
     golangci-lint:
       tags: lint
