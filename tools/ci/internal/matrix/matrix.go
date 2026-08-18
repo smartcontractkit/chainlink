@@ -32,6 +32,8 @@ const (
 	DefaultCRESmokePattern      = `^TestCRE_.*_E2E$`
 	DefaultCRERegressionDir     = "system-tests/tests/regression/cre"
 	DefaultCRERegressionPattern = `^(Test|Example).*`
+	DefaultCCIPDir              = "integration-tests/smoke/ccip"
+	DefaultCCIPPattern          = `^TestCCIP_.*_E2E$`
 	DefaultCRERunnerSpec        = "cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
 	DefaultCCIPRunnerSpec       = "cpu=8/ram=64/family=r6i+r7i+r8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
 )
@@ -50,30 +52,28 @@ var mixedEnvTests = []string{
 	"TestCRE_V2_EVM_Read_TxArtifacts_E2E",
 }
 
-type ccipTestDef struct {
-	Name            string
-	Timeout         string
-	SelectedNetwork string
-	RMNRageProxy    string
-	RMNAFN2Proxy    string
-	JobTimeout      int
+// CCIPConfig holds per-test configuration overrides for CCIP smoke tests.
+type CCIPConfig struct {
+	Timeout             string
+	SelectedNetwork     string
+	RMNRageProxyVersion string
+	RMNAFN2ProxyVersion string
+	JobTimeout          int
 }
 
-var ccipTests = []ccipTestDef{
-	{
-		Name:            "Test_CCIPGasPriceUpdatesWriteFrequency",
-		Timeout:         "15m",
-		SelectedNetwork: "SIMULATED_1,SIMULATED_2",
+var defaultCCIPConfig = CCIPConfig{
+	Timeout:         "15m",
+	SelectedNetwork: "SIMULATED_1,SIMULATED_2",
+}
+
+var perTestCCIPConfigs = map[string]CCIPConfig{
+	"TestCCIP_RMN_GlobalCurseTwoMessagesOnTwoLanes_E2E": {
+		Timeout:             "15m",
+		SelectedNetwork:     "SIMULATED_1,SIMULATED_2",
+		RMNRageProxyVersion: "master-amd6416f5d86",
+		RMNAFN2ProxyVersion: "master-amd64-10b42b2",
 	},
-	{
-		Name:            "TestRMN_GlobalCurseTwoMessagesOnTwoLanes",
-		Timeout:         "15m",
-		SelectedNetwork: "SIMULATED_1,SIMULATED_2",
-		RMNRageProxy:    "master-amd6416f5d86",
-		RMNAFN2Proxy:    "master-amd64-10b42b2",
-	},
-	{
-		Name:            "TestDeleteCCIPJobs|TestRevokeJobs",
+	"TestCCIP_JobSpecs_E2E": {
 		Timeout:         "15m",
 		SelectedNetwork: "SIMULATED_1,SIMULATED_2",
 		JobTimeout:      20,
@@ -178,6 +178,7 @@ type SetupOptions struct {
 	CRERegressionDir string
 	CREMixedEnv      bool
 	CCIP             bool
+	CCIPDir          string
 }
 
 // BuildSuiteMatrix generates entries for a specific test suite.
@@ -264,22 +265,40 @@ func BuildSuiteMatrix(suite SuiteType, opts SuiteOptions) ([]Entry, error) {
 		return entries, nil
 
 	case SuiteCCIP:
+		dir := opts.Dir
+		if dir == "" {
+			dir = DefaultCCIPDir
+		}
+		pattern := opts.Pattern
+		if pattern == "" {
+			pattern = DefaultCCIPPattern
+		}
 		runner := opts.RunnerSpec
 		if runner == "" {
 			runner = DefaultCCIPRunnerSpec
 		}
-		entries := make([]Entry, 0, len(ccipTests))
-		for idx, t := range ccipTests {
+
+		testNames, err := ScanDir(dir, pattern)
+		if err != nil {
+			return nil, err
+		}
+
+		entries := make([]Entry, 0, len(testNames))
+		for idx, name := range testNames {
 			runsOn := fmt.Sprintf("runs-on=%s-%d-%s/%s", runID, idx, attempt, runner)
+			cfg := defaultCCIPConfig
+			if c, ok := perTestCCIPConfigs[name]; ok {
+				cfg = c
+			}
 			entries = append(entries, Entry{
-				TestName:            t.Name,
+				TestName:            name,
 				TestID:              strconv.Itoa(idx),
 				RunsOn:              runsOn,
-				Timeout:             t.Timeout,
-				SelectedNetwork:     t.SelectedNetwork,
-				RMNRageProxyVersion: t.RMNRageProxy,
-				RMNAFN2ProxyVersion: t.RMNAFN2Proxy,
-				JobTimeout:          t.JobTimeout,
+				Timeout:             cfg.Timeout,
+				SelectedNetwork:     cfg.SelectedNetwork,
+				RMNRageProxyVersion: cfg.RMNRageProxyVersion,
+				RMNAFN2ProxyVersion: cfg.RMNAFN2ProxyVersion,
+				JobTimeout:          cfg.JobTimeout,
 			})
 		}
 		return entries, nil
@@ -330,6 +349,7 @@ func GenerateSetupMatrices(opts SetupOptions) (map[string][]Entry, error) {
 
 	if opts.CCIP {
 		entries, err := BuildSuiteMatrix(SuiteCCIP, SuiteOptions{
+			Dir:        opts.CCIPDir,
 			RunID:      opts.RunID,
 			RunAttempt: opts.RunAttempt,
 		})

@@ -16,8 +16,10 @@ func ResolveFromRepoRoot(p string) string {
 	if abs := absIfExists(p); abs != "" {
 		return abs
 	}
-	if alt := filepath.Join("../..", p); absIfExists(alt) != "" {
-		return absIfExists(alt)
+	for _, prefix := range []string{"../..", "../../..", "../../../.."} {
+		if alt := filepath.Join(prefix, p); absIfExists(alt) != "" {
+			return absIfExists(alt)
+		}
 	}
 	return p
 }

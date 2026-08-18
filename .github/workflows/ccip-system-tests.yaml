@@ -103,26 +103,26 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Define test matrix
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.chainlink_version || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Define CCIP test matrix
         id: define-matrix
-        shell: bash
         run: |
-          TESTS_JSON='[
-            {"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2"},
-            {"test_name":"TestRMN_GlobalCurseTwoMessagesOnTwoLanes","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","rmn_rageproxy_version":"master-amd6416f5d86","rmn_afn2proxy_version":"master-amd64-10b42b2"},
-            {"test_name":"TestDeleteCCIPJobs|TestRevokeJobs","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","job_timeout":20}
-          ]'
-
-          tests=$(echo "$TESTS_JSON" | jq -c \
-            --argjson run_id "${{ github.run_id }}" \
-            --arg run_attempt "${{ github.run_attempt }}" '
-            to_entries | map(.value + {
-              test_id: .key,
-              runs_on: ("runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=r6i+r7i+r8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs")
-            })
-          ')
-
-          echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
+          go -C tools/ci run . matrix \
+            --suite='ccip' \
+            --run-id='${{ github.run_id }}' \
+            --attempt='${{ github.run_attempt }}' \
+            --github-output
 
   run-ccip-tests:
     name: ${{ matrix.tests.test_name }}

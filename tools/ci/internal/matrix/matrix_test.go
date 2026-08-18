@@ -213,16 +213,56 @@ func TestBuildSuite_CREMixedEnv(t *testing.T) {
 
 func TestBuildSuite_CCIP(t *testing.T) {
 	t.Parallel()
+	tempDir := t.TempDir()
+
+	sampleContent := `package sample_test
+import "testing"
+func TestCCIP_GasPriceUpdatesWriteFrequency_E2E(t *testing.T) {}
+func TestCCIP_RMN_GlobalCurseTwoMessagesOnTwoLanes_E2E(t *testing.T) {}
+func TestCCIP_JobSpecs_E2E(t *testing.T) {}
+func TestNonSmokeHelper() {}
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "sample_test.go"), []byte(sampleContent), 0600))
+
 	entries, err := BuildSuiteMatrix(SuiteCCIP, SuiteOptions{
+		Dir:        tempDir,
 		RunID:      "123",
 		RunAttempt: "1",
 	})
 	require.NoError(t, err)
 	require.Len(t, entries, 3)
-	require.Equal(t, "Test_CCIPGasPriceUpdatesWriteFrequency", entries[0].TestName)
+
+	require.Equal(t, "TestCCIP_GasPriceUpdatesWriteFrequency_E2E", entries[0].TestName)
 	require.Equal(t, "15m", entries[0].Timeout)
 	require.Equal(t, "SIMULATED_1,SIMULATED_2", entries[0].SelectedNetwork)
 	require.Contains(t, entries[0].RunsOn, "family=r6i+r7i+r8i")
+
+	require.Equal(t, "TestCCIP_JobSpecs_E2E", entries[1].TestName)
+	require.Equal(t, 20, entries[1].JobTimeout)
+
+	require.Equal(t, "TestCCIP_RMN_GlobalCurseTwoMessagesOnTwoLanes_E2E", entries[2].TestName)
+	require.Equal(t, "master-amd6416f5d86", entries[2].RMNRageProxyVersion)
+	require.Equal(t, "master-amd64-10b42b2", entries[2].RMNAFN2ProxyVersion)
+}
+
+func TestCCIPSuite_RealDirectory(t *testing.T) {
+	t.Parallel()
+	repoRoot, err := filepath.Abs("../../../..")
+	require.NoError(t, err)
+
+	ccipDir := filepath.Join(repoRoot, "integration-tests/smoke/ccip")
+	if _, statErr := os.Stat(ccipDir); statErr != nil {
+		t.Skipf("skipping: %s not accessible", ccipDir)
+	}
+
+	testNames, err := ScanDir(ccipDir, `^TestCCIP_.*_E2E$`)
+	require.NoError(t, err)
+	require.NotEmpty(t, testNames)
+
+	for _, name := range testNames {
+		require.Contains(t, name, "TestCCIP_")
+		require.True(t, filepath.Ext(name) == "" && name[len(name)-4:] == "_E2E", "test name %s must end with _E2E", name)
+	}
 }
 
 func TestGenerateSetupMatrices(t *testing.T) {

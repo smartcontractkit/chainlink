@@ -77,13 +77,20 @@ func TestChangelogSubcommand(t *testing.T) {
 
 func TestMatrixSuiteSubcommand(t *testing.T) {
 	t.Parallel()
+	tempDir := t.TempDir()
+	sampleContent := `package sample_test
+import "testing"
+func TestCCIP_GasPriceUpdatesWriteFrequency_E2E(t *testing.T) {}
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "sample_test.go"), []byte(sampleContent), 0600))
+
 	var stdout, stderr bytes.Buffer
 	rootCmd := cmd.NewRootCmd(nil, &stdout, &stderr)
-	rootCmd.SetArgs([]string{"matrix", "--suite=ccip", "--run-id=10", "--attempt=1"})
+	rootCmd.SetArgs([]string{"matrix", "--suite=ccip", "--dir=" + tempDir, "--run-id=10", "--attempt=1"})
 
 	err := rootCmd.Execute()
 	require.NoError(t, err)
-	require.Contains(t, stdout.String(), `"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency"`)
+	require.Contains(t, stdout.String(), `"test_name":"TestCCIP_GasPriceUpdatesWriteFrequency_E2E"`)
 }
 
 func TestMatrixRegressionSuiteUsesSuiteDefaults(t *testing.T) {

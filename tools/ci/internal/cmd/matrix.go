@@ -83,6 +83,7 @@ func newMatrixSetupCmd(stdout io.Writer) *cobra.Command {
 		creRegressionDir string
 		creMixedEnv      bool
 		ccip             bool
+		ccipDir          string
 		githubOutput     bool
 	)
 
@@ -100,6 +101,7 @@ func newMatrixSetupCmd(stdout io.Writer) *cobra.Command {
 				CRERegressionDir: creRegressionDir,
 				CREMixedEnv:      creMixedEnv,
 				CCIP:             ccip,
+				CCIPDir:          ccipDir,
 			})
 			if err != nil {
 				return err
@@ -117,6 +119,7 @@ func newMatrixSetupCmd(stdout io.Writer) *cobra.Command {
 	flags.StringVar(&creRegressionDir, "cre-regression-dir", "", "Custom dir for CRE regression tests")
 	flags.BoolVar(&creMixedEnv, "cre-mixed-env", false, "Generate cre-mixed-env-matrix for CRE mixed-env tests")
 	flags.BoolVar(&ccip, "ccip", false, "Generate ccip-matrix for CCIP v1.6 tests")
+	flags.StringVar(&ccipDir, "ccip-dir", "", "Custom dir for CCIP tests")
 	flags.BoolVar(&githubOutput, "github-output", false, "Append outputs to file specified in $GITHUB_OUTPUT")
 
 	return cmd
