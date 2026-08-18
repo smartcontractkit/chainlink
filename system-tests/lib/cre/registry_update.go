@@ -56,7 +56,7 @@ func UpdateDONCapabilityConfig(
 		return errors.Errorf("capability %q is not configured on DON %q", capabilityName, donName)
 	}
 
-	tx, err := capReg.UpdateDON(sethClient.NewTXOpts(), don.Id, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{
+  if _, err := sethClient.Decode(capReg.UpdateDON(sethClient.NewTXOpts(), don.Id, capabilities_registry_v2.CapabilitiesRegistryUpdateDONParams{                                    
 		Name:                     don.Name,
 		Config:                   don.Config,
 		CapabilityConfigurations: updated,
