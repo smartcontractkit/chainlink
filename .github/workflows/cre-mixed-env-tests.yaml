@@ -116,28 +116,26 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.chainlink_version || github.sha }}
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
       - name: Define mixed-env test matrix
         id: define-matrix
-        shell: bash
         run: |
-          # Tests worth running under mixed-env: the OCR3/DON2DON-heavy ones.
-          TESTS='[
-            "TestCRE_V2_Suite_Bucket_A_E2E",
-            "TestCRE_V2_Suite_Bucket_B_E2E",
-            "TestCRE_V2_EVM_Read_HeavyCalls_E2E",
-            "TestCRE_V2_EVM_Read_StateQueries_E2E",
-            "TestCRE_V2_EVM_Read_TxArtifacts_E2E"
-          ]'
-          matrix=$(jq -c -n \
-            --argjson tests "$TESTS" \
-            --argjson run_id "${{ github.run_id }}" \
-            --arg run_attempt "${{ github.run_attempt }}" '
-            $tests | to_entries | map({
-              test_name: .value,
-              test_id: .key,
-              runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs"
-            })')
-          echo "matrix=$matrix" | tee -a "${GITHUB_OUTPUT}"
+          go -C tools/ci run . matrix \
+            --suite='cre-mixed-env' \
+            --run-id='${{ github.run_id }}' \
+            --attempt='${{ github.run_attempt }}' \
+            --github-output
 
   run-mixed-env-tests:
     name: ${{ matrix.tests.test_name }} (mixed-env)

@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 
-	"charm.land/fang/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -26,12 +25,13 @@ func NewRootCmd(stdin io.Reader, stdout, stderr io.Writer) *cobra.Command {
 	rootCmd.AddCommand(newMatrixCmd(stdout))
 	rootCmd.AddCommand(newTestshardCmd(stdin, stdout, stderr))
 	rootCmd.AddCommand(newChangelogCmd(stdout))
+	rootCmd.AddCommand(newGatingCmd(stdout))
 
 	return rootCmd
 }
 
-// Execute runs the default root command bound to os.Stdin, os.Stdout, and os.Stderr using fang styling.
+// Execute runs the root command bound to os.Stdin, os.Stdout, and os.Stderr.
 func Execute(ctx context.Context) error {
 	cmd := NewRootCmd(os.Stdin, os.Stdout, os.Stderr)
-	return fang.Execute(ctx, cmd)
+	return cmd.ExecuteContext(ctx)
 }

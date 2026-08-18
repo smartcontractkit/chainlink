@@ -100,7 +100,7 @@ jobs:
             --github-output
 
   run-system-tests:
-    name: ${{ matrix.tests.test_name }}
+    name: ${{ matrix.tests.test_name }} ${{ matrix.tests.topology != '' && format(' ({0})', matrix.tests.topology) || '' }}
     permissions:
       contents: read
       id-token: write

@@ -1,8 +1,10 @@
 package matrix
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -50,22 +52,61 @@ func TestBuildMatrix(t *testing.T) {
 	require.Len(t, entries, 3)
 
 	require.Equal(t, "TestCRE_V2_Aptos_Suite_E2E", entries[0].TestName)
-	require.Equal(t, "TestCRE_V2_Aptos_Suite_E2E", entries[0].TestID)
+	require.Equal(t, "0", entries[0].TestID)
 	require.Equal(t, "runs-on=12345-0-2/cpu=16/ram=64", entries[0].RunsOn)
 	require.Equal(t, "workflow-gateway-aptos", entries[0].Topology)
 	require.Equal(t, "configs/workflow-gateway-don-aptos.toml", entries[0].Configs)
 
 	require.Equal(t, "TestCRE_V2_Solana_Write_E2E", entries[1].TestName)
-	require.Equal(t, "TestCRE_V2_Solana_Write_E2E", entries[1].TestID)
+	require.Equal(t, "1", entries[1].TestID)
 	require.Equal(t, "runs-on=12345-1-2/cpu=16/ram=64", entries[1].RunsOn)
 	require.Equal(t, "workflow", entries[1].Topology)
 	require.Equal(t, "configs/workflow-don-solana.toml", entries[1].Configs)
 
 	require.Equal(t, "TestCRE_V2_Suite_Bucket_A_E2E", entries[2].TestName)
-	require.Equal(t, "TestCRE_V2_Suite_Bucket_A_E2E", entries[2].TestID)
+	require.Equal(t, "2", entries[2].TestID)
 	require.Equal(t, "runs-on=12345-2-2/cpu=16/ram=64", entries[2].RunsOn)
 	require.Equal(t, "workflow-gateway-capabilities", entries[2].Topology)
 	require.Equal(t, "configs/workflow-gateway-capabilities-don.toml", entries[2].Configs)
+}
+
+func TestBuildMatrix_SuiteBucketB_ExpandsVaultTopologies(t *testing.T) {
+	t.Parallel()
+
+	entries := BuildMatrix([]string{"TestCRE_V2_Suite_Bucket_B_E2E"}, "12345", "2", "cpu=16/ram=64")
+
+	require.Len(t, entries, 4)
+
+	topologies := make([]string, 0, len(entries))
+	for idx, entry := range entries {
+		require.Equal(t, "TestCRE_V2_Suite_Bucket_B_E2E", entry.TestName)
+		require.Equal(t, strconv.Itoa(idx), entry.TestID)
+		require.Equal(t, fmt.Sprintf("runs-on=12345-%d-2/cpu=16/ram=64", idx), entry.RunsOn)
+		topologies = append(topologies, entry.Topology)
+	}
+
+	require.Equal(t, []string{
+		"workflow-gateway-capabilities",
+		"workflow-gateway-capabilities-vault-jwt_auth-enabled",
+		"workflow-gateway-capabilities-vault-optimizations-enabled",
+		"workflow-gateway-capabilities-vault-stall-purge",
+	}, topologies)
+}
+
+func TestScanDir_ExcludesTestMain(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+
+	sampleContent := `package sample_test
+import "testing"
+func TestMain(m *testing.M) {}
+func TestCRE_V2_RealTest(t *testing.T) {}
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "sample_test.go"), []byte(sampleContent), 0600))
+
+	testNames, err := ScanDir(tempDir, `^(Test|Example).*`)
+	require.NoError(t, err)
+	require.Equal(t, []string{"TestCRE_V2_RealTest"}, testNames)
 }
 
 func TestScanDir_Empty(t *testing.T) {

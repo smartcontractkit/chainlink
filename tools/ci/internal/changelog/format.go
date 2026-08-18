@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
+
+	"github.com/smartcontractkit/chainlink/v2/tools/ci/internal/githuboutput"
+	"github.com/smartcontractkit/chainlink/v2/tools/ci/internal/paths"
 )
 
 const (
@@ -38,19 +40,10 @@ type Result struct {
 	NewChangelog string
 }
 
-func resolvePath(p string) string {
-	if _, err := os.Stat(p); err != nil && !filepath.IsAbs(p) {
-		if alt := filepath.Join("../..", p); func() bool { _, e := os.Stat(alt); return e == nil }() {
-			return alt
-		}
-	}
-	return p
-}
-
 // ReadVersionFromPackageJSON parses the "version" field from package.json.
 func ReadVersionFromPackageJSON(pkgJSONPath string) (string, error) {
-	resolved := resolvePath(pkgJSONPath)
-	data, err := os.ReadFile(filepath.Clean(resolved))
+	resolved := paths.ResolveFromRepoRoot(pkgJSONPath)
+	data, err := os.ReadFile(resolved)
 	if err != nil {
 		return "", fmt.Errorf("failed to read %s: %w", pkgJSONPath, err)
 	}
@@ -74,8 +67,8 @@ func Format(changelogPath, packageJSONPath string, writeGithubOutput bool) (*Res
 		return nil, err
 	}
 
-	resolvedChangelog := resolvePath(changelogPath)
-	contentBytes, err := os.ReadFile(filepath.Clean(resolvedChangelog))
+	resolvedChangelog := paths.ResolveFromRepoRoot(changelogPath)
+	contentBytes, err := os.ReadFile(resolvedChangelog)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read changelog %s: %w", changelogPath, err)
 	}
@@ -208,26 +201,18 @@ func Format(changelogPath, packageJSONPath string, writeGithubOutput bool) (*Res
 	}
 
 	// Write new changelog back to disk
-	if err := os.WriteFile(filepath.Clean(resolvedChangelog), []byte(newChangelogStr), 0600); err != nil {
+	//nolint:gosec // CHANGELOG.md is committed to the repo and must remain readable
+	if err := os.WriteFile(resolvedChangelog, []byte(newChangelogStr), 0o644); err != nil {
 		return nil, fmt.Errorf("failed to write updated %s: %w", resolvedChangelog, err)
 	}
 
 	// Optionally write to GITHUB_OUTPUT
 	if writeGithubOutput {
-		githubOutputFile := os.Getenv("GITHUB_OUTPUT")
-		if githubOutputFile != "" {
-			f, err := os.OpenFile(filepath.Clean(githubOutputFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-			if err != nil {
-				return nil, fmt.Errorf("failed to open GITHUB_OUTPUT %s: %w", githubOutputFile, err)
-			}
-			defer f.Close()
-
-			if _, err := fmt.Fprintf(f, "version=%s\n", version); err != nil {
-				return nil, err
-			}
-			if _, err := fmt.Fprintf(f, "pr_body<<EOF\n%s\nEOF\n", prBody); err != nil {
-				return nil, err
-			}
+		if err := githuboutput.AppendVar("version", version); err != nil {
+			return nil, fmt.Errorf("failed to write version to GITHUB_OUTPUT: %w", err)
+		}
+		if err := githuboutput.AppendMultilineVar("pr_body", prBody); err != nil {
+			return nil, fmt.Errorf("failed to write pr_body to GITHUB_OUTPUT: %w", err)
 		}
 	}
 

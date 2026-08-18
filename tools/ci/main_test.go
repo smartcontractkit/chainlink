@@ -86,6 +86,26 @@ func TestMatrixSuiteSubcommand(t *testing.T) {
 	require.Contains(t, stdout.String(), `"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency"`)
 }
 
+func TestMatrixRegressionSuiteUsesSuiteDefaults(t *testing.T) {
+	t.Parallel()
+	tempDir := t.TempDir()
+
+	sampleContent := `package sample_test
+import "testing"
+func Test_CRE_V2_Foo_Regression(t *testing.T) {}
+`
+	require.NoError(t, os.WriteFile(filepath.Join(tempDir, "sample_test.go"), []byte(sampleContent), 0600))
+
+	var stdout, stderr bytes.Buffer
+	rootCmd := cmd.NewRootCmd(nil, &stdout, &stderr)
+	rootCmd.SetArgs([]string{"matrix", "--suite=cre-regression", "--dir=" + tempDir, "--run-id=10", "--attempt=1"})
+
+	err := rootCmd.Execute()
+	require.NoError(t, err)
+
+	require.Contains(t, stdout.String(), `"test_name":"Test_CRE_V2_Foo_Regression"`)
+}
+
 func TestMatrixSetupSubcommand(t *testing.T) {
 	t.Parallel()
 	var stdout, stderr bytes.Buffer
@@ -96,4 +116,31 @@ func TestMatrixSetupSubcommand(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, stdout.String(), `"ccip-matrix":`)
 	require.Contains(t, stdout.String(), `"cre-mixed-env-matrix":`)
+}
+
+func TestGatingSubcommand(t *testing.T) {
+	outputFile := filepath.Join(t.TempDir(), "github_output")
+	t.Setenv("GITHUB_OUTPUT", outputFile)
+	t.Setenv("GITHUB_STEP_SUMMARY", "")
+	t.Setenv("EVENT_NAME", "pull_request")
+	t.Setenv("REF_NAME", "feature/x")
+	t.Setenv("REF_TYPE", "branch")
+	t.Setenv("CRE_CHANGES", "true")
+	t.Setenv("CCIP_CHANGES", "false")
+
+	var stdout, stderr bytes.Buffer
+	rootCmd := cmd.NewRootCmd(nil, &stdout, &stderr)
+	rootCmd.SetArgs([]string{"gating"})
+
+	require.NoError(t, rootCmd.Execute())
+
+	content, err := os.ReadFile(outputFile)
+	require.NoError(t, err)
+	output := string(content)
+	require.Contains(t, output, "cre-should-run=true")
+	require.Contains(t, output, "cre-with-regression=true")
+	require.Contains(t, output, "cre-run-mixed-env=true")
+	require.Contains(t, output, "ccip-should-run=false")
+	require.Contains(t, output, "build-core-image=true")
+	require.Contains(t, output, "build-plugins-image=true")
 }

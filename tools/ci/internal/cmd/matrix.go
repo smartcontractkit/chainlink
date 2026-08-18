@@ -39,6 +39,16 @@ func newMatrixCmd(stdout io.Writer) *cobra.Command {
 				return matrix.WriteOutput(stdout, entries, githubOutput)
 			}
 
+			if dir == "" {
+				dir = matrix.DefaultCRESmokeDir
+			}
+			if pattern == "" {
+				pattern = matrix.DefaultCRESmokePattern
+			}
+			if runner == "" {
+				runner = matrix.DefaultCRERunnerSpec
+			}
+
 			testNames, err := matrix.ScanDir(dir, pattern)
 			if err != nil {
 				return err
@@ -51,11 +61,11 @@ func newMatrixCmd(stdout io.Writer) *cobra.Command {
 
 	flags := cmd.Flags()
 	flags.StringVar(&suite, "suite", "", "Named test suite (cre-smoke, cre-regression, cre-mixed-env, ccip)")
-	flags.StringVar(&dir, "dir", "system-tests/tests/smoke/cre", "Target directory to scan for test files")
-	flags.StringVar(&pattern, "pattern", `^TestCRE_.*_E2E$`, "Regex pattern to match test function names")
+	flags.StringVar(&dir, "dir", "", "Target directory to scan for test files (defaults to the suite's directory)")
+	flags.StringVar(&pattern, "pattern", "", "Regex pattern to match test function names (defaults to the suite's pattern)")
 	flags.StringVar(&runID, "run-id", "0", "GitHub Actions run ID for unique runner labels")
 	flags.StringVar(&attempt, "attempt", "1", "GitHub Actions run attempt for unique runner labels")
-	flags.StringVar(&runner, "runner", "cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs", "Runner hardware and capability spec")
+	flags.StringVar(&runner, "runner", "", "Runner hardware and capability spec (defaults to the suite's spec)")
 	flags.BoolVar(&githubOutput, "github-output", false, "Append matrix=<json> to file specified in $GITHUB_OUTPUT")
 
 	cmd.AddCommand(newMatrixSetupCmd(stdout))

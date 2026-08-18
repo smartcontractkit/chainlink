@@ -32,7 +32,7 @@ var (
 /*
 To execute tests start the local CRE first:
  1. Inside `core/scripts/cre/environment` directory: `go run . env restart --with-chip-ingress-stack` (deprecated: `--with-beholder`)
- 2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^Test_CRE_"`.
+ 2. Execute the tests in `system-tests/tests/smoke/cre`: `go test -timeout 15m -run "^TestCRE_"`.
 */
 //nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_V2_Suite_Bucket_A_E2E(t *testing.T) {

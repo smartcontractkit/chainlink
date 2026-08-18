@@ -8,12 +8,13 @@ import (
 	"go/token"
 	"io"
 	"io/fs"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/smartcontractkit/chainlink/v2/tools/ci/internal/githuboutput"
+	"github.com/smartcontractkit/chainlink/v2/tools/ci/internal/paths"
 )
 
 // SuiteType identifies predefined test matrix suites.
@@ -90,63 +91,58 @@ var defaultTopology = TopologyConfig{
 	Configs:  "configs/workflow-gateway-capabilities-don.toml",
 }
 
-var perTestTopologies = map[string]TopologyConfig{
+var perTestTopologies = map[string][]TopologyConfig{
+	"TestCRE_V2_Suite_Bucket_B_E2E": {
+		{Topology: "workflow-gateway-capabilities", Configs: "configs/workflow-gateway-capabilities-don.toml"},
+		{Topology: "workflow-gateway-capabilities-vault-jwt_auth-enabled", Configs: "configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"},
+		{Topology: "workflow-gateway-capabilities-vault-optimizations-enabled", Configs: "configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"},
+		{Topology: "workflow-gateway-capabilities-vault-stall-purge", Configs: "configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"},
+	},
 	"TestCRE_V2_Aptos_Suite_E2E": {
-		Topology: "workflow-gateway-aptos",
-		Configs:  "configs/workflow-gateway-don-aptos.toml",
+		{Topology: "workflow-gateway-aptos", Configs: "configs/workflow-gateway-don-aptos.toml"},
 	},
 	"TestCRE_V2_Stellar_Suite_E2E": {
-		Topology: "workflow-gateway-stellar",
-		Configs:  "configs/workflow-gateway-don-stellar.toml",
+		{Topology: "workflow-gateway-stellar", Configs: "configs/workflow-gateway-don-stellar.toml"},
 	},
 	"TestCRE_V2_Solana_Write_E2E": {
-		Topology: "workflow",
-		Configs:  "configs/workflow-don-solana.toml",
+		{Topology: "workflow", Configs: "configs/workflow-don-solana.toml"},
 	},
 	"TestCRE_V2_Solana_LogTrigger_E2E": {
-		Topology: "workflow",
-		Configs:  "configs/workflow-don-solana.toml",
+		{Topology: "workflow", Configs: "configs/workflow-don-solana.toml"},
 	},
 	"TestCRE_V2_Solana_Read_Accounts_E2E": {
-		Topology: "workflow",
-		Configs:  "configs/workflow-don-solana.toml",
+		{Topology: "workflow", Configs: "configs/workflow-don-solana.toml"},
 	},
 	"TestCRE_V2_Solana_Read_Block_E2E": {
-		Topology: "workflow",
-		Configs:  "configs/workflow-don-solana.toml",
+		{Topology: "workflow", Configs: "configs/workflow-don-solana.toml"},
 	},
 	"TestCRE_V2_Solana_Read_Tx_E2E": {
-		Topology: "workflow",
-		Configs:  "configs/workflow-don-solana.toml",
+		{Topology: "workflow", Configs: "configs/workflow-don-solana.toml"},
 	},
 	"TestCRE_V2_Sharding_E2E": {
-		Topology: "workflow-gateway-sharded",
-		Configs:  "configs/workflow-gateway-sharded-don.toml",
+		{Topology: "workflow-gateway-sharded", Configs: "configs/workflow-gateway-sharded-don.toml"},
 	},
 	"TestCRE_V2_ShardManualAssignment_E2E": {
-		Topology: "workflow-gateway-sharded-manual",
-		Configs:  "configs/workflow-gateway-sharded-manual.toml",
+		{Topology: "workflow-gateway-sharded-manual", Configs: "configs/workflow-gateway-sharded-manual.toml"},
 	},
 	"TestCRE_V2_ShardRingOCROverrides_E2E": {
-		Topology: "workflow-gateway-sharded-ringocr-overrides",
-		Configs:  "configs/workflow-gateway-sharded-ringocr-overrides.toml",
+		{Topology: "workflow-gateway-sharded-ringocr-overrides", Configs: "configs/workflow-gateway-sharded-ringocr-overrides.toml"},
 	},
 	"TestCRE_V2_Module_Cache_E2E": {
-		Topology: "workflow-gateway-cache-test",
-		Configs:  "configs/workflow-gateway-don-cache-test.toml",
+		{Topology: "workflow-gateway-cache-test", Configs: "configs/workflow-gateway-don-cache-test.toml"},
 	},
 	"TestCRE_V2_HTTP_Action_Multi_Gateway_E2E": {
-		Topology: "workflow-gateway-capabilities-multi-gateway",
-		Configs:  "configs/workflow-gateway-capabilities-multi-gateway-don.toml",
+		{Topology: "workflow-gateway-capabilities-multi-gateway", Configs: "configs/workflow-gateway-capabilities-multi-gateway-don.toml"},
 	},
 }
 
-// GetTopologyForTest returns the topology and config file for a given test name.
-func GetTopologyForTest(testName string) TopologyConfig {
-	if cfg, ok := perTestTopologies[testName]; ok {
-		return cfg
+// GetTopologiesForTest returns the topologies and config files for a given test name,
+// falling back to the default topology when the test has no explicit entry.
+func GetTopologiesForTest(testName string) []TopologyConfig {
+	if cfgs, ok := perTestTopologies[testName]; ok {
+		return cfgs
 	}
-	return defaultTopology
+	return []TopologyConfig{defaultTopology}
 }
 
 // Entry represents one test job item in the matrix JSON array.
@@ -353,12 +349,7 @@ func ScanDir(dir string, rePattern string) ([]string, error) {
 		return nil, fmt.Errorf("invalid regex pattern %q: %w", rePattern, err)
 	}
 
-	resolvedDir := dir
-	if _, statErr := os.Stat(resolvedDir); statErr != nil && !filepath.IsAbs(dir) {
-		if alt := filepath.Join("../..", dir); func() bool { _, e := os.Stat(alt); return e == nil }() {
-			resolvedDir = alt
-		}
-	}
+	resolvedDir := paths.ResolveFromRepoRoot(dir)
 
 	fset := token.NewFileSet()
 	//nolint:staticcheck // parser.ParseDir is used for fast AST test discovery without heavy type-checking
@@ -381,6 +372,9 @@ func ScanDir(dir string, rePattern string) ([]string, error) {
 				}
 
 				name := fn.Name.Name
+				if name == "TestMain" {
+					continue
+				}
 				if re.MatchString(name) {
 					if _, exists := seen[name]; !exists {
 						seen[name] = struct{}{}
@@ -400,18 +394,20 @@ func ScanDir(dir string, rePattern string) ([]string, error) {
 }
 
 // BuildMatrix converts testNames into a slice of Entry structs with unique runs-on specifiers.
+// Tests with multiple registered topologies produce one entry per topology.
 func BuildMatrix(testNames []string, runID, runAttempt, runnerSpec string) []Entry {
-	entries := make([]Entry, 0, len(testNames))
-	for idx, name := range testNames {
-		runsOn := fmt.Sprintf("runs-on=%s-%d-%s/%s", runID, idx, runAttempt, runnerSpec)
-		topCfg := GetTopologyForTest(name)
-		entries = append(entries, Entry{
-			TestName: name,
-			TestID:   name,
-			RunsOn:   runsOn,
-			Topology: topCfg.Topology,
-			Configs:  topCfg.Configs,
-		})
+	var entries []Entry
+	for _, name := range testNames {
+		for _, topCfg := range GetTopologiesForTest(name) {
+			idx := len(entries)
+			entries = append(entries, Entry{
+				TestName: name,
+				TestID:   strconv.Itoa(idx),
+				RunsOn:   fmt.Sprintf("runs-on=%s-%d-%s/%s", runID, idx, runAttempt, runnerSpec),
+				Topology: topCfg.Topology,
+				Configs:  topCfg.Configs,
+			})
+		}
 	}
 	return entries
 }
@@ -428,17 +424,8 @@ func WriteOutput(w io.Writer, entries []Entry, writeGithubOutput bool) error {
 	}
 
 	if writeGithubOutput {
-		githubOutputFile := os.Getenv("GITHUB_OUTPUT")
-		if githubOutputFile != "" {
-			f, err := os.OpenFile(filepath.Clean(githubOutputFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
-			if err != nil {
-				return fmt.Errorf("failed to open GITHUB_OUTPUT file %s: %w", githubOutputFile, err)
-			}
-			defer f.Close()
-
-			if _, err := fmt.Fprintf(f, "matrix=%s\n", string(matrixJSON)); err != nil {
-				return fmt.Errorf("failed to write to GITHUB_OUTPUT: %w", err)
-			}
+		if err := githuboutput.AppendVar("matrix", string(matrixJSON)); err != nil {
+			return fmt.Errorf("failed to write matrix to GITHUB_OUTPUT: %w", err)
 		}
 	}
 
@@ -457,23 +444,16 @@ func WriteMultiOutput(w io.Writer, matrices map[string][]Entry, writeGithubOutpu
 	}
 
 	if writeGithubOutput {
-		githubOutputFile := os.Getenv("GITHUB_OUTPUT")
-		if githubOutputFile != "" {
-			f, err := os.OpenFile(filepath.Clean(githubOutputFile), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		vars := make(map[string]string, len(matrices))
+		for key, entries := range matrices {
+			val, err := json.Marshal(entries)
 			if err != nil {
-				return fmt.Errorf("failed to open GITHUB_OUTPUT file %s: %w", githubOutputFile, err)
+				return fmt.Errorf("failed to marshal %s JSON: %w", key, err)
 			}
-			defer f.Close()
-
-			for key, entries := range matrices {
-				val, err := json.Marshal(entries)
-				if err != nil {
-					return fmt.Errorf("failed to marshal %s JSON: %w", key, err)
-				}
-				if _, err := fmt.Fprintf(f, "%s=%s\n", key, string(val)); err != nil {
-					return fmt.Errorf("failed to write %s to GITHUB_OUTPUT: %w", key, err)
-				}
-			}
+			vars[key] = string(val)
+		}
+		if err := githuboutput.AppendVars(vars); err != nil {
+			return fmt.Errorf("failed to write matrices to GITHUB_OUTPUT: %w", err)
 		}
 	}
 

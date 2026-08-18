@@ -39,7 +39,7 @@ const (
 	grpcTestWorkflowSource = "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 )
 
-// Test_CRE_GRPCSource_Lifecycle tests the complete lifecycle of workflows via the gRPC
+// TestCRE_GRPCSource_Lifecycle_E2E tests the complete lifecycle of workflows via the gRPC
 // additional source: deploy, pause, resume, delete.
 //
 // This test uses a pre-configured TOML with AdditionalSources pointing to host.docker.internal:8544.
@@ -48,7 +48,7 @@ const (
 //
 // To run locally:
 //  1. Start the test (it will start the environment automatically):
-//     go test -timeout 20m -run "^Test_CRE_GRPCSource_Lifecycle$" ./smoke/cre/...
+//     go test -timeout 20m -run "^TestCRE_GRPCSource_Lifecycle_E2E$" ./smoke/cre/...
 //
 //nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
 func TestCRE_GRPCSource_Lifecycle_E2E(t *testing.T) {

@@ -50,7 +50,7 @@ Prerequisites:
   CTF_CONFIGS=configs/workflow-gateway-sharded-don.toml go run . env start
 
 - Run the test:
-  go test -timeout 20m -run "^Test_CRE_V2_Sharding" -v
+  go test -timeout 20m -run "^TestCRE_V2_Sharding" -v
 */
 
 func ExecuteShardingTestWithCronTrigger(t *testing.T, testEnv *ttypes.TestEnvironment) {

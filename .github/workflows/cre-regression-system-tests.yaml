@@ -83,31 +83,20 @@ jobs:
           ref: ${{ inputs.chainlink_version || github.sha }}
           persist-credentials: false
 
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: false
+
       - name: Define test matrix
         id: define-matrix
-        shell: bash
         run: |
-          test_names=$(grep -rh -oP '^func \K(Test|Example)[^(]+' system-tests/tests/regression/cre/*_test.go)
-
-          per_test_configs='{
-            "Test_CRE_V2_Stellar_Regression": "configs/workflow-gateway-don-stellar.toml"
-          }'
-
-          tests=$(echo "$test_names" | jq -c -R -s \
-            --argjson run_id "${{ github.run_id }}" \
-            --arg run_attempt "${{ github.run_attempt }}" \
-            --argjson per "$per_test_configs" '
-            split("\n") | map(select(length>0))
-            | to_entries
-            | map({
-                test_name: .value,
-                test_id: .key,
-                runs_on: "runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=16/ram=64/family=m7i+m8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs",
-                configs: ($per[.value] // "configs/workflow-gateway-capabilities-don.toml")
-              })
-          ')
-
-          echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
+          go -C tools/ci run . matrix \
+            --suite='cre-regression' \
+            --run-id='${{ github.run_id }}' \
+            --attempt='${{ github.run_attempt }}' \
+            --github-output
 
   run-system-tests:
     name: ${{ matrix.tests.test_name }} ${{ matrix.tests.topology != '' && format(' ({0})', matrix.tests.topology) || '' }}
