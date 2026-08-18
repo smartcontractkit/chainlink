@@ -859,16 +859,18 @@ func prepareEVM2SuiMaliciousReceiverTest(t *testing.T) evm2SuiMessagingFixtures 
 	}
 }
 
-// suiSUIBalanceOf sums all 0x2::coin::Coin<0x2::sui::SUI> coin balances owned by account.
-func suiSUIBalanceOf(t *testing.T, chain cldf_sui.Chain, account string) *big.Int {
+// suiCoinBalanceByID returns the balance of the named SUI coin owned by account, or 0 if the coin
+// is no longer owned by the account (e.g. transferred away by a drain).
+func suiCoinBalanceByID(t *testing.T, chain cldf_sui.Chain, account, coinID string) *big.Int {
 	t.Helper()
 	coins, err := chain.Client.QueryCoinsByAddress(testhelpers.Context(t), account, "0x2::coin::Coin<0x2::sui::SUI>")
 	require.NoError(t, err)
-	total := new(big.Int)
-	for _, coin := range coins {
-		total.Add(total, new(big.Int).SetUint64(coin.GetBalance()))
+	for _, c := range coins {
+		if c.GetObjectId() == coinID {
+			return new(big.Int).SetUint64(c.GetBalance())
+		}
 	}
-	return total
+	return new(big.Int) // coin no longer owned by the account
 }
 
 // suiExecTransmitterAddress derives the Sui exec transmitter address from the DON node OCR
@@ -920,7 +922,7 @@ func Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, coins, "exec transmitter must own SUI gas coins")
 	transmitterCoinID := coins[0].GetObjectId()
-	preBalance := suiSUIBalanceOf(t, suiChain, transmitterAddr)
+	preCoinBalance := new(big.Int).SetUint64(coins[0].GetBalance())
 
 	// Tail order matches malicious ccip_receive: clock, state, drain_coin.
 	var drainCoinObj [32]byte
@@ -959,8 +961,11 @@ func Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected(t *testing.T) {
 	_, err = offrampContract.DevInspect().GetExecutionState(ctx, devInspectOpts, offRampStateObj, fx.sourceChain, seqExploit)
 	require.Error(t, err, "exploit execute must roll back atomically (get_execution_state must NOT return SUCCESS)")
 
-	// No drain: the transmitter's SUI balance must be unchanged after the failed execution.
-	postBalance := suiSUIBalanceOf(t, suiChain, transmitterAddr)
-	require.Equalf(t, preBalance, postBalance,
-		"transmitter SUI balance changed: pre=%s post=%s (guard should prevent the drain)", preBalance.String(), postBalance.String())
+	// No drain: the transmitter-owned tail coin must be unchanged. Gas for the reverted execute
+	// is charged from a separate gas coin (Sui forbids reusing one object as both gas payment and
+	// a &mut input), so the tail coin is untouched when the guard skips the receiver leg. A drain
+	// would split/transfer its value out, leaving it at ~0 or moved off the transmitter.
+	postCoinBalance := suiCoinBalanceByID(t, suiChain, transmitterAddr, transmitterCoinID)
+	require.Equalf(t, preCoinBalance, postCoinBalance,
+		"transmitter tail coin balance changed: pre=%s post=%s (guard should prevent the drain)", preCoinBalance.String(), postCoinBalance.String())
 }
