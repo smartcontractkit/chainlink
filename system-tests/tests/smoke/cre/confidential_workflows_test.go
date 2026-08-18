@@ -224,8 +224,6 @@ func confidentialGatewayURL(t *testing.T, testEnv *ttypes.TestEnvironment) strin
 	return fmt.Sprintf("%s://%s:%d%s", incoming.Protocol, host, incoming.ExternalPort, incoming.Path)
 }
 
-// injectVaultPublicKey writes the vault DON's DKG public key and threshold into
-// the vault capability's registry config.
 // publishEnclaves writes the enclave list into the capability's on-chain
 // registry config and waits for the capability to pick it up.
 //
@@ -309,6 +307,8 @@ func donNameForCapability(
 	return ""
 }
 
+// injectVaultPublicKey writes the vault DON's DKG public key and threshold into
+// the vault capability's registry config.
 func injectVaultPublicKey(t *testing.T, testEnv *ttypes.TestEnvironment, testLogger zerolog.Logger, gatewayURL string) string {
 	t.Helper()
 
