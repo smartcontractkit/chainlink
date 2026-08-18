@@ -9,11 +9,6 @@ replace github.com/smartcontractkit/chainlink/deployment => ../../deployment
 
 replace github.com/smartcontractkit/chainlink/system-tests/lib => ../../system-tests/lib
 
-// TEMPORARY: chainlink-testing-framework/framework doesn't have Solana key-read
-// support yet (ReadSolanaKeys); pointing at a local sibling checkout with it added
-// until that lands upstream and a tagged version picks it up.
-replace github.com/smartcontractkit/chainlink-testing-framework/framework => ../../../chainlink-testing-framework/framework
-
 replace github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based => ./cre/environment/examples/workflows/proof-of-reserve/cron-based
 
 // chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
@@ -60,7 +55,7 @@ require (
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260713161920-de075095648b
 	github.com/smartcontractkit/chainlink-protos/cre/go v0.0.0-20260714170805-29c5577b5f55
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6-0.20260708113039-95f97b2d25e9
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.7
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based v0.0.0-00010101000000-000000000000
