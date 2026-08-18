@@ -112,7 +112,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 		return errors.Wrap(err, "fetching block number")
 	}
 
-	fromBlock, toBlock := GetSearchWindow(int(latestBlock), f.waitBlocks, f.lookbackBlocks)
+	fromBlock, toBlock := GetSearchWindow(int(latestBlock), f.waitBlocks, f.lookbackBlocks) //nolint:gosec // G115
 	if toBlock == 0 {
 		// Nothing to process, no blocks are in range.
 		return nil
@@ -168,7 +168,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 
 	if f.lastRunBlock != 0 {
 		// Prune stored, anything older than fromBlock can be discarded
-		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < fromBlock; block++ {
+		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < fromBlock; block++ { //nolint:gosec //G115
 			if _, ok := f.stored[block]; ok {
 				delete(f.stored, block)
 				f.lggr.Debugw("Pruned block from stored cache",
@@ -256,15 +256,16 @@ func (f *Feeder) runTrusted(
 		// append its blockhash to our blockhashes we want to store.
 		// If it is the log poller block pertaining to our recent block number, assig it.
 		for _, b := range lpBlocks {
-			if b.BlockNumber == int64(latestBlock) {
+			if b.BlockNumber == int64(latestBlock) { //nolint:gosec // G115
 				latestBlockhash = b.BlockHash
 			}
-			if f.storedTrusted[uint64(b.BlockNumber)] == b.BlockHash {
+			blockNum := uint64(b.BlockNumber) //nolint:gosec // G115
+			if f.storedTrusted[blockNum] == b.BlockHash {
 				// blockhash is already stored. skip to save gas
 				continue
 			}
-			if _, ok := batch[uint64(b.BlockNumber)]; ok {
-				blocksToStore = append(blocksToStore, uint64(b.BlockNumber))
+			if _, ok := batch[blockNum]; ok {
+				blocksToStore = append(blocksToStore, blockNum)
 				blockhashesToStore = append(blockhashesToStore, b.BlockHash)
 			}
 		}
