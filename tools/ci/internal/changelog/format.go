@@ -83,7 +83,7 @@ func Format(changelogPath, packageJSONPath string, writeGithubOutput bool) (*Res
 		pastStarted      bool
 	)
 
-	versionHeader := fmt.Sprintf("## %s", version)
+	versionHeader := "## " + version
 
 	for _, line := range lines {
 		if strings.HasPrefix(line, "## ") {
@@ -152,7 +152,7 @@ func Format(changelogPath, packageJSONPath string, writeGithubOutput bool) (*Res
 	var changelogSection strings.Builder
 	var prBodySection strings.Builder
 
-	changelogSection.WriteString(fmt.Sprintf("## %s - PREVIEW\n", version))
+	fmt.Fprintf(&changelogSection, "## %s - PREVIEW\n", version)
 
 	for _, tag := range tagsList {
 		entries, exists := tagMap[tag]

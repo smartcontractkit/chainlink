@@ -39,7 +39,7 @@ const (
 )
 
 var perTestRegressionConfigs = map[string]string{
-	"Test_CRE_V2_Stellar_Regression":     "configs/workflow-gateway-don-stellar.toml",
+	"Test_CRE_V2_Stellar_Regression":    "configs/workflow-gateway-don-stellar.toml",
 	"TestCRE_V2_Stellar_Regression_E2E": "configs/workflow-gateway-don-stellar.toml",
 }
 
