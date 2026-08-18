@@ -194,7 +194,7 @@ func (p *triggerPublisher) initMetrics() error {
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_ack_event_total: %w", err)
 	}
-	durationBuckets := metric.WithExplicitBucketBoundaries(1, 50, 250, 1_000, 5_000, 30_000)
+	durationBuckets := metric.WithExplicitBucketBoundaries(1, 50, 250, 1_000, 5_000, 30_000, 120_000)
 	p.metrics.registerTriggerDurationMs, err = beholder.GetMeter().Int64Histogram("platform_trigger_publisher_register_trigger_duration_ms", durationBuckets)
 	if err != nil {
 		return fmt.Errorf("failed to register platform_trigger_publisher_register_trigger_duration_ms: %w", err)

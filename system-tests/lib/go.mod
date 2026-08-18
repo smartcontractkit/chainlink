@@ -15,7 +15,7 @@ require (
 	dario.cat/mergo v1.0.2
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/alitto/pond/v2 v2.5.0
-	github.com/andybalholm/brotli v1.2.1
+	github.com/andybalholm/brotli v1.2.2
 	github.com/aptos-labs/aptos-go-sdk v1.13.0
 	github.com/avast/retry-go/v5 v5.0.0
 	github.com/cockroachdb/errors v1.12.0
@@ -37,7 +37,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.107
 	github.com/smartcontractkit/chainlink-aptos v0.0.0-20260708114855-e953eeb028a7
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260811140401-3fb1738abb75
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260818105001-c2c53c5ea6a6
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.111.1-0.20260612191326-e31c0ae4cd54
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260810110946-8174b6bb7fc9
