@@ -303,7 +303,8 @@ func configureEnclaves(
 ) {
 	t.Helper()
 
-	workers, err := testEnv.Dons.MustWorkflowDON().Workers()
+	don := testEnv.Dons.MustWorkflowDON()
+	workers, err := don.Workers()
 	require.NoError(t, err, "failed to get worker nodes from topology")
 	require.NotEmpty(t, workers, "workflow DON has no worker nodes")
 
@@ -315,9 +316,11 @@ func configureEnclaves(
 	masterPublicKey, err := hex.DecodeString(vaultPublicKey)
 	require.NoError(t, err, "failed to hex-decode vault public key")
 
-	// don.F for an N-node DON is N/3; the enclave's own F/T is 2*don.F + 1.
-	donF := uint32(len(workers) / 3) //nolint:gosec // G115: the worker count comes from the topology
-	quorum := 2*donF + 1
+	// Quorum tracks the DON's registered fault tolerance (Don.F, computed as
+	// (workers-1)/3 in NewDON), not a re-derivation from the worker count: the
+	// two diverge for e.g. 6-node DONs, and the enclave would then demand more
+	// signatures than the DON can produce.
+	quorum := 2*uint32(don.F) + 1
 
 	config := cctypes.EnclaveConfig{
 		Signers:         signers,
