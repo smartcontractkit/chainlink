@@ -113,8 +113,7 @@ func TestKeepAliveLoop_StuckNodeBlocksAll(t *testing.T) {
 	for i, hc := range healthyConns {
 		pings := hc.pingCount.Load()
 		t.Logf("healthy_%d: %d pings", i, pings)
-		require.Greater(t, pings, int64(0),
-			"healthy node %d received 0 pings — keepaliveLoop is stuck on the blocked node", i)
+		require.Positive(t, pings, "healthy node %d received 0 pings — keepaliveLoop is stuck on the blocked node", i)
 	}
 
 	stuckPings := stuckConn.pingCount.Load()
