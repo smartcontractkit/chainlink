@@ -77,7 +77,7 @@ func TestAddTokenE2E(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			var (
 				e                    cldf.Environment
 				selectorA, selectorB uint64

@@ -72,7 +72,7 @@ func TestShell_StarkNetKeys(t *testing.T) {
 		key, err := app.GetKeyStore().StarkNet().Create(ctx)
 		require.NoError(t, err)
 		requireStarkNetKeyCount(t, app, 1)
-		assert.NoError(t, cmd.NewStarkNetKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
+		require.NoError(t, cmd.NewStarkNetKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
 		require.Len(t, r.Renders, 1)
 		keys := *r.Renders[0].(*cmd.StarkNetKeyPresenters)
 		assert.Equal(t, key.StarkKeyStr(), keys[0].StarkKey)

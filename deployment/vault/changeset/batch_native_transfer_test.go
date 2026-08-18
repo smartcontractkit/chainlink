@@ -268,7 +268,7 @@ func fundDeployerAccounts(t *testing.T, env cldf.Environment, chainSelectors []u
 	for _, chainSel := range chainSelectors {
 		chain := env.BlockChains.EVMChains()[chainSel]
 
-		balance, err := chain.Client.BalanceAt(testutils.Context(t), chain.DeployerKey.From, nil)
+		balance, err := chain.Client.BalanceAt(t.Context(), chain.DeployerKey.From, nil)
 		require.NoError(t, err)
 
 		minBalance := HundredETH
@@ -433,7 +433,7 @@ func executeDirectTransfers(t *testing.T, rt *runtime.Runtime, chainSelector uin
 	transferAmount := OneETH
 
 	chain := rt.Environment().BlockChains.EVMChains()[chainSelector]
-	initialBalance, err := chain.Client.BalanceAt(testutils.Context(t), recipient, nil)
+	initialBalance, err := chain.Client.BalanceAt(t.Context(), recipient, nil)
 	require.NoError(t, err)
 
 	transferConfig := types.BatchNativeTransferConfig{
@@ -454,7 +454,7 @@ func executeDirectTransfers(t *testing.T, rt *runtime.Runtime, chainSelector uin
 
 	require.NotNil(t, output.Reports, "Should have execution reports")
 
-	finalBalance, err := chain.Client.BalanceAt(testutils.Context(t), recipient, nil)
+	finalBalance, err := chain.Client.BalanceAt(t.Context(), recipient, nil)
 	require.NoError(t, err)
 
 	expectedBalance := big.NewInt(0).Add(initialBalance, transferAmount)
@@ -478,7 +478,7 @@ func verifyTransferExecution(t *testing.T, env cldf.Environment, config types.Ba
 		require.True(t, exists, "Transfers should exist for chain %d", chainSel)
 
 		for i, transfer := range transfers {
-			balance, err := chain.Client.BalanceAt(testutils.Context(t), common.HexToAddress(transfer.To), nil)
+			balance, err := chain.Client.BalanceAt(t.Context(), common.HexToAddress(transfer.To), nil)
 			require.NoError(t, err)
 
 			require.Equal(t, transfer.Amount, balance,

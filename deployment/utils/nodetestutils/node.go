@@ -806,7 +806,7 @@ func setupJD(t *testing.T, app chainlink.Application) {
 	connManager.On("IsConnected", mock.Anything).Maybe().Return(true)
 	f.Unsafe_SetConnectionsManager(connManager)
 
-	_, err = f.RegisterManager(testutils.Context(t), m)
+	_, err = f.RegisterManager(t.Context(), m)
 	require.NoError(t, err)
 }
 

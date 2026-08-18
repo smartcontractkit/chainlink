@@ -691,7 +691,7 @@ answer1      [type=median index=0];
 
 		// TODO: This breaks the txdb connection, failing subsequent tests. Resolve in the future
 		// Noop once the job is gone.
-		// jobORM.RecordError(testutils.Context(t), jb.ID, "test")
+		// jobORM.RecordError(t.Context(), jb.ID, "test")
 		// err = db.Find(&se).Error
 		// require.NoError(t, err)
 		// require.Len(t, se, 0)

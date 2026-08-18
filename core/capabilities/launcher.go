@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"sync"
-	"time"
 
 	"github.com/smartcontractkit/libocr/ragep2p"
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -496,12 +495,6 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 	w.subServices = append(w.subServices, cp)
 	return nil
 }
-
-var (
-	// TODO: make this configurable
-	defaultTargetRequestTimeout                 = 8 * time.Minute
-	defaultMaxParallelCapabilityExecuteRequests = uint32(1000)
-)
 
 // serveCapabilities exposes capabilities that are available on this node, as part of the given DON.
 // It is best effort, ensuring that valid capabilities are exposed even if some fail
