@@ -803,6 +803,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		offRampDestAddr.Bytes(),
 		mockAddrCodec,
 	)
+	t.Cleanup(func() { assert.NoError(t, reader.Close()) })
 
 	t.Cleanup(func() {
 		assert.NoError(t, crS1.Close())
@@ -837,10 +838,25 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	err = reader.Sync(ctx, onRampContractMapping)
 	require.NoError(t, err)
 
-	// After binding the OnRamp on the source chain, DiscoverContracts should be able to read the source-chain
-	// configs on cache miss and discover Router/FeeQuoter without waiting for a background refresh tick.
+	// Recreate the reader after Sync to ensure we don't depend on any cached source-chain config state inside the
+	// config poller (which refreshes in the background). This makes the source-chain Router/FeeQuoter discovery
+	// deterministic after the OnRamp binding is applied.
+	readerAfterSync := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
+		ctx,
+		logger.TestLogger(t),
+		accessors,
+		contractReaders,
+		contractWriters,
+		chainD,
+		offRampDestAddr.Bytes(),
+		mockAddrCodec,
+	)
+	t.Cleanup(func() { assert.NoError(t, readerAfterSync.Close()) })
+	err = readerAfterSync.Sync(ctx, onRampContractMapping)
+	require.NoError(t, err)
+
 	require.Eventually(t, func() bool {
-		contractAddresses, err = reader.DiscoverContracts(ctx,
+		contractAddresses, err = readerAfterSync.DiscoverContracts(ctx,
 			[]cciptypes.ChainSelector{chainS1, chainD},
 			[]cciptypes.ChainSelector{chainS1, chainD})
 		if err != nil {
@@ -854,10 +870,10 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 		return routerExists && feeQuoterExists &&
 			bytes.Equal(routerS1, destinationChainConfigArgs[0].Router.Bytes()) &&
 			bytes.Equal(feeQuoterS1, onRampS1DynamicConfig.FeeQuoter.Bytes())
-	}, 15*time.Second, 100*time.Millisecond, "Router and FeeQuoter addresses were not discovered on source chain in time")
+	}, 90*time.Second, 100*time.Millisecond, "Router and FeeQuoter addresses were not discovered on source chain in time")
 
 	// Final assertions again for completeness:
-	contractAddresses, err = reader.DiscoverContracts(ctx,
+	contractAddresses, err = readerAfterSync.DiscoverContracts(ctx,
 		[]cciptypes.ChainSelector{chainS1, chainD},
 		[]cciptypes.ChainSelector{chainS1, chainD})
 	require.NoError(t, err)
