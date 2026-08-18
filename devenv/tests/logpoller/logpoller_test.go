@@ -434,8 +434,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	if eb > math.MaxInt64 {
 		t.Fatalf("end block overflows int64: %d", eb)
 	}
-
-	endBlock, err := getEndBlockToWaitFor(int64(eb), pdConfig.Config[0])
+	endBlock, err := getEndBlockToWaitFor(int64(eb), pdConfig.Config[0]) //nolint:gosec // G115
 	require.NoError(t, err, "Error getting end block to wait for")
 
 	require.NotZero(t, duration, "test duration cannot be zero")

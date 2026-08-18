@@ -218,7 +218,7 @@ func (c Config) DebugLogsToDisk() bool {
 
 // RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
 func (c Config) RequiredDiskSpace() utils.FileSize {
-	return utils.FileSize(c.FileMaxSizeMB * utils.MB * (c.FileMaxBackups + 1))
+	return utils.FileSize(c.FileMaxSizeMB * utils.MB * (c.FileMaxBackups + 1)) //nolint:gosec // G115
 }
 
 func (c *Config) DiskSpaceAvailable(path string) (utils.FileSize, error) {

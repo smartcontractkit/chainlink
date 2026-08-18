@@ -183,6 +183,7 @@ type ChainCapOffchainConfig struct {
 	MaxOutcomeLengthBytes     uint32 `yaml:"maxOutcomeLengthBytes"`
 	MaxReportCount            uint32 `yaml:"maxReportCount"`
 	MaxBatchSize              uint32 `yaml:"maxBatchSize"`
+	MinResponsesToAggregate   uint32 `yaml:"minResponsesToAggregate,omitempty"`
 }
 
 func (oc *ChainCapOffchainConfig) ToProto() (proto.Message, error) {
@@ -193,6 +194,7 @@ func (oc *ChainCapOffchainConfig) ToProto() (proto.Message, error) {
 		MaxOutcomeLengthBytes:     oc.MaxOutcomeLengthBytes,
 		MaxReportCount:            oc.MaxReportCount,
 		MaxBatchSize:              oc.MaxBatchSize,
+		MinResponsesToAggregate:   oc.MinResponsesToAggregate,
 	}, nil
 }
 

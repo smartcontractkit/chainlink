@@ -3,6 +3,7 @@ package v2
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -20,8 +21,24 @@ type WorkflowSpecsDS interface {
 	// GetWorkflowSpecByID returns the workflow spec for the given workflowID.
 	GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error)
 
-	// DeleteWorkflowSpec deletes the workflow spec for the given workflow ID.
-	DeleteWorkflowSpec(ctx context.Context, id string) error
+	// ListWorkflowSpecs returns the persisted workflow specs. It projects only
+	// identity columns (workflow_id, workflow_owner, registered_at);
+	// other fields are left zero to keep returned batch size small
+	ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error)
+
+	// DeleteWorkflowSpec deletes the spec row for id. Idempotent: a missing row
+	// returns (nil, nil), not an error. The deleted row is returned so the
+	// caller can derive the generation-scoped metering event_id from the row's
+	// own persisted registered_at (every node emits the identical id regardless
+	// of local staleness).
+	DeleteWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error)
+
+	// PauseWorkflowSpec tombstones the spec row: status becomes paused and the
+	// heavy artifact payload (hex binary + config) is cleared in the same
+	// statement, freeing storage while the row itself remains the durable record
+	// that this registration generation is still held (level-neutral for
+	// metering). Idempotent; pausing an absent or already-paused row is a no-op.
+	PauseWorkflowSpec(ctx context.Context, id string) error
 
 	// DeleteWorkflowSpecs deletes workflow specs for the given workflow IDs in a single query.
 	DeleteWorkflowSpecs(ctx context.Context, ids []string) error
@@ -65,7 +82,9 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				created_at,
 				updated_at,
 				spec_type,
-				attributes
+				attributes,
+				registered_at,
+				source
 			) VALUES (
 				:workflow,
 				:config,
@@ -79,7 +98,9 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				:created_at,
 				:updated_at,
 				:spec_type,
-				:attributes
+				:attributes,
+				:registered_at,
+				:source
 			) ON CONFLICT (workflow_id) DO UPDATE
 			SET
 				workflow = EXCLUDED.workflow,
@@ -93,7 +114,9 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 				created_at = EXCLUDED.created_at,
 				updated_at = EXCLUDED.updated_at,
 				spec_type = EXCLUDED.spec_type,
-				attributes = EXCLUDED.attributes
+				attributes = EXCLUDED.attributes,
+				registered_at = EXCLUDED.registered_at,
+				source = EXCLUDED.source
 			RETURNING id
 		`
 
@@ -121,6 +144,7 @@ func (orm *orm) GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSp
 	`
 
 	var spec job.WorkflowSpec
+	// Note: "Get will return sql.ErrNoRows like row.Scan would" - sqlx@v1.4.0
 	err := orm.ds.GetContext(ctx, &spec, query, id)
 	if err != nil {
 		return nil, err
@@ -129,27 +153,44 @@ func (orm *orm) GetWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSp
 	return &spec, nil
 }
 
-func (orm *orm) DeleteWorkflowSpec(ctx context.Context, id string) error {
+// ListWorkflowSpecs returns all persisted workflow specs, projecting the
+// identity columns needed by the orphan sweep and the metering snapshot path.
+func (orm *orm) ListWorkflowSpecs(ctx context.Context) ([]*job.WorkflowSpec, error) {
 	query := `
-		DELETE FROM workflow_specs_v2
-		WHERE workflow_id = $1
+		SELECT workflow_id, workflow_owner, registered_at, source
+		FROM workflow_specs_v2
 	`
 
-	result, err := orm.ds.ExecContext(ctx, query, id)
+	var specs []*job.WorkflowSpec
+	if err := orm.ds.SelectContext(ctx, &specs, query); err != nil {
+		return nil, err
+	}
+
+	return specs, nil
+}
+
+func (orm *orm) DeleteWorkflowSpec(ctx context.Context, id string) (*job.WorkflowSpec, error) {
+	query := `DELETE FROM workflow_specs_v2 WHERE workflow_id = $1
+		RETURNING id, workflow, config, workflow_id, workflow_owner, workflow_name,
+			workflow_tag, status, binary_url, config_url, created_at, updated_at,
+			spec_type, attributes, registered_at, source`
+	var spec job.WorkflowSpec
+	err := orm.ds.GetContext(ctx, &spec, query, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
 	if err != nil {
-		return err
+		return nil, err
 	}
+	return &spec, nil
+}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return sql.ErrNoRows // No spec deleted
-	}
-
-	return nil
+func (orm *orm) PauseWorkflowSpec(ctx context.Context, id string) error {
+	query := `UPDATE workflow_specs_v2
+		SET status = $2, workflow = '', config = '', updated_at = now()
+		WHERE workflow_id = $1`
+	_, err := orm.ds.ExecContext(ctx, query, id, job.WorkflowSpecStatusPaused)
+	return err
 }
 
 func (orm *orm) DeleteWorkflowSpecs(ctx context.Context, ids []string) error {

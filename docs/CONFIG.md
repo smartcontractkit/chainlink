@@ -2669,6 +2669,71 @@ Prefixes = ["go_"] # Default
 Prefixes is a set of filters to restrict which prometheus metrics are forwarded based on prefix matching.
 By default, we only forward the go runtime metrics. Empty means forward everything.
 
+## Metering
+```toml
+[Metering]
+MeterRecordsEnabled = false # Default
+MeterSnapshotsEnabled = false # Default
+Product = 'cre' # Default
+Tenant = '' # Default
+NumericTenantID = '' # Default
+Environment = '' # Default
+Zone = '' # Default
+NodeID = '' # Default
+```
+Metering configures durable resource metering emission and the coarse
+deployment/node identity dimensions stamped on emitted MeterRecords and
+MeterSnapshots.
+
+### MeterRecordsEnabled
+```toml
+MeterRecordsEnabled = false # Default
+```
+MeterRecordsEnabled enables durable MeterRecord emission for LOOP plugins.
+
+### MeterSnapshotsEnabled
+```toml
+MeterSnapshotsEnabled = false # Default
+```
+MeterSnapshotsEnabled enables durable MeterSnapshot emission for LOOP plugins.
+Requires MeterRecordsEnabled = true.
+
+### Product
+```toml
+Product = 'cre' # Default
+```
+Product is the deployment product identity dimension, e.g. 'cre'.
+
+### Tenant
+```toml
+Tenant = '' # Default
+```
+Tenant is the human-readable tenant name, e.g. 'mainline'.
+
+### NumericTenantID
+```toml
+NumericTenantID = '' # Default
+```
+NumericTenantID is the numbered tenant identifier represented as a string.
+
+### Environment
+```toml
+Environment = '' # Default
+```
+Environment is the deployment environment identity dimension, e.g. 'production'.
+
+### Zone
+```toml
+Zone = '' # Default
+```
+Zone is the deployment zone identity dimension, e.g. 'wf-zone-a'.
+
+### NodeID
+```toml
+NodeID = '' # Default
+```
+NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA public key).
+
 ## CRE.Streams
 ```toml
 [CRE.Streams]
@@ -2882,6 +2947,7 @@ ArbiterRetryInterval = '12s' # Default
 ShardIndex = 0 # Default
 ShardOrchestratorPort = 50051 # Default
 ShardOrchestratorAddress = '' # Default
+ShardAssignmentMode = 'manual-only' # Default
 ```
 Sharding holds settings for node sharding configuration.
 
@@ -2931,6 +2997,13 @@ ShardOrchestratorAddress = '' # Default
 ```
 ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
 Required when ShardingEnabled=true and ShardIndex > 0.
+
+### ShardAssignmentMode
+```toml
+ShardAssignmentMode = 'manual-only' # Default
+```
+ShardAssignmentMode controls how workflows are assigned to shards.
+One of: "manual-only" (default), "ringocr-only", "ringocr-with-overrides".
 
 ## LOOPP
 ```toml

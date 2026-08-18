@@ -45,8 +45,6 @@ replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vault
 
 replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread => ./smoke/cre/solana/solread
 
-replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write => ./smoke/cre/stellar/datafeeds/write
-
 // chainlink-evm's generated codecgen is incompatible with ugorji/go/codec v1.3.1
 // (pulled in transitively by mcms v0.47.x). Pin to the version the rest of the repo uses.
 replace github.com/ugorji/go/codec => github.com/ugorji/go/codec v1.2.12
@@ -66,7 +64,7 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/smartcontractkit/chain-selectors v1.0.107
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260810185617-74b886ae36a1
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260811140401-3fb1738abb75
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.111.1-0.20260612191326-e31c0ae4cd54
 	github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings v0.0.0-20260403151002-2c91155b5501
@@ -96,7 +94,6 @@ require (
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread v0.0.0-20260609191154-1ecc282df958
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite v0.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/v2 v2.29.0
 	github.com/smartcontractkit/cld-changesets v0.5.0
 	github.com/stellar/go-stellar-sdk v0.6.0
@@ -177,7 +174,6 @@ require (
 	github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853 // indirect
 	github.com/hashicorp/consul/api v1.33.4 // indirect
 	github.com/hashicorp/go-msgpack/v2 v2.1.5 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.7 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
@@ -252,7 +248,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/data-feeds v0.1.1-0.20260501174546-2e8846986b36 // indirect
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea // indirect
-	github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260710151514-27b5a126dabe // indirect
+	github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260729184203-90b4cdd48536 // indirect
 	github.com/smartcontractkit/chainlink-protos/node-platform v0.0.0-20260709145319-7782fb89eb16 // indirect
 	github.com/smartcontractkit/chainlink-solana/contracts v0.0.0-20260513123719-d347eaf314e1 // indirect
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 // indirect
@@ -261,8 +257,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.52.0 // indirect
 	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260716214810-db5ecc877490 // indirect
 	github.com/smartcontractkit/go-daml v0.0.0-20260615231356-88c6ee9b5774 // indirect
-	github.com/smartcontractkit/libocr v0.0.0-20260529134643-c101335a64cd // indirect
-	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20260626090144-2343efd61516 // indirect
+	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342 // indirect
 	github.com/sony/gobreaker/v2 v2.4.0 // indirect
 	github.com/stellar/go-xdr v0.0.0-20260529210834-0bf8f4956364 // indirect
 	github.com/tjhop/slog-gokit v0.1.6 // indirect
@@ -604,7 +599,7 @@ require (
 	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/pelletier/go-toml/v2 v2.3.1 // indirect
+	github.com/pelletier/go-toml/v2 v2.3.1
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/petermattis/goid v0.0.0-20240813172612-4fcff4a6cae7 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
@@ -653,12 +648,13 @@ require (
 	github.com/smartcontractkit/chainlink-protos/svr v1.3.0 // indirect
 	github.com/smartcontractkit/chainlink-stellar v0.0.4-0.20260818133452-515505bf941b // indirect
 	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260818133452-515505bf941b // indirect
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260728151254-66dc095d5ccf // indirect
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260818034831-7bbba9ff0944 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260629213843-c52e07523035 // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative v0.0.0-20251015074515-1acc1d3fb4c0
+	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/freeport v0.1.3-0.20250828155247-add56fa28aad // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
@@ -795,3 +791,5 @@ replace github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.3.1-
 // Exclude Juno's placeholder dependency. It is only intended to be resolved via
 // Juno's local replace directive and is not used directly by chainlink
 exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
+
+replace github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/stellar/datafeeds/write => ./smoke/cre/stellar/datafeeds/write

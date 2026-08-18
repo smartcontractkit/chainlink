@@ -10,19 +10,25 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	commonCap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	wfTypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
@@ -1964,6 +1970,7 @@ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
 	}
 	wr := &workflowRegistry{
 		shardOrchestratorClient: client,
+		shardResolver:           shardownership.NewRingOCRShardResolver(client, logger.TestLogger(t)),
 		myShardID:               1,
 		shardingEnabled:         true,
 	}
@@ -1972,6 +1979,155 @@ func TestWorkflowRegistry_filterWorkflowsByShard(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, filtered, 1)
 	require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
+}
+
+func TestWorkflowRegistry_ShardResolverWiring(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+
+	wf1 := wfTypes.WorkflowID([32]byte{1})
+	wf2 := wfTypes.WorkflowID([32]byte{2})
+	owner1 := []byte{0xaa, 0xbb, 0xcc, 0xdd, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	owner2 := []byte{0x11, 0x22, 0x33, 0x44, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	workflows := []WorkflowMetadataView{
+		{WorkflowID: wf1, Owner: owner1, WorkflowName: "wf1"},
+		{WorkflowID: wf2, Owner: owner2, WorkflowName: "wf2"},
+	}
+
+	const manualConfigTOML = `static_default_assignment = [0]
+
+[per_owner_assignment]
+  "aabbccdd00000000000000000000000000000000" = [1]
+`
+
+	newReg := func(t *testing.T, opts ...Option) *workflowRegistry {
+		t.Helper()
+		wr, err := NewWorkflowRegistry(
+			logger.TestLogger(t),
+			func(_ context.Context, _ []byte) (types.ContractReader, error) { return nil, nil },
+			"", "test-chain-selector",
+			Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+			&eventHandler{},
+			&testDonNotifier{don: commonCap.DON{ID: 1}},
+			NewEngineRegistry(),
+			opts...,
+		)
+		require.NoError(t, err)
+		return wr
+	}
+
+	t.Run("ringocr-only: WithShardOrchestratorClient auto-wires resolver", func(t *testing.T) {
+		t.Parallel()
+		client := &mockShardMappingClient{mappings: map[string]uint32{
+			wf1.Hex(): 0,
+			wf2.Hex(): 1,
+		}}
+		wr := newReg(t,
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(client),
+		)
+		require.NotNil(t, wr.shardResolver, "resolver must be auto-wired from non-nil client")
+
+		filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+		require.NoError(t, err)
+		require.Len(t, filtered, 1)
+		require.Equal(t, wf1.Hex(), filtered[0].WorkflowID.Hex())
+	})
+
+	t.Run("manual-only: nil client does not auto-wire; explicit resolver used", func(t *testing.T) {
+		t.Parallel()
+		settings := &loop.AtomicSettings{}
+		require.NoError(t, settings.Store(core.SettingsUpdate{
+			Settings: manualConfigTOML,
+			Hash:     "test",
+		}))
+		manual := shardownership.NewManualShardResolver(settings, nil, logger.TestLogger(t))
+		wr := newReg(t,
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(nil),
+			WithRegistryShardResolver(manual),
+		)
+		require.NotNil(t, wr.shardResolver, "resolver must be set via WithRegistryShardResolver")
+
+		// owner aabbccdd -> shard 1 (per_owner), owner 11223344 -> shard 0 (static default)
+		filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+		require.NoError(t, err)
+		require.Len(t, filtered, 1)
+		require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
+	})
+
+	t.Run("ringocr-with-overrides: explicit resolver not overwritten by auto-wire", func(t *testing.T) {
+		t.Parallel()
+		settings := &loop.AtomicSettings{}
+		require.NoError(t, settings.Store(core.SettingsUpdate{
+			Settings: manualConfigTOML,
+			Hash:     "test",
+		}))
+		ringClient := &mockShardMappingClient{mappings: map[string]uint32{
+			wf1.Hex(): 0,
+			wf2.Hex(): 1,
+		}}
+		override := shardownership.NewOverrideShardResolver(settings, nil,
+			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
+			logger.TestLogger(t))
+		wr := newReg(t,
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(ringClient),
+			WithRegistryShardResolver(override),
+		)
+
+		// If auto-wire had overwritten the override, wf1 would pass (ringClient
+		// maps it to shard 0). With the override, manual wins for owner
+		// aabbccdd -> shard 1, so only wf2 (static default shard 0) passes.
+		filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+		require.NoError(t, err)
+		require.Len(t, filtered, 1)
+		require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
+	})
+
+	t.Run("explicit resolver before WithShardOrchestratorClient is preserved", func(t *testing.T) {
+		t.Parallel()
+		settings := &loop.AtomicSettings{}
+		require.NoError(t, settings.Store(core.SettingsUpdate{
+			Settings: manualConfigTOML,
+			Hash:     "test",
+		}))
+		ringClient := &mockShardMappingClient{mappings: map[string]uint32{
+			wf1.Hex(): 0,
+		}}
+		override := shardownership.NewOverrideShardResolver(settings, nil,
+			shardownership.NewRingOCRShardResolver(ringClient, logger.TestLogger(t)),
+			logger.TestLogger(t))
+		wr := newReg(t,
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithRegistryShardResolver(override),
+			WithShardOrchestratorClient(ringClient),
+		)
+
+		// Same expectation: override resolver preserved, wf1 filtered to shard 1
+		filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+		require.NoError(t, err)
+		require.Len(t, filtered, 1)
+		require.Equal(t, wf2.Hex(), filtered[0].WorkflowID.Hex())
+	})
+
+	t.Run("nil client without explicit resolver: no filtering", func(t *testing.T) {
+		t.Parallel()
+		wr := newReg(t,
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(nil),
+		)
+		require.Nil(t, wr.shardResolver, "resolver must be nil when client is nil and no explicit resolver")
+
+		filtered, err := wr.filterWorkflowsByShard(ctx, workflows)
+		require.NoError(t, err)
+		require.Len(t, filtered, 2, "nil resolver means no filtering — all workflows pass through")
+	})
 }
 
 func TestWorkflowRegistry_getTicker_nonPositiveDuration(t *testing.T) {
@@ -1996,4 +2152,310 @@ func TestWorkflowRegistry_getTicker_WithTickerOverride(t *testing.T) {
 
 	tickerCh := wr.getTicker(10 * time.Second)
 	require.Equal(t, (<-chan time.Time)(customCh), tickerCh)
+}
+
+// orphanSweepFakeHandler is a minimal evtHandler that returns a fixed spec list
+// and records every Handle call, so the reconciliation loop's orphaned-spec
+// behavior can be tested end to end.
+type orphanSweepFakeHandler struct {
+	mu      sync.Mutex
+	specs   []*job.WorkflowSpec
+	handled []Event
+}
+
+func (h *orphanSweepFakeHandler) Close() error                { return nil }
+func (h *orphanSweepFakeHandler) Start(context.Context) error { return nil }
+func (h *orphanSweepFakeHandler) Handle(_ context.Context, event Event) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.handled = append(h.handled, event)
+	return nil
+}
+func (h *orphanSweepFakeHandler) EmitActivationAbandoned(context.Context, Event, eventsv2.ActivationAbandonReason, error, int32) error {
+	return nil
+}
+func (h *orphanSweepFakeHandler) ListWorkflowSpecs(context.Context) ([]*job.WorkflowSpec, error) {
+	return h.specs, nil
+}
+
+func (h *orphanSweepFakeHandler) SetWorkflowDon(commonCap.DON) {}
+func (h *orphanSweepFakeHandler) Handled() []Event {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	cp := make([]Event, len(h.handled))
+	copy(cp, h.handled)
+	return cp
+}
+
+// OrphanDeletes returns the workflow IDs of every WorkflowDeleted event
+// dispatched to the handler. In these tests the engine registry is empty, so
+// every delete is sweep-generated.
+func (h *orphanSweepFakeHandler) OrphanDeletes() []string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var ids []string
+	for _, evt := range h.handled {
+		if evt.Name != WorkflowDeleted {
+			continue
+		}
+		if payload, ok := evt.Data.(WorkflowDeletedEvent); ok {
+			ids = append(ids, payload.WorkflowID.Hex())
+		}
+	}
+	return ids
+}
+
+func newTestRegistryMetrics(t *testing.T) *metrics {
+	t.Helper()
+	m, err := newMetrics()
+	require.NoError(t, err)
+	return m
+}
+
+// Orphaned specs — rows whose workflow ID is absent from the union of every
+// source's metadata with no running engine — are released through the normal
+// WorkflowDeleted event path. Liveness is judged against the union regardless
+// of the row's Source attribution: IDs are content-addressed and may recur
+// across sources, and pre-attribution rows carry no source at all.
+func Test_reconcileOrphanedSpecs(t *testing.T) {
+	t.Parallel()
+
+	liveID := wfTypes.WorkflowID{1}
+	orphanID := wfTypes.WorkflowID{2}
+
+	t.Run("engine-less orphans are released regardless of attribution", func(t *testing.T) {
+		t.Parallel()
+		attributedOrphan := wfTypes.WorkflowID{3}
+		h := &orphanSweepFakeHandler{}
+		w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: NewEngineRegistry(), metrics: newTestRegistryMetrics(t)}
+
+		specs := []*job.WorkflowSpec{
+			{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd"}, // pre-attribution row
+			{WorkflowID: attributedOrphan.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}
+		w.reconcileOrphanedSpecs(t.Context(), specs, map[string]struct{}{liveID.Hex(): {}})
+
+		assert.ElementsMatch(t, []string{orphanID.Hex(), attributedOrphan.Hex()}, h.OrphanDeletes(),
+			"both orphans are released; the live spec is retained")
+	})
+
+	t.Run("row listed by any source is retained even when its attribution differs", func(t *testing.T) {
+		t.Parallel()
+		// Workflow IDs are content-addressed and may recur across sources: a
+		// row written by source-a whose ID is currently listed by source-b is
+		// live and must not be released.
+		h := &orphanSweepFakeHandler{}
+		w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: NewEngineRegistry(), metrics: newTestRegistryMetrics(t)}
+
+		specs := []*job.WorkflowSpec{
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}
+		w.reconcileOrphanedSpecs(t.Context(), specs, map[string]struct{}{orphanID.Hex(): {}})
+
+		assert.Empty(t, h.Handled(), "a row present in the union must never be released")
+	})
+
+	t.Run("engine-owned orphan is left to engine reconciliation", func(t *testing.T) {
+		t.Parallel()
+		er := NewEngineRegistry()
+		require.NoError(t, er.Add(orphanID, "test-source", &mockService{}))
+		h := &orphanSweepFakeHandler{}
+		w := &workflowRegistry{lggr: logger.TestLogger(t), handler: h, engineRegistry: er, metrics: newTestRegistryMetrics(t)}
+
+		specs := []*job.WorkflowSpec{
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd"},
+		}
+		w.reconcileOrphanedSpecs(t.Context(), specs, map[string]struct{}{liveID.Hex(): {}})
+
+		assert.Empty(t, h.Handled(), "engine-owned orphan must not be released here")
+	})
+}
+
+// fakeMetadataSource is a canned WorkflowMetadataSource for driving the
+// reconciliation loop: it returns fixed metadata or a fixed error.
+type fakeMetadataSource struct {
+	name     string
+	metadata []WorkflowMetadataView
+	err      error
+}
+
+func (s *fakeMetadataSource) ListWorkflowMetadata(context.Context, commonCap.DON) ([]WorkflowMetadataView, *types.Head, error) {
+	if s.err != nil {
+		return nil, nil, s.err
+	}
+	return s.metadata, &types.Head{Height: "1"}, nil
+}
+func (s *fakeMetadataSource) Name() string             { return s.name }
+func (s *fakeMetadataSource) SourceIdentifier() string { return s.name }
+func (s *fakeMetadataSource) Ready() error             { return nil }
+
+// failingShardMappingClient always fails shard-mapping lookups, driving the
+// shard-filter error path.
+type failingShardMappingClient struct{}
+
+func (f *failingShardMappingClient) GetWorkflowShardMapping(context.Context, []string) (*ringpb.GetWorkflowShardMappingResponse, error) {
+	return nil, assert.AnError
+}
+
+func (f *failingShardMappingClient) ReportWorkflowTriggerRegistration(context.Context, *ringpb.ReportWorkflowTriggerRegistrationRequest) (*ringpb.ReportWorkflowTriggerRegistrationResponse, error) {
+	return &ringpb.ReportWorkflowTriggerRegistrationResponse{Success: true}, nil
+}
+
+func (f *failingShardMappingClient) Close() error { return nil }
+
+var _ shardorchestrator.ClientInterface = (*failingShardMappingClient)(nil)
+
+// newSweepLoopRegistry builds a workflowRegistry wired for driving
+// syncUsingReconciliationStrategy directly: no contract source, injected fake
+// sources, and an unbuffered ticker channel the test controls.
+func newSweepLoopRegistry(t *testing.T, h evtHandler, er *EngineRegistry, sources []WorkflowMetadataSource, opts ...Option) (*workflowRegistry, chan time.Time) {
+	t.Helper()
+	tick := make(chan time.Time)
+	wr, err := NewWorkflowRegistry(
+		logger.TestLogger(t),
+		func(ctx context.Context, bytes []byte) (types.ContractReader, error) { return nil, nil },
+		"", // no contract source
+		"test-chain-selector",
+		Config{QueryCount: 20, SyncStrategy: SyncStrategyReconciliation},
+		h,
+		&testDonNotifier{don: commonCap.DON{ID: 1}},
+		er,
+		append([]Option{WithTicker(tick)}, opts...)...,
+	)
+	require.NoError(t, err)
+	wr.workflowSources = sources
+	return wr, tick
+}
+
+// runOneSweepTick drives the reconciliation loop through at least one complete
+// tick. The ticker channel is unbuffered, so the second send only succeeds
+// once the loop has fully processed the first tick — including the orphan
+// sweep decision — and returned to its select.
+func runOneSweepTick(t *testing.T, wr *workflowRegistry, tick chan time.Time) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(t.Context())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wr.syncUsingReconciliationStrategy(ctx)
+	}()
+	tick <- time.Now()
+	tick <- time.Now() // barrier: the first tick has been fully processed
+	cancel()
+	<-done
+}
+
+// Test_syncLoop_OrphanedSpecs exercises orphaned-spec reconciliation end to
+// end through syncUsingReconciliationStrategy: orphans are released per
+// source, and a source failure only defers its own specs.
+func Test_syncLoop_OrphanedSpecs(t *testing.T) {
+	t.Parallel()
+
+	liveID := wfTypes.WorkflowID{1}
+	orphanID := wfTypes.WorkflowID{2}
+	liveMeta := WorkflowMetadataView{
+		WorkflowID:   liveID,
+		Owner:        []byte{0xaa, 0xbb, 0xcc, 0xdd},
+		Status:       WorkflowStatusActive,
+		WorkflowName: "live-wf",
+		BinaryURL:    "b1",
+		ConfigURL:    "c1",
+		Source:       "source-a",
+	}
+
+	t.Run("engine-less orphan is released through the event path", func(t *testing.T) {
+		t.Parallel()
+		h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+			{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}}
+		wr, tick := newSweepLoopRegistry(t, h, NewEngineRegistry(), []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-a", metadata: []WorkflowMetadataView{liveMeta}},
+		})
+
+		runOneSweepTick(t, wr, tick)
+
+		deletes := h.OrphanDeletes()
+		require.NotEmpty(t, deletes, "the orphan must be released")
+		for _, id := range deletes {
+			assert.Equal(t, orphanID.Hex(), id, "only the orphan is released")
+		}
+	})
+
+	t.Run("any failing source defers orphan cleanup", func(t *testing.T) {
+		t.Parallel()
+		// The union of source metadata is incomplete when a source fails: an
+		// absent row may belong to the failed source, so no row can be safely
+		// judged orphaned. Healthy sources still reconcile their engines.
+		okMeta := liveMeta
+		okMeta.Source = "source-ok"
+		h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+			{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-ok"},
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-bad"},
+		}}
+		wr, tick := newSweepLoopRegistry(t, h, NewEngineRegistry(), []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-ok", metadata: []WorkflowMetadataView{okMeta}},
+			&fakeMetadataSource{name: "source-bad", err: assert.AnError},
+		})
+
+		runOneSweepTick(t, wr, tick)
+
+		assert.NotEmpty(t, h.Handled(), "healthy source still reconciles")
+		assert.Empty(t, h.OrphanDeletes(), "no spec is released while any source is failing")
+	})
+
+	t.Run("shard filter error skips the source entirely", func(t *testing.T) {
+		t.Parallel()
+		h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+			{WorkflowID: liveID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+			{WorkflowID: orphanID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}}
+		wr, tick := newSweepLoopRegistry(t, h, NewEngineRegistry(), []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-a", metadata: []WorkflowMetadataView{liveMeta}},
+		},
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(&failingShardMappingClient{}),
+		)
+
+		runOneSweepTick(t, wr, tick)
+
+		assert.Empty(t, h.Handled(), "no events dispatched and no spec released when the shard filter fails")
+	})
+
+	t.Run("workflow filtered to another shard is swept", func(t *testing.T) {
+		t.Parallel()
+		myID := wfTypes.WorkflowID{3}
+		movedID := wfTypes.WorkflowID{4}
+		myMeta := liveMeta
+		myMeta.WorkflowID = myID
+		movedMeta := liveMeta
+		movedMeta.WorkflowID = movedID
+		h := &orphanSweepFakeHandler{specs: []*job.WorkflowSpec{
+			{WorkflowID: myID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+			{WorkflowID: movedID.Hex(), WorkflowOwner: "aabbccdd", Source: "source-a"},
+		}}
+		wr, tick := newSweepLoopRegistry(t, h, NewEngineRegistry(), []WorkflowMetadataSource{
+			&fakeMetadataSource{name: "source-a", metadata: []WorkflowMetadataView{myMeta, movedMeta}},
+		},
+			WithShardEnabled(true),
+			WithShardID(0),
+			WithShardOrchestratorClient(&mockShardMappingClient{mappings: map[string]uint32{
+				myID.Hex():    0, // stays on this shard
+				movedID.Hex(): 1, // moved to another shard
+			}}),
+		)
+
+		runOneSweepTick(t, wr, tick)
+
+		// The moved workflow is absent from this shard's post-filter metadata
+		// and has no engine, so its spec is released here (-1); the receiving
+		// shard registers it (+1) under a distinct event_id — net level 0.
+		deletes := h.OrphanDeletes()
+		require.NotEmpty(t, deletes, "the shard-moved workflow must be swept")
+		for _, id := range deletes {
+			assert.Equal(t, movedID.Hex(), id, "only the moved workflow is released")
+		}
+	})
 }

@@ -125,13 +125,6 @@ packages:
       dir: "core/services/feeds/mocks"
     interfaces:
       FeedsManagerClient:
-  github.com/smartcontractkit/chainlink/v2/core/services/functions:
-    interfaces:
-      ExternalAdapterClient:
-      BridgeAccessor:
-      FunctionsListener:
-      OffchainTransmitter:
-      ORM:
   github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector:
     interfaces:
       GatewayConnector:
@@ -146,14 +139,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2:
     interfaces:
       HTTPTriggerHandler:
-  github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist:
-    interfaces:
-      OnchainAllowlist:
-      ORM:
-  github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions:
-    interfaces:
-      OnchainSubscriptions:
-      ORM:
   github.com/smartcontractkit/chainlink/v2/core/services/gateway/network:
     interfaces:
       ConnectionInitiator:

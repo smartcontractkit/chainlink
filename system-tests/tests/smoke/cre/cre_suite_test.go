@@ -99,6 +99,12 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			} else if isVaultOptimizationsEnabledTopology(topology) {
 				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
+			} else if isVaultIncludeInvalidEnabledTopology(topology) {
+				vaultConfig = getVaultIncludeInvalidEnabledTestConfig(t)
+				allowlistSubtestName = "allowlist_auth_when_vault_include_invalid_enabled"
+			} else if isVaultStallPurgeTopology(topology) {
+				vaultConfig = getVaultStallPurgeTestConfig(t)
+				allowlistSubtestName = "pending_queue_stall_purge"
 			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
 				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
@@ -113,6 +119,10 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				if parallelEnabled && isVaultJWTAuthEnabledTopology(topology) {
 					allowlistEnv = t_helpers.SetupTestEnvironmentWithPerTestKeys(t, fixture.TestEnv.TestConfig)
 				}
+				if isVaultStallPurgeTopology(topology) {
+					ExecuteVaultPendingQueueStallPurgeSmokeTest(t, fixture, allowlistEnv)
+					return
+				}
 				ExecuteVaultAllowListBasedTests(t, fixture, allowlistEnv)
 			})
 			if isVaultJWTAuthEnabledTopology(topology) {
@@ -126,6 +136,9 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 					}
 					ExecuteVaultMixedAuthTest(t, fixture, jwtEnv)
 				})
+				return
+			}
+			if isVaultStallPurgeTopology(topology) {
 				return
 			}
 			t.Run(jwtSubtestName, func(t *testing.T) {
@@ -354,4 +367,22 @@ func Test_CRE_V2_Sharding(t *testing.T) {
 		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle = operations.NewBundle(t.Context, logger.TestLogger(t), operations.NewMemoryReporter())
 		ExecuteShardingTestWithEVMLogTrigger(t, testEnv)
 	})
+}
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_ShardManualAssignment(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-manual.toml"),
+	)
+	ExecuteManualShardAssignmentTest(t, testEnv)
+}
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-ringocr-overrides.toml"),
+	)
+	ExecuteRingOCROverridesTest(t, testEnv)
 }

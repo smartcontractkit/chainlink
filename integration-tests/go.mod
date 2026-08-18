@@ -33,21 +33,21 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260810171459-6fa01d7aaf11
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260811140401-3fb1738abb75
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.111.1-0.20260612191326-e31c0ae4cd54
 	github.com/smartcontractkit/chainlink-evm v0.3.4-0.20260810110946-8174b6bb7fc9
 	github.com/smartcontractkit/chainlink-evm/gethwrappers v0.0.0-20260713161920-de075095648b
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.20.1-0.20260701185448-696c075849ea
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260728151254-66dc095d5ccf
-	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260728151254-66dc095d5ccf
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260818034831-7bbba9ff0944
+	github.com/smartcontractkit/chainlink-sui/deployment v0.0.0-20260818034831-7bbba9ff0944
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.5
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20260126202327-6be9a05f0caf
 	github.com/smartcontractkit/chainlink/v2 v2.29.0
 	github.com/smartcontractkit/cld-changesets v0.5.0
-	github.com/smartcontractkit/libocr v0.0.0-20260529134643-c101335a64cd
+	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342
 	github.com/smartcontractkit/mcms v0.48.0
 	github.com/stretchr/testify v1.11.1
 	github.com/subosito/gotenv v1.6.0
@@ -62,10 +62,11 @@ require (
 
 require (
 	github.com/bytecodealliance/wasmtime-go/v47 v47.0.0 // indirect
-	github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260710151514-27b5a126dabe // indirect
+	github.com/smartcontractkit/chainlink-protos/metering/go v0.0.0-20260729184203-90b4cdd48536 // indirect
 )
 
 require (
+	cosmossdk.io/collections v0.4.0 // indirect
 	github.com/go-openapi/swag/cmdutils v0.25.4 // indirect
 	github.com/go-openapi/swag/conv v0.25.4 // indirect
 	github.com/go-openapi/swag/fileutils v0.25.4 // indirect
@@ -83,7 +84,6 @@ require (
 require (
 	cloud.google.com/go/compute/metadata v0.9.0 // indirect
 	cosmossdk.io/api v0.7.6 // indirect
-	cosmossdk.io/collections v0.4.0 // indirect
 	cosmossdk.io/core v0.11.0 // indirect
 	cosmossdk.io/depinject v1.1.0 // indirect
 	cosmossdk.io/errors v1.0.1 // indirect
@@ -289,13 +289,11 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/hashicorp/go-bexpr v0.1.10 // indirect
-	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-envparse v0.1.0 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-metrics v0.5.4 // indirect
 	github.com/hashicorp/go-plugin v1.8.0 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.8 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/yamux v0.1.2 // indirect
@@ -456,7 +454,6 @@ require (
 	github.com/smartcontractkit/go-daml v0.0.0-20260615231356-88c6ee9b5774 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb // indirect
-	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20260626090144-2343efd61516 // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c // indirect
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect

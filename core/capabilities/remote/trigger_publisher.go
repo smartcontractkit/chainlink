@@ -546,9 +546,8 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
-		// false is set to <once> to return ready even after quorum
-		// to add redundancy in case AckEvent fails below.
-		ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
+		// true is set to <once> avoid ACK traffic on each retransmit.
+		ready, _ := p.ackCache.Ready(key, minRequired, 0, true)
 		ackCount := len(p.ackCache.Peers(key))
 		if !ready {
 			p.mu.Unlock()

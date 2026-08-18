@@ -23,7 +23,7 @@ type ServiceWithMetadata struct {
 	services.Service
 }
 
-// engineEntry holds the engine and its associated source for internal storage
+// engineEntry holds the engine and its associated source for internal storage.
 type engineEntry struct {
 	engine       services.Service
 	source       string
