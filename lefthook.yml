@@ -21,30 +21,27 @@ pre-commit:
         - "go.sum"
         - "*.lock"
         - "package-lock.json"
-        - "yarn.lock"
         - "pnpm-lock.yaml"
       run: typos {staged_files}
-      fail_text: "typos failed. Install: brew install typos-cli (or cargo install typos-cli)"
+      fail_text: "typos failed or missing. Install: brew install typos-cli (or cargo install typos-cli)"
 
-    # Go linting
+    # Lint only changed modules + packages
     golangci-lint:
       tags: lint
       glob:
         - "**/*.go"
         - "**/go.mod"
         - "**/go.sum"
-      run: golangci-lint run --new-from-rev=HEAD --fix
+      run: go -C tools/githooks run . lint {staged_files}
       stage_fixed: true
 
 pre-push:
   parallel: true
   commands:
-    core-short-tests:
+    short-tests:
       tags: test
-      glob: "core/**/*.go"
-      run: make test ARGS="./core/... -short"
-
-    deployments-short-tests:
-      tags: test
-      glob: "deployments/**/*.go"
-      run: make test ARGS="./deployments/... -short"
+      glob:
+        - "**/*.go"
+        - "**/go.mod"
+        - "**/go.sum"
+      run: go -C tools/githooks run . test {push_files}
