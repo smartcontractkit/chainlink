@@ -927,7 +927,9 @@ func Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected(t *testing.T) {
 	// Tail order matches malicious ccip_receive: clock, state, drain_coin.
 	var drainCoinObj [32]byte
 	copy(drainCoinObj[:], hexutil.MustDecode(transmitterCoinID))
-	receiverObjectIDs := append(fx.receiverObjectIDs, drainCoinObj)
+	receiverObjectIDs := make([][32]byte, 0, len(fx.receiverObjectIDs)+1)
+	receiverObjectIDs = append(receiverObjectIDs, fx.receiverObjectIDs...)
+	receiverObjectIDs = append(receiverObjectIDs, drainCoinObj)
 
 	// Send the exploit message. Validate commit only; the execute PTB reverts atomically.
 	out := messagingtest.Run(t,
@@ -973,7 +975,7 @@ func Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected(t *testing.T) {
 		transmitterCoinID)
 	decrease := new(big.Int).Sub(preCoinBalance, postCoinBalance)
 	half := new(big.Int).Quo(preCoinBalance, big.NewInt(2))
-	require.Truef(t, decrease.Cmp(half) < 0,
+	require.Negativef(t, decrease.Cmp(half),
 		"transmitter tail coin drained: pre=%s post=%s decrease=%s (guard should prevent the receiver from taking the coin's value; only gas should be charged)",
 		preCoinBalance.String(), postCoinBalance.String(), decrease.String())
 }
