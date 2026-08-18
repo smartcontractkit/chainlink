@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/evilmartians/lefthook/refs/heads/master/schema.json
+output:
+  - summary
+  - success
+  - failure
+
+pre-commit:
+  parallel: true
+  commands:
+    # Prevent committing secret keys or sensitive information
+    betterleaks:
+      tags: security
+      run: betterleaks git . --pre-commit --staged
+      fail_text: "betterleaks failed or missing. Install: go install github.com/betterleaks/betterleaks@latest"
+
+    # Check for common typos in the codebase
+    typos:
+      tags: lint
+      exclude:
+        - "go.mod"
+        - "go.sum"
+        - "*.lock"
+        - "package-lock.json"
+        - "yarn.lock"
+        - "pnpm-lock.yaml"
+      run: typos {staged_files}
+      fail_text: "typos failed. Install: brew install typos-cli (or cargo install typos-cli)"
+
+    # Go linting
+    golangci-lint:
+      tags: lint
+      glob:
+        - "**/*.go"
+        - "**/go.mod"
+        - "**/go.sum"
+      run: golangci-lint run --new-from-rev=HEAD --fix
+      stage_fixed: true
+
+pre-push:
+  parallel: true
+  commands:
+    core-short-tests:
+      tags: test
+      glob: "core/**/*.go"
+      run: make test ARGS="./core/... -short"
+
+    deployments-short-tests:
+      tags: test
+      glob: "deployments/**/*.go"
+      run: make test ARGS="./deployments/... -short"
