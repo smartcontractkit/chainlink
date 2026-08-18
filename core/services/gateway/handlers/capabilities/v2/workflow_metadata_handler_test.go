@@ -162,15 +162,26 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 		workflowOwner: testWorkflowOwner1,
 		workflowTag:   testWorkflowTag1,
 	}
+	// Both "workflow1" and "workflow2" share the same workflow reference. The
+	// workflow reference is unique (enforced by the on-chain registry), so
+	// syncMetadata deduplicates by reference: only the first observed workflow ID
+	// wins. Aggregate() returns observations newest-first, so "workflow2" (the
+	// last collected, highest sequence number) is processed first and wins the
+	// reference; "workflow1" is dropped as a duplicate reference.
 	require.Len(t, handler.authorizedKeys, 1)
-	for workflowID, workflowKeys := range handler.authorizedKeys {
-		ref, exists := handler.workflowIDToRef[workflowID]
-		require.True(t, exists)
-		require.Equal(t, expectedRef, ref)
-		_, exists = handler.workflowRefToID[expectedRef]
-		require.True(t, exists)
-		require.Len(t, workflowKeys, 1)
-	}
+	require.Contains(t, handler.authorizedKeys, "workflow2")
+	workflowKeys := handler.authorizedKeys["workflow2"]
+	require.Len(t, workflowKeys, 1)
+
+	ref, exists := handler.workflowIDToRef["workflow2"]
+	require.True(t, exists)
+	require.Equal(t, expectedRef, ref)
+	winningWorkflowID, exists := handler.workflowRefToID[expectedRef]
+	require.True(t, exists)
+	require.Equal(t, "workflow2", winningWorkflowID)
+	// "workflow1" must have been dropped by the reference dedup.
+	_, exists = handler.workflowIDToRef["workflow1"]
+	require.False(t, exists)
 }
 
 func TestSendMetadataPullRequest(t *testing.T) {

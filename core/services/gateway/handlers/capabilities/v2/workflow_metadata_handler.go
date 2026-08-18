@@ -127,6 +127,30 @@ func (h *WorkflowMetadataHandler) syncMetadata(ctx context.Context) {
 				workflowName:  data.WorkflowSelector.WorkflowName,
 				workflowTag:   data.WorkflowSelector.WorkflowTag,
 			}
+
+			// Case 1: this workflow ID was already registered. If the reference
+			// matches, this is the same workflow reported by another shard —
+			// append the shard to its fan-out list. If the reference differs,
+			// it's a conflicting observation; drop it.
+			if existingRef, idExists := workflowIDToRef[workflowID]; idExists {
+				if existingRef == workflowRef {
+					workflowShards[workflowID] = append(workflowShards[workflowID], shard)
+				} else {
+					h.lggr.Debugw("Duplicate workflow ID with conflicting reference, dropping",
+						"workflowID", workflowID, "existingRef", existingRef, "conflictingRef", workflowRef)
+				}
+				continue
+			}
+
+			// Case 2: this workflow reference was already registered under a
+			// different workflow ID. First-wins by reference; drop the duplicate.
+			if _, refExists := workflowRefToID[workflowRef]; refExists {
+				h.lggr.Debugw("Duplicate workflow reference found, dropping",
+					"workflowRef", workflowRef, "workflowID", workflowID)
+				continue
+			}
+
+			// Case 3: new workflow ID and reference — register it.
 			workflowIDToRef[workflowID] = workflowRef
 			workflowRefToID[workflowRef] = workflowID
 			authorizedKeys[workflowID] = make(map[gateway.AuthorizedKey]struct{})
