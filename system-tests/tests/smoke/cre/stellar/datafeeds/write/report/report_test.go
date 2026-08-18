@@ -1,11 +1,11 @@
 package report
 
 import (
-	"bytes"
 	"math/big"
 	"testing"
 
 	"github.com/stellar/go-stellar-sdk/xdr"
+	"github.com/stretchr/testify/require"
 )
 
 func TestEncodeEntriesRoundTrips(t *testing.T) {
@@ -14,63 +14,45 @@ func TestEncodeEntriesRoundTrips(t *testing.T) {
 		dataID[i] = 0xAB
 	}
 	b, err := EncodeEntries(dataID, 123456, 100)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var v xdr.ScVal
-	if err := xdr.SafeUnmarshal(b, &v); err != nil {
-		t.Fatalf("payload is not a single ScVal: %v", err)
-	}
+	require.NoError(t, xdr.SafeUnmarshal(b, &v), "payload is not a single ScVal")
 	vec, ok := v.GetVec()
-	if !ok || vec == nil || len(*vec) != 1 {
-		t.Fatalf("expected ScVec with one entry, got %+v", v)
-	}
+	require.True(t, ok)
+	require.NotNil(t, vec)
+	require.Len(t, *vec, 1)
 	m, ok := (*vec)[0].GetMap()
-	if !ok || m == nil || len(*m) != 3 {
-		t.Fatalf("expected 3-entry ScMap, got %+v", (*vec)[0])
-	}
+	require.True(t, ok)
+	require.NotNil(t, m)
+	require.Len(t, *m, 3)
 	keys := []string{"answer", "data_id", "timestamp"}
 	for i, e := range *m {
 		sym, _ := e.Key.GetSym()
-		if string(sym) != keys[i] {
-			t.Fatalf("key %d = %q, want %q", i, sym, keys[i])
-		}
+		require.Equal(t, keys[i], string(sym))
 	}
 	i256, ok := (*m)[0].Val.GetI256()
-	if !ok {
-		t.Fatal("answer is not i256")
-	}
-	if got := int256ToBig(i256); got.Cmp(big.NewInt(123456)) != 0 {
-		t.Fatalf("answer = %s, want 123456", got)
-	}
+	require.True(t, ok, "answer is not i256")
+	require.Zero(t, int256ToBig(i256).Cmp(big.NewInt(123456)))
 	db, ok := (*m)[1].Val.GetBytes()
-	if !ok || !bytes.Equal(db, dataID[:]) {
-		t.Fatal("data_id mismatch")
-	}
+	require.True(t, ok)
+	require.Equal(t, dataID[:], []byte(db))
 	ts, ok := (*m)[2].Val.GetU64()
-	if !ok || uint64(ts) != 100 {
-		t.Fatal("timestamp mismatch")
-	}
+	require.True(t, ok)
+	require.Equal(t, uint64(100), uint64(ts))
 }
 
 func TestEncodeEntriesNegativeAnswer(t *testing.T) {
 	var dataID [32]byte
 	dataID[0] = 1
 	b, err := EncodeEntries(dataID, -42, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	var v xdr.ScVal
-	if err := xdr.SafeUnmarshal(b, &v); err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, xdr.SafeUnmarshal(b, &v))
 	vec, _ := v.GetVec()
 	m, _ := (*vec)[0].GetMap()
 	i256, _ := (*m)[0].Val.GetI256()
-	if got := int256ToBig(i256); got.Cmp(big.NewInt(-42)) != 0 {
-		t.Fatalf("answer = %s, want -42", got)
-	}
+	require.Zero(t, int256ToBig(i256).Cmp(big.NewInt(-42)))
 }
 
 func int256ToBig(p xdr.Int256Parts) *big.Int {

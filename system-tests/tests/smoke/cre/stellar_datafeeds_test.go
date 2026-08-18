@@ -36,6 +36,7 @@ func executeStellarDataFeedsWriteTest(
 	userLogsCh <-chan *workflowevents.UserLogs,
 	baseMessageCh <-chan *commonevents.BaseMessage,
 ) {
+	t.Helper()
 	lggr := framework.L
 	ctx := context.Background()
 
@@ -46,7 +47,7 @@ func executeStellarDataFeedsWriteTest(
 	var truncatedName [10]byte
 	copy(truncatedName[:], pkgworkflows.HashTruncateName(workflowName))
 
-	cacheID, err := stellarfeature.DeployStellarDataFeedsCache(ctx, stellarChain, tenv.CreEnvironment, stellarDataFeedsDataID, "CRE-E2E", workflowOwner, truncatedName)
+	cacheID, err := stellarfeature.DeployAndConfigureStellarDataFeedsCache(ctx, stellarChain, tenv.CreEnvironment, stellarDataFeedsDataID, "CRE-E2E", workflowOwner, truncatedName)
 	require.NoError(t, err, "failed to deploy and configure Stellar data feeds cache")
 	lggr.Info().Str("cache", cacheID).Msg("Deployed Stellar data feeds cache")
 
@@ -67,7 +68,7 @@ func executeStellarDataFeedsWriteTest(
 
 	expected := big.NewInt(stellarDataFeedsAnswer)
 	require.Eventually(t, func() bool {
-		round, rErr := stellarfeature.StellarDataFeedsLatestRound(ctx, stellarChain, cacheID, stellarDataFeedsDataID)
+		round, rErr := stellarfeature.DataFeedsCacheLatestRound(ctx, stellarChain, cacheID, stellarDataFeedsDataID)
 		if rErr != nil {
 			lggr.Warn().Err(rErr).Msg("stellar data feeds latest_round query failed; retrying")
 			return false
@@ -76,7 +77,7 @@ func executeStellarDataFeedsWriteTest(
 			return false
 		}
 		lggr.Info().Str("on_chain_answer", round.Answer.String()).Uint64("round_id", round.RoundId).Msg("Stellar data feeds round read")
-		return round.Answer.Cmp(expected) == 0
+		return round.Answer.Cmp(expected) == 0 && round.RoundId >= 1 && round.Timestamp > 0
 	}, 2*time.Minute, 5*time.Second, "Stellar data feeds cache did not record answer %d", stellarDataFeedsAnswer)
 
 	lggr.Info().Str("expected_log", expectedLog).Int64("answer", stellarDataFeedsAnswer).Msg("Stellar data feeds write test passed")

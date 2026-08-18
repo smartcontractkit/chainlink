@@ -8,6 +8,7 @@ require (
 	github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/stellar v0.0.0-20260702162048-608baab0b466
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v0.10.0
 	github.com/stellar/go-stellar-sdk v0.6.0
+	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -23,7 +24,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/stellar/go-xdr v0.0.0-20260529210834-0bf8f4956364 // indirect
-	github.com/stretchr/testify v1.11.1 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )

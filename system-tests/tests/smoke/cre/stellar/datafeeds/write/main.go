@@ -49,16 +49,23 @@ func onStellarDataFeedsWriteTrigger(cfg config.Config, runtime sdk.Runtime, payl
 		return nil, err
 	}
 	dataIDBytes, err := hex.DecodeString(strings.TrimPrefix(strings.TrimSpace(cfg.DataIDHex), "0x"))
-	if err != nil || len(dataIDBytes) != 32 {
-		err := fmt.Errorf("dataIDHex must decode to 32 bytes: %v", err)
+	if err != nil {
+		runtime.Logger().Info("Stellar DF write failed: invalid data id", "workflow", cfg.WorkflowName, "error", err.Error())
+		return nil, fmt.Errorf("dataIDHex is not valid hex: %w", err)
+	}
+	if len(dataIDBytes) != 32 {
+		err := fmt.Errorf("dataIDHex must decode to 32 bytes, got %d", len(dataIDBytes))
 		runtime.Logger().Info("Stellar DF write failed: invalid data id", "workflow", cfg.WorkflowName, "error", err.Error())
 		return nil, err
 	}
 
 	ts := uint64(payload.ScheduledExecutionTime.AsTime().Unix())
-	var dataID [32]byte
-	copy(dataID[:], dataIDBytes)
-	reportPayload, err := report.EncodeEntries(dataID, cfg.Answer, ts)
+	if ts == 0 {
+		err := fmt.Errorf("missing scheduled execution time")
+		runtime.Logger().Info("Stellar DF write failed: missing scheduled execution time", "workflow", cfg.WorkflowName)
+		return nil, err
+	}
+	reportPayload, err := report.EncodeEntries([32]byte(dataIDBytes), cfg.Answer, ts)
 	if err != nil {
 		runtime.Logger().Info(fmt.Sprintf("Stellar DF write failed: encode report entries: %v", err), "workflow", cfg.WorkflowName)
 		return nil, err
@@ -114,13 +121,8 @@ func onStellarDataFeedsWriteTrigger(cfg config.Config, runtime sdk.Runtime, payl
 		return nil, fmt.Errorf("nil WriteReport reply")
 	}
 
-	errorMsg := ""
-	if reply.ErrorMessage != nil {
-		errorMsg = *reply.ErrorMessage
-	}
 	if reply.TxStatus != stellar.TxStatus_TX_STATUS_SUCCESS {
-		failMsg := fmt.Sprintf("Stellar DF write failed: tx status=%s error=%s", reply.TxStatus.String(), errorMsg)
-		runtime.Logger().Info(failMsg, "workflow", cfg.WorkflowName)
+		runtime.Logger().Info(fmt.Sprintf("Stellar DF write failed: tx status=%s error=%s", reply.TxStatus.String(), reply.GetErrorMessage()), "workflow", cfg.WorkflowName)
 		return nil, fmt.Errorf("unexpected tx status: %s", reply.TxStatus.String())
 	}
 	if reply.GetTxHash() == "" {
