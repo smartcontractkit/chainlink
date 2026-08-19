@@ -822,7 +822,7 @@ func HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e cldf.Environment, suiChai
 func HandleMaliciousBurnMintTokenPoolDeploymentForSUI(
 	e cldf.Environment, suiChainSel, evmChainSel uint64,
 	mcmsOwner string, releaseOrMintParams []string,
-) (cldf.Environment, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, string, string, error) {
+) (env cldf.Environment, evmToken *burn_mint_erc677.BurnMintERC677, evmPool *burn_mint_token_pool.BurnMintTokenPool, maliciousPkgID, maliciousStateObjID string, err error) {
 	suiChain := e.BlockChains.SuiChains()[suiChainSel]
 	evmChain := e.BlockChains.EVMChains()[evmChainSel]
 	evmDeployerKey := evmChain.DeployerKey
@@ -837,7 +837,7 @@ func HandleMaliciousBurnMintTokenPoolDeploymentForSUI(
 	linkTokenTreasuryCapID := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
 
 	// EVM: deploy transferrable token + burn-mint pool, attach to the registry.
-	evmToken, evmPool, err := deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	evmToken, evmPool, err = deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
 	if err != nil {
 		return cldf.Environment{}, nil, nil, "", "", errors.New("failed to deploy transfer token for evm chain " + err.Error())
 	}
@@ -870,8 +870,8 @@ func HandleMaliciousBurnMintTokenPoolDeploymentForSUI(
 	if !ok {
 		return cldf.Environment{}, nil, nil, "", "", errors.New("unexpected malicious token pool deploy output type")
 	}
-	maliciousPkgID := poolOutput.PackageId
-	maliciousStateObjID := poolOutput.Objects.StateObjectId
+	maliciousPkgID = poolOutput.PackageId
+	maliciousStateObjID = poolOutput.Objects.StateObjectId
 
 	// EVM onramp: set the Sui counterpart. Remote pool is the malicious pool and
 	// remote token is Sui LINK, matching the standard helper's encoding.
