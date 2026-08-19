@@ -1555,6 +1555,8 @@ github.com/smartcontractkit/chainlink-common/keystore v1.3.0 h1:V05Rp9/dTc4Wyips
 github.com/smartcontractkit/chainlink-common/keystore v1.3.0/go.mod h1:vHV8BGm6TN7jBbMsWxq1Hqm3HbCtYFwzvKS0CCczxG8=
 github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260724142814-45996a1bcb72 h1:uWEwl7i2ryuRVoV4DmIKm6mqYevf1lH/8cQYhw/JXko=
 github.com/smartcontractkit/chainlink-common/pkg/chipingress v0.0.11-0.20260724142814-45996a1bcb72/go.mod h1:UYcRMb4dZcoaIPgZJ3hckCySTqtJc9K4Q+tOKErwTq0=
+github.com/smartcontractkit/chainlink-confidential-compute v1.3.0 h1:y64hOzM9H61E4EYRzQDtRwqunDBlKpsZc1SvFEUlSLE=
+github.com/smartcontractkit/chainlink-confidential-compute v1.3.0/go.mod h1:fq9n85XoREIUxgdXIX3RyDIRCRyxZKZ5NCBbFDfdySo=
 github.com/smartcontractkit/chainlink-data-streams v1.1.0 h1:O5ngSwpwey7kQ3t4YgFiXzu3L3EvYiPS4c93gMWNRbk=
 github.com/smartcontractkit/chainlink-data-streams v1.1.0/go.mod h1:dF5JiHWueHjYguUUUrFeb03MkcDqha/tssEkqTkgzp4=
 github.com/smartcontractkit/chainlink-deployments-framework v0.111.1-0.20260612191326-e31c0ae4cd54 h1:mzbvXxdbE/96Pdj1zyPKzf25ZlDR48+iTTDTbaITvmk=
