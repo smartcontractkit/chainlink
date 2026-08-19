@@ -119,6 +119,22 @@ type EngineLimiters struct {
 	ConfidentialWorkflowsEnabled                limits.GateLimiter
 	CentralizedWorkflowOwnerVerificationEnabled limits.GateLimiter
 	DONTimeRequestTimeout                       limits.TimeLimiter
+
+	// settingDefaults is the effective limit configuration (package defaults with
+	// cfgFn applied) these limiters were built from. Used to fail soft with the
+	// right default when a Limit() read errors. nil when EngineLimiters was
+	// assembled directly (e.g. in tests) rather than via NewLimiters.
+	settingDefaults *cresettings.Workflows
+}
+
+// defaults returns the effective limit settings these limiters were built from,
+// falling back to the package defaults when the struct was assembled directly
+// rather than through NewLimiters.
+func (l *EngineLimiters) defaults() *cresettings.Workflows {
+	if l == nil || l.settingDefaults == nil {
+		return &cresettings.Default.PerWorkflow
+	}
+	return l.settingDefaults
 }
 
 // NewLimiters returns a new set of EngineLimiters based on the default configuration, and optionally modified by cfgFn.
@@ -135,6 +151,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
+	l.settingDefaults = &cfg
 	l.ExecutionResponse, err = limits.MakeUpperBoundLimiter(lf, cfg.ExecutionResponseLimit)
 	if err != nil {
 		return
