@@ -48,6 +48,12 @@ func EnsureBinary(ctx context.Context, repoRoot string, stdout, stderr io.Writer
 	binPath := filepath.Join(repoRoot, "tools/test/.bin/test")
 	if _, err := os.Stat(binPath); err == nil {
 		return nil
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to stat %s: %w", binPath, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(binPath), 0o755); err != nil {
+		return fmt.Errorf("failed to create %s: %w", filepath.Dir(binPath), err)
 	}
 
 	testModuleDir := filepath.Join(repoRoot, "tools/test")

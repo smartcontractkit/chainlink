@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"context"
-	"os"
+	"fmt"
 	"os/exec"
 	"strings"
 
@@ -32,7 +32,7 @@ func findRepoRoot(ctx context.Context) (string, error) {
 	cmd := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel")
 	out, err := cmd.Output()
 	if err != nil {
-		return os.Getwd()
+		return "", fmt.Errorf("failed to find repo root via git: %w", err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }

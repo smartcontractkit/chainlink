@@ -5,7 +5,7 @@
 ## Features
 
 - **Module & Package Resolution:** Automatically maps changed or staged Go files to their enclosing `go.mod` module roots and specific package paths (e.g. `./core/logger`).
-- **Targeted Code Generation:** Runs `go generate` only for packages where `.proto` or generate files changed, and updates config schema docs and `go.md` when relevant files change.
+- **Targeted Code Generation:** Runs `go generate` only for packages where `.proto` or generate files changed, updates config schema docs and `go.md` when relevant files change, and regenerates mocks via `mockery` when affected packages are listed in a `.mockery.yaml`.
 - **Parallel Module Tidy:** Runs `go mod tidy` in parallel across all affected modules.
 - **Targeted Linting:** Runs `golangci-lint` only against the exact changed packages within affected modules instead of scanning whole modules or the entire repository.
 - **Targeted Unit Testing:** Discovers changed test packages and executes `tools/test` with `-short` directly on those packages (aligned with CI unit test scope).
@@ -16,7 +16,7 @@
 
 ### `generate`
 
-Runs targeted code generators (`protoc`, config schema docs, `go.md`) only when relevant files change.
+Runs targeted code generators (`protoc`, config schema docs, `go.md`, `mockery`) only when relevant files change.
 
 ```bash
 # Run code generators from staged files
@@ -25,6 +25,12 @@ go -C tools/githooks run . generate
 # Run code generators for specific files
 go -C tools/githooks run . generate core/capabilities/remote/types/messages.proto
 ```
+
+Mockery scoping rules:
+
+- A changed `.mockery.yaml` triggers a full `mockery` run in that directory (matches `make generate`).
+- A changed `go.mod`/`go.sum` triggers a full run for any enclosing config covering that module's packages, so dependency bumps refresh mocks for vendored interfaces too.
+- A changed `.go` file whose package import path is listed in an enclosing `.mockery.yaml` triggers a scoped run: only that config's affected packages are regenerated, using a temporary config that preserves all global defaults and per-package overrides. This avoids unrelated mockery config drift blocking unrelated changes.
 
 ### `tidy`
 

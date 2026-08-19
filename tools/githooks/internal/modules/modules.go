@@ -41,6 +41,56 @@ type ModulePackages struct {
 	Packages []string // package paths relative to module root (e.g. ["./core/logger", "./..."])
 }
 
+// FindModuleDir walks up from path until it locates a go.mod, bounded by repoRoot.
+// Returns the absolute directory containing the nearest go.mod, or "" if none.
+func FindModuleDir(repoRoot, path string) (string, error) {
+	absRoot, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute repo root: %w", err)
+	}
+
+	absPath := path
+	if !filepath.IsAbs(absPath) {
+		absPath = filepath.Join(absRoot, path)
+	}
+
+	dir := filepath.Dir(filepath.Clean(absPath))
+	for {
+		if _, statErr := os.Stat(filepath.Join(dir, "go.mod")); statErr == nil {
+			return dir, nil
+		}
+
+		if dir == absRoot || dir == filepath.Dir(dir) {
+			break
+		}
+		dir = filepath.Dir(dir)
+	}
+
+	if _, statErr := os.Stat(filepath.Join(absRoot, "go.mod")); statErr == nil {
+		return absRoot, nil
+	}
+
+	return "", nil
+}
+
+// ReadModulePath returns the module path declared in the go.mod at modDir.
+func ReadModulePath(modDir string) (string, error) {
+	goModPath := filepath.Join(modDir, "go.mod")
+	raw, err := os.ReadFile(goModPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read %s: %w", goModPath, err)
+	}
+
+	for line := range strings.SplitSeq(string(raw), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module")), nil
+		}
+	}
+
+	return "", fmt.Errorf("no module path found in %s", goModPath)
+}
+
 // FindAffectedModules maps a list of changed file paths to unique Go modules and their changed packages.
 // Paths can be relative to repoRoot or absolute.
 func FindAffectedModules(repoRoot string, files []string) ([]ModulePackages, error) {
@@ -70,26 +120,9 @@ func FindAffectedModules(repoRoot string, files []string) ([]ModulePackages, err
 		fileDir := filepath.Dir(absFile)
 		baseName := filepath.Base(absFile)
 
-		// Find nearest enclosing go.mod walking upwards
-		dir := fileDir
-		var modDir string
-
-		for {
-			if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-				modDir = dir
-				break
-			}
-
-			if dir == absRoot || dir == filepath.Dir(dir) {
-				break
-			}
-			dir = filepath.Dir(dir)
-		}
-
-		if modDir == "" {
-			if _, err := os.Stat(filepath.Join(absRoot, "go.mod")); err == nil {
-				modDir = absRoot
-			}
+		modDir, err := FindModuleDir(absRoot, absFile)
+		if err != nil {
+			return nil, err
 		}
 
 		if modDir != "" {
@@ -186,26 +219,9 @@ func FindTestModules(repoRoot string, files []string) ([]ModulePackages, error) 
 		fileDir := filepath.Dir(absFile)
 		baseName := filepath.Base(absFile)
 
-		// Find nearest enclosing go.mod walking upwards
-		dir := fileDir
-		var modDir string
-
-		for {
-			if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-				modDir = dir
-				break
-			}
-
-			if dir == absRoot || dir == filepath.Dir(dir) {
-				break
-			}
-			dir = filepath.Dir(dir)
-		}
-
-		if modDir == "" {
-			if _, err := os.Stat(filepath.Join(absRoot, "go.mod")); err == nil {
-				modDir = absRoot
-			}
+		modDir, findErr := FindModuleDir(absRoot, absFile)
+		if findErr != nil {
+			return nil, findErr
 		}
 
 		if modDir != "" {
@@ -378,18 +394,25 @@ func GetChangedFiles(ctx context.Context, repoRoot string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "git", "diff", "HEAD~1..HEAD", "--name-only", "--diff-filter=d")
 	cmd.Dir = repoRoot
 
-	var out bytes.Buffer
+	var (
+		out    bytes.Buffer
+		errOut bytes.Buffer
+	)
 	cmd.Stdout = &out
-	cmd.Stderr = &out
+	cmd.Stderr = &errOut
 
 	if err := cmd.Run(); err != nil {
-		// Fallback to uncommitted working tree changes
+		// Fallback to uncommitted working tree changes. Reset buffers so error
+		// output never mixes into the parsed file list.
+		out.Reset()
+		errOut.Reset()
+
 		cmd = exec.CommandContext(ctx, "git", "diff", "--name-only", "--diff-filter=d")
 		cmd.Dir = repoRoot
 		cmd.Stdout = &out
-		cmd.Stderr = &out
+		cmd.Stderr = &errOut
 		if err := cmd.Run(); err != nil {
-			return nil, fmt.Errorf("git diff failed: %w (output: %s)", err, out.String())
+			return nil, fmt.Errorf("git diff failed: %w (output: %s)", err, errOut.String())
 		}
 	}
 

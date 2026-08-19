@@ -1,9 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/evilmartians/lefthook/refs/heads/master/schema.json
-output:
-  - summary
-  - success
-  - failure
-
 pre-commit:
   parallel: true
   commands:
@@ -33,6 +28,21 @@ pre-commit:
         - "**/go.mod"
         - "**/go.sum"
       run: go -C tools/githooks run . tidy {staged_files}
+      stage_fixed: true
+
+    # Regenerate code for changed packages (proto, config docs, go.md, mocks)
+    go-generate:
+      tags: generate
+      glob:
+        - "**/*.go"
+        - "**/*.proto"
+        - "**/go.mod"
+        - "**/go.sum"
+        - ".mockery.yaml"
+        - "**/.mockery.yaml"
+        - "**/generate.go"
+        - "**/gen.go"
+      run: go -C tools/githooks run . generate {staged_files}
       stage_fixed: true
 
     # Lint only changed modules + packages
