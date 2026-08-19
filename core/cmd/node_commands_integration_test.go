@@ -39,7 +39,7 @@ func TestShell_IndexCosmosNodes(t *testing.T) {
 
 	chainID := cosmostest.RandomChainID()
 	node := map[string]any{
-		"Name":          ptr("second"),
+		"Name":          new("second"),
 		"TendermintURL": config.MustParseURL("http://tender.mint.test/bombay-12"),
 	}
 	chain := chainlink.RawConfig{
@@ -88,11 +88,11 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 
 	id := "starknet chain ID"
 	node1 := map[string]any{
-		"Name": ptr("first"),
+		"Name": new("first"),
 		"URL":  config.MustParseURL("https://starknet1.example"),
 	}
 	node2 := map[string]any{
-		"Name": ptr("second"),
+		"Name": new("second"),
 		"URL":  config.MustParseURL("https://starknet2.example"),
 	}
 	chain := chainlink.RawConfig{
@@ -147,12 +147,12 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 
 	id := solanatest.RandomChainID()
 	node1 := map[string]any{
-		"Name":     ptr("first"),
+		"Name":     new("first"),
 		"URL":      config.MustParseURL("https://solana1.example"),
 		"SendOnly": false,
 	}
 	node2 := map[string]any{
-		"Name":     ptr("second"),
+		"Name":     new("second"),
 		"URL":      config.MustParseURL("https://solana2.example"),
 		"SendOnly": false,
 	}

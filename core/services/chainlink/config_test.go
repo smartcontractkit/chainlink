@@ -68,7 +68,7 @@ var (
 				},
 			},
 			Log: toml.Log{
-				Level:       ptr(toml.LogLevel(zapcore.PanicLevel)),
+				Level:       new(toml.LogLevel(zapcore.PanicLevel)),
 				JSONConsole: new(true),
 			},
 			JobPipeline: toml.JobPipeline{
@@ -260,7 +260,7 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 
 	full.Log = toml.Log{
-		Level:       ptr(toml.LogLevel(zapcore.DPanicLevel)),
+		Level:       new(toml.LogLevel(zapcore.DPanicLevel)),
 		JSONConsole: new(true),
 		UnixTS:      new(true),
 		File: toml.LogFile{
@@ -280,7 +280,7 @@ func TestConfig_Marshal(t *testing.T) {
 		SecureCookies:           new(true),
 		SessionTimeout:          commoncfg.MustNewDuration(time.Hour),
 		SessionReaperExpiration: commoncfg.MustNewDuration(7 * 24 * time.Hour),
-		HTTPMaxSize:             ptr(utils.FileSize(uint64(32770))),
+		HTTPMaxSize:             new(utils.FileSize(uint64(32770))),
 		StartTimeout:            commoncfg.MustNewDuration(15 * time.Second),
 		ListenIP:                mustIP("192.158.1.37"),
 		MFA: toml.WebServerMFA{
@@ -454,9 +454,9 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID:                 new("1"),
 			ContractVersion:         new("1.0.0"),
 			NetworkID:               new("evm"),
-			MaxBinarySize:           ptr(utils.FileSize(20 * utils.MB)),
-			MaxEncryptedSecretsSize: ptr(utils.FileSize(26.4 * utils.KB)),
-			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
+			MaxBinarySize:           new(utils.FileSize(20 * utils.MB)),
+			MaxEncryptedSecretsSize: new(utils.FileSize(26.4 * utils.KB)),
+			MaxConfigSize:           new(utils.FileSize(50 * utils.KB)),
 			SyncStrategy:            new("event"),
 			MaxConcurrency:          new(12),
 			MaxActivationRetries:    new(100),
@@ -821,7 +821,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 				Workflow: evmcfg.Workflow{
 					GasLimitDefault:   new(uint64(400000)),
-					TxAcceptanceState: ptr(commontypes.Unconfirmed),
+					TxAcceptanceState: new(commontypes.Unconfirmed),
 					PollPeriod:        commoncfg.MustNewDuration(time.Second * 2),
 					AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 30),
 				},
@@ -855,7 +855,7 @@ func TestConfig_Marshal(t *testing.T) {
 			CertFile: new("/path/to/cert.pem"),
 		},
 		Transmitter: toml.MercuryTransmitter{
-			Protocol:             ptr(mercurytransmitter.MercuryTransmitterProtocolGRPC),
+			Protocol:             new(mercurytransmitter.MercuryTransmitterProtocolGRPC),
 			TransmitQueueMaxSize: new(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
 			TransmitConcurrency:  new(uint32(456)),
@@ -1670,7 +1670,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	}
 	c, err := opts.New()
 	require.NoError(t, err)
-	c.SetPasswords(ptr(pwdOverride), nil)
+	c.SetPasswords(new(pwdOverride), nil)
 	assert.Equal(t, pwdOverride, c.Password().Keystore())
 	dbURL := c.Database().URL()
 	assert.Equal(t, dbURLOverride, (&dbURL).String())
@@ -1838,9 +1838,6 @@ func TestConfig_warnings(t *testing.T) {
 		})
 	}
 }
-
-//go:fix inline
-func ptr[T any](t T) *T { return new(t) }
 
 func mustHexToBig(t *testing.T, hx string) *big.Int {
 	n, err := hex.ParseBig(hx)
