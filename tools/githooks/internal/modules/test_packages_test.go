@@ -1,6 +1,7 @@
 package modules_test
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -109,6 +110,63 @@ func TestFindTestPackages(t *testing.T) {
 			pkgs, err := modules.FindTestPackages(tmpDir, tc.files)
 			require.NoError(t, err)
 			assert.Equal(t, tc.expected, pkgs)
+		})
+	}
+}
+
+func TestFindTestModules(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module root\n"), 0o600))
+	require.NoError(t, os.MkdirAll(filepath.Join(tmpDir, "tools/githooks"), 0o750))
+	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "tools/githooks/go.mod"), []byte("module githooks\n"), 0o600))
+
+	tests := []struct {
+		name     string
+		files    []string
+		expected []modules.ModulePackages
+	}{
+		{
+			name: "files across root module and tools/githooks submodule",
+			files: []string{
+				"core/services/gateway/gateway.go",
+				"tools/githooks/cmd/test.go",
+			},
+			expected: []modules.ModulePackages{
+				{
+					Module:   ".",
+					Packages: []string{"./core/services/gateway"},
+				},
+				{
+					Module:   "tools/githooks",
+					Packages: []string{"./cmd"},
+				},
+			},
+		},
+		{
+			name: "skips excluded E2E modules",
+			files: []string{
+				"deployment/environment.go",
+				"system-tests/lib/suite.go",
+				"core/logger/logger.go",
+			},
+			expected: []modules.ModulePackages{
+				{
+					Module:   ".",
+					Packages: []string{"./core/logger"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			mods, err := modules.FindTestModules(tmpDir, tc.files)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, mods)
 		})
 	}
 }

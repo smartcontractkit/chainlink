@@ -148,6 +148,127 @@ func FindAffectedModules(repoRoot string, files []string) ([]ModulePackages, err
 	return result, nil
 }
 
+// FindTestModules maps changed files to unique Go modules and their package paths,
+// skipping excluded E2E suites (deployment, system-tests, integration-tests, workflow examples).
+func FindTestModules(repoRoot string, files []string) ([]ModulePackages, error) {
+	absRoot, err := filepath.Abs(repoRoot)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute repo root: %w", err)
+	}
+
+	modulePkgMap := make(map[string]map[string]struct{})
+
+	for _, file := range files {
+		file = strings.TrimSpace(file)
+		if file == "" {
+			continue
+		}
+
+		ext := filepath.Ext(file)
+		if !relevantExtensions[ext] {
+			continue
+		}
+
+		absFile := file
+		if !filepath.IsAbs(absFile) {
+			absFile = filepath.Join(absRoot, file)
+		}
+
+		relFromRoot, relErr := filepath.Rel(absRoot, absFile)
+		if relErr != nil {
+			return nil, fmt.Errorf("failed to get relative path from repo root: %w", relErr)
+		}
+
+		if isExcludedFromUnitTests(relFromRoot) {
+			continue
+		}
+
+		fileDir := filepath.Dir(absFile)
+		baseName := filepath.Base(absFile)
+
+		// Find nearest enclosing go.mod walking upwards
+		dir := fileDir
+		var modDir string
+
+		for {
+			if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+				modDir = dir
+				break
+			}
+
+			if dir == absRoot || dir == filepath.Dir(dir) {
+				break
+			}
+			dir = filepath.Dir(dir)
+		}
+
+		if modDir == "" {
+			if _, err := os.Stat(filepath.Join(absRoot, "go.mod")); err == nil {
+				modDir = absRoot
+			}
+		}
+
+		if modDir != "" {
+			relMod, relModErr := filepath.Rel(absRoot, modDir)
+			if relModErr != nil {
+				return nil, fmt.Errorf("failed to get relative module path: %w", relModErr)
+			}
+
+			if _, ok := modulePkgMap[relMod]; !ok {
+				modulePkgMap[relMod] = make(map[string]struct{})
+			}
+
+			// If go.mod or go.sum changed
+			if baseName == "go.mod" || baseName == "go.sum" {
+				if relMod == "." {
+					modulePkgMap[relMod]["./core/..."] = struct{}{}
+					modulePkgMap[relMod]["./tools/..."] = struct{}{}
+				} else {
+					modulePkgMap[relMod]["./..."] = struct{}{}
+				}
+				continue
+			}
+
+			relPkg, relPkgErr := filepath.Rel(modDir, fileDir)
+			if relPkgErr != nil {
+				return nil, fmt.Errorf("failed to get relative package path: %w", relPkgErr)
+			}
+
+			pkgPattern := "."
+			if relPkg != "." {
+				pkgPattern = "./" + filepath.ToSlash(relPkg)
+			}
+
+			modulePkgMap[relMod][pkgPattern] = struct{}{}
+		}
+	}
+
+	result := make([]ModulePackages, 0, len(modulePkgMap))
+	for mod, pkgSet := range modulePkgMap {
+		var pkgs []string
+		if _, hasAll := pkgSet["./..."]; hasAll {
+			pkgs = []string{"./..."}
+		} else {
+			pkgs = make([]string, 0, len(pkgSet))
+			for pkg := range pkgSet {
+				pkgs = append(pkgs, pkg)
+			}
+			sort.Strings(pkgs)
+		}
+
+		result = append(result, ModulePackages{
+			Module:   mod,
+			Packages: pkgs,
+		})
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Module < result[j].Module
+	})
+
+	return result, nil
+}
+
 // FindTestPackages maps changed files to unique Go test package patterns relative to repo root,
 // skipping E2E test suites (deployment, system-tests, integration-tests, workflow examples).
 func FindTestPackages(repoRoot string, files []string) ([]string, error) {

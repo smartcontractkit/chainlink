@@ -33,18 +33,18 @@ func newTestCmd() *cobra.Command {
 				}
 			}
 
-			packages, err := modules.FindTestPackages(repoRoot, files)
+			mods, err := modules.FindTestModules(repoRoot, files)
 			if err != nil {
 				return err
 			}
 
-			if len(packages) == 0 {
+			if len(mods) == 0 {
 				return nil
 			}
 
 			cfg := testrunner.Config{
 				RepoRoot: repoRoot,
-				Packages: packages,
+				Modules:  mods,
 				Short:    short,
 				Stdout:   cmd.OutOrStdout(),
 				Stderr:   cmd.ErrOrStderr(),

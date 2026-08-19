@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/tools/githooks/internal/modules"
 	"github.com/smartcontractkit/chainlink/v2/tools/githooks/internal/testrunner"
 )
 
@@ -31,7 +32,7 @@ func (m *mockExecutor) Run(ctx context.Context, dir string, name string, args ..
 func TestRun(t *testing.T) {
 	t.Parallel()
 
-	t.Run("runs test binary with short flag and packages", func(t *testing.T) {
+	t.Run("runs test binary for root module and go test for submodules", func(t *testing.T) {
 		t.Parallel()
 
 		mock := &mockExecutor{}
@@ -39,7 +40,16 @@ func TestRun(t *testing.T) {
 
 		cfg := testrunner.Config{
 			RepoRoot: "/repo",
-			Packages: []string{"./core/logger", "./core/services/telemetry"},
+			Modules: []modules.ModulePackages{
+				{
+					Module:   ".",
+					Packages: []string{"./core/logger"},
+				},
+				{
+					Module:   "tools/githooks",
+					Packages: []string{"./internal/generate"},
+				},
+			},
 			Short:    true,
 			Executor: mock,
 			Stdout:   &out,
@@ -49,10 +59,14 @@ func TestRun(t *testing.T) {
 		err := testrunner.Run(context.Background(), cfg)
 		require.NoError(t, err)
 
-		require.Len(t, mock.runs, 1)
+		require.Len(t, mock.runs, 2)
 		assert.Equal(t, "/repo", mock.runs[0].dir)
 		assert.Equal(t, "/repo/tools/test/.bin/test", mock.runs[0].name)
-		assert.Equal(t, []string{"-short", "./core/logger", "./core/services/telemetry"}, mock.runs[0].args)
+		assert.Equal(t, []string{"-short", "./core/logger"}, mock.runs[0].args)
+
+		assert.Equal(t, "/repo/tools/githooks", mock.runs[1].dir)
+		assert.Equal(t, "go", mock.runs[1].name)
+		assert.Equal(t, []string{"test", "-short", "./internal/generate"}, mock.runs[1].args)
 	})
 
 	t.Run("returns error when test runner fails", func(t *testing.T) {
@@ -63,7 +77,12 @@ func TestRun(t *testing.T) {
 
 		cfg := testrunner.Config{
 			RepoRoot: "/repo",
-			Packages: []string{"./core/logger"},
+			Modules: []modules.ModulePackages{
+				{
+					Module:   ".",
+					Packages: []string{"./core/logger"},
+				},
+			},
 			Short:    true,
 			Executor: mock,
 			Stdout:   &out,
@@ -75,7 +94,7 @@ func TestRun(t *testing.T) {
 		assert.Contains(t, err.Error(), "test failed")
 	})
 
-	t.Run("no packages to test", func(t *testing.T) {
+	t.Run("no modules to test", func(t *testing.T) {
 		t.Parallel()
 
 		mock := &mockExecutor{}
@@ -83,7 +102,7 @@ func TestRun(t *testing.T) {
 
 		cfg := testrunner.Config{
 			RepoRoot: "/repo",
-			Packages: []string{},
+			Modules:  []modules.ModulePackages{},
 			Executor: mock,
 			Stdout:   &out,
 			Stderr:   &out,
