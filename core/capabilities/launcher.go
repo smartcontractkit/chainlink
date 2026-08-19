@@ -210,8 +210,9 @@ func (w *launcher) donPairsToUpdate(myID ragetypes.PeerID, localRegistry *regist
 			if !nodeBelongsToA && !nodeBelongsToB && !isBootstrap { // bootstrap adds all allowed DON pairs
 				continue // skip if node doesn't belong to either DON
 			}
-			if donA.AcceptsWorkflows && len(donB.CapabilityConfigurations) > 0 || // add DON pair if A is workflow and B is capability
-				donB.AcceptsWorkflows && len(donA.CapabilityConfigurations) > 0 { // add DON pair if B is workflow and A is capability
+		if donA.AcceptsWorkflows && len(donB.CapabilityConfigurations) > 0 || // add DON pair if A is workflow and B is capability
+			donB.AcceptsWorkflows && len(donA.CapabilityConfigurations) > 0 || // add DON pair if B is workflow and A is capability
+			donA.AcceptsWorkflows && donB.AcceptsWorkflows { // shard-to-shard for ExecutionCompleted failover delivery
 				if !donFamiliesOverlap(donA.Families, donB.Families) {
 					w.lggr.Debugw("donPairsToUpdate: filtering out DON pair due to family mismatch", "donA.ID", donA.ID, "donB.ID", donB.ID, "donA.Families", donA.Families, "donB.Families", donB.Families)
 					continue

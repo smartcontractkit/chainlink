@@ -21,6 +21,13 @@ func (s *shardingConfig) ShardingEnabled() bool {
 	return *s.s.ShardingEnabled
 }
 
+func (s *shardingConfig) ShardingFailoverEnabled() bool {
+	if s.s.ShardingFailoverEnabled == nil {
+		return false
+	}
+	return *s.s.ShardingFailoverEnabled
+}
+
 func (s *shardingConfig) ArbiterPort() uint16 {
 	return *s.s.ArbiterPort
 }

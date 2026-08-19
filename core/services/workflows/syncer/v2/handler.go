@@ -121,6 +121,7 @@ type eventHandler struct {
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
 	shardingEnabled         bool
+	shardingFailoverEnabled bool
 	myShardID               uint32
 	shardRoutingSteady      *shardownership.SteadySignal
 	shardResolver           shardownership.ShardResolver
@@ -179,6 +180,12 @@ func WithShardExecutionGuard(client shardorchestrator.ClientInterface, shardingE
 		e.shardOrchestratorClient = client
 		e.shardingEnabled = shardingEnabled
 		e.myShardID = shardID
+	}
+}
+
+func WithHandlerShardFailoverEnabled(failoverEnabled bool) func(*eventHandler) {
+	return func(e *eventHandler) {
+		e.shardingFailoverEnabled = failoverEnabled
 	}
 }
 
@@ -1210,6 +1217,7 @@ func (h *eventHandler) newV2EngineConfig(
 
 		ShardOrchestratorClient: h.shardOrchestratorClient,
 		ShardingEnabled:         h.shardingEnabled,
+		ShardingFailoverEnabled: h.shardingFailoverEnabled,
 		MyShardID:               h.myShardID,
 		ShardRoutingSteady:      h.shardRoutingSteady,
 		ShardResolver:           h.shardResolver,

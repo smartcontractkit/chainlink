@@ -127,6 +127,7 @@ type workflowRegistry struct {
 	// myShardID is the shard index this syncer belongs to. Used to filter workflows.
 	myShardID       uint32
 	shardingEnabled bool
+	shardingFailoverEnabled bool
 
 	centralizedOwnerVerificationEnabled limits.GateLimiter
 	settingsGetter                      settings.Getter
@@ -293,6 +294,12 @@ func WithShardOrchestratorClient(client shardorchestrator.ClientInterface) Optio
 func WithShardEnabled(shardingEnabled bool) Option {
 	return func(wr *workflowRegistry) {
 		wr.shardingEnabled = shardingEnabled
+	}
+}
+
+func WithShardFailoverEnabled(failoverEnabled bool) Option {
+	return func(wr *workflowRegistry) {
+		wr.shardingFailoverEnabled = failoverEnabled
 	}
 }
 
@@ -835,8 +842,27 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 	filtered := make([]WorkflowMetadataView, 0, len(workflows))
 	for _, wf := range workflows {
 		id := wf.WorkflowID.Hex()
-		if shardID, ok := mappings[id]; ok && shardID == w.myShardID {
-			filtered = append(filtered, wf)
+		if w.shardingFailoverEnabled {
+			if allResolver, ok := w.shardResolver.(shardownership.AllShardsResolver); ok {
+				shards, found, err := allResolver.ResolveAllShards(ctx, id, hex.EncodeToString(wf.Owner))
+				if err != nil || !found {
+					continue
+				}
+				for _, s := range shards {
+					if s == w.myShardID {
+						filtered = append(filtered, wf)
+						break
+					}
+				}
+			} else {
+				if shardID, ok := mappings[id]; ok && shardID == w.myShardID {
+					filtered = append(filtered, wf)
+				}
+			}
+		} else {
+			if shardID, ok := mappings[id]; ok && shardID == w.myShardID {
+				filtered = append(filtered, wf)
+			}
 		}
 	}
 	return filtered, nil

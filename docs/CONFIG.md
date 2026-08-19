@@ -2941,6 +2941,7 @@ RequireBFTQuorum selects the relay's signature quorum.
 ```toml
 [Sharding]
 ShardingEnabled = false # Default
+ShardingFailoverEnabled = false # Default
 ArbiterPort = 9876 # Default
 ArbiterPollInterval = '12s' # Default
 ArbiterRetryInterval = '12s' # Default
@@ -2958,6 +2959,15 @@ ShardingEnabled = false # Default
 ShardingEnabled enables workflow sharding across multiple nodes.
 When false (default), all workflows are processed by this node (backwards compatible mode).
 When true, workflows are distributed across shards based on ShardIndex and shard orchestrator mappings.
+
+### ShardingFailoverEnabled
+```toml
+ShardingFailoverEnabled = false # Default
+```
+ShardingFailoverEnabled enables primary/secondary failover for workflow sharding.
+When true, secondary shards load assigned workflows and cache trigger events without executing.
+The primary shard sends ExecutionCompleted notifications so the secondary can drain its cache.
+Requires ShardingEnabled=true.
 
 ### ArbiterPort
 ```toml

@@ -838,6 +838,16 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			}
 			return
 		case shardownership.DenyNotOwner:
+			if e.cfg.ShardingFailoverEnabled {
+				lggr.Infow("Secondary shard: caching trigger event for failover",
+					"executionID", executionID,
+					"myShardID", e.cfg.MyShardID,
+					"eventID", triggerEvent.ID,
+					"workflowID", e.cfg.WorkflowID,
+					"triggerIndex", wrappedTriggerEvent.triggerIndex)
+				e.metrics.IncrementTriggerEventDroppedTotal(ctx, "secondary_cached")
+				return
+			}
 			logFields := []any{
 				"executionID", executionID,
 				"myShardID", e.cfg.MyShardID,
@@ -963,6 +973,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 			}
 		}
 		e.cfg.Hooks.OnExecutionFinished(executionID, executionStatus)
+		e.cfg.Hooks.OnExecutionCompleted(e.cfg.WorkflowID, triggerEvent.ID, wrappedTriggerEvent.triggerIndex, executionStatus, execErrClass)
 		if execErr != nil {
 			e.cfg.Hooks.OnExecutionError(execErr.Error())
 		}

@@ -22,6 +22,7 @@ import (
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -73,6 +74,7 @@ type EngineConfig struct {
 
 	ShardOrchestratorClient shardorchestrator.ClientInterface
 	ShardingEnabled         bool
+	ShardingFailoverEnabled bool
 	MyShardID               uint32
 	ShardRoutingSteady      *shardownership.SteadySignal
 	ShardResolver           shardownership.ShardResolver
@@ -400,6 +402,7 @@ type LifecycleHooks struct {
 	OnTriggerEventDropped  func(triggerID, eventID, reason string)
 	OnExecutionFinished    func(executionID string, status string)
 	OnExecutionError       func(msg string)
+	OnExecutionCompleted   func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification)
 	OnResultReceived       func(*sdkpb.ExecutionResult)
 	OnRateLimited          func(executionID string)
 	OnNodeSynced           func(node commoncap.Node, err error)
@@ -488,6 +491,9 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	}
 	if h.OnExecutionFinished == nil {
 		h.OnExecutionFinished = func(executionID string, status string) {}
+	}
+	if h.OnExecutionCompleted == nil {
+		h.OnExecutionCompleted = func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {}
 	}
 	if h.OnRateLimited == nil {
 		h.OnRateLimited = func(executionID string) {}

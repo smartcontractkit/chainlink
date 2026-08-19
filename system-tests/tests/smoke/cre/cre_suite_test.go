@@ -390,3 +390,12 @@ func Test_CRE_V2_ShardRingOCROverrides(t *testing.T) {
 	)
 	ExecuteRingOCROverridesTest(t, testEnv)
 }
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_FailoverManualSwap(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-failover-don.toml"),
+	)
+	ExecuteFailoverManualSwapTest(t, testEnv)
+}

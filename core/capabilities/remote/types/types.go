@@ -19,6 +19,8 @@ const (
 	MethodTriggerEvent             = "TriggerEvent"
 	MethodExecute                  = "Execute"
 	MethodTriggerEventAck          = "TriggerEventACK"
+	MethodExecutionCompleted       = "ExecutionCompleted"
+	MethodShardHeartbeat           = "ShardHeartbeat"
 )
 
 type Dispatcher interface {

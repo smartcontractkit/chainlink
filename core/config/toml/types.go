@@ -3428,6 +3428,7 @@ func (jd *JobDistributor) setFrom(f *JobDistributor) {
 
 type Sharding struct {
 	ShardingEnabled          *bool
+	ShardingFailoverEnabled  *bool
 	ArbiterPort              *uint16
 	ArbiterPollInterval      *commonconfig.Duration
 	ArbiterRetryInterval     *commonconfig.Duration
@@ -3446,6 +3447,10 @@ const (
 func (s *Sharding) setFrom(f *Sharding) {
 	if f.ShardingEnabled != nil {
 		s.ShardingEnabled = f.ShardingEnabled
+	}
+
+	if f.ShardingFailoverEnabled != nil {
+		s.ShardingFailoverEnabled = f.ShardingFailoverEnabled
 	}
 
 	if f.ArbiterPort != nil {
