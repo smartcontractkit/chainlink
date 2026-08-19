@@ -56,6 +56,10 @@ func (m *mockPingConn) Write(ctx context.Context, msgType int, _ []byte) error {
 // node's Write blocked (half-open TCP), the loop stalls and no other node
 // receives pings.
 func TestKeepAliveLoop_StuckNodeBlocksAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	lggr := logger.Test(t)

@@ -114,6 +114,10 @@ func TestInMemoryStore_DeleteByWorkflowID(t *testing.T) {
 }
 
 func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	expirationDuration := 50 * time.Millisecond
 

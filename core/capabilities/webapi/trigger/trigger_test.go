@@ -157,6 +157,10 @@ func requireChanMsg[T capabilities.TriggerResponse](t *testing.T, ch <-chan capa
 }
 
 func TestTriggerExecute(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	th := setup(t)
 	ctx := t.Context()
 	ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))
