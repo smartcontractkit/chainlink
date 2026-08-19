@@ -1118,7 +1118,7 @@ func (e *Engine) startExecution(ctx context.Context, event routedTriggerEvent) e
 		}
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "err", execErr)
-		return execErr
+		return nil // not an error from the caller's perspective. Execution ran, just failed. This is already captured by the deferred lifecycle hook e.cfg.Hooks.OnExecutionError(execErr.Error())
 	}
 
 	if e.cfg.DebugMode {
@@ -1134,7 +1134,7 @@ func (e *Engine) startExecution(ctx context.Context, event routedTriggerEvent) e
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
 		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
-		return execErr
+		return nil // not an error from the caller's perspective. Execution ran, just returned an error. This is already captured by the deferred lifecycle hook e.cfg.Hooks.OnExecutionError(execErr.Error())
 	}
 
 	executionStatus = store.StatusCompleted
