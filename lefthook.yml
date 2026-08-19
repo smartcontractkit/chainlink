@@ -12,7 +12,7 @@ pre-commit:
     betterleaks:
       tags: security
       run: betterleaks git . --pre-commit --staged
-      fail_text: "betterleaks failed or missing. Install: go install github.com/betterleaks/betterleaks@latest"
+      fail_text: "betterleaks failed or missing. Install: https://github.com/betterleaks/betterleaks#installation"
 
     # Check for common typos in the codebase
     typos:
@@ -24,7 +24,7 @@ pre-commit:
         - "package-lock.json"
         - "pnpm-lock.yaml"
       run: typos {staged_files}
-      fail_text: "typos failed or missing. Install: brew install typos-cli (or cargo install typos-cli)"
+      fail_text: "typos failed or missing. Install: https://github.com/crate-ci/typos#install"
 
     # Tidy go.mod/go.sum in parallel for changed modules
     go-mod-tidy:
