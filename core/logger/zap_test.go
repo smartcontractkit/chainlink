@@ -62,7 +62,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
+		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2 //nolint:gosec // G115
 
 		lggr := newTestLogger(t, local)
 
@@ -92,7 +92,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
+		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2 //nolint:gosec // G115
 
 		lggr := newTestLogger(t, local)
 
@@ -123,7 +123,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
+		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2 //nolint:gosec // G115
 
 		lggr := newTestLogger(t, local)
 
@@ -171,7 +171,7 @@ func TestZapLogger_OutOfDiskSpace(t *testing.T) {
 			stop:     stop,
 			pollChan: pollChan,
 		}
-		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2
+		local.FileMaxSizeMB = int(maxSize/utils.MB) * 2 //nolint:gosec // G115
 
 		lggr := newTestLogger(t, local)
 

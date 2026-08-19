@@ -59,7 +59,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmrelay "github.com/smartcontractkit/chainlink-evm/pkg/relay"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"

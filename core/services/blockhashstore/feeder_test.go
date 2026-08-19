@@ -411,7 +411,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 	}
 
 	// Assert search window.
-	latest := int64(test.latest)
+	latest := int64(test.latest) //nolint:gosec // G115
 	fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
 	toBlock := mathutil.Max(latest-int64(test.wait), 0)
 
@@ -509,14 +509,14 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 	}
 
 	// Assert search window.
-	latest := int64(test.latest)
+	latest := int64(test.latest) //nolint:gosec // G115
 	fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
 	toBlock := mathutil.Max(latest-int64(test.wait), 0)
 
 	// Construct request logs.
 	var requestLogs []logpoller.Log
 	for _, r := range test.requests {
-		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) {
+		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) { //nolint:gosec // G115
 			continue // do not include blocks outside our search window
 		}
 		reqId, ok := big.NewInt(0).SetString(r.ID, 10)
@@ -705,7 +705,7 @@ func newRandomnessRequestedLogV2(
 			// third topic is sender since it's indexed
 			topic3,
 		},
-		BlockNumber: int64(requestBlock),
+		BlockNumber: int64(requestBlock), //nolint:gosec // G115
 		EventSig:    topic0,
 	}
 	return lg
@@ -761,7 +761,7 @@ func newRandomnessFulfilledLogV2(
 			// second topic is requestId since it's indexed
 			topic1,
 		},
-		BlockNumber: int64(requestBlock),
+		BlockNumber: int64(requestBlock), //nolint:gosec // 115
 		EventSig:    topic0,
 	}
 	return lg
