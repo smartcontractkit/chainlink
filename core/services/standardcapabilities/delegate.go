@@ -7,9 +7,9 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
@@ -66,7 +66,6 @@ type Delegate struct {
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
 	capPeering              coreconfig.P2P
-	initErr                 error
 
 	isNewlyCreatedJob bool
 }
@@ -119,7 +118,6 @@ func NewDelegate(
 		ocrConfigService:        ocrConfigService,
 		localCfg:                localCfg,
 		capPeering:              capPeering,
-		initErr:                 initErr,
 		selectorOpts:            opts,
 	}
 }
@@ -275,18 +273,18 @@ func (d *Delegate) NewServices(
 	// NOTE: special case for custom Oracle Factory for use in tests
 	if d.newOracleFactoryFn != nil {
 		oracleFactory, err = d.newOracleFactoryFn(generic.OracleFactoryParams{
-			Logger:               log,
-			JobORM:               d.jobORM,
-			JobID:                jobID,
-			JobName:              jobName,
-			KB:                   ocrEvmKeyBundle,
-			Config:               oracleFactoryConfig,
+			Logger:                 log,
+			JobORM:                 d.jobORM,
+			JobID:                  jobID,
+			JobName:                jobName,
+			KB:                     ocrEvmKeyBundle,
+			Config:                 oracleFactoryConfig,
 			OnchainSigningStrategy: resolvedSigning,
-			PeerWrapper:          d.ocrPeerWrapper,
-			RelayerSet:           relayerSet,
-			OCRConfigService:     d.ocrConfigService,
-			CapabilityID:         capabilityID,
-			DefaultBootstrappers: defaultBootstrappers,
+			PeerWrapper:            d.ocrPeerWrapper,
+			RelayerSet:             relayerSet,
+			OCRConfigService:       d.ocrConfigService,
+			CapabilityID:           capabilityID,
+			DefaultBootstrappers:   defaultBootstrappers,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory from function: %w", err)
