@@ -27,6 +27,7 @@ import (
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	module_dummy_receiver "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_dummy_receiver/ccip_dummy_receiver"
+	module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	codec "github.com/smartcontractkit/chainlink-sui/codec"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
@@ -2121,6 +2122,165 @@ func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sou
 	require.NoError(t, err)
 
 	return e, sourceChain, destChain
+}
+
+// Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected
+// verifies the offchain ReleaseOrMintParams ownership guard end-to-end. A
+// TEST-only malicious Sui burn-mint LINK pool is registered with an
+// executor-transmitter-owned SUI coin id in its release_or_mint_params, and its
+// release_or_mint declares an extra &mut Coin<SUI> drain tail. During a normal
+// EVM->Sui token transfer the production execute PTB builder appends that coin
+// to the pool callback under the transmitter's signature; the guard rejects the
+// transmitter-owned entry during PTB build, so the execute PTB is never
+// submitted, EXECUTION_STATE_SUCCESS is never persisted, and the transmitter's
+// coin is not drained. Mirrors Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected.
+func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(t *testing.T) {
+	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
+
+	suiChain := e.Env.BlockChains.SuiChains()[destChain]
+	waitForSuiRPCSync(t, suiChain)
+
+	// release_or_mint_params is fixed at pool initialize, so resolve the exec
+	// transmitter's SUI gas coin before deploying the malicious pool.
+	transmitterAddr := suiExecTransmitterAddress(t, e, destChain)
+	require.NotEmpty(t, transmitterAddr)
+	coins, err := suiChain.Client.QueryCoinsByAddress(testhelpers.Context(t), transmitterAddr, "0x2::coin::Coin<0x2::sui::SUI>")
+	require.NoError(t, err)
+	require.NotEmpty(t, coins, "exec transmitter must own SUI gas coins")
+	transmitterCoinID := coins[0].GetObjectId()
+	preCoinBalance := new(big.Int).SetUint64(coins[0].GetBalance())
+
+	// Deploy the malicious LINK burn-mint pool as the Sui dest pool, registered
+	// with the transmitter coin id in release_or_mint_params. The EVM-side
+	// token/pool + cross-registration are handled by the sibling helper.
+	updatedEnv, evmToken, _, _, _, err := testhelpers.HandleMaliciousBurnMintTokenPoolDeploymentForSUI(
+		e.Env, destChain, sourceChain, "0x1", []string{transmitterCoinID},
+	)
+	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	testhelpers.MintAndAllow(
+		t,
+		e.Env,
+		state,
+		map[uint64][]testhelpers.MintTokenInfo{
+			sourceChain: {
+				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
+			},
+		},
+	)
+
+	// Deploy a benign dummy receiver for the message leg. The exploit vector is
+	// the pool, not the receiver, so the receiverObjectIDs carry no drain coin.
+	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+			SuiChainSelector: destChain,
+			McmsOwner:        "0x1",
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutput := output[0].Reports[0]
+	receiverOutput, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+	require.True(t, ok)
+
+	id := strings.TrimPrefix(receiverOutput.PackageId, "0x")
+	receiverByte, err := hex.DecodeString(id)
+	require.NoError(t, err)
+
+	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
+			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       receiverOutput.Objects.OwnerCapObjectId,
+			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
+			DummyReceiverPackageId: receiverOutput.PackageId,
+		}),
+	})
+	require.NoError(t, err)
+
+	var clockObj [32]byte
+	copy(clockObj[:], hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000006",
+	))
+	var receiverStateObj [32]byte
+	copy(receiverStateObj[:], hexutil.MustDecode(receiverOutput.Objects.CCIPReceiverStateObjectId))
+	receiverObjectIDs := [][32]byte{clockObj, receiverStateObj}
+
+	tcs := []testhelpers.TestTransferRequest{
+		{
+			Name:             "Pool release_or_mint transmitter-owned coin drain attempt",
+			SourceChain:      sourceChain,
+			DestChain:        destChain,
+			Receiver:         receiverByte,
+			TokenReceiverATA: suiAddr[:],
+			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(1_000_000, true, receiverObjectIDs, suiAddr),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{
+					Token:  suiTokenBytes,
+					Amount: big.NewInt(1e9),
+				},
+			},
+		},
+	}
+
+	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
+	startBlocks, expectedSeqNums, _, _ := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+
+	pair := testhelpers.SourceDestPair{SourceChainSelector: sourceChain, DestChainSelector: destChain}
+	seqRange, ok := expectedSeqNums[pair]
+	require.True(t, ok, "expected a sequence number for the exploit transfer")
+	seqExploit := uint64(seqRange.Start())
+
+	// Let the DON replay + settle so the source event is OCR-committed and the
+	// dest exec is attempted. The guard rejects the transmitter-owned
+	// release_or_mint_params entry during PTB build, so no execute transaction is
+	// submitted and EXECUTION_STATE_SUCCESS never commits.
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
+
+	// Confirm the report was committed, so the exec rejection below is meaningful.
+	err = testhelpers.ConfirmMultipleCommits(t, e.Env, state, startBlocks, false, expectedSeqNums)
+	require.NoError(t, err)
+
+	// With no executed transaction, the sequence is absent and get_execution_state
+	// aborts EUnknownSequenceNumber (atomic-rollback / never-finalized guarantee).
+	suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
+	require.NoError(t, err)
+	offrampContract, err := module_offramp.NewOfframp(suiState[destChain].EffectiveOffRampPackageID(), suiChain.Client)
+	require.NoError(t, err)
+	offRampStateObj := codec.Object{Id: suiState[destChain].OffRampStateObjectId}
+	devInspectOpts := &suiBind.CallOpts{
+		Signer:           suiChain.Signer,
+		WaitForExecution: true,
+	}
+	_, err = offrampContract.DevInspect().GetExecutionState(ctx, devInspectOpts, offRampStateObj, sourceChain, seqExploit)
+	require.Error(t, err, "exploit execute must not finalize (get_execution_state must NOT return SUCCESS)")
+
+	// No drain: the guard rejects the transmitter-owned release_or_mint_params
+	// entry, so the pool's release_or_mint never receives the coin. The coin may
+	// still be selected as the gas coin for unrelated transactions, so its balance
+	// can drop by a tiny fraction, but a drain would transfer its value off the
+	// transmitter or split it down to ~0. Assert the coin is still owned by the
+	// transmitter AND retained most of its value.
+	postCoinBalance, stillOwned := suiCoinByID(t, suiChain, transmitterAddr, transmitterCoinID)
+	require.Truef(t, stillOwned,
+		"transmitter coin %s is no longer owned by the transmitter after execute (guard should prevent the pool from taking it)",
+		transmitterCoinID)
+	decrease := new(big.Int).Sub(preCoinBalance, postCoinBalance)
+	half := new(big.Int).Quo(preCoinBalance, big.NewInt(2))
+	require.Negativef(t, decrease.Cmp(half),
+		"transmitter coin drained: pre=%s post=%s decrease=%s (guard should prevent the pool from taking the coin's value; only gas should be charged)",
+		preCoinBalance.String(), postCoinBalance.String(), decrease.String())
 }
 
 func testSetupHelperEvm2Sui(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64, deployerSourceChain *bind.TransactOpts, suiTokenBytes []byte, suiAddr [32]byte) {
