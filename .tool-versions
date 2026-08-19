@@ -7,5 +7,7 @@ helm          3.18.4
 golangci-lint 2.12.2
 protoc        29.3
 python        3.10.5
+
+lefthook      2.1.10
 betterleaks   1.8.0
 typos         1.49.0
