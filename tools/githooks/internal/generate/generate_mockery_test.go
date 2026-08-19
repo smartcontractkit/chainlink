@@ -81,15 +81,18 @@ func (r *recordRunner) runArgs(name string) [][]string {
 
 func writeTree(t *testing.T) string {
 	t.Helper()
-	root := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module github.com/smartcontractkit/chainlink/v2\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(root, ".mockery.yaml"), []byte(rootMockeryConfig), 0o600))
-	require.NoError(t, os.MkdirAll(filepath.Join(root, "tools/githooks"), 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "tools/githooks/go.mod"), []byte("module github.com/smartcontractkit/chainlink/v2/tools/githooks\n"), 0o600))
-	require.NoError(t, os.MkdirAll(filepath.Join(root, "deployment"), 0o750))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "deployment", "go.mod"), []byte("module github.com/smartcontractkit/chainlink/deployment\n"), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(root, "deployment", ".mockery.yaml"), []byte(deploymentMockeryConfig), 0o600))
-	return root
+	fsys, err := os.OpenRoot(t.TempDir())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, fsys.Close()) })
+
+	require.NoError(t, fsys.WriteFile("go.mod", []byte("module github.com/smartcontractkit/chainlink/v2\n"), 0o600))
+	require.NoError(t, fsys.WriteFile(".mockery.yaml", []byte(rootMockeryConfig), 0o600))
+	require.NoError(t, fsys.MkdirAll("tools/githooks", 0o750))
+	require.NoError(t, fsys.WriteFile("tools/githooks/go.mod", []byte("module github.com/smartcontractkit/chainlink/v2/tools/githooks\n"), 0o600))
+	require.NoError(t, fsys.MkdirAll("deployment", 0o750))
+	require.NoError(t, fsys.WriteFile("deployment/go.mod", []byte("module github.com/smartcontractkit/chainlink/deployment\n"), 0o600))
+	require.NoError(t, fsys.WriteFile("deployment/.mockery.yaml", []byte(deploymentMockeryConfig), 0o600))
+	return fsys.Name()
 }
 
 func parseScopedConfig(t *testing.T, raw []byte) map[string]any {
