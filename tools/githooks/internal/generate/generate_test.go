@@ -40,7 +40,7 @@ func TestRun(t *testing.T) {
 			"core/services/llo/telem/telem_streams.proto",
 		}
 
-		err := generate.Run(context.Background(), repoRoot, files, generate.Config{Runner: runner})
+		err := generate.Run(t.Context(), repoRoot, files, generate.Config{Runner: runner})
 		require.NoError(t, err)
 
 		mu.Lock()
@@ -62,7 +62,7 @@ func TestRun(t *testing.T) {
 
 		files := []string{"core/config/toml/types.go"}
 
-		err := generate.Run(context.Background(), repoRoot, files, generate.Config{Runner: runner})
+		err := generate.Run(t.Context(), repoRoot, files, generate.Config{Runner: runner})
 		require.NoError(t, err)
 
 		require.Len(t, calledCmds, 1)
@@ -80,7 +80,7 @@ func TestRun(t *testing.T) {
 
 		files := []string{"go.mod", "deployment/go.sum"}
 
-		err := generate.Run(context.Background(), repoRoot, files, generate.Config{Runner: runner})
+		err := generate.Run(t.Context(), repoRoot, files, generate.Config{Runner: runner})
 		require.NoError(t, err)
 
 		require.Len(t, calledCmds, 1)
@@ -98,7 +98,7 @@ func TestRun(t *testing.T) {
 
 		files := []string{"core/logger/logger.go", "core/services/cron/cron.go"}
 
-		err := generate.Run(context.Background(), repoRoot, files, generate.Config{Runner: runner})
+		err := generate.Run(t.Context(), repoRoot, files, generate.Config{Runner: runner})
 		require.NoError(t, err)
 		assert.False(t, called)
 	})
@@ -112,7 +112,7 @@ func TestRun(t *testing.T) {
 
 		files := []string{"core/capabilities/remote/types/messages.proto"}
 
-		err := generate.Run(context.Background(), repoRoot, files, generate.Config{Runner: runner})
+		err := generate.Run(t.Context(), repoRoot, files, generate.Config{Runner: runner})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "protoc failed")
 	})
@@ -129,7 +129,7 @@ func TestRun(t *testing.T) {
 		absProto := filepath.Join(repoRoot, "core/services/nodestatusreporter/bridgestatus/events/bridge_status.proto")
 		files := []string{absProto}
 
-		err := generate.Run(context.Background(), repoRoot, files, generate.Config{Runner: runner})
+		err := generate.Run(t.Context(), repoRoot, files, generate.Config{Runner: runner})
 		require.NoError(t, err)
 
 		require.Len(t, calledCmds, 1)

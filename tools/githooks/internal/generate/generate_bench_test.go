@@ -16,7 +16,7 @@ func (b *benchRunner) Run(ctx context.Context, dir string, args ...string) error
 }
 
 func BenchmarkGenerateRun(b *testing.B) {
-	ctx := context.Background()
+	ctx := b.Context()
 	repoRoot := "/test/repo"
 	cfg := generate.Config{Runner: (&benchRunner{}).Run}
 

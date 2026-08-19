@@ -484,9 +484,17 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 				return scopedErr
 			}
 
-			tmpConfig := filepath.Join(tmpDir, filepath.Base(dir)+".yaml")
-			if writeErr := os.WriteFile(tmpConfig, scoped, 0o600); writeErr != nil {
+			tmpFile, tmpFileErr := os.CreateTemp(tmpDir, filepath.Base(dir)+"-mockery-*.yaml")
+			if tmpFileErr != nil {
+				return fmt.Errorf("failed to create scoped mockery config temp file: %w", tmpFileErr)
+			}
+			tmpConfig := tmpFile.Name()
+			if _, writeErr := tmpFile.Write(scoped); writeErr != nil {
+				_ = tmpFile.Close()
 				return fmt.Errorf("failed to write scoped mockery config: %w", writeErr)
+			}
+			if closeErr := tmpFile.Close(); closeErr != nil {
+				return fmt.Errorf("failed to close scoped mockery config: %w", closeErr)
 			}
 
 			runDir := dir

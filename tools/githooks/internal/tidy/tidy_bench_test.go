@@ -11,7 +11,7 @@ import (
 )
 
 func BenchmarkTidyRun(b *testing.B) {
-	ctx := context.Background()
+	ctx := b.Context()
 	repoRoot := "/test/repo"
 
 	mockRunner := func(ctx context.Context, dir string, args ...string) error {

@@ -1,7 +1,6 @@
 package generate_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -23,7 +22,7 @@ func TestRun_GoGenerateInNestedModule(t *testing.T) {
 	rec := &recordRunner{}
 	cfg := generate.Config{Runner: rec.Run}
 
-	err := generate.Run(context.Background(), root, []string{"tools/githooks/internal/generate/generate.go"}, cfg)
+	err := generate.Run(t.Context(), root, []string{"tools/githooks/internal/generate/generate.go"}, cfg)
 	require.NoError(t, err)
 
 	generateRuns := rec.runArgs("generate")
@@ -45,7 +44,7 @@ func TestRun_GoGenerateForRootModuleFile(t *testing.T) {
 	rec := &recordRunner{}
 	cfg := generate.Config{Runner: rec.Run}
 
-	err := generate.Run(context.Background(), root, []string{"core/capabilities/remote/types/messages.proto"}, cfg)
+	err := generate.Run(t.Context(), root, []string{"core/capabilities/remote/types/messages.proto"}, cfg)
 	require.NoError(t, err)
 
 	generateRuns := rec.runArgs("generate")

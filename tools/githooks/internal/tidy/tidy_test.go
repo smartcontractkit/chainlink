@@ -50,7 +50,7 @@ func TestRun(t *testing.T) {
 		repoRoot := "/test/repo"
 		modules := []string{".", "deployment", "tools/githooks"}
 
-		err := tidy.Run(context.Background(), repoRoot, modules, tidy.Config{Runner: runner})
+		err := tidy.Run(t.Context(), repoRoot, modules, tidy.Config{Runner: runner})
 		require.NoError(t, err)
 
 		mu.Lock()
@@ -76,7 +76,7 @@ func TestRun(t *testing.T) {
 		repoRoot := "/test/repo"
 		modules := []string{"good-mod", "failing-mod"}
 
-		err := tidy.Run(context.Background(), repoRoot, modules, tidy.Config{Runner: runner})
+		err := tidy.Run(t.Context(), repoRoot, modules, tidy.Config{Runner: runner})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failing-mod")
 	})
@@ -90,7 +90,7 @@ func TestRun(t *testing.T) {
 			return nil
 		}
 
-		err := tidy.Run(context.Background(), "/test/repo", nil, tidy.Config{Runner: runner})
+		err := tidy.Run(t.Context(), "/test/repo", nil, tidy.Config{Runner: runner})
 		require.NoError(t, err)
 		assert.False(t, called)
 	})

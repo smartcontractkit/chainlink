@@ -50,33 +50,3 @@ func BenchmarkFindAffectedModules(b *testing.B) {
 		}
 	})
 }
-
-func BenchmarkFindTestPackages(b *testing.B) {
-	tmpDir := b.TempDir()
-
-	singleFile := []string{"core/logger/logger_test.go"}
-	mixedFiles := []string{
-		"core/logger/logger.go",
-		"core/services/cron/cron_test.go",
-		"tools/ci-testshard/main.go",
-		"deployment/environment.go",
-		"system-tests/lib/suite.go",
-		"integration-tests/smoke/vrf.go",
-	}
-
-	b.Run("SingleFile", func(b *testing.B) {
-		b.ReportAllocs()
-		for b.Loop() {
-			_, err := modules.FindTestPackages(tmpDir, singleFile)
-			require.NoError(b, err)
-		}
-	})
-
-	b.Run("MixedWithExclusions", func(b *testing.B) {
-		b.ReportAllocs()
-		for b.Loop() {
-			_, err := modules.FindTestPackages(tmpDir, mixedFiles)
-			require.NoError(b, err)
-		}
-	})
-}

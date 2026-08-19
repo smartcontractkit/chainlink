@@ -18,7 +18,7 @@ func (b *benchExecutor) Run(ctx context.Context, dir string, name string, args .
 }
 
 func BenchmarkLintRun(b *testing.B) {
-	ctx := context.Background()
+	ctx := b.Context()
 	targets := []modules.ModulePackages{
 		{Module: ".", Packages: []string{"./core/logger", "./core/services/cron"}},
 		{Module: "deployment", Packages: []string{"./environment"}},

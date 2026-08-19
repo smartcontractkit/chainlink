@@ -114,7 +114,7 @@ func TestRun_MockeryScopedForChangedPackage(t *testing.T) {
 	rec := &recordRunner{}
 	cfg := generate.Config{Runner: rec.Run}
 
-	err := generate.Run(context.Background(), root, []string{"core/bridges/bridge.go"}, cfg)
+	err := generate.Run(t.Context(), root, []string{"core/bridges/bridge.go"}, cfg)
 	require.NoError(t, err)
 
 	mockeryRuns := rec.runArgs("mockery")
@@ -148,7 +148,7 @@ func TestRun_MockeryGroupsMultipleChangedPackages(t *testing.T) {
 		"core/bridges/bridge.go",
 		"core/services/cron/cron.go",
 	}
-	err := generate.Run(context.Background(), root, files, cfg)
+	err := generate.Run(t.Context(), root, files, cfg)
 	require.NoError(t, err)
 
 	mockeryRuns := rec.runArgs("mockery")
@@ -178,7 +178,7 @@ func TestRun_MockeryFullOnConfigChange(t *testing.T) {
 	rec := &recordRunner{}
 	cfg := generate.Config{Runner: rec.Run}
 
-	err := generate.Run(context.Background(), root, []string{".mockery.yaml"}, cfg)
+	err := generate.Run(t.Context(), root, []string{".mockery.yaml"}, cfg)
 	require.NoError(t, err)
 
 	mockeryRuns := rec.runArgs("mockery")
@@ -193,7 +193,7 @@ func TestRun_MockeryFullOnCoveredModuleGoModChange(t *testing.T) {
 	rec := &recordRunner{}
 	cfg := generate.Config{Runner: rec.Run}
 
-	err := generate.Run(context.Background(), root, []string{"go.mod"}, cfg)
+	err := generate.Run(t.Context(), root, []string{"go.mod"}, cfg)
 	require.NoError(t, err)
 
 	mockeryRuns := rec.runArgs("mockery")
@@ -211,7 +211,7 @@ func TestRun_MockerySkipsUncoveredModuleGoModChange(t *testing.T) {
 	rec := &recordRunner{}
 	cfg := generate.Config{Runner: rec.Run}
 
-	err := generate.Run(context.Background(), root, []string{"tools/githooks/go.mod"}, cfg)
+	err := generate.Run(t.Context(), root, []string{"tools/githooks/go.mod"}, cfg)
 	require.NoError(t, err)
 
 	require.Empty(t, rec.runArgs("mockery"))
@@ -225,7 +225,7 @@ func TestRun_MockerySkipsUncoveredPackage(t *testing.T) {
 	rec := &recordRunner{}
 	cfg := generate.Config{Runner: rec.Run}
 
-	err := generate.Run(context.Background(), root, []string{"core/logger/logger.go"}, cfg)
+	err := generate.Run(t.Context(), root, []string{"core/logger/logger.go"}, cfg)
 	require.NoError(t, err)
 
 	require.Empty(t, rec.runArgs("mockery"))
@@ -238,7 +238,7 @@ func TestRun_MockeryNestedConfigWalkUp(t *testing.T) {
 	rec := &recordRunner{}
 	cfg := generate.Config{Runner: rec.Run}
 
-	err := generate.Run(context.Background(), root, []string{"deployment/environment/env.go"}, cfg)
+	err := generate.Run(t.Context(), root, []string{"deployment/environment/env.go"}, cfg)
 	require.NoError(t, err)
 
 	mockeryRuns := rec.runArgs("mockery")
@@ -268,7 +268,7 @@ func TestRun_MockeryMalformedConfigReturnsError(t *testing.T) {
 	rec := &recordRunner{}
 	cfg := generate.Config{Runner: rec.Run}
 
-	err := generate.Run(context.Background(), root, []string{"core/bridges/bridge.go"}, cfg)
+	err := generate.Run(t.Context(), root, []string{"core/bridges/bridge.go"}, cfg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "mockery")
 }

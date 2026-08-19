@@ -56,7 +56,7 @@ func TestRun(t *testing.T) {
 			Stderr:   &out,
 		}
 
-		err := testrunner.Run(context.Background(), cfg)
+		err := testrunner.Run(t.Context(), cfg)
 		require.NoError(t, err)
 
 		require.Len(t, mock.runs, 2)
@@ -89,7 +89,7 @@ func TestRun(t *testing.T) {
 			Stderr:   &out,
 		}
 
-		err := testrunner.Run(context.Background(), cfg)
+		err := testrunner.Run(t.Context(), cfg)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "test failed")
 	})
@@ -108,7 +108,7 @@ func TestRun(t *testing.T) {
 			Stderr:   &out,
 		}
 
-		err := testrunner.Run(context.Background(), cfg)
+		err := testrunner.Run(t.Context(), cfg)
 		require.NoError(t, err)
 		assert.Empty(t, mock.runs)
 	})

@@ -17,7 +17,7 @@ func (b *benchRunner) Run(ctx context.Context, dir string, name string, args ...
 }
 
 func BenchmarkTestrunnerRun(b *testing.B) {
-	ctx := context.Background()
+	ctx := b.Context()
 	packages := []string{
 		"./core/logger",
 		"./core/services/cron",
