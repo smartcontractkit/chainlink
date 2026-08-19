@@ -92,7 +92,6 @@ func ExecuteHTTPTriggerActionTest(t *testing.T, testEnv *ttypes.TestEnvironment)
 
 // executeHTTPTriggerRequest executes an HTTP trigger request and waits for successful response
 func executeHTTPTriggerRequest(t *testing.T, testEnv *ttypes.TestEnvironment, gatewayURL *url.URL, workflowName, workflowID string, singingKey *ecdsa.PrivateKey, workflowOwnerAddress string) {
-	t.Helper()
 	var finalResponse jsonrpc.Response[json.RawMessage]
 	var triggerRequest jsonrpc.Request[json.RawMessage]
 
