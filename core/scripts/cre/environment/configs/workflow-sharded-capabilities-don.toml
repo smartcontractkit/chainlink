@@ -60,7 +60,6 @@
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -116,7 +115,6 @@
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
   capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   [nodesets.db]
     image = "postgres:12.0"

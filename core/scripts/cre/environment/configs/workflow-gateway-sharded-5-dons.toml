@@ -48,7 +48,6 @@
 
   env_vars = { CL_EVM_CMD = "" }
   capabilities = ["vault", "cron", "http-action", "http-trigger", "consensus", "don-time",  "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -106,7 +105,6 @@
   env_vars = { CL_EVM_CMD = "" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["cron", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -135,7 +133,6 @@
   env_vars = { CL_EVM_CMD = "" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["cron", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -164,7 +161,6 @@
   env_vars = { CL_EVM_CMD = "" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["cron", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -193,7 +189,6 @@
   env_vars = { CL_EVM_CMD = "" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["cron", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -222,7 +217,6 @@
   env_vars = { CL_EVM_CMD = "" }
   # add "vault", "http-action", "http-trigger", when gateway can support more than 1 DON per service
   capabilities = ["cron", "consensus", "don-time", "evm-1337", "evm-2337"]
-  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
