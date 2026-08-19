@@ -97,7 +97,7 @@ runs:
         version: v2.12.2
         only-new-issues: true
         skip-cache: true
-        args: --output.checkstyle.path=${{ env.REPORT_PATH }} --output.json.path=${{ env.REPORT_PATH_JSON }}
+        args: --output.checkstyle.path=${{ env.REPORT_PATH }} --output.json.path=${{ env.REPORT_PATH_JSON }} --max-same-issues=0 --max-issues-per-linter=0
         working-directory: ${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}
 
     - name: Print Golangci-lint report results

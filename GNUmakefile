@@ -16,7 +16,7 @@ CL_LOOPINSTALL_OUTPUT_DIR ?=
 LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
 LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
-GOLANGCI_LINT_VERSION = "v2.11.4"
+GOLANGCI_LINT_VERSION = "v2.12.2"
 # Pin path so `make generate` does not pick up a different mockery (e.g. v3) from PATH.
 MOCKERY_BIN ?= $(shell command -v mockery 2>/dev/null || (GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" -a -f "$$GOBIN/mockery" ]; then echo "$$GOBIN/mockery"; else echo "$$(go env GOPATH)/bin/mockery"; fi))
 
@@ -258,7 +258,7 @@ lint-all: gomods ## Run golangci-lint for all modules, both printing and creatin
 
 .PHONY: lint-fix
 lint-fix: gomods ## Run golangci-lint with --fix for all modules
-	gomods -u -go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run --fix
+	gomods -u -go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION) run --fix --max-issues-per-linter 0 --max-same-issues 0
 
 .PHONY: modgraph
 modgraph:
