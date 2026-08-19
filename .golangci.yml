@@ -17,7 +17,6 @@ linters:
     - containedctx
     - copyloopvar
     - depguard
-    - dupword
     - errname
     - errorlint
     - exhaustive
@@ -237,4 +236,3 @@ formatters:
       simplify: true
   exclusions:
     generated: lax
-

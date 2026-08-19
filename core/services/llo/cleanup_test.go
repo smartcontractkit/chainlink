@@ -166,10 +166,12 @@ func Test_OrphanedTransmissionReaper(t *testing.T) {
 	lggr := logger.Test(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
 	ctx := t.Context()
-
 	const n = 13
 
-	pgtest.MustExec(t, ds, "\n\tINSERT INTO ocr2_oracle_specs (contract_id, p2pv2_bootstrappers, contract_config_confirmations, created_at,\n\t\t\tupdated_at, relay, relay_config, plugin_config, plugin_type, onchain_signing_strategy, allow_no_bootstrappers\n\t\t) VALUES ('0x','{}', 0, NOW(), 'evm', '{\"chainID\": 421614, \"lloDonID\": 2}', '{\"donID\": 2}', 'llo', '{}', FALSE);")
+	pgtest.MustExec(t, ds, `
+	INSERT INTO ocr2_oracle_specs (contract_id, p2pv2_bootstrappers, contract_config_confirmations, created_at,
+			updated_at, relay, relay_config, plugin_config, plugin_type, onchain_signing_strategy, allow_no_bootstrappers
+		) VALUES ('0x','{}', 0, NOW(), NOW(), 'evm', '{"chainID": 421614, "lloDonID": 2}', '{"donID": 2}', 'llo', '{}', FALSE);`)
 
 	// add transmissions from a DON not present in ocr2 specs
 	transmissions := makeSampleTransmissions(n)

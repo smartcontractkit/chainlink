@@ -609,7 +609,11 @@ WHERE id = $1;
 
 // CreateSpec creates a new job proposal spec
 func (o *orm) CreateSpec(ctx context.Context, spec JobProposalSpec) (int64, error) {
-	stmt := "\nINSERT INTO job_proposal_specs (definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at)\nVALUES ($1, $2, $3, $4, NOW(), NOW())\nRETURNING"
+	stmt := `
+INSERT INTO job_proposal_specs (definition, version, status, job_proposal_id, status_updated_at, created_at, updated_at)
+VALUES ($1, $2, $3, $4, NOW(), NOW(), NOW())
+RETURNING id;
+`
 
 	var id int64
 	err := o.ds.GetContext(ctx, &id, stmt, spec.Definition, spec.Version, spec.Status, spec.JobProposalID)

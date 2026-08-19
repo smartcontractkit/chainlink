@@ -17,7 +17,7 @@ import (
 
 func TestETHABIEncodeTask(t *testing.T) {
 	var bytes32 [32]byte
-	copy(bytes32[:], []byte("chainlink "))
+	copy(bytes32[:], []byte("chainlink chainlink chainlink"))
 
 	bytes32hex := utils.StringToHex(string(bytes32[:]))
 
