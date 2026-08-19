@@ -290,7 +290,7 @@ func TestBridgeTask_UsesBridgeConnManagerHappyPath(t *testing.T) {
 		UseConnectionManager: true,
 	})
 
-	manager := bridgeconn.NewBridgeConnManager()
+	manager := bridgeconn.NewBridgeConnManager(logger.TestLogger(t))
 	seedable, ok := manager.(interface {
 		SeedObservation(bridge bridges.BridgeType, requestData map[string]any, observation []byte) error
 		DisableEAConnDialingForTest()

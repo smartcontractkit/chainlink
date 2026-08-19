@@ -81,9 +81,9 @@ func TestEAConn_RegisterAsset_RefreshAndIdlePrune(t *testing.T) {
 	t.Parallel()
 	m := newTestManager()
 	bridge := testBridge(t, "idlebridge")
-	conn := newEAConn(bridge.Name.String(), bridge.URL, m)
 	clock := clockwork.NewFakeClock()
-	conn.clock = clock
+	m.clock = clock
+	conn := newEAConn(bridge.Name.String(), bridge.URL, m)
 
 	payload, err := structpb.NewStruct(map[string]any{"endpoint": "crypto"})
 	require.NoError(t, err)

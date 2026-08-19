@@ -49,33 +49,34 @@ type bridgeConnManager struct {
 
 	connsMu sync.Mutex
 	conns   map[string]*eaConn // bridge name -> EAConn
-	lggr    logger.Logger      // guarded by connsMu; set at most once, from NewBridgeConnManager
+	lggr    logger.Logger      // immutable after singleton creation
 
 	dial  eaStreamDialer
 	clock clockwork.Clock
 }
 
-var defaultBridgeConnManager BridgeConnManager = &bridgeConnManager{
-	cache: make(map[[32]byte]cacheEntry),
-	conns: make(map[string]*eaConn),
-	lggr:  logger.Nop(),
-	dial:  dialGRPCStream,
-	clock: clockwork.NewRealClock(),
-}
+var (
+	defaultBridgeConnManager     BridgeConnManager
+	defaultBridgeConnManagerOnce sync.Once
+)
 
-// NewBridgeConnManager returns the package-level singleton. Passing a logger sets
-// it on the singleton for use by lazily-created EAConns; it's expected to be
-// called once, from PipelineRunner startup, with all other call sites (fallback
-// construction, tests) using the zero-arg form and getting whatever logger (or
-// the Nop default) is already set.
-func NewBridgeConnManager(lggr ...logger.Logger) BridgeConnManager {
-	m := defaultBridgeConnManager.(*bridgeConnManager)
-	if len(lggr) > 0 && lggr[0] != nil {
-		m.connsMu.Lock()
-		m.lggr = lggr[0]
-		m.connsMu.Unlock()
-	}
-	return m
+// NewBridgeConnManager returns the package-level singleton, creating it on the
+// first call with the supplied logger. Subsequent calls return the same manager
+// and ignore the logger. The logger is immutable after creation.
+func NewBridgeConnManager(lggr logger.Logger) BridgeConnManager {
+	defaultBridgeConnManagerOnce.Do(func() {
+		if lggr == nil {
+			lggr = logger.Nop()
+		}
+		defaultBridgeConnManager = &bridgeConnManager{
+			cache: make(map[[32]byte]cacheEntry),
+			conns: make(map[string]*eaConn),
+			lggr:  lggr,
+			dial:  dialGRPCStream,
+			clock: clockwork.NewRealClock(),
+		}
+	})
+	return defaultBridgeConnManager
 }
 
 func (m *bridgeConnManager) GetObservation(bridge bridges.BridgeType, requestData map[string]any) ([]byte, error) {

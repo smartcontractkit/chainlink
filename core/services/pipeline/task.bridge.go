@@ -176,9 +176,6 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	defer cancel()
 	if bridge.UseConnectionManager {
 		bridgeConnManager := t.bridgeConnManager
-		if bridgeConnManager == nil {
-			bridgeConnManager = bridgeconn.NewBridgeConnManager()
-		}
 		start := time.Now()
 		responseBytes, obsErr := bridgeConnManager.GetObservation(bridge, map[string]any(lookupPayload))
 		finish := time.Now()

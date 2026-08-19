@@ -122,8 +122,6 @@ type eaConn struct {
 	startOnce sync.Once
 }
 
-// newEAConn is called with manager.connsMu already held, so reading manager.lggr
-// here is safe without a separate lock.
 func newEAConn(bridgeName string, bridgeURL models.WebURL, manager *bridgeConnManager) *eaConn {
 	u := url.URL(bridgeURL)
 	return &eaConn{
@@ -133,7 +131,7 @@ func newEAConn(bridgeName string, bridgeURL models.WebURL, manager *bridgeConnMa
 		dial:       manager.dial,
 		lggr:       logger.With(logger.Named(manager.lggr, "EAConn"), "bridgeName", bridgeName),
 		manager:    manager,
-		clock:      clockwork.NewRealClock(),
+		clock:      manager.clock,
 		assets:     make(map[[32]byte]*eaAsset),
 	}
 }
