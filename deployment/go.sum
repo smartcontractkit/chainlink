@@ -1520,8 +1520,8 @@ github.com/smartcontractkit/mcms v0.47.2-0.20260611004209-3f43937dcffd h1:5G3V6v
 github.com/smartcontractkit/mcms v0.47.2-0.20260611004209-3f43937dcffd/go.mod h1:qyDpiJC7Yo2FouVBQL3rc3wB4VB/8tw8xAcypOb4FT8=
 github.com/smartcontractkit/quarantine v0.0.0-20251203215908-fd0551c6adf9 h1:MOEuXYogv+RStASb8dWsyescu/xkigSi/Sv45NEjV7A=
 github.com/smartcontractkit/quarantine v0.0.0-20251203215908-fd0551c6adf9/go.mod h1:iwy4yWFuK+1JeoIRTaSOA9pl+8Kf//26zezxEXrAQEQ=
-github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb h1:kLHdQQkijaPGsBbtV2rJgpzVpQ96e7T10pzjNlWfK8U=
-github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb/go.mod h1:4s5hj/nlMF9WV+T5Uhy4n9IYpRpzfJzT+vTKkNT7T+Y=
+github.com/smartcontractkit/smdkg v0.0.0-20260819115032-4afa3ab56bc4 h1:PWQ7etkNytZUvhTPqXfjG8nc7cfTl1VU375ppvlWQnM=
+github.com/smartcontractkit/smdkg v0.0.0-20260819115032-4afa3ab56bc4/go.mod h1:hNlatK4xMobFTXKM9qS5b42VnHh7ezjW2Srzym/VeZE=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c h1:S1AFIjfHT95ev6gqHKBGy1zj3Tz0fIN3XzkaDUn77wY=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c/go.mod h1:NSc7hgOQbXG3DAwkOdWnZzLTZENXSwDJ7Va1nBp0YU0=
 github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 h1:zxcODLrFytOKmAd8ty8S/XK6WcIEJEgRBaL7sY/7l4Y=
