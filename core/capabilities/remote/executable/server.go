@@ -259,10 +259,11 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	r.receiveLock.Lock()
 	defer r.receiveLock.Unlock()
 
+	logIncomingMessage(r.lggr, msg)
+
 	switch msg.Method {
 	case types.MethodExecute:
 	default:
-		logIncomingMessage(r.lggr, msg)
 		r.lggr.Errorw("received request for unsupported method type", "method", remote.SanitizeLogString(msg.Method))
 		return
 	}
@@ -373,8 +374,15 @@ func logIncomingMessage(lggr logger.Logger, msg *types.MessageBody) {
 		payload = fmt.Sprintf("unmarshal_error=%v raw_hex=%s", uerr, hex.EncodeToString(msg.Payload))
 	}
 
+	rawMsgHex := ""
+	if b, merr := proto.Marshal(msg); merr == nil {
+		rawMsgHex = hex.EncodeToString(b)
+	}
+
 	lggr.Debugw("received message",
 		"envelope", string(envelope),
 		"payload", payload,
+		"rawMsg", msg,
+		"rawMsgHex", rawMsgHex,
 	)
 }
