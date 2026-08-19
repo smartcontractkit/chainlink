@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/githooks/internal/modules"
 )
@@ -43,22 +45,62 @@ type Config struct {
 	Stderr   io.Writer
 }
 
-// EnsureBinary checks if tools/test/.bin/test exists, and builds it if missing.
+// needsBuild reports whether the test harness binary must be (re)built: the
+// binary is missing, or any .go file under srcDir is newer than it.
+func needsBuild(binPath, srcDir string) (bool, error) {
+	binInfo, statErr := os.Stat(binPath)
+	switch {
+	case statErr == nil:
+	case os.IsNotExist(statErr):
+		return true, nil
+	default:
+		return false, fmt.Errorf("failed to stat %s: %w", binPath, statErr)
+	}
+
+	var newest time.Time
+	err := filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, werr error) error {
+		if werr != nil {
+			return werr
+		}
+		if d.IsDir() || filepath.Ext(path) != ".go" {
+			return nil
+		}
+		info, infoErr := d.Info()
+		if infoErr != nil {
+			return infoErr
+		}
+		if info.ModTime().After(newest) {
+			newest = info.ModTime()
+		}
+		return nil
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to scan %s: %w", srcDir, err)
+	}
+
+	return newest.After(binInfo.ModTime()), nil
+}
+
+// EnsureBinary checks if tools/test/.bin/test exists and is newer than the
+// tools/test sources, and builds it if missing or stale.
 func EnsureBinary(ctx context.Context, repoRoot string, stdout, stderr io.Writer) error {
 	binPath := filepath.Join(repoRoot, "tools/test/.bin/test")
-	if _, err := os.Stat(binPath); err == nil {
+	srcDir := filepath.Join(repoRoot, "tools/test")
+
+	rebuild, err := needsBuild(binPath, srcDir)
+	if err != nil {
+		return err
+	}
+	if !rebuild {
 		return nil
-	} else if !os.IsNotExist(err) {
-		return fmt.Errorf("failed to stat %s: %w", binPath, err)
 	}
 
 	if err := os.MkdirAll(filepath.Dir(binPath), 0o755); err != nil {
 		return fmt.Errorf("failed to create %s: %w", filepath.Dir(binPath), err)
 	}
 
-	testModuleDir := filepath.Join(repoRoot, "tools/test")
 	cmd := exec.CommandContext(ctx, "go", "build", "-o", ".bin/test", ".")
-	cmd.Dir = testModuleDir
+	cmd.Dir = srcDir
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
@@ -81,6 +123,13 @@ func Run(ctx context.Context, cfg Config) error {
 
 	if len(mods) == 0 {
 		return nil
+	}
+
+	if cfg.Stdout == nil {
+		cfg.Stdout = io.Discard
+	}
+	if cfg.Stderr == nil {
+		cfg.Stderr = io.Discard
 	}
 
 	execRunner := cfg.Executor

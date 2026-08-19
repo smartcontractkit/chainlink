@@ -11,7 +11,6 @@ import (
 )
 
 func BenchmarkTidyRun(b *testing.B) {
-	ctx := b.Context()
 	repoRoot := "/test/repo"
 
 	mockRunner := func(ctx context.Context, dir string, args ...string) error {
@@ -31,7 +30,7 @@ func BenchmarkTidyRun(b *testing.B) {
 	b.Run("Parallel3Modules", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			err := tidy.Run(ctx, repoRoot, modules3, cfg)
+			err := tidy.Run(b.Context(), repoRoot, modules3, cfg)
 			require.NoError(b, err)
 		}
 	})
@@ -39,7 +38,7 @@ func BenchmarkTidyRun(b *testing.B) {
 	b.Run("Parallel10Modules", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			err := tidy.Run(ctx, repoRoot, modules10, cfg)
+			err := tidy.Run(b.Context(), repoRoot, modules10, cfg)
 			require.NoError(b, err)
 		}
 	})

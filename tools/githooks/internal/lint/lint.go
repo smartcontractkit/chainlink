@@ -48,6 +48,13 @@ func Run(ctx context.Context, cfg Config) error {
 		return nil
 	}
 
+	if cfg.Stdout == nil {
+		cfg.Stdout = io.Discard
+	}
+	if cfg.Stderr == nil {
+		cfg.Stderr = io.Discard
+	}
+
 	execRunner := cfg.Executor
 	if execRunner == nil {
 		execRunner = &osExecutor{stdout: cfg.Stdout, stderr: cfg.Stderr}

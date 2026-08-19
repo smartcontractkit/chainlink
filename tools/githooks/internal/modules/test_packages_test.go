@@ -56,6 +56,30 @@ func TestFindTestModules(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "root module dependency change runs tests on entire root module",
+			files: []string{
+				"go.mod",
+			},
+			expected: []modules.ModulePackages{
+				{
+					Module:   ".",
+					Packages: []string{"./..."},
+				},
+			},
+		},
+		{
+			name: "submodule dependency change runs tests on entire submodule",
+			files: []string{
+				"tools/githooks/go.sum",
+			},
+			expected: []modules.ModulePackages{
+				{
+					Module:   "tools/githooks",
+					Packages: []string{"./..."},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tests {

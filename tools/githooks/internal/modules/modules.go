@@ -234,14 +234,10 @@ func FindTestModules(repoRoot string, files []string) ([]ModulePackages, error) 
 				modulePkgMap[relMod] = make(map[string]struct{})
 			}
 
-			// If go.mod or go.sum changed
+			// If go.mod or go.sum changed, a dependency bump can affect any
+			// package in the module, so run tests on the entire module.
 			if baseName == "go.mod" || baseName == "go.sum" {
-				if relMod == "." {
-					modulePkgMap[relMod]["./core/..."] = struct{}{}
-					modulePkgMap[relMod]["./tools/..."] = struct{}{}
-				} else {
-					modulePkgMap[relMod]["./..."] = struct{}{}
-				}
+				modulePkgMap[relMod]["./..."] = struct{}{}
 				continue
 			}
 

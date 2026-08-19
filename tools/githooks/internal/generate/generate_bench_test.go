@@ -16,7 +16,6 @@ func (b *benchRunner) Run(ctx context.Context, dir string, args ...string) error
 }
 
 func BenchmarkGenerateRun(b *testing.B) {
-	ctx := b.Context()
 	repoRoot := "/test/repo"
 	cfg := generate.Config{Runner: (&benchRunner{}).Run}
 
@@ -40,7 +39,7 @@ func BenchmarkGenerateRun(b *testing.B) {
 	b.Run("ProtoMatched", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			err := generate.Run(ctx, repoRoot, protoFiles, cfg)
+			err := generate.Run(b.Context(), repoRoot, protoFiles, cfg)
 			require.NoError(b, err)
 		}
 	})
@@ -48,7 +47,7 @@ func BenchmarkGenerateRun(b *testing.B) {
 	b.Run("ModGraphMatched", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			err := generate.Run(ctx, repoRoot, modFiles, cfg)
+			err := generate.Run(b.Context(), repoRoot, modFiles, cfg)
 			require.NoError(b, err)
 		}
 	})
@@ -56,7 +55,7 @@ func BenchmarkGenerateRun(b *testing.B) {
 	b.Run("NonGenerateSkipped", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			err := generate.Run(ctx, repoRoot, nonGenFiles, cfg)
+			err := generate.Run(b.Context(), repoRoot, nonGenFiles, cfg)
 			require.NoError(b, err)
 		}
 	})

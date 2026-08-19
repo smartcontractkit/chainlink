@@ -18,7 +18,6 @@ func (b *benchExecutor) Run(ctx context.Context, dir string, name string, args .
 }
 
 func BenchmarkLintRun(b *testing.B) {
-	ctx := b.Context()
 	targets := []modules.ModulePackages{
 		{Module: ".", Packages: []string{"./core/logger", "./core/services/cron"}},
 		{Module: "deployment", Packages: []string{"./environment"}},
@@ -38,7 +37,7 @@ func BenchmarkLintRun(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		err := lint.Run(ctx, cfg)
+		err := lint.Run(b.Context(), cfg)
 		require.NoError(b, err)
 	}
 }

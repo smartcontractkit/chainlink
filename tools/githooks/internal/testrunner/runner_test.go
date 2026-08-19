@@ -112,4 +112,25 @@ func TestRun(t *testing.T) {
 		require.NoError(t, err)
 		assert.Empty(t, mock.runs)
 	})
+
+	t.Run("nil stdout and stderr are replaced with discard", func(t *testing.T) {
+		t.Parallel()
+
+		mock := &mockExecutor{}
+
+		cfg := testrunner.Config{
+			RepoRoot: "/repo",
+			Modules: []modules.ModulePackages{
+				{
+					Module:   "tools/githooks",
+					Packages: []string{"./internal/generate"},
+				},
+			},
+			Executor: mock,
+		}
+
+		err := testrunner.Run(t.Context(), cfg)
+		require.NoError(t, err)
+		require.Len(t, mock.runs, 1)
+	})
 }

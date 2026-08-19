@@ -17,7 +17,6 @@ func (b *benchRunner) Run(ctx context.Context, dir string, name string, args ...
 }
 
 func BenchmarkTestrunnerRun(b *testing.B) {
-	ctx := b.Context()
 	packages := []string{
 		"./core/logger",
 		"./core/services/cron",
@@ -38,7 +37,7 @@ func BenchmarkTestrunnerRun(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		err := testrunner.Run(ctx, cfg)
+		err := testrunner.Run(b.Context(), cfg)
 		require.NoError(b, err)
 	}
 }
