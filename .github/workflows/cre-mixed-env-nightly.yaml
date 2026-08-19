@@ -1,0 +1,127 @@
+name: CRE Mixed-Env Nightly Sweep
+
+# Runs the full CRE system-test matrix under the mixed-env topology (the just-built
+# develop nightly vs a previous nightly) to catch non-determinism / cross-version
+# incompatibilities introduced into develop between nightlies — across the whole
+# suite (EVM + Solana/Aptos/Stellar/…), not just the per-PR subset.
+#
+# Triggered via workflow_call from post-docker-build.yml, which runs after Docker
+# Build publishes the nightly image (docker-build.yml's scheduled/dispatch run). That
+# gives us an event-driven trigger the moment the image is ready — no cron guess and
+# no race with the image build. Both images are cached develop nightlies, so no build
+# is needed here.
+
+on:
+  workflow_call:
+    inputs:
+      chainlink_core_image_tag:
+        required: true
+        type: string
+        description:
+          "The just-built develop nightly core image tag (the 'today' side of the split)."
+      chainlink_version:
+        required: true
+        type: string
+        description: "Chainlink repo ref to check out for the tests."
+  workflow_dispatch:
+    inputs:
+      chainlink_core_image_tag:
+        required: true
+        type: string
+        description:
+          "Develop nightly core image tag for the 'today' side (e.g. nightly-YYYYMMDD)."
+      chainlink_version:
+        required: false
+        type: string
+        default: ""
+        description: "Chainlink repo ref to check out. Defaults to github.sha."
+      baseline_date:
+        required: false
+        type: string
+        default: ""
+        description: "Baseline nightly date (YYYYMMDD). Defaults to yesterday."
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  set-baseline:
+    runs-on: ubuntu-latest
+    outputs:
+      baseline: ${{ steps.d.outputs.baseline }}
+    steps:
+      - id: d
+        shell: bash
+        run: |
+          # The 'today' side is the just-built nightly (passed in), so we only need to
+          # resolve the baseline: a previous develop nightly, defaulting to yesterday.
+          baseline="${{ inputs.baseline_date }}"
+          if [[ -z "${baseline}" ]]; then
+            baseline="$(date -u -d 'yesterday' +'%Y%m%d')"
+          fi
+          echo "baseline=${baseline}" | tee -a "$GITHUB_OUTPUT"
+
+  mixed-env-sweep:
+    needs: set-baseline
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/cre-system-tests.yaml
+    secrets: inherit
+    with:
+      mixed_env: true
+      ecr: "sdlc"
+      chainlink_image_repository_path: "chainlink"
+      # "today" side = the develop nightly Docker Build just published.
+      chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
+      chainlink_version: ${{ inputs.chainlink_version }}
+      # baseline side = a previous develop nightly, so the 2-2 split compares two
+      # develop builds and surfaces non-determinism introduced into develop since then.
+      mixed_env_baseline_image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:nightly-${{ needs.set-baseline.outputs.baseline }}"
+      full_matrix: true
+
+  # There is no PR to block on a nightly run, so alert the CRE team on Slack when the
+  # sweep fails (a failure usually means non-determinism was introduced into develop
+  # between the two nightlies, or a job/infra error).
+  notify-on-failure:
+    name: Notify Slack on failure
+    if: failure()
+    needs: [set-baseline, mixed-env-sweep]
+    runs-on: ubuntu-latest
+    environment:
+      name: integration
+      deployment: false
+    steps:
+      - name: Send Slack notification (#cre-platform-operations)
+        uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
+        with:
+          errors: "true"
+          method: chat.postMessage
+          token: ${{ secrets.QA_SLACK_API_KEY }}
+          # If delivery fails, invite the bot to the channel, or replace the name
+          # with the channel ID (Cxxxxxxxx) which chat.postMessage resolves more reliably.
+          payload: |
+            {
+              "channel": "#cre-platform-operations",
+              "text": "CRE Mixed-Env Nightly Sweep failed — possible non-determinism introduced into develop.",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*:rotating_light: CRE Mixed-Env Nightly Sweep failed :rotating_light:*"
+                  }
+                },
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Today's develop nightly `${{ inputs.chainlink_core_image_tag }}` vs baseline `nightly-${{ needs.set-baseline.outputs.baseline }}`. A failure usually means *non-determinism was introduced into develop* between these nightlies (or a job/infra error). Run: <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|${{ github.run_id }}>. Please investigate."
+                  }
+                },
+                {
+                  "type": "divider"
+                }
+              ]
+            }

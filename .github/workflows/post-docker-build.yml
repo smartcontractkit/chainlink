@@ -71,3 +71,13 @@ jobs:
         with:
             chainlink_image_tag: ${{ inputs.chainlink_core_image_tag }}
         secrets: inherit
+
+    call-cre-mixed-env-nightly:
+        permissions:
+            contents: read
+            id-token: write
+        uses: ./.github/workflows/cre-mixed-env-nightly.yaml
+        with:
+            chainlink_core_image_tag: ${{ inputs.chainlink_core_image_tag }}
+            chainlink_version: ${{ inputs.chainlink_version }}
+        secrets: inherit

@@ -1,0 +1,95 @@
+# Mixed-env Aptos topology (template) — derived from workflow-gateway-don-aptos.toml.
+#
+# Same as workflow-gateway-don-aptos, except the workflow DON runs 2 nodes on the PR
+# image and 2 on the develop image, to surface non-determinism between the two code
+# versions (see docs/mixed-env.md). Render with configs/render-mixed-env.sh:
+#
+#   CRE_PR_IMAGE=<pr> CRE_BASELINE_IMAGE=<develop> \
+#     ./configs/render-mixed-env.sh configs/mixed-env-aptos-don.toml
+#
+# Keep in sync with workflow-gateway-don-aptos.toml if that base topology changes.
+# Do NOT set CTF_CHAINLINK_IMAGE with this topology (it would force one image on all nodes).
+
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "aptos"
+  chain_id = "4"
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44"
+  image = "job-distributor:0.28.0"
+
+[infra]
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_family = "test-don-family"
+  don_types = ["workflow"]
+  override_mode = "each"
+  http_port_range_start = 10100
+
+  supported_evm_chains = [1337]
+  env_vars = { CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"CapabilityCallTimeout":"5m0s","ChainAllowed":{"Default":"false","Values":{"1337":"true","4457093679053095497":"true"}},"ExecutionTimestampsEnabled":"true","FeatureAptosWriteReportBlockTimestampActivePeriod":"[2020-01-01 00:00:00 +0000 UTC,2030-01-01 00:00:00 +0000 UTC]"}}' }
+  capabilities = ["cron", "consensus", "aptos-4", "don-time"]
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]] # node 0 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 1 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 2 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+  [[nodesets.node_specs]] # node 3 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      user_config_overrides = ""
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_family = "test-don-family"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  supported_evm_chains = [1337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = true
+      custom_ports = ["5002:5002", "15002:15002"]
+      user_config_overrides = ""
