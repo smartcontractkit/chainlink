@@ -109,7 +109,8 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 	// Create HTTP client with timeout (default 30 seconds)
 	timeout := time.Duration(30) * time.Second
 	client := &http.Client{
-		Timeout: timeout,
+		Timeout:       timeout,
+		CheckRedirect: disableRedirects,
 	}
 
 	// Validate HTTP method
@@ -120,7 +121,7 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 	method = strings.ToUpper(method)
 
 	// Prepare template data from loaded secrets
-	templateData := make(map[string]interface{})
+	templateData := make(map[string]any)
 	for k, v := range fh.secretsConfig.SecretsNames {
 		if len(v) == 1 {
 			templateData[k] = v[0]
@@ -240,8 +241,13 @@ func (fh *DirectConfidentialHTTPAction) SendRequest(ctx context.Context, metadat
 	// Convert response headers to map[string]*HeaderValues
 	responseHeaders := make(map[string]*confidentialhttp.HeaderValues)
 	for name, values := range resp.Header {
-		responseHeaders[name] = &confidentialhttp.HeaderValues{
-			Values: values,
+		// Sanitize invalid UTF-8: proto string fields must be valid UTF-8 to marshal over gRPC.
+		sanitized := make([]string, len(values))
+		for i, v := range values {
+			sanitized[i] = sanitizeUTF8(v)
+		}
+		responseHeaders[sanitizeUTF8(name)] = &confidentialhttp.HeaderValues{
+			Values: sanitized,
 		}
 	}
 

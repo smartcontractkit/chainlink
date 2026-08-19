@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -61,6 +60,16 @@ func (r *Registry) DONsForCapability(ctx context.Context, capabilityID string) (
 	}
 
 	return r.metadataRegistry.DONsForCapability(ctx, capabilityID)
+}
+
+func (r *Registry) DONByID(ctx context.Context, donID uint32) (capabilities.DON, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.metadataRegistry == nil {
+		return capabilities.DON{}, errors.New("metadataRegistry information not available")
+	}
+
+	return r.metadataRegistry.DONByID(ctx, donID)
 }
 
 // SetLocalRegistry sets a local copy of the offchain registry for the registry to use.

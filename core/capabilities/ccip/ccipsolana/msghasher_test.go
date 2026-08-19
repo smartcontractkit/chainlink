@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestMessageHasher_EVM2SVM(t *testing.T) {
@@ -36,7 +35,7 @@ func TestMessageHasher_EVM2SVM(t *testing.T) {
 	var extraDataCodec = ccipocr3.ExtraDataCodecMap(registeredExtraDataCodecMap)
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)
 	msgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
-	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
+	actualHash, err := msgHasher.Hash(t.Context(), any2AnyMsg)
 	require.NoError(t, err)
 	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, any2AnyMsg.Header.OnRamp, msgAccounts)
 	require.NoError(t, err)
@@ -69,7 +68,7 @@ func TestMessageHasher_InvalidReceiver(t *testing.T) {
 
 	edc := ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap)
 	msgHasher := NewMessageHasherV1(logger.Test(t), edc)
-	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
+	_, err := msgHasher.Hash(t.Context(), any2AnyMsg)
 	require.Error(t, err)
 }
 
@@ -98,7 +97,7 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 	}
 	edc := ccipocr3.ExtraDataCodecMap(registeredMockExtraDataCodecMap)
 	msgHasher := NewMessageHasherV1(logger.Test(t), edc)
-	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
+	_, err := msgHasher.Hash(t.Context(), any2AnyMsg)
 	require.Error(t, err)
 }
 
@@ -141,7 +140,7 @@ func TestParseExtraDataMap_LOOPConvertedTypes(t *testing.T) {
 		"AccountIsWritableBitmap":  int64(6),       // LOOP: uint64 -> int64
 		"AllowOutOfOrderExecution": true,
 		"TokenReceiver":            receiver, // LOOP: [32]byte -> []byte
-		"Accounts": []interface{}{ // LOOP: [][32]byte -> []interface{}
+		"Accounts": []any{ // LOOP: [][32]byte -> []interface{}
 			account1,
 			account2,
 		},
@@ -194,7 +193,7 @@ func TestParseExtraDataMap_InvalidTypes(t *testing.T) {
 
 	t.Run("Accounts element wrong length", func(t *testing.T) {
 		input := map[string]any{
-			"Accounts": []interface{}{
+			"Accounts": []any{
 				[]byte{0x01, 0x02}, // not 32 bytes
 			},
 		}
@@ -204,7 +203,7 @@ func TestParseExtraDataMap_InvalidTypes(t *testing.T) {
 
 	t.Run("Accounts element wrong type", func(t *testing.T) {
 		input := map[string]any{
-			"Accounts": []interface{}{
+			"Accounts": []any{
 				"not bytes",
 			},
 		}

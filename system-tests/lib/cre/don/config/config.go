@@ -34,6 +34,7 @@ import (
 	creblockchains "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	aptoschain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/aptos"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/solana"
+	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
 )
 
@@ -114,6 +115,7 @@ func PrepareNodeTOMLs(
 					Topology:                  topology,
 					Provider:                  creEnv.Provider,
 					ChipRouterInternalGRPCURL: chipRouterInternalGRPCURL,
+					EnableMetering:            localNodeSets[i].EnableMetering,
 				},
 				configFactoryFunctions,
 			)
@@ -185,6 +187,9 @@ func PrepareNodeTOMLs(
 	for i := range localNodeSets {
 		for j := range localNodeSets[i].NodeSpecs {
 			if localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides != "" {
+				if err := validateUserConfigOverrides(localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides); err != nil {
+					return nil, errors.Wrapf(err, "invalid user_config_overrides for nodeset %q node %d", localNodeSets[i].Name, j)
+				}
 				localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides = transformUserConfigOverrides(
 					localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides,
 				)
@@ -380,6 +385,10 @@ func addBootstrapNodeConfig(
 		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
 	}
 
+	if commonInputs.stellarChain != nil {
+		appendStellarChain(&existingConfig.Stellar, commonInputs.stellarChain)
+	}
+
 	for _, ac := range commonInputs.aptosChains {
 		existingConfig.Aptos = append(existingConfig.Aptos, corechainlink.RawConfig{
 			"ChainID": ac.ChainID,
@@ -445,6 +454,10 @@ func addWorkerNodeConfig(
 			URL:        new("billing-platform-service:2223"),
 			TLSEnabled: new(false),
 		}
+
+		if commonInputs.enableMetering {
+			existingConfig.Metering = meteringNodeConfig(donMetadata, m.Index)
+		}
 	}
 
 	// Preserve existing WorkflowRegistry config (e.g., AdditionalSourcesConfig from user_config_overrides)
@@ -480,6 +493,10 @@ func addWorkerNodeConfig(
 
 	if commonInputs.solanaChain != nil {
 		appendSolanaChain(&existingConfig.Solana, commonInputs.solanaChain)
+	}
+
+	if commonInputs.stellarChain != nil {
+		appendStellarChain(&existingConfig.Stellar, commonInputs.stellarChain)
 	}
 
 	for _, ac := range commonInputs.aptosChains {
@@ -559,6 +576,23 @@ func addWorkerNodeConfig(
 		}
 	}
 	return existingConfig, nil
+}
+
+// meteringNodeConfig returns the [Metering] section for a worker node with
+// local-cre deployment dimensions. NodeID is derived from the DON name and
+// node index to be unique per node within the DON (required by
+// Metering.ValidateConfig and per-node snapshot dedup).
+func meteringNodeConfig(donMetadata *cre.DonMetadata, nodeIndex int) coretoml.Metering {
+	return coretoml.Metering{
+		MeterRecordsEnabled:   new(true),
+		MeterSnapshotsEnabled: new(true),
+		Product:               new("cre"),
+		Tenant:                new("local-cre"),
+		NumericTenantID:       new("1"),
+		Environment:           new("local"),
+		Zone:                  new(donMetadata.Name),
+		NodeID:                new(donMetadata.Name + "-node-" + strconv.Itoa(nodeIndex)),
+	}
 }
 
 func addGatewayNodeConfig(
@@ -655,13 +689,15 @@ type commonInputs struct {
 	workflowRegistry   versionedAddress
 	capabilityRegistry versionedAddress
 
-	evmChains   []*evmChain
-	solanaChain *solanaChain
-	aptosChains []*aptosChain
+	evmChains    []*evmChain
+	solanaChain  *solanaChain
+	stellarChain *stellarChain
+	aptosChains  []*aptosChain
 
 	provider infra.Provider
 
 	chipRouterInternalGRPCURL string
+	enableMetering            bool
 }
 
 func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
@@ -684,6 +720,11 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		return nil, errors.Wrap(aptosErr, "failed to find Aptos chains in the environment configuration")
 	}
 
+	stellarChainCfg, stellarErr := findOneStellarChain(input)
+	if stellarErr != nil {
+		return nil, errors.Wrap(stellarErr, "failed to find Stellar chain in the environment configuration")
+	}
+
 	return &commonInputs{
 		registryChainID:       registryChainID,
 		registryChainSelector: input.RegistryChainSelector,
@@ -691,15 +732,17 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 			address: workflowRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.WorkflowRegistry.String()],
 		},
-		evmChains:   evmChains,
-		solanaChain: solanaChain,
-		aptosChains: aptosChains,
+		evmChains:    evmChains,
+		solanaChain:  solanaChain,
+		stellarChain: stellarChainCfg,
+		aptosChains:  aptosChains,
 		capabilityRegistry: versionedAddress{
 			address: capabilitiesRegistryAddress,
 			version: input.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()],
 		},
 		provider:                  input.Provider,
 		chipRouterInternalGRPCURL: input.ChipRouterInternalGRPCURL,
+		enableMetering:            input.EnableMetering,
 	}, nil
 }
 
@@ -713,7 +756,7 @@ type evmChain struct {
 func findEVMChains(input cre.GenerateConfigsInput) []*evmChain {
 	evmChains := make([]*evmChain, 0)
 	for _, bcOut := range input.Blockchains {
-		if bcOut.IsFamily(chain_selectors.FamilySolana) || bcOut.IsFamily(chain_selectors.FamilyAptos) {
+		if bcOut.IsFamily(chain_selectors.FamilySolana) || bcOut.IsFamily(chain_selectors.FamilyAptos) || bcOut.IsFamily(chain_selectors.FamilyStellar) {
 			continue
 		}
 
@@ -762,6 +805,46 @@ func findOneSolanaChain(input cre.GenerateConfigsInput) (*solanaChain, error) {
 	}
 
 	return solChain, nil
+}
+
+type stellarChain struct {
+	Name    string
+	ChainID string
+	NodeURL string
+}
+
+func findOneStellarChain(input cre.GenerateConfigsInput) (*stellarChain, error) {
+	var stChain *stellarChain
+	chainsFound := 0
+
+	for _, bcOut := range input.Blockchains {
+		if !bcOut.IsFamily(chain_selectors.FamilyStellar) {
+			continue
+		}
+
+		chainsFound++
+		if chainsFound > 1 {
+			return nil, errors.New("multiple Stellar chains found, expected only one")
+		}
+
+		stBc, ok := bcOut.(*stellchain.Blockchain)
+		if !ok {
+			return nil, fmt.Errorf("expected Stellar blockchain implementation, got %T", bcOut)
+		}
+
+		nodeURL, err := stBc.InternalNodeURL()
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get Stellar internal node URL")
+		}
+
+		stChain = &stellarChain{
+			Name:    fmt.Sprintf("node-%d", stBc.ChainSelector()),
+			ChainID: stBc.StellarChainID(), // string network id with a corresponding chain selector
+			NodeURL: nodeURL,
+		}
+	}
+
+	return stChain, nil
 }
 
 func findAptosChains(input cre.GenerateConfigsInput) ([]*aptosChain, error) {
@@ -870,6 +953,25 @@ func appendSolanaChain(existingConfig *corechainlink.RawConfigs, solChain *solan
 	})
 }
 
+func appendStellarChain(existingConfig *corechainlink.RawConfigs, stChain *stellarChain) {
+	for _, existing := range *existingConfig {
+		if existing.ChainID() == stChain.ChainID {
+			return
+		}
+	}
+
+	*existingConfig = append(*existingConfig, corechainlink.RawConfig{
+		"Enabled": true,
+		"ChainID": stChain.ChainID,
+		"Nodes": []map[string]any{
+			{
+				"Name": stChain.Name,
+				"URL":  stChain.NodeURL,
+			},
+		},
+	})
+}
+
 // transformAdditionalSourceURLs transforms URLs in AdditionalSourcesConfig to use
 // platform-specific Docker host addresses. This handles differences between macOS
 // (host.docker.internal) and Linux (172.17.0.1 or similar) Docker host resolution.
@@ -894,6 +996,37 @@ func transformAdditionalSourceURLs(sources []coretoml.AdditionalWorkflowSource) 
 	}
 
 	return transformed
+}
+
+// frameworkManagedSections are top-level node-config tables the framework
+// generates itself (see baseNodeConfig/addWorkerNodeConfig): Telemetry points
+// nodes at the chip-router (the test sink and other consumers subscribe to the
+// router, so overriding ChipIngressEndpoint silently bypasses them), Billing
+// at the local billing service, and Metering is gated by the nodeset-level
+// enable_metering flag. Overriding any of them in user_config_overrides wins
+// the last-one-wins config merge on the node and desynchronizes the
+// environment from what the framework wired up.
+var frameworkManagedSections = []string{"Telemetry", "Billing", "Metering"}
+
+// validateUserConfigOverrides rejects user_config_overrides that set
+// framework-managed config tables. It parses the TOML rather than string
+// matching so comments mentioning these sections stay legal.
+func validateUserConfigOverrides(userConfig string) error {
+	var parsed map[string]any
+	if err := toml.Unmarshal([]byte(userConfig), &parsed); err != nil {
+		return errors.Wrap(err, "user_config_overrides is not valid TOML")
+	}
+	for _, section := range frameworkManagedSections {
+		if _, found := parsed[section]; found {
+			return errors.Errorf(
+				"[%s] is framework-managed and cannot be set via user_config_overrides; "+
+					"the framework generates it (pointing telemetry at the chip-router). "+
+					"For metering, set enable_metering = true on the nodeset instead",
+				section,
+			)
+		}
+	}
+	return nil
 }
 
 // transformUserConfigOverrides transforms URLs in a user config overrides string to use

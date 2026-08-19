@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
@@ -67,7 +66,7 @@ func newRemoteCapabilityExecuteErrorFromCapError(capErr caperrors.Error) error {
 }
 
 // ErrResponseQuorumUnreachable is returned when enough peer responses have been
-// received that F+1 matching payloads are no longer mathematically possible.
+// received that the required number of matching payloads (configurable; defaults to F+1) are no longer mathematically possible.
 var ErrResponseQuorumUnreachable = errors.New("response quorum unreachable: not enough matching capability responses")
 
 type clientResponse struct {
@@ -93,6 +92,7 @@ type ClientRequest struct {
 
 	requiredResponseConfirmations int
 	remoteNodeCount               int
+	remoteDonF                    int
 
 	requestTimeout time.Duration
 
@@ -105,7 +105,7 @@ type ClientRequest struct {
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string,
-	signers [][]byte,
+	signers [][]byte, minResponsesToAggregate uint32,
 ) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
 	if err != nil {
@@ -135,7 +135,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	}
 
 	lggr = logger.With(lggr, "requestId", requestID) // cap ID and method name included in the parent logger
-	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers)
+	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest, workflowExecutionID, req.Metadata.ReferenceID, capMethodName, signers, minResponsesToAggregate)
 }
 
 var (
@@ -145,10 +145,20 @@ var (
 	defaultResponseAggregationGrace = 10 * time.Second
 )
 
+// requiredConfirmations returns the minimum number of matching peer responses needed before
+// the workflow DON accepts a read result. When minResponsesToAggregate is non-zero it is used
+// directly; otherwise the default of F+1 is used (backward compatible).
+func requiredConfirmations(f uint8, minResponsesToAggregate uint32) int {
+	if minResponsesToAggregate > 0 {
+		return int(minResponsesToAggregate)
+	}
+	return int(f) + 1
+}
+
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
 	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
-	signers [][]byte,
+	signers [][]byte, minResponsesToAggregate uint32,
 ) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON
 	if remoteCapabilityDonInfo == nil {
@@ -226,11 +236,14 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 				CapabilityMethod: capMethodName,
 			}
 
+			timer := time.NewTimer(delay)
+			defer timer.Stop()
+
 			select {
 			case <-innerCtx.Done():
 				lggr.Debugw("context done, not sending request to peer", "peerID", peerID)
 				return
-			case <-time.After(delay):
+			case <-timer.C:
 				lggr.Debugw("sending request to peer", "peerID", peerID)
 				err := dispatcher.Send(peerID, message)
 				if err != nil {
@@ -245,8 +258,9 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		cancelFn:                      cancelFn,
 		createdAt:                     time.Now(),
 		requestTimeout:                requestTimeout,
-		requiredResponseConfirmations: int(remoteCapabilityDonInfo.F + 1),
+		requiredResponseConfirmations: requiredConfirmations(remoteCapabilityDonInfo.F, minResponsesToAggregate),
 		remoteNodeCount:               len(remoteCapabilityDonInfo.Members),
+		remoteDonF:                    int(remoteCapabilityDonInfo.F),
 		responseIDCount:               make(map[[32]byte]int),
 		meteringResponses:             make(map[[32]byte][]commoncap.MeteringNodeDetail),
 		errorCount:                    make(map[string]int),
@@ -506,6 +520,16 @@ func (c *ClientRequest) pending() int {
 
 func (c *ClientRequest) hasValidAttestation(resp commoncap.CapabilityResponse) bool {
 	if resp.OCRAttestation == nil {
+		return false
+	}
+
+	// report_attestation.go in libocr only ever collects F+1 signatures before declaring a report complete
+	// (it stops as soon as it has one signature past the DON's F threshold). That means an OCRAttestation
+	// can never carry more than F+1 signatures, regardless of how the capability DON is configured.
+	// When requiredResponseConfirmations (driven by minResponsesToAggregate) is set above F+1, verifyAttestation
+	// would therefore always fail and log a spurious "this is most likely a bug" error on every response. In that
+	// case we deliberately skip attestation verification altogether and fall back to the identical-response quorum check instead.
+	if c.requiredResponseConfirmations > c.remoteDonF+1 {
 		return false
 	}
 

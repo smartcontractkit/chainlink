@@ -1,5 +1,112 @@
 # Changelog Chainlink Core
 
+## 2.61.0
+
+### Minor Changes
+
+- [#23389](https://github.com/smartcontractkit/chainlink/pull/23389) [`7433cf1`](https://github.com/smartcontractkit/chainlink/commit/7433cf1f55afe2d1281d3fda6a80a81d1a63f6cb) - Minor bump to start next version
+
+## 2.60.0
+
+### Minor Changes
+
+- [#23372](https://github.com/smartcontractkit/chainlink/pull/23372) [`7e14931`](https://github.com/smartcontractkit/chainlink/commit/7e1493120d585bdc67764835d73db3655d6d9973) - #added adds V2 call_capability to wasm with proper response handling #bugfix
+
+- [#23327](https://github.com/smartcontractkit/chainlink/pull/23327) [`d2f97d2`](https://github.com/smartcontractkit/chainlink/commit/d2f97d2cd6c5fcca678123f954b499049850b6bd) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23037](https://github.com/smartcontractkit/chainlink/pull/23037) [`003236a`](https://github.com/smartcontractkit/chainlink/commit/003236a45e91c858c09226eba4bb0efcf228be09) - #internal Add node-measured round-trip metrics to the confidential workflows ConfidentialModule: `enclave_execution_time_ms` (histogram) and `enclave_execution_failures` (counter), labeled by workflow. These are trusted (node-measured) and complement the non-attested `enclave.*` metrics forwarded from the enclave.
+
+- [#23375](https://github.com/smartcontractkit/chainlink/pull/23375) [`3e2a831`](https://github.com/smartcontractkit/chainlink/commit/3e2a83144bc06c43c34a12ebe82723e2ca9c9a6c) - #internal Move `BuildWorkflowGetSecretsRequestID` to chainlink-common's vault capability package and use it in place of the `vaultutils` copy, so all consumers derive the VaultDON GetSecrets request ID from a single definition.
+
+## 2.59.0
+
+### Minor Changes
+
+- [#23261](https://github.com/smartcontractkit/chainlink/pull/23261) [`9f65859`](https://github.com/smartcontractkit/chainlink/commit/9f65859dba91b912652644f0fe008cef281073fb) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23284](https://github.com/smartcontractkit/chainlink/pull/23284) [`545a34e`](https://github.com/smartcontractkit/chainlink/commit/545a34e9ed063c6e5a1a3fe5827c06db0def1bd5) - #internal Confidential relay: on the workflow node, briefly wait (after attestation and Workflow-DON authorization pass) for a not-yet-registered execution handler before failing the enclave's relay callback. This lets a node that has not yet started its copy of the DON-shared execution register and sign in time, instead of failing the callback outright and eroding the relay quorum. The wait is bounded so a callback for an execution the node never runs still fails promptly.
+
+## 2.58.0
+
+### Minor Changes
+
+- [#23196](https://github.com/smartcontractkit/chainlink/pull/23196) [`9aa8015`](https://github.com/smartcontractkit/chainlink/commit/9aa80150fdd193ce879a933597403da3c1dee828) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23085](https://github.com/smartcontractkit/chainlink/pull/23085) [`850a738`](https://github.com/smartcontractkit/chainlink/commit/850a7385948f954747779cebeed8c451890ed833) - #added Add `Telemetry.MetricViewsDenyAttributes` config option to drop specified metric attribute keys from Beholder default views.
+
+- [#22987](https://github.com/smartcontractkit/chainlink/pull/22987) [`76d6194`](https://github.com/smartcontractkit/chainlink/commit/76d619492ff3beb82643bb0654e9cac55b39fd17) - #changed Chip-ingress batch emitter defaults tuned from staging/prod capacity analysis:
+  `ChipIngressBufferSize` 1000 → 10000, `ChipIngressMaxBatchSize` 500 → 1000,
+  `ChipIngressSendInterval` 100ms → 500ms, `ChipIngressSendTimeout` 3s → 10s,
+  `ChipIngressDrainTimeout` 10s → 30s.
+
+- [#23251](https://github.com/smartcontractkit/chainlink/pull/23251) [`e5d93d4`](https://github.com/smartcontractkit/chainlink/commit/e5d93d41424034fcf165b22495e281be49ea8e86) - Add feedAddress to meta metrics. #internal
+
+## 2.57.0
+
+### Minor Changes
+
+- [#23084](https://github.com/smartcontractkit/chainlink/pull/23084) [`3007515`](https://github.com/smartcontractkit/chainlink/commit/3007515ee09add2c991511c61ce36ededaff8f64) - #added Add `Telemetry.MetricCardinalityLimit` config to support limiting Beholder OTel SDK metric cardinality.
+
+- [#23136](https://github.com/smartcontractkit/chainlink/pull/23136) [`aa67b6b`](https://github.com/smartcontractkit/chainlink/commit/aa67b6b6bb599eeeea06ed5baa12b8b95b03e50e) - #added The v2 workflow engine now emits `ClassifiedExecutionStatus` on `WorkflowExecutionFinished` events, distinguishing failures caused by the user's workflow (`USER_ERROR`) from platform/infrastructure failures (`SYSTEM_ERROR`). The v1 engine is unaffected.
+
+- [#23134](https://github.com/smartcontractkit/chainlink/pull/23134) [`46a0f6e`](https://github.com/smartcontractkit/chainlink/commit/46a0f6e77b5f06eebdfe9143b2d30ac6dfb6262a) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22708](https://github.com/smartcontractkit/chainlink/pull/22708) [`db2daaa`](https://github.com/smartcontractkit/chainlink/commit/db2daaa270901330ead425a8206a27422f0e239d) - #bugfix Rebuild the in-memory workflow execution store's map when pruning so old bucket storage becomes eligible for GC. Go maps never shrink after deletes, which stranded memory as the store churned through millions of executions.
+
+## 2.56.0
+
+### Minor Changes
+
+- [#23043](https://github.com/smartcontractkit/chainlink/pull/23043) [`fe901c7`](https://github.com/smartcontractkit/chainlink/commit/fe901c73df31613b5f3789a672365daf1e64ec30) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22973](https://github.com/smartcontractkit/chainlink/pull/22973) [`389792a`](https://github.com/smartcontractkit/chainlink/commit/389792a9ed6586dea7e04bafd7fe41479a94b30f) - #bugfix Fixed permissions in test db setup script (grant CREATEROLE and repair leftover NOLOGIN pgtdbuser for pgtestdb)
+
+## 2.55.0
+
+### Minor Changes
+
+- [#22876](https://github.com/smartcontractkit/chainlink/pull/22876) [`c0c329e`](https://github.com/smartcontractkit/chainlink/commit/c0c329e1739cda8f5857877eefb0724e28916675) - Add the ConfidentialWorkflows.Enabled feature gate to the v2 workflow engine. Confidential workflow execution can now be toggled per workflow/owner/org/global via the settings registry; when disabled, ConfidentialModule.Execute rejects the request.
+
+- [#22996](https://github.com/smartcontractkit/chainlink/pull/22996) [`d3685b2`](https://github.com/smartcontractkit/chainlink/commit/d3685b2fc93879be0de861895395a86845d20ae3) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22994](https://github.com/smartcontractkit/chainlink/pull/22994) [`1a5f3ca`](https://github.com/smartcontractkit/chainlink/commit/1a5f3cac0f32b856b6d9de5e7d2927a32c1f61f2) - Add structured vault request ID logging across capability, OCR plugin, and workflow secrets paths. #internal
+
+## 2.54.0
+
+### Minor Changes
+
+- [#22929](https://github.com/smartcontractkit/chainlink/pull/22929) [`f0d09ca`](https://github.com/smartcontractkit/chainlink/commit/f0d09ca537389e76a7e63f7fa2cccae9ca8b4192) - Minor bump to start next version
+
+- [#22905](https://github.com/smartcontractkit/chainlink/pull/22905) [`9570a4d`](https://github.com/smartcontractkit/chainlink/commit/9570a4d44980e9c6d853ee7d5e8a59c5e8f0606b) - #nops: Hard-set UID and GID when CHAINLINK_USER is non-root, and document container RootDir and safe volume mount conventions for operators.
+
+### Patch Changes
+
+- [#22733](https://github.com/smartcontractkit/chainlink/pull/22733) [`6624255`](https://github.com/smartcontractkit/chainlink/commit/66242557bd126cb8fe0bab390d6b75747408cdad) - Require explicit `don_family` on every nodeset for local CRE topologies. Gateway connectors, gateway worker jobs, capabilities registry families, and `env workflow deploy` are scoped by family. Deploy resolves the target workflow DON via `--don-family` (with optional `--shard-index`) or `--workflow-don-name`, and requires `--don-family` when local CRE state is absent. #internal
+
+## 2.53.0
+
+### Minor Changes
+
+- [#22864](https://github.com/smartcontractkit/chainlink/pull/22864) [`a21c4d7`](https://github.com/smartcontractkit/chainlink/commit/a21c4d7cb8487235b47efe196da5c73cf1e1a8f2) - Minor bump to start next version
+
+### Patch Changes
+
+- [#22306](https://github.com/smartcontractkit/chainlink/pull/22306) [`fe0013a`](https://github.com/smartcontractkit/chainlink/commit/fe0013aa56fcbd272ca9d1fae68e6d2a608d347d) - #updated #nops Updated documentation for SVR multiplexing and CustomURLs configuration.
+
+- [#22892](https://github.com/smartcontractkit/chainlink/pull/22892) [`5481a58`](https://github.com/smartcontractkit/chainlink/commit/5481a58f29aaa0e4986abce898a6312072e18f0d) - Use updated arbitrum gas estimator with refresh interval: 10s -> 2s and gas bump 1.5x -> 1.9x #changed
+
 ## 2.52.0
 
 ### Minor Changes
@@ -10,7 +117,7 @@
 
 - [#22809](https://github.com/smartcontractkit/chainlink/pull/22809) [`af55120`](https://github.com/smartcontractkit/chainlink/commit/af5512049c60904b10489e7f1b0dc72bdefea241) - #internal Confidential workflows: stop setting the deprecated outside-envelope `ConfidentialWorkflowRequest.binary_url`. `binary_url` stays in the hashed `WorkflowExecution` (PublicData); the enclave reads it there.
 
-## 2.51.0
+## 2.56.0
 
 ### Minor Changes
 

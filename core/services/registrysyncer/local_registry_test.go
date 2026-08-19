@@ -4,11 +4,12 @@ import (
 	"context"
 	"testing"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -160,6 +161,54 @@ func TestLocalRegistry_DONsForCapability(t *testing.T) {
 	// thirdCapability is on a DON with invalid peers
 	_, err = lr.DONsForCapability(t.Context(), "thirdCapabilityID@1.0.0")
 	require.ErrorContains(t, err, "could not find node for peerID")
+}
+
+func TestLocalRegistry_DONByID(t *testing.T) {
+	t.Parallel()
+	lggr := logger.Test(t)
+	getPeerID := func() (types.PeerID, error) {
+		return types.PeerID{0: 1}, nil
+	}
+	idsToDons := map[DonID]DON{
+		1: {
+			DON: capabilities.DON{
+				Name:     "workflow_1_zone-b",
+				ID:       1,
+				F:        1,
+				Families: []string{"zone-b"},
+				Members:  []types.PeerID{{0: 1}},
+			},
+		},
+		2: {
+			DON: capabilities.DON{
+				Name:    "workflow_1_zone-a",
+				ID:      2,
+				F:       1,
+				Members: []types.PeerID{{0: 2}},
+			},
+		},
+	}
+	idsToNodes := map[types.PeerID]NodeInfo{
+		{0: 1}: {NodeOperatorID: 0},
+	}
+	idsToCapabilities := map[string]Capability{
+		"capabilityID@1.0.0": {ID: "capabilityID@1.0.0", CapabilityType: capabilities.CapabilityTypeAction},
+	}
+	lr := NewLocalRegistry(lggr, getPeerID, idsToDons, idsToNodes, idsToCapabilities)
+
+	got, err := lr.DONByID(t.Context(), 1)
+	require.NoError(t, err)
+	assert.Equal(t, idsToDons[1].DON, got)
+	assert.Contains(t, got.Families, "zone-b")
+
+	got2, err := lr.DONByID(t.Context(), 2)
+	require.NoError(t, err)
+	assert.Equal(t, idsToDons[2].DON, got2)
+	assert.NotContains(t, got2.Families, "zone-b")
+
+	// Unknown DON ID errors.
+	_, err = lr.DONByID(t.Context(), 99)
+	require.ErrorContains(t, err, "could not find don 99")
 }
 
 func mustMarshalProto(t *testing.T, msg proto.Message) []byte {

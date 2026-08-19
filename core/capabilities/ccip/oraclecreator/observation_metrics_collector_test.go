@@ -232,9 +232,9 @@ func TestWrappedCounter_ConcurrentIncrements(t *testing.T) {
 	const incrementsPerGoroutine = 100
 	done := make(chan bool, numGoroutines)
 
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		go func() {
-			for j := 0; j < incrementsPerGoroutine; j++ {
+			for range incrementsPerGoroutine {
 				baseCounter.Inc()
 			}
 			done <- true
@@ -242,7 +242,7 @@ func TestWrappedCounter_ConcurrentIncrements(t *testing.T) {
 	}
 
 	// Wait for all goroutines
-	for i := 0; i < numGoroutines; i++ {
+	for range numGoroutines {
 		<-done
 	}
 
@@ -394,6 +394,10 @@ func TestObservationMetricsCollector_NonTargetMetrics(t *testing.T) {
 // TestObservationMetricsCollector_BackgroundPolling verifies that Start publishes metrics
 // on a timer without any explicit Collect call from the outside (i.e. without a Prometheus scrape).
 func TestObservationMetricsCollector_BackgroundPolling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	lggr, err := logger.New()
 	require.NoError(t, err)
 
@@ -445,6 +449,10 @@ func TestObservationMetricsCollector_BackgroundPolling(t *testing.T) {
 // TestObservationMetricsCollector_CloseStopsPolling verifies that Close stops the background
 // goroutine and no further publishes occur even if the counter keeps incrementing.
 func TestObservationMetricsCollector_CloseStopsPolling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	lggr, err := logger.New()
 	require.NoError(t, err)
 

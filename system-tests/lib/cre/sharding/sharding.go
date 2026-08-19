@@ -192,7 +192,7 @@ func getBootstrapURLs(dons *cre.Dons) ([]string, error) {
 func createRingJobs(ctx context.Context, creEnv *cre.Environment, shardLeaderDON *cre.Don, dons *cre.Dons, ringOCR3Addr, shardConfigAddr common.Address, bootstrapURLs []string) error {
 	ringJobInput := ring_ops.ProposeRingJobInput{
 		Domain:           offchain.ProductLabel,
-		EnvName:          cre.EnvironmentName,
+		EnvName:          creEnv.CldfEnvironment.Name,
 		DONName:          shardLeaderDON.Name,
 		JobName:          "ring-capability",
 		ContractAddress:  ringOCR3Addr.Hex(),
@@ -347,7 +347,7 @@ func configureRingOCR3(creEnv *cre.Environment, ringOCR3Addr common.Address, sha
 		DeltaRoundMillis:                  2000,
 		DeltaGraceMillis:                  500,
 		DeltaCertifiedCommitRequestMillis: 500,
-		DeltaStageMillis:                  60000,
+		DeltaStageMillis:                  15000,
 		MaxRoundsPerEpoch:                 100,
 		TransmissionSchedule:              []int{len(nodeIDs)},
 		MaxDurationQueryMillis:            5000,

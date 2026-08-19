@@ -163,7 +163,7 @@ func (c *EVMKMSClient) GetECDSAPublicKey() (*ecdsa.PublicKey, error) {
 	}
 
 	getPubKeyOutput, err := c.Client.GetPublicKey(&kms.GetPublicKeyInput{
-		KeyId: aws.String(c.KeyID),
+		KeyId: new(c.KeyID),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("can not get public key from KMS for KeyId=%s: %w", c.KeyID, err)
@@ -243,8 +243,8 @@ type AwsSessionFn func(config KMS) *session.Session
 var awsSessionFromEnvVarsFn = func(config KMS) *session.Session {
 	return session.Must(
 		session.NewSession(&aws.Config{
-			Region:                        aws.String(config.KmsDeployerKeyRegion),
-			CredentialsChainVerboseErrors: aws.Bool(true),
+			Region:                        new(config.KmsDeployerKeyRegion),
+			CredentialsChainVerboseErrors: new(true),
 		}))
 }
 
@@ -254,8 +254,8 @@ var awsSessionFromProfileFn = func(config KMS) *session.Session {
 			SharedConfigState: session.SharedConfigEnable,
 			Profile:           config.AwsProfileName,
 			Config: aws.Config{
-				Region:                        aws.String(config.KmsDeployerKeyRegion),
-				CredentialsChainVerboseErrors: aws.Bool(true),
+				Region:                        new(config.KmsDeployerKeyRegion),
+				CredentialsChainVerboseErrors: new(true),
 			},
 		}))
 }

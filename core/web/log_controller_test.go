@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -23,7 +22,7 @@ import (
 type testCase struct {
 	Description string
 	logLevel    string
-	logSql      *bool
+	logSQL      *bool
 
 	expectedLogLevel  zapcore.Level
 	expectedLogSQL    bool
@@ -34,12 +33,12 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Log.Level = ptr(toml.LogLevel(zapcore.WarnLevel))
-		c.Database.LogQueries = ptr(true)
+		c.Log.Level = new(toml.LogLevel(zapcore.WarnLevel))
+		c.Database.LogQueries = new(true)
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -72,26 +71,26 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 		{
 			Description:      "Set log level to debug",
 			logLevel:         "debug",
-			logSql:           nil,
+			logSQL:           nil,
 			expectedLogLevel: zapcore.DebugLevel,
 		},
 		{
 			Description:      "Set log level to info",
 			logLevel:         "info",
-			logSql:           nil,
+			logSQL:           nil,
 			expectedLogLevel: zapcore.InfoLevel,
 		},
 		{
 			Description:      "Set log level to info and log sql to true",
 			logLevel:         "info",
-			logSql:           &sqlTrue,
+			logSQL:           &sqlTrue,
 			expectedLogLevel: zapcore.InfoLevel,
 			expectedLogSQL:   true,
 		},
 		{
 			Description:      "Set log level to warn and log sql to false",
 			logLevel:         "warn",
-			logSql:           &sqlFalse,
+			logSQL:           &sqlFalse,
 			expectedLogLevel: zapcore.WarnLevel,
 			expectedLogSQL:   false,
 		},
@@ -108,11 +107,12 @@ func TestLogController_PatchLogConfig(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.Description, func(t *testing.T) {
+			t.Parallel()
 			app := cltest.NewApplicationEVMDisabled(t)
-			require.NoError(t, app.Start(testutils.Context(t)))
+			require.NoError(t, app.Start(t.Context()))
 			client := app.NewHTTPClient(nil)
 
-			request := web.LogPatchRequest{Level: tc.logLevel, SqlEnabled: tc.logSql}
+			request := web.LogPatchRequest{Level: tc.logLevel, SQLEnabled: tc.logSQL}
 
 			requestData, _ := json.Marshal(request)
 			buf := bytes.NewBuffer(requestData)

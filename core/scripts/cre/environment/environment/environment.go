@@ -217,6 +217,11 @@ func startCmd() *cobra.Command {
 		withBilling              bool
 		setupConfig              SetupConfig
 		chipGRPCPort             int
+		localNode                bool
+		localCapabilities        []string
+		capabilitiesPath         string
+		localBuildPlatform       string
+		localNodeImage           string
 	)
 
 	cmd := &cobra.Command{
@@ -276,6 +281,23 @@ func startCmd() *cobra.Command {
 				return errors.Wrap(err, "failed to load environment configuration")
 			}
 			applyChipRouterImageOverride(in)
+
+			if localNode || len(localCapabilities) > 0 {
+				repoRoot, absErr := filepath.Abs(relativePathToRepoRoot)
+				if absErr != nil {
+					return errors.Wrap(absErr, "failed to resolve repo root for local build")
+				}
+				if lbErr := ApplyLocalBuilds(cmdContext, in, LocalBuildConfig{
+					Node:             localNode,
+					Capabilities:     localCapabilities,
+					CapabilitiesPath: capabilitiesPath,
+					Platform:         localBuildPlatform,
+					DevImage:         localNodeImage,
+					RepoRoot:         repoRoot,
+				}); lbErr != nil {
+					return errors.Wrap(lbErr, "failed to apply local builds")
+				}
+			}
 
 			// Skip Docker operations for Kubernetes provider (Docker not needed)
 			isDocker := in.Infra != nil && !in.Infra.IsKubernetes()
@@ -341,18 +363,7 @@ func startCmd() *cobra.Command {
 			}
 
 			features := feature_set.New()
-			extraAllowedPorts := append([]int(nil), extraAllowedGatewayPorts...)
-			if in.Fake != nil {
-				extraAllowedPorts = append(extraAllowedPorts, in.Fake.Port)
-			}
-			if in.FakeHTTP != nil {
-				extraAllowedPorts = append(extraAllowedPorts, in.FakeHTTP.Port)
-			}
-
-			gatewayWhitelistConfig := gateway.WhitelistConfig{
-				ExtraAllowedPorts:   extraAllowedPorts,
-				ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
-			}
+			gatewayWhitelistConfig := defaultGatewayWhitelistConfig(in, extraAllowedGatewayPorts)
 			output, startErr := StartCLIEnvironment(cmdContext, relativePathToRepoRoot, in, nil, features, nil, envDependencies, gatewayWhitelistConfig)
 			if startErr != nil {
 				fmt.Fprintf(os.Stderr, "Error: %s\n", startErr)
@@ -549,6 +560,11 @@ func startCmd() *cobra.Command {
 	cmd.Flags().BoolVarP(&doSetup, "auto-setup", "a", false, "Run setup before starting the environment")
 	cmd.Flags().StringVarP(&setupConfig.ConfigPath, "setup-config", "s", DefaultSetupConfigPath, "Path to the TOML configuration file for the setup command")
 	cmd.Flags().IntVarP(&chipGRPCPort, "grpc-port", "g", mustStringToInt(chipingressset.DEFAULT_CHIP_INGRESS_GRPC_PORT), "GRPC port for Chip Ingress")
+	cmd.Flags().BoolVar(&localNode, "local-node", false, "Build the Chainlink node image from your local working tree (host build, resolves local replaces like chainlink-common) and use it for all nodes")
+	cmd.Flags().StringSliceVar(&localCapabilities, "local-capabilities", nil, "Build these CRE capabilities from local source and inject them into the nodes instead of the pinned versions (comma-separated names, or 'all')")
+	cmd.Flags().StringVar(&capabilitiesPath, "capabilities-path", "", "Path to the local capabilities repo (default: $CRE_CAPABILITIES_PATH or ~/go/src/github.com/smartcontractkit/capabilities)")
+	cmd.Flags().StringVar(&localBuildPlatform, "local-build-platform", "", "Target platform for local builds, e.g. linux/arm64 (default: linux/<host arch>)")
+	cmd.Flags().StringVar(&localNodeImage, "local-node-image", "cre-node:local", "Image tag for the locally built node image")
 
 	return cmd
 }
@@ -826,6 +842,23 @@ func statusCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+// defaultGatewayWhitelistConfig builds the Gateway Connector's outbound allowlist:
+// the caller's extra ports plus the fake service ports the config declares.
+func defaultGatewayWhitelistConfig(in *envconfig.Config, extraAllowedPorts []int) gateway.WhitelistConfig {
+	ports := append([]int(nil), extraAllowedPorts...)
+	if in.Fake != nil {
+		ports = append(ports, in.Fake.Port)
+	}
+	if in.FakeHTTP != nil {
+		ports = append(ports, in.FakeHTTP.Port)
+	}
+
+	return gateway.WhitelistConfig{
+		ExtraAllowedPorts:   ports,
+		ExtraAllowedIPsCIDR: []string{"0.0.0.0/0"},
+	}
 }
 
 func StartCLIEnvironment(

@@ -14,13 +14,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 )
 
-func TestEmit(t *testing.T) {
-	// t.Parallel() // TODO: the beholder tester uses t.SetEnv and cannot use t.Parallel
+func TestEmit(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver is not thread-safe
 	triggerID := "trigger_" + uuid.NewString()
 	executionID := "execution_" + uuid.NewString()
 	capabilityID := "capability_" + uuid.NewString()
@@ -33,7 +31,7 @@ func TestEmit(t *testing.T) {
 	// basic regex for RFC3339Nano using ISO 8601 or tz offset format
 	timeMatcher := regexp.MustCompile(`[0-9\-]{10}T[0-9:]{8}\.[0-9Z\-:\+]+`)
 
-	t.Run(events.WorkflowExecutionStarted, func(t *testing.T) {
+	t.Run(events.WorkflowExecutionStarted, func(t *testing.T) { //nolint:paralleltest // shares beholder observer
 		require.NoError(t, events.EmitExecutionStartedEvent(t.Context(), labels, triggerID, executionID))
 		require.Len(t, labels, 1)
 
@@ -46,8 +44,8 @@ func TestEmit(t *testing.T) {
 		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
 	})
 
-	t.Run(events.WorkflowExecutionFinished, func(t *testing.T) {
-		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "status", executionID, nil, nil))
+	t.Run(events.WorkflowExecutionFinished, func(t *testing.T) { //nolint:paralleltest // shares beholder observer
+		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "status", executionID, nil, events.ErrorClassificationUnspecified, nil))
 		require.Len(t, labels, 1)
 
 		msgs := beholderObserver.Messages(t, "beholder_entity", "workflows.v1."+events.WorkflowExecutionFinished)
@@ -59,9 +57,9 @@ func TestEmit(t *testing.T) {
 		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
 	})
 
-	t.Run(events.WorkflowExecutionFinished+"_with_error", func(t *testing.T) {
+	t.Run(events.WorkflowExecutionFinished+"_with_error", func(t *testing.T) { //nolint:paralleltest // shares beholder observer
 		testErr := errors.New("something went wrong")
-		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "errored", executionID, testErr, nil))
+		require.NoError(t, events.EmitExecutionFinishedEvent(t.Context(), labels, "errored", executionID, testErr, events.ErrorClassificationSystem, nil))
 
 		v2Msgs := beholderObserver.Messages(t, "beholder_entity", "workflows.v2."+events.WorkflowExecutionFinished)
 		require.NotEmpty(t, v2Msgs)
@@ -71,9 +69,10 @@ func TestEmit(t *testing.T) {
 		require.NoError(t, proto.Unmarshal(v2Msgs[len(v2Msgs)-1].Body, &v2Event))
 		assert.Equal(t, "something went wrong", v2Event.Error)
 		assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_FAILED, v2Event.Status)
+		assert.Equal(t, eventsv2.ClassifiedExecutionStatus_CLASSIFIED_EXECUTION_STATUS_SYSTEM_ERROR, v2Event.ClassifiedStatus)
 	})
 
-	t.Run(events.CapabilityExecutionStarted, func(t *testing.T) {
+	t.Run(events.CapabilityExecutionStarted, func(t *testing.T) { //nolint:paralleltest // shares beholder observer
 		require.NoError(t, events.EmitCapabilityStartedEvent(t.Context(), labels, executionID, capabilityID, stepRef, "test-method"))
 		require.Len(t, labels, 1)
 
@@ -86,7 +85,7 @@ func TestEmit(t *testing.T) {
 		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
 	})
 
-	t.Run(events.CapabilityExecutionFinished, func(t *testing.T) {
+	t.Run(events.CapabilityExecutionFinished, func(t *testing.T) { //nolint:paralleltest // shares beholder observer
 		require.NoError(t, events.EmitCapabilityFinishedEvent(t.Context(), labels, executionID, capabilityID, stepRef, "status", "test-method", nil))
 		require.Len(t, labels, 1)
 
@@ -99,7 +98,7 @@ func TestEmit(t *testing.T) {
 		assert.True(t, timeMatcher.MatchString(expected.Timestamp), expected.Timestamp)
 	})
 
-	t.Run(events.UserLogs, func(t *testing.T) {
+	t.Run(events.UserLogs, func(t *testing.T) { //nolint:paralleltest // shares beholder observer
 		logLines := []*pb.LogLine{
 			{
 				NodeTimestamp: "2024-01-01T00:00:00Z",
@@ -144,7 +143,7 @@ func TestEmit(t *testing.T) {
 		// Labels not utilized, left unchecked
 	})
 
-	t.Run(events.WorkflowExecutionProfile, func(t *testing.T) {
+	t.Run(events.WorkflowExecutionProfile, func(t *testing.T) { //nolint:paralleltest // shares beholder observer
 		workflowID := "workflow_" + uuid.NewString()
 		start := time.Date(2024, 1, 2, 3, 4, 5, 0, time.UTC)
 		end := start.Add(2 * time.Second)

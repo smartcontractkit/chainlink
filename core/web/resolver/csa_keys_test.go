@@ -20,6 +20,7 @@ type expectedKey struct {
 }
 
 func Test_CSAKeysQuery(t *testing.T) {
+	t.Parallel()
 	query := `
 	query GetCSAKeys {
 		csaKeys {
@@ -31,8 +32,8 @@ func Test_CSAKeysQuery(t *testing.T) {
 		}
 	}`
 
-	var fakeKeys []csakey.KeyV2
-	var expectedKeys []expectedKey
+	fakeKeys := make([]csakey.KeyV2, 0, 5)
+	expectedKeys := make([]expectedKey, 0, 5)
 
 	for range 5 {
 		k, err := csakey.NewV2()
@@ -73,6 +74,7 @@ func Test_CSAKeysQuery(t *testing.T) {
 }
 
 func Test_CreateCSAKey(t *testing.T) {
+	t.Parallel()
 	query := `
 	mutation CreateCSAKey {
 		createCSAKey {
@@ -141,6 +143,7 @@ func Test_CreateCSAKey(t *testing.T) {
 }
 
 func Test_DeleteCSAKey(t *testing.T) {
+	t.Parallel()
 	query := `
 	mutation DeleteCSAKey($id: ID!) {
 		deleteCSAKey(id: $id) {

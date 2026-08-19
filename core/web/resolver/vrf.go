@@ -100,7 +100,7 @@ func NewVRFKeysPayloadResolver(keys []vrfkey.KeyV2) *VRFKeysPayloadResolver {
 }
 
 func (r *VRFKeysPayloadResolver) Results() []VRFKeyResolver {
-	var results []VRFKeyResolver
+	results := make([]VRFKeyResolver, 0, len(r.keys))
 	for _, k := range r.keys {
 		results = append(results, NewVRFKeyResolver(k))
 	}

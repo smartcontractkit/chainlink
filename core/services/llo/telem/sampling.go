@@ -12,8 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-data-streams/llo"
-
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
@@ -87,9 +86,7 @@ func (s *sampler) StartPruningLoop(ctx context.Context, wg *sync.WaitGroup) {
 		return
 	}
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		t := time.NewTicker(s.prunePeriod)
 		defer t.Stop()
 
@@ -101,7 +98,7 @@ func (s *sampler) StartPruningLoop(ctx context.Context, wg *sync.WaitGroup) {
 				return
 			}
 		}
-	}()
+	})
 }
 
 // pruneStorage removes all records which are older than a predefined period (s.prunePeriod).
@@ -136,7 +133,7 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 		}
 		return strings.Join(traits, samplerDelimiter), nanosToSec(m.ObservationTimestamp), nil
 	case synchronization.LLOOutcome:
-		m, ok := msg.(*llo.LLOOutcomeTelemetry)
+		m, ok := msg.(*lloprotocol.LLOOutcomeTelemetry)
 		if !ok || m == nil {
 			return "", 0, errors.New("invalid telemetry type, expected LLOOutcomeTelemetry")
 		}
@@ -146,7 +143,7 @@ func fingerprint(typ synchronization.TelemetryType, msg proto.Message) (string, 
 		}
 		return strings.Join(traits, samplerDelimiter), nanosToSec(int64(m.ObservationTimestampNanoseconds)), nil //nolint:gosec // G115
 	case synchronization.LLOReport:
-		m, ok := msg.(*llo.LLOReportTelemetry)
+		m, ok := msg.(*lloprotocol.LLOReportTelemetry)
 		if !ok || m == nil {
 			return "", 0, errors.New("invalid telemetry type, expected LLOReportTelemetry")
 		}

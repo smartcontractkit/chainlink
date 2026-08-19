@@ -31,6 +31,7 @@ type Capability struct {
 	capabilitiesRegistry core.CapabilitiesRegistry
 	publicKey            *LazyPublicKey
 	lifecycle            *RequestLifecycleTracker
+	zoneBRestrictor      *zoneBRestrictor
 	*RequestValidator
 }
 
@@ -70,6 +71,10 @@ func (s *Capability) Close() error {
 		err = errors.Join(err, fmt.Errorf("error closing request validator: %w", lerr))
 	}
 
+	if lerr := s.zoneBRestrictor.close(); lerr != nil {
+		err = errors.Join(err, lerr)
+	}
+
 	return err
 }
 
@@ -99,6 +104,13 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		return capabilities.CapabilityResponse{}, errors.New("unsupported method: can only call GetSecrets via capability interface")
 	}
 
+	// Reject GetSecrets reads from a restricted zone-b workflow DON before the
+	// request enters the OCR queue, so non-allowlisted owners get a deterministic
+	// rejection and zone-a / gateway paths are unaffected.
+	if err := s.zoneBRestrictor.enforce(ctx, request.Metadata.WorkflowDonID); err != nil {
+		return capabilities.CapabilityResponse{}, err
+	}
+
 	r := &vaultcommon.GetSecretsRequest{}
 	err := request.Payload.UnmarshalTo(r)
 	if err != nil {
@@ -121,20 +133,9 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		}
 	}
 
-	// We need to generate sufficiently unique IDs accounting for two cases:
-	// 1. called during the subscription phase, in which case the executionID will be blank
-	// 2. called during execution, in which case it'll be present.
-	// The reference ID is unique per phase, so we need to differentiate when generating
-	// an ID.
 	md := request.Metadata
-	phaseOrExecution := md.WorkflowExecutionID
-	if phaseOrExecution == "" {
-		phaseOrExecution = "subscription"
-	}
-	id := fmt.Sprintf("%s::%s::%s", md.WorkflowID, phaseOrExecution, md.ReferenceID)
-
-	// Workflow DON reads populate secret identifiers explicitly; OCR paths do not rely on legacy
-	// top-level protobuf identity fields.
+	id := vaultcommon.BuildWorkflowGetSecretsRequestID(md)
+	s.lggr.Debugw("received workflow get secrets request", "requestID", id, "request", r.String())
 
 	resp, err := s.handleRequest(ctx, id, r)
 	if err != nil {
@@ -160,7 +161,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 }
 
 func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.CreateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received create secrets request", "request", request.String())
+	s.lggr.Debugw("received create secrets request", "requestID", request.RequestId, "request", request.String())
 	if err := validateEncryptedSecretsUniformOwners(request.EncryptedSecrets); err != nil {
 		return nil, err
 	}
@@ -173,7 +174,7 @@ func (s *Capability) CreateSecrets(ctx context.Context, request *vaultcommon.Cre
 }
 
 func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.UpdateSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received update secrets request", "request", request.String())
+	s.lggr.Debugw("received update secrets request", "requestID", request.RequestId, "request", request.String())
 	if err := validateEncryptedSecretsUniformOwners(request.EncryptedSecrets); err != nil {
 		return nil, err
 	}
@@ -186,7 +187,7 @@ func (s *Capability) UpdateSecrets(ctx context.Context, request *vaultcommon.Upd
 }
 
 func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.DeleteSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received delete secrets request", "request", request.String())
+	s.lggr.Debugw("received delete secrets request", "requestID", request.RequestId, "request", request.String())
 	err := s.ValidateDeleteSecretsRequest(ctx, request)
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "request", request.String(), "err", err)
@@ -200,7 +201,7 @@ func (s *Capability) DeleteSecrets(ctx context.Context, request *vaultcommon.Del
 }
 
 func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *vaultcommon.GetSecretsRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received get secrets request", "request", request.String())
+	s.lggr.Debugw("received get secrets request", "requestID", requestID, "request", request.String())
 	if err := s.ValidateGetSecretsRequest(ctx, request); err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", requestID, "request", request.String(), "err", err)
 		return nil, err
@@ -211,7 +212,7 @@ func (s *Capability) GetSecrets(ctx context.Context, requestID string, request *
 }
 
 func (s *Capability) ListSecretIdentifiers(ctx context.Context, request *vaultcommon.ListSecretIdentifiersRequest) (*vaulttypes.Response, error) {
-	s.lggr.Debugw("received list secret identifiers request", "request", request.String())
+	s.lggr.Debugw("received list secret identifiers request", "requestID", request.RequestId, "request", request.String())
 	err := s.ValidateListSecretIdentifiersRequest(ctx, request)
 	if err != nil {
 		s.lggr.Debugw("failed validation checks", "requestID", request.RequestId, "request", request.String(), "err", err)
@@ -321,6 +322,13 @@ func NewCapability(
 	if err != nil {
 		return nil, err
 	}
+	zoneBRestrictor, err := newZoneBRestrictor(lggr, limitsFactory, capabilitiesRegistry)
+	if err != nil {
+		return nil, err
+	}
+	if zoneBRestrictor == nil {
+		return nil, errors.New("vault capability requires a non-nil zone-b restrictor")
+	}
 	return &Capability{
 		lggr:                 logger.Named(lggr, "VaultCapability"),
 		clock:                clock,
@@ -329,6 +337,7 @@ func NewCapability(
 		capabilitiesRegistry: capabilitiesRegistry,
 		publicKey:            publicKey,
 		lifecycle:            lifecycle,
+		zoneBRestrictor:      zoneBRestrictor,
 		RequestValidator:     requestValidator,
 	}, nil
 }

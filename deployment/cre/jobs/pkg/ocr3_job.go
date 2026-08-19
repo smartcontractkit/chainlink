@@ -36,6 +36,11 @@ type OCR3JobConfigInput struct {
 	DKGContractQualifier       string `yaml:"dkgContractQualifier"`
 	VaultRequestExpiryDuration string `yaml:"vaultRequestExpiryDuration"`
 	Auth0                      *Auth0Config
+
+	// ExternalJobID, when set, overrides the deterministic externalJobID
+	// BuildOCR3JobConfigSpecs would otherwise derive from donName/contractID/
+	// templateName/evmChainSel.
+	ExternalJobID string `yaml:"externalJobID"`
 }
 
 type Auth0Config struct {
@@ -62,7 +67,15 @@ type OCR3JobConfig struct {
 	Auth0                      *Auth0Config
 }
 
+// ErrWorkerOCR3Deprecated is returned when the "worker-ocr3" template is
+// requested. The chainlink-ocr3-capability plugin and its job spec have been
+// removed; use another template (e.g. "worker-vault") instead.
+var ErrWorkerOCR3Deprecated = errors.New("the \"worker-ocr3\" template is deprecated and no longer supported")
+
 func (c OCR3JobConfig) Validate() error {
+	if c.TemplateName == "worker-ocr3" {
+		return ErrWorkerOCR3Deprecated
+	}
 	if c.TemplateName == "" {
 		return errors.New("TemplateName is empty")
 	}
@@ -146,6 +159,7 @@ func BuildOCR3JobConfigSpecs(
 	dkgContractAddress string,
 	vaultRequestExpiryDuration string,
 	auth0 *Auth0Config,
+	externalJobIDOverride string,
 ) ([]OCR3JobConfigSpec, error) {
 	nodesLen := len(nodes)
 	if nodesLen == 0 {
@@ -167,9 +181,12 @@ func BuildOCR3JobConfigSpecs(
 		return nil, fmt.Errorf("failed to get chain ID from selector: %w", err)
 	}
 
-	extJobID, err := ExternalJobID(donName, contractID, templateName, evmChainSel)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get external job ID: %w", err)
+	extJobID := externalJobIDOverride
+	if extJobID == "" {
+		extJobID, err = ExternalJobID(donName, contractID, templateName, evmChainSel)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get external job ID: %w", err)
+		}
 	}
 
 	jobConfigByNode := make(map[string]*OCR3JobConfig)

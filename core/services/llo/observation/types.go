@@ -3,7 +3,8 @@ package observation
 import (
 	"context"
 
-	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
@@ -13,8 +14,8 @@ type Registry interface {
 }
 
 type Telemeter interface {
-	EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error)
-	MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- any)
+	EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts telem.DSOpts, val lloprotocol.StreamValue, err error)
+	MakeObservationScopedTelemetryCh(opts telem.DSOpts, size int) (ch chan<- any)
 	CaptureEATelemetry() bool
 	CaptureObservationTelemetry() bool
 }

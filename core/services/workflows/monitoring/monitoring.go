@@ -10,8 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
-
-	monutils "github.com/smartcontractkit/chainlink/v2/core/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
@@ -52,6 +50,10 @@ type EngineMetrics struct {
 	workflowExecutionFailedCounter    metric.Int64Counter
 	workflowExecutionStartedCounter   metric.Int64Counter
 	workflowExecutionSucceededCounter metric.Int64Counter
+	// workflowExecutionFinishedCounter counts every terminal execution outcome
+	// (completed, error, timeout). Use with a status attribute so a single series
+	// family can serve as both numerator and denominator without vector(0) joins.
+	workflowExecutionFinishedCounter metric.Int64Counter
 
 	getSecretsDuration metric.Int64Histogram
 
@@ -80,6 +82,8 @@ type EngineMetrics struct {
 	donTimeCallsCounter    metric.Int64Counter
 	donTimeTimeoutsCounter metric.Int64Counter
 	donTimeErrorsCounter   metric.Int64Counter
+
+	orgIDMissingCounter metric.Int64Counter
 }
 
 func InitMonitoringResources() (em *EngineMetrics, err error) {
@@ -185,6 +189,14 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	em.workflowExecutionSucceededCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_execution_succeeded_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow execution succeeded counter: %w", err)
+	}
+
+	em.workflowExecutionFinishedCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_workflow_execution_finished_count",
+		metric.WithDescription("Count of workflow executions that reached a terminal status (completed, error, or timeout)"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow execution finished counter: %w", err)
 	}
 
 	// Deprecated: use the gauge below
@@ -429,6 +441,14 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register don time errors counter: %w", err)
 	}
 
+	em.orgIDMissingCounter, err = beholder.GetMeter().Int64Counter(
+		"platform_engine_org_id_missing_total",
+		metric.WithDescription("Count of beholder events emitted by the engine without a resolved organization ID"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register org id missing counter: %w", err)
+	}
+
 	return em, nil
 }
 
@@ -530,12 +550,12 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowLimitPerOwnerCounter(ctx contex
 }
 
 func (c WorkflowsMetricLabeler) IncrementRegisterTriggerFailureCounter(ctx context.Context) {
-	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.registerTriggerFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
 func (c WorkflowsMetricLabeler) IncrementTriggerWorkflowStarterErrorCounter(ctx context.Context) {
-	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.triggerWorkflowStarterErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
@@ -670,6 +690,13 @@ func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionStartedCounter(ctx con
 	c.em.workflowExecutionStartedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
+// IncrementWorkflowExecutionFinishedCounter increments the terminal-outcome counter.
+// status should be one of store.StatusCompleted, store.StatusErrored, or store.StatusTimeout.
+func (c WorkflowsMetricLabeler) IncrementWorkflowExecutionFinishedCounter(ctx context.Context, status string) {
+	otelLabels := append(beholder.OtelAttributes(c.Labels).AsStringAttributes(), attribute.String("status", status))
+	c.em.workflowExecutionFinishedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
 func (c WorkflowsMetricLabeler) IncrementExecutionTimestampAssignedCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.executionTimestampAssignedCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
@@ -785,4 +812,14 @@ func (c WorkflowsMetricLabeler) IncrementDonTimeTimeoutsCounter(ctx context.Cont
 func (c WorkflowsMetricLabeler) IncrementDonTimeErrorsCounter(ctx context.Context) {
 	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
 	c.em.donTimeErrorsCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
+}
+
+// IncrementOrgIDMissingCounter increments the org_id_missing counter when the
+// engine emits beholder events without a resolved organization ID. The reason
+// attribute identifies why the org ID is missing (resolver_nil, resolver_error,
+// or empty_response).
+func (c WorkflowsMetricLabeler) IncrementOrgIDMissingCounter(ctx context.Context, reason string) {
+	otelLabels := beholder.OtelAttributes(c.Labels).AsStringAttributes()
+	otelLabels = append(otelLabels, attribute.String("reason", reason))
+	c.em.orgIDMissingCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

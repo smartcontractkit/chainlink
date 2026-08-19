@@ -1,6 +1,8 @@
 package resolver
 
 import (
+	"math"
+
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
@@ -29,6 +31,12 @@ func (r *CSAKeyResolver) PublicKey() string {
 
 // Version resolves the CSA Key version number.
 func (r *CSAKeyResolver) Version() int32 {
+	if r.key.Version > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if r.key.Version < math.MinInt32 {
+		return math.MinInt32
+	}
 	return int32(r.key.Version)
 }
 
@@ -47,7 +55,7 @@ func (r *CSAKeysPayloadResolver) Results() []*CSAKeyResolver {
 }
 
 func NewCSAKeys(keys []csakey.KeyV2) []*CSAKeyResolver {
-	var resolvers []*CSAKeyResolver
+	resolvers := make([]*CSAKeyResolver, 0, len(keys))
 
 	for _, k := range keys {
 		resolvers = append(resolvers, NewCSAKey(k))

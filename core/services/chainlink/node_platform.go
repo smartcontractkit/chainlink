@@ -13,8 +13,9 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"google.golang.org/protobuf/proto"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -452,7 +453,7 @@ func (b *nodeSubmitterAddressBuilder) addOCR2SubmitterAddresses(jb job.Job) {
 
 func isOnChainOCR2Plugin(pluginType commontypes.OCR2PluginType) bool {
 	switch pluginType {
-	case commontypes.Mercury, commontypes.LLO:
+	case commontypes.LLO:
 		return false
 	default:
 		return true

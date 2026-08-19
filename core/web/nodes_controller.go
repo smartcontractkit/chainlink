@@ -7,7 +7,6 @@ import (
 	"github.com/manyminds/api2go/jsonapi"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -71,7 +70,7 @@ func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 		nodes, count, err = relayers.NodeStatuses(ctx, offset, size, rid)
 	}
 
-	var resources []R
+	resources := make([]R, 0, len(nodes))
 	for _, node := range nodes {
 		res := n.newResource(node)
 		resources = append(resources, res)

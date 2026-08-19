@@ -48,7 +48,7 @@ func NewJobRun(run pipeline.Run, app chainlink.Application) *JobRunResolver {
 }
 
 func NewJobRuns(runs []pipeline.Run, app chainlink.Application) []*JobRunResolver {
-	var resolvers []*JobRunResolver
+	resolvers := make([]*JobRunResolver, 0, len(runs))
 
 	for _, run := range runs {
 		resolvers = append(resolvers, NewJobRun(run, app))

@@ -24,7 +24,6 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -74,7 +73,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	})
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	return app
 }
@@ -118,10 +117,10 @@ func deleteKeyExportFile(t *testing.T) {
 func TestShell_ReplayBlocks(t *testing.T) {
 	t.Parallel()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 	})
 	client, _ := app.NewShellAndRenderer()
 
@@ -154,9 +153,9 @@ func TestShell_CreateExternalInitiator(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+				c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 			})
 			client, _ := app.NewShellAndRenderer()
 
@@ -195,7 +194,7 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
 			app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+				c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 			})
 			client, _ := app.NewShellAndRenderer()
 
@@ -220,7 +219,7 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 	})
 	client, r := app.NewShellAndRenderer()
 
@@ -229,7 +228,7 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 		&bridges.ExternalInitiatorRequest{Name: uuid.New().String()},
 	)
 	require.NoError(t, err)
-	err = app.BridgeORM().CreateExternalInitiator(testutils.Context(t), exi)
+	err = app.BridgeORM().CreateExternalInitiator(t.Context(), exi)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
@@ -246,7 +245,7 @@ func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
+		c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 	})
 	client, r := app.NewShellAndRenderer()
 
@@ -538,15 +537,15 @@ func TestShell_ConfigV2(t *testing.T) {
 func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	// Serial: full app + OCR + synchronous pipeline run; avoid parallel scheduling
 	// starving the test deadline and keep bridge traffic on local httptest only.
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
-		c.EVM[0].Enabled = ptr(true)
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V2.Enabled = ptr(true)
+		c.EVM[0].Enabled = new(true)
+		c.OCR.Enabled = new(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
-		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].GasEstimator.Mode = new("FixedPrice")
 	}, func(opts *startOptions) {
 		opts.FlagsAndDeps = append(opts.FlagsAndDeps, cltest.DefaultP2PKey)
 	})
@@ -575,7 +574,7 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 	jb.OCROracleSpec.TransmitterAddress = &key.EIP55Address
 
-	err = app.AddJobV2(testutils.Context(t), &jb)
+	err = app.AddJobV2(t.Context(), &jb)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
@@ -628,7 +627,7 @@ func TestShell_RunOCRJob_JobNotFound(t *testing.T) {
 
 func TestShell_AutoLogin(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 
@@ -657,7 +656,7 @@ func TestShell_AutoLogin(t *testing.T) {
 
 func TestShell_AutoLogin_AuthFails(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 

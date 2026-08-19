@@ -99,7 +99,7 @@ func TestCreateJDChainConfigsSkipsExistingConfigs(t *testing.T) {
 		},
 	}
 
-	err := createJDChainConfigs(context.Background(), node, []blockchains.Blockchain{
+	err := CreateJDChainConfigs(context.Background(), node, []blockchains.Blockchain{
 		fakeBlockchain{chainID: 111, chainFamily: blockchain.FamilyEVM},
 	}, jd)
 
@@ -124,7 +124,7 @@ func TestCreateJDChainConfigsCreatesMissingConfigsAndReusesBundleIDs(t *testing.
 	}
 	node.Clients.GQLClient = gql
 
-	err := createJDChainConfigs(context.Background(), node, []blockchains.Blockchain{
+	err := CreateJDChainConfigs(context.Background(), node, []blockchains.Blockchain{
 		fakeBlockchain{chainID: 111, chainFamily: blockchain.FamilyEVM},
 		fakeBlockchain{chainID: 222, chainFamily: blockchain.FamilyEVM},
 	}, jd)
@@ -150,7 +150,7 @@ func TestCreateJDChainConfigsFailsVerificationOnTimeout(t *testing.T) {
 		jdChainConfigPollTimeout = originalTimeout
 	}()
 
-	err := createJDChainConfigs(context.Background(), node, []blockchains.Blockchain{
+	err := CreateJDChainConfigs(context.Background(), node, []blockchains.Blockchain{
 		fakeBlockchain{chainID: 111, chainFamily: blockchain.FamilyEVM},
 	}, jd)
 

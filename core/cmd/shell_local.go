@@ -18,31 +18,30 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
-
 	"github.com/urfave/cli"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-ccv/cli/chainstatuses"
+	"github.com/smartcontractkit/chainlink-ccv/verifier/pkg/chainstatus"
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	beholderServices "github.com/smartcontractkit/chainlink/v2/core/services/beholder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -53,9 +52,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
-	"github.com/smartcontractkit/chainlink-ccv/cli/chainstatuses"
-	"github.com/smartcontractkit/chainlink-ccv/verifier/pkg/chainstatus"
 )
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
@@ -572,6 +568,25 @@ func (s *Shell) runNode(c *cli.Context) error {
 		err2 := app.GetKeyStore().Aptos().EnsureKey(rootCtx)
 		if err2 != nil {
 			return fmt.Errorf("failed to ensure aptos key: %w", err2)
+		}
+	}
+	if s.Config.StellarEnabled() {
+		for _, k := range s.Config.ImportedStellarKeys().List() {
+			lggr.Debug("Importing stellar key")
+			_, err2 := app.GetKeyStore().Stellar().Import(rootCtx, []byte(k.JSON()), k.Password())
+			if err2 != nil {
+				if errors.Is(err2, keystore.ErrKeyExists) {
+					lggr.Debugf("Stellar key %s already exists for chain %v", k.JSON(), k.ChainDetails())
+					continue
+				}
+				return s.errorOut(fmt.Errorf("error importing stellar key: %w", err2))
+			}
+			lggr.Debugf("Imported stellar key %s for chain %v", k.JSON(), k.ChainDetails())
+		}
+
+		err2 := app.GetKeyStore().Stellar().EnsureKey(rootCtx)
+		if err2 != nil {
+			return fmt.Errorf("failed to ensure stellar key: %w", err2)
 		}
 	}
 	if s.Config.TronEnabled() {

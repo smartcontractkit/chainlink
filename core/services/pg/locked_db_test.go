@@ -5,14 +5,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
-	"github.com/stretchr/testify/require"
 )
 
 func lease(c *chainlink.Config, s *chainlink.Secrets) {
@@ -28,7 +28,7 @@ func TestLockedDB_HappyPath(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ldb := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 
-	err := ldb.Open(testutils.Context(t))
+	err := ldb.Open(t.Context())
 	require.NoError(t, err)
 	require.NotNil(t, ldb.DB())
 
@@ -43,7 +43,7 @@ func TestLockedDB_ContextCancelled(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ldb := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	err := ldb.Open(ctx)
 	require.Error(t, err)
@@ -56,9 +56,9 @@ func TestLockedDB_OpenTwice(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	ldb := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 
-	err := ldb.Open(testutils.Context(t))
+	err := ldb.Open(t.Context())
 	require.NoError(t, err)
-	require.Error(t, ldb.Open(testutils.Context(t)))
+	require.Error(t, ldb.Open(t.Context()))
 
 	_ = ldb.Close()
 }
@@ -69,7 +69,7 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	ldb1 := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
-	err := ldb1.Open(testutils.Context(t))
+	err := ldb1.Open(t.Context())
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, ldb1.Close())
@@ -77,7 +77,7 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 
 	// second instance would wait for locks to be released,
 	// hence we use some timeout
-	ctx, cancel := context.WithTimeout(testutils.Context(t), config.Database().Lock().LeaseDuration())
+	ctx, cancel := context.WithTimeout(t.Context(), config.Database().Lock().LeaseDuration())
 	defer cancel()
 	ldb2 := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 	err = ldb2.Open(ctx)
@@ -86,7 +86,7 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 
 func TestOpenUnlockedDB(t *testing.T) {
 	testutils.SkipShortDB(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	config := configtest.NewGeneralConfig(t, nil)
 
 	db1, err1 := pg.OpenUnlockedDB(ctx, config.AppID(), config.Database())

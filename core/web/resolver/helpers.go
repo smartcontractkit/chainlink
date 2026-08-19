@@ -58,7 +58,7 @@ func ValidateBridgeTypeUniqueness(ctx context.Context, bt *bridges.BridgeTypeReq
 	if err == nil {
 		return fmt.Errorf("bridge type %v already exists", bt.Name)
 	}
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("error determining if bridge type %v already exists", bt.Name)
 	}
 

@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -14,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-
-	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
 type Listener interface {
@@ -136,16 +136,12 @@ func newReader(ctx context.Context, lggr logger.Logger, relayer ContractReaderFa
 
 func (s *registrySyncer) Start(ctx context.Context) error {
 	return s.StartOnce("RegistrySyncer", func() error {
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
+		s.wg.Go(func() {
 			s.syncLoop()
-		}()
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
+		})
+		s.wg.Go(func() {
 			s.updateStateLoop()
-		}()
+		})
 		return nil
 	})
 }

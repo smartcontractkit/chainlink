@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/shopspring/decimal"
-	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -65,7 +64,24 @@ func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 		{"evm", "GetTransactionReceipt"}: limiters.ChainReadCalls,
 		{"evm", "HeaderByNumber"}:        limiters.ChainReadCalls,
 
-		{"evm", "WriteReport"}: limiters.ChainWriteTargets,
+		{"aptos", "View"}: limiters.ChainReadCalls,
+
+		{"solana", "GetAccountInfoWithOpts"}:      limiters.ChainReadCalls,
+		{"solana", "GetBalance"}:                  limiters.ChainReadCalls,
+		{"solana", "GetBlock"}:                    limiters.ChainReadCalls,
+		{"solana", "GetFeeForMessage"}:            limiters.ChainReadCalls,
+		{"solana", "GetMultipleAccountsWithOpts"}: limiters.ChainReadCalls,
+		{"solana", "GetSignatureStatuses"}:        limiters.ChainReadCalls,
+		{"solana", "GetSlotHeight"}:               limiters.ChainReadCalls,
+		{"solana", "GetTransaction"}:              limiters.ChainReadCalls,
+
+		{"stellar", "GetLatestLedger"}: limiters.ChainReadCalls,
+		{"stellar", "ReadContract"}:    limiters.ChainReadCalls,
+
+		{"evm", "WriteReport"}:     limiters.ChainWriteTargets,
+		{"aptos", "WriteReport"}:   limiters.ChainWriteTargets,
+		{"solana", "WriteReport"}:  limiters.ChainWriteTargets,
+		{"stellar", "WriteReport"}: limiters.ChainWriteTargets,
 
 		{"http-actions", "SendRequest"}:      limiters.HTTPActionCalls,
 		{"confidential-http", "SendRequest"}: limiters.ConfidentialHTTPCalls,

@@ -15,7 +15,7 @@ import (
 
 func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 	var jb = job.Job{
-		ExternalJobID: uuid.New(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
+		ExternalJobID: uuid.New(),
 	}
 
 	tree, err := toml.Load(tomlString)
@@ -39,10 +39,27 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 		return jb, errors.Errorf("unsupported type %s", jb.Type)
 	}
 
-	_, err = settings.NewTOMLGetter([]byte(jb.CRESettingsSpec.Settings))
-	if err != nil {
-		return jb, errors.Wrap(err, "invalid settings toml")
+	configType := ConfigTypeSettings
+	if spec.Settings != "" {
+		ct, ok := extractConfigType(spec.Settings)
+		if ok {
+			configType = ct
+		}
 	}
+
+	switch configType {
+	case ConfigTypeShardAssignment:
+		if _, err = ParseShardAssignmentConfig(spec.Settings); err != nil {
+			return jb, errors.Wrap(err, "invalid shard_assignment config")
+		}
+	case ConfigTypeSettings:
+		if _, err = settings.NewTOMLGetter([]byte(spec.Settings)); err != nil {
+			return jb, errors.Wrap(err, "invalid settings toml")
+		}
+	default:
+		return jb, fmt.Errorf("unknown config_type %q", configType)
+	}
+
 	shaSum := sha256.Sum256([]byte(spec.Settings))
 	hash := hex.EncodeToString(shaSum[:])
 	if spec.Hash == "" {
@@ -52,4 +69,17 @@ func ValidatedCRESettingsSpec(tomlString string) (job.Job, error) {
 	}
 
 	return jb, nil
+}
+
+func extractConfigType(settings string) (string, bool) {
+	tree, err := toml.Load(settings)
+	if err != nil {
+		return "", false
+	}
+	v := tree.Get("config_type")
+	if v == nil {
+		return "", false
+	}
+	s, ok := v.(string)
+	return s, ok
 }

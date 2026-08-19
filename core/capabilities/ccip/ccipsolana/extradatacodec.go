@@ -8,11 +8,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	agbinary "github.com/gagliardetto/binary"
 
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 const (
@@ -52,7 +50,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 			return nil, fmt.Errorf("failed to decode extra args: %w", err)
 		}
 		val = reflect.ValueOf(args)
-		typ = reflect.TypeOf(args)
+		typ = reflect.TypeFor[fee_quoter.GenericExtraArgsV2]()
 	case string(svmExtraArgsV1Tag):
 		var args fee_quoter.SVMExtraArgsV1
 		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
@@ -61,7 +59,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 			return nil, fmt.Errorf("failed to decode extra args: %w", err)
 		}
 		val = reflect.ValueOf(args)
-		typ = reflect.TypeOf(args)
+		typ = reflect.TypeFor[fee_quoter.SVMExtraArgsV1]()
 	default:
 		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs[:4])
 	}

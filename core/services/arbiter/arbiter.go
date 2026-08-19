@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -105,11 +104,9 @@ func (a *arbiter) Start(ctx context.Context) error {
 		}
 
 		// Start gRPC server in a goroutine
-		a.wg.Add(1)
-		go func() {
-			defer a.wg.Done()
+		a.wg.Go(func() {
 			a.runGRPCServer(ctx)
-		}()
+		})
 
 		a.lggr.Infow("Arbiter service started",
 			"grpcAddr", a.grpcAddr,

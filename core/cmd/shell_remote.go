@@ -21,7 +21,6 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -377,7 +376,7 @@ func (s *Shell) SetLogSQL(c *cli.Context) (err error) {
 	// Sets logSql to true || false based on the --enabled flag
 	logSql := c.Bool("enable")
 
-	request := web.LogPatchRequest{SqlEnabled: &logSql}
+	request := web.LogPatchRequest{SQLEnabled: &logSql}
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return s.errorOut(err)

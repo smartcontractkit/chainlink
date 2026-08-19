@@ -276,13 +276,17 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					}
 					return false
 				}
-
+				logsDirRoot, err := os.OpenRoot(logsDir)
+				if err != nil {
+					b.l.Error().Err(err).Msg("Error opening root directory for logs")
+					return
+				}
 				fileWalkErr := filepath.Walk(logsDir, func(path string, info os.FileInfo, err error) error {
 					if err != nil {
 						return err
 					}
 					if !info.IsDir() && belongsToCurrentEnv(info.Name()) {
-						file, fileErr := os.Open(path)
+						file, fileErr := logsDirRoot.Open(path)
 						if fileErr != nil {
 							return fmt.Errorf("failed to open file %s: %w", path, fileErr)
 						}
@@ -346,9 +350,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 				dbDumpGroup := sync.WaitGroup{}
 				for i := 0; i < b.clNodesCount; i++ {
-					dbDumpGroup.Add(1)
-					go func() {
-						defer dbDumpGroup.Done()
+					dbDumpGroup.Go(func() {
 						// if something went wrong during environment setup we might not have all nodes, and we don't want an NPE
 						if b == nil || b.te == nil || b.te.ClCluster == nil || b.te.ClCluster.Nodes == nil || len(b.te.ClCluster.Nodes)-1 < i || b.te.ClCluster.Nodes[i] == nil || b.te.ClCluster.Nodes[i].PostgresDb == nil {
 							return
@@ -366,7 +368,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 							b.l.Error().Err(err).Msg("Error dumping Postgres DB")
 						}
 						_ = localDbDumpFile.Close()
-					}()
+					})
 				}
 
 				dbDumpGroup.Wait()

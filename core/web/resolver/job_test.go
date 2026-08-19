@@ -28,6 +28,7 @@ import (
 // This tests the main fields on the job results. Embedded spec testing is done
 // in the `spec_test` file
 func TestResolver_Jobs(t *testing.T) {
+	t.Parallel()
 	var (
 		externalJobID = uuid.MustParse(("00000000-0000-0000-0000-000000000001"))
 
@@ -138,6 +139,7 @@ func TestResolver_Jobs(t *testing.T) {
 }
 
 func TestResolver_Job(t *testing.T) {
+	t.Parallel()
 	var (
 		id            = int32(1)
 		externalJobID = uuid.MustParse(("00000000-0000-0000-0000-000000000001"))

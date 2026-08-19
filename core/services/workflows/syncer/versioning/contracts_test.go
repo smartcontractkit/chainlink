@@ -19,21 +19,19 @@ import (
 func TestContracts_TypeAndVersion(t *testing.T) {
 	t.Parallel()
 
-	t.Run("happy path", func(t *testing.T) {
-		t.Parallel()
+	th := testutils.NewEVMBackendTH(t)
 
-		th := testutils.NewEVMBackendTH(t)
+	contractReaderFactory := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
+		return th.NewContractReader(ctx, t, bytes)
+	}
 
+	t.Run("happy path", func(t *testing.T) { //nolint:paralleltest // shares backend
 		// Deploy a contract that has typeAndVersion
 		addr, _, _, err := balance_reader.DeployBalanceReader(th.ContractsOwner, th.Backend.Client())
 		th.Backend.Commit()
 		th.Backend.Commit()
 		th.Backend.Commit()
 		require.NoError(t, err)
-
-		contractReaderFactory := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-			return th.NewContractReader(ctx, t, bytes)
-		}
 
 		contractType, version, err := versioning.TypeAndVersion(t.Context(), addr.String(), contractReaderFactory)
 		require.NoError(t, err)
@@ -45,20 +43,12 @@ func TestContracts_TypeAndVersion(t *testing.T) {
 		require.Equal(t, expectedVersion, &version)
 	})
 
-	t.Run("contract does not have typeAndVersion", func(t *testing.T) {
-		t.Parallel()
-
-		th := testutils.NewEVMBackendTH(t)
-
+	t.Run("contract does not have typeAndVersion", func(t *testing.T) { //nolint:paralleltest // shares backend
 		// Deploy a contract that does not have typeAndVersion
 		addr, _, _, err :=
 			log_emitter.DeployLogEmitter(th.ContractsOwner, th.Backend.Client())
 		th.Backend.Commit()
 		require.NoError(t, err)
-
-		contractReaderFactory := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-			return th.NewContractReader(ctx, t, bytes)
-		}
 
 		contractType, version, err := versioning.TypeAndVersion(t.Context(), addr.String(), contractReaderFactory)
 		require.NoError(t, err)
@@ -70,22 +60,12 @@ func TestContracts_TypeAndVersion(t *testing.T) {
 		require.Equal(t, expectedVersion, &version)
 	})
 
-	t.Run("errors on empty address", func(t *testing.T) {
-		t.Parallel()
-
-		th := testutils.NewEVMBackendTH(t)
-
-		contractReaderFactory := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
-			return th.NewContractReader(ctx, t, bytes)
-		}
-
+	t.Run("errors on empty address", func(t *testing.T) { //nolint:paralleltest // shares backend
 		_, _, err := versioning.TypeAndVersion(t.Context(), "0x0000000000000000000000000000000000000000", contractReaderFactory)
 		require.ErrorContains(t, err, "internal error: contract does not exist at address: 0x0000000000000000000000000000000000000000")
 	})
 
-	t.Run("errors on invalid contract reader factory", func(t *testing.T) {
-		t.Parallel()
-
+	t.Run("errors on invalid contract reader factory", func(t *testing.T) { //nolint:paralleltest // shares backend
 		contractReaderFactory := func(ctx context.Context, bytes []byte) (types.ContractReader, error) {
 			return nil, nil
 		}

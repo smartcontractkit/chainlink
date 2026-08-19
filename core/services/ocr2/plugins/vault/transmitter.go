@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
@@ -87,7 +88,7 @@ func (c *Transmitter) Transmit(ctx context.Context, cd types.ConfigDigest, seqNr
 		signatures[i] = s.Signature
 	}
 
-	c.lggr.Debugw("transmitting report", "requestID", info.Id, "requestType", info.Format.String())
+	c.lggr.Debugw("transmitting report", "seqNr", seqNr, "requestID", info.Id, "requestType", info.Format.String())
 	c.lifecycle.RecordTransmitted(ctx, info.Id, seqNr, time.Now())
 	c.handler.SendResponse(ctx, &vaulttypes.Response{
 		ID:         info.Id,

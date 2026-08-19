@@ -27,7 +27,7 @@ func NewTONKeyResource(key tonkey.Key) *TONKeyResource {
 }
 
 func NewTONKeyResources(keys []tonkey.Key) []TONKeyResource {
-	rs := []TONKeyResource{}
+	rs := make([]TONKeyResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewTONKeyResource(key))
 	}

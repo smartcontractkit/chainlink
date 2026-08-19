@@ -3,6 +3,8 @@ package sets
 import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	aptos_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/aptos"
+	confidential_relay_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/confidentialrelay"
+	confidential_workflows_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/confidentialworkflows"
 	consensus_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/consensus/v2"
 	cron_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/cron"
 	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
@@ -10,6 +12,7 @@ import (
 	http_actions_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_action"
 	http_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_trigger"
 	solana_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana/v2"
+	stellar_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	vault_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
 )
 
@@ -23,6 +26,9 @@ func New() cre.Features {
 		&http_trigger_feature.HTTPTrigger{},
 		&aptos_feature.Aptos{},
 		&solana_feature.Solana{},
+		&stellar_feature.Stellar{},
 		&vault_feature.Vault{},
+		&confidential_relay_feature.ConfidentialRelay{},
+		&confidential_workflows_feature.ConfidentialWorkflows{},
 	)
 }

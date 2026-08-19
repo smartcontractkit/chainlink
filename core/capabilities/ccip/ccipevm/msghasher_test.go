@@ -8,9 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -25,8 +25,9 @@ import (
 	"github.com/ethereum/go-ethereum/node"
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
@@ -38,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 var extraDataCodec = ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainExtraDataCodec{
@@ -51,7 +51,7 @@ var extraDataCodec = ccipocr3.ExtraDataCodecMap(map[string]ccipocr3.SourceChainE
 // NOTE: these test cases are only EVM <-> EVM.
 // Update these cases once we have non-EVM examples.
 func TestMessageHasher_EVM2EVM(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	d := testSetup(t)
 
 	testCases := []evmExtraArgs{
@@ -464,7 +464,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		// onramp address: 0x89559ce6904d4c4b0f6aab9065ad02b1ed531be4
 		// sequence numbers 386 to 419.
 		var msgs []cciptypes.Message
-		data, err := ioutil.ReadFile("msgs_test_vector.json")
+		data, err := os.ReadFile("msgs_test_vector.json")
 		require.NoError(t, err)
 
 		err = json.Unmarshal(data, &msgs)

@@ -6,7 +6,6 @@ import (
 	"github.com/graph-gophers/dataloader"
 
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )

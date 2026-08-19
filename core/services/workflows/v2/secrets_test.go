@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
@@ -24,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -33,6 +33,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
+
+func RandomUTF8BytesWord() [32]byte {
+	var result [32]byte
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+	for i := range 32 {
+		num, err := rand.Int(rand.Reader, big.NewInt(int64(len(letters))))
+		if err != nil {
+			panic(err)
+		}
+		result[i] = letters[num.Int64()]
+	}
+	return result
+}
 
 func MetricsLabelerTest(t *testing.T) *monitoring.WorkflowsMetricLabeler {
 	m, err := monitoring.InitMonitoringResources()
@@ -80,9 +94,10 @@ func (m *metadataCapturingVault) UnregisterFromWorkflow(ctx context.Context, req
 }
 
 func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	workflowKeyBytes := workflowEncryptionKey.PublicKey()
 
@@ -258,9 +273,10 @@ func TestSecretsFetcher_BulkFetchesSecretsFromCapability(t *testing.T) {
 }
 
 func TestSecretsFetcher_DecryptsBinaryShares(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	workflowKeyBytes := workflowEncryptionKey.PublicKey()
 
@@ -352,7 +368,9 @@ func TestSecretsFetcher_DecryptsBinaryShares(t *testing.T) {
 }
 
 func TestEncryptedDecryptionShareBytes(t *testing.T) {
+	t.Parallel()
 	t.Run("prefers binary shares", func(t *testing.T) {
+		t.Parallel()
 		binary := [][]byte{{1, 2}}
 		got, err := encryptedDecryptionShareBytes(binary, []string{"deadbeef"})
 		require.NoError(t, err)
@@ -360,21 +378,24 @@ func TestEncryptedDecryptionShareBytes(t *testing.T) {
 	})
 
 	t.Run("falls back to hex shares", func(t *testing.T) {
+		t.Parallel()
 		got, err := encryptedDecryptionShareBytes(nil, []string{"0102", "0304"})
 		require.NoError(t, err)
 		require.Equal(t, [][]byte{{1, 2}, {3, 4}}, got)
 	})
 
 	t.Run("invalid hex share", func(t *testing.T) {
+		t.Parallel()
 		_, err := encryptedDecryptionShareBytes(nil, []string{"not-hex"})
 		require.Error(t, err)
 	})
 }
 
 func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(2, 3)
 	require.NoError(t, err)
@@ -411,9 +432,10 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityNoFound(t *testing.T) {
 }
 
 func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 	reg.SetLocalRegistry(CreateLocalRegistry(t, peer))
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
@@ -459,9 +481,10 @@ func TestSecretsFetcher_ReturnsErrorIfCapabilityErrors(t *testing.T) {
 }
 
 func TestSecretsFetcher_VaultCapabilityRequestOmitsWorkflowIDMetadata(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(2, 3)
@@ -520,9 +543,10 @@ func TestSecretsFetcher_VaultCapabilityRequestOmitsWorkflowIDMetadata(t *testing
 }
 
 func TestSecretsFetcher_VaultBatchLeavesOrgAndWorkflowIdentityUnset(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	_, vaultPublicKey, _, err := tdh2easy.GenerateKeys(2, 3)
@@ -590,9 +614,10 @@ func TestSecretsFetcher_VaultBatchLeavesOrgAndWorkflowIdentityUnset(t *testing.T
 }
 
 func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 	mc := vaultMock.Vault{
 		Fn: func(ctx context.Context, req *vault.GetSecretsRequest) (*vault.GetSecretsResponse, error) {
 			return &vault.GetSecretsResponse{
@@ -646,9 +671,10 @@ func TestSecretsFetcher_ReturnsErrorIfNoResponseForRequest(t *testing.T) {
 }
 
 func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 
 	owner := "1234567890abcdef1234567890abcdef12345678"
 	normalizedOwner, err := normalizeOwner(owner)
@@ -722,9 +748,10 @@ func TestSecretsFetcher_ReturnsErrorIfMissingEncryptionSharesForNode(t *testing.
 }
 
 func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	workflowKeyBytes := workflowEncryptionKey.PublicKey()
 
@@ -827,9 +854,9 @@ func TestSecretsFetcher_ReturnsErrorIfCantCombineShares(t *testing.T) {
 func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.LocalRegistry {
 	workflowDonNodes := []p2ptypes.PeerID{
 		pid,
-		coreCap.RandomUTF8BytesWord(),
-		coreCap.RandomUTF8BytesWord(),
-		coreCap.RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
+		RandomUTF8BytesWord(),
 	}
 
 	dID := uint32(1)
@@ -852,30 +879,30 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.Loc
 			workflowDonNodes[0]: {
 				NodeOperatorID:      1,
 				WorkflowDONId:       dID,
-				Signer:              coreCap.RandomUTF8BytesWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pID:               workflowDonNodes[0],
-				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[1]: {
 				NodeOperatorID:      1,
 				WorkflowDONId:       dID,
-				Signer:              coreCap.RandomUTF8BytesWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pID:               workflowDonNodes[1],
-				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[2]: {
 				NodeOperatorID:      1,
 				WorkflowDONId:       dID,
-				Signer:              coreCap.RandomUTF8BytesWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pID:               workflowDonNodes[2],
-				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 			workflowDonNodes[3]: {
 				NodeOperatorID:      1,
 				WorkflowDONId:       dID,
-				Signer:              coreCap.RandomUTF8BytesWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pID:               workflowDonNodes[3],
-				EncryptionPublicKey: coreCap.RandomUTF8BytesWord(),
+				EncryptionPublicKey: RandomUTF8BytesWord(),
 			},
 		},
 		map[string]registrysyncer.Capability{
@@ -929,7 +956,7 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 			workflowDonNodes[0]: {
 				NodeOperatorID:      1,
 				WorkflowDONId:       dID,
-				Signer:              coreCap.RandomUTF8BytesWord(),
+				Signer:              RandomUTF8BytesWord(),
 				P2pID:               workflowDonNodes[0],
 				EncryptionPublicKey: workflowPublicKey,
 			},
@@ -945,9 +972,10 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 }
 
 func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 	f, n := 2, 3
@@ -995,9 +1023,10 @@ func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {
 }
 
 func TestSecretsFetcher_VaultFirstThenLocalOverridesForVaultFailures(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 	workflowKeyBytes := workflowEncryptionKey.PublicKey()
 
@@ -1117,9 +1146,10 @@ func TestSecretsFetcher_VaultFirstThenLocalOverridesForVaultFailures(t *testing.
 }
 
 func TestSecretsFetcher_LocalOverridesWhenVaultExecuteFails(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	reg := coreCap.NewRegistry(lggr)
-	peer := coreCap.RandomUTF8BytesWord()
+	peer := RandomUTF8BytesWord()
 	workflowEncryptionKey := workflowkey.MustNewXXXTestingOnly(big.NewInt(1))
 
 	f, n := 2, 3

@@ -13,11 +13,12 @@ import (
 	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	stellarcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/stellar"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
 func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
+	t.Parallel()
+
 	req1a := getRequest(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
 	req1b := getRequest(t, []byte("testdata"), [][]byte{[]byte("sig3"), []byte("sig4")})
 	req2 := getRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
@@ -73,6 +74,8 @@ func getStellarRequest(t *testing.T, rawReport []byte, sigs [][]byte) *types.Mes
 }
 
 func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
+	t.Parallel()
+
 	nilReq := capabilities.CapabilityRequest{Payload: nil}
 	nilReqBytes, err := pb.MarshalCapabilityRequest(nilReq)
 	require.NoError(t, err)
@@ -86,6 +89,8 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
 }
 
 func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
+	t.Parallel()
+
 	nilReq := &evmcappb.WriteReportRequest{Report: nil}
 	nilReqSol := &solcappb.WriteReportRequest{Report: nil}
 	nilReqStellar := &stellarcappb.WriteReportRequest{Report: nil}
@@ -119,6 +124,8 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 }
 
 func TestWriteReportExcludeSignaturesHasher_Hash_InvalidPayload(t *testing.T) {
+	t.Parallel()
+
 	// Test with completely invalid payload that cannot be unmarshaled
 	msgBody := &types.MessageBody{
 		Payload: []byte("invalid protobuf data"),
@@ -131,6 +138,8 @@ func TestWriteReportExcludeSignaturesHasher_Hash_InvalidPayload(t *testing.T) {
 }
 
 func TestSimpleHasher_ExcludesSpendLimits(t *testing.T) {
+	t.Parallel()
+
 	// Create two requests with identical payloads but different SpendLimits
 	req1 := getRequestWithSpendLimits(t, []byte("testdata"), []capabilities.SpendLimit{
 		{SpendType: "gas", Limit: "1000"},
@@ -158,6 +167,8 @@ func TestSimpleHasher_ExcludesSpendLimits(t *testing.T) {
 }
 
 func TestSimpleHasher_ExcludesExecutionTimestamp(t *testing.T) {
+	t.Parallel()
+
 	ts1 := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
 	ts2 := time.Date(2025, 7, 20, 8, 30, 0, 0, time.UTC)
 	req1 := getRequestWithMetadata(t, []byte("testdata"), capabilities.RequestMetadata{
@@ -183,6 +194,8 @@ func TestSimpleHasher_ExcludesExecutionTimestamp(t *testing.T) {
 }
 
 func TestWriteReportExcludeSignaturesHasher_ExcludesSpendLimits(t *testing.T) {
+	t.Parallel()
+
 	// Create two requests with identical payloads but different SpendLimits
 	req1 := getWriteReportRequestWithSpendLimits(t, []byte("testdata"), [][]byte{[]byte("sig1"), []byte("sig2")}, []capabilities.SpendLimit{
 		{SpendType: "gas", Limit: "1000"},
@@ -210,12 +223,12 @@ func TestWriteReportExcludeSignaturesHasher_ExcludesSpendLimits(t *testing.T) {
 }
 
 func getRequest(t *testing.T, data []byte, sigs [][]byte) *types.MessageBody {
-	attrSigs := []*sdk.AttributedSignature{}
+	attrSigs := make([]*sdk.AttributedSignature, len(sigs))
 	for i, sig := range sigs {
-		attrSigs = append(attrSigs, &sdk.AttributedSignature{
+		attrSigs[i] = &sdk.AttributedSignature{
 			Signature: sig,
 			SignerId:  uint32(i),
-		})
+		}
 	}
 	report := &sdk.ReportResponse{
 		RawReport: data,
@@ -284,12 +297,12 @@ func getRequestWithSpendLimits(t *testing.T, data []byte, spendLimits []capabili
 }
 
 func getWriteReportRequestWithSpendLimits(t *testing.T, data []byte, sigs [][]byte, spendLimits []capabilities.SpendLimit) *types.MessageBody {
-	attrSigs := []*sdk.AttributedSignature{}
+	attrSigs := make([]*sdk.AttributedSignature, len(sigs))
 	for i, sig := range sigs {
-		attrSigs = append(attrSigs, &sdk.AttributedSignature{
+		attrSigs[i] = &sdk.AttributedSignature{
 			Signature: sig,
 			SignerId:  uint32(i),
-		})
+		}
 	}
 	report := &sdk.ReportResponse{
 		RawReport: data,

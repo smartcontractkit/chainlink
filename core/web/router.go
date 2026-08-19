@@ -220,6 +220,7 @@ func sessionRoutes(app chainlink.Application, r *gin.RouterGroup) {
 func healthRoutes(app chainlink.Application, r *gin.RouterGroup) {
 	hc := HealthController{app}
 	r.GET("/readyz", hc.Readyz)
+	r.GET("/public-readyz", hc.PublicReadyz)
 	r.GET("/health", hc.Health)
 	r.GET("/health.txt", func(context *gin.Context) {
 		context.Request.Header.Set("Accept", gin.MIMEPlain)
@@ -297,6 +298,8 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.POST("/replay_from_block/:number", auth.RequiresRunRole(rc.ReplayFromBlock))
 		lcaC := LCAController{app}
 		authv2.GET("/find_lca", auth.RequiresRunRole(lcaC.FindLCA))
+		lpSkipC := LPSkipController{app}
+		authv2.POST("/lp_skip_to_block", auth.RequiresRunRole(lpSkipC.LPSkipToBlock))
 
 		if build.IsDev() {
 			capContr := CapabilityController{app}

@@ -13,7 +13,6 @@ import (
 
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_5_0/token_admin_registry"
@@ -77,7 +76,7 @@ func TestAddTokenE2E(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			var (
 				e                    cldf.Environment
 				selectorA, selectorB uint64

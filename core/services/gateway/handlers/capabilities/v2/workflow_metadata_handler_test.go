@@ -15,8 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -50,10 +50,22 @@ func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, 
 	}
 
 	cfg := WithDefaults(ServiceConfig{})
-	testMetrics, err := metrics.NewMetrics(donConfig)
+	testMetrics, err := metrics.NewMetrics(donConfig.Members)
 	require.NoError(t, err)
-	handler := NewWorkflowMetadataHandler(lggr, cfg, mockDon, donConfig, testMetrics)
+	shards, nodeAddrToShard := singleShardEndpoints(t, donConfig, mockDon)
+	handler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
 	return handler, mockDon, donConfig
+}
+
+// singleShardEndpoints builds a one-DON one-shard endpoint matrix from a legacy
+// DONConfig for tests.
+func singleShardEndpoints(t *testing.T, donConfig *config.DONConfig, mockDon *mocks.DON) ([]*shardEndpoint, map[string]*shardEndpoint) {
+	shardedDONs := []config.ShardedDONConfig{
+		{DonName: donConfig.DonId, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
+	}
+	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{{mockDon}})
+	require.NoError(t, err)
+	return shards, nodeAddrToShard
 }
 
 func TestSyncMetadata(t *testing.T) {
@@ -64,10 +76,10 @@ func TestSyncMetadata(t *testing.T) {
 	require.Empty(t, handler.authorizedKeys)
 
 	// Start the aggregator to enable data collection
-	ctx := testutils.Context(t)
-	err := handler.agg.Start(ctx)
+	ctx := t.Context()
+	err := handler.aggs[handler.shards[0].donID].Start(ctx)
 	require.NoError(t, err)
-	defer handler.agg.Close()
+	defer handler.aggs[handler.shards[0].donID].Close()
 
 	// Add some test data to aggregator
 	key := gateway_common.AuthorizedKey{
@@ -85,9 +97,9 @@ func TestSyncMetadata(t *testing.T) {
 	}
 
 	// Collect enough observations to meet threshold (F+1 = 2)
-	err = handler.agg.Collect(&observation, "node1")
+	err = handler.aggs[handler.shards[0].donID].Collect(&observation, "node1")
 	require.NoError(t, err)
-	err = handler.agg.Collect(&observation, "node2")
+	err = handler.aggs[handler.shards[0].donID].Collect(&observation, "node2")
 	require.NoError(t, err)
 	handler.syncMetadata(t.Context())
 
@@ -112,10 +124,10 @@ func TestSyncMetadata(t *testing.T) {
 func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
 
-	ctx := testutils.Context(t)
-	err := handler.agg.Start(ctx)
+	ctx := t.Context()
+	err := handler.aggs[handler.shards[0].donID].Start(ctx)
 	require.NoError(t, err)
-	defer handler.agg.Close()
+	defer handler.aggs[handler.shards[0].donID].Close()
 
 	// Add observations for multiple workflows
 	workflows := []string{"workflow1", "workflow2"}
@@ -137,9 +149,9 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 					},
 				},
 			}
-			err = handler.agg.Collect(&observation, "node1")
+			err = handler.aggs[handler.shards[0].donID].Collect(&observation, "node1")
 			require.NoError(t, err)
-			err = handler.agg.Collect(&observation, "node2")
+			err = handler.aggs[handler.shards[0].donID].Collect(&observation, "node2")
 			require.NoError(t, err)
 		}
 	}
@@ -150,15 +162,26 @@ func TestSyncMetadataMultipleWorkflows(t *testing.T) {
 		workflowOwner: testWorkflowOwner1,
 		workflowTag:   testWorkflowTag1,
 	}
+	// Both "workflow1" and "workflow2" share the same workflow reference. The
+	// workflow reference is unique (enforced by the on-chain registry), so
+	// syncMetadata deduplicates by reference: only the first observed workflow ID
+	// wins. Aggregate() returns observations newest-first, so "workflow2" (the
+	// last collected, highest sequence number) is processed first and wins the
+	// reference; "workflow1" is dropped as a duplicate reference.
 	require.Len(t, handler.authorizedKeys, 1)
-	for workflowID, workflowKeys := range handler.authorizedKeys {
-		ref, exists := handler.workflowIDToRef[workflowID]
-		require.True(t, exists)
-		require.Equal(t, expectedRef, ref)
-		_, exists = handler.workflowRefToID[expectedRef]
-		require.True(t, exists)
-		require.Len(t, workflowKeys, 1)
-	}
+	require.Contains(t, handler.authorizedKeys, "workflow2")
+	workflowKeys := handler.authorizedKeys["workflow2"]
+	require.Len(t, workflowKeys, 1)
+
+	ref, exists := handler.workflowIDToRef["workflow2"]
+	require.True(t, exists)
+	require.Equal(t, expectedRef, ref)
+	winningWorkflowID, exists := handler.workflowRefToID[expectedRef]
+	require.True(t, exists)
+	require.Equal(t, "workflow2", winningWorkflowID)
+	// "workflow1" must have been dropped by the reference dedup.
+	_, exists = handler.workflowIDToRef["workflow1"]
+	require.False(t, exists)
 }
 
 func TestSendMetadataPullRequest(t *testing.T) {
@@ -213,13 +236,89 @@ func TestSendMetadataPullRequestVerifyPayload(t *testing.T) {
 	mockDon.AssertNumberOfCalls(t, "SendToNode", len(donConfig.Members))
 }
 
+// createMultiShardMetadataHandler builds a metadata handler over two shards of
+// one DON: shard 0 = {node1,node2}, shard 1 = {node3,node4}, F=0 so threshold=1.
+func createMultiShardMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, *mocks.DON, *mocks.DON) {
+	lggr := logger.Test(t)
+	mockDon0 := mocks.NewDON(t)
+	mockDon1 := mocks.NewDON(t)
+	shardedDONs := []config.ShardedDONConfig{
+		{DonName: "don", F: 0, Shards: []config.Shard{
+			{Nodes: []config.NodeConfig{{Address: "node1"}, {Address: "node2"}}},
+			{Nodes: []config.NodeConfig{{Address: "node3"}, {Address: "node4"}}},
+		}},
+	}
+	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{{mockDon0, mockDon1}})
+	require.NoError(t, err)
+	testMetrics, err := metrics.NewMetrics(allMembers(shards))
+	require.NoError(t, err)
+	cfg := WithDefaults(ServiceConfig{})
+	return NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics), mockDon0, mockDon1
+}
+
+func TestMultiShardAssignment(t *testing.T) {
+	t.Parallel()
+
+	handler, _, _ := createMultiShardMetadataHandler(t)
+	ctx := t.Context()
+	for _, shard := range handler.shards {
+		require.NoError(t, handler.aggs[shard.donID].Start(ctx))
+		t.Cleanup(func() { _ = handler.aggs[shard.donID].Close() })
+	}
+
+	obs := gateway_common.WorkflowMetadata{
+		WorkflowSelector: gateway_common.WorkflowSelector{
+			WorkflowID:    testWorkflowID1,
+			WorkflowName:  testWorkflowNameHex1,
+			WorkflowOwner: testWorkflowOwner1,
+			WorkflowTag:   testWorkflowTag1,
+		},
+		AuthorizedKeys: []gateway_common.AuthorizedKey{{KeyType: gateway_common.KeyTypeECDSAEVM, PublicKey: testPublicKey1}},
+	}
+
+	// Initially unassigned.
+	require.Empty(t, handler.WorkflowShards(testWorkflowID1))
+
+	// Quorum (F+1=1) reached only in shard 1 (node3).
+	require.NoError(t, handler.aggs[handler.shards[1].donID].Collect(&obs, "node3"))
+	handler.syncMetadata(ctx)
+	assigned := handler.WorkflowShards(testWorkflowID1)
+	require.Len(t, assigned, 1)
+	require.Equal(t, handler.shards[1].donID, assigned[0].donID)
+
+	// Later quorum reached in shard 0 too (node1) => assigned to both shards.
+	require.NoError(t, handler.aggs[handler.shards[0].donID].Collect(&obs, "node1"))
+	handler.syncMetadata(ctx)
+	assigned = handler.WorkflowShards(testWorkflowID1)
+	require.Len(t, assigned, 2)
+
+	// An observation from an unknown node is rejected.
+	_, err := handler.aggForNode("unknown-node")
+	require.Error(t, err)
+}
+
+func TestSendMetadataPullRequestMultiShard(t *testing.T) {
+	t.Parallel()
+
+	handler, mockDon0, mockDon1 := createMultiShardMetadataHandler(t)
+	for _, addr := range []string{"node1", "node2"} {
+		mockDon0.EXPECT().SendToNode(mock.Anything, addr, mock.Anything).Return(nil).Once()
+	}
+	for _, addr := range []string{"node3", "node4"} {
+		mockDon1.EXPECT().SendToNode(mock.Anything, addr, mock.Anything).Return(nil).Once()
+	}
+	require.NoError(t, handler.sendMetadataPullRequest())
+	mockDon0.AssertExpectations(t)
+	mockDon1.AssertExpectations(t)
+}
+
 func TestOnMetadataPush(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
-	err := handler.agg.Start(ctx)
+	err := handler.aggs[handler.shards[0].donID].Start(ctx)
 	require.NoError(t, err)
-	defer handler.agg.Close()
+	defer handler.aggs[handler.shards[0].donID].Close()
 
 	metadata := gateway_common.WorkflowMetadata{
 		WorkflowSelector: gateway_common.WorkflowSelector{
@@ -259,7 +358,7 @@ func TestOnMetadataPush(t *testing.T) {
 
 func TestOnMetadataPushInvalidJSON(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	invalidJSON := json.RawMessage(`{"invalid": json}`)
 	resp := &jsonrpc.Response[json.RawMessage]{
@@ -273,11 +372,11 @@ func TestOnMetadataPushInvalidJSON(t *testing.T) {
 
 func TestOnMetadataPullResponse(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
-	err := handler.agg.Start(ctx)
+	err := handler.aggs[handler.shards[0].donID].Start(ctx)
 	require.NoError(t, err)
-	defer handler.agg.Close()
+	defer handler.aggs[handler.shards[0].donID].Close()
 
 	key1 := gateway_common.AuthorizedKey{
 		KeyType:   gateway_common.KeyTypeECDSAEVM,
@@ -370,7 +469,7 @@ func TestOnMetadataPullResponse(t *testing.T) {
 
 func TestOnMetadataPullResponseInvalidJSON(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	invalidJSON := json.RawMessage(`[{"invalid": json}]`)
 	resp := &jsonrpc.Response[json.RawMessage]{
@@ -384,7 +483,7 @@ func TestOnMetadataPullResponseInvalidJSON(t *testing.T) {
 
 func TestStartAndClose(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	err := handler.Start(ctx)
 	require.NoError(t, err)
@@ -802,11 +901,11 @@ func TestValidateAuthMetadata(t *testing.T) {
 
 func TestOnMetadataPushWithValidation(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
-	err := handler.agg.Start(ctx)
+	err := handler.aggs[handler.shards[0].donID].Start(ctx)
 	require.NoError(t, err)
-	defer handler.agg.Close()
+	defer handler.aggs[handler.shards[0].donID].Close()
 
 	t.Run("valid metadata passes validation", func(t *testing.T) {
 		metadata := gateway_common.WorkflowMetadata{
@@ -868,11 +967,11 @@ func TestOnMetadataPushWithValidation(t *testing.T) {
 
 func TestOnMetadataPullResponseWithValidation(t *testing.T) {
 	handler, _, _ := createTestWorkflowMetadataHandler(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
-	err := handler.agg.Start(ctx)
+	err := handler.aggs[handler.shards[0].donID].Start(ctx)
 	require.NoError(t, err)
-	defer handler.agg.Close()
+	defer handler.aggs[handler.shards[0].donID].Close()
 
 	t.Run("valid metadata array passes validation", func(t *testing.T) {
 		metadata := []gateway_common.WorkflowMetadata{

@@ -1,0 +1,69 @@
+name: deploy-cre-products
+description: "Deploy a chainlink image to every CRE product target"
+
+inputs:
+  aws-role-arn:
+    description: "AWS role ARN for GATI"
+    required: true
+  aws-lambda-url:
+    description: "AWS Lambda URL for GATI"
+    required: true
+  aws-region:
+    description: "AWS region"
+    required: true
+  repo-destination:
+    description: "Destination repository for deployment"
+    required: true
+  oci-image-tag:
+    description: "OCI image tag to deploy"
+    required: true
+  pr-close-enabled:
+    description: "Optionally close previous PRs."
+    required: false
+    default: "false"
+  pr-head-branch-override:
+    description: "Override the head branch for the PR. A literal '{product}' token is replaced with the product name. Otherwise, auto generate one."
+    required: false
+  pr-title-override:
+    description: "Override the title for the PR. A literal '{product}' token is replaced with the product name. Otherwise, auto generate one."
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Deploy CRE
+      uses: ./.github/actions/deploy-image
+      with:
+        aws-role-arn: ${{ inputs.aws-role-arn }}
+        aws-lambda-url: ${{ inputs.aws-lambda-url }}
+        aws-region: ${{ inputs.aws-region }}
+        repo-destination: ${{ inputs.repo-destination }}
+        oci-image-tag: ${{ inputs.oci-image-tag }}
+        oci-repository-url: public.ecr.aws/chainlink/chainlink
+        pr-close-enabled: ${{ inputs.pr-close-enabled }}
+        pr-head-branch-override: ${{ inputs.pr-head-branch-override }}
+        pr-title-override: ${{ inputs.pr-title-override }}
+        pr-draft: false
+        pr-labels: ""
+        products: |
+          cre-mainline-staging_zone-a
+          cre-mainline-staging_zone-b
+          cre-mainline-prod_zone-a
+          cre-mainline-prod_zone-b
+          cre-mainline-prod_zone-global
+          cre-mainline-prod_testnet-group-1
+          cre-mainline-prod_testnet-group-2
+          cre-mainline-prod_testnet-group-3
+          cre-mainline-prod_testnet-group-4
+          cre-df-staging_zone-a
+          cre-df-staging_zone-b
+          cre-df-prod_zone-a
+          cre-df-prod_zone-b
+          cre-bcm-prod_zone-a-group-1
+          cre-bcm-prod_zone-a-group-2
+          cre-bcm-prod_zone-a-group-3
+          cre-bcm-prod_zone-a-group-4
+          cre-bcm-prod_zone-b-group-1
+          cre-bcm-prod_zone-b-group-2
+          cre-bcm-prod_zone-b-group-3
+          cre-reliability

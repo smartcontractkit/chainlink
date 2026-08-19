@@ -106,7 +106,7 @@ func groupErrors(header string, errs []error) error {
 	}
 	var lines []string
 	for _, e := range errs {
-		for _, line := range strings.Split(e.Error(), "\n") {
+		for line := range strings.SplitSeq(e.Error(), "\n") {
 			if line != "" {
 				lines = append(lines, line)
 			}

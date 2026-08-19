@@ -29,6 +29,7 @@ const (
 	handlerName                          = "HTTPCapabilityHandler"
 	defaultCleanUpPeriodMs               = 1000 * 60 * 10 // 10 minutes
 	defaultMaxTriggerRequestDurationMs   = 1000 * 60      // 1 minute
+	defaultNodeSendTimeoutMs             = 1000 * 10      // 10 seconds
 	defaultInitialIntervalMs             = 100
 	defaultMaxIntervalTimeMs             = 1000 * 30 // 30 seconds
 	defaultMultiplier                    = 2.0
@@ -44,7 +45,8 @@ const (
 type gatewayHandler struct {
 	services.StateMachine
 	config                 ServiceConfig
-	don                    handlers.DON
+	shards                 []*shardEndpoint          // all DON shards served by this handler, across the full DON×shard matrix
+	nodeAddrToShard        map[string]*shardEndpoint // node address -> owning shard, for routing responses back to the correct shard conn manager
 	lggr                   logger.Logger
 	httpClient             network.HTTPClient
 	globalNodeRateLimiter  limits.RateLimiter            // Global rate limiter shared across all incoming node requests from workflow DON
@@ -76,6 +78,11 @@ type ResponseCache interface {
 type ServiceConfig struct {
 	// MaxTriggerRequestDurationMs is the maximum time allowed for each trigger broadcast request to a workflow node
 	MaxTriggerRequestDurationMs int `json:"maxTriggerRequestDurationMs"`
+
+	// NodeSendTimeoutMs bounds each individual send attempt to a single workflow node. It must be smaller
+	// than MaxTriggerRequestDurationMs so that one slow/unresponsive node cannot delay sending to the rest
+	// of the DON; the send is retried on the next attempt if it times out.
+	NodeSendTimeoutMs int `json:"nodeSendTimeoutMs"`
 
 	// RetryConfig defines retry behavior for trigger broadcast requests to workflow nodes
 	RetryConfig RetryConfig `json:"retryConfig"`
@@ -110,7 +117,7 @@ type RetryConfig struct {
 	Multiplier float64 `json:"multiplier"`
 }
 
-func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory) (*gatewayHandler, error) {
+func NewGatewayHandler(handlerConfig json.RawMessage, shardedDONs []config.ShardedDONConfig, shardsConnMgrs [][]handlers.DON, httpClient network.HTTPClient, lggr logger.Logger, lf limits.Factory, httpClientFactory network.HTTPClientFactory) (*gatewayHandler, error) {
 	var cfg ServiceConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -118,12 +125,18 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 	}
 	cfg = WithDefaults(cfg)
 
+	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, shardsConnMgrs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build shard endpoints: %w", err)
+	}
+	members := allMembers(shards)
+
 	globalNodeRateLimiter, err := lf.MakeRateLimiter(cresettings.Default.GatewayHTTPGlobalRate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create global node rate limiter: %w", err)
 	}
-	perNodeRateLimiters := make(map[string]limits.RateLimiter, len(donConfig.Members))
-	for _, member := range donConfig.Members {
+	perNodeRateLimiters := make(map[string]limits.RateLimiter, len(members))
+	for _, member := range members {
 		var rl limits.RateLimiter
 		rl, err = lf.MakeRateLimiter(cresettings.Default.GatewayHTTPPerNodeRate)
 		if err != nil {
@@ -147,17 +160,18 @@ func NewGatewayHandler(handlerConfig json.RawMessage, donConfig *config.DONConfi
 		return nil, fmt.Errorf("failed to create mtls concurrency limiter: %w", err)
 	}
 
-	metrics, err := metrics.NewMetrics(donConfig)
+	metrics, err := metrics.NewMetrics(members)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize metrics: %w", err)
 	}
 
-	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, don, donConfig, metrics)
-	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, donConfig, don, metadataHandler, userRateLimiter, metrics)
+	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, metrics)
+	triggerHandler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, metrics)
 	return &gatewayHandler{
 		config:                 cfg,
-		don:                    don,
-		lggr:                   logger.With(logger.Named(lggr, handlerName), "donId", donConfig.DonId),
+		shards:                 shards,
+		nodeAddrToShard:        nodeAddrToShard,
+		lggr:                   logger.Named(lggr, handlerName),
 		httpClient:             httpClient,
 		globalNodeRateLimiter:  globalNodeRateLimiter,
 		perNodeRateLimiters:    perNodeRateLimiters,
@@ -178,6 +192,12 @@ func WithDefaults(cfg ServiceConfig) ServiceConfig {
 	}
 	if cfg.MaxTriggerRequestDurationMs == 0 {
 		cfg.MaxTriggerRequestDurationMs = defaultMaxTriggerRequestDurationMs
+	}
+	if cfg.NodeSendTimeoutMs == 0 {
+		cfg.NodeSendTimeoutMs = defaultNodeSendTimeoutMs
+	}
+	if cfg.NodeSendTimeoutMs > cfg.MaxTriggerRequestDurationMs {
+		cfg.NodeSendTimeoutMs = cfg.MaxTriggerRequestDurationMs
 	}
 	if cfg.MetadataPullIntervalMs == 0 {
 		cfg.MetadataPullIntervalMs = defaultMetadataPullIntervalMs
@@ -402,9 +422,7 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 	sendResponseTimeout := time.Duration(defaultSendResponseTimeoutMs) * time.Millisecond
 
 	// send response to node async
-	h.wg.Add(1)
-	go func() {
-		defer h.wg.Done()
+	h.wg.Go(func() {
 		// not cancelled when parent is cancelled to ensure the goroutine can finish
 		baseCtx := context.WithoutCancel(ctx)
 		httpCtx, httpCancel := context.WithTimeout(baseCtx, timeout)
@@ -431,7 +449,7 @@ func (h *gatewayHandler) makeOutgoingRequest(ctx context.Context, resp *jsonrpc.
 			l.Errorw("error sending response to node", "err", err, "nodeAddr", nodeAddr, "requestID", requestID)
 			h.metrics.IncrementActionCapabilityFailures(ctx, nodeAddr, h.lggr)
 		}
-	}()
+	})
 	return nil
 }
 
@@ -454,9 +472,7 @@ func (h *gatewayHandler) Start(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to start HTTP auth handler: %w", err)
 		}
-		h.wg.Add(1)
-		go func() {
-			defer h.wg.Done()
+		h.wg.Go(func() {
 			ticker := time.NewTicker(time.Duration(h.config.CleanUpPeriodMs) * time.Millisecond)
 			defer ticker.Stop()
 			for {
@@ -467,7 +483,7 @@ func (h *gatewayHandler) Start(ctx context.Context) error {
 					return
 				}
 			}
-		}()
+		})
 		return nil
 	})
 }
@@ -516,11 +532,15 @@ func (h *gatewayHandler) sendResponseToNode(ctx context.Context, requestID strin
 		Params:  &rawParams,
 	}
 
-	err = h.don.SendToNode(ctx, nodeAddr, req)
+	shard, ok := h.nodeAddrToShard[nodeAddr]
+	if !ok {
+		return fmt.Errorf("cannot route response to unknown node %s (no owning shard)", nodeAddr)
+	}
+	err = shard.connMgr.SendToNode(ctx, nodeAddr, req)
 	if err != nil {
 		return err
 	}
 
-	h.lggr.Debugw("sent response to node", "to", nodeAddr)
+	h.lggr.Debugw("sent response to node", "to", nodeAddr, "shard", shard.donID)
 	return nil
 }

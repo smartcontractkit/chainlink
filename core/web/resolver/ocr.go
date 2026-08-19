@@ -41,7 +41,7 @@ func NewOCRKeyBundlesPayloadResolver(keys []ocrkey.KeyV2) *OCRKeyBundlesPayloadR
 }
 
 func (r *OCRKeyBundlesPayloadResolver) Results() []OCRKeyBundleResolver {
-	var bundles []OCRKeyBundleResolver
+	bundles := make([]OCRKeyBundleResolver, 0, len(r.keys))
 	for _, k := range r.keys {
 		bundles = append(bundles, NewOCRKeyBundleResolver(k))
 	}

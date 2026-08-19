@@ -9,6 +9,7 @@ import (
 
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+
 	operations2 "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
 	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
@@ -18,8 +19,10 @@ import (
 // EVM uses KeystoneForwarder@1.0.0 and OCR3Capability@1.0.0 (see pkg.GetKeystoneForwarderCapabilityAddressRefKey).
 // Solana reads use CapabilitiesRegistry@2.0.0 for CapReg-backed oracle factory (see pkg.GetCapRegAddressRefKey).
 const (
-	solanaForwarderVersion = "1.0.0"
-	solanaCapRegVersion    = "2.0.0"
+	solanaForwarderVersion  = "1.0.0"
+	solanaCapRegVersion     = "2.0.0"
+	stellarCapRegVersion    = "2.0.0"
+	stellarForwarderVersion = "1.0.0"
 )
 
 type commonCapFields struct {
@@ -82,6 +85,17 @@ func resolveCapRegAddress(e cldf.Environment, ocrChainSelector uint64, qualifier
 	return nil
 }
 
+// resolveOCR3ContractAddress verifies a standalone OCR3Capability@1.0.0 contract exists in the datastore
+// for the given qualifier. Used by the legacy OCR3 flow (UseStandaloneOCR3Contract), where the oracle
+// factory reads its OCR3 config from a dedicated contract instead of the CapabilitiesRegistry.
+func resolveOCR3ContractAddress(e cldf.Environment, ocrChainSelector uint64, qualifier string) error {
+	addrRefKey := pkg.GetOCR3CapabilityAddressRefKey(ocrChainSelector, qualifier)
+	if _, err := e.DataStore.Addresses().Get(addrRefKey); err != nil {
+		return fmt.Errorf("failed to get OCR3Capability address for ref key %s: %w", addrRefKey, err)
+	}
+	return nil
+}
+
 func resolveContractAddresses(
 	e cldf.Environment,
 	ocrChainSelector uint64,
@@ -128,6 +142,18 @@ func resolveSolanaForwarderAddresses(e cldf.Environment, chainSelector uint64, q
 	}
 
 	return prog.Address, state.Address, nil
+}
+
+func resolveStellarForwarderAddress(e cldf.Environment, chainSelector uint64, qualifier string) (string, error) {
+	if qualifier == "" {
+		return "", errors.New("cre forwarder qualifier is required")
+	}
+	refKey := pkg.GetStellarForwarderAddressRefKey(chainSelector, qualifier)
+	ref, err := e.DataStore.Addresses().Get(refKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to get Stellar forwarder for ref key %s: %w", refKey, err)
+	}
+	return ref.Address, nil
 }
 
 func validateOverrideNetwork(got, expected, nodeID string) error {

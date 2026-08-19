@@ -118,8 +118,8 @@ func TestResolver_GetVRFKeys(t *testing.T) {
 		}
 	`
 
-	fakeKeys := []vrfkey.KeyV2{}
-	expectedKeys := []map[string]string{}
+	fakeKeys := make([]vrfkey.KeyV2, 0, 2)
+	expectedKeys := make([]map[string]string, 0, 2)
 	for range 2 {
 		fakeKey := vrfkey.MustNewV2XXXTestingOnly(big.NewInt(1))
 		uncompressed, err := fakeKey.PublicKey.StringUncompressed()

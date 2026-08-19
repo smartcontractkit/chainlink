@@ -7,8 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
-	capStreams "github.com/smartcontractkit/chainlink/v2/core/capabilities/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -50,6 +48,7 @@ func (w wfRegTestStub) MaxConfigSize() utils.FileSize           { return 0 }
 func (w wfRegTestStub) RelayID() commontypes.RelayID            { return commontypes.RelayID{} }
 func (w wfRegTestStub) SyncStrategy() string                    { return "" }
 func (w wfRegTestStub) MaxConcurrency() int                     { return 0 }
+func (w wfRegTestStub) MaxActivationRetries() int               { return 0 }
 func (w wfRegTestStub) WorkflowStorage() config.WorkflowStorage { return wfRegStorageStub{} }
 func (w wfRegTestStub) ModuleCache() config.ModuleCache         { return wfRegModuleCacheStub{} }
 func (w wfRegTestStub) AdditionalSources() []config.AdditionalWorkflowSource {
@@ -62,40 +61,6 @@ func (w wfRegTestStub) AdditionalSources() []config.AdditionalWorkflowSource {
 
 func testWorkflowRegistry(addr string, urls ...string) config.CapabilitiesWorkflowRegistry {
 	return wfRegTestStub{addr: addr, additionalURLs: urls}
-}
-
-type testLocalCapabilities struct {
-	cfgs map[string]config.CapabilityNodeConfig
-}
-
-func (t testLocalCapabilities) RegistryBasedLaunchAllowlist() []string {
-	return nil
-}
-
-func (t testLocalCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
-	return t.cfgs
-}
-
-func (t testLocalCapabilities) IsAllowlisted(string) bool {
-	return false
-}
-
-func (t testLocalCapabilities) GetCapabilityConfig(capabilityID string) config.CapabilityNodeConfig {
-	if t.cfgs == nil {
-		return nil
-	}
-
-	return t.cfgs[capabilityID]
-}
-
-type testCapabilityNodeConfig struct{}
-
-func (testCapabilityNodeConfig) BinaryPathOverride() string {
-	return ""
-}
-
-func (testCapabilityNodeConfig) Config() map[string]string {
-	return nil
 }
 
 func TestWorkflowRegistrySemverMajor(t *testing.T) {
@@ -137,33 +102,6 @@ func TestWorkflowRegistryConfigured(t *testing.T) {
 func TestNewLocalTestMetadataRegistry(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name      string
-		localCfg  config.LocalCapabilities
-		expectedF uint8
-	}{
-		{
-			name:      "default workflow DON fault tolerance",
-			localCfg:  nil,
-			expectedF: 0,
-		},
-		{
-			name: "mock trigger opt-in uses workflow DON fault tolerance one",
-			localCfg: testLocalCapabilities{
-				cfgs: map[string]config.CapabilityNodeConfig{
-					capStreams.MockTriggerCapabilityID: testCapabilityNodeConfig{},
-				},
-			},
-			expectedF: 1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			registry := newLocalTestMetadataRegistry(tt.localCfg)
-			require.Equal(t, tt.expectedF, registry.WorkflowDONF)
-		})
-	}
+	registry := newLocalTestMetadataRegistry(nil)
+	require.Equal(t, uint8(0), registry.WorkflowDONF)
 }

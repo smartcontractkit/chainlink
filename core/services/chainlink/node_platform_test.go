@@ -43,10 +43,7 @@ func (f fakeNodePlatformJobReader) FindJobs(_ context.Context, offset, limit int
 		return nil, len(f.jobs), nil
 	}
 
-	end := offset + limit
-	if end > len(f.jobs) {
-		end = len(f.jobs)
-	}
+	end := min(offset+limit, len(f.jobs))
 	return f.jobs[offset:end], len(f.jobs), nil
 }
 
@@ -161,7 +158,7 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesFromJobFields(t *testing.T) 
 					OCR2OracleSpec: &job.OCR2OracleSpec{
 						Relay:         "evm",
 						ChainID:       "2",
-						PluginType:    commontypes.Mercury,
+						PluginType:    commontypes.LLO,
 						TransmitterID: null.StringFrom("0x4444444444444444444444444444444444444444"),
 					},
 				},
@@ -413,6 +410,10 @@ func TestNodePlatformJobInfo_EmitsSubmitterAddressesForCCVExecutorJobs(t *testin
 }
 
 func TestNodePlatformJobInfo_PaginatesSubmitterAddressJobs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	obs := beholdertest.NewObserver(t)
 
 	jobs := make([]job.Job, 1001)

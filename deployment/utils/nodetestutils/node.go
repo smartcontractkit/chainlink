@@ -38,7 +38,6 @@ import (
 	v2toml "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	evmlptesting "github.com/smartcontractkit/chainlink-evm/pkg/logpoller/testing"
-	"github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
@@ -175,10 +174,9 @@ func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 			fmt.Printf("ReplayFromBlock: family: %q chainID: %q\n", family, chainID)
 			continue
 		}
-		if family == "sui" {
-			fmt.Printf("ReplayFromBlock: family: %q chainID: %q\n", family, chainID)
-			continue
-		}
+		// Sui replay is supported via App.ReplayFromBlock -> SuiRelayer.Replay, which re-scans
+		// a window of checkpoints so events emitted before the relayer registered its event
+		// selectors are re-indexed. Skipping it leaves pre-bind CCIPMessageSent events unindexed.
 		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil {
 			return err
 		}
@@ -758,7 +756,7 @@ func CreateKeys(t *testing.T,
 }
 
 func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
-	chainIDBig := sqlutil.NewI(int64(chainID))
+	chainIDBig := sqlutil.New(big.NewInt(0).SetUint64(chainID))
 	chain := v2toml.Defaults(chainIDBig)
 	chain.GasEstimator.LimitDefault = new(uint64(5e6))
 	chain.LogPollInterval = config.MustNewDuration(500 * time.Millisecond)
@@ -807,7 +805,7 @@ func setupJD(t *testing.T, app chainlink.Application) {
 	connManager.On("IsConnected", mock.Anything).Maybe().Return(true)
 	f.Unsafe_SetConnectionsManager(connManager)
 
-	_, err = f.RegisterManager(testutils.Context(t), m)
+	_, err = f.RegisterManager(t.Context(), m)
 	require.NoError(t, err)
 }
 

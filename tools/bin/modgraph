@@ -8,25 +8,6 @@ echo "# smartcontractkit Go modules
 ## Main module
 \`\`\`mermaid
 flowchart LR
-  subgraph chains
-    chainlink-aptos
-    chainlink-cosmos
-    chainlink-evm
-    chainlink-solana
-    chainlink-starknet/relayer
-    chainlink-tron/relayer
-  end
-
-  subgraph products
-    chainlink-automation
-    chainlink-data-streams
-    chainlink-feeds
-    chainlink-functions
-    chainlink-vrf
-  end
-
-  classDef group stroke-dasharray:6,fill:none;
-  class chains,products group
 "
 go mod graph | modgraph -prefix github.com/smartcontractkit/
 echo "\`\`\`"
@@ -34,25 +15,32 @@ echo "\`\`\`"
 echo "## All modules
 \`\`\`mermaid
 flowchart LR
-  subgraph chains
-    chainlink-aptos
-    chainlink-cosmos
-    chainlink-evm
-    chainlink-solana
-    chainlink-starknet/relayer
-    chainlink-tron/relayer
-  end
-
-  subgraph products
-    chainlink-automation
-    chainlink-data-streams
-    chainlink-feeds
-    chainlink-functions
-    chainlink-vrf
-  end
-
-  classDef group stroke-dasharray:6,fill:none;
-  class chains,products group
 "
-gomods graph | modgraph -prefix github.com/smartcontractkit/
+
+# temp-repo directories are gitignored local artifacts (see .gitignore) and are not
+# present on CI. Move them outside the repo during gomods graph so go.md matches CI.
+RESTORE_DIRS=()
+HIDE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/chainlink-modgraph-hide.XXXXXX")"
+cleanup() {
+  for pair in "${RESTORE_DIRS[@]}"; do
+    dir="${pair%%:*}"
+    hidden="${pair#*:}"
+    if [ -d "$hidden" ]; then
+      mv "$hidden" "$dir"
+    fi
+  done
+  if [ -d "$HIDE_ROOT" ]; then
+    rmdir "$HIDE_ROOT" 2>/dev/null || rm -rf "$HIDE_ROOT"
+  fi
+}
+trap cleanup EXIT
+
+while IFS= read -r -d '' dir; do
+  hidden="${HIDE_ROOT}/$(echo "$dir" | tr '/' '_')"
+  mkdir -p "$(dirname "$hidden")"
+  mv "$dir" "$hidden"
+  RESTORE_DIRS+=("${dir}:${hidden}")
+done < <(find . -type d -name temp-repo -print0 2>/dev/null)
+
+gomods graph 2>/dev/null | modgraph -prefix github.com/smartcontractkit/
 echo "\`\`\`"

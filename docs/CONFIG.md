@@ -1297,19 +1297,22 @@ them all in case we regained connection and now send a bunch at once
 ```toml
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 ```
-PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID is the peer ID of the node's P2P host. If unspecified, the single P2P
+key from the node keystore is used; if the keystore contains multiple P2P keys,
+PeerID must be set.
 
 ### TraceLogging
 ```toml
 TraceLogging = false # Default
 ```
-TraceLogging enables trace level logging.
+TraceLogging **DEPRECATED**: has no effect. Use `OCR.TraceLogging` (for the P2P
+networking stack) or `OCR2.TraceLogging` (for OCR2 jobs) instead.
 
 ### EnableExperimentalRageP2P
 ```toml
 EnableExperimentalRageP2P = false # Default
 ```
-EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
+EnableExperimentalRageP2P enables the experimental ragep2p version required by OCR3.1.
 
 ## P2P.V2
 ```toml
@@ -1327,16 +1330,28 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```toml
 Enabled = true # Default
 ```
-Enabled enables P2P V2.
-Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
+Enabled enables P2P V2, the networking stack that OCR, OCR2, OCR3, OCR3.1, and
+bootstrap jobs use to communicate with other nodes.
+It must be enabled when OCR.Enabled or OCR2.Enabled is true, otherwise the node
+fails to boot.
 
 ### AnnounceAddresses
 ```toml
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`.
-The addresses should be reachable by other nodes on the network. When attempting to connect to another node,
-a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
+AnnounceAddresses are the `ip:port` addresses this node advertises to other
+nodes. These addresses should be reachable by those nodes.
+Use IP addresses only: hostnames and domain names are not valid. Each address
+must include a port. IPv6 addresses must be enclosed in `[]` and cannot
+include zone identifiers such as `%eth0`. If omitted or empty,
+ListenAddresses are used instead.
+If those values include addresses with unspecified IPs such as `0.0.0.0:port`
+or `[::]:port`, the node attempts to replace them with detected interface IPs
+before advertising them. If autodetection fails, concrete IP entries are
+still used, but entries with unspecified IPs are dropped. Startup fails if no
+usable announce addresses remain.
+For security reasons, it is strongly recommended to use
+random/unpredictable ports.
 
 ### DefaultBootstrappers
 ```toml
@@ -1355,7 +1370,7 @@ nodes will regularly broadcast signed announcements containing their PeerID and 
 ```toml
 DeltaDial = '15s' # Default
 ```
-DeltaDial controls how far apart Dial attempts are
+DeltaDial is the minimum duration between dial attempts to a single peer. The actual duration may be longer due to jitter.
 
 ### DeltaReconcile
 ```toml
@@ -1367,8 +1382,12 @@ DeltaReconcile controls how often a Reconcile message is sent to every peer.
 ```toml
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
-but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+ListenAddresses are the `ip:port` addresses this node listens on.
+At least one listen address is required.
+You can use `0.0.0.0:port` or `[::]:port` to listen on all interfaces.
+If AnnounceAddresses is omitted or empty, ListenAddresses are also used as
+AnnounceAddresses, and thus must satisfy the AnnounceAddresses requirements
+above.
 
 ## Capabilities.RateLimit
 ```toml
@@ -1416,6 +1435,7 @@ MaxEncryptedSecretsSize = '26.40kb' # Default
 MaxConfigSize = '50.00kb' # Default
 SyncStrategy = 'event' # Default
 MaxConcurrency = 12 # Default
+MaxActivationRetries = 100 # Default
 ```
 
 
@@ -1473,6 +1493,12 @@ Options are: event which watches for contract events or reconciliation which dif
 MaxConcurrency = 12 # Default
 ```
 MaxConcurrency controls the maximum number of concurrent event handlers in the workflow registry syncer.
+
+### MaxActivationRetries
+```toml
+MaxActivationRetries = 100 # Default
+```
+MaxActivationRetries is the number of failed load/initialization attempts before the syncer stops retrying an active workflow. 0 disables the limit.
 
 ## Capabilities.WorkflowRegistry.WorkflowStorage
 ```toml
@@ -1718,38 +1744,37 @@ EnableExperimentalRageP2P = false # Default
 ```toml
 IncomingMessageBufferSize = 10 # Default
 ```
-IncomingMessageBufferSize is the per-remote number of incoming
-messages to buffer. Any additional messages received on top of those
-already in the queue will be dropped.
+IncomingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
+capabilities P2P host are not configurable; for shared peering, use
+`Capabilities.SharedPeering.StreamConfig`.
 
 ### OutgoingMessageBufferSize
 ```toml
 OutgoingMessageBufferSize = 10 # Default
 ```
-OutgoingMessageBufferSize is the per-remote number of outgoing
-messages to buffer. Any additional messages send on top of those
-already in the queue will displace the oldest.
-NOTE: OutgoingMessageBufferSize should be comfortably smaller than remote's
-IncomingMessageBufferSize to give the remote enough space to process
-them all in case we regained connection and now send a bunch at once
+OutgoingMessageBufferSize **DEPRECATED**: has no effect. Buffer sizes for the
+capabilities P2P host are not configurable; for shared peering, use
+`Capabilities.SharedPeering.StreamConfig`.
 
 ### PeerID
 ```toml
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 ```
-PeerID is the default peer ID to use for OCR jobs. If unspecified, uses the first available peer ID.
+PeerID is the peer ID to use for the capabilities P2P host; see
+[`P2P.PeerID`](#p2p).
 
 ### TraceLogging
 ```toml
 TraceLogging = false # Default
 ```
-TraceLogging enables trace level logging.
+TraceLogging **DEPRECATED**: has no effect.
 
 ### EnableExperimentalRageP2P
 ```toml
 EnableExperimentalRageP2P = false # Default
 ```
-EnableExperimentalRageP2P needs to be enabled for ocr3.1 components
+EnableExperimentalRageP2P currently has no effect in this section; the
+capabilities P2P host always uses the production ragep2p stack.
 
 ## Capabilities.Peering.V2
 ```toml
@@ -1767,47 +1792,38 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```toml
 Enabled = false # Default
 ```
-Enabled enables P2P V2.
+Enabled enables a dedicated P2P V2 host for capabilities (DON-to-DON)
+communication, independent of the top-level `P2P` host.
 
 ### AnnounceAddresses
 ```toml
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-AnnounceAddresses is the addresses the peer will advertise on the network in `host:port` form as accepted by the TCP version of Go’s `net.Dial`.
-The addresses should be reachable by other nodes on the network. When attempting to connect to another node,
-a node will attempt to dial all of the other node’s AnnounceAddresses in round-robin fashion.
+AnnounceAddresses: see [`P2P.V2.AnnounceAddresses`](#p2pv2).
 
 ### DefaultBootstrappers
 ```toml
 DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
 ```
-DefaultBootstrappers is the default bootstrapper peers for libocr's v2 networking stack.
-
-Oracle nodes typically only know each other’s PeerIDs, but not their hostnames, IP addresses, or ports.
-DefaultBootstrappers are special nodes that help other nodes discover each other’s `AnnounceAddresses` so they can communicate.
-Nodes continuously attempt to connect to bootstrappers configured in here. When a node wants to connect to another node
-(which it knows only by PeerID, but not by address), it discovers the other node’s AnnounceAddresses from communications
-received from its DefaultBootstrappers or other discovered nodes. To facilitate discovery,
-nodes will regularly broadcast signed announcements containing their PeerID and AnnounceAddresses.
+DefaultBootstrappers: see [`P2P.V2.DefaultBootstrappers`](#p2pv2).
 
 ### DeltaDial
 ```toml
 DeltaDial = '15s' # Default
 ```
-DeltaDial controls how far apart Dial attempts are
+DeltaDial: see [`P2P.V2.DeltaDial`](#p2pv2).
 
 ### DeltaReconcile
 ```toml
 DeltaReconcile = '1m' # Default
 ```
-DeltaReconcile controls how often a Reconcile message is sent to every peer.
+DeltaReconcile: see [`P2P.V2.DeltaReconcile`](#p2pv2).
 
 ### ListenAddresses
 ```toml
 ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 ```
-ListenAddresses is the addresses the peer will listen to on the network in `host:port` form as accepted by `net.Listen()`,
-but the host and port must be fully specified and cannot be empty. You can specify `0.0.0.0` (IPv4) or `::` (IPv6) to listen on all interfaces, but that is not recommended.
+ListenAddresses: see [`P2P.V2.ListenAddresses`](#p2pv2).
 
 ## Capabilities.GatewayConnector
 ```toml
@@ -2386,7 +2402,18 @@ AuthHeadersTTL = '0s' # Default
 ChipIngressEndpoint = '' # Default
 ChipIngressInsecureConnection = false # Default
 ChipIngressBatchEmitterEnabled = true # Default
-DurableEmitterEnabled = false # Default
+ChipIngressBufferSize = 10000 # Default
+ChipIngressMaxBatchSize = 1000 # Default
+ChipIngressMaxConcurrentSends = 10 # Default
+ChipIngressSendInterval = '500ms' # Default
+ChipIngressSendTimeout = '10s' # Default
+ChipIngressDrainTimeout = '30s' # Default
+ChipIngressMaxGRPCRequestSize = 10485760 # Default
+DurableEmitterEnabled = true # Default
+DurableEmitterRetransmitBatchSize = 500 # Default
+DurableEmitterEventTTL = '1h0m0s' # Default
+DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
+DurableEmitterInsertBatchFlushInterval = '50ms' # Default
 HeartbeatInterval = '1s' # Default
 LogLevel = "info" # Default
 LogStreamingEnabled = false # Default
@@ -2395,6 +2422,8 @@ LogExportTimeout = '1s' # Default
 LogExportMaxBatchSize = 512 # Default
 LogExportInterval = '1s' # Default
 LogMaxQueueSize = 2048 # Default
+MetricViewsDenyAttributes = ['event_id'] # Default
+MetricCardinalityLimit = 100000 # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2470,11 +2499,79 @@ ChipIngressBatchEmitterEnabled = true # Default
 ChipIngressBatchEmitterEnabled enables batching for chip-ingress events.
 When false, events are sent individually (legacy behavior).
 
+### ChipIngressBufferSize
+```toml
+ChipIngressBufferSize = 10000 # Default
+```
+ChipIngressBufferSize is the in-memory queue size for chip-ingress events.
+
+### ChipIngressMaxBatchSize
+```toml
+ChipIngressMaxBatchSize = 1000 # Default
+```
+ChipIngressMaxBatchSize is the max events per PublishBatch RPC.
+
+### ChipIngressMaxConcurrentSends
+```toml
+ChipIngressMaxConcurrentSends = 10 # Default
+```
+ChipIngressMaxConcurrentSends limits parallel PublishBatch calls.
+
+### ChipIngressSendInterval
+```toml
+ChipIngressSendInterval = '500ms' # Default
+```
+ChipIngressSendInterval is the max wait before flushing an incomplete batch.
+
+### ChipIngressSendTimeout
+```toml
+ChipIngressSendTimeout = '10s' # Default
+```
+ChipIngressSendTimeout is the per-RPC timeout for PublishBatch.
+
+### ChipIngressDrainTimeout
+```toml
+ChipIngressDrainTimeout = '30s' # Default
+```
+ChipIngressDrainTimeout is the max shutdown wait to flush queued events.
+
+### ChipIngressMaxGRPCRequestSize
+```toml
+ChipIngressMaxGRPCRequestSize = 10485760 # Default
+```
+ChipIngressMaxGRPCRequestSize is the max serialized PublishBatch request size in bytes. Batches exceeding this are split before send (min 1 MiB enforced by batch client).
+
 ### DurableEmitterEnabled
 ```toml
-DurableEmitterEnabled = false # Default
+DurableEmitterEnabled = true # Default
 ```
 DurableEmitterEnabled enables persisting outbound CHIP events to Postgres for at-least-once delivery.
+
+### DurableEmitterRetransmitBatchSize
+```toml
+DurableEmitterRetransmitBatchSize = 500 # Default
+```
+DurableEmitterRetransmitBatchSize is the number of pending events the durable emitter replays per retransmit tick.
+
+### DurableEmitterEventTTL
+```toml
+DurableEmitterEventTTL = '1h0m0s' # Default
+```
+DurableEmitterEventTTL is how long an undelivered event is retained before the durable emitter expires it (older events are dropped).
+
+### DurableEmitterMaxQueuePayloadBytes
+```toml
+DurableEmitterMaxQueuePayloadBytes = 1073741824 # Default
+```
+DurableEmitterMaxQueuePayloadBytes is the byte ceiling used as the denominator for the durable emitter's
+queue capacity_usage_ratio metric. Defaults to 1 GiB.
+
+### DurableEmitterInsertBatchFlushInterval
+```toml
+DurableEmitterInsertBatchFlushInterval = '50ms' # Default
+```
+DurableEmitterInsertBatchFlushInterval is the linger time the durable emitter waits to coalesce concurrent
+emits into a single multi-row INSERT. Lower values reduce per-emit latency at the cost of smaller batches.
 
 ### HeartbeatInterval
 ```toml
@@ -2524,6 +2621,19 @@ LogMaxQueueSize = 2048 # Default
 ```
 LogMaxQueueSize sets the maximum queue size used by the batcher
 
+### MetricViewsDenyAttributes
+```toml
+MetricViewsDenyAttributes = ['event_id'] # Default
+```
+MetricViewsDenyAttributes lists attribute keys dropped before export (e.g. event_id).
+Empty disables default Beholder metric attribute deny views.
+
+### MetricCardinalityLimit
+```toml
+MetricCardinalityLimit = 100000 # Default
+```
+MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
+
 ## Telemetry.ResourceAttributes
 ```toml
 [Telemetry.ResourceAttributes]
@@ -2558,6 +2668,71 @@ Prefixes = ["go_"] # Default
 ```
 Prefixes is a set of filters to restrict which prometheus metrics are forwarded based on prefix matching.
 By default, we only forward the go runtime metrics. Empty means forward everything.
+
+## Metering
+```toml
+[Metering]
+MeterRecordsEnabled = false # Default
+MeterSnapshotsEnabled = false # Default
+Product = 'cre' # Default
+Tenant = '' # Default
+NumericTenantID = '' # Default
+Environment = '' # Default
+Zone = '' # Default
+NodeID = '' # Default
+```
+Metering configures durable resource metering emission and the coarse
+deployment/node identity dimensions stamped on emitted MeterRecords and
+MeterSnapshots.
+
+### MeterRecordsEnabled
+```toml
+MeterRecordsEnabled = false # Default
+```
+MeterRecordsEnabled enables durable MeterRecord emission for LOOP plugins.
+
+### MeterSnapshotsEnabled
+```toml
+MeterSnapshotsEnabled = false # Default
+```
+MeterSnapshotsEnabled enables durable MeterSnapshot emission for LOOP plugins.
+Requires MeterRecordsEnabled = true.
+
+### Product
+```toml
+Product = 'cre' # Default
+```
+Product is the deployment product identity dimension, e.g. 'cre'.
+
+### Tenant
+```toml
+Tenant = '' # Default
+```
+Tenant is the human-readable tenant name, e.g. 'mainline'.
+
+### NumericTenantID
+```toml
+NumericTenantID = '' # Default
+```
+NumericTenantID is the numbered tenant identifier represented as a string.
+
+### Environment
+```toml
+Environment = '' # Default
+```
+Environment is the deployment environment identity dimension, e.g. 'production'.
+
+### Zone
+```toml
+Zone = '' # Default
+```
+Zone is the deployment zone identity dimension, e.g. 'wf-zone-a'.
+
+### NodeID
+```toml
+NodeID = '' # Default
+```
+NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA public key).
 
 ## CRE.Streams
 ```toml
@@ -2597,6 +2772,7 @@ URL is override URL for the workflow fetcher service.
 [CRE.Linking]
 URL = "" # Default
 TLSEnabled = true # Default
+RequestTimeout = '2s' # Default
 ```
 
 
@@ -2611,6 +2787,12 @@ URL is the locator for the Chainlink linking service.
 TLSEnabled = true # Default
 ```
 TLSEnabled enables TLS to be used to secure communication with the linking service. This is enabled by default.
+
+### RequestTimeout
+```toml
+RequestTimeout = '2s' # Default
+```
+RequestTimeout bounds each organization lookup against the linking service.
 
 ## Billing
 ```toml
@@ -2732,6 +2914,8 @@ DebugMode enables additional tracing and logging for workflow engines.
 ```toml
 [CRE.ConfidentialRelay]
 Enabled = false # Default
+TrustEnclaves = false # Default
+RequireBFTQuorum = false # Default
 ```
 
 
@@ -2740,6 +2924,18 @@ Enabled = false # Default
 Enabled = false # Default
 ```
 Enabled controls whether the confidential relay gateway handler should be configured.
+
+### TrustEnclaves
+```toml
+TrustEnclaves = false # Default
+```
+TrustEnclaves relaxes TEE attestation validation so the relay trusts fake (non-Nitro) enclaves. intended only for tests.
+
+### RequireBFTQuorum
+```toml
+RequireBFTQuorum = false # Default
+```
+RequireBFTQuorum selects the relay's signature quorum.
 
 ## Sharding
 ```toml
@@ -2751,6 +2947,7 @@ ArbiterRetryInterval = '12s' # Default
 ShardIndex = 0 # Default
 ShardOrchestratorPort = 50051 # Default
 ShardOrchestratorAddress = '' # Default
+ShardAssignmentMode = 'manual-only' # Default
 ```
 Sharding holds settings for node sharding configuration.
 
@@ -2800,6 +2997,13 @@ ShardOrchestratorAddress = '' # Default
 ```
 ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
 Required when ShardingEnabled=true and ShardIndex > 0.
+
+### ShardAssignmentMode
+```toml
+ShardAssignmentMode = 'manual-only' # Default
+```
+ShardAssignmentMode controls how workflows are assigned to shards.
+One of: "manual-only" (default), "ringocr-only", "ringocr-with-overrides".
 
 ## LOOPP
 ```toml
@@ -2943,378 +3147,6 @@ AcceptanceTimeout = '30s'
 
 </p></details>
 
-<details><summary>Ethereum Ropsten (3)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-FinalityDepth = 50
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LinkContractAddress = '0x20fE562d797A42Dcb3399062AE9546cd06f63280'
-LogBackfillBatchSize = 1000
-LogPollInterval = '15s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
-MinContractPayment = '0.1 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '3m0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = true
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 4
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 50
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
-<details><summary>Ethereum Rinkeby (4)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-FinalityDepth = 50
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LinkContractAddress = '0x01BE23585060835E02B77ef475b0Cc51aA1e0709'
-LogBackfillBatchSize = 1000
-LogPollInterval = '15s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
-MinContractPayment = '0.1 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '3m0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 4
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 50
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
-<details><summary>Ethereum Goerli (5)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-FinalityDepth = 50
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
-LogBackfillBatchSize = 1000
-LogPollInterval = '15s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
-MinContractPayment = '0.1 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '3m0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = true
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 4
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 50
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
 <details><summary>Optimism Mainnet (10)</summary><p>
 
 ```toml
@@ -3434,131 +3266,6 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 6500000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
-<details><summary>Ethereum Kovan (42)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-FinalityDepth = 50
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
-LogBackfillBatchSize = 1000
-LogPollInterval = '15s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
-MinContractPayment = '0.1 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '3m0s'
-OperatorFactoryAddress = '0x8007e24251b1D2Fc518Eb843A701d9cD21fe0aA3'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 4
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 50
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -4422,130 +4129,6 @@ DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
 DeltaCJitterOverride = '1h0m0s'
 ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
-<details><summary>Heco Mainnet (128)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-FinalityDepth = 50
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
-LogBackfillBatchSize = 1000
-LogPollInterval = '3s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '30s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 2
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '5 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 5
-EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 24
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '2s'
-DatabaseTimeout = '2s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '500ms'
 
 [OCR2]
 [OCR2.Automation]
@@ -6202,134 +5785,6 @@ AcceptanceTimeout = '30s'
 
 </p></details>
 
-<details><summary>ZKsync Goerli (280)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'zksync'
-FinalityDepth = 10
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LinkContractAddress = '0xD29F4Cc763A064b6C563B8816f09351b3Fbb61A0'
-LogBackfillBatchSize = 1000
-LogPollInterval = '5s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 1
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '1m0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '18.446744073709551615 ether'
-PriceMin = '0'
-LimitDefault = 100000000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 8
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[GasEstimator.DAOracle]
-OracleType = 'zksync'
-
-[HeadTracker]
-HistoryDepth = 50
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
 <details><summary>Hedera Mainnet (295)</summary><p>
 
 ```toml
@@ -6630,7 +6085,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '18.446744073709551615 ether'
+PriceMax = '1 micro'
 PriceMin = '0'
 LimitDefault = 100000000
 LimitMax = 500000
@@ -6758,7 +6213,7 @@ Enabled = true
 [GasEstimator]
 Mode = 'BlockHistory'
 PriceDefault = '20 gwei'
-PriceMax = '18.446744073709551615 ether'
+PriceMax = '1 micro'
 PriceMin = '0'
 LimitDefault = 100000000
 LimitMax = 500000
@@ -6826,135 +6281,6 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 11000000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
-<details><summary>Optimism Goerli (420)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'optimismBedrock'
-FinalityDepth = 200
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LinkContractAddress = '0xdc2CC710e42857672E7907CF474a69B63B93089f'
-LogBackfillBatchSize = 1000
-LogPollInterval = '2s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 1
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '40s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '30s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 wei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '100 wei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = true
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 60
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[GasEstimator.DAOracle]
-OracleType = 'opstack'
-OracleAddress = '0x420000000000000000000000000000000000000F'
-
-[HeadTracker]
-HistoryDepth = 300
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 1
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -7075,130 +6401,6 @@ FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|histor
 
 [OCR]
 ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
-<details><summary>Metis Rinkeby (588)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'metis'
-FinalityDepth = 10
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LogBackfillBatchSize = 1000
-LogPollInterval = '15s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 1
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'SuggestedPrice'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 0
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 1
 ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 DeltaCOverride = '168h0m0s'
@@ -9610,132 +8812,6 @@ AcceptanceTimeout = '30s'
 
 </p></details>
 
-<details><summary>Polygon Zkevm Cardona (2442)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'zkevm'
-FinalityDepth = 500
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LinkContractAddress = '0x5576815a38A3706f37bf815b261cCc7cCA77e975'
-LogBackfillBatchSize = 1000
-LogPollInterval = '30s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 1
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '12m0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 100
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '3m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = true
-MinAttempts = 3
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'FeeHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 40
-BumpThreshold = 3
-EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 8
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '4s'
-
-[HeadTracker]
-HistoryDepth = 2000
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 1
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
 <details><summary>Fraxtal Testnet (2522)</summary><p>
 
 ```toml
@@ -11501,130 +10577,6 @@ AcceptanceTimeout = '30s'
 
 </p></details>
 
-<details><summary>Ethereum Holesky (17000)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-FinalityDepth = 50
-SafeDepth = 0
-FinalityTagEnabled = true
-SafeTagSupported = true
-LinkContractAddress = '0x685cE6742351ae9b618F383883D6d1e0c5A31B4B'
-LogBackfillBatchSize = 1000
-LogPollInterval = '15s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '3m0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '1 micro'
-PriceMin = '1 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = true
-FeeCapDefault = '1 micro'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 8
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 2
-PollSuccessThreshold = 0
-PollInterval = '3s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
 <details><summary>Mode Mainnet (34443)</summary><p>
 
 ```toml
@@ -13152,129 +12104,6 @@ AcceptanceTimeout = '30s'
 
 </p></details>
 
-<details><summary>Linea Goerli (59140)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-FinalityDepth = 15
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LogBackfillBatchSize = 1000
-LogPollInterval = '15s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '3m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 40
-BumpThreshold = 3
-EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 8
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
 <details><summary>Linea Sepolia (59141)</summary><p>
 
 ```toml
@@ -13912,130 +12741,6 @@ AcceptanceTimeout = '30s'
 
 </p></details>
 
-<details><summary>Polygon Mumbai (80001)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-FinalityDepth = 500
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
-LogBackfillBatchSize = 1000
-LogPollInterval = '1s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 5
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '30s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 100
-RPCBlockQueryDelay = 10
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 5000
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '25 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '25 gwei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '20 gwei'
-BumpPercent = 20
-BumpThreshold = 5
-EIP1559DynamicFees = false
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 24
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[HeadTracker]
-HistoryDepth = 2000
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 4
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
 <details><summary>Polygon Amoy (80002)</summary><p>
 
 ```toml
@@ -14527,134 +13232,6 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
-<details><summary>Base Goerli (84531)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'optimismBedrock'
-FinalityDepth = 200
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LogBackfillBatchSize = 1000
-LogPollInterval = '2s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 1
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '40s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '30s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'BlockHistory'
-PriceDefault = '20 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '1 wei'
-LimitDefault = 500000
-LimitMax = 500000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '100 wei'
-BumpPercent = 20
-BumpThreshold = 3
-EIP1559DynamicFees = true
-FeeCapDefault = '100 gwei'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 60
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[GasEstimator.DAOracle]
-OracleType = 'opstack'
-OracleAddress = '0x420000000000000000000000000000000000000F'
-
-[HeadTracker]
-HistoryDepth = 300
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 1
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 6500000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -15780,262 +14357,6 @@ ObservationGracePeriod = '1s'
 [OCR2]
 [OCR2.Automation]
 GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
-<details><summary>Arbitrum Rinkeby (421611)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'arbitrum'
-FinalityDepth = 50
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LinkContractAddress = '0x615fBe6372676474d9e6933d310469c9b68e9726'
-LogBackfillBatchSize = 1000
-LogPollInterval = '1s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'Arbitrum'
-PriceDefault = '100 mwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
-LimitDefault = 500000
-LimitMax = 1000000000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 5
-EIP1559DynamicFees = false
-FeeCapDefault = '1 micro'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 0
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[GasEstimator.DAOracle]
-OracleType = 'arbitrum'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 1
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 5400000
-
-[Workflow]
-GasLimitDefault = 400000
-TxAcceptanceState = 2
-PollPeriod = '2s'
-AcceptanceTimeout = '30s'
-```
-
-</p></details>
-
-<details><summary>Arbitrum Goerli (421613)</summary><p>
-
-```toml
-AutoCreateKey = true
-BlockBackfillDepth = 10
-BlockBackfillSkip = false
-ChainType = 'arbitrum'
-FinalityDepth = 50
-SafeDepth = 0
-FinalityTagEnabled = false
-SafeTagSupported = true
-LinkContractAddress = '0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28'
-LogBackfillBatchSize = 1000
-LogPollInterval = '1s'
-LogPollerSkipEmptyBlocks = false
-LogKeepBlocksDepth = 100000
-LogPrunePageSize = 0
-BackupLogPollerBlockDelay = 100
-MinIncomingConfirmations = 3
-MinContractPayment = '0.00001 link'
-NonceAutoSync = true
-NoNewHeadsThreshold = '0s'
-LogBroadcasterEnabled = true
-RPCDefaultBatchSize = 250
-RPCBlockQueryDelay = 1
-FinalizedBlockOffset = 0
-NoNewFinalizedHeadsThreshold = '0s'
-
-[Transactions]
-Enabled = true
-ForwardersEnabled = false
-MaxInFlight = 16
-MaxQueued = 250
-ReaperInterval = '1h0m0s'
-ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
-ConfirmationTimeout = '1m0s'
-
-[Transactions.AutoPurge]
-Enabled = false
-
-[Transactions.TransactionManagerV2]
-Enabled = false
-
-[BalanceMonitor]
-Enabled = true
-
-[GasEstimator]
-Mode = 'Arbitrum'
-PriceDefault = '100 mwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
-PriceMin = '0'
-LimitDefault = 500000
-LimitMax = 1000000000
-LimitMultiplier = '1'
-LimitTransfer = 21000
-EstimateLimit = false
-BumpMin = '5 gwei'
-BumpPercent = 20
-BumpThreshold = 5
-EIP1559DynamicFees = false
-FeeCapDefault = '1 micro'
-TipCapDefault = '1 wei'
-TipCapMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BatchSize = 25
-BlockHistorySize = 0
-CheckInclusionBlocks = 12
-CheckInclusionPercentile = 90
-TransactionPercentile = 60
-
-[GasEstimator.FeeHistory]
-CacheTimeout = '10s'
-
-[GasEstimator.DAOracle]
-OracleType = 'arbitrum'
-
-[HeadTracker]
-HistoryDepth = 100
-MaxBufferSize = 3
-SamplingInterval = '1s'
-MaxAllowedFinalityDepth = 10000
-FinalityTagBypass = false
-PersistenceEnabled = true
-PersistenceBatchSize = 100
-
-[NodePool]
-PollFailureThreshold = 5
-PollSuccessThreshold = 0
-PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
-LeaseDuration = '0s'
-NodeIsSyncingEnabled = false
-FinalizedBlockPollInterval = '5s'
-HistoricalBalanceCheckAddress = '0x0000000000000000000000000000000000000000'
-FinalizedStateCheckFailureThreshold = 0
-EnforceRepeatableRead = true
-DeathDeclarationDelay = '1m0s'
-NewHeadsPollInterval = '0s'
-VerifyChainID = true
-ExternalRequestMaxResponseSize = 1000000
-
-[NodePool.Errors]
-FinalizedStateUnavailable = '(: |^)(missing trie node|state not available|historical state unavailable)'
-
-[OCR]
-ContractConfirmations = 1
-ContractTransmitterTransmitTimeout = '10s'
-DatabaseTimeout = '10s'
-DeltaCOverride = '168h0m0s'
-DeltaCJitterOverride = '1h0m0s'
-ObservationGracePeriod = '1s'
-
-[OCR2]
-[OCR2.Automation]
-GasLimit = 14500000
 
 [Workflow]
 GasLimitDefault = 400000

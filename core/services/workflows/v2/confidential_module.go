@@ -7,21 +7,26 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
-
-	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
+	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 
 const confidentialWorkflowsCapabilityID = "confidential-workflows@1.0.0-alpha"
@@ -62,18 +67,56 @@ type ConfidentialModule struct {
 	workflowOwner     string
 	workflowName      string
 	workflowTag       string
+	resolveOrgID      func(ctx context.Context, owner string) (string, error)
 	lggr              logger.Logger
 	requirements      sync.Map
 	restritions       sync.Map
 	infoOnce          sync.Once
 	provider          func(tee *sdkpb.Tee) bool
 	executionHandlers *confidentialrelay.ExecutionHandlers
+	enabledGate       limits.GateLimiter
+	metrics           *confidentialModuleMetrics
+	creSettingsGetter settings.Getter
+}
+
+// confidentialModuleMetrics are node-measured (and therefore trusted) metrics for
+// the enclave round-trip. They live in the enclave* namespace alongside the
+// enclave-reported enclave.* metrics (which are non-attested), keeping all
+// confidential-workflow metrics out of the classic platform_engine_* namespace.
+type confidentialModuleMetrics struct {
+	executionDuration metric.Int64Histogram
+	executionFailures metric.Int64Counter
+}
+
+func newConfidentialModuleMetrics(meter metric.Meter) (*confidentialModuleMetrics, error) {
+	executionDuration, err := meter.Int64Histogram("enclave_execution_time_ms")
+	if err != nil {
+		return nil, err
+	}
+	executionFailures, err := meter.Int64Counter("enclave_execution_failures")
+	if err != nil {
+		return nil, err
+	}
+	return &confidentialModuleMetrics{
+		executionDuration: executionDuration,
+		executionFailures: executionFailures,
+	}, nil
 }
 
 var _ host.RequirementEnforcingModule = (*ConfidentialModule)(nil)
 var _ host.RestrictionAwareModule = (*ConfidentialModule)(nil)
 
-func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, lggr logger.Logger) *ConfidentialModule {
+func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandlers *confidentialrelay.ExecutionHandlers, binaryURL string, binaryHash []byte, workflowID, workflowOwner, workflowName, workflowTag string, resolveOrgID func(ctx context.Context, owner string) (string, error), enabledGate limits.GateLimiter, creSettingsGetter settings.Getter, lggr logger.Logger) (*ConfidentialModule, error) {
+	if enabledGate == nil {
+		return nil, errors.New("enabledGate must not be nil")
+	}
+	if resolveOrgID == nil {
+		return nil, errors.New("resolveOrgID must not be nil")
+	}
+	metrics, err := newConfidentialModuleMetrics(beholder.GetMeter())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create confidential module metrics: %w", err)
+	}
 	return &ConfidentialModule{
 		capRegistry:       capRegistry,
 		executionHandlers: executionHandlers,
@@ -83,8 +126,12 @@ func NewConfidentialModule(capRegistry core.CapabilitiesRegistry, executionHandl
 		workflowOwner:     workflowOwner,
 		workflowName:      workflowName,
 		workflowTag:       workflowTag,
+		resolveOrgID:      resolveOrgID,
+		enabledGate:       enabledGate,
+		creSettingsGetter: creSettingsGetter,
 		lggr:              lggr,
-	}
+		metrics:           metrics,
+	}, nil
 }
 
 func (m *ConfidentialModule) Start()            {}
@@ -96,6 +143,10 @@ func (m *ConfidentialModule) Execute(
 	request *sdkpb.ExecuteRequest,
 	helper host.ExecutionHelper,
 ) (*sdkpb.ExecutionResult, error) {
+	if err := m.enabledGate.AllowErr(ctx); err != nil {
+		return nil, fmt.Errorf("confidential-workflows capability is disabled by settings: %w", err)
+	}
+
 	workflowExecutionID := helper.GetWorkflowExecutionID()
 	rawSecretsHelper, ok := helper.(host.ExecutionHelperWithRawSecrets)
 	if !ok {
@@ -107,6 +158,11 @@ func (m *ConfidentialModule) Execute(
 	requirements := loadAndDelete[*sdkpb.Requirements](&m.requirements, workflowExecutionID)
 	restrictions := loadAndDelete[*sdkpb.Restrictions](&m.restritions, workflowExecutionID)
 
+	orgID, orgErr := m.resolveOrgID(ctx, m.workflowOwner)
+	if orgErr != nil {
+		m.lggr.Warnw("failed to resolve organization ID", "error", orgErr)
+	}
+
 	capInput := &confworkflowtypes.ConfidentialWorkflowRequest{
 		Execution: &confworkflowtypes.WorkflowExecution{
 			WorkflowId:        m.workflowID,
@@ -114,7 +170,7 @@ func (m *ConfidentialModule) Execute(
 			SdkExecuteRequest: request,
 			Owner:             m.workflowOwner,
 			ExecutionId:       workflowExecutionID,
-			OrgId:             contexts.CREValue(ctx).Org,
+			OrgId:             orgID,
 			Requirements:      requirements,
 			BinaryUrl:         m.binaryURL,
 			Restrictions:      restrictions,
@@ -122,7 +178,17 @@ func (m *ConfidentialModule) Execute(
 	}
 
 	capOutput := &confworkflowtypes.ConfidentialWorkflowResponse{}
-	if err := doRequest(ctx, m, helper.GetWorkflowExecutionID(), "Execute", capInput, capOutput); err != nil {
+	// Time the enclave round-trip (node-measured, trusted) and count failures.
+	attrs := metric.WithAttributes(
+		attribute.String(platform.KeyWorkflowID, m.workflowID),
+		attribute.String(platform.KeyWorkflowOwner, m.workflowOwner),
+		attribute.String(platform.KeyWorkflowName, m.workflowName),
+	)
+	start := time.Now()
+	err := doRequest(ctx, m, workflowExecutionID, "Execute", capInput, capOutput, orgID)
+	m.metrics.executionDuration.Record(ctx, time.Since(start).Milliseconds(), attrs)
+	if err != nil {
+		m.metrics.executionFailures.Add(ctx, 1, attrs)
 		return nil, err
 	}
 
@@ -140,7 +206,7 @@ func (m *ConfidentialModule) SetRestrictions(executionID string, restrictions *s
 func (m *ConfidentialModule) providedTees(ctx context.Context) []*sdkpb.TeeTypeAndRegions {
 	capOutput := &confworkflowtypes.ProvidedTeesResponse{}
 	// use an empty execution ID, it's not during an execution.
-	if err := doRequest(ctx, m, "", "ProvidedTees", &emptypb.Empty{}, capOutput); err != nil {
+	if err := doRequest(ctx, m, "", "ProvidedTees", &emptypb.Empty{}, capOutput, ""); err != nil {
 		m.lggr.Errorf("failed to get regions from confidential-workflows capability, assuming no supported regions: %v", err)
 		return []*sdkpb.TeeTypeAndRegions{}
 	}
@@ -171,7 +237,8 @@ func doRequest[I, O proto.Message](
 	execID string,
 	method string,
 	capInput I,
-	capOutput O) error {
+	capOutput O,
+	orgID string) error {
 	payload, err := anypb.New(capInput)
 	if err != nil {
 		return fmt.Errorf("failed to marshal capability payload: %w", err)
@@ -184,18 +251,37 @@ func doRequest[I, O proto.Message](
 
 	config, _ := anypb.New(&emptypb.Empty{})
 
+	metadata := capabilities.RequestMetadata{
+		WorkflowID:          m.workflowID,
+		WorkflowOwner:       m.workflowOwner,
+		WorkflowName:        m.workflowName,
+		WorkflowTag:         m.workflowTag,
+		WorkflowExecutionID: execID,
+		OrgID:               orgID,
+	}
+	// When the WorkflowDonID binding gate is enabled, the remote executable
+	// capability server rejects requests whose RequestMetadata.WorkflowDonID
+	// does not match the authenticated calling DON. Set it to the calling
+	// (local) workflow DON ID so the request is accepted. Any failure here must
+	// fail the whole call rather than silently sending a zero WorkflowDonID.
+	bindingEnabled, err := cresettings.Default.RemoteExecutableWorkflowDONBindingEnabled.GetOrDefault(ctx, m.creSettingsGetter)
+	if err != nil {
+		return fmt.Errorf("failed to read RemoteExecutableWorkflowDONBindingEnabled setting: %w", err)
+	}
+	if bindingEnabled {
+		localNode, lnErr := m.capRegistry.LocalNode(ctx)
+		if lnErr != nil {
+			return fmt.Errorf("failed to get local node for confidential-workflows request metadata: %w", lnErr)
+		}
+		metadata.WorkflowDonID = localNode.WorkflowDON.ID
+	}
+
 	capReq := capabilities.CapabilityRequest{
 		Payload:       payload,
 		ConfigPayload: config,
 		Method:        method,
 		CapabilityId:  confidentialWorkflowsCapabilityID,
-		Metadata: capabilities.RequestMetadata{
-			WorkflowID:          m.workflowID,
-			WorkflowOwner:       m.workflowOwner,
-			WorkflowName:        m.workflowName,
-			WorkflowTag:         m.workflowTag,
-			WorkflowExecutionID: execID,
-		},
+		Metadata:      metadata,
 	}
 
 	capResp, err := executable.Execute(ctx, capReq)

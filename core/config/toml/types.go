@@ -20,9 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
@@ -65,6 +64,7 @@ type Core struct {
 	Mercury              Mercury              `toml:",omitempty"`
 	Capabilities         Capabilities         `toml:",omitempty"`
 	Telemetry            Telemetry            `toml:",omitempty"`
+	Metering             Metering             `toml:",omitempty"`
 	Workflows            Workflows            `toml:",omitempty"`
 	CRE                  CreConfig            `toml:",omitempty"`
 	Billing              Billing              `toml:",omitempty"`
@@ -113,6 +113,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.JobDistributor.setFrom(&f.JobDistributor)
 	c.Tracing.setFrom(&f.Tracing)
 	c.Telemetry.setFrom(&f.Telemetry)
+	c.Metering.setFrom(&f.Metering)
 	c.CRE.setFrom(&f.CRE)
 	c.Billing.setFrom(&f.Billing)
 	c.BridgeStatusReporter.setFrom(&f.BridgeStatusReporter)
@@ -2048,12 +2049,19 @@ type WorkflowFetcherConfig struct {
 // validating enclave attestations and proxying capability requests.
 type ConfidentialRelayConfig struct {
 	Enabled *bool `toml:",omitempty"`
+	// TrustEnclaves relaxes TEE attestation validation so the relay trusts
+	// fake (non-Nitro) enclaves. INSECURE; intended only for tests/E2E that run
+	// against the fake enclave environment.
+	TrustEnclaves *bool `toml:",omitempty"`
+	// RequireBFTQuorum selects the required signature quorum.
+	RequireBFTQuorum *bool `toml:",omitempty"`
 }
 
 // LinkingConfig holds the configuration for connecting to the CRE linking service
 type LinkingConfig struct {
-	URL        *string `toml:",omitempty"`
-	TLSEnabled *bool   `toml:",omitempty"`
+	URL            *string                `toml:",omitempty"`
+	TLSEnabled     *bool                  `toml:",omitempty"`
+	RequestTimeout *commonconfig.Duration `toml:",omitempty"`
 }
 
 func (c *CreConfig) setFrom(f *CreConfig) {
@@ -2098,6 +2106,9 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		if v := f.Linking.TLSEnabled; v != nil {
 			c.Linking.TLSEnabled = v
 		}
+		if v := f.Linking.RequestTimeout; v != nil {
+			c.Linking.RequestTimeout = v
+		}
 	}
 
 	if f.DebugMode != nil {
@@ -2110,6 +2121,12 @@ func (c *CreConfig) setFrom(f *CreConfig) {
 		}
 		if v := f.ConfidentialRelay.Enabled; v != nil {
 			c.ConfidentialRelay.Enabled = v
+		}
+		if v := f.ConfidentialRelay.TrustEnclaves; v != nil {
+			c.ConfidentialRelay.TrustEnclaves = v
+		}
+		if v := f.ConfidentialRelay.RequireBFTQuorum; v != nil {
+			c.ConfidentialRelay.RequireBFTQuorum = v
 		}
 	}
 }
@@ -2139,6 +2156,11 @@ func (l *LinkingConfig) ValidateConfig() error {
 	if l.TLSEnabled == nil {
 		val := true
 		l.TLSEnabled = &val
+	}
+	if l.RequestTimeout == nil {
+		l.RequestTimeout = commonconfig.MustNewDuration(2 * time.Second)
+	} else if l.RequestTimeout.Duration() <= 0 {
+		return configutils.ErrInvalid{Name: "RequestTimeout", Value: l.RequestTimeout.String(), Msg: "must be positive"}
 	}
 	return nil
 }
@@ -2481,6 +2503,7 @@ type WorkflowRegistry struct {
 	MaxConfigSize           *utils.FileSize
 	SyncStrategy            *string
 	MaxConcurrency          *int
+	MaxActivationRetries    *int
 	WorkflowStorage         WorkflowStorage
 	ModuleCache             ModuleCache
 	AdditionalSourcesConfig []AdditionalWorkflowSource `toml:"AdditionalSources"`
@@ -2521,6 +2544,10 @@ func (r *WorkflowRegistry) setFrom(f *WorkflowRegistry) {
 
 	if f.MaxConcurrency != nil {
 		r.MaxConcurrency = f.MaxConcurrency
+	}
+
+	if f.MaxActivationRetries != nil {
+		r.MaxActivationRetries = f.MaxActivationRetries
 	}
 
 	r.WorkflowStorage.setFrom(&f.WorkflowStorage)
@@ -2809,9 +2836,7 @@ func (c *CapabilityNodeConfig) setFrom(f *CapabilityNodeConfig) {
 		if c.Config == nil {
 			c.Config = make(map[string]string)
 		}
-		for k, v := range f.Config {
-			c.Config[k] = v
-		}
+		maps.Copy(c.Config, f.Config)
 	}
 }
 
@@ -2956,27 +2981,40 @@ func (t *Tracing) ValidateConfig() (err error) {
 }
 
 type Telemetry struct {
-	Enabled                        *bool
-	CACertFile                     *string
-	Endpoint                       *string
-	InsecureConnection             *bool
-	ResourceAttributes             map[string]string `toml:",omitempty"`
-	TraceSampleRatio               *float64
-	EmitterBatchProcessor          *bool
-	EmitterExportTimeout           *commonconfig.Duration
-	AuthHeadersTTL                 *commonconfig.Duration
-	ChipIngressEndpoint            *string
-	ChipIngressInsecureConnection  *bool
-	ChipIngressBatchEmitterEnabled *bool
-	DurableEmitterEnabled          *bool
-	HeartbeatInterval              *commonconfig.Duration
-	LogLevel                       *string
-	LogStreamingEnabled            *bool
-	LogBatchProcessor              *bool
-	LogExportTimeout               *commonconfig.Duration
-	LogExportMaxBatchSize          *int
-	LogExportInterval              *commonconfig.Duration
-	LogMaxQueueSize                *int
+	Enabled                                *bool
+	CACertFile                             *string
+	Endpoint                               *string
+	InsecureConnection                     *bool
+	ResourceAttributes                     map[string]string `toml:",omitempty"`
+	TraceSampleRatio                       *float64
+	EmitterBatchProcessor                  *bool
+	EmitterExportTimeout                   *commonconfig.Duration
+	AuthHeadersTTL                         *commonconfig.Duration
+	ChipIngressEndpoint                    *string
+	ChipIngressInsecureConnection          *bool
+	ChipIngressBatchEmitterEnabled         *bool
+	ChipIngressBufferSize                  *uint
+	ChipIngressMaxBatchSize                *uint
+	ChipIngressMaxConcurrentSends          *int
+	ChipIngressSendInterval                *commonconfig.Duration
+	ChipIngressSendTimeout                 *commonconfig.Duration
+	ChipIngressDrainTimeout                *commonconfig.Duration
+	ChipIngressMaxGRPCRequestSize          *int
+	DurableEmitterEnabled                  *bool
+	DurableEmitterRetransmitBatchSize      *int
+	DurableEmitterEventTTL                 *commonconfig.Duration
+	DurableEmitterMaxQueuePayloadBytes     *int64
+	DurableEmitterInsertBatchFlushInterval *commonconfig.Duration
+	HeartbeatInterval                      *commonconfig.Duration
+	LogLevel                               *string
+	LogStreamingEnabled                    *bool
+	LogBatchProcessor                      *bool
+	LogExportTimeout                       *commonconfig.Duration
+	LogExportMaxBatchSize                  *int
+	LogExportInterval                      *commonconfig.Duration
+	LogMaxQueueSize                        *int
+	MetricViewsDenyAttributes              []string
+	MetricCardinalityLimit                 *int
 
 	PrometheusBridge PrometheusBridge `toml:",omitempty"`
 }
@@ -3018,8 +3056,41 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.ChipIngressBatchEmitterEnabled; v != nil {
 		b.ChipIngressBatchEmitterEnabled = v
 	}
+	if v := f.ChipIngressBufferSize; v != nil {
+		b.ChipIngressBufferSize = v
+	}
+	if v := f.ChipIngressMaxBatchSize; v != nil {
+		b.ChipIngressMaxBatchSize = v
+	}
+	if v := f.ChipIngressMaxConcurrentSends; v != nil {
+		b.ChipIngressMaxConcurrentSends = v
+	}
+	if v := f.ChipIngressSendInterval; v != nil {
+		b.ChipIngressSendInterval = v
+	}
+	if v := f.ChipIngressSendTimeout; v != nil {
+		b.ChipIngressSendTimeout = v
+	}
+	if v := f.ChipIngressDrainTimeout; v != nil {
+		b.ChipIngressDrainTimeout = v
+	}
+	if v := f.ChipIngressMaxGRPCRequestSize; v != nil {
+		b.ChipIngressMaxGRPCRequestSize = v
+	}
 	if v := f.DurableEmitterEnabled; v != nil {
 		b.DurableEmitterEnabled = v
+	}
+	if v := f.DurableEmitterRetransmitBatchSize; v != nil {
+		b.DurableEmitterRetransmitBatchSize = v
+	}
+	if v := f.DurableEmitterEventTTL; v != nil {
+		b.DurableEmitterEventTTL = v
+	}
+	if v := f.DurableEmitterMaxQueuePayloadBytes; v != nil {
+		b.DurableEmitterMaxQueuePayloadBytes = v
+	}
+	if v := f.DurableEmitterInsertBatchFlushInterval; v != nil {
+		b.DurableEmitterInsertBatchFlushInterval = v
 	}
 	if v := f.HeartbeatInterval; v != nil {
 		b.HeartbeatInterval = v
@@ -3045,6 +3116,12 @@ func (b *Telemetry) setFrom(f *Telemetry) {
 	if v := f.LogMaxQueueSize; v != nil {
 		b.LogMaxQueueSize = v
 	}
+	if v := f.MetricViewsDenyAttributes; v != nil {
+		b.MetricViewsDenyAttributes = v
+	}
+	if v := f.MetricCardinalityLimit; v != nil {
+		b.MetricCardinalityLimit = v
+	}
 	b.PrometheusBridge.setFrom(&f.PrometheusBridge)
 }
 
@@ -3063,6 +3140,96 @@ func (b *Telemetry) ValidateConfig() (err error) {
 	}
 	if ratio := b.TraceSampleRatio; ratio != nil && (*ratio < 0 || *ratio > 1) {
 		err = errors.Join(err, configutils.ErrInvalid{Name: "TraceSampleRatio", Value: *ratio, Msg: "must be between 0 and 1"})
+	}
+	if v := b.ChipIngressBufferSize; v != nil && *v == 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressBufferSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressMaxBatchSize; v != nil && *v == 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxBatchSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressMaxConcurrentSends; v != nil && *v <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxConcurrentSends", Value: *v, Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressSendInterval; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressSendInterval", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressSendTimeout; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressSendTimeout", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressDrainTimeout; v != nil && v.Duration() <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressDrainTimeout", Value: v.Duration(), Msg: "must be greater than 0"})
+	}
+	if v := b.ChipIngressMaxGRPCRequestSize; v != nil && *v <= 0 {
+		err = errors.Join(err, configutils.ErrInvalid{Name: "ChipIngressMaxGRPCRequestSize", Value: *v, Msg: "must be greater than 0"})
+	}
+	return err
+}
+
+// Metering configures durable resource metering emission and the coarse
+// deployment/node identity dimensions stamped on emitted MeterRecords and
+// MeterSnapshots. These are passed via loop.EnvConfig to every LOOP plugin.
+type Metering struct {
+	// MeterRecordsEnabled enables durable MeterRecord emission for LOOP plugins.
+	MeterRecordsEnabled *bool
+	// MeterSnapshotsEnabled enables durable MeterSnapshot emission. Requires
+	// MeterRecordsEnabled to be true.
+	MeterSnapshotsEnabled *bool
+	// Product is the deployment product identity dimension, e.g. "cre".
+	Product *string
+	// Tenant is the human-readable tenant name, e.g. "mainline".
+	Tenant *string
+	// NumericTenantID is the numbered tenant identifier as a string.
+	NumericTenantID *string
+	// Environment is the deployment environment dimension, e.g. "production".
+	Environment *string
+	// Zone is the deployment zone dimension, e.g. "wf-zone-a".
+	Zone *string
+	// NodeID is the node's logical name, e.g. "clp-cre-wf-zone-a-1" (NOT the CSA
+	// public key)
+	NodeID *string
+}
+
+func (b *Metering) setFrom(f *Metering) {
+	if v := f.MeterRecordsEnabled; v != nil {
+		b.MeterRecordsEnabled = v
+	}
+	if v := f.MeterSnapshotsEnabled; v != nil {
+		b.MeterSnapshotsEnabled = v
+	}
+	if v := f.Product; v != nil {
+		b.Product = v
+	}
+	if v := f.Tenant; v != nil {
+		b.Tenant = v
+	}
+	if v := f.NumericTenantID; v != nil {
+		b.NumericTenantID = v
+	}
+	if v := f.Environment; v != nil {
+		b.Environment = v
+	}
+	if v := f.Zone; v != nil {
+		b.Zone = v
+	}
+	if v := f.NodeID; v != nil {
+		b.NodeID = v
+	}
+}
+
+func (b *Metering) ValidateConfig() (err error) {
+	if b.MeterSnapshotsEnabled != nil && *b.MeterSnapshotsEnabled && (b.MeterRecordsEnabled == nil || !*b.MeterRecordsEnabled) {
+		err = errors.Join(err, configutils.ErrInvalid{
+			Name:  "MeterSnapshotsEnabled",
+			Value: true,
+			Msg:   "requires MeterRecordsEnabled to be true",
+		})
+	}
+	if b.MeterRecordsEnabled != nil && *b.MeterRecordsEnabled && (b.NodeID == nil || *b.NodeID == "") {
+		err = errors.Join(err, configutils.ErrInvalid{
+			Name:  "NodeID",
+			Value: "",
+			Msg:   "must be non-empty when MeterRecordsEnabled is true (an empty NodeID collapses per-node snapshot dedup scope DON-wide)",
+		})
 	}
 	return err
 }
@@ -3267,7 +3434,14 @@ type Sharding struct {
 	ShardIndex               *uint16
 	ShardOrchestratorPort    *uint16
 	ShardOrchestratorAddress *commonconfig.URL
+	ShardAssignmentMode      *string
 }
+
+const (
+	ShardAssignmentModeRingOCROnly      = "ringocr-only"
+	ShardAssignmentModeManualOnly       = "manual-only"
+	ShardAssignmentModeRingOCROverrides = "ringocr-with-overrides"
+)
 
 func (s *Sharding) setFrom(f *Sharding) {
 	if f.ShardingEnabled != nil {
@@ -3297,18 +3471,27 @@ func (s *Sharding) setFrom(f *Sharding) {
 	if f.ShardOrchestratorAddress != nil {
 		s.ShardOrchestratorAddress = f.ShardOrchestratorAddress
 	}
+
+	if f.ShardAssignmentMode != nil {
+		s.ShardAssignmentMode = f.ShardAssignmentMode
+	}
 }
 
 func (s *Sharding) ValidateConfig() (err error) {
-	// If sharding is enabled and ShardIndex > 0, ShardOrchestratorAddress must be specified
 	if s.ShardingEnabled != nil && *s.ShardingEnabled {
 		if s.ShardIndex != nil && *s.ShardIndex > 0 {
-			if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
-				err = errors.Join(err, configutils.ErrInvalid{
-					Name:  "ShardOrchestratorAddress",
-					Value: s.ShardOrchestratorAddress,
-					Msg:   "must be specified when ShardingEnabled is true and ShardIndex > 0",
-				})
+			mode := ShardAssignmentModeManualOnly
+			if s.ShardAssignmentMode != nil {
+				mode = *s.ShardAssignmentMode
+			}
+			if mode != ShardAssignmentModeManualOnly {
+				if s.ShardOrchestratorAddress == nil || s.ShardOrchestratorAddress.URL() == nil {
+					err = errors.Join(err, configutils.ErrInvalid{
+						Name:  "ShardOrchestratorAddress",
+						Value: s.ShardOrchestratorAddress,
+						Msg:   "must be specified when ShardingEnabled is true and ShardIndex > 0",
+					})
+				}
 			}
 		}
 	}

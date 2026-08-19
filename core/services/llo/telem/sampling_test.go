@@ -13,8 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-data-streams/llo"
-
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
@@ -51,7 +50,7 @@ func TestFingerprint(t *testing.T) {
 		},
 		{
 			name: "successful outcome",
-			msg: &llo.LLOOutcomeTelemetry{
+			msg: &lloprotocol.LLOOutcomeTelemetry{
 				DonId:                           donID,
 				ConfigDigest:                    configDigest,
 				ObservationTimestampNanoseconds: uint64(ot.UnixNano()),
@@ -63,7 +62,7 @@ func TestFingerprint(t *testing.T) {
 		},
 		{
 			name: "successful report",
-			msg: &llo.LLOReportTelemetry{
+			msg: &lloprotocol.LLOReportTelemetry{
 				DonId:                           donID,
 				ChannelId:                       channelID,
 				ConfigDigest:                    configDigest,
@@ -116,18 +115,17 @@ func TestSample(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	samplr := newSampler(lggr, true)
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
 	t0 := time.Unix(1600000000, 0)
-	msg0 := &llo.LLOOutcomeTelemetry{
+	msg0 := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(t0.UnixNano()),
 	}
-	msg1 := &llo.LLOOutcomeTelemetry{
+	msg1 := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(t0.Add(50 * time.Millisecond).UnixNano()),
@@ -143,11 +141,14 @@ func TestSample(t *testing.T) {
 
 // TestPruningLoop ensures the pruning loop works as expected.
 func TestPruningLoop(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	samplr := newSampler(lggr, true)
 	// We need a prune time of at least one second in order to detect outdated entries.
@@ -155,7 +156,7 @@ func TestPruningLoop(t *testing.T) {
 	samplr.prunePeriod = time.Second
 	samplr.StartPruningLoop(ctx, &sync.WaitGroup{})
 
-	msg := &llo.LLOOutcomeTelemetry{
+	msg := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(time.Now().UnixNano()),
@@ -170,7 +171,7 @@ func TestPruningLoop(t *testing.T) {
 		return flag != nil
 	}
 
-	msg2 := &llo.LLOOutcomeTelemetry{
+	msg2 := &lloprotocol.LLOOutcomeTelemetry{
 		DonId:                           2,
 		ConfigDigest:                    []byte("digest"),
 		ObservationTimestampNanoseconds: uint64(time.Now().Add(10 * time.Second).UnixNano()),

@@ -1,0 +1,267 @@
+name: CCIP System Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      chainlink_image_repository_path:
+        description:
+          "ECR repository name used to compose image with chainlink_image_tag
+          (for example: chainlink-integration-tests or chainlink or
+          chainlink/chainlink)."
+        required: true
+        type: string
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "Chainlink image tag to use."
+      ecr:
+        required: false
+        type: choice
+        options:
+          - "sdlc"
+          - "public"
+        default: "sdlc"
+        description:
+          "Whether to use the SDLC or public ECR registry for the Chainlink
+          image."
+      chainlink_version:
+        required: false
+        type: string
+        description:
+          "The version of Chainlink repository to use for the tests. If
+          empty, defaults to github.sha."
+        default: ""
+  workflow_call:
+    inputs:
+      chainlink_image_repository_path:
+        description:
+          "ECR repository name used to compose image with chainlink_image_tag
+          (for example: chainlink-integration-tests or chainlink or
+          chainlink/chainlink)."
+        required: true
+        type: string
+      chainlink_image_tag:
+        required: true
+        type: string
+        description: "Chainlink image tag to use."
+      ecr:
+        type: string
+        required: true
+        description:
+          "Whether to use the SDLC (sdlc) or public ECR registry (public) for
+          the Chainlink image."
+      chainlink_version:
+        required: false
+        type: string
+        description:
+          "The version of Chainlink repository to use for the tests. If
+          empty, defaults to github.sha."
+        default: ""
+
+jobs:
+  define-test-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.define-matrix.outputs.matrix }}
+    permissions:
+      contents: read
+    steps:
+      - name: Define test matrix
+        id: define-matrix
+        shell: bash
+        run: |
+          TESTS_JSON='[
+            {"test_name":"Test_CCIPGasPriceUpdatesWriteFrequency","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2"},
+            {"test_name":"TestRMN_GlobalCurseTwoMessagesOnTwoLanes","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","rmn_rageproxy_version":"master-amd6416f5d86","rmn_afn2proxy_version":"master-amd64-10b42b2"},
+            {"test_name":"TestDeleteCCIPJobs|TestRevokeJobs","timeout":"15m","selected_network":"SIMULATED_1,SIMULATED_2","job_timeout":20}
+          ]'
+
+          tests=$(echo "$TESTS_JSON" | jq -c \
+            --argjson run_id "${{ github.run_id }}" \
+            --arg run_attempt "${{ github.run_attempt }}" '
+            to_entries | map(.value + {
+              test_id: .key,
+              runs_on: ("runs-on=\($run_id)-\(.key)-\($run_attempt)/cpu=8/ram=64/family=r6i+r7i+r8i/spot=co/image=ubuntu24-full-x64/extras=s3-cache+tmpfs")
+            })
+          ')
+
+          echo "matrix=$tests" | tee -a "${GITHUB_OUTPUT}"
+
+  run-ccip-tests:
+    name: ${{ matrix.tests.test_name }}
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        tests: ${{ fromJson(needs.define-test-matrix.outputs.matrix) }}
+    needs: [define-test-matrix]
+    runs-on: ${{ matrix.tests.runs_on }}
+    environment:
+      # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
+      name: integration
+      deployment: false
+    timeout-minutes: ${{ matrix.tests.job_timeout || 45 }}
+    env:
+      ENABLE_AUTO_QUARANTINE: "true"
+      INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+      E2E_JD_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/job-distributor
+      E2E_RMN_RAGEPROXY_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/rageproxy
+      E2E_RMN_AFN2PROXY_IMAGE: ${{ secrets.AWS_ACCOUNT_ID_PROD }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/afn2proxy
+      CHAINLINK_IMAGE: ${{ inputs.ecr == 'public' && format('public.ecr.aws/{0}', inputs.chainlink_image_repository_path) || format('{0}.dkr.ecr.{1}.amazonaws.com/{2}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.QA_AWS_REGION, inputs.chainlink_image_repository_path) }}
+      E2E_TEST_CHAINLINK_IMAGE: ${{ inputs.ecr == 'public' && format('public.ecr.aws/{0}', inputs.chainlink_image_repository_path) || format('{0}.dkr.ecr.{1}.amazonaws.com/{2}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.QA_AWS_REGION, inputs.chainlink_image_repository_path) }}
+
+    steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.chainlink_version || github.sha }}
+          persist-credentials: false
+
+      - name: Setup GitHub token using GATI
+        id: github-token
+        uses: smartcontractkit/.github/actions/setup-github-token@setup-github-token/v1
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_CHAINLINK_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: us-west-2
+          aws-role-duration-seconds: "1800"
+          set-git-config: "true"
+
+      - name: Set up Go
+        id: setup-go
+        uses: smartcontractkit/.github/actions/ctf-setup-go@fa1d48a33e24f9b3b9f8c52e99a578a4597cb2a5 # v0.4.0
+        with:
+          go_mod_path: integration-tests/go.mod
+          cache_key_id: integration-tests-v1
+          cache_builds: true
+          cache_restore_only: "true"
+          should_tidy: false
+          no_cache: false
+          gati_token: ${{ steps.github-token.outputs.access-token }}
+
+      - name: Restore Pre-Compiled Test Binaries from S3 Cache
+        uses: actions/cache/restore@v6
+        with:
+          path: integration-tests/bin/
+          key: test-binaries-${{ inputs.chainlink_version || github.sha }}
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          role-duration-seconds: 1800
+          mask-aws-account-id: true
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2.1.6
+        with:
+          registries: ${{ format('{0},{1}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.AWS_ACCOUNT_ID_PROD) }}
+        env:
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Cache gotestsum
+        id: cache-gotestsum
+        uses: actions/cache@v6
+        with:
+          path: ~/go/bin/gotestsum
+          key: ${{ runner.os }}-${{ runner.arch }}-gotestsum-1.13.0
+
+      - name: Set up gotestsum
+        shell: bash
+        run: |
+          if [ -f ~/go/bin/gotestsum ]; then
+            echo "Using cached gotestsum"
+          else
+            echo "::group::Install gotestsum"
+            go install gotest.tools/gotestsum@v1.13.0
+            echo "::endgroup::"
+          fi
+
+      - name: Run CCIP smoke tests
+        id: run-tests
+        shell: bash
+        working-directory: integration-tests
+        continue-on-error: ${{ env.ENABLE_AUTO_QUARANTINE == 'true' }}
+        env:
+          TEST_NAME: ${{ matrix.tests.test_name }}
+          TEST_TIMEOUT: ${{ matrix.tests.timeout }}
+          E2E_TEST_SELECTED_NETWORK: ${{ matrix.tests.selected_network }}
+          E2E_JD_VERSION: "0.9.0"
+          CCIP_V16_TEST_ENV: "docker"
+          E2E_RMN_RAGEPROXY_VERSION: ${{ matrix.tests.rmn_rageproxy_version || '' }}
+          E2E_RMN_AFN2PROXY_VERSION: ${{ matrix.tests.rmn_afn2proxy_version || '' }}
+          E2E_TEST_CHAINLINK_VERSION: ${{ inputs.chainlink_image_tag }}
+          GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }}
+        run: |
+          echo "Starting test: '${TEST_NAME}'"
+          if [ -f "./bin/ccip-smoke.test" ]; then
+            echo "Using precompiled binary"
+            (
+              cd smoke/ccip && \
+              gotestsum \
+                --jsonfile=/tmp/gotest.log \
+                --junitfile=/tmp/junit.xml \
+                --format=github-actions \
+                --raw-command -- \
+                go tool test2json -t -p github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip ../../bin/ccip-smoke.test -test.v -test.run "^(${TEST_NAME})$" -test.timeout "${TEST_TIMEOUT}" -test.parallel=1 -test.count=1
+            )
+          else
+            echo "No precompiled binary found. Building from scratch..."
+            gotestsum \
+              --jsonfile=/tmp/gotest.log \
+              --junitfile=/tmp/junit.xml \
+              --format=github-actions \
+              -- \
+              -v -tags embed -run "^(${TEST_NAME})$" -timeout "${TEST_TIMEOUT}" -count=1 -parallel=1 \
+              github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip
+          fi
+
+          exit_code="$?"
+          if [ "$exit_code" -eq 0 ]; then
+            echo "tests_result=✅ Tests passed" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Analyze and upload test results (${{ steps.run-tests.outputs.tests_result }})
+        if: ${{ !cancelled() }}
+        uses: smartcontractkit/.github/actions/branch-out-upload@branch-out-upload/v1
+        with:
+          junit-file-path: "/tmp/junit.xml"
+          trunk-org-slug: chainlink
+          trunk-token: ${{ secrets.TRUNK_API_KEY }}
+          trunk-previous-step-outcome: ${{ steps.run-tests.outcome }}
+          # when auto-quarantine is enabled, allow this to determine test failures
+          trunk-upload-only: ${{ env.ENABLE_AUTO_QUARANTINE != 'true' }}
+          # unique name per matrix job to avoid 409 conflict when multiple jobs upload in the same workflow run
+          artifact-name: ${{ matrix.tests.test_id }}_test_logs
+
+      - name: Show Docker containers status
+        if: failure() || cancelled()
+        shell: bash
+        run: docker ps -a
+
+      - name: Save Docker logs
+        if: failure() || cancelled()
+        shell: bash
+        working-directory: integration-tests/smoke/ccip
+        run: |
+          mkdir -p logs
+          for c in $(docker ps -a --format '{{.Names}}'); do
+            docker logs "$c" > "logs/${c}.log" 2>&1
+          done
+
+      - name: Upload all artifacts as single package
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-logs-${{ matrix.tests.test_name }}
+          path: |
+            ./integration-tests/smoke/ccip/logs/
+            /tmp/gotest.log
+            /tmp/junit.xml

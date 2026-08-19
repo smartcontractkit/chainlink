@@ -5,13 +5,11 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -56,7 +54,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			t.Cleanup(func() {
 				_, err2 := db.Exec("DELETE FROM sessions where email = $1", cltest.APIEmailAdmin)
 				require.NoError(t, err2)

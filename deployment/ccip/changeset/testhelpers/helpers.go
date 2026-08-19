@@ -3,13 +3,24 @@ package testhelpers
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/multicall3"
 )
+
+// mcmsValidUntil converts t to a ValidUntil uint32 unix timestamp.
+func mcmsValidUntil(t time.Time) (uint32, error) {
+	ts := t.Unix()
+	if ts < 0 || ts > math.MaxUint32 {
+		return 0, fmt.Errorf("unix timestamp %d out of range for uint32", ts)
+	}
+	return uint32(ts), nil
+}
 
 // CCIPSendCalldata packs the calldata for the Router's ccipSend method.
 // This is expected to be used in Multicall scenarios (i.e multiple ccipSend calls

@@ -16,7 +16,7 @@ func NewEthTransactionAttempt(attmpt txmgr.TxAttempt) *EthTransactionAttemptReso
 }
 
 func NewEthTransactionsAttempts(results []txmgr.TxAttempt) []*EthTransactionAttemptResolver {
-	var resolver []*EthTransactionAttemptResolver
+	resolver := make([]*EthTransactionAttemptResolver, 0, len(results))
 
 	for _, tx := range results {
 		resolver = append(resolver, NewEthTransactionAttempt(tx))

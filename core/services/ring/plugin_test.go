@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
@@ -468,7 +468,7 @@ func TestPlugin_NoHealthyShardsFallbackToShardZero(t *testing.T) {
 	// The pending allocation "workflow-123" should be included in observation
 	now := time.Now()
 	aos := make([]types.AttributedObservation, 3)
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		pbObs := &ringpb.Observation{
 			ShardStatus: toShardStatus(map[uint32]bool{0: false, 1: false, 2: false}),
 			WorkflowIds: []string{"workflow-123"},

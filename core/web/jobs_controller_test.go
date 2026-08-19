@@ -21,9 +21,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/freeport"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
@@ -31,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	corecaps "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -43,6 +43,7 @@ import (
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {
+	t.Parallel()
 	var (
 		contractAddress = cltest.NewEIP55Address()
 	)
@@ -75,7 +76,8 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 	}
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			t.Parallel()
+			ctx := t.Context()
 			ta, client := setupJobsControllerTests(t)
 
 			var address types.EIP55Address
@@ -109,7 +111,8 @@ func mustInt32FromString(t *testing.T, s string) int32 {
 }
 
 func TestJobController_Create_HappyPath(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	app, client := setupJobsControllerTests(t)
 	b1, b2 := setupBridges(t, app.GetDB())
 	require.NoError(t, app.KeyStore.OCR().Add(ctx, cltest.DefaultOCRKey))
@@ -147,9 +150,9 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(t.Context(), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, resource.OffChainReportingSpec)
 
@@ -177,9 +180,9 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(t.Context(), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.CronSpec)
 
@@ -196,9 +199,9 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(t.Context(), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.CronSpec)
 
@@ -215,9 +218,9 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
 				resource := presenters.JobResource{}
 				err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, r), &resource)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(t.Context(), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.CronSpec)
 
@@ -240,7 +243,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(resp, &resource)
 				require.NoError(t, err)
 
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(t.Context(), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.VRFSpec)
 
@@ -263,7 +266,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				err := web.ParseJSONAPIResponse(resp, &resource)
 				require.NoError(t, err)
 
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
+				jb, err := jorm.FindJob(t.Context(), mustInt32FromString(t, resource.ID))
 				require.NoError(t, err)
 				require.NotNil(t, jb.PipelineSpec)
 
@@ -272,83 +275,11 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.Equal(t, jb.StreamID, resource.StreamID)
 			},
 		},
-		{
-			name: "workflow",
-			tomlTemplate: func(_ string) string {
-				workflow := `
-owner: "0x00000000000000000000000000000000000000aa"
-triggers:
-  - id: "mercury-trigger@1.0.0"
-    config:
-      feedIds:
-        - "0x1111111111111111111100000000000000000000000000000000000000000000"
-        - "0x2222222222222222222200000000000000000000000000000000000000000000"
-        - "0x3333333333333333333300000000000000000000000000000000000000000000"
-
-consensus:
-  - id: "offchain_reporting@2.0.0"
-    ref: "evm_median"
-    inputs:
-      observations:
-        - "$(trigger.outputs)"
-    config:
-      aggregation_method: "data_feeds_2_0"
-      aggregation_config:
-        "0x1111111111111111111100000000000000000000000000000000000000000000":
-          deviation: "0.001"
-          heartbeat: 3600
-        "0x2222222222222222222200000000000000000000000000000000000000000000":
-          deviation: "0.001"
-          heartbeat: 3600
-        "0x3333333333333333333300000000000000000000000000000000000000000000":
-          deviation: "0.001"
-          heartbeat: 3600
-      encoder: "EVM"
-      encoder_config:
-        abi: "mercury_reports bytes[]"
-
-targets:
-  - id: "write_polygon-testnet-mumbai@3.0.0"
-    inputs:
-      report: "$(evm_median.outputs.report)"
-    config:
-      address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
-      params: ["$(report)"]
-      abi: "receive(report bytes)"
-  - id: "write_ethereum-testnet-sepolia@4.0.0"
-    inputs:
-      report: "$(evm_median.outputs.report)"
-    config:
-      address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
-      params: ["$(report)"]
-      abi: "receive(report bytes)"
-`
-				return testspecs.GenerateWorkflowJobSpec(t, workflow).Toml()
-			},
-			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
-				ok := assert.Equal(t, http.StatusOK, r.StatusCode)
-				resp := cltest.ParseResponseBody(t, r)
-				if !ok {
-					t.Fatal("response body:", string(resp))
-				}
-				resource := presenters.JobResource{}
-				err := web.ParseJSONAPIResponse(resp, &resource)
-				require.NoError(t, err, "failed to parse response body: %s", resp)
-
-				jb, err := jorm.FindJob(testutils.Context(t), mustInt32FromString(t, resource.ID))
-				require.NoError(t, err)
-				require.NotNil(t, jb.WorkflowSpec)
-
-				assert.Equal(t, jb.WorkflowSpec.Workflow, resource.WorkflowSpec.Workflow)
-				assert.Equal(t, jb.WorkflowSpec.WorkflowID, resource.WorkflowSpec.WorkflowID)
-				assert.Equal(t, jb.WorkflowSpec.WorkflowOwner, resource.WorkflowSpec.WorkflowOwner)
-				assert.Equal(t, jb.WorkflowSpec.WorkflowName, resource.WorkflowSpec.WorkflowName)
-			},
-		},
 	}
 	for _, tc := range tt {
 		c := tc
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
 			nameAndExternalJobID := uuid.New().String()
 			toml := c.tomlTemplate(nameAndExternalJobID)
 			t.Log("Job toml:", toml)
@@ -364,8 +295,9 @@ targets:
 }
 
 func TestJobsController_Create_WebhookSpec(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	_, fetchBridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{})
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{})
@@ -386,8 +318,9 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 var webhookSpecTemplate string
 
 func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
+	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	client := app.NewHTTPClient(nil)
 
@@ -406,6 +339,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 }
 
 func TestJobsController_Index_HappyPath(t *testing.T) {
+	t.Parallel()
 	_, client, ocrJobSpecFromFile, _, cronJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	url := url.URL{Path: "/v2/jobs"}
@@ -419,7 +353,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 
 	var resources []presenters.JobResource
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &resources)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	require.Len(t, resources, 2)
 
@@ -428,6 +362,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Show_HappyPath(t *testing.T) {
+	t.Parallel()
 	_, client, ocrJobSpecFromFile, jobID, cronJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)))
@@ -436,7 +371,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 
 	ocrJob := presenters.JobResource{}
 	err := web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJob)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJob)
 
@@ -446,7 +381,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 
 	ocrJob = presenters.JobResource{}
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &ocrJob)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJob)
 
@@ -456,7 +391,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 
 	cronJob := presenters.JobResource{}
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &cronJob)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, cronJobSpecFromFile.ExternalJobID.String(), cronJob.ExternalJobID.String())
 
@@ -466,12 +401,13 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 
 	cronJob = presenters.JobResource{}
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, response), &cronJob)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, cronJobSpecFromFile.ExternalJobID.String(), cronJob.ExternalJobID.String())
 }
 
 func TestJobsController_Show_InvalidID(t *testing.T) {
+	t.Parallel()
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/uuidLikeString")
@@ -480,6 +416,7 @@ func TestJobsController_Show_InvalidID(t *testing.T) {
 }
 
 func TestJobsController_Show_NonExistentID(t *testing.T) {
+	t.Parallel()
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/999999999")
@@ -489,10 +426,11 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 }
 
 func TestJobsController_Update_HappyPath(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V2.Enabled = ptr(true)
+		c.OCR.Enabled = new(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
@@ -555,10 +493,11 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 }
 
 func TestJobsController_Update_NonExistentID(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+	ctx := t.Context()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V2.Enabled = ptr(true)
+		c.OCR.Enabled = new(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
@@ -635,15 +574,19 @@ func setupBridges(t *testing.T, ds sqlutil.DataSource) (b1, b2 string) {
 
 func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc cltest.HTTPClientCleaner) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V2.Enabled = ptr(true)
+		c.OCR.Enabled = new(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})
 	ec := setupEthClientForControllerTests(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey, ec)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
+
+	// Seed a local test metadata registry so workflow jobs can resolve local
+	// node state without an on-chain capabilities registry.
+	app.GetCapabilitiesRegistry().SetLocalRegistry(&corecaps.TestMetadataRegistry{})
 
 	client := app.NewHTTPClient(nil)
 	vrfKeyStore := app.GetKeyStore().VRF()
@@ -668,10 +611,10 @@ func setupEthClientForControllerTests(t *testing.T) *clienttest.Client {
 }
 
 func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication, cltest.HTTPClientCleaner, job.Job, int32, job.Job, int32) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.OCR.Enabled = ptr(true)
-		c.P2P.V2.Enabled = ptr(true)
+		c.OCR.Enabled = new(true)
+		c.P2P.V2.Enabled = new(true)
 		c.P2P.V2.ListenAddresses = &[]string{fmt.Sprintf("127.0.0.1:%d", freeport.GetOne(t))}
 		c.P2P.PeerID = &cltest.DefaultP2PPeerID
 	})

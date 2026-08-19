@@ -49,6 +49,10 @@ func (w *wrapper) GetGatewayConnector() connector.GatewayConnector {
 }
 
 func TestNewFetcherService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
@@ -205,29 +209,20 @@ func TestNewFetcherService(t *testing.T) {
 
 	t.Run("NOK-response_payload_too_large", func(t *testing.T) {
 		t.Parallel()
-		headers := map[string]string{"Content-Type": "application/json"}
 		responsePayload, err := json.Marshal(ghcapabilities.Response{
-			StatusCode:   400,
-			Headers:      headers,
-			ErrorMessage: "http: request body too large",
+			ErrorMessage:   "http: request body too large",
+			ExecutionError: true,
 		})
 		require.NoError(t, err)
 		gatewayMsg := &api.Message{
 			Body: api.MessageBody{
 				MessageId: msgID,
+				DonId:     donID,
 				Method:    ghcapabilities.MethodWebAPITarget,
 				Payload:   responsePayload,
 			},
 		}
-		payload, err := json.Marshal(gatewayMsg)
-		require.NoError(t, err)
-		rawPayload := json.RawMessage(payload)
-		gatewayResp := &jsonrpc.Request[json.RawMessage]{
-			Version: "2.0",
-			ID:      gatewayMsg.Body.MessageId,
-			Method:  gatewayMsg.Body.Method,
-			Params:  &rawPayload,
-		}
+		gatewayResp := signGatewayResponse(t, gatewayMsg)
 		connector := gcmocks.NewGatewayConnector(t)
 		connWrapper := newConnectorWrapper(connector)
 		connector.EXPECT().AddHandler(matches.AnyContext, []string{ghcapabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
@@ -251,7 +246,7 @@ func TestNewFetcherService(t *testing.T) {
 			WorkflowID:       "foo",
 		}
 		_, err = fetcher.Fetch(ctx, msgID, req)
-		require.Error(t, err, "execution error from gateway: http: request body too large")
+		require.ErrorContains(t, err, "execution error from gateway: http: request body too large")
 	})
 
 	t.Run("NOK-bad_request", func(t *testing.T) {
@@ -368,6 +363,10 @@ func TestNewFetcherService(t *testing.T) {
 }
 
 func TestNewFetcherFunc(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()

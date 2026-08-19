@@ -19,7 +19,6 @@ import (
 	"github.com/urfave/cli"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
@@ -151,7 +150,7 @@ func (p *AdminUsersPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		string(p.Role),
-		p.HasActiveApiToken,
+		p.HasActiveAPIToken,
 		p.CreatedAt.String(),
 		p.UpdatedAt.String(),
 	}

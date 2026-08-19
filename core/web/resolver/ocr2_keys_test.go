@@ -44,7 +44,7 @@ func TestResolver_GetOCR2KeyBundles(t *testing.T) {
 		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "tron"),
 		ocr2key.MustNewInsecure(keystest.NewRandReaderFromSeed(1), "ton"),
 	}
-	expectedBundles := []map[string]any{}
+	expectedBundles := make([]map[string]any, 0, len(fakeKeys))
 	for _, k := range fakeKeys {
 		configPublic := k.ConfigEncryptionPublicKey()
 		ct, err := ToOCR2ChainType(string(k.ChainType()))

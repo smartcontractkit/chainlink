@@ -12,8 +12,12 @@ import (
 const pathPrefix = "core/services/workflows/cmd/cre/examples"
 
 func Test_AllExampleWorkflowsCompileToWASM(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
+	t.Parallel()
 	paths := []string{
-		"legacy/data_feeds",
 		"v2/http_read",
 		"v2/simple_cron",
 		"v2/simple_cron_with_config",
@@ -23,7 +27,7 @@ func Test_AllExampleWorkflowsCompileToWASM(t *testing.T) {
 	for _, path := range paths {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
-			binary := wasmtest.CreateTestBinary(t, filepath.Join(pathPrefix, path), false)
+			binary := wasmtest.GetTestBinary(t, filepath.Join(pathPrefix, path), false)
 			require.NotEmpty(t, binary)
 		})
 	}

@@ -16,9 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/de"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
-
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
@@ -263,12 +262,12 @@ func validateEnv() (err error) {
 		if strings.TrimSpace(kv) == "" {
 			continue
 		}
-		i := strings.Index(kv, "=")
-		if i == -1 {
+		before, _, ok := strings.Cut(kv, "=")
+		if !ok {
 			return errors.Errorf("malformed .env file line: %s", kv)
 		}
-		k := kv[:i]
-		_, ok := os.LookupEnv(k)
+		k := before
+		_, ok = os.LookupEnv(k)
 		if ok {
 			err = stderrors.Join(err, fmt.Errorf("environment variable %s must not be set: %w", k, v2.ErrUnsupported))
 		}
@@ -549,7 +548,7 @@ func (g *generalConfig) Prometheus() coreconfig.Prometheus {
 	return &prometheusConfig{s: g.secrets.Prometheus}
 }
 
-func (g *generalConfig) Mercury() de.Mercury {
+func (g *generalConfig) Mercury() dataengine.Mercury {
 	return &mercuryConfig{c: g.c.Mercury, s: g.secrets.Mercury}
 }
 
@@ -586,6 +585,10 @@ func (g *generalConfig) Tracing() coreconfig.Tracing {
 }
 func (g *generalConfig) Telemetry() coreconfig.Telemetry {
 	return &telemetryConfig{s: g.c.Telemetry}
+}
+
+func (g *generalConfig) Metering() coreconfig.Metering {
+	return &meteringConfig{s: g.c.Metering}
 }
 
 func (g *generalConfig) CRE() coreconfig.CRE {

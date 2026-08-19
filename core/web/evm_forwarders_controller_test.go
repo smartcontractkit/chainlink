@@ -31,7 +31,7 @@ func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink
 	// Using this instead of `NewApplicationEVMDisabled` since we need the chain set to be loaded in the app
 	// for the sake of the API endpoints to work properly
 	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, overrideFn))
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	require.NoError(t, app.Start(ctx))
 
 	client := app.NewHTTPClient(nil)
@@ -45,17 +45,17 @@ func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink
 func Test_EVMForwardersController_Track(t *testing.T) {
 	t.Parallel()
 
-	chainId := sqlutil.New(testutils.NewRandomEVMChainID())
+	chainID := sqlutil.New(testutils.NewRandomEVMChainID())
 	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM = toml.EVMConfigs{
-			{ChainID: chainId, Enabled: ptr(true), Chain: toml.Defaults(chainId)},
+			{ChainID: chainID, Enabled: new(true), Chain: toml.Defaults(chainID)},
 		}
 	})
 
 	// Build EVMForwarderRequest
 	address := utils.RandomAddress()
 	body, err := json.Marshal(web.TrackEVMForwarderRequest{
-		EVMChainID: chainId,
+		EVMChainID: chainID,
 		Address:    address,
 	},
 	)
@@ -82,27 +82,27 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 func Test_EVMForwardersController_Index(t *testing.T) {
 	t.Parallel()
 
-	chainId := sqlutil.New(testutils.NewRandomEVMChainID())
+	chainID := sqlutil.New(testutils.NewRandomEVMChainID())
 	controller := setupEVMForwardersControllerTest(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM = toml.EVMConfigs{
-			{ChainID: chainId, Enabled: ptr(true), Chain: toml.Defaults(chainId)},
+			{ChainID: chainID, Enabled: new(true), Chain: toml.Defaults(chainID)},
 		}
 	})
 
 	// Build EVMForwarderRequest
 	fwdrs := []web.TrackEVMForwarderRequest{
 		{
-			EVMChainID: chainId,
+			EVMChainID: chainID,
 			Address:    utils.RandomAddress(),
 		},
 		{
-			EVMChainID: chainId,
+			EVMChainID: chainID,
 			Address:    utils.RandomAddress(),
 		},
 	}
 	for _, fwdr := range fwdrs {
 		body, err := json.Marshal(web.TrackEVMForwarderRequest{
-			EVMChainID: chainId,
+			EVMChainID: chainID,
 			Address:    fwdr.Address,
 		},
 		)
@@ -127,6 +127,6 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 
 	var fwdrcs []presenters.EVMForwarderResource
 	err = web.ParsePaginatedResponse(body, &fwdrcs, &links)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Empty(t, links["prev"].Href)
 }

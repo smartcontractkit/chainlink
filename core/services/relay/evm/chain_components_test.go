@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontestutils "github.com/smartcontractkit/chainlink-common/pkg/loop/testutils"
@@ -45,8 +46,6 @@ import (
 	evmtxmgr "github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	clevmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	writertestutils "github.com/smartcontractkit/chainlink-evm/pkg/writer/testutils"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -167,7 +166,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 								GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 									"DW": {
 										Name:  "someDW",
-										Index: ptr(0),
+										Index: new(0),
 									},
 								},
 							},
@@ -195,7 +194,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 								GenericDataWordDetails: map[string]commonevm.DataWordDetail{
 									"DW": {
 										Name:  "someDW",
-										Index: ptr(0),
+										Index: new(0),
 										Type:  "abcdefg",
 									},
 								},
@@ -211,7 +210,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := read.NewChainReaderService(testutils.Context(t), logger.Nop(), nil, nil, nil, config.ChainReaderConfig{Contracts: tt.chainContractReaders})
+			_, err := read.NewChainReaderService(t.Context(), logger.Nop(), nil, nil, nil, config.ChainReaderConfig{Contracts: tt.chainContractReaders})
 			require.Error(t, err)
 			if err != nil {
 				assert.Contains(t, err.Error(), tt.expectedError.Error())
@@ -226,7 +225,7 @@ func TestChainReader_HealthReport(t *testing.T) {
 	ht := headstest.NewTracker[*clevmtypes.Head, common.Hash](t)
 	htError := errors.New("head tracker error")
 	ht.EXPECT().HealthReport().Return(map[string]error{"ht_name": htError}).Once()
-	cr, err := read.NewChainReaderService(testutils.Context(t), logger.Nop(), lp, ht, nil, config.ChainReaderConfig{Contracts: nil})
+	cr, err := read.NewChainReaderService(t.Context(), logger.Nop(), lp, ht, nil, config.ChainReaderConfig{Contracts: nil})
 	require.NoError(t, err)
 	healthReport := cr.HealthReport()
 	require.True(t, services.ContainsError(healthReport, clcommontypes.ErrFinalityViolated), "expected chain reader to propagate logpoller's error")
@@ -359,7 +358,7 @@ func (h *helper) LogPoller(t *testing.T) logpoller.LogPoller {
 	if h.lp != nil {
 		return h.lp
 	}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.Nop()
 	db := h.Database()
 
@@ -452,7 +451,7 @@ func (h *helper) NewSqlxDB(t *testing.T) *sqlx.DB {
 }
 
 func (h *helper) Context(t *testing.T) context.Context {
-	return testutils.Context(t)
+	return t.Context()
 }
 
 func (h *helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logpoller.HeadTracker, conf config.ChainReaderConfig) client.Client {
@@ -489,7 +488,7 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 
 	clconfig := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.Listener.FallbackPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
-		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+		c.EVM[0].GasEstimator.EIP1559DynamicFees = new(true)
 	})
 
 	clconfig.EVMConfigs()[0].GasEstimator.PriceMax = assets.GWei(100)
@@ -516,5 +515,3 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 	h.txm = chain.TxManager()
 	return h.txm
 }
-
-func ptr[T any](v T) *T { return &v }

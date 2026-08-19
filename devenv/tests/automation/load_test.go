@@ -324,14 +324,35 @@ func TestLoad(t *testing.T) {
 			startTimeTestEx := time.Now()
 			l.Info().Str("START_TIME", startTimeTestEx.String()).Msg("Test execution started")
 
+			preLoadCounters := make([]*big.Int, len(consumerContracts))
+			for i := range consumerContracts {
+				c, err := consumerContracts[i].Counter(t.Context())
+				require.NoError(t, err, "failed to read pre-load counter")
+				preLoadCounters[i] = new(big.Int).Set(c)
+			}
+
 			l.Info().Msg("Starting load generators")
 			_, err = p.Run(true)
 			require.NoError(t, err, "Error running load generators")
 
 			l.Info().Msg("Finished load generators")
 			l.Info().Str("STOP_WAIT_TIME", StopWaitTime.String()).Msg("Waiting for upkeeps to be performed")
-			time.Sleep(StopWaitTime)
-			l.Info().Msg("Finished waiting 60s for upkeeps to be performed")
+			// Poll until all upkeeps have been performed by checking that each
+			// consumer counter has increased past the pre-load baseline.
+			require.Eventually(t, func() bool {
+				for i := range consumerContracts {
+					counter, err := consumerContracts[i].Counter(t.Context())
+					if err != nil {
+						l.Error().Err(err).Msg("Failed to get counter")
+						return false
+					}
+					if counter.Cmp(preLoadCounters[i]) <= 0 {
+						return false
+					}
+				}
+				return true
+			}, StopWaitTime, time.Second*5)
+			l.Info().Msg("All upkeeps confirmed performed after load")
 			endTimeTestEx := time.Now()
 			testExDuration := endTimeTestEx.Sub(startTimeTestEx)
 			l.Info().

@@ -7,20 +7,20 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestTokenAuthRequired_NoCredentials(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
 
@@ -38,8 +38,10 @@ func TestTokenAuthRequired_NoCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
+	t.Parallel()
+
 	app := cltest.NewApplicationEVMDisabled(t)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	router := web.Router(t, app, nil)
 	ts := httptest.NewServer(router)
@@ -53,7 +55,9 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
 
@@ -86,7 +90,9 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 }
 
 func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
 
@@ -119,7 +125,9 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 }
 
 func TestSessions_RateLimited(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
 
@@ -148,7 +156,9 @@ func TestSessions_RateLimited(t *testing.T) {
 }
 
 func TestRouter_LargePOSTBody(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
 
@@ -168,7 +178,9 @@ func TestRouter_LargePOSTBody(t *testing.T) {
 }
 
 func TestRouter_GinHelmetHeaders(t *testing.T) {
-	ctx := testutils.Context(t)
+	t.Parallel()
+
+	ctx := t.Context()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(ctx))
 

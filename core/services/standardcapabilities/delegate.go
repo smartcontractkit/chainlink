@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	triggercap "github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -61,7 +60,6 @@ type Delegate struct {
 	getPeerID               func() (p2ptypes.PeerID, error)
 	ocrPeerWrapper          *ocrcommon.SingletonPeerWrapper
 	newOracleFactoryFn      NewOracleFactoryFn
-	computeFetcherFactoryFn compute.FetcherFactory
 	selectorOpts            []func(*gateway.RoundRobinSelector)
 	orgResolver             orgresolver.OrgResolver
 	creSettings             core.SettingsBroadcaster
@@ -74,9 +72,8 @@ type Delegate struct {
 }
 
 const (
-	commandOverrideForWebAPITrigger       = "__builtin_web-api-trigger"
-	commandOverrideForWebAPITarget        = "__builtin_web-api-target"
-	commandOverrideForCustomComputeAction = "__builtin_custom-compute-action"
+	commandOverrideForWebAPITrigger = "__builtin_web-api-trigger"
+	commandOverrideForWebAPITarget  = "__builtin_web-api-target"
 )
 
 type NewOracleFactoryFn func(generic.OracleFactoryParams) (core.OracleFactory, error)
@@ -95,7 +92,6 @@ func NewDelegate(
 	getPeerID func() (p2ptypes.PeerID, error),
 	ocrPeerWrapper *ocrcommon.SingletonPeerWrapper,
 	newOracleFactoryFn NewOracleFactoryFn,
-	fetcherFactoryFn compute.FetcherFactory,
 	orgResolver orgresolver.OrgResolver,
 	creSettings core.SettingsBroadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
@@ -103,11 +99,6 @@ func NewDelegate(
 	capPeering coreconfig.P2P,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
-	initErr := registerOptionalMockStreamsTrigger(logger, localCfg, registry)
-	if initErr != nil {
-		logger.Errorw("Failed to register optional mock streams trigger", "err", initErr)
-	}
-
 	return &Delegate{
 		logger:                  logger,
 		ds:                      ds,
@@ -123,7 +114,6 @@ func NewDelegate(
 		getPeerID:               getPeerID,
 		ocrPeerWrapper:          ocrPeerWrapper,
 		newOracleFactoryFn:      newOracleFactoryFn,
-		computeFetcherFactoryFn: fetcherFactoryFn,
 		orgResolver:             orgResolver,
 		creSettings:             creSettings,
 		ocrConfigService:        ocrConfigService,
@@ -144,10 +134,6 @@ func (d *Delegate) BeforeJobCreated(job job.Job) {
 }
 
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
-	if d.initErr != nil {
-		return nil, d.initErr
-	}
-
 	command := spec.StandardCapabilitiesSpec.Command
 	configJSON := spec.StandardCapabilitiesSpec.Config
 
@@ -190,10 +176,6 @@ func (d *Delegate) NewServices(
 	oracleFactoryConfig job.OracleFactoryConfig,
 	capabilityDonID uint32,
 ) ([]job.ServiceCtx, error) {
-	if d.initErr != nil {
-		return nil, d.initErr
-	}
-
 	log := d.logger.Named("StandardCapabilities").Named(strconv.Itoa(int(jobID))).Named(jobName)
 
 	kvStore := job.NewKVStore(jobID, d.ds)
@@ -375,54 +357,6 @@ func (d *Delegate) NewServices(
 			return nil, err
 		}
 		return []job.ServiceCtx{capability, handler}, nil
-	}
-
-	if command == commandOverrideForCustomComputeAction {
-		var fetcherFactoryFn compute.FetcherFactory
-		var services []job.ServiceCtx
-		var cfg compute.Config
-
-		tomlErr := toml.Unmarshal([]byte(configJSON), &cfg)
-		if tomlErr != nil {
-			return nil, tomlErr
-		}
-
-		if d.computeFetcherFactoryFn != nil {
-			fetcherFactoryFn = d.computeFetcherFactoryFn
-		} else {
-			if d.gatewayConnectorWrapper == nil || connector == nil {
-				return nil, errors.New("gateway connector is required for custom compute capability")
-			}
-
-			lggr := d.logger.Named("ComputeAction")
-
-			handler, err := webapi.NewOutgoingConnectorHandler(connector, cfg.ServiceConfig, capabilities.MethodComputeAction, lggr, d.selectorOpts...)
-			if err != nil {
-				return nil, err
-			}
-			services = append(services, handler)
-
-			idGeneratorFn := func() string {
-				return uuid.New().String()
-			}
-
-			fetcherFactoryFn, err = compute.NewOutgoingConnectorFetcherFactory(handler, idGeneratorFn)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create fetcher factory: %w", err)
-			}
-		}
-
-		if len(configJSON) == 0 {
-			return nil, errors.New("config is empty")
-		}
-
-		computeSrvc, err := compute.NewAction(cfg, log, d.registry, fetcherFactoryFn)
-		if err != nil {
-			return nil, err
-		}
-		services = append(services, computeSrvc)
-
-		return services, nil
 	}
 
 	dependencies := core.StandardCapabilitiesDependencies{

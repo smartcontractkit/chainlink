@@ -29,6 +29,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,21 +46,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/solkey"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
-	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
-	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
-	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
-	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
-	aptoswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite/config"
-	aptoswriteroundtrip_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/config"
-	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
-	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
-	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
-	solread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
-	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
-	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
@@ -70,13 +58,27 @@ import (
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
+	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
+	stellarfeature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	creworkflow "github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	crecrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+	consensus_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/consensus/config"
+	evmread_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmread-negative/config"
+	evmwrite_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/evmwrite-negative/config"
+	logtrigger_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/evm/logtrigger-negative/config"
 	http_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/http/config"
 	httpaction_negative_config "github.com/smartcontractkit/chainlink/system-tests/tests/regression/cre/httpaction-negative/config"
+	aptoswrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswrite/config"
+	aptoswriteroundtrip_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/aptos/aptoswriteroundtrip/config"
+	evmread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
+	logtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/logtrigger/config"
 	httpaction_smoke_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/httpaction/config"
+	sollogtrigger_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/sollogtrigger/config"
+	solread_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
+	solwrite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solwrite/config"
 	vaultsecret_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/vaultsecret/config"
+	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
 const WorkflowEngineInitErrorLog = "Workflow Engine initialization failed"
@@ -313,6 +315,8 @@ type WorkflowConfig interface {
 	None |
 		portypes.WorkflowConfig |
 		AptosReadWorkflowConfig |
+		StellarReadWorkflowConfig |
+		StellarWriteWorkflowConfig |
 		aptoswrite_config.Config |
 		aptoswriteroundtrip_config.Config |
 		crontypes.WorkflowConfig |
@@ -347,10 +351,70 @@ type AptosReadWorkflowConfig struct {
 	ExpectedCoinName string `yaml:"expectedCoinName"`
 }
 
+// StellarReadWorkflowConfig mirrors the fields of the stellarread workflow's
+// config.Config (system-tests/tests/smoke/cre/stellar/stellarread/config).
+// StellarReadKind mirrors config.ReadKind (stellarread workflow) — the iota values must
+// match, since the config is serialized to the workflow as an int over YAML.
+type StellarReadKind int
+
+const (
+	StellarReadKindLatestLedger StellarReadKind = iota
+	StellarReadKindReadContract
+)
+
+type StellarReadWorkflowConfig struct {
+	ChainSelector     uint64 `yaml:"chainSelector"`
+	WorkflowName      string `yaml:"workflowName"`
+	MinLedgerSequence uint64 `yaml:"minLedgerSequence"`
+	CronSchedule      string `yaml:"cronSchedule"`
+
+	// --- ReadContract path ---
+	ReadKind      StellarReadKind `yaml:"readKind"`
+	SourceAccount string          `yaml:"sourceAccount"`
+	// Cases is the batch of ReadContract invocations run and asserted in a single trigger
+	// when ReadKind == StellarReadKindReadContract.
+	Cases []StellarReadContractStep `yaml:"cases"`
+}
+
+// StellarReadContractStep mirrors the stellarread workflow's config.ReadContractStep
+// (system-tests/tests/smoke/cre/stellar/stellarread/config) — one ReadContract invocation
+// asserted within a batch run.
+type StellarReadContractStep struct {
+	Name                      string   `yaml:"name"`
+	ContractID                string   `yaml:"contractID"`
+	Function                  string   `yaml:"function"`
+	ArgMode                   string   `yaml:"argMode"`
+	ArgBool                   bool     `yaml:"argBool"`
+	ArgU32A                   uint32   `yaml:"argU32A"`
+	ArgU32B                   uint32   `yaml:"argU32B"`
+	ArgString                 string   `yaml:"argString"`
+	ArgBytesHex               string   `yaml:"argBytesHex"`
+	ArgI64                    int64    `yaml:"argI64"`
+	ArgSymbol                 string   `yaml:"argSymbol"`
+	ArgVecU32                 []uint32 `yaml:"argVecU32"`
+	ArgReceiverContractIDHex  string   `yaml:"argReceiverContractIDHex"`
+	ArgWorkflowExecutionIDHex string   `yaml:"argWorkflowExecutionIDHex"`
+	ArgReportIDHex            string   `yaml:"argReportIDHex"`
+	ExpectedResult            string   `yaml:"expectedResult"`
+	ExpectError               bool     `yaml:"expectError"`
+}
+
+// StellarWriteWorkflowConfig mirrors the fields of the stellarwrite workflow's
+// config.Config (system-tests/tests/smoke/cre/stellar/stellarwrite/config).
+type StellarWriteWorkflowConfig struct {
+	ChainSelector      uint64 `yaml:"chainSelector"`
+	WorkflowName       string `yaml:"workflowName"`
+	ReceiverContractID string `yaml:"receiverContractID"`
+	ReportPayloadHex   string `yaml:"reportPayloadHex"`
+	RequiredSignatures int    `yaml:"requiredSignatures"`
+	ExpectFailure      bool   `yaml:"expectFailure"`
+}
+
 // WorkflowRegistrationConfig holds configuration for workflow registration
 type WorkflowRegistrationConfig struct {
 	WorkflowName            string
 	WorkflowLocation        string
+	WorkflowTag             string
 	ConfigFilePath          string
 	CompressedWasmPath      string
 	SecretsURL              string
@@ -431,6 +495,18 @@ func workflowConfigFactory[T WorkflowConfig](t *testing.T, testLogger zerolog.Lo
 			workflowConfigFilePath = workflowCfgFilePath
 			require.NoError(t, configErr, "failed to create aptos read workflow config file")
 			testLogger.Info().Msg("Aptos read workflow config file created.")
+
+		case *StellarReadWorkflowConfig:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create stellar read workflow config file")
+			testLogger.Info().Msg("Stellar read workflow config file created.")
+
+		case *StellarWriteWorkflowConfig:
+			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
+			workflowConfigFilePath = workflowCfgFilePath
+			require.NoError(t, configErr, "failed to create stellar write workflow config file")
+			testLogger.Info().Msg("Stellar write workflow config file created.")
 
 		case *aptoswrite_config.Config:
 			workflowCfgFilePath, configErr := CreateWorkflowYamlConfigFile(workflowName, cfg, outputDir)
@@ -640,6 +716,7 @@ func registerWorkflowErr(ctx context.Context, wfRegCfg *WorkflowRegistrationConf
 		wfRegCfg.DonID,
 		wfRegCfg.DonFamily,
 		wfRegCfg.WorkflowName,
+		wfRegCfg.WorkflowTag,
 		binaryURL,
 		configURL,
 		nil, // no secrets yet
@@ -692,8 +769,19 @@ func deleteWorkflows(
 		testLogger.Error().Msgf("Error deleting workflow '%s': %s", uniqueWorkflowName, err.Error())
 	}))
 
+	if retryErr != nil && isWorkflowNotFound(retryErr) {
+		// Eager delete (see DeleteWorkflowFromRegistry) may have already removed it; treat as success.
+		testLogger.Info().Msgf("Workflow '%s' already absent from the registry (treating as deleted).", uniqueWorkflowName)
+		return
+	}
 	require.NoError(t, retryErr, "failed to delete workflow '%s'", uniqueWorkflowName)
 	testLogger.Info().Msgf("Workflow '%s' deleted successfully from the registry.", uniqueWorkflowName)
+}
+
+// isWorkflowNotFound reports whether err indicates the workflow is already absent from
+// the registry, so a delete can be treated as an idempotent success.
+func isWorkflowNotFound(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "not found")
 }
 
 func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
@@ -726,6 +814,7 @@ func CompileAndDeployWorkflow[T WorkflowConfig](t *testing.T,
 	workflowRegConfig := &WorkflowRegistrationConfig{
 		WorkflowName:            workflowName,
 		WorkflowLocation:        workflowFileLocation,
+		WorkflowTag:             creworkflow.DefaultWorkflowTag,
 		ConfigFilePath:          workflowConfigPath,
 		CompressedWasmPath:      compressedWorkflowWasmPath,
 		WorkflowRegistryAddr:    common.HexToAddress(workflowRegistryAddress.Address),
@@ -847,4 +936,120 @@ func truncateWorkflowName(name, uniquenessSeed string) string {
 func ParallelEnabled() bool {
 	v := strings.TrimSpace(strings.ToLower(os.Getenv("CRE_TEST_PARALLEL_ENABLED")))
 	return v == "1" || v == "true" || v == "yes"
+}
+
+// ─── Stellar ReadContract test helpers (shared by smoke + regression) ───
+//
+// These are the generic, chain-family-agnostic bits reused by both the smoke
+// (smoke/cre) and regression (regression/cre) Stellar suites, which are separate
+// Go packages. They live here — alongside StellarReadWorkflowConfig — for the same
+// reason EVM keeps StartChipTestSink/GetEVMEnabledChains here: shared infra that a
+// _test.go file can't export across packages. The per-suite case tables and the
+// deploy-and-watch loop are inlined in each test file (matching evm/solana/aptos).
+
+// StellarWorkflowTimeout bounds how long a Stellar read/read-contract case waits
+// for its expected log.
+const StellarWorkflowTimeout = 4 * time.Minute
+
+// stellarCronScheduleEnvVar overrides the cron schedule for Stellar test workflows.
+const stellarCronScheduleEnvVar = "CRE_STELLAR_CRON_SCHEDULE"
+
+var stellarWorkflowNameSeq atomic.Uint64
+
+// StellarTestCronSchedule returns the cron schedule Stellar test workflows should use.
+// Empty (the default) keeps the workflow's safe "*/30 * * * * *". Set
+// CRE_STELLAR_CRON_SCHEDULE (e.g. "*/5 * * * * *") to cut per-case idle wait — only
+// where the Local CRE cron fastest-interval limit permits a faster schedule.
+func StellarTestCronSchedule() string { return os.Getenv(stellarCronScheduleEnvVar) }
+
+// UniqueStellarWorkflowName returns a re-run-safe workflow name.
+func UniqueStellarWorkflowName(base string) string {
+	return fmt.Sprintf("%s-%d-%d", base, time.Now().UnixNano(), stellarWorkflowNameSeq.Add(1))
+}
+
+// MustStellarChainInEnv returns the first Stellar chain in the environment, failing the test if none is present.
+func MustStellarChainInEnv(t *testing.T, tenv *ttypes.TestEnvironment) *stellchain.Blockchain {
+	t.Helper()
+	require.NotNil(t, tenv, "Stellar suite requires a test environment")
+	require.NotNil(t, tenv.CreEnvironment, "Stellar suite requires a CRE environment")
+	require.NotEmpty(t, tenv.CreEnvironment.Blockchains, "Stellar suite expects at least one blockchain in the environment")
+	for _, bc := range tenv.CreEnvironment.Blockchains {
+		if bc.IsFamily(blockchain.FamilyStellar) {
+			concrete, ok := bc.(*stellchain.Blockchain)
+			require.True(t, ok, "expected concrete *stellar.Blockchain, got %T", bc)
+			return concrete
+		}
+	}
+	require.FailNow(t, "Stellar suite expects a Stellar chain in the environment (use config workflow-gateway-don-stellar.toml)")
+	return nil
+}
+
+// MustDeployStellarReadFixture deploys the read_fixture contract and returns its
+// C-address, failing the test on error.
+func MustDeployStellarReadFixture(t *testing.T, stellarChain *stellchain.Blockchain) string {
+	t.Helper()
+	fixtureID, err := stellarfeature.DeployStellarReadFixture(context.Background(), stellarChain)
+	require.NoError(t, err, "failed to deploy Stellar CRE read fixture")
+	framework.L.Info().Str("fixture", fixtureID).Msg("Deployed Stellar ReadContract fixture")
+	return fixtureID
+}
+
+// StartChipTestSinkWithLogging starts a Chip test sink that both writes every event to
+// logFilePath (the ./logs dir is uploaded as a GH artifact) AND returns the user-log /
+// base-message channels for the caller to consume via WatchWorkflowLogs / WaitForUserLog.
+func StartChipTestSinkWithLogging(t *testing.T, logFilePath string) (<-chan *workflowevents.UserLogs, <-chan *commonevents.BaseMessage) {
+	t.Helper()
+	userLogsCh := make(chan *workflowevents.UserLogs, 1000)
+	baseMessageCh := make(chan *commonevents.BaseMessage, 1000)
+
+	server := StartChipTestSink(t, GetLoggingPublishFn(framework.L, userLogsCh, baseMessageCh, logFilePath))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
+	})
+	return userLogsCh, baseMessageCh
+}
+
+// StartLoggingOnlyChipTestSink starts a Chip test sink that only writes events to logFilePath.
+// It passes nil channels to the publish handler (safeSend* treats nil as a no-op), so events
+// are never queued for consumption — there is nothing to drain and Publish never blocks.
+// Use this for tests that assert on external state and only need the event dump for debugging.
+func StartLoggingOnlyChipTestSink(t *testing.T, logFilePath string) {
+	t.Helper()
+	server := StartChipTestSink(t, GetLoggingPublishFn(framework.L, nil, nil, logFilePath))
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		ShutdownChipSinkWithDrain(ctx, server)
+	})
+}
+
+func LogFilePath(prefix, suffix string) string {
+	safe := SanitizeLogToken(suffix)
+	if safe == "" {
+		safe = "default"
+	}
+	return filepath.Join("logs", fmt.Sprintf("%s_%s.log", prefix, safe))
+}
+
+func SanitizeLogToken(input string) string {
+	var b strings.Builder
+	b.Grow(len(input))
+	for _, r := range input {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+		case r >= 'A' && r <= 'Z':
+			b.WriteRune(r)
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == '-' || r == '_' || r == '.':
+			b.WriteRune(r)
+		default:
+			b.WriteRune('_')
+		}
+	}
+
+	return b.String()
 }

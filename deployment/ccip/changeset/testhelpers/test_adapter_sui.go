@@ -13,17 +13,15 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	sui_module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
-	sui_ccip_offramp "github.com/smartcontractkit/chainlink-sui/bindings/packages/offramp"
-	cslclient "github.com/smartcontractkit/chainlink-sui/relayer/client"
-	"github.com/smartcontractkit/chainlink-sui/relayer/codec"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	sui_module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
+	sui_ccip_offramp "github.com/smartcontractkit/chainlink-sui/bindings/packages/offramp"
+	"github.com/smartcontractkit/chainlink-sui/codec"
 	suistate "github.com/smartcontractkit/chainlink-sui/deployment"
+	cslclient "github.com/smartcontractkit/chainlink-sui/relayer/client"
 )
 
 type SuiAdapter struct {
@@ -112,6 +110,7 @@ func SuiEventEmitter[T any](
 	t *testing.T,
 	client cslclient.SuiPTBClient,
 	packageID, moduleName, event string,
+	startSeq *uint64,
 	done chan any,
 ) (<-chan struct {
 	Event   T
@@ -143,15 +142,21 @@ func SuiEventEmitter[T any](
 			}
 		}
 
-		// Seed the scan position from the current chain tip, backfilling a small window.
-		latest, err := client.GetLatestCheckpoint(ctx)
-		if err != nil {
-			emitErr(fmt.Errorf("failed to get latest checkpoint: %w", err))
-			return
-		}
+		// Seed the scan position. Prefer an explicit start checkpoint (captured at
+		// send time) so events that landed before subscription are covered; fall
+		// back to a small tip backfill when none was provided.
 		var nextSeq uint64
-		if tip := latest.GetSequenceNumber(); tip > suiEventCheckpointBackfill {
-			nextSeq = tip - suiEventCheckpointBackfill
+		if startSeq != nil {
+			nextSeq = *startSeq
+		} else {
+			latest, err := client.GetLatestCheckpoint(ctx)
+			if err != nil {
+				emitErr(fmt.Errorf("failed to get latest checkpoint: %w", err))
+				return
+			}
+			if tip := latest.GetSequenceNumber(); tip > suiEventCheckpointBackfill {
+				nextSeq = tip - suiEventCheckpointBackfill
+			}
 		}
 
 		ticker := time.NewTicker(time.Second)
@@ -191,10 +196,7 @@ func SuiEventEmitter[T any](
 
 				for _, tx := range data.Transactions {
 					for _, ev := range tx.GetEvents().GetEvents() {
-						// Sui event struct types always carry the original defining
-						// package's ID, so match on the fully-qualified handle.
-						qualified := strings.Join([]string{ev.GetPackageId(), ev.GetModule(), ev.GetEventType()}, "::")
-						if qualified != eventType {
+						if !suiEventTypeMatches(ev.GetEventType(), eventType) {
 							continue
 						}
 						if ev.GetJson() == nil {
@@ -242,6 +244,10 @@ func SuiEventEmitter[T any](
 	return ch, errChan
 }
 
+func suiEventTypeMatches(actual, expected string) bool {
+	return strings.TrimPrefix(actual, "0x") == strings.TrimPrefix(expected, "0x")
+}
+
 // isSuiCheckpointNotFound reports whether err indicates a checkpoint that is not yet
 // available on the fullnode (the tip can advance past the latest indexed checkpoint).
 func isSuiCheckpointNotFound(err error) bool {
@@ -269,7 +275,7 @@ func confirmCommitWithExpectedSeqNumRangeSui(
 
 	done := make(chan any)
 	defer close(done)
-	sink, errChan := SuiEventEmitter[sui_module_offramp.CommitReportAccepted](t, dest.Client, boundOffRamp.Address(), "offramp", "CommitReportAccepted", done)
+	sink, errChan := SuiEventEmitter[sui_module_offramp.CommitReportAccepted](t, dest.Client, boundOffRamp.Address(), "offramp", "CommitReportAccepted", startVersion, done)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -344,7 +350,7 @@ func confirmExecWithExpectedSeqNrsSui(
 	defer close(done)
 
 	t.Log("[DEBUG] Subscribing to Sui events...", offRampAddress)
-	sink, errChan := SuiEventEmitter[sui_module_offramp.ExecutionStateChanged](t, dest.Client, offRampAddress, "offramp", "ExecutionStateChanged", done)
+	sink, errChan := SuiEventEmitter[sui_module_offramp.ExecutionStateChanged](t, dest.Client, offRampAddress, "offramp", "ExecutionStateChanged", startVersion, done)
 
 	t.Log("[DEBUG] Event subscription established")
 

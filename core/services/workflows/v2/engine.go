@@ -24,19 +24,20 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -92,6 +93,11 @@ type Engine struct {
 	tracer trace.Tracer
 
 	orgID string
+	// orgIDMissingReason records why orgID is empty ("resolver_nil",
+	// "resolver_error", or "empty_response"). It is set once in start() and
+	// read by startExecution() to label the org_id_missing counter. It is only
+	// meaningful when orgID == "".
+	orgIDMissingReason string
 
 	draining         atomic.Bool
 	activeExecutions atomic.Int32
@@ -260,6 +266,38 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 	return engine, nil
 }
 
+// resolvedOrg holds the result of an organization ID resolution attempt.
+type resolvedOrg struct {
+	// ID is the resolved organization ID, or empty if resolution failed.
+	ID string
+	// Err is the error returned by the OrgResolver, or nil if resolution
+	// succeeded or the resolver was not configured.
+	Err error
+	// Reason explains why ID is empty: "resolver_nil" (OrgResolver not
+	// configured), "resolver_error" (Get returned an error), or
+	// "empty_response" (Get returned an empty string). Empty on success.
+	Reason string
+}
+
+// resolveOrgID resolves the organization ID for the given workflow owner.
+// If resolution fails, the returned ID is empty and Reason explains why.
+// The original error from the resolver (if any) is preserved in Err and
+// logged via the provided logger.
+func resolveOrgID(ctx context.Context, resolver orgresolver.OrgResolver, workflowOwner string, lggr logger.SugaredLogger) resolvedOrg {
+	if resolver == nil {
+		return resolvedOrg{Reason: "resolver_nil"}
+	}
+	orgID, err := resolver.Get(ctx, workflowOwner)
+	if err != nil {
+		lggr.Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", workflowOwner, "err", err)
+		return resolvedOrg{Err: err, Reason: "resolver_error"}
+	}
+	if orgID == "" {
+		return resolvedOrg{Reason: "empty_response"}
+	}
+	return resolvedOrg{ID: orgID}
+}
+
 func (e *Engine) start(ctx context.Context) error {
 	e.cfg.Module.Start()
 	ctx = context.WithoutCancel(ctx)
@@ -267,15 +305,9 @@ func (e *Engine) start(ctx context.Context) error {
 	// Resolve the workflow owner's org once at engine startup and treat it as stable
 	// for the lifetime of this engine instance. If org membership/linking changes, the
 	// workflow must be restarted to pick up the new org mapping.
-	e.orgID = ""
-	if e.cfg.OrgResolver != nil {
-		orgID, gerr := e.cfg.OrgResolver.Get(ctx, e.cfg.WorkflowOwner)
-		if gerr != nil {
-			e.logger().Warnw("Failed to resolve organization ID, continuing without it", "workflowOwner", e.cfg.WorkflowOwner, "err", gerr)
-		} else {
-			e.orgID = orgID
-		}
-	}
+	resolved := resolveOrgID(ctx, e.cfg.OrgResolver, e.cfg.WorkflowOwner, e.logger())
+	e.orgID = resolved.ID
+	e.orgIDMissingReason = resolved.Reason
 	e.storeLoggerLabels(e.eventLabels())
 
 	e.metrics = e.metrics.With(platform.KeyOrganizationID, e.orgID)
@@ -710,12 +742,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).IncrementTriggerEventDroppedTotal(ctx, reason)
 	}
 
-	fullExecutionID, err := events.GenerateExecutionIDWithTriggerIndex(e.cfg.WorkflowID, wrappedTriggerEvent.event.Event.ID, wrappedTriggerEvent.triggerIndex)
+	executionID, err := workflows.GenerateExecutionIDWithTriggerIndex(e.cfg.WorkflowID, wrappedTriggerEvent.event.Event.ID, wrappedTriggerEvent.triggerIndex)
 	if err != nil {
 		e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
 		triggerDrop(monitoring.TriggerDropReasonExecutionIDGenerationFailed)
 		return
 	}
+	e.metrics.IncrementExecutionIDFullCounter(ctx)
+	trace.SpanFromContext(ctx).SetAttributes(attribute.String("execution_id", executionID))
 
 	loggerLabels := e.eventLabels()
 	lggr := e.logger().With(platform.KeyOrganizationID, e.orgID)
@@ -723,7 +757,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	var executionTimestamp time.Time
 	var executionDonTimeProvider TimeProvider
 	if tsErr := e.cfg.LocalLimiters.ExecutionTimestampsEnabled.AllowErr(ctx); tsErr == nil {
-		executionDonTimeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, fullExecutionID, e.donTimeRequestTimeout(ctx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics)
+		executionDonTimeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.donTimeRequestTimeout(ctx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics)
 		donTime, dtErr := executionDonTimeProvider.GetDONTime()
 		if dtErr != nil {
 			executionTimestamp = e.cfg.Clock.Now()
@@ -737,21 +771,6 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	triggerEvent := wrappedTriggerEvent.event.Event
-
-	var executionID string
-	if e.cfg.FeatureFlags.FeatureMultiTriggerExecutionIDs.Check(ctx, config.NewTimestamp(executionTimestamp)) == nil {
-		executionID = fullExecutionID
-		e.metrics.IncrementExecutionIDFullCounter(ctx)
-	} else {
-		executionID, err = events.GenerateExecutionID(e.cfg.WorkflowID, triggerEvent.ID)
-		if err != nil {
-			e.logger().Errorw("Failed to generate execution ID", "err", err, "triggerID", wrappedTriggerEvent.triggerCapID)
-			triggerDrop(monitoring.TriggerDropReasonExecutionIDGenerationFailed)
-			return
-		}
-		e.metrics.IncrementExecutionIDLegacyCounter(ctx)
-	}
-	trace.SpanFromContext(ctx).SetAttributes(attribute.String("execution_id", executionID))
 
 	// disallow duplicate executions
 	_, addErr := e.cfg.ExecutionsStore.Add(ctx, nil, executionID, e.cfg.WorkflowID, store.StatusStarted)
@@ -783,8 +802,29 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}()
 
 	needShardOwnerCheck := e.cfg.ShardRoutingSteady == nil || !e.cfg.ShardRoutingSteady.SkipCommittedOwnerCheck()
-	if e.cfg.ShardingEnabled && e.cfg.ShardOrchestratorClient != nil && needShardOwnerCheck {
-		verdict, mapResp, ownErr := shardownership.CheckCommittedOwner(ctx, e.cfg.ShardOrchestratorClient, e.cfg.WorkflowID, e.cfg.MyShardID)
+	if e.cfg.ShardingEnabled && needShardOwnerCheck {
+		var verdict shardownership.Verdict
+		var mapResp *ringpb.GetWorkflowShardMappingResponse
+		var ownErr error
+
+		switch {
+		case e.cfg.ShardResolver != nil:
+			shardID, found, resolveErr := e.cfg.ShardResolver.ResolveShard(ctx, e.cfg.WorkflowID, e.cfg.WorkflowOwner)
+			switch {
+			case resolveErr != nil:
+				verdict = shardownership.DenyOrchestratorError
+				ownErr = resolveErr
+			case !found || shardID != e.cfg.MyShardID:
+				verdict = shardownership.DenyNotOwner
+			default:
+				verdict = shardownership.Allow
+			}
+		case e.cfg.ShardOrchestratorClient != nil:
+			verdict, mapResp, ownErr = shardownership.CheckCommittedOwner(ctx, e.cfg.ShardOrchestratorClient, e.cfg.WorkflowID, e.cfg.MyShardID)
+		default:
+			verdict = shardownership.Allow
+		}
+
 		switch verdict {
 		case shardownership.Allow:
 		case shardownership.DenyOrchestratorError:
@@ -880,6 +920,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	startTime := e.cfg.Clock.Now()
 	executionLogger.Infow("Workflow execution starting ...")
+	if e.orgID == "" {
+		e.metrics.IncrementOrgIDMissingCounter(ctx, e.orgIDMissingReason)
+	}
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
 	registrationID := TriggerRegistrationID(e.cfg.WorkflowID, wrappedTriggerEvent.triggerIndex)
@@ -889,11 +932,13 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionStartedCounter(ctx)
 
-	// Track execution error for deferred event emission
+	// Track execution error (and its user/system classification) for deferred
+	// event emission. Set alongside executionStatus at each outcome site below.
 	var execErr error
+	execErrClass := events.ErrorClassificationUnspecified
 	var execHelper *ExecutionHelper
 	defer func() {
-		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, lggr)
+		_ = events.EmitExecutionFinishedEvent(ctx, loggerLabels, executionStatus, executionID, execErr, execErrClass, lggr)
 		if execHelper != nil {
 			endTime := e.cfg.Clock.Now()
 			profile, emitErr := events.EmitExecutionProfile(
@@ -925,9 +970,10 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	var timeProvider TimeProvider = &types.LocalTimeProvider{}
 	if !e.cfg.UseLocalTimeProvider {
-		if e.cfg.FeatureFlags.FeatureUseSingleDONTimeProviderPerExecution.Check(ctx, config.NewTimestamp(executionTimestamp)) == nil && executionDonTimeProvider != nil {
+		if executionDonTimeProvider != nil {
 			timeProvider = executionDonTimeProvider
 		} else {
+			lggr.Warnw("ExecutionTimestampsEnabled is false - creating a new DON time provider")
 			timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, executionID, e.donTimeRequestTimeout(execCtx, e.cfg.LocalLimiters.DONTimeRequestTimeout), lggr, e.metrics)
 		}
 	}
@@ -944,6 +990,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		lggr.Errorw("Failed to get execution response size limit", "err", err)
 		executionStatus = store.StatusErrored
 		execErr = err
+		execErrClass = events.ErrorClassificationSystem
 		triggerDrop(monitoring.TriggerDropReasonExecutionResponseLimitReadFailed)
 		return
 	}
@@ -951,6 +998,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		execErr = fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
 		lggr.Errorw(execErr.Error())
 		executionStatus = store.StatusErrored
+		execErrClass = events.ErrorClassificationSystem
 		triggerDrop(monitoring.TriggerDropReasonExecutionResponseLimitInvalid)
 		return
 	}
@@ -1022,12 +1070,17 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 
 	if execErr != nil {
 		executionStatus = store.StatusErrored
+		// Module/host and timeout failures are platform errors by default, but a
+		// user-origin caperrors.Error propagating from a capability or the guest
+		// is attributed to the user.
+		execErrClass = events.ClassifyError(execErr, events.ErrorClassificationSystem)
 		if errors.Is(execErr, context.DeadlineExceeded) {
 			executionStatus = store.StatusTimeout
 			e.metrics.UpdateWorkflowTimeoutDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		} else {
 			e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		}
+		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 		executionLogger.Errorw("Workflow execution failed with module execution error", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "err", execErr)
 		return
 	}
@@ -1039,8 +1092,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	if len(result.GetError()) > 0 {
 		executionStatus = store.StatusErrored
 		execErr = errors.New(result.GetError())
+		// The user's workflow ran and returned an error: a user failure.
+		execErrClass = events.ErrorClassificationUser
 		e.metrics.UpdateWorkflowErrorDurationHistogram(ctx, int64(executionDuration.Seconds()))
 		e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionFailedCounter(ctx)
+		e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 		executionLogger.Errorw("Workflow execution failed", "status", executionStatus, "durationMs", executionDuration.Milliseconds(), "error", result.GetError())
 		return
 	}
@@ -1049,6 +1105,7 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	executionLogger.Infow("Workflow execution finished successfully", "durationMs", executionDuration.Milliseconds())
 	e.metrics.UpdateWorkflowCompletedDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
+	e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 	e.cfg.Hooks.OnResultReceived(result)
 }
 
@@ -1253,7 +1310,16 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 				}
 			}
 		case logLine, ok := <-userLogChan:
-			if !ok || !processLogLine(ctx, logLine) {
+			if !ok {
+				return
+			}
+			// The execution context is cancelled the moment the execution completes,
+			// but this goroutine outlives it and may still have buffered log lines.
+			// Emit on a context detached from the execution lifecycle.
+			emitCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), emitUserLogsTimeout)
+			ok = processLogLine(emitCtx, logLine)
+			cancel()
+			if !ok {
 				return
 			}
 		}

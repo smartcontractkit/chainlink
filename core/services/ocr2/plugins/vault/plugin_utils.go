@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -198,4 +197,16 @@ func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (
 		MaxPerOracleUnexpiredBlobCumulativePayloadBytes: maxPerOracleUnexpiredBlobCumulativePayloadBytes,
 		MaxPerOracleUnexpiredBlobCount:                  maxPerOracleUnexpiredBlobCount,
 	}, nil
+}
+
+func (r *ReportingPlugin) roundLggr(seqNr uint64) logger.Logger {
+	return r.lggr.With("seqNr", seqNr)
+}
+
+func (r *ReportingPlugin) requestLggr(seqNr uint64, requestID string) logger.Logger {
+	return r.roundLggr(seqNr).With("requestID", requestID)
+}
+
+func (r *ReportingPlugin) typedRequestLggr(seqNr uint64, requestID, requestType string) logger.Logger {
+	return r.requestLggr(seqNr, requestID).With("requestType", requestType)
 }

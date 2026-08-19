@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -139,7 +138,7 @@ func TestGRPCServer_GetDesiredReplicas_LargeShardCount(t *testing.T) {
 
 	// Simulate many healthy shards
 	status := make(map[uint32]*ringpb.ShardStatus)
-	for i := uint32(0); i < 100; i++ {
+	for i := range uint32(100) {
 		status[i] = &ringpb.ShardStatus{IsHealthy: true}
 	}
 

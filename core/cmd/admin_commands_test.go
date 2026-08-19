@@ -16,7 +16,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -61,7 +60,7 @@ func TestShell_CreateUser(t *testing.T) {
 }
 
 func TestShell_ChangeRole(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
@@ -101,7 +100,7 @@ func TestShell_ChangeRole(t *testing.T) {
 }
 
 func TestShell_DeleteUser(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
@@ -136,7 +135,7 @@ func TestShell_DeleteUser(t *testing.T) {
 }
 
 func TestShell_ListUsers(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
@@ -155,9 +154,9 @@ func TestShell_ListUsers(t *testing.T) {
 		if presenter.Email == user.Email {
 			userPresenterFound = true
 			assert.Equal(t, presenter.Role, user.Role)
-			userHasActiveApiToken, err := strconv.ParseBool(presenter.HasActiveApiToken)
+			userHasActiveAPIToken, err := strconv.ParseBool(presenter.HasActiveAPIToken)
 			assert.NoError(t, err)
-			assert.Equal(t, userHasActiveApiToken, user.TokenKey.String != "")
+			assert.Equal(t, userHasActiveAPIToken, user.TokenKey.String != "")
 			assert.True(t, presenter.CreatedAt.Equal(user.CreatedAt))
 			assert.True(t, presenter.CreatedAt.Equal(user.UpdatedAt))
 		}
@@ -180,7 +179,7 @@ func TestAdminUsersPresenter_RenderTable(t *testing.T) {
 			JAID:              presenters.JAID{ID: user.Email},
 			Email:             user.Email,
 			Role:              user.Role,
-			HasActiveApiToken: user.TokenKey.String,
+			HasActiveAPIToken: user.TokenKey.String,
 			CreatedAt:         user.CreatedAt,
 			UpdatedAt:         user.UpdatedAt,
 		},

@@ -438,10 +438,9 @@ func TestNewEVMCallOperation(t *testing.T) {
 
 func TestContractOpts_Validate(t *testing.T) {
 	tests := []struct {
-		desc       string
-		opts       *ContractOpts
-		isZkSyncVM bool
-		err        string
+		desc string
+		opts *ContractOpts
+		err  string
 	}{
 		{
 			desc: "valid evm opts",
@@ -449,15 +448,6 @@ func TestContractOpts_Validate(t *testing.T) {
 				Version:     semver.MustParse("1.0.0"),
 				EVMBytecode: []byte{0x01, 0x02, 0x03},
 			},
-			isZkSyncVM: false,
-		},
-		{
-			desc: "valid zksyncvm opts",
-			opts: &ContractOpts{
-				Version:          semver.MustParse("1.0.0"),
-				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
-			},
-			isZkSyncVM: true,
 		},
 		{
 			desc: "nil version",
@@ -469,22 +459,13 @@ func TestContractOpts_Validate(t *testing.T) {
 			opts: &ContractOpts{
 				Version: semver.MustParse("1.0.0"),
 			},
-			isZkSyncVM: false,
-			err:        "evm bytecode must be defined",
-		},
-		{
-			desc: "missing zkSyncVM bytecode",
-			opts: &ContractOpts{
-				Version: semver.MustParse("1.0.0"),
-			},
-			isZkSyncVM: true,
-			err:        "zkSyncVM bytecode must be defined",
+			err: "evm bytecode must be defined",
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
-			err := test.opts.Validate(test.isZkSyncVM)
+			err := test.opts.Validate()
 			if test.err == "" {
 				require.NoError(t, err)
 			} else {
@@ -573,9 +554,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 			contractType,
 			&bind.MetaData{},
 			&ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      nil,
-				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: nil,
 			},
 			func(string) []any { return nil },
 		)
@@ -605,9 +585,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 		input := EVMDeployInput[string]{
 			ChainSelector: 123,
 			ContractOpts: &ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      nil,
-				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: nil,
 			},
 			DeployInput: "test",
 		}
@@ -632,9 +611,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 		input := EVMDeployInput[string]{
 			ChainSelector: 123,
 			ContractOpts: &ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      []byte{0x01, 0x02, 0x03, 0x04},
-				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: []byte{0x01, 0x02, 0x03, 0x04},
 			},
 			DeployInput: "test",
 		}
@@ -671,9 +649,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 		input := EVMDeployInput[string]{
 			ChainSelector: 5009297550715157269,
 			ContractOpts: &ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      []byte{0x01, 0x02, 0x03, 0x04},
-				ZkSyncVMBytecode: []byte{0x05, 0x06, 0x07, 0x08},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: []byte{0x01, 0x02, 0x03, 0x04},
 			},
 			DeployInput: "test",
 		}
@@ -712,9 +689,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 		input := EVMDeployInput[string]{
 			ChainSelector: 5009297550715157269,
 			ContractOpts: &ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      []byte{0x00},
-				ZkSyncVMBytecode: []byte{0x00},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: []byte{0x00},
 			},
 			DeployInput: "test",
 		}
@@ -750,9 +726,8 @@ func TestNewEVMDeployOperation(t *testing.T) {
 		input := EVMDeployInput[string]{
 			ChainSelector: 5009297550715157269,
 			ContractOpts: &ContractOpts{
-				Version:          semver.MustParse("0.1.0"),
-				EVMBytecode:      []byte{0x00},
-				ZkSyncVMBytecode: []byte{0x00},
+				Version:     semver.MustParse("0.1.0"),
+				EVMBytecode: []byte{0x00},
 			},
 			DeployInput: "test",
 		}

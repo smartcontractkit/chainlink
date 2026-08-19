@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -223,7 +222,7 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 	config := jc.App.GetConfig()
 	switch jobType {
 	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(config, jc.App.GetRelayers().LegacyEVMChains(), tomlString)
+		jb, err = ocr.ValidatedOracleSpecToml(config, jc.App.GetRelayers().LegacyEVMChains(), tomlString) //nolint:staticcheck // LegacyEVMChains is deprecated but refactoring to new relayer interface requires larger architectural changes
 		if !config.OCR().Enabled() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
@@ -255,7 +254,7 @@ func (jc *JobsController) validateJobSpec(ctx context.Context, tomlString string
 	case job.Stream:
 		jb, err = streams.ValidatedStreamSpec(tomlString)
 	case job.Workflow:
-		jb, err = workflows.ValidatedWorkflowJobSpec(ctx, tomlString)
+		return jb, http.StatusUnprocessableEntity, errors.New("job type workflow has been removed and is no longer supported")
 	case job.StandardCapabilities:
 		jb, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(tomlString)
 	case job.CCIP:

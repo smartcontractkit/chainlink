@@ -31,7 +31,7 @@ func NewVRFKeyResource(key vrfkey.KeyV2, lggr logger.Logger) *VRFKeyResource {
 }
 
 func NewVRFKeyResources(keys []vrfkey.KeyV2, lggr logger.Logger) []VRFKeyResource {
-	rs := []VRFKeyResource{}
+	rs := make([]VRFKeyResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewVRFKeyResource(key, lggr))
 	}

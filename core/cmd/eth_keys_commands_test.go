@@ -19,7 +19,6 @@ import (
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -28,7 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func ptr[T any](t T) *T { return &t }
+//go:fix inline
+func ptr[T any](t T) *T { return new(t) }
 
 func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
@@ -94,9 +94,9 @@ func TestShell_ListETHKeys(t *testing.T) {
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(commonassets.NewLinkFromJuels(13), nil)
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 	},
 		withKey(),
 		withMocks(ethClient),
@@ -119,9 +119,9 @@ func TestShell_ListETHKeys_Error(t *testing.T) {
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 	},
 		withKey(),
 		withMocks(ethClient),
@@ -141,13 +141,13 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 
 	ethClient := newEthMock(t)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(false)
+		c.EVM[0].Enabled = new(false)
 	},
 		withKey(),
 		withMocks(ethClient),
 	)
 	client, r := app.NewShellAndRenderer()
-	keys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
+	keys, err := app.KeyStore.Eth().GetAll(t.Context())
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 	k := keys[0]
@@ -174,9 +174,9 @@ func TestShell_CreateETHKey(t *testing.T) {
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 	},
 		withKey(),
 		withMocks(ethClient),
@@ -185,7 +185,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	cltest.AssertCount(t, db, "evm.key_states", 1) // The initial funding key
-	keys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
+	keys, err := app.KeyStore.Eth().GetAll(t.Context())
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 
@@ -201,7 +201,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	assert.NoError(t, client.CreateETHKey(c))
 
 	cltest.AssertCount(t, db, "evm.key_states", 2)
-	keys, err = app.KeyStore.Eth().GetAll(testutils.Context(t))
+	keys, err = app.KeyStore.Eth().GetAll(t.Context())
 	require.NoError(t, err)
 	require.Len(t, keys, 2)
 }
@@ -210,9 +210,9 @@ func TestShell_DeleteETHKey(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 	},
 		withKey(),
 	)
@@ -220,7 +220,7 @@ func TestShell_DeleteETHKey(t *testing.T) {
 	client, _ := app.NewShellAndRenderer()
 
 	// Create the key
-	key, err := ethKeyStore.Create(testutils.Context(t), &cltest.FixtureChainID)
+	key, err := ethKeyStore.Create(t.Context(), &cltest.FixtureChainID)
 	require.NoError(t, err)
 
 	// Delete the key
@@ -234,7 +234,7 @@ func TestShell_DeleteETHKey(t *testing.T) {
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
 
-	_, err = ethKeyStore.Get(testutils.Context(t), key.Address.Hex())
+	_, err = ethKeyStore.Get(t.Context(), key.Address.Hex())
 	assert.Error(t, err)
 }
 
@@ -248,9 +248,9 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(commonassets.NewLinkFromJuels(42), nil)
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 	},
 		withMocks(ethClient),
 	)
@@ -302,7 +302,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
-	_, err = ethKeyStore.Get(testutils.Context(t), address)
+	_, err = ethKeyStore.Get(t.Context(), address)
 	require.Error(t, err)
 
 	cltest.AssertCount(t, app.GetDB(), "evm.key_states", 0)
@@ -327,7 +327,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	err = client.ListETHKeys(c)
 	require.NoError(t, err)
 	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 1)
-	_, err = ethKeyStore.Get(testutils.Context(t), address)
+	_, err = ethKeyStore.Get(t.Context(), address)
 	require.NoError(t, err)
 
 	// Export test invalid id
@@ -352,9 +352,9 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("NonceAt", mock.Anything, mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].Enabled = ptr(true)
-		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+		c.EVM[0].Enabled = new(true)
+		c.EVM[0].NonceAutoSync = new(false)
+		c.EVM[0].BalanceMonitor.Enabled = new(false)
 	},
 		withMocks(ethClient),
 	)
@@ -410,7 +410,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 	err = client.DeleteETHKey(c)
 	require.NoError(t, err)
-	_, err = ethKeyStore.Get(testutils.Context(t), address)
+	_, err = ethKeyStore.Get(t.Context(), address)
 	require.Error(t, err)
 
 	// Import the key
@@ -434,7 +434,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	err = client.ListETHKeys(c)
 	require.NoError(t, err)
 	require.Len(t, *r.Renders[0].(*cmd.EthKeyPresenters), 1)
-	_, err = ethKeyStore.Get(testutils.Context(t), address)
+	_, err = ethKeyStore.Get(t.Context(), address)
 	require.NoError(t, err)
 
 	// Export test invalid id

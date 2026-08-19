@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"strings"
 	"testing"
 	"time"
 
@@ -14,9 +13,12 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 
+	keystonechangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
@@ -26,11 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evmread/contracts"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
-
-	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
-	keystonechangeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 // smoke
@@ -71,18 +68,7 @@ func ExecuteEVMReadTestForCases(t *testing.T, testEnv *ttypes.TestEnvironment, t
 			// while still reusing the shared environment cache (sync.Once) for admin sessions.
 			perCaseEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
 			enabledChains := t_helpers.GetEVMEnabledChains(t, perCaseEnv)
-
-			userLogsCh := makeSinkCh[*workflowevents.UserLogs]()
-			baseMessageCh := makeSinkCh[*commonevents.BaseMessage]()
-
-			// `./logs` folder inside `smoke/cre` is uploaded as artifact in GH
-			server := t_helpers.StartChipTestSink(t, t_helpers.GetLoggingPublishFn(lggr, userLogsCh, baseMessageCh, evmReadLogFilePath(t, perCaseEnv)))
-			t.Cleanup(func() {
-				// can't use t.Context() here because it will have been cancelled before the cleanup function is called
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				t_helpers.ShutdownChipSinkWithDrain(ctx, server, userLogsCh, baseMessageCh)
-			})
+			t_helpers.StartLoggingOnlyChipTestSink(t, evmReadLogFilePath(t, perCaseEnv))
 
 			for _, bcOutput := range perCaseEnv.CreEnvironment.Blockchains {
 				chainID := bcOutput.CtfOutput().ChainID
@@ -117,44 +103,12 @@ func evmReadLogFilePath(t *testing.T, testEnv *ttypes.TestEnvironment) string {
 		suffix = testEnv.Execution.TestID
 	}
 
-	safeSuffix := sanitizeLogToken(suffix)
+	safeSuffix := t_helpers.SanitizeLogToken(suffix)
 	if safeSuffix == "" {
 		safeSuffix = "default"
 	}
 
 	return fmt.Sprintf("./logs/evm_read_workflow_%s.log", safeSuffix)
-}
-
-func sanitizeLogToken(input string) string {
-	var b strings.Builder
-	b.Grow(len(input))
-	for _, r := range input {
-		switch {
-		case r >= 'a' && r <= 'z':
-			b.WriteRune(r)
-		case r >= 'A' && r <= 'Z':
-			b.WriteRune(r)
-		case r >= '0' && r <= '9':
-			b.WriteRune(r)
-		case r == '-' || r == '_' || r == '.':
-			b.WriteRune(r)
-		default:
-			b.WriteRune('_')
-		}
-	}
-
-	return b.String()
-}
-
-func makeSinkCh[T any]() chan T {
-	c := make(chan T, 1)
-	go func() {
-		//nolint:revive //drain the channel to prevent blocking. Content is processed elsewhere.
-		for range c {
-		}
-	}()
-
-	return c
 }
 
 func configureEVMReadWorkflow(t *testing.T, lggr zerolog.Logger, chain *evm.Blockchain, testCase evm_config.TestCase, workflowName string) evm_config.Config {
@@ -257,24 +211,6 @@ func keysFromMap(m map[string]blockchains.Blockchain) []string {
 	return keys
 }
 
-func emitEvent(t *testing.T, lggr zerolog.Logger, chainID string, bcOutput blockchains.Blockchain, msgEmitter *evmreadcontracts.MessageEmitter, expectedUserLog string, workflowConfig evm_logTrigger_config.Config) uint64 {
-	lggr.Info().Msgf("Emitting event to be picked up by workflow for chain '%s'", chainID)
-	sethClient := bcOutput.(*evm.Blockchain).SethClient
-	emittingTx, err := msgEmitter.EmitMessage(sethClient.NewTXOpts(), expectedUserLog)
-	if err != nil {
-		lggr.Info().Msgf("Failed to emit transaction for chain '%s': %v", chainID, err)
-		return 0
-	}
-
-	emittingReceipt, err := sethClient.WaitMined(t.Context(), lggr, sethClient.Client, emittingTx)
-	if err != nil {
-		lggr.Info().Msgf("Failed to emit receipt for chain '%s': %v", chainID, err)
-		return 0
-	}
-	lggr.Info().Msgf("Transaction for chain '%s' mined at '%d' with emitted message %q", chainID, emittingReceipt.BlockNumber.Uint64(), expectedUserLog)
-	return emittingReceipt.BlockNumber.Uint64()
-}
-
 func configureEVMLogTriggerWorkflow(t *testing.T, lggr zerolog.Logger, chain blockchains.Blockchain) (evm_logTrigger_config.Config, *evmreadcontracts.MessageEmitter) {
 	t.Helper()
 
@@ -374,31 +310,13 @@ func executeEVMLogTriggerTestForChain(
 
 	message := "Data for log trigger chain " + chainID
 	// start background event emission every 10s while WatchWorkflowLogs is running, so that the workflow has events to pick up eventually
-	var emittedEventCount int64
-	ticker := time.NewTicker(10 * time.Second)
 
 	singleAckFound, stopACKLogScans := startTriggerEventACKLogWatch(t, lggr)
 	defer stopACKLogScans()
 
-	// create a context that will be cancelled as soon as we either find the log we are looking for or timeout
+	// create a context that will be canceled as soon as we either find the log we are looking for or timeout
 	emitCtx, emitCancelFn := context.WithCancel(t.Context())
-	go func() {
-		defer func() {
-			emitCancelFn()
-			ticker.Stop()
-		}()
-		for {
-			select {
-			case <-emitCtx.Done():
-				return
-			case <-ticker.C:
-				lggr.Info().Msgf("About to emit event #%d for chain %s", emittedEventCount, chainID)
-				blockNumber := emitEvent(t, lggr, chainID, bcOutput, msgEmitter, message, workflowConfig)
-				lggr.Info().Msgf("Event emitted for chain %s at blockNumber %d", chainID, blockNumber)
-				emittedEventCount++
-			}
-		}
-	}()
+	startEVMLogTriggerEventEmitter(emitCtx, t, lggr, chainID, bcOutput, msgEmitter, message)
 	expectedUserLog := "OnTrigger decoded message: message:" + message
 
 	t_helpers.WatchWorkflowLogs(t, lggr, userLogsCh, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog, expectedUserLog, 4*time.Minute, t_helpers.WithUserLogWorkflowID(workflowID))

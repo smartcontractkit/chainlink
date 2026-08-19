@@ -10,6 +10,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
@@ -72,6 +74,16 @@ func (m *testEvtHandler) Handle(ctx context.Context, event Event) error {
 	}
 	return nil
 }
+
+func (m *testEvtHandler) EmitActivationAbandoned(context.Context, Event, eventsv2.ActivationAbandonReason, error, int32) error {
+	return nil
+}
+
+func (m *testEvtHandler) ListWorkflowSpecs(context.Context) ([]*job.WorkflowSpec, error) {
+	return nil, nil
+}
+
+func (m *testEvtHandler) SetWorkflowDon(capabilities.DON) {}
 
 func (m *testEvtHandler) ClearEvents() {
 	m.mux.Lock()

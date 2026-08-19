@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -32,6 +31,8 @@ type Service struct {
 	peerID            p2pkey.PeerID
 	lggr              logger.Logger
 	limitsFactory     limits.Factory
+	validator         AttestationValidator
+	requireBFTQuorum  bool
 
 	handler *Handler
 }
@@ -44,6 +45,8 @@ func NewService(
 	peerID p2pkey.PeerID,
 	lggr logger.Logger,
 	limitsFactory limits.Factory,
+	validator AttestationValidator,
+	requireBFTQuorum bool,
 ) *Service {
 	s := &Service{
 		wrapper:           wrapper,
@@ -53,6 +56,8 @@ func NewService(
 		peerID:            peerID,
 		lggr:              lggr,
 		limitsFactory:     limitsFactory,
+		validator:         validator,
+		requireBFTQuorum:  requireBFTQuorum,
 	}
 	s.Service, s.eng = services.Config{
 		Name:  "ConfidentialRelayService",
@@ -71,7 +76,7 @@ func (s *Service) start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get p2p key for confidential relay signing: %w", err)
 	}
-	h, err := NewHandler(s.capRegistry, s.executionHandlers, conn, newRelayResponseSigner(key), s.lggr, s.limitsFactory)
+	h, err := NewHandler(s.capRegistry, s.executionHandlers, conn, newRelayResponseSigner(key), s.lggr, s.limitsFactory, s.validator, s.requireBFTQuorum)
 	if err != nil {
 		return err
 	}

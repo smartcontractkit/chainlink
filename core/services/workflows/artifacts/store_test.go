@@ -6,27 +6,24 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"testing"
 	"time"
 
 	"github.com/jonboulle/clockwork"
-
-	"testing"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/secrets"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_Handler_SecretsFor(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -42,10 +39,10 @@ func Test_Handler_SecretsFor(t *testing.T) {
 	hash := hex.EncodeToString([]byte(url))
 	secretsPayload, err := generateSecrets(workflowOwner, map[string][]string{"Foo": {"Bar"}}, encryptionKey)
 	require.NoError(t, err)
-	secretsID, err := orm.Create(testutils.Context(t), url, hash, string(secretsPayload))
+	secretsID, err := orm.Create(t.Context(), url, hash, string(secretsPayload))
 	require.NoError(t, err)
 
-	_, err = orm.UpsertWorkflowSpec(testutils.Context(t), &job.WorkflowSpec{
+	_, err = orm.UpsertWorkflowSpec(t.Context(), &job.WorkflowSpec{
 		Workflow:      "",
 		Config:        "",
 		SecretsID:     sql.NullInt64{Int64: secretsID, Valid: true},
@@ -80,13 +77,14 @@ func Test_Handler_SecretsFor(t *testing.T) {
 	decrypter := newMockDecrypter()
 	decrypter.registerMock(secretsPayload, workflowOwner, expectedSecrets, nil)
 	h.decryptSecrets = decrypter.decryptSecrets
-	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
+	gotSecrets, err := h.SecretsFor(t.Context(), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	require.NoError(t, err)
 
 	assert.Equal(t, expectedSecrets, gotSecrets)
 }
 
 func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -104,10 +102,10 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 	url := "http://example.com"
 	hash := hex.EncodeToString([]byte(url))
 
-	secretsID, err := orm.Create(testutils.Context(t), url, hash, string(secretsPayload))
+	secretsID, err := orm.Create(t.Context(), url, hash, string(secretsPayload))
 	require.NoError(t, err)
 
-	_, err = orm.UpsertWorkflowSpec(testutils.Context(t), &job.WorkflowSpec{
+	_, err = orm.UpsertWorkflowSpec(t.Context(), &job.WorkflowSpec{
 		Workflow:      "",
 		Config:        "",
 		SecretsID:     sql.NullInt64{Int64: secretsID, Valid: true},
@@ -145,13 +143,14 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 	decrypter.registerMock(secretsPayload, workflowOwner, expectedSecrets, nil)
 	h.decryptSecrets = decrypter.decryptSecrets
 
-	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
+	gotSecrets, err := h.SecretsFor(t.Context(), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	require.NoError(t, err)
 
 	assert.Equal(t, expectedSecrets, gotSecrets)
 }
 
 func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	orm := &orm{ds: db, lggr: lggr}
@@ -169,10 +168,10 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	url := "http://example.com"
 	hash := hex.EncodeToString([]byte(url))
 
-	secretsID, err := orm.Create(testutils.Context(t), url, hash, string(secretsPayload))
+	secretsID, err := orm.Create(t.Context(), url, hash, string(secretsPayload))
 	require.NoError(t, err)
 
-	_, err = orm.UpsertWorkflowSpec(testutils.Context(t), &job.WorkflowSpec{
+	_, err = orm.UpsertWorkflowSpec(t.Context(), &job.WorkflowSpec{
 		Workflow:      "",
 		Config:        "",
 		SecretsID:     sql.NullInt64{Int64: secretsID, Valid: true},
@@ -211,7 +210,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	decrypter.registerMock(secretsPayload, workflowOwner, expectedSecrets, nil)
 	h.decryptSecrets = decrypter.decryptSecrets
 
-	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
+	gotSecrets, err := h.SecretsFor(t.Context(), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	require.NoError(t, err)
 
 	assert.Equal(t, expectedSecrets, gotSecrets)
@@ -220,7 +219,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	// SecretsFor should still succeed.
 	fetcher.responseMap[url] = mockFetchResp{}
 
-	gotSecrets, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
+	gotSecrets, err = h.SecretsFor(t.Context(), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	require.NoError(t, err)
 
 	assert.Equal(t, expectedSecrets, gotSecrets)
@@ -239,7 +238,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	// Now advance so that we hit the freshness limit
 	clock.Advance(48 * time.Hour)
 
-	gotSecrets, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
+	gotSecrets, err = h.SecretsFor(t.Context(), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	require.NoError(t, err)
 	assert.Equal(t, expectedSecrets, gotSecrets)
 }

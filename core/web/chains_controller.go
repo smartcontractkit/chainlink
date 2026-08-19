@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -21,12 +20,12 @@ type ChainsController interface {
 	Show(*gin.Context)
 }
 
-type errChainDisabled struct {
+type chainDisabledError struct {
 	name    string
 	tomlKey string
 }
 
-func (e errChainDisabled) Error() string {
+func (e chainDisabledError) Error() string {
 	return fmt.Sprintf("%s is disabled: Set %s=true to enable", e.name, e.tomlKey)
 }
 

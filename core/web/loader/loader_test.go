@@ -20,7 +20,6 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
@@ -36,7 +35,7 @@ func TestLoader_ChainsRelayID_HandleDuplicateIDAcrossNetworks(t *testing.T) {
 	t.Parallel()
 
 	app := coremocks.NewApplication(t)
-	ctx := InjectDataloader(testutils.Context(t), app)
+	ctx := InjectDataloader(t.Context(), app)
 
 	one := sqlutil.NewI(1)
 	chain := toml.EVMConfig{ChainID: one, Chain: toml.Defaults(one)}
@@ -109,7 +108,7 @@ func TestLoader_Nodes(t *testing.T) {
 	t.Parallel()
 
 	app := coremocks.NewApplication(t)
-	ctx := InjectDataloader(testutils.Context(t), app)
+	ctx := InjectDataloader(t.Context(), app)
 
 	chainID1, chainID2, notAnID := big.NewInt(1), big.NewInt(2), big.NewInt(3)
 
@@ -140,7 +139,7 @@ func TestLoader_FeedsManagers(t *testing.T) {
 
 	fsvc := feedsMocks.NewService(t)
 	app := coremocks.NewApplication(t)
-	ctx := InjectDataloader(testutils.Context(t), app)
+	ctx := InjectDataloader(t.Context(), app)
 
 	mgr1 := feeds.FeedsManager{
 		ID:   int64(1),
@@ -170,7 +169,7 @@ func TestLoader_FeedsManagers(t *testing.T) {
 	assert.Equal(t, mgr1, found[1].Data)
 	assert.Equal(t, mgr2, found[2].Data)
 	assert.Nil(t, found[3].Data)
-	assert.Error(t, found[3].Error)
+	require.Error(t, found[3].Error)
 	assert.Equal(t, "feeds manager not found", found[3].Error.Error())
 }
 
@@ -179,7 +178,7 @@ func TestLoader_JobProposals(t *testing.T) {
 
 	fsvc := feedsMocks.NewService(t)
 	app := coremocks.NewApplication(t)
-	ctx := InjectDataloader(testutils.Context(t), app)
+	ctx := InjectDataloader(t.Context(), app)
 
 	jp1 := feeds.JobProposal{
 		ID:             int64(1),
@@ -218,7 +217,7 @@ func TestLoader_JobRuns(t *testing.T) {
 
 	jobsORM := jobORMMocks.NewORM(t)
 	app := coremocks.NewApplication(t)
-	ctx := InjectDataloader(testutils.Context(t), app)
+	ctx := InjectDataloader(t.Context(), app)
 
 	run1 := pipeline.Run{ID: int64(1)}
 	run2 := pipeline.Run{ID: int64(2)}
@@ -248,7 +247,7 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 
 		jobsORM := jobORMMocks.NewORM(t)
 		app := coremocks.NewApplication(t)
-		ctx := InjectDataloader(testutils.Context(t), app)
+		ctx := InjectDataloader(t.Context(), app)
 
 		job1 := job.Job{ID: int32(2), PipelineSpecID: int32(1)}
 		job2 := job.Job{ID: int32(3), PipelineSpecID: int32(2)}
@@ -275,7 +274,7 @@ func TestLoader_JobsByPipelineSpecIDs(t *testing.T) {
 
 		jobsORM := jobORMMocks.NewORM(t)
 		app := coremocks.NewApplication(t)
-		ctx := InjectDataloader(testutils.Context(t), app)
+		ctx := InjectDataloader(t.Context(), app)
 
 		jobsORM.On("FindJobsByPipelineSpecIDs", mock.Anything, []int32{3, 1, 2}).Return([]job.Job{}, sql.ErrNoRows)
 		app.On("JobORM").Return(jobsORM)
@@ -299,7 +298,7 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 
 		jobsORM := jobORMMocks.NewORM(t)
 		app := coremocks.NewApplication(t)
-		ctx := InjectDataloader(testutils.Context(t), app)
+		ctx := InjectDataloader(t.Context(), app)
 
 		ejID := uuid.New()
 		job := job.Job{ID: int32(2), ExternalJobID: ejID}
@@ -322,7 +321,7 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 
 	txStore := evmtxmgrmocks.NewEvmTxStore(t)
 	app := coremocks.NewApplication(t)
-	ctx := InjectDataloader(testutils.Context(t), app)
+	ctx := InjectDataloader(t.Context(), app)
 
 	ethTxIDs := []int64{1, 2, 3}
 
@@ -359,7 +358,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 
 		jobsORM := jobORMMocks.NewORM(t)
 		app := coremocks.NewApplication(t)
-		ctx := InjectDataloader(testutils.Context(t), app)
+		ctx := InjectDataloader(t.Context(), app)
 
 		specErr1 := job.SpecError{ID: int64(2), JobID: int32(1)}
 		specErr2 := job.SpecError{ID: int64(3), JobID: int32(2)}
@@ -386,7 +385,7 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 
 		jobsORM := jobORMMocks.NewORM(t)
 		app := coremocks.NewApplication(t)
-		ctx := InjectDataloader(testutils.Context(t), app)
+		ctx := InjectDataloader(t.Context(), app)
 
 		jobsORM.On("FindSpecErrorsByJobIDs", mock.Anything, []int32{3, 1, 2}, mock.Anything).Return([]job.SpecError{}, sql.ErrNoRows)
 		app.On("JobORM").Return(jobsORM)
@@ -407,7 +406,7 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 
 	txStore := evmtxmgrmocks.NewEvmTxStore(t)
 	app := coremocks.NewApplication(t)
-	ctx := InjectDataloader(testutils.Context(t), app)
+	ctx := InjectDataloader(t.Context(), app)
 
 	ethTxID := int64(3)
 	ethTxHash := evmutils.NewHash()

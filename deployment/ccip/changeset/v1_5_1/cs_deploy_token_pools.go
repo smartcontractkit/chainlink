@@ -199,7 +199,6 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 	deployGrp := errgroup.Group{}
 
 	for chainSelector, poolConfig := range c.NewPools {
-		chainSelector, poolConfig := chainSelector, poolConfig
 		deployGrp.Go(func() error {
 			if poolConfig.Version.String() == "0.0.0" {
 				poolConfig.Version = shared.CurrentTokenPoolVersion

@@ -9,12 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // MessageHasherV1 implements the MessageHasher interface.
@@ -151,7 +150,7 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 					a[i] = solana.PublicKeyFromBytes(val[:])
 				}
 				accounts = a
-			case []interface{}: // LOOP gRPC converts [][32]byte -> []interface{}
+			case []any: // LOOP gRPC converts [][32]byte -> []interface{}
 				a := make([]solana.PublicKey, len(v))
 				for i, elem := range v {
 					bs, ok := elem.([]byte)

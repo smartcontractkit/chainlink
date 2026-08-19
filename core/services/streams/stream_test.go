@@ -12,8 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -59,15 +57,15 @@ func (m *MockTask) TaskMaxBackoff() time.Duration      { return 0 }
 func Test_Stream(t *testing.T) {
 	lggr := logger.Test(t)
 	runner := &mockRunner{}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	t.Run("errors with empty pipeline", func(t *testing.T) {
-		jbInvalid := job.Job{StreamID: ptr(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: ``}}
+		jbInvalid := job.Job{StreamID: new(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: ``}}
 		_, err := newMultiStreamPipeline(lggr, jbInvalid, runner, nil)
 		require.EqualError(t, err, "unparseable pipeline: empty pipeline")
 	})
 
-	jb := job.Job{StreamID: ptr(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: `
+	jb := job.Job{StreamID: new(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: `
 succeed             [type=memo value=42 streamID=124];
 succeed;
 	`}}

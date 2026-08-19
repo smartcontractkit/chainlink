@@ -16,14 +16,14 @@ import (
 
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -81,15 +81,15 @@ func pipelineForStream(streamID streams.StreamID, runID int64, res *big.Int, err
 	return p
 }
 
-func makeStreamValues(streamIDs ...llotypes.StreamID) llo.StreamValues {
+func makeStreamValues(streamIDs ...llotypes.StreamID) lloprotocol.StreamValues {
 	if len(streamIDs) == 0 {
-		return llo.StreamValues{
+		return lloprotocol.StreamValues{
 			1: nil,
 			2: nil,
 			3: nil,
 		}
 	}
-	vals := llo.StreamValues{}
+	vals := lloprotocol.StreamValues{}
 	for _, streamID := range streamIDs {
 		vals[streamID] = nil
 	}
@@ -99,9 +99,9 @@ func makeStreamValues(streamIDs ...llotypes.StreamID) llo.StreamValues {
 type mockOpts struct {
 	verboseLogging       bool
 	seqNr                uint64
-	outCtx               ocr3types.OutcomeContext
 	configDigest         ocr2types.ConfigDigest
 	observationTimestamp time.Time
+	lifeCycleStage       llotypes.LifeCycleStage
 }
 
 func (m *mockOpts) VerboseLogging() bool { return m.verboseLogging }
@@ -110,12 +110,6 @@ func (m *mockOpts) SeqNr() uint64 {
 		return 1042
 	}
 	return m.seqNr
-}
-func (m *mockOpts) OutCtx() ocr3types.OutcomeContext {
-	if m.outCtx.SeqNr == 0 {
-		return ocr3types.OutcomeContext{SeqNr: 1042, PreviousOutcome: []byte("foo")}
-	}
-	return m.outCtx
 }
 func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
 	if m.configDigest.Hex() == "" {
@@ -129,19 +123,11 @@ func (m *mockOpts) ObservationTimestamp() time.Time {
 	}
 	return m.observationTimestamp
 }
-func (m *mockOpts) OutcomeCodec() llo.OutcomeCodec {
-	return mockOutputCodec{}
-}
-
-type mockOutputCodec struct{}
-
-func (oc mockOutputCodec) Encode(outcome llo.Outcome) (ocr3types.Outcome, error) {
-	return ocr3types.Outcome{}, nil
-}
-func (oc mockOutputCodec) Decode(encoded ocr3types.Outcome) (outcome llo.Outcome, err error) {
-	return llo.Outcome{
-		LifeCycleStage: llo.LifeCycleStageProduction,
-	}, nil
+func (m *mockOpts) LifeCycleStage() llotypes.LifeCycleStage {
+	if m.lifeCycleStage == "" {
+		return lloprotocol.LifeCycleStageProduction
+	}
+	return m.lifeCycleStage
 }
 
 type mockTelemeter struct {
@@ -154,36 +140,36 @@ type v3PremiumLegacyPacket struct {
 	run      *pipeline.Run
 	trrs     pipeline.TaskRunResults
 	streamID uint32
-	opts     llo.DSOpts
-	val      llo.StreamValue
+	opts     telem.DSOpts
+	val      lloprotocol.StreamValue
 	err      error
 }
 
 var _ Telemeter = &mockTelemeter{}
 
-func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
+func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts telem.DSOpts, val lloprotocol.StreamValue, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.v3PremiumLegacyPackets = append(m.v3PremiumLegacyPackets, v3PremiumLegacyPacket{run, trrs, streamID, opts, val, err})
 }
-func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- any) {
+func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts telem.DSOpts, size int) (ch chan<- any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.ch = make(chan any, size)
 
 	return m.ch
 }
-func (m *mockTelemeter) GetOutcomeTelemetryCh() chan<- *llo.LLOOutcomeTelemetry {
+func (m *mockTelemeter) GetOutcomeTelemetryCh() chan<- *lloprotocol.LLOOutcomeTelemetry {
 	return nil
 }
-func (m *mockTelemeter) GetReportTelemetryCh() chan<- *llo.LLOReportTelemetry { return nil }
-func (m *mockTelemeter) CaptureEATelemetry() bool                             { return true }
-func (m *mockTelemeter) CaptureObservationTelemetry() bool                    { return true }
+func (m *mockTelemeter) GetReportTelemetryCh() chan<- *lloprotocol.LLOReportTelemetry { return nil }
+func (m *mockTelemeter) CaptureEATelemetry() bool                                     { return true }
+func (m *mockTelemeter) CaptureObservationTelemetry() bool                            { return true }
 
 var observationTimeout = 500 * time.Millisecond
 
 type addManyCall struct {
-	values map[llotypes.StreamID]llo.StreamValue
+	values map[llotypes.StreamID]lloprotocol.StreamValue
 	ttl    time.Duration
 }
 
@@ -199,8 +185,8 @@ func newMockCache(inner StreamValueCache) *mockCache {
 
 // AddMany is a spy for the StreamValueCache.AddMany method.
 // It records the values and ttl passed to it and then calls the underlying StreamValueCache.AddMany method.
-func (s *mockCache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl time.Duration) {
-	snapshot := make(map[llotypes.StreamID]llo.StreamValue, len(values))
+func (s *mockCache) AddMany(values map[llotypes.StreamID]lloprotocol.StreamValue, ttl time.Duration) {
+	snapshot := make(map[llotypes.StreamID]lloprotocol.StreamValue, len(values))
 	maps.Copy(snapshot, values)
 	s.mu.Lock()
 	s.addCalls = append(s.addCalls, addManyCall{values: snapshot, ttl: ttl})
@@ -209,6 +195,10 @@ func (s *mockCache) AddMany(values map[llotypes.StreamID]llo.StreamValue, ttl ti
 }
 
 func Test_DataSource(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	lggr := logger.NullLogger
 	mainCtx := t.Context()
@@ -254,10 +244,10 @@ func Test_DataSource(t *testing.T) {
 			err := ds.Observe(ctx, vals, opts)
 			require.NoError(t, err)
 
-			assert.Equal(t, llo.StreamValues{
-				1: llo.ToDecimal(decimal.NewFromInt(2181)),
-				2: llo.ToDecimal(decimal.NewFromInt(40602)),
-				3: llo.ToDecimal(decimal.NewFromInt(15)),
+			assert.Equal(t, lloprotocol.StreamValues{
+				1: lloprotocol.ToDecimal(decimal.NewFromInt(2181)),
+				2: lloprotocol.ToDecimal(decimal.NewFromInt(40602)),
+				3: lloprotocol.ToDecimal(decimal.NewFromInt(15)),
 			}, vals, "vals: %v", vals)
 			ds.Close()
 		})
@@ -280,9 +270,9 @@ func Test_DataSource(t *testing.T) {
 			err := ds.Observe(ctx, vals, opts)
 			require.NoError(t, err)
 
-			assert.Equal(t, llo.StreamValues{
+			assert.Equal(t, lloprotocol.StreamValues{
 				11: nil,
-				12: llo.ToDecimal(decimal.NewFromInt(40602)),
+				12: lloprotocol.ToDecimal(decimal.NewFromInt(40602)),
 				13: nil,
 			}, vals, "vals: %v", vals)
 			ds.Close()
@@ -312,10 +302,10 @@ func Test_DataSource(t *testing.T) {
 			ds.Close()
 			require.NoError(t, err)
 
-			assert.Equal(t, llo.StreamValues{
-				21: llo.ToDecimal(decimal.NewFromInt(2181)),
-				22: llo.ToDecimal(decimal.NewFromInt(40602)),
-				23: llo.ToDecimal(decimal.NewFromInt(15)),
+			assert.Equal(t, lloprotocol.StreamValues{
+				21: lloprotocol.ToDecimal(decimal.NewFromInt(2181)),
+				22: lloprotocol.ToDecimal(decimal.NewFromInt(40602)),
+				23: lloprotocol.ToDecimal(decimal.NewFromInt(15)),
 			}, vals, "vals: %v", vals)
 
 			// Get only the last 3 packets, as those would be the result of the first round of observations.
@@ -333,7 +323,7 @@ func Test_DataSource(t *testing.T) {
 			assert.Len(t, pkt.trrs, 1)
 			assert.Equal(t, 21, int(pkt.streamID))
 			assert.Equal(t, opts, pkt.opts)
-			assert.Equal(t, "2181", pkt.val.(*llo.Decimal).String())
+			assert.Equal(t, "2181", pkt.val.(*lloprotocol.Decimal).String())
 			require.NoError(t, pkt.err)
 
 			telems := []any{}
@@ -352,7 +342,7 @@ func Test_DataSource(t *testing.T) {
 			require.IsType(t, &telem.LLOObservationTelemetry{}, telems[0])
 			obsTelem := telems[0].(*telem.LLOObservationTelemetry)
 			assert.Equal(t, uint32(21), obsTelem.StreamId)
-			assert.Equal(t, int32(llo.LLOStreamValue_Decimal), obsTelem.StreamValueType)
+			assert.Equal(t, int32(lloprotocol.LLOStreamValue_Decimal), obsTelem.StreamValueType)
 			assert.Equal(t, "00000000020885", hex.EncodeToString(obsTelem.StreamValueBinary))
 			assert.Equal(t, "2181", obsTelem.StreamValueText)
 			assert.Nil(t, obsTelem.ObservationError)
@@ -381,9 +371,9 @@ func Test_DataSource(t *testing.T) {
 			err := ds.Observe(ctx, vals, opts)
 			require.NoError(t, err)
 
-			assert.Equal(t, llo.StreamValues{
+			assert.Equal(t, lloprotocol.StreamValues{
 				31: nil,
-				32: llo.ToDecimal(decimal.NewFromInt(40602)),
+				32: lloprotocol.ToDecimal(decimal.NewFromInt(40602)),
 				33: nil,
 			}, vals, "vals: %v", vals)
 
@@ -414,7 +404,7 @@ func Test_DataSource(t *testing.T) {
 			reg.pipelines[20001] = pipelineForStream(20001, 2, big.NewInt(40602), nil)
 			reg.mu.Unlock()
 
-			vals := llo.StreamValues{
+			vals := lloprotocol.StreamValues{
 				10001: nil,
 				20001: nil,
 				30001: nil,
@@ -426,9 +416,9 @@ func Test_DataSource(t *testing.T) {
 			require.NoError(t, err)
 
 			// Verify initial values
-			assert.Equal(t, llo.StreamValues{
-				10001: llo.ToDecimal(decimal.NewFromInt(2181)),
-				20001: llo.ToDecimal(decimal.NewFromInt(40602)),
+			assert.Equal(t, lloprotocol.StreamValues{
+				10001: lloprotocol.ToDecimal(decimal.NewFromInt(2181)),
+				20001: lloprotocol.ToDecimal(decimal.NewFromInt(40602)),
 				30001: nil,
 			}, vals)
 
@@ -439,7 +429,7 @@ func Test_DataSource(t *testing.T) {
 			reg.mu.Unlock()
 
 			// Second observation should use cached values
-			vals = llo.StreamValues{
+			vals = lloprotocol.StreamValues{
 				10001: nil,
 				20001: nil,
 				30001: nil,
@@ -450,9 +440,9 @@ func Test_DataSource(t *testing.T) {
 			require.NoError(t, err)
 
 			// Should still have original values from cache
-			assert.Equal(t, llo.StreamValues{
-				10001: llo.ToDecimal(decimal.NewFromInt(2181)),
-				20001: llo.ToDecimal(decimal.NewFromInt(40602)),
+			assert.Equal(t, lloprotocol.StreamValues{
+				10001: lloprotocol.ToDecimal(decimal.NewFromInt(2181)),
+				20001: lloprotocol.ToDecimal(decimal.NewFromInt(40602)),
 				30001: nil,
 			}, vals)
 		})
@@ -466,7 +456,7 @@ func Test_DataSource(t *testing.T) {
 			reg.mu.Lock()
 			reg.pipelines[50002] = pipelineForStream(50002, 1, big.NewInt(100), nil)
 			reg.mu.Unlock()
-			vals := llo.StreamValues{50002: nil}
+			vals := lloprotocol.StreamValues{50002: nil}
 
 			ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
 			defer cancel()
@@ -482,13 +472,13 @@ func Test_DataSource(t *testing.T) {
 			time.Sleep(observationTimeout * 3)
 
 			// Second observation should use new value
-			vals = llo.StreamValues{50002: nil}
+			vals = lloprotocol.StreamValues{50002: nil}
 			ctx2, cancel := context.WithTimeout(mainCtx, observationTimeout*5)
 			defer cancel()
 			err = ds.Observe(ctx2, vals, opts)
 			require.NoError(t, err)
 
-			assert.Equal(t, llo.StreamValues{50002: llo.ToDecimal(decimal.NewFromInt(200))}, vals)
+			assert.Equal(t, lloprotocol.StreamValues{50002: lloprotocol.ToDecimal(decimal.NewFromInt(200))}, vals)
 		})
 
 		t.Run("handles concurrent cache access", func(t *testing.T) {
@@ -503,7 +493,7 @@ func Test_DataSource(t *testing.T) {
 			reg.mu.Unlock()
 
 			// First observation to cache
-			vals := llo.StreamValues{1: nil}
+			vals := lloprotocol.StreamValues{1: nil}
 
 			ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
 			defer cancel()
@@ -514,10 +504,10 @@ func Test_DataSource(t *testing.T) {
 			var wg sync.WaitGroup
 			for range 10 {
 				wg.Go(func() {
-					vals := llo.StreamValues{1: nil}
+					vals := lloprotocol.StreamValues{1: nil}
 					err := ds.Observe(ctx, vals, opts)
 					assert.NoError(t, err)
-					assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(100))}, vals)
+					assert.Equal(t, lloprotocol.StreamValues{1: lloprotocol.ToDecimal(decimal.NewFromInt(100))}, vals)
 				})
 			}
 			wg.Wait()
@@ -549,7 +539,7 @@ func Test_DataSource(t *testing.T) {
 			err := ds.Observe(ctx, vals, opts)
 			require.NoError(t, err)
 
-			assert.Equal(t, llo.StreamValues{1: nil, 2: nil, 3: nil}, vals)
+			assert.Equal(t, lloprotocol.StreamValues{1: nil, 2: nil, 3: nil}, vals)
 
 			mc.mu.Lock()
 			for _, call := range mc.addCalls {
@@ -579,10 +569,10 @@ func Test_DataSource(t *testing.T) {
 			err = ds.Observe(ctx2, vals2, opts)
 			require.NoError(t, err)
 
-			expectedCycle2 := llo.StreamValues{
-				1: llo.ToDecimal(decimal.NewFromFloat(111.0)),
-				2: llo.ToDecimal(decimal.NewFromFloat(222.0)),
-				3: llo.ToDecimal(decimal.NewFromFloat(333.0)),
+			expectedCycle2 := lloprotocol.StreamValues{
+				1: lloprotocol.ToDecimal(decimal.NewFromFloat(111.0)),
+				2: lloprotocol.ToDecimal(decimal.NewFromFloat(222.0)),
+				3: lloprotocol.ToDecimal(decimal.NewFromFloat(333.0)),
 			}
 			assert.Equal(t, expectedCycle2, vals2, "cycle 2: expected a value from fixedPipeline")
 
@@ -628,13 +618,13 @@ func Test_DataSource(t *testing.T) {
 			reg.mu.Unlock()
 			time.Sleep(observationTimeout * 3)
 
-			vals = llo.StreamValues{1: nil}
+			vals = lloprotocol.StreamValues{1: nil}
 			ctx2, cancel := context.WithTimeout(mainCtx, observationTimeout*5)
 			defer cancel()
 			err = ds.Observe(ctx2, vals, opts)
 			require.NoError(t, err)
 
-			assert.Equal(t, llo.StreamValues{1: llo.ToDecimal(decimal.NewFromInt(100))}, vals)
+			assert.Equal(t, lloprotocol.StreamValues{1: lloprotocol.ToDecimal(decimal.NewFromInt(100))}, vals)
 		})
 	})
 
@@ -727,11 +717,11 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 		t.Parallel()
 		cache := NewCache(0)
 		staleTTL := 1 * time.Millisecond
-		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), staleTTL)
-		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), staleTTL)
-		cache.Add(3, llo.ToDecimal(decimal.NewFromInt(300)), staleTTL)
+		cache.Add(1, lloprotocol.ToDecimal(decimal.NewFromInt(100)), staleTTL)
+		cache.Add(2, lloprotocol.ToDecimal(decimal.NewFromInt(200)), staleTTL)
+		cache.Add(3, lloprotocol.ToDecimal(decimal.NewFromInt(300)), staleTTL)
 		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
-		sv := llo.StreamValues{1: nil, 2: nil, 3: nil}
+		sv := lloprotocol.StreamValues{1: nil, 2: nil, 3: nil}
 
 		result := ds.buildStreamsRefreshPlan(sv, timeout, lggr).streamIDsToRefresh
 
@@ -744,11 +734,11 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	t.Run("all streams fresh in cache, returns none", func(t *testing.T) {
 		t.Parallel()
 		cache := NewCache(0)
-		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
-		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), time.Hour)
-		cache.Add(3, llo.ToDecimal(decimal.NewFromInt(300)), time.Hour)
+		cache.Add(1, lloprotocol.ToDecimal(decimal.NewFromInt(100)), time.Hour)
+		cache.Add(2, lloprotocol.ToDecimal(decimal.NewFromInt(200)), time.Hour)
+		cache.Add(3, lloprotocol.ToDecimal(decimal.NewFromInt(300)), time.Hour)
 		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
-		sv := llo.StreamValues{1: nil, 2: nil, 3: nil}
+		sv := lloprotocol.StreamValues{1: nil, 2: nil, 3: nil}
 
 		result := ds.buildStreamsRefreshPlan(sv, timeout, lggr).streamIDsToRefresh
 
@@ -758,11 +748,11 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	t.Run("one stale driver lists only stale IDs; worker observes all requested streams on that pipeline", func(t *testing.T) {
 		t.Parallel()
 		cache := NewCache(0)
-		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
-		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), 1*time.Millisecond)
-		cache.Add(3, llo.ToDecimal(decimal.NewFromInt(300)), time.Hour)
+		cache.Add(1, lloprotocol.ToDecimal(decimal.NewFromInt(100)), time.Hour)
+		cache.Add(2, lloprotocol.ToDecimal(decimal.NewFromInt(200)), 1*time.Millisecond)
+		cache.Add(3, lloprotocol.ToDecimal(decimal.NewFromInt(300)), time.Hour)
 		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
-		sv := llo.StreamValues{1: nil, 2: nil, 3: nil}
+		sv := lloprotocol.StreamValues{1: nil, 2: nil, 3: nil}
 
 		plan := ds.buildStreamsRefreshPlan(sv, timeout, lggr)
 
@@ -776,11 +766,11 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	t.Run("staleStreamIDs lists only stale keys; groups intersect pipeline with plugin scope", func(t *testing.T) {
 		t.Parallel()
 		cache := NewCache(0)
-		cache.Add(1, llo.ToDecimal(decimal.NewFromInt(100)), 1*time.Millisecond)
-		cache.Add(2, llo.ToDecimal(decimal.NewFromInt(200)), time.Hour)
+		cache.Add(1, lloprotocol.ToDecimal(decimal.NewFromInt(100)), 1*time.Millisecond)
+		cache.Add(2, lloprotocol.ToDecimal(decimal.NewFromInt(200)), time.Hour)
 		// pipeline has {1,2,3}, but only {1,2} in plugin scope
 		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
-		sv := llo.StreamValues{1: nil, 2: nil} // stream 3 not requested
+		sv := lloprotocol.StreamValues{1: nil, 2: nil} // stream 3 not requested
 
 		plan := ds.buildStreamsRefreshPlan(sv, timeout, lggr)
 
@@ -795,7 +785,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	t.Run("stream not in registry is stale driver only; no pipeline worker", func(t *testing.T) {
 		t.Parallel()
 		ds := &dataSource{lggr: lggr, registry: reg, cache: NewCache(0)}
-		sv := llo.StreamValues{999: nil} // plugin requested streamId not yet in registry
+		sv := lloprotocol.StreamValues{999: nil} // plugin requested streamId not yet in registry
 
 		plan := ds.buildStreamsRefreshPlan(sv, timeout, lggr)
 
@@ -807,7 +797,7 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 	t.Run("empty streamValues returns empty set", func(t *testing.T) {
 		t.Parallel()
 		ds := &dataSource{lggr: lggr, registry: reg, cache: NewCache(0)}
-		sv := llo.StreamValues{}
+		sv := lloprotocol.StreamValues{}
 
 		result := ds.buildStreamsRefreshPlan(sv, timeout, lggr).streamIDsToRefresh
 
@@ -818,13 +808,13 @@ func Test_buildStreamsRefreshPlan(t *testing.T) {
 		t.Parallel()
 		cache := NewCache(0)
 		// Pipeline {10}: all fresh
-		cache.Add(10, llo.ToDecimal(decimal.NewFromInt(100)), time.Hour)
+		cache.Add(10, lloprotocol.ToDecimal(decimal.NewFromInt(100)), time.Hour)
 		// Pipeline {20,21}: stream 20 stale, stream 21 fresh
-		cache.Add(20, llo.ToDecimal(decimal.NewFromInt(2000)), 1*time.Millisecond)
-		cache.Add(21, llo.ToDecimal(decimal.NewFromInt(2100)), time.Hour)
+		cache.Add(20, lloprotocol.ToDecimal(decimal.NewFromInt(2000)), 1*time.Millisecond)
+		cache.Add(21, lloprotocol.ToDecimal(decimal.NewFromInt(2100)), time.Hour)
 
 		ds := &dataSource{lggr: lggr, registry: reg, cache: cache}
-		sv := llo.StreamValues{10: nil, 20: nil, 21: nil}
+		sv := lloprotocol.StreamValues{10: nil, 20: nil, 21: nil}
 
 		plan := ds.buildStreamsRefreshPlan(sv, timeout, lggr)
 
@@ -854,11 +844,16 @@ func Test_observationTuningHelpers(t *testing.T) {
 	assert.Less(t, staleRefreshSkipThreshold(tuningTestT), cacheEntryTTL(tuningTestT))
 	assert.Less(t, staleRefreshSkipThreshold(tuningTestT)+observationLoopPacing(tuningTestT), cacheEntryTTL(tuningTestT))
 
-	assert.Equal(t, cacheEntryTTL(100*time.Millisecond)-staleRefreshSkipThreshold(100*time.Millisecond)-time.Nanosecond, observationLoopPacing(100*time.Millisecond))
-	assert.Equal(t, cacheEntryTTL(500*time.Millisecond)-staleRefreshSkipThreshold(500*time.Millisecond)-time.Nanosecond, observationLoopPacing(500*time.Millisecond))
+	// With num/den = 13/5 the invariant cap (cacheTTL−stale−1ns = 7/5·T−1ns) exceeds raw T/2, so pacing is bounded by
+	// T/observationLoopPacingDivisor (= T/2), not the invariant.
+	assert.Equal(t, 100*time.Millisecond/observationLoopPacingDivisor, observationLoopPacing(100*time.Millisecond))
+	assert.Equal(t, 500*time.Millisecond/observationLoopPacingDivisor, observationLoopPacing(500*time.Millisecond))
 	assert.Equal(t, observationLoopPacingFloor, observationLoopPacing(0))
-	// T/2 exceeds invariant cap; pacing is min(T/2, cacheTTL−stale−1ns); here 30/2=15ms caps to ~12ms−1ns
-	assert.Equal(t, cacheEntryTTL(30*time.Millisecond)-staleRefreshSkipThreshold(30*time.Millisecond)-time.Nanosecond, observationLoopPacing(30*time.Millisecond))
+	// T/2 = 15ms here, still above the floor and below the invariant cap.
+	assert.Equal(t, 30*time.Millisecond/observationLoopPacingDivisor, observationLoopPacing(30*time.Millisecond))
+	// Confirm the invariant cap is no longer the binding constraint (raw T/2 < cacheTTL−stale−1ns).
+	invMax := cacheEntryTTL(100*time.Millisecond) - staleRefreshSkipThreshold(100*time.Millisecond) - time.Nanosecond
+	assert.Greater(t, invMax, 100*time.Millisecond/observationLoopPacingDivisor)
 }
 
 func BenchmarkObserve(b *testing.B) {
@@ -925,7 +920,7 @@ result3 -> result3_parse -> multiply3;
 	}
 
 	ds := newDataSource(lggr, r, telem.NullTelemeter)
-	vals := make(map[llotypes.StreamID]llo.StreamValue)
+	vals := make(map[llotypes.StreamID]lloprotocol.StreamValue)
 	for i := uint32(0); i < 4*n; i++ {
 		vals[i] = nil
 	}
@@ -934,4 +929,36 @@ result3 -> result3_parse -> multiply3;
 	err := ds.Observe(ctx, vals, opts)
 	require.NoError(b, err)
 	ds.Close()
+}
+
+// Test_DataSource_inProduction covers the lifecycle gate: only a Production
+// instance observes; staging/retired/unknown and nil opts do not.
+func Test_DataSource_inProduction(t *testing.T) {
+	t.Parallel()
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	ds := newDataSource(logger.NullLogger, reg, telem.NullTelemeter)
+	defer ds.Close()
+
+	require.True(t, ds.inProduction(&mockOpts{lifeCycleStage: lloprotocol.LifeCycleStageProduction}))
+	require.False(t, ds.inProduction(&mockOpts{lifeCycleStage: lloprotocol.LifeCycleStageStaging}))
+	require.False(t, ds.inProduction(&mockOpts{lifeCycleStage: lloprotocol.LifeCycleStageRetired}))
+	require.False(t, ds.inProduction(nil))
+}
+
+// Test_DataSource_StagingDoesNotObserve asserts a non-Production instance runs
+// no pipelines and returns unset stream values.
+func Test_DataSource_StagingDoesNotObserve(t *testing.T) {
+	t.Parallel()
+	reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+	reg.pipelines[1] = pipelineForStream(1, 1, big.NewInt(42), nil)
+	ds := newDataSource(logger.NullLogger, reg, telem.NullTelemeter)
+	defer ds.Close()
+
+	ctx, cancel := context.WithTimeout(t.Context(), observationTimeout)
+	defer cancel()
+	vals := makeStreamValues(1)
+	require.NoError(t, ds.Observe(ctx, vals, &mockOpts{lifeCycleStage: lloprotocol.LifeCycleStageStaging}))
+
+	require.Nil(t, vals[1], "staging instance must not populate stream values")
+	require.Zero(t, reg.pipelines[1].runCount.Load(), "staging instance must not run pipelines")
 }

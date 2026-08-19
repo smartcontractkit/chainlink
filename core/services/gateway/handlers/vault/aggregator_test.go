@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -236,10 +237,7 @@ func TestValidateUsingQuorum_tiedMajoritiesPickDigestDeterministically(t *testin
 	require.NoError(t, err)
 	require.NotEqual(t, digestA, digestB)
 
-	wantWinner := digestA
-	if digestB < digestA {
-		wantWinner = digestB
-	}
+	wantWinner := min(digestB, digestA)
 
 	for range 300 {
 		m := map[string]jsonrpc.Response[json.RawMessage]{
@@ -320,7 +318,7 @@ func makeDONWithNodesForTest(t *testing.T, name string, id uint32, f uint8, memb
 	t.Helper()
 	nodes := make([]capabilities.Node, nodeCount)
 	members := make([]p2ptypes.PeerID, nodeCount)
-	for i := 0; i < nodeCount; i++ {
+	for i := range nodeCount {
 		pid := p2ptypes.PeerID{}
 		pid[0] = memberOffset + byte(i)
 		pid[1] = byte(i)

@@ -4,9 +4,10 @@ import (
 	"fmt"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )

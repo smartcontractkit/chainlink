@@ -159,7 +159,7 @@ func newAptosWorkerJobInput(
 
 	return jobs.ProposeJobSpecInput{
 		Domain:      offchain.ProductLabel,
-		Environment: cre.EnvironmentName,
+		Environment: creEnv.CldfEnvironment.Name,
 		DONName:     donName,
 		JobName:     "aptos-worker-" + strconv.FormatUint(chainID, 10),
 		ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},

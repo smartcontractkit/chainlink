@@ -27,7 +27,7 @@ var loadNodeProposalIDs = func(ctx context.Context, node *cre.Node) (map[string]
 
 	proposalIDsBySpec := make(map[string]string, len(jd.JobProposals))
 	for _, proposal := range jd.JobProposals {
-		proposalIDsBySpec[proposal.LatestSpec.Definition] = proposal.Id
+		proposalIDsBySpec[proposal.LatestSpec.Definition] = proposal.LatestSpec.Id
 	}
 
 	return proposalIDsBySpec, nil
@@ -35,7 +35,7 @@ var loadNodeProposalIDs = func(ctx context.Context, node *cre.Node) (map[string]
 
 // defined as variables to allow for easy testing
 var approveJobProposalSpec = func(ctx context.Context, node *cre.Node, proposalID string) error {
-	approvedSpec, err := node.Clients.GQLClient.ApproveJobProposalSpec(ctx, proposalID, false)
+	approvedSpec, err := node.Clients.GQLClient.ApproveJobProposalSpec(ctx, proposalID, true)
 	if err != nil {
 		return err
 	}
@@ -142,8 +142,10 @@ func accept(ctx context.Context, node *cre.Node, proposalID, jobSpec string) err
 		err = approveJobProposalSpec(ctx, node, proposalID)
 	}
 	if err != nil {
-		// Workflow specs get auto approved
-		if strings.Contains(err.Error(), "cannot approve an approved spec") && strings.Contains(jobSpec, `type = "workflow"`) {
+		// Workflow and CRE settings specs get auto-approved by the node on proposal, so a
+		// subsequent explicit approve races into an already-approved spec — tolerate that.
+		if strings.Contains(err.Error(), "cannot approve an approved spec") &&
+			(strings.Contains(jobSpec, `type = "workflow"`) || strings.Contains(jobSpec, `type = "cresettings"`)) {
 			return nil
 		}
 		fmt.Println("Failed jobspec proposal for node ", node.Name)

@@ -16,10 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -31,19 +29,21 @@ const defaultConfig = `
 [nodeServerConfig]
 Path = "/node"
 
-[[dons]]
-DonId = "my_don_1"
-HandlerName = "dummy"
+[[shardedDONs]]
+DonName = "my_don_1"
+F = 0
 
-[[dons.members]]
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "example_node"
 Address = "0x68902D681C28119F9B2531473A417088BF008E59"
 
-[[dons]]
-DonId = "my_don_2"
-HandlerName = "dummy"
+[[shardedDONs]]
+DonName = "my_don_2"
+F = 0
 
-[[dons.members]]
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "example_node"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 `
@@ -61,28 +61,42 @@ func TestConnectionManager_NewConnectionManager_InvalidConfig(t *testing.T) {
 
 	invalidCases := map[string]string{
 		"duplicate DON ID": `
-[[dons]]
-DonId = "my_don"
-[[dons]]
-DonId = "my_don"
-`,
-		"duplicate node address": `
-[[dons]]
-DonId = "my_don"
-[[dons.members]]
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "node_1"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
-[[dons.members]]
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "node_2"
+Address = "0x1111111111111111111111111111111111111111"
+`,
+		"duplicate node address": `
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "node_1"
+Address = "0x68902d681c28119f9b2531473a417088bf008e59"
+[[shardedDONs.Shards.Nodes]]
 Name = "node_2"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 `,
 		"duplicate node address with different casing": `
-[[dons]]
-DonId = "my_don"
-[[dons.members]]
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "node_1"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
-[[dons.members]]
+[[shardedDONs.Shards.Nodes]]
 Name = "node_2"
 Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 `,
@@ -113,13 +127,14 @@ Path = "/node"
 AuthGatewayId = "my_gateway_no_3"
 AuthTimestampToleranceSec = 5
 AuthChallengeLen = 100
-[[dons]]
-DonId = "my_don_1"
-HandlerName = "dummy"
+[[shardedDONs]]
+DonName = "my_don_1"
+F = 0
+[[shardedDONs.Shards]]
 `)
 
 	for i := range nNodes {
-		config.WriteString(`[[dons.members]]` + "\n")
+		config.WriteString(`[[shardedDONs.Shards.Nodes]]` + "\n")
 		config.WriteString(fmt.Sprintf(`Name = "node_%d"`, i) + "\n")
 		config.WriteString(fmt.Sprintf(`Address = "%s"`, nodes[i].Address) + "\n")
 	}
@@ -228,11 +243,11 @@ func TestConnectionManager_SendToNode_Failures(t *testing.T) {
 	mgr := newConnectionManager(t, config, clock)
 
 	donMgr := mgr.DONConnectionManager("my_don_1")
-	err := donMgr.SendToNode(testutils.Context(t), nodes[0].Address, nil)
+	err := donMgr.SendToNode(t.Context(), nodes[0].Address, nil)
 	require.Error(t, err)
 
 	message := &jsonrpc.Request[json.RawMessage]{}
-	err = donMgr.SendToNode(testutils.Context(t), "some_other_node", message)
+	err = donMgr.SendToNode(t.Context(), "some_other_node", message)
 	require.Error(t, err)
 }
 
@@ -244,7 +259,7 @@ func TestConnectionManager_CleanStartClose(t *testing.T) {
 	clock := clockwork.NewFakeClock()
 	mgr := newConnectionManager(t, config, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 
 	err = mgr.Close()
@@ -384,11 +399,11 @@ Address = "0x0001020304050607080900010203040506070809"
 	donMgr := mgr.DONConnectionManager(config.ShardDONID("myDON", 0))
 	require.NotNil(t, donMgr)
 
-	err := donMgr.SendToNode(testutils.Context(t), "0x0001020304050607080900010203040506070809", nil)
+	err := donMgr.SendToNode(t.Context(), "0x0001020304050607080900010203040506070809", nil)
 	require.Error(t, err, "nil request should fail")
 
 	message := &jsonrpc.Request[json.RawMessage]{}
-	err = donMgr.SendToNode(testutils.Context(t), "0xdeadbeef", message)
+	err = donMgr.SendToNode(t.Context(), "0xdeadbeef", message)
 	require.Error(t, err, "unknown node should fail")
 }
 
@@ -414,7 +429,7 @@ Address = "0x0001020304050607080900010203040506070809"
 	cfg := parseTOMLConfig(t, tomlConfig)
 	mgr := newConnectionManager(t, cfg, clockwork.NewFakeClock())
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 
 	err = mgr.Close()
@@ -466,6 +481,10 @@ func doHandshake(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Cl
 }
 
 func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	cfg, nodes := newTestConfig(t, 1)
@@ -474,7 +493,7 @@ func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
 	clock := clockwork.NewRealClock()
 	mgr := newConnectionManager(t, cfg, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
 
@@ -491,15 +510,19 @@ func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
 
 	// Verify connection works initially.
 	msg := &jsonrpc.Request[json.RawMessage]{ID: "pre-check"}
-	require.NoError(t, donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg))
+	require.NoError(t, donMgr.SendToNode(t.Context(), nodes[0].Address, msg))
 
 	assert.Eventually(t, func() bool {
 		msg := &jsonrpc.Request[json.RawMessage]{ID: "test"}
-		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+		return donMgr.SendToNode(t.Context(), nodes[0].Address, msg) != nil
 	}, 6*time.Second, 200*time.Millisecond, "connection should be closed by read deadline")
 }
 
 func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	cfg, nodes := newTestConfig(t, 1)
@@ -508,7 +531,7 @@ func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
 	clock := clockwork.NewRealClock()
 	mgr := newConnectionManager(t, cfg, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
 
@@ -534,11 +557,15 @@ func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
 
 	assert.Never(t, func() bool {
 		msg := &jsonrpc.Request[json.RawMessage]{ID: "alive-check"}
-		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+		return donMgr.SendToNode(t.Context(), nodes[0].Address, msg) != nil
 	}, 5*time.Second, 500*time.Millisecond, "connection should stay alive when pongs are received")
 }
 
 func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	cfg, nodes := newTestConfig(t, 1)
@@ -547,7 +574,7 @@ func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
 	clock := clockwork.NewRealClock()
 	mgr := newConnectionManager(t, cfg, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
 
@@ -563,7 +590,7 @@ func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
 
 	assert.Never(t, func() bool {
 		msg := &jsonrpc.Request[json.RawMessage]{ID: "test"}
-		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+		return donMgr.SendToNode(t.Context(), nodes[0].Address, msg) != nil
 	}, 4*time.Second, 500*time.Millisecond, "connection should stay alive when deadline enforcement is disabled")
 }
 

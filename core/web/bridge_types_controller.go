@@ -113,7 +113,7 @@ func (btc *BridgeTypesController) Index(c *gin.Context, size, page, offset int) 
 	ctx := c.Request.Context()
 	bridges, count, err := btc.App.BridgeORM().BridgeTypes(ctx, offset, size)
 
-	var resources []presenters.BridgeResource
+	resources := make([]presenters.BridgeResource, 0, len(bridges))
 	for _, bridge := range bridges {
 		resources = append(resources, *presenters.NewBridgeResource(bridge))
 	}

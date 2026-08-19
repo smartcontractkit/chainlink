@@ -2,12 +2,12 @@ package resolver
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/graph-gophers/graphql-go"
 
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -24,7 +24,7 @@ func NewEthTransaction(tx txmgr.Tx) *EthTransactionResolver {
 }
 
 func NewEthTransactions(results []txmgr.Tx) []*EthTransactionResolver {
-	var resolver []*EthTransactionResolver
+	resolver := make([]*EthTransactionResolver, 0, len(results))
 
 	for _, tx := range results {
 		resolver = append(resolver, NewEthTransaction(tx))
@@ -50,7 +50,7 @@ func (r *EthTransactionResolver) To() string {
 }
 
 func (r *EthTransactionResolver) GasLimit() string {
-	return stringutils.FromInt64(int64(r.tx.FeeLimit))
+	return strconv.FormatUint(r.tx.FeeLimit, 10)
 }
 
 func (r *EthTransactionResolver) GasPrice(ctx context.Context) string {
