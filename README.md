@@ -101,11 +101,11 @@ These clients are supported by Chainlink, but have bugs that prevent Chainlink f
 
 - [Nethermind](https://github.com/NethermindEth/nethermind)
   Blocking issues:
-  - ~https://github.com/NethermindEth/nethermind/issues/4384~
+  - ~~[#4384](https://github.com/NethermindEth/nethermind/issues/4384)~~
 - [Erigon](https://github.com/ledgerwatch/erigon)
   Blocking issues:
-  - https://github.com/ledgerwatch/erigon/discussions/4946
-  - https://github.com/ledgerwatch/erigon/issues/4030#issuecomment-1113964017
+  - [#4946](https://github.com/ledgerwatch/erigon/discussions/4946)
+  - [#4030](https://github.com/ledgerwatch/erigon/issues/4030#issuecomment-1113964017)
 
 We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
 
@@ -179,21 +179,9 @@ cosign verify index.docker.io/smartcontract/chainlink:${tag} \
 
 ## Development
 
-### Condensed Test Flow (new)
-
-Use `make test` which handles most of the test DB setup for you in plain go (see [tools/test/README.md](tools/test/README.md) for details).
-
-```sh
-make test ARGS="-h"         # See full capabilities of the test harness
-make test ARGS="./core/..." # Setup ephemeral test DB and run all tests in ./core
-
-# Re-run tests in full isolation and get detailed stats to root out flakes and races
-make test ARGS="diagnose --iterations 5 --parallel-iterations 3 -- ./core/config/..."
-```
-
 ### Githooks
 
-You can optionally install githooks via [lefthook](https://lefthook.dev/) to quickly catch linting issues, secrets, typos, and more automatically on commits.
+Optionally install Git hooks with [Lefthook](https://lefthook.dev) to automatically catch lint errors, secrets, and typos before committing or pushing.
 
 ```sh
 # Install lefthook with asdf or mise, or directly: https://lefthook.dev/install/
@@ -205,6 +193,20 @@ git push                       # pre-push hooks will run minimal unit tests befo
 # Optionally use the `--no-verify` flag to disable githooks for specific commits/pushes
 git commit -m "commit message" --no-verify
 git push --no-verify
+```
+
+**Note**: Hooks help you catch issues before pushing to CI. They're meant to be quick, local checks to stop common mistakes and oversights. They are neither exhaustive or mandatory. CI is the ultimate, mandatory source of authority on code quality checks.
+
+### Condensed Test Flow (new)
+
+Use `make test` which handles most of the test DB setup for you in plain go (see [tools/test/README.md](tools/test/README.md) for details).
+
+```sh
+make test ARGS="-h"         # See full capabilities of the test harness
+make test ARGS="./core/..." # Setup ephemeral test DB and run all tests in ./core
+
+# Re-run tests in full isolation and get detailed stats to root out flakes and races
+make test ARGS="diagnose --iterations 5 --parallel-iterations 3 -- ./core/config/..."
 ```
 
 ### Manual Test Flow (old)
@@ -290,15 +292,13 @@ GORACE="log_path=$PWD/race" go test -race ./core/path/to/pkg -count 100 -run Tes
 
 #### Fuzz tests
 
-As of Go 1.18, fuzz tests `func FuzzXXX(*testing.F)` are included as part of the normal test suite, so existing cases are executed with `go test`.
+As of Go 1.18, [fuzz tests](https://go.dev/doc/fuzz/) `func FuzzXXX(*testing.F)` are included as part of the normal test suite, so existing cases are executed with `go test`.
 
 Additionally, you can run active fuzzing to search for new cases:
 
 ```bash
 go test ./pkg/path -run=XXX -fuzz=FuzzTestName
 ```
-
-<https://go.dev/doc/fuzz/>
 
 ### Go Modules
 
