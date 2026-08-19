@@ -22,6 +22,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	bridgesMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -153,7 +154,7 @@ func Test_PipelineRunner_ExecuteEthAbiDecode(t *testing.T) {
 
 	s := fmt.Sprintf(`
 		ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"address": "0x1234"}}>]
-		ds1_parse [type=jsonparse path="data,result"]  
+		ds1_parse [type=jsonparse path="data,result"]
 		ds1_decode [type=ethabidecode abi="int256 data" data="$(ds1_parse)"];
 		ds1_value [type="multiply" input="$(ds1_decode.data)" times=1]
 

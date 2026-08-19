@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 var _ types.LLOProvider = (*lloProvider)(nil)

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"testing"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	triggermocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/mocks"
@@ -112,7 +114,7 @@ func TestHandleNodeMessage(t *testing.T) {
 			Body:       []byte(`{"result": "success"}`),
 		}
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.MatchedBy(func(req network.HTTPRequest) bool {
-			return req.Method == "GET" && req.URL == "https://example.com/api"
+			return req.Method == http.MethodGet && req.URL == "https://example.com/api"
 		})).Return(httpResp, nil)
 
 		mockDon.EXPECT().SendToNode(mock.Anything, "node1", mock.MatchedBy(func(req *jsonrpc.Request[json.RawMessage]) bool {
@@ -163,7 +165,7 @@ func TestHandleNodeMessage(t *testing.T) {
 		}
 
 		mockHTTPClient.EXPECT().Send(mock.Anything, mock.MatchedBy(func(req network.HTTPRequest) bool {
-			return req.Method == "GET" && req.URL == "https://example.com/api/multiheaders-test"
+			return req.Method == http.MethodGet && req.URL == "https://example.com/api/multiheaders-test"
 		})).Return(httpResp, nil).Once()
 
 		capturedResponse := &gateway_common.OutboundHTTPResponse{}
@@ -180,7 +182,7 @@ func TestHandleNodeMessage(t *testing.T) {
 				t.Logf("Failed to unmarshal response: %v, params: %s", err2, paramsStr)
 				return false
 			}
-			if capturedResponse.StatusCode != 200 {
+			if capturedResponse.StatusCode != http.StatusOK {
 				return false
 			}
 			return req.ID == id

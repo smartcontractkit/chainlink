@@ -1,9 +1,9 @@
 package capregconfig
 
 import (
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2"
 )
 

@@ -11,6 +11,7 @@ import (
 	"github.com/avast/retry-go/v4"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
 

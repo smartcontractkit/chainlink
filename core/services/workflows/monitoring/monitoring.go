@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 )
 

@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
@@ -857,7 +858,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 		case <-ticker:
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
-				w.lggr.Errorw("failed to get get don from notifier", "err", err)
+				w.lggr.Errorw("failed to get don from notifier", "err", err)
 				continue
 			}
 			w.lggr.Debugw("fetching workflow metadata from all sources", "don", don.Families)

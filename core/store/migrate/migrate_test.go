@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -207,10 +208,10 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	require.NoError(t, err)
 
 	sql = `INSERT INTO bootstrap_specs (contract_id, relay, relay_config, monitoring_endpoint,
-					blockchain_timeout, contract_config_tracker_poll_interval, 
+					blockchain_timeout, contract_config_tracker_poll_interval,
 					contract_config_confirmations, created_at, updated_at)
-			VALUES ( :contract_id, :relay, :relay_config, :monitoring_endpoint, 
-					:blockchain_timeout, :contract_config_tracker_poll_interval, 
+			VALUES ( :contract_id, :relay, :relay_config, :monitoring_endpoint,
+					:blockchain_timeout, :contract_config_tracker_poll_interval,
 					:contract_config_confirmations, NOW(), NOW())
 			RETURNING id;`
 
@@ -328,8 +329,8 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 
 	var jobsAndContracts []jobIDAndContractID
 	sql = `SELECT jobs.id, ocr2.contract_id
-FROM jobs 
-INNER JOIN offchainreporting2_oracle_specs as ocr2 
+FROM jobs
+INNER JOIN offchainreporting2_oracle_specs as ocr2
 ON jobs.offchainreporting2_oracle_spec_id = ocr2.id`
 	err = db.Select(&jobsAndContracts, sql)
 	require.NoError(t, err)
@@ -505,7 +506,7 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 			_, err = db.NamedExecContext(ctx, `
 			INSERT INTO evm.log_poller_blocks
 				(evm_chain_id, block_hash, block_number, finalized_block_number, block_timestamp, created_at)
-			VALUES 
+			VALUES
 				(:evm_chain_id, :block_hash, :block_number, :finalized_block_number, NOW(), NOW())
 			ON CONFLICT DO NOTHING`, blocks[start:end])
 			require.NoError(b, err)

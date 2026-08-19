@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 )

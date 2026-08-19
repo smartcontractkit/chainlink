@@ -18,10 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/multi_ocr3_helper"
 	kschaintype "github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
@@ -44,6 +40,10 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm" // Register EVM plugin config factories
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
@@ -512,7 +512,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 
 func (uni testUniverse[RI]) SignReport(t *testing.T, configDigest ocrtypes.ConfigDigest, rwi ocr3types.ReportWithInfo[RI], seqNum uint64) []ocrtypes.AttributedOnchainSignature {
 	var attributedSigs []ocrtypes.AttributedOnchainSignature
-	for i := uint8(0); i < uni.f+1; i++ {
+	for i := range uint8(uni.f + 1) {
 		t.Log("signing report with", hexutil.Encode(uni.keyrings[i].PublicKey()))
 		sig, err := uni.keyrings[i].Sign(configDigest, seqNum, rwi)
 		require.NoError(t, err, "failed to sign report")

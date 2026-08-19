@@ -25,6 +25,7 @@ import (
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -91,7 +92,7 @@ func TestObservationContext_Observe(t *testing.T) { //nolint:paralleltest // sub
 	}
 
 	r.pipelines = map[streams.StreamID]*mockPipeline{
-		streamID1:  &mockPipeline{},
+		streamID1:  {},
 		streamID2:  makePipelineWithSingleResult[decimal.Decimal](rand.Int64(), decimal.NewFromFloat(12.34), nil),
 		streamID3:  makeErroringPipeline(),
 		streamID4:  multiPipelineDecimal,
@@ -296,7 +297,7 @@ multiply3 	  	 [type=multiply times=1 streamID=3 index=2]; // force conversion t
 
 result1 -> multiply2;
 result2 -> result2_parse;
-result3 -> result3_parse -> multiply3; 
+result3 -> result3_parse -> multiply3;
 `,
 			},
 		}
@@ -446,7 +447,7 @@ multiply3 	  	 [type=multiply times=1 streamID=%d index=2]; // force conversion 
 
 result1 -> multiply2;
 result2 -> result2_parse;
-result3 -> result3_parse -> multiply3; 
+result3 -> result3_parse -> multiply3;
 `, i+n, i+2*n, i+3*n),
 			},
 		}

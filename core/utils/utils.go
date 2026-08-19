@@ -27,9 +27,8 @@ import (
 	"github.com/robfig/cron/v3"
 	"golang.org/x/crypto/bcrypt"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
 // DefaultSecretSize is the entropy in bytes to generate a base64 string of 64 characters.

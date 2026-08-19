@@ -3,14 +3,16 @@ package blockhashstore
 import (
 	"context"
 	stderrors "errors"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -243,7 +245,7 @@ func (f *Feeder) runTrusted(
 
 		// Get all logpoller blocks for the range including the batch and the latest block,
 		// as to include the recent blockhash.
-		lpBlocks, err := f.lp.GetBlocksRange(ctx, append(maps.Keys(batch), latestBlock))
+		lpBlocks, err := f.lp.GetBlocksRange(ctx, append(slices.Collect(maps.Keys(batch)), latestBlock))
 		if err != nil {
 			f.lggr.Errorw("Failed to get blocks range",
 				"err", err,

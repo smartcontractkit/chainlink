@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ring"
 )
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
@@ -103,8 +104,8 @@ func (orm *orm) GetSecretsURLByHash(ctx context.Context, hash string) (string, e
 func (orm *orm) GetContentsByHash(ctx context.Context, hash string) (string, error) {
 	var contents string
 	err := orm.ds.GetContext(ctx, &contents,
-		`SELECT contents 
-         FROM workflow_secrets 
+		`SELECT contents
+         FROM workflow_secrets
          WHERE secrets_url_hash = $1`,
 		hash,
 	)
@@ -119,8 +120,8 @@ func (orm *orm) GetContentsByHash(ctx context.Context, hash string) (string, err
 func (orm *orm) GetContents(ctx context.Context, url string) (string, error) {
 	var contents string
 	err := orm.ds.GetContext(ctx, &contents,
-		`SELECT contents 
-         FROM workflow_secrets 
+		`SELECT contents
+         FROM workflow_secrets
          WHERE secrets_url = $1`,
 		url,
 	)
@@ -297,8 +298,8 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 			`INSERT INTO workflow_secrets (secrets_url, secrets_url_hash, contents)
 			 VALUES ($1, $2, $3)
 			 ON CONFLICT (secrets_url_hash) DO UPDATE
-         	 SET 
-			 	secrets_url_hash = EXCLUDED.secrets_url_hash, 
+         	 SET
+			 	secrets_url_hash = EXCLUDED.secrets_url_hash,
 				contents = EXCLUDED.contents,
 				secrets_url = EXCLUDED.secrets_url
 			 RETURNING id`,

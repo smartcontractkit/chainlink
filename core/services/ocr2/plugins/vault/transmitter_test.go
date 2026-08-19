@@ -10,11 +10,11 @@ import (
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -87,8 +87,8 @@ func TestTransmitter(t *testing.T) {
 		1,
 		report.ReportWithInfo,
 		[]types.AttributedOnchainSignature{
-			types.AttributedOnchainSignature{Signature: []byte{0: 2}},
-			types.AttributedOnchainSignature{Signature: []byte{0: 3}},
+			{Signature: []byte{0: 2}},
+			{Signature: []byte{0: 3}},
 		},
 	)
 	require.NoError(t, err)

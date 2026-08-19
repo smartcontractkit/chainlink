@@ -23,7 +23,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-ccv/cli/chainstatuses"
 	"github.com/smartcontractkit/chainlink-ccv/verifier/pkg/chainstatus"
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
@@ -38,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	beholderServices "github.com/smartcontractkit/chainlink/v2/core/services/beholder"

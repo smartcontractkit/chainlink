@@ -3,9 +3,8 @@ package ocrcommon
 import (
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/libocr/commontypes"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
+	"github.com/smartcontractkit/libocr/commontypes"
 )
 
 type Config interface {

@@ -12,9 +12,8 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 )
 
 func newTestMetrics(t *testing.T) *pluginMetrics {
@@ -277,12 +276,12 @@ func TestKVStore_Metadata_Delete(t *testing.T) {
 	assert.Empty(t, m.SecretIdentifiers)
 
 	err = store.removeIDFromMetadata(t.Context(), id)
-	require.ErrorContains(t, err, "not found in metadata for owner owner")
+	require.ErrorContains(t, err, "not found in metadata for owner")
 
 	delete(kv.m, "Metadata::owner")
 
 	err = store.removeIDFromMetadata(t.Context(), id)
-	require.ErrorContains(t, err, "no metadata found for owner owner")
+	require.ErrorContains(t, err, "no metadata found for owner")
 }
 
 func TestKVStore_InconsistentWrites(t *testing.T) {

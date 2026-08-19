@@ -14,9 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/freeport"
-
 	httptypedapi "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/http"
+	"github.com/smartcontractkit/freeport"
 )
 
 // waitForPort polls until the TCP port is reachable or timeout passes.

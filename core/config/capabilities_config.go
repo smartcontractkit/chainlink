@@ -3,9 +3,9 @@ package config
 import (
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 

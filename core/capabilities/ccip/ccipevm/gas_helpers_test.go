@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )

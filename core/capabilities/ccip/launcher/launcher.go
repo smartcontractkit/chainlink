@@ -7,12 +7,12 @@ import (
 	"sync"
 	"time"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"

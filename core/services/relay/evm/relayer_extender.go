@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/gas/rollups"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 

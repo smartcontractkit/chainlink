@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -245,7 +246,7 @@ func newJSONRPCHTTPRequestObject(t *testing.T, messageID string, userURL string,
 	}
 	rawMsg, err := json.Marshal(&request)
 	require.NoError(t, err)
-	req, err := http.NewRequestWithContext(t.Context(), "POST", userURL, bytes.NewBuffer(rawMsg))
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, userURL, bytes.NewBuffer(rawMsg))
 	require.NoError(t, err)
 	return req
 }

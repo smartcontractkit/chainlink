@@ -14,6 +14,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 

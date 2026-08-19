@@ -12,12 +12,12 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"google.golang.org/protobuf/proto"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 

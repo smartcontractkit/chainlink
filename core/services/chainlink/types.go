@@ -2,6 +2,7 @@ package chainlink
 
 import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
+
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 

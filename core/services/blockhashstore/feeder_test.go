@@ -3,7 +3,9 @@ package blockhashstore
 import (
 	"context"
 	"errors"
+	"maps"
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -12,13 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	lpmocks "github.com/smartcontractkit/chainlink/v2/common/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	bhsmocks "github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore/mocks"
@@ -388,7 +390,7 @@ func (test testCase) testFeeder(t *testing.T) {
 	}
 
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.Collect(maps.Keys(feeder.stored)))
 }
 
 func TestFeederWithLogPollerVRFv2(t *testing.T) {
@@ -486,7 +488,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 		require.EqualError(t, err, test.expectedErrMsg)
 	}
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.Collect(maps.Keys(feeder.stored)))
 }
 
 func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
@@ -584,7 +586,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 		require.EqualError(t, err, test.expectedErrMsg)
 	}
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.Collect(maps.Keys(feeder.stored)))
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {

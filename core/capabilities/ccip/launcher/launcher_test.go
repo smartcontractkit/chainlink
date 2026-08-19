@@ -8,13 +8,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"

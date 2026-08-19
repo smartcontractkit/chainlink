@@ -3,17 +3,17 @@ package llo
 import (
 	"bytes"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
-
-	"golang.org/x/exp/maps"
-
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec/evm"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -52,7 +52,7 @@ func (okr *onchainKeyring) PublicKey() types.OnchainPublicKey {
 	// byte string
 	onchainPublicKey := []byte{}
 
-	keys := maps.Values(okr.keys)
+	keys := slices.Collect(maps.Values(okr.keys))
 	if len(keys) == 0 {
 		return onchainPublicKey
 	}

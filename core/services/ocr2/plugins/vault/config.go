@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 )
 

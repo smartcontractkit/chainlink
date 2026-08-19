@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	libocr_median "github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-feeds/median"
+	libocr_median "github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"

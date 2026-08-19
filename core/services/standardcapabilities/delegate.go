@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
+
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	triggercap "github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"

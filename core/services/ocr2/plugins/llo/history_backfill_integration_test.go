@@ -17,8 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/peer"
 
-	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
@@ -27,6 +25,8 @@ import (
 	reportcodecv3 "github.com/smartcontractkit/chainlink-data-streams/mercury/v3/reportcodec"
 	mercuryverifier "github.com/smartcontractkit/chainlink-data-streams/mercury/verifier"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/destination_verifier"
+	"github.com/smartcontractkit/freeport"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )

@@ -3,11 +3,10 @@ package types
 import (
 	"context"
 
-	"github.com/smartcontractkit/libocr/ragep2p"
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/libocr/ragep2p"
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
 const PeerIDLength = 32

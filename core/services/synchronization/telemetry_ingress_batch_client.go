@@ -11,14 +11,14 @@ import (
 
 	"google.golang.org/grpc/connectivity"
 
-	"github.com/smartcontractkit/wsrpc"
-	"github.com/smartcontractkit/wsrpc/credentials"
-	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/wsrpc"
+	"github.com/smartcontractkit/wsrpc/credentials"
+	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 )

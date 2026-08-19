@@ -12,10 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"google.golang.org/protobuf/proto"
 
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 var DefaultNamespace = "main"

@@ -9,6 +9,7 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/aptoskey"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 )
 

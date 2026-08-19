@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 

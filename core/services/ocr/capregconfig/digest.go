@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"math"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 // Offchain digest specific to OCR configs stored in CRE's CapabilitiesRegistry contract.

@@ -70,6 +70,7 @@ import (
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+
 	mocks2 "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -1181,7 +1182,7 @@ func testEoa(
 	require.False(t, broadcastsBeforeFinality[0].Consumed)
 
 	// Create new blocks until the finality depth has elapsed.
-	for i := 0; i < int(finalityDepth); i++ {
+	for range finalityDepth {
 		uni.backend.Commit()
 	}
 

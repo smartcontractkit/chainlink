@@ -4,6 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 

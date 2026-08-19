@@ -1,9 +1,9 @@
 package ocr
 
 import (
+	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	evmconfig "github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )

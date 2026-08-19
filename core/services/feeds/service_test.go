@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -3218,7 +3219,7 @@ updateInterval = "20m"
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when when no other spec is approved",
+			name:        "cancelled spec success when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				otherSpec := feeds.JobProposalSpec{
@@ -5097,7 +5098,7 @@ func Test_Service_GetJobRuns(t *testing.T) {
 					expectedRuns := []pipeline.Run{run1, run2, run3}
 					expectedSummaries := make([]*proto.JobRunSummary, 0, tc.want)
 
-					for i := 0; i < tc.want; i++ {
+					for i := range tc.want {
 						run := expectedRuns[i]
 						var finishedAt *timestamppb.Timestamp
 						if run.FinishedAt.Valid {

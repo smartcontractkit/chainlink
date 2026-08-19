@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
 type capabilitiesRegistryNodeInfo struct {
@@ -141,10 +140,10 @@ func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry
 		// update if and only if the hash does not match the latest value
 		r, err := tx.ExecContext(
 			ctx,
-			`INSERT INTO registry_syncer_states (data, data_hash) 
-            SELECT $1, $2 
+			`INSERT INTO registry_syncer_states (data, data_hash)
+            SELECT $1, $2
             WHERE $2 NOT IN (
-                SELECT data_hash FROM registry_syncer_states 
+                SELECT data_hash FROM registry_syncer_states
                 ORDER BY id DESC LIMIT 1
             )`,
 			localRegistryJSON, hex.EncodeToString(hash[:]),

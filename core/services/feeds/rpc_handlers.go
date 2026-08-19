@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

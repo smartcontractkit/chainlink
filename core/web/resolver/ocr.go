@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 

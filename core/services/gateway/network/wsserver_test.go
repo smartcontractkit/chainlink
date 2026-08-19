@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
@@ -53,7 +54,7 @@ func startNewWSServer(t *testing.T, readTimeoutMillis uint32) (server network.We
 }
 
 func sendRequestWithHeader(t *testing.T, url string, headerName string, headerValue string) *http.Response {
-	req, err := http.NewRequestWithContext(t.Context(), "POST", url, bytes.NewBuffer([]byte{}))
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, url, bytes.NewBuffer([]byte{}))
 	require.NoError(t, err)
 	req.Header.Set(headerName, headerValue)
 

@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys/keystest"
+
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -294,7 +295,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscover(t *testing.T) {
 			t.Parallel()
 
 			keystoreKeysV2 := make([]ethkey.KeyV2, tt.keystoreKeyCount)
-			for i := 0; i < tt.keystoreKeyCount; i++ {
+			for i := range tt.keystoreKeyCount {
 				key, _ := testutils.NewPrivateKeyAndAddress(t)
 				keystoreKeysV2[i] = ethkey.FromPrivateKey(key)
 			}

@@ -10,6 +10,7 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 )
 
@@ -159,10 +160,10 @@ func (o *orm) GetCachedResponse(ctx context.Context, dotId string, specId int32,
 func (o *orm) GetCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
 	stalenessThreshold := time.Now().Add(-maxElapsed)
 	sql := `SELECT value, finished_at FROM bridge_last_value WHERE
-				dot_id = $1 AND 
-				spec_id = $2 AND 
-				finished_at > ($3)	
-				ORDER BY finished_at 
+				dot_id = $1 AND
+				spec_id = $2 AND
+				finished_at > ($3)
+				ORDER BY finished_at
 				DESC LIMIT 1;`
 
 	type responseType struct {
@@ -183,7 +184,7 @@ func (o *orm) GetCachedResponseWithFinished(ctx context.Context, dotId string, s
 }
 
 func (o *orm) UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error {
-	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
+	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 				VALUES($1, $2, $3, $4)
 			ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 				DO UPDATE SET value = $3, finished_at = $4;`
@@ -194,7 +195,7 @@ func (o *orm) UpsertBridgeResponse(ctx context.Context, dotId string, specId int
 }
 
 func (o *orm) BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeResponse) error {
-	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at) 
+	sql := `INSERT INTO bridge_last_value(dot_id, spec_id, value, finished_at)
 			VALUES (:dot_id, :spec_id, :value, :finished_at)
 			ON CONFLICT ON CONSTRAINT bridge_last_value_pkey
 				DO UPDATE SET value = excluded.value, finished_at = excluded.finished_at;`

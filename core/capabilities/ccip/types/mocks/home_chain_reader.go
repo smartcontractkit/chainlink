@@ -6,10 +6,9 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/libocr/ragep2p/types"
-
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
 var _ ccipreaderpkg.HomeChain = (*HomeChainReader)(nil)

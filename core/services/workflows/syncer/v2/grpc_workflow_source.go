@@ -22,6 +22,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/grpcsource"
 	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 

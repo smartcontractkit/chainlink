@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 

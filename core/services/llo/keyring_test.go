@@ -10,12 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
 var _ Key = &mockKey{}
@@ -46,7 +45,7 @@ func (m *mockKey) VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b []byte, sig 
 
 func (m *mockKey) PublicKey() ocrtypes.OnchainPublicKey {
 	b := make([]byte, m.maxSignatureLen)
-	for i := 0; i < m.maxSignatureLen; i++ {
+	for i := range m.maxSignatureLen {
 		b[i] = byte(255)
 	}
 	return ocrtypes.OnchainPublicKey(b)

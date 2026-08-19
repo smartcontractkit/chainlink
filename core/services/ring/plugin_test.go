@@ -11,12 +11,11 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
 type mockArbiter struct {

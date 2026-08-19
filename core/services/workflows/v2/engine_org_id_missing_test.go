@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 

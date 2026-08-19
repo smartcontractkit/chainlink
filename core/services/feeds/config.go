@@ -4,6 +4,7 @@ import (
 	"time"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 

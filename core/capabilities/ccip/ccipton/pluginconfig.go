@@ -2,10 +2,10 @@ package ccipton
 
 import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ton/cciplib/ccip/codec"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipnoop"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )

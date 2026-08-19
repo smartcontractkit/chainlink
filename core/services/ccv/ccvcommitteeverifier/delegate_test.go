@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccv/verifier/pkg/commit"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	clservices "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )

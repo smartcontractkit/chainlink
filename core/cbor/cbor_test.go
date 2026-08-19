@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
@@ -276,12 +277,12 @@ func TestCoerceInterfaceMapToStringMap(t *testing.T) {
 		{"simple map", map[any]any{"key": "value"}, map[string]any{"key": "value"}},
 		{"int map", map[int]any{1: "value"}, map[int]any{1: "value"}},
 		{
-			"nested string map map",
+			"nested string map",
 			map[string]any{"key": map[any]any{"nk": "nv"}},
 			map[string]any{"key": map[string]any{"nk": "nv"}},
 		},
 		{
-			"nested map map",
+			"nested map",
 			map[any]any{"key": map[any]any{"nk": "nv"}},
 			map[string]any{"key": map[string]any{"nk": "nv"}},
 		},

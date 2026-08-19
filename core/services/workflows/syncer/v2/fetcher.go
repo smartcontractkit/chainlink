@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/storage"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"

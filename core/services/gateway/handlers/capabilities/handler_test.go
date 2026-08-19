@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"testing"
 	"time"
@@ -15,6 +16,7 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -105,7 +107,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			return m.Body.MessageId == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
 				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 200 &&
+				payload.StatusCode == http.StatusOK &&
 				len(payload.Headers) == 0 &&
 				string(payload.Body) == "response body" &&
 				!payload.ExecutionError
@@ -141,7 +143,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			return m.Body.MessageId == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
 				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 404 &&
+				payload.StatusCode == http.StatusNotFound &&
 				string(payload.Body) == "access denied" &&
 				len(payload.Headers) == 0 &&
 				!payload.ExecutionError
@@ -409,7 +411,7 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			return m.Body.MessageId == "123" &&
 				MethodComputeAction == m.Body.Method &&
 				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 200 &&
+				payload.StatusCode == http.StatusOK &&
 				len(payload.Headers) == 0 &&
 				string(payload.Body) == "response body" &&
 				!payload.ExecutionError
@@ -446,7 +448,7 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			return m.Body.MessageId == "123" &&
 				MethodComputeAction == m.Body.Method &&
 				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 404 &&
+				payload.StatusCode == http.StatusNotFound &&
 				string(payload.Body) == "access denied" &&
 				len(payload.Headers) == 0 &&
 				!payload.ExecutionError

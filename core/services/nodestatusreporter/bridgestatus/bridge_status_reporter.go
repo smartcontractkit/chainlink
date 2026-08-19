@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -166,7 +167,7 @@ func (s *Service) pollBridge(ctx context.Context, bridgeName string, bridgeURL s
 	}
 
 	// Make HTTP request
-	req, err := http.NewRequestWithContext(ctx, "GET", statusURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, statusURL.String(), nil)
 	if err != nil {
 		s.handleBridgeError(ctx, bridgeName, jobs, "Failed to create request for Bridge Status Reporter status", "bridge", bridgeName, "url", statusURL.String(), "error", err)
 		return

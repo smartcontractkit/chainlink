@@ -18,6 +18,7 @@ import (
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 	evmassets "github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -1016,7 +1017,7 @@ func TestJob(t *testing.T) {
 			},
 			want: `
 			{
-				"data": {	
+				"data": {
 					"type": "jobs",
 					"id": "1",
 					"attributes": {
@@ -1054,7 +1055,7 @@ func TestJob(t *testing.T) {
 							"jobID": 0,
 							"dotDagSource": ""
 						},
-						"errors": []						
+						"errors": []
 					}
 				}
 			}`,

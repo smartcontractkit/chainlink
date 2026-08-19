@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 )
 

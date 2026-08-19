@@ -19,14 +19,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/freeport"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
+	"github.com/smartcontractkit/freeport"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -212,7 +212,7 @@ func TestRunner(t *testing.T) {
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			evmChainID         = "%s"
-			transmitterID 	   = "%s"	
+			transmitterID 	   = "%s"
 			contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 			isBootstrapPeer    = false
 			blockchainTimeout  = "1s"

@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/suikey"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"

@@ -23,6 +23,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
+	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -33,12 +39,6 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
-	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
-	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
@@ -5280,10 +5280,10 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
-			keyPrefix + vaulttypes.KeyFor(id): response{
+			keyPrefix + vaulttypes.KeyFor(id): {
 				data: ssb,
 			},
 		},
@@ -5447,10 +5447,10 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
-			keyPrefix + vaulttypes.KeyFor(id): response{
+			keyPrefix + vaulttypes.KeyFor(id): {
 				data: ssb,
 			},
 		},
@@ -5528,7 +5528,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
 		},
@@ -5717,7 +5717,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
 		},
@@ -5801,7 +5801,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
 		},

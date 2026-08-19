@@ -278,7 +278,7 @@ func TestWrappedCounter_DeltaPublishing(t *testing.T) {
 
 	collectMetrics := func() { wrapped.readAndPublish() }
 
-	// Test sequence: Inc(), Inc(), Add(5), Inc(), Add(10)
+	// Test sequence: Inc(), Add(5), Inc(), Add(10)
 	baseCounter.Inc() // Should publish 1
 	collectMetrics()
 

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+
 	trigger "github.com/smartcontractkit/chainlink/v2/core/capabilities/triggers"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 )

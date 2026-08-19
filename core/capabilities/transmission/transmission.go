@@ -6,10 +6,10 @@ import (
 
 	"golang.org/x/crypto/sha3"
 
-	"github.com/smartcontractkit/libocr/permutation"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/libocr/permutation"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )

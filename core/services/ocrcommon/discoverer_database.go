@@ -8,9 +8,8 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
-	ocrnetworking "github.com/smartcontractkit/libocr/networking/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	ocrnetworking "github.com/smartcontractkit/libocr/networking/types"
 )
 
 var _ ocrnetworking.DiscovererDatabase = &DiscovererDatabase{}

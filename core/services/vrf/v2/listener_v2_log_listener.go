@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 )
 
@@ -142,7 +143,7 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 	}
 
 	// get randomness requested logs with the appropriate keyhash
-	// keyhash is specified in topic1
+	// is specified in topic1
 	requests, err := lp.IndexedLogsCreatedAfter(
 		ctx,
 		lsn.coordinator.RandomWordsRequestedTopic(), // event sig

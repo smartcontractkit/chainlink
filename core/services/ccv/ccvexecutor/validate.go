@@ -6,6 +6,7 @@ import (
 	"github.com/pelletier/go-toml"
 
 	"github.com/smartcontractkit/chainlink-ccv/executor"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 

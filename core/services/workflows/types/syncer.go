@@ -4,6 +4,7 @@ import (
 	"context"
 
 	storage_service "github.com/smartcontractkit/chainlink-protos/storage-service/go"
+
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 )
 

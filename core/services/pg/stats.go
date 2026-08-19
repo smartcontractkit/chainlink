@@ -2,6 +2,7 @@ package pg
 
 import (
 	commonpg "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

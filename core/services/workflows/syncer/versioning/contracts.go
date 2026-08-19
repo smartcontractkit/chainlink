@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/type_and_version"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
+
 	tvutil "github.com/smartcontractkit/chainlink/v2/core/utils/typeandversion"
 )
 

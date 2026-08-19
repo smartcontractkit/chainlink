@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 )
 

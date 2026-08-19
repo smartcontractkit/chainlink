@@ -20,10 +20,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -921,7 +921,7 @@ result3 -> result3_parse -> multiply3;
 
 	ds := newDataSource(lggr, r, telem.NullTelemeter)
 	vals := make(map[llotypes.StreamID]lloprotocol.StreamValue)
-	for i := uint32(0); i < 4*n; i++ {
+	for i := range uint32(4 * n) {
 		vals[i] = nil
 	}
 

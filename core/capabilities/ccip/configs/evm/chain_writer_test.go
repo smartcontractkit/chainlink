@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 )
 

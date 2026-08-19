@@ -11,13 +11,12 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/libocr/quorumhelper"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 )
 
 type Plugin struct {
@@ -237,7 +236,7 @@ func (p *Plugin) Reports(_ context.Context, _ uint64, outcome ocr3types.Outcome)
 		TransmissionDelays: make([]time.Duration, p.config.N),
 	}
 
-	for i := 0; i < p.config.N; i++ {
+	for i := range p.config.N {
 		allOraclesTransmitNow.Transmitters[i] = commontypes.OracleID(i)
 	}
 

@@ -203,13 +203,13 @@ func aggregationScenarios(tb testing.TB) []aggregationScenario {
 			expectPayload: pA,
 		},
 		{
-			name:          fmt.Sprintf("%d payloads: [A A B B C C C] - returns C (mode)", testDonSize),
+			name:          fmt.Sprintf("%d payloads: [A A B C C] - returns C (mode)", testDonSize),
 			payloads:      [][]byte{pA, pA, pB, pB, pC, pC, pC},
 			minResponses:  testMinResp,
 			expectPayload: pC,
 		},
 		{
-			name:          fmt.Sprintf("%d payloads: [B B A A C C C] - returns C (mode)", testDonSize),
+			name:          fmt.Sprintf("%d payloads: [B B A C C] - returns C (mode)", testDonSize),
 			payloads:      [][]byte{pB, pB, pA, pA, pC, pC, pC},
 			minResponses:  testMinResp,
 			expectPayload: pC,

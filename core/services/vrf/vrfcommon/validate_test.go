@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 

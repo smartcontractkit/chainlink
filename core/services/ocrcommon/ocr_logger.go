@@ -3,10 +3,9 @@ package ocrcommon
 import (
 	"context"
 
-	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	ocrtypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
 type ocrLoggerService struct {

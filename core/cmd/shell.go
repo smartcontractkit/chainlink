@@ -44,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink-data-streams/mercury/wsrpc/cache"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
@@ -723,7 +724,7 @@ func (t *SessionCookieAuthenticator) Authenticate(ctx context.Context, sessionRe
 		return nil, err
 	}
 	url := t.config.RemoteNodeURL.String() + "/sessions"
-	req, err := http.NewRequestWithContext(ctx, "POST", url, b)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, b)
 	if err != nil {
 		return nil, err
 	}

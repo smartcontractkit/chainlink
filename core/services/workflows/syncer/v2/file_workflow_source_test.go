@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

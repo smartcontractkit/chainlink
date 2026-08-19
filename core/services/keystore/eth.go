@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -263,7 +264,7 @@ func (ks *eth) addKey(ctx context.Context, ds sqlutil.DataSource, address common
 	}
 	state := new(ethkey.State)
 	sql := `INSERT INTO evm.key_states (address, disabled, evm_chain_id, created_at, updated_at)
-			VALUES ($1, false, $2, NOW(), NOW()) 
+			VALUES ($1, false, $2, NOW(), NOW())
 			RETURNING *;`
 
 	if err := ds.GetContext(ctx, state, sql, address, chainID.String()); err != nil {

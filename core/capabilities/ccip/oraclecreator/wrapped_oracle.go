@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 

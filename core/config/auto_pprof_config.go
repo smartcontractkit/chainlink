@@ -2,6 +2,7 @@ package config
 
 import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 

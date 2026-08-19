@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	consensustypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
@@ -20,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 type fakeConsensusNoDAG struct {
@@ -35,7 +34,7 @@ var _ consensusserver.ConsensusCapability = (*fakeConsensusNoDAG)(nil)
 
 func NewFakeConsensusNoDAG(signers []ocr2key.KeyBundle, lggr logger.Logger) *fakeConsensusNoDAG {
 	configDigest := ocr2types.ConfigDigest{}
-	for i := range len(configDigest) {
+	for i := range configDigest {
 		configDigest[i] = byte(i)
 	}
 	fc := &fakeConsensusNoDAG{
