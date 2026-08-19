@@ -481,6 +481,10 @@ func doHandshake(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Cl
 }
 
 func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	cfg, nodes := newTestConfig(t, 1)
@@ -515,6 +519,10 @@ func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
 }
 
 func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	cfg, nodes := newTestConfig(t, 1)
@@ -554,6 +562,10 @@ func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
 }
 
 func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	cfg, nodes := newTestConfig(t, 1)

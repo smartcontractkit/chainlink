@@ -648,6 +648,10 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 }
 
 func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
@@ -959,6 +963,10 @@ func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
 }
 
 func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)

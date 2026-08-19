@@ -686,6 +686,10 @@ func TestIsValidJSON(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	lggr := logger.Test(t)
 	cfg := ServiceConfig{
 		MaxTriggerRequestDurationMs: 2000, // 2 seconds for test
@@ -747,6 +751,10 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_SendsToNodesInParallel(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	lggr := logger.Test(t)

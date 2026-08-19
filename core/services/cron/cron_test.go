@@ -51,6 +51,10 @@ func TestCronV2Pipeline(t *testing.T) {
 }
 
 func TestCronV2Schedule(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	spec := job.Job{
