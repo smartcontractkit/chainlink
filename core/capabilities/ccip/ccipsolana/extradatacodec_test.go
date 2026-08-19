@@ -86,4 +86,40 @@ func Test_decodeExtraArgs(t *testing.T) {
 		require.True(t, exist)
 		require.Equal(t, false, ooe)
 	})
+
+	t.Run("decode extra args into map sui", func(t *testing.T) {
+		extraArgs := fee_quoter.SuiExtraArgsV1{
+			GasLimit:                 agbinary.Uint128{Lo: 1_000_000, Hi: 0},
+			AllowOutOfOrderExecution: true,
+			TokenReceiver:            [32]byte(config.CcipLogicReceiver.Bytes()),
+			ReceiverObjectIds: [][32]byte{
+				[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
+			},
+		}
+
+		var buf bytes.Buffer
+		encoder := agbinary.NewBorshEncoder(&buf)
+		err := extraArgs.MarshalWithEncoder(encoder)
+		require.NoError(t, err)
+
+		output, err := extraDataDecoder.DecodeExtraArgsToMap(append(suiExtraArgsV1Tag, buf.Bytes()...))
+		require.NoError(t, err)
+		require.Len(t, output, 4)
+
+		gasLimit, exist := output["gasLimit"]
+		require.True(t, exist)
+		require.Equal(t, agbinary.Uint128{Lo: 1_000_000, Hi: 0}.BigInt(), gasLimit)
+
+		ooe, exist := output["allowOutOfOrderExecution"]
+		require.True(t, exist)
+		require.Equal(t, true, ooe)
+
+		tokenReceiver, exist := output["tokenReceiver"]
+		require.True(t, exist)
+		require.Equal(t, [32]byte(config.CcipLogicReceiver.Bytes()), tokenReceiver)
+
+		receiverObjectIds, exist := output["receiverObjectIds"]
+		require.True(t, exist)
+		require.Equal(t, [][32]byte{[32]byte(config.ReceiverTargetAccountPDA.Bytes())}, receiverObjectIds)
+	})
 }

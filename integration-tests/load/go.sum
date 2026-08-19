@@ -1627,10 +1627,10 @@ github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260730150638-e7b61c
 github.com/smartcontractkit/chainlink-ccip v0.1.1-solana.0.20260730150638-e7b61c05cec1/go.mod h1:bJBm89wkEaBJ+3SEGkCoiLy9S6/YyNvre32cPAoohbA=
 github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb h1:bsokSvqbT4kewt+JpIySMR3pTlzAhFBxiWcXkWpCFMY=
 github.com/smartcontractkit/chainlink-ccip/chains/evm v0.0.0-20260624154507-ea7ff77a0ddb/go.mod h1:FbFlai6KYc1SKjJxfU//6iLruq4SyHi4PYS1SRZYoM4=
-github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb h1:TZUVwF0ZexyJKqBjutCGjR/kG3LOa1krTQt/EXFgMYg=
-github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb/go.mod h1:xu0Jum/nGRkjBwT/Vq7WCElWOTBBkFRwG0ZIaw9tF2I=
-github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb h1:2p+8KYL0bhHblGcOJKRH84i9QduKGcY72NYcLJzNdNc=
-github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb/go.mod h1:67YbnoglYD61Pz/jTVCgav9wFq7S35OU8UyQSvPllRw=
+github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260813204931-b04237ff0aae h1:ismyzBjC/sij3IryCIQAs+z9U2lkcfS7JqR/pfF5y9g=
+github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260813204931-b04237ff0aae/go.mod h1:5snE6Mg2+wYIddLZ5NIUPno3mYa9edyV3EyXJnE54vw=
+github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260813204931-b04237ff0aae h1:pLvKulHJosy5tkBhpqs3PihrDhMv4soWzAQXHKQuQOw=
+github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260813204931-b04237ff0aae/go.mod h1:c++Ed0jeYn4w8WIfiAboRwN6ClRRVGglL0qwB/QjJvM=
 github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260624154507-ea7ff77a0ddb h1:lG7cBn+mRgkdPpp1MSGK8pLq72g8LHa3aVPHZv/UReQ=
 github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260624154507-ea7ff77a0ddb/go.mod h1:xDXlDsou69NYOolOAj+KITRn9luER6Bg52NXelrLl+A=
 github.com/smartcontractkit/chainlink-ccv v0.1.1-0.20260716164331-d938b371c5d6 h1:t5VUHVFEdcqa0/faJiHWusuW+egKpqK3YwWZO4/yJto=
