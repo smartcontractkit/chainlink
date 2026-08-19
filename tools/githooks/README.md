@@ -5,6 +5,7 @@
 ## Features
 
 - **Module & Package Resolution:** Automatically maps changed or staged Go files to their enclosing `go.mod` module roots and specific package paths (e.g. `./core/logger`).
+- **Targeted Code Generation:** Runs `go generate` only for packages where `.proto` or generate files changed, and updates config schema docs and `go.md` when relevant files change.
 - **Parallel Module Tidy:** Runs `go mod tidy` in parallel across all affected modules.
 - **Targeted Linting:** Runs `golangci-lint` only against the exact changed packages within affected modules instead of scanning whole modules or the entire repository.
 - **Targeted Unit Testing:** Discovers changed test packages and executes `tools/test` with `-short` directly on those packages (aligned with CI unit test scope).
@@ -12,6 +13,18 @@
 - **Lefthook Integration:** Seamlessly works with Lefthook staged/push file filters and `stage_fixed`.
 
 ## Commands
+
+### `generate`
+
+Runs targeted code generators (`protoc`, config schema docs, `go.md`) only when relevant files change.
+
+```bash
+# Run code generators from staged files
+go -C tools/githooks run . generate
+
+# Run code generators for specific files
+go -C tools/githooks run . generate core/capabilities/remote/types/messages.proto
+```
 
 ### `tidy`
 
@@ -64,10 +77,13 @@ go -C tools/githooks run . test --short=false
 cd tools/githooks
 
 # Run all unit tests
-go test ./...
+go test -short ./...
 
 # Run standard Go benchmarks with memory allocation metrics
 go test -bench=. -benchmem ./...
+
+# Run E2E Lefthook benchmark suite
+go test -v -run TestE2EBenchmark -timeout 10m
 
 # Lint tool codebase
 golangci-lint run

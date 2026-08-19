@@ -25,6 +25,7 @@ func TestRootCmd(t *testing.T) {
 	assert.Contains(t, buf.String(), "lint")
 	assert.Contains(t, buf.String(), "test")
 	assert.Contains(t, buf.String(), "tidy")
+	assert.Contains(t, buf.String(), "generate")
 }
 
 func TestLintCmdHelp(t *testing.T) {
@@ -70,4 +71,18 @@ func TestTidyCmdHelp(t *testing.T) {
 	err := root.Execute()
 	require.NoError(t, err)
 	assert.Contains(t, buf.String(), "Run go mod tidy in parallel on all changed Go modules")
+}
+
+func TestGenerateCmdHelp(t *testing.T) {
+	t.Parallel()
+
+	root := cmd.NewRootCmd()
+	buf := new(bytes.Buffer)
+	root.SetOut(buf)
+	root.SetErr(buf)
+	root.SetArgs([]string{"generate", "--help"})
+
+	err := root.Execute()
+	require.NoError(t, err)
+	assert.Contains(t, buf.String(), "Run targeted code generators (proto, config docs) on changed files")
 }

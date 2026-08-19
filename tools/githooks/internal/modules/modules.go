@@ -26,6 +26,9 @@ func isExcludedFromUnitTests(relPath string) bool {
 	if strings.HasPrefix(clean, "deployment") ||
 		strings.HasPrefix(clean, "system-tests") ||
 		strings.HasPrefix(clean, "integration-tests") ||
+		strings.HasPrefix(clean, "tools/secrets") ||
+		strings.HasPrefix(clean, "tools/docker") ||
+		strings.HasPrefix(clean, "tools/benchmark") ||
 		strings.HasPrefix(clean, "core/scripts/cre/environment/examples/workflows") {
 		return true
 	}
