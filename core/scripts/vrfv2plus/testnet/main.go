@@ -22,9 +22,6 @@ import (
 	"github.com/shopspring/decimal"
 
 	commonkeystore "github.com/smartcontractkit/chainlink-common/keystore"
-	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
@@ -44,7 +41,10 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
@@ -216,7 +216,7 @@ func main() {
 				PreSeed:          ps,
 				BlockHash:        bhSlice[i],
 				BlockNum:         blockNumSlice[i].Uint64(),
-				SubId:            subIDSlice[i],
+				SubID:            subIDSlice[i],
 				CallbackGasLimit: uint32(cbLimitsSlice[i].Uint64()),
 				NumWords:         uint32(numWordsSlice[i].Uint64()),
 				Sender:           senderSlice[i],
@@ -310,7 +310,7 @@ func main() {
 			PreSeed:          ps,
 			BlockHash:        common.HexToHash(*blockHash),
 			BlockNum:         *blockNum,
-			SubId:            parsedSubID,
+			SubID:            parsedSubID,
 			CallbackGasLimit: uint32(*cbGasLimit),
 			NumWords:         uint32(*numWords),
 			Sender:           common.HexToAddress(*sender),

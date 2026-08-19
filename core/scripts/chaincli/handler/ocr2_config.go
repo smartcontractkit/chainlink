@@ -14,11 +14,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/olekukonko/tablewriter"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 )
 
 func OCR2GetConfig(hdlr *baseHandler, registry_addr string) error {

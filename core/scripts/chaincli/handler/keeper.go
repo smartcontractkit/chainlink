@@ -14,8 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/umbracle/ethgo/abi"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/mercury/streams"
-
 	automationForwarderLogic "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_forwarder_logic"
 	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registrylogic20 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic2_0"
@@ -29,6 +27,8 @@ import (
 	upkeep "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/verifiable_load_streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/verifiable_load_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/mercury/streams"
+
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"

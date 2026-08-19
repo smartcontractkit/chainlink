@@ -53,19 +53,19 @@ func TestTestLogger(t *testing.T) {
 	const (
 		workerName           = "WorkerName"
 		workerMessage        = "Did some work"
-		idKey, workerId      = "workerId", "42"
+		idKey, workerID      = "workerId", "42"
 		resultKey, resultVal = "result", "success"
 	)
-	wrkLgr := srvLgr.Named(workerName).With(idKey, workerId)
+	wrkLgr := srvLgr.Named(workerName).With(idKey, workerID)
 	wrkLgr.Infow(workerMessage, resultKey, resultVal)
-	// [INFO]	Did some work		logger/test_logger_test.go:49 version=unset@unset logger=ServiceName.WorkerName result=success workerId=42
+	// [INFO]	Did some work		logger/test_logger_test.go:49 version=unset@unset logger=ServiceName.WorkerName result=success workerID=42
 	logs = observed.TakeAll()
 	require.Len(t, logs, 1)
 	log = logs[0]
 	assert.Equal(t, zap.InfoLevel, log.Level)
 	assert.Equal(t, workerMessage, log.Message)
 	assert.Equal(t, fmt.Sprintf("%s.%s", serviceName, workerName), log.LoggerName)
-	assert.Equal(t, workerId, log.ContextMap()[idKey])
+	assert.Equal(t, workerID, log.ContextMap()[idKey])
 	assert.Equal(t, resultVal, log.ContextMap()[resultKey])
 
 	const (

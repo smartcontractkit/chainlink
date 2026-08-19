@@ -10,21 +10,19 @@ import (
 	"math/big"
 	"time"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"gopkg.in/yaml.v3"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/balance_reader"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/blockchain/evm"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/balance_reader"
 	types "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/proof-of-reserve/cron-based/types"
 )
 

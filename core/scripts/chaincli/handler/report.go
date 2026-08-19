@@ -19,11 +19,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/olekukonko/tablewriter"
 
+	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	ocr2keepers20 "github.com/smartcontractkit/chainlink-automation/pkg/v2"
-
-	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	evm "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v20"
 )
 

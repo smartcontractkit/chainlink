@@ -64,7 +64,7 @@ func TestShell_ListCSAKeys(t *testing.T) {
 
 	client, r := app.NewShellAndRenderer()
 
-	assert.NoError(t, client.ListCSAKeys(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListCSAKeys(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	keys := *r.Renders[0].(*cmd.CSAKeyPresenters)
 	assert.Equal(t, "csa_"+key.PublicKeyString(), keys[0].PubKey)

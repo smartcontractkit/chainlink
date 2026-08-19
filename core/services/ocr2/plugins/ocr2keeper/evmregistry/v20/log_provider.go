@@ -250,14 +250,14 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	vals := []ocr2keepers.StaleReportLog{}
 	for _, r := range reorged {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
+		upkeepID := ocr2keepers.UpkeepIdentifier(r.Id.String())
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepID)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from reorged report log: %w", err)
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepID),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end.BlockNumber - r.BlockNumber,
@@ -265,14 +265,14 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		vals = append(vals, l)
 	}
 	for _, r := range staleUpkeep {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
+		upkeepID := ocr2keepers.UpkeepIdentifier(r.Id.String())
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepID)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from stale report log: %w", err)
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepID),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end.BlockNumber - r.BlockNumber,
@@ -280,14 +280,14 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		vals = append(vals, l)
 	}
 	for _, r := range insufficientFunds {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
+		upkeepID := ocr2keepers.UpkeepIdentifier(r.Id.String())
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepID)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from insufficient funds report log: %w", err)
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepID),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end.BlockNumber - r.BlockNumber,
@@ -308,8 +308,7 @@ func (c *LogProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]performed, e
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryUpkeepPerformed:
+		if l, ok := abilog.(*registry.KeeperRegistryUpkeepPerformed); ok {
 			if l == nil {
 				continue
 			}
@@ -336,8 +335,7 @@ func (c *LogProvider) unmarshalReorgUpkeepLogs(logs []logpoller.Log) ([]reorged,
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryReorgedUpkeepReport:
+		if l, ok := abilog.(*registry.KeeperRegistryReorgedUpkeepReport); ok {
 			if l == nil {
 				continue
 			}
@@ -364,8 +362,7 @@ func (c *LogProvider) unmarshalStaleUpkeepLogs(logs []logpoller.Log) ([]staleUpk
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryStaleUpkeepReport:
+		if l, ok := abilog.(*registry.KeeperRegistryStaleUpkeepReport); ok {
 			if l == nil {
 				continue
 			}
@@ -392,8 +389,7 @@ func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log)
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryInsufficientFundsUpkeepReport:
+		if l, ok := abilog.(*registry.KeeperRegistryInsufficientFundsUpkeepReport); ok {
 			if l == nil {
 				continue
 			}

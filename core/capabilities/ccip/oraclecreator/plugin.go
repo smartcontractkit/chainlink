@@ -346,7 +346,8 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
 	pluginConfig := pluginServices.PluginConfig
-	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
+	switch config.Config.PluginType {
+	case uint8(cctypes.PluginTypeCCIPCommit):
 		factory = commitocr3.NewCommitPluginFactory(
 			commitocr3.CommitPluginFactoryParams{
 				Lggr: i.lggr.
@@ -421,7 +422,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				transmitAccount,
 			)
 		}
-	} else if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec) {
+	case uint8(cctypes.PluginTypeCCIPExec):
 		factory = execocr3.NewExecutePluginFactory(
 			execocr3.PluginFactoryParams{
 				Lggr: i.lggr.
@@ -492,7 +493,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				transmitAccount,
 			)
 		}
-	} else {
+	default:
 		return nil, nil, fmt.Errorf("unsupported Plugin type %d", config.Config.PluginType)
 	}
 	return factory, transmitter, nil

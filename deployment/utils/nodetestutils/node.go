@@ -803,7 +803,7 @@ func setupJD(t *testing.T, app chainlink.Application) {
 	connManager.On("GetClient", mock.Anything).Maybe().Return(noopFeedsClient{}, nil)
 	connManager.On("Close").Maybe().Return()
 	connManager.On("IsConnected", mock.Anything).Maybe().Return(true)
-	f.Unsafe_SetConnectionsManager(connManager)
+	f.UnsafeSetConnectionsManager(connManager)
 
 	_, err = f.RegisterManager(t.Context(), m)
 	require.NoError(t, err)

@@ -187,7 +187,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 }
 
 func (f *BlockHeaderFeeder) findLowestBlockNumberWithoutBlockhash(ctx context.Context, lggr logger.Logger, blockToRequests map[uint64]map[string]struct{}) *big.Int {
-	var min *big.Int
+	var minBlockNumber *big.Int
 	for block, unfulfilledReqs := range blockToRequests {
 		if len(unfulfilledReqs) == 0 {
 			continue
@@ -209,11 +209,11 @@ func (f *BlockHeaderFeeder) findLowestBlockNumberWithoutBlockhash(ctx context.Co
 			continue
 		}
 		blockNumber := big.NewInt(0).SetUint64(block)
-		if min == nil || min.Cmp(blockNumber) >= 0 {
-			min = blockNumber
+		if minBlockNumber == nil || minBlockNumber.Cmp(blockNumber) >= 0 {
+			minBlockNumber = blockNumber
 		}
 	}
-	return min
+	return minBlockNumber
 }
 
 // findEarliestBlockNumberWithBlockhash searches [startBlock, toBlock) where startBlock is inclusive and toBlock is exclusive

@@ -415,7 +415,7 @@ executorConfig = "Foo = 'Bar'"
 		ctx := t.Context()
 		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db))
 		jb, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
-		_, err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
+		_, err := db.ExecContext(ctx, `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 		require.NoError(t, err)
 
 		err = jobORM.DeleteJob(ctx, jb.ID, jb.Type)
@@ -442,10 +442,10 @@ executorConfig = "Foo = 'Bar'"
 		db := pgtest.NewSqlxDB(t)
 		ei := cltest.MustInsertExternalInitiator(t, bridges.NewORM(db))
 		_, webhookSpec := cltest.MustInsertWebhookSpec(t, db)
-		_, err := db.Exec(`INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
+		_, err := db.ExecContext(t.Context(), `INSERT INTO external_initiator_webhook_specs (external_initiator_id, webhook_spec_id, spec) VALUES ($1,$2,$3)`, ei.ID, webhookSpec.ID, `{"ei": "foo", "name": "webhookSpecTwoEIs"}`)
 		require.NoError(t, err)
 
-		_, err = db.Exec(`DELETE FROM external_initiators`)
+		_, err = db.ExecContext(t.Context(), `DELETE FROM external_initiators`)
 		require.EqualError(t, err, "ERROR: update or delete on table \"external_initiators\" violates foreign key constraint \"external_initiator_webhook_specs_external_initiator_id_fkey\" on table \"external_initiator_webhook_specs\" (SQLSTATE 23503)")
 	})
 }
@@ -509,7 +509,7 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	require.Equal(t, jb.VRFSpec.GasLanePrice, &gasLanePrice)
 	var fa pq.ByteaArray
 	require.NoError(t, db.Get(&fa, `SELECT from_addresses FROM vrf_specs LIMIT 1`))
-	var actual []string
+	actual := make([]string, 0, len(fa))
 	for _, b := range fa {
 		actual = append(actual, common.BytesToAddress(b).String())
 	}
@@ -597,7 +597,7 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	require.Equal(t, jb.VRFSpec.GasLanePrice, &gasLanePrice)
 	var fa pq.ByteaArray
 	require.NoError(t, db.Get(&fa, `SELECT from_addresses FROM vrf_specs LIMIT 1`))
-	var actual []string
+	actual := make([]string, 0, len(fa))
 	for _, b := range fa {
 		actual = append(actual, common.BytesToAddress(b).String())
 	}
@@ -2020,7 +2020,7 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 		ctx := t.Context()
 		secretsORM := artifacts.NewWorkflowRegistryDS(db, logger.TestLogger(t))
 
-		var sids []int64
+		sids := make([]int64, 0, 3)
 		for i := range 3 {
 			sid, err := secretsORM.Create(ctx, "some-url.com", fmt.Sprintf("some-hash-%d", i), "some-contentz")
 			require.NoError(t, err)

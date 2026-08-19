@@ -13,8 +13,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/jonboulle/clockwork"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -29,17 +27,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-var promKeepalivesSent = promauto.NewGaugeVec(prometheus.GaugeOpts{
-	Name: "gateway_keepalives_sent",
-	Help: "Metric to track the number of successful keepalive ping messages per DON",
-}, []string{"don_id"})
-
 // ConnectionManager holds all connections between Gateway and Nodes.
 type ConnectionManager interface {
 	job.ServiceCtx
 	network.ConnectionAcceptor
 
-	DONConnectionManager(donId string) *donConnectionManager
+	DONConnectionManager(donID string) *donConnectionManager
 	GetPort() int
 }
 
@@ -106,7 +99,7 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock clockwork.Clock,
 			}
 			dons[donID] = &donConnectionManager{
 				donConfig: &config.DONConfig{
-					DonId:   donID,
+					DonID:   donID,
 					F:       shardedDON.F,
 					Members: shard.Nodes,
 				},
@@ -153,8 +146,8 @@ func buildNodeStates(members []config.NodeConfig, donID string, lggr logger.Logg
 	return nodes, nil
 }
 
-func (m *connectionManager) DONConnectionManager(donId string) *donConnectionManager {
-	return m.dons[donId]
+func (m *connectionManager) DONConnectionManager(donID string) *donConnectionManager {
+	return m.dons[donID]
 }
 
 func (m *connectionManager) Start(ctx context.Context) error {
@@ -194,22 +187,22 @@ func (m *connectionManager) Close() error {
 	})
 }
 
-func (m *connectionManager) StartHandshake(authHeader []byte) (attemptId string, challenge []byte, err error) {
+func (m *connectionManager) StartHandshake(authHeader []byte) (attemptID string, challenge []byte, err error) {
 	m.lggr.Debug("StartHandshake")
 	authHeaderElems, signer, err := network.UnpackSignedAuthHeader(authHeader)
 	if err != nil {
 		return "", nil, errors.Join(network.ErrAuthHeaderParse, err)
 	}
 	nodeAddress := "0x" + hex.EncodeToString(signer)
-	donConnMgr, ok := m.dons[authHeaderElems.DonId]
+	donConnMgr, ok := m.dons[authHeaderElems.DonID]
 	if !ok {
-		return "", nil, network.ErrAuthInvalidDonId
+		return "", nil, network.ErrAuthInvalidDonID
 	}
 	nodeState, ok := donConnMgr.nodes[nodeAddress]
 	if !ok {
 		return "", nil, network.ErrAuthInvalidNode
 	}
-	if authHeaderElems.GatewayId != m.config.AuthGatewayId {
+	if authHeaderElems.GatewayID != m.config.AuthGatewayID {
 		return "", nil, network.ErrAuthInvalidGateway
 	}
 	nowTs := uint32(m.clock.Now().Unix())
@@ -217,11 +210,11 @@ func (m *connectionManager) StartHandshake(authHeader []byte) (attemptId string,
 	if ts < nowTs-m.config.AuthTimestampToleranceSec || nowTs+m.config.AuthTimestampToleranceSec < ts {
 		return "", nil, network.ErrAuthInvalidTimestamp
 	}
-	attemptId, challenge, err = m.newAttempt(nodeState, nodeAddress, ts)
+	attemptID, challenge, err = m.newAttempt(nodeState, nodeAddress, ts)
 	if err != nil {
 		return "", nil, err
 	}
-	return attemptId, challenge, nil
+	return attemptID, challenge, nil
 }
 
 func (m *connectionManager) newAttempt(nodeSt *nodeState, nodeAddress string, timestamp uint32) (string, []byte, error) {
@@ -230,20 +223,20 @@ func (m *connectionManager) newAttempt(nodeSt *nodeState, nodeAddress string, ti
 	if err != nil {
 		return "", nil, err
 	}
-	challenge := network.ChallengeElems{Timestamp: timestamp, GatewayId: m.config.AuthGatewayId, ChallengeBytes: challengeBytes}
+	challenge := network.ChallengeElems{Timestamp: timestamp, GatewayID: m.config.AuthGatewayID, ChallengeBytes: challengeBytes}
 	m.connAttemptsMu.Lock()
 	defer m.connAttemptsMu.Unlock()
 	m.connAttemptCounter++
-	newId := fmt.Sprintf("%s_%d", nodeAddress, m.connAttemptCounter)
-	m.connAttempts[newId] = &connAttempt{nodeState: nodeSt, nodeAddress: nodeAddress, challenge: challenge, timestamp: timestamp}
-	return newId, network.PackChallenge(&challenge), nil
+	newID := fmt.Sprintf("%s_%d", nodeAddress, m.connAttemptCounter)
+	m.connAttempts[newID] = &connAttempt{nodeState: nodeSt, nodeAddress: nodeAddress, challenge: challenge, timestamp: timestamp}
+	return newID, network.PackChallenge(&challenge), nil
 }
 
-func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte, conn *websocket.Conn) error {
-	m.lggr.Debugw("FinalizeHandshake", "attemptId", attemptId)
+func (m *connectionManager) FinalizeHandshake(attemptID string, response []byte, conn *websocket.Conn) error {
+	m.lggr.Debugw("FinalizeHandshake", "attemptId", attemptID)
 	m.connAttemptsMu.Lock()
-	attempt, ok := m.connAttempts[attemptId]
-	delete(m.connAttempts, attemptId)
+	attempt, ok := m.connAttempts[attemptID]
+	delete(m.connAttempts, attemptID)
 	m.connAttemptsMu.Unlock()
 	if !ok {
 		return network.ErrChallengeAttemptNotFound
@@ -291,11 +284,11 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 	return nil
 }
 
-func (m *connectionManager) AbortHandshake(attemptId string) {
-	m.lggr.Debugw("AbortHandshake", "attemptId", attemptId)
+func (m *connectionManager) AbortHandshake(attemptID string) {
+	m.lggr.Debugw("AbortHandshake", "attemptId", attemptID)
 	m.connAttemptsMu.Lock()
 	defer m.connAttemptsMu.Unlock()
-	delete(m.connAttempts, attemptId)
+	delete(m.connAttempts, attemptID)
 }
 
 func (m *connectionManager) GetPort() int {
@@ -376,10 +369,10 @@ func (m *donConnectionManager) nodeKeepalive(addr string, ns *nodeState, interva
 	defer cancel()
 
 	if intervalSec == 0 {
-		m.lggr.Errorw("keepalive interval is 0, keepalive disabled", "donID", m.donConfig.DonId)
+		m.lggr.Errorw("keepalive interval is 0, keepalive disabled", "donID", m.donConfig.DonID)
 		return
 	}
-	m.lggr.Infow("starting keepalive loop", "donID", m.donConfig.DonId, "nodeName", ns.name)
+	m.lggr.Infow("starting keepalive loop", "donID", m.donConfig.DonID, "nodeName", ns.name)
 
 	ticker := time.NewTicker(time.Duration(intervalSec) * time.Second)
 	defer ticker.Stop()

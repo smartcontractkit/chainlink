@@ -980,9 +980,9 @@ func (r *Resolver) SetSQLLogging(ctx context.Context, args struct {
 	r.App.GetConfig().SetLogSQL(args.Input.Enabled)
 
 	if args.Input.Enabled {
-		r.App.GetAuditLogger().Audit(audit.ConfigSqlLoggingEnabled, map[string]any{})
+		r.App.GetAuditLogger().Audit(audit.ConfigSQLLoggingEnabled, map[string]any{})
 	} else {
-		r.App.GetAuditLogger().Audit(audit.ConfigSqlLoggingDisabled, map[string]any{})
+		r.App.GetAuditLogger().Audit(audit.ConfigSQLLoggingDisabled, map[string]any{})
 	}
 
 	return NewSetSQLLoggingPayload(args.Input.Enabled), nil

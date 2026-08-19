@@ -16,6 +16,7 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"

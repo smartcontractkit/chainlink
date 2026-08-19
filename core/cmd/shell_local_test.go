@@ -40,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -131,7 +130,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			_, err := keyStore.Eth().Create(t.Context(), &cltest.FixtureChainID)
 			require.NoError(t, err)
 
-			ethClient := evmtest.NewEthClientMock(t)
+			ethClient := clienttest.NewClient(t)
 			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
@@ -166,9 +165,9 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 
 			if test.wantError {
 				err = client.RunNode(c)
-				assert.ErrorContains(t, err, "error creating api initializer: open doesntexist.txt: no such file or directory")
+				require.ErrorContains(t, err, "error creating api initializer: open doesntexist.txt: no such file or directory")
 			} else {
-				assert.NoError(t, client.RunNode(c))
+				require.NoError(t, client.RunNode(c))
 			}
 
 			assert.Equal(t, test.wantPrompt, apiPrompt.Count > 0)
@@ -499,7 +498,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 		require.NoError(t, set.Set("evm-chain-id", "12"))
 		c := cli.NewContext(nil, set, nil)
 		err := shell.RemoveBlocks(c)
-		require.ErrorContains(t, err, "Must pass a positive value in '--start' parameter")
+		require.ErrorContains(t, err, "must pass a positive value in '--start' parameter")
 	})
 	t.Run("Returns error, if removal fails", func(t *testing.T) {
 		set := flag.NewFlagSet("test", 0)

@@ -66,7 +66,7 @@ func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrty
 }
 
 func (d *db) WriteState(ctx context.Context, cd ocrtypes.ConfigDigest, state ocrtypes.PersistentState) error {
-	var highestReceivedEpoch []int64
+	highestReceivedEpoch := make([]int64, 0, len(state.HighestReceivedEpoch))
 	for _, v := range state.HighestReceivedEpoch {
 		highestReceivedEpoch = append(highestReceivedEpoch, int64(v))
 	}
@@ -159,7 +159,7 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 }
 
 func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
-	var signers [][]byte
+	signers := make([][]byte, 0, len(c.Signers))
 	for _, s := range c.Signers {
 		signers = append(signers, []byte(s))
 	}
@@ -207,7 +207,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 }
 
 func (d *db) StorePendingTransmission(ctx context.Context, t ocrtypes.ReportTimestamp, tx ocrtypes.PendingTransmission) error {
-	var signatures [][]byte
+	signatures := make([][]byte, 0, 2*len(tx.AttributedSignatures))
 	for _, s := range tx.AttributedSignatures {
 		signatures = append(signatures, s.Signature)
 		buffer := make([]byte, binary.MaxVarintLen64)

@@ -12,21 +12,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	evmtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/jobs"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
-
-	evmtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_owner"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/jobs"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 )
 
 type CoordinatorConfigV2 struct {

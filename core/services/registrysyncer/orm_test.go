@@ -28,7 +28,7 @@ func TestRegistrySyncerORM_InsertAndRetrieval(t *testing.T) {
 	lggr := logger.Test(t)
 	orm := registrysyncer.NewORM(db, lggr)
 
-	var states []registrysyncer.LocalRegistry
+	states := make([]registrysyncer.LocalRegistry, 0, 11)
 	for range 11 {
 		state := generateState(t)
 		err := orm.AddLocalRegistry(ctx, state)

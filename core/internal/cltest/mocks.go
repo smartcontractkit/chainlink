@@ -61,13 +61,13 @@ func (mes *MockSubscription) Unsubscribe() {
 		return
 	}
 	mes.unsubscribed = true
-	switch mes.channel.(type) {
+	switch c := mes.channel.(type) {
 	case chan struct{}:
-		close(mes.channel.(chan struct{}))
+		close(c)
 	case chan gethTypes.Log:
-		close(mes.channel.(chan gethTypes.Log))
+		close(c)
 	case chan *evmtypes.Head:
-		close(mes.channel.(chan *evmtypes.Head))
+		close(c)
 	default:
 		logger.TestLogger(mes.t).Fatalf("Unable to close MockSubscription channel of type %T", mes.channel)
 	}

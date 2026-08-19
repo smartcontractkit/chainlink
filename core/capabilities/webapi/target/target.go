@@ -20,7 +20,7 @@ import (
 
 const ID = "web-api-target@1.0.0"
 
-var _ capabilities.TargetCapability = &Capability{}
+var _ capabilities.ExecutableCapability = &Capability{}
 
 var capabilityInfo = capabilities.MustNewCapabilityInfo(
 	ID,
@@ -151,7 +151,7 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err
 		}
-		c.lggr.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
+		c.lggr.Debugw("received gateway response", "donID", resp.Body.DonID, "msgID", resp.Body.MessageID, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
 		var payload ghcapabilities.Response
 		err = json.Unmarshal(resp.Body.Payload, &payload)
 		if err != nil {

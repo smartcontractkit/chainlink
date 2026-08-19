@@ -9,7 +9,7 @@ const defaultAuthTimestampToleranceSec = 5
 
 type ConnectorConfig struct {
 	NodeAddress               string
-	DonId                     string
+	DonID                     string
 	Gateways                  []ConnectorGatewayConfig
 	WsClientConfig            network.WebSocketClientConfig
 	AuthMinChallengeLen       int
@@ -25,7 +25,7 @@ type ConnectorGatewayConfig struct {
 func (ConnectorConfig) From(c config.GatewayConnector) ConnectorConfig {
 	r := ConnectorConfig{
 		NodeAddress:               c.NodeAddress(),
-		DonId:                     c.DonID(),
+		DonID:                     c.DonID(),
 		WsClientConfig:            network.WebSocketClientConfig{HandshakeTimeoutMillis: c.WSHandshakeTimeoutMillis()},
 		AuthMinChallengeLen:       c.AuthMinChallengeLen(),
 		AuthTimestampToleranceSec: c.AuthTimestampToleranceSec(),

@@ -53,6 +53,7 @@ func ISO8601UTC(t time.Time) string {
 
 // DurationFromNow returns the amount of time since the Time
 // field was last updated.
+//
 // Deprecated: Use [time.Until].
 func DurationFromNow(t time.Time) time.Duration {
 	return time.Until(t)
@@ -144,18 +145,21 @@ func Sha256(in string) (string, error) {
 }
 
 // WithCloseChan wraps a context so that it is canceled if the passed in channel is closed.
+//
 // Deprecated: Call [services.StopChan.Ctx] directly
 func WithCloseChan(parentCtx context.Context, chStop chan struct{}) (context.Context, context.CancelFunc) {
 	return services.StopChan(chStop).Ctx(parentCtx)
 }
 
 // ContextFromChan creates a context that finishes when the provided channel receives or is closed.
+//
 // Deprecated: Call [services.StopChan.NewCtx] directly.
 func ContextFromChan(chStop chan struct{}) (context.Context, context.CancelFunc) {
 	return services.StopChan(chStop).NewCtx()
 }
 
 // ContextFromChanWithTimeout creates a context with a timeout that finishes when the provided channel receives or is closed.
+//
 // Deprecated: Call [services.StopChan.CtxCancel] directly
 func ContextFromChanWithTimeout(chStop chan struct{}, timeout time.Duration) (context.Context, context.CancelFunc) {
 	return services.StopChan(chStop).CtxWithTimeout(timeout)
@@ -230,7 +234,7 @@ type BoundedPriorityQueue[T any] struct {
 // NewBoundedPriorityQueue creates a new BoundedPriorityQueue
 func NewBoundedPriorityQueue[T any](capacities map[uint]int) *BoundedPriorityQueue[T] {
 	queues := make(map[uint]*BoundedQueue[T])
-	var priorities []uint
+	priorities := make([]uint, 0, len(capacities))
 	for priority, capacity := range capacities {
 		priorities = append(priorities, priority)
 		queues[priority] = NewBoundedQueue[T](capacity)
@@ -451,6 +455,7 @@ func (t *ResettableTimer) Reset(duration time.Duration) {
 }
 
 // StartStopOnce contains a StartStopOnceState integer
+//
 // Deprecated: use services.StateMachine
 type StartStopOnce = services.StateMachine
 
@@ -461,10 +466,10 @@ func WithJitter(d time.Duration) time.Duration {
 		return 0
 	}
 	// ensure non-zero arg to Intn to avoid panic
-	max := math.Max(float64(d.Abs())/5.0, 1.)
+	maxVal := math.Max(float64(d.Abs())/5.0, 1.)
 	// #nosec - non critical randomness
-	jitter := mrand.Intn(int(max))
-	jitter = jitter - (jitter / 2)
+	jitter := mrand.Intn(int(maxVal))
+	jitter -= (jitter / 2)
 	return time.Duration(int(d) + jitter)
 }
 
@@ -522,13 +527,13 @@ func (eb *ErrorBuffer) Append(incoming error) {
 	eb.buffer = append(eb.buffer, incoming)
 }
 
-func (eb *ErrorBuffer) SetCap(cap int) {
+func (eb *ErrorBuffer) SetCap(capacity int) {
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
-	if len(eb.buffer) > cap {
-		eb.buffer = eb.buffer[len(eb.buffer)-cap:]
+	if len(eb.buffer) > capacity {
+		eb.buffer = eb.buffer[len(eb.buffer)-capacity:]
 	}
-	eb.cap = cap
+	eb.cap = capacity
 }
 
 // UnwrapError returns a list of underlying errors if passed error implements joinedError or return the err in a single-element list otherwise.

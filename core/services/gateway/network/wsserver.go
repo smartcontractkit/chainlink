@@ -111,7 +111,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	attemptId, challenge, err := s.acceptor.StartHandshake(authBytes)
+	attemptID, challenge, err := s.acceptor.StartHandshake(authBytes)
 	if err != nil {
 		s.lggr.Debugw("received invalid auth header", "err", err)
 		w.WriteHeader(http.StatusUnauthorized)
@@ -127,7 +127,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 		if conn != nil {
 			conn.Close()
 		}
-		s.acceptor.AbortHandshake(attemptId)
+		s.acceptor.AbortHandshake(attemptID)
 		return
 	}
 
@@ -142,14 +142,14 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	if err != nil || msgType != websocket.BinaryMessage {
 		s.lggr.Errorw("invalid handshake message", "msgType", msgType, "err", err, "remoteAddr", conn.RemoteAddr())
 		conn.Close()
-		s.acceptor.AbortHandshake(attemptId)
+		s.acceptor.AbortHandshake(attemptID)
 		return
 	}
 
-	if err = s.acceptor.FinalizeHandshake(attemptId, response, conn); err != nil {
+	if err = s.acceptor.FinalizeHandshake(attemptID, response, conn); err != nil {
 		s.lggr.Errorw("unable to finalize handshake", "err", err)
 		conn.Close()
-		s.acceptor.AbortHandshake(attemptId)
+		s.acceptor.AbortHandshake(attemptID)
 		return
 	}
 }
@@ -172,7 +172,7 @@ func (s *webSocketServer) Close() error {
 }
 
 func (s *webSocketServer) runServer() (err error) {
-	s.listener, err = net.Listen("tcp", s.server.Addr)
+	s.listener, err = (&net.ListenConfig{}).Listen(context.Background(), "tcp", s.server.Addr)
 	if err != nil {
 		return
 	}

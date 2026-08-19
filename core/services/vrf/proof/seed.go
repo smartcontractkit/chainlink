@@ -39,7 +39,7 @@ type PreSeedDataV2 struct {
 	PreSeed          Seed        // Seed to be mixed with hash of containing block
 	BlockHash        common.Hash // Hash of block containing VRF request
 	BlockNum         uint64      // Cardinal number of block containing VRF request
-	SubId            uint64
+	SubID            uint64
 	CallbackGasLimit uint32
 	NumWords         uint32
 	Sender           common.Address
@@ -49,7 +49,7 @@ type PreSeedDataV2Plus struct {
 	PreSeed          Seed        // Seed to be mixed with hash of containing block
 	BlockHash        common.Hash // Hash of block containing VRF request
 	BlockNum         uint64      // Cardinal number of block containing VRF request
-	SubId            *big.Int
+	SubID            *big.Int
 	CallbackGasLimit uint32
 	NumWords         uint32
 	Sender           common.Address

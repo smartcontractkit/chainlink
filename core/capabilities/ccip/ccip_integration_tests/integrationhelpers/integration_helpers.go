@@ -157,7 +157,7 @@ func (t TestUniverse) NewContractReader(ctx context.Context, cfg []byte) (types.
 }
 
 func P2pIDsFromInts(ints []int64) [][32]byte {
-	var p2pIDs [][32]byte
+	p2pIDs := make([][32]byte, 0, len(ints))
 	for _, i := range ints {
 		p2pID := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(i)).PeerID()
 		p2pIDs = append(p2pIDs, p2pID)
@@ -267,7 +267,7 @@ func (t *TestUniverse) AddDONToRegistry(
 	tabi, err := ccip_home.CCIPHomeMetaData.GetAbi()
 	require.NoError(t.TestingT, err)
 
-	var nodes []ccip_home.CCIPHomeOCR3Node
+	nodes := make([]ccip_home.CCIPHomeOCR3Node, 0, len(p2pIDs))
 
 	for i := range p2pIDs {
 		nodes = append(nodes, ccip_home.CCIPHomeOCR3Node{

@@ -107,9 +107,9 @@ func gatewayRequest(t *testing.T, privateKey string, topics []string, methodName
 	require.NoError(t, err)
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: messageID,
+			MessageID: messageID,
 			Method:    methodName,
-			DonId:     donID,
+			DonID:     donID,
 			Payload:   json.RawMessage(payloadJSON),
 		},
 	}
@@ -201,7 +201,7 @@ func TestTriggerExecute(t *testing.T) {
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()
 
-		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+		require.NoError(t, th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest))
 
 		received, chanErr := requireChanMsg(t, channel)
 		require.Equal(t, TriggerType, received.Event.TriggerType)
@@ -225,7 +225,7 @@ func TestTriggerExecute(t *testing.T) {
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()
 
-		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+		require.NoError(t, th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest))
 
 		sent := <-channel
 		require.Equal(t, TriggerType, sent.Event.TriggerType)
@@ -254,7 +254,7 @@ func TestTriggerExecute(t *testing.T) {
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "empty Workflow Topics"}, resp)
 		}).Return(nil).Once()
 
-		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+		require.NoError(t, th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest))
 
 		requireNoChanMsg(t, channel)
 		requireNoChanMsg(t, channel2)
@@ -269,7 +269,7 @@ func TestTriggerExecute(t *testing.T) {
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "no Matching Workflow Topics"}, resp)
 		}).Return(nil).Once()
 
-		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+		require.NoError(t, th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest))
 		requireNoChanMsg(t, channel)
 		requireNoChanMsg(t, channel2)
 	})
@@ -284,7 +284,7 @@ func TestTriggerExecute(t *testing.T) {
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "unauthorized Sender 0x2dAC9f74Ee66e2D55ea1B8BE284caFedE048dB3A, messageID 12345"}, resp)
 		}).Return(nil).Once()
 
-		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+		require.NoError(t, th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest))
 		requireNoChanMsg(t, channel)
 		requireNoChanMsg(t, channel2)
 	})
@@ -298,7 +298,7 @@ func TestTriggerExecute(t *testing.T) {
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "unsupported method boo"}, resp)
 		}).Return(nil).Once()
 
-		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+		require.NoError(t, th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest))
 		requireNoChanMsg(t, channel)
 		requireNoChanMsg(t, channel2)
 	})
@@ -384,7 +384,7 @@ func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ACCEPTED"}, resp)
 		}).Return(nil).Once()
 
-		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
+		require.NoError(t, th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest))
 
 		requireNoChanMsg(t, channel)
 		received, chanErr := requireChanMsg(t, channel2)

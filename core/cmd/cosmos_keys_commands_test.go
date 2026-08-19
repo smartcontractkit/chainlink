@@ -74,7 +74,7 @@ func TestShell_CosmosKeys(t *testing.T) {
 		key, err := app.GetKeyStore().Cosmos().Create(ctx)
 		require.NoError(t, err)
 		requireCosmosKeyCount(t, app, 1)
-		assert.NoError(t, cmd.NewCosmosKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
+		require.NoError(t, cmd.NewCosmosKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
 		require.Len(t, r.Renders, 1)
 		keys := *r.Renders[0].(*cmd.CosmosKeyPresenters)
 		assert.Equal(t, key.PublicKeyStr(), keys[0].PubKey)

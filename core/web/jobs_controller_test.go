@@ -95,6 +95,7 @@ func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testin
 				TOML: sp,
 			})
 			resp, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 			b, err := io.ReadAll(resp.Body)
@@ -288,6 +289,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 			})
 			require.NoError(t, err)
 			response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+			defer response.Body.Close()
 			defer cleanup()
 			c.assertion(t, nameAndExternalJobID, response)
 		})
@@ -309,6 +311,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 		TOML: tomlStr,
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer response.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 	require.Contains(t, string(cltest.ParseResponseBody(t, response)), "job type webhook has been removed")
@@ -331,6 +334,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	})
 	require.NoError(t, err)
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	defer response.Body.Close()
 	defer cleanup()
 
 	b, err := io.ReadAll(response.Body)
@@ -348,6 +352,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 	url.RawQuery = query.Encode()
 
 	response, cleanup := client.Get(url.String())
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -366,6 +371,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	_, client, ocrJobSpecFromFile, jobID, cronJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)))
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -376,6 +382,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJob)
 
 	response, cleanup = client.Get("/v2/jobs/" + ocrJobSpecFromFile.ExternalJobID.String())
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -386,6 +393,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJob)
 
 	response, cleanup = client.Get("/v2/jobs/" + strconv.Itoa(int(jobID2)))
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -396,6 +404,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 	assert.Equal(t, cronJobSpecFromFile.ExternalJobID.String(), cronJob.ExternalJobID.String())
 
 	response, cleanup = client.Get("/v2/jobs/" + cronJobSpecFromFile.ExternalJobID.String())
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -411,6 +420,7 @@ func TestJobsController_Show_InvalidID(t *testing.T) {
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/uuidLikeString")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 }
@@ -420,6 +430,7 @@ func TestJobsController_Show_NonExistentID(t *testing.T) {
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	response, cleanup := client.Get("/v2/jobs/999999999")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
@@ -483,6 +494,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 		TOML: updatedSpec.Toml(),
 	})
 	response, cleanup := client.Put("/v2/jobs/"+strconv.Itoa(int(jb.ID)), bytes.NewReader(body))
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 
 	dbJb, err = app.JobORM().FindJob(ctx, jb.ID)
@@ -541,6 +553,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 		TOML: updatedSpec.Toml(),
 	})
 	response, cleanup := client.Put("/v2/jobs/99999", bytes.NewReader(body))
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusNotFound)
 }

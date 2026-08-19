@@ -75,7 +75,7 @@ func (t *VRFTaskV2) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid preSeed")}, runInfo
 	}
-	requestId, ok := logValues["requestId"].(*big.Int)
+	requestID, ok := logValues["requestId"].(*big.Int)
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid requestId")}, runInfo
 	}
@@ -115,7 +115,7 @@ func (t *VRFTaskV2) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		PreSeed:          preSeed,
 		BlockHash:        common.BytesToHash(requestBlockHash),
 		BlockNum:         uint64(requestBlockNumber),
-		SubId:            subID,
+		SubID:            subID,
 		CallbackGasLimit: callbackGasLimit,
 		NumWords:         numWords,
 		Sender:           sender,
@@ -138,13 +138,13 @@ func (t *VRFTaskV2) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	output := hexutil.Encode(b)
 	results["output"] = output
 	// RequestID needs to be a [32]byte for EvmTxMeta.
-	results["requestID"] = hexutil.Encode(requestId.Bytes())
+	results["requestID"] = hexutil.Encode(requestID.Bytes())
 
 	// store vrf proof and request commitment separately so they can be used in a batch fashion
 	results["proof"] = onChainProof
 	results["requestCommitment"] = rc
 
-	lggr.Debugw("Completed VRF V2 task run", "reqID", requestId.String(), "output", output)
+	lggr.Debugw("Completed VRF V2 task run", "reqID", requestID.String(), "output", output)
 
 	return Result{Value: results}, runInfo
 }

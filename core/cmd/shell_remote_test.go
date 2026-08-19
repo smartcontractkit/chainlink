@@ -161,7 +161,7 @@ func TestShell_CreateExternalInitiator(t *testing.T) {
 
 			set := flag.NewFlagSet("create", 0)
 			flagSetApplyFromAction(client.CreateExternalInitiator, set, "")
-			assert.NoError(t, set.Parse(test.args))
+			require.NoError(t, set.Parse(test.args))
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.CreateExternalInitiator(c)
@@ -203,11 +203,11 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 			set := flag.NewFlagSet("create", 0)
 			flagSetApplyFromAction(client.CreateExternalInitiator, set, "")
 
-			assert.NoError(t, set.Parse(test.args))
+			require.NoError(t, set.Parse(test.args))
 			c := cli.NewContext(nil, set, nil)
 
 			err := client.CreateExternalInitiator(c)
-			assert.Error(t, err)
+			require.Error(t, err)
 
 			exis := cltest.AllExternalInitiators(t, app.GetDB())
 			assert.Len(t, exis, initialExis)
@@ -237,7 +237,7 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 	require.NoError(t, set.Parse([]string{exi.Name}))
 
 	c := cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.DeleteExternalInitiator(c))
+	require.NoError(t, client.DeleteExternalInitiator(c))
 	assert.Empty(t, r.Renders)
 }
 
@@ -255,7 +255,7 @@ func TestShell_DestroyExternalInitiator_NotFound(t *testing.T) {
 	require.NoError(t, set.Parse([]string{"bogus-ID"}))
 
 	c := cli.NewContext(nil, set, nil)
-	assert.Error(t, client.DeleteExternalInitiator(c))
+	require.Error(t, client.DeleteExternalInitiator(c))
 	assert.Empty(t, r.Renders)
 }
 
@@ -327,15 +327,15 @@ func TestShell_RemoteBuildCompatibility(t *testing.T) {
 
 	c := cli.NewContext(nil, set, nil)
 	err := client.RemoteLogin(c)
-	assert.Error(t, err)
-	assert.EqualError(t, err, expErr)
+	require.Error(t, err)
+	require.EqualError(t, err, expErr)
 
 	// Defaults to false
 	set = flag.NewFlagSet("test", 0)
 	flagSetApplyFromAction(client.RemoteLogin, set, "")
 	c = cli.NewContext(nil, set, nil)
 	err = client.RemoteLogin(c)
-	assert.Error(t, err)
+	require.Error(t, err)
 	assert.EqualError(t, err, expErr)
 }
 
@@ -366,7 +366,7 @@ func TestShell_CheckRemoteBuildCompatibility(t *testing.T) {
 
 			err := client.CheckRemoteBuildCompatibility(logger.TestLogger(t), test.bypassVersionFlag, test.cliVersion, test.cliSha)
 			if test.wantError {
-				assert.Error(t, err)
+				require.Error(t, err)
 				assert.ErrorIs(t, err, cmd.ErrIncompatible{
 					RemoteVersion: test.remoteVersion,
 					RemoteSha:     test.remoteSha,
@@ -448,7 +448,7 @@ func TestShell_ChangePassword(t *testing.T) {
 	}
 	err = client.ChangePassword(cli.NewContext(nil, nil, nil))
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "Expected password complexity")
+	require.ErrorContains(t, err, "Expected password complexity")
 
 	client.ChangePasswordPrompter = cltest.MockChangePasswordPrompter{
 		UpdatePasswordRequest: web.UpdatePasswordRequest{
@@ -457,7 +457,7 @@ func TestShell_ChangePassword(t *testing.T) {
 		},
 	}
 	err = client.ChangePassword(cli.NewContext(nil, nil, nil))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// otherClient should now be logged out
 	err = otherClient.IndexBridges(c)
@@ -719,7 +719,7 @@ func TestShell_SetLogConfig(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 
 	err = client.SetLogSQL(c)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, sqlEnabled, app.Config.Database().LogSQL())
 
 	sqlEnabled = false
@@ -730,6 +730,6 @@ func TestShell_SetLogConfig(t *testing.T) {
 	c = cli.NewContext(nil, set, nil)
 
 	err = client.SetLogSQL(c)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, sqlEnabled, app.Config.Database().LogSQL())
 }

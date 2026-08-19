@@ -39,7 +39,7 @@ func NewLegacyEVMTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEnd
 func (t *legacyEVMTelemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
 	monitoringEndpoint := t.endpoints[head.EVMChainID.ToInt().Uint64()]
 	if monitoringEndpoint == nil {
-		return fmt.Errorf("No monitoring endpoint provided chain_id=%d", head.EVMChainID.ToInt().Int64())
+		return fmt.Errorf("no monitoring endpoint provided chain_id=%d", head.EVMChainID.ToInt().Int64())
 	}
 	var finalized *telem.Block
 	latestFinalizedHead := head.LatestFinalizedHead()

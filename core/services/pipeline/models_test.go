@@ -75,7 +75,7 @@ func TestRun_Status(t *testing.T) {
 }
 
 func TestRunErrors_ToError(t *testing.T) {
-	runErrors := pipeline.RunErrors{}
+	runErrors := make(pipeline.RunErrors, 0, 3)
 	runErrors = append(runErrors, null.NewString("bad thing happened", true))
 	runErrors = append(runErrors, null.NewString("pretty bad thing happened", true))
 	runErrors = append(runErrors, null.NewString("", false))
@@ -92,7 +92,7 @@ func TestRun_StringOutputs(t *testing.T) {
 			},
 		}
 		outputs, err := run.StringOutputs()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Empty(t, outputs)
 	})
 
@@ -124,7 +124,7 @@ func TestRun_StringOutputs(t *testing.T) {
 			}
 			t.Log(tc.val)
 			outputs, err := run.StringOutputs()
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.NotNil(t, outputs)
 			assert.Len(t, outputs, 1)
 			assert.Equal(t, tc.want, *outputs[0])

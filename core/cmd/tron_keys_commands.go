@@ -39,7 +39,7 @@ type TronKeyPresenters []TronKeyPresenter
 // RenderTable implements TableRenderer
 func (ps TronKeyPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Public key"}
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

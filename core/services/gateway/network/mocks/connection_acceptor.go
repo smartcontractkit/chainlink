@@ -21,9 +21,9 @@ func (_m *ConnectionAcceptor) EXPECT() *ConnectionAcceptor_Expecter {
 	return &ConnectionAcceptor_Expecter{mock: &_m.Mock}
 }
 
-// AbortHandshake provides a mock function with given fields: attemptId
-func (_m *ConnectionAcceptor) AbortHandshake(attemptId string) {
-	_m.Called(attemptId)
+// AbortHandshake provides a mock function with given fields: attemptID
+func (_m *ConnectionAcceptor) AbortHandshake(attemptID string) {
+	_m.Called(attemptID)
 }
 
 // ConnectionAcceptor_AbortHandshake_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AbortHandshake'
@@ -32,12 +32,12 @@ type ConnectionAcceptor_AbortHandshake_Call struct {
 }
 
 // AbortHandshake is a helper method to define mock.On call
-//   - attemptId string
-func (_e *ConnectionAcceptor_Expecter) AbortHandshake(attemptId interface{}) *ConnectionAcceptor_AbortHandshake_Call {
-	return &ConnectionAcceptor_AbortHandshake_Call{Call: _e.mock.On("AbortHandshake", attemptId)}
+//   - attemptID string
+func (_e *ConnectionAcceptor_Expecter) AbortHandshake(attemptID interface{}) *ConnectionAcceptor_AbortHandshake_Call {
+	return &ConnectionAcceptor_AbortHandshake_Call{Call: _e.mock.On("AbortHandshake", attemptID)}
 }
 
-func (_c *ConnectionAcceptor_AbortHandshake_Call) Run(run func(attemptId string)) *ConnectionAcceptor_AbortHandshake_Call {
+func (_c *ConnectionAcceptor_AbortHandshake_Call) Run(run func(attemptID string)) *ConnectionAcceptor_AbortHandshake_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string))
 	})
@@ -54,9 +54,9 @@ func (_c *ConnectionAcceptor_AbortHandshake_Call) RunAndReturn(run func(string))
 	return _c
 }
 
-// FinalizeHandshake provides a mock function with given fields: attemptId, response, conn
-func (_m *ConnectionAcceptor) FinalizeHandshake(attemptId string, response []byte, conn *websocket.Conn) error {
-	ret := _m.Called(attemptId, response, conn)
+// FinalizeHandshake provides a mock function with given fields: attemptID, response, conn
+func (_m *ConnectionAcceptor) FinalizeHandshake(attemptID string, response []byte, conn *websocket.Conn) error {
+	ret := _m.Called(attemptID, response, conn)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FinalizeHandshake")
@@ -64,7 +64,7 @@ func (_m *ConnectionAcceptor) FinalizeHandshake(attemptId string, response []byt
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(string, []byte, *websocket.Conn) error); ok {
-		r0 = rf(attemptId, response, conn)
+		r0 = rf(attemptID, response, conn)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -78,14 +78,14 @@ type ConnectionAcceptor_FinalizeHandshake_Call struct {
 }
 
 // FinalizeHandshake is a helper method to define mock.On call
-//   - attemptId string
+//   - attemptID string
 //   - response []byte
 //   - conn *websocket.Conn
-func (_e *ConnectionAcceptor_Expecter) FinalizeHandshake(attemptId interface{}, response interface{}, conn interface{}) *ConnectionAcceptor_FinalizeHandshake_Call {
-	return &ConnectionAcceptor_FinalizeHandshake_Call{Call: _e.mock.On("FinalizeHandshake", attemptId, response, conn)}
+func (_e *ConnectionAcceptor_Expecter) FinalizeHandshake(attemptID interface{}, response interface{}, conn interface{}) *ConnectionAcceptor_FinalizeHandshake_Call {
+	return &ConnectionAcceptor_FinalizeHandshake_Call{Call: _e.mock.On("FinalizeHandshake", attemptID, response, conn)}
 }
 
-func (_c *ConnectionAcceptor_FinalizeHandshake_Call) Run(run func(attemptId string, response []byte, conn *websocket.Conn)) *ConnectionAcceptor_FinalizeHandshake_Call {
+func (_c *ConnectionAcceptor_FinalizeHandshake_Call) Run(run func(attemptID string, response []byte, conn *websocket.Conn)) *ConnectionAcceptor_FinalizeHandshake_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(string), args[1].([]byte), args[2].(*websocket.Conn))
 	})
@@ -157,8 +157,8 @@ func (_c *ConnectionAcceptor_StartHandshake_Call) Run(run func(authHeader []byte
 	return _c
 }
 
-func (_c *ConnectionAcceptor_StartHandshake_Call) Return(attemptId string, challenge []byte, err error) *ConnectionAcceptor_StartHandshake_Call {
-	_c.Call.Return(attemptId, challenge, err)
+func (_c *ConnectionAcceptor_StartHandshake_Call) Return(attemptID string, challenge []byte, err error) *ConnectionAcceptor_StartHandshake_Call {
+	_c.Call.Return(attemptID, challenge, err)
 	return _c
 }
 

@@ -143,7 +143,7 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 	})
 
 	t.Run("returns nil error on valid gas lane <=> key specific gas price setting", func(tt *testing.T) {
-		var fromAddresses []string
+		fromAddresses := make([]string, 0, 3)
 		for range 3 {
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
@@ -170,7 +170,7 @@ func Test_CheckFromAddressMaxGasPrices(t *testing.T) {
 	})
 
 	t.Run("returns error on invalid setting", func(tt *testing.T) {
-		var fromAddresses []string
+		fromAddresses := make([]string, 0, 3)
 		for range 3 {
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
@@ -205,10 +205,10 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
-		var fromAddresses []string
+		fromAddresses := make([]string, 0, 3)
 		for range 3 {
 			k, err := ks.Eth().Create(t.Context(), big.NewInt(1337))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())
 		}
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
@@ -233,10 +233,10 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		ks := keystore.NewInMemory(db, commonkeystore.FastScryptParams, lggr.Infof)
 		require.NoError(t, ks.Unlock(ctx, testutils.Password))
 
-		var fromAddresses []string
+		fromAddresses := make([]string, 0, 4)
 		for range 3 {
 			k, err := ks.Eth().Create(t.Context(), big.NewInt(1337))
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())
 		}
 		fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
@@ -250,7 +250,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 				GasLanePrice:        assets.GWei(100),
 			}).
 			Toml())
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assert.Error(t, vrf.CheckFromAddressesExist(t.Context(), jb, ks.Eth()))
 	})

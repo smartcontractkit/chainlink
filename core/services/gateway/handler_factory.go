@@ -98,7 +98,7 @@ func shardedDONsToLegacy(shardedDON config.ShardedDONConfig) *config.DONConfig {
 		members = shardedDON.Shards[0].Nodes
 	}
 	return &config.DONConfig{
-		DonId:   shardedDON.DonName,
+		DonID:   shardedDON.DonName,
 		F:       shardedDON.F,
 		Members: members,
 	}

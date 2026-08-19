@@ -8,10 +8,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
+	"github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
 )
 

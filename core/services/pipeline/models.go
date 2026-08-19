@@ -240,7 +240,7 @@ func (re RunErrors) ToError() error {
 		}
 		return nil
 	}
-	errs := []error{}
+	errs := make([]error, 0, len(re))
 	for _, e := range re {
 		errs = append(errs, toErr(e))
 	}

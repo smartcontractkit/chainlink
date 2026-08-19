@@ -409,7 +409,7 @@ func toCapabilityType(capabilityType uint8) capabilities.CapabilityType {
 }
 
 func toDONInfo(don capabilities_registry_v2.CapabilitiesRegistryDONInfo) *capabilities.DON {
-	peerIDs := []p2ptypes.PeerID{}
+	peerIDs := make([]p2ptypes.PeerID, 0, len(don.NodeP2PIds))
 	for _, p := range don.NodeP2PIds {
 		peerIDs = append(peerIDs, p)
 	}

@@ -18,11 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
 
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/jobs"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
@@ -33,7 +28,12 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_v2plus_sub_owner"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/jobs"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
 
@@ -308,7 +308,7 @@ func SmokeTestVRF(e helpers.Environment) {
 		PreSeed:          preSeed,
 		BlockHash:        rwrLog.Raw.BlockHash,
 		BlockNum:         rwrLog.Raw.BlockNumber,
-		SubId:            rwrLog.SubId,
+		SubID:            rwrLog.SubId,
 		CallbackGasLimit: rwrLog.CallbackGasLimit,
 		NumWords:         rwrLog.NumWords,
 		Sender:           rwrLog.Sender,

@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -261,7 +260,7 @@ func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyn
 	remoteWorkflowDONs := []registrysyncer.DON{}
 	myDONs := map[uint32]bool{}
 	myDONFamiliesSet := map[string]bool{}
-	myDONFamilies := []string{}
+	myDONFamilies := make([]string, 0, len(myDONFamiliesSet))
 	for _, id := range allDONIDs {
 		d := localRegistry.IDsToDONs[id]
 		for _, peerID := range d.Members {
@@ -442,60 +441,6 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 	}
 }
 
-type capabilityService interface {
-	capabilities.BaseCapability
-	remotetypes.Receiver
-	services.Service
-}
-
-func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
-	capabilityID := capability.ID
-	info, err := capabilities.NewRemoteCapabilityInfo(
-		capabilityID,
-		capability.CapabilityType,
-		"Remote Capability for "+capabilityID,
-		&don.DON,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create remote capability info: %w", err)
-	}
-	w.lggr.Debugw("Adding remote capability to registry", "id", info.ID, "don", info.DON)
-	cp, err := newCapFn(info)
-	if err != nil {
-		return fmt.Errorf("failed to instantiate capability %q: %w", capabilityID, err)
-	}
-
-	err = w.registry.Add(ctx, cp)
-	if err != nil {
-		// If the capability already exists, then it's either local
-		// or we've handled this in a previous syncer iteration,
-		// let's skip and move on to other capabilities.
-		if errors.Is(err, registry.ErrCapabilityAlreadyExists) {
-			return nil
-		}
-
-		return fmt.Errorf("failed to add capability to registry: %w", err)
-	}
-
-	err = w.dispatcher.SetReceiver(
-		capabilityID,
-		don.ID,
-		cp,
-	)
-	if err != nil {
-		return err
-	}
-	w.lggr.Debugw("Setting receiver for capability", "id", capabilityID, "donID", don.ID)
-	err = cp.Start(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to start capability: %w", err)
-	}
-	w.muSubServices.Lock()
-	defer w.muSubServices.Unlock()
-	w.subServices = append(w.subServices, cp)
-	return nil
-}
-
 // serveCapabilities exposes capabilities that are available on this node, as part of the given DON.
 // It is best effort, ensuring that valid capabilities are exposed even if some fail
 func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry, remoteWorkflowDONs []registrysyncer.DON) {
@@ -531,49 +476,6 @@ func (w *launcher) serveCapabilities(ctx context.Context, myPeerID p2ptypes.Peer
 		}
 		w.metrics.recordLocalCapabilityExposed(ctx, cid, resultSuccess)
 	}
-}
-
-func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error)) error {
-	capID := capability.ID
-	info, err := capabilities.NewRemoteCapabilityInfo(
-		capID,
-		capability.CapabilityType,
-		"Remote Capability for "+capability.ID,
-		&don.DON,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to instantiate remote capability for receiver: %w", err)
-	}
-	underlying, err := w.registry.Get(ctx, capability.ID)
-	if err != nil {
-		return fmt.Errorf("failed to get capability from registry: %w", err)
-	}
-
-	receiver, err := newReceiverFn(underlying, info)
-	if err != nil {
-		return fmt.Errorf("failed to instantiate receiver: %w", err)
-	}
-
-	w.lggr.Debugw("Enabling external access for capability", "id", capID, "donID", don.ID)
-	err = w.dispatcher.SetReceiver(capID, don.ID, receiver)
-	if errors.Is(err, remote.ErrReceiverExists) {
-		// If a receiver already exists, let's log the error for debug purposes, but
-		// otherwise short-circuit here. We've handled this capability in a previous iteration.
-		w.lggr.Debugw("receiver already exists for capability", "capabilityID", capID, "donID", don.ID, "error", err)
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("failed to set receiver: %w", err)
-	}
-
-	err = receiver.Start(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to start receiver: %w", err)
-	}
-
-	w.muSubServices.Lock()
-	defer w.muSubServices.Unlock()
-	w.subServices = append(w.subServices, receiver)
-	return nil
 }
 
 func signersFor(don registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) ([][]byte, error) {

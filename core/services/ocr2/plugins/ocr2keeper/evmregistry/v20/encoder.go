@@ -113,12 +113,12 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 
 	var (
 		ok        bool
-		upkeepIds []*big.Int
+		upkeepIDs []*big.Int
 		wei       *big.Int
 		link      *big.Int
 	)
 
-	if upkeepIds, ok = m[mKeys[2]].([]*big.Int); !ok {
+	if upkeepIDs, ok = m[mKeys[2]].([]*big.Int); !ok {
 		return res, errors.New("upkeep ids of incorrect type in report")
 	}
 
@@ -138,7 +138,7 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 		return res, errors.New("performs of incorrect structure in report")
 	}
 
-	if len(upkeepIds) != len(performs) {
+	if len(upkeepIDs) != len(performs) {
 		return res, errors.New("upkeep ids and performs should have matching length")
 	}
 
@@ -150,12 +150,12 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 		return res, errors.New("link native as wrong type")
 	}
 
-	res = make([]ocr2keepers.UpkeepResult, len(upkeepIds))
+	res = make([]ocr2keepers.UpkeepResult, len(upkeepIDs))
 
-	for i := range len(upkeepIds) {
+	for i := range upkeepIDs {
 		r := EVMAutomationUpkeepResult20{
 			Block:            performs[i].CheckBlockNumber,
-			ID:               upkeepIds[i],
+			ID:               upkeepIDs[i],
 			Eligible:         true,
 			PerformData:      performs[i].PerformData,
 			FastGasWei:       wei,

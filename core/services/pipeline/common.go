@@ -358,7 +358,7 @@ var (
 	nullUint32Type = reflect.TypeFor[cnull.Uint32]()
 )
 
-func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) (_ Task, err error) {
+func UnmarshalTaskFromMap(taskType TaskType, taskMap any, id int, dotID string) (_ Task, err error) {
 	defer cutils.WrapIfError(&err, "UnmarshalTaskFromMap")
 
 	switch taskMap.(type) {
@@ -372,81 +372,81 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) 
 	var task Task
 	switch taskType {
 	case TaskTypePanic:
-		task = &PanicTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &PanicTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeHTTP:
-		task = &HTTPTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &HTTPTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeBridge:
-		task = &BridgeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &BridgeTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeMax:
-		task = &MaxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &MaxTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeMean:
-		task = &MeanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &MeanTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeMedian:
-		task = &MedianTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &MedianTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeMin:
-		task = &MinTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &MinTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeMode:
-		task = &ModeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &ModeTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeSum:
-		task = &SumTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &SumTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeAny:
-		task = &AnyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &AnyTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeJSONParse:
-		task = &JSONParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &JSONParseTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeMemo:
-		task = &MemoTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &MemoTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeMultiply:
-		task = &MultiplyTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &MultiplyTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeDivide:
-		task = &DivideTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &DivideTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeVRF:
 		return nil, pkgerrors.Errorf("pipeline task type %q (VRF v1) has been removed and is no longer supported; migrate the observationSource to vrfv2 or vrfv2plus", taskType)
 	case TaskTypeVRFV2:
-		task = &VRFTaskV2{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &VRFTaskV2{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeVRFV2Plus:
-		task = &VRFTaskV2Plus{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &VRFTaskV2Plus{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeEstimateGasLimit:
-		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeETHCall:
-		task = &ETHCallTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &ETHCallTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeETHTx:
-		task = &ETHTxTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &ETHTxTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeETHABIEncode:
-		task = &ETHABIEncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &ETHABIEncodeTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeETHABIEncode2:
-		task = &ETHABIEncodeTask2{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &ETHABIEncodeTask2{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeETHABIDecode:
-		task = &ETHABIDecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &ETHABIDecodeTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeETHABIDecodeLog:
-		task = &ETHABIDecodeLogTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &ETHABIDecodeLogTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeCBORParse:
-		task = &CBORParseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &CBORParseTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeFail:
-		task = &FailTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &FailTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeMerge:
-		task = &MergeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &MergeTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeLength:
-		task = &LengthTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &LengthTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeLessThan:
-		task = &LessThanTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &LessThanTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeLookup:
-		task = &LookupTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &LookupTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeLowercase:
-		task = &LowercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &LowercaseTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeUppercase:
-		task = &UppercaseTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &UppercaseTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeConditional:
-		task = &ConditionalTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &ConditionalTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeHexDecode:
-		task = &HexDecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &HexDecodeTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeHexEncode:
-		task = &HexEncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &HexEncodeTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeBase64Decode:
-		task = &Base64DecodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &Base64DecodeTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeBase64Encode:
-		task = &Base64EncodeTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &Base64EncodeTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	case TaskTypeCoalesce:
-		task = &CoalesceTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
+		task = &CoalesceTask{BaseTask: BaseTask{id: id, dotID: dotID}}
 	default:
 		return nil, pkgerrors.Errorf(`unknown task type: "%v"`, taskType)
 	}
@@ -462,8 +462,7 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap any, ID int, dotID string) 
 				if from != stringType {
 					return data, nil
 				}
-				switch to {
-				case nullUint32Type:
+				if to == nullUint32Type {
 					i, err2 := strconv.ParseUint(data.(string), 10, 32)
 					return cnull.Uint32From(uint32(i)), err2
 				}

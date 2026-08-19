@@ -80,7 +80,7 @@ LIMIT 1`, d.oracleSpecID)
 }
 
 func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
-	var signers [][]byte
+	signers := make([][]byte, 0, len(c.Signers))
 	for _, s := range c.Signers {
 		signers = append(signers, []byte(s))
 	}

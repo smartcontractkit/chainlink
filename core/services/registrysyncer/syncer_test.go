@@ -182,7 +182,7 @@ func (o *orm) LatestLocalRegistry(ctx context.Context) (*registrysyncer.LocalReg
 }
 
 func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
-	var pids []p2ptypes.PeerID
+	pids := make([]p2ptypes.PeerID, 0, len(ids))
 	for _, id := range ids {
 		pids = append(pids, id)
 	}

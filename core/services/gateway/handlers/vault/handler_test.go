@@ -51,7 +51,7 @@ func setupHandlerWithLimitsFactory(t *testing.T, limitsFactory limits.Factory) (
 	lggr := logger.Test(t)
 	don := mocks.NewDON(t)
 	donConfig := &config.DONConfig{
-		DonId:   "test_don_id",
+		DonID:   "test_don_id",
 		Members: []config.NodeConfig{NodeOne},
 	}
 	handlerConfig := Config{
@@ -254,7 +254,7 @@ func TestVaultHandler_HandleJSONRPCUserMessage(t *testing.T) {
 		lggr := logger.Test(t)
 		don := mocks.NewDON(t)
 		donConfig := &config.DONConfig{
-			DonId:   "test_don_id",
+			DonID:   "test_don_id",
 			Members: []config.NodeConfig{NodeOne},
 		}
 		handlerConfig := Config{
@@ -983,7 +983,7 @@ func TestVaultHandler_HandleNodeMessage_SignatureValidatedResponse_RejectsUnknow
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
 		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
+		vaultHandlerDonID:           h.(*handler).donConfig.DonID,
 		signedResponseRequestIDGate: limits.NewGateLimiter(true),
 	}
 
@@ -1059,7 +1059,7 @@ func TestVaultHandler_PublicKeyGet(t *testing.T) {
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
 	h.(*handler).aggregator = &baseAggregator{
 		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:           h.(*handler).donConfig.DonId,
+		vaultHandlerDonID:           h.(*handler).donConfig.DonID,
 		signedResponseRequestIDGate: limits.NewGateLimiter(true),
 	}
 
@@ -1130,7 +1130,7 @@ func TestVaultHandler_PreAuthValidationSkipsAuthorization(t *testing.T) {
 	lggr := logger.Test(t)
 	don := mocks.NewDON(t)
 	donConfig := &config.DONConfig{
-		DonId:   "test_don_id",
+		DonID:   "test_don_id",
 		Members: []config.NodeConfig{NodeOne},
 	}
 	handlerConfig := Config{

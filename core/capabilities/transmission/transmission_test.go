@@ -91,13 +91,13 @@ func Test_GetPeerIDToTransmissionDelay(t *testing.T) {
 				},
 			}
 
-			peerIdToDelay, err := GetPeerIDToTransmissionDelay(ids, capabilityRequest)
+			peerIDToDelay, err := GetPeerIDToTransmissionDelay(ids, capabilityRequest)
 			require.NoError(t, err)
 
-			assert.Equal(t, tc.expectedDelays["one"], peerIdToDelay[peer1])
-			assert.Equal(t, tc.expectedDelays["two"], peerIdToDelay[peer2])
-			assert.Equal(t, tc.expectedDelays["three"], peerIdToDelay[peer3])
-			assert.Equal(t, tc.expectedDelays["four"], peerIdToDelay[peer4])
+			assert.Equal(t, tc.expectedDelays["one"], peerIDToDelay[peer1])
+			assert.Equal(t, tc.expectedDelays["two"], peerIDToDelay[peer2])
+			assert.Equal(t, tc.expectedDelays["three"], peerIDToDelay[peer3])
+			assert.Equal(t, tc.expectedDelays["four"], peerIDToDelay[peer4])
 		})
 	}
 }

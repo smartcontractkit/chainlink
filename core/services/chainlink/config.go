@@ -254,7 +254,7 @@ func (c *RawConfig) SetFrom(config RawConfig) error {
 
 func (c RawConfig) NodeNames() []string {
 	nodes, _ := c["Nodes"].([]any)
-	nodeNames := []string{}
+	nodeNames := make([]string, 0, len(nodes))
 	for _, node := range nodes {
 		config, _ := node.(map[string]any)
 		nodeName, _ := config["Name"].(string)
@@ -510,9 +510,9 @@ func (s *Secrets) setEnv() error {
 			return err
 		}
 	}
-	if dbBackupUrl := env.DatabaseBackupURL.Get(); dbBackupUrl != "" {
+	if dbBackupURL := env.DatabaseBackupURL.Get(); dbBackupURL != "" {
 		s.Database.BackupURL = new(models.SecretURL)
-		if err := s.Database.BackupURL.UnmarshalText([]byte(dbBackupUrl)); err != nil {
+		if err := s.Database.BackupURL.UnmarshalText([]byte(dbBackupURL)); err != nil {
 			return err
 		}
 	}

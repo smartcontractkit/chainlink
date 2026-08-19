@@ -129,7 +129,7 @@ func TestNewManager(t *testing.T) {
 		},
 	}
 
-	var mockEndpoints []config.TelemetryIngressEndpoint
+	mockEndpoints := make([]config.TelemetryIngressEndpoint, 0, len(endpoints))
 
 	for _, e := range endpoints {
 		te := mocks.NewTelemetryIngressEndpoint(t)

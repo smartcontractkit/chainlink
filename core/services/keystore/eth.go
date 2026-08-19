@@ -409,13 +409,14 @@ func (ks *eth) GetRoundRobinAddress(ctx context.Context, chainID *big.Int, white
 
 	if len(keys) == 0 {
 		var err error
-		if chainID == nil && len(whitelist) == 0 {
+		switch {
+		case chainID == nil && len(whitelist) == 0:
 			err = errors.New("no sending keys available")
-		} else if chainID == nil {
+		case chainID == nil:
 			err = errors.Errorf("no sending keys available that match whitelist: %v", whitelist)
-		} else if len(whitelist) == 0 {
+		case len(whitelist) == 0:
 			err = errors.Errorf("no sending keys available for chain %s", chainID.String())
-		} else {
+		default:
 			err = errors.Errorf("no sending keys available for chain %s that match whitelist: %v", chainID, whitelist)
 		}
 		return common.Address{}, err

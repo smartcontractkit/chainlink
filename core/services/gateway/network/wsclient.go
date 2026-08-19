@@ -55,6 +55,7 @@ func (c *webSocketClient) Connect(ctx context.Context, url *url.URL) (*websocket
 		c.tryCloseConn(conn)
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	challengeStr := resp.Header.Get(WsServerHandshakeChallengeHeaderName)
 	if challengeStr == "" {

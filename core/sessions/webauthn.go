@@ -192,7 +192,7 @@ func (u WebAuthnUser) WebAuthnCredentials() []webauthn.Credential {
 // with all the user's credentials to prevent them from re-registering
 // keys
 func (u WebAuthnUser) CredentialExcludeList() []protocol.CredentialDescriptor {
-	credentialExcludeList := []protocol.CredentialDescriptor{}
+	credentialExcludeList := make([]protocol.CredentialDescriptor, 0, len(u.WACredentials))
 
 	for _, cred := range u.WACredentials {
 		descriptor := protocol.CredentialDescriptor{

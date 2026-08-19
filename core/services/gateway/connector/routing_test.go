@@ -60,7 +60,7 @@ func TestGatewayConnector_GatewayIDsForDon(t *testing.T) {
 
 			connector, _, _ := newTestConnector(t, &ConnectorConfig{
 				NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
-				DonId:       "example_don",
+				DonID:       "example_don",
 				Gateways:    tt.gateways,
 			})
 
@@ -84,7 +84,7 @@ func TestGatewayConnector_DonIDForGateway(t *testing.T) {
 
 		connector, _, _ := newTestConnector(t, &ConnectorConfig{
 			NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
-			DonId:       "example_don",
+			DonID:       "example_don",
 			Gateways: []ConnectorGatewayConfig{
 				{ID: "gateway_legacy", URL: "ws://localhost:8081/legacy"},
 			},
@@ -100,7 +100,7 @@ func TestGatewayConnector_DonIDForGateway(t *testing.T) {
 
 		connector, _, _ := newTestConnector(t, &ConnectorConfig{
 			NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
-			DonId:       "example_don",
+			DonID:       "example_don",
 			Gateways: []ConnectorGatewayConfig{
 				{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 			},
@@ -127,7 +127,7 @@ func TestGatewayConnector_PrimaryDonIDNotImplemented(t *testing.T) {
 
 	connector, _, _ := newTestConnector(t, &ConnectorConfig{
 		NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
-		DonId:       "example_don",
+		DonID:       "example_don",
 		Gateways: []ConnectorGatewayConfig{
 			{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 		},
@@ -143,7 +143,7 @@ func TestGatewayConnector_DonIDReturnsSourceDON(t *testing.T) {
 
 	connector, _, _ := newTestConnector(t, &ConnectorConfig{
 		NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
-		DonId:       "workflow_don",
+		DonID:       "workflow_don",
 		Gateways: []ConnectorGatewayConfig{
 			{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 		},

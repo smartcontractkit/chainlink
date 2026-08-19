@@ -76,7 +76,7 @@ func TestShell_ListOCRKeyBundles(t *testing.T) {
 
 	requireOCRKeyCount(t, app, 1)
 
-	assert.NoError(t, client.ListOCRKeyBundles(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListOCRKeyBundles(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 1)
 	output := *r.Renders[0].(*cmd.OCRKeyBundlePresenters)
 	require.Equal(t, key.ID(), output[0].ID)

@@ -134,8 +134,8 @@ func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Req
 	require.NoError(t, err)
 	m := &api.Message{
 		Body: api.MessageBody{
-			DonId:     "donID",
-			MessageId: msgID,
+			DonID:     "donID",
+			MessageID: msgID,
 			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},
@@ -218,7 +218,7 @@ func TestCapability_Execute(t *testing.T) {
 		th.connector.EXPECT().AwaitConnection(mock.Anything, "gateway1").Return(nil)
 		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil)
 		th.connector.On("SendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+			require.NoError(t, th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp))
 		}).Once()
 
 		resp, err := th.capability.Execute(ctx, req)
@@ -384,7 +384,7 @@ func TestCapability_Execute(t *testing.T) {
 		gatewayResp := gatewayResponse(t, msgID, privateKey)
 		th.connector.EXPECT().SignMessage(mock.Anything, mock.Anything).Return([]byte("signature"), nil)
 		th.connector.On("SendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-			th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+			require.NoError(t, th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp))
 		}).Once()
 
 		resp, err := th.capability.Execute(ctx, req)

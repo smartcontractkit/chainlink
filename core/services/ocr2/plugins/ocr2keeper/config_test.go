@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUnmarshalDuration(t *testing.T) {
@@ -14,7 +15,7 @@ func TestUnmarshalDuration(t *testing.T) {
 	var value Duration
 	err := json.Unmarshal([]byte(raw), &value)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 2*time.Second, value.Value())
 }
 
@@ -24,7 +25,7 @@ func TestUnmarshalConfig(t *testing.T) {
 	var config PluginConfig
 	err := json.Unmarshal([]byte(raw), &config)
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, 2*time.Second, config.CacheExpiration.Value())
 	assert.Equal(t, 42, config.MaxServiceWorkers)
 }

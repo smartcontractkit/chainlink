@@ -22,6 +22,7 @@ func TestSuiKeysController_Index_HappyPath(t *testing.T) {
 	keys, _ := keyStore.Sui().GetAll()
 
 	response, cleanup := client.Get("/v2/keys/sui")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -44,6 +45,7 @@ func TestSuiKeysController_Create_HappyPath(t *testing.T) {
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/sui", nil)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -68,6 +70,7 @@ func TestSuiKeysController_Delete_NonExistentSuiKeyID(t *testing.T) {
 
 	nonExistentSuiKeyID := "foobar"
 	response, cleanup := client.Delete("/v2/keys/sui/" + nonExistentSuiKeyID)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
@@ -83,6 +86,7 @@ func TestSuiKeysController_Delete_HappyPath(t *testing.T) {
 	key, _ := keyStore.Sui().Create(ctx)
 
 	response, cleanup := client.Delete("/v2/keys/sui/" + key.ID())
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	require.Error(t, utils.JustError(keyStore.Sui().Get(key.ID())))

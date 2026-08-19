@@ -839,8 +839,8 @@ func (o *orm) TryRecordError(ctx context.Context, jobID int32, description strin
 	o.lggr.ErrorIf(err, fmt.Sprintf("Error creating SpecError %v", description))
 }
 
-func (o *orm) DismissError(ctx context.Context, ID int64) error {
-	res, err := o.ds.ExecContext(ctx, "DELETE FROM job_spec_errors WHERE id = $1", ID)
+func (o *orm) DismissError(ctx context.Context, id int64) error {
+	res, err := o.ds.ExecContext(ctx, "DELETE FROM job_spec_errors WHERE id = $1", id)
 	if err != nil {
 		return errors.Wrap(err, "failed to dismiss error")
 	}
@@ -1114,7 +1114,7 @@ func (o *orm) FindJobIDsWithBridge(ctx context.Context, name string) (jids []int
 		if err = rows.Scan(&id, &source); err != nil {
 			return
 		}
-		ids = append(jids, id)
+		ids = append(ids, id)
 		sources = append(sources, source)
 	}
 	if err = rows.Err(); err != nil {

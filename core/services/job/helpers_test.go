@@ -195,7 +195,7 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.Equal(t, expected.OCROracleSpec.ContractConfigConfirmations, actual.OCROracleSpec.ContractConfigConfirmations)
 }
 
-func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
+func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchURL, timeout string) *job.Job {
 	var ocrSpec = job.OCROracleSpec{
 		P2PV2Bootstrappers:                     pq.StringArray{},
 		ObservationTimeout:                     sqlutil.Interval(10 * time.Second),
@@ -211,7 +211,7 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 		SchemaVersion: 1,
 		ExternalJobID: uuid.New(),
 	}
-	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, testutils.FixtureChainID.String(), fetchUrl, timeout)
+	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, testutils.FixtureChainID.String(), fetchURL, timeout)
 	keyStore := cltest.NewKeyStore(t, db)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		ChainConfigs:   cfg.EVMConfigs(),

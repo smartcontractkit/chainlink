@@ -36,6 +36,7 @@ func TestDKGRecipientKeysController_Index_HappyPath(t *testing.T) {
 	require.Len(t, keys, 1)
 
 	response, cleanup := client.Get("/v2/keys/dkgrecipient")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 

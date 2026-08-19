@@ -33,7 +33,7 @@ func Test_checkVersion(t *testing.T) {
 		m := &mockGetter{version: 100000}
 		err := checkVersion(m, 110000)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "The minimum required Postgres server version is 11, you are running: 10")
+		assert.Contains(t, err.Error(), "the minimum required Postgres server version is 11, you are running: 10")
 	})
 	t.Run("when the version is at minimum", func(t *testing.T) {
 		m := &mockGetter{version: 110000}

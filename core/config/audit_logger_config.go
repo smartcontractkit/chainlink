@@ -8,8 +8,8 @@ import (
 
 type AuditLogger interface {
 	Enabled() bool
-	ForwardToUrl() (commonconfig.URL, error)
+	ForwardToURL() (commonconfig.URL, error)
 	Environment() string
-	JsonWrapperKey() string
+	JSONWrapperKey() string
 	Headers() (models.ServiceHeaders, error)
 }

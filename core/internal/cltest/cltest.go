@@ -233,8 +233,7 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 
 	chainID := *sqlutil.New(&FixtureChainID)
 	for _, dep := range flagsAndDeps {
-		switch v := dep.(type) {
-		case *sqlutil.Big:
+		if v, ok := dep.(*sqlutil.Big); ok {
 			chainID = *v
 		}
 	}
@@ -1081,13 +1080,13 @@ func AssertPipelineRunsStays(t testing.TB, pipelineSpecID int32, db sqlutil.Data
 func AssertEthTxAttemptCountStays(t testing.TB, txStore txmgr.TestEvmTxStore, want int) []int64 {
 	g := gomega.NewWithT(t)
 
-	var txaIds []int64
+	var txaIDs []int64
 	g.Consistently(func() []txmgr.TxAttempt {
 		attempts, err := txStore.GetAllTxAttempts(t.Context())
 		assert.NoError(t, err)
 		return attempts
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
-	return txaIds
+	return txaIDs
 }
 
 // Head return a new head with the given number.

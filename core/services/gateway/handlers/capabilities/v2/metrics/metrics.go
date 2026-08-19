@@ -500,7 +500,7 @@ func (m *Metrics) IncrementTriggerRequestCount(ctx context.Context, lggr logger.
 
 func (m *Metrics) IncrementRequestErrors(ctx context.Context, errorCode int64, lggr logger.Logger) {
 	errCode := api.FromJSONRPCErrorCode(errorCode)
-	httpErrorCode := api.ToHttpErrorCode(errCode)
+	httpErrorCode := api.ToHTTPErrorCode(errCode)
 	m.trigger.requestErrors.Add(ctx, 1, metric.WithAttributes(
 		attribute.Int64(AttrErrorCode, errorCode),
 		attribute.String(AttrErrorString, errCode.String()),

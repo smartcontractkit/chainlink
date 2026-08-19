@@ -171,7 +171,7 @@ type AdminUsersPresenters []AdminUsersPresenter
 
 // RenderTable implements TableRenderer
 func (ps AdminUsersPresenters) RenderTable(rt RendererTable) error {
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

@@ -35,9 +35,9 @@ const (
 	// DefaultCooldownExpiration decides how long a Mercury upkeep will be put in cool down for the first time. within
 	// 10 minutes, subsequent failures will result in double amount of cool down period.
 	DefaultCooldownExpiration = 5 * time.Second
-	// DefaultApiErrExpiration decides a running sum of total errors of an upkeep in this 10 minutes window. it is used
+	// DefaultAPIErrExpiration decides a running sum of total errors of an upkeep in this 10 minutes window. it is used
 	// to decide how long the cool down period will be.
-	DefaultApiErrExpiration = 10 * time.Minute
+	DefaultAPIErrExpiration = 10 * time.Minute
 	// CleanupInterval decides when the expired items in cache will be deleted.
 	CleanupInterval = 15 * time.Minute
 )
@@ -574,7 +574,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 	)
 
 	for i, key := range keys {
-		block, upkeepId, err := splitKey(key)
+		block, upkeepID, err := splitKey(key)
 		if err != nil {
 			return nil, err
 		}
@@ -584,7 +584,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			return nil, err
 		}
 
-		payload, err := r.abi.Pack("checkUpkeep", upkeepId)
+		payload, err := r.abi.Pack("checkUpkeep", upkeepID)
 		if err != nil {
 			return nil, err
 		}

@@ -480,10 +480,10 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	var profiler *pyroscope.Profiler
 	if cfg.Pyroscope().ServerAddress() != "" {
 		globalLogger.Debug("Pyroscope (automatic pprof profiling) is enabled")
-		var err error
-		profiler, err = logger.StartPyroscope(cfg.Pyroscope(), cfg.AutoPprof())
-		if err != nil {
-			return nil, errors.Wrap(err, "starting pyroscope (automatic pprof profiling) failed")
+		var err2 error
+		profiler, err2 = logger.StartPyroscope(cfg.Pyroscope(), cfg.AutoPprof())
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "starting pyroscope (automatic pprof profiling) failed")
 		}
 
 		if cfg.Pyroscope().LinkTracesToProfiles() && cfg.Tracing().Enabled() {
@@ -516,9 +516,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
 		globalLogger.Infow("DatabaseBackup: periodic database backups are enabled", "frequency", backupCfg.Frequency())
 
-		databaseBackup, err := periodicbackup.NewDatabaseBackup(cfg.Database().URL(), cfg.RootDir(), backupCfg, globalLogger)
-		if err != nil {
-			return nil, errors.Wrap(err, "NewApplication: failed to initialize database backup")
+		databaseBackup, err2 := periodicbackup.NewDatabaseBackup(cfg.Database().URL(), cfg.RootDir(), backupCfg, globalLogger)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "NewApplication: failed to initialize database backup")
 		}
 		srvcs = append(srvcs, databaseBackup)
 	} else {
@@ -559,23 +559,23 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	switch sessions.AuthenticationProviderName(authMethod) {
 	case sessions.LDAPAuth:
-		var err error
-		authenticationProvider, err = ldapauth.NewLDAPAuthenticator(
+		var err2 error
+		authenticationProvider, err2 = ldapauth.NewLDAPAuthenticator(
 			opts.DS, cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
 		)
-		if err != nil {
-			return nil, errors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "NewApplication: failed to initialize LDAP Authentication module")
 		}
 		syncer := ldapauth.NewLDAPServerStateSyncer(opts.DS, cfg.WebServer().LDAP(), globalLogger)
 		srvcs = append(srvcs, syncer)
 		sessionReaper = utils.NewSleeperTaskCtx(syncer)
 	case sessions.OIDCAuth:
-		var err error
-		authenticationProvider, err = oidcauth.NewOIDCAuthenticator(
+		var err2 error
+		authenticationProvider, err2 = oidcauth.NewOIDCAuthenticator(
 			opts.DS, cfg.WebServer().OIDC(), globalLogger, auditLogger,
 		)
-		if err != nil {
-			return nil, errors.Wrap(err, "NewApplication: failed to initialize OIDC Authentication module")
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "NewApplication: failed to initialize OIDC Authentication module")
 		}
 		sessionReaper = oidcauth.NewSessionReaper(opts.DS, cfg.WebServer(), globalLogger)
 	case sessions.LocalAuth:

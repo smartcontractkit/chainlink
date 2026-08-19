@@ -15,19 +15,19 @@ func TestJsonRPCRequest_Decode_Correct(t *testing.T) {
 	t.Parallel()
 
 	input := []byte(`{"jsonrpc": "2.0", "id": "aa-bb", "method": "upload", "params": {"body":{"don_id": "functions_local", "payload": {"field": 123}}}}`)
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	jsonRequest, err := jsonrpc.DecodeRequest[json.RawMessage](input, "")
 	require.NoError(t, err)
 	msg, err := codec.DecodeJSONRequest(jsonRequest)
 	require.NoError(t, err)
 	msg2, err := codec.DecodeRawRequest(input, "")
 	require.NoError(t, err)
-	require.Equal(t, "functions_local", msg.Body.DonId)
-	require.Equal(t, "aa-bb", msg.Body.MessageId)
+	require.Equal(t, "functions_local", msg.Body.DonID)
+	require.Equal(t, "aa-bb", msg.Body.MessageID)
 	require.Equal(t, "upload", msg.Body.Method)
 	require.NotEmpty(t, msg.Body.Payload)
-	require.Equal(t, msg.Body.DonId, msg2.Body.DonId)
-	require.Equal(t, msg.Body.MessageId, msg2.Body.MessageId)
+	require.Equal(t, msg.Body.DonID, msg2.Body.DonID)
+	require.Equal(t, msg.Body.MessageID, msg2.Body.MessageID)
 	require.Equal(t, msg.Body.Method, msg2.Body.Method)
 	require.Equal(t, msg.Body.Payload, msg2.Body.Payload)
 }
@@ -42,7 +42,7 @@ func TestJsonRPCRequest_Decode_Incorrect(t *testing.T) {
 		"incorrect rpc version": `{"jsonrpc": "5.1", "id": "abc", "method": "upload", "params": {}}`,
 	}
 
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	for _, input := range testCases {
 		_, err := codec.DecodeRawRequest([]byte(input), "")
 		require.Error(t, err)
@@ -54,17 +54,17 @@ func TestJsonRPCRequest_Encode(t *testing.T) {
 
 	var msg api.Message
 	msg.Body = api.MessageBody{
-		MessageId: "aA-bB",
+		MessageID: "aA-bB",
 		Receiver:  "0x1234",
 		Method:    "upload",
 	}
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	bytes, err := codec.EncodeLegacyRequest(&msg)
 	require.NoError(t, err)
 
 	decoded, err := codec.DecodeRawRequest(bytes, "")
 	require.NoError(t, err)
-	require.Equal(t, "aA-bB", decoded.Body.MessageId)
+	require.Equal(t, "aA-bB", decoded.Body.MessageID)
 	require.Equal(t, "0x1234", decoded.Body.Receiver)
 	require.Equal(t, "upload", decoded.Body.Method)
 }
@@ -73,11 +73,11 @@ func TestJsonRPCResponse_Decode(t *testing.T) {
 	t.Parallel()
 
 	input := []byte(`{"jsonrpc": "2.0", "id": "aa-bb", "result": {"body": {"don_id": "functions_local", "payload": {"field": 123}}}}`)
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	msg, err := codec.DecodeLegacyResponse(input)
 	require.NoError(t, err)
-	require.Equal(t, "functions_local", msg.Body.DonId)
-	require.Equal(t, "aa-bb", msg.Body.MessageId)
+	require.Equal(t, "functions_local", msg.Body.DonID)
+	require.Equal(t, "aa-bb", msg.Body.MessageID)
 	require.NotEmpty(t, msg.Body.Payload)
 }
 
@@ -86,16 +86,16 @@ func TestJsonRPCResponse_Encode(t *testing.T) {
 
 	var msg api.Message
 	msg.Body = api.MessageBody{
-		MessageId: "aA-bB",
+		MessageID: "aA-bB",
 		Receiver:  "0x1234",
 		Method:    "upload",
 	}
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	bytes := codec.EncodeLegacyResponse(&msg)
 
 	decoded, err := codec.DecodeLegacyResponse(bytes)
 	require.NoError(t, err)
-	require.Equal(t, "aA-bB", decoded.Body.MessageId)
+	require.Equal(t, "aA-bB", decoded.Body.MessageID)
 	require.Equal(t, "0x1234", decoded.Body.Receiver)
 	require.Equal(t, "upload", decoded.Body.Method)
 }

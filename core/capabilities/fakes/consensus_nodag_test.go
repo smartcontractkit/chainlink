@@ -25,7 +25,7 @@ const (
 
 func Test_Simple_EVMEncoder(t *testing.T) {
 	nSigners := 4
-	signers := []ocr2key.KeyBundle{}
+	signers := make([]ocr2key.KeyBundle, 0, nSigners)
 	for range nSigners {
 		signers = append(signers, ocr2key.MustNewInsecure(SeedForKeys(), corekeys.EVM))
 	}

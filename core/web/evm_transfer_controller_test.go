@@ -76,6 +76,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
@@ -223,6 +224,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
@@ -271,6 +273,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
@@ -301,6 +304,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
@@ -337,6 +341,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
@@ -376,6 +381,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
@@ -390,6 +396,7 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBufferString(`{"address":""}`))
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
@@ -439,6 +446,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)

@@ -293,6 +293,7 @@ func (s *Shell) DeleteJob(c *cli.Context) error {
 	if err != nil {
 		return s.errorOut(err)
 	}
+	defer resp.Body.Close()
 	_, err = s.parseResponse(resp)
 	if err != nil {
 		return s.errorOut(err)

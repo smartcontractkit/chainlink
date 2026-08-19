@@ -1,7 +1,7 @@
 package ccipnoop
 
 import (
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
@@ -10,13 +10,13 @@ import (
 type extraDataDecoder struct{}
 
 // DecodeExtraArgsToMap is a helper function for converting Borsh encoded extra args bytes into map[string]any
-func (d extraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
+func (d extraDataDecoder) DecodeExtraArgsToMap(extraArgs ccipocr3common.Bytes) (map[string]any, error) {
 	outputMap := make(map[string]any)
 	return outputMap, nil
 }
 
 // DecodeDestExecDataToMap is a helper function for converting dest exec data bytes into map[string]any
-func (d extraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
+func (d extraDataDecoder) DecodeDestExecDataToMap(destExecData ccipocr3common.Bytes) (map[string]any, error) {
 	outputMap := make(map[string]any)
 	return outputMap, nil
 }

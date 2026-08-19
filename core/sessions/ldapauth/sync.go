@@ -117,7 +117,6 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 	l.lggr.Info("Begin Upstream LDAP provider state sync after checking time against config UpstreamSyncInterval and UpstreamSyncRateLimit")
 
 	// For each defined role/group, query for the list of group members to gather the full list of possible users
-	users := []sessions.User{}
 
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
@@ -156,6 +155,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 		return
 	}
 
+	users := make([]sessions.User, 0, len(adminUsers)+len(editUsers)+len(runUsers)+len(readUsers))
 	users = append(users, adminUsers...)
 	users = append(users, editUsers...)
 	users = append(users, runUsers...)

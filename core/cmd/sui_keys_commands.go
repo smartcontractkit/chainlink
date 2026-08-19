@@ -39,7 +39,7 @@ type SuiKeyPresenters []SuiKeyPresenter
 // RenderTable implements TableRenderer
 func (ps SuiKeyPresenters) RenderTable(rt RendererTable) error {
 	headers := []string{"ID", "Sui Public Key"}
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

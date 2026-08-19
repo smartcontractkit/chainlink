@@ -24,7 +24,7 @@ func ValidatedMessageFromResp(resp *jsonrpc.Response[json.RawMessage]) (*api.Mes
 	if err != nil {
 		return nil, err
 	}
-	msg.Body.MessageId = resp.ID
+	msg.Body.MessageID = resp.ID
 	err = msg.Validate()
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func ValidatedMessageFromReq(req *jsonrpc.Request[json.RawMessage]) (*api.Messag
 		return nil, fmt.Errorf("failed to unmarshal request params: %w", err)
 	}
 	m.Body.Method = req.Method
-	m.Body.MessageId = req.ID
+	m.Body.MessageID = req.ID
 	err = m.Validate()
 	if err != nil {
 		return nil, err
@@ -63,7 +63,7 @@ func ValidatedResponseFromMessage(msg *api.Message) (*jsonrpc.Response[json.RawM
 	if msg == nil {
 		return nil, errors.New("nil message")
 	}
-	if msg.Body.MessageId == "" {
+	if msg.Body.MessageID == "" {
 		return nil, errors.New("message ID is empty")
 	}
 	res, err := json.Marshal(msg)
@@ -73,7 +73,7 @@ func ValidatedResponseFromMessage(msg *api.Message) (*jsonrpc.Response[json.RawM
 	rawResult := json.RawMessage(res)
 	resp := &jsonrpc.Response[json.RawMessage]{
 		Version: "2.0",
-		ID:      msg.Body.MessageId,
+		ID:      msg.Body.MessageID,
 		Result:  &rawResult,
 		Method:  msg.Body.Method,
 	}
@@ -85,7 +85,7 @@ func ValidatedRequestFromMessage(msg *api.Message) (*jsonrpc.Request[json.RawMes
 	if msg == nil {
 		return nil, errors.New("nil message")
 	}
-	if msg.Body.MessageId == "" {
+	if msg.Body.MessageID == "" {
 		return nil, errors.New("message ID is empty")
 	}
 	if msg.Body.Method == "" {
@@ -98,7 +98,7 @@ func ValidatedRequestFromMessage(msg *api.Message) (*jsonrpc.Request[json.RawMes
 	rawParams := json.RawMessage(params)
 	req := &jsonrpc.Request[json.RawMessage]{
 		Version: "2.0",
-		ID:      msg.Body.MessageId,
+		ID:      msg.Body.MessageID,
 		Method:  msg.Body.Method,
 		Params:  &rawParams,
 	}

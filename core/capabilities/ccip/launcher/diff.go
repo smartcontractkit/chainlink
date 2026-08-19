@@ -63,12 +63,10 @@ func compareDONs(
 		if currDONState, ok := currCCIPDONs[id]; !ok {
 			// Not in current state, so mark as added.
 			added[id] = don
-		} else {
+		} else if don.ConfigVersion > currDONState.ConfigVersion {
 			// If its in the current state and the config count for the DON has changed, mark as updated.
 			// Since the registry returns the full state we need to compare the config count.
-			if don.ConfigVersion > currDONState.ConfigVersion {
-				updated[id] = don
-			}
+			updated[id] = don
 		}
 	}
 

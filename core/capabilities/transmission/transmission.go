@@ -16,9 +16,9 @@ import (
 
 var (
 	// S = [N]
-	Schedule_AllAtOnce = "allAtOnce"
+	ScheduleAllAtOnce = "allAtOnce"
 	// S = [1 * N]
-	Schedule_OneAtATime = "oneAtATime"
+	ScheduleOneAtATime = "oneAtATime"
 )
 
 type TransmissionConfig struct {
@@ -43,7 +43,7 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 	// Default if no schedule and deltaStage is provided
 	if len(tc.Schedule) == 0 && len(tc.DeltaStage) == 0 {
 		return TransmissionConfig{
-			Schedule:   Schedule_AllAtOnce,
+			Schedule:   ScheduleAllAtOnce,
 			DeltaStage: 0,
 		}, nil
 	}
@@ -62,9 +62,9 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 func EnumToString(t capabilities.TransmissionSchedule) string {
 	switch t {
 	case capabilities.Schedule_AllAtOnce:
-		return Schedule_AllAtOnce
+		return ScheduleAllAtOnce
 	case capabilities.Schedule_OneAtATime:
-		return Schedule_OneAtATime
+		return ScheduleOneAtATime
 	default:
 		return "unknown"
 	}
@@ -119,13 +119,13 @@ func delayFor(position int, schedule []int, permutation []int, deltaStage time.D
 	return nil
 }
 
-func createTransmissionSchedule(scheduleType string, N int) ([]int, error) {
+func createTransmissionSchedule(scheduleType string, n int) ([]int, error) {
 	switch scheduleType {
-	case Schedule_AllAtOnce:
-		return []int{N}, nil
-	case Schedule_OneAtATime:
+	case ScheduleAllAtOnce:
+		return []int{n}, nil
+	case ScheduleOneAtATime:
 		sch := []int{}
-		for range N {
+		for range n {
 			sch = append(sch, 1)
 		}
 		return sch, nil

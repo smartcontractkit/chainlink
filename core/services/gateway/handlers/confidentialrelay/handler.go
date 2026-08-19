@@ -176,7 +176,7 @@ type handler struct {
 	services.StateMachine
 	donConfig *config.DONConfig
 	don       gwhandlers.DON
-	codec     api.JsonRPCCodec
+	codec     api.JSONRPCCodec
 	lggr      logger.Logger
 	mu        sync.RWMutex
 	stopCh    services.StopChan
@@ -252,7 +252,7 @@ func NewHandler(methodConfig json.RawMessage, donConfig *config.DONConfig, don g
 	return &handler{
 		donConfig:             donConfig,
 		don:                   don,
-		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonId),
+		lggr:                  logger.Named(lggr, "ConfidentialRelayHandler:"+donConfig.DonID),
 		requestTimeout:        time.Duration(cfg.RequestTimeoutSec) * time.Second,
 		nodeSendTimeout:       time.Duration(cfg.NodeSendTimeoutSec) * time.Second,
 		quorumGrace:           time.Duration(cfg.QuorumGraceMillis) * time.Millisecond,
@@ -684,16 +684,16 @@ func (h *handler) recordMetrics(ctx context.Context, errorCode api.ErrorCode) {
 	switch errorCode {
 	case api.HandlerError:
 		h.metrics.requestInternalError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donConfig.DonID),
 			attribute.String("error", errorCode.String()),
 		))
 	case api.UnsupportedDONIdError:
 		h.metrics.requestUserError.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donConfig.DonID),
 		))
 	case api.NoError:
 		h.metrics.requestSuccess.Add(ctx, 1, metric.WithAttributes(
-			attribute.String("don_id", h.donConfig.DonId),
+			attribute.String("don_id", h.donConfig.DonID),
 		))
 	}
 }

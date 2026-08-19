@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -104,7 +104,7 @@ func toOnchainPublicKeys(signers [][]byte) []types.OnchainPublicKey {
 	return keys
 }
 
-func toOCRAccounts(transmitters [][]byte, addressCodec ccipcommon.AddressCodec, chainSelector ccipocr3.ChainSelector) ([]types.Account, error) {
+func toOCRAccounts(transmitters [][]byte, addressCodec ccipcommon.AddressCodec, chainSelector ccipocr3common.ChainSelector) ([]types.Account, error) {
 	accounts := make([]types.Account, len(transmitters))
 	for i, transmitter := range transmitters {
 		address, err := addressCodec.TransmitterBytesToString(transmitter, chainSelector)

@@ -488,12 +488,12 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 	}
 
 	// TODO: drop this once we stop using TaskRunResults
-	var taskRunResults TaskRunResults
+	taskRunResults := make(TaskRunResults, 0, len(scheduler.results))
 	for _, result := range scheduler.results {
 		taskRunResults = append(taskRunResults, result)
 	}
 
-	var idxs []int32
+	idxs := make([]int32, 0, len(taskRunResults))
 	for i := range taskRunResults {
 		idxs = append(idxs, taskRunResults[i].Task.OutputIndex())
 	}
@@ -572,8 +572,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 		"resultError", result.Error,
 		"resultType", fmt.Sprintf("%T", result.Value),
 	}
-	switch v := result.Value.(type) {
-	case []byte:
+	if v, ok := result.Value.([]byte); ok {
 		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))
 		loggerFields = append(loggerFields, "resultHex", hex.EncodeToString(v))
 	}

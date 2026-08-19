@@ -375,9 +375,9 @@ func (s *Shell) SetLogSQL(c *cli.Context) (err error) {
 	}
 
 	// Sets logSql to true || false based on the --enabled flag
-	logSql := c.Bool("enable")
+	logSQL := c.Bool("enable")
 
-	request := web.LogPatchRequest{SQLEnabled: &logSql}
+	request := web.LogPatchRequest{SQLEnabled: &logSQL}
 	requestData, err := json.Marshal(request)
 	if err != nil {
 		return s.errorOut(err)
@@ -462,11 +462,12 @@ func parseResponse(resp *http.Response) ([]byte, error) {
 	if err != nil {
 		return b, stderrors.Join(errors.New(resp.Status), err)
 	}
-	if resp.StatusCode == http.StatusUnauthorized {
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized:
 		return b, errUnauthorized
-	} else if resp.StatusCode == http.StatusForbidden {
+	case resp.StatusCode == http.StatusForbidden:
 		return b, errForbidden
-	} else if resp.StatusCode >= http.StatusBadRequest {
+	case resp.StatusCode >= http.StatusBadRequest:
 		errorMessage, err2 := parseErrorResponseBody(b)
 		if err2 != nil {
 			return b, err2
@@ -482,6 +483,7 @@ func (s *Shell) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool,
 		lggr.Warnw("Got error querying for version. Remote node version is unknown and CLI may behave in unexpected ways.", "err", err)
 		return nil
 	}
+	defer resp.Body.Close()
 	b, err := parseResponse(resp)
 	if err != nil {
 		lggr.Warnw("Got error parsing http response for remote version. Remote node version is unknown and CLI may behave in unexpected ways.", "resp", resp, "err", err)
@@ -526,6 +528,7 @@ func (s *Shell) Health(c *cli.Context) error {
 	if err != nil {
 		return s.errorOut(err)
 	}
+	defer resp.Body.Close()
 	b, err := parseResponse(resp)
 	if err != nil {
 		return s.errorOut(err)

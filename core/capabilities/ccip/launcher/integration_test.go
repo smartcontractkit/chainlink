@@ -9,8 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	it "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -63,8 +63,8 @@ func TestIntegration_Launcher(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, launcher.Close()) })
 
 	encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
-		GasPriceDeviationPPB:    cciptypes.NewBigIntFromInt64(1000),
-		DAGasPriceDeviationPPB:  cciptypes.NewBigIntFromInt64(1_000_000),
+		GasPriceDeviationPPB:    ccipocr3common.NewBigIntFromInt64(1000),
+		DAGasPriceDeviationPPB:  ccipocr3common.NewBigIntFromInt64(1_000_000),
 		OptimisticConfirmations: 1,
 	})
 	require.NoError(t, err)

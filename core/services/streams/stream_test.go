@@ -81,7 +81,7 @@ succeed;
 			runner.err = nil
 
 			run, trrs, err := strm.Run(ctx)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			assert.Equal(t, int64(42), run.ID)
 			require.Len(t, trrs, 1)

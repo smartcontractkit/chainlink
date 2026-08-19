@@ -404,7 +404,7 @@ func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handlermocks.Han
 	}
 	gMetrics, err := monitoring.NewGatewayMetrics()
 	require.NoError(t, err)
-	gw := gateway.NewGateway(&api.JsonRPCCodec{}, httpServer, handlersObj, map[string]string{"testDON": "testDON"}, nil, nil, gMetrics, logger.Test(t))
+	gw := gateway.NewGateway(&api.JSONRPCCodec{}, httpServer, handlersObj, map[string]string{"testDON": "testDON"}, nil, nil, gMetrics, logger.Test(t))
 	return gw, handler
 }
 
@@ -413,16 +413,16 @@ func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handlermocks.Han
 func newSignedLegacyRequest(t *testing.T, messageID string, method string, donID string, payload []byte) []byte {
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: messageID,
+			MessageID: messageID,
 			Method:    method,
-			DonId:     donID,
+			DonID:     donID,
 			Payload:   payload,
 		},
 	}
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	require.NoError(t, msg.Sign(privateKey))
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	rawRequest, err := codec.EncodeLegacyRequest(msg)
 	require.NoError(t, err)
 	return rawRequest
@@ -506,7 +506,7 @@ func TestGateway_LegacyRequest_HandlerResponse(t *testing.T) {
 		// echo back to sender with attached payload
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
 		msg.Signature = ""
-		codec := api.JsonRPCCodec{}
+		codec := api.JSONRPCCodec{}
 		err := callback.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
 		require.NoError(t, err)
 	})
@@ -627,7 +627,7 @@ func TestGateway_NewStyleConfig_UserMessageRouting(t *testing.T) {
 	}
 
 	gw := gateway.NewGateway(
-		&api.JsonRPCCodec{},
+		&api.JSONRPCCodec{},
 		httpServer,
 		nil, // no legacy handlers
 		nil, // no legacy serviceNameToDonID
@@ -698,7 +698,7 @@ func TestGateway_NewStyleConfig_NodeResponseRouting(t *testing.T) {
 	}
 
 	gw := gateway.NewGateway(
-		&api.JsonRPCCodec{},
+		&api.JSONRPCCodec{},
 		httpServer,
 		nil,
 		nil,

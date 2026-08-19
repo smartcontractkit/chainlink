@@ -35,16 +35,17 @@ func TooPermissive(fileMode, maxAllowedPerms os.FileMode) bool {
 // - If the path exists, and is a directory, but has the wrong perms, it is chmod'ed
 func EnsureDirAndMaxPerms(path string, perms os.FileMode) error {
 	stat, err := os.Stat(path)
-	if err != nil && !os.IsNotExist(err) {
+	switch {
+	case err != nil && !os.IsNotExist(err):
 		// Regular error
 		return err
-	} else if os.IsNotExist(err) {
+	case os.IsNotExist(err):
 		// Dir doesn't exist, create it with desired perms
 		return os.MkdirAll(path, perms)
-	} else if !stat.IsDir() {
+	case !stat.IsDir():
 		// Path exists, but it's a file, so don't clobber
 		return errors.Errorf("%v already exists and is not a directory", path)
-	} else if stat.Mode() != perms {
+	case stat.Mode() != perms:
 		// Dir exists, but wrong perms, so chmod
 		return os.Chmod(path, stat.Mode()&perms)
 	}
@@ -116,13 +117,14 @@ var (
 
 // MarshalText encodes s as a human readable string.
 func (s FileSize) MarshalText() ([]byte, error) {
-	if s >= TB {
+	switch {
+	case s >= TB:
 		return fmt.Appendf(nil, "%.2ftb", float64(s)/TB), nil
-	} else if s >= GB {
+	case s >= GB:
 		return fmt.Appendf(nil, "%.2fgb", float64(s)/GB), nil
-	} else if s >= MB {
+	case s >= MB:
 		return fmt.Appendf(nil, "%.2fmb", float64(s)/MB), nil
-	} else if s >= KB {
+	case s >= KB:
 		return fmt.Appendf(nil, "%.2fkb", float64(s)/KB), nil
 	}
 	return fmt.Appendf(nil, "%db", s), nil

@@ -125,7 +125,7 @@ func setupHandlerWithConfig(t *testing.T, numNodes, f int, handlerConfig Config)
 	}
 
 	donConfig := &config.DONConfig{
-		DonId:   "test_relay_don",
+		DonID:   "test_relay_don",
 		F:       f,
 		Members: members,
 	}
@@ -753,7 +753,7 @@ func TestConfidentialRelayHandler_QuorumGraceConfig(t *testing.T) {
 			lggr := logger.Test(t)
 			methodConfig, err := json.Marshal(tc.cfg)
 			require.NoError(t, err)
-			donConfig := &config.DONConfig{DonId: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
+			donConfig := &config.DONConfig{DonID: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
 			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 
 			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory)
@@ -798,7 +798,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	// F=0 so the forward threshold (2F+1) is 1: a single response from the one-node
 	// DON forwards immediately, isolating the rate-limit behavior under test.
 	donConfig := &config.DONConfig{
-		DonId:   "test_relay_don",
+		DonID:   "test_relay_don",
 		F:       0,
 		Members: []config.NodeConfig{nodeOne},
 	}
@@ -996,7 +996,7 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 	lggr := logger.Test(t)
 	don := newBarrierDON(2)
 	donConfig := &config.DONConfig{
-		DonId: "test_relay_don",
+		DonID: "test_relay_don",
 		F:     1,
 		Members: []config.NodeConfig{
 			{Name: "node0", Address: "0x0000"},
@@ -1060,7 +1060,7 @@ func TestConfidentialRelayHandler_NodeSendTimeoutConfig(t *testing.T) {
 			lggr := logger.Test(t)
 			methodConfig, err := json.Marshal(tc.cfg)
 			require.NoError(t, err)
-			donConfig := &config.DONConfig{DonId: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
+			donConfig := &config.DONConfig{DonID: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
 			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 
 			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory)
@@ -1081,7 +1081,7 @@ func TestConfidentialRelayHandler_BlockedNodeDoesNotStallFanOut(t *testing.T) {
 	lggr := logger.Test(t)
 	don := &blockedDON{blockedAddr: "0x0002"}
 	donConfig := &config.DONConfig{
-		DonId: "test_relay_don",
+		DonID: "test_relay_don",
 		F:     1,
 		Members: []config.NodeConfig{
 			{Name: "node0", Address: "0x0000"},

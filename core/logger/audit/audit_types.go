@@ -62,8 +62,8 @@ const (
 	ChainSpecUpdated EventID = "CHAIN_SPEC_UPDATED"
 	ChainDeleted     EventID = "CHAIN_DELETED"
 
-	ChainRpcNodeAdded   EventID = "CHAIN_RPC_NODE_ADDED"
-	ChainRpcNodeDeleted EventID = "CHAIN_RPC_NODE_DELETED"
+	ChainRPCNodeAdded   EventID = "CHAIN_RPC_NODE_ADDED"
+	ChainRPCNodeDeleted EventID = "CHAIN_RPC_NODE_DELETED"
 
 	BridgeCreated EventID = "BRIDGE_CREATED"
 	BridgeUpdated EventID = "BRIDGE_UPDATED"
@@ -81,8 +81,8 @@ const (
 	JobProposalSpecRejected EventID = "JOB_PROPOSAL_SPEC_REJECTED"
 
 	ConfigUpdated            EventID = "CONFIG_UPDATED"
-	ConfigSqlLoggingEnabled  EventID = "CONFIG_SQL_LOGGING_ENABLED"
-	ConfigSqlLoggingDisabled EventID = "CONFIG_SQL_LOGGING_DISABLED"
+	ConfigSQLLoggingEnabled  EventID = "CONFIG_SQL_LOGGING_ENABLED"
+	ConfigSQLLoggingDisabled EventID = "CONFIG_SQL_LOGGING_DISABLED"
 	GlobalLogLevelSet        EventID = "GLOBAL_LOG_LEVEL_SET"
 
 	JobErrorDismissed EventID = "JOB_ERROR_DISMISSED"

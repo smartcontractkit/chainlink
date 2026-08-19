@@ -55,9 +55,9 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	// User request
 	msg := api.Message{
 		Body: api.MessageBody{
-			MessageId: "1234",
+			MessageID: "1234",
 			Method:    "testMethod",
-			DonId:     "test_don",
+			DonID:     "test_don",
 		},
 	}
 	key, err := crypto.HexToECDSA(privateKey)
@@ -77,8 +77,8 @@ func TestDummyHandler_BasicFlow(t *testing.T) {
 	require.NoError(t, handler.HandleNodeMessage(ctx, resp, msg.Body.Sender))
 	response, err := cb.Wait(t.Context())
 	require.NoError(t, err)
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	responseMsg, err := codec.DecodeLegacyResponse(response.RawResponse)
 	require.NoError(t, err)
-	require.Equal(t, "1234", responseMsg.Body.MessageId)
+	require.Equal(t, "1234", responseMsg.Body.MessageID)
 }

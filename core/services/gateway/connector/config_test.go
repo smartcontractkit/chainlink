@@ -47,7 +47,7 @@ func TestConnectorConfig_From(t *testing.T) {
 	translated := connector.ConnectorConfig{}.From(cfg.Capabilities().GatewayConnector())
 
 	assert.Equal(t, "0x68902d681c28119f9b2531473a417088bf008e59", translated.NodeAddress)
-	assert.Equal(t, "example_don", translated.DonId)
+	assert.Equal(t, "example_don", translated.DonID)
 	assert.Equal(t, uint32(100), translated.WsClientConfig.HandshakeTimeoutMillis)
 	assert.Equal(t, 10, translated.AuthMinChallengeLen)
 	assert.Equal(t, uint32(5), translated.AuthTimestampToleranceSec)

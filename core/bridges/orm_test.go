@@ -6,7 +6,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -38,12 +37,12 @@ func TestORM_FindBridges(t *testing.T) {
 		URL:  cltest.WebURL(t, "https://bridge1.com"),
 	}
 	ctx := t.Context()
-	assert.NoError(t, orm.CreateBridgeType(ctx, &bt))
+	require.NoError(t, orm.CreateBridgeType(ctx, &bt))
 	bt2 := bridges.BridgeType{
 		Name: "bridge2",
 		URL:  cltest.WebURL(t, "https://bridge2.com"),
 	}
-	assert.NoError(t, orm.CreateBridgeType(ctx, &bt2))
+	require.NoError(t, orm.CreateBridgeType(ctx, &bt2))
 	bts, err := orm.FindBridges(ctx, []bridges.BridgeName{"bridge2", "bridge1"})
 	require.NoError(t, err)
 	require.Len(t, bts, 2)
@@ -75,7 +74,7 @@ func TestORM_FindBridge(t *testing.T) {
 	bt := bridges.BridgeType{}
 	bt.Name = bridges.MustParseBridgeName("solargridreporting")
 	bt.URL = cltest.WebURL(t, "https://denergy.eth")
-	assert.NoError(t, orm.CreateBridgeType(ctx, &bt))
+	require.NoError(t, orm.CreateBridgeType(ctx, &bt))
 
 	cases := []struct {
 		description string

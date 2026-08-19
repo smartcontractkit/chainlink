@@ -102,7 +102,7 @@ func TestPlugin_Outcome(t *testing.T) {
 		}
 
 		// Build attributed observations
-		aos := make([]types.AttributedObservation, 0)
+		aos := make([]types.AttributedObservation, 0, len(observations))
 		for idx, obs := range observations {
 			pbObs := &ringpb.Observation{
 				ShardStatus: obs.shardStatus,

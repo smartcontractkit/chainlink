@@ -5,7 +5,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -98,10 +97,10 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 		defer reset()
 		ctx := t.Context()
 		err := ks.EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = ks.EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		keys, err := ks.GetAll()
 		require.NoError(t, err)

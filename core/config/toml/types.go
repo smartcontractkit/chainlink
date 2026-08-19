@@ -1,6 +1,7 @@
 package toml
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"maps"
@@ -524,11 +525,12 @@ func (d *DatabaseSecrets) ValidateConfig() (err error) {
 }
 
 func (d *DatabaseSecrets) validateConfig(buildMode string) (err error) {
-	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
+	switch {
+	case d.URL == nil || (*url.URL)(d.URL).String() == "":
 		err = errors.Join(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
-	} else if *d.AllowSimplePasswords && buildMode == build.Prod {
+	case *d.AllowSimplePasswords && buildMode == build.Prod:
 		err = errors.Join(err, configutils.ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
-	} else if !*d.AllowSimplePasswords {
+	case !*d.AllowSimplePasswords:
 		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
 			err = errors.Join(err, configutils.ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
@@ -3273,7 +3275,7 @@ func isValidLocalURI(uri string) bool {
 		}
 
 		// Validating port
-		if _, err := net.LookupPort("tcp", port); err != nil {
+		if _, err := net.DefaultResolver.LookupPort(context.Background(), "tcp", port); err != nil {
 			return false
 		}
 

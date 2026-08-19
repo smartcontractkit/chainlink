@@ -73,7 +73,7 @@ func (p *ChainPresenter) ToRow() []string {
 // RenderTable implements TableRenderer
 // Just renders a single row
 func (p ChainPresenter) RenderTable(rt RendererTable) error {
-	rows := [][]string{}
+	rows := make([][]string, 0, 1)
 	rows = append(rows, p.ToRow())
 
 	renderList(chainHeaders, rows, rt.Writer)
@@ -86,7 +86,7 @@ type ChainPresenters []ChainPresenter
 
 // RenderTable implements TableRenderer
 func (ps ChainPresenters) RenderTable(rt RendererTable) error {
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

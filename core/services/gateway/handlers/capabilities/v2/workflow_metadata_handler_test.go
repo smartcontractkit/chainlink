@@ -62,7 +62,7 @@ func createTestWorkflowMetadataHandler(t *testing.T) (*WorkflowMetadataHandler, 
 // DONConfig for tests.
 func singleShardEndpoints(t *testing.T, donConfig *config.DONConfig, mockDon *mocks.DON) ([]*shardEndpoint, map[string]*shardEndpoint) {
 	shardedDONs := []config.ShardedDONConfig{
-		{DonName: donConfig.DonId, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
+		{DonName: donConfig.DonID, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
 	}
 	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{{mockDon}})
 	require.NoError(t, err)

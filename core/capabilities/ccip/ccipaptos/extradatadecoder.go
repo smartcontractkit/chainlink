@@ -6,7 +6,7 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
@@ -33,7 +33,7 @@ var (
 )
 
 // DecodeDestExecDataToMap reformats bytes into a chain agnostic map[string]interface{} representation for dest exec data
-func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData ccipocr3common.Bytes) (map[string]any, error) {
 	des := bcs.NewDeserializer(destExecData)
 	if des.Remaining() != 4 {
 		return nil, fmt.Errorf("dest exec data invalid length: %d, should be 4 bytes", des.Remaining())
@@ -48,7 +48,7 @@ func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) 
 }
 
 // DecodeExtraArgsToMap reformats bytes into a chain agnostic map[string]any representation for extra args
-func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs ccipocr3common.Bytes) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}

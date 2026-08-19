@@ -128,7 +128,7 @@ func GenerateProofResponseFromProofV2(p vrfkey.Proof, s PreSeedDataV2) (vrf_coor
 			ZInv:          solidityProof.ZInv,
 		}, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment{
 			BlockNum:         s.BlockNum,
-			SubId:            s.SubId,
+			SubId:            s.SubID,
 			CallbackGasLimit: s.CallbackGasLimit,
 			NumWords:         s.NumWords,
 			Sender:           s.Sender,
@@ -165,7 +165,7 @@ func GenerateProofResponseFromProofV2Plus(
 			ZInv:          solidityProof.ZInv,
 		}, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment{
 			BlockNum:         s.BlockNum,
-			SubId:            s.SubId,
+			SubId:            s.SubID,
 			CallbackGasLimit: s.CallbackGasLimit,
 			NumWords:         s.NumWords,
 			Sender:           s.Sender,
@@ -185,7 +185,8 @@ func GenerateProofResponse(keystore keystore.VRF, id string, s PreSeedData) (
 
 func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) (
 	vrf_coordinator_v2.VRFProof, vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment, error) {
-	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	seedHashMsg := append([]byte{}, s.PreSeed[:]...)
+	seedHashMsg = append(seedHashMsg, s.BlockHash.Bytes()...)
 	seed := utils.MustHash(string(seedHashMsg)).Big()
 	proof, err := keystore.GenerateProof(id, seed)
 	if err != nil {
@@ -196,7 +197,8 @@ func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) 
 
 func GenerateProofResponseV2Plus(keystore keystore.VRF, id string, s PreSeedDataV2Plus) (
 	vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof, vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRequestCommitment, error) {
-	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	seedHashMsg := append([]byte{}, s.PreSeed[:]...)
+	seedHashMsg = append(seedHashMsg, s.BlockHash.Bytes()...)
 	seed := utils.MustHash(string(seedHashMsg)).Big()
 	proof, err := keystore.GenerateProof(id, seed)
 	if err != nil {

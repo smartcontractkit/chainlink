@@ -728,7 +728,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	nodeSetD := [][32]byte{randomWord(), randomWord(), randomWord()}
 
 	// Create all nodes with both capabilities
-	allNodes := []capabilities_registry_v2.CapabilitiesRegistryNodeParams{}
+	allNodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, 0, len(nodeSetA)+len(nodeSetB)+len(nodeSetC)+len(nodeSetD))
 
 	// Add nodes for DON A (workflow-family-a)
 	for _, nodeID := range nodeSetA {

@@ -241,7 +241,7 @@ func (s *httpServer) GetPort() int {
 func (s *httpServer) Start(ctx context.Context) error {
 	return s.StartOnce("GatewayHTTPServer", func() error {
 		s.lggr.Info("starting gateway HTTP server")
-		return s.runServer()
+		return s.runServer(ctx)
 	})
 }
 
@@ -255,8 +255,9 @@ func (s *httpServer) Close() error {
 	})
 }
 
-func (s *httpServer) runServer() (err error) {
-	s.listener, err = net.Listen("tcp", s.server.Addr)
+func (s *httpServer) runServer(ctx context.Context) (err error) {
+	var lc net.ListenConfig
+	s.listener, err = lc.Listen(ctx, "tcp", s.server.Addr)
 	if err != nil {
 		return
 	}

@@ -85,8 +85,7 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 		l.lggr.Debugf("Using database locking mode: %s", lockingMode)
 
 		// Take the lease before any other DB operations
-		switch lockingMode {
-		case "lease":
+		if lockingMode == "lease" {
 			cfg := LeaseLockConfig{
 				DefaultQueryTimeout:  l.cfg.DefaultQueryTimeout(),
 				LeaseDuration:        l.lockCfg.LeaseDuration(),

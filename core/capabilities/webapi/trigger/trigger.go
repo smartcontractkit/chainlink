@@ -100,12 +100,12 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 			if trigger.allowedTopics[topic] {
 				matchedWorkflows++
 				if !trigger.allowedSenders[sender.String()] {
-					err = fmt.Errorf("unauthorized Sender %s, messageID %s", sender.String(), body.MessageId)
+					err = fmt.Errorf("unauthorized Sender %s, messageID %s", sender.String(), body.MessageID)
 					h.lggr.Debugw(err.Error())
 					continue
 				}
 				if !trigger.rateLimiter.Allow(body.Sender) {
-					err = fmt.Errorf("request rate-limited for sender %s, messageID %s", sender.String(), body.MessageId)
+					err = fmt.Errorf("request rate-limited for sender %s, messageID %s", sender.String(), body.MessageID)
 					continue
 				}
 				fullyMatchedWorkflows++
@@ -314,8 +314,8 @@ func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID st
 	}
 
 	body := &api.MessageBody{
-		MessageId: requestBody.MessageId,
-		DonId:     requestBody.DonId,
+		MessageID: requestBody.MessageID,
+		DonID:     requestBody.DonID,
 		Method:    requestBody.Method,
 		Receiver:  requestBody.Sender,
 		Payload:   payloadJSON,

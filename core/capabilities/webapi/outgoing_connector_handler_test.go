@@ -169,8 +169,8 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
@@ -211,8 +211,8 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
@@ -256,8 +256,8 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
@@ -316,8 +316,8 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		expectedBody := &api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodComputeAction,
 			Payload:   payload,
 		}
@@ -394,8 +394,8 @@ func gatewayResponse(t *testing.T, msgID string, privateKey string) *jsonrpc.Req
 	require.NoError(t, err)
 	m := &api.Message{
 		Body: api.MessageBody{
-			DonId:     "donID",
-			MessageId: msgID,
+			DonID:     "donID",
+			MessageID: msgID,
 			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},
@@ -436,7 +436,7 @@ func TestOutgoingConnectorHandler_HandleGatewayMessage_InvalidMessage(t *testing
 	)
 	invalidMsg := api.Message{
 		Body: api.MessageBody{
-			// MessageId is empty, which should fail Validate()
+			// MessageID is empty, which should fail Validate()
 			Method: "some-method",
 		},
 	}

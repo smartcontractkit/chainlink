@@ -2572,28 +2572,6 @@ func TestPlugin_Observation_CreateSecretsRequest_WrongOwnerLabelRejected(t *test
 	assert.Contains(t, batchResp.Responses[0].GetError(), "does not match workflow owner label")
 }
 
-func makeEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, privateShare *tdh2easy.PrivateShare, keys []string) []*vaultcommon.EncryptedShares {
-	t.Helper()
-	share, err := tdh2easy.Decrypt(ciphertext, privateShare)
-	require.NoError(t, err)
-	shareBytes, err := share.Marshal()
-	require.NoError(t, err)
-
-	result := make([]*vaultcommon.EncryptedShares, len(keys))
-	for i, pk := range keys {
-		pkBytes, err := hex.DecodeString(pk)
-		require.NoError(t, err)
-		pubKey := [32]byte(pkBytes)
-		encrypted, err := box.SealAnonymous(nil, shareBytes, &pubKey, rand.Reader)
-		require.NoError(t, err)
-		result[i] = &vaultcommon.EncryptedShares{
-			EncryptionKey: pk,
-			Shares:        []string{hex.EncodeToString(encrypted)},
-		}
-	}
-	return result
-}
-
 func makeBinaryEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, privateShare *tdh2easy.PrivateShare, keys []string) []*vaultcommon.EncryptedShares {
 	t.Helper()
 	share, err := tdh2easy.Decrypt(ciphertext, privateShare)
@@ -2614,52 +2592,6 @@ func makeBinaryEncryptedShares(t *testing.T, ciphertext *tdh2easy.Ciphertext, pr
 		}
 	}
 	return result
-}
-
-func makeGetSecretsObservations(
-	t *testing.T,
-	numRequests int,
-	owner string,
-	namespace string,
-	encryptionKeys []string,
-	encryptedValue string,
-	ciphertext *tdh2easy.Ciphertext,
-	privateShare *tdh2easy.PrivateShare,
-) []byte {
-	t.Helper()
-	obs := make([]observation, 0, numRequests)
-	for i := range numRequests {
-		maxKey := fmt.Sprintf("%s%d", strings.Repeat("c", 64-1), i)
-
-		id := &vaultcommon.SecretIdentifier{
-			Owner:     owner,
-			Namespace: namespace,
-			Key:       maxKey,
-		}
-		req := &vaultcommon.GetSecretsRequest{
-			Requests: []*vaultcommon.SecretRequest{
-				{
-					Id:             id,
-					EncryptionKeys: encryptionKeys,
-				},
-			},
-		}
-		resp := &vaultcommon.GetSecretsResponse{
-			Responses: []*vaultcommon.SecretResponse{
-				{
-					Id: id,
-					Result: &vaultcommon.SecretResponse_Data{
-						Data: &vaultcommon.SecretData{
-							EncryptedValue:               encryptedValue,
-							EncryptedDecryptionKeyShares: makeEncryptedShares(t, ciphertext, privateShare, encryptionKeys),
-						},
-					},
-				},
-			},
-		}
-		obs = append(obs, observation{id, req, resp})
-	}
-	return marshalObservations(t, obs...)
 }
 
 func makeGetSecretsBinaryObservations(
@@ -6229,7 +6161,7 @@ func TestPlugin_StateTransition_StoresPendingQueue(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, pq, 3)
 
-	ids := []string{}
+	ids := make([]string, 0, len(pq))
 	for _, item := range pq {
 		ids = append(ids, item.Id)
 	}
@@ -6755,7 +6687,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 	require.NoError(t, err)
 	assert.Empty(t, pq, 0)
 
-	ids := []string{}
+	ids := make([]string, 0, len(pq))
 	for _, item := range pq {
 		ids = append(ids, item.Id)
 	}

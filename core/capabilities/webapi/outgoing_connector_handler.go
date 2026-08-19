@@ -148,8 +148,8 @@ func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, 
 	lggr.Debugw("sending request to gateway")
 
 	body := &api.MessageBody{
-		MessageId: messageID,
-		DonId:     donID,
+		MessageID: messageID,
+		DonID:     donID,
 		Method:    c.method,
 		Payload:   payload,
 	}
@@ -171,8 +171,8 @@ func (c *OutgoingConnectorHandler) handleSingleNodeRequest(ctx context.Context, 
 
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: body.MessageId,
-			DonId:     body.DonId,
+			MessageID: body.MessageID,
+			DonID:     body.DonID,
 			Method:    body.Method,
 			Payload:   body.Payload,
 			Receiver:  body.Receiver,
@@ -308,9 +308,9 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 		return nil
 	}
 	body := &msg.Body
-	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageId)
+	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageID)
 
-	ch, ok := c.responses.get(body.MessageId)
+	ch, ok := c.responses.get(body.MessageID)
 	if !ok {
 		l.Warnw("no response channel found; this may indicate that the node timed out the request")
 		return nil
@@ -340,7 +340,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 		}
 		errMsg := api.Message{
 			Body: api.MessageBody{
-				MessageId: body.MessageId,
+				MessageID: body.MessageID,
 				Method:    api.MethodInternalError,
 				Payload:   errPayload,
 			},

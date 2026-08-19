@@ -21,7 +21,7 @@ import (
 const (
 	defaultConfig = `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 AuthMinChallengeLen = 10
 AuthTimestampToleranceSec = 5
 
@@ -59,7 +59,7 @@ func TestGatewayConnector_NewGatewayConnector_ValidConfig(t *testing.T) {
 
 	tomlConfig := parseTOMLConfig(t, `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 
 [[Gateways]]
 Id = "example_gateway"
@@ -75,19 +75,19 @@ func TestGatewayConnector_NewGatewayConnector_InvalidConfig(t *testing.T) {
 	invalidCases := map[string]string{
 		"invalid DON ID": `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = ""
+DonID = ""
 `,
 		"invalid DON ID length": `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "012345678901234567890123456789012345678901234567890123456789012345"
+DonID = "012345678901234567890123456789012345678901234567890123456789012345"
 `,
 		"partial per-gateway DonID": `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 
 [[Gateways]]
 Id = "gateway_us"
-DonId = "gateway_don_us"
+DonID = "gateway_don_us"
 URL = "ws://localhost:8081/us"
 
 [[Gateways]]
@@ -96,11 +96,11 @@ URL = "ws://localhost:8081/eu"
 `,
 		"invalid node address": `
 NodeAddress = "2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 `,
 		"duplicate gateway ID": `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 
 [[Gateways]]
 Id = "example_gateway"
@@ -112,7 +112,7 @@ URL = "ws://localhost:8081/b"
 `,
 		"duplicate gateway URL": `
 NodeAddress = "0x68902d681c28119f9b2531473a417088bf008e59"
-DonId = "example_don"
+DonID = "example_don"
 
 [[Gateways]]
 Id = "gateway_A"
@@ -183,7 +183,7 @@ func TestGatewayConnector_ChallengeResponse(t *testing.T) {
 
 	challenge := network.ChallengeElems{
 		Timestamp:      uint32(now.Unix()),
-		GatewayId:      "example_gateway",
+		GatewayID:      "example_gateway",
 		ChallengeBytes: []byte("1234567890"),
 	}
 
@@ -204,9 +204,9 @@ func TestGatewayConnector_ChallengeResponse(t *testing.T) {
 	_, err = connector.ChallengeResponse(t.Context(), url, network.PackChallenge(&badChallenge))
 	require.Equal(t, network.ErrChallengeTooShort, err)
 
-	// invalid GatewayId
+	// invalid GatewayID
 	badChallenge = challenge
-	badChallenge.GatewayId = "wrong"
+	badChallenge.GatewayID = "wrong"
 	_, err = connector.ChallengeResponse(t.Context(), url, network.PackChallenge(&badChallenge))
 	require.Equal(t, network.ErrAuthInvalidGateway, err)
 }

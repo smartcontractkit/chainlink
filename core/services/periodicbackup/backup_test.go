@@ -87,8 +87,8 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 }
 
 func TestPeriodicBackup_RunBackupViaAltUrlAndMaskPassword(t *testing.T) {
-	altUrl, _ := url.Parse("postgresql://invalid:some-pass@invalid")
-	backupConfig := newTestConfig(time.Minute, altUrl, "", config.DatabaseBackupModeFull)
+	altURL, _ := url.Parse("postgresql://invalid:some-pass@invalid") // betterleaks:allow
+	backupConfig := newTestConfig(time.Minute, altURL, "", config.DatabaseBackupModeFull)
 	periodicBackup := mustNewDatabaseBackup(t, *(must(t, string(env.DatabaseURL.Get()))), os.TempDir(), backupConfig)
 	assert.False(t, periodicBackup.frequencyIsTooSmall())
 

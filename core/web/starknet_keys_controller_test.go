@@ -22,6 +22,7 @@ func TestStarkNetKeysController_Index_HappyPath(t *testing.T) {
 	keys, _ := keyStore.StarkNet().GetAll()
 
 	response, cleanup := client.Get("/v2/keys/starknet")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -44,6 +45,7 @@ func TestStarkNetKeysController_Create_HappyPath(t *testing.T) {
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/starknet", nil)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -68,6 +70,7 @@ func TestStarkNetKeysController_Delete_NonExistentStarkNetKeyID(t *testing.T) {
 
 	nonExistentStarkNetKeyID := "foobar"
 	response, cleanup := client.Delete("/v2/keys/starknet/" + nonExistentStarkNetKeyID)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
@@ -83,6 +86,7 @@ func TestStarkNetKeysController_Delete_HappyPath(t *testing.T) {
 	key, _ := keyStore.StarkNet().Create(ctx)
 
 	response, cleanup := client.Delete("/v2/keys/starknet/" + key.ID())
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	require.Error(t, utils.JustError(keyStore.StarkNet().Get(key.ID())))

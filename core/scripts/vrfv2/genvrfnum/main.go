@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -96,7 +97,7 @@ func main() {
 					PreSeed:          preSeed,
 					BlockHash:        blockhash,
 					BlockNum:         *blockNum,
-					SubId:            *subID,
+					SubID:            *subID,
 					CallbackGasLimit: uint32(*cbGasLimit),
 					NumWords:         uint32(*numWords),
 					Sender:           sender,

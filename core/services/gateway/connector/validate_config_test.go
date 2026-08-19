@@ -14,7 +14,7 @@ import (
 func validConnectorConfig() *ConnectorConfig {
 	return &ConnectorConfig{
 		NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
-		DonId:       "example_don",
+		DonID:       "example_don",
 		Gateways: []ConnectorGatewayConfig{
 			{ID: "gateway_a", URL: "ws://localhost:8081/a"},
 			{ID: "gateway_b", URL: "ws://localhost:8081/b"},
@@ -72,7 +72,7 @@ func TestValidateConnectorConfig(t *testing.T) {
 		{
 			name: "empty connector DonID",
 			modify: func(cfg *ConnectorConfig) {
-				cfg.DonId = ""
+				cfg.DonID = ""
 			},
 			wantErr:    true,
 			errMessage: "invalid DON ID",
@@ -80,7 +80,7 @@ func TestValidateConnectorConfig(t *testing.T) {
 		{
 			name: "connector DonID exceeds max length",
 			modify: func(cfg *ConnectorConfig) {
-				cfg.DonId = "012345678901234567890123456789012345678901234567890123456789012345"
+				cfg.DonID = "012345678901234567890123456789012345678901234567890123456789012345"
 			},
 			wantErr:    true,
 			errMessage: "invalid DON ID",

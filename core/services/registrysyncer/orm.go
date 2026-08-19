@@ -14,13 +14,13 @@ import (
 )
 
 type capabilitiesRegistryNodeInfo struct {
-	NodeOperatorId      uint32         `json:"nodeOperatorId"`
+	NodeOperatorID      uint32         `json:"nodeOperatorId"`
 	ConfigCount         uint32         `json:"configCount"`
 	WorkflowDONId       uint32         `json:"workflowDONId"`
 	Signer              types.PeerID   `json:"signer"`
-	P2pId               types.PeerID   `json:"p2pId"`
+	P2pID               types.PeerID   `json:"p2pId"`
 	EncryptionPublicKey [32]byte       `json:"encryptionPublicKey"`
-	HashedCapabilityIds []types.PeerID `json:"hashedCapabilityIds"`
+	HashedCapabilityIDs []types.PeerID `json:"hashedCapabilityIds"`
 	CapabilitiesDONIds  []string       `json:"capabilitiesDONIds"`
 }
 
@@ -36,13 +36,13 @@ func (l *LocalRegistry) MarshalJSON() ([]byte, error) {
 			capabilitiesDONIds[i] = id.String()
 		}
 		idsToNodes[k] = capabilitiesRegistryNodeInfo{
-			NodeOperatorId:      v.NodeOperatorID,
+			NodeOperatorID:      v.NodeOperatorID,
 			ConfigCount:         v.ConfigCount,
 			WorkflowDONId:       v.WorkflowDONId,
 			Signer:              types.PeerID(v.Signer[:]),
-			P2pId:               types.PeerID(v.P2pID[:]),
+			P2pID:               types.PeerID(v.P2pID[:]),
 			EncryptionPublicKey: v.EncryptionPublicKey,
-			HashedCapabilityIds: hashedCapabilityIDs,
+			HashedCapabilityIDs: hashedCapabilityIDs,
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
 	}
@@ -81,9 +81,9 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 
 	l.IDsToNodes = make(map[types.PeerID]NodeInfo)
 	for peerID, v := range temp.IDsToNodes {
-		hashedCapabilityIds := make([][32]byte, len(v.HashedCapabilityIds))
-		for i, id := range v.HashedCapabilityIds {
-			copy(hashedCapabilityIds[i][:], id[:])
+		hashedCapabilityIDs := make([][32]byte, len(v.HashedCapabilityIDs))
+		for i, id := range v.HashedCapabilityIDs {
+			copy(hashedCapabilityIDs[i][:], id[:])
 		}
 
 		capabilitiesDONIds := make([]*big.Int, len(v.CapabilitiesDONIds))
@@ -93,13 +93,13 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 			capabilitiesDONIds[i] = bigInt
 		}
 		l.IDsToNodes[peerID] = NodeInfo{
-			NodeOperatorID:      v.NodeOperatorId,
+			NodeOperatorID:      v.NodeOperatorID,
 			ConfigCount:         v.ConfigCount,
 			WorkflowDONId:       v.WorkflowDONId,
 			Signer:              v.Signer,
-			P2pID:               v.P2pId,
+			P2pID:               v.P2pID,
 			EncryptionPublicKey: v.EncryptionPublicKey,
-			HashedCapabilityIDs: hashedCapabilityIds,
+			HashedCapabilityIDs: hashedCapabilityIDs,
 			CapabilitiesDONIds:  capabilitiesDONIds,
 		}
 	}

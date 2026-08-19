@@ -93,7 +93,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 func createTestBinary(t *testing.T) string {
 	const testBinaryLocation = "testdata/wasm/testmodule.wasm"
 
-	cmd := exec.Command("go", "build", "-o", testBinaryLocation, "github.com/smartcontractkit/chainlink/v2/core/services/job/testdata/wasm")
+	cmd := exec.CommandContext(t.Context(), "go", "build", "-o", testBinaryLocation, "github.com/smartcontractkit/chainlink/v2/core/services/job/testdata/wasm")
 	cmd.Env = append(os.Environ(), "GOOS=wasip1", "GOARCH=wasm")
 
 	output, err := cmd.CombinedOutput()

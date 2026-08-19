@@ -6,7 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
@@ -60,7 +59,7 @@ func bytesForMsgTokens(numTokens int) int {
 }
 
 // CalculateMessageMaxGas computes the maximum gas overhead for a message.
-func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 {
+func (gp EstimateProvider) CalculateMessageMaxGas(msg ccipocr3.Message) uint64 {
 	maxGas, err := gp.CalculateMessageMaxGasWithError(msg)
 	if err != nil {
 		panic(err)
@@ -69,7 +68,7 @@ func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 
 }
 
 // CalculateMessageMaxGasWithError computes the maximum gas overhead for a message.
-func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message) (uint64, error) {
+func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg ccipocr3.Message) (uint64, error) {
 	numTokens := len(msg.TokenAmounts)
 	var data []byte = msg.Data
 	dataLength := len(data)

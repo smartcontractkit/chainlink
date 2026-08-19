@@ -33,7 +33,7 @@ func TestBridgeTypeRequest(t *testing.T) {
 	assert.Equal(t, "bridges", r.GetName())
 	assert.Equal(t, "test-bridge-name", r.GetID())
 	const validID = "abc123foo_bar-test"
-	assert.NoError(t, r.SetID(validID))
+	require.NoError(t, r.SetID(validID))
 	assert.Equal(t, validID, r.GetID())
 	assert.Error(t, r.SetID("abc123.,<>/.foobar"))
 }

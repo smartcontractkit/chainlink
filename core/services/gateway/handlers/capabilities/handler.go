@@ -108,7 +108,7 @@ func NewHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don 
 		config:          cfg,
 		don:             don,
 		donConfig:       donConfig,
-		lggr:            logger.Named(lggr, "WebAPIHandler."+donConfig.DonId),
+		lggr:            logger.Named(lggr, "WebAPIHandler."+donConfig.DonID),
 		httpClient:      httpClient,
 		nodeRateLimiter: nodeRateLimiter,
 		savedCallbacks:  make(map[string]*savedCallback),
@@ -138,9 +138,9 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 
 	return &api.Message{
 		Body: api.MessageBody{
-			MessageId: msg.Body.MessageId,
+			MessageID: msg.Body.MessageID,
 			Method:    msg.Body.Method,
-			DonId:     msg.Body.DonId,
+			DonID:     msg.Body.DonID,
 			Payload:   payloadBytes,
 		},
 	}, nil
@@ -148,22 +148,22 @@ func (h *handler) sendHTTPMessageToClient(ctx context.Context, req network.HTTPR
 
 func (h *handler) handleWebAPITriggerMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
 	h.mu.Lock()
-	savedCb, found := h.savedCallbacks[msg.Body.MessageId]
-	delete(h.savedCallbacks, msg.Body.MessageId)
+	savedCb, found := h.savedCallbacks[msg.Body.MessageID]
+	delete(h.savedCallbacks, msg.Body.MessageID)
 	h.mu.Unlock()
 
 	if found {
 		// Send first response from a node back to the user, ignore any other ones.
 		// TODO: in practice, we should wait for at least 2F+1 nodes to respond and then return an aggregated response
 		// back to the user.
-		codec := api.JsonRPCCodec{}
+		codec := api.JSONRPCCodec{}
 		return savedCb.SendResponse(handlers.UserCallbackPayload{RawResponse: codec.EncodeLegacyResponse(msg), ErrorCode: api.NoError})
 	}
 	return nil
 }
 
 func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
-	h.lggr.Debugw("handling webAPI outgoing message", "messageId", msg.Body.MessageId, "nodeAddr", nodeAddr)
+	h.lggr.Debugw("handling webAPI outgoing message", "messageId", msg.Body.MessageID, "nodeAddr", nodeAddr)
 	if !h.nodeRateLimiter.Allow(nodeAddr) {
 		return fmt.Errorf("rate limit exceeded for node %s", nodeAddr)
 	}
@@ -189,7 +189,7 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 		newCtx := context.WithoutCancel(ctx)
 		newCtx, cancel := context.WithTimeout(newCtx, timeout)
 		defer cancel()
-		l := logger.With(h.lggr, "url", payload.URL, "messageId", msg.Body.MessageId, "method", payload.Method, "timeout", payload.TimeoutMs)
+		l := logger.With(h.lggr, "url", payload.URL, "messageId", msg.Body.MessageID, "method", payload.Method, "timeout", payload.TimeoutMs)
 		l.Debug("Sending request to client")
 		respMsg, err := h.sendHTTPMessageToClient(newCtx, req, msg)
 		if err != nil {
@@ -206,9 +206,9 @@ func (h *handler) handleWebAPIOutgoingMessage(ctx context.Context, msg *api.Mess
 			}
 			respMsg = &api.Message{
 				Body: api.MessageBody{
-					MessageId: msg.Body.MessageId,
+					MessageID: msg.Body.MessageID,
 					Method:    msg.Body.Method,
-					DonId:     msg.Body.DonId,
+					DonID:     msg.Body.DonID,
 					Payload:   payloadBytes,
 				},
 			}
@@ -342,13 +342,13 @@ func (h *handler) pruneCallbacks() {
 func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message, callback handlers.Callback) error {
 	body := msg.Body
 	var payload webapicap.TriggerRequestPayload
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw(ErrDecodingPayload, "err", err)
 		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageId,
+				msg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
 				ErrDecodingPayload+" "+err.Error(),
 				nil,
@@ -361,7 +361,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 		h.lggr.Errorw(ErrDecodingPayload)
 		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageId,
+				msg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
 				ErrDecodingPayload,
 				nil,
@@ -374,7 +374,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 		h.lggr.Errorw("stale message")
 		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageId,
+				msg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.HandlerError),
 				"stale message",
 				nil,
@@ -387,7 +387,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 		h.lggr.Errorw("unsupported method", "method", body.Method)
 		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageId,
+				msg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
 				"invalid method "+msg.Body.Method,
 				nil,
@@ -400,7 +400,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 		h.lggr.Errorw(ErrTransformingMessageToRequest)
 		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				msg.Body.MessageId,
+				msg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
 				ErrTransformingMessageToRequest,
 				nil,
@@ -410,7 +410,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 	}
 
 	h.mu.Lock()
-	h.savedCallbacks[msg.Body.MessageId] = &savedCallback{id: msg.Body.MessageId, createdAt: time.Now(), Callback: callback}
+	h.savedCallbacks[msg.Body.MessageID] = &savedCallback{id: msg.Body.MessageID, createdAt: time.Now(), Callback: callback}
 	don := h.don
 	h.mu.Unlock()
 

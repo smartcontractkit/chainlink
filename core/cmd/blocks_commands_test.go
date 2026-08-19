@@ -31,7 +31,7 @@ func Test_ReplayFromBlock(t *testing.T) {
 		// Incorrect block number
 		require.NoError(t, set.Set("block-number", "0"))
 		c := cli.NewContext(nil, set, nil)
-		require.ErrorContains(t, client.ReplayFromBlock(c), "Must pass a positive value in")
+		require.ErrorContains(t, client.ReplayFromBlock(c), "must pass a positive value in")
 
 		// Incorrect chain ID
 		require.NoError(t, set.Set("block-number", "1"))

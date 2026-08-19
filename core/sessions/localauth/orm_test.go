@@ -129,7 +129,7 @@ func TestORM_DeleteUserSession(t *testing.T) {
 	require.NoError(t, err)
 
 	sessions, err := orm.Sessions(ctx, 0, 10)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Empty(t, sessions)
 }
 
@@ -151,7 +151,7 @@ func TestORM_DeleteUserCascade(t *testing.T) {
 	require.Error(t, err)
 
 	sessions, err := orm.Sessions(ctx, 0, 10)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	require.Empty(t, sessions)
 }
 

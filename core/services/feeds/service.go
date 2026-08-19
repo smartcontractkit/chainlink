@@ -156,8 +156,8 @@ type Service interface {
 	RejectSpec(ctx context.Context, id int64) error
 	UpdateSpecDefinition(ctx context.Context, id int64, spec string) error
 
-	// Unsafe_SetConnectionsManager Only for testing
-	Unsafe_SetConnectionsManager(ConnectionsManager)
+	// UnsafeSetConnectionsManager Only for testing
+	UnsafeSetConnectionsManager(ConnectionsManager)
 }
 
 type service struct {
@@ -1296,10 +1296,8 @@ func (s *service) Start(ctx context.Context) error {
 					s.connectFeedManager(mgr)
 				}
 			}
-		} else {
-			if mgrs[0].DisabledAt == nil {
-				s.connectFeedManager(mgrs[0])
-			}
+		} else if mgrs[0].DisabledAt == nil {
+			s.connectFeedManager(mgrs[0])
 		}
 
 		if err = s.observeJobProposalCounts(ctx); err != nil {
@@ -1370,13 +1368,13 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 	return nil
 }
 
-// Unsafe_SetConnectionsManager sets the ConnectionsManager on the service.
+// UnsafeSetConnectionsManager sets the ConnectionsManager on the service.
 //
 // We need to be able to inject a mock for the client to facilitate integration
 // tests.
 //
 // ONLY TO BE USED FOR TESTING.
-func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
+func (s *service) UnsafeSetConnectionsManager(connMgr ConnectionsManager) {
 	s.connMgr = connMgr
 }
 
@@ -1898,7 +1896,7 @@ func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, erro
 func (ns NullService) UpdateSpecDefinition(ctx context.Context, id int64, spec string) error {
 	return ErrFeedsManagerDisabled
 }
-func (ns NullService) Unsafe_SetConnectionsManager(_ ConnectionsManager) {}
+func (ns NullService) UnsafeSetConnectionsManager(_ ConnectionsManager) {}
 
 //revive:enable
 

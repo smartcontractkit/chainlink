@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -32,7 +31,7 @@ import (
 	ocrmocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr/mocks"
 )
 
-func mustNewContract(t *testing.T, address gethCommon.Address) *offchain_aggregator_wrapper.OffchainAggregator {
+func mustNewContract(t *testing.T, address common.Address) *offchain_aggregator_wrapper.OffchainAggregator {
 	contract, err := offchain_aggregator_wrapper.NewOffchainAggregator(address, nil)
 	require.NoError(t, err)
 	return contract
@@ -76,7 +75,7 @@ func newContractTrackerUni(t *testing.T, opts ...any) (uni contractTrackerUni) {
 	uni.db = ocrmocks.NewOCRContractTrackerDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
 	uni.hb = headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
-	uni.ec = evmtest.NewEthClientMock(t)
+	uni.ec = clienttest.NewClient(t)
 
 	mailMon := servicetest.Run(t, mailboxtest.NewMonitor(t))
 	db := pgtest.NewSqlxDB(t)
@@ -116,7 +115,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 		uni.ec.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil).Once()
 
 		_, err := uni.tracker.LatestBlockHeight(t.Context())
-		assert.EqualError(t, err, "got nil head")
+		require.EqualError(t, err, "got nil head")
 
 		uni.ec.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("bar")).Once()
 
@@ -154,7 +153,7 @@ func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testing.T) {
 	t.Parallel()
 
-	fixtureLogAddress := gethCommon.HexToAddress("0x03bd0d5d39629423979f8a0e53dbce78c1791ebf")
+	fixtureLogAddress := common.HexToAddress("0x03bd0d5d39629423979f8a0e53dbce78c1791ebf")
 	fixtureFilterer := mustNewFilterer(t)
 	fixtureContract := mustNewContract(t, fixtureLogAddress)
 

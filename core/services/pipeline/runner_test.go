@@ -118,11 +118,11 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.Len(t, finalResults.AllErrors, 12)
 	require.Len(t, finalResults.FatalErrors, 3)
 	assert.Equal(t, "9650000000000000000000", finalResults.Values[0].(decimal.Decimal).String())
-	assert.NoError(t, finalResults.FatalErrors[0])
+	require.NoError(t, finalResults.FatalErrors[0])
 	assert.Equal(t, "foo-index-1", finalResults.Values[1].(string))
-	assert.NoError(t, finalResults.FatalErrors[1])
+	require.NoError(t, finalResults.FatalErrors[1])
 	assert.Equal(t, "bar-index-2", finalResults.Values[2].(string))
-	assert.NoError(t, finalResults.FatalErrors[2])
+	require.NoError(t, finalResults.FatalErrors[2])
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {

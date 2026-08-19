@@ -133,7 +133,7 @@ func GetSearchWindow(latestBlock, waitBlocks, lookbackBlocks int) (uint64, uint6
 
 // SendingKeys returns a list of sending keys (common.Address) given EIP55 addresses
 func SendingKeys(fromAddresses []types.EIP55Address) []common.Address {
-	var keys []common.Address
+	keys := make([]common.Address, 0, len(fromAddresses))
 	for _, a := range fromAddresses {
 		keys = append(keys, a.Address())
 	}

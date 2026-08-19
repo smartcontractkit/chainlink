@@ -308,8 +308,8 @@ FROM feeds_managers
 WHERE id = ANY($1)
 ORDER BY created_at, id;`
 
-	mgrIds := pq.Array(ids)
-	err = o.ds.SelectContext(ctx, &managers, stmt, mgrIds)
+	mgrIDs := pq.Array(ids)
+	err = o.ds.SelectContext(ctx, &managers, stmt, mgrIDs)
 
 	return managers, errors.Wrap(err, "GetManagers failed")
 }

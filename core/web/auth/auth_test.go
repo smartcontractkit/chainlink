@@ -387,6 +387,7 @@ func TestRBAC_Routemap_Admin(t *testing.T) {
 			default:
 				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
+			defer resp.Body.Close()
 			defer cleanup()
 
 			assert.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
@@ -428,6 +429,7 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 			default:
 				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
+			defer resp.Body.Close()
 			defer cleanup()
 
 			// If this route allows up to an edit role, don't expect an unauthorized response
@@ -477,6 +479,7 @@ func TestRBAC_Routemap_Run(t *testing.T) {
 			default:
 				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
+			defer resp.Body.Close()
 			defer cleanup()
 
 			// If this route allows up to an edit minimal role, don't expect an unauthorized response
@@ -527,6 +530,7 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 			default:
 				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
+			defer resp.Body.Close()
 			defer cleanup()
 
 			// If this route only allows view only, don't expect an unauthorized response

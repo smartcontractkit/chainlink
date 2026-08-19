@@ -95,7 +95,7 @@ func (l *launcher) getLatestState() registrysyncer.LocalRegistry {
 func (l *launcher) runningDONIDs() []registrysyncer.DonID {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
-	var runningDONs []registrysyncer.DonID
+	runningDONs := make([]registrysyncer.DonID, 0, len(l.instances))
 	for id := range l.instances {
 		runningDONs = append(runningDONs, id)
 	}

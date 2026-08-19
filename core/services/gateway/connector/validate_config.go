@@ -8,7 +8,7 @@ import (
 )
 
 func validateConnectorConfig(cfg *ConnectorConfig) error {
-	if len(cfg.DonId) == 0 || len(cfg.DonId) > network.HandshakeDonIdLen {
+	if len(cfg.DonID) == 0 || len(cfg.DonID) > network.HandshakeDonIDLen {
 		return errors.New("invalid DON ID")
 	}
 

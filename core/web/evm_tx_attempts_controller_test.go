@@ -31,6 +31,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 2, 3, from)
 
 	resp, cleanup := client.Get("/v2/tx_attempts?size=2")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -54,6 +55,7 @@ func TestTxAttemptsController_Index_Error(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Get("/v2/tx_attempts?size=TrainingDay")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 422)
 }

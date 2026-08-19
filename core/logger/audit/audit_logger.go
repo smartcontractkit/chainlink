@@ -39,7 +39,7 @@ type HTTPAuditLoggerInterface interface {
 type AuditLoggerService struct {
 	logger          logger.Logger            // The standard logger configured in the node
 	enabled         bool                     // Whether the audit logger is enabled or not
-	forwardToUrl    commonconfig.URL         // Location we are going to send logs to
+	forwardToURL    commonconfig.URL         // Location we are going to send logs to
 	headers         []models.ServiceHeader   // Headers to be sent along with logs for identification/authentication
 	jsonWrapperKey  string                   // Wrap audit data as a map under this key if present
 	environmentName string                   // Decorate the environment this is coming from
@@ -76,7 +76,7 @@ func NewAuditLogger(logger logger.Logger, config config.AuditLogger) (AuditLogge
 		return nil, fmt.Errorf("initialization error - unable to get hostname: %w", err)
 	}
 
-	forwardToUrl, err := config.ForwardToUrl()
+	forwardToURL, err := config.ForwardToURL()
 	if err != nil {
 		return &AuditLoggerService{}, nil
 	}
@@ -92,9 +92,9 @@ func NewAuditLogger(logger logger.Logger, config config.AuditLogger) (AuditLogge
 	auditLogger := AuditLoggerService{
 		logger:          logger.Helper(1),
 		enabled:         true,
-		forwardToUrl:    forwardToUrl,
+		forwardToURL:    forwardToURL,
 		headers:         headers,
-		jsonWrapperKey:  config.JsonWrapperKey(),
+		jsonWrapperKey:  config.JSONWrapperKey(),
 		environmentName: config.Environment(),
 		hostname:        hostname,
 		localIP:         getLocalIP(),
@@ -137,7 +137,7 @@ func (l *AuditLoggerService) Audit(eventID EventID, data Data) {
 // Start the audit logger and begin processing logs on the channel
 func (l *AuditLoggerService) Start(context.Context) error {
 	if !l.enabled {
-		return errors.New("The audit logger is not enabled")
+		return errors.New("the audit logger is not enabled")
 	}
 
 	go l.runLoop()
@@ -147,7 +147,7 @@ func (l *AuditLoggerService) Start(context.Context) error {
 // Stops the logger and will close the channel.
 func (l *AuditLoggerService) Close() error {
 	if !l.enabled {
-		return errors.New("The audit logger is not enabled")
+		return errors.New("the audit logger is not enabled")
 	}
 
 	l.logger.Warnf("Disabled the audit logger service")
@@ -227,7 +227,7 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 	defer cancel()
 
 	// Send to remote service
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, (*url.URL)(&l.forwardToUrl).String(), bytes.NewReader(serializedLog))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, (*url.URL)(&l.forwardToURL).String(), bytes.NewReader(serializedLog))
 	if err != nil {
 		l.logger.Error("failed to create request to remote logging service!")
 	}
@@ -239,6 +239,7 @@ func (l *AuditLoggerService) postLogToLogService(eventID EventID, data Data) {
 		l.logger.Errorw("failed to send audit log to HTTP log service", "err", err, "logItem", logItem)
 		return
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		if resp.Body == nil {
 			l.logger.Errorw("no body to read. Possibly an error occurred sending", "logItem", logItem)

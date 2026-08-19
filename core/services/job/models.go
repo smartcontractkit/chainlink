@@ -422,10 +422,10 @@ func (s *OCR2OracleSpec) getChainID() (string, error) {
 		return s.ChainID, nil
 	}
 	// backward compatible job spec
-	return s.getChainIdFromRelayConfig()
+	return s.getChainIDFromRelayConfig()
 }
 
-func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
+func (s *OCR2OracleSpec) getChainIDFromRelayConfig() (string, error) {
 	v, exists := s.RelayConfig["chainID"]
 	if !exists {
 		return "", errors.New("chainID does not exist")

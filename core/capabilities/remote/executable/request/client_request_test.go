@@ -60,7 +60,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	require.NoError(t, err)
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
+		"schedule":   transmission.ScheduleAllAtOnce,
 		"deltaStage": "1000ms",
 	})
 	require.NoError(t, err)
@@ -720,7 +720,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the event fields
-		assert.Equal(t, transmission.Schedule_AllAtOnce, event.ScheduleType)
+		assert.Equal(t, transmission.ScheduleAllAtOnce, event.ScheduleType)
 		assert.Equal(t, workflowExecutionID1, event.WorkflowExecutionID)
 		assert.Equal(t, "cap_id@1.0.0", event.CapabilityID)
 		assert.Equal(t, stepRef1, event.StepRef)
@@ -931,7 +931,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			dispatcher,
 			10*time.Minute,
 			&transmission.TransmissionConfig{
-				Schedule:   transmission.Schedule_OneAtATime,
+				Schedule:   transmission.ScheduleOneAtATime,
 				DeltaStage: 1000 * time.Millisecond,
 			},
 			"",
@@ -977,7 +977,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify the event fields
-		assert.Equal(t, transmission.Schedule_AllAtOnce, event.ScheduleType)
+		assert.Equal(t, transmission.ScheduleAllAtOnce, event.ScheduleType)
 		assert.Equal(t, workflowExecutionID1, event.WorkflowExecutionID)
 		assert.Equal(t, "cap_id@1.0.0", event.CapabilityID)
 		assert.Equal(t, stepRef1, event.StepRef)
@@ -1092,7 +1092,7 @@ func TestRequiredConfirmations(t *testing.T) {
 	executeInputs, err := values.NewMap(map[string]any{"executeValue1": "aValue1"})
 	require.NoError(t, err)
 	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
+		"schedule":   transmission.ScheduleAllAtOnce,
 		"deltaStage": "1000ms",
 	})
 	require.NoError(t, err)

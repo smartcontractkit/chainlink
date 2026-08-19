@@ -390,7 +390,7 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 	return nil
 }
 
-func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbackup.BackupConfig, lggr logger.Logger, appv, dbv *semver.Version, healthReportPort uint16) (err error) {
+func takeBackupIfVersionUpgrade(dbURL url.URL, rootDir string, cfg periodicbackup.BackupConfig, lggr logger.Logger, appv, dbv *semver.Version, healthReportPort uint16) (err error) {
 	if appv == nil {
 		lggr.Debug("Application version is missing, skipping automatic DB backup.")
 		return nil
@@ -405,7 +405,7 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 	}
 	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set Database.Backup.OnVersionUpgrade=false. To disable backups entirely set Database.Backup.Mode=none.", appv.String(), dbv.String())
 
-	databaseBackup, err := periodicbackup.NewDatabaseBackup(dbUrl, rootDir, cfg, lggr)
+	databaseBackup, err := periodicbackup.NewDatabaseBackup(dbURL, rootDir, cfg, lggr)
 	if err != nil {
 		return errors.Wrap(err, "takeBackupIfVersionUpgrade failed")
 	}
@@ -596,14 +596,14 @@ type authenticatedHTTPClient struct {
 // which is then used for all subsequent HTTP API requests.
 func NewAuthenticatedHTTPClient(lggr logger.Logger, clientOpts ClientOpts, cookieAuth CookieAuthenticator, sessionRequest sessions.SessionRequest) HTTPClient {
 	return &authenticatedHTTPClient{
-		client:         newHttpClient(lggr, clientOpts.InsecureSkipVerify),
+		client:         newHTTPClient(lggr, clientOpts.InsecureSkipVerify),
 		cookieAuth:     cookieAuth,
 		sessionRequest: sessionRequest,
 		remoteNodeURL:  clientOpts.RemoteNodeURL,
 	}
 }
 
-func newHttpClient(lggr logger.Logger, insecureSkipVerify bool) *http.Client {
+func newHTTPClient(lggr logger.Logger, insecureSkipVerify bool) *http.Client {
 	tr := &http.Transport{
 		// User enables this at their own risk!
 		// #nosec G402
@@ -730,7 +730,7 @@ func (t *SessionCookieAuthenticator) Authenticate(ctx context.Context, sessionRe
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := newHttpClient(t.lggr, t.config.InsecureSkipVerify)
+	client := newHTTPClient(t.lggr, t.config.InsecureSkipVerify)
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err

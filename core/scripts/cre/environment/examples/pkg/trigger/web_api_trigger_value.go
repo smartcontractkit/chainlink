@@ -12,13 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
@@ -65,9 +63,9 @@ func WebAPITriggerValue(gatewayURL, donID, privateKey string, timeout time.Durat
 
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: uuid.New().String(),
+			MessageID: uuid.New().String(),
 			Method:    Method,
-			DonId:     donID,
+			DonID:     donID,
 			Payload:   json.RawMessage(payloadJSON),
 			Sender:    publicAddress.String(),
 		},
@@ -76,7 +74,7 @@ func WebAPITriggerValue(gatewayURL, donID, privateKey string, timeout time.Durat
 		return errors.Wrap(err, "error signing message")
 	}
 
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	rawMsg, err := codec.EncodeLegacyRequest(msg)
 	if err != nil {
 		return errors.Wrap(err, "error JSON-RPC encoding")

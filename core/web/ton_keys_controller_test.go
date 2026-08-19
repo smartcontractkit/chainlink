@@ -21,6 +21,7 @@ func TestTONKeysController_Index_HappyPath(t *testing.T) {
 	keys, _ := keyStore.TON().GetAll()
 
 	response, cleanup := client.Get("/v2/keys/ton")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -43,6 +44,7 @@ func TestTONKeysController_Create_HappyPath(t *testing.T) {
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/ton", nil)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -69,6 +71,7 @@ func TestTONKeysController_Delete_NonExistentTONKeyID(t *testing.T) {
 
 	nonExistentTONKeyID := "foobar"
 	response, cleanup := client.Delete("/v2/keys/ton/" + nonExistentTONKeyID)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusNotFound, response.StatusCode)
 }
@@ -84,6 +87,7 @@ func TestTONKeysController_Delete_HappyPath(t *testing.T) {
 	key, _ := keyStore.TON().Create(ctx)
 
 	response, cleanup := client.Delete("/v2/keys/ton/" + key.ID())
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, response.StatusCode)
 	require.Error(t, utils.JustError(keyStore.TON().Get(key.ID())))

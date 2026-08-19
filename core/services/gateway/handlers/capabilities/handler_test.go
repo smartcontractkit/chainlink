@@ -76,9 +76,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	require.NoError(t, err)
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: "123",
+			MessageID: "123",
 			Method:    MethodWebAPITarget,
-			DonId:     "testDonId",
+			DonID:     "testDonId",
 			Payload:   json.RawMessage(payloadBytes),
 		},
 	}
@@ -104,9 +104,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
+				m.Body.DonID == "testDonId" &&
 				payload.StatusCode == http.StatusOK &&
 				len(payload.Headers) == 0 &&
 				string(payload.Body) == "response body" &&
@@ -140,9 +140,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
+				m.Body.DonID == "testDonId" &&
 				payload.StatusCode == http.StatusNotFound &&
 				string(payload.Body) == "access denied" &&
 				len(payload.Headers) == 0 &&
@@ -173,9 +173,9 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
+				m.Body.DonID == "testDonId" &&
 				payload.ExecutionError &&
 				payload.ErrorMessage == "error while marshalling"
 		})).Return(nil).Once()
@@ -221,9 +221,9 @@ func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, method
 	}
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: messageID,
+			MessageID: messageID,
 			Method:    methodName,
-			DonId:     donID,
+			DonID:     donID,
 			Payload:   json.RawMessage(payloadJSON),
 		},
 	}
@@ -238,7 +238,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 	handler, _, don, nodes := setupHandler(t)
 	ctx := t.Context()
 	msg := triggerRequest(t, nodes[0].PrivateKey, []string{"daily_price_update"}, "", "", "")
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 
 	t.Run("happy case", func(t *testing.T) {
 		// sends to 2 dons
@@ -275,7 +275,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageId,
+				invalidMsg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.UnsupportedMethodError),
 				"invalid method foo",
 				nil,
@@ -293,7 +293,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageId,
+				invalidMsg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.HandlerError),
 				"stale message",
 				nil,
@@ -311,7 +311,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageId,
+				invalidMsg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
 				"error decoding payload field params in TriggerRequestPayload: required",
 				nil,
@@ -329,7 +329,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(
-				invalidMsg.Body.MessageId,
+				invalidMsg.Body.MessageID,
 				api.ToJSONRPCErrorCode(api.UserMessageParseError),
 				"error decoding payload field params in TriggerRequestPayload: required",
 				nil,
@@ -381,9 +381,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 	require.NoError(t, err)
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: "123",
+			MessageID: "123",
 			Method:    MethodComputeAction,
-			DonId:     "testDonId",
+			DonID:     "testDonId",
 			Payload:   json.RawMessage(payloadBytes),
 		},
 	}
@@ -408,9 +408,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodComputeAction == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
+				m.Body.DonID == "testDonId" &&
 				payload.StatusCode == http.StatusOK &&
 				len(payload.Headers) == 0 &&
 				string(payload.Body) == "response body" &&
@@ -445,9 +445,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodComputeAction == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
+				m.Body.DonID == "testDonId" &&
 				payload.StatusCode == http.StatusNotFound &&
 				string(payload.Body) == "access denied" &&
 				len(payload.Headers) == 0 &&
@@ -478,9 +478,9 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			if err2 != nil {
 				return false
 			}
-			return m.Body.MessageId == "123" &&
+			return m.Body.MessageID == "123" &&
 				MethodComputeAction == m.Body.Method &&
-				m.Body.DonId == "testDonId" &&
+				m.Body.DonID == "testDonId" &&
 				payload.ExecutionError &&
 				payload.ErrorMessage == "error while marshalling"
 		})).Return(nil).Once()

@@ -13,6 +13,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
+
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
@@ -111,7 +112,7 @@ func generateProofForV2Plus(e helpers.Environment) {
 		PreSeed:          preSeed,
 		BlockHash:        blockHash,
 		BlockNum:         *blockNum,
-		SubId:            parsedSubId,
+		SubID:            parsedSubId,
 		CallbackGasLimit: uint32(*callbackGasLimit),
 		NumWords:         uint32(*numWords),
 		Sender:           sender,

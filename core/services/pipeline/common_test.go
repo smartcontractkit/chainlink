@@ -222,7 +222,7 @@ func TestCheckInputs(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			outputs, err := pipeline.CheckInputs(test.pr, test.minLen, test.maxLen, test.maxErrors)
 			if test.err == nil {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Len(t, outputs, test.outputsLen)
 			} else {
 				assert.Equal(t, test.err, errors.Cause(err))

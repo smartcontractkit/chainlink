@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -52,7 +51,7 @@ func TestJobKVStore(t *testing.T) {
 
 		var readBytes []byte
 		readBytes, err = kvStore.Get(ctx, testKey)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		require.Equal(t, insertBytes, readBytes)
 	}

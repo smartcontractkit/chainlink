@@ -125,7 +125,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	if transmissionConfig != nil {
 		// all v2 capabilities should be all at once
 		tc = transmission.TransmissionConfig{
-			Schedule: transmission.Schedule_AllAtOnce,
+			Schedule: transmission.ScheduleAllAtOnce,
 		}
 	} else { // per-workflow setting used by V1 Capabilities
 		tc, err = transmission.ExtractTransmissionConfig(req.Config)

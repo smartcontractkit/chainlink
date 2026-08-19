@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
@@ -60,7 +59,7 @@ func Test_CosmosKeyStore_E2E(t *testing.T) {
 		exportJSON, err := ks.Export(key.ID(), cltest.Password)
 		require.NoError(t, err)
 		_, err = ks.Export("non-existent", cltest.Password)
-		assert.Error(t, err)
+		require.Error(t, err)
 		_, err = ks.Delete(ctx, key.ID())
 		require.NoError(t, err)
 		_, err = ks.Get(key.ID())
@@ -68,9 +67,9 @@ func Test_CosmosKeyStore_E2E(t *testing.T) {
 		importedKey, err := ks.Import(ctx, exportJSON, cltest.Password)
 		require.NoError(t, err)
 		_, err = ks.Import(ctx, exportJSON, cltest.Password)
-		assert.Error(t, err)
+		require.Error(t, err)
 		_, err = ks.Import(ctx, []byte(""), cltest.Password)
-		assert.Error(t, err)
+		require.Error(t, err)
 		require.Equal(t, key.ID(), importedKey.ID())
 		retrievedKey, err := ks.Get(key.ID())
 		require.NoError(t, err)
@@ -84,14 +83,14 @@ func Test_CosmosKeyStore_E2E(t *testing.T) {
 		err := ks.Add(ctx, newKey)
 		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
-		assert.Error(t, err)
+		require.Error(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		require.Len(t, keys, 1)
 		_, err = ks.Delete(ctx, newKey.ID())
 		require.NoError(t, err)
 		_, err = ks.Delete(ctx, newKey.ID())
-		assert.Error(t, err)
+		require.Error(t, err)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
 		require.Empty(t, keys)
@@ -103,10 +102,10 @@ func Test_CosmosKeyStore_E2E(t *testing.T) {
 		defer reset()
 		ctx := t.Context()
 		err := ks.EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = ks.EnsureKey(ctx)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		keys, err := ks.GetAll()
 		require.NoError(t, err)

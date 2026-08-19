@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"log/slog"
 
+	"google.golang.org/protobuf/types/known/durationpb"
+
 	http "github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http"
 	"github.com/smartcontractkit/cre-sdk-go/cre"
 	sdk "github.com/smartcontractkit/cre-sdk-go/cre"
 	"github.com/smartcontractkit/cre-sdk-go/cre/wasm"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 type Config struct {

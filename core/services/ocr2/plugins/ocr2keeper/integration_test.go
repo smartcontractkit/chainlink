@@ -245,10 +245,8 @@ func runKeeperPluginBasic(t *testing.T) {
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
-	var (
-		oracles []confighelper.OracleIdentityExtra
-		nodes   []Node
-	)
+	oracles := make([]confighelper.OracleIdentityExtra, 0, 4)
+	nodes := make([]Node, 0, 4)
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
 	for i := range 4 {
@@ -499,7 +497,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	backend.Commit()
 	registry := deployKeeper20Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
-	effectiveTransmitters := make([]common.Address, 0)
+	effectiveTransmitters := make([]common.Address, 0, 4)
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, mercury.NewSimulatedMercuryServer())
@@ -507,10 +505,8 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
-	var (
-		oracles []confighelper.OracleIdentityExtra
-		nodes   []Node
-	)
+	oracles := make([]confighelper.OracleIdentityExtra, 0, 4)
+	nodes := make([]Node, 0, 4)
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
 	for i := range 4 {
@@ -629,7 +625,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	require.NoError(t, err)
 
 	// Make sure we are using forwarders and not node keys as transmitters on chain.
-	eoaList := make([]common.Address, 0)
+	eoaList := make([]common.Address, 0, len(nodes))
 	for _, n := range nodes {
 		eoaList = append(eoaList, n.Transmitter)
 	}

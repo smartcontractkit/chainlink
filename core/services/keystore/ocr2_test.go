@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
@@ -99,7 +98,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 			exportJSON, err := ks.Export(key.ID(), cltest.Password)
 			require.NoError(t, err)
 			_, err = ks.Export("non-existent", cltest.Password)
-			assert.Error(t, err)
+			require.Error(t, err)
 			err = ks.Delete(ctx, key.ID())
 			require.NoError(t, err)
 			_, err = ks.Get(key.ID())
@@ -109,7 +108,7 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 			_, err = ks.Import(ctx, exportJSON, cltest.Password)
 			require.ErrorContains(t, err, "already exists")
 			_, err = ks.Import(ctx, []byte(""), cltest.Password)
-			assert.Error(t, err)
+			require.Error(t, err)
 			require.Equal(t, key.ID(), importedKey.ID())
 			retrievedKey, err := ks.Get(key.ID())
 			require.NoError(t, err)
@@ -127,14 +126,14 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 			err = ks.Add(ctx, newKey)
 			require.NoError(t, err)
 			err = ks.Add(ctx, newKey)
-			assert.Error(t, err)
+			require.Error(t, err)
 			keys, err := ks.GetAll()
 			require.NoError(t, err)
 			require.Len(t, keys, 1)
 			err = ks.Delete(ctx, newKey.ID())
 			require.NoError(t, err)
 			err = ks.Delete(ctx, newKey.ID())
-			assert.Error(t, err)
+			require.Error(t, err)
 			keys, err = ks.GetAll()
 			require.NoError(t, err)
 			require.Empty(t, keys)
@@ -147,19 +146,19 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		defer reset()
 		ctx := t.Context()
 		err := ks.EnsureKeys(ctx, corekeys.SupportedChainTypes...)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		keys, err := ks.GetAll()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		require.Len(t, keys, len(corekeys.SupportedChainTypes))
 
 		err = ks.EnsureKeys(ctx, corekeys.SupportedChainTypes...)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		// loop through different supported chain types
 		for _, chain := range corekeys.SupportedChainTypes {
 			keys, err := ks.GetAllOfType(chain)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			require.Len(t, keys, 1)
 		}
 	})
@@ -168,30 +167,30 @@ func Test_OCR2KeyStore_E2E(t *testing.T) {
 		defer reset()
 		ctx := t.Context()
 		err := ks.EnsureKeys(ctx, corekeys.EVM)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		keys, err := ks.GetAll()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		require.Len(t, keys, 1)
 		require.Equal(t, corekeys.EVM, keys[0].ChainType())
 
 		err = ks.EnsureKeys(ctx, corekeys.Cosmos)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		keys, err = ks.GetAll()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		require.Len(t, keys, 2)
 
 		cosmosKeys, err := ks.GetAllOfType(corekeys.Cosmos)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		require.Len(t, cosmosKeys, 1)
 		require.Equal(t, corekeys.Cosmos, cosmosKeys[0].ChainType())
 
 		err = ks.EnsureKeys(ctx, corekeys.StarkNet)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		keys, err = ks.GetAll()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		require.Len(t, keys, 3)
 
 		starknetKeys, err := ks.GetAllOfType(corekeys.StarkNet)

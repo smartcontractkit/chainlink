@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUtils_TomlFloat32_Success_Decimal(t *testing.T) {
@@ -13,7 +14,7 @@ func TestUtils_TomlFloat32_Success_Decimal(t *testing.T) {
 
 	err := tomlF32.UnmarshalText([]byte("0.23"))
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, tomlF32, Float32(0.23))
 }
 
@@ -24,7 +25,7 @@ func TestUtils_TomlFloat32_Success_Integer(t *testing.T) {
 
 	err := tomlF32.UnmarshalText([]byte("13"))
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, tomlF32, Float32(13))
 }
 
@@ -45,7 +46,7 @@ func TestUtils_TomlFloat64_Success_Decimal(t *testing.T) {
 
 	err := tomlF64.UnmarshalText([]byte("2.82"))
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, tomlF64, Float64(2.82))
 }
 
@@ -56,7 +57,7 @@ func TestUtils_TomlFloat64_Success_Integer(t *testing.T) {
 
 	err := tomlF64.UnmarshalText([]byte("3"))
 
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, tomlF64, Float64(3))
 }
 

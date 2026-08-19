@@ -34,8 +34,8 @@ func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecutio
 		name     string
 		schedule string
 	}{
-		{"AllAtOnce", transmission.Schedule_AllAtOnce},
-		{"OneAtATime", transmission.Schedule_OneAtATime},
+		{"AllAtOnce", transmission.ScheduleAllAtOnce},
+		{"OneAtATime", transmission.ScheduleOneAtATime},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
@@ -122,7 +122,7 @@ func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 	}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_OneAtATime,
+		"schedule":   transmission.ScheduleOneAtATime,
 		"deltaStage": "10ms",
 	})
 	require.NoError(t, err)
@@ -142,7 +142,7 @@ func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 	testRemoteExecutableCapability(ctx, t, capability, 10, 9, timeOut, 10, 9, timeOut, method, true)
 
 	transmissionSchedule, err = values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
+		"schedule":   transmission.ScheduleAllAtOnce,
 		"deltaStage": "10ms",
 	})
 	require.NoError(t, err)
@@ -161,7 +161,7 @@ func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 	capability := &TestErrorCapability{}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
+		"schedule":   transmission.ScheduleAllAtOnce,
 		"deltaStage": "10ms",
 	})
 	require.NoError(t, err)
@@ -193,7 +193,7 @@ func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
 	capability := &TestRandomErrorCapability{}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
+		"schedule":   transmission.ScheduleAllAtOnce,
 		"deltaStage": "10ms",
 	})
 	require.NoError(t, err)

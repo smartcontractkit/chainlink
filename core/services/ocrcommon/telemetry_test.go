@@ -167,7 +167,7 @@ func TestGetChainID(t *testing.T) {
 
 func TestParseEATelemetry(t *testing.T) {
 	ea, err := parseEATelemetry([]byte(bridgeResponse))
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, "data-source-name", ea.DataSource)
 	assert.Equal(t, int64(92233720368547760), ea.ProviderRequestedTimestamp)
 	assert.Equal(t, int64(-92233720368547760), ea.ProviderReceivedTimestamp)
@@ -179,14 +179,14 @@ func TestParseEATelemetry(t *testing.T) {
 }
 
 func TestGetJsonParsedValue(t *testing.T) {
-	resp := getJsonParsedValue(trrs[0], &trrs)
+	resp := getJSONParsedValue(trrs[0], &trrs)
 	assert.Equal(t, 123456.123456789, *resp)
 
 	trrs[1].Result.Value = nil
-	resp = getJsonParsedValue(trrs[0], &trrs)
+	resp = getJSONParsedValue(trrs[0], &trrs)
 	assert.Nil(t, resp)
 
-	resp = getJsonParsedValue(trrs[1], &trrs)
+	resp = getJSONParsedValue(trrs[1], &trrs)
 	assert.Nil(t, resp)
 }
 
@@ -211,7 +211,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 		},
 	}
 
-	resp := getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	resp := getJSONParsedValue(trrsHexData[0], &trrsHexData)
 	assert.InDelta(t, 109519.0, *resp, 0)
 
 	trrsHexData = pipeline.TaskRunResults{
@@ -234,7 +234,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 		},
 	}
 
-	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	resp = getJSONParsedValue(trrsHexData[0], &trrsHexData)
 	assert.InDelta(t, 109519.0, *resp, 0)
 
 	trrsHexData = pipeline.TaskRunResults{
@@ -257,7 +257,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 		},
 	}
 
-	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	resp = getJSONParsedValue(trrsHexData[0], &trrsHexData)
 	assert.Nil(t, resp)
 
 	trrsHexData = pipeline.TaskRunResults{
@@ -280,7 +280,7 @@ func TestGetJsonParsedValueHexValues(t *testing.T) {
 		},
 	}
 
-	resp = getJsonParsedValue(trrsHexData[0], &trrsHexData)
+	resp = getJSONParsedValue(trrsHexData[0], &trrsHexData)
 	assert.Nil(t, resp)
 }
 

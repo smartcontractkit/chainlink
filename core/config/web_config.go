@@ -49,7 +49,7 @@ type LDAP interface {
 	EditUserGroupCN() string
 	RunUserGroupCN() string
 	ReadUserGroupCN() string
-	UserApiTokenEnabled() bool
+	UserAPITokenEnabled() bool
 	UserAPITokenDuration() commonconfig.Duration
 	UpstreamSyncInterval() commonconfig.Duration
 	UpstreamSyncRateLimit() commonconfig.Duration

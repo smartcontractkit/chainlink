@@ -41,7 +41,7 @@ func Test_Client_DonTopologies(t *testing.T) {
 	ctx := t.Context()
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_OneAtATime,
+		"schedule":   transmission.ScheduleOneAtATime,
 		"deltaStage": "10ms",
 	})
 	require.NoError(t, err)
@@ -107,7 +107,7 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 	responseTimeOut := 10 * time.Minute
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_OneAtATime,
+		"schedule":   transmission.ScheduleOneAtATime,
 		"deltaStage": "10ms",
 	})
 	require.NoError(t, err)
@@ -130,7 +130,7 @@ func Test_Client_TransmissionSchedules(t *testing.T) {
 	)
 
 	transmissionSchedule, err = values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
+		"schedule":   transmission.ScheduleAllAtOnce,
 		"deltaStage": "10ms",
 	})
 	require.NoError(t, err)
@@ -201,7 +201,7 @@ func Test_Client_ResponseAggregationGrace(t *testing.T) {
 				}
 
 				transmissionSchedule, err := values.NewMap(map[string]any{
-					"schedule":   transmission.Schedule_AllAtOnce,
+					"schedule":   transmission.ScheduleAllAtOnce,
 					"deltaStage": "10ms",
 				})
 				require.NoError(t, err)
@@ -248,7 +248,7 @@ func Test_Client_ConsensusFailedIfInsufficientCapabilityPeerResponses(t *testing
 	capability := &TestCapability{}
 
 	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
+		"schedule":   transmission.ScheduleAllAtOnce,
 		"deltaStage": "10ms",
 	})
 	require.NoError(t, err)
@@ -276,7 +276,7 @@ func Test_Client_ContextCanceledBeforeQuorumReached(t *testing.T) {
 
 	capability := &TestCapability{}
 	transmissionSchedule, err := values.NewMap(map[string]any{
-		"schedule":   transmission.Schedule_AllAtOnce,
+		"schedule":   transmission.ScheduleAllAtOnce,
 		"deltaStage": "20s",
 	})
 	require.NoError(t, err)
@@ -519,7 +519,7 @@ func TestClient_SetConfig(t *testing.T) {
 		fixture := newClientSetConfigTestFixture(t)
 
 		transmissionConfig := &transmission.TransmissionConfig{
-			Schedule:   transmission.Schedule_OneAtATime,
+			Schedule:   transmission.ScheduleOneAtATime,
 			DeltaStage: 10 * time.Millisecond,
 		}
 

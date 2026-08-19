@@ -12,9 +12,6 @@ import (
 	"strings"
 	"text/template"
 
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/log"
 	mobyclient "github.com/moby/moby/client"
@@ -23,6 +20,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/tidwall/gjson"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"

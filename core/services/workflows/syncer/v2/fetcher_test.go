@@ -183,7 +183,7 @@ func TestNewFetcherService(t *testing.T) {
 		rawPayload := json.RawMessage(payload)
 		gatewayResp := &jsonrpc.Request[json.RawMessage]{
 			Version: "2.0",
-			ID:      gatewayMessage.Body.MessageId,
+			ID:      gatewayMessage.Body.MessageID,
 			Method:  gatewayMessage.Body.Method,
 			Params:  &rawPayload,
 		}
@@ -217,8 +217,8 @@ func TestNewFetcherService(t *testing.T) {
 		require.NoError(t, err)
 		gatewayMsg := &api.Message{
 			Body: api.MessageBody{
-				MessageId: msgID,
-				DonId:     donID,
+				MessageID: msgID,
+				DonID:     donID,
 				Method:    ghcapabilities.MethodWebAPITarget,
 				Payload:   responsePayload,
 			},
@@ -592,8 +592,8 @@ func gatewayResponse(t *testing.T, msgID string, donID string, statusCode int) *
 	require.NoError(t, err)
 	return &api.Message{
 		Body: api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},
@@ -609,8 +609,8 @@ func inconsistentPayload(t *testing.T, msgID string, donID string) *api.Message 
 	require.NoError(t, err)
 	return &api.Message{
 		Body: api.MessageBody{
-			MessageId: msgID,
-			DonId:     donID,
+			MessageID: msgID,
+			DonID:     donID,
 			Method:    ghcapabilities.MethodWebAPITarget,
 			Payload:   responsePayload,
 		},

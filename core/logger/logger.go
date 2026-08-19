@@ -160,7 +160,7 @@ func NewLogger() (Logger, func() error) {
 type Config struct {
 	LogLevel       zapcore.Level
 	Dir            string
-	JsonConsole    bool
+	JSONConsole    bool
 	UnixTS         bool
 	FileMaxSizeMB  int
 	FileMaxAgeDays int
@@ -188,7 +188,7 @@ func (c *Config) NewWithCores(cores ...zapcore.Core) (Logger, func() error) {
 		c.diskPollConfig = newDiskPollConfig(diskPollInterval)
 	}
 
-	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
+	cfg := newZapConfigProd(c.JSONConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
 	var (
 		l           Logger

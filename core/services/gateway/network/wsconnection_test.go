@@ -51,8 +51,9 @@ func TestWSConnectionWrapper_WriteError_TriggersClose(t *testing.T) {
 	clientConnWrapper := network.NewWSConnectionWrapper(lggr)
 	servicetest.Run(t, clientConnWrapper)
 
-	conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(serverURL, nil)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 
 	closeCh := clientConnWrapper.Reset(conn)
 
@@ -91,8 +92,9 @@ func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	servicetest.Run(t, clientConnWrapper)
 
 	// connect, write a message, disconnect
-	conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
+	conn, resp, err := websocket.DefaultDialer.Dial(serverURL, nil)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	func() {
 		defer func() { assert.NoError(t, conn.Close()) }()
 		clientConnWrapper.Reset(conn)
@@ -106,8 +108,9 @@ func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	require.Error(t, writeErr)
 
 	// re-connect, write another message, disconnect
-	conn, _, err = websocket.DefaultDialer.Dial(serverURL, nil)
+	conn, resp, err = websocket.DefaultDialer.Dial(serverURL, nil)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
 	clientConnWrapper.Reset(conn)
 	writeErr = clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("hello again"))

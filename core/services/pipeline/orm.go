@@ -696,7 +696,8 @@ LIMIT $3
 		o.lggr.Errorw("Failed to get RowsAffected while pruning runs", "err", err, "jobID", jobID)
 		return
 	}
-	if rowsAffected == 0 {
+	switch {
+	case rowsAffected == 0:
 		// check the spec still exists and garbage collect if necessary
 		var exists bool
 		if err := o.ds.GetContext(ctx, &exists, `SELECT EXISTS(SELECT ps.* FROM pipeline_specs ps JOIN job_pipeline_specs jps ON (ps.id=jps.pipeline_spec_id) WHERE jps.job_id = $1)`, jobID); err != nil {
@@ -707,9 +708,9 @@ LIMIT $3
 			o.lggr.Debugw("Pipeline spec no longer exists, removing prune count", "jobID", jobID)
 			o.pm.Delete(jobID)
 		}
-	} else if o.maxSuccessfulRuns < syncLimit {
+	case o.maxSuccessfulRuns < syncLimit:
 		o.lggr.Tracew("Pruned runs", "rowsAffected", rowsAffected, "jobID", jobID)
-	} else {
+	default:
 		o.lggr.Debugw("Pruned runs", "rowsAffected", rowsAffected, "jobID", jobID)
 	}
 }

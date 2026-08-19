@@ -46,6 +46,7 @@ type LoopRelayerStorer interface {
 // LegacyChainer is an interface for getting legacy chains
 // This will be deprecated/removed when products depend only
 // on the relayer interface.
+//
 // Deprecated: use the Relayer interface
 type LegacyChainer interface {
 	// Deprecated: use the relayer interface
@@ -314,6 +315,7 @@ func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]
 
 // LegacyEVMChains returns a container with all the evm chains
 // TODO BCF-2511
+//
 // Deprecated: use the Relayer interface
 func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() legacyevm.LegacyChainContainer {
 	rs.mu.Lock()
@@ -339,14 +341,14 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
-	relayerIds := make([]types.RelayID, 0)
+	relayerIDs := make([]types.RelayID, 0)
 	for rid := range rs.loopRelayers {
-		relayerIds = append(relayerIds, rid)
+		relayerIDs = append(relayerIDs, rid)
 	}
-	sort.Slice(relayerIds, func(i, j int) bool {
-		return relayerIds[i].String() < relayerIds[j].String()
+	sort.Slice(relayerIDs, func(i, j int) bool {
+		return relayerIDs[i].String() < relayerIDs[j].String()
 	})
-	for _, rid := range relayerIds {
+	for _, rid := range relayerIDs {
 		lr := rs.loopRelayers[rid]
 		stat, err := lr.GetChainStatus(ctx)
 		if err != nil {
@@ -469,7 +471,7 @@ func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInte
 // Returns a slice of [loop.Relayer]. A typically usage pattern to is
 // use [List(criteria)].Slice() for range based operations
 func (rs *CoreRelayerChainInteroperators) Slice() []loop.Relayer {
-	var result []loop.Relayer
+	result := make([]loop.Relayer, 0, len(rs.loopRelayers))
 	for _, r := range rs.loopRelayers {
 		result = append(result, r)
 	}

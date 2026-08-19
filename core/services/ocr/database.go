@@ -71,7 +71,7 @@ func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrty
 }
 
 func (d *db) WriteState(ctx context.Context, cd ocrtypes.ConfigDigest, state ocrtypes.PersistentState) error {
-	var highestReceivedEpoch []int64
+	highestReceivedEpoch := make([]int64, 0, len(state.HighestReceivedEpoch))
 	for _, v := range state.HighestReceivedEpoch {
 		highestReceivedEpoch = append(highestReceivedEpoch, int64(v))
 	}
@@ -136,8 +136,8 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 }
 
 func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
-	var signers [][]byte
-	var transmitters [][]byte
+	signers := make([][]byte, 0, len(c.Signers))
+	transmitters := make([][]byte, 0, len(c.Transmitters))
 	for _, s := range c.Signers {
 		signers = append(signers, s.Bytes())
 	}
@@ -163,8 +163,8 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 
 func (d *db) StorePendingTransmission(ctx context.Context, k ocrtypes.ReportTimestamp, p ocrtypes.PendingTransmission) error {
 	median := sqlutil.New(p.Median)
-	var rs [][]byte
-	var ss [][]byte
+	rs := make([][]byte, 0, len(p.Rs))
+	ss := make([][]byte, 0, len(p.Ss))
 	// Note: p.Rs and p.Ss are of type [][32]byte.
 	// See last example of https://github.com/golang/go/wiki/CommonMistakes#using-reference-to-loop-iterator-variable
 	for _, v := range p.Rs {

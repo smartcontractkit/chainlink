@@ -330,7 +330,7 @@ func Test_checkCapabilityPresence(t *testing.T) {
 }
 
 func Test_isMemberOfDON(t *testing.T) {
-	var p2pIDs []ragep2ptypes.PeerID
+	p2pIDs := make([]ragep2ptypes.PeerID, 0, 4)
 	for i := range [4]struct{}{} {
 		p2pIDs = append(p2pIDs, ragep2ptypes.PeerID(p2pkey.MustNewV2XXXTestingOnly(big.NewInt(int64(i+1))).PeerID()))
 	}

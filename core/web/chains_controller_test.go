@@ -83,6 +83,7 @@ func Test_EVMChainsController_Show(t *testing.T) {
 			resp, cleanup := controller.client.Get(
 				"/v2/chains/evm/" + tc.inputID,
 			)
+			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			require.Equal(t, tc.wantStatusCode, resp.StatusCode)
 
@@ -145,10 +146,12 @@ func Test_EVMChainsController_Index(t *testing.T) {
 	}))
 
 	badResp, cleanup := controller.client.Get("/v2/chains/evm?size=asd")
+	defer badResp.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusUnprocessableEntity, badResp.StatusCode)
 
 	resp, cleanup := controller.client.Get("/v2/chains/evm?size=3")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -184,6 +187,7 @@ func Test_EVMChainsController_Index(t *testing.T) {
 	assert.Equal(t, toml, gotChain.Config)
 
 	resp, cleanup = controller.client.Get(links["next"].Href)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 

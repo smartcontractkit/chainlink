@@ -22,6 +22,7 @@ func TestAptosKeysController_Index_HappyPath(t *testing.T) {
 	keys, _ := keyStore.Aptos().GetAll()
 
 	response, cleanup := client.Get("/v2/keys/aptos")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -44,6 +45,7 @@ func TestAptosKeysController_Create_HappyPath(t *testing.T) {
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/aptos", nil)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -68,6 +70,7 @@ func TestAptosKeysController_Delete_NonExistentAptosKeyID(t *testing.T) {
 
 	nonExistentAptosKeyID := "foobar"
 	response, cleanup := client.Delete("/v2/keys/aptos/" + nonExistentAptosKeyID)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
@@ -83,6 +86,7 @@ func TestAptosKeysController_Delete_HappyPath(t *testing.T) {
 	key, _ := keyStore.Aptos().Create(ctx)
 
 	response, cleanup := client.Delete("/v2/keys/aptos/" + key.ID())
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	require.Error(t, utils.JustError(keyStore.Aptos().Get(key.ID())))

@@ -34,7 +34,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		donConfig := &config.DONConfig{
-			DonId: "test-don",
+			DonID: "test-don",
 		}
 		mockDon := handlermocks.NewDON(t)
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
@@ -51,7 +51,7 @@ func TestNewGatewayHandler(t *testing.T) {
 
 	t.Run("invalid config JSON", func(t *testing.T) {
 		invalidConfig := []byte(`{invalid json}`)
-		donConfig := &config.DONConfig{DonId: "test-don"}
+		donConfig := &config.DONConfig{DonID: "test-don"}
 		mockDon := handlermocks.NewDON(t)
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
@@ -69,7 +69,7 @@ func TestNewGatewayHandler(t *testing.T) {
 		configBytes, err := json.Marshal(cfg)
 		require.NoError(t, err)
 
-		donConfig := &config.DONConfig{DonId: "test-don"}
+		donConfig := &config.DONConfig{DonID: "test-don"}
 		mockDon := handlermocks.NewDON(t)
 		mockHTTPClient := httpmocks.NewHTTPClient(t)
 		lggr := logger.Test(t)
@@ -431,7 +431,7 @@ func TestGatewayHandler_Start_CallsDeleteExpired(t *testing.T) {
 	configBytes, err := json.Marshal(cfg)
 	require.NoError(t, err)
 
-	donConfig := &config.DONConfig{DonId: "test-don"}
+	donConfig := &config.DONConfig{DonID: "test-don"}
 	mockDon := handlermocks.NewDON(t)
 	mockHTTPClient := httpmocks.NewHTTPClient(t)
 	lggr := logger.Test(t)
@@ -467,7 +467,7 @@ func serviceCfg() ServiceConfig {
 // one-DON one-shard matrix.
 func shardedArgs(donConfig *config.DONConfig, mockDon *handlermocks.DON) ([]config.ShardedDONConfig, [][]handlers.DON) {
 	return []config.ShardedDONConfig{
-		{DonName: donConfig.DonId, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
+		{DonName: donConfig.DonID, F: donConfig.F, Shards: []config.Shard{{Nodes: donConfig.Members}}},
 	}, [][]handlers.DON{{mockDon}}
 }
 
@@ -489,7 +489,7 @@ func createTestHandlerWithConfig(t *testing.T, cfg ServiceConfig) *gatewayHandle
 	require.NoError(t, err)
 
 	donConfig := &config.DONConfig{
-		DonId: "test-don",
+		DonID: "test-don",
 		Members: []config.NodeConfig{
 			{Name: "node1", Address: "node1"},
 			{Name: "node2", Address: "node2"},
@@ -542,7 +542,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		response := callback()
 
 		require.Equal(t, expectedResp.StatusCode, response.StatusCode)
-		require.Equal(t, expectedResp.Headers, response.Headers)
+		require.Equal(t, expectedResp.Headers, response.Headers) //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
 		require.Equal(t, expectedResp.Body, response.Body)
 		require.Empty(t, response.ErrorMessage)
 		require.False(t, response.IsExternalEndpointError)
@@ -564,7 +564,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		require.True(t, response.IsExternalEndpointError)
 		require.Positive(t, response.ExternalEndpointLatency)
 		require.Equal(t, 0, response.StatusCode)
-		require.Nil(t, response.Headers)
+		require.Nil(t, response.Headers) //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
 		require.Nil(t, response.Body)
 	})
 
@@ -660,7 +660,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		require.True(t, response.IsExternalEndpointError)
 		require.Positive(t, response.ExternalEndpointLatency)
 		require.Equal(t, 0, response.StatusCode)
-		require.Nil(t, response.Headers)
+		require.Nil(t, response.Headers) //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
 		require.Nil(t, response.Body)
 	})
 
@@ -680,7 +680,7 @@ func TestCreateHTTPRequestCallback(t *testing.T) {
 		require.False(t, response.IsExternalEndpointError)
 		require.Positive(t, response.ExternalEndpointLatency)
 		require.Equal(t, 0, response.StatusCode)
-		require.Nil(t, response.Headers)
+		require.Nil(t, response.Headers) //nolint:staticcheck // SA1019: assert deprecated Headers for backward compatibility
 		require.Nil(t, response.Body)
 	})
 }

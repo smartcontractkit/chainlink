@@ -67,11 +67,12 @@ func ParseETHABIArgsString(theABI []byte, isLog bool) (args abi.Arguments, index
 			argName = argParts[1]
 
 		case 3:
-			if !isLog {
+			switch {
+			case !isLog:
 				return nil, nil, errors.Errorf("bad ABI specification, too many components in argument: %s", theABI)
-			} else if bytes.Equal(argParts[0], indexedKeyword) || bytes.Equal(argParts[2], indexedKeyword) {
+			case bytes.Equal(argParts[0], indexedKeyword) || bytes.Equal(argParts[2], indexedKeyword):
 				return nil, nil, errors.Errorf("bad ABI specification, 'indexed' keyword must appear between argument type and name: %s", theABI)
-			} else if !bytes.Equal(argParts[1], indexedKeyword) {
+			case !bytes.Equal(argParts[1], indexedKeyword):
 				return nil, nil, errors.Errorf("bad ABI specification, unknown keyword '%v' between argument type and name: %s", string(argParts[1]), theABI)
 			}
 			typeStr = argParts[0]
@@ -167,7 +168,7 @@ func convertToETHABIType(val any, abiType abi.Type) (any, error) {
 
 	case abi.SliceTy:
 		dest := reflect.MakeSlice(abiType.GetType(), srcVal.Len(), srcVal.Len())
-		for i := 0; i < dest.Len(); i++ {
+		for i := range dest.Len() {
 			elem, err := convertToETHABIType(srcVal.Index(i).Interface(), *abiType.Elem)
 			if err != nil {
 				return nil, err
@@ -184,7 +185,7 @@ func convertToETHABIType(val any, abiType abi.Type) (any, error) {
 		}
 
 		dest := reflect.New(abiType.GetType()).Elem()
-		for i := 0; i < dest.Len(); i++ {
+		for i := range dest.Len() {
 			elem, err := convertToETHABIType(srcVal.Index(i).Interface(), *abiType.Elem)
 			if err != nil {
 				return nil, err

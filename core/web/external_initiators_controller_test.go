@@ -82,10 +82,12 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	eiBar := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{NamePrefix: "bar"})
 
 	resp, cleanup := client.Get("/v2/external_initiators?size=x")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 
 	resp, cleanup = client.Get("/v2/external_initiators?size=1")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body := cltest.ParseResponseBody(t, resp)
@@ -109,6 +111,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	assert.Equal(t, eiBar.OutgoingToken, eis[0].OutgoingToken)
 
 	resp, cleanup = client.Get(links["next"].Href)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -140,6 +143,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"name":"bitcoin","url":"http://without.a.name"}`),
 	)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &presenters.ExternalInitiatorAuthentication{}
@@ -167,6 +171,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"name":"no-url"}`),
 	)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 201)
 	ei := &presenters.ExternalInitiatorAuthentication{}
@@ -194,6 +199,7 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 	resp, cleanup := client.Post("/v2/external_initiators",
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
 	)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
@@ -216,6 +222,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	resp, cleanup := client.Delete("/v2/external_initiators/" + exi.Name)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusNoContent)
 }
@@ -249,6 +256,7 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			t.Parallel()
 			resp, cleanup := client.Delete(test.URL)
+			defer resp.Body.Close()
 			t.Cleanup(cleanup)
 			assert.Equal(t, http.StatusText(http.StatusNotFound), http.StatusText(resp.StatusCode))
 		})

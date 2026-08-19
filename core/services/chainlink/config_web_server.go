@@ -298,7 +298,7 @@ func (l *ldapConfig) ReadUserGroupCN() string {
 	return *l.c.ReadUserGroupCN
 }
 
-func (l *ldapConfig) UserApiTokenEnabled() bool {
+func (l *ldapConfig) UserAPITokenEnabled() bool {
 	if l.c.UserApiTokenEnabled == nil {
 		return false
 	}

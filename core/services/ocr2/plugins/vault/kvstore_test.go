@@ -98,7 +98,7 @@ func (b *blobber) unmarshalBlob(data []byte) (ocr3_1types.BlobHandle, error) {
 
 var _ (ocr3_1types.BlobBroadcastFetcher) = (*blobber)(nil)
 
-var _ (ocr3_1types.KeyValueReadWriter) = (*kv)(nil)
+var _ (ocr3_1types.KeyValueStateReadWriter) = (*kv)(nil)
 
 func TestKVStore_Secrets(t *testing.T) {
 	kv := &kv{
