@@ -362,13 +362,14 @@ func Test_CRE_V2_Sharding(t *testing.T) {
 	})
 }
 
+//nolint:paralleltest // subtests share the same sharding config
 func Test_CRE_V2_ShardingWithHttpTrigger(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
 		t,
 		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
 	)
-	t.Run("ExecuteShardingTestWithHttpTrigger", func(t *testing.T) {
-		ExecuteShardingTestWithHttpTrigger(t, testEnv)
+	t.Run("ExecuteShardingTestWithHTTPTrigger", func(t *testing.T) {
+		ExecuteShardingTestWithHTTPTrigger(t, testEnv)
 	})
 }
 

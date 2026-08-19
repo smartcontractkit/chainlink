@@ -105,7 +105,7 @@ func ExecuteShardingTestWithEVMLogTrigger(t *testing.T, testEnv *ttypes.TestEnvi
 	requireTriggerEventACKLog(t, testLogger, singleAckFound)
 }
 
-func ExecuteShardingTestWithHttpTrigger(t *testing.T, testEnv *ttypes.TestEnvironment) {
+func ExecuteShardingTestWithHTTPTrigger(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L
 
 	publicKeyAddr, signingKey, newKeysErr := libcrypto.GenerateNewKeyPair()
