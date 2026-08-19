@@ -827,6 +827,11 @@ func HandleMaliciousBurnMintTokenPoolDeploymentForSUI(
 	evmChain := e.BlockChains.EVMChains()[evmChainSel]
 	evmDeployerKey := evmChain.DeployerKey
 
+	deployerAddr, err := suiChain.Signer.GetAddress()
+	if err != nil {
+		return cldf.Environment{}, nil, nil, "", "", errors.New("failed to get deployer address " + err.Error())
+	}
+
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		return cldf.Environment{}, nil, nil, "", "", errors.New("failed load onchain state chains " + err.Error())
@@ -857,7 +862,7 @@ func HandleMaliciousBurnMintTokenPoolDeploymentForSUI(
 			CCIPObjectRefObjectId:  state.SuiChains[suiChainSel].CCIPObjectRef,
 			CoinMetadataObjectId:   linkTokenObjectMetadataID,
 			TreasuryCapObjectId:    linkTokenTreasuryCapID,
-			TokenPoolAdministrator: "",
+			TokenPoolAdministrator: deployerAddr,
 			ReleaseOrMintParams:    releaseOrMintParams,
 		}),
 	})
