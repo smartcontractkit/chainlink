@@ -15,7 +15,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
@@ -96,7 +95,7 @@ func executeHTTPTriggerRequest(t *testing.T, testEnv *ttypes.TestEnvironment, ga
 	var triggerRequest jsonrpc.Request[json.RawMessage]
 
 	tick := 5 * time.Second
-	assert.Eventually(t, func() bool {
+	require.Eventually(t, func() bool {
 		triggerRequest = createHTTPTriggerRequestWithKey(t, workflowName, workflowID, workflowOwnerAddress, singingKey)
 		triggerRequestBody, err := json.Marshal(triggerRequest)
 		if err != nil {

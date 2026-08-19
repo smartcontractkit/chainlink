@@ -146,7 +146,7 @@ func ExecuteShardingTestWithHTTPTrigger(t *testing.T, testEnv *ttypes.TestEnviro
 	workflowNames := make([]string, numWorkflows)
 	for i := range numWorkflows {
 		workflowNames[i] = fmt.Sprintf("shard-httptrigger-%d", i)
-		go executeHTTPTriggerRequest(t, testEnv, gatewayURL, workflowNames[i], "", signingKey, workflowOwnerAddress)
+		go executeHTTPTriggerRequest(t, testEnv, gatewayURL, workflowNames[i], "", signingKey, workflowOwnerAddress) //nolint:testifylint // require.Eventually inside a goroutine is unsafe
 	}
 
 	ExecuteShardingTemplate(t, testEnv, workflowFileLocation, &httpWorkflowConfig, workflowNames, "Successfully processed order")
