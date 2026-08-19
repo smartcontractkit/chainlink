@@ -713,7 +713,9 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		atomicSettings,
 		creServices.OCRConfigService,
 		cfg.Capabilities().Local(),
-		cfg.Capabilities().Peering(),
+		cfg.Capabilities().Peering().V2().DefaultBootstrappers(),
+		cfg.Capabilities().ExternalRegistry().Address(),
+		cfg.Capabilities().ExternalRegistry().ChainID(),
 	)
 	delegates[job.StandardCapabilities] = stdcapDelegate
 	if creServices.SetDelegatesDeps != nil {

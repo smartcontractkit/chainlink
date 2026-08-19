@@ -7,7 +7,6 @@ import (
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
-	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -16,17 +15,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 )
 
-const (
-	localCfgKeyOCRContractAddress = "ocr_contract_address"
-	localCfgKeyChainID             = "chain_id"
-)
-
 type ResolveOracleFactoryConfigParams struct {
-	Context              context.Context
-	Config               job.OracleFactoryConfig
-	OnchainSigning       job.OnchainSigningStrategy
-	CapabilityID         string
-	LocalCfg             coreconfig.LocalCapabilities
+	Context        context.Context
+	Config         job.OracleFactoryConfig
+	OnchainSigning job.OnchainSigningStrategy
+	// CapRegistryAddress and CapRegistryChainID are the Capabilities Registry
+	// contract address and its chain ID. The oracle factory reads its OCR config
+	// (signers/transmitters) from the registry, so the contract/chain default to
+	// the registry's own address/chain when not set in the job spec.
+	CapRegistryAddress   string
+	CapRegistryChainID   string
 	DefaultBootstrappers []ocrcommontypes.BootstrapperLocator
 	OCRKeyBundle         ocr2key.KeyBundle
 	OCRKeystore          keystore.OCR2
@@ -34,22 +32,19 @@ type ResolveOracleFactoryConfigParams struct {
 	Logger               logger.Logger
 }
 
-// ResolveOracleFactoryConfig fills missing oracle factory fields from node TOML config
-// and local keystore defaults. Job spec values take precedence when set.
+// ResolveOracleFactoryConfig fills missing oracle factory fields. Contract address
+// and chain ID default to the Capabilities Registry's address/chain; the signing key
+// and transmitter default to local keystore values. Job spec values take precedence
+// when set.
 func ResolveOracleFactoryConfig(params ResolveOracleFactoryConfigParams) (job.OracleFactoryConfig, job.OnchainSigningStrategy, error) {
 	cfg := params.Config
 	signing := params.OnchainSigning
 
-	if params.LocalCfg != nil && params.CapabilityID != "" {
-		if capCfg := params.LocalCfg.GetCapabilityConfig(params.CapabilityID); capCfg != nil {
-			local := capCfg.Config()
-			if cfg.OCRContractAddress == "" {
-				cfg.OCRContractAddress = local[localCfgKeyOCRContractAddress]
-			}
-			if cfg.ChainID == "" {
-				cfg.ChainID = local[localCfgKeyChainID]
-			}
-		}
+	if cfg.OCRContractAddress == "" {
+		cfg.OCRContractAddress = params.CapRegistryAddress
+	}
+	if cfg.ChainID == "" {
+		cfg.ChainID = params.CapRegistryChainID
 	}
 
 	if cfg.OCRKeyBundleID == "" && params.OCRKeyBundle != nil {

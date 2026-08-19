@@ -10,51 +10,19 @@ import (
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-type stubLocalCapabilities struct {
-	config map[string]string
-}
-
-func (s stubLocalCapabilities) RegistryBasedLaunchAllowlist() []string { return nil }
-
-func (s stubLocalCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
-	return map[string]config.CapabilityNodeConfig{
-		"consensus@1.0.0-alpha": stubCapabilityNodeConfig{config: s.config},
-	}
-}
-
-func (s stubLocalCapabilities) IsAllowlisted(string) bool { return false }
-
-func (s stubLocalCapabilities) GetCapabilityConfig(capabilityID string) config.CapabilityNodeConfig {
-	if capabilityID != "consensus@1.0.0-alpha" {
-		return nil
-	}
-	return stubCapabilityNodeConfig{config: s.config}
-}
-
-type stubCapabilityNodeConfig struct {
-	config map[string]string
-}
-
-func (s stubCapabilityNodeConfig) BinaryPathOverride() string { return "" }
-func (s stubCapabilityNodeConfig) Config() map[string]string  { return s.config }
-
-func TestResolveOracleFactoryConfig_fromLocalCapabilityConfig(t *testing.T) {
+func TestResolveOracleFactoryConfig_fromCapRegistry(t *testing.T) {
 	t.Parallel()
 
 	cfg, signing, err := ResolveOracleFactoryConfig(ResolveOracleFactoryConfigParams{
-		Context: context.Background(),
-		Config:  job.OracleFactoryConfig{Enabled: true},
-		LocalCfg: stubLocalCapabilities{config: map[string]string{
-			localCfgKeyOCRContractAddress: "0xabc",
-			localCfgKeyChainID:            "1337",
-		}},
-		CapabilityID: "consensus@1.0.0-alpha",
-		Logger:       logger.TestLogger(t),
+		Context:            context.Background(),
+		Config:             job.OracleFactoryConfig{Enabled: true},
+		CapRegistryAddress: "0xabc",
+		CapRegistryChainID: "1337",
+		Logger:             logger.TestLogger(t),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "0xabc", cfg.OCRContractAddress)
@@ -62,7 +30,7 @@ func TestResolveOracleFactoryConfig_fromLocalCapabilityConfig(t *testing.T) {
 	assert.Empty(t, signing.Config)
 }
 
-func TestResolveOracleFactoryConfig_jobSpecOverridesLocal(t *testing.T) {
+func TestResolveOracleFactoryConfig_jobSpecOverridesCapRegistry(t *testing.T) {
 	t.Parallel()
 
 	cfg, _, err := ResolveOracleFactoryConfig(ResolveOracleFactoryConfigParams{
@@ -72,12 +40,9 @@ func TestResolveOracleFactoryConfig_jobSpecOverridesLocal(t *testing.T) {
 			OCRContractAddress: "0xjob",
 			ChainID:            "1",
 		},
-		LocalCfg: stubLocalCapabilities{config: map[string]string{
-			localCfgKeyOCRContractAddress: "0xlocal",
-			localCfgKeyChainID:            "1337",
-		}},
-		CapabilityID: "consensus@1.0.0-alpha",
-		Logger:       logger.TestLogger(t),
+		CapRegistryAddress: "0xlocal",
+		CapRegistryChainID: "1337",
+		Logger:             logger.TestLogger(t),
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "0xjob", cfg.OCRContractAddress)

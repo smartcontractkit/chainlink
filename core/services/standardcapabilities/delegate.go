@@ -65,7 +65,9 @@ type Delegate struct {
 	creSettings             core.SettingsBroadcaster
 	ocrConfigService        capregconfig.OCRConfigService
 	localCfg                coreconfig.LocalCapabilities
-	capPeering              coreconfig.P2P
+	defaultBootstrappers    []ocrcommontypes.BootstrapperLocator
+	capRegistryAddress      string
+	capRegistryChainID      string
 
 	isNewlyCreatedJob bool
 }
@@ -95,7 +97,9 @@ func NewDelegate(
 	creSettings core.SettingsBroadcaster,
 	ocrConfigService capregconfig.OCRConfigService,
 	localCfg coreconfig.LocalCapabilities,
-	capPeering coreconfig.P2P,
+	defaultBootstrappers []ocrcommontypes.BootstrapperLocator,
+	capRegistryAddress string,
+	capRegistryChainID string,
 	opts ...func(*gateway.RoundRobinSelector),
 ) *Delegate {
 	return &Delegate{
@@ -117,7 +121,9 @@ func NewDelegate(
 		creSettings:             creSettings,
 		ocrConfigService:        ocrConfigService,
 		localCfg:                localCfg,
-		capPeering:              capPeering,
+		defaultBootstrappers:    defaultBootstrappers,
+		capRegistryAddress:      capRegistryAddress,
+		capRegistryChainID:      capRegistryChainID,
 		selectorOpts:            opts,
 	}
 }
@@ -247,17 +253,14 @@ func (d *Delegate) NewServices(
 		log.Debugw("Resolved capability DON ID from registry", "capabilityID", capabilityID, "donID", capabilityDonID)
 	}
 
-	var defaultBootstrappers []ocrcommontypes.BootstrapperLocator
-	if d.capPeering != nil {
-		defaultBootstrappers = d.capPeering.V2().DefaultBootstrappers()
-	}
+	defaultBootstrappers := d.defaultBootstrappers
 
 	resolvedOracleFactory, resolvedSigning, resolveErr := generic.ResolveOracleFactoryConfig(generic.ResolveOracleFactoryConfigParams{
 		Context:              ctx,
 		Config:               oracleFactoryConfig,
 		OnchainSigning:       oracleFactoryConfig.OnchainSigning,
-		CapabilityID:         capabilityID,
-		LocalCfg:             d.localCfg,
+		CapRegistryAddress:   d.capRegistryAddress,
+		CapRegistryChainID:   d.capRegistryChainID,
 		DefaultBootstrappers: defaultBootstrappers,
 		OCRKeyBundle:         ocrEvmKeyBundle,
 		OCRKeystore:          d.ks.OCR2(),

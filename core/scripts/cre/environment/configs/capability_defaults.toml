@@ -2,8 +2,8 @@
   binary_name = "consensus"
 
 # Global values for consensus are optional - uses empty jobspec config by default.
-# Oracle factory contract/chain/bootstrap/signing fields are read from node TOML at runtime:
-#   - ocr_contract_address, chain_id: Capabilities.Local.Capabilities."consensus@…".Config
+# Oracle factory contract/chain/bootstrap/signing fields are resolved at runtime:
+#   - ocr_contract_address, chain_id: Capabilities.ExternalRegistry (CapabilitiesRegistry address/chain)
 #   - bootstrap_peers: Capabilities.Peering.V2.DefaultBootstrappers
 #   - ocr_key_bundle_id, transmitter_id, onchainSigningStrategy: node keystore/OCR config
 [capability_configs.consensus.values]
