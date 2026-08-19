@@ -232,6 +232,7 @@ codecgen: $(codecgen) ## Install codecgen
 protoc: ## Install protoc
 	core/scripts/install-protoc.sh 29.3 /
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
 	go install github.com/smartcontractkit/wsrpc/cmd/protoc-gen-go-wsrpc@`go list -m -json github.com/smartcontractkit/wsrpc | jq -r .Version`
 
 .PHONY: telemetry-protobuf
