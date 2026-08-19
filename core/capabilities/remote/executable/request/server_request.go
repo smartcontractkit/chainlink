@@ -134,7 +134,7 @@ type ServerRequest struct {
 	// Metadata.WorkflowDonID to match the authenticated calling DON.
 	workflowDONBindingGate limits.GateLimiter
 
-	// stateMux guards requesters, responseSentToRequester, and response.
+	// stateMux guards requesters, responseSentToRequester, response, and executionCancel.
 	// It is held only for short map/field operations, never during capability execution.
 	stateMux sync.Mutex
 
@@ -142,11 +142,10 @@ type ServerRequest struct {
 	// wins the right to execute the capability. All other messages skip execution.
 	executionClaimed atomic.Bool
 
-	// executionDone is closed by the executor after it writes the response under stateMux.
-	// Cancel waits on this channel to avoid a race where it could acquire stateMux
-	// between "executor finishes capability call" and "executor writes response",
-	// see no response, and set and send timeout error when actually we want to send the real response.
-	executionDone chan struct{}
+	// executionCancel cancels the in-flight capability execution context.
+	// Set under stateMux when execution starts; called by Cancel to stop
+	// execution early (e.g. on request expiry) instead of waiting for completion.
+	executionCancel context.CancelFunc
 
 	lggr logger.Logger
 
@@ -184,7 +183,6 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 		requestTimeout:          requestTimeout,
 		capMethodName:           capMethodName,
 		workflowDONBindingGate:  workflowDONBindingGate,
-		executionDone:           make(chan struct{}),
 		lggr:                    lggr,
 		metrics:                 m,
 	}, nil
@@ -222,12 +220,36 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	if quorumReached && !hasResponse && e.executionClaimed.CompareAndSwap(false, true) {
 		switch e.method {
 		case types.MethodExecute:
-			e.executeRequest(ctx, msg, executeCapabilityRequest)
+			ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
+			defer cancel()
+
+			// Expose the cancel func so Cancel can stop the in-flight execution early.
+			e.stateMux.Lock()
+			e.executionCancel = cancel
+			e.stateMux.Unlock()
+			success := false
+			start := time.Now()
+			responsePayload, responseErr := executeCapabilityRequest(ctxWithTimeout, e.lggr, e.capability, msg.Payload, e.callingDon.ID, e.workflowDONBindingGate)
+
+			e.stateMux.Lock()
+			// Cancel may have already set a timeout error response; never overwrite an
+			// existing response.
+			if !e.hasResponse() {
+				if responseErr != nil {
+					e.setError(types.Error_INTERNAL_ERROR, responseErr.Error())
+				} else {
+					success = true
+					e.setResult(responsePayload)
+				}
+			}
+			e.stateMux.Unlock()
+
+			e.metrics.countExecution(ctxWithTimeout, success)
+			e.metrics.recordExecutionDuration(ctxWithTimeout, time.Since(start), success)
 		default:
 			e.stateMux.Lock()
 			e.setError(types.Error_INTERNAL_ERROR, "unknown method %s"+e.method)
 			e.stateMux.Unlock()
-			close(e.executionDone)
 		}
 	}
 
@@ -249,20 +271,19 @@ func (e *ServerRequest) Evictable(minRetention time.Duration) bool {
 	return age > e.requestTimeout && age > minRetention
 }
 
+// Cancel stops any in-flight execution by cancelling its context and, if no
+// response has been produced yet, records err as the response and fans it out
+// to all requesters.
 func (e *ServerRequest) Cancel(ctx context.Context, err types.Error, msg string) error {
-	// If execution has been claimed, wait for it to complete so we can overwrite
-	// the response with the cancellation error.
-	if e.executionClaimed.Load() {
-		select {
-		case <-e.executionDone:
-			// Execution finished, safe to overwrite response
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-	}
-
 	e.stateMux.Lock()
 	defer e.stateMux.Unlock()
+
+	// Cancel the in-flight execution, if any. The executor goroutine returns
+	// early on the cancelled context and skips overwriting the response set
+	// below (guarded by hasResponse).
+	if e.executionCancel != nil {
+		e.executionCancel()
+	}
 
 	// Only set cancellation error if no response exists (matches original behavior)
 	if !e.hasResponse() {
@@ -273,31 +294,6 @@ func (e *ServerRequest) Cancel(ctx context.Context, err types.Error, msg string)
 	}
 
 	return nil
-}
-
-type executeFn func(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability, payload []byte, callingDonID uint32, workflowDONBindingGate limits.GateLimiter) ([]byte, error)
-
-func (e *ServerRequest) executeRequest(ctx context.Context, msg *types.MessageBody, method executeFn) {
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
-	defer cancel()
-
-	success := false
-	start := time.Now()
-	responsePayload, err := method(ctxWithTimeout, e.lggr, e.capability, msg.Payload, e.callingDon.ID, e.workflowDONBindingGate)
-
-	e.stateMux.Lock()
-	if err != nil {
-		e.setError(types.Error_INTERNAL_ERROR, err.Error())
-	} else {
-		success = true
-		e.setResult(responsePayload)
-	}
-	e.stateMux.Unlock()
-
-	close(e.executionDone)
-
-	e.metrics.countExecution(ctx, success)
-	e.metrics.recordExecutionDuration(ctx, time.Since(start), success)
 }
 
 func (e *ServerRequest) addRequester(from p2ptypes.PeerID) error {
