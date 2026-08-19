@@ -10,8 +10,11 @@ import (
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -259,6 +262,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	switch msg.Method {
 	case types.MethodExecute:
 	default:
+		logIncomingMessage(r.lggr, msg)
 		r.lggr.Errorw("received request for unsupported method type", "method", remote.SanitizeLogString(msg.Method))
 		return
 	}
@@ -344,4 +348,33 @@ func (r *server) HealthReport() map[string]error {
 
 func (r *server) Name() string {
 	return r.lggr.Name()
+}
+
+// logIncomingMessage emits a debug-level JSON dump of an inbound MessageBody
+// and its inner CapabilityRequest payload. Used to diff divergent payloads
+// across nodes for the same messageID.
+func logIncomingMessage(lggr logger.Logger, msg *types.MessageBody) {
+	opts := protojson.MarshalOptions{Multiline: false, EmitUnpopulated: false}
+	envelope, err := opts.Marshal(msg)
+	if err != nil {
+		lggr.Errorw("failed to proto-encode message", "err", err)
+		return
+	}
+
+	payload := ""
+	var inner capabilitiespb.CapabilityRequest
+	if uerr := proto.Unmarshal(msg.Payload, &inner); uerr == nil {
+		if b, merr := opts.Marshal(&inner); merr == nil {
+			payload = string(b)
+		} else {
+			payload = fmt.Sprintf("protojson_error=%v raw_hex=%s", merr, hex.EncodeToString(msg.Payload))
+		}
+	} else {
+		payload = fmt.Sprintf("unmarshal_error=%v raw_hex=%s", uerr, hex.EncodeToString(msg.Payload))
+	}
+
+	lggr.Debugw("received message",
+		"envelope", string(envelope),
+		"payload", payload,
+	)
 }
