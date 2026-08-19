@@ -82,9 +82,6 @@ go test -short ./...
 # Run standard Go benchmarks with memory allocation metrics
 go test -bench=. -benchmem ./...
 
-# Run E2E Lefthook benchmark suite
-go test -v -run TestE2EBenchmark -timeout 10m
-
 # Lint tool codebase
 golangci-lint run
 ```
