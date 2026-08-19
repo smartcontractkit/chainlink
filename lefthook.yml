@@ -1,4 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/evilmartians/lefthook/refs/heads/master/schema.json
+output:
+  - summary
+  - success
+  - failure
+  - skips
+
 pre-commit:
   parallel: true
   commands:
