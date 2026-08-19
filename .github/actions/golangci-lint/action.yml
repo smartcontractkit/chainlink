@@ -97,7 +97,7 @@ runs:
         version: v2.12.2
         only-new-issues: true
         skip-cache: true
-        args: --output.checkstyle.path=${{ env.REPORT_PATH }} --output.json.path=${{ env.REPORT_PATH_JSON }} --max-same-issues=0 --max-issues-per-linter=0
+        args: --output.text.path=stdout --output.checkstyle.path=${{ env.REPORT_PATH }} --output.json.path=${{ env.REPORT_PATH_JSON }} --max-same-issues=0 --max-issues-per-linter=0
         working-directory: ${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}
 
     - name: Print Golangci-lint report results
@@ -105,25 +105,10 @@ runs:
       if: failure()
       shell: bash
       env:
-        REPORT_PATH: ./${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}golangci-lint-report.xml
         REPORT_PATH_JSON: ./${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}golangci-lint-report.json
+        MODULE_NAME: ${{ inputs.go-directory }}
       run: |
-        cat ${REPORT_PATH}
-        echo "file-count=$(jq '[.Issues[].Pos.Filename] | unique | length' ${REPORT_PATH_JSON})" | tee -a $GITHUB_OUTPUT
-        echo "issue-count=$(jq '.Issues | length' ./${REPORT_PATH_JSON})" | tee -a $GITHUB_OUTPUT
-        echo "critical-issue-count=$(jq '[.Issues[].Severity | select(. | IN("high", "medium"))] | length' ${REPORT_PATH_JSON})" | tee -a $GITHUB_OUTPUT
-        echo 'per-source-count<<EOF' | tee -a $GITHUB_OUTPUT
-        echo "$(jq -r '.Issues[].FromLinter' ${REPORT_PATH_JSON} | sort | uniq -c | sort -nr)" | tee -a $GITHUB_OUTPUT
-        echo 'EOF' | tee -a $GITHUB_OUTPUT
-        echo 'per-severity-count<<EOF' | tee -a $GITHUB_OUTPUT
-        echo "$(jq -r '.Issues[].Severity | select(. != "") // "none"' ${REPORT_PATH_JSON} | sort | uniq -c | awk '
-          /high/   {print "1 "$0}
-          /medium/ {print "2 "$0}
-          /low/    {print "3 "$0}
-          /warn/   {print "4 "$0}
-          /none/   {print "5 "$0}
-          ' | sort -n | sed 's/^[1-5] //')" | tee -a $GITHUB_OUTPUT
-        echo 'EOF' | tee -a $GITHUB_OUTPUT
+        python3 "${{ github.action_path }}/process_report.py"
 
       # Get a valid name for the upload-artifact step.
       # Avoid error: `The artifact name is not valid: <path>/<to>/<artifact>/` caused by `/`.

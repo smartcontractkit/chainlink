@@ -172,7 +172,7 @@ jobs:
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
     runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index
-      }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+      }}/cpu=16/ram=32/family=c8g+c9g/spot=co/image=ubuntu24-full-arm64/extras=s3-cache
     strategy:
       fail-fast: false
       matrix:
@@ -592,9 +592,9 @@ jobs:
             # Not a scheduled event - no frequencies to set. They default to false.
             exit 0
           fi
-          
-          curent_day=$(date +%u)
-          if [ "$curent_day" -ge 6 ]; then
+
+          current_day=$(date +%u)
+          if [ "$current_day" -ge 6 ]; then
             # Weekend
             exit 0
           fi
