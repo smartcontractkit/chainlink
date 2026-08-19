@@ -64,7 +64,7 @@ func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
 	})
 }
 
-func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
+func TestCCIP_RMN_GlobalCurseTwoMessagesOnTwoLanes_E2E(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
 		name:        "global curse messages on two lanes",
 		waitForExec: false,

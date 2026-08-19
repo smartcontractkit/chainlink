@@ -44,7 +44,10 @@ jobs:
       - name: Generate new changelog
         if: steps.change.outputs.core-changeset == 'true'
         id: changelog
-        run: pnpm install && ./tools/ci/format_changelog
+        run: |
+          pnpm install
+          pnpm changeset version
+          go -C tools/ci run . changelog format
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

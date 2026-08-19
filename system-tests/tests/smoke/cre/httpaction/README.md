@@ -35,14 +35,14 @@ Config is passed at workflow registration time and is read by the workflow when 
 The parent [CRE README](../README.md) defines:
 
 - **Smoke vs regression**: *"Everything that is not a happy path functional system-tests (i.e. edge cases, negative conditions) should go to a regression package."*
-- **Test architecture**: Environment is created once per topology; multiple tests can run against the same environment; tests follow the `Test_CRE_` naming convention and standard structure.
+- **Test architecture**: Environment is created once per topology; multiple tests can run against the same environment; tests follow the `TestCRE_` naming convention and standard structure.
 
 ### How this workflow fits
 
 | Aspect | Implementation |
 |--------|----------------|
-| **Smoke (happy path)** | `Test_CRE_V2_HTTP_Action_Suite` and `Test_CRE_V2_HTTP_Action_Regression_Suite` (see [cre_suite_test.go](../cre_suite_test.go)) use the same workflow binary. The **smoke suite** runs success cases only: CRUD operations and multi-headers response test. |
-| **Regression (edge/negative)** | The **regression suite** (`Test_CRE_V2_HTTP_Action_Regression_Suite`) runs the same workflow with `testCase: mh-regression-both`. That case sends a request with both `Headers` and `MultiHeaders` set; the capability must return a user error. The workflow asserts the error message and returns a fixed success string so the test can verify the regression. |
+| **Smoke (happy path)** | `TestCRE_V2_Suite_Bucket_A_E2E` and `TestCRE_V2_Suite_Bucket_B_E2E` (see [cre_suite_test.go](../cre_suite_test.go)) run the same workflow binary. The **smoke suite** runs success cases only: CRUD operations and multi-headers response test. |
+| **Regression (edge/negative)** | The **regression suite** (`TestCRE_V2_HTTP_Action_Regression_Suite_E2E`) runs the same workflow with `testCase: mh-regression-both`. That case sends a request with both `Headers` and `MultiHeaders` set; the capability must return a user error. The workflow asserts the error message and returns a fixed success string so the test can verify the regression. |
 | **Single binary, many cases** | One compiled workflow (`main.go`) handles all cases via `testCaseHandlers` and config. No separate regression binary. |
 | **Workflow compilation** | The test runner compiles this Go package to WASM (e.g. `creworkflow.CompileWorkflow`), deploys it, and registers it with the contract as described in the parent README (§11). |
 | **Naming** | Workflow names are kept short (e.g. `mh-regression-both`) to stay under the workflow name length limit (64 chars) used at deploy time. |
@@ -64,8 +64,8 @@ From the repo root (see parent README for CRE environment setup):
 
 ```bash
 # Smoke: HTTP Action success cases only
-go test -timeout 15m -run "^Test_CRE_V2_HTTP_Action_Suite" ./system-tests/tests/smoke/cre/...
+go test -timeout 15m -run "^TestCRE_V2_Suite_Bucket" ./system-tests/tests/smoke/cre/...
 
 # Regression: HTTP Action regression cases (e.g. both Headers and MultiHeaders rejected)
-go test -timeout 15m -run "^Test_CRE_V2_HTTP_Action_Regression_Suite" ./system-tests/tests/smoke/cre/...
+go test -timeout 15m -run "^TestCRE_V2_HTTP_Action_Regression_Suite_E2E" ./system-tests/tests/smoke/cre/...
 ```

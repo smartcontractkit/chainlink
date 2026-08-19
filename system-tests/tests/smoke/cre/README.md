@@ -17,7 +17,7 @@ cd core/scripts/cre/environment
 go run . env setup
 go run . env start --with-chip-ingress-stack
 
-go test ./system-tests/tests/smoke/cre -timeout 20m -run '^Test_CRE_'
+go test ./system-tests/tests/smoke/cre -timeout 20m -run '^TestCRE_'
 ```
 
 ## Rule of Thumb

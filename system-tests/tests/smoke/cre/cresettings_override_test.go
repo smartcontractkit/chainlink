@@ -6,7 +6,7 @@ import (
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 )
 
-// Test_CRE_CRESettings_Override exercises the runtime CRE-settings override helper at
+// TestCRE_CRESettings_Override_E2E exercises the runtime CRE-settings override helper at
 // every scope — workflow, org, global, and several scopes merged — without restarting
 // the topology, and reverts each one. It doubles as executable documentation for
 // system-tests/tests/test-helpers/cresettings_override.go.
@@ -26,7 +26,7 @@ import (
 //
 // Requirements: a running Local CRE environment (default topology). Run with:
 //
-//	go test ./system-tests/tests/smoke/cre -run '^Test_CRE_CRESettings_Override$' -timeout 20m -v
+//	go test ./system-tests/tests/smoke/cre -run '^TestCRE_CRESettings_Override_E2E$' -timeout 20m -v
 //
 // NOTE: the org/workflow IDs are illustrative. In a real test you use the actual org id /
 // workflow id your deployed workflow runs under (obtainable from the deployment step). The
@@ -45,7 +45,7 @@ const (
 )
 
 //nolint:paralleltest // mutates settings on the shared environment; must run serially
-func Test_CRE_CRESettings_Override(t *testing.T) {
+func TestCRE_CRESettings_Override_E2E(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, t_helpers.GetDefaultTestConfig(t))
 
 	// 1) Workflow scope (preferred) — isolated to a single workflow. Reverted explicitly

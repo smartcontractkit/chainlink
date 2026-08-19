@@ -28,7 +28,7 @@ Prerequisites:
     cd core/scripts/cre/environment
     CTF_CONFIGS=configs/workflow-gateway-don-cache-test.toml go run . env start
   - Run:
-    go test -timeout 10m -run "^Test_CRE_V2_Module_Cache$" -v
+    go test -timeout 10m -run "^TestCRE_V2_Module_Cache" -v
 */
 func ExecuteModuleCacheTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger := framework.L

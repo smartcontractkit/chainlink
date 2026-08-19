@@ -101,14 +101,17 @@ func TestMultiGatewayTopology_LoadExpectedConfig(t *testing.T) {
 	}
 }
 
-// Test_CRE_V2_HTTP_Action_Multi_Gateway checks that HTTP action outbound requests use the gateway
-// DON named by PerWorkflow.HTTPAction.GatewayProxyDonID for the workflow owner's org.
+// TestCRE_V2_HTTP_Action_Multi_Gateway_E2E checks that HTTP action outbound requests use the
+// gateway DON named by PerWorkflow.HTTPAction.GatewayProxyDonID for the workflow owner's org.
 //
 // Two gateway DONs (US and EU) are registered on the workflow connector. The test binds the owner
 // to multi-don-test-org (linking service + CL_CRE_SETTINGS override to gateway_don_eu), runs an
 // HTTP GET workflow, and expects EU gateway outbound logs while the US gateway stays idle.
-// Skips unless TOPOLOGY_NAME contains "multi-gateway".
-func Test_CRE_V2_HTTP_Action_Multi_Gateway(t *testing.T) {
+// Skips unless TOPOLOGY_NAME contains "multi-gateway": the scenario requires the two-gateway
+// link topology, so runs without an explicit multi-gateway TOPOLOGY_NAME skip.
+//
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
+func TestCRE_V2_HTTP_Action_Multi_Gateway_E2E(t *testing.T) {
 	if !isMultiGatewayTopology(topology) {
 		t.Skipf("skipping multi-gateway HTTP action test: TOPOLOGY_NAME=%q does not match %q", topology, multiGatewayTopologyMarker)
 	}

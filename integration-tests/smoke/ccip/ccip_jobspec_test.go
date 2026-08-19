@@ -14,8 +14,18 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
+// TestCCIP_JobSpecs_E2E runs job distributor jobspec lifecycle tests (delete and revoke).
 // It always runs in docker, it's not enabled to run in-memory as we are testing the actual job distributor
-func TestDeleteCCIPJobs(t *testing.T) {
+func TestCCIP_JobSpecs_E2E(t *testing.T) {
+	t.Run("DeleteJobs", func(t *testing.T) {
+		testDeleteCCIPJobs(t)
+	})
+	t.Run("RevokeJobs", func(t *testing.T) {
+		testRevokeJobs(t)
+	})
+}
+
+func testDeleteCCIPJobs(t *testing.T) {
 	e, _, tenv := testsetups.NewIntegrationEnvironment(t, testhelpers.WithJobsOnly())
 	nopsView, err := view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -48,8 +58,7 @@ func TestDeleteCCIPJobs(t *testing.T) {
 	}
 }
 
-// It always runs in docker, it's not enabled to run in-memory as we are testing the actual job distributor
-func TestRevokeJobs(t *testing.T) {
+func testRevokeJobs(t *testing.T) {
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithJobsOnly())
 	nopsView, err := view.GenerateNopsView(e.Env.Logger, e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)

@@ -39,7 +39,7 @@ const (
 	grpcTestWorkflowSource = "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 )
 
-// Test_CRE_GRPCSource_Lifecycle tests the complete lifecycle of workflows via the gRPC
+// TestCRE_GRPCSource_Lifecycle_E2E tests the complete lifecycle of workflows via the gRPC
 // additional source: deploy, pause, resume, delete.
 //
 // This test uses a pre-configured TOML with AdditionalSources pointing to host.docker.internal:8544.
@@ -48,8 +48,10 @@ const (
 //
 // To run locally:
 //  1. Start the test (it will start the environment automatically):
-//     go test -timeout 20m -run "^Test_CRE_GRPCSource_Lifecycle$" ./smoke/cre/...
-func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
+//     go test -timeout 20m -run "^TestCRE_GRPCSource_Lifecycle_E2E$" ./smoke/cre/...
+//
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
+func TestCRE_GRPCSource_Lifecycle_E2E(t *testing.T) {
 	t.Skip("Skipping: gRPC source tests require V2 workflow registry syncer - needs investigation for CI environment differences")
 
 	testLogger := framework.L
@@ -86,7 +88,7 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 	ExecuteGRPCSourceLifecycleTest(t, testEnv, mockServer, "" /* contractWorkflowName */)
 }
 
-// Test_CRE_GRPCSource_AuthRejection tests that JWT authentication rejection is handled
+// TestCRE_GRPCSource_AuthRejection_E2E tests that JWT authentication rejection is handled
 // gracefully without panics or crashes.
 //
 // This test uses a pre-started CRE environment (the mock server rejects all auth,
@@ -94,8 +96,10 @@ func Test_CRE_GRPCSource_Lifecycle(t *testing.T) {
 //
 // To run locally:
 //  1. Start CRE: go run . env start --with-chip-ingress-stack (deprecated: --with-beholder)
-//  2. Run test: go test -timeout 15m -run "^Test_CRE_GRPCSource_AuthRejection$"
-func Test_CRE_GRPCSource_AuthRejection(t *testing.T) {
+//  2. Run test: go test -timeout 15m -run "^TestCRE_GRPCSource_AuthRejection_E2E$"
+//
+//nolint:paralleltest // Top-level tests run in serial for now; need refactor to enable parallel execution of top-level tests
+func TestCRE_GRPCSource_AuthRejection_E2E(t *testing.T) {
 	// Set up test environment
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetDefaultTestConfig(t))
 
