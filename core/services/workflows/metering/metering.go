@@ -95,9 +95,10 @@ type ReportStep struct {
 }
 
 type ReportStepDetail struct {
-	Peer2PeerID   string
-	SpendValue    string
-	CRESpendValue decimal.Decimal
+	Peer2PeerID          string
+	SpendValue           string
+	SpendValueInGasUnits string
+	CRESpendValue        decimal.Decimal
 }
 
 type AggregatedStepDetail struct {
@@ -425,9 +426,10 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 	// Group by resource dimension
 	for _, nodeDetail := range metadata.Metering {
 		resourceSpends[nodeDetail.SpendUnit] = append(resourceSpends[nodeDetail.SpendUnit], ReportStepDetail{
-			Peer2PeerID:   nodeDetail.Peer2PeerID,
-			SpendValue:    nodeDetail.SpendValue,
-			CRESpendValue: decimal.Zero,
+			Peer2PeerID:          nodeDetail.Peer2PeerID,
+			SpendValue:           nodeDetail.SpendValue,
+			SpendValueInGasUnits: nodeDetail.SpendValueInGasUnits,
+			CRESpendValue:        decimal.Zero,
 		})
 	}
 
@@ -440,18 +442,30 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 
 		deciVals := []decimal.Decimal{}
 		for idx, detail := range spendDetails {
-			value, err := decimal.NewFromString(detail.SpendValue)
-			if err != nil {
-				r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
-				// throw out invalid values for local balance settlement. they will still be included in metering report.
-				continue
-			}
+			var value decimal.Decimal
+			var err error
 
-			if isGasSpendType(unit) {
-				// TODO: this decimal shift should be temporary and converted when write capabilities
-				// are converted to provide spend as big.Int fixed point values
-				// WARNING: 18 is a magic number here and assumes all gas tokens will have the same level of precision
-				value = value.Shift(18) // shift to fixed point value
+			if isGasSpendType(unit) && detail.SpendValueInGasUnits != "" {
+				value, err = decimal.NewFromString(detail.SpendValueInGasUnits)
+				if err != nil {
+					r.lggr.Info(fmt.Sprintf("failed to get spend value in gas units from %s: %s", detail.SpendValueInGasUnits, err))
+					// throw out invalid values for local balance settlement. they will still be included in metering report.
+					continue
+				}
+			} else {
+				value, err = decimal.NewFromString(detail.SpendValue)
+				if err != nil {
+					r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+					// throw out invalid values for local balance settlement. they will still be included in metering report.
+					continue
+				}
+
+				if isGasSpendType(unit) {
+					// TODO: This decimal shift should be removed once all chain capabilities have been upgrade
+					// to passing in SpendValueInGasUnits
+					// WARNING: 18 is a magic number here and assumes all gas tokens will have the same level of precision
+					value = value.Shift(18)
+				}
 			}
 
 			if val, convertErr := r.balance.ConvertToBalance(unit, value); convertErr == nil {
@@ -579,10 +593,11 @@ func (r *Report) FormatReport() *protoEvents.MeteringReport {
 
 			for _, detail := range details {
 				nodeDetails = append(nodeDetails, &protoEvents.MeteringReportNodeDetail{
-					Peer_2PeerId:  detail.Peer2PeerID,
-					SpendUnit:     unit,
-					SpendValue:    detail.SpendValue,
-					SpendValueCre: detail.CRESpendValue.StringFixed(defaultDecimalPrecision),
+					Peer_2PeerId:         detail.Peer2PeerID,
+					SpendUnit:            unit,
+					SpendValue:           detail.SpendValue,
+					SpendValueCre:        detail.CRESpendValue.StringFixed(defaultDecimalPrecision),
+					SpendValueInGasUnits: detail.SpendValueInGasUnits,
 				})
 			}
 
