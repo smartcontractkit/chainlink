@@ -1231,8 +1231,8 @@ github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12i
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
 github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342 h1:pEcgcjTGA83MzpqbTbyIg9AJrOs62s77SooDdJGIg9w=
 github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342/go.mod h1:5JPtsRwjugpyfsdEALC4RopfvohqK/G+3DHaR8uv+Bc=
-github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb h1:kLHdQQkijaPGsBbtV2rJgpzVpQ96e7T10pzjNlWfK8U=
-github.com/smartcontractkit/smdkg v0.0.0-20251029093710-c38905e58aeb/go.mod h1:4s5hj/nlMF9WV+T5Uhy4n9IYpRpzfJzT+vTKkNT7T+Y=
+github.com/smartcontractkit/smdkg v0.0.0-20260819115032-4afa3ab56bc4 h1:PWQ7etkNytZUvhTPqXfjG8nc7cfTl1VU375ppvlWQnM=
+github.com/smartcontractkit/smdkg v0.0.0-20260819115032-4afa3ab56bc4/go.mod h1:hNlatK4xMobFTXKM9qS5b42VnHh7ezjW2Srzym/VeZE=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c h1:S1AFIjfHT95ev6gqHKBGy1zj3Tz0fIN3XzkaDUn77wY=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20251120172354-e8ec0386b06c/go.mod h1:NSc7hgOQbXG3DAwkOdWnZzLTZENXSwDJ7Va1nBp0YU0=
 github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945 h1:zxcODLrFytOKmAd8ty8S/XK6WcIEJEgRBaL7sY/7l4Y=
