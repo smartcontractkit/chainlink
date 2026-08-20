@@ -647,7 +647,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		// Status-only flip: no artifact-persistence transition, no delta.
 	}
 
-	// backfill registered_at, source when necessary
+	// backfill registered_at, source, workflow_tag when necessary
 	backfill := false
 	if spec.RegisteredAt == 0 && payload.CreatedAt > 0 {
 		spec.RegisteredAt = int64(payload.CreatedAt) //nolint:gosec // G115: CreatedAt is a timestamp that cannot overflow int64
@@ -657,9 +657,15 @@ func (h *eventHandler) workflowRegisteredEvent(
 		spec.Source = payload.Source
 		backfill = true
 	}
+	// WorkflowTag is used by remote capability requests; an empty local value
+	// diverges the request hash from nodes that have the on-chain tag.
+	if spec.WorkflowTag != payload.WorkflowTag && payload.WorkflowTag != "" {
+		spec.WorkflowTag = payload.WorkflowTag
+		backfill = true
+	}
 	if backfill {
 		if _, err := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); err != nil {
-			h.lggr.Warnw("failed to backfill registered_at/source", "workflowID", spec.WorkflowID, "err", err)
+			h.lggr.Warnw("failed to backfill registered_at/source/workflow_tag", "workflowID", spec.WorkflowID, "err", err)
 		}
 	}
 

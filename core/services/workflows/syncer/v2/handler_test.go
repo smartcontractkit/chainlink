@@ -2081,6 +2081,75 @@ func Test_specStorage_StateMachine(t *testing.T) {
 		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(activePayload)))
 		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, createdAtI64)
 	})
+
+	t.Run("active WorkflowTag empty + Activated (no status change) → backfill tag", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = "v1.2.3"
+		h := makeHandler(store)
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		assert.Equal(t, "v1.2.3", store.spec.WorkflowTag, "empty local tag should be backfilled from payload")
+	})
+
+	t.Run("active WorkflowTag stale + Activated → tag refreshed", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "v1.0.0",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = "v2.0.0"
+		h := makeHandler(store)
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		assert.Equal(t, "v2.0.0", store.spec.WorkflowTag, "stale local tag should be refreshed from payload")
+	})
+
+	t.Run("active WorkflowTag set + payload tag empty → local tag preserved", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "v1.0.0",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = ""
+		h := makeHandler(store)
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		assert.Equal(t, "v1.0.0", store.spec.WorkflowTag, "empty payload tag must not clobber a good local tag")
+	})
 }
 
 // Test_handler_SourceParity_PauseActivateCycle runs a full register→pause→
