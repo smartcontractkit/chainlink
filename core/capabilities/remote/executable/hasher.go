@@ -1,6 +1,7 @@
 package executable
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -9,11 +10,14 @@ import (
 
 	"google.golang.org/protobuf/types/known/anypb"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	aptoscappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/aptos"
 	evmcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	solcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/solana"
 	stellarcappb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/stellar"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
@@ -23,7 +27,7 @@ type v1Hasher struct {
 	requestHashExcludedAttributes []string
 }
 
-func (r *v1Hasher) Hash(msg *types.MessageBody) ([32]byte, error) {
+func (r *v1Hasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byte, error) {
 	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
@@ -61,7 +65,7 @@ func NewV1Hasher(requestHashExcludedAttributes []string) types.MessageHasher {
 type simpleHasher struct {
 }
 
-func (r *simpleHasher) Hash(msg *types.MessageBody) ([32]byte, error) {
+func (r *simpleHasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byte, error) {
 	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
@@ -87,7 +91,7 @@ func NewSimpleHasher() types.MessageHasher {
 type writeReportExcludeSignaturesHasher struct {
 }
 
-func (r *writeReportExcludeSignaturesHasher) Hash(msg *types.MessageBody) ([32]byte, error) {
+func (r *writeReportExcludeSignaturesHasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byte, error) {
 	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
@@ -207,4 +211,170 @@ func getWriteReportFamily(msg *types.MessageBody) (writeReportFamily, error) {
 
 func NewWriteReportExcludeSignaturesHasher() types.MessageHasher {
 	return &writeReportExcludeSignaturesHasher{}
+}
+
+// optInMetadataFields returns a copy of the metadata containing only the
+// allowlisted fields. New metadata fields added in the future are excluded
+// from the hash by default, preventing cross-version requestID divergence.
+func optInMetadataFields(md capabilities.RequestMetadata) capabilities.RequestMetadata {
+	return capabilities.RequestMetadata{
+		WorkflowID:               md.WorkflowID,
+		WorkflowExecutionID:      md.WorkflowExecutionID,
+		WorkflowOwner:            md.WorkflowOwner,
+		OrgID:                    md.OrgID,
+		WorkflowName:             md.WorkflowName,
+		WorkflowDonID:            md.WorkflowDonID,
+		WorkflowDonConfigVersion: md.WorkflowDonConfigVersion,
+		ReferenceID:              md.ReferenceID,
+		DecodedWorkflowName:      md.DecodedWorkflowName,
+	}
+}
+
+// optInHasher hashes only an explicit allowlist of metadata fields rather than
+// including everything and excluding specific fields. This prevents new metadata
+// fields (e.g. WorkflowTag) from changing the requestID when nodes run different
+// versions of the protobuf definitions.
+type optInHasher struct{}
+
+func (r *optInHasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byte, error) {
+	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
+	}
+
+	req.Metadata = optInMetadataFields(req.Metadata)
+
+	reqBytes, err := pb.MarshalCapabilityRequest(req)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+	return sha256.Sum256(reqBytes), nil
+}
+
+func NewOptInHasher() types.MessageHasher {
+	return &optInHasher{}
+}
+
+// optInWriteReportExcludeSignaturesHasher combines the metadata opt-in allowlist
+// with WriteReport-specific signature exclusion, mirroring writeReportExcludeSignaturesHasher.
+type optInWriteReportExcludeSignaturesHasher struct{}
+
+func (r *optInWriteReportExcludeSignaturesHasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byte, error) {
+	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
+	}
+	if req.Payload == nil {
+		return [32]byte{}, errors.New("capability request payload is nil")
+	}
+
+	req.Metadata = optInMetadataFields(req.Metadata)
+
+	family, familyErr := getWriteReportFamily(msg)
+	if familyErr != nil {
+		return [32]byte{}, familyErr
+	}
+
+	var payload *anypb.Any
+	switch family {
+	case writeReportFamilyEVM:
+		var wrReq evmcappb.WriteReportRequest
+		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
+			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
+		}
+		if wrReq.Report == nil {
+			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
+		}
+		wrReq.Report.Sigs = nil
+		payload, err = anypb.New(&wrReq)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
+		}
+	case writeReportFamilySolana:
+		var wrReq solcappb.WriteReportRequest
+		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
+			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
+		}
+		if wrReq.Report == nil {
+			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
+		}
+		wrReq.Report.Sigs = nil
+		payload, err = anypb.New(&wrReq)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
+		}
+	case writeReportFamilyAptos:
+		var wrReq aptoscappb.WriteReportRequest
+		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
+			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
+		}
+		if wrReq.Report == nil {
+			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
+		}
+		wrReq.Report.Sigs = nil
+		payload, err = anypb.New(&wrReq)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
+		}
+	case writeReportFamilyStellar:
+		var wrReq stellarcappb.WriteReportRequest
+		if err = req.Payload.UnmarshalTo(&wrReq); err != nil {
+			return [32]byte{}, fmt.Errorf("failed to unmarshal Payload to WriteReportRequest: %w", err)
+		}
+		if wrReq.Report == nil {
+			return [32]byte{}, errors.New("WriteReportRequest.Report is nil")
+		}
+		wrReq.Report.Sigs = nil
+		payload, err = anypb.New(&wrReq)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to marshal WriteReportRequest back to anypb: %w", err)
+		}
+	default:
+		return [32]byte{}, fmt.Errorf("unexpected report family: %s", family)
+	}
+
+	req.Payload = payload
+
+	reqBytes, err := pb.MarshalCapabilityRequest(req)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+	return sha256.Sum256(reqBytes), nil
+}
+
+func NewOptInWriteReportExcludeSignaturesHasher() types.MessageHasher {
+	return &optInWriteReportExcludeSignaturesHasher{}
+}
+
+// featureFlagHasher is a composite hasher that delegates to either an opt-out
+// baseHasher (backward-compatible behaviour) or an optInHasher based on whether
+// the ExecutionTimestamp falls inside the feature flag's active window.
+//
+// The flag is evaluated against the DON-derived ExecutionTimestamp from the
+// request metadata, not the wall clock. Because all nodes processing the same
+// request share the same DON time, the flag evaluation is deterministic across
+// nodes — they all switch to the opt-in hasher atomically.
+type featureFlagHasher struct {
+	baseHasher  types.MessageHasher
+	optInHasher types.MessageHasher
+	flag        limits.RangeLimiter[config.Timestamp]
+}
+
+func (h *featureFlagHasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byte, error) {
+	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
+	}
+
+	// Check the flag using the DON-derived ExecutionTimestamp. When the
+	// timestamp is zero (DON time not enabled), the check fails and the
+	// base hasher is used — preserving backward compatibility.
+	if err := h.flag.Check(ctx, config.Timestamp(req.Metadata.ExecutionTimestamp.Unix())); err == nil {
+		return h.optInHasher.Hash(ctx, msg)
+	}
+	return h.baseHasher.Hash(ctx, msg)
+}
+
+func NewFeatureFlagHasher(base, optIn types.MessageHasher, flag limits.RangeLimiter[config.Timestamp]) types.MessageHasher {
+	return &featureFlagHasher{baseHasher: base, optInHasher: optIn, flag: flag}
 }

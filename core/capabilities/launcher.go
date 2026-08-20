@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -58,6 +59,12 @@ type launcher struct {
 	// open they reject requests whose Metadata.WorkflowDonID does not match the
 	// authenticated calling DON.
 	workflowDONBindingGate limits.GateLimiter
+
+	// requestHashFeatureFlag is shared by all executable capability servers;
+	// when the request's ExecutionTimestamp falls inside the active window,
+	// servers switch to the opt-in hasher that only includes allowlisted
+	// metadata fields in the requestID hash.
+	requestHashFeatureFlag limits.RangeLimiter[commonconfig.Timestamp]
 
 	muSubServices sync.Mutex
 	subServices   []services.Service
@@ -114,6 +121,10 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow DON binding gate limiter: %w", err)
 	}
+	requestHashFeatureFlag, err := limits.MakeRangeLimiter[commonconfig.Timestamp](limitsFactory, cresettings.Default.PerWorkflow.FeatureOptInRequestHashActivePeriod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request hash feature flag limiter: %w", err)
+	}
 	return &launcher{
 		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		dispatcher: dispatcher,
@@ -124,12 +135,13 @@ func NewLauncher(
 			executableClients:  make(map[string]executable.Client),
 			executableServers:  make(map[string]executable.Server),
 		},
-		registry:               registry,
-		workflowDonNotifier:    workflowDonNotifier,
-		don2donSharedPeer:      don2donSharedPeer,
-		p2pStreamConfig:        p2pStreamConfig,
-		metrics:                metrics,
-		workflowDONBindingGate: workflowDONBindingGate,
+		registry:                registry,
+		workflowDonNotifier:     workflowDonNotifier,
+		don2donSharedPeer:       don2donSharedPeer,
+		p2pStreamConfig:         p2pStreamConfig,
+		metrics:                 metrics,
+		workflowDONBindingGate:  workflowDONBindingGate,
+		requestHashFeatureFlag:  requestHashFeatureFlag,
 	}, nil
 }
 
@@ -177,6 +189,11 @@ func (w *launcher) Close() error {
 		if w.workflowDONBindingGate != nil {
 			if err := w.workflowDONBindingGate.Close(); err != nil {
 				w.lggr.Errorw("failed to close workflow DON binding gate limiter", "error", err)
+			}
+		}
+		if w.requestHashFeatureFlag != nil {
+			if err := w.requestHashFeatureFlag.Close(); err != nil {
+				w.lggr.Errorw("failed to close request hash feature flag limiter", "error", err)
 			}
 		}
 		return nil
@@ -759,15 +776,19 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 				// add to cachedShims later, only after startNewShim succeeds
 			}
 
-			var requestHasher remotetypes.MessageHasher
+			var baseHasher, optInHasher remotetypes.MessageHasher
 			switch config.RemoteExecutableConfig.RequestHasherType {
 			case capabilities.RequestHasherType_Simple:
-				requestHasher = executable.NewSimpleHasher()
+				baseHasher = executable.NewSimpleHasher()
+				optInHasher = executable.NewOptInHasher()
 			case capabilities.RequestHasherType_WriteReportExcludeSignatures:
-				requestHasher = executable.NewWriteReportExcludeSignaturesHasher()
+				baseHasher = executable.NewWriteReportExcludeSignaturesHasher()
+				optInHasher = executable.NewOptInWriteReportExcludeSignaturesHasher()
 			default:
-				requestHasher = executable.NewSimpleHasher()
+				baseHasher = executable.NewSimpleHasher()
+				optInHasher = executable.NewOptInHasher()
 			}
+			requestHasher := executable.NewFeatureFlagHasher(baseHasher, optInHasher, w.requestHashFeatureFlag)
 
 			err := server.SetConfig(
 				config.RemoteExecutableConfig,
