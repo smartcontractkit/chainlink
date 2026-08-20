@@ -71,43 +71,6 @@ func TestFixContent_Go(t *testing.T) {
 	})
 }
 
-func TestFixContent_Python(t *testing.T) {
-	t.Parallel()
-
-	t.Run("trims trailing whitespace on python code and comments", func(t *testing.T) {
-		t.Parallel()
-		input := []byte("import sys   \n\ndef main():    \n    # comment with space   \n    x = 1   \n    return x\n")
-		expected := []byte("import sys\n\ndef main():\n    # comment with space\n    x = 1\n    return x\n")
-
-		fixed, changed, err := whitespace.FixContent("script.py", input)
-		require.NoError(t, err)
-		assert.True(t, changed)
-		assert.Equal(t, string(expected), string(fixed))
-	})
-
-	t.Run("STRICT INVARIANT: preserves trailing whitespace inside multiline triple-quoted strings", func(t *testing.T) {
-		t.Parallel()
-		input := []byte("def get_template():   \n    \"\"\"\n    Multiline docstring with spaces    \n    second line with spaces   \n    \"\"\"\n    return \"\"\"\n    RAW TEMPLATE   \n    LINE 2  \n    \"\"\"\n")
-		expected := []byte("def get_template():\n    \"\"\"\n    Multiline docstring with spaces    \n    second line with spaces   \n    \"\"\"\n    return \"\"\"\n    RAW TEMPLATE   \n    LINE 2  \n    \"\"\"\n")
-
-		fixed, changed, err := whitespace.FixContent("script.py", input)
-		require.NoError(t, err)
-		assert.True(t, changed)
-		assert.Equal(t, string(expected), string(fixed))
-	})
-
-	t.Run("STRICT INVARIANT: preserves trailing whitespace in raw/formatted triple-quoted strings", func(t *testing.T) {
-		t.Parallel()
-		input := []byte("r_str = r'''\nline with space   \n'''\n\nf_str = f\"\"\"\nline with space   \n\"\"\"\n")
-		expected := []byte("r_str = r'''\nline with space   \n'''\n\nf_str = f\"\"\"\nline with space   \n\"\"\"\n")
-
-		fixed, changed, err := whitespace.FixContent("script.py", input)
-		require.NoError(t, err)
-		assert.False(t, changed)
-		assert.Equal(t, string(expected), string(fixed))
-	})
-}
-
 func TestFixContent_Markdown(t *testing.T) {
 	t.Parallel()
 

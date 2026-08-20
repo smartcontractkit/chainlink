@@ -2,7 +2,6 @@ package testrunner
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -10,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/githooks/internal/modules"
@@ -111,7 +109,8 @@ func EnsureBinary(ctx context.Context, repoRoot string, stdout, stderr io.Writer
 	return nil
 }
 
-// Run executes test harness grouped by Go module in parallel.
+// Run executes test harness grouped by Go module sequentially, letting
+// `go test` parallelize test execution within each module.
 func Run(ctx context.Context, cfg Config) error {
 	mods := cfg.Modules
 	if len(mods) == 0 && len(cfg.Packages) > 0 {
@@ -139,75 +138,44 @@ func Run(ctx context.Context, cfg Config) error {
 		execRunner = &osExecutor{stdout: cfg.Stdout, stderr: cfg.Stderr}
 	}
 
-	// If root module is included, ensure the test harness binary is built once upfront
-	for _, mod := range mods {
-		if mod.Module == "." && cfg.Executor == nil {
-			if err := EnsureBinary(ctx, cfg.RepoRoot, cfg.Stdout, cfg.Stderr); err != nil {
-				return err
-			}
-			break
-		}
-	}
-
-	var (
-		wg   sync.WaitGroup
-		mu   sync.Mutex
-		errs []error
-	)
-
 	for _, mod := range mods {
 		if len(mod.Packages) == 0 {
 			continue
 		}
 
-		wg.Add(1)
-		go func(m modules.ModulePackages) {
-			defer wg.Done()
+		fmt.Fprintf(cfg.Stdout, "==> Running tests on %s: %s\n", mod.Module, strings.Join(mod.Packages, " "))
 
-			mu.Lock()
-			fmt.Fprintf(cfg.Stdout, "==> Running tests on %s: %s\n", m.Module, strings.Join(m.Packages, " "))
-			mu.Unlock()
-
-			var runErr error
-			if m.Module == "." {
-				binPath := filepath.Join(cfg.RepoRoot, "tools/test/.bin/test")
-				var args []string
-				if cfg.Short {
-					args = append(args, "-short")
-				}
-				args = append(args, cfg.Args...)
-				args = append(args, m.Packages...)
-
-				if err := execRunner.Run(ctx, cfg.RepoRoot, binPath, args...); err != nil {
-					runErr = fmt.Errorf("tests failed on %s: %w", m.Module, err)
-				}
-			} else {
-				modDir := filepath.Join(cfg.RepoRoot, m.Module)
-				var args []string
-				args = append(args, "test")
-				if cfg.Short {
-					args = append(args, "-short")
-				}
-				args = append(args, cfg.Args...)
-				args = append(args, m.Packages...)
-
-				if err := execRunner.Run(ctx, modDir, "go", args...); err != nil {
-					runErr = fmt.Errorf("tests failed on %s: %w", m.Module, err)
+		if mod.Module == "." {
+			if cfg.Executor == nil {
+				if err := EnsureBinary(ctx, cfg.RepoRoot, cfg.Stdout, cfg.Stderr); err != nil {
+					return err
 				}
 			}
-
-			if runErr != nil {
-				mu.Lock()
-				errs = append(errs, runErr)
-				mu.Unlock()
+			binPath := filepath.Join(cfg.RepoRoot, "tools/test/.bin/test")
+			var args []string
+			if cfg.Short {
+				args = append(args, "-short")
 			}
-		}(mod)
-	}
+			args = append(args, cfg.Args...)
+			args = append(args, mod.Packages...)
 
-	wg.Wait()
+			if err := execRunner.Run(ctx, cfg.RepoRoot, binPath, args...); err != nil {
+				return fmt.Errorf("tests failed on %s: %w", mod.Module, err)
+			}
+		} else {
+			modDir := filepath.Join(cfg.RepoRoot, mod.Module)
+			var args []string
+			args = append(args, "test")
+			if cfg.Short {
+				args = append(args, "-short")
+			}
+			args = append(args, cfg.Args...)
+			args = append(args, mod.Packages...)
 
-	if len(errs) > 0 {
-		return errors.Join(errs...)
+			if err := execRunner.Run(ctx, modDir, "go", args...); err != nil {
+				return fmt.Errorf("tests failed on %s: %w", mod.Module, err)
+			}
+		}
 	}
 
 	return nil

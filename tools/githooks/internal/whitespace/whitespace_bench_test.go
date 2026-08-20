@@ -35,24 +35,6 @@ func main() {
 	}
 }
 
-func BenchmarkFixContent_Python(b *testing.B) {
-	code := []byte(`def main():   
-    """
-    multiline docstring with spaces    
-    second line with spaces   
-    """
-    x = 1   
-    return x
-`)
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for b.Loop() {
-		_, _, _ = whitespace.FixContent("script.py", code)
-	}
-}
-
 func BenchmarkFixContent_Markdown(b *testing.B) {
 	doc := bytes.Repeat([]byte("This line has two trailing spaces.  \nNormal line.\n"), 50)
 

@@ -35,8 +35,6 @@ func FixContent(filePath string, content []byte) ([]byte, bool, error) {
 	switch ext {
 	case ".go":
 		return FixGo(content)
-	case ".py":
-		return FixPython(content)
 	case ".md", ".markdown", ".mdown", ".mkdn":
 		return FixMarkdown(content)
 	default:
