@@ -195,6 +195,10 @@ func (s *mockCache) AddMany(values map[llotypes.StreamID]lloprotocol.StreamValue
 }
 
 func Test_DataSource(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	lggr := logger.NullLogger
 	mainCtx := t.Context()

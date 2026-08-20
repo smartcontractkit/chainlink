@@ -381,6 +381,10 @@ func TestValidateCronSchedule(t *testing.T) {
 }
 
 func TestPausableTicker(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	var counter atomic.Int32
@@ -427,6 +431,10 @@ func TestPausableTicker(t *testing.T) {
 }
 
 func TestCronTicker(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	var counter atomic.Int32

@@ -480,6 +480,10 @@ func TestJWTBasedAuth_EmptyToken(t *testing.T) {
 }
 
 func TestJWTBasedAuth_JWKSKeyRotation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	keyA := generateTestRSAKey(t, "key-A")
 	keyB := generateTestRSAKey(t, "key-B")
 

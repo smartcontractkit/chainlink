@@ -38,6 +38,10 @@ var benchWorkloads = []workload{
 // same format. This guards the benchmark: if the two drivers diverge, the
 // latency numbers are not comparing like for like.
 func TestParity(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	for _, w := range benchWorkloads {
 		t.Run(w.String(), func(t *testing.T) {

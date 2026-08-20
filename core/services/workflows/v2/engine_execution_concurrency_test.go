@@ -159,6 +159,10 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 // fresh events are sent and all execute. Total: 10 events, 5 expire, 5
 // execute.
 func TestEngine_StaleTriggerEventIsSkipped(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	const queueTimeout = 5 * time.Second

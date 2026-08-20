@@ -8514,6 +8514,10 @@ func TestLogUserErrorAware(t *testing.T) {
 }
 
 func TestPlugin_broadcastBlobPayloads(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Run("empty payloads returns empty slice", func(t *testing.T) {
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil

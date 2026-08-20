@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -265,6 +266,61 @@ func TestBridgeTask_Happy(t *testing.T) {
 	assert.Equal(t, specID, btelem.SpecID)
 	assert.NotEqual(t, uuid.Nil, btelem.StreamID)
 	assert.NotEqual(t, uuid.Nil, btelem.DotID)
+}
+
+func TestBridgeTask_UsesBridgeConnManagerHappyPath(t *testing.T) {
+	t.Parallel()
+
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+
+	var httpCalls atomic.Int32
+	s1 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		httpCalls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer s1.Close()
+
+	feedURL, err := url.ParseRequestURI(s1.URL)
+	require.NoError(t, err)
+
+	orm := bridges.NewORM(db)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{
+		URL:                  feedURL.String(),
+		UseConnectionManager: true,
+	})
+
+	manager := bridgeconn.NewBridgeConnManager(logger.TestLogger(t))
+	seedable, ok := manager.(interface {
+		SeedObservation(bridge bridges.BridgeType, requestData map[string]any, observation []byte) error
+		DisableEAConnDialingForTest()
+	})
+	require.True(t, ok)
+	// This test seeds the cache directly and asserts no HTTP calls are made; the
+	// bridge URL points at a plain httptest server, not a streams-adapter, so real
+	// EAConn dialing must be disabled to avoid flaky cross-protocol traffic.
+	seedable.DisableEAConnDialingForTest()
+	require.NoError(t, seedable.SeedObservation(*bridge, utils.MustUnmarshalToMap(btcUSDPairing), []byte(`{"data":{"result":"9700"}}`)))
+
+	task := pipeline.BridgeTask{
+		BaseTask:    pipeline.NewBaseTask(0, "bridge", nil, nil, 0),
+		Name:        bridge.Name.String(),
+		RequestData: btcUSDPairing,
+	}
+	c := clhttptest.NewTestLocalOnlyHTTPClient()
+	trORM := pipeline.NewORM(db, logger.TestLogger(t), cfg.JobPipeline().MaxSuccessfulRuns())
+	specID, err := trORM.CreateSpec(t.Context(), pipeline.Pipeline{}, *sqlutil.NewInterval(5 * time.Minute))
+	require.NoError(t, err)
+	task.HelperSetDependencies(cfg.JobPipeline(), cfg.WebServer(), orm, specID, uuid.UUID{}, c)
+	task.HelperSetBridgeConnManager(manager)
+
+	result, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
+
+	assert.False(t, runInfo.IsPending)
+	assert.False(t, runInfo.IsRetryable)
+	require.NoError(t, result.Error)
+	assert.JSONEq(t, `{"data":{"result":"9700"}}`, result.Value.(string))
+	assert.Equal(t, int32(0), httpCalls.Load())
 }
 
 func TestBridgeTask_HandlesIntermittentFailure(t *testing.T) {

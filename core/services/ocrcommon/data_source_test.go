@@ -52,6 +52,10 @@ func Test_InMemoryDataSource(t *testing.T) {
 }
 
 func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	changeResultValue := func(runner *pipelinemocks.Runner, value string, returnErr, once bool) {
 		result := pipeline.Result{
 			Value: value,

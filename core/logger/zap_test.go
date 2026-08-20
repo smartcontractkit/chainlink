@@ -273,6 +273,10 @@ func TestZapLogger_Name(t *testing.T) {
 }
 
 func TestLogger_Leak(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	ac := NewUpdatableCore()
 	defer ac.Close()
 	startObjectsNum := heapObjects()

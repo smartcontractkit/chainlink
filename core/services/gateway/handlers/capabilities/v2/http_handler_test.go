@@ -1191,3 +1191,140 @@ func TestGatewayHandler_Send_MtlsRateLimitEnabledByDefault(t *testing.T) {
 	require.ErrorIs(t, err, network.ErrBlockedRequest)
 	require.Contains(t, err.Error(), "global mtls request rate limit exceeded")
 }
+
+// TestNewGatewayHandler_MultiShardCreatesRateLimitersForAllMembers verifies
+// that NewGatewayHandler correctly expands the DON×shard matrix and creates
+// per-node rate limiters and node-to-shard routing entries for every member
+// across all shards of all DONs.
+func TestNewGatewayHandler_MultiShardCreatesRateLimitersForAllMembers(t *testing.T) {
+	t.Parallel()
+
+	cfg := serviceCfg()
+	configBytes, err := json.Marshal(cfg)
+	require.NoError(t, err)
+
+	// 2 DONs, each with 2 shards: 8 nodes total.
+	shardedDONs := []config.ShardedDONConfig{
+		{DonName: "donA", F: 1, Shards: []config.Shard{
+			{Nodes: []config.NodeConfig{{Address: "a1"}, {Address: "a2"}}},
+			{Nodes: []config.NodeConfig{{Address: "a3"}, {Address: "a4"}}},
+		}},
+		{DonName: "donB", F: 1, Shards: []config.Shard{
+			{Nodes: []config.NodeConfig{{Address: "b1"}, {Address: "b2"}}},
+			{Nodes: []config.NodeConfig{{Address: "b3"}, {Address: "b4"}}},
+		}},
+	}
+	connMgrs := [][]handlers.DON{
+		{handlermocks.NewDON(t), handlermocks.NewDON(t)},
+		{handlermocks.NewDON(t), handlermocks.NewDON(t)},
+	}
+	mockHTTPClient := httpmocks.NewHTTPClient(t)
+	lggr := logger.Test(t)
+
+	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+
+	// Verify 4 shard endpoints (2 DONs × 2 shards each).
+	require.Len(t, handler.shards, 4)
+
+	// Verify donIDs: shard 0 = bare name, shard 1 = suffixed.
+	require.Equal(t, "donA", handler.shards[0].donID)
+	require.Equal(t, "donA_1", handler.shards[1].donID)
+	require.Equal(t, "donB", handler.shards[2].donID)
+	require.Equal(t, "donB_1", handler.shards[3].donID)
+
+	// Verify per-node rate limiters created for all 8 members.
+	require.Len(t, handler.perNodeRateLimiters, 8)
+	for _, addr := range []string{"a1", "a2", "a3", "a4", "b1", "b2", "b3", "b4"} {
+		require.Contains(t, handler.perNodeRateLimiters, addr, "rate limiter should exist for node %s", addr)
+	}
+
+	// Verify nodeAddrToShard maps each node to the correct shard endpoint.
+	require.Equal(t, "donA", handler.nodeAddrToShard["a1"].donID)
+	require.Equal(t, "donA_1", handler.nodeAddrToShard["a3"].donID)
+	require.Equal(t, "donB", handler.nodeAddrToShard["b1"].donID)
+	require.Equal(t, "donB_1", handler.nodeAddrToShard["b3"].donID)
+}
+
+// TestGatewayHandler_SendResponseToNode_MultiShardRouting verifies that when a
+// node from a non-default shard sends an HTTP action request, the gateway
+// handler routes the HTTP response back through that shard's connection manager,
+// not the first shard's.
+func TestGatewayHandler_SendResponseToNode_MultiShardRouting(t *testing.T) {
+	t.Parallel()
+
+	cfg := serviceCfg()
+	configBytes, err := json.Marshal(cfg)
+	require.NoError(t, err)
+
+	// 2 shards: shard0={node1,node2}, shard1={node3,node4}.
+	shardedDONs := []config.ShardedDONConfig{
+		{DonName: "don", F: 0, Shards: []config.Shard{
+			{Nodes: []config.NodeConfig{{Name: "node1", Address: "node1"}, {Name: "node2", Address: "node2"}}},
+			{Nodes: []config.NodeConfig{{Name: "node3", Address: "node3"}, {Name: "node4", Address: "node4"}}},
+		}},
+	}
+	shard0Don := handlermocks.NewDON(t)
+	shard1Don := handlermocks.NewDON(t)
+	connMgrs := [][]handlers.DON{{shard0Don, shard1Don}}
+	mockHTTPClient := httpmocks.NewHTTPClient(t)
+	lggr := logger.Test(t)
+
+	handler, err := NewGatewayHandler(configBytes, shardedDONs, connMgrs, mockHTTPClient, lggr, limits.Factory{Logger: lggr}, defaultTestHTTPClientFactory)
+	require.NoError(t, err)
+	require.NotNil(t, handler)
+
+	// Prepare an outbound HTTP action request from node3 (in shard 1).
+	outboundReq := gateway_common.OutboundHTTPRequest{
+		Method:    "GET",
+		URL:       "https://example.com/api",
+		TimeoutMs: 5000,
+	}
+	reqBytes, err := json.Marshal(outboundReq)
+	require.NoError(t, err)
+
+	id := fmt.Sprintf("%s/%s", gateway_common.MethodHTTPAction, uuid.New().String())
+	rawRequest := json.RawMessage(reqBytes)
+	resp := &jsonrpc.Response[json.RawMessage]{
+		ID:     id,
+		Result: &rawRequest,
+	}
+
+	// HTTP client returns a successful response.
+	httpResp := &network.HTTPResponse{
+		StatusCode: 200,
+		Body:       []byte(`{"result": "success"}`),
+	}
+	mockHTTPClient.EXPECT().Send(mock.Anything, mock.Anything).Return(httpResp, nil).Once()
+
+	// The response must be routed through shard 1's connMgr (not shard 0's).
+	shard1Don.EXPECT().SendToNode(mock.Anything, "node3", mock.Anything).Return(nil).Once()
+	// shard0Don gets NO expectations: any call to it would be a routing bug.
+
+	err = handler.HandleNodeMessage(t.Context(), resp, "node3")
+	require.NoError(t, err)
+	handler.wg.Wait()
+
+	shard0Don.AssertExpectations(t)
+	shard1Don.AssertExpectations(t)
+}
+
+// TestGatewayHandler_HandleNodeMessage_UnknownNodeRejected verifies that a
+// message from a node address not present in any shard is rejected.
+func TestGatewayHandler_HandleNodeMessage_UnknownNodeRejected(t *testing.T) {
+	t.Parallel()
+
+	handler := createTestHandler(t)
+
+	rawRes := json.RawMessage([]byte(`{}`))
+	resp := &jsonrpc.Response[json.RawMessage]{
+		ID:     fmt.Sprintf("%s/%s", gateway_common.MethodHTTPAction, uuid.New().String()),
+		Result: &rawRes,
+	}
+
+	err := handler.HandleNodeMessage(t.Context(), resp, "nonexistent-node")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unexpected node")
+	handler.wg.Wait()
+}

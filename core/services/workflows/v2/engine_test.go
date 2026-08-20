@@ -1510,6 +1510,10 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 }
 
 func TestEngine_WASMBinary_Simple(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	cmd := "core/services/workflows/test/wasm/v2/cmd"
 	log := logger.Test(t)
@@ -1594,6 +1598,10 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 }
 
 func TestEngine_WASMBinary_With_Config(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
 	binaryB := wasmtest.GetTestBinary(t, cmd, false)
 
@@ -1690,6 +1698,10 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 }
 
 func TestSecretsFetcher_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_secrets"
 	binaryB := wasmtest.GetTestBinary(t, cmd, false)
@@ -1979,6 +1991,10 @@ func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 }
 
 func TestEngine_DeduplicatesSameEventID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	module := modulemocks.NewModuleV2(t)
@@ -2289,6 +2305,10 @@ func TestEngine_HandleNewDON(t *testing.T) {
 // 3. Trigger a real DON update via NotifyDonSet() with ConfigVersion = 2
 // 4. Verify that the beholder logger labels are still pinned to ConfigVersion = 1
 func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)

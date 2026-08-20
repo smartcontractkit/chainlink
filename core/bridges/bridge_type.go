@@ -21,6 +21,7 @@ type BridgeTypeRequest struct {
 	URL                    models.WebURL `json:"url"`
 	Confirmations          uint32        `json:"confirmations"`
 	MinimumContractPayment *assets.Link  `json:"minimumContractPayment"`
+	UseConnectionManager   bool          `json:"useConnectionManager"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -48,6 +49,7 @@ type BridgeTypeAuthentication struct {
 	IncomingToken          string
 	OutgoingToken          string
 	MinimumContractPayment *assets.Link
+	UseConnectionManager   bool `json:"useConnectionManager"`
 }
 
 // BridgeType is used for external adapters and has fields for
@@ -62,6 +64,7 @@ type BridgeType struct {
 	MinimumContractPayment *assets.Link
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
+	UseConnectionManager   bool `json:"useConnectionManager"`
 }
 
 // NewBridgeType returns a bridge type authentication (with plaintext
@@ -84,6 +87,7 @@ func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
 			IncomingToken:          incomingToken,
 			OutgoingToken:          outgoingToken,
 			MinimumContractPayment: btr.MinimumContractPayment,
+			UseConnectionManager:   btr.UseConnectionManager,
 		}, &BridgeType{
 			Name:                   btr.Name,
 			URL:                    btr.URL,
@@ -92,6 +96,7 @@ func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
 			Salt:                   salt,
 			OutgoingToken:          outgoingToken,
 			MinimumContractPayment: btr.MinimumContractPayment,
+			UseConnectionManager:   btr.UseConnectionManager,
 		}, nil
 }
 
