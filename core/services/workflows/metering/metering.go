@@ -442,30 +442,10 @@ func (r *Report) Settle(ref string, metadata capabilities.ResponseMetadata) erro
 
 		deciVals := []decimal.Decimal{}
 		for idx, detail := range spendDetails {
-			var value decimal.Decimal
-			var err error
-
-			if isGasSpendType(unit) && detail.SpendValueInGasUnits != "" {
-				value, err = decimal.NewFromString(detail.SpendValueInGasUnits)
-				if err != nil {
-					r.lggr.Info(fmt.Sprintf("failed to get spend value in gas units from %s: %s", detail.SpendValueInGasUnits, err))
-					// throw out invalid values for local balance settlement. they will still be included in metering report.
-					continue
-				}
-			} else {
-				value, err = decimal.NewFromString(detail.SpendValue)
-				if err != nil {
-					r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
-					// throw out invalid values for local balance settlement. they will still be included in metering report.
-					continue
-				}
-
-				if isGasSpendType(unit) {
-					// TODO: This decimal shift should be removed once all chain capabilities have been upgrade
-					// to passing in SpendValueInGasUnits
-					// WARNING: 18 is a magic number here and assumes all gas tokens will have the same level of precision
-					value = value.Shift(18)
-				}
+			value, err := r.parseSpendValue(unit, detail)
+			if err != nil {
+				// throw out invalid values for local balance settlement. they will still be included in metering report.
+				continue
 			}
 
 			if val, convertErr := r.balance.ConvertToBalance(unit, value); convertErr == nil {
@@ -778,6 +758,34 @@ func (r *Report) creditToSpendingLimits(
 	}
 
 	return limits
+}
+
+// parseSpendValue extracts the decimal spend value from a node detail report.
+// If SpendValueInGasUnits is populated for a gas spend type, it is used directly
+// (native fixed-point integer, no shift needed). Otherwise, SpendValue is parsed
+// and Shift(18) is applied for gas spend types (legacy path).
+// Returns an error if the value could not be parsed; the caller should skip it.
+func (r *Report) parseSpendValue(unit string, detail ReportStepDetail) (decimal.Decimal, error) {
+	if isGasSpendType(unit) && detail.SpendValueInGasUnits != "" {
+		value, err := decimal.NewFromString(detail.SpendValueInGasUnits)
+		if err != nil {
+			r.lggr.Info(fmt.Sprintf("failed to get spend value in gas units from %s: %s", detail.SpendValueInGasUnits, err))
+			return decimal.Zero, err
+		}
+		return value, nil
+	}
+
+	value, err := decimal.NewFromString(detail.SpendValue)
+	if err != nil {
+		r.lggr.Info(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+		return decimal.Zero, err
+	}
+
+	if isGasSpendType(unit) {
+		value = value.Shift(18)
+	}
+
+	return value, nil
 }
 
 func isGasSpendType(spendType string) bool {
