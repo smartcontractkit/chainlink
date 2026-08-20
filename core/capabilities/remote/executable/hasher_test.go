@@ -360,7 +360,7 @@ func TestOptInHasher_ExcludesWorkflowTag(t *testing.T) {
 	req2 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v2")
 	req3 := getRequestWithWorkflowTag(t, []byte("otherdata"), "tag-v1")
 
-	hasher := NewOptInHasher()
+	hasher := NewOptInHasher(OptInHasherConfig{})
 	hash1, err := hasher.Hash(t.Context(), req1)
 	require.NoError(t, err)
 	hash2, err := hasher.Hash(t.Context(), req2)
@@ -372,7 +372,7 @@ func TestOptInHasher_ExcludesWorkflowTag(t *testing.T) {
 	require.NotEqual(t, hash1, hash3) // different data should produce different hash
 }
 
-func TestOptInHasher_ExcludesSpendLimits(t *testing.T) {
+func TestOptInHasher_IncludesSpendLimits(t *testing.T) {
 	t.Parallel()
 
 	req1 := getRequestWithSpendLimits(t, []byte("testdata"), []capabilities.SpendLimit{
@@ -382,13 +382,13 @@ func TestOptInHasher_ExcludesSpendLimits(t *testing.T) {
 		{SpendType: "gas", Limit: "2000"},
 	})
 
-	hasher := NewOptInHasher()
+	hasher := NewOptInHasher(OptInHasherConfig{})
 	hash1, err := hasher.Hash(t.Context(), req1)
 	require.NoError(t, err)
 	hash2, err := hasher.Hash(t.Context(), req2)
 	require.NoError(t, err)
 
-	require.Equal(t, hash1, hash2) // same data, different SpendLimits should produce same hash
+	require.NotEqual(t, hash1, hash2) // same data, different SpendLimits should produce different hash
 }
 
 func TestOptInHasher_ExcludesExecutionTimestamp(t *testing.T) {
@@ -403,7 +403,7 @@ func TestOptInHasher_ExcludesExecutionTimestamp(t *testing.T) {
 		WorkflowID: "wf1", WorkflowExecutionID: "exec1", ExecutionTimestamp: ts2,
 	})
 
-	hasher := NewOptInHasher()
+	hasher := NewOptInHasher(OptInHasherConfig{})
 	hash1, err := hasher.Hash(t.Context(), req1)
 	require.NoError(t, err)
 	hash2, err := hasher.Hash(t.Context(), req2)
@@ -425,7 +425,7 @@ func TestOptInHasher_IncludesSemanticFields(t *testing.T) {
 		WorkflowID: "wf1", WorkflowExecutionID: "exec1", ReferenceID: "step-b",
 	})
 
-	hasher := NewOptInHasher()
+	hasher := NewOptInHasher(OptInHasherConfig{})
 	hash1, err := hasher.Hash(t.Context(), req1)
 	require.NoError(t, err)
 	hash2, err := hasher.Hash(t.Context(), req2)
@@ -443,7 +443,7 @@ func TestOptInWriteReportExcludeSignaturesHasher_ExcludesWorkflowTag(t *testing.
 	req1 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v1")
 	req2 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v2")
 
-	hasher := NewOptInWriteReportExcludeSignaturesHasher()
+	hasher := NewOptInWriteReportExcludeSignaturesHasher(OptInHasherConfig{})
 	hash1, err := hasher.Hash(t.Context(), req1)
 	require.NoError(t, err)
 	hash2, err := hasher.Hash(t.Context(), req2)
@@ -463,7 +463,7 @@ func TestFeatureFlagHasher_FlagInactive_DelegatesToBase(t *testing.T) {
 	defer flag.Close()
 
 	base := NewSimpleHasher()
-	optIn := NewOptInHasher()
+	optIn := NewOptInHasher(OptInHasherConfig{})
 	ffHasher := NewFeatureFlagHasher(base, optIn, flag)
 
 	// Request with a WorkflowTag — simpleHasher includes it, optInHasher excludes it
@@ -488,7 +488,7 @@ func TestFeatureFlagHasher_FlagActive_DelegatesToOptIn(t *testing.T) {
 	defer flag.Close()
 
 	base := NewSimpleHasher()
-	optIn := NewOptInHasher()
+	optIn := NewOptInHasher(OptInHasherConfig{})
 	ffHasher := NewFeatureFlagHasher(base, optIn, flag)
 
 	// Request with a WorkflowTag and a current ExecutionTimestamp
@@ -516,7 +516,7 @@ func TestFeatureFlagHasher_ZeroTimestamp_DelegatesToBase(t *testing.T) {
 	defer flag.Close()
 
 	base := NewSimpleHasher()
-	optIn := NewOptInHasher()
+	optIn := NewOptInHasher(OptInHasherConfig{})
 	ffHasher := NewFeatureFlagHasher(base, optIn, flag)
 
 	// Request with zero ExecutionTimestamp (DON time not enabled)

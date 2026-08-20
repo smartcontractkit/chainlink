@@ -777,16 +777,17 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 			}
 
 			var baseHasher, optInHasher remotetypes.MessageHasher
+			optInCfg := executable.OptInHasherConfig{}
 			switch config.RemoteExecutableConfig.RequestHasherType {
 			case capabilities.RequestHasherType_Simple:
 				baseHasher = executable.NewSimpleHasher()
-				optInHasher = executable.NewOptInHasher()
+				optInHasher = executable.NewOptInHasher(optInCfg)
 			case capabilities.RequestHasherType_WriteReportExcludeSignatures:
 				baseHasher = executable.NewWriteReportExcludeSignaturesHasher()
-				optInHasher = executable.NewOptInWriteReportExcludeSignaturesHasher()
+				optInHasher = executable.NewOptInWriteReportExcludeSignaturesHasher(optInCfg)
 			default:
 				baseHasher = executable.NewSimpleHasher()
-				optInHasher = executable.NewOptInHasher()
+				optInHasher = executable.NewOptInHasher(optInCfg)
 			}
 			requestHasher := executable.NewFeatureFlagHasher(baseHasher, optInHasher, w.requestHashFeatureFlag)
 

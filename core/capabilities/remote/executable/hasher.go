@@ -213,10 +213,26 @@ func NewWriteReportExcludeSignaturesHasher() types.MessageHasher {
 	return &writeReportExcludeSignaturesHasher{}
 }
 
-// optInMetadataFields returns a copy of the metadata containing only the
-// allowlisted fields. New metadata fields added in the future are excluded
+// OptInHasherConfig holds per-field feature flags that control which optional
+// metadata fields are included in the request hash beyond the base allowlist.
+// Currently empty — all fields in the base allowlist are always included.
+//
+// To opt in a new field in the future:
+//  1. Add a feature flag (Setting[Range[config.Timestamp]]) in cresettings,
+//     named FeatureRequestHashInclude<Field>ActivePeriod.
+//  2. Add a field of type limits.RangeLimiter[config.Timestamp] to this struct.
+//  3. Add the conditional copy in applyOptInMetadata.
+//  4. Construct the limiter in launcher.NewLauncher and pass it via OptInHasherConfig.
+//
+// Each flag is evaluated against the request's DON-derived ExecutionTimestamp,
+// so all nodes processing the same request include or exclude the field
+// atomically — no cross-version requestID divergence.
+type OptInHasherConfig struct{}
+
+// baseOptInMetadataFields returns a copy of the metadata containing only the
+// base allowlisted fields. New metadata fields added in the future are excluded
 // from the hash by default, preventing cross-version requestID divergence.
-func optInMetadataFields(md capabilities.RequestMetadata) capabilities.RequestMetadata {
+func baseOptInMetadataFields(md capabilities.RequestMetadata) capabilities.RequestMetadata {
 	return capabilities.RequestMetadata{
 		WorkflowID:               md.WorkflowID,
 		WorkflowExecutionID:      md.WorkflowExecutionID,
@@ -227,14 +243,30 @@ func optInMetadataFields(md capabilities.RequestMetadata) capabilities.RequestMe
 		WorkflowDonConfigVersion: md.WorkflowDonConfigVersion,
 		ReferenceID:              md.ReferenceID,
 		DecodedWorkflowName:      md.DecodedWorkflowName,
+		SpendLimits:              md.SpendLimits,
 	}
+}
+
+// applyOptInMetadata returns a copy of the metadata containing the base
+// allowlisted fields plus any optional fields whose per-field feature flag is
+// active for the given ExecutionTimestamp.
+func applyOptInMetadata(ctx context.Context, md capabilities.RequestMetadata, cfg OptInHasherConfig) capabilities.RequestMetadata {
+	result := baseOptInMetadataFields(md)
+	// Future optional fields: check cfg.Include<Field> against
+	// config.Timestamp(md.ExecutionTimestamp.Unix()) and copy the field
+	// from md into result when the flag is active.
+	_ = ctx
+	return result
 }
 
 // optInHasher hashes only an explicit allowlist of metadata fields rather than
 // including everything and excluding specific fields. This prevents new metadata
 // fields (e.g. WorkflowTag) from changing the requestID when nodes run different
-// versions of the protobuf definitions.
-type optInHasher struct{}
+// versions of the protobuf definitions. Optional fields beyond the base allowlist
+// are gated by per-field feature flags in OptInHasherConfig.
+type optInHasher struct {
+	cfg OptInHasherConfig
+}
 
 func (r *optInHasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byte, error) {
 	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
@@ -242,7 +274,7 @@ func (r *optInHasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byt
 		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
 	}
 
-	req.Metadata = optInMetadataFields(req.Metadata)
+	req.Metadata = applyOptInMetadata(ctx, req.Metadata, r.cfg)
 
 	reqBytes, err := pb.MarshalCapabilityRequest(req)
 	if err != nil {
@@ -251,13 +283,15 @@ func (r *optInHasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byt
 	return sha256.Sum256(reqBytes), nil
 }
 
-func NewOptInHasher() types.MessageHasher {
-	return &optInHasher{}
+func NewOptInHasher(cfg OptInHasherConfig) types.MessageHasher {
+	return &optInHasher{cfg: cfg}
 }
 
 // optInWriteReportExcludeSignaturesHasher combines the metadata opt-in allowlist
 // with WriteReport-specific signature exclusion, mirroring writeReportExcludeSignaturesHasher.
-type optInWriteReportExcludeSignaturesHasher struct{}
+type optInWriteReportExcludeSignaturesHasher struct {
+	cfg OptInHasherConfig
+}
 
 func (r *optInWriteReportExcludeSignaturesHasher) Hash(ctx context.Context, msg *types.MessageBody) ([32]byte, error) {
 	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
@@ -268,7 +302,7 @@ func (r *optInWriteReportExcludeSignaturesHasher) Hash(ctx context.Context, msg 
 		return [32]byte{}, errors.New("capability request payload is nil")
 	}
 
-	req.Metadata = optInMetadataFields(req.Metadata)
+	req.Metadata = applyOptInMetadata(ctx, req.Metadata, r.cfg)
 
 	family, familyErr := getWriteReportFamily(msg)
 	if familyErr != nil {
@@ -342,8 +376,8 @@ func (r *optInWriteReportExcludeSignaturesHasher) Hash(ctx context.Context, msg 
 	return sha256.Sum256(reqBytes), nil
 }
 
-func NewOptInWriteReportExcludeSignaturesHasher() types.MessageHasher {
-	return &optInWriteReportExcludeSignaturesHasher{}
+func NewOptInWriteReportExcludeSignaturesHasher(cfg OptInHasherConfig) types.MessageHasher {
+	return &optInWriteReportExcludeSignaturesHasher{cfg: cfg}
 }
 
 // featureFlagHasher is a composite hasher that delegates to either an opt-out
