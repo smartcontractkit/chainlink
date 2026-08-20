@@ -9,7 +9,7 @@ pre-commit:
   # Compile the githooks CLI as the very first step so all subsequent hooks run
   # against a freshly built binary. Output binary is in tools/githooks/.bin/.
   setup:
-    - run: test -f tools/githooks/.bin/githooks && [ -z "$(find tools/githooks -name '*.go' -newer tools/githooks/.bin/githooks 2>/dev/null)" ] || go build -C tools/githooks -o .bin/githooks .
+    - run: test -f tools/githooks/.bin/githooks && [ -z "$(find tools/githooks \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) -newer tools/githooks/.bin/githooks 2>/dev/null)" ] || go build -C tools/githooks -o .bin/githooks .
 
   # One outer group: first a parallel bundle, then golangci-lint runs
   # strictly after every other job is done. This keeps the read-only scanners
@@ -95,7 +95,7 @@ pre-commit:
 
 pre-push:
   setup:
-    - run: test -f tools/githooks/.bin/githooks && [ -z "$(find tools/githooks -name '*.go' -newer tools/githooks/.bin/githooks 2>/dev/null)" ] || go build -C tools/githooks -o .bin/githooks .
+    - run: test -f tools/githooks/.bin/githooks && [ -z "$(find tools/githooks \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) -newer tools/githooks/.bin/githooks 2>/dev/null)" ] || go build -C tools/githooks -o .bin/githooks .
 
   parallel: true
   commands:

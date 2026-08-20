@@ -94,7 +94,7 @@ runs:
         REPORT_PATH: ${{ github.workspace }}/${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}golangci-lint-report.xml
         REPORT_PATH_JSON: ${{ github.workspace }}/${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}golangci-lint-report.json
       with:
-        version: v2.13.0
+        version: v2.13.1
         only-new-issues: true
         skip-cache: true
         args: --output.checkstyle.path=${{ env.REPORT_PATH }} --output.json.path=${{ env.REPORT_PATH_JSON }} --max-same-issues=0 --max-issues-per-linter=0
