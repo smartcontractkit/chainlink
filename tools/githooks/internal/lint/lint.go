@@ -46,6 +46,44 @@ type Config struct {
 	Stderr    io.Writer
 }
 
+// createModulePatch creates a temporary git patch for the given module directory and packages.
+func createModulePatch(ctx context.Context, dir string, rev string, pkgs []string) (string, error) {
+	if rev == "" || len(pkgs) == 0 {
+		return "", nil
+	}
+
+	args := make([]string, 0, 4+len(pkgs))
+	args = append(args, "diff", "--relative", rev, "--")
+	args = append(args, pkgs...)
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = dir
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil || out.Len() == 0 {
+		return "", nil
+	}
+
+	tmpFile, err := os.CreateTemp("", "githooks-lint-*.patch")
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := tmpFile.Write(out.Bytes()); err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpFile.Name())
+		return "", err
+	}
+
+	return tmpFile.Name(), nil
+}
+
 // Run iterates over affected module targets and runs golangci-lint on the changed packages in parallel.
 func Run(ctx context.Context, cfg Config) error {
 	if len(cfg.Targets) == 0 {
@@ -76,34 +114,46 @@ func Run(ctx context.Context, cfg Config) error {
 			modDir = filepath.Join(cfg.RepoRoot, target.Module)
 		}
 
-		var args []string
-		args = append(args, "run", "--allow-parallel-runners")
-		if cfg.PatchFile != "" {
-			args = append(args, "--new-from-patch="+cfg.PatchFile)
-		} else if cfg.Rev != "" {
-			args = append(args, "--new-from-rev="+cfg.Rev)
-		}
-		if cfg.Fix {
-			args = append(args, "--fix")
-		}
-		args = append(args, target.Packages...)
-
 		wg.Add(1)
-		go func(t modules.ModulePackages, dir string, cmdArgs []string) {
+		go func(t modules.ModulePackages, dir string) {
 			defer wg.Done()
+
+			var patchPath string
+			if cfg.PatchFile != "" {
+				patchPath = cfg.PatchFile
+			} else if cfg.Rev != "" {
+				patchPath, _ = createModulePatch(ctx, dir, cfg.Rev, t.Packages)
+				if patchPath != "" {
+					defer func(p string) {
+						_ = os.Remove(p)
+					}(patchPath)
+				}
+			}
+
+			var args []string
+			args = append(args, "run", "--allow-parallel-runners")
+			if patchPath != "" {
+				args = append(args, "--new-from-patch="+patchPath)
+			} else if cfg.Rev != "" {
+				args = append(args, "--new-from-rev="+cfg.Rev)
+			}
+			if cfg.Fix {
+				args = append(args, "--fix")
+			}
+			args = append(args, t.Packages...)
 
 			var outBuf bytes.Buffer
 			fmt.Fprintf(&outBuf, "==> Linting module '%s' packages: %s\n", t.Module, strings.Join(t.Packages, " "))
 
-			err := execRunner.Run(ctx, dir, "golangci-lint", cmdArgs...)
+			err := execRunner.Run(ctx, dir, "golangci-lint", args...)
 
 			mu.Lock()
-			cfg.Stdout.Write(outBuf.Bytes())
+			_, _ = cfg.Stdout.Write(outBuf.Bytes())
 			if err != nil {
 				errs = append(errs, fmt.Errorf("golangci-lint failed in %s: %w", t.Module, err))
 			}
 			mu.Unlock()
-		}(target, modDir, args)
+		}(target, modDir)
 	}
 
 	wg.Wait()

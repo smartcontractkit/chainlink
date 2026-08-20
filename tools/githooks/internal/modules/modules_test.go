@@ -137,7 +137,7 @@ func TestCreateScopedPatch(t *testing.T) {
 
 	// Initialize git repo
 	execCmd := func(args ...string) {
-		cmd := exec.Command(args[0], args[1:]...)
+		cmd := exec.CommandContext(t.Context(), args[0], args[1:]...) // #nosec G204
 		cmd.Dir = tmpDir
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, "cmd %v failed: %s", args, string(out))

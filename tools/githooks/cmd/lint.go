@@ -44,20 +44,13 @@ func newLintCmd() *cobra.Command {
 				return nil
 			}
 
-			patchFile, cleanupPatch, err := modules.CreateScopedPatch(ctx, repoRoot, rev, files)
-			if err != nil {
-				return err
-			}
-			defer cleanupPatch()
-
 			cfg := lint.Config{
-				RepoRoot:  repoRoot,
-				Targets:   targets,
-				Fix:       fix,
-				Rev:       rev,
-				PatchFile: patchFile,
-				Stdout:    cmd.OutOrStdout(),
-				Stderr:    cmd.ErrOrStderr(),
+				RepoRoot: repoRoot,
+				Targets:  targets,
+				Fix:      fix,
+				Rev:      rev,
+				Stdout:   cmd.OutOrStdout(),
+				Stderr:   cmd.ErrOrStderr(),
 			}
 
 			return lint.Run(ctx, cfg)
