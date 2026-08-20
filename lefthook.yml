@@ -49,10 +49,22 @@ pre-commit:
                   run: typos {staged_files}
                   fail_text: "typos failed or missing. Install: https://github.com/crate-ci/typos#install"
 
-                - name: tidy-then-generate
+                - name: format-and-generate
                   group:
                     piped: true
                     jobs:
+                      # Fix erroneous trailing whitespace in code and markdown files
+                      - name: whitespace-fixer
+                        tags: [format]
+                        run: tools/githooks/.bin/githooks whitespace-fixer {staged_files}
+                        stage_fixed: true
+
+                      # Ensure code and markdown files end with a single newline
+                      - name: end-of-file-fixer
+                        tags: [format]
+                        run: tools/githooks/.bin/githooks end-of-file-fixer {staged_files}
+                        stage_fixed: true
+
                       # Tidy go.mod/go.sum in parallel for changed modules
                       - name: go-mod-tidy
                         tags: [gomod]

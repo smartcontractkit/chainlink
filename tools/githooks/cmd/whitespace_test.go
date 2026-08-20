@@ -1,0 +1,71 @@
+package cmd_test
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/tools/githooks/cmd"
+)
+
+func TestWhitespaceCmd_Help(t *testing.T) {
+	t.Parallel()
+
+	root := cmd.NewRootCmd()
+	buf := new(bytes.Buffer)
+	root.SetOut(buf)
+	root.SetErr(buf)
+	root.SetArgs([]string{"whitespace-fixer", "--help"})
+
+	err := root.Execute()
+	require.NoError(t, err)
+	assert.Contains(t, buf.String(), "Fix erroneous trailing whitespace in code and markdown files")
+	assert.Contains(t, buf.String(), "--check")
+}
+
+func TestWhitespaceCmd_RunFile(t *testing.T) {
+	t.Parallel()
+
+	t.Run("fixes trailing whitespace in file", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		target := filepath.Join(tmpDir, "test.go")
+		require.NoError(t, os.WriteFile(target, []byte("package main   \n"), 0o600))
+
+		root := cmd.NewRootCmd()
+		buf := new(bytes.Buffer)
+		root.SetOut(buf)
+		root.SetErr(buf)
+		root.SetArgs([]string{"whitespace-fixer", target})
+
+		err := root.Execute()
+		require.NoError(t, err)
+
+		content, err := os.ReadFile(target)
+		require.NoError(t, err)
+		assert.Equal(t, "package main\n", string(content))
+	})
+
+	t.Run("fails in check mode when file has trailing whitespace", func(t *testing.T) {
+		t.Parallel()
+
+		tmpDir := t.TempDir()
+		target := filepath.Join(tmpDir, "test.go")
+		require.NoError(t, os.WriteFile(target, []byte("package main   \n"), 0o600))
+
+		root := cmd.NewRootCmd()
+		buf := new(bytes.Buffer)
+		root.SetOut(buf)
+		root.SetErr(buf)
+		root.SetArgs([]string{"whitespace-fixer", "--check", target})
+
+		err := root.Execute()
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "require whitespace fixes")
+	})
+}
