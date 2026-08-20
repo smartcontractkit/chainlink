@@ -45,7 +45,6 @@ import (
 )
 
 func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Plain(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11054")
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 100000000000)
@@ -469,8 +468,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 
 	deps := getOpTxDeps(suiChain)
 
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
-
 	// Ensure Sui state is fully consistent before curse operation
 	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
@@ -485,8 +482,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 		},
 	})
 	require.NoError(t, err)
-
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	t.Run("Destination chain is cursed - should fail", func(t *testing.T) {
 		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
@@ -513,8 +508,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
 		t.Log("Expected error: ", err)
 	})
-
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	// Ensure Sui state is fully consistent before uncurse operation
 	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
@@ -715,8 +708,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_AfterSignerA
 	transferWei := new(big.Int).Mul(big.NewInt(1500000000), big.NewInt(1_000_000_000))
 	expectedRecvBal := new(big.Int).Add(preRecvBal, transferWei)
 
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
-
 	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:           "Send token to Receiver after signer allowlisted",
@@ -890,8 +881,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	selectorBytes := make([]byte, 16)
 	binary.BigEndian.PutUint64(selectorBytes[8:], destChain)
 
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
-
 	// Ensure Sui state is fully consistent before curse operation
 	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
@@ -903,8 +892,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 		Subject:          selectorBytes,
 	})
 	require.NoError(t, err)
-
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	t.Run("Destination chain is cursed - should fail", func(t *testing.T) {
 		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
@@ -931,8 +918,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
 		t.Log("Expected error: ", err)
 	})
-
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	// Ensure Sui state is fully consistent before uncurse operation
 	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
@@ -2135,7 +2120,7 @@ func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sou
 // submitted, EXECUTION_STATE_SUCCESS is never persisted, and the transmitter's
 // coin is not drained. Mirrors Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected.
 func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(t *testing.T) {
-	e, sourceChain, destChain, deployerSourceChain, suiTokenBytes, suiAddr := testSetupHelperEvm2Sui(t)
+	e, sourceChain, destChain, deployerSourceChain, _, suiAddr := testSetupHelperEvm2Sui(t)
 
 	suiChain := e.Env.BlockChains.SuiChains()[destChain]
 	waitForSuiRPCSync(t, suiChain)
@@ -2229,12 +2214,10 @@ func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(
 				},
 			},
 			ExtraArgs: testhelpers.MakeSuiExtraArgs(1_000_000, true, receiverObjectIDs, suiAddr),
-			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{
-					Token:  suiTokenBytes,
-					Amount: big.NewInt(1e9),
-				},
-			},
+			// No ExpectedTokenBalances: the guard aborts the execute PTB before
+			// submission, so no token is released/minted on Sui. The real balance
+			// check is the explicit suiCoinByID assertion on the transmitter coin
+			// below; WaitForTokenBalances' accumulator is discarded here anyway.
 		},
 	}
 
