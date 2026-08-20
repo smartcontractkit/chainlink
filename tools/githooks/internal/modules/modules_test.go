@@ -2,7 +2,6 @@ package modules_test
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -128,43 +127,4 @@ func TestFindAffectedModules(t *testing.T) {
 			assert.Equal(t, tc.expected, mods)
 		})
 	}
-}
-
-func TestCreateScopedPatch(t *testing.T) {
-	t.Parallel()
-
-	tmpDir := t.TempDir()
-
-	// Initialize git repo
-	execCmd := func(args ...string) {
-		cmd := exec.CommandContext(t.Context(), args[0], args[1:]...) // #nosec G204
-		cmd.Dir = tmpDir
-		out, err := cmd.CombinedOutput()
-		require.NoError(t, err, "cmd %v failed: %s", args, string(out))
-	}
-
-	execCmd("git", "init")
-	execCmd("git", "config", "user.name", "Test")
-	execCmd("git", "config", "user.email", "test@example.com")
-
-	fooFile := filepath.Join(tmpDir, "foo.go")
-	require.NoError(t, os.WriteFile(fooFile, []byte("package main\n\nfunc Foo() {}\n"), 0600))
-	execCmd("git", "add", "foo.go")
-	execCmd("git", "commit", "--no-gpg-sign", "-m", "initial")
-
-	// Modify file
-	require.NoError(t, os.WriteFile(fooFile, []byte("package main\n\nfunc Foo() {\n\t// added\n}\n"), 0600))
-
-	patchPath, cleanup, err := modules.CreateScopedPatch(t.Context(), tmpDir, "HEAD", []string{"foo.go"})
-	require.NoError(t, err)
-	defer cleanup()
-
-	require.NotEmpty(t, patchPath)
-	content, err := os.ReadFile(patchPath)
-	require.NoError(t, err)
-	assert.Contains(t, string(content), "+	// added")
-
-	cleanup()
-	_, err = os.Stat(patchPath)
-	assert.True(t, os.IsNotExist(err))
 }

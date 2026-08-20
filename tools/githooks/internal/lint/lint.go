@@ -142,17 +142,17 @@ func Run(ctx context.Context, cfg Config) error {
 			}
 			args = append(args, t.Packages...)
 
-			var outBuf bytes.Buffer
-			fmt.Fprintf(&outBuf, "==> Linting module '%s' packages: %s\n", t.Module, strings.Join(t.Packages, " "))
+			mu.Lock()
+			fmt.Fprintf(cfg.Stdout, "==> Linting module '%s' packages: %s\n", t.Module, strings.Join(t.Packages, " "))
+			mu.Unlock()
 
 			err := execRunner.Run(ctx, dir, "golangci-lint", args...)
 
-			mu.Lock()
-			_, _ = cfg.Stdout.Write(outBuf.Bytes())
 			if err != nil {
+				mu.Lock()
 				errs = append(errs, fmt.Errorf("golangci-lint failed in %s: %w", t.Module, err))
+				mu.Unlock()
 			}
-			mu.Unlock()
 		}(target, modDir)
 	}
 

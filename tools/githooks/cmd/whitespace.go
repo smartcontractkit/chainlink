@@ -19,7 +19,7 @@ func newWhitespaceCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "whitespace-fixer [files...]",
 		Aliases: []string{"whitespace", "ws-fixer", "trailing-whitespace"},
-		Short:   "Fix erroneous trailing whitespace in code and markdown files",
+		Short:   "Fix erroneous trailing whitespace in eligible code and text files",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			repoRoot, repoErr := findRepoRoot(ctx)
@@ -45,8 +45,6 @@ func newWhitespaceCmd() *cobra.Command {
 
 			cfg := whitespace.Config{
 				CheckOnly: check,
-				Stdout:    cmd.OutOrStdout(),
-				Stderr:    cmd.ErrOrStderr(),
 			}
 
 			result, err := whitespace.Run(ctx, repoRoot, files, cfg)

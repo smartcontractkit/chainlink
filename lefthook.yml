@@ -52,13 +52,13 @@ pre-commit:
                   group:
                     piped: true
                     jobs:
-                      # Fix erroneous trailing whitespace in code and markdown files
+                      # Fix erroneous trailing whitespace in eligible code and text files
                       - name: whitespace-fixer
                         tags: [format]
                         run: tools/githooks/.bin/githooks whitespace-fixer {staged_files}
                         stage_fixed: true
 
-                      # Ensure code and markdown files end with a single newline
+                      # Ensure eligible code and text files end with a single newline
                       - name: end-of-file-fixer
                         tags: [format]
                         run: tools/githooks/.bin/githooks end-of-file-fixer {staged_files}

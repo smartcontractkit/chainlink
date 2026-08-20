@@ -23,7 +23,7 @@ func TestWhitespaceCmd_Help(t *testing.T) {
 
 	err := root.Execute()
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "Fix erroneous trailing whitespace in code and markdown files")
+	assert.Contains(t, buf.String(), "Fix erroneous trailing whitespace in eligible code and text files")
 	assert.Contains(t, buf.String(), "--check")
 }
 

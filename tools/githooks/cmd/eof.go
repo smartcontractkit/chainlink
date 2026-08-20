@@ -45,8 +45,6 @@ func newEOFCmd() *cobra.Command {
 
 			cfg := eof.Config{
 				CheckOnly: check,
-				Stdout:    cmd.OutOrStdout(),
-				Stderr:    cmd.ErrOrStderr(),
 			}
 
 			result, err := eof.Run(ctx, repoRoot, files, cfg)

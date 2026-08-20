@@ -3,14 +3,14 @@ package eof
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"sync"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/v2/tools/githooks/internal/filefilter"
 )
@@ -18,8 +18,6 @@ import (
 // Config holds options for running end-of-file fixer.
 type Config struct {
 	CheckOnly bool
-	Stdout    io.Writer
-	Stderr    io.Writer
 }
 
 // Result contains information about processed files.
@@ -96,61 +94,40 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg Config) (*Res
 		return &Result{}, nil
 	}
 
-	workers := max(1, min(len(files), runtime.GOMAXPROCS(0)*4))
+	g, ctx := errgroup.WithContext(ctx)
+	g.SetLimit(max(1, min(len(files), runtime.GOMAXPROCS(0)*4)))
 
-	type task struct {
-		absPath string
-		relPath string
-	}
+	var (
+		mu       sync.Mutex
+		modified []string
+	)
 
-	taskCh := make(chan task, len(files))
 	for _, file := range files {
 		abs := file
 		if !filepath.IsAbs(abs) {
 			abs = filepath.Join(repoRoot, file)
 		}
-		taskCh <- task{absPath: abs, relPath: file}
-	}
-	close(taskCh)
-
-	var (
-		wg       sync.WaitGroup
-		mu       sync.Mutex
-		modified []string
-		errs     []error
-	)
-
-	for range workers {
-		wg.Go(func() {
-			for t := range taskCh {
-				if ctx.Err() != nil {
-					mu.Lock()
-					errs = append(errs, ctx.Err())
-					mu.Unlock()
-					return
-				}
-
-				changed, err := FixFile(t.absPath, cfg.CheckOnly)
-				if err != nil {
-					mu.Lock()
-					errs = append(errs, err)
-					mu.Unlock()
-					return
-				}
-
-				if changed {
-					mu.Lock()
-					modified = append(modified, t.relPath)
-					mu.Unlock()
-				}
+		g.Go(func() error {
+			if ctx.Err() != nil {
+				return ctx.Err()
 			}
+
+			changed, err := FixFile(abs, cfg.CheckOnly)
+			if err != nil {
+				return err
+			}
+
+			if changed {
+				mu.Lock()
+				modified = append(modified, file)
+				mu.Unlock()
+			}
+			return nil
 		})
 	}
 
-	wg.Wait()
-
-	if len(errs) > 0 {
-		return nil, fmt.Errorf("encountered errors during end-of-file fix: %w", errors.Join(errs...))
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("encountered errors during end-of-file fix: %w", err)
 	}
 
 	sort.Strings(modified)

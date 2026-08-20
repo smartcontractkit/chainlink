@@ -1,7 +1,6 @@
 package testrunner
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -165,8 +164,9 @@ func Run(ctx context.Context, cfg Config) error {
 		go func(m modules.ModulePackages) {
 			defer wg.Done()
 
-			var outBuf bytes.Buffer
-			fmt.Fprintf(&outBuf, "==> Running tests on %s: %s\n", m.Module, strings.Join(m.Packages, " "))
+			mu.Lock()
+			fmt.Fprintf(cfg.Stdout, "==> Running tests on %s: %s\n", m.Module, strings.Join(m.Packages, " "))
+			mu.Unlock()
 
 			var runErr error
 			if m.Module == "." {
@@ -196,12 +196,11 @@ func Run(ctx context.Context, cfg Config) error {
 				}
 			}
 
-			mu.Lock()
-			_, _ = cfg.Stdout.Write(outBuf.Bytes())
 			if runErr != nil {
+				mu.Lock()
 				errs = append(errs, runErr)
+				mu.Unlock()
 			}
-			mu.Unlock()
 		}(mod)
 	}
 
