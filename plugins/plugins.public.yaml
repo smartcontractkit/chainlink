@@ -18,7 +18,7 @@ plugins:
       # IMP: consult chainlink-sui team before updating this version
       # Must track the gRPC-migrated chainlink-sui used in go.mod, otherwise the DON runs a
       # pre-migration relayer (no gRPC ChainPoller) and never observes Sui source events.
-      gitRef: "v0.0.0-20260820154002-a8cf1c96d636"
+      gitRef: "v0.0.0-20260820212635-860b43de8de6"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
