@@ -199,13 +199,13 @@ jobs:
 
       - name: Notify Slack
         if: ${{ failure() && steps.golang-lint.outputs.golang-report-critical-issue-count > 0 && needs.run-frequency.outputs.one-per-weekday-frequency == 'true' }}
-        uses: slackapi/slack-github-action@03ea5433c137af7c0495bc0cad1af10403fc800c # 3.0.2
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             channel: ${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}
-            text: ":red-warn: golangci-lint: module `${{ matrix.modules }}` has ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues across ${{ steps.golang-lint.outputs.golang-report-file-count }} files\n<${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}|View Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Download Report>\n*By severity*: ${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\n*By linter*: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
+            text: ":red-warn: golangci-lint: module `${{ matrix.modules }}` has ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues across ${{ steps.golang-lint.outputs.golang-report-file-count }} files\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}|View Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Download Report>\n*By severity*: ${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\n*By linter*: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
 
   # Fails if any golangci-lint matrix jobs fails and silently succeeds otherwise
   # Consolidates golangci-lint matrix job results under one required `lint` check

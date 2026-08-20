@@ -107,6 +107,62 @@ class TestProcessReport(unittest.TestCase):
         self.assertEqual(outputs["issue-count"], 0)
         self.assertEqual(outputs["critical-issue-count"], 0)
 
+    def test_process_report_custom_critical_severities(self):
+        data = {
+            "Issues": [
+                {
+                    "FromLinter": "paralleltest",
+                    "Text": "Function TestFoo missing parallel\n",
+                    "Severity": "high",
+                    "Pos": {"Filename": "core/foo_test.go", "Line": 10, "Column": 2},
+                },
+                {
+                    "FromLinter": "revive",
+                    "Text": "exported method Bar should have comment | doc",
+                    "Severity": "low",
+                    "Pos": {"Filename": "core/foo_test.go", "Line": 25, "Column": 1},
+                },
+                {
+                    "FromLinter": "revive",
+                    "Text": "unused param x",
+                    "Severity": "medium",
+                    "Pos": {"Filename": "core/bar.go", "Line": 5, "Column": 8},
+                },
+            ]
+        }
+        with open(self.report_file, "w") as f:
+            json.dump(data, f)
+
+        # When only 'high' is critical
+        _, _, outputs = process_report.process(
+            report_path=str(self.report_file),
+            module_name="core",
+            summary_path=str(self.summary_file),
+            output_path=str(self.output_file),
+            critical_severities=("high",),
+        )
+        self.assertEqual(outputs["critical-issue-count"], 1)
+
+        # When none are critical
+        _, _, outputs = process_report.process(
+            report_path=str(self.report_file),
+            module_name="core",
+            summary_path=str(self.summary_file),
+            output_path=str(self.output_file),
+            critical_severities=(),
+        )
+        self.assertEqual(outputs["critical-issue-count"], 0)
+        self.assertEqual(outputs["suffix"], "core")
+
+    def test_get_artifact_suffix(self):
+        self.assertEqual(process_report.get_artifact_suffix(""), "root")
+        self.assertEqual(process_report.get_artifact_suffix("."), "root")
+        self.assertEqual(process_report.get_artifact_suffix("./"), "root")
+        self.assertEqual(process_report.get_artifact_suffix("core/scripts"), "core-scripts")
+        self.assertEqual(process_report.get_artifact_suffix("core/scripts/"), "core-scripts")
+        self.assertEqual(process_report.get_artifact_suffix("plugins"), "plugins")
+
 
 if __name__ == "__main__":
     unittest.main()
+

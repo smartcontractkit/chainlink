@@ -4,7 +4,14 @@ import collections
 import json
 import os
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+
+def get_artifact_suffix(module_name: str) -> str:
+    clean = module_name.strip().rstrip("/")
+    if clean.startswith("./"):
+        clean = clean[2:]
+    return clean.replace("/", "-") if clean and clean != "." else "root"
 
 
 def process(
@@ -12,7 +19,10 @@ def process(
     module_name: str = "",
     summary_path: Optional[str] = None,
     output_path: Optional[str] = None,
+    critical_severities: Sequence[str] = ("high", "medium"),
 ) -> Tuple[List[str], str, Dict[str, Any]]:
+    suffix = get_artifact_suffix(module_name)
+
     if not os.path.isfile(report_path):
         raise FileNotFoundError(f"Report file not found: {report_path}")
 
@@ -41,10 +51,11 @@ def process(
     file_count = len(filenames)
     issue_count = len(issues)
 
+    critical_set = {s.lower() for s in critical_severities}
     critical_issue_count = sum(
         1
         for issue in issues
-        if (issue.get("Severity") or "").lower() in ("high", "medium")
+        if (issue.get("Severity") or "").lower() in critical_set
     )
 
     linter_counts = collections.Counter(
@@ -72,6 +83,7 @@ def process(
         "critical-issue-count": critical_issue_count,
         "per-source-count": per_source_str,
         "per-severity-count": per_severity_str,
+        "suffix": suffix,
     }
 
     # 3. Markdown Step Summary
@@ -129,6 +141,7 @@ def process(
             f.write(f"file-count={file_count}\n")
             f.write(f"issue-count={issue_count}\n")
             f.write(f"critical-issue-count={critical_issue_count}\n")
+            f.write(f"suffix={suffix}\n")
             f.write("per-source-count<<EOF\n")
             f.write(per_source_str + "\n")
             f.write("EOF\n")
@@ -161,6 +174,17 @@ def main() -> None:
         default=os.environ.get("GITHUB_OUTPUT"),
         help="Path to GitHub Output file",
     )
+    critical_default = (
+        os.environ["CRITICAL_SEVERITIES"].split(",")
+        if "CRITICAL_SEVERITIES" in os.environ
+        else ["high", "medium"]
+    )
+    parser.add_argument(
+        "--critical-severities",
+        nargs="+",
+        default=critical_default,
+        help="List of severities to treat as critical",
+    )
     args = parser.parse_args()
 
     if not args.report_path:
@@ -173,6 +197,7 @@ def main() -> None:
             module_name=args.module_name,
             summary_path=args.summary_path,
             output_path=args.output_path,
+            critical_severities=args.critical_severities,
         )
         for annotation in annotations:
             print(annotation)
@@ -183,3 +208,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
