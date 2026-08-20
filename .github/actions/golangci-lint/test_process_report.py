@@ -56,18 +56,11 @@ class TestProcessReport(unittest.TestCase):
         with open(self.report_file, "w") as f:
             json.dump(data, f)
 
-        annotations, summary, outputs = process_report.process(
+        summary, outputs = process_report.process(
             report_path=str(self.report_file),
             module_name="core",
             summary_path=str(self.summary_file),
             output_path=str(self.output_file),
-        )
-
-        # Check annotations
-        self.assertEqual(len(annotations), 3)
-        self.assertEqual(
-            annotations[0],
-            "::error file=core/foo_test.go,line=10,col=2,title=paralleltest::Function TestFoo missing parallel",
         )
 
         # Check outputs
@@ -95,14 +88,13 @@ class TestProcessReport(unittest.TestCase):
         with open(self.report_file, "w") as f:
             json.dump(data, f)
 
-        annotations, summary, outputs = process_report.process(
+        summary, outputs = process_report.process(
             report_path=str(self.report_file),
             module_name="plugins",
             summary_path=str(self.summary_file),
             output_path=str(self.output_file),
         )
 
-        self.assertEqual(len(annotations), 0)
         self.assertEqual(outputs["file-count"], 0)
         self.assertEqual(outputs["issue-count"], 0)
         self.assertEqual(outputs["critical-issue-count"], 0)
@@ -134,7 +126,7 @@ class TestProcessReport(unittest.TestCase):
             json.dump(data, f)
 
         # When only 'high' is critical
-        _, _, outputs = process_report.process(
+        _, outputs = process_report.process(
             report_path=str(self.report_file),
             module_name="core",
             summary_path=str(self.summary_file),
@@ -144,7 +136,7 @@ class TestProcessReport(unittest.TestCase):
         self.assertEqual(outputs["critical-issue-count"], 1)
 
         # When none are critical
-        _, _, outputs = process_report.process(
+        _, outputs = process_report.process(
             report_path=str(self.report_file),
             module_name="core",
             summary_path=str(self.summary_file),

@@ -51,8 +51,3 @@ func newProductionClient() *cmd.Shell {
 	}
 }
 
-// IntentionalMisspeldFunction demonstrates lint annotations and summary tables in CI.
-func IntentionalMisspeldFunction() string {
-	val := fmt.Sprintf("%s", "test")
-	return val
-}

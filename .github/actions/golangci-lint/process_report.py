@@ -20,7 +20,7 @@ def process(
     summary_path: Optional[str] = None,
     output_path: Optional[str] = None,
     critical_severities: Sequence[str] = ("high", "medium"),
-) -> Tuple[List[str], str, Dict[str, Any]]:
+) -> Tuple[str, Dict[str, Any]]:
     suffix = get_artifact_suffix(module_name)
 
     if not os.path.isfile(report_path):
@@ -31,18 +31,7 @@ def process(
 
     issues: List[Dict[str, Any]] = data.get("Issues") or []
 
-    # 1. Annotations
-    annotations: List[str] = []
-    for issue in issues:
-        pos = issue.get("Pos") or {}
-        filename = pos.get("Filename", "")
-        line = pos.get("Line", 1)
-        col = pos.get("Column", 1)
-        linter = issue.get("FromLinter", "golangci-lint")
-        text = issue.get("Text", "").strip().replace("\r", "").replace("\n", " ")
-        annotations.append(f"::error file={filename},line={line},col={col},title={linter}::{text}")
-
-    # 2. Metrics & Counts
+    # 1. Metrics & Counts
     filenames = {
         issue.get("Pos", {}).get("Filename")
         for issue in issues
@@ -86,7 +75,7 @@ def process(
         "suffix": suffix,
     }
 
-    # 3. Markdown Step Summary
+    # 2. Markdown Step Summary
     summary_lines = [
         f"### 🔍 GolangCI Lint Results: `{module_name}`",
         "",
@@ -149,7 +138,7 @@ def process(
             f.write(per_severity_str + "\n")
             f.write("EOF\n")
 
-    return annotations, summary_content, outputs
+    return summary_content, outputs
 
 
 def main() -> None:
@@ -192,15 +181,13 @@ def main() -> None:
         sys.exit(1)
 
     try:
-        annotations, _, _ = process(
+        process(
             report_path=args.report_path,
             module_name=args.module_name,
             summary_path=args.summary_path,
             output_path=args.output_path,
             critical_severities=args.critical_severities,
         )
-        for annotation in annotations:
-            print(annotation)
     except Exception as e:
         print(f"::error::Failed to process lint report: {e}", file=sys.stderr)
         sys.exit(1)
