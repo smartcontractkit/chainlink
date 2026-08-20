@@ -51,7 +51,7 @@ type LegacyChainer interface {
 	LegacyEVMChains() legacyevm.LegacyChainContainer
 }
 
-// NetworkChainStatus is a ChainStatus from a particlar Network.
+// NetworkChainStatus is a ChainStatus from a particular Network.
 type NetworkChainStatus struct {
 	Network string
 	types.ChainStatus

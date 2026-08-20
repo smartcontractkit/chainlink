@@ -195,7 +195,7 @@ func TestDivideTask_Overflow(t *testing.T) {
 	result, runInfo := task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: "123"}})
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
-	require.Equal(t, pipeline.ErrDivisionOverlow, errors.Cause(result.Error))
+	require.Equal(t, pipeline.ErrDivisionOverflow, errors.Cause(result.Error))
 }
 
 func TestDivide_Example(t *testing.T) {

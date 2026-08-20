@@ -736,7 +736,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	r.pendingQueueStallTracker.record(seqNr)
 
 	// First, generate a random nonce that we'll use to sort the observations.
-	// Each node generates a nonce indepedently, to be concatenated later on.
+	// Each node generates a nonce independently, to be concatenated later on.
 	nonce, ierr := generateRandomNonce()
 	if ierr != nil {
 		return nil, fmt.Errorf("could not generate nonce for observation: %w", ierr)

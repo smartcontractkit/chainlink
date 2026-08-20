@@ -143,23 +143,23 @@ type CapabilityFlagsProvider interface {
 func NewEnvironmentDependencies(
 	cfp CapabilityFlagsProvider,
 	cvp ContractVersionsProvider,
-) *envionmentDependencies {
-	return &envionmentDependencies{
+) *environmentDependencies {
+	return &environmentDependencies{
 		flagsProvider:       cfp,
 		contractSetProvider: cvp,
 	}
 }
 
-type envionmentDependencies struct {
+type environmentDependencies struct {
 	flagsProvider       CapabilityFlagsProvider
 	contractSetProvider ContractVersionsProvider
 }
 
-func (e *envionmentDependencies) ContractVersions() map[ContractType]*semver.Version {
+func (e *environmentDependencies) ContractVersions() map[ContractType]*semver.Version {
 	return e.contractSetProvider.ContractVersions()
 }
 
-func (e *envionmentDependencies) SupportedCapabilityFlags() []CapabilityFlag {
+func (e *environmentDependencies) SupportedCapabilityFlags() []CapabilityFlag {
 	return e.flagsProvider.SupportedCapabilityFlags()
 }
 
@@ -1419,15 +1419,15 @@ func (c *NodeSet) EVMChains() []uint64 {
 }
 
 type CapabilitiesPeeringData struct {
-	GlobalBootstraperPeerID string `toml:"global_bootstraper_peer_id" json:"global_bootstraper_peer_id"`
-	GlobalBootstraperHost   string `toml:"global_bootstraper_host" json:"global_bootstraper_host"`
-	Port                    int    `toml:"port" json:"port"`
+	GlobalBootstrapperPeerID string `toml:"global_bootstraper_peer_id" json:"global_bootstraper_peer_id"` // typos:ignore // 'bootstraper', fixing at this point could cause errors
+	GlobalBootstrapperHost   string `toml:"global_bootstraper_host" json:"global_bootstraper_host"`       // typos:ignore // 'bootstraper', fixing at this point could cause errors
+	Port                     int    `toml:"port" json:"port"`
 }
 
 type OCRPeeringData struct {
-	OCRBootstraperPeerID string `toml:"ocr_bootstraper_peer_id" json:"ocr_bootstraper_peer_id"`
-	OCRBootstraperHost   string `toml:"ocr_bootstraper_host" json:"ocr_bootstraper_host"`
-	Port                 int    `toml:"port" json:"port"`
+	OCRBootstrapperPeerID string `toml:"ocr_bootstraper_peer_id" json:"ocr_bootstraper_peer_id"` // typos:ignore // 'bootstraper', fixing at this point could cause errors
+	OCRBootstrapperHost   string `toml:"ocr_bootstraper_host" json:"ocr_bootstraper_host"`       // typos:ignore // 'bootstraper', fixing at this point could cause errors
+	Port                  int    `toml:"port" json:"port"`
 }
 
 func (c *NodeSet) ValidateChainCapabilities(bcInput []*blockchain.Input) error {

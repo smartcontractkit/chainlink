@@ -11,7 +11,7 @@ import (
 var debugCmd = &cobra.Command{
 	Use:   "debug",
 	Short: "Debug an upkeep",
-	Long:  `This command debugs an upkeep on the povided registry to figure out why it is not performing`,
+	Long:  `This command debugs an upkeep on the provided registry to figure out why it is not performing`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)

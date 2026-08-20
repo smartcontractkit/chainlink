@@ -34,7 +34,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 
 	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 1, time.Second)
 
-	// invalid sender case - node 0 is not a member of the workflow DON, registration shoudn't happen
+	// invalid sender case - node 0 is not a member of the workflow DON, registration shouldn't happen
 	regEvent := newRegisterTriggerMessage(t, workflowDONID, peers[0])
 	publisher.Receive(ctx, regEvent)
 	require.Empty(t, underlyingTriggerCap.registrationsCh)

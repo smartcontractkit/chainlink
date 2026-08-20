@@ -495,7 +495,7 @@ func TestErrorBuffer(t *testing.T) {
 		assert.Equal(t, err2.Error(), errs[1].Error())
 	})
 
-	t.Run("ovewrite oldest error when cap exceeded", func(t *testing.T) {
+	t.Run("overwrite oldest error when cap exceeded", func(t *testing.T) {
 		t.Parallel()
 		buff := utils.ErrorBuffer{}
 		buff.SetCap(2)

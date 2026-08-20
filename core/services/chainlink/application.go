@@ -467,7 +467,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
+		return nil, fmt.Errorf("failed to initialize CRE: %w", err)
 	}
 	srvcs = append(srvcs, creServices)
 

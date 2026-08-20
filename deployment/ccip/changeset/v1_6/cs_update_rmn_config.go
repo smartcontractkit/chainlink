@@ -292,7 +292,7 @@ func (c PromoteRMNHomeCandidateConfig) Validate(state stateview.CCIPOnChainState
 // SetRMNHomeCandidateConfigChangeset creates a changeset to set the RMNHome candidate config
 // DigestToOverride is the digest of the current candidate config that the new config will override
 // StaticConfig contains the list of nodes with their peerIDs (found in their rageproxy keystore) and offchain public keys (found in the RMN keystore)
-// DynamicConfig contains the list of source chains with their chain selectors, f value and the bitmap of the nodes that are oberver for each source chain
+// DynamicConfig contains the list of source chains with their chain selectors, f value and the bitmap of the nodes that are observer for each source chain
 // The bitmap is a 256 bit array where each bit represents a node. If the bit matching the index of the node in the static config is set it means that the node is an observer
 func SetRMNHomeCandidateConfigChangeset(e cldf.Environment, config SetRMNHomeCandidateConfig) (cldf.ChangesetOutput, error) {
 	state, err := stateview.LoadOnchainState(e)

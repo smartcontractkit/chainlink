@@ -936,7 +936,7 @@ lloConfigMode = "bluegreen"
 					},
 				}),
 			},
-			// Sample funding rate scheam
+			// Sample funding rate schema
 			4: {
 				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 				Streams: []llotypes.Stream{

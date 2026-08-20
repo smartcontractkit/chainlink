@@ -361,7 +361,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		handler.mu.Unlock()
 	})
 
-	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
+	// TODO: Validate Senders and rate limit check, pending question in trigger about where senders and rate limits are validated
 }
 
 func TestHandleComputeActionMessage(t *testing.T) {
