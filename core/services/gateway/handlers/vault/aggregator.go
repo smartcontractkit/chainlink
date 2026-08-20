@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crelimits"
 )
 
 var errSignedPayloadRequestIDMismatch = errors.New("signed payload request id mismatch")
@@ -55,12 +56,7 @@ func methodSupportsSignedOCRValidation(method string) bool {
 }
 
 func (a *baseAggregator) signedResponseRequestIDEnabled(ctx context.Context, l logger.Logger) bool {
-	allowed, err := a.signedResponseRequestIDGate.Limit(ctx)
-	if err != nil {
-		l.Errorw("unexpected error evaluating CRE gate", "gate", "VaultSignedResponseRequestIDEnabled", "error", err)
-		return false
-	}
-	return allowed
+	return crelimits.GateAllows(ctx, l, a.signedResponseRequestIDGate, "VaultSignedResponseRequestIDEnabled")
 }
 
 func (a *baseAggregator) Aggregate(ctx context.Context, l logger.Logger, requestID string, resps map[string]jsonrpc.Response[json.RawMessage], currResp *jsonrpc.Response[json.RawMessage]) (*jsonrpc.Response[json.RawMessage], error) {

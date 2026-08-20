@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crelimits"
 )
 
 type srMetrics struct {
@@ -396,7 +397,7 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 	// calling DON so it cannot be spoofed. All F+1 aggregated requests share this
 	// payload (WorkflowDonID is part of the request hash), so a single check here
 	// covers the quorum. The gate is guaranteed non-nil by NewServerRequest.
-	enabled, gerr := workflowDONBindingGate.Limit(ctx)
+	enabled, gerr := crelimits.GateOpen(ctx, workflowDONBindingGate)
 	if gerr != nil {
 		lggr.Errorw("failed to evaluate workflow DON binding gate", "err", gerr)
 		return nil, errors.New("failed to evaluate workflow DON binding gate")
