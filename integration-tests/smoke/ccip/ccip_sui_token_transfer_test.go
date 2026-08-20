@@ -2399,7 +2399,7 @@ func replayEvm2SuiTransferLane(t *testing.T, e testhelpers.DeployedEnv, sourceCh
 func waitForSuiRPCSyncWithOptions(t *testing.T, suiChain sui.Chain, timeout time.Duration, minAdvance uint64) {
 	t.Helper()
 
-	const pollInterval = 200 * time.Millisecond
+	const pollInterval = 1 * time.Second
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	defer cancel()

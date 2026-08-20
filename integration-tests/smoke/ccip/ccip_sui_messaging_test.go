@@ -978,4 +978,21 @@ func Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected(t *testing.T) {
 	require.Negativef(t, decrease.Cmp(half),
 		"transmitter tail coin drained: pre=%s post=%s decrease=%s (guard should prevent the receiver from taking the coin's value; only gas should be charged)",
 		preCoinBalance.String(), postCoinBalance.String(), decrease.String())
+
+	// Lane-not-stuck control: a subsequent honest EVM->Sui message must still finalize
+	// SUCCESS. The guard skips only the exploit's receiver leg (non-retryable, off-chain);
+	// the offramp must keep processing later messages, proving the lane is not
+	// head-of-line blocked by the rejected seq.
+	waitForSuiRPCSync(t, suiChain)
+	messagingtest.Run(t,
+		messagingtest.TestCase{
+			TestSetup:              fx.setup,
+			Nonce:                  &nonce,
+			ValidationType:         messagingtest.ValidationTypeExec,
+			Receiver:               fx.receiverByte,
+			MsgData:                []byte("lane not stuck"),
+			ExtraArgs:              testhelpers.MakeSuiExtraArgs(1_000_000, true, fx.receiverObjectIDs, [32]byte{}),
+			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+		},
+	)
 }
