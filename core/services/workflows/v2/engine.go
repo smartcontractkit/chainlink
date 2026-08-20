@@ -704,6 +704,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			// A settings read failure is not an expiry: run the execution rather than
 			// dropping a customer's trigger event over a transient config read.
 			e.logger().Errorw("Failed to check trigger event queue age limit; proceeding with execution", "err", ageErr)
+			triggerMetricLabels.IncrementLimitCheckUnenforcedCounter(ctx, e.cfg.LocalLimiters.defaults().TriggerEventQueueTimeout.Key)
 		}
 		semWaitStart := e.cfg.Clock.Now()
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
@@ -1312,12 +1313,14 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 			}
 			// A settings read failure should not stop the drain. Fail open instead.
 			e.logger().Errorw("Failed to check user log event limit; emitting anyway", "err", err)
+			e.metrics.IncrementLimitCheckUnenforcedCounter(emitCtx, e.cfg.LocalLimiters.defaults().LogEventLimit.Key)
 		}
 		if err := e.cfg.LocalLimiters.LogLine.Check(emitCtx, config.Size(len(logLine.Message))); err != nil {
 			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[config.Size]](err); ok {
 				logLine.Message = logLine.Message[:errBoundLimited.Limit] + " ...(truncated)"
 			} else {
 				e.logger().Errorw("Failed to check user log line limit; emitting untruncated", "err", err)
+				e.metrics.IncrementLimitCheckUnenforcedCounter(emitCtx, e.cfg.LocalLimiters.defaults().LogLineLimit.Key)
 			}
 		}
 
