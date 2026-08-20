@@ -11,23 +11,20 @@ pre-commit:
   setup:
     - run: test -f tools/githooks/.bin/githooks && [ -z "$(find tools/githooks -name '*.go' -newer tools/githooks/.bin/githooks 2>/dev/null)" ] || go build -C tools/githooks -o .bin/githooks .
 
-  # One outer piped group: first a parallel bundle, then golangci-lint runs
+  # One outer group: first a parallel bundle, then golangci-lint runs
   # strictly after every other job is done. This keeps the read-only scanners
   # fast while preserving the write ordering we need: the Go mutators write
   # .go files and go.mod/go.sum, so lint --fix must never run while mockery
-  # regenerates mocks or go mod tidy rewrites module files. The ordering lives
-  # in the group, not at hook level: a parallel flag injected by a global or
-  # local config must not break it (lefthook rejects parallel+piped together).
+  # regenerates mocks or go mod tidy rewrites module files.
   jobs:
     - name: fix-then-lint
       group:
-        piped: true
         jobs:
           - name: scanners
             group:
               # Scanners only read the staged snapshot; go-mod-tidy and
               # go-generate share the Go toolchain and module files, so they
-              # stay piped with tidy first.
+              # stay sequential with tidy first.
               parallel: true
               jobs:
                 # Prevent committing secret keys or sensitive information
@@ -50,7 +47,6 @@ pre-commit:
 
                 - name: fix-and-generate
                   group:
-                    piped: true
                     jobs:
                       # Fix erroneous trailing whitespace in eligible code and text files
                       - name: whitespace-fixer
