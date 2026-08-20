@@ -55,7 +55,7 @@ func (c *HTTPServerConfig) ensureLimiters(lf limits.Factory) (err error) {
 	if c.MaxRequestBytesLimiter == nil {
 		limit := cresettings.Default.GatewayIncomingPayloadSizeLimit
 		limit.DefaultValue = config.Size(c.MaxRequestBytes)
-		c.MaxRequestBytesLimiter, err = limits.MakeBoundLimiter(lf, limit)
+		c.MaxRequestBytesLimiter, err = limits.MakeUpperBoundLimiter(lf, limit)
 	}
 	return
 }

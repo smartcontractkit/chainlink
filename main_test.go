@@ -60,10 +60,7 @@ func TestScripts(t *testing.T) {
 	}
 
 	tmp := t.TempDir()
-	require.NoError(t, os.Setenv("GOTMPDIR", tmp))
-	t.Cleanup(func() {
-		require.NoError(t, os.Unsetenv("GOTMPDIR"))
-	})
+	t.Setenv("GOTMPDIR", tmp)
 	t.Parallel()
 
 	visitor := txtar.NewDirVisitor("testdata/scripts", txtar.Recurse, func(path string) error {

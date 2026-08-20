@@ -275,7 +275,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.True(t, envCfg.TracingEnabled)
 	require.Equal(t, "http://localhost:9000", envCfg.TracingCollectorTarget)
 	require.Equal(t, map[string]string{"attribute": "value"}, envCfg.TracingAttributes)
-	require.Equal(t, 0.1, envCfg.TracingSamplingRatio)
+	require.InEpsilon(t, 0.1, envCfg.TracingSamplingRatio, 1e-9)
 	require.Equal(t, "/path/to/cert.pem", envCfg.TracingTLSCertPath)
 
 	require.True(t, envCfg.TelemetryEnabled)
@@ -283,7 +283,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 	require.Equal(t, "path/to/cert.pem", envCfg.TelemetryCACertFile)
 	require.Equal(t, "http://localhost:9001", envCfg.TelemetryEndpoint)
 	require.Equal(t, beholder.OtelAttributes{"foo": "bar"}, envCfg.TelemetryAttributes)
-	require.Equal(t, 0.42, envCfg.TelemetryTraceSampleRatio)
+	require.InEpsilon(t, 0.42, envCfg.TelemetryTraceSampleRatio, 1e-9)
 	require.True(t, envCfg.TelemetryEmitterBatchProcessor)
 	require.Equal(t, 1*time.Second, envCfg.TelemetryEmitterExportTimeout)
 	require.False(t, envCfg.TelemetryLogStreamingEnabled)
