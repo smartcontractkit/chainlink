@@ -240,7 +240,6 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, maxBatchSize uint32, batchCollectionPeriod time.Duration) (*testTrigger, remotetypes.ReceiverService, *mocks.Dispatcher, []p2ptypes.PeerID) {
 	t.Helper()
 	lggr := logger.Test(t)
-	ctx := t.Context()
 	capInfo := commoncap.CapabilityInfo{
 		ID:             capID,
 		CapabilityType: commoncap.CapabilityTypeTrigger,
