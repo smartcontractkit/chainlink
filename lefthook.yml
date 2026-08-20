@@ -19,11 +19,11 @@ pre-commit:
   # in the group, not at hook level: a parallel flag injected by a global or
   # local config must not break it (lefthook rejects parallel+piped together).
   jobs:
-    - name: prep-then-lint
+    - name: fix-then-lint
       group:
         piped: true
         jobs:
-          - name: scanners-and-prep
+          - name: scanners
             group:
               # Scanners only read the staged snapshot; go-mod-tidy and
               # go-generate share the Go toolchain and module files, so they
@@ -48,7 +48,7 @@ pre-commit:
                   run: typos {staged_files}
                   fail_text: "typos failed or missing. Install: https://github.com/crate-ci/typos#install"
 
-                - name: format-and-generate
+                - name: fix-and-generate
                   group:
                     piped: true
                     jobs:
