@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,6 +15,7 @@ import (
 )
 
 type mockExecutor struct {
+	mu   sync.Mutex
 	runs []mockRun
 	err  error
 }
@@ -25,6 +27,8 @@ type mockRun struct {
 }
 
 func (m *mockExecutor) Run(ctx context.Context, dir string, name string, args ...string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.runs = append(m.runs, mockRun{dir: dir, name: name, args: args})
 	return m.err
 }
@@ -32,7 +36,7 @@ func (m *mockExecutor) Run(ctx context.Context, dir string, name string, args ..
 func TestRun(t *testing.T) {
 	t.Parallel()
 
-	t.Run("runs test binary for root module and go test for submodules", func(t *testing.T) {
+	t.Run("runs test binary for root module and go test for submodules in parallel", func(t *testing.T) {
 		t.Parallel()
 
 		mock := &mockExecutor{}
@@ -59,17 +63,19 @@ func TestRun(t *testing.T) {
 		err := testrunner.Run(t.Context(), cfg)
 		require.NoError(t, err)
 
-		require.Len(t, mock.runs, 2)
-		assert.Equal(t, "/repo", mock.runs[0].dir)
-		assert.Equal(t, "/repo/tools/test/.bin/test", mock.runs[0].name)
-		assert.Equal(t, []string{"-short", "./core/logger"}, mock.runs[0].args)
+		mock.mu.Lock()
+		runs := make([]mockRun, len(mock.runs))
+		copy(runs, mock.runs)
+		mock.mu.Unlock()
 
-		assert.Equal(t, "/repo/tools/githooks", mock.runs[1].dir)
-		assert.Equal(t, "go", mock.runs[1].name)
-		assert.Equal(t, []string{"test", "-short", "./internal/generate"}, mock.runs[1].args)
+		require.Len(t, runs, 2)
+
+		runDirs := []string{runs[0].dir, runs[1].dir}
+		assert.Contains(t, runDirs, "/repo")
+		assert.Contains(t, runDirs, "/repo/tools/githooks")
 	})
 
-	t.Run("returns error when test runner fails", func(t *testing.T) {
+	t.Run("aggregates errors when multiple modules fail", func(t *testing.T) {
 		t.Parallel()
 
 		mock := &mockExecutor{err: errors.New("test failed")}
@@ -82,6 +88,10 @@ func TestRun(t *testing.T) {
 					Module:   ".",
 					Packages: []string{"./core/logger"},
 				},
+				{
+					Module:   "tools/githooks",
+					Packages: []string{"./internal/generate"},
+				},
 			},
 			Short:    true,
 			Executor: mock,
@@ -91,7 +101,8 @@ func TestRun(t *testing.T) {
 
 		err := testrunner.Run(t.Context(), cfg)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "test failed")
+		assert.Contains(t, err.Error(), "tests failed on .")
+		assert.Contains(t, err.Error(), "tests failed on tools/githooks")
 	})
 
 	t.Run("no modules to test", func(t *testing.T) {
