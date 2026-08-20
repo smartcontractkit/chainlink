@@ -348,16 +348,20 @@ func Test_CCIP_Messaging_Sui2EVM_Revert_Part2(t *testing.T) {
 
 // evm2SuiMessagingFixtures is shared setup for EVM→Sui messaging tests split for CI isolation.
 type evm2SuiMessagingFixtures struct {
-	e                      testhelpers.DeployedEnv
-	sourceChain, destChain uint64
-	state                  stateview.CCIPOnChainState
-	setup                  messagingtest.TestSetup
-	receiverByte           []byte
-	receiverObjectIDs      [][32]byte
-	receiverPkgID          string
-	receiverStateObjID     string
-	srcFQDestConfig        evm_fee_quoter.FeeQuoterDestChainConfig
-	nativeFeeToken         string
+	e                       testhelpers.DeployedEnv
+	sourceChain, destChain  uint64
+	state                   stateview.CCIPOnChainState
+	setup                   messagingtest.TestSetup
+	receiverByte            []byte
+	receiverObjectIDs       [][32]byte
+	receiverPkgID           string
+	receiverStateObjID      string
+	legitReceiverByte       []byte
+	legitReceiverObjectIDs  [][32]byte
+	legitReceiverPkgID      string
+	legitReceiverStateObjID string
+	srcFQDestConfig         evm_fee_quoter.FeeQuoterDestChainConfig
+	nativeFeeToken          string
 }
 
 func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
@@ -828,6 +832,42 @@ func prepareEVM2SuiMaliciousReceiverTest(t *testing.T) evm2SuiMessagingFixtures 
 	require.NoError(t, err)
 	e.RefreshAdapters()
 
+	// Deploy + register the legit (dummy) receiver so the "lane not stuck" control message can
+	// target an honest receiver. The malicious receiver is uncallable under the transmitter-
+	// ownership guard: its ccip_receive requires a &mut Coin<SUI> tail, any SUI coin passed as a
+	// PTB input is address-owned by the transmitter (the signer) and rejected, and SUI coins cannot
+	// be shared. So the control must target a different, honest receiver.
+	_, dummyOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+			SuiChainSelector: destChain,
+			McmsOwner:        "0x1",
+		}),
+	})
+	require.NoError(t, err)
+
+	dummyRawOutput := dummyOutput[0].Reports[0]
+	dummyOutputMap, ok := dummyRawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+	require.True(t, ok)
+
+	dummyID := strings.TrimPrefix(dummyOutputMap.PackageId, "0x")
+	legitReceiverByte, err := hex.DecodeString(dummyID)
+	require.NoError(t, err)
+
+	updatedEnv, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
+			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       dummyOutputMap.Objects.OwnerCapObjectId,
+			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
+			DummyReceiverPackageId: dummyOutputMap.PackageId,
+		}),
+	})
+	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	e.RefreshAdapters()
+
 	sender := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
 	setup := messagingtest.NewTestSetupWithDeployedEnv(
 		t,
@@ -847,6 +887,10 @@ func prepareEVM2SuiMaliciousReceiverTest(t *testing.T) evm2SuiMessagingFixtures 
 	copy(stateObj[:], hexutil.MustDecode(outputMap.Objects.CCIPReceiverStateObjectId))
 	receiverObjectIDs := [][32]byte{clockObj, stateObj}
 
+	var legitStateObj [32]byte
+	copy(legitStateObj[:], hexutil.MustDecode(dummyOutputMap.Objects.CCIPReceiverStateObjectId))
+	legitReceiverObjectIDs := [][32]byte{clockObj, legitStateObj}
+
 	srcFQDestConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, destChain)
 	require.NoError(t, err, "Failed to get destination chain config")
 
@@ -855,6 +899,8 @@ func prepareEVM2SuiMaliciousReceiverTest(t *testing.T) evm2SuiMessagingFixtures 
 		state: state, setup: setup,
 		receiverByte: receiverByteDecoded, receiverObjectIDs: receiverObjectIDs,
 		receiverPkgID: outputMap.PackageId, receiverStateObjID: outputMap.Objects.CCIPReceiverStateObjectId,
+		legitReceiverByte: legitReceiverByte, legitReceiverObjectIDs: legitReceiverObjectIDs,
+		legitReceiverPkgID: dummyOutputMap.PackageId, legitReceiverStateObjID: dummyOutputMap.Objects.CCIPReceiverStateObjectId,
 		srcFQDestConfig: srcFQDestConfig, nativeFeeToken: "0x0",
 	}
 }
@@ -979,9 +1025,10 @@ func Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected(t *testing.T) {
 		"transmitter tail coin drained: pre=%s post=%s decrease=%s (guard should prevent the receiver from taking the coin's value; only gas should be charged)",
 		preCoinBalance.String(), postCoinBalance.String(), decrease.String())
 
-	// Lane-not-stuck control: a subsequent honest EVM->Sui message must still finalize
-	// SUCCESS. The guard skips only the exploit's receiver leg (non-retryable, off-chain);
-	// the offramp must keep processing later messages, proving the lane is not
+	// Lane-not-stuck control: a subsequent honest EVM->Sui message to the LEGIT (dummy)
+	// receiver must still finalize SUCCESS. The malicious receiver is uncallable under the guard,
+	// so the control targets the dummy receiver instead. The guard skips only the exploit's
+	// receiver leg; the offramp must keep processing later messages, proving the lane is not
 	// head-of-line blocked by the rejected seq.
 	waitForSuiRPCSync(t, suiChain)
 	messagingtest.Run(t,
@@ -989,9 +1036,9 @@ func Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected(t *testing.T) {
 			TestSetup:              fx.setup,
 			Nonce:                  &nonce,
 			ValidationType:         messagingtest.ValidationTypeExec,
-			Receiver:               fx.receiverByte,
+			Receiver:               fx.legitReceiverByte,
 			MsgData:                []byte("lane not stuck"),
-			ExtraArgs:              testhelpers.MakeSuiExtraArgs(1_000_000, true, fx.receiverObjectIDs, [32]byte{}),
+			ExtraArgs:              testhelpers.MakeSuiExtraArgs(1_000_000, true, fx.legitReceiverObjectIDs, [32]byte{}),
 			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 	)
