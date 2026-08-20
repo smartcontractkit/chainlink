@@ -91,7 +91,7 @@ func TestObservationContext_Observe(t *testing.T) { //nolint:paralleltest // sub
 	}
 
 	r.pipelines = map[streams.StreamID]*mockPipeline{
-		streamID1:  &mockPipeline{},
+		streamID1:  {},
 		streamID2:  makePipelineWithSingleResult[decimal.Decimal](rand.Int64(), decimal.NewFromFloat(12.34), nil),
 		streamID3:  makeErroringPipeline(),
 		streamID4:  multiPipelineDecimal,

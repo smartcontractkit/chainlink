@@ -1181,7 +1181,7 @@ func testEoa(
 	require.False(t, broadcastsBeforeFinality[0].Consumed)
 
 	// Create new blocks until the finality depth has elapsed.
-	for i := 0; i < int(finalityDepth); i++ {
+	for range finalityDepth {
 		uni.backend.Commit()
 	}
 

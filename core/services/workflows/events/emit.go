@@ -238,8 +238,7 @@ func ClassifyError(execErr error, fallback ErrorClassification) ErrorClassificat
 	if execErr == nil {
 		return ErrorClassificationUnspecified
 	}
-	var capErr caperrors.Error
-	if errors.As(execErr, &capErr) {
+	if capErr, ok := errors.AsType[caperrors.Error](execErr); ok {
 		switch capErr.Origin() {
 		case caperrors.OriginUser:
 			return ErrorClassificationUser

@@ -94,7 +94,7 @@ func BenchmarkFullRound(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				v30Round(b, p, seq, prev, benchN)
 			}
 			b.StopTimer()
@@ -115,7 +115,7 @@ func BenchmarkFullRound(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				v31Round(b, p, db, seq, benchN)
 				seq++
 			}
@@ -148,7 +148,7 @@ func BenchmarkObservation(b *testing.B) {
 			ctx := context.Background()
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := p.Observation(ctx, outctx, nil); err != nil {
 					b.Fatal(err)
 				}
@@ -164,7 +164,7 @@ func BenchmarkObservation(b *testing.B) {
 			defer rtx.Discard()
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := p.Observation(ctx, seq, ocrtypes.AttributedQuery{}, rtx, nil); err != nil {
 					b.Fatal(err)
 				}
@@ -191,7 +191,7 @@ func BenchmarkStateAdvance(b *testing.B) {
 			aos := replicate(obs, benchN)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := p.Outcome(ctx, outctx, nil, aos); err != nil {
 					b.Fatal(err)
 				}
@@ -210,7 +210,7 @@ func BenchmarkStateAdvance(b *testing.B) {
 			aos := replicate(obs, benchN)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				wtx, err := db.NewReadWriteTransaction()
 				if err != nil {
 					b.Fatal(err)
@@ -241,7 +241,7 @@ func BenchmarkReports(b *testing.B) {
 			ctx := context.Background()
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := p.Reports(ctx, seq, outcome); err != nil {
 					b.Fatal(err)
 				}
@@ -268,7 +268,7 @@ func BenchmarkReports(b *testing.B) {
 			require.NotEmpty(b, reports)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := p.Reports(ctx, seq, prec); err != nil {
 					b.Fatal(err)
 				}

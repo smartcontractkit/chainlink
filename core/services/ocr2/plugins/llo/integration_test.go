@@ -461,7 +461,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	} else {
 		topic = llo.StagingConfigSet
 	}
-	logs, err := backend.Client().FilterLogs(t.Context(), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
+	logs, err := backend.Client().FilterLogs(t.Context(), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{{topic, donIDPadded}}})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(logs), 1)
 
@@ -2105,7 +2105,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				seenSeqNr := uint64(0)
 				highestObsTsNanos := uint64(0)
 				highestValidAfterNanos := uint64(0)
-				for i := 0; i < len(allReports[digest]); i++ {
+				for i := range len(allReports[digest]) {
 					r := allReports[digest][i]
 					switch digest {
 					case greenDigest:

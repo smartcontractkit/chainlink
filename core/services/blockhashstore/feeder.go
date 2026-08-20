@@ -243,7 +243,7 @@ func (f *Feeder) runTrusted(
 
 		// Get all logpoller blocks for the range including the batch and the latest block,
 		// as to include the recent blockhash.
-		lpBlocks, err := f.lp.GetBlocksRange(ctx, append(maps.Keys(batch), latestBlock))
+		lpBlocks, err := f.lp.GetBlocksRange(ctx, append(slices.AppendSeq(make([]FIXME, 0, len(batch)), maps.Keys(batch)), latestBlock))
 		if err != nil {
 			f.lggr.Errorw("Failed to get blocks range",
 				"err", err,

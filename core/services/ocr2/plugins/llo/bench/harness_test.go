@@ -102,9 +102,9 @@ func (w workload) channelDefinitions() (llotypes.ChannelDefinitions, []llotypes.
 	defs := make(llotypes.ChannelDefinitions, w.numChannels)
 	var streamIDs []llotypes.StreamID
 	var sid llotypes.StreamID
-	for c := 0; c < w.numChannels; c++ {
+	for c := range w.numChannels {
 		streams := make([]llotypes.Stream, 0, w.streamsPerChannel)
-		for s := 0; s < w.streamsPerChannel; s++ {
+		for range w.streamsPerChannel {
 			sid++
 			streams = append(streams, llotypes.Stream{StreamID: sid, Aggregator: llotypes.AggregatorMedian})
 			streamIDs = append(streamIDs, sid)

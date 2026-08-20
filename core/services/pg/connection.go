@@ -79,8 +79,7 @@ func setMaxMercuryConns(db *sqlx.DB, config ConnectionConfig) {
 	var cnt int
 	if err := db.Get(&cnt, `SELECT COUNT(*) FROM ocr2_oracle_specs WHERE plugin_type = 'mercury'`); err != nil {
 		const errUndefinedTable = "42P01"
-		var pqerr *pgconn.PgError
-		if errors.As(err, &pqerr) {
+		if pqerr, ok := errors.AsType[*pgconn.PgError](err); ok {
 			if pqerr.Code == errUndefinedTable {
 				// no mercury jobs defined
 				return

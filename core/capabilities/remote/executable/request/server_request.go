@@ -373,8 +373,7 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 	if err != nil {
 		lggr.Errorw("received execution error", "error", err)
 
-		var capError caperrors.Error
-		if errors.As(err, &capError) {
+		if capError, ok := errors.AsType[caperrors.Error](err); ok {
 			return nil, errors.New(capError.SerializeToRemoteString())
 		}
 		return nil, errors.New("failed to execute capability")

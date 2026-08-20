@@ -512,7 +512,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 
 func (uni testUniverse[RI]) SignReport(t *testing.T, configDigest ocrtypes.ConfigDigest, rwi ocr3types.ReportWithInfo[RI], seqNum uint64) []ocrtypes.AttributedOnchainSignature {
 	var attributedSigs []ocrtypes.AttributedOnchainSignature
-	for i := uint8(0); i < uni.f+1; i++ {
+	for i := range uint8(uni.f + 1) {
 		t.Log("signing report with", hexutil.Encode(uni.keyrings[i].PublicKey()))
 		sig, err := uni.keyrings[i].Sign(configDigest, seqNum, rwi)
 		require.NoError(t, err, "failed to sign report")
