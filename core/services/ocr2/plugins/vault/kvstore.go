@@ -326,7 +326,7 @@ func (s *KVStore) deletePendingQueue() error {
 		}
 
 		for i := range index.Length {
-			if err := s.writer.Delete([]byte(pendingQueueItemPrefix + strconv.Itoa(i))); err != nil {
+			if err := s.writer.Delete([]byte(pendingQueueItemPrefix + strconv.FormatInt(i, 10))); err != nil {
 				return fmt.Errorf("failed to delete pending queue item at index %d: %w", i, err)
 			}
 		}

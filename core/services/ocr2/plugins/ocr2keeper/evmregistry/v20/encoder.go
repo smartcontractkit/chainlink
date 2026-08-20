@@ -152,7 +152,7 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 
 	res = make([]ocr2keepers.UpkeepResult, len(upkeepIds))
 
-	for i := range len(upkeepIds) {
+	for i := range upkeepIds {
 		r := EVMAutomationUpkeepResult20{
 			Block:            performs[i].CheckBlockNumber,
 			ID:               upkeepIds[i],
