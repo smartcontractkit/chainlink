@@ -121,8 +121,8 @@ func IsBinary(data []byte) bool {
 	return bytes.IndexByte(data[:checkLen], 0) != -1
 }
 
-// IsEligible checks if a path and its initial content belong to an eligible text/code file.
-func IsEligible(relPath string, data []byte) bool {
+// IsEligiblePath performs a zero-IO check on path and extension.
+func IsEligiblePath(relPath string) bool {
 	clean := filepath.ToSlash(filepath.Clean(relPath))
 	clean = strings.TrimPrefix(clean, "./")
 
@@ -144,20 +144,25 @@ func IsEligible(relPath string, data []byte) bool {
 	}
 
 	// Check eligible extension / filename allowlist
-	if !eligibleExtensions[ext] && !eligibleExactFilenames[base] {
+	return eligibleExtensions[ext] || eligibleExactFilenames[base]
+}
+
+// IsEligible checks if a path and its initial content belong to an eligible text/code file.
+func IsEligible(relPath string, data []byte) bool {
+	if !IsEligiblePath(relPath) {
 		return false
 	}
 
 	// Content binary check
-	if IsBinary(data) {
-		return false
-	}
-
-	return true
+	return !IsBinary(data)
 }
 
 // IsEligibleFile inspects the file at filePath to determine if it is eligible for processing.
 func IsEligibleFile(filePath string) (bool, error) {
+	if !IsEligiblePath(filePath) {
+		return false, nil
+	}
+
 	info, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {

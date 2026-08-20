@@ -6,11 +6,10 @@ output:
   - skips
 
 pre-commit:
-  # Compile the githooks CLI once per commit instead of paying `go run` build
-  # overhead per job. Binary lives in the gitignored tools/githooks/.bin/.
+  # Compile the githooks CLI as the very first step so all subsequent hooks run
+  # against a freshly built binary. Output binary is in tools/githooks/.bin/.
   setup:
-    - run: |
-        command -v go >/dev/null 2>&1 && go build -C tools/githooks -o .bin/githooks . || true
+    - run: go build -C tools/githooks -o .bin/githooks .
 
   # One outer piped group: first a parallel bundle, then golangci-lint runs
   # strictly after every other job is done. This keeps the read-only scanners
@@ -100,8 +99,7 @@ pre-commit:
 
 pre-push:
   setup:
-    - run: |
-        command -v go >/dev/null 2>&1 && go build -C tools/githooks -o .bin/githooks . || true
+    - run: go build -C tools/githooks -o .bin/githooks .
 
   parallel: true
   commands:

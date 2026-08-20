@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"sync"
 
@@ -48,22 +49,29 @@ func FixContent(content []byte) ([]byte, bool) {
 // FixFile checks and fixes trailing newlines for the file at filePath.
 func FixFile(filePath string, checkOnly bool) (bool, error) {
 	cleanPath := filepath.Clean(filePath)
-	eligible, err := filefilter.IsEligibleFile(cleanPath)
-	if err != nil {
-		return false, fmt.Errorf("failed to check eligibility for %s: %w", cleanPath, err)
-	}
-	if !eligible {
+	if !filefilter.IsEligiblePath(cleanPath) {
 		return false, nil
 	}
 
 	info, err := os.Stat(cleanPath)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
 		return false, fmt.Errorf("failed to stat %s: %w", cleanPath, err)
+	}
+
+	if info.IsDir() || !info.Mode().IsRegular() {
+		return false, nil
 	}
 
 	content, err := os.ReadFile(cleanPath)
 	if err != nil {
 		return false, fmt.Errorf("failed to read %s: %w", cleanPath, err)
+	}
+
+	if filefilter.IsBinary(content) {
+		return false, nil
 	}
 
 	fixed, changed := FixContent(content)
@@ -82,11 +90,28 @@ func FixFile(filePath string, checkOnly bool) (bool, error) {
 	return true, nil
 }
 
-// Run executes the end-of-file fixer on all specified files.
+// Run executes the end-of-file fixer on all specified files concurrently using a worker pool.
 func Run(ctx context.Context, repoRoot string, files []string, cfg Config) (*Result, error) {
 	if len(files) == 0 {
 		return &Result{}, nil
 	}
+
+	workers := max(1, min(len(files), runtime.GOMAXPROCS(0)*4))
+
+	type task struct {
+		absPath string
+		relPath string
+	}
+
+	taskCh := make(chan task, len(files))
+	for _, file := range files {
+		abs := file
+		if !filepath.IsAbs(abs) {
+			abs = filepath.Join(repoRoot, file)
+		}
+		taskCh <- task{absPath: abs, relPath: file}
+	}
+	close(taskCh)
 
 	var (
 		wg       sync.WaitGroup
@@ -95,34 +120,31 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg Config) (*Res
 		errs     []error
 	)
 
-	for _, file := range files {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
+	for range workers {
+		wg.Go(func() {
+			for t := range taskCh {
+				if ctx.Err() != nil {
+					mu.Lock()
+					errs = append(errs, ctx.Err())
+					mu.Unlock()
+					return
+				}
 
-		filePath := file
-		if !filepath.IsAbs(filePath) {
-			filePath = filepath.Join(repoRoot, file)
-		}
+				changed, err := FixFile(t.absPath, cfg.CheckOnly)
+				if err != nil {
+					mu.Lock()
+					errs = append(errs, err)
+					mu.Unlock()
+					return
+				}
 
-		wg.Add(1)
-		go func(p string, rel string) {
-			defer wg.Done()
-
-			changed, err := FixFile(p, cfg.CheckOnly)
-			if err != nil {
-				mu.Lock()
-				errs = append(errs, err)
-				mu.Unlock()
-				return
+				if changed {
+					mu.Lock()
+					modified = append(modified, t.relPath)
+					mu.Unlock()
+				}
 			}
-
-			if changed {
-				mu.Lock()
-				modified = append(modified, rel)
-				mu.Unlock()
-			}
-		}(filePath, file)
+		})
 	}
 
 	wg.Wait()
