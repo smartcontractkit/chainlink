@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"maps"
+	"slices"
 	"sort"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -51,7 +52,7 @@ func (okr *onchainKeyring) PublicKey() types.OnchainPublicKey {
 	// byte string
 	onchainPublicKey := []byte{}
 
-	keys := slices.AppendSeq(make([]FIXME, 0, len(okr.keys)), maps.Values(okr.keys))
+	keys := slices.AppendSeq(make([]Key, 0, len(okr.keys)), maps.Values(okr.keys))
 	if len(keys) == 0 {
 		return onchainPublicKey
 	}

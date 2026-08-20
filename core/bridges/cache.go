@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -200,7 +201,7 @@ func (c *Cache) start(_ context.Context) error {
 
 func (c *Cache) doBulkUpsert(ctx context.Context) {
 	c.mu.RLock()
-	values := slices.AppendSeq(make([]FIXME, 0, len(c.bridgeLastValueCache)), maps.Values(c.bridgeLastValueCache))
+	values := slices.AppendSeq(make([]BridgeResponse, 0, len(c.bridgeLastValueCache)), maps.Values(c.bridgeLastValueCache))
 	c.mu.RUnlock()
 
 	if len(values) == 0 {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"maps"
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -388,7 +389,7 @@ func (test testCase) testFeeder(t *testing.T) {
 	}
 
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]FIXME, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]uint64, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
 }
 
 func TestFeederWithLogPollerVRFv2(t *testing.T) {
@@ -486,7 +487,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 		require.EqualError(t, err, test.expectedErrMsg)
 	}
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]FIXME, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]uint64, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
 }
 
 func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
@@ -584,7 +585,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 		require.EqualError(t, err, test.expectedErrMsg)
 	}
 	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]FIXME, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, slices.AppendSeq(make([]uint64, 0, len(feeder.stored)), maps.Keys(feeder.stored)))
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
