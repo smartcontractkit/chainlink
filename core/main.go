@@ -50,4 +50,3 @@ func newProductionClient() *cmd.Shell {
 		PasswordPrompter:               cmd.NewPasswordPrompter(),
 	}
 }
-
