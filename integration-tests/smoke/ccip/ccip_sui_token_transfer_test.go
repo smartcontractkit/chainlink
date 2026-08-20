@@ -2282,11 +2282,15 @@ func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(
 			SourceChain:      sourceChain,
 			DestChain:        destChain,
 			Receiver:         receiverByte,
-			TokenReceiverATA: suiAddr[:],
+			TokenReceiverATA: []byte{},
 			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
 			Tokens:           []router.ClientEVMTokenAmount{}, // arbitrary data, no token-pool command
 			Data:             []byte("lane not stuck"),
-			ExtraArgs:        testhelpers.MakeSuiExtraArgs(1_000_000, true, receiverObjectIDs, suiAddr),
+			// Message-only: token receiver must be zero. The Sui offramp asserts
+			// token_receiver == @0x0 iff the message carries no token amounts, else
+			// it aborts EInvalidTokenReceiver at init_execute and the whole
+			// execute PTB reverts, rolling back ExecutionStateChanged.
+			ExtraArgs:        testhelpers.MakeSuiExtraArgs(1_000_000, true, receiverObjectIDs, [32]byte{}),
 		},
 	}
 	honestStartBlocks, honestExpectedSeqNums, honestExpectedExecStates, _ := testhelpers.TransferMultiple(ctx, t, e.Env, state, honestTcs)
