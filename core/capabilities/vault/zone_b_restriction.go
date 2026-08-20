@@ -70,9 +70,6 @@ func newZoneBRestrictor(lggr logger.Logger, limitsFactory limits.Factory, capabi
 // resolves to a zone-b DON. The owner is read from ctx, which must already carry
 // the (normalized) CRE owner via RequestMetadata.ContextWithCRE.
 func (z *zoneBRestrictor) enforce(ctx context.Context, workflowDonID uint32) error {
-	// GateOpen, not GateAllows: a gate read failure must stay fail-closed here. The
-	// gate being *closed* disables the restriction, so treating an unevaluatable gate
-	// as closed would silently permit the read this function exists to deny.
 	enabled, err := crelimits.GateOpen(ctx, z.restrictEnabled)
 	if err != nil {
 		return fmt.Errorf("could not evaluate zone-b vault read restriction gate: %w", err)
