@@ -47,9 +47,12 @@ func newProductionClient() *cmd.Shell {
 		Runner:                         cmd.ChainlinkRunner{},
 		PromptingSessionRequestBuilder: cmd.NewPromptingSessionRequestBuilder(prompter),
 		ChangePasswordPrompter:         cmd.NewChangePasswordPrompter(),
+		PasswordPrompter:               cmd.NewPasswordPrompter(),
+	}
+}
+
 // IntentionalMisspeldFunction demonstrates lint annotations and summary tables in CI.
 func IntentionalMisspeldFunction() string {
 	val := fmt.Sprintf("%s", "test")
 	return val
 }
-
