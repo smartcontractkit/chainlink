@@ -694,17 +694,16 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		eventAge := e.cfg.Clock.Now().Sub(queueHead.timestamp)
 		e.logger().Debugw("Popped a trigger event from the queue", "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
 		triggerMetricLabels.RecordTriggerEventQueueWaitSeconds(ctx, eventAge.Seconds())
-		triggerEventMaxAge, err := e.cfg.LocalLimiters.TriggerEventQueueTime.Limit(ctx)
-		if err != nil {
-			triggerEventMaxAge = e.cfg.LocalLimiters.defaults().TriggerEventQueueTimeout.DefaultValue
-			e.logger().Errorw("Failed to get trigger event queue time limit; falling back to default", "err", err, "default", triggerEventMaxAge)
-			triggerMetricLabels.IncrementLimitReadFallbackCounter(ctx, e.cfg.LocalLimiters.defaults().TriggerEventQueueTimeout.Key)
-		}
-		if eventAge > triggerEventMaxAge {
-			e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds())
-			triggerMetricLabels.IncrementTriggerEventExpiredCounter(ctx)
-			triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExpired)
-			continue
+		if ageErr := e.cfg.LocalLimiters.TriggerEventMaxAge.Check(ctx, eventAge); ageErr != nil {
+			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[time.Duration]](ageErr); ok {
+				e.logger().Warnw("Trigger event is too old, skipping execution", "triggerID", queueHead.triggerCapID, "eventID", eventID, "eventAgeMs", eventAge.Milliseconds(), "maxAgeMs", errBoundLimited.Limit.Milliseconds())
+				triggerMetricLabels.IncrementTriggerEventExpiredCounter(ctx)
+				triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonExpired)
+				continue
+			}
+			// A settings read failure is not an expiry: run the execution rather than
+			// dropping a customer's trigger event over a transient config read.
+			e.logger().Errorw("Failed to check trigger event queue age limit; proceeding with execution", "err", ageErr)
 		}
 		semWaitStart := e.cfg.Clock.Now()
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
