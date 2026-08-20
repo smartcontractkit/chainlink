@@ -320,8 +320,7 @@ func Test_Handler(t *testing.T) {
 }
 
 const (
-	binaryLocation = "test/simple/cmd/testmodule.wasm"
-	binaryCmd      = "core/capabilities/compute/test/simple/cmd"
+	binaryCmd      = "core/services/workflows/cmd/cre/examples/v2/simple_cron"
 	noDagBinaryCmd = "core/services/workflows/cmd/cre/examples/v2/simple_cron"
 )
 

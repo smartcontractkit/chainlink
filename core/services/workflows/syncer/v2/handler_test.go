@@ -222,10 +222,9 @@ func Test_Handler(t *testing.T) {
 }
 
 const (
-	binaryLocation = "test/simple/cmd/testmodule.wasm"
-	binaryCmd      = "core/capabilities/compute/test/simple/cmd"
-	noTeeV2Cmd     = "core/services/workflows/test/wasm/v2/cmd/without_tee"
-	withTeeV2Cmd   = "core/services/workflows/test/wasm/v2/cmd/with_tee"
+	binaryCmd    = "core/services/workflows/test/wasm/v2/cmd/without_tee"
+	noTeeV2Cmd   = "core/services/workflows/test/wasm/v2/cmd/without_tee"
+	withTeeV2Cmd = "core/services/workflows/test/wasm/v2/cmd/with_tee"
 )
 
 func Test_workflowRegisteredHandler(t *testing.T) {

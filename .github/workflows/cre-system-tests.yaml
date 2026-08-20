@@ -242,12 +242,6 @@ jobs:
         with:
           version: "7.8.0"
 
-      - name: Setup Stellar CRE contracts
-        if: ${{ contains(matrix.tests.test_name, 'Stellar') }}
-        uses: ./.github/actions/setup-stellar-cre-contracts
-        with:
-          working-directory: system-tests/lib
-
       - name: Start observability stack (Beholder suite)
         if: contains(matrix.tests.test_name, 'Beholder_Suite')
         shell: bash

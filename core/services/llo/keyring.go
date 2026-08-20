@@ -11,7 +11,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec/evm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"

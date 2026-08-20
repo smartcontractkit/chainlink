@@ -382,7 +382,7 @@ func BytesAndAddressAnalyzer(_ string, argAbi *abi.Type, argVal any, _ []Analyze
 		argArrTyp := reflect.ValueOf(argVal)
 		argArr := make([]byte, argArrTyp.Len())
 		for i := range argArrTyp.Len() {
-			argArr[i] = byte(argArrTyp.Index(i).Uint())
+			argArr[i] = byte(argArrTyp.Index(i).Uint()) //nolint:gosec // G115
 		}
 		if argAbi.T == abi.AddressTy {
 			return AddressArgument{Value: common.BytesToAddress(argArr).Hex()}

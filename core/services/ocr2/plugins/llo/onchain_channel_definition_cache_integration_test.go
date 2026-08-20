@@ -26,7 +26,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	llotypes2 "github.com/smartcontractkit/chainlink-data-streams/llo/types"
+	llotypes2 "github.com/smartcontractkit/chainlink-data-streams/llo/channelsource"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"

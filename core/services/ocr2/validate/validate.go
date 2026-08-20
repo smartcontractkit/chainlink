@@ -12,13 +12,12 @@ import (
 	"github.com/pelletier/go-toml"
 	pkgerrors "github.com/pkg/errors"
 
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	dontimeCfg "github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime/pb"
-	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/config"
+	lloconfig "github.com/smartcontractkit/chainlink-data-streams/llo/pluginconfig"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"

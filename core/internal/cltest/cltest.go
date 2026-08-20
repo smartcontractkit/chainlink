@@ -51,8 +51,6 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo/retirement"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
@@ -338,14 +336,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	var computeFetcherFactory compute.FetcherFactory
-	for _, dep := range flagsAndDeps {
-		computeFetcherFactory, _ = dep.(compute.FetcherFactory)
-		if computeFetcherFactory != nil {
-			break
-		}
-	}
-
 	var billingClient metering.BillingClient
 	for _, dep := range flagsAndDeps {
 		billingClient, _ = dep.(metering.BillingClient)
@@ -415,7 +405,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			CapabilitiesDispatcher: dispatcher,
 			CapabilitiesSharedPeer: sharedPeer,
 			FetcherFunc:            syncerFetcherFunc,
-			FetcherFactoryFn:       computeFetcherFactory,
 			BillingClient:          billingClient,
 			UseLocalTimeProvider:   cfg.CRE().UseLocalTimeProvider(),
 		},
