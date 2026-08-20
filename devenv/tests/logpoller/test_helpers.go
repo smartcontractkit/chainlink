@@ -873,7 +873,7 @@ type PauseData struct {
 	StartBlock      uint64
 	EndBlock        uint64
 	TargetComponent string
-	ContainerName    string
+	ContainerName   string
 }
 
 var ChaosPauses = []PauseData{}
@@ -927,7 +927,7 @@ func chaosPauseSyncFn(ctx context.Context, dtc *chaos.DockerChaos, l zerolog.Log
 		StartBlock:      pauseStartBlock,
 		EndBlock:        pauseEndBlock,
 		TargetComponent: targetComponent,
-		ContainerName:    containerName,
+		ContainerName:   containerName,
 	}}
 }
 

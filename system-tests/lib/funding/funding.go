@@ -33,7 +33,7 @@ type FundsToSend struct {
 }
 
 type FundsToSendSol struct {
-	Recipient   solana.PublicKey
+	Recipient  solana.PublicKey
 	PrivateKey solana.PrivateKey
 	Amount     uint64
 }

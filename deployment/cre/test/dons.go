@@ -15,7 +15,7 @@ type node struct {
 	PeerID      p2pkey.PeerID
 	CSA         string
 	WorkflowKey string
-	IsBootstrap  bool
+	IsBootstrap bool
 
 	OCRConfigs map[chain_selectors.ChainDetails]deployment.OCRConfig
 }
@@ -64,7 +64,7 @@ func (d *viewOnlyDon) AllNodes() (map[string]node, error) {
 			CSA:         v.CSAKey,
 			WorkflowKey: v.WorkflowKey,
 			OCRConfigs:  v.SelToOCRConfig,
-			IsBootstrap:  v.MultiAddr != "",
+			IsBootstrap: v.MultiAddr != "",
 		}
 	}
 	return out, nil

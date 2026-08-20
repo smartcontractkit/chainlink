@@ -227,6 +227,8 @@ func testSetup(t *testing.T) *testSetupData {
 }
 
 func TestMessageHasher_againstRmnSharedVector(t *testing.T) {
+	t.Parallel()
+
 	transactor := evmtestutils.MustNewSimTransactor(t)
 	backend := backends.NewSimulatedBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
