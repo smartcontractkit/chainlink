@@ -24,20 +24,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-type MedianConfig interface {
+type Config interface {
 	JobPipelineMaxSuccessfulRuns() uint64
 	JobPipelineResultWriteQueueDepth() uint64
 	plugins.RegistrarConfig
 }
 
-// concrete implementation of MedianConfig
+// concrete implementation of Config
 type medianConfig struct {
 	jobPipelineMaxSuccessfulRuns     uint64
 	jobPipelineResultWriteQueueDepth uint64
 	plugins.RegistrarConfig
 }
 
-func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, jobPipelineResultWriteQueueDepth uint64, pluginProcessCfg plugins.RegistrarConfig) MedianConfig {
+func NewMedianConfig(jobPipelineMaxSuccessfulRuns uint64, jobPipelineResultWriteQueueDepth uint64, pluginProcessCfg plugins.RegistrarConfig) Config {
 	return &medianConfig{
 		jobPipelineMaxSuccessfulRuns:     jobPipelineMaxSuccessfulRuns,
 		jobPipelineResultWriteQueueDepth: jobPipelineResultWriteQueueDepth,
@@ -59,9 +59,9 @@ func NewMedianServices(ctx context.Context,
 	relayer loop.Relayer,
 	kvStore job.KVStore,
 	pipelineRunner pipeline.Runner,
-	lggr logger.Logger,
+	lggr logger.SugaredLogger,
 	argsNoPlugin libocr.OCR2OracleArgs,
-	cfg MedianConfig,
+	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryData,
 	errorLog core.ErrorLog,
 ) (srvs []job.ServiceCtx, err error) {

@@ -97,7 +97,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	if finalityDepth > math.MaxInt32 {
 		t.Fatalf("finality depth overflows int32: %d", finalityDepth)
 	}
-	defaultWaitBlocks := (int32)(finalityDepth)
+	defaultWaitBlocks := (int32)(finalityDepth) //nolint:gosec // G115: guarded above by finalityDepth > math.MaxInt32
 
 	t.Run("happy", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*sqlutil.Big)(testutils.FixtureChainID)}}
@@ -163,7 +163,7 @@ func TestDelegate_StartStop(t *testing.T) {
 	if finalityDepth > math.MaxInt32 {
 		t.Fatalf("finality depth overflows int32: %d", finalityDepth)
 	}
-	defaultWaitBlocks := (int32)(finalityDepth)
+	defaultWaitBlocks := (int32)(finalityDepth) //nolint:gosec // G115: guarded above by finalityDepth > math.MaxInt32
 	spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 		WaitBlocks: defaultWaitBlocks,
 		PollPeriod: time.Second,

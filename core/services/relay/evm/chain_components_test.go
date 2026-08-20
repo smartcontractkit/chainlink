@@ -508,7 +508,7 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 	require.NoError(t, keyStore.Add(h.Context(t), h.accounts[1].From, h.ChainID()))
 	require.NoError(t, keyStore.Enable(h.Context(t), h.accounts[1].From, h.ChainID()))
 
-	chainService, err := app.GetRelayers().LegacyEVMChains().Get((h.ChainID()).String())
+	chainService, err := app.GetRelayers().LegacyEVMChains().Get((h.ChainID()).String()) //nolint:staticcheck // legacy chain access required for tx manager test setup
 	require.NoError(t, err)
 	chain, ok := chainService.(legacyevm.Chain)
 	require.True(t, ok)

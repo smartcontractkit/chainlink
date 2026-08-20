@@ -32,7 +32,7 @@ type oracleFactory struct {
 	jobName                string
 	jobORM                 job.ORM
 	kb                     ocr2key.KeyBundle
-	lggr                   logger.Logger
+	lggr                   logger.SugaredLogger
 	config                 job.OracleFactoryConfig
 	onchainSigningStrategy job.OnchainSigningStrategy
 	peerWrapper            *ocrcommon.SingletonPeerWrapper
@@ -48,7 +48,7 @@ type OracleFactoryParams struct {
 	JobName                string
 	JobORM                 job.ORM
 	KB                     ocr2key.KeyBundle
-	Logger                 logger.Logger
+	Logger                 logger.SugaredLogger
 	Config                 job.OracleFactoryConfig
 	OnchainSigningStrategy job.OnchainSigningStrategy
 	PeerWrapper            *ocrcommon.SingletonPeerWrapper

@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
@@ -43,7 +44,7 @@ import (
 )
 
 type crFactory struct {
-	lggr      logger.Logger
+	lggr      commonlogger.Logger
 	ht        logpoller.HeadTracker
 	logPoller logpoller.LogPoller
 	client    evmclient.Client
@@ -139,7 +140,7 @@ func (o *orm) Cleanup() {
 	close(o.addLocalRegistryCh)
 }
 
-func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer.LocalRegistry) error {
+func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.addLocalRegistryCh <- struct{}{}

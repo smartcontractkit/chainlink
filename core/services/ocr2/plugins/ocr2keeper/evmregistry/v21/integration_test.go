@@ -108,7 +108,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 				TriggerConfig: newPlainLogTriggerConfig(addrs[i]),
 				// using block number at which the upkeep was registered,
 				// before we emitted any logs
-				UpdateBlock: uint64(n),
+				UpdateBlock: uint64(n), //nolint:gosec // G115: n is a non-negative test fixture index
 			})
 			require.NoError(t, err)
 		}

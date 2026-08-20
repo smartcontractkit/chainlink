@@ -224,7 +224,7 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", s.config.ContentTypeHeader)
 	w.WriteHeader(httpStatusCode)
-	_, err = w.Write(rawResponse)
+	_, err = w.Write(rawResponse) //nolint:gosec // G705: response body is written with an explicit Content-Type, not rendered as HTML
 	if err != nil {
 		s.lggr.Error("error when writing response", err)
 	}

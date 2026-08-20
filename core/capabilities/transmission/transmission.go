@@ -21,28 +21,28 @@ var (
 	ScheduleOneAtATime = "oneAtATime"
 )
 
-type TransmissionConfig struct {
+type Config struct {
 	Schedule   string
 	DeltaStage time.Duration
 }
 
-func (tc *TransmissionConfig) String() string {
+func (tc *Config) String() string {
 	return fmt.Sprintf("[Schedule: %s, DeltaStage: %s]", tc.Schedule, tc.DeltaStage)
 }
 
-func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
+func ExtractTransmissionConfig(config *values.Map) (Config, error) {
 	var tc struct {
 		DeltaStage string
 		Schedule   string
 	}
 	err := config.UnwrapTo(&tc)
 	if err != nil {
-		return TransmissionConfig{}, fmt.Errorf("failed to unwrap tranmission config from value map: %w", err)
+		return Config{}, fmt.Errorf("failed to unwrap tranmission config from value map: %w", err)
 	}
 
 	// Default if no schedule and deltaStage is provided
 	if len(tc.Schedule) == 0 && len(tc.DeltaStage) == 0 {
-		return TransmissionConfig{
+		return Config{
 			Schedule:   ScheduleAllAtOnce,
 			DeltaStage: 0,
 		}, nil
@@ -50,10 +50,10 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 
 	duration, err := time.ParseDuration(tc.DeltaStage)
 	if err != nil {
-		return TransmissionConfig{}, fmt.Errorf("failed to parse DeltaStage %s as duration: %w", tc.DeltaStage, err)
+		return Config{}, fmt.Errorf("failed to parse DeltaStage %s as duration: %w", tc.DeltaStage, err)
 	}
 
-	return TransmissionConfig{
+	return Config{
 		Schedule:   tc.Schedule,
 		DeltaStage: duration,
 	}, nil
@@ -86,7 +86,7 @@ func GetPeerIDToTransmissionDelay(donPeerIDs []types.PeerID, req capabilities.Ca
 	return GetPeerIDToTransmissionDelaysForConfig(donPeerIDs, workflowExecutionID, tc)
 }
 
-func GetPeerIDToTransmissionDelaysForConfig(donPeerIDs []types.PeerID, transmissionID string, tc TransmissionConfig) (map[types.PeerID]time.Duration, error) {
+func GetPeerIDToTransmissionDelaysForConfig(donPeerIDs []types.PeerID, transmissionID string, tc Config) (map[types.PeerID]time.Duration, error) {
 	donMemberCount := len(donPeerIDs)
 	key := transmissionScheduleSeed(transmissionID)
 	schedule, err := createTransmissionSchedule(tc.Schedule, donMemberCount)

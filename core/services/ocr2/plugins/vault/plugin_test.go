@@ -27,6 +27,7 @@ import (
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -45,7 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func testRequestLifecycleTracker(t *testing.T, lggr logger.Logger) *vaultcap.RequestLifecycleTracker {
+func testRequestLifecycleTracker(t *testing.T, lggr commonlogger.Logger) *vaultcap.RequestLifecycleTracker {
 	t.Helper()
 	lc, err := vaultcap.NewRequestLifecycleTracker(lggr)
 	require.NoError(t, err)

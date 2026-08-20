@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
@@ -112,7 +113,7 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 				TriggerEventID := body.Sender + payload.TriggerEventId
 
 				// Emit trigger execution started event
-				workflowExecutionID, genErr := events.GenerateExecutionID(trigger.workflowID, TriggerEventID)
+				workflowExecutionID, genErr := workflows.GenerateExecutionIDWithTriggerIndex(trigger.workflowID, TriggerEventID, 0)
 				if genErr != nil {
 					h.lggr.Errorw("failed to generate execution ID", "err", genErr)
 					workflowExecutionID = ""

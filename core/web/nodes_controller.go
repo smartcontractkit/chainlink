@@ -29,11 +29,11 @@ func (n *NetworkScopedNodeStatuser) NodeStatuses(ctx context.Context, offset, li
 type nodesController[R jsonapi.EntityNamer] struct {
 	relayers    chainlink.RelayerChainInteroperators
 	newResource func(status types.NodeStatus) R
-	auditLogger audit.AuditLogger
+	auditLogger audit.Logger
 }
 
 func NewNodesController(
-	relayers chainlink.RelayerChainInteroperators, auditLogger audit.AuditLogger,
+	relayers chainlink.RelayerChainInteroperators, auditLogger audit.Logger,
 ) NodesController {
 	return &nodesController[presenters.NodeResource]{
 		relayers:    relayers,

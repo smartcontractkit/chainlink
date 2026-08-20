@@ -25,7 +25,7 @@ func (p AptosKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *AptosKeyPresenter) ToRow() []string {
+func (p AptosKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.PubKey,

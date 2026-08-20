@@ -37,7 +37,7 @@ type ValidationConfig interface {
 	ChainType() chaintype.ChainType
 }
 
-type OCRValidationConfig interface {
+type OracleValidationConfig interface {
 	BlockchainTimeout() time.Duration
 	CaptureEATelemetry() bool
 	ContractPollInterval() time.Duration
@@ -228,7 +228,7 @@ func isContractDeployed(client client.Client, address common.Address) (bool, err
 	return len(code) > 0, nil
 }
 
-func newContractTracker(chain legacyevm.Chain, contractAddress types.EIP55Address) (*OCRContractTracker, error) {
+func newContractTracker(chain legacyevm.Chain, contractAddress types.EIP55Address) (*ContractTracker, error) {
 	contractCaller, err := offchainaggregator.NewOffchainAggregatorCaller(contractAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "could not instantiate NewOffchainAggregatorCaller")
@@ -244,7 +244,7 @@ func newContractTracker(chain legacyevm.Chain, contractAddress types.EIP55Addres
 		return nil, errors.Wrap(err, "failed to create OffchainAggregator filterer")
 	}
 
-	return &OCRContractTracker{
+	return &ContractTracker{
 		contractCaller:   contractCaller,
 		blockTranslator:  block.NewBlockTranslator(chain.Config().EVM().ChainType(), chain.Client(), logger.NullLogger),
 		ethClient:        chain.Client(),
@@ -253,7 +253,7 @@ func newContractTracker(chain legacyevm.Chain, contractAddress types.EIP55Addres
 	}, nil
 }
 
-func validateContractLogs(ct *OCRContractTracker, contractAddress types.EIP55Address) error {
+func validateContractLogs(ct *ContractTracker, contractAddress types.EIP55Address) error {
 	ctx := context.Background()
 	changedInBlock, _, err := ct.LatestConfigDetails(ctx)
 	if err != nil {

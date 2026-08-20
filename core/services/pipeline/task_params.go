@@ -18,11 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type PipelineParamUnmarshaler interface {
+type ParamUnmarshaler interface {
 	UnmarshalPipelineParam(val any) error
 }
 
-func ResolveParam(out PipelineParamUnmarshaler, getters []GetterFunc) error {
+func ResolveParam(out ParamUnmarshaler, getters []GetterFunc) error {
 	var val any
 	var err error
 	var found bool
@@ -284,7 +284,7 @@ func (p *MaybeUint64Param) UnmarshalPipelineParam(val any) error {
 	return nil
 }
 
-func (p MaybeUint64Param) Uint64() (uint64, bool) {
+func (p *MaybeUint64Param) Uint64() (uint64, bool) {
 	return p.n, p.isSet
 }
 
@@ -363,7 +363,7 @@ func (p *MaybeInt32Param) UnmarshalPipelineParam(val any) error {
 	return nil
 }
 
-func (p MaybeInt32Param) Int32() (int32, bool) {
+func (p *MaybeInt32Param) Int32() (int32, bool) {
 	return p.n, p.isSet
 }
 
@@ -419,8 +419,8 @@ func (d *DecimalParam) UnmarshalPipelineParam(val any) error {
 	return nil
 }
 
-func (d DecimalParam) Decimal() decimal.Decimal {
-	return decimal.Decimal(d)
+func (d *DecimalParam) Decimal() decimal.Decimal {
+	return decimal.Decimal(*d)
 }
 
 type URLParam url.URL
@@ -514,8 +514,8 @@ func (m *MapParam) UnmarshalPipelineParam(val any) error {
 	return errors.Wrapf(ErrBadInput, "expected map, got %T", val)
 }
 
-func (m MapParam) Map() map[string]any {
-	return (map[string]any)(m)
+func (m *MapParam) Map() map[string]any {
+	return (map[string]any)(*m)
 }
 
 type SliceParam []any
@@ -544,10 +544,10 @@ func (s *SliceParam) UnmarshalPipelineParam(val any) error {
 	return errors.Wrapf(ErrBadInput, "expected slice, got %T", val)
 }
 
-func (s SliceParam) FilterErrors() (SliceParam, int) {
+func (s *SliceParam) FilterErrors() (SliceParam, int) {
 	var s2 SliceParam
 	var errs int
-	for _, x := range s {
+	for _, x := range *s {
 		if _, is := x.(error); is {
 			errs++
 		} else {
@@ -557,10 +557,10 @@ func (s SliceParam) FilterErrors() (SliceParam, int) {
 	return s2, errs
 }
 
-func (s SliceParam) FilterNils() (SliceParam, int) {
+func (s *SliceParam) FilterNils() (SliceParam, int) {
 	var s2 SliceParam
 	var nils int
-	for _, x := range s {
+	for _, x := range *s {
 		if x == nil {
 			nils++
 		} else {
@@ -817,6 +817,6 @@ func (p *MaybeBigIntParam) UnmarshalPipelineParam(val any) error {
 	return nil
 }
 
-func (p MaybeBigIntParam) BigInt() *big.Int {
+func (p *MaybeBigIntParam) BigInt() *big.Int {
 	return p.n
 }

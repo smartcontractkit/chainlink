@@ -180,7 +180,7 @@ func TestParseEATelemetry(t *testing.T) {
 
 func TestGetJsonParsedValue(t *testing.T) {
 	resp := getJSONParsedValue(trrs[0], &trrs)
-	assert.Equal(t, 123456.123456789, *resp)
+	assert.InEpsilon(t, 123456.123456789, *resp, 1e-9)
 
 	trrs[1].Result.Value = nil
 	resp = getJSONParsedValue(trrs[0], &trrs)
@@ -628,9 +628,9 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 
 	benchmarkPrice, bidPrice, askPrice := getPricesFromBridgeTask(lggr, taskRunResults[0], taskRunResults, 1)
 
-	require.Equal(t, 123456.123456, benchmarkPrice)
-	require.Equal(t, 1234567.1234567, bidPrice)
-	require.Equal(t, 321123.0, askPrice)
+	require.InEpsilon(t, 123456.123456, benchmarkPrice, 1e-9)
+	require.InEpsilon(t, 1234567.1234567, bidPrice, 1e-9)
+	require.InEpsilon(t, 321123.0, askPrice, 1e-9)
 
 	// now removing the TaskTags will throw off the parsed order - and we'll be parsing the "incorrect" prices
 	// according to the legacy ordering approach
@@ -639,23 +639,23 @@ func TestGetPricesFromBridgeByTelemetryField(t *testing.T) {
 	jsonParseTaskBenchmark.Tags = ""
 
 	wrongBenchmarkPrice, wrongBidPrice, wrongAskPrice := getPricesFromBridgeTask(lggr, taskRunResults[0], taskRunResults, 1)
-	require.Equal(t, 1234567.1234567, wrongBenchmarkPrice)
-	require.Equal(t, 321123.0, wrongBidPrice)
-	require.Equal(t, 123456.123456, wrongAskPrice)
+	require.InEpsilon(t, 1234567.1234567, wrongBenchmarkPrice, 1e-9)
+	require.InEpsilon(t, 321123.0, wrongBidPrice, 1e-9)
+	require.InEpsilon(t, 123456.123456, wrongAskPrice, 1e-9)
 }
 
 func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
 	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
 
 	benchmarkPrice, bid, ask := getPricesFromBridgeTask(lggr, trrsMercuryV1[0], trrsMercuryV1, 1)
-	require.Equal(t, 123456.123456, benchmarkPrice)
-	require.Equal(t, 1234567.1234567, bid)
-	require.Equal(t, float64(321123), ask)
+	require.InEpsilon(t, 123456.123456, benchmarkPrice, 1e-9)
+	require.InEpsilon(t, 1234567.1234567, bid, 1e-9)
+	require.InEpsilon(t, float64(321123), ask, 1e-9)
 
 	benchmarkPrice, bid, ask = getPricesFromBridgeTask(lggr, trrsMercuryV1[0], pipeline.TaskRunResults{}, 1)
-	require.Equal(t, float64(0), benchmarkPrice)
-	require.Equal(t, float64(0), bid)
-	require.Equal(t, float64(0), ask)
+	require.InEpsilon(t, float64(0), benchmarkPrice, 1e-9)
+	require.InEpsilon(t, float64(0), bid, 1e-9)
+	require.InEpsilon(t, float64(0), ask, 1e-9)
 	require.Equal(t, 0, logs.Len())
 
 	tt := trrsMercuryV1[:2]
@@ -701,15 +701,15 @@ func TestGetPricesFromBridgeTaskByOrder(t *testing.T) {
 			},
 		}}
 	benchmarkPrice, bid, ask = getPricesFromBridgeTask(lggr, trrsMercuryV1[0], trrs2, 3)
-	require.Equal(t, benchmarkPrice, float64(0))
-	require.Equal(t, bid, float64(0))
-	require.Equal(t, ask, float64(0))
+	require.InEpsilon(t, float64(0), benchmarkPrice, 1e-9)
+	require.InEpsilon(t, float64(0), bid, 1e-9)
+	require.InEpsilon(t, float64(0), ask, 1e-9)
 	require.Equal(t, 0, logs.Len())
 
 	benchmarkPrice, bid, ask = getPricesFromBridgeTask(lggr, trrsMercuryV1[0], trrsMercuryV2, 2)
-	require.Equal(t, 123456.123456, benchmarkPrice)
-	require.Equal(t, float64(0), bid)
-	require.Equal(t, float64(0), ask)
+	require.InEpsilon(t, 123456.123456, benchmarkPrice, 1e-9)
+	require.InEpsilon(t, float64(0), bid, 1e-9)
+	require.InEpsilon(t, float64(0), ask, 1e-9)
 }
 
 func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {

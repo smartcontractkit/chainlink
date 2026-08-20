@@ -196,7 +196,7 @@ func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := logger.Config{
 				Dir:           t.TempDir(),
-				FileMaxSizeMB: int(tt.logFileSize(t) / utils.MB),
+				FileMaxSizeMB: int(tt.logFileSize(t) / utils.MB), //nolint:gosec // test sizes won't exceed max int
 			}
 			require.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0o700)))
 
@@ -317,7 +317,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 			txStore := txmgrtest.NewTestTxStore(t, sqlxDB)
-			txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress)
+			txmgrtest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress) //nolint:gosec // nonce is a small test value (9 or 11)
 
 			lggr := logger.TestLogger(t)
 

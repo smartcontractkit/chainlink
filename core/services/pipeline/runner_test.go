@@ -651,15 +651,15 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		// TODO: assert finding the id
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]any{}
-		require.NoError(t, json.NewEncoder(w).Encode(response))
+		assert.NoError(t, json.NewEncoder(w).Encode(response))
 	})
 
 	// 1. Setup bridge
@@ -781,15 +781,15 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		require.NoError(t, err)
-		require.Contains(t, reqBody.ResponseURL, "http://localhost:6688/v2/resume/")
+		assert.NoError(t, err)
+		assert.Contains(t, reqBody.ResponseURL, "http://localhost:6688/v2/resume/")
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]any{}
-		require.NoError(t, json.NewEncoder(w).Encode(response))
+		assert.NoError(t, json.NewEncoder(w).Encode(response))
 	})
 
 	// 1. Setup bridge
@@ -1058,7 +1058,8 @@ succeed;
 		_, trrs, err := r.ExecuteRun(t.Context(), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, 1)
-		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
+		op := trrs[0].Result.Value.(pipeline.ObjectParam)
+		assert.Equal(t, "1", op.DecimalValue.Decimal().String())
 
 		// does not automatically cache
 		require.Nil(t, spec.Pipeline)
@@ -1073,6 +1074,7 @@ succeed;
 		_, trrs, err = r.ExecuteRun(t.Context(), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, 1)
-		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
+		op = trrs[0].Result.Value.(pipeline.ObjectParam)
+		assert.Equal(t, "1", op.DecimalValue.Decimal().String())
 	})
 }

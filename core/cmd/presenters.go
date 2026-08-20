@@ -23,7 +23,7 @@ func NewJAID(id string) JAID {
 }
 
 // GetID implements the api2go MarshalIdentifier interface.
-func (jaid JAID) GetID() string {
+func (jaid *JAID) GetID() string {
 	return jaid.ID
 }
 

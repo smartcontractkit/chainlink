@@ -5,16 +5,15 @@ import (
 	"time"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type sessionReaper struct {
 	ds     sqlutil.DataSource
 	config SessionReaperConfig
-	lggr   logger.Logger
+	lggr   common.SugaredLogger
 }
 
 type SessionReaperConfig interface {
@@ -23,11 +22,11 @@ type SessionReaperConfig interface {
 }
 
 // NewSessionReaper creates a reaper that cleans stale sessions from the store.
-func NewSessionReaper(ds sqlutil.DataSource, config SessionReaperConfig, lggr logger.Logger) *utils.SleeperTask {
+func NewSessionReaper(ds sqlutil.DataSource, config SessionReaperConfig, lggr common.Logger) *utils.SleeperTask {
 	return utils.NewSleeperTaskCtx(&sessionReaper{
 		ds,
 		config,
-		lggr.Named("SessionReaper"),
+		common.Sugared(lggr).Named("SessionReaper"),
 	})
 }
 

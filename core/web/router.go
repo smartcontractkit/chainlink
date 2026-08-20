@@ -35,6 +35,8 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -531,7 +533,7 @@ func guiAssetRoutes(engine *gin.Engine, rateLimitingDisabled bool, lggr logger.S
 }
 
 // Inspired by https://github.com/gin-gonic/gin/issues/961
-func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
+func loggerFunc(lggr common.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		buf, err := io.ReadAll(c.Request.Body)
 		if err != nil {
@@ -585,7 +587,7 @@ func uiCorsHandler(ao string) gin.HandlerFunc {
 	return cors.New(c)
 }
 
-func readBody(reader io.Reader, lggr logger.Logger) string {
+func readBody(reader io.Reader, lggr common.Logger) string {
 	buf := new(bytes.Buffer)
 	_, err := buf.ReadFrom(reader)
 	if err != nil {

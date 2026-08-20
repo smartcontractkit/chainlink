@@ -69,7 +69,7 @@ type TestChainOpts struct {
 // allows to mock client/config on that chain
 func NewLegacyChains(t testing.TB, testopts TestChainOpts) *legacyevm.LegacyChains {
 	lggr, ks, opts := NewChainOpts(t, testopts)
-	cc, err := evmrelay.NewLegacyChainsAndConfig(lggr, ks, opts)
+	cc, err := evmrelay.NewLegacyChainsAndConfig(lggr, ks, opts) //nolint:staticcheck // test-only legacy default chain helper
 	require.NoError(t, err)
 	for _, c := range cc.Slice() {
 		servicetest.Run(t, c)
@@ -77,7 +77,7 @@ func NewLegacyChains(t testing.TB, testopts TestChainOpts) *legacyevm.LegacyChai
 	return cc.NewLegacyChains()
 }
 
-func NewChainOpts(t testing.TB, testopts TestChainOpts) (logger.Logger, keystore.Eth, legacyevm.ChainOpts) {
+func NewChainOpts(t testing.TB, testopts TestChainOpts) (logger.Logger, keystore.Eth, legacyevm.ChainOpts) { //nolint:staticcheck // logger.Logger required by deprecated legacy chain config
 	require.NotNil(t, testopts.KeyStore)
 	lggr := logger.TestLogger(t)
 	opts := legacyevm.ChainOpts{

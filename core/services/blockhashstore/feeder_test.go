@@ -420,7 +420,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 	// Construct request logs.
 	var requestLogs []logpoller.Log
 	for _, r := range test.requests {
-		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) {
+		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) { //nolint:gosec // G115: fromBlock/toBlock are non-negative (clamped below)
 			continue // do not include blocks outside our search window
 		}
 		reqID, ok := big.NewInt(0).SetString(r.ID, 10)
@@ -851,7 +851,7 @@ func newRandomnessRequestedLogV2Plus(
 			// third topic is sender since it's indexed
 			topic3,
 		},
-		BlockNumber: int64(requestBlock),
+		BlockNumber: int64(requestBlock), //nolint:gosec // G115: fixture block numbers fit int64
 		EventSig:    topic0,
 	}
 	return lg
@@ -919,7 +919,7 @@ func newRandomnessFulfilledLogV2Plus(
 			topic1,
 			topic2,
 		},
-		BlockNumber: int64(requestBlock),
+		BlockNumber: int64(requestBlock), //nolint:gosec // G115: fixture block numbers fit int64
 		EventSig:    topic0,
 	}
 	return lg

@@ -46,7 +46,8 @@ func TestMemoTask(t *testing.T) {
 			task := pipeline.MemoTask{BaseTask: pipeline.NewBaseTask(0, "task", nil, nil, 0)}
 			result, _ := task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: test.input}})
 			require.NoError(t, result.Error)
-			marshalledValue, err := result.Value.(pipeline.ObjectParam).Marshal()
+			op := result.Value.(pipeline.ObjectParam)
+			marshalledValue, err := op.Marshal()
 			require.NoError(t, err)
 			assert.Equal(t, test.output, marshalledValue)
 		})

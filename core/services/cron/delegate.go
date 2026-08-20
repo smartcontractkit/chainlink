@@ -5,19 +5,20 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 type Delegate struct {
 	pipelineRunner pipeline.Runner
-	lggr           logger.Logger
+	lggr           common.Logger
 }
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(pipelineRunner pipeline.Runner, lggr logger.Logger) *Delegate {
+func NewDelegate(pipelineRunner pipeline.Runner, lggr common.Logger) *Delegate {
 	return &Delegate{
 		pipelineRunner: pipelineRunner,
 		lggr:           lggr,

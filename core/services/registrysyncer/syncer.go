@@ -190,7 +190,7 @@ func (s *registrySyncer) updateStateLoop() {
 				// channel has been closed, terminating.
 				return
 			}
-			if err := s.orm.AddLocalRegistry(ctx, *localRegistry); err != nil {
+			if err := s.orm.AddLocalRegistry(ctx, localRegistry); err != nil {
 				s.lggr.Errorw("failed to save state to local registry", "error", err)
 			}
 		}
@@ -343,7 +343,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 
 	for _, listener := range s.listeners {
 		lrCopy := DeepCopyLocalRegistry(latestRegistry)
-		if err := listener.OnNewRegistry(ctx, &lrCopy); err != nil {
+		if err := listener.OnNewRegistry(ctx, lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
 		}

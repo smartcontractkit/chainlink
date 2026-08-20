@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	evmkeystore "github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 )
 
@@ -96,13 +96,13 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 		return errors.Wrap(err, "fetching block number")
 	}
 
-	fromBlock, toBlock := blockhashstore.GetSearchWindow(int(latestBlockNumber), f.waitBlocks, f.lookbackBlocks)
+	fromBlock, toBlock := blockhashstore.GetSearchWindow(int(latestBlockNumber), f.waitBlocks, f.lookbackBlocks) //nolint:gosec // G115
 	if toBlock == 0 {
 		// Nothing to process, no blocks are in range.
 		return nil
 	}
 
-	lggr := f.lggr.With("latestBlock", latestBlockNumber, "fromBlock", fromBlock, "toBlock", toBlock)
+	lggr := logger.With(f.lggr, "latestBlock", latestBlockNumber, "fromBlock", fromBlock, "toBlock", toBlock)
 	lggr.Debug("searching for unfulfilled blocks")
 
 	blockToRequests, err := blockhashstore.GetUnfulfilledBlocksAndRequests(ctx, lggr, f.coordinator, fromBlock, toBlock)
@@ -171,7 +171,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 
 	if f.lastRunBlock != 0 {
 		// Prune stored, anything older than fromBlock can be discarded
-		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < fromBlock; block++ {
+		for block := f.lastRunBlock - uint64(f.lookbackBlocks); block < fromBlock; block++ { //nolint:gosec // G115: lookbackBlocks is a small positive int
 			if _, ok := f.stored[block]; ok {
 				delete(f.stored, block)
 				lggr.Debugw("Pruned block from stored cache",

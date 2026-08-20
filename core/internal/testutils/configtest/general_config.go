@@ -28,7 +28,7 @@ func NewTestGeneralConfig(t testing.TB) chainlink.GeneralConfig { return NewGene
 // The default test overrides are applied before overrideFn, and include one chain with client.NullClientChainID.
 func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlink.Secrets)) chainlink.GeneralConfig {
 	tempDir := t.TempDir()
-	g, err := chainlink.GeneralConfigOpts{
+	opts := chainlink.GeneralConfigOpts{
 		OverrideFn: func(c *chainlink.Config, s *chainlink.Secrets) {
 			overrides(c, s)
 			c.RootDir = &tempDir
@@ -36,7 +36,8 @@ func NewGeneralConfig(t testing.TB, overrideFn func(*chainlink.Config, *chainlin
 				fn(c, s)
 			}
 		},
-	}.New()
+	}
+	g, err := opts.New()
 	require.NoError(t, err)
 	return g
 }

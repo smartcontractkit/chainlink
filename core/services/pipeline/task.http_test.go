@@ -212,7 +212,7 @@ func TestHTTPTask_OverrideURLSafe(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, err := w.Write([]byte("{}"))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	server := httptest.NewServer(handler)
@@ -261,7 +261,7 @@ func TestHTTPTask_ErrorMessage(t *testing.T) {
 		resp := &adapterResponse{}
 		resp.SetErrorMessage("could not hit data fetcher")
 		err := json.NewEncoder(w).Encode(resp)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	server := httptest.NewServer(handler)
@@ -292,7 +292,7 @@ func TestHTTPTask_OnlyErrorMessage(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadGateway)
 		_, err := w.Write([]byte(mustReadFile(t, "../../testdata/apiresponses/coinmarketcap.error.json")))
-		require.NoError(t, err)
+		assert.NoError(t, err)
 	})
 
 	server := httptest.NewServer(handler)
@@ -339,7 +339,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte(`{"fooresponse": 1}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		})
 
 		server := httptest.NewServer(handler)
@@ -385,7 +385,7 @@ func TestHTTPTask_Headers(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			_, err := w.Write([]byte(`{"fooresponse": 3}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		})
 
 		server := httptest.NewServer(handler)

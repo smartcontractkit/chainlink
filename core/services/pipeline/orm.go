@@ -11,10 +11,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -51,7 +51,7 @@ type ORM interface {
 type orm struct {
 	services.StateMachine
 	ds                sqlutil.DataSource
-	lggr              logger.Logger
+	lggr              common.SugaredLogger
 	maxSuccessfulRuns uint64
 	// jobID => count
 	pm     sync.Map
@@ -61,10 +61,10 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(ds sqlutil.DataSource, lggr logger.Logger, jobPipelineMaxSuccessfulRuns uint64) *orm {
+func NewORM(ds sqlutil.DataSource, lggr common.Logger, jobPipelineMaxSuccessfulRuns uint64) *orm {
 	return &orm{
 		ds:                ds,
-		lggr:              lggr.Named("PipelineORM"),
+		lggr:              common.Sugared(lggr).Named("PipelineORM"),
 		maxSuccessfulRuns: jobPipelineMaxSuccessfulRuns,
 		stopCh:            make(chan struct{}),
 	}

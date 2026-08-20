@@ -36,7 +36,7 @@ type Encoder21 interface {
 	ocr2keepers21.Encoder
 }
 
-func EVMProvider(ctx context.Context, ds sqlutil.DataSource, chain legacyevm.Chain, lggr logger.Logger, spec job.Job, ethKeystore keys.Store) (evmrelay.OCR2KeeperProvider, error) {
+func EVMProvider(ctx context.Context, ds sqlutil.DataSource, chain legacyevm.Chain, lggr logger.SugaredLogger, spec job.Job, ethKeystore keys.Store) (evmrelay.OCR2KeeperProvider, error) {
 	oSpec := spec.OCR2OracleSpec
 	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(ds, chain, lggr.Named("OCR2KeeperRelayer"), ethKeystore)
 
@@ -63,14 +63,14 @@ func EVMDependencies20(
 	ctx context.Context,
 	spec job.Job,
 	ds sqlutil.DataSource,
-	lggr logger.Logger,
+	lggr logger.SugaredLogger,
 	chain legacyevm.Chain,
 	ethKeystore keys.Store,
-) (evmrelay.OCR2KeeperProvider, *evmregistry20.EvmRegistry, Encoder20, *evmregistry20.LogProvider, error) {
+) (evmrelay.OCR2KeeperProvider, *evmregistry20.RegistryService, Encoder20, *evmregistry20.LogProvider, error) {
 	var err error
 
 	var keeperProvider evmrelay.OCR2KeeperProvider
-	var registry *evmregistry20.EvmRegistry
+	var registry *evmregistry20.RegistryService
 
 	// the provider will be returned as a dependency
 	if keeperProvider, err = EVMProvider(ctx, ds, chain, lggr, spec, ethKeystore); err != nil {
@@ -82,7 +82,7 @@ func EVMDependencies20(
 		return nil, nil, nil, nil, err
 	}
 
-	encoder := evmregistry20.EVMAutomationEncoder20{}
+	encoder := evmregistry20.AutomationEncoder20{}
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases

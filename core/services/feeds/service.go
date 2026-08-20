@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -32,7 +33,6 @@ import (
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
@@ -124,13 +124,13 @@ type Service interface {
 	Start(ctx context.Context) error
 	Close() error
 
-	GetManager(ctx context.Context, id int64) (*FeedsManager, error)
-	ListManagers(ctx context.Context) ([]FeedsManager, error)
-	ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error)
+	GetManager(ctx context.Context, id int64) (*Manager, error)
+	ListManagers(ctx context.Context) ([]Manager, error)
+	ListManagersByIDs(ctx context.Context, ids []int64) ([]Manager, error)
 	RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error)
-	UpdateManager(ctx context.Context, mgr FeedsManager) error
-	EnableManager(ctx context.Context, id int64) (*FeedsManager, error)
-	DisableManager(ctx context.Context, id int64) (*FeedsManager, error)
+	UpdateManager(ctx context.Context, mgr Manager) error
+	EnableManager(ctx context.Context, id int64) (*Manager, error)
+	DisableManager(ctx context.Context, id int64) (*Manager, error)
 
 	CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
 	DeleteChainConfig(ctx context.Context, id int64) (int64, error)
@@ -182,7 +182,7 @@ type service struct {
 	ocr2cfg             OCR2Config
 	connMgr             ConnectionsManager
 	legacyChains        legacyevm.LegacyChainContainer
-	lggr                logger.Logger
+	lggr                commonlogger.SugaredLogger
 	version             string
 	loopRegistrarConfig plugins.RegistrarConfig
 	syncNodeInfoCancel  atomicCancelFns
@@ -206,12 +206,12 @@ func NewService(
 	ocrCfg OCRConfig,
 	ocr2Cfg OCR2Config,
 	legacyChains legacyevm.LegacyChainContainer,
-	lggr logger.Logger,
+	lggr commonlogger.Logger,
 	version string,
 	rc plugins.RegistrarConfig,
 	opts ...ServiceOption,
 ) *service {
-	lggr = lggr.Named("Feeds")
+	sugaredLggr := commonlogger.Sugared(lggr).Named("Feeds")
 	svc := &service{
 		orm:                 orm,
 		jobORM:              jobORM,
@@ -229,9 +229,9 @@ func NewService(
 		jobCfg:              jobCfg,
 		ocrCfg:              ocrCfg,
 		ocr2cfg:             ocr2Cfg,
-		connMgr:             newConnectionsManager(lggr),
+		connMgr:             newConnectionsManager(sugaredLggr),
 		legacyChains:        legacyChains,
-		lggr:                lggr,
+		lggr:                sugaredLggr,
 		version:             version,
 		loopRegistrarConfig: rc,
 		syncNodeInfoCancel:  atomicCancelFns{fns: map[int64]context.CancelFunc{}},
@@ -275,7 +275,7 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 		}
 	}
 
-	mgr := FeedsManager{
+	mgr := Manager{
 		Name:      params.Name,
 		URI:       params.URI,
 		PublicKey: params.PublicKey,
@@ -408,7 +408,7 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 
 // UpdateManager updates the feed manager details, takes down the
 // connection and reestablishes a new connection with the updated public key.
-func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
+func (s *service) UpdateManager(ctx context.Context, mgr Manager) error {
 	err := s.orm.UpdateManager(ctx, mgr)
 	if err != nil {
 		return errors.Wrap(err, "could not update manager")
@@ -421,7 +421,7 @@ func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 	return nil
 }
 
-func (s *service) EnableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+func (s *service) EnableManager(ctx context.Context, id int64) (*Manager, error) {
 	mgr, err := s.orm.EnableManager(ctx, id)
 	if err != nil || mgr == nil {
 		return nil, errors.Wrap(err, "could not enable manager")
@@ -436,7 +436,7 @@ func (s *service) EnableManager(ctx context.Context, id int64) (*FeedsManager, e
 	return mgr, nil
 }
 
-func (s *service) DisableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+func (s *service) DisableManager(ctx context.Context, id int64) (*Manager, error) {
 	mgr, err := s.orm.DisableManager(ctx, id)
 	if err != nil || mgr == nil {
 		return nil, errors.Wrap(err, "could not disable manager")
@@ -452,7 +452,7 @@ func (s *service) DisableManager(ctx context.Context, id int64) (*FeedsManager, 
 }
 
 // ListManagerServices lists all the manager services.
-func (s *service) ListManagers(ctx context.Context) ([]FeedsManager, error) {
+func (s *service) ListManagers(ctx context.Context) ([]Manager, error) {
 	managers, err := s.orm.ListManagers(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get a list of managers")
@@ -466,7 +466,7 @@ func (s *service) ListManagers(ctx context.Context) ([]FeedsManager, error) {
 }
 
 // GetManager gets a manager service by id.
-func (s *service) GetManager(ctx context.Context, id int64) (*FeedsManager, error) {
+func (s *service) GetManager(ctx context.Context, id int64) (*Manager, error) {
 	manager, err := s.orm.GetManager(ctx, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get manager by ID")
@@ -477,7 +477,7 @@ func (s *service) GetManager(ctx context.Context, id int64) (*FeedsManager, erro
 }
 
 // ListManagersByIDs get managers services by ids.
-func (s *service) ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error) {
+func (s *service) ListManagersByIDs(ctx context.Context, ids []int64) ([]Manager, error) {
 	managers, err := s.orm.ListManagersByIDs(ctx, ids)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list managers by IDs")
@@ -1320,7 +1320,7 @@ func (s *service) Close() error {
 }
 
 // connectFeedManager connects to a feeds manager
-func (s *service) connectFeedManager(mgr FeedsManager) {
+func (s *service) connectFeedManager(mgr Manager) {
 	s.connMgr.Connect(ConnectOpts{
 		FeedsManagerID: mgr.ID,
 		URI:            mgr.URI,
@@ -1661,7 +1661,7 @@ func (s *service) validateProposeJobArgs(ctx context.Context, args ProposeJobArg
 	return nil
 }
 
-func (s *service) restartConnection(mgr FeedsManager) error {
+func (s *service) restartConnection(mgr Manager) error {
 	s.lggr.Infof("Restarting connection")
 
 	if err := s.connMgr.Disconnect(mgr.ID); err != nil {
@@ -1817,18 +1817,18 @@ func (ns NullService) ListSpecsByJobProposalIDs(ctx context.Context, ids []int64
 	return nil, ErrFeedsManagerDisabled
 }
 
-func (ns NullService) GetManager(ctx context.Context, id int64) (*FeedsManager, error) {
+func (ns NullService) GetManager(ctx context.Context, id int64) (*Manager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
 
-func (ns NullService) ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error) {
+func (ns NullService) ListManagersByIDs(ctx context.Context, ids []int64) ([]Manager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
 
 func (ns NullService) GetSpec(ctx context.Context, id int64) (*JobProposalSpec, error) {
 	return nil, ErrFeedsManagerDisabled
 }
-func (ns NullService) ListManagers(ctx context.Context) ([]FeedsManager, error) { return nil, nil }
+func (ns NullService) ListManagers(ctx context.Context) ([]Manager, error) { return nil, nil }
 func (ns NullService) CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
@@ -1877,15 +1877,15 @@ func (ns NullService) RejectSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
 func (ns NullService) SyncNodeInfo(ctx context.Context, id int64) error { return nil }
-func (ns NullService) UpdateManager(ctx context.Context, mgr FeedsManager) error {
+func (ns NullService) UpdateManager(ctx context.Context, mgr Manager) error {
 	return ErrFeedsManagerDisabled
 }
 
-func (ns NullService) EnableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+func (ns NullService) EnableManager(ctx context.Context, id int64) (*Manager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
 
-func (ns NullService) DisableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+func (ns NullService) DisableManager(ctx context.Context, id int64) (*Manager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
 
@@ -1902,7 +1902,7 @@ func (ns NullService) UnsafeSetConnectionsManager(_ ConnectionsManager) {}
 
 // deleteSimpleJobProposal deletes a simple (non-workflow) job proposal.
 // This only removes the proposal without any cancellation, unlike workflow jobs
-func (s *service) deleteSimpleJobProposal(ctx context.Context, proposal *JobProposal, logger logger.Logger) error {
+func (s *service) deleteSimpleJobProposal(ctx context.Context, proposal *JobProposal, logger commonlogger.SugaredLogger) error {
 	if err := s.orm.DeleteProposal(ctx, proposal.ID); err != nil {
 		logger.Errorw("Failed to delete the proposal", "err", err)
 		return fmt.Errorf("DeleteProposal failed: %w", err)
@@ -1915,7 +1915,7 @@ func (s *service) deleteSimpleJobProposal(ctx context.Context, proposal *JobProp
 // tryDeleteWithWorkflowCancellation attempts to delete a job as a workflow job.
 // Returns true if the job was successfully deleted as a workflow, false if it's not a workflow job.
 // Returns an error if deletion failed.
-func (s *service) tryDeleteWithWorkflowCancellation(ctx context.Context, proposal *JobProposal, logger logger.Logger) (bool, error) {
+func (s *service) tryDeleteWithWorkflowCancellation(ctx context.Context, proposal *JobProposal, logger commonlogger.SugaredLogger) (bool, error) {
 	// Early return if no external job ID (we won't find a job to delete without it)
 	if !proposal.ExternalJobID.Valid {
 		logger.Debugw("Proposal has no ExternalJobID, skipping workflow job deletion", "proposalID", proposal.ID)
@@ -1953,7 +1953,7 @@ func (s *service) tryDeleteWithWorkflowCancellation(ctx context.Context, proposa
 }
 
 // deleteWorkflowJobWithTransaction performs workflow job deletion with auto-cancellation within a transaction.
-func (s *service) deleteWorkflowJobWithTransaction(ctx context.Context, proposal JobProposal, job job.Job, jpSpec JobProposalSpec, logger logger.Logger) error {
+func (s *service) deleteWorkflowJobWithTransaction(ctx context.Context, proposal JobProposal, job job.Job, jpSpec JobProposalSpec, logger commonlogger.SugaredLogger) error {
 	if job.WorkflowSpecID == nil {
 		return errors.New("job WorkflowSpecID is nil, cannot delete workflow job")
 	}

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	valuespb "github.com/smartcontractkit/chainlink-protos/cre/go/values/pb"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -45,7 +46,7 @@ func TestRunningKey(t *testing.T) {
 	assert.Equal(t, "consensus@1.0.0:42", runningKey("consensus@1.0.0", 42))
 }
 
-func testLogger(t *testing.T) corelogger.Logger {
+func testLogger(t *testing.T) common.Logger {
 	return corelogger.TestLogger(t)
 }
 

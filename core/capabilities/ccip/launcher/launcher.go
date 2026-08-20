@@ -38,7 +38,12 @@ func New(
 		capabilityID:    capabilityID,
 		lggr:            lggr,
 		homeChainReader: homeChainReader,
-		regState: registrysyncer.LocalRegistry{
+		regState: &registrysyncer.LocalRegistry{
+			IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
+			IDsToNodes:        make(map[p2ptypes.PeerID]registrysyncer.NodeInfo),
+			IDsToCapabilities: make(map[string]registrysyncer.Capability),
+		},
+		latestState: &registrysyncer.LocalRegistry{
 			IDsToDONs:         make(map[registrysyncer.DonID]registrysyncer.DON),
 			IDsToNodes:        make(map[p2ptypes.PeerID]registrysyncer.NodeInfo),
 			IDsToCapabilities: make(map[string]registrysyncer.Capability),
@@ -63,9 +68,9 @@ type launcher struct {
 	homeChainReader ccipreader.HomeChain
 	stopChan        services.StopChan
 	// latestState is the latest capability registry state received from the syncer.
-	latestState registrysyncer.LocalRegistry
+	latestState *registrysyncer.LocalRegistry
 	// regState is the latest capability registry state that we have successfully processed.
-	regState      registrysyncer.LocalRegistry
+	regState      *registrysyncer.LocalRegistry
 	oracleCreator cctypes.OracleCreator
 	lock          sync.RWMutex
 	wg            sync.WaitGroup
@@ -82,11 +87,11 @@ func (l *launcher) OnNewRegistry(ctx context.Context, state *registrysyncer.Loca
 	l.lock.Lock()
 	defer l.lock.Unlock()
 	l.lggr.Debugw("Received new state from syncer", "dons", state.IDsToDONs)
-	l.latestState = *state
+	l.latestState = state
 	return nil
 }
 
-func (l *launcher) getLatestState() registrysyncer.LocalRegistry {
+func (l *launcher) getLatestState() *registrysyncer.LocalRegistry {
 	l.lock.RLock()
 	defer l.lock.RUnlock()
 	return l.latestState

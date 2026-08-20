@@ -121,7 +121,7 @@ func (o *GeneralConfigOpts) parseSecrets(secrets string) error {
 }
 
 // New returns a GeneralConfig for the given options.
-func (o GeneralConfigOpts) New() (GeneralConfig, error) {
+func (o *GeneralConfigOpts) New() (GeneralConfig, error) {
 	err := o.parse()
 	if err != nil {
 		return nil, err

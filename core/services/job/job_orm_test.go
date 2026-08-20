@@ -491,7 +491,7 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	require.False(t, customRevertsPipelineEnabled)
 	var batchFulfillmentGasMultiplier float64
 	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
-	require.Equal(t, float64(1.0), batchFulfillmentGasMultiplier)
+	require.InEpsilon(t, float64(1.0), batchFulfillmentGasMultiplier, 1e-9)
 	var requestTimeout time.Duration
 	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 24*time.Hour, requestTimeout)
@@ -579,7 +579,7 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	require.True(t, customRevertsPipelineEnabled)
 	var batchFulfillmentGasMultiplier float64
 	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
-	require.Equal(t, float64(1.0), batchFulfillmentGasMultiplier)
+	require.InEpsilon(t, float64(1.0), batchFulfillmentGasMultiplier, 1e-9)
 	var requestTimeout time.Duration
 	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
 	require.Equal(t, 24*time.Hour, requestTimeout)

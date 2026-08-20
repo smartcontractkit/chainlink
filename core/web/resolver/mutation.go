@@ -411,7 +411,7 @@ func (r *Resolver) CreateFeedsManager(ctx context.Context, args struct {
 
 	publicKey, err := crypto.PublicKeyFromHex(args.Input.PublicKey)
 	if err != nil {
-		return NewCreateFeedsManagerPayload(nil, nil, map[string]string{
+		return NewCreateFeedsManagerPayload(nil, nil, map[string]string{ //nolint:nilerr // validation error surfaced via inputErrs map, not the resolver error return
 			"input/publicKey": "invalid hex value",
 		}), nil
 	}
@@ -539,12 +539,12 @@ func (r *Resolver) UpdateFeedsManager(ctx context.Context, args struct {
 
 	publicKey, err := crypto.PublicKeyFromHex(args.Input.PublicKey)
 	if err != nil {
-		return NewUpdateFeedsManagerPayload(nil, nil, map[string]string{
+		return NewUpdateFeedsManagerPayload(nil, nil, map[string]string{ //nolint:nilerr // validation error surfaced via inputErrs map, not the resolver error return
 			"input/publicKey": "invalid hex value",
 		}), nil
 	}
 
-	mgr := &feeds.FeedsManager{
+	mgr := &feeds.Manager{
 		ID:        id,
 		URI:       args.Input.URI,
 		Name:      args.Input.Name,
@@ -1008,7 +1008,7 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 	if err != nil {
 		r.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]any{"user": dbUser.Email})
 
-		return NewCreateAPITokenPayload(nil, map[string]string{
+		return NewCreateAPITokenPayload(nil, map[string]string{ //nolint:nilerr // validation error surfaced via inputErrs map, not the resolver error return
 			"password": "incorrect password",
 		}), nil
 	}
@@ -1042,7 +1042,7 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 	if err != nil {
 		r.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]any{"user": dbUser.Email})
 
-		return NewDeleteAPITokenPayload(nil, map[string]string{
+		return NewDeleteAPITokenPayload(nil, map[string]string{ //nolint:nilerr // validation error surfaced via inputErrs map, not the resolver error return
 			"password": "incorrect password",
 		}), nil
 	}
@@ -1249,7 +1249,7 @@ func (r *Resolver) SetGlobalLogLevel(ctx context.Context, args struct {
 
 	err := lvl.UnmarshalText([]byte(logLvl))
 	if err != nil {
-		return NewSetGlobalLogLevelPayload("", map[string]string{
+		return NewSetGlobalLogLevelPayload("", map[string]string{ //nolint:nilerr // validation error surfaced via inputErrs map, not the resolver error return
 			"level": "invalid log level",
 		}), nil
 	}

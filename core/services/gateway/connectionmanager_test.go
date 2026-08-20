@@ -159,7 +159,7 @@ func TestConnectionManager_StartHandshake(t *testing.T) {
 	mgr := newConnectionManager(t, config, clock)
 
 	authHeaderElems := network.AuthHeaderElems{
-		Timestamp: uint32(clock.Now().Unix()),
+		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // G115: uint32 timestamp matches the auth handshake protocol
 		DonID:     "my_don_1",
 		GatewayID: "my_gateway_no_3",
 	}
@@ -211,7 +211,7 @@ func TestConnectionManager_FinalizeHandshake(t *testing.T) {
 	mgr := newConnectionManager(t, config, clock)
 
 	authHeaderElems := network.AuthHeaderElems{
-		Timestamp: uint32(clock.Now().Unix()),
+		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // G115: uint32 timestamp matches the auth handshake protocol
 		DonID:     "my_don_1",
 		GatewayID: "my_gateway_no_3",
 	}
@@ -471,7 +471,7 @@ func newWebSocketPair(t *testing.T) (serverConn, clientConn *websocket.Conn) {
 func doHandshake(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Clock, node gc.TestNode, conn *websocket.Conn) {
 	t.Helper()
 	authHeaderElems := network.AuthHeaderElems{
-		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // test clock is always small positive
+		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // G115: uint32 timestamp matches the auth handshake protocol //nolint:gosec // test clock is always small positive
 		DonID:     "my_don_1",
 		GatewayID: "my_gateway_no_3",
 	}

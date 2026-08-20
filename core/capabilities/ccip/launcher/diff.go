@@ -21,7 +21,7 @@ type diffResult struct {
 func diff(
 	capabilityID string,
 	oldState,
-	newState registrysyncer.LocalRegistry,
+	newState *registrysyncer.LocalRegistry,
 ) (diffResult, error) {
 	ccipCapability, err := checkCapabilityPresence(capabilityID, newState)
 	if err != nil {
@@ -87,7 +87,7 @@ func compareDONs(
 // filterCCIPDONs filters the CCIP DONs from the given state.
 func filterCCIPDONs(
 	ccipCapability registrysyncer.Capability,
-	state registrysyncer.LocalRegistry,
+	state *registrysyncer.LocalRegistry,
 ) (map[registrysyncer.DonID]registrysyncer.DON, error) {
 	ccipDONs := make(map[registrysyncer.DonID]registrysyncer.DON)
 	for _, don := range state.IDsToDONs {
@@ -104,7 +104,7 @@ func filterCCIPDONs(
 // is present in the given capability registry state.
 func checkCapabilityPresence(
 	capabilityID string,
-	state registrysyncer.LocalRegistry,
+	state *registrysyncer.LocalRegistry,
 ) (registrysyncer.Capability, error) {
 	// Sanity check to make sure the capability registry has the capability we are looking for.
 	ccipCapability, ok := state.IDsToCapabilities[capabilityID]

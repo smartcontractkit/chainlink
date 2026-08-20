@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
-func validateConnectorConfig(cfg *ConnectorConfig) error {
+func validateConnectorConfig(cfg *Config) error {
 	if len(cfg.DonID) == 0 || len(cfg.DonID) > network.HandshakeDonIDLen {
 		return errors.New("invalid DON ID")
 	}
@@ -25,8 +25,8 @@ func validateConnectorConfig(cfg *ConnectorConfig) error {
 	return nil
 }
 
-func multiDonMode(cfg *ConnectorConfig) bool {
-	return slices.ContainsFunc(cfg.Gateways, func(g ConnectorGatewayConfig) bool {
+func multiDonMode(cfg *Config) bool {
+	return slices.ContainsFunc(cfg.Gateways, func(g GatewayConfig) bool {
 		return g.DonID != ""
 	})
 }

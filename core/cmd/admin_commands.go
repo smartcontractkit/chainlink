@@ -240,7 +240,7 @@ func (s *Shell) CreateUser(c *cli.Context) (err error) {
 		Password: pwd,
 	}
 
-	requestData, err := json.Marshal(request)
+	requestData, err := json.Marshal(request) //nolint:gosec // Password is the intended API user credential payload
 	if err != nil {
 		return s.errorOut(err)
 	}

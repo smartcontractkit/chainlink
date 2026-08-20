@@ -10,11 +10,11 @@ import (
 	"github.com/go-ldap/ldap/v3"
 	"github.com/lib/pq"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
@@ -22,7 +22,7 @@ type LDAPServerStateSyncer struct {
 	ds           sqlutil.DataSource
 	ldapClient   LDAPClient
 	config       config.LDAP
-	lggr         logger.Logger
+	lggr         common.SugaredLogger
 	nextSyncTime time.Time
 	done         chan struct{}
 	stopCh       services.StopChan
@@ -32,13 +32,13 @@ type LDAPServerStateSyncer struct {
 func NewLDAPServerStateSyncer(
 	ds sqlutil.DataSource,
 	config config.LDAP,
-	lggr logger.Logger,
+	lggr common.Logger,
 ) *LDAPServerStateSyncer {
 	return &LDAPServerStateSyncer{
 		ds:         ds,
 		ldapClient: newLDAPClient(config),
 		config:     config,
-		lggr:       lggr.Named("LDAPServerStateSync"),
+		lggr:       common.Sugared(lggr).Named("LDAPServerStateSync"),
 		done:       make(chan struct{}),
 		stopCh:     make(services.StopChan),
 	}

@@ -12,11 +12,10 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // LeaseLock handles taking an exclusive lease on database access. This is not
@@ -71,17 +70,17 @@ type leaseLock struct {
 	db         *sqlx.DB
 	conn       *sqlx.Conn
 	cfg        LeaseLockConfig
-	logger     logger.Logger
+	logger     common.SugaredLogger
 	stop       func()
 	wgReleased sync.WaitGroup
 }
 
 // NewLeaseLock creates a "leaseLock" - an entity that tries to take an exclusive lease on the database
-func NewLeaseLock(db *sqlx.DB, appID uuid.UUID, lggr logger.Logger, cfg LeaseLockConfig) LeaseLock {
+func NewLeaseLock(db *sqlx.DB, appID uuid.UUID, lggr common.Logger, cfg LeaseLockConfig) LeaseLock {
 	if cfg.LeaseRefreshInterval > cfg.LeaseDuration/2 {
 		panic("refresh interval must be <= half the lease duration")
 	}
-	return &leaseLock{appID, db, nil, cfg, lggr.Named("LeaseLock").With("appID", appID), func() {}, sync.WaitGroup{}}
+	return &leaseLock{appID, db, nil, cfg, common.Sugared(lggr).Named("LeaseLock").With("appID", appID), func() {}, sync.WaitGroup{}}
 }
 
 // TakeAndHold will block and wait indefinitely until it can get its first lock or ctx is cancelled.

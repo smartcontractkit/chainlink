@@ -75,7 +75,7 @@ func main() {
 		return
 	}
 
-	var cfg connector.ConnectorConfig
+	var cfg connector.Config
 	err = toml.Unmarshal(rawConfig, &cfg)
 	if err != nil {
 		fmt.Println("error parsing config:", err)

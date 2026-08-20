@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/offchainaggregator/generated/ocr/offchain_aggregator_wrapper"
@@ -43,7 +44,7 @@ type Delegate struct {
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	legacyChains          legacyevm.LegacyChainContainer
-	lggr                  logger.Logger
+	lggr                  logger.SugaredLogger
 	cfg                   Config
 	mailMon               *mailbox.Monitor
 }
@@ -61,7 +62,7 @@ func NewDelegate(
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	legacyChains legacyevm.LegacyChainContainer,
-	lggr logger.Logger,
+	lggr logger.SugaredLogger,
 	cfg Config,
 	mailMon *mailbox.Monitor,
 ) *Delegate {
@@ -74,7 +75,7 @@ func NewDelegate(
 		peerWrapper:           peerWrapper,
 		monitoringEndpointGen: monitoringEndpointGen,
 		legacyChains:          legacyChains,
-		lggr:                  lggr.Named("OCR"),
+		lggr:                  logger.Sugared(lggr.Named("OCR")),
 		cfg:                   cfg,
 		mailMon:               mailMon,
 	}
@@ -330,7 +331,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 	return services, nil
 }
 
-func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain legacyevm.Chain, contractAddress types.EIP55Address) (*ConfigOverriderImpl, error) {
+func (d *Delegate) maybeCreateConfigOverrider(logger commonlogger.Logger, chain legacyevm.Chain, contractAddress types.EIP55Address) (*ConfigOverriderImpl, error) {
 	flagsContractAddress := chain.Config().EVM().FlagsContractAddress()
 	if flagsContractAddress != "" {
 		flags, err := NewFlags(flagsContractAddress, chain.Client())

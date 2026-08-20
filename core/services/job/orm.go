@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/null"
@@ -27,7 +28,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -91,14 +91,14 @@ type orm struct {
 	ds          sqlutil.DataSource
 	keyStore    keystore.Master
 	pipelineORM pipeline.ORM
-	lggr        logger.SugaredLogger
+	lggr        commonlogger.SugaredLogger
 	bridgeORM   bridges.ORM
 }
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(ds sqlutil.DataSource, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, lggr logger.Logger) *orm {
-	namedLogger := logger.Sugared(lggr.Named("JobORM"))
+func NewORM(ds sqlutil.DataSource, pipelineORM pipeline.ORM, bridgeORM bridges.ORM, keyStore keystore.Master, lggr commonlogger.Logger) *orm {
+	namedLogger := commonlogger.Sugared(lggr).Named("JobORM")
 	return &orm{
 		ds:          ds,
 		keyStore:    keyStore,
@@ -1210,7 +1210,7 @@ func (o *orm) PipelineRunsByJobsIDs(ctx context.Context, ids []int32) (runs []pi
 }
 
 func (o *orm) loadPipelineRunIDs(ctx context.Context, jobID *int32, offset, limit int) (ids []int64, err error) {
-	lggr := logger.Sugared(o.lggr)
+	lggr := o.lggr
 
 	var res sql.NullInt64
 	if err = o.ds.GetContext(ctx, &res, "SELECT MAX(id) FROM pipeline_runs"); err != nil {
@@ -1296,7 +1296,7 @@ func (o *orm) FindTaskResultByRunIDAndTaskName(ctx context.Context, runID int64,
 	}
 	resBytes, errB := taskRun.Output.MarshalJSON()
 	if errB != nil {
-		return
+		return nil, errB
 	}
 	result = resBytes
 
@@ -1423,7 +1423,7 @@ func (o *orm) loadPipelineRunsRelations(ctx context.Context, runs []pipeline.Run
 			specM[run.PipelineSpecID] = pipeline.Spec{}
 		}
 	}
-	specIDs := make([]int32, len(specM))
+	specIDs := make([]int32, 0, len(specM))
 	for specID := range specM {
 		specIDs = append(specIDs, specID)
 	}

@@ -16,9 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
-type LLOOnchainKeyring ocr3types.OnchainKeyring[llotypes.ReportInfo]
+type OnchainKeyring ocr3types.OnchainKeyring[llotypes.ReportInfo]
 
-var _ LLOOnchainKeyring = &onchainKeyring{}
+var _ OnchainKeyring = &onchainKeyring{}
 
 type Key interface {
 	// Legacy Sign/Verify methods needed for v0.3 report compatibility
@@ -40,7 +40,7 @@ type onchainKeyring struct {
 	donID uint32
 }
 
-func NewOnchainKeyring(lggr logger.Logger, keys map[llotypes.ReportFormat]Key, donID uint32) LLOOnchainKeyring {
+func NewOnchainKeyring(lggr logger.Logger, keys map[llotypes.ReportFormat]Key, donID uint32) OnchainKeyring {
 	return &onchainKeyring{
 		logger.Sugared(lggr).Named("OnchainKeyring"), keys, donID,
 	}

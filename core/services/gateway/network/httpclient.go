@@ -62,8 +62,8 @@ type HTTPClientConfig struct {
 // A field in override is only applied when it holds a non-zero value, so the
 // static base config supplies defaults that the dynamic config can selectively
 // override.
-func (c HTTPClientConfig) merge(override HTTPClientConfig) HTTPClientConfig {
-	merged := c
+func (c *HTTPClientConfig) merge(override HTTPClientConfig) HTTPClientConfig {
+	merged := *c
 	if override.MaxResponseBytes != 0 {
 		merged.MaxResponseBytes = override.MaxResponseBytes
 	}

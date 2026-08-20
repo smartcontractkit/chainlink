@@ -46,7 +46,7 @@ type NodePresenter struct {
 }
 
 // ToRow presents the EVMNodeResource as a slice of strings.
-func (p *NodePresenter) ToRow() []string {
+func (p NodePresenter) ToRow() []string {
 	return []string{p.Name, p.ChainID, p.State, p.Config}
 }
 

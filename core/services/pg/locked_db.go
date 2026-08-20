@@ -9,10 +9,10 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
@@ -35,19 +35,19 @@ type lockedDb struct {
 	appID         uuid.UUID
 	cfg           LockedDBConfig
 	lockCfg       config.Lock
-	lggr          logger.Logger
+	lggr          common.Logger
 	db            *sqlx.DB
 	leaseLock     LeaseLock
 	statsReporter *StatsReporter
 }
 
 // NewLockedDB creates a new instance of LockedDB.
-func NewLockedDB(appID uuid.UUID, cfg LockedDBConfig, lockCfg config.Lock, lggr logger.Logger) LockedDB {
+func NewLockedDB(appID uuid.UUID, cfg LockedDBConfig, lockCfg config.Lock, lggr common.Logger) LockedDB {
 	return &lockedDb{
 		appID:   appID,
 		cfg:     cfg,
 		lockCfg: lockCfg,
-		lggr:    lggr.Named("LockedDB"),
+		lggr:    common.Named(lggr, "LockedDB"),
 	}
 }
 

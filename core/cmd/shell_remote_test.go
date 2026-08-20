@@ -312,7 +312,7 @@ func TestShell_RemoteBuildCompatibility(t *testing.T) {
 	remoteVersion, remoteSha := "test"+static.Version, "abcd"+static.Sha
 	client.HTTP = &mockHTTPClient{client.HTTP, remoteVersion, remoteSha}
 
-	expErr := cmd.ErrIncompatible{
+	expErr := cmd.IncompatibleError{
 		CLIVersion:    static.Version,
 		CLISha:        static.Sha,
 		RemoteVersion: remoteVersion,
@@ -367,7 +367,7 @@ func TestShell_CheckRemoteBuildCompatibility(t *testing.T) {
 			err := client.CheckRemoteBuildCompatibility(logger.TestLogger(t), test.bypassVersionFlag, test.cliVersion, test.cliSha)
 			if test.wantError {
 				require.Error(t, err)
-				assert.ErrorIs(t, err, cmd.ErrIncompatible{
+				assert.ErrorIs(t, err, cmd.IncompatibleError{
 					RemoteVersion: test.remoteVersion,
 					RemoteSha:     test.remoteSha,
 					CLIVersion:    test.cliVersion,

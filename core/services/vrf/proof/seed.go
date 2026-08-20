@@ -60,17 +60,17 @@ type PreSeedDataV2Plus struct {
 // given the pre-seed and the hash of the block in which the VRFCoordinator
 // emitted the log for the request this is responding to.
 func FinalSeed(s PreSeedData) (finalSeed *big.Int) {
-	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...) //nolint:gocritic // intentional concat of array slice + hash bytes into a new slice
 	return utils.MustHash(string(seedHashMsg)).Big()
 }
 
 func FinalSeedV2(s PreSeedDataV2) (finalSeed *big.Int) {
-	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...) //nolint:gocritic // intentional concat of array slice + hash bytes into a new slice
 	return utils.MustHash(string(seedHashMsg)).Big()
 }
 
 func FinalSeedV2Plus(s PreSeedDataV2Plus) (finalSeed *big.Int) {
-	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...) //nolint:gocritic // intentional concat of array slice + hash bytes into a new slice
 	return utils.MustHash(string(seedHashMsg)).Big()
 }
 
@@ -82,7 +82,7 @@ func TestXXXSeedData(t *testing.T, preSeed *big.Int, blockHash common.Hash, bloc
 	}
 	return PreSeedData{
 		PreSeed:   seedAsSeed,
-		BlockNum:  uint64(blockNum),
+		BlockNum:  uint64(blockNum), //nolint:gosec // G115: guarded above by the negative blockNum check
 		BlockHash: blockHash,
 	}
 }

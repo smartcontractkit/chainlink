@@ -15,7 +15,7 @@ func TestUtils_TomlFloat32_Success_Decimal(t *testing.T) {
 	err := tomlF32.UnmarshalText([]byte("0.23"))
 
 	require.NoError(t, err)
-	assert.Equal(t, tomlF32, Float32(0.23))
+	assert.InEpsilon(t, float32(0.23), float32(tomlF32), 1e-9)
 }
 
 func TestUtils_TomlFloat32_Success_Integer(t *testing.T) {
@@ -26,7 +26,7 @@ func TestUtils_TomlFloat32_Success_Integer(t *testing.T) {
 	err := tomlF32.UnmarshalText([]byte("13"))
 
 	require.NoError(t, err)
-	assert.Equal(t, tomlF32, Float32(13))
+	assert.InEpsilon(t, float32(13), float32(tomlF32), 1e-9)
 }
 
 func TestUtils_TomlFloat32_Failure(t *testing.T) {
@@ -47,7 +47,7 @@ func TestUtils_TomlFloat64_Success_Decimal(t *testing.T) {
 	err := tomlF64.UnmarshalText([]byte("2.82"))
 
 	require.NoError(t, err)
-	assert.Equal(t, tomlF64, Float64(2.82))
+	assert.InEpsilon(t, float64(2.82), float64(tomlF64), 1e-9)
 }
 
 func TestUtils_TomlFloat64_Success_Integer(t *testing.T) {
@@ -58,7 +58,7 @@ func TestUtils_TomlFloat64_Success_Integer(t *testing.T) {
 	err := tomlF64.UnmarshalText([]byte("3"))
 
 	require.NoError(t, err)
-	assert.Equal(t, tomlF64, Float64(3))
+	assert.InEpsilon(t, float64(3), float64(tomlF64), 1e-9)
 }
 
 func TestUtils_TomlFloat64_Failure(t *testing.T) {

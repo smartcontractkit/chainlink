@@ -38,6 +38,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/promutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -90,7 +91,7 @@ func metricViews() []sdkmetric.View {
 	)
 }
 
-func initGlobals(cfgProm config.Prometheus, cfgTelemetry config.Telemetry, cfgTracing config.Tracing, lggr logger.Logger, beholderClient *beholder.Client) error {
+func initGlobals(cfgProm config.Prometheus, cfgTelemetry config.Telemetry, cfgTracing config.Tracing, lggr common.Logger, beholderClient *beholder.Client) error {
 	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
 	var err error
 	initGlobalsOnce.Do(func() {
@@ -116,7 +117,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTelemetry config.Telemetry, cfgTr
 	return err
 }
 
-func tracingConfig(cfgTracing config.Tracing, lggr logger.Logger) loop.TracingConfig {
+func tracingConfig(cfgTracing config.Tracing, lggr common.Logger) loop.TracingConfig {
 	return loop.TracingConfig{
 		Enabled:         cfgTracing.Enabled(),
 		CollectorTarget: cfgTracing.CollectorTarget(),
@@ -130,7 +131,7 @@ func tracingConfig(cfgTracing config.Tracing, lggr logger.Logger) loop.TracingCo
 // newBeholderClient builds a Beholder client from tracing/telemetry config
 // and sets the CSA signer used for auth header refresh.
 func newBeholderClient(
-	lggr logger.Logger,
+	lggr common.Logger,
 	keyStore keystore.Master,
 	cfgTracing config.Tracing,
 	cfgTelemetry config.Telemetry,
@@ -218,7 +219,7 @@ var ErrNoAPICredentialsAvailable = errors.New("API credentials must be supplied"
 type Shell struct {
 	Renderer
 	Config                         chainlink.GeneralConfig // initialized in Before
-	Logger                         logger.Logger           // initialized in Before
+	Logger                         logger.Logger           //nolint:staticcheck // legacy logger.Logger required by out-of-scope APIs (pg.NewLockedDB, AppFactory)
 	Registerer                     prometheus.Registerer   // initialized in Before
 	CloseLogger                    func() error            // called in After
 	SetOtelCore                    func(zapcore.Core)      // reference to UpdatableCore.Update
@@ -267,14 +268,14 @@ func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 
 // AppFactory implements the NewApplication method.
 type AppFactory interface {
-	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, ds sqlutil.DataSource, keyStore keystore.Master) (chainlink.Application, error)
+	NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, ds sqlutil.DataSource, keyStore keystore.Master) (chainlink.Application, error) //nolint:staticcheck // signature must match out-of-scope cltest.InstanceAppFactory
 }
 
 // ChainlinkAppFactory is used to create a new Application.
 type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
-func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, ds sqlutil.DataSource, keyStore keystore.Master) (app chainlink.Application, err error) {
+func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, ds sqlutil.DataSource, keyStore keystore.Master) (app chainlink.Application, err error) { //nolint:staticcheck // feeds chainlink.ApplicationOpts.Logger (deprecated type)
 	err = migrate.SetMigrationENVVars(cfg.EVMConfigs())
 	if err != nil {
 		return nil, err
@@ -332,7 +333,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 }
 
 // handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration
-func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database, healthReportPort uint16) error {
+func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database, healthReportPort uint16) error { //nolint:staticcheck // feeds versioning/health services that still use deprecated logger.Logger
 	var err error
 	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr)
@@ -362,6 +363,7 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 		backupCfg := cfg.Backup()
 		if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.OnVersionUpgrade() {
 			if err = takeBackupIfVersionUpgrade(cfg.URL(), rootDir, cfg.Backup(), appLggr, appv, dbv, healthReportPort); err != nil {
+				//nolint:gocritic // errors.Is/strings.Contains chain, not a switch candidate
 				if errors.Is(err, sql.ErrNoRows) {
 					appLggr.Debugf("Failed to find any node version in the DB: %v", err)
 				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
@@ -390,7 +392,7 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 	return nil
 }
 
-func takeBackupIfVersionUpgrade(dbURL url.URL, rootDir string, cfg periodicbackup.BackupConfig, lggr logger.Logger, appv, dbv *semver.Version, healthReportPort uint16) (err error) {
+func takeBackupIfVersionUpgrade(dbURL url.URL, rootDir string, cfg periodicbackup.BackupConfig, lggr logger.Logger, appv, dbv *semver.Version, healthReportPort uint16) (err error) { //nolint:staticcheck // feeds periodicbackup.NewDatabaseBackup (deprecated logger.Logger)
 	if appv == nil {
 		lggr.Debug("Application version is missing, skipping automatic DB backup.")
 		return nil
@@ -519,7 +521,7 @@ func sentryInit(cfg config.Sentry) error {
 	})
 }
 
-func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, timeout time.Duration, runServer func() error) {
+func tryRunServerUntilCancelled(ctx context.Context, lggr logger.Logger, timeout time.Duration, runServer func() error) { //nolint:staticcheck // requires lggr.Criticalf (sugar) from app.GetLogger()
 	for {
 		// try calling runServer() and log error if any
 		if err := runServer(); err != nil {
@@ -541,7 +543,7 @@ type server struct {
 	httpServer *http.Server
 	tlsServer  *http.Server
 	handler    *gin.Engine
-	lggr       logger.Logger
+	lggr       common.Logger
 }
 
 func (s *server) runFn(ip net.IP, port uint16, writeTimeout time.Duration) func() error {
@@ -594,7 +596,7 @@ type authenticatedHTTPClient struct {
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(lggr logger.Logger, clientOpts ClientOpts, cookieAuth CookieAuthenticator, sessionRequest sessions.SessionRequest) HTTPClient {
+func NewAuthenticatedHTTPClient(lggr common.Logger, clientOpts ClientOpts, cookieAuth CookieAuthenticator, sessionRequest sessions.SessionRequest) HTTPClient {
 	return &authenticatedHTTPClient{
 		client:         newHTTPClient(lggr, clientOpts.InsecureSkipVerify),
 		cookieAuth:     cookieAuth,
@@ -603,7 +605,7 @@ func NewAuthenticatedHTTPClient(lggr logger.Logger, clientOpts ClientOpts, cooki
 	}
 }
 
-func newHTTPClient(lggr logger.Logger, insecureSkipVerify bool) *http.Client {
+func newHTTPClient(lggr common.Logger, insecureSkipVerify bool) *http.Client {
 	tr := &http.Transport{
 		// User enables this at their own risk!
 		// #nosec G402
@@ -702,13 +704,13 @@ type ClientOpts struct {
 type SessionCookieAuthenticator struct {
 	config ClientOpts
 	store  CookieStore
-	lggr   logger.SugaredLogger
+	lggr   common.SugaredLogger
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(config ClientOpts, store CookieStore, lggr logger.Logger) CookieAuthenticator {
-	return &SessionCookieAuthenticator{config: config, store: store, lggr: logger.Sugared(lggr)}
+func NewSessionCookieAuthenticator(config ClientOpts, store CookieStore, lggr common.Logger) CookieAuthenticator {
+	return &SessionCookieAuthenticator{config: config, store: store, lggr: common.Sugared(lggr)}
 }
 
 // Cookie Returns the previously saved authentication cookie.
@@ -719,7 +721,7 @@ func (t *SessionCookieAuthenticator) Cookie() (*http.Cookie, error) {
 // Authenticate retrieves a session ID via a cookie and saves it to disk.
 func (t *SessionCookieAuthenticator) Authenticate(ctx context.Context, sessionRequest sessions.SessionRequest) (*http.Cookie, error) {
 	b := new(bytes.Buffer)
-	err := json.NewEncoder(b).Encode(sessionRequest)
+	err := json.NewEncoder(b).Encode(sessionRequest) //nolint:gosec // SessionRequest.Password is the login payload, not a leaked secret
 	if err != nil {
 		return nil, err
 	}
@@ -731,7 +733,7 @@ func (t *SessionCookieAuthenticator) Authenticate(ctx context.Context, sessionRe
 	req.Header.Set("Content-Type", "application/json")
 
 	client := newHTTPClient(t.lggr, t.config.InsecureSkipVerify)
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:bodyclose // closed via defer t.lggr.ErrorIfFn below
 	if err != nil {
 		return nil, err
 	}
@@ -795,7 +797,7 @@ type DiskCookieStore struct {
 
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
-	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0o600)
+	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0o600) //nolint:gosec // cookiePath derives from trusted config RootDir, not user input
 }
 
 // Removes any stored cookie.
@@ -829,11 +831,11 @@ func (d DiskCookieStore) cookiePath() string {
 
 type UserCache struct {
 	dir        string
-	lggr       func() logger.Logger // func b/c we don't have the final logger at construction time
+	lggr       func() common.Logger // func b/c we don't have the final logger at construction time
 	ensureOnce sync.Once
 }
 
-func NewUserCache(subdir string, lggr func() logger.Logger) (*UserCache, error) {
+func NewUserCache(subdir string, lggr func() common.Logger) (*UserCache, error) {
 	cd, err := os.UserCacheDir()
 	if err != nil {
 		return nil, err
@@ -876,11 +878,11 @@ func (p promptingSessionRequestBuilder) Build(string) (sessions.SessionRequest, 
 }
 
 type fileSessionRequestBuilder struct {
-	lggr logger.Logger
+	lggr logger.Logger //nolint:staticcheck // sugar usage (With) requires deprecated logger.Logger
 }
 
 // NewFileSessionRequestBuilder pulls credentials from a file to generate a SessionRequest.
-func NewFileSessionRequestBuilder(lggr logger.Logger) SessionRequestBuilder {
+func NewFileSessionRequestBuilder(lggr logger.Logger) SessionRequestBuilder { //nolint:staticcheck // sugar usage (With) requires deprecated logger.Logger
 	return &fileSessionRequestBuilder{lggr: lggr}
 }
 
@@ -892,7 +894,7 @@ func (f *fileSessionRequestBuilder) Build(file string) (sessions.SessionRequest,
 // needed to access the API. Does nothing if API user already exists.
 type APIInitializer interface {
 	// Initialize creates a new local Admin user for API access, or does nothing if one exists.
-	Initialize(ctx context.Context, orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error)
+	Initialize(ctx context.Context, orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) //nolint:staticcheck // signature must match out-of-scope cltest.MockAPIInitializer
 }
 
 type promptingAPIInitializer struct {
@@ -906,7 +908,7 @@ func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
 }
 
 // Initialize uses the terminal to get credentials that it then saves in the store.
-func (t *promptingAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
+func (t *promptingAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) { //nolint:staticcheck // matches APIInitializer interface (deprecated type)
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers(ctx)
 	if err != nil {
@@ -959,7 +961,7 @@ func NewFileAPIInitializer(file string) APIInitializer {
 	return fileAPIInitializer{file: file}
 }
 
-func (f fileAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
+func (f fileAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) { //nolint:staticcheck // matches APIInitializer interface (deprecated type)
 	request, err := credentialsFromFile(f.file, lggr)
 	if err != nil {
 		return sessions.User{}, err
@@ -993,7 +995,7 @@ func (f fileAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAd
 	return user, nil
 }
 
-func attemptAssumeAdminUser(users []sessions.User, lggr logger.Logger) (sessions.User, bool) {
+func attemptAssumeAdminUser(users []sessions.User, lggr common.Logger) (sessions.User, bool) {
 	if len(users) == 0 {
 		return sessions.User{}, false
 	}
@@ -1029,7 +1031,7 @@ func attemptAssumeAdminUser(users []sessions.User, lggr logger.Logger) (sessions
 
 var ErrNoCredentialFile = errors.New("no API user credential file was passed")
 
-func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionRequest, error) {
+func credentialsFromFile(file string, lggr common.Logger) (sessions.SessionRequest, error) {
 	if len(file) == 0 {
 		return sessions.SessionRequest{}, ErrNoCredentialFile
 	}

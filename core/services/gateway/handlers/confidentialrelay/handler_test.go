@@ -216,13 +216,13 @@ func TestConfidentialRelayHandler_ForwardsBundleAtQuorum(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.NotNil(t, jsonResp.Result)
 		var bundle relaytypes.SignedCapabilityResponseBundle
-		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle)) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Len(t, bundle.Responses, 3, "the gateway forwards every collected signed response")
 	})
 
@@ -461,7 +461,7 @@ func TestConfidentialRelayHandler_ForwardsAllDivergentResponses(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
 		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
@@ -500,7 +500,7 @@ func TestConfidentialRelayHandler_BundlerErrorReturnsFatal(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 	})
 
@@ -573,7 +573,7 @@ func TestConfidentialRelayHandler_TimeoutBelowQuorumFloorReturnsTimeout(t *testi
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.RequestTimeoutError, resp.ErrorCode)
 	})
 
@@ -603,7 +603,7 @@ func TestConfidentialRelayHandler_TimeoutNoResponses(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.RequestTimeoutError, resp.ErrorCode)
 	})
 
@@ -907,11 +907,11 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
 		err = json.Unmarshal(resp.RawResponse, &jsonResp)
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Contains(t, jsonResp.Error.Message, "failed to forward user request to nodes")
 	})
 
@@ -976,11 +976,11 @@ func TestConfidentialRelayHandler_FanOutFailsWhenQuorumBecomesImpossible(t *test
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
 		err = json.Unmarshal(resp.RawResponse, &jsonResp)
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Contains(t, jsonResp.Error.Message, "failed to forward user request to nodes")
 	})
 

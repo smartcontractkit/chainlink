@@ -17,8 +17,8 @@ import (
 func Test_diff(t *testing.T) {
 	type args struct {
 		capabilityID string
-		oldState     registrysyncer.LocalRegistry
-		newState     registrysyncer.LocalRegistry
+		oldState     *registrysyncer.LocalRegistry
+		newState     *registrysyncer.LocalRegistry
 	}
 	tests := []struct {
 		name    string
@@ -30,7 +30,7 @@ func Test_diff(t *testing.T) {
 			name: "no diff",
 			args: args{
 				capabilityID: defaultCapability.ID,
-				oldState: registrysyncer.LocalRegistry{
+				oldState: &registrysyncer.LocalRegistry{
 					IDsToCapabilities: map[string]registrysyncer.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
@@ -39,7 +39,7 @@ func Test_diff(t *testing.T) {
 					},
 					IDsToNodes: map[types.PeerID]registrysyncer.NodeInfo{},
 				},
-				newState: registrysyncer.LocalRegistry{
+				newState: &registrysyncer.LocalRegistry{
 					IDsToCapabilities: map[string]registrysyncer.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
@@ -59,12 +59,12 @@ func Test_diff(t *testing.T) {
 			"capability not present",
 			args{
 				capabilityID: defaultCapability.ID,
-				oldState: registrysyncer.LocalRegistry{
+				oldState: &registrysyncer.LocalRegistry{
 					IDsToCapabilities: map[string]registrysyncer.Capability{
 						newCapability.ID: newCapability,
 					},
 				},
-				newState: registrysyncer.LocalRegistry{
+				newState: &registrysyncer.LocalRegistry{
 					IDsToCapabilities: map[string]registrysyncer.Capability{
 						newCapability.ID: newCapability,
 					},
@@ -77,13 +77,13 @@ func Test_diff(t *testing.T) {
 			"diff present, new don",
 			args{
 				capabilityID: defaultCapability.ID,
-				oldState: registrysyncer.LocalRegistry{
+				oldState: &registrysyncer.LocalRegistry{
 					IDsToCapabilities: map[string]registrysyncer.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{},
 				},
-				newState: registrysyncer.LocalRegistry{
+				newState: &registrysyncer.LocalRegistry{
 					IDsToCapabilities: map[string]registrysyncer.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
@@ -200,7 +200,7 @@ func Test_compareDONs(t *testing.T) {
 func Test_filterCCIPDONs(t *testing.T) {
 	type args struct {
 		ccipCapability registrysyncer.Capability
-		state          registrysyncer.LocalRegistry
+		state          *registrysyncer.LocalRegistry
 	}
 	tests := []struct {
 		name    string
@@ -212,7 +212,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 			"one ccip don",
 			args{
 				ccipCapability: defaultCapability,
-				state: registrysyncer.LocalRegistry{
+				state: &registrysyncer.LocalRegistry{
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 						1: defaultRegistryDon,
 					},
@@ -227,7 +227,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 			"no ccip dons - different capability",
 			args{
 				ccipCapability: newCapability,
-				state: registrysyncer.LocalRegistry{
+				state: &registrysyncer.LocalRegistry{
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 						1: defaultRegistryDon,
 					},
@@ -240,7 +240,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 			"don with multiple capabilities, one of them ccip",
 			args{
 				ccipCapability: defaultCapability,
-				state: registrysyncer.LocalRegistry{
+				state: &registrysyncer.LocalRegistry{
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 						1: {
 							DON: getDON(1, []ragep2ptypes.PeerID{p2pID1}, 0),
@@ -280,7 +280,7 @@ func Test_filterCCIPDONs(t *testing.T) {
 func Test_checkCapabilityPresence(t *testing.T) {
 	type args struct {
 		capabilityID string
-		state        registrysyncer.LocalRegistry
+		state        *registrysyncer.LocalRegistry
 	}
 	tests := []struct {
 		name    string
@@ -292,7 +292,7 @@ func Test_checkCapabilityPresence(t *testing.T) {
 			"in registry state",
 			args{
 				capabilityID: defaultCapability.ID,
-				state: registrysyncer.LocalRegistry{
+				state: &registrysyncer.LocalRegistry{
 					IDsToCapabilities: map[string]registrysyncer.Capability{
 						defaultCapability.ID: defaultCapability,
 					},
@@ -305,7 +305,7 @@ func Test_checkCapabilityPresence(t *testing.T) {
 			"not in registry state",
 			args{
 				capabilityID: defaultCapability.ID,
-				state: registrysyncer.LocalRegistry{
+				state: &registrysyncer.LocalRegistry{
 					IDsToCapabilities: map[string]registrysyncer.Capability{
 						newCapability.ID: newCapability,
 					},

@@ -142,20 +142,20 @@ func TestLoader_FeedsManagers(t *testing.T) {
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(t.Context(), app)
 
-	mgr1 := feeds.FeedsManager{
+	mgr1 := feeds.Manager{
 		ID:   int64(1),
 		Name: "manager 1",
 	}
-	mgr2 := feeds.FeedsManager{
+	mgr2 := feeds.Manager{
 		ID:   int64(2),
 		Name: "manager 2",
 	}
-	mgr3 := feeds.FeedsManager{
+	mgr3 := feeds.Manager{
 		ID:   int64(3),
 		Name: "manager 3",
 	}
 
-	fsvc.On("ListManagersByIDs", mock.Anything, []int64{3, 1, 2, 5}).Return([]feeds.FeedsManager{
+	fsvc.On("ListManagersByIDs", mock.Anything, []int64{3, 1, 2, 5}).Return([]feeds.Manager{
 		mgr1, mgr2, mgr3,
 	}, nil)
 	app.On("GetFeedsService").Return(fsvc)

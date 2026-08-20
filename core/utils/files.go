@@ -13,6 +13,7 @@ import (
 
 // FileExists returns true if a file at the passed string exists.
 func FileExists(name string) (bool, error) {
+	//nolint:gosec // path is caller-provided, not untrusted user input
 	if _, err := os.Stat(name); err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
@@ -93,6 +94,8 @@ func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) (err error) {
 }
 
 // FileSize repesents a file size in bytes.
+//
+//nolint:recvcheck // UnmarshalText must mutate the receiver (pointer); MarshalText/String use value receiver for fmt.Stringer
 type FileSize uint64
 
 const (

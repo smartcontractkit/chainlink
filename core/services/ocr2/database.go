@@ -56,10 +56,10 @@ func (d *db) ReadState(ctx context.Context, cd ocrtypes.ConfigDigest) (ps *ocrty
 		return nil, errors.Wrap(err, "ReadState failed")
 	}
 
-	ps.HighestSentEpoch = uint32(highestSentEpochTmp)
+	ps.HighestSentEpoch = uint32(highestSentEpochTmp) //nolint:gosec // G115: epoch is a uint32 persisted as int64
 
 	for _, v := range tmp {
-		ps.HighestReceivedEpoch = append(ps.HighestReceivedEpoch, uint32(v))
+		ps.HighestReceivedEpoch = append(ps.HighestReceivedEpoch, uint32(v)) //nolint:gosec // G115: epoch is a uint32 persisted as int64
 	}
 
 	return ps, nil
@@ -309,7 +309,7 @@ func (d *db) PendingTransmissionsWithConfigDigest(ctx context.Context, cd ocrtyp
 			signer, _ := binary.Varint(signatures[index+1])
 			sig := ocrtypes.AttributedOnchainSignature{
 				Signature: signature,
-				Signer:    ocrcommon.OracleID(signer),
+				Signer:    ocrcommon.OracleID(signer), //nolint:gosec // G115: signer is an OracleID encoded as a varint
 			}
 			p.AttributedSignatures = append(p.AttributedSignatures, sig)
 		}

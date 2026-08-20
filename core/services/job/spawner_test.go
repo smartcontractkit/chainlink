@@ -313,7 +313,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		legacyChains := evmtest.NewLegacyChains(t, testopts)
 		assert.Equal(t, 1, legacyChains.Len())
-		chain := evmtest.MustGetDefaultChain(t, legacyChains)
+		chain := evmtest.MustGetDefaultChain(t, legacyChains) //nolint:staticcheck // test uses a single legacy EVM chain
 
 		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
 			DS:                   db,

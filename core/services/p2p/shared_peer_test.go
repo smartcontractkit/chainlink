@@ -74,10 +74,11 @@ func TestDon2DonSharedPeer_UpdateConnectionsByDONs(t *testing.T) {
 	sp := p2p.NewDon2DonSharedPeer(pw, nil, logger.TestLogger(t))
 	require.NoError(t, sp.Start(t.Context()))
 
-	donPairs := []p2ptypes.DonPair{{
+	donPairs := make([]p2ptypes.DonPair, 0, 2)
+	donPairs = append(donPairs, p2ptypes.DonPair{
 		{ID: 1, Members: []ragetypes.PeerID{myPeerID, peerID2}},
 		{ID: 2, Members: []ragetypes.PeerID{peerID2, peerID3}},
-	}}
+	})
 	// Adding a new DON pair
 	require.NoError(t, sp.UpdateConnectionsByDONs(t.Context(), donPairs, p2ptypes.StreamConfig{}))
 	require.Equal(t, 1, mockPGFactory.newDonGroupCounter)

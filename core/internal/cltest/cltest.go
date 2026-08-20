@@ -182,8 +182,8 @@ func FormatWithPrefixedChainID(chainID, id string) string {
 // TestApplication holds the test application and test servers
 type TestApplication struct {
 	t testing.TB
-	*chainlink.ChainlinkApplication
-	Logger             logger.Logger
+	*chainlink.Node
+	Logger             logger.Logger //nolint:staticcheck // logger.Logger required by cmd app factory/HTTP client deps
 	Server             *httptest.Server
 	Started            bool
 	Backend            *simulated.Backend
@@ -261,9 +261,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	ctx := t.Context()
 
-	var lggr logger.Logger
+	var lggr logger.Logger //nolint:staticcheck // logger.Logger required by chainlink.ApplicationOpts.Logger
 	for _, dep := range flagsAndDeps {
-		argLggr, is := dep.(logger.Logger)
+		argLggr, is := dep.(logger.Logger) //nolint:staticcheck // logger.Logger required by chainlink.ApplicationOpts.Logger
 		if is {
 			lggr = argLggr
 			break
@@ -273,9 +273,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		lggr = logger.TestLogger(t)
 	}
 
-	var auditLogger audit.AuditLogger
+	var auditLogger audit.Logger
 	for _, dep := range flagsAndDeps {
-		audLgger, is := dep.(audit.AuditLogger)
+		audLgger, is := dep.(audit.Logger)
 		if is {
 			auditLogger = audLgger
 			break
@@ -364,13 +364,13 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	// TODO BCF-2513 Stop injecting ethClient via override, instead use httptest.
 	if cfg.EVMEnabled() && env.EVMPlugin.Cmd.Get() == "" {
 		if ethClient == nil {
-			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
+			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr) //nolint:staticcheck // test-only legacy helper
 		}
 		chainID := ethClient.ConfiguredChainID()
 		evmFactoryConfigFn = func(fc *chainlink.EVMFactoryConfig) {
 			fc.GenEthClient = func(_ *big.Int) evmclient.Client {
-				if chainID.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
-					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainID, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+				if chainID.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 { //nolint:staticcheck // test-only legacy helper
+					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainID, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) //nolint:staticcheck // test-only legacy helper
 				}
 				return ethClient
 			}
@@ -422,11 +422,11 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	})
 
 	require.NoError(t, err)
-	app := appInstance.(*chainlink.ChainlinkApplication)
+	app := appInstance.(*chainlink.Node)
 	ta := &TestApplication{
-		t:                    t,
-		ChainlinkApplication: app,
-		Logger:               lggr,
+		t:      t,
+		Node:   app,
+		Logger: lggr,
 	}
 	for _, dep := range flagsAndDeps {
 		if k, ok := dep.(ethkey.KeyV2); ok {
@@ -446,79 +446,79 @@ func logPubKeys(t testing.TB, kr keystore.Master) {
 	ctx := t.Context()
 	csas, err := kr.CSA().GetAll()
 	require.NoError(t, err)
-	csaIDs := make([]string, len(csas))
+	csaIDs := make([]string, 0, len(csas))
 	for _, CSAKey := range csas {
 		csaIDs = append(csaIDs, CSAKey.ID())
 	}
 	eths, err := kr.Eth().GetAll(ctx)
 	require.NoError(t, err)
-	ethIDs := make([]string, len(eths))
+	ethIDs := make([]string, 0, len(eths))
 	for _, ETHKey := range eths {
 		ethIDs = append(ethIDs, ETHKey.ID())
 	}
 	ocrs, err := kr.OCR().GetAll()
 	require.NoError(t, err)
-	ocrIDs := make([]string, len(ocrs))
+	ocrIDs := make([]string, 0, len(ocrs))
 	for _, OCRKey := range ocrs {
 		ocrIDs = append(ocrIDs, OCRKey.ID())
 	}
 	ocr2s, err := kr.OCR2().GetAll()
 	require.NoError(t, err)
-	ocr2IDs := make([]string, len(ocr2s))
+	ocr2IDs := make([]string, 0, len(ocr2s))
 	for _, OCR2Key := range ocr2s {
 		ocr2IDs = append(ocr2IDs, OCR2Key.ID())
 	}
 	p2ps, err := kr.P2P().GetAll()
 	require.NoError(t, err)
-	p2pIDs := make([]string, len(p2ps))
+	p2pIDs := make([]string, 0, len(p2ps))
 	for _, P2PKey := range p2ps {
 		p2pIDs = append(p2pIDs, P2PKey.ID())
 	}
 	cosmos, err := kr.Cosmos().GetAll()
 	require.NoError(t, err)
-	cosmosIDs := make([]string, len(cosmos))
+	cosmosIDs := make([]string, 0, len(cosmos))
 	for _, cosmosKey := range cosmos {
 		cosmosIDs = append(cosmosIDs, cosmosKey.ID())
 	}
 	solanas, err := kr.Solana().GetAll()
 	require.NoError(t, err)
-	solanaIDs := make([]string, len(solanas))
+	solanaIDs := make([]string, 0, len(solanas))
 	for _, solanaKey := range solanas {
 		solanaIDs = append(solanaIDs, solanaKey.ID())
 	}
 	starknets, err := kr.StarkNet().GetAll()
 	require.NoError(t, err)
-	starknetIDs := make([]string, len(starknets))
+	starknetIDs := make([]string, 0, len(starknets))
 	for _, starkkey := range starknets {
 		starknetIDs = append(starknetIDs, starkkey.ID())
 	}
 	aptoses, err := kr.Aptos().GetAll()
 	require.NoError(t, err)
-	aptosIDs := make([]string, len(aptoses))
+	aptosIDs := make([]string, 0, len(aptoses))
 	for _, aptosKey := range aptoses {
 		aptosIDs = append(aptosIDs, aptosKey.ID())
 	}
 	trons, err := kr.Tron().GetAll()
 	require.NoError(t, err)
-	tronIDs := make([]string, len(trons))
+	tronIDs := make([]string, 0, len(trons))
 	for _, tronKey := range trons {
 		tronIDs = append(tronIDs, tronKey.ID())
 	}
 	tons, err := kr.TON().GetAll()
 	require.NoError(t, err)
-	tonIDs := make([]string, len(tons))
+	tonIDs := make([]string, 0, len(tons))
 	for _, tonKey := range tons {
 		tonIDs = append(tonIDs, tonKey.ID())
 	}
 	suies, err := kr.Sui().GetAll()
 	require.NoError(t, err)
-	suiIDs := make([]string, len(suies))
+	suiIDs := make([]string, 0, len(suies))
 	for _, suiKey := range suies {
 		suiIDs = append(suiIDs, suiKey.ID())
 	}
 	vrfs, err := kr.VRF().GetAll()
 	require.NoError(t, err)
-	vrfIDs := make([]string, len(vrfs))
+	vrfIDs := make([]string, 0, len(vrfs))
 	for _, VRFKey := range vrfs {
 		vrfIDs = append(vrfIDs, VRFKey.ID())
 	}
@@ -664,7 +664,7 @@ func (ta *TestApplication) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = ta.ChainlinkApplication.Start(ctx)
+	err = ta.Node.Start(ctx)
 	if err != nil {
 		return err
 	}
@@ -760,7 +760,7 @@ func (ta *TestApplication) NewShellAndRenderer() (*cmd.Shell, *RendererMock) {
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
-		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
+		AppFactory:                     seededAppFactory{ta.Node},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
 		HTTP:                           hc.HTTPClient,
@@ -779,7 +779,7 @@ func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Sh
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
-		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
+		AppFactory:                     seededAppFactory{ta.Node},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
 		HTTP:                           cmd.NewAuthenticatedHTTPClient(ta.Logger, ta.NewClientOpts(), cookieAuth, clsessions.SessionRequest{}),
@@ -913,7 +913,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job
 	t.Helper()
 
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request)) //nolint:bodyclose // body closed via deferred cleanup()
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
@@ -926,7 +926,7 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 	t.Helper()
 
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
+	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec)) //nolint:bodyclose // body closed via deferred cleanup()
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
 
@@ -939,7 +939,7 @@ func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 	t.Helper()
 
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID))
+	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID)) //nolint:bodyclose // body closed via deferred cleanup()
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusNoContent)
 }
@@ -962,7 +962,7 @@ func CreateJobRunViaUserByID(
 
 	bodyBuf := bytes.NewBufferString(body)
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post("/v2/jobs/"+strconv.Itoa(int(jobID))+"/runs", bodyBuf)
+	resp, cleanup := client.Post("/v2/jobs/"+strconv.Itoa(int(jobID))+"/runs", bodyBuf) //nolint:bodyclose // body closed via deferred cleanup()
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
 	var pr webpresenters.PipelineRunResource
@@ -980,7 +980,7 @@ func CreateExternalInitiatorViaWeb(
 	t.Helper()
 
 	client := app.NewHTTPClient(nil)
-	resp, cleanup := client.Post("/v2/external_initiators", bytes.NewBufferString(payload))
+	resp, cleanup := client.Post("/v2/external_initiators", bytes.NewBufferString(payload)) //nolint:bodyclose // body closed via deferred cleanup()
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusCreated)
 	ei := &webpresenters.ExternalInitiatorAuthentication{}
@@ -1335,7 +1335,7 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *clie
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("SubscribeToHeads", mock.Anything).Return(make(<-chan *evmtypes.Head), sub, nil).Maybe()
-	ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, app.GetConfig().EVMConfigs()), nil)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, app.GetConfig().EVMConfigs()), nil) //nolint:staticcheck // test-only legacy helper
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	ethClient.On("Close").Return().Maybe()

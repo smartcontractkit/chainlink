@@ -510,7 +510,7 @@ func (s *Shell) checkRemoteBuildCompatibility(lggr logger.Logger, onlyWarn bool,
 		if err2 := s.CookieAuthenticator.Logout(); err2 != nil {
 			s.Logger.Debugw("CookieAuthenticator failed to logout", "err", err2)
 		}
-		return ErrIncompatible{CLIVersion: cliVersion, CLISha: cliSha, RemoteVersion: remoteVersion, RemoteSha: remoteSha}
+		return IncompatibleError{CLIVersion: cliVersion, CLISha: cliSha, RemoteVersion: remoteVersion, RemoteSha: remoteSha}
 	}
 	return nil
 }
@@ -537,12 +537,12 @@ func (s *Shell) Health(c *cli.Context) error {
 	return nil
 }
 
-// ErrIncompatible is returned when the cli and remote versions are not compatible.
-type ErrIncompatible struct {
+// IncompatibleError is returned when the cli and remote versions are not compatible.
+type IncompatibleError struct {
 	CLIVersion, CLISha       string
 	RemoteVersion, RemoteSha string
 }
 
-func (e ErrIncompatible) Error() string {
+func (e IncompatibleError) Error() string {
 	return fmt.Sprintf("error: CLI build (%s@%s) mismatches remote node build (%s@%s). You can set flag --bypass-version-check to bypass this", e.CLIVersion, e.CLISha, e.RemoteVersion, e.RemoteSha)
 }

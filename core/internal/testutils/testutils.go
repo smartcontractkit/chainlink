@@ -123,6 +123,7 @@ func WaitTimeoutCustom(t *testing.T, requested time.Duration) time.Duration {
 //
 // Deprecated: use [testing.TB.Context] directly
 //
+//nolint:gocheckcompilerdirectives // go:fix is a valid Go directive not yet recognized by golangci-lint
 //go:fix inline
 func Context(tb testing.TB) context.Context {
 	return tb.Context()

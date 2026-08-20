@@ -25,7 +25,7 @@ func (p CosmosKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *CosmosKeyPresenter) ToRow() []string {
+func (p CosmosKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.PubKey,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -431,7 +432,11 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			bp = obs.BenchmarkPrice.Val
 		}
 		if obs.MarketStatus.Err == nil {
-			marketStatus = telem.MarketStatus(obs.MarketStatus.Val)
+			if obs.MarketStatus.Val > math.MaxInt32 {
+				marketStatus = telem.MarketStatus_UNKNOWN
+			} else {
+				marketStatus = telem.MarketStatus(obs.MarketStatus.Val)
+			}
 		}
 	}
 

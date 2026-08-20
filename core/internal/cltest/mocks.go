@@ -91,7 +91,7 @@ type InstanceAppFactory struct {
 }
 
 // NewApplication creates a new application with specified config
-func (f InstanceAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, prometheus.Registerer, sqlutil.DataSource, keystore.Master) (chainlink.Application, error) {
+func (f InstanceAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, prometheus.Registerer, sqlutil.DataSource, keystore.Master) (chainlink.Application, error) { //nolint:staticcheck // logger.Logger required by cmd.AppFactory interface
 	return f.App, nil
 }
 
@@ -99,7 +99,7 @@ type seededAppFactory struct {
 	Application chainlink.Application
 }
 
-func (s seededAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, prometheus.Registerer, sqlutil.DataSource, keystore.Master) (chainlink.Application, error) {
+func (s seededAppFactory) NewApplication(context.Context, chainlink.GeneralConfig, logger.Logger, prometheus.Registerer, sqlutil.DataSource, keystore.Master) (chainlink.Application, error) { //nolint:staticcheck // logger.Logger required by cmd.AppFactory interface
 	return noopStopApplication{s.Application}, nil
 }
 
@@ -321,16 +321,16 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 	return &MockAPIInitializer{t: t}
 }
 
-func (m *MockAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
+func (m *MockAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAdminUsersORM, lggr logger.Logger) (sessions.User, error) { //nolint:staticcheck // logger.Logger required by cmd.APIInitializer interface
 	if user, err := orm.FindUser(ctx, APIEmailAdmin); err == nil {
-		return user, err
+		return user, nil
 	}
 	m.Count++
 	user := MustRandomUser(m.t)
 	return user, orm.CreateUser(ctx, &user)
 }
 
-func NewMockAuthenticatedHTTPClient(lggr logger.Logger, cfg cmd.ClientOpts, sessionID string) cmd.HTTPClient {
+func NewMockAuthenticatedHTTPClient(lggr logger.Logger, cfg cmd.ClientOpts, sessionID string) cmd.HTTPClient { //nolint:staticcheck // logger.Logger required by cmd.NewAuthenticatedHTTPClient
 	return cmd.NewAuthenticatedHTTPClient(lggr, cfg, MockCookieAuthenticator{SessionID: sessionID}, sessions.SessionRequest{})
 }
 

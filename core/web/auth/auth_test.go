@@ -26,7 +26,7 @@ func authError(*gin.Context, webauth.Authenticator) error {
 }
 
 func authFailure(*gin.Context, webauth.Authenticator) error {
-	return auth.ErrorAuthFailed
+	return auth.ErrAuthFailed
 }
 
 func authSuccess(*gin.Context, webauth.Authenticator) error {
@@ -88,7 +88,7 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 
 func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 	t.Parallel()
-	authr := userFindFailer{err: auth.ErrorAuthFailed}
+	authr := userFindFailer{err: auth.ErrAuthFailed}
 
 	called := false
 	router := gin.New()

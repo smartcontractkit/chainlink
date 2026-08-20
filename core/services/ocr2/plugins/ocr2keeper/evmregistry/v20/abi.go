@@ -33,9 +33,9 @@ func NewEvmRegistryPackerV2_0(abi abi.ABI) *evmRegistryPackerV2_0 {
 	return &evmRegistryPackerV2_0{abi: abi}
 }
 
-func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult20, error) {
+func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (AutomationUpkeepResult20, error) {
 	var (
-		result EVMAutomationUpkeepResult20
+		result AutomationUpkeepResult20
 	)
 
 	b, err := hexutil.Decode(raw)
@@ -53,7 +53,7 @@ func (rp *evmRegistryPackerV2_0) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 		return result, err
 	}
 
-	result = EVMAutomationUpkeepResult20{
+	result = AutomationUpkeepResult20{
 		Block:    uint32(block.Uint64()), //nolint:gosec // G115
 		ID:       id,
 		Eligible: true,
@@ -141,7 +141,7 @@ func (rp *evmRegistryPackerV2_0) UnpackUpkeepResult(id *big.Int, raw string) (ac
 
 func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
 	var (
-		enc     = EVMAutomationEncoder20{}
+		enc     = AutomationEncoder20{}
 		decoded []ocr2keepers.UpkeepResult
 		out     []any
 		err     error

@@ -25,7 +25,7 @@ func (p SolanaKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *SolanaKeyPresenter) ToRow() []string {
+func (p SolanaKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.PubKey,

@@ -45,7 +45,7 @@ type dynamicConfig struct {
 	localDONInfo         commoncap.DON
 	requestTimeout       time.Duration
 	// Has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
-	transmissionConfig *transmission.TransmissionConfig
+	transmissionConfig *transmission.Config
 	// Has to be set only for V2 capabilities using OCR.
 	signers [][]byte
 	// minResponsesToAggregate overrides the default F+1 matching threshold for read consensus.
@@ -56,7 +56,7 @@ type dynamicConfig struct {
 type Client interface {
 	commoncap.ExecutableCapability
 	Receive(ctx context.Context, msg *types.MessageBody)
-	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, signers [][]byte, minResponsesToAggregate uint32) error
+	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.Config, signers [][]byte, minResponsesToAggregate uint32) error
 }
 
 var _ Client = &client{}
@@ -82,8 +82,8 @@ func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispa
 }
 
 // SetConfig sets the remote capability configuration dynamically
-// TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
-func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, signers [][]byte, minResponsesToAggregate uint32) error {
+// Config has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
+func (c *client) SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.Config, signers [][]byte, minResponsesToAggregate uint32) error {
 	if remoteCapabilityInfo.ID == "" || remoteCapabilityInfo.ID != c.capabilityID {
 		return fmt.Errorf("capability info provided does not match the client's capabilityID: %s != %s", remoteCapabilityInfo.ID, c.capabilityID)
 	}

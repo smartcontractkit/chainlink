@@ -207,13 +207,13 @@ func ExternalJobIDEncodeBytesToTopic(id uuid.UUID) common.Hash {
 // ExternalIDEncodeStringToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.
-func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
+func (j *Job) ExternalIDEncodeStringToTopic() common.Hash {
 	return ExternalJobIDEncodeStringToTopic(j.ExternalJobID)
 }
 
 // ExternalIDEncodeBytesToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the 16 bytes underlying the UUID and right padding it.
-func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
+func (j *Job) ExternalIDEncodeBytesToTopic() common.Hash {
 	return ExternalJobIDEncodeBytesToTopic(j.ExternalJobID)
 }
 
@@ -259,7 +259,7 @@ type PipelineRun struct {
 	PruningKey int64 `json:"-"`
 }
 
-func (pr PipelineRun) GetID() string {
+func (pr *PipelineRun) GetID() string {
 	return strconv.FormatInt(pr.ID, 10)
 }
 
@@ -295,7 +295,7 @@ type OCROracleSpec struct {
 }
 
 // GetID is a getter function that returns the ID of the spec.
-func (s OCROracleSpec) GetID() string {
+func (s *OCROracleSpec) GetID() string {
 	return strconv.Itoa(int(s.ID))
 }
 
@@ -314,13 +314,13 @@ func (s *OCROracleSpec) SetID(value string) error {
 type JSONConfig map[string]any
 
 // Bytes returns the raw bytes
-func (r JSONConfig) Bytes() []byte {
+func (r *JSONConfig) Bytes() []byte {
 	b, _ := json.Marshal(r)
 	return b
 }
 
 // Value returns this instance serialized for database storage.
-func (r JSONConfig) Value() (driver.Value, error) {
+func (r *JSONConfig) Value() (driver.Value, error) {
 	return json.Marshal(r)
 }
 
@@ -333,8 +333,8 @@ func (r *JSONConfig) Scan(value any) error {
 	return json.Unmarshal(b, &r)
 }
 
-func (r JSONConfig) MercuryCredentialName() (string, error) {
-	url, ok := r["mercuryCredentialName"]
+func (r *JSONConfig) MercuryCredentialName() (string, error) {
+	url, ok := (*r)["mercuryCredentialName"]
 	if !ok {
 		return "", nil
 	}
@@ -345,14 +345,14 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 	return name, nil
 }
 
-func (r JSONConfig) ApplyDefaultsOCR2(cfg ocr2Config) {
-	_, ok := r["defaultTransactionQueueDepth"]
+func (r *JSONConfig) ApplyDefaultsOCR2(cfg ocr2Config) {
+	_, ok := (*r)["defaultTransactionQueueDepth"]
 	if !ok {
-		r["defaultTransactionQueueDepth"] = cfg.DefaultTransactionQueueDepth()
+		(*r)["defaultTransactionQueueDepth"] = cfg.DefaultTransactionQueueDepth()
 	}
-	_, ok = r["simulateTransactions"]
+	_, ok = (*r)["simulateTransactions"]
 	if !ok {
-		r["simulateTransactions"] = cfg.SimulateTransactions()
+		(*r)["simulateTransactions"] = cfg.SimulateTransactions()
 	}
 }
 
@@ -446,7 +446,7 @@ func (s *OCR2OracleSpec) getChainIDFromRelayConfig() (string, error) {
 }
 
 // GetID is a getter function that returns the ID of the spec.
-func (s OCR2OracleSpec) GetID() string {
+func (s *OCR2OracleSpec) GetID() string {
 	return strconv.Itoa(int(s.ID))
 }
 
@@ -475,7 +475,7 @@ type WebhookSpec struct {
 	UpdatedAt                     time.Time `json:"updatedAt" toml:"-"`
 }
 
-func (w WebhookSpec) GetID() string {
+func (w *WebhookSpec) GetID() string {
 	return strconv.Itoa(int(w.ID))
 }
 
@@ -507,7 +507,7 @@ type CronSpec struct {
 	UpdatedAt    time.Time    `toml:"-"`
 }
 
-func (s CronSpec) GetID() string {
+func (s *CronSpec) GetID() string {
 	return strconv.Itoa(int(s.ID))
 }
 
@@ -523,11 +523,11 @@ func (s *CronSpec) SetID(value string) error {
 type FluxMonitorSpec struct {
 	ID              int32                 `toml:"-"`
 	ContractAddress evmtypes.EIP55Address `toml:"contractAddress"`
-	Threshold       tomlutils.Float32     `toml:"threshold,float"`
+	Threshold       tomlutils.Float32     `toml:"threshold,float"` //nolint:revive // false positive
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
 	// can be reported on-chain.
-	AbsoluteThreshold   tomlutils.Float32 `toml:"absoluteThreshold,float"`
+	AbsoluteThreshold   tomlutils.Float32 `toml:"absoluteThreshold,float"` //nolint:revive // false positive
 	PollTimerPeriod     time.Duration
 	PollTimerDisabled   bool
 	IdleTimerPeriod     time.Duration
@@ -744,7 +744,7 @@ type GatewaySpec struct {
 	UpdatedAt     time.Time  `toml:"-"`
 }
 
-func (s GatewaySpec) GetID() string {
+func (s *GatewaySpec) GetID() string {
 	return strconv.Itoa(int(s.ID))
 }
 
@@ -963,7 +963,7 @@ type OracleFactoryConfig struct {
 }
 
 // Value returns this instance serialized for database storage.
-func (ofc OracleFactoryConfig) Value() (driver.Value, error) {
+func (ofc *OracleFactoryConfig) Value() (driver.Value, error) {
 	return json.Marshal(ofc)
 }
 

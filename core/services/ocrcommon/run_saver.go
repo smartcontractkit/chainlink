@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
@@ -22,7 +22,7 @@ type RunResultSaver struct {
 	runResults        chan *pipeline.Run
 	pipelineRunner    Runner
 	stopCh            services.StopChan
-	logger            logger.Logger
+	logger            common.SugaredLogger
 }
 
 func (r *RunResultSaver) HealthReport() map[string]error {
@@ -32,14 +32,14 @@ func (r *RunResultSaver) HealthReport() map[string]error {
 func (r *RunResultSaver) Name() string { return r.logger.Name() }
 
 func NewResultRunSaver(pipelineRunner Runner,
-	logger logger.Logger, maxSuccessfulRuns uint64, resultsWriteDepth uint64,
+	lggr common.Logger, maxSuccessfulRuns uint64, resultsWriteDepth uint64,
 ) *RunResultSaver {
 	return &RunResultSaver{
 		maxSuccessfulRuns: maxSuccessfulRuns,
 		runResults:        make(chan *pipeline.Run, resultsWriteDepth),
 		pipelineRunner:    pipelineRunner,
 		stopCh:            make(chan struct{}),
-		logger:            logger.Named("RunResultSaver"),
+		logger:            common.Sugared(lggr).Named("RunResultSaver"),
 	}
 }
 

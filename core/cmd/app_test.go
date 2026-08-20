@@ -51,7 +51,7 @@ var (
 )
 
 func withDefaults(t *testing.T, c chainlink.Config, s chainlink.Secrets) chainlink.GeneralConfig {
-	cfg, err := chainlink.GeneralConfigOpts{Config: c, Secrets: s}.New()
+	cfg, err := (&chainlink.GeneralConfigOpts{Config: c, Secrets: s}).New()
 	require.NoError(t, err)
 	return cfg
 }

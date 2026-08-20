@@ -341,7 +341,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
-	relayerIDs := make([]types.RelayID, 0)
+	relayerIDs := make([]types.RelayID, 0, len(rs.loopRelayers))
 	for rid := range rs.loopRelayers {
 		relayerIDs = append(relayerIDs, rid)
 	}
@@ -400,7 +400,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		})
 		for _, key := range keys {
 			lr := rs.loopRelayers[key]
-			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
+			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "") //nolint:gosec // G115: page size is far below math.MaxInt32
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
 				continue
@@ -415,7 +415,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 				totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
 				continue
 			}
-			nodeStats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
+			nodeStats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "") //nolint:gosec // G115: page size is far below math.MaxInt32
 
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)

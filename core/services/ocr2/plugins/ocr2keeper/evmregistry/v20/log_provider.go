@@ -16,6 +16,7 @@ import (
 	pluginutils "github.com/smartcontractkit/chainlink-automation/pkg/util"
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 	"github.com/smartcontractkit/chainlink-automation/pkg/v2/encoding"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -33,7 +34,7 @@ type LogProvider struct {
 	mu                sync.RWMutex
 	runState          int
 	runError          error
-	logger            logger.Logger
+	logger            commonlogger.Logger
 	logPoller         logpoller.LogPoller
 	registryAddress   common.Address
 	lookbackBlocks    int64
@@ -50,7 +51,7 @@ func LogProviderFilterName(addr common.Address) string {
 
 func NewLogProvider(
 	ctx context.Context,
-	logger logger.Logger,
+	logger logger.SugaredLogger,
 	logPoller logpoller.LogPoller,
 	registryAddress common.Address,
 	client evmclient.Client,
@@ -439,7 +440,7 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(ctx context.Context, txHash 
 
 	for _, upkeep := range decodedReport {
 		// TODO: the log provider should be in the evm package for isolation
-		res, ok := upkeep.(EVMAutomationUpkeepResult20)
+		res, ok := upkeep.(AutomationUpkeepResult20)
 		if !ok {
 			return "", errors.New("unexpected type")
 		}

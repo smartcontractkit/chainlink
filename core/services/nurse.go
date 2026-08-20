@@ -21,6 +21,7 @@ import (
 	"github.com/google/pprof/profile"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 
@@ -68,7 +69,7 @@ const (
 	traceProfName = "trace"
 )
 
-func NewNurse(cfg Config, log logger.Logger) *Nurse {
+func NewNurse(cfg Config, log common.Logger) *Nurse {
 	n := &Nurse{
 		cfg:      cfg,
 		checks:   make(map[string]CheckFunc),
@@ -437,7 +438,11 @@ func (n *Nurse) totalProfileBytes() (uint64, error) {
 	}
 	var size uint64
 	for _, p := range profiles {
-		size += uint64(p.Size())
+		sz := p.Size()
+		if sz < 0 {
+			return 0, errors.New("negative profile size encountered")
+		}
+		size += uint64(sz)
 	}
 	if size > math.MaxInt64 {
 		return 0, errors.New("total profile size overflows int64")

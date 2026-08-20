@@ -41,8 +41,8 @@ func (c pluginRegistry) TransitionFrom(prevPlugins pluginRegistry) error {
 		return fmt.Errorf("current pluginRegistry or prevPlugins have more than 4 instances: len(prevPlugins): %d, len(currPlugins): %d", len(prevPlugins), len(c))
 	}
 
-	prevOracles := mapset.NewSet[ocrtypes.ConfigDigest](slices.Collect(maps.Keys(prevPlugins))...)
-	currOracles := mapset.NewSet[ocrtypes.ConfigDigest](slices.Collect(maps.Keys(c))...)
+	prevOracles := mapset.NewSet(slices.Collect(maps.Keys(prevPlugins))...)
+	currOracles := mapset.NewSet(slices.Collect(maps.Keys(c))...)
 
 	var ops = make([]syncAction, 0, 2*MaxPlugins)
 	for digest := range prevOracles.Difference(currOracles).Iterator().C {

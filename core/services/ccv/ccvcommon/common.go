@@ -8,13 +8,12 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func GetLegacyChains(ctx context.Context, lggr logger.Logger, chainServices []commontypes.ChainService, chainsInConfig []protocol.ChainSelector) (map[protocol.ChainSelector]legacyevm.Chain, error) {
+func GetLegacyChains(ctx context.Context, lggr common.Logger, chainServices []commontypes.ChainService, chainsInConfig []protocol.ChainSelector) (map[protocol.ChainSelector]legacyevm.Chain, error) {
 	chains := make(map[protocol.ChainSelector]legacyevm.Chain)
 	for _, c := range chainServices {
 		chainInfo, err := c.GetChainInfo(ctx)

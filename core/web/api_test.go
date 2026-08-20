@@ -54,7 +54,7 @@ func (r TestResource) GetID() string {
 	return "1"
 }
 
-func (r *TestResource) SetID(value string) error {
+func (r TestResource) SetID(value string) error {
 	return nil
 }
 

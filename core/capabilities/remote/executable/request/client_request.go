@@ -101,10 +101,10 @@ type ClientRequest struct {
 	wg       *sync.WaitGroup
 }
 
-// TransmissionConfig has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
+// Config has to be set only for V2 capabilities. V1 capabilities read transmission schedule from every request.
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
 	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
-	requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, capMethodName string,
+	requestTimeout time.Duration, transmissionConfig *transmission.Config, capMethodName string,
 	signers [][]byte, minResponsesToAggregate uint32,
 ) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
@@ -121,10 +121,10 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 	// to ensure that it supports parallel step execution
 	requestID := types.MethodExecute + ":" + workflowExecutionID + ":" + req.Metadata.ReferenceID
 
-	var tc transmission.TransmissionConfig
+	var tc transmission.Config
 	if transmissionConfig != nil {
 		// all v2 capabilities should be all at once
-		tc = transmission.TransmissionConfig{
+		tc = transmission.Config{
 			Schedule: transmission.ScheduleAllAtOnce,
 		}
 	} else { // per-workflow setting used by V1 Capabilities
@@ -157,7 +157,7 @@ func requiredConfirmations(f uint8, minResponsesToAggregate uint32) int {
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
-	tc transmission.TransmissionConfig, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
+	tc transmission.Config, methodType string, rawRequest []byte, workflowExecutionID string, stepRef string, capMethodName string,
 	signers [][]byte, minResponsesToAggregate uint32,
 ) (*ClientRequest, error) {
 	remoteCapabilityDonInfo := remoteCapabilityInfo.DON

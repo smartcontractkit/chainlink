@@ -44,11 +44,11 @@ func mustNewFilterer(t *testing.T) *offchainaggregator.OffchainAggregatorFiltere
 }
 
 type contractTrackerUni struct {
-	db      *ocrmocks.OCRContractTrackerDB
+	db      *ocrmocks.ContractTrackerDB
 	lb      *logmocks.Broadcaster
 	hb      *headstest.Broadcaster[*evmtypes.Head, common.Hash]
 	ec      *clienttest.Client
-	tracker *ocr.OCRContractTracker
+	tracker *ocr.ContractTracker
 }
 
 func newContractTrackerUni(t *testing.T, opts ...any) (uni contractTrackerUni) {
@@ -72,7 +72,7 @@ func newContractTrackerUni(t *testing.T, opts ...any) (uni contractTrackerUni) {
 	if contract == nil {
 		contract = mustNewContract(t, testutils.NewAddress())
 	}
-	uni.db = ocrmocks.NewOCRContractTrackerDB(t)
+	uni.db = ocrmocks.NewContractTrackerDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
 	uni.hb = headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	uni.ec = clienttest.NewClient(t)

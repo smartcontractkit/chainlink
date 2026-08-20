@@ -10,11 +10,10 @@ import (
 
 	pkgerrors "github.com/pkg/errors"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type (
@@ -62,7 +61,7 @@ type (
 		jobTypeDelegates map[Type]Delegate
 		activeJobs       map[int32]activeJob
 		activeJobsMu     sync.RWMutex
-		lggr             logger.Logger
+		lggr             common.SugaredLogger
 
 		listeners   []Listener
 		listenersMu sync.RWMutex
@@ -100,8 +99,8 @@ type (
 
 var _ Spawner = (*spawner)(nil)
 
-func NewSpawner(orm ORM, config Config, checker Checker, jobTypeDelegates map[Type]Delegate, lggr logger.Logger, lbDependentAwaiters []utils.DependentAwaiter) *spawner {
-	namedLogger := lggr.Named("JobSpawner")
+func NewSpawner(orm ORM, config Config, checker Checker, jobTypeDelegates map[Type]Delegate, lggr common.Logger, lbDependentAwaiters []utils.DependentAwaiter) *spawner {
+	namedLogger := common.Sugared(lggr).Named("JobSpawner")
 	s := &spawner{
 		orm:                 orm,
 		config:              config,

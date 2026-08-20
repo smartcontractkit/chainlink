@@ -7,11 +7,11 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/connectivity"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	"github.com/smartcontractkit/wsrpc"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 )
 
@@ -29,7 +29,7 @@ type connectionsManager struct {
 	wgClosed sync.WaitGroup
 
 	connections map[int64]*connection
-	lggr        logger.Logger
+	lggr        common.Logger
 }
 
 type connection struct {
@@ -39,7 +39,7 @@ type connection struct {
 	client    pb.FeedsManagerClient
 }
 
-func newConnectionsManager(lggr logger.Logger) *connectionsManager {
+func newConnectionsManager(lggr common.Logger) *connectionsManager {
 	return &connectionsManager{
 		mu:          sync.Mutex{},
 		connections: map[int64]*connection{},

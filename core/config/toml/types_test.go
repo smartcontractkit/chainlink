@@ -343,13 +343,13 @@ func TestTracing_ValidateSamplingRatio(t *testing.T) {
 			name:          "invalid negative value",
 			samplingRatio: new(-0.1),
 			wantErr:       true,
-			errMsg:        configutils.ErrInvalid{Name: "SamplingRatio", Value: -0.1, Msg: "must be between 0 and 1"}.Error(),
+			errMsg:        configutils.InvalidError{Name: "SamplingRatio", Value: -0.1, Msg: "must be between 0 and 1"}.Error(),
 		},
 		{
 			name:          "invalid value greater than 1",
 			samplingRatio: new(1.1),
 			wantErr:       true,
-			errMsg:        configutils.ErrInvalid{Name: "SamplingRatio", Value: 1.1, Msg: "must be between 0 and 1"}.Error(),
+			errMsg:        configutils.InvalidError{Name: "SamplingRatio", Value: 1.1, Msg: "must be between 0 and 1"}.Error(),
 		},
 		{
 			name:          "nil SamplingRatio",

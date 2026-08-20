@@ -25,7 +25,7 @@ func (p TronKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *TronKeyPresenter) ToRow() []string {
+func (p TronKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.PubKey,

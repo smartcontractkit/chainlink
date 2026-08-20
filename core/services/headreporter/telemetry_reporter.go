@@ -11,12 +11,12 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/libocr/commontypes"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -24,16 +24,16 @@ import (
 )
 
 type legacyEVMTelemetryReporter struct {
-	lggr      logger.Logger
+	lggr      common.Logger
 	endpoints map[uint64]commontypes.MonitoringEndpoint
 }
 
-func NewLegacyEVMTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGenerator, lggr logger.Logger, chainIDs ...*big.Int) HeadReporter {
+func NewLegacyEVMTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGenerator, lggr common.Logger, chainIDs ...*big.Int) HeadReporter {
 	endpoints := make(map[uint64]commontypes.MonitoringEndpoint)
 	for _, chainID := range chainIDs {
 		endpoints[chainID.Uint64()] = monitoringEndpointGen.GenMonitoringEndpoint("EVM", chainID.String(), "", synchronization.HeadReport)
 	}
-	return &legacyEVMTelemetryReporter{lggr: lggr.Named("TelemetryReporter"), endpoints: endpoints}
+	return &legacyEVMTelemetryReporter{lggr: common.Named(lggr, "TelemetryReporter"), endpoints: endpoints}
 }
 
 func (t *legacyEVMTelemetryReporter) ReportNewHead(ctx context.Context, head *evmtypes.Head) error {
@@ -76,13 +76,13 @@ func (t *legacyEVMTelemetryReporter) ReportPeriodic(_ context.Context) error {
 }
 
 type loopTelemetryReporter struct {
-	lggr      logger.Logger
+	lggr      common.Logger
 	endpoints map[types.RelayID]commontypes.MonitoringEndpoint
 	relays    map[types.RelayID]loop.Relayer
 }
 
 // NewTelemetryReporter creates a new telemetry reporter for each relayer
-func NewTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGenerator, lggr logger.Logger, relayers map[types.RelayID]loop.Relayer) HeadReporter {
+func NewTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGenerator, lggr common.Logger, relayers map[types.RelayID]loop.Relayer) HeadReporter {
 	if relayers == nil {
 		return nil
 	}
@@ -90,7 +90,7 @@ func NewTelemetryReporter(monitoringEndpointGen telemetry.MonitoringEndpointGene
 	for relayID := range relayers {
 		endpoints[relayID] = monitoringEndpointGen.GenMonitoringEndpoint(relayID.Network, relayID.ChainID, "", synchronization.HeadReport)
 	}
-	return &loopTelemetryReporter{lggr: lggr.Named("TelemetryReporter"), endpoints: endpoints, relays: relayers}
+	return &loopTelemetryReporter{lggr: common.Named(lggr, "TelemetryReporter"), endpoints: endpoints, relays: relayers}
 }
 
 // ReportNewHead is unimplemented because there is no Headtracker to subscribe to
@@ -113,7 +113,7 @@ func (t *loopTelemetryReporter) ReportPeriodic(ctx context.Context) error {
 	return nil
 }
 
-func reportLatestHead(ctx context.Context, lggr logger.Logger, endpoint commontypes.MonitoringEndpoint, relayID types.RelayID, relay loop.Relayer) error {
+func reportLatestHead(ctx context.Context, lggr common.Logger, endpoint commontypes.MonitoringEndpoint, relayID types.RelayID, relay loop.Relayer) error {
 	head, err := relay.LatestHead(ctx)
 	if err != nil {
 		return fmt.Errorf("failed getting head for chain %s: %w", relayID, err)

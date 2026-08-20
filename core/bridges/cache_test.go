@@ -55,10 +55,12 @@ func TestBridgeCache_Type(t *testing.T) {
 		nameB := bridges.BridgeName("B")
 		nameC := bridges.BridgeName("C")
 
-		initialExpected := []bridges.BridgeType{
-			{Name: nameA},
-			{Name: nameB},
-		}
+		initialExpected := make([]bridges.BridgeType, 0, 3)
+		initialExpected = append(initialExpected,
+			bridges.BridgeType{Name: nameA},
+			bridges.BridgeType{Name: nameB},
+		)
+		//nolint:gocritic // append into a separate slice so initialExpected stays len 2
 		finalExpected := append(initialExpected, bridges.BridgeType{Name: nameC})
 
 		mORM.On("FindBridges", mock.Anything, []bridges.BridgeName{nameA, nameB}).Return(initialExpected, nil)

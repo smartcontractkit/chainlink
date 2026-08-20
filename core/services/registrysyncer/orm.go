@@ -110,7 +110,7 @@ func (l *LocalRegistry) UnmarshalJSON(data []byte) error {
 }
 
 type ORM interface {
-	AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry) error
+	AddLocalRegistry(ctx context.Context, localRegistry *LocalRegistry) error
 	LatestLocalRegistry(ctx context.Context) (*LocalRegistry, error)
 }
 
@@ -129,7 +129,7 @@ func NewORM(ds sqlutil.DataSource, lggr logger.Logger) orm {
 	}
 }
 
-func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry) error {
+func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry *LocalRegistry) error {
 	orm.lggr.Debugw("Adding local registry to DB...")
 	return sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
 		localRegistryJSON, err := localRegistry.MarshalJSON()
@@ -170,7 +170,7 @@ WHERE data_hash NOT IN (
 }
 
 func (orm orm) LatestLocalRegistry(ctx context.Context) (*LocalRegistry, error) {
-	var localRegistry LocalRegistry
+	localRegistry := &LocalRegistry{}
 	var localRegistryJSON string
 	err := orm.ds.GetContext(ctx, &localRegistryJSON, `SELECT data FROM registry_syncer_states ORDER BY id DESC LIMIT 1`)
 	if err != nil {
@@ -183,5 +183,5 @@ func (orm orm) LatestLocalRegistry(ctx context.Context) (*LocalRegistry, error) 
 	}
 	orm.lggr.Debugw("Fetched latest local registry from DB", "hash", hex.EncodeToString(hash[:]), "registry", localRegistry)
 
-	return &localRegistry, nil
+	return localRegistry, nil
 }

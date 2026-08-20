@@ -26,12 +26,12 @@ type BridgeTypeRequest struct {
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
-func (bt BridgeTypeRequest) GetID() string {
+func (bt *BridgeTypeRequest) GetID() string {
 	return bt.Name.String()
 }
 
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (bt BridgeTypeRequest) GetName() string {
+func (bt *BridgeTypeRequest) GetName() string {
 	return "bridges"
 }
 
@@ -181,18 +181,18 @@ func (t *BridgeName) UnmarshalJSON(input []byte) error {
 }
 
 // MarshalJSON converts a BridgeName to a JSON byte slice.
-func (t BridgeName) MarshalJSON() ([]byte, error) {
+func (t *BridgeName) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.String())
 }
 
 // String returns this BridgeName as a string.
-func (t BridgeName) String() string {
-	return string(t)
+func (t *BridgeName) String() string {
+	return string(*t)
 }
 
 // Value returns this instance serialized for database storage.
-func (t BridgeName) Value() (driver.Value, error) {
-	return string(t), nil
+func (t *BridgeName) Value() (driver.Value, error) {
+	return string(*t), nil
 }
 
 // Scan reads the database value and returns an instance.

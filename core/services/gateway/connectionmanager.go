@@ -205,7 +205,7 @@ func (m *connectionManager) StartHandshake(authHeader []byte) (attemptID string,
 	if authHeaderElems.GatewayID != m.config.AuthGatewayID {
 		return "", nil, network.ErrAuthInvalidGateway
 	}
-	nowTs := uint32(m.clock.Now().Unix())
+	nowTs := uint32(m.clock.Now().Unix()) //nolint:gosec // G115: uint32 timestamp is intentional per the auth handshake protocol
 	ts := authHeaderElems.Timestamp
 	if ts < nowTs-m.config.AuthTimestampToleranceSec || nowTs+m.config.AuthTimestampToleranceSec < ts {
 		return "", nil, network.ErrAuthInvalidTimestamp

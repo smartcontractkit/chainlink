@@ -13,13 +13,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	workflowsyncerv2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2"
@@ -130,7 +130,7 @@ func NewGatewayHandler(
 		gatewayConnector: connector,
 		requestProcessor: requestProcessor,
 		jwtAuthService:   jwtAuthService,
-		lggr:             lggr.Named(HandlerName),
+		lggr:             logger.Named(lggr, HandlerName),
 		metrics:          metrics,
 	}
 	gh.Service, gh.eng = services.Config{
@@ -174,7 +174,7 @@ func (h *GatewayHandler) Methods() []string {
 }
 
 func (h *GatewayHandler) requestLogger(req *jsonrpc.Request[json.RawMessage], gatewayID string) logger.Logger {
-	return h.lggr.With("requestID", req.ID, "method", req.Method, "gatewayID", gatewayID)
+	return logger.With(h.lggr, "requestID", req.ID, "method", req.Method, "gatewayID", gatewayID)
 }
 
 func (h *GatewayHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, req *jsonrpc.Request[json.RawMessage]) (err error) {

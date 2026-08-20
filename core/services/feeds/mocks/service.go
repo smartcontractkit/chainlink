@@ -394,23 +394,23 @@ func (_c *Service_DeleteJob_Call) RunAndReturn(run func(context.Context, *feeds.
 }
 
 // DisableManager provides a mock function with given fields: ctx, id
-func (_m *Service) DisableManager(ctx context.Context, id int64) (*feeds.FeedsManager, error) {
+func (_m *Service) DisableManager(ctx context.Context, id int64) (*feeds.Manager, error) {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DisableManager")
 	}
 
-	var r0 *feeds.FeedsManager
+	var r0 *feeds.Manager
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.FeedsManager, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.Manager, error)); ok {
 		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.FeedsManager); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.Manager); ok {
 		r0 = rf(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*feeds.FeedsManager)
+			r0 = ret.Get(0).(*feeds.Manager)
 		}
 	}
 
@@ -442,34 +442,34 @@ func (_c *Service_DisableManager_Call) Run(run func(ctx context.Context, id int6
 	return _c
 }
 
-func (_c *Service_DisableManager_Call) Return(_a0 *feeds.FeedsManager, _a1 error) *Service_DisableManager_Call {
+func (_c *Service_DisableManager_Call) Return(_a0 *feeds.Manager, _a1 error) *Service_DisableManager_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Service_DisableManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.FeedsManager, error)) *Service_DisableManager_Call {
+func (_c *Service_DisableManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.Manager, error)) *Service_DisableManager_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // EnableManager provides a mock function with given fields: ctx, id
-func (_m *Service) EnableManager(ctx context.Context, id int64) (*feeds.FeedsManager, error) {
+func (_m *Service) EnableManager(ctx context.Context, id int64) (*feeds.Manager, error) {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for EnableManager")
 	}
 
-	var r0 *feeds.FeedsManager
+	var r0 *feeds.Manager
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.FeedsManager, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.Manager, error)); ok {
 		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.FeedsManager); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.Manager); ok {
 		r0 = rf(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*feeds.FeedsManager)
+			r0 = ret.Get(0).(*feeds.Manager)
 		}
 	}
 
@@ -501,12 +501,12 @@ func (_c *Service_EnableManager_Call) Run(run func(ctx context.Context, id int64
 	return _c
 }
 
-func (_c *Service_EnableManager_Call) Return(_a0 *feeds.FeedsManager, _a1 error) *Service_EnableManager_Call {
+func (_c *Service_EnableManager_Call) Return(_a0 *feeds.Manager, _a1 error) *Service_EnableManager_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Service_EnableManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.FeedsManager, error)) *Service_EnableManager_Call {
+func (_c *Service_EnableManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.Manager, error)) *Service_EnableManager_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -689,23 +689,23 @@ func (_c *Service_GetJobRuns_Call) RunAndReturn(run func(context.Context, *feeds
 }
 
 // GetManager provides a mock function with given fields: ctx, id
-func (_m *Service) GetManager(ctx context.Context, id int64) (*feeds.FeedsManager, error) {
+func (_m *Service) GetManager(ctx context.Context, id int64) (*feeds.Manager, error) {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetManager")
 	}
 
-	var r0 *feeds.FeedsManager
+	var r0 *feeds.Manager
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.FeedsManager, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.Manager, error)); ok {
 		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.FeedsManager); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.Manager); ok {
 		r0 = rf(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*feeds.FeedsManager)
+			r0 = ret.Get(0).(*feeds.Manager)
 		}
 	}
 
@@ -737,12 +737,12 @@ func (_c *Service_GetManager_Call) Run(run func(ctx context.Context, id int64)) 
 	return _c
 }
 
-func (_c *Service_GetManager_Call) Return(_a0 *feeds.FeedsManager, _a1 error) *Service_GetManager_Call {
+func (_c *Service_GetManager_Call) Return(_a0 *feeds.Manager, _a1 error) *Service_GetManager_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Service_GetManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.FeedsManager, error)) *Service_GetManager_Call {
+func (_c *Service_GetManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.Manager, error)) *Service_GetManager_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -982,23 +982,23 @@ func (_c *Service_ListJobProposalsByManagersIDs_Call) RunAndReturn(run func(cont
 }
 
 // ListManagers provides a mock function with given fields: ctx
-func (_m *Service) ListManagers(ctx context.Context) ([]feeds.FeedsManager, error) {
+func (_m *Service) ListManagers(ctx context.Context) ([]feeds.Manager, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListManagers")
 	}
 
-	var r0 []feeds.FeedsManager
+	var r0 []feeds.Manager
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]feeds.FeedsManager, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) ([]feeds.Manager, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) []feeds.FeedsManager); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) []feeds.Manager); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]feeds.FeedsManager)
+			r0 = ret.Get(0).([]feeds.Manager)
 		}
 	}
 
@@ -1029,34 +1029,34 @@ func (_c *Service_ListManagers_Call) Run(run func(ctx context.Context)) *Service
 	return _c
 }
 
-func (_c *Service_ListManagers_Call) Return(_a0 []feeds.FeedsManager, _a1 error) *Service_ListManagers_Call {
+func (_c *Service_ListManagers_Call) Return(_a0 []feeds.Manager, _a1 error) *Service_ListManagers_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Service_ListManagers_Call) RunAndReturn(run func(context.Context) ([]feeds.FeedsManager, error)) *Service_ListManagers_Call {
+func (_c *Service_ListManagers_Call) RunAndReturn(run func(context.Context) ([]feeds.Manager, error)) *Service_ListManagers_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ListManagersByIDs provides a mock function with given fields: ctx, ids
-func (_m *Service) ListManagersByIDs(ctx context.Context, ids []int64) ([]feeds.FeedsManager, error) {
+func (_m *Service) ListManagersByIDs(ctx context.Context, ids []int64) ([]feeds.Manager, error) {
 	ret := _m.Called(ctx, ids)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListManagersByIDs")
 	}
 
-	var r0 []feeds.FeedsManager
+	var r0 []feeds.Manager
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []int64) ([]feeds.FeedsManager, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) ([]feeds.Manager, error)); ok {
 		return rf(ctx, ids)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []int64) []feeds.FeedsManager); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) []feeds.Manager); ok {
 		r0 = rf(ctx, ids)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]feeds.FeedsManager)
+			r0 = ret.Get(0).([]feeds.Manager)
 		}
 	}
 
@@ -1088,12 +1088,12 @@ func (_c *Service_ListManagersByIDs_Call) Run(run func(ctx context.Context, ids 
 	return _c
 }
 
-func (_c *Service_ListManagersByIDs_Call) Return(_a0 []feeds.FeedsManager, _a1 error) *Service_ListManagersByIDs_Call {
+func (_c *Service_ListManagersByIDs_Call) Return(_a0 []feeds.Manager, _a1 error) *Service_ListManagersByIDs_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Service_ListManagersByIDs_Call) RunAndReturn(run func(context.Context, []int64) ([]feeds.FeedsManager, error)) *Service_ListManagersByIDs_Call {
+func (_c *Service_ListManagersByIDs_Call) RunAndReturn(run func(context.Context, []int64) ([]feeds.Manager, error)) *Service_ListManagersByIDs_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1559,7 +1559,7 @@ func (_c *Service_UpdateChainConfig_Call) RunAndReturn(run func(context.Context,
 }
 
 // UpdateManager provides a mock function with given fields: ctx, mgr
-func (_m *Service) UpdateManager(ctx context.Context, mgr feeds.FeedsManager) error {
+func (_m *Service) UpdateManager(ctx context.Context, mgr feeds.Manager) error {
 	ret := _m.Called(ctx, mgr)
 
 	if len(ret) == 0 {
@@ -1567,7 +1567,7 @@ func (_m *Service) UpdateManager(ctx context.Context, mgr feeds.FeedsManager) er
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, feeds.FeedsManager) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, feeds.Manager) error); ok {
 		r0 = rf(ctx, mgr)
 	} else {
 		r0 = ret.Error(0)
@@ -1583,14 +1583,14 @@ type Service_UpdateManager_Call struct {
 
 // UpdateManager is a helper method to define mock.On call
 //   - ctx context.Context
-//   - mgr feeds.FeedsManager
+//   - mgr feeds.Manager
 func (_e *Service_Expecter) UpdateManager(ctx interface{}, mgr interface{}) *Service_UpdateManager_Call {
 	return &Service_UpdateManager_Call{Call: _e.mock.On("UpdateManager", ctx, mgr)}
 }
 
-func (_c *Service_UpdateManager_Call) Run(run func(ctx context.Context, mgr feeds.FeedsManager)) *Service_UpdateManager_Call {
+func (_c *Service_UpdateManager_Call) Run(run func(ctx context.Context, mgr feeds.Manager)) *Service_UpdateManager_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(feeds.FeedsManager))
+		run(args[0].(context.Context), args[1].(feeds.Manager))
 	})
 	return _c
 }
@@ -1600,7 +1600,7 @@ func (_c *Service_UpdateManager_Call) Return(_a0 error) *Service_UpdateManager_C
 	return _c
 }
 
-func (_c *Service_UpdateManager_Call) RunAndReturn(run func(context.Context, feeds.FeedsManager) error) *Service_UpdateManager_Call {
+func (_c *Service_UpdateManager_Call) RunAndReturn(run func(context.Context, feeds.Manager) error) *Service_UpdateManager_Call {
 	_c.Call.Return(run)
 	return _c
 }

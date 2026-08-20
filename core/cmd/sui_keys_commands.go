@@ -25,7 +25,7 @@ func (p SuiKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *SuiKeyPresenter) ToRow() []string {
+func (p SuiKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.PubKey,

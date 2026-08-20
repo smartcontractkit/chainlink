@@ -53,7 +53,7 @@ type gatewayConnector struct {
 
 	services.StateMachine
 
-	config      *ConnectorConfig
+	config      *Config
 	clock       clockwork.Clock
 	nodeAddress []byte
 	csaKey      string
@@ -83,7 +83,7 @@ type gatewayState struct {
 	signalCh chan struct{}
 
 	conn     network.WSConnectionWrapper
-	config   ConnectorGatewayConfig
+	config   GatewayConfig
 	url      *url.URL
 	wsClient network.WebSocketClient
 }
@@ -103,7 +103,7 @@ func (gs *gatewayState) awaitConn(ctx context.Context) error {
 	}
 }
 
-func NewGatewayConnector(config *ConnectorConfig, signer Signer, clock clockwork.Clock, lggr logger.Logger, csaKey string) (*gatewayConnector, error) {
+func NewGatewayConnector(config *Config, signer Signer, clock clockwork.Clock, lggr logger.Logger, csaKey string) (*gatewayConnector, error) {
 	if config == nil || signer == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
@@ -389,7 +389,7 @@ func (c *gatewayConnector) NewAuthHeader(ctx context.Context, url *url.URL) ([]b
 		return nil, network.ErrAuthInvalidGateway
 	}
 	authHeaderElems := &network.AuthHeaderElems{
-		Timestamp: uint32(c.clock.Now().Unix()),
+		Timestamp: uint32(c.clock.Now().Unix()), //nolint:gosec // G115: uint32 timestamp is intentional per the auth handshake protocol
 		DonID:     c.config.DonID,
 		GatewayID: gatewayID,
 	}
@@ -413,7 +413,7 @@ func (c *gatewayConnector) ChallengeResponse(ctx context.Context, url *url.URL, 
 	if !found || challengeElems.GatewayID != gatewayID {
 		return nil, network.ErrAuthInvalidGateway
 	}
-	nowTs := uint32(c.clock.Now().Unix())
+	nowTs := uint32(c.clock.Now().Unix()) //nolint:gosec // G115: uint32 timestamp is intentional per the auth handshake protocol
 	ts := challengeElems.Timestamp
 	if ts < nowTs-c.config.AuthTimestampToleranceSec || nowTs+c.config.AuthTimestampToleranceSec < ts {
 		return nil, network.ErrAuthInvalidTimestamp

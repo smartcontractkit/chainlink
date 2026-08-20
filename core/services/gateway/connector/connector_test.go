@@ -37,14 +37,14 @@ URL = "wss://example.com:8090/node_endpoint"
 	testMethod2 = "test_method_2"
 )
 
-func parseTOMLConfig(t *testing.T, tomlConfig string) *ConnectorConfig {
-	var cfg ConnectorConfig
+func parseTOMLConfig(t *testing.T, tomlConfig string) *Config {
+	var cfg Config
 	err := toml.Unmarshal([]byte(tomlConfig), &cfg)
 	require.NoError(t, err)
 	return &cfg
 }
 
-func newTestConnector(t *testing.T, config *ConnectorConfig) (*gatewayConnector, *gatewaymocks.Signer, *gatewaymocks.GatewayConnectorHandler) {
+func newTestConnector(t *testing.T, config *Config) (*gatewayConnector, *gatewaymocks.Signer, *gatewaymocks.GatewayConnectorHandler) {
 	signer := gatewaymocks.NewSigner(t)
 	handler := gatewaymocks.NewGatewayConnectorHandler(t)
 	clock := clockwork.NewFakeClock()
@@ -182,7 +182,7 @@ func TestGatewayConnector_ChallengeResponse(t *testing.T) {
 	require.NoError(t, err)
 
 	challenge := network.ChallengeElems{
-		Timestamp:      uint32(now.Unix()),
+		Timestamp:      uint32(now.Unix()), //nolint:gosec // G115: uint32 timestamp matches the auth handshake protocol
 		GatewayID:      "example_gateway",
 		ChallengeBytes: []byte("1234567890"),
 	}

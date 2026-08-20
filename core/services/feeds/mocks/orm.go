@@ -467,7 +467,7 @@ func (_c *ORM_CreateJobProposal_Call) RunAndReturn(run func(context.Context, *fe
 }
 
 // CreateManager provides a mock function with given fields: ctx, ms
-func (_m *ORM) CreateManager(ctx context.Context, ms *feeds.FeedsManager) (int64, error) {
+func (_m *ORM) CreateManager(ctx context.Context, ms *feeds.Manager) (int64, error) {
 	ret := _m.Called(ctx, ms)
 
 	if len(ret) == 0 {
@@ -476,16 +476,16 @@ func (_m *ORM) CreateManager(ctx context.Context, ms *feeds.FeedsManager) (int64
 
 	var r0 int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *feeds.FeedsManager) (int64, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *feeds.Manager) (int64, error)); ok {
 		return rf(ctx, ms)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *feeds.FeedsManager) int64); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *feeds.Manager) int64); ok {
 		r0 = rf(ctx, ms)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *feeds.FeedsManager) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *feeds.Manager) error); ok {
 		r1 = rf(ctx, ms)
 	} else {
 		r1 = ret.Error(1)
@@ -501,14 +501,14 @@ type ORM_CreateManager_Call struct {
 
 // CreateManager is a helper method to define mock.On call
 //   - ctx context.Context
-//   - ms *feeds.FeedsManager
+//   - ms *feeds.Manager
 func (_e *ORM_Expecter) CreateManager(ctx interface{}, ms interface{}) *ORM_CreateManager_Call {
 	return &ORM_CreateManager_Call{Call: _e.mock.On("CreateManager", ctx, ms)}
 }
 
-func (_c *ORM_CreateManager_Call) Run(run func(ctx context.Context, ms *feeds.FeedsManager)) *ORM_CreateManager_Call {
+func (_c *ORM_CreateManager_Call) Run(run func(ctx context.Context, ms *feeds.Manager)) *ORM_CreateManager_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(*feeds.FeedsManager))
+		run(args[0].(context.Context), args[1].(*feeds.Manager))
 	})
 	return _c
 }
@@ -518,7 +518,7 @@ func (_c *ORM_CreateManager_Call) Return(_a0 int64, _a1 error) *ORM_CreateManage
 	return _c
 }
 
-func (_c *ORM_CreateManager_Call) RunAndReturn(run func(context.Context, *feeds.FeedsManager) (int64, error)) *ORM_CreateManager_Call {
+func (_c *ORM_CreateManager_Call) RunAndReturn(run func(context.Context, *feeds.Manager) (int64, error)) *ORM_CreateManager_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -685,23 +685,23 @@ func (_c *ORM_DeleteProposal_Call) RunAndReturn(run func(context.Context, int64)
 }
 
 // DisableManager provides a mock function with given fields: ctx, id
-func (_m *ORM) DisableManager(ctx context.Context, id int64) (*feeds.FeedsManager, error) {
+func (_m *ORM) DisableManager(ctx context.Context, id int64) (*feeds.Manager, error) {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for DisableManager")
 	}
 
-	var r0 *feeds.FeedsManager
+	var r0 *feeds.Manager
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.FeedsManager, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.Manager, error)); ok {
 		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.FeedsManager); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.Manager); ok {
 		r0 = rf(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*feeds.FeedsManager)
+			r0 = ret.Get(0).(*feeds.Manager)
 		}
 	}
 
@@ -733,34 +733,34 @@ func (_c *ORM_DisableManager_Call) Run(run func(ctx context.Context, id int64)) 
 	return _c
 }
 
-func (_c *ORM_DisableManager_Call) Return(_a0 *feeds.FeedsManager, _a1 error) *ORM_DisableManager_Call {
+func (_c *ORM_DisableManager_Call) Return(_a0 *feeds.Manager, _a1 error) *ORM_DisableManager_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ORM_DisableManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.FeedsManager, error)) *ORM_DisableManager_Call {
+func (_c *ORM_DisableManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.Manager, error)) *ORM_DisableManager_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // EnableManager provides a mock function with given fields: ctx, id
-func (_m *ORM) EnableManager(ctx context.Context, id int64) (*feeds.FeedsManager, error) {
+func (_m *ORM) EnableManager(ctx context.Context, id int64) (*feeds.Manager, error) {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for EnableManager")
 	}
 
-	var r0 *feeds.FeedsManager
+	var r0 *feeds.Manager
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.FeedsManager, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.Manager, error)); ok {
 		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.FeedsManager); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.Manager); ok {
 		r0 = rf(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*feeds.FeedsManager)
+			r0 = ret.Get(0).(*feeds.Manager)
 		}
 	}
 
@@ -792,12 +792,12 @@ func (_c *ORM_EnableManager_Call) Run(run func(ctx context.Context, id int64)) *
 	return _c
 }
 
-func (_c *ORM_EnableManager_Call) Return(_a0 *feeds.FeedsManager, _a1 error) *ORM_EnableManager_Call {
+func (_c *ORM_EnableManager_Call) Return(_a0 *feeds.Manager, _a1 error) *ORM_EnableManager_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ORM_EnableManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.FeedsManager, error)) *ORM_EnableManager_Call {
+func (_c *ORM_EnableManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.Manager, error)) *ORM_EnableManager_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1215,23 +1215,23 @@ func (_c *ORM_GetLatestSpec_Call) RunAndReturn(run func(context.Context, int64) 
 }
 
 // GetManager provides a mock function with given fields: ctx, id
-func (_m *ORM) GetManager(ctx context.Context, id int64) (*feeds.FeedsManager, error) {
+func (_m *ORM) GetManager(ctx context.Context, id int64) (*feeds.Manager, error) {
 	ret := _m.Called(ctx, id)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetManager")
 	}
 
-	var r0 *feeds.FeedsManager
+	var r0 *feeds.Manager
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.FeedsManager, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) (*feeds.Manager, error)); ok {
 		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.FeedsManager); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *feeds.Manager); ok {
 		r0 = rf(ctx, id)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*feeds.FeedsManager)
+			r0 = ret.Get(0).(*feeds.Manager)
 		}
 	}
 
@@ -1263,12 +1263,12 @@ func (_c *ORM_GetManager_Call) Run(run func(ctx context.Context, id int64)) *ORM
 	return _c
 }
 
-func (_c *ORM_GetManager_Call) Return(_a0 *feeds.FeedsManager, _a1 error) *ORM_GetManager_Call {
+func (_c *ORM_GetManager_Call) Return(_a0 *feeds.Manager, _a1 error) *ORM_GetManager_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ORM_GetManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.FeedsManager, error)) *ORM_GetManager_Call {
+func (_c *ORM_GetManager_Call) RunAndReturn(run func(context.Context, int64) (*feeds.Manager, error)) *ORM_GetManager_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1566,23 +1566,23 @@ func (_c *ORM_ListJobProposalsByManagersIDs_Call) RunAndReturn(run func(context.
 }
 
 // ListManagers provides a mock function with given fields: ctx
-func (_m *ORM) ListManagers(ctx context.Context) ([]feeds.FeedsManager, error) {
+func (_m *ORM) ListManagers(ctx context.Context) ([]feeds.Manager, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListManagers")
 	}
 
-	var r0 []feeds.FeedsManager
+	var r0 []feeds.Manager
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) ([]feeds.FeedsManager, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) ([]feeds.Manager, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) []feeds.FeedsManager); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) []feeds.Manager); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]feeds.FeedsManager)
+			r0 = ret.Get(0).([]feeds.Manager)
 		}
 	}
 
@@ -1613,34 +1613,34 @@ func (_c *ORM_ListManagers_Call) Run(run func(ctx context.Context)) *ORM_ListMan
 	return _c
 }
 
-func (_c *ORM_ListManagers_Call) Return(mgrs []feeds.FeedsManager, err error) *ORM_ListManagers_Call {
+func (_c *ORM_ListManagers_Call) Return(mgrs []feeds.Manager, err error) *ORM_ListManagers_Call {
 	_c.Call.Return(mgrs, err)
 	return _c
 }
 
-func (_c *ORM_ListManagers_Call) RunAndReturn(run func(context.Context) ([]feeds.FeedsManager, error)) *ORM_ListManagers_Call {
+func (_c *ORM_ListManagers_Call) RunAndReturn(run func(context.Context) ([]feeds.Manager, error)) *ORM_ListManagers_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // ListManagersByIDs provides a mock function with given fields: ctx, ids
-func (_m *ORM) ListManagersByIDs(ctx context.Context, ids []int64) ([]feeds.FeedsManager, error) {
+func (_m *ORM) ListManagersByIDs(ctx context.Context, ids []int64) ([]feeds.Manager, error) {
 	ret := _m.Called(ctx, ids)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListManagersByIDs")
 	}
 
-	var r0 []feeds.FeedsManager
+	var r0 []feeds.Manager
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []int64) ([]feeds.FeedsManager, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) ([]feeds.Manager, error)); ok {
 		return rf(ctx, ids)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []int64) []feeds.FeedsManager); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) []feeds.Manager); ok {
 		r0 = rf(ctx, ids)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]feeds.FeedsManager)
+			r0 = ret.Get(0).([]feeds.Manager)
 		}
 	}
 
@@ -1672,12 +1672,12 @@ func (_c *ORM_ListManagersByIDs_Call) Run(run func(ctx context.Context, ids []in
 	return _c
 }
 
-func (_c *ORM_ListManagersByIDs_Call) Return(_a0 []feeds.FeedsManager, _a1 error) *ORM_ListManagersByIDs_Call {
+func (_c *ORM_ListManagersByIDs_Call) Return(_a0 []feeds.Manager, _a1 error) *ORM_ListManagersByIDs_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *ORM_ListManagersByIDs_Call) RunAndReturn(run func(context.Context, []int64) ([]feeds.FeedsManager, error)) *ORM_ListManagersByIDs_Call {
+func (_c *ORM_ListManagersByIDs_Call) RunAndReturn(run func(context.Context, []int64) ([]feeds.Manager, error)) *ORM_ListManagersByIDs_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2045,7 +2045,7 @@ func (_c *ORM_UpdateJobProposalStatus_Call) RunAndReturn(run func(context.Contex
 }
 
 // UpdateManager provides a mock function with given fields: ctx, mgr
-func (_m *ORM) UpdateManager(ctx context.Context, mgr feeds.FeedsManager) error {
+func (_m *ORM) UpdateManager(ctx context.Context, mgr feeds.Manager) error {
 	ret := _m.Called(ctx, mgr)
 
 	if len(ret) == 0 {
@@ -2053,7 +2053,7 @@ func (_m *ORM) UpdateManager(ctx context.Context, mgr feeds.FeedsManager) error 
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, feeds.FeedsManager) error); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, feeds.Manager) error); ok {
 		r0 = rf(ctx, mgr)
 	} else {
 		r0 = ret.Error(0)
@@ -2069,14 +2069,14 @@ type ORM_UpdateManager_Call struct {
 
 // UpdateManager is a helper method to define mock.On call
 //   - ctx context.Context
-//   - mgr feeds.FeedsManager
+//   - mgr feeds.Manager
 func (_e *ORM_Expecter) UpdateManager(ctx interface{}, mgr interface{}) *ORM_UpdateManager_Call {
 	return &ORM_UpdateManager_Call{Call: _e.mock.On("UpdateManager", ctx, mgr)}
 }
 
-func (_c *ORM_UpdateManager_Call) Run(run func(ctx context.Context, mgr feeds.FeedsManager)) *ORM_UpdateManager_Call {
+func (_c *ORM_UpdateManager_Call) Run(run func(ctx context.Context, mgr feeds.Manager)) *ORM_UpdateManager_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(feeds.FeedsManager))
+		run(args[0].(context.Context), args[1].(feeds.Manager))
 	})
 	return _c
 }
@@ -2086,7 +2086,7 @@ func (_c *ORM_UpdateManager_Call) Return(_a0 error) *ORM_UpdateManager_Call {
 	return _c
 }
 
-func (_c *ORM_UpdateManager_Call) RunAndReturn(run func(context.Context, feeds.FeedsManager) error) *ORM_UpdateManager_Call {
+func (_c *ORM_UpdateManager_Call) RunAndReturn(run func(context.Context, feeds.Manager) error) *ORM_UpdateManager_Call {
 	_c.Call.Return(run)
 	return _c
 }

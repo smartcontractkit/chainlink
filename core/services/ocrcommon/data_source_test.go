@@ -198,8 +198,8 @@ func Test_InMemoryDataSourceWithProm(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.JSONEq(t, jsonParseTaskValue, val.String()) // returns expected value after pipeline run
-	assert.Equal(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromOcrMedianValues))
-	assert.Equal(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromBridgeJSONParseValues))
+	assert.InEpsilon(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromOcrMedianValues), 1e-9)
+	assert.InEpsilon(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromBridgeJSONParseValues), 1e-9)
 }
 
 type mockSaver struct {

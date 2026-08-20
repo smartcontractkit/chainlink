@@ -449,7 +449,7 @@ func setupForwarderForNode(
 	_, err = forwarderORM.CreateForwarder(ctx, faddr, sqlutil.Big(*chainID))
 	require.NoError(t, err)
 
-	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String()) //nolint:staticcheck // test still relies on the legacy chain container
 	require.NoError(t, err)
 	chain, ok := chainService.(legacyevm.Chain)
 	require.True(t, ok)
@@ -717,7 +717,7 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 
 	assert.Len(t, names, 2)
 	assert.Equal(t, logpoller.FilterName("OCR2KeeperRegistry - LogProvider", address), names[0])
-	assert.Equal(t, logpoller.FilterName("EvmRegistry - Upkeep events for", address), names[1])
+	assert.Equal(t, logpoller.FilterName("RegistryService - Upkeep events for", address), names[1])
 
 	spec = &job.OCR2OracleSpec{
 		PluginType: types.OCR2Keeper,

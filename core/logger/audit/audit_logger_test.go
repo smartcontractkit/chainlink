@@ -104,7 +104,7 @@ func TestCheckLoginAuditLog(t *testing.T) {
 	require.NoError(t, err)
 
 	// Cast to concrete type so we can swap out the internals
-	auditLoggerService, ok := auditLogger.(*audit.AuditLoggerService)
+	auditLoggerService, ok := auditLogger.(*audit.LoggerService)
 	assert.True(t, ok)
 
 	// Swap the internals with a testing handler

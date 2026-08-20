@@ -109,6 +109,6 @@ func (Session) GetName() string {
 
 // SetID is used to conform to the UnmarshallIdentifier interface for
 // deserializing from jsonapi documents.
-func (*Session) SetID(string) error {
+func (Session) SetID(string) error {
 	return nil
 }

@@ -57,7 +57,7 @@ func AuthenticateBySession(c *gin.Context, authr Authenticator) error {
 	session := sessions.Default(c)
 	sessionID, ok := session.Get(SessionIDKey).(string)
 	if !ok {
-		return auth.ErrorAuthFailed
+		return auth.ErrAuthFailed
 	}
 
 	user, err := authr.AuthorizedUserWithSession(ctx, sessionID)
@@ -82,18 +82,18 @@ func AuthenticateByToken(c *gin.Context, authr Authenticator) error {
 		Secret:    c.GetHeader(APISecret),
 	}
 	if token.AccessKey == "" {
-		return auth.ErrorAuthFailed
+		return auth.ErrAuthFailed
 	}
 
 	if token.Secret == "" {
-		return auth.ErrorAuthFailed
+		return auth.ErrAuthFailed
 	}
 
 	// We need to first load the user row so we can compare tokens using the stored salt
 	user, err := authr.FindUserByAPIToken(ctx, token.AccessKey)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, clsessions.ErrUserSessionExpired) {
-			return auth.ErrorAuthFailed
+			return auth.ErrAuthFailed
 		}
 		return err
 	}
@@ -103,7 +103,7 @@ func AuthenticateByToken(c *gin.Context, authr Authenticator) error {
 		return err
 	}
 	if !ok {
-		return auth.ErrorAuthFailed
+		return auth.ErrAuthFailed
 	}
 
 	c.Set(SessionUserKey, &user)
@@ -126,7 +126,7 @@ func AuthenticateExternalInitiator(c *gin.Context, store Authenticator) error {
 	ei, err := store.FindExternalInitiator(ctx, eia)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return auth.ErrorAuthFailed
+			return auth.ErrAuthFailed
 		}
 
 		return errors.Wrap(err, "finding external initiator")
@@ -137,7 +137,7 @@ func AuthenticateExternalInitiator(c *gin.Context, store Authenticator) error {
 		return err
 	}
 	if !ok {
-		return auth.ErrorAuthFailed
+		return auth.ErrAuthFailed
 	}
 
 	c.Set(SessionExternalInitiatorKey, ei)
@@ -159,7 +159,7 @@ func Authenticate(store Authenticator, methods ...authMethod) gin.HandlerFunc {
 		var err error
 		for _, method := range methods {
 			err = method(c, store)
-			if !errors.Is(err, auth.ErrorAuthFailed) {
+			if !errors.Is(err, auth.ErrAuthFailed) {
 				break
 			}
 		}

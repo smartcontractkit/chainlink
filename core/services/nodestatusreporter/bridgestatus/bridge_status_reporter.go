@@ -10,11 +10,11 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/bridgestatus/events"
 )
@@ -43,7 +43,7 @@ func NewBridgeStatusReporter(
 	jobORM job.ORM,
 	httpClient *http.Client,
 	emitter beholder.Emitter,
-	lggr logger.Logger,
+	lggr common.Logger,
 ) *Service {
 	s := &Service{
 		config:     config,

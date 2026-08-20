@@ -21,7 +21,7 @@ import (
 )
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
-	config, err := GeneralConfigOpts{}.New()
+	config, err := (&GeneralConfigOpts{}).New()
 	require.NoError(t, err)
 	assert.Equal(t, (*url.URL)(nil), config.WebServer().BridgeResponseURL())
 	assert.False(t, config.EVMConfigs().RPCEnabled())
@@ -38,7 +38,7 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("all insecure configs are false by default", func(t *testing.T) {
-		config, err := GeneralConfigOpts{}.New()
+		config, err := (&GeneralConfigOpts{}).New()
 		require.NoError(t, err)
 
 		assert.False(t, config.Insecure().DevWebServer())
@@ -48,13 +48,13 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	})
 
 	t.Run("insecure config ignore override on non-dev builds", func(t *testing.T) {
-		config, err := GeneralConfigOpts{
+		config, err := (&GeneralConfigOpts{
 			OverrideFn: func(c *Config, s *Secrets) {
 				*c.Insecure.DevWebServer = true
 				*c.Insecure.DisableRateLimiting = true
 				*c.Insecure.InfiniteDepthQueries = true
 				*c.AuditLogger.Enabled = true
-			}}.New()
+			}}).New()
 		require.NoError(t, err)
 
 		// Just asserting that override logic work on a safe config
@@ -89,7 +89,7 @@ func TestValidateDB(t *testing.T) {
 	t.Run("unset db url", func(t *testing.T) {
 		t.Setenv(string(env.DatabaseURL), "")
 
-		config, err := GeneralConfigOpts{}.New()
+		config, err := (&GeneralConfigOpts{}).New()
 		require.NoError(t, err)
 
 		err = config.ValidateDB()
@@ -100,7 +100,7 @@ func TestValidateDB(t *testing.T) {
 	t.Run("dev url", func(t *testing.T) {
 		t.Setenv(string(env.DatabaseURL), "postgres://postgres:admin@localhost:5432/chainlink_dev_test?sslmode=disable")
 
-		config, err := GeneralConfigOpts{}.New()
+		config, err := (&GeneralConfigOpts{}).New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.NoError(t, err)
@@ -110,7 +110,7 @@ func TestValidateDB(t *testing.T) {
 		t.Setenv(string(env.DatabaseURL), "postgres://postgres:pwdTooShort@localhost:5432/chainlink_dev_prod?sslmode=disable")
 		t.Setenv(string(env.DatabaseAllowSimplePasswords), "false")
 
-		config, err := GeneralConfigOpts{}.New()
+		config, err := (&GeneralConfigOpts{}).New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.Error(t, err)
@@ -119,7 +119,7 @@ func TestValidateDB(t *testing.T) {
 }
 
 func TestConfig_LogSQL(t *testing.T) {
-	config, err := GeneralConfigOpts{}.New()
+	config, err := (&GeneralConfigOpts{}).New()
 	require.NoError(t, err)
 
 	config.SetLogSQL(true)

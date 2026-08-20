@@ -201,7 +201,7 @@ func (b bindingContractReaderProxy) Bind(ctx context.Context, boundContracts []c
 	return b.ContractReader.Bind(ctx, updatedBindings)
 }
 
-func (b bindingsMapping) translateContractNames(boundContracts []commontypes.BoundContract) []commontypes.BoundContract {
+func (b *bindingsMapping) translateContractNames(boundContracts []commontypes.BoundContract) []commontypes.BoundContract {
 	updatedBindings := make([]commontypes.BoundContract, 0, len(boundContracts))
 	for _, boundContract := range boundContracts {
 		updatedBindings = append(updatedBindings, commontypes.BoundContract{
@@ -264,7 +264,7 @@ func (b bindingChainWriterProxy) SubmitTransaction(ctx context.Context, contract
 	}
 }
 
-func (b *bindingChainWriterProxy) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
+func (b bindingChainWriterProxy) GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error) {
 	return b.ContractWriter.GetTransactionStatus(ctx, transactionID)
 }
 
@@ -367,7 +367,7 @@ func (b *bindingsMapping) createDelegateForSecondContractMethodReturningUint64()
 }
 
 // Transforms a readKey from ChainReader using the generic testing config to the actual config being used with go bindings which is the auto-generated from the solidity contract.
-func (b bindingsMapping) translateReadKey(key string) string {
+func (b *bindingsMapping) translateReadKey(key string) string {
 	var updatedKey = key
 	parts := strings.Split(key, "-")
 	contractName := parts[1]
@@ -386,7 +386,7 @@ func (b bindingsMapping) translateReadKey(key string) string {
 }
 
 // Transforms a readKey from ChainReader using the generic testing config to the actual config being used with go bindings which is the auto-generated from the solidity contract.
-func (b bindingsMapping) translateContractName(contractName string) string {
+func (b *bindingsMapping) translateContractName(contractName string) string {
 	for testContractName, bindingsName := range b.contractNameMapping {
 		if contractName == testContractName {
 			return bindingsName
@@ -399,7 +399,7 @@ func invokeSpecificMethod[T any](ctx context.Context, readKey string, input T, l
 	return methodInvocation(ctx, readKey, input, level)
 }
 
-func (b bindingsMapping) getBindingDelegate(readKey string) (*Delegate, error) {
+func (b *bindingsMapping) getBindingDelegate(readKey string) (*Delegate, error) {
 	translatedKey := removeAddressFromReadIdentifier(b.translateReadKey(readKey))
 	delegate := b.delegates[translatedKey]
 
@@ -409,7 +409,7 @@ func (b bindingsMapping) getBindingDelegate(readKey string) (*Delegate, error) {
 	return delegate, nil
 }
 
-func (b bindingsMapping) GetChainReaderTester(key string) *bindings.ChainReaderTester {
+func (b *bindingsMapping) GetChainReaderTester(key string) *bindings.ChainReaderTester {
 	address := key[0:strings.Index(key, "-")]
 	return b.chainReaderTesters[address]
 }

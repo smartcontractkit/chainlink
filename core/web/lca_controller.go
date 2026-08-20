@@ -68,6 +68,6 @@ func (LCAResponse) GetName() string {
 
 // SetID is used to conform to the UnmarshallIdentifier interface for
 // deserializing from jsonapi documents.
-func (*LCAResponse) SetID(string) error {
+func (LCAResponse) SetID(string) error {
 	return nil
 }

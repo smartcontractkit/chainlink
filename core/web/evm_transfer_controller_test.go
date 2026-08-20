@@ -69,7 +69,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 		FromAddress:        key.Address,
 		Amount:             amount,
 		SkipWaitTxAttempt:  true,
-		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())), //nolint:staticcheck // MustGetDefaultChainID is deprecated; migration to relayer interface is out of scope
 	}
 
 	body, err := json.Marshal(&request)
@@ -217,7 +217,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 		FromAddress:        key.Address,
 		Amount:             amount,
 		SkipWaitTxAttempt:  true,
-		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())), //nolint:staticcheck // MustGetDefaultChainID is deprecated; migration to relayer interface is out of scope
 	}
 
 	body, err := json.Marshal(&request)
@@ -265,7 +265,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 		FromAddress:        key.Address,
 		Amount:             amount,
 		SkipWaitTxAttempt:  true,
-		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())), //nolint:staticcheck // MustGetDefaultChainID is deprecated; migration to relayer interface is out of scope
 	}
 
 	var body []byte
@@ -297,7 +297,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
 		Amount:             amount,
-		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())), //nolint:staticcheck // MustGetDefaultChainID is deprecated; migration to relayer interface is out of scope
 	}
 
 	body, err := json.Marshal(&request)
@@ -334,7 +334,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
 		AllowHigherAmounts: false,
-		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())), //nolint:staticcheck // MustGetDefaultChainID is deprecated; migration to relayer interface is out of scope
 	}
 
 	body, err := json.Marshal(&request)
@@ -374,7 +374,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		Amount:             amount,
 		AllowHigherAmounts: false,
-		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())),
+		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs())), //nolint:staticcheck // MustGetDefaultChainID is deprecated; migration to relayer interface is out of scope
 	}
 
 	body, err := json.Marshal(&request)
@@ -439,7 +439,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 		FromAddress:        key.Address,
 		Amount:             amount,
 		WaitAttemptTimeout: &timeout,
-		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, config.EVMConfigs())),
+		EVMChainID:         sqlutil.New(evmtest.MustGetDefaultChainID(t, config.EVMConfigs())), //nolint:staticcheck // MustGetDefaultChainID is deprecated; migration to relayer interface is out of scope
 	}
 
 	body, err := json.Marshal(&request)

@@ -6,9 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -33,11 +33,11 @@ func (e chainDisabledError) Error() string {
 type chainsController struct {
 	chainStats  chainlink.RelayerChainInteroperators
 	newResource func(chainlink.NetworkChainStatus) presenters.ChainResource
-	lggr        logger.Logger
-	auditLogger audit.AuditLogger
+	lggr        common.Logger
+	auditLogger audit.Logger
 }
 
-func NewChainsController(chainStats chainlink.RelayerChainInteroperators, lggr logger.Logger, auditLogger audit.AuditLogger) *chainsController {
+func NewChainsController(chainStats chainlink.RelayerChainInteroperators, lggr common.Logger, auditLogger audit.Logger) *chainsController {
 	return &chainsController{
 		chainStats:  chainStats,
 		newResource: presenters.NewChainResource,

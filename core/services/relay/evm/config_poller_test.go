@@ -193,7 +193,7 @@ func TestConfigPoller(t *testing.T) {
 				changedInBlock, configDigest, err := cp.LatestConfigDetails(t.Context())
 				require.NoError(t, err)
 
-				assert.Equal(t, 0, int(changedInBlock))
+				assert.Equal(t, uint64(0), changedInBlock)
 				assert.Equal(t, ocrtypes2.ConfigDigest{}, configDigest)
 			})
 			t.Run("when config has been set, returns config details", func(t *testing.T) {
@@ -215,7 +215,7 @@ func TestConfigPoller(t *testing.T) {
 				onchainDetails, err := ocrContract.LatestConfigDetails(nil)
 				require.NoError(t, err)
 
-				assert.Equal(t, latest.Number().Int64(), int64(changedInBlock))
+				assert.Equal(t, latest.Number().Uint64(), changedInBlock)
 				assert.Equal(t, onchainDetails.ConfigDigest, [32]byte(configDigest))
 			})
 		})

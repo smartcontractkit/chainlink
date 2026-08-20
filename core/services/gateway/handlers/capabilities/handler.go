@@ -370,7 +370,7 @@ func (h *handler) HandleLegacyUserMessage(ctx context.Context, msg *api.Message,
 		})
 	}
 
-	if uint(time.Now().Unix())-h.config.MaxAllowedMessageAgeSec > uint(payload.Timestamp) {
+	if uint(time.Now().Unix())-h.config.MaxAllowedMessageAgeSec > uint(payload.Timestamp) { //nolint:gosec // G115: comparing unix timestamps, both fit within uint
 		h.lggr.Errorw("stale message")
 		return callback.SendResponse(handlers.UserCallbackPayload{
 			RawResponse: codec.EncodeNewErrorResponse(

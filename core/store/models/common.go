@@ -38,7 +38,7 @@ type JSON struct {
 }
 
 // Value returns this instance serialized for database storage.
-func (j JSON) Value() (driver.Value, error) {
+func (j *JSON) Value() (driver.Value, error) {
 	s := j.Bytes()
 	if len(s) == 0 {
 		return nil, nil
@@ -82,7 +82,7 @@ func (j *JSON) UnmarshalJSON(b []byte) error {
 
 // MarshalJSON returns the JSON data if it already exists, returns
 // an empty JSON object as bytes if not.
-func (j JSON) MarshalJSON() ([]byte, error) {
+func (j *JSON) MarshalJSON() ([]byte, error) {
 	if j.Exists() {
 		return j.Bytes(), nil
 	}
@@ -103,7 +103,7 @@ func (j *JSON) UnmarshalTOML(val any) error {
 }
 
 // Bytes returns the raw JSON.
-func (j JSON) Bytes() []byte {
+func (j *JSON) Bytes() []byte {
 	if len(j.String()) == 0 {
 		return nil
 	}
@@ -135,18 +135,18 @@ func (w *WebURL) UnmarshalJSON(j []byte) error {
 }
 
 // MarshalJSON returns the JSON-encoded string of the given data.
-func (w WebURL) MarshalJSON() ([]byte, error) {
+func (w *WebURL) MarshalJSON() ([]byte, error) {
 	return json.Marshal(w.String())
 }
 
 // String delegates to the wrapped URL struct or an empty string when it is nil
-func (w WebURL) String() string {
-	url := url.URL(w)
+func (w *WebURL) String() string {
+	url := url.URL(*w)
 	return url.String()
 }
 
 // Value returns this instance serialized for database storage.
-func (w WebURL) Value() (driver.Value, error) {
+func (w *WebURL) Value() (driver.Value, error) {
 	return w.String(), nil
 }
 
@@ -193,8 +193,8 @@ func (c *Cron) UnmarshalJSON(b []byte) error {
 }
 
 // String returns the current Cron spec string.
-func (c Cron) String() string {
-	return string(c)
+func (c *Cron) String() string {
+	return string(*c)
 }
 
 // SendEtherRequest represents a request to transfer ETH.
@@ -213,18 +213,18 @@ type SendEtherRequest struct {
 type AddressCollection []common.Address
 
 // ToStrings returns this address collection as an array of strings.
-func (r AddressCollection) ToStrings() []string {
+func (r *AddressCollection) ToStrings() []string {
 	// Unable to convert copy-free without unsafe:
 	// https://stackoverflow.com/a/48554123/639773
-	converted := make([]string, len(r))
-	for i, e := range r {
+	converted := make([]string, len(*r))
+	for i, e := range *r {
 		converted[i] = e.Hex()
 	}
 	return converted
 }
 
 // Value returns the string value to be written to the database.
-func (r AddressCollection) Value() (driver.Value, error) {
+func (r *AddressCollection) Value() (driver.Value, error) {
 	return strings.Join(r.ToStrings(), ","), nil
 }
 
@@ -356,7 +356,7 @@ var (
 	headerValueRegex = regexp.MustCompile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
 )
 
-func (h ServiceHeader) Validate() (err error) {
+func (h *ServiceHeader) Validate() (err error) {
 	if !headerNameRegex.MatchString(h.Header) {
 		err = stderrors.Join(err, errors.Errorf("invalid header name: %s", h.Header))
 	}

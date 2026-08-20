@@ -48,7 +48,7 @@ func TestGatewayConnectorConfigFromTOML(t *testing.T) {
 func newTestGatewayConnectorConfig(t *testing.T) chainlink.GeneralConfig {
 	t.Helper()
 
-	cfg, err := chainlink.GeneralConfigOpts{
+	cfg, err := (&chainlink.GeneralConfigOpts{
 		Config: chainlink.Config{
 			Core: toml.Core{
 				Capabilities: toml.Capabilities{
@@ -75,7 +75,7 @@ func newTestGatewayConnectorConfig(t *testing.T) chainlink.GeneralConfig {
 				},
 			},
 		},
-	}.New()
+	}).New()
 	require.NoError(t, err)
 	return cfg
 }
@@ -103,7 +103,7 @@ func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ec
 	addr := privateKeyV2.Address
 	keystoreKeyV2 := ethkey.FromPrivateKey(keystoreKey)
 
-	config, err := chainlink.GeneralConfigOpts{
+	config, err := (&chainlink.GeneralConfigOpts{
 		Config: chainlink.Config{
 			Core: toml.Core{
 				Capabilities: toml.Capabilities{
@@ -119,7 +119,7 @@ func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ec
 				},
 			},
 		},
-	}.New()
+	}).New()
 	require.NoError(t, err)
 
 	ethKeystore := &keystest.FakeChainStore{Addresses: keystest.Addresses{keystoreKeyV2.Address}}
@@ -137,7 +137,7 @@ func setupAutoDiscoverTest(
 ) (*gatewayconnector.ServiceWrapper, error) {
 	lggr := logger.Test(t)
 
-	config, err := chainlink.GeneralConfigOpts{
+	config, err := (&chainlink.GeneralConfigOpts{
 		Config: chainlink.Config{
 			Core: toml.Core{
 				Capabilities: toml.Capabilities{
@@ -153,7 +153,7 @@ func setupAutoDiscoverTest(
 				},
 			},
 		},
-	}.New()
+	}).New()
 	require.NoError(t, err)
 
 	var ethKeystore keys.Store

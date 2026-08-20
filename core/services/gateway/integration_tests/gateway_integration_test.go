@@ -105,9 +105,9 @@ func parseGatewayConfig(t *testing.T, tomlConfig string) *config.GatewayConfig {
 	return &cfg
 }
 
-func parseConnectorConfig(t *testing.T, tomlConfig string, nodeAddress string, nodeURL string) *connector.ConnectorConfig {
+func parseConnectorConfig(t *testing.T, tomlConfig string, nodeAddress string, nodeURL string) *connector.Config {
 	nodeConfig := fmt.Sprintf(tomlConfig, nodeAddress, nodeURL)
-	var cfg connector.ConnectorConfig
+	var cfg connector.Config
 	require.NoError(t, toml.Unmarshal([]byte(nodeConfig), &cfg))
 	return &cfg
 }

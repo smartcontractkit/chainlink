@@ -35,7 +35,7 @@ type Delegate struct {
 	porm         pipeline.ORM
 	ks           keystore.Master
 	legacyChains legacyevm.LegacyChainContainer
-	lggr         logger.Logger
+	lggr         logger.SugaredLogger
 	mailMon      *mailbox.Monitor
 }
 
@@ -45,7 +45,7 @@ func NewDelegate(
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	legacyChains legacyevm.LegacyChainContainer,
-	lggr logger.Logger,
+	lggr logger.SugaredLogger,
 	mailMon *mailbox.Monitor) *Delegate {
 	return &Delegate{
 		ds:           ds,
@@ -53,7 +53,7 @@ func NewDelegate(
 		pr:           pr,
 		porm:         porm,
 		legacyChains: legacyChains,
-		lggr:         lggr.Named("VRF"),
+		lggr:         logger.Sugared(lggr.Named("VRF")),
 		mailMon:      mailMon,
 	}
 }

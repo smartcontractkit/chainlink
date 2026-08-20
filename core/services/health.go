@@ -8,9 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var _ Checker = (*services.HealthChecker)(nil)
@@ -34,7 +33,7 @@ type Checker interface {
 
 type StartUpHealthReport struct {
 	server http.Server
-	lggr   logger.Logger
+	lggr   common.Logger
 	mux    *http.ServeMux
 }
 
@@ -58,7 +57,7 @@ func (i *StartUpHealthReport) Start() {
 
 // NewStartUpHealthReport creates a new StartUpHealthReport that will serve the /health endpoint, useful for
 // preventing shutdowns due to health-checks when running long backup tasks or migrations
-func NewStartUpHealthReport(port uint16, lggr logger.Logger) *StartUpHealthReport {
+func NewStartUpHealthReport(port uint16, lggr common.Logger) *StartUpHealthReport {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" {

@@ -225,9 +225,9 @@ func (result *TaskRunResult) IsTerminal() bool {
 type TaskRunResults []TaskRunResult
 
 // GetTaskRunResultsFinishedAt returns latest finishedAt time from TaskRunResults.
-func (trrs TaskRunResults) GetTaskRunResultsFinishedAt() time.Time {
+func (trrs *TaskRunResults) GetTaskRunResultsFinishedAt() time.Time {
 	var finishedTime time.Time
-	for _, trr := range trrs {
+	for _, trr := range *trrs {
 		if trr.FinishedAt.Valid && trr.FinishedAt.Time.After(finishedTime) {
 			finishedTime = trr.FinishedAt.Time
 		}
@@ -237,13 +237,13 @@ func (trrs TaskRunResults) GetTaskRunResultsFinishedAt() time.Time {
 
 // FinalResult pulls the FinalResult for the pipeline_run from the task runs
 // It needs to respect the output index of each task
-func (trrs TaskRunResults) FinalResult() FinalResult {
+func (trrs *TaskRunResults) FinalResult() FinalResult {
 	var found bool
 	var fr FinalResult
-	sort.Slice(trrs, func(i, j int) bool {
-		return trrs[i].Task.OutputIndex() < trrs[j].Task.OutputIndex()
+	sort.Slice(*trrs, func(i, j int) bool {
+		return (*trrs)[i].Task.OutputIndex() < (*trrs)[j].Task.OutputIndex()
 	})
-	for _, trr := range trrs {
+	for _, trr := range *trrs {
 		fr.AllErrors = append(fr.AllErrors, trr.Result.Error)
 		if trr.IsTerminal() {
 			fr.Values = append(fr.Values, trr.Result.Value)
@@ -253,14 +253,14 @@ func (trrs TaskRunResults) FinalResult() FinalResult {
 	}
 
 	if !found {
-		panic(fmt.Sprintf("expected at least one task to be final: %v", trrs))
+		panic(fmt.Sprintf("expected at least one task to be final: %v", *trrs))
 	}
 	return fr
 }
 
 // Terminals returns all terminal task run results
-func (trrs TaskRunResults) Terminals() (terminals []TaskRunResult) {
-	for _, trr := range trrs {
+func (trrs *TaskRunResults) Terminals() (terminals []TaskRunResult) {
+	for _, trr := range *trrs {
 		if trr.IsTerminal() {
 			terminals = append(terminals, trr)
 		}
@@ -291,9 +291,9 @@ func (trrs *TaskRunResults) GetNextTaskOf(task TaskRunResult) *TaskRunResult {
 	return nil
 }
 
-func (trrs TaskRunResults) AllErrors() error {
+func (trrs *TaskRunResults) AllErrors() error {
 	var errs []error
-	for _, trr := range trrs {
+	for _, trr := range *trrs {
 		if trr.Result.Error != nil {
 			errs = append(errs, trr.Result.Error)
 		}

@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -21,7 +21,7 @@ type pipelineRunner interface {
 type PipelineRunnerAdapter struct {
 	runner pipelineRunner
 	job    job.Job
-	logger logger.Logger
+	logger common.Logger
 }
 
 func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, vars core.Vars, options core.Options) (core.TaskResults, error) {
@@ -66,7 +66,7 @@ func (p *PipelineRunnerAdapter) ExecuteRun(ctx context.Context, spec string, var
 	return taskResults, nil
 }
 
-func NewPipelineRunnerAdapter(logger logger.Logger, job job.Job, runner pipelineRunner) *PipelineRunnerAdapter {
+func NewPipelineRunnerAdapter(logger common.Logger, job job.Job, runner pipelineRunner) *PipelineRunnerAdapter {
 	return &PipelineRunnerAdapter{
 		logger: logger,
 		job:    job,

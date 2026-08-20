@@ -758,7 +758,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		Transactions: cltest.LegacyTransactionsFromGasPrices(48_000_000_000, 49_000_000_000, 31_000_000_000),
 	}
 
-	evmChainID := sqlutil.New(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+	evmChainID := sqlutil.New(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) //nolint:staticcheck // test-only legacy helper
 	h40 := types.Head{Hash: evmutils.NewHash(), Number: 40, EVMChainID: evmChainID}
 	h41 := types.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
 	h42 := types.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
@@ -789,7 +789,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	})
 
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil) //nolint:staticcheck // test-only legacy helper
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 	// HeadTracker backfill
 	ethClient.On("HeadByHash", mock.Anything, h40.Hash).Return(&h40, nil).Maybe()
@@ -813,7 +813,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		t.Fatal("timed out waiting for app to subscribe")
 	}
 
-	chain := evmtest.MustGetDefaultChain(t, legacyChains)
+	chain := evmtest.MustGetDefaultChain(t, legacyChains) //nolint:staticcheck // test-only legacy helper
 	estimator := chain.GasEstimator()
 	gasPrice, gasLimit, err := estimator.GetFee(t.Context(), nil, 500_000, maxGasPrice, nil, nil)
 	require.NoError(t, err)

@@ -59,7 +59,7 @@ func Test_ORM_CreateManager_CountManagers(t *testing.T) {
 
 	var (
 		orm = setupORM(t)
-		mgr = &feeds.FeedsManager{
+		mgr = &feeds.Manager{
 			URI:       uri,
 			Name:      name,
 			PublicKey: publicKey,
@@ -86,7 +86,7 @@ func Test_ORM_CreateManager(t *testing.T) {
 
 	var (
 		orm = setupORM(t)
-		mgr = &feeds.FeedsManager{
+		mgr = &feeds.Manager{
 			URI:       uri,
 			Name:      name,
 			PublicKey: publicKey,
@@ -113,7 +113,7 @@ func Test_ORM_GetManager(t *testing.T) {
 
 	var (
 		orm = setupORM(t)
-		mgr = &feeds.FeedsManager{
+		mgr = &feeds.Manager{
 			URI:       uri,
 			Name:      name,
 			PublicKey: publicKey,
@@ -142,7 +142,7 @@ func Test_ORM_ListManagers(t *testing.T) {
 
 	var (
 		orm = setupORM(t)
-		mgr = &feeds.FeedsManager{
+		mgr = &feeds.Manager{
 			URI:       uri,
 			Name:      name,
 			PublicKey: publicKey,
@@ -170,7 +170,7 @@ func Test_ORM_ListManagersByIDs(t *testing.T) {
 
 	var (
 		orm = setupORM(t)
-		mgr = &feeds.FeedsManager{
+		mgr = &feeds.Manager{
 			URI:       uri,
 			Name:      name,
 			PublicKey: publicKey,
@@ -198,7 +198,7 @@ func Test_ORM_UpdateManager(t *testing.T) {
 
 	var (
 		orm = setupORM(t)
-		mgr = &feeds.FeedsManager{
+		mgr = &feeds.Manager{
 			URI:       uri,
 			Name:      name,
 			PublicKey: publicKey,
@@ -208,7 +208,7 @@ func Test_ORM_UpdateManager(t *testing.T) {
 	id, err := orm.CreateManager(ctx, mgr)
 	require.NoError(t, err)
 
-	updatedMgr := feeds.FeedsManager{
+	updatedMgr := feeds.Manager{
 		ID:        id,
 		URI:       "127.0.0.1",
 		Name:      "New Name",
@@ -232,7 +232,7 @@ func Test_ORM_EnableAndDisableManager(t *testing.T) {
 
 	var (
 		orm = setupORM(t)
-		mgr = &feeds.FeedsManager{
+		mgr = &feeds.Manager{
 			URI:       uri,
 			Name:      name,
 			PublicKey: publicKey,
@@ -1715,7 +1715,7 @@ func Test_ORM_IsJobManagedByFeedsManager(t *testing.T) {
 		fmID1 = createFeedsManager(t, orm)
 	)
 
-	mgr2 := &feeds.FeedsManager{
+	mgr2 := &feeds.Manager{
 		URI:       "http://192.168.0.2",
 		Name:      "Chainlink FMS 2",
 		PublicKey: crypto.PublicKey([]byte("22222222222222222222222222222222")),
@@ -1807,7 +1807,7 @@ func assertChainConfigEqual(t *testing.T, want map[string]any, actual feeds.Chai
 func createFeedsManager(t *testing.T, orm feeds.ORM) int64 {
 	t.Helper()
 
-	mgr := &feeds.FeedsManager{
+	mgr := &feeds.Manager{
 		URI:       uri,
 		Name:      name,
 		PublicKey: publicKey,

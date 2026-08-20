@@ -14,7 +14,7 @@ import (
 func TestConnectorConfig_From(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := chainlink.GeneralConfigOpts{
+	cfg, err := (&chainlink.GeneralConfigOpts{
 		Config: chainlink.Config{
 			Core: toml.Core{
 				Capabilities: toml.Capabilities{
@@ -41,10 +41,10 @@ func TestConnectorConfig_From(t *testing.T) {
 				},
 			},
 		},
-	}.New()
+	}).New()
 	require.NoError(t, err)
 
-	translated := connector.ConnectorConfig{}.From(cfg.Capabilities().GatewayConnector())
+	translated := connector.Config{}.From(cfg.Capabilities().GatewayConnector())
 
 	assert.Equal(t, "0x68902d681c28119f9b2531473a417088bf008e59", translated.NodeAddress)
 	assert.Equal(t, "example_don", translated.DonID)

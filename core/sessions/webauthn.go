@@ -162,36 +162,36 @@ func FinishWebAuthnLogin(user User, uwas []WebAuthn, sr SessionRequest) error {
 }
 
 // WebAuthnID returns the user's ID
-func (u WebAuthnUser) WebAuthnID() []byte {
+func (u *WebAuthnUser) WebAuthnID() []byte {
 	return []byte(u.Email)
 }
 
 // WebAuthnName returns the user's email
-func (u WebAuthnUser) WebAuthnName() string {
+func (u *WebAuthnUser) WebAuthnName() string {
 	return u.Email
 }
 
 // WebAuthnDisplayName returns the user's display name.
 // In this case we just return the email
-func (u WebAuthnUser) WebAuthnDisplayName() string {
+func (u *WebAuthnUser) WebAuthnDisplayName() string {
 	return u.Email
 }
 
 // WebAuthnIcon should be the logo in some form. How it should
 // be is currently unclear to me.
-func (u WebAuthnUser) WebAuthnIcon() string {
+func (u *WebAuthnUser) WebAuthnIcon() string {
 	return ""
 }
 
 // WebAuthnCredentials returns credentials owned by the user
-func (u WebAuthnUser) WebAuthnCredentials() []webauthn.Credential {
+func (u *WebAuthnUser) WebAuthnCredentials() []webauthn.Credential {
 	return u.WACredentials
 }
 
 // CredentialExcludeList returns a CredentialDescriptor array filled
 // with all the user's credentials to prevent them from re-registering
 // keys
-func (u WebAuthnUser) CredentialExcludeList() []protocol.CredentialDescriptor {
+func (u *WebAuthnUser) CredentialExcludeList() []protocol.CredentialDescriptor {
 	credentialExcludeList := make([]protocol.CredentialDescriptor, 0, len(u.WACredentials))
 
 	for _, cred := range u.WACredentials {
@@ -217,13 +217,13 @@ func (u *WebAuthnUser) LoadWebAuthnCredentials(uwas []WebAuthn) error {
 	return nil
 }
 
-func duoWebAuthUserFromUser(user User, uwas []WebAuthn) (WebAuthnUser, error) {
+func duoWebAuthUserFromUser(user User, uwas []WebAuthn) (*WebAuthnUser, error) {
 	waUser := WebAuthnUser{
 		Email: user.Email,
 	}
 	err := waUser.LoadWebAuthnCredentials(uwas)
 
-	return waUser, err
+	return &waUser, err
 }
 
 // WebAuthnSessionStore is a wrapper around an in memory key value store which provides some helper

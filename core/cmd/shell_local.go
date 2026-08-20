@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -689,7 +690,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	return grp.Wait()
 }
 
-func checkFilePermissions(lggr logger.Logger, rootDir string) error {
+func checkFilePermissions(lggr common.Logger, rootDir string) error {
 	// Ensure tls sub directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
 	if _, err := os.Stat(tlsDir); err != nil && !os.IsNotExist(err) {
@@ -788,7 +789,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	// TODO: BCF-2511 once the dust settles on BCF-2440/1 evaluate how the
 	// [loop.Relayer] interface needs to be extended to support programming similar to
 	// this pattern but in a chain-agnostic way
-	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String()) //nolint:staticcheck // legacy EVM chain access required for standalone rebroadcast (see BCF-2511)
 	if err != nil {
 		return s.errorOut(fmt.Errorf("failed to get EVM chain service for chain ID %s: %w", chainID.String(), err))
 	}

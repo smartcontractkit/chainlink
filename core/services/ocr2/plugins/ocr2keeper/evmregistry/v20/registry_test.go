@@ -48,7 +48,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 
 			mht := headstest.NewTracker[*evmtypes.Head, common.Hash](t)
 
-			rg := &EvmRegistry{
+			rg := &RegistryService{
 				HeadProvider: HeadProvider{
 					ht: mht,
 				},
@@ -199,7 +199,7 @@ func TestPollLogs(t *testing.T) {
 				mp.On("LogsWithSigs", mock.Anything, fc.InputStart, fc.InputEnd, upkeepStateEvents, test.Address).Return(fc.OutputLogs, fc.OutputErr)
 			}
 
-			rg := &EvmRegistry{
+			rg := &RegistryService{
 				addr:          test.Address,
 				lastPollBlock: test.LastPoll,
 				poller:        mp,

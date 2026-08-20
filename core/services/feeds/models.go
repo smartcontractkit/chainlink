@@ -62,7 +62,7 @@ type Plugins struct {
 	Rebalancer bool `json:"rebalancer"`
 }
 
-func (p Plugins) Value() (driver.Value, error) {
+func (p *Plugins) Value() (driver.Value, error) {
 	return json.Marshal(p)
 }
 
@@ -121,9 +121,9 @@ func ChainTypeToProtoChainType(chainType ChainType) proto.ChainType {
 	return proto.ChainType_CHAIN_TYPE_UNSPECIFIED
 }
 
-// FeedsManager defines a registered Feeds Manager Service and the connection
+// Manager defines a registered Feeds Manager Service and the connection
 // information.
-type FeedsManager struct {
+type Manager struct {
 	ID                 int64
 	Name               string
 	URI                string
@@ -155,7 +155,7 @@ type FluxMonitorConfig struct {
 	Enabled bool `json:"enabled"`
 }
 
-func (c FluxMonitorConfig) Value() (driver.Value, error) {
+func (c *FluxMonitorConfig) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
@@ -177,7 +177,7 @@ type OCR1Config struct {
 	KeyBundleID null.String `json:"key_bundle_id"`
 }
 
-func (c OCR1Config) Value() (driver.Value, error) {
+func (c *OCR1Config) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 
@@ -201,7 +201,7 @@ type OCR2ConfigModel struct {
 	Plugins          Plugins     `json:"plugins"`
 }
 
-func (c OCR2ConfigModel) Value() (driver.Value, error) {
+func (c *OCR2ConfigModel) Value() (driver.Value, error) {
 	return json.Marshal(c)
 }
 

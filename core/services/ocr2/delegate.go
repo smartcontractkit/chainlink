@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/diskmonitor"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop/reportingplugins/ocr3"
@@ -138,7 +139,7 @@ type Delegate struct {
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
 	cfg                   DelegateConfig
-	lggr                  logger.Logger
+	lggr                  logger.SugaredLogger
 	ks                    keystore.OCR2
 	ethKs                 keystore.Eth
 	workflowKs            keystore.Workflow
@@ -271,7 +272,7 @@ type DelegateOpts struct {
 	PeerWrapper                    *ocrcommon.SingletonPeerWrapper
 	MonitoringEndpointGen          telemetry.MonitoringEndpointGenerator
 	LegacyChains                   legacyevm.LegacyChainContainer
-	Lggr                           logger.Logger
+	Lggr                           logger.SugaredLogger
 	Ks                             keystore.OCR2
 	EthKs                          keystore.Eth
 	Relayers                       RelayGetter
@@ -305,7 +306,7 @@ func NewDelegate(
 		monitoringEndpointGen:          opts.MonitoringEndpointGen,
 		legacyChains:                   opts.LegacyChains,
 		cfg:                            cfg,
-		lggr:                           opts.Lggr.Named("OCR2"),
+		lggr:                           logger.Sugared(opts.Lggr.Named("OCR2")),
 		ks:                             opts.Ks,
 		ethKs:                          opts.EthKs,
 		workflowKs:                     opts.WorkflowKs,
@@ -347,7 +348,7 @@ func (d *Delegate) OnDeleteJob(ctx context.Context, jb job.Job) error {
 	rid, err := spec.RelayID()
 	if err != nil {
 		d.lggr.Errorw("DeleteJob", "err", JobSpecNoRelayerError{Err: err, PluginName: string(spec.PluginType)})
-		return nil
+		return nil //nolint:nilerr // deletion must not be blocked by a malformed spec
 	}
 	// we only have clean to do for the EVM
 	if rid.Network == relay.NetworkEVM {
@@ -1963,7 +1964,7 @@ func (l *errorLog) SaveError(ctx context.Context, msg string) error {
 }
 
 type logWriter struct {
-	log logger.Logger
+	log commonlogger.Logger
 }
 
 func (l *logWriter) Write(p []byte) (n int, err error) {

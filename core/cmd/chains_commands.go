@@ -66,7 +66,7 @@ type ChainPresenter struct {
 }
 
 // ToRow presents the ChainResource as a slice of strings.
-func (p *ChainPresenter) ToRow() []string {
+func (p ChainPresenter) ToRow() []string {
 	return []string{p.GetID(), strconv.FormatBool(p.Enabled), p.Config}
 }
 

@@ -106,7 +106,7 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 			return fmt.Errorf("gateway connector keystore check failed (chainID %s): %w", e.chainID, err)
 		}
 
-		translated := connector.ConnectorConfig{}.From(conf)
+		translated := connector.Config{}.From(conf)
 		// Override NodeAddress in translated config if we auto-discovered it
 		if translated.NodeAddress == "" {
 			translated.NodeAddress = nodeAddress

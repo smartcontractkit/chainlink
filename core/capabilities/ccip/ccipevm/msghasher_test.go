@@ -227,9 +227,10 @@ func testSetup(t *testing.T) *testSetupData {
 
 func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 	transactor := evmtestutils.MustNewSimTransactor(t)
-	backend := backends.NewSimulatedBackend(types.GenesisAlloc{
+	b := simulated.NewBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
-	}, 30e6)
+	}, simulated.WithBlockGasLimit(30e6))
+	backend := &backends.SimulatedBackend{Backend: b, Client: b.Client()}
 
 	msghasherAddr, _, _, err := message_hasher.DeployMessageHasher(transactor, backend)
 	require.NoError(t, err)

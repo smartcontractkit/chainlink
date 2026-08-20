@@ -546,7 +546,7 @@ func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, meth
 				// add to cachedShims later, only after startNewShim succeeds
 			}
 			// Update existing client config
-			transmissionConfig := &transmission.TransmissionConfig{
+			transmissionConfig := &transmission.Config{
 				Schedule:   transmission.EnumToString(config.RemoteExecutableConfig.TransmissionSchedule),
 				DeltaStage: config.RemoteExecutableConfig.DeltaStage,
 			}

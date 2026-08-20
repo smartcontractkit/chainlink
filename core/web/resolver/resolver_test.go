@@ -63,7 +63,7 @@ type mocks struct {
 	ethClient            *clienttest.Client
 	balM                 *evmMonMocks.BalanceMonitor
 	txmStore             *evmtxmgrmocks.EvmTxStore
-	auditLogger          *audit.AuditLoggerService
+	auditLogger          *audit.LoggerService
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -124,7 +124,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		ethClient:            clienttest.NewClient(t),
 		balM:                 evmMonMocks.NewBalanceMonitor(t),
 		txmStore:             evmtxmgrmocks.NewEvmTxStore(t),
-		auditLogger:          &audit.AuditLoggerService{},
+		auditLogger:          &audit.LoggerService{},
 	}
 
 	lggr := logger.TestLogger(t)

@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -69,7 +70,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client legacyevm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryService(addr common.Address, client legacyevm.Chain, lggr logger.SugaredLogger) (*RegistryService, error) {
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrABINotParsable, err)
@@ -80,13 +81,13 @@ func NewEVMRegistryService(addr common.Address, client legacyevm.Chain, lggr log
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 
-	r := &EvmRegistry{
+	r := &RegistryService{
 		HeadProvider: HeadProvider{
 			ht:     client.HeadTracker(),
 			hb:     client.HeadBroadcaster(),
 			chHead: make(chan ocr2keepers.BlockKey, 1),
 		},
-		lggr:     lggr.Named("AutomationRegistry"),
+		lggr:     logger.Sugared(lggr.Named("AutomationRegistry")),
 		poller:   client.LogPoller(),
 		addr:     addr,
 		client:   client.Client(),
@@ -97,7 +98,7 @@ func NewEVMRegistryService(addr common.Address, client legacyevm.Chain, lggr log
 		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
 		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
-		enc:      EVMAutomationEncoder20{},
+		enc:      AutomationEncoder20{},
 	}
 
 	r.stopCh = make(chan struct{})
@@ -127,7 +128,7 @@ var upkeepActiveEvents = []common.Hash{
 }
 
 type checkResult struct {
-	ur  []EVMAutomationUpkeepResult20
+	ur  []AutomationUpkeepResult20
 	err error
 }
 
@@ -137,10 +138,10 @@ type activeUpkeep struct {
 	CheckData       []byte
 }
 
-type EvmRegistry struct {
+type RegistryService struct {
 	HeadProvider
 	sync          services.StateMachine
-	lggr          logger.Logger
+	lggr          logger.SugaredLogger
 	poller        logpoller.LogPoller
 	addr          common.Address
 	client        client.Client
@@ -157,12 +158,12 @@ type EvmRegistry struct {
 	headFunc      func(ocr2keepers.BlockKey)
 	runState      int
 	runError      error
-	enc           EVMAutomationEncoder20
+	enc           AutomationEncoder20
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
 // slice of upkeep keys.
-func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]ocr2keepers.UpkeepIdentifier, error) {
+func (r *RegistryService) GetActiveUpkeepIDs(context.Context) ([]ocr2keepers.UpkeepIdentifier, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -176,7 +177,7 @@ func (r *EvmRegistry) GetActiveUpkeepIDs(context.Context) ([]ocr2keepers.UpkeepI
 	return keys, nil
 }
 
-func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys ...ocr2keepers.UpkeepKey) ([]ocr2keepers.UpkeepResult, error) {
+func (r *RegistryService) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys ...ocr2keepers.UpkeepKey) ([]ocr2keepers.UpkeepResult, error) {
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx, mercuryEnabled, keys, chResult)
 
@@ -198,17 +199,17 @@ func (r *EvmRegistry) CheckUpkeep(ctx context.Context, mercuryEnabled bool, keys
 	}
 }
 
-func (r *EvmRegistry) Name() string {
+func (r *RegistryService) Name() string {
 	return r.lggr.Name()
 }
 
-func (r *EvmRegistry) Start(_ context.Context) error {
+func (r *RegistryService) Start(_ context.Context) error {
 	return r.sync.StartOnce("AutomationRegistry", func() error {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		// initialize the upkeep keys; if the reInit timer returns, do it again
 		{
-			go func(tmr *time.Timer, lggr logger.Logger, f func(context.Context) error) {
+			go func(tmr *time.Timer, lggr commonlogger.Logger, f func(context.Context) error) {
 				ctx, cancel := r.stopCh.NewCtx()
 				defer cancel()
 				err := f(ctx)
@@ -233,7 +234,7 @@ func (r *EvmRegistry) Start(_ context.Context) error {
 
 		// start polling logs on an interval
 		{
-			go func(lggr logger.Logger, f func(context.Context) error) {
+			go func(lggr commonlogger.Logger, f func(context.Context) error) {
 				ctx, cancel := r.stopCh.NewCtx()
 				defer cancel()
 				ticker := time.NewTicker(time.Second)
@@ -255,7 +256,7 @@ func (r *EvmRegistry) Start(_ context.Context) error {
 
 		// run process to process logs from log channel
 		{
-			go func(ch chan logpoller.Log, lggr logger.Logger, f func(context.Context, logpoller.Log) error) {
+			go func(ch chan logpoller.Log, lggr commonlogger.Logger, f func(context.Context, logpoller.Log) error) {
 				ctx, cancel := r.stopCh.NewCtx()
 				defer cancel()
 				for {
@@ -277,7 +278,7 @@ func (r *EvmRegistry) Start(_ context.Context) error {
 	})
 }
 
-func (r *EvmRegistry) Close() error {
+func (r *RegistryService) Close() error {
 	return r.sync.StopOnce("AutomationRegistry", func() error {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -288,7 +289,7 @@ func (r *EvmRegistry) Close() error {
 	})
 }
 
-func (r *EvmRegistry) Ready() error {
+func (r *RegistryService) Ready() error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -298,7 +299,7 @@ func (r *EvmRegistry) Ready() error {
 	return r.sync.Ready()
 }
 
-func (r *EvmRegistry) HealthReport() map[string]error {
+func (r *RegistryService) HealthReport() map[string]error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -308,7 +309,7 @@ func (r *EvmRegistry) HealthReport() map[string]error {
 	return map[string]error{r.Name(): r.sync.Healthy()}
 }
 
-func (r *EvmRegistry) initialize(ctx context.Context) error {
+func (r *RegistryService) initialize(ctx context.Context) error {
 	startupCtx, cancel := context.WithTimeout(ctx, reInitializationDelay)
 	defer cancel()
 
@@ -347,7 +348,7 @@ func (r *EvmRegistry) initialize(ctx context.Context) error {
 	return nil
 }
 
-func (r *EvmRegistry) pollLogs(ctx context.Context) error {
+func (r *RegistryService) pollLogs(ctx context.Context) error {
 	var latest int64
 	var end logpoller.Block
 	var err error
@@ -387,10 +388,10 @@ func (r *EvmRegistry) pollLogs(ctx context.Context) error {
 }
 
 func UpkeepFilterName(addr common.Address) string {
-	return logpoller.FilterName("EvmRegistry - Upkeep events for", addr.String())
+	return logpoller.FilterName("RegistryService - Upkeep events for", addr.String())
 }
 
-func (r *EvmRegistry) registerEvents(ctx context.Context, chainID uint64, addr common.Address) error {
+func (r *RegistryService) registerEvents(ctx context.Context, chainID uint64, addr common.Address) error {
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need
 	return r.poller.RegisterFilter(ctx, logpoller.Filter{
@@ -400,7 +401,7 @@ func (r *EvmRegistry) registerEvents(ctx context.Context, chainID uint64, addr c
 	})
 }
 
-func (r *EvmRegistry) processUpkeepStateLog(ctx context.Context, l logpoller.Log) error {
+func (r *RegistryService) processUpkeepStateLog(ctx context.Context, l logpoller.Log) error {
 	hash := l.TxHash.String()
 	if _, ok := r.txHashes[hash]; ok {
 		return nil
@@ -431,7 +432,7 @@ func (r *EvmRegistry) processUpkeepStateLog(ctx context.Context, l logpoller.Log
 	return nil
 }
 
-func (r *EvmRegistry) addToActive(ctx context.Context, id *big.Int, force bool) {
+func (r *RegistryService) addToActive(ctx context.Context, id *big.Int, force bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -454,7 +455,7 @@ func (r *EvmRegistry) addToActive(ctx context.Context, id *big.Int, force bool) 
 	}
 }
 
-func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.CallOpts, error) {
+func (r *RegistryService) buildCallOpts(ctx context.Context, block *big.Int) (*bind.CallOpts, error) {
 	opts := bind.CallOpts{
 		Context:     ctx,
 		BlockNumber: nil,
@@ -471,7 +472,7 @@ func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.
 	return &opts, nil
 }
 
-func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int, error) {
+func (r *RegistryService) getLatestIDsFromContract(ctx context.Context) ([]*big.Int, error) {
 	opts, err := r.buildCallOpts(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -511,7 +512,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 	return ids, nil
 }
 
-func (r *EvmRegistry) doCheck(ctx context.Context, _ bool, keys []ocr2keepers.UpkeepKey, chResult chan checkResult) {
+func (r *RegistryService) doCheck(ctx context.Context, _ bool, keys []ocr2keepers.UpkeepKey, chResult chan checkResult) {
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
@@ -567,7 +568,7 @@ func splitKey(key ocr2keepers.UpkeepKey) (*big.Int, *big.Int, error) {
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.UpkeepKey) ([]EVMAutomationUpkeepResult20, error) {
+func (r *RegistryService) checkUpkeeps(ctx context.Context, keys []ocr2keepers.UpkeepKey) ([]AutomationUpkeepResult20, error) {
 	var (
 		checkReqs    = make([]rpc.BatchElem, len(keys))
 		checkResults = make([]*string, len(keys))
@@ -616,7 +617,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 
 	var (
 		multiErr error
-		results  = make([]EVMAutomationUpkeepResult20, len(keys))
+		results  = make([]AutomationUpkeepResult20, len(keys))
 	)
 
 	for i, req := range checkReqs {
@@ -637,7 +638,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []EVMAutomationUpkeepResult20) ([]EVMAutomationUpkeepResult20, error) {
+func (r *RegistryService) simulatePerformUpkeeps(ctx context.Context, checkResults []AutomationUpkeepResult20) ([]AutomationUpkeepResult20, error) {
 	var (
 		performReqs     = make([]rpc.BatchElem, 0, len(checkResults))
 		performResults  = make([]*string, 0, len(checkResults))
@@ -710,7 +711,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]activeUpkeep, error) {
+func (r *RegistryService) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]activeUpkeep, error) {
 	if len(ids) == 0 {
 		return []activeUpkeep{}, nil
 	}

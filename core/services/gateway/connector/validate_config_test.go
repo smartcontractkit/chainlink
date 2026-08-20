@@ -11,11 +11,11 @@ import (
 	gatewaymocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 )
 
-func validConnectorConfig() *ConnectorConfig {
-	return &ConnectorConfig{
+func validConnectorConfig() *Config {
+	return &Config{
 		NodeAddress: "0x68902d681c28119f9b2531473a417088bf008e59",
 		DonID:       "example_don",
-		Gateways: []ConnectorGatewayConfig{
+		Gateways: []GatewayConfig{
 			{ID: "gateway_a", URL: "ws://localhost:8081/a"},
 			{ID: "gateway_b", URL: "ws://localhost:8081/b"},
 		},
@@ -27,13 +27,13 @@ func TestValidateConnectorConfig(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		modify     func(*ConnectorConfig)
+		modify     func(*Config)
 		wantErr    bool
 		errMessage string
 	}{
 		{
 			name:    "legacy single gateway without per-gateway DonID",
-			modify:  func(cfg *ConnectorConfig) { cfg.Gateways = cfg.Gateways[:1] },
+			modify:  func(cfg *Config) { cfg.Gateways = cfg.Gateways[:1] },
 			wantErr: false,
 		},
 		{
@@ -42,7 +42,7 @@ func TestValidateConnectorConfig(t *testing.T) {
 		},
 		{
 			name: "legacy ignores unset per-gateway DonID on all gateways",
-			modify: func(cfg *ConnectorConfig) {
+			modify: func(cfg *Config) {
 				for i := range cfg.Gateways {
 					cfg.Gateways[i].DonID = ""
 				}
@@ -51,8 +51,8 @@ func TestValidateConnectorConfig(t *testing.T) {
 		},
 		{
 			name: "multi-DON single gateway",
-			modify: func(cfg *ConnectorConfig) {
-				cfg.Gateways = []ConnectorGatewayConfig{
+			modify: func(cfg *Config) {
+				cfg.Gateways = []GatewayConfig{
 					{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 				}
 			},
@@ -60,8 +60,8 @@ func TestValidateConnectorConfig(t *testing.T) {
 		},
 		{
 			name: "multi-DON all gateways set DonID",
-			modify: func(cfg *ConnectorConfig) {
-				cfg.Gateways = []ConnectorGatewayConfig{
+			modify: func(cfg *Config) {
+				cfg.Gateways = []GatewayConfig{
 					{ID: "gateway_us_1", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
 					{ID: "gateway_us_2", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-2"},
 					{ID: "gateway_eu_1", DonID: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
@@ -71,7 +71,7 @@ func TestValidateConnectorConfig(t *testing.T) {
 		},
 		{
 			name: "empty connector DonID",
-			modify: func(cfg *ConnectorConfig) {
+			modify: func(cfg *Config) {
 				cfg.DonID = ""
 			},
 			wantErr:    true,
@@ -79,7 +79,7 @@ func TestValidateConnectorConfig(t *testing.T) {
 		},
 		{
 			name: "connector DonID exceeds max length",
-			modify: func(cfg *ConnectorConfig) {
+			modify: func(cfg *Config) {
 				cfg.DonID = "012345678901234567890123456789012345678901234567890123456789012345"
 			},
 			wantErr:    true,
@@ -87,8 +87,8 @@ func TestValidateConnectorConfig(t *testing.T) {
 		},
 		{
 			name: "partial per-gateway DonID",
-			modify: func(cfg *ConnectorConfig) {
-				cfg.Gateways = []ConnectorGatewayConfig{
+			modify: func(cfg *Config) {
+				cfg.Gateways = []GatewayConfig{
 					{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 					{ID: "gateway_eu", URL: "ws://localhost:8081/eu"},
 				}
@@ -98,8 +98,8 @@ func TestValidateConnectorConfig(t *testing.T) {
 		},
 		{
 			name: "partial per-gateway DonID with legacy gateway first",
-			modify: func(cfg *ConnectorConfig) {
-				cfg.Gateways = []ConnectorGatewayConfig{
+			modify: func(cfg *Config) {
+				cfg.Gateways = []GatewayConfig{
 					{ID: "gateway_legacy", URL: "ws://localhost:8081/legacy"},
 					{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 				}
@@ -147,7 +147,7 @@ func TestNewGatewayConnector_ConfigValidation(t *testing.T) {
 		t.Parallel()
 
 		cfg := validConnectorConfig()
-		cfg.Gateways = []ConnectorGatewayConfig{
+		cfg.Gateways = []GatewayConfig{
 			{ID: "gateway_us_1", DonID: "gateway_don_us", URL: "ws://localhost:8081/us-1"},
 			{ID: "gateway_eu_1", DonID: "gateway_don_eu", URL: "ws://localhost:8081/eu-1"},
 		}
@@ -160,7 +160,7 @@ func TestNewGatewayConnector_ConfigValidation(t *testing.T) {
 		t.Parallel()
 
 		cfg := validConnectorConfig()
-		cfg.Gateways = []ConnectorGatewayConfig{
+		cfg.Gateways = []GatewayConfig{
 			{ID: "gateway_us", DonID: "gateway_don_us", URL: "ws://localhost:8081/us"},
 			{ID: "gateway_eu", URL: "ws://localhost:8081/eu"},
 		}

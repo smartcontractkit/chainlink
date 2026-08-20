@@ -53,8 +53,8 @@ type Config struct {
 // RawConfigs is a list of RawConfig.
 type RawConfigs []RawConfig
 
-func (rs RawConfigs) SetDefaults() {
-	for _, r := range rs {
+func (rs *RawConfigs) SetDefaults() {
+	for _, r := range *rs {
 		r.SetDefaults()
 	}
 }
@@ -82,9 +82,9 @@ func (rs *RawConfigs) SetFrom(configs RawConfigs) error {
 	return nil
 }
 
-func (rs RawConfigs) validateKeys() (err error) {
+func (rs *RawConfigs) validateKeys() (err error) {
 	chainIDs := commonconfig.UniqueStrings{}
-	for i, config := range rs {
+	for i, config := range *rs {
 		chainID := config.ChainID()
 		if chainIDs.IsDupe(&chainID) {
 			err = errors.Join(err, commonconfig.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), chainID))
@@ -92,7 +92,7 @@ func (rs RawConfigs) validateKeys() (err error) {
 	}
 
 	nodeNames := commonconfig.UniqueStrings{}
-	for i, config := range rs {
+	for i, config := range *rs {
 		configNodeNames := config.NodeNames()
 		for j, nodeName := range configNodeNames {
 			if nodeNames.IsDupe(&nodeName) {
@@ -103,7 +103,7 @@ func (rs RawConfigs) validateKeys() (err error) {
 	return
 }
 
-func (rs RawConfigs) ValidateConfig() (err error) {
+func (rs *RawConfigs) ValidateConfig() (err error) {
 	return rs.validateKeys()
 }
 
@@ -117,16 +117,16 @@ type parsedRawConfig struct {
 	nodeNames  []string
 }
 
-func (c RawConfig) parse() (*parsedRawConfig, error) {
+func (c *RawConfig) parse() (*parsedRawConfig, error) {
 	var err error
-	if v, ok := c["Enabled"]; ok {
+	if v, ok := (*c)["Enabled"]; ok {
 		if _, ok := v.(bool); !ok {
 			err = errors.Join(err, commonconfig.ErrInvalid{Name: "Enabled", Value: v, Msg: "expected bool"})
 		}
 	}
 
 	parsedRawConfig := &parsedRawConfig{}
-	chainID, exists := c["ChainID"]
+	chainID, exists := (*c)["ChainID"]
 	if !exists {
 		err = errors.Join(err, commonconfig.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
 	} else {
@@ -140,7 +140,7 @@ func (c RawConfig) parse() (*parsedRawConfig, error) {
 			parsedRawConfig.chainID = chainIDStr
 		}
 	}
-	nodes, nodesExist := c["Nodes"]
+	nodes, nodesExist := (*c)["Nodes"]
 	parsedRawConfig.nodesExist = nodesExist
 	if nodesExist {
 		nodeMaps, ok := nodes.([]any)
@@ -177,7 +177,7 @@ func (c RawConfig) parse() (*parsedRawConfig, error) {
 }
 
 // ValidateConfig returns an error if the Config is not valid for use, as-is.
-func (c RawConfig) ValidateConfig() error {
+func (c *RawConfig) ValidateConfig() error {
 	parsedRawConfig, err := c.parse()
 	if !parsedRawConfig.nodesExist {
 		err = errors.Join(err, commonconfig.ErrMissing{Name: "Nodes", Msg: "expected at least one node"})
@@ -187,8 +187,8 @@ func (c RawConfig) ValidateConfig() error {
 	return err
 }
 
-func (c RawConfig) IsEnabled() bool {
-	s := c["Enabled"]
+func (c *RawConfig) IsEnabled() bool {
+	s := (*c)["Enabled"]
 	if s == nil {
 		return true // default to true if omitted
 	}
@@ -196,8 +196,8 @@ func (c RawConfig) IsEnabled() bool {
 	return ok && b
 }
 
-func (c RawConfig) ChainID() string {
-	chainID, _ := c["ChainID"].(string)
+func (c *RawConfig) ChainID() string {
+	chainID, _ := (*c)["ChainID"].(string)
 	return chainID
 }
 
@@ -252,8 +252,8 @@ func (c *RawConfig) SetFrom(config RawConfig) error {
 	return nil
 }
 
-func (c RawConfig) NodeNames() []string {
-	nodes, _ := c["Nodes"].([]any)
+func (c *RawConfig) NodeNames() []string {
+	nodes, _ := (*c)["Nodes"].([]any)
 	nodeNames := make([]string, 0, len(nodes))
 	for _, node := range nodes {
 		config, _ := node.(map[string]any)
@@ -263,10 +263,10 @@ func (c RawConfig) NodeNames() []string {
 	return nodeNames
 }
 
-func (c RawConfig) SetDefaults() {
-	if e, ok := c["Enabled"].(bool); ok && e {
+func (c *RawConfig) SetDefaults() {
+	if e, ok := (*c)["Enabled"].(bool); ok && e {
 		// already enabled by default so drop it
-		delete(c, "Enabled")
+		delete(*c, "Enabled")
 	}
 }
 
@@ -294,7 +294,7 @@ func (c *Config) valueWarnings() (err error) {
 	if c.Tracing.Enabled != nil && *c.Tracing.Enabled {
 		if c.Tracing.Mode != nil && *c.Tracing.Mode == "unencrypted" {
 			if c.Tracing.TLSCertPath != nil {
-				err = errors.Join(err, config.ErrInvalid{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
+				err = errors.Join(err, config.InvalidError{Name: "Tracing.TLSCertPath", Value: *c.Tracing.TLSCertPath, Msg: "must be empty when Tracing.Mode is 'unencrypted'"})
 			}
 		}
 	}

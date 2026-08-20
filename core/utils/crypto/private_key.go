@@ -25,7 +25,7 @@ func NewEncryptedPrivateKey(data []byte, passphrase string, scryptParams commonk
 }
 
 // Decrypt returns the PrivateKey decrypted via auth, or an error
-func (k EncryptedPrivateKey) Decrypt(passphrase string) (privkey []byte, err error) {
+func (k *EncryptedPrivateKey) Decrypt(passphrase string) (privkey []byte, err error) {
 	privkey, err = keystore.DecryptDataV3(k.CryptoJSON, passphrase)
 	if err != nil {
 		return privkey, fmt.Errorf("could not decrypt private key: %w", err)
@@ -42,6 +42,6 @@ func (k *EncryptedPrivateKey) Scan(value any) error {
 	return json.Unmarshal(b, &k)
 }
 
-func (k EncryptedPrivateKey) Value() (driver.Value, error) {
+func (k *EncryptedPrivateKey) Value() (driver.Value, error) {
 	return json.Marshal(k)
 }

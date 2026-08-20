@@ -54,7 +54,7 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
 
-	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
+	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID)) //nolint:staticcheck // test-only legacy helper
 	chainID := sqlutil.New(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 
@@ -80,7 +80,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
 
-	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
+	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID)) //nolint:staticcheck // test-only legacy helper
 	chainID := sqlutil.New(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 

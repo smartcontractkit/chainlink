@@ -1846,12 +1846,12 @@ func mustHexToBig(t *testing.T, hx string) *big.Int {
 }
 
 func TestRawConfig_IsEnabled(t *testing.T) {
-	assert.True(t, RawConfig{"Enabled": true}.IsEnabled())
-	assert.True(t, RawConfig{"Enabled": nil}.IsEnabled())
-	assert.True(t, RawConfig{}.IsEnabled())
+	assert.True(t, (&RawConfig{"Enabled": true}).IsEnabled())
+	assert.True(t, (&RawConfig{"Enabled": nil}).IsEnabled())
+	assert.True(t, (&RawConfig{}).IsEnabled())
 
-	assert.False(t, RawConfig{"Enabled": false}.IsEnabled())
-	assert.False(t, RawConfig{"Enabled": "garbage"}.IsEnabled())
+	assert.False(t, (&RawConfig{"Enabled": false}).IsEnabled())
+	assert.False(t, (&RawConfig{"Enabled": "garbage"}).IsEnabled())
 }
 
 func TestRawConfig_SetDefaults(t *testing.T) {

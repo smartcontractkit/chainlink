@@ -71,7 +71,7 @@ type Run struct {
 	FailSilently bool
 }
 
-func (r Run) GetID() string {
+func (r *Run) GetID() string {
 	return strconv.FormatInt(r.ID, 10)
 }
 
@@ -84,7 +84,7 @@ func (r *Run) SetID(value string) error {
 	return nil
 }
 
-func (r Run) HasFatalErrors() bool {
+func (r *Run) HasFatalErrors() bool {
 	for _, err := range r.FatalErrors {
 		if !err.IsZero() {
 			return true
@@ -93,7 +93,7 @@ func (r Run) HasFatalErrors() bool {
 	return false
 }
 
-func (r Run) HasErrors() bool {
+func (r *Run) HasErrors() bool {
 	for _, err := range r.AllErrors {
 		if !err.IsZero() {
 			return true
@@ -215,15 +215,15 @@ func (re *RunErrors) Scan(value any) error {
 	return json.Unmarshal(bytes, re)
 }
 
-func (re RunErrors) Value() (driver.Value, error) {
-	if len(re) == 0 {
+func (re *RunErrors) Value() (driver.Value, error) {
+	if len(*re) == 0 {
 		return nil, nil
 	}
-	return json.Marshal(re)
+	return json.Marshal(*re)
 }
 
-func (re RunErrors) HasError() bool {
-	for _, e := range re {
+func (re *RunErrors) HasError() bool {
+	for _, e := range *re {
 		if !e.IsZero() {
 			return true
 		}
@@ -233,15 +233,15 @@ func (re RunErrors) HasError() bool {
 
 // ToError coalesces all non-nil errors into a single error object.
 // This is useful for logging.
-func (re RunErrors) ToError() error {
+func (re *RunErrors) ToError() error {
 	toErr := func(ns null.String) error {
 		if !ns.IsZero() {
 			return errors.New(ns.String)
 		}
 		return nil
 	}
-	errs := make([]error, 0, len(re))
-	for _, e := range re {
+	errs := make([]error, 0, len(*re))
+	for _, e := range *re {
 		errs = append(errs, toErr(e))
 	}
 	return stderrors.Join(errs...)
@@ -281,7 +281,7 @@ type TaskRun struct {
 	task Task
 }
 
-func (tr TaskRun) GetID() string {
+func (tr *TaskRun) GetID() string {
 	return fmt.Sprintf("%v", tr.ID)
 }
 
@@ -294,11 +294,11 @@ func (tr *TaskRun) SetID(value string) error {
 	return nil
 }
 
-func (tr TaskRun) GetDotID() string {
+func (tr *TaskRun) GetDotID() string {
 	return tr.DotID
 }
 
-func (tr TaskRun) Result() Result {
+func (tr *TaskRun) Result() Result {
 	var result Result
 	if !tr.Error.IsZero() {
 		result.Error = errors.New(tr.Error.ValueOrZero())

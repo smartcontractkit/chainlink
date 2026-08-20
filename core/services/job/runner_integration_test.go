@@ -158,7 +158,7 @@ func TestRunner(t *testing.T) {
 			case "ds2":
 				assert.Equal(t, `{"turnout": 61.942}`, run.Output.Val)
 			case "ds2_parse":
-				assert.Equal(t, float64(61.942), run.Output.Val)
+				assert.InEpsilon(t, float64(61.942), run.Output.Val.(float64), 1e-9)
 			case "ds2_multiply":
 				assert.Equal(t, "6194.2", run.Output.Val)
 			case "ds1":
@@ -166,7 +166,7 @@ func TestRunner(t *testing.T) {
 				require.True(t, ok)
 				assert.JSONEq(t, `{"data": {"result": 62.57}}`, s)
 			case "ds1_parse":
-				assert.Equal(t, float64(62.57), run.Output.Val)
+				assert.InEpsilon(t, float64(62.57), run.Output.Val.(float64), 1e-9)
 			case "ds1_multiply":
 				assert.Equal(t, "6257", run.Output.Val)
 			case "answer1":
@@ -712,7 +712,7 @@ answer1      [type=median index=0];
 			time.Sleep(1 * time.Millisecond)
 			res.WriteHeader(http.StatusOK)
 			_, err := res.Write([]byte(`{"USD":10.1}`))
-			require.NoError(t, err)
+			assert.NoError(t, err)
 		}))
 		defer serv.Close()
 
@@ -733,7 +733,7 @@ answer1      [type=median index=0];
 		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(t.Context(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 		results = taskResults.FinalResult()
-		assert.Equal(t, 10.1, results.Values[0])
+		assert.InEpsilon(t, 10.1, results.Values[0].(float64), 1e-9)
 		require.NoError(t, results.FatalErrors[0])
 
 		// Job specified task timeout should fail.
@@ -833,7 +833,7 @@ observationSource = """
 	client := app.NewHTTPClient(nil)
 	body, err := json.Marshal(web.CreateJobRequest{TOML: tomlSpec})
 	require.NoError(t, err)
-	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
+	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body)) //nolint:bodyclose // closed via cleanup
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusUnprocessableEntity)
 
@@ -845,7 +845,7 @@ observationSource = """
 		static.ExternalInitiatorSecretHeader:    eia.Secret,
 	}
 	url := app.Server.URL + "/v2/jobs/" + jobUUID.String() + "/runs"
-	resp, cleanup := cltest.UnauthenticatedPost(t, url, bytes.NewBufferString(runBody), headers)
+	resp, cleanup := cltest.UnauthenticatedPost(t, url, bytes.NewBufferString(runBody), headers) //nolint:bodyclose // closed via cleanup
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 	cltest.AssertCountStays(t, app.GetDB(), "pipeline_runs", 0)

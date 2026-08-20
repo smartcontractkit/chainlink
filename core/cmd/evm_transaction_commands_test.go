@@ -164,7 +164,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	amount := "100.5"
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
 	require.NoError(t, set.Parse([]string{amount, fromAddress.Hex(), to}))
-	require.NoError(t, set.Set("id", evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs()).String()))
+	require.NoError(t, set.Set("id", evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs()).String())) //nolint:staticcheck // legacy helper for remaining default EVM chain ID
 
 	cliapp := cli.NewApp()
 	c := cli.NewContext(cliapp, set, nil)

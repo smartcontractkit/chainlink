@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/trusted_blockhash_store"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
@@ -35,7 +35,7 @@ type Config interface {
 // Delegate creates BlockhashStore feeder jobs.
 type Delegate struct {
 	cfg          Config
-	logger       logger.Logger
+	logger       common.Logger
 	legacyChains legacyevm.LegacyChainContainer
 	ks           keystore.Eth
 }
@@ -43,7 +43,7 @@ type Delegate struct {
 // NewDelegate creates a new Delegate.
 func NewDelegate(
 	cfg Config,
-	logger logger.Logger,
+	logger common.Logger,
 	legacyChains legacyevm.LegacyChainContainer,
 	ks keystore.Eth,
 ) *Delegate {
@@ -162,7 +162,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
 
-	log := d.logger.Named("BHSFeeder").With("jobID", jb.ID, "externalJobID", jb.ExternalJobID)
+	log := common.With(common.Named(d.logger, "BHSFeeder"), "jobID", jb.ID, "externalJobID", jb.ExternalJobID)
 	feeder := NewFeeder(
 		log,
 		NewMultiCoordinator(coordinators...),
@@ -207,7 +207,7 @@ type service struct {
 	wg         sync.WaitGroup
 	pollPeriod time.Duration
 	runTimeout time.Duration
-	logger     logger.Logger
+	logger     common.Logger
 	stopCh     services.StopChan
 }
 

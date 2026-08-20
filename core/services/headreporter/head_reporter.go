@@ -5,13 +5,12 @@ import (
 	"sync"
 	"time"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type (
@@ -20,10 +19,10 @@ type (
 		ReportPeriodic(ctx context.Context) error
 	}
 
-	HeadReporterService struct {
+	Service struct {
 		services.StateMachine
 		ds             sqlutil.DataSource
-		lggr           logger.Logger
+		lggr           common.Logger
 		newHeads       *mailbox.Mailbox[*types.Head]
 		chStop         services.StopChan
 		wgDone         sync.WaitGroup
@@ -33,10 +32,10 @@ type (
 	}
 )
 
-func NewHeadReporterService(ds sqlutil.DataSource, lggr logger.Logger, reporters ...HeadReporter) *HeadReporterService {
-	return &HeadReporterService{
+func NewHeadReporterService(ds sqlutil.DataSource, lggr common.Logger, reporters ...HeadReporter) *Service {
+	return &Service{
 		ds:           ds,
-		lggr:         lggr.Named("HeadReporter"),
+		lggr:         common.Named(lggr, "HeadReporter"),
 		newHeads:     mailbox.NewSingle[*types.Head](),
 		chStop:       make(chan struct{}),
 		reporters:    reporters,
@@ -44,12 +43,12 @@ func NewHeadReporterService(ds sqlutil.DataSource, lggr logger.Logger, reporters
 	}
 }
 
-func (hrd *HeadReporterService) Subscribe(subFn func(heads.Trackable) (types.Head, func())) {
+func (hrd *Service) Subscribe(subFn func(heads.Trackable) (types.Head, func())) {
 	_, unsubscribe := subFn(hrd)
 	hrd.unsubscribeFns = append(hrd.unsubscribeFns, unsubscribe)
 }
 
-func (hrd *HeadReporterService) Start(context.Context) error {
+func (hrd *Service) Start(context.Context) error {
 	return hrd.StartOnce(hrd.Name(), func() error {
 		hrd.wgDone.Add(1)
 		go hrd.eventLoop()
@@ -57,7 +56,7 @@ func (hrd *HeadReporterService) Start(context.Context) error {
 	})
 }
 
-func (hrd *HeadReporterService) Close() error {
+func (hrd *Service) Close() error {
 	return hrd.StopOnce(hrd.Name(), func() error {
 		close(hrd.chStop)
 		hrd.wgDone.Wait()
@@ -65,19 +64,19 @@ func (hrd *HeadReporterService) Close() error {
 	})
 }
 
-func (hrd *HeadReporterService) Name() string {
+func (hrd *Service) Name() string {
 	return hrd.lggr.Name()
 }
 
-func (hrd *HeadReporterService) HealthReport() map[string]error {
+func (hrd *Service) HealthReport() map[string]error {
 	return map[string]error{hrd.Name(): hrd.Healthy()}
 }
 
-func (hrd *HeadReporterService) OnNewLongestChain(ctx context.Context, head *types.Head) {
+func (hrd *Service) OnNewLongestChain(ctx context.Context, head *types.Head) {
 	hrd.newHeads.Deliver(head)
 }
 
-func (hrd *HeadReporterService) eventLoop() {
+func (hrd *Service) eventLoop() {
 	hrd.lggr.Debug("Starting event loop")
 	defer hrd.wgDone.Done()
 	ctx, cancel := hrd.chStop.NewCtx()

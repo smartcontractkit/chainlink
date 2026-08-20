@@ -930,7 +930,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			workflowDonInfo,
 			dispatcher,
 			10*time.Minute,
-			&transmission.TransmissionConfig{
+			&transmission.Config{
 				Schedule:   transmission.ScheduleOneAtATime,
 				DeltaStage: 1000 * time.Millisecond,
 			},

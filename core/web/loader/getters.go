@@ -38,7 +38,7 @@ func GetChainByRelayID(ctx context.Context, id string) (*chainlink.NetworkChainS
 }
 
 // GetFeedsManagerByID fetches the feed manager by ID.
-func GetFeedsManagerByID(ctx context.Context, id string) (*feeds.FeedsManager, error) {
+func GetFeedsManagerByID(ctx context.Context, id string) (*feeds.Manager, error) {
 	ldr := For(ctx)
 
 	thunk := ldr.FeedsManagersByIDLoader.Load(ctx, dataloader.StringKey(id))
@@ -47,7 +47,7 @@ func GetFeedsManagerByID(ctx context.Context, id string) (*feeds.FeedsManager, e
 		return nil, err
 	}
 
-	mgr, ok := result.(feeds.FeedsManager)
+	mgr, ok := result.(feeds.Manager)
 	if !ok {
 		return nil, ErrInvalidType
 	}

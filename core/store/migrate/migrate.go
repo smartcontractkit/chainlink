@@ -92,7 +92,7 @@ func ensureMigrated(ctx context.Context, db *sql.DB, p *goose.Provider, provider
 	err = sqlxDB.SelectContext(ctx, &names, `SELECT id FROM migrations`)
 	if err != nil {
 		// already migrated
-		return nil
+		return nil //nolint:nilerr // legacy migrations table absent means already migrated (or fresh DB)
 	}
 	// ensure that no legacy job specs are present: we _must_ bail out early if
 	// so because otherwise we run the risk of dropping working jobs if the

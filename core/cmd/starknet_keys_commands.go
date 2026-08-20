@@ -25,7 +25,7 @@ func (p StarkNetKeyPresenter) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func (p *StarkNetKeyPresenter) ToRow() []string {
+func (p StarkNetKeyPresenter) ToRow() []string {
 	row := []string{
 		p.ID,
 		p.StarkKey,

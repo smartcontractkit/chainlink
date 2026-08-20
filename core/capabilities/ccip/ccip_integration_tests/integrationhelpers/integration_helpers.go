@@ -175,7 +175,7 @@ func P2pIDsFromInts(ints []int64) [][32]byte {
 	return p2pIDs
 }
 
-func (t *TestUniverse) AddCapability(p2pIDs [][32]byte) {
+func (t TestUniverse) AddCapability(p2pIDs [][32]byte) {
 	_, err := t.CapReg.AddCapabilities(t.Transactor, []kcr.CapabilitiesRegistryCapability{
 		{
 			LabelledName:          CcipCapabilityLabelledName,
@@ -258,7 +258,7 @@ func NewHomeChainReader(
 	return hcr
 }
 
-func (t *TestUniverse) AddDONToRegistry(
+func (t TestUniverse) AddDONToRegistry(
 	ccipCapabilityID [32]byte,
 	chainSelector uint64,
 	f uint8,

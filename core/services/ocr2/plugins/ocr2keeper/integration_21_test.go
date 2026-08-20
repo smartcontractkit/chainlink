@@ -533,7 +533,7 @@ func startMercuryServer(t *testing.T, mercuryServer *mercury.SimulatedMercurySer
 func emitEvents(ctx context.Context, n int, contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter, carrol *bind.TransactOpts, afterEmit func()) error {
 	for i := 0; i < n && ctx.Err() == nil; i++ {
 		for _, contract := range contracts {
-			// t.Logf("[automation-ocr3 | EvmRegistry] calling upkeep contracts to emit events. run: %d; contract addr: %s", i+1, contract.Address().Hex())
+			// t.Logf("[automation-ocr3 | RegistryService] calling upkeep contracts to emit events. run: %d; contract addr: %s", i+1, contract.Address().Hex())
 			_, err := contract.Start(carrol)
 			if err != nil {
 				return err

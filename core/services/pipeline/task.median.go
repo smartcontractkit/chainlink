@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	stderrors "errors"
+	"math"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -63,7 +64,11 @@ func (t *MedianTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 	}
 
 	if allowed, isSet := maybeAllowedFaults.Uint64(); isSet {
-		allowedFaults = int(allowed)
+		if allowed > math.MaxInt {
+			allowedFaults = math.MaxInt
+		} else {
+			allowedFaults = int(allowed)
+		}
 	} else {
 		allowedFaults = max(len(valuesAndErrs)-1, 0)
 	}

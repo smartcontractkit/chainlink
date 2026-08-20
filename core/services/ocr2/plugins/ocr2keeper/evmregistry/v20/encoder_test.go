@@ -12,7 +12,7 @@ import (
 )
 
 func TestEVMAutomationEncoder20(t *testing.T) {
-	encoder := EVMAutomationEncoder20{}
+	encoder := AutomationEncoder20{}
 
 	t.Run("encoding an empty list of upkeep results returns a nil byte array", func(t *testing.T) {
 		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{})
@@ -27,7 +27,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 	})
 
 	t.Run("successfully encodes a single upkeep result", func(t *testing.T) {
-		upkeepResult := EVMAutomationUpkeepResult20{
+		upkeepResult := AutomationUpkeepResult20{
 			Block:            1,
 			ID:               big.NewInt(10),
 			Eligible:         true,
@@ -48,7 +48,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			require.NoError(t, err)
 			assert.Len(t, upkeeps, 1)
 
-			upkeep := upkeeps[0].(EVMAutomationUpkeepResult20)
+			upkeep := upkeeps[0].(AutomationUpkeepResult20)
 
 			// some fields aren't populated by the decode so we compare field-by-field for those that are populated
 			assert.Equal(t, upkeep.Block, upkeepResult.Block)
@@ -165,7 +165,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 	})
 
 	t.Run("successfully encodes multiple upkeep results", func(t *testing.T) {
-		upkeepResult0 := EVMAutomationUpkeepResult20{
+		upkeepResult0 := AutomationUpkeepResult20{
 			Block:            1,
 			ID:               big.NewInt(10),
 			Eligible:         true,
@@ -177,7 +177,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			CheckBlockHash:   [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
 			ExecuteGas:       10,
 		}
-		upkeepResult1 := EVMAutomationUpkeepResult20{
+		upkeepResult1 := AutomationUpkeepResult20{
 			Block:            1,
 			ID:               big.NewInt(10),
 			Eligible:         true,
@@ -203,7 +203,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			packFn = oldPackFn
 		}()
 
-		upkeepResult0 := EVMAutomationUpkeepResult20{
+		upkeepResult0 := AutomationUpkeepResult20{
 			Block:            1,
 			ID:               big.NewInt(10),
 			Eligible:         true,

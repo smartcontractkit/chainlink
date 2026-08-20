@@ -100,7 +100,7 @@ type Application interface {
 	Start(ctx context.Context) error
 	Stop() error
 	GetLogger() logger.SugaredLogger
-	GetAuditLogger() audit.AuditLogger
+	GetAuditLogger() audit.Logger
 	GetHealthChecker() services.Checker
 	GetDB() sqlutil.DataSource
 	GetConfig() GeneralConfig
@@ -149,10 +149,10 @@ type Application interface {
 	LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error
 }
 
-// ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
+// Node contains fields for the JobSubscriber, Scheduler,
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
-type ChainlinkApplication struct {
+type Node struct {
 	relayers                *CoreRelayerChainInteroperators
 	jobORM                  job.ORM
 	jobSpawner              job.Spawner
@@ -170,7 +170,7 @@ type ChainlinkApplication struct {
 	srvcs                   []services.ServiceCtx
 	HealthChecker           services.Checker
 	logger                  logger.SugaredLogger
-	AuditLogger             audit.AuditLogger
+	AuditLogger             audit.Logger
 	closeLogger             func() error
 	ds                      sqlutil.DataSource
 	secretGenerator         SecretGenerator
@@ -189,11 +189,11 @@ type ApplicationOpts struct {
 	cre.Opts
 
 	Config                 GeneralConfig
-	Logger                 logger.Logger
+	Logger                 logger.Logger //nolint:staticcheck // core Logger required to build core logger.SugaredLogger (SetLogLevel)
 	Registerer             prometheus.Registerer
 	DS                     sqlutil.DataSource
 	KeyStore               keystore.Master
-	AuditLogger            audit.AuditLogger
+	AuditLogger            audit.Logger
 	CloseLogger            func() error
 	Version                string
 	VersionTag             string
@@ -890,7 +890,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		}
 	}
 
-	return &ChainlinkApplication{
+	return &Node{
 		relayers:                relayChainInterops,
 		jobORM:                  jobORM,
 		jobSpawner:              jobSpawner,
@@ -920,7 +920,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}, nil
 }
 
-func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
+func (app *Node) SetLogLevel(lvl zapcore.Level) error {
 	if err := app.Config.SetLogLevel(lvl); err != nil {
 		return err
 	}
@@ -930,7 +930,7 @@ func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
 
 // Start all necessary services. If successful, nil will be returned.
 // Start sequence is aborted if the context gets cancelled.
-func (app *ChainlinkApplication) Start(ctx context.Context) error {
+func (app *Node) Start(ctx context.Context) error {
 	app.startStopMu.Lock()
 	defer app.startStopMu.Unlock()
 	if app.started {
@@ -977,7 +977,7 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	return nil
 }
 
-func (app *ChainlinkApplication) StopIfStarted() error {
+func (app *Node) StopIfStarted() error {
 	app.startStopMu.Lock()
 	defer app.startStopMu.Unlock()
 	if app.started {
@@ -986,23 +986,23 @@ func (app *ChainlinkApplication) StopIfStarted() error {
 	return nil
 }
 
-func (app *ChainlinkApplication) GetLoopRegistry() *plugins.LoopRegistry {
+func (app *Node) GetLoopRegistry() *plugins.LoopRegistry {
 	return app.loopRegistry
 }
 
-func (app *ChainlinkApplication) GetLoopRegistrarConfig() plugins.RegistrarConfig {
+func (app *Node) GetLoopRegistrarConfig() plugins.RegistrarConfig {
 	return app.loopRegistrarConfig
 }
 
 // Stop allows the application to exit by halting schedules, closing
 // logs, and closing the DB connection.
-func (app *ChainlinkApplication) Stop() error {
+func (app *Node) Stop() error {
 	app.startStopMu.Lock()
 	defer app.startStopMu.Unlock()
 	return app.stop()
 }
 
-func (app *ChainlinkApplication) stop() (err error) {
+func (app *Node) stop() (err error) {
 	if !app.started {
 		panic("application is already stopped")
 	}
@@ -1044,72 +1044,72 @@ func (app *ChainlinkApplication) stop() (err error) {
 	return err
 }
 
-func (app *ChainlinkApplication) GetConfig() GeneralConfig {
+func (app *Node) GetConfig() GeneralConfig {
 	return app.Config
 }
 
-func (app *ChainlinkApplication) GetKeyStore() keystore.Master {
+func (app *Node) GetKeyStore() keystore.Master {
 	return app.KeyStore
 }
 
-func (app *ChainlinkApplication) GetLogger() logger.SugaredLogger {
+func (app *Node) GetLogger() logger.SugaredLogger {
 	return app.logger
 }
 
-func (app *ChainlinkApplication) GetAuditLogger() audit.AuditLogger {
+func (app *Node) GetAuditLogger() audit.Logger {
 	return app.AuditLogger
 }
 
-func (app *ChainlinkApplication) GetHealthChecker() services.Checker {
+func (app *Node) GetHealthChecker() services.Checker {
 	return app.HealthChecker
 }
 
-func (app *ChainlinkApplication) JobSpawner() job.Spawner {
+func (app *Node) JobSpawner() job.Spawner {
 	return app.jobSpawner
 }
 
-func (app *ChainlinkApplication) JobORM() job.ORM {
+func (app *Node) JobORM() job.ORM {
 	return app.jobORM
 }
 
-func (app *ChainlinkApplication) BridgeORM() bridges.ORM {
+func (app *Node) BridgeORM() bridges.ORM {
 	return app.bridgeORM
 }
 
-func (app *ChainlinkApplication) BasicAdminUsersORM() sessions.BasicAdminUsersORM {
+func (app *Node) BasicAdminUsersORM() sessions.BasicAdminUsersORM {
 	return app.localAdminUsersORM
 }
 
-func (app *ChainlinkApplication) AuthenticationProvider() sessions.AuthenticationProvider {
+func (app *Node) AuthenticationProvider() sessions.AuthenticationProvider {
 	return app.authenticationProvider
 }
 
-func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
+func (app *Node) PipelineORM() pipeline.ORM {
 	return app.pipelineORM
 }
 
-func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
+func (app *Node) TxmStorageService() txmgr.EvmTxStore {
 	return app.txmStorageService
 }
 
-func (app *ChainlinkApplication) GetCapabilitiesRegistry() *capabilities.Registry {
+func (app *Node) GetCapabilitiesRegistry() *capabilities.Registry {
 	return app.capabilitiesRegistry
 }
 
-func (app *ChainlinkApplication) SecretGenerator() SecretGenerator {
+func (app *Node) SecretGenerator() SecretGenerator {
 	return app.secretGenerator
 }
 
 // WakeSessionReaper wakes up the reaper to do its reaping.
-func (app *ChainlinkApplication) WakeSessionReaper() {
+func (app *Node) WakeSessionReaper() {
 	app.SessionReaper.WakeUp()
 }
 
-func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j *job.Job) error {
+func (app *Node) AddJobV2(ctx context.Context, j *job.Job) error {
 	return app.jobSpawner.CreateJob(ctx, nil, j)
 }
 
-func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) error {
+func (app *Node) DeleteJob(ctx context.Context, jobID int32) error {
 	// Do not allow the job to be deleted if it is managed by the Feeds Manager
 	isManaged, err := app.FeedsService.IsJobManaged(ctx, int64(jobID))
 	if err != nil {
@@ -1124,7 +1124,7 @@ func (app *ChainlinkApplication) DeleteJob(ctx context.Context, jobID int32) err
 }
 
 // Only used for local testing, not supported by the UI.
-func (app *ChainlinkApplication) RunJobV2(
+func (app *Node) RunJobV2(
 	ctx context.Context,
 	jobID int32,
 	meta map[string]any,
@@ -1189,7 +1189,7 @@ func (app *ChainlinkApplication) RunJobV2(
 	return runID, err
 }
 
-func (app *ChainlinkApplication) ResumeJobV2(
+func (app *Node) ResumeJobV2(
 	ctx context.Context,
 	taskID uuid.UUID,
 	result pipeline.Result,
@@ -1197,12 +1197,12 @@ func (app *ChainlinkApplication) ResumeJobV2(
 	return app.pipelineRunner.ResumeRun(ctx, taskID, result.Value, result.Error)
 }
 
-func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
+func (app *Node) GetFeedsService() feeds.Service {
 	return app.FeedsService
 }
 
 // ReplayFromBlock implements the Application interface.
-func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool) error {
+func (app *Node) ReplayFromBlock(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool) error {
 	if chainFamily == relay.NetworkEVM {
 		// TODO: Implement EVM Replay on Relayer instead of using LegacyChains - BCFR-1160
 		chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID)
@@ -1231,17 +1231,17 @@ func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamil
 	return relayer.Replay(ctx, strconv.FormatUint(number, 10), map[string]any{})
 }
 
-func (app *ChainlinkApplication) GetRelayers() RelayerChainInteroperators {
+func (app *Node) GetRelayers() RelayerChainInteroperators {
 	return app.relayers
 }
 
-func (app *ChainlinkApplication) GetDB() sqlutil.DataSource {
+func (app *Node) GetDB() sqlutil.DataSource {
 	return app.ds
 }
 
 // Returns the configuration to use for creating and authenticating
 // new WebAuthn credentials
-func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration {
+func (app *Node) GetWebAuthnConfiguration() sessions.WebAuthnConfiguration {
 	rpid := app.Config.WebServer().MFA().RPID()
 	rporigin := app.Config.WebServer().MFA().RPOrigin()
 	if rpid == "" {
@@ -1258,14 +1258,14 @@ func (app *ChainlinkApplication) GetWebAuthnConfiguration() sessions.WebAuthnCon
 	}
 }
 
-func (app *ChainlinkApplication) ID() uuid.UUID {
+func (app *Node) ID() uuid.UUID {
 	return app.Config.AppID()
 }
 
 var ErrUnsupportedInLOOPPMode = fmt.Errorf("legacy command not available in LOOP Plugin mode: %w", stderrors.ErrUnsupported)
 
 // FindLCA - finds last common ancestor
-func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error) {
+func (app *Node) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error) {
 	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		return nil, err
@@ -1288,7 +1288,7 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 }
 
 // LPSkipToBlock repositions the LogPoller to start processing from the given block number.
-func (app *ChainlinkApplication) LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error {
+func (app *Node) LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error {
 	if chainFamily != relay.NetworkEVM {
 		return fmt.Errorf("LPSkipToBlock is only supported for %s chain family", relay.NetworkEVM)
 	}
@@ -1318,7 +1318,7 @@ func (app *ChainlinkApplication) LPSkipToBlock(ctx context.Context, chainFamily 
 }
 
 // DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
-func (app *ChainlinkApplication) DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error {
+func (app *Node) DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error {
 	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		return err
