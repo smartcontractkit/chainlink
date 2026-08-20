@@ -10,10 +10,12 @@ import (
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -159,7 +161,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	// resolves to 0 and the plugin falls back to the consumer workflow's DON ID
 	// for event labeling. Carrying the DON ID in the job spec would close that
 	// gap; tracked as a follow-up. See CRE-4409.
-	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, spec.StandardCapabilitiesSpec.OracleFactory, 0)
+	// The job-spec launch path has no registry OCR3 config to thread; NewServices falls
+	// back to the cached OCRConfigService when available.
+	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, spec.StandardCapabilitiesSpec.OracleFactory, 0, nil)
 }
 
 // NewServices builds the per-job services for a Standard Capabilities LOOP.
@@ -179,6 +183,7 @@ func (d *Delegate) NewServices(
 	externalJobID uuid.UUID,
 	oracleFactoryConfig job.OracleFactoryConfig,
 	capabilityDonID uint32,
+	registryOCRConfig *ocrtypes.ContractConfig,
 ) ([]job.ServiceCtx, error) {
 	log := d.logger.Named("StandardCapabilities").Named(strconv.Itoa(int(jobID))).Named(jobName)
 
@@ -218,28 +223,46 @@ func (d *Delegate) NewServices(
 		return nil, fmt.Errorf("failed to create relayer set: %w", err)
 	}
 
+	capabilityID := conversions.GetCapabilityIDFromCommand(command, configJSON)
+	if d.ocrConfigService != nil && capabilityID == "" {
+		log.Warnw("No capability ID mapping for command, using legacy config only",
+			"command", command)
+	}
+
+	// Resolve the on-chain OCR config for this capability so we can align this node's
+	// signing key and transmitter with what the registry expects. The registry-driven
+	// launch path (LocalCapabilityManager) threads it in directly; the job-spec launch
+	// path falls back to the cached OCRConfigService. Nil means no config is available
+	// yet, in which case local defaults are used.
+	ocrContractConfig := registryOCRConfig
+	if ocrContractConfig == nil && d.ocrConfigService != nil && capabilityID != "" {
+		if cc, ok := d.ocrConfigService.GetContractConfig(capabilityID, capabilitiespb.OCR3ConfigDefaultKey); ok {
+			ocrContractConfig = &cc
+		}
+	}
+
 	ocrEvmKeyBundles, err := d.ks.OCR2().GetAllOfType(corekeys.EVM)
 	if err != nil {
 		return nil, err
 	}
 
 	var ocrEvmKeyBundle ocr2key.KeyBundle
-	if len(ocrEvmKeyBundles) == 0 {
+	switch {
+	case len(ocrEvmKeyBundles) == 0:
 		ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, corekeys.EVM)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create OCR key bundle")
 		}
-	} else {
-		if len(ocrEvmKeyBundles) > 1 {
-			log.Infof("found %d EVM OCR key bundles, which may cause unexpected behavior if using the OracleFactory", len(ocrEvmKeyBundles))
-		}
+	case len(ocrEvmKeyBundles) == 1:
 		ocrEvmKeyBundle = ocrEvmKeyBundles[0]
-	}
-
-	capabilityID := conversions.GetCapabilityIDFromCommand(command, configJSON)
-	if d.ocrConfigService != nil && capabilityID == "" {
-		log.Warnw("No capability ID mapping for command, using legacy config only",
-			"command", command)
+	default:
+		// Multiple bundles: prefer the one registered as a signer in the on-chain OCR config.
+		if kb, ok := generic.SelectOCRKeyBundleForConfig(ocrEvmKeyBundles, ocrContractConfig); ok {
+			ocrEvmKeyBundle = kb
+		} else {
+			log.Infof("found %d EVM OCR key bundles and none matched the on-chain OCR config; using the first, which may cause unexpected behavior if using the OracleFactory", len(ocrEvmKeyBundles))
+			ocrEvmKeyBundle = ocrEvmKeyBundles[0]
+		}
 	}
 
 	// Best-effort resolve the authoritative capability DON ID for this plugin
@@ -265,6 +288,7 @@ func (d *Delegate) NewServices(
 		OCRKeyBundle:         ocrEvmKeyBundle,
 		OCRKeystore:          d.ks.OCR2(),
 		EthKeystore:          d.ks.Eth(),
+		OCRContractConfig:    ocrContractConfig,
 		Logger:               log,
 	})
 	if resolveErr != nil {

@@ -1,11 +1,13 @@
 package generic
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -29,13 +31,20 @@ type ResolveOracleFactoryConfigParams struct {
 	OCRKeyBundle         ocr2key.KeyBundle
 	OCRKeystore          keystore.OCR2
 	EthKeystore          keystore.Eth
-	Logger               logger.Logger
+	// OCRContractConfig is the on-chain OCR config for this capability, read from the
+	// Capabilities Registry. When set, the transmitter is taken from the entry paired
+	// with this node's signer (OCRKeyBundle) rather than a round-robin keystore default,
+	// so the node uses exactly the transmitter the OCR config expects. It is nil when no
+	// registry config is available yet, in which case the local defaults are used.
+	OCRContractConfig *ocrtypes.ContractConfig
+	Logger            logger.Logger
 }
 
 // ResolveOracleFactoryConfig fills missing oracle factory fields. Contract address
-// and chain ID default to the Capabilities Registry's address/chain; the signing key
-// and transmitter default to local keystore values. Job spec values take precedence
-// when set.
+// and chain ID default to the Capabilities Registry's address/chain. The signing key
+// defaults to this node's OCR key bundle. The transmitter is taken from the on-chain
+// OCR config entry paired with this node's signer when available, falling back to a
+// round-robin keystore address otherwise. Job spec values take precedence when set.
 func ResolveOracleFactoryConfig(params ResolveOracleFactoryConfigParams) (job.OracleFactoryConfig, job.OnchainSigningStrategy, error) {
 	cfg := params.Config
 	signing := params.OnchainSigning
@@ -58,6 +67,16 @@ func ResolveOracleFactoryConfig(params ResolveOracleFactoryConfigParams) (job.Or
 		signing.Config = map[string]string{"evm": cfg.OCRKeyBundleID}
 	}
 
+	// Prefer the transmitter the on-chain OCR config pairs with this node's signer.
+	if cfg.TransmitterID == "" && params.OCRKeyBundle != nil && params.OCRContractConfig != nil {
+		if transmitter, ok := transmitterForSigner(*params.OCRContractConfig, params.OCRKeyBundle.PublicKey()); ok {
+			cfg.TransmitterID = transmitter
+		} else if params.Logger != nil {
+			params.Logger.Warnw("node signer not found in on-chain OCR config; falling back to round-robin transmitter",
+				"ocrKeyBundleID", cfg.OCRKeyBundleID)
+		}
+	}
+
 	if cfg.TransmitterID == "" && params.EthKeystore != nil && cfg.ChainID != "" {
 		transmitter, err := defaultTransmitterForChain(params.Context, params.EthKeystore, cfg.ChainID)
 		if err != nil {
@@ -67,6 +86,40 @@ func ResolveOracleFactoryConfig(params ResolveOracleFactoryConfigParams) (job.Or
 	}
 
 	return cfg, signing, nil
+}
+
+// SelectOCRKeyBundleForConfig returns the key bundle whose signer public key appears in
+// the on-chain OCR config. It disambiguates when a node holds multiple EVM OCR key
+// bundles by picking the one the registry registered as a signer. Returns false when no
+// config is provided or none of the bundles match.
+func SelectOCRKeyBundleForConfig(bundles []ocr2key.KeyBundle, cc *ocrtypes.ContractConfig) (ocr2key.KeyBundle, bool) {
+	if cc == nil {
+		return nil, false
+	}
+	for _, kb := range bundles {
+		pub := kb.PublicKey()
+		for _, s := range cc.Signers {
+			if bytes.Equal(s, pub) {
+				return kb, true
+			}
+		}
+	}
+	return nil, false
+}
+
+// transmitterForSigner returns the transmitter account paired with the given signer in
+// the on-chain OCR config. Signers[i] and Transmitters[i] describe the same oracle, so
+// locating this node's signer yields the transmitter the OCR config expects for it.
+func transmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPublicKey) (string, bool) {
+	for i, s := range cc.Signers {
+		if bytes.Equal(s, signer) {
+			if i < len(cc.Transmitters) {
+				return string(cc.Transmitters[i]), true
+			}
+			return "", false
+		}
+	}
+	return "", false
 }
 
 func defaultTransmitterForChain(ctx context.Context, ethKS keystore.Eth, chainID string) (string, error) {

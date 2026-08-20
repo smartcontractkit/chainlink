@@ -9,7 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
@@ -47,6 +50,101 @@ func TestResolveOracleFactoryConfig_jobSpecOverridesCapRegistry(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "0xjob", cfg.OCRContractAddress)
 	assert.Equal(t, "1", cfg.ChainID)
+}
+
+func TestResolveOracleFactoryConfig_transmitterFromOCRConfig(t *testing.T) {
+	t.Parallel()
+
+	kb, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+
+	cc := &ocrtypes.ContractConfig{
+		Signers: []ocrtypes.OnchainPublicKey{
+			ocrtypes.OnchainPublicKey("other-signer"),
+			ocrtypes.OnchainPublicKey(kb.PublicKey()),
+		},
+		Transmitters: []ocrtypes.Account{"0xOther", "0xMine"},
+	}
+
+	cfg, _, err := ResolveOracleFactoryConfig(ResolveOracleFactoryConfigParams{
+		Context:           context.Background(),
+		Config:            job.OracleFactoryConfig{Enabled: true},
+		OCRKeyBundle:      kb,
+		OCRContractConfig: cc,
+		Logger:            logger.TestLogger(t),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "0xMine", cfg.TransmitterID)
+}
+
+func TestResolveOracleFactoryConfig_jobSpecTransmitterOverridesOCRConfig(t *testing.T) {
+	t.Parallel()
+
+	kb, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+
+	cc := &ocrtypes.ContractConfig{
+		Signers:      []ocrtypes.OnchainPublicKey{ocrtypes.OnchainPublicKey(kb.PublicKey())},
+		Transmitters: []ocrtypes.Account{"0xFromOCR"},
+	}
+
+	cfg, _, err := ResolveOracleFactoryConfig(ResolveOracleFactoryConfigParams{
+		Context:           context.Background(),
+		Config:            job.OracleFactoryConfig{Enabled: true, TransmitterID: "0xFromSpec"},
+		OCRKeyBundle:      kb,
+		OCRContractConfig: cc,
+		Logger:            logger.TestLogger(t),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "0xFromSpec", cfg.TransmitterID)
+}
+
+func TestTransmitterForSigner(t *testing.T) {
+	t.Parallel()
+
+	cc := ocrtypes.ContractConfig{
+		Signers:      []ocrtypes.OnchainPublicKey{[]byte("a"), []byte("b")},
+		Transmitters: []ocrtypes.Account{"0xA", "0xB"},
+	}
+
+	got, ok := transmitterForSigner(cc, []byte("b"))
+	require.True(t, ok)
+	assert.Equal(t, "0xB", got)
+
+	_, ok = transmitterForSigner(cc, []byte("missing"))
+	assert.False(t, ok)
+
+	// Signer present but transmitter list too short.
+	short := ocrtypes.ContractConfig{
+		Signers:      []ocrtypes.OnchainPublicKey{[]byte("a")},
+		Transmitters: nil,
+	}
+	_, ok = transmitterForSigner(short, []byte("a"))
+	assert.False(t, ok)
+}
+
+func TestSelectOCRKeyBundleForConfig(t *testing.T) {
+	t.Parallel()
+
+	kb1, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+	kb2, err := ocr2key.New(corekeys.EVM)
+	require.NoError(t, err)
+
+	cc := &ocrtypes.ContractConfig{
+		Signers: []ocrtypes.OnchainPublicKey{ocrtypes.OnchainPublicKey(kb2.PublicKey())},
+	}
+
+	got, ok := SelectOCRKeyBundleForConfig([]ocr2key.KeyBundle{kb1, kb2}, cc)
+	require.True(t, ok)
+	assert.Equal(t, kb2.ID(), got.ID())
+
+	_, ok = SelectOCRKeyBundleForConfig([]ocr2key.KeyBundle{kb1, kb2}, nil)
+	assert.False(t, ok)
+
+	noMatch := &ocrtypes.ContractConfig{Signers: []ocrtypes.OnchainPublicKey{[]byte("nope")}}
+	_, ok = SelectOCRKeyBundleForConfig([]ocr2key.KeyBundle{kb1, kb2}, noMatch)
+	assert.False(t, ok)
 }
 
 func TestResolveBootstrapPeers_usesDefaultsWhenSpecEmpty(t *testing.T) {
