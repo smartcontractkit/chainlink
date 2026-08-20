@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -1305,24 +1306,20 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 		if e.cfg.DebugMode {
 			e.logger().Debugf("User log: <<<%s>>>, local node timestamp: %s", logLine.Message, logLine.NodeTimestamp)
 		}
-		err := e.cfg.LocalLimiters.LogEvent.Check(emitCtx, count)
-		if err != nil {
+		if err := e.cfg.LocalLimiters.LogEvent.Check(emitCtx, count); err != nil {
 			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
 				e.logger().Warnw("Max user log events per execution reached, dropping event", "maxEvents", errBoundLimited.Limit, "err", err)
 				return false
 			}
-			e.logger().Errorw("Failed to get user log event limit", "err", err)
-			return false
+			// A settings read failure should not stop the drain. Fail open instead.
+			e.logger().Errorw("Failed to check user log event limit; emitting anyway", "err", err)
 		}
-		maxUserLogLength, err := e.cfg.LocalLimiters.LogLine.Limit(emitCtx)
-		if err != nil {
-			logLineLimit := e.cfg.LocalLimiters.defaults().LogLineLimit
-			e.logger().Errorw("Failed to get user log line limit; falling back to default", "err", err, "default", logLineLimit.DefaultValue)
-			e.metrics.IncrementLimitReadFallbackCounter(emitCtx, logLineLimit.Key)
-			maxUserLogLength = logLineLimit.DefaultValue
-		}
-		if len(logLine.Message) > int(maxUserLogLength) {
-			logLine.Message = logLine.Message[:maxUserLogLength] + " ...(truncated)"
+		if err := e.cfg.LocalLimiters.LogLine.Check(emitCtx, config.Size(len(logLine.Message))); err != nil {
+			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[config.Size]](err); ok {
+				logLine.Message = logLine.Message[:errBoundLimited.Limit] + " ...(truncated)"
+			} else {
+				e.logger().Errorw("Failed to check user log line limit; emitting untruncated", "err", err)
+			}
 		}
 
 		if err := events.EmitUserLogs(emitCtx, executionLabels, []*protoevents.LogLine{logLine}, executionID); err != nil {

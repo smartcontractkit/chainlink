@@ -19,8 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
+	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	pb "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	workflowEvents "github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
@@ -32,6 +35,7 @@ import (
 const (
 	v2ExecutionStartedEntity  = "workflows.v2." + workflowEvents.WorkflowExecutionStarted
 	v2ExecutionFinishedEntity = "workflows.v2." + workflowEvents.WorkflowExecutionFinished
+	v1UserLogsEntity          = "workflows.v1." + workflowEvents.UserLogs
 )
 
 // failAfterNBoundLimiter succeeds (returning ok, nil) for the first n calls to Limit,
@@ -73,6 +77,22 @@ func (f *alwaysFailTimeLimiter) WithTimeout(context.Context) (context.Context, f
 
 func (f *alwaysFailTimeLimiter) Close() error { return nil }
 
+// alwaysErrCheckLimiter fails every Check with a plain error, standing in for a settings
+// read failure rather than the bound actually being exceeded (which would be an
+// ErrorBoundLimited). Used to exercise the fail-open branches in processLogLine.
+//
+// Limit deliberately still succeeds: LogEvent.Limit is peeked during trigger-subscription
+// init to size the user-log channel, so failing it too would break engine startup before
+// the Check path under test is ever reached.
+type alwaysErrCheckLimiter[N limits.Number] struct {
+	ok  N
+	err error
+}
+
+func (f *alwaysErrCheckLimiter[N]) Limit(context.Context) (N, error) { return f.ok, nil }
+func (f *alwaysErrCheckLimiter[N]) Check(context.Context, N) error   { return f.err }
+func (f *alwaysErrCheckLimiter[N]) Close() error                     { return nil }
+
 // fakeShardResolver reports a fixed shard-ownership verdict, standing in for a real
 // ring orchestrator lookup.
 type fakeShardResolver struct {
@@ -100,6 +120,22 @@ func latestV2FinishedEvent(t *testing.T, observer beholdertest.Observer) (evt *e
 	evt = &eventsv2.WorkflowExecutionFinished{}
 	require.NoError(t, proto.Unmarshal(msgs[len(msgs)-1].Body, evt))
 	return evt, true
+}
+
+// userLogLines returns every user log line emitted so far via the v1 UserLogs event.
+func userLogLines(t *testing.T, observer beholdertest.Observer) []string {
+	t.Helper()
+	var lines []string
+	for _, msg := range observer.Messages(t, "beholder_entity", v1UserLogsEntity) {
+		var payload pb.UserLogs
+		if err := proto.Unmarshal(msg.Body, &payload); err != nil {
+			continue
+		}
+		for _, l := range payload.LogLines {
+			lines = append(lines, l.Message)
+		}
+	}
+	return lines
 }
 
 // dropPathHarness is a minimal engine with a single trigger subscription (id_0)
@@ -318,4 +354,75 @@ func TestEngine_ShardDenial_StaysSilent(t *testing.T) { //nolint:paralleltest //
 		finished := harness.beholderObserver.Messages(t, "beholder_entity", v2ExecutionFinishedEntity)
 		return len(started) > 0 || len(finished) > 0
 	}, 500*time.Millisecond, 25*time.Millisecond)
+}
+
+// TestEngine_UserLog_LogLineCheck covers the LogLine Limit()->Check() swap: the bound is
+// now enforced by the limiter (so it records usage/denied), truncation is driven by the
+// bound carried on the returned ErrorBoundLimited, and a settings read failure fails open
+// by emitting the line untruncated instead of falling back to a hardcoded default.
+func TestEngine_UserLog_LogLineCheck(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+	t.Run("over-long message truncated to the bound", func(t *testing.T) { //nolint:paralleltest // shares the package-level beholder singleton
+		harness := newDropPathHarness(t, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
+			cfg.LocalLimiters.LogLine = limits.NewUpperBoundLimiter[config.Size](10)
+		})
+
+		harness.module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+			Run(func(_ context.Context, _ *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
+				require.NoError(t, executor.EmitUserLog("0123456789ABCDEF"))
+			}).
+			Return(nil, nil).Once()
+		harness.eventCh <- capabilities.TriggerResponse{
+			Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_truncated"},
+		}
+
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			assert.Contains(c, userLogLines(t, harness.beholderObserver), "0123456789 ...(truncated)")
+		}, 5*time.Second, 50*time.Millisecond)
+	})
+
+	t.Run("settings read failure emits untruncated", func(t *testing.T) { //nolint:paralleltest // shares the package-level beholder singleton
+		harness := newDropPathHarness(t, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
+			cfg.LocalLimiters.LogLine = &alwaysErrCheckLimiter[config.Size]{err: errors.New("settings unavailable")}
+		})
+
+		const message = "this message is not over any real bound"
+		harness.module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+			Run(func(_ context.Context, _ *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
+				require.NoError(t, executor.EmitUserLog(message))
+			}).
+			Return(nil, nil).Once()
+		harness.eventCh <- capabilities.TriggerResponse{
+			Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_untruncated"},
+		}
+
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			assert.Contains(c, userLogLines(t, harness.beholderObserver), message)
+		}, 5*time.Second, 50*time.Millisecond)
+	})
+}
+
+// TestEngine_UserLog_LogEventCheckFailure_KeepsDraining covers the fail-open fix in the
+// LogEvent.Check branch: a settings read failure (a plain error, not ErrorBoundLimited)
+// used to return false from processLogLine, which ended the emitUserLogs drain goroutine
+// and silently discarded every remaining user log for the execution. Both lines must land.
+func TestEngine_UserLog_LogEventCheckFailure_KeepsDraining(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+	harness := newDropPathHarness(t, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
+		cfg.LocalLimiters.LogEvent = &alwaysErrCheckLimiter[int]{ok: 1000, err: errors.New("settings unavailable")}
+	})
+
+	harness.module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, _ *sdkpb.ExecuteRequest, executor host.ExecutionHelper) {
+			require.NoError(t, executor.EmitUserLog("first line"))
+			require.NoError(t, executor.EmitUserLog("second line"))
+		}).
+		Return(nil, nil).Once()
+	harness.eventCh <- capabilities.TriggerResponse{
+		Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_log_event_check_fails"},
+	}
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		lines := userLogLines(t, harness.beholderObserver)
+		assert.Contains(c, lines, "first line")
+		assert.Contains(c, lines, "second line")
+	}, 5*time.Second, 50*time.Millisecond)
 }
