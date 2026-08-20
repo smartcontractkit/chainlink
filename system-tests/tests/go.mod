@@ -651,7 +651,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/svr v1.3.0 // indirect
 	github.com/smartcontractkit/chainlink-stellar v0.0.3 // indirect
 	github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260727172856-734bee1b2489 // indirect
-	github.com/smartcontractkit/chainlink-sui v0.0.0-20260820212635-860b43de8de6 // indirect
+	github.com/smartcontractkit/chainlink-sui v0.0.0-20260820220147-5747e991c3eb // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose v0.1.23 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.2 // indirect
 	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260629213843-c52e07523035 // indirect
