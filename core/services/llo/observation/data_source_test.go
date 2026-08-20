@@ -921,7 +921,7 @@ result3 -> result3_parse -> multiply3;
 
 	ds := newDataSource(lggr, r, telem.NullTelemeter)
 	vals := make(map[llotypes.StreamID]lloprotocol.StreamValue)
-	for i := range uint32(4 * n) {
+	for i := range 4 * n {
 		vals[i] = nil
 	}
 
