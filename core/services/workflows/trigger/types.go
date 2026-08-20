@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 )
 
-type TriggerEventSink interface {
+type EventSink interface {
 	HandleTriggerEvent(ctx context.Context, event RoutedTriggerEvent) error
 }
 

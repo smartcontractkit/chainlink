@@ -445,58 +445,14 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 }
 
 func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
-	// call into the workflow to get trigger subscriptions
-	subCtx, subCancel, err := e.cfg.LocalLimiters.TriggerSubscriptionTime.WithTimeout(ctx)
+	subscriptions, err := e.Subscribe(ctx)
 	if err != nil {
-		return err
-	}
-	defer subCancel()
-
-	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
-	if err != nil {
-		return err
-	}
-	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
-	defer close(userLogChan)
-	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID, e.eventLabels())
-	})
-
-	var timeProvider TimeProvider = &types.LocalTimeProvider{}
-	if !e.cfg.UseLocalTimeProvider {
-		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.donTimeRequestTimeout(subCtx, e.cfg.LocalLimiters.DONTimeRequestTimeout), e.logger(), e.metrics)
-	}
-
-	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
-	if err != nil {
-		return err
-	}
-	if moduleExecuteMaxResponseSizeBytes < 0 {
-		return fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
-	}
-	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
-		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
-		Config:          e.cfg.WorkflowConfig,
-	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
-	if err != nil {
-		return fmt.Errorf("failed to execute subscribe: %w", err)
-	}
-	if result.GetError() != "" {
-		return fmt.Errorf("failed to execute subscribe: %s", result.GetError())
-	}
-	subs := result.GetTriggerSubscriptions()
-	if subs == nil {
-		return errors.New("subscribe result is nil")
-	}
-	err = e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(subs.Subscriptions))
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to subscribe to triggers: %w", err)
 	}
 
 	// check if all requested triggers exist in the registry
-	triggers := make([]capabilities.TriggerCapability, 0, len(subs.Subscriptions))
-	for _, sub := range subs.Subscriptions {
+	triggers := make([]capabilities.TriggerCapability, 0, len(subscriptions))
+	for _, sub := range subscriptions {
 		_, labels, _ := capabilities.ParseID(sub.Id)
 		chainSelector, err2 := capabilities.ChainSelectorLabel(labels)
 		if err2 != nil {
@@ -536,11 +492,11 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		triggerCapID   string
 	}
 
-	resultsCh := make(chan triggerRegResult, len(subs.Subscriptions))
+	resultsCh := make(chan triggerRegResult, len(subscriptions))
 	g, gCtx := errgroup.WithContext(regCtx)
 
 	// Launch concurrent trigger registrations
-	for i, sub := range subs.Subscriptions {
+	for i, sub := range subscriptions {
 		triggerCap := triggers[i]
 		g.Go(func() error {
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, i)
@@ -602,8 +558,8 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	e.triggersRegMu.Lock()
 	defer e.triggersRegMu.Unlock()
 
-	eventChans := make([]<-chan capabilities.TriggerResponse, len(subs.Subscriptions))
-	triggerCapIDs := make([]string, len(subs.Subscriptions))
+	eventChans := make([]<-chan capabilities.TriggerResponse, len(subscriptions))
+	triggerCapIDs := make([]string, len(subscriptions))
 
 	for result := range resultsCh {
 		e.triggers[result.registrationID] = &triggerCapability{
@@ -633,7 +589,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 					if !isOpen {
 						return
 					}
-					triggerID := subs.Subscriptions[idx].Id
+					triggerID := subscriptions[idx].Id
 					eventID := event.Event.ID
 					e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventReceivedCounter(ctx)
 					e.logger().Debugw("Processing trigger event", "triggerID", triggerID, "eventID", eventID)
@@ -679,10 +635,63 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 			}
 		})
 	}
-	e.logger().Infow("All triggers registered successfully", "numTriggers", len(subs.Subscriptions), "triggerIDs", triggerCapIDs)
+	e.logger().Infow("All triggers registered successfully", "numTriggers", len(subscriptions), "triggerIDs", triggerCapIDs)
 	e.metrics.IncrementWorkflowRegisteredCounter(ctx)
 	e.cfg.Hooks.OnSubscribedToTriggers(triggerCapIDs)
 	return nil
+}
+
+func (e *Engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
+	// call into the workflow to get trigger subscriptions
+	subCtx, subCancel, err := e.cfg.LocalLimiters.TriggerSubscriptionTime.WithTimeout(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer subCancel()
+
+	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
+	if err != nil {
+		return nil, err
+	}
+	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
+	defer close(userLogChan)
+	e.srvcEng.Go(func(_ context.Context) {
+		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID, e.eventLabels())
+	})
+
+	var timeProvider TimeProvider = &types.LocalTimeProvider{}
+	if !e.cfg.UseLocalTimeProvider {
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.donTimeRequestTimeout(subCtx, e.cfg.LocalLimiters.DONTimeRequestTimeout), e.logger(), e.metrics)
+	}
+
+	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if moduleExecuteMaxResponseSizeBytes < 0 {
+		return nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+	}
+	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
+		Request:         &sdkpb.ExecuteRequest_Subscribe{},
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
+		Config:          e.cfg.WorkflowConfig,
+	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute subscribe: %w", err)
+	}
+	if result.GetError() != "" {
+		return nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
+	}
+	subs := result.GetTriggerSubscriptions()
+	if subs == nil {
+		return nil, errors.New("subscribe result is nil")
+	}
+	err = e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(subs.Subscriptions))
+	if err != nil {
+		return nil, err
+	}
+
+	return subs.Subscriptions, nil
 }
 
 func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
