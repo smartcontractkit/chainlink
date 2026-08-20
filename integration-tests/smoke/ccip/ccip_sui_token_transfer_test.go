@@ -2216,7 +2216,12 @@ func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(
 			DestChain:        destChain,
 			Receiver:         receiverByte,
 			TokenReceiverATA: suiAddr[:],
-			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			// Exploit message is never finalized: the guard aborts the execute PTB
+			// before submission, so no ExecutionStateChanged event fires. The real
+			// assertion is the explicit GetExecutionState DevInspect below (require.Error).
+			// UNTOUCHED is the honest expected state; TransferMultiple's expected-states
+			// map is discarded here, so this field is documentary only.
+			ExpectedStatus: testhelpers.EXECUTION_STATE_UNTOUCHED,
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  evmToken.Address(),
@@ -2281,6 +2286,32 @@ func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(
 	require.Negativef(t, decrease.Cmp(half),
 		"transmitter coin drained: pre=%s post=%s decrease=%s (guard should prevent the pool from taking the coin's value; only gas should be charged)",
 		preCoinBalance.String(), postCoinBalance.String(), decrease.String())
+
+	// Lane-not-stuck control: a subsequent honest EVM->Sui arbitrary-data message
+	// must still finalize SUCCESS. The guard skips only the exploit's token-pool
+	// command (non-retryable, off-chain); the offramp must keep processing later
+	// messages, proving the lane is not head-of-line blocked by the rejected seq.
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	honestTcs := []testhelpers.TestTransferRequest{
+		{
+			Name:             "EVM2Sui arbitrary message after rejected exploit (lane not stuck)",
+			SourceChain:      sourceChain,
+			DestChain:        destChain,
+			Receiver:         receiverByte,
+			TokenReceiverATA: suiAddr[:],
+			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens:           []router.ClientEVMTokenAmount{}, // arbitrary data, no token-pool command
+			Data:             []byte("lane not stuck"),
+			ExtraArgs:        testhelpers.MakeSuiExtraArgs(1_000_000, true, receiverObjectIDs, suiAddr),
+		},
+	}
+	honestStartBlocks, honestExpectedSeqNums, honestExpectedExecStates, _ := testhelpers.TransferMultiple(ctx, t, e.Env, state, honestTcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
+	err = testhelpers.ConfirmMultipleCommits(t, e.Env, state, honestStartBlocks, false, honestExpectedSeqNums)
+	require.NoError(t, err)
+	honestExecStates := testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, testhelpers.SeqNumberRangeToSlice(honestExpectedSeqNums), honestStartBlocks)
+	require.Equal(t, honestExpectedExecStates, honestExecStates, "honest EVM2Sui message must execute after the rejected exploit (lane not stuck)")
 }
 
 func testSetupHelperEvm2Sui(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64, deployerSourceChain *bind.TransactOpts, suiTokenBytes []byte, suiAddr [32]byte) {
