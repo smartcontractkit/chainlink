@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 )
 
@@ -85,11 +86,12 @@ type BridgeTask struct {
 	// requiredJSONPaths). When empty or "false", that check is skipped.
 	CheckRequired string `json:"checkRequired"`
 
-	specId       int32
-	orm          bridges.ORM
-	config       Config
-	bridgeConfig BridgeConfig
-	httpClient   *http.Client
+	specID            int32
+	orm               bridges.ORM
+	config            Config
+	bridgeConfig      BridgeConfig
+	httpClient        *http.Client
+	bridgeConnManager bridgeconn.BridgeConnManager
 
 	// requiredJSONPaths is populated in runner.InitializePipeline from strict
 	// downstream jsonparse tasks. When CheckRequired is true and cacheTTL is set,
@@ -162,9 +164,69 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	overtimeCtx, cancel := overtimeContext(ctx)
 	defer cancel()
 
-	url, err := t.getBridgeURLFromName(overtimeCtx, name)
+	bridge, err := t.getBridgeFromName(overtimeCtx, name)
 	if err != nil {
 		return Result{Error: err}, runInfo
+	}
+	url := URLParam(bridge.URL)
+	lookupPayload := make(MapParam)
+	maps.Copy(lookupPayload, requestData)
+
+	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
+	defer cancel()
+	if bridge.UseConnectionManager {
+		bridgeConnManager := t.bridgeConnManager
+		start := time.Now()
+		responseBytes, obsErr := bridgeConnManager.GetObservation(bridge, map[string]any(lookupPayload))
+		finish := time.Now()
+
+		statusCode := http.StatusOK
+		if obsErr != nil {
+			statusCode = http.StatusGatewayTimeout
+		}
+
+		elapsed := finish.Sub(start)
+		promBridgeLatency.WithLabelValues(t.Name, statusCodeGroup(statusCode)).Set(elapsed.Seconds())
+		promBridgeLatencyHist.WithLabelValues(t.Name, statusCodeGroup(statusCode)).Observe(float64(elapsed.Milliseconds()))
+
+		if telemetryCh := GetTelemetryCh(ctx); telemetryCh != nil {
+			requestDataJSON, jsonErr := json.Marshal(lookupPayload)
+			if jsonErr != nil {
+				lggr.Warnw("Bridge task: failed to marshal request data for telemetry", "err", jsonErr)
+			}
+			bt := &BridgeTelemetry{
+				Name:                   t.Name,
+				RequestData:            requestDataJSON,
+				ResponseData:           responseBytes,
+				ResponseStatusCode:     statusCode,
+				RequestStartTimestamp:  start,
+				RequestFinishTimestamp: finish,
+				SpecID:                 t.specID,
+				DotID:                  t.DotID(),
+			}
+			if obsErr != nil {
+				bt.ResponseError = new(string)
+				*bt.ResponseError = obsErr.Error()
+			}
+
+			bt.resolveStreamID(t, vars, lggr)
+
+			select {
+			case telemetryCh <- bt:
+			default:
+				lggr.Warn("bridge task: telemetry channel is full, dropping telemetry")
+			}
+		}
+
+		if obsErr != nil {
+			lggr.Debugw("Bridge task: connection manager request failed",
+				"response", string(responseBytes),
+				"url", url.String(),
+				"error", obsErr,
+			)
+			return Result{Error: obsErr}, RunInfo{IsRetryable: true}
+		}
+		return Result{Value: string(responseBytes)}, runInfo
 	}
 
 	requestDataJSON, err := t.finalizeAndMarshalBridgeRequestData(lggr, vars, inputValues, &requestData, includeInputAtKey)
@@ -175,9 +237,6 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		"requestData", string(requestDataJSON),
 		"url", url.String(),
 	)
-
-	requestCtx, cancel := httpRequestCtx(ctx, t, t.config)
-	defer cancel()
 
 	var cachedResponse bool
 	responseBytes, statusCode, headers, start, finish, err := makeHTTPRequest(requestCtx, lggr, "POST", url, reqHeaders, requestData, t.httpClient, t.config.DefaultHTTPLimit())
@@ -205,7 +264,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 				RequestStartTimestamp:  start,
 				RequestFinishTimestamp: finish,
 				LocalCacheHit:          cachedResponse,
-				SpecID:                 t.specId,
+				SpecID:                 t.specID,
 				DotID:                  t.DotID(),
 			}
 			if err != nil {
@@ -252,7 +311,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	if !cachedResponse && cacheTTL > 0 {
-		err := t.orm.UpsertBridgeResponse(overtimeCtx, t.dotID, t.specId, responseBytes)
+		err := t.orm.UpsertBridgeResponse(overtimeCtx, t.dotID, t.specID, responseBytes)
 		if err != nil {
 			lggr.Errorw("Bridge task: failed to upsert response in bridge cache", "err", err)
 		}
@@ -370,7 +429,7 @@ func (t *BridgeTask) resolveFailureOrCache(
 	}
 
 	//nolint:gosec // disable G115
-	cachedBytes, cacheErr := t.orm.GetCachedResponse(ctx, t.dotID, t.specId, time.Duration(cacheTTL)*time.Second)
+	cachedBytes, cacheErr := t.orm.GetCachedResponse(ctx, t.dotID, t.specID, time.Duration(cacheTTL)*time.Second)
 	if cacheErr != nil {
 		promBridgeCacheErrors.WithLabelValues(t.Name).Inc()
 		if !errors.Is(cacheErr, sql.ErrNoRows) {
@@ -408,12 +467,12 @@ func (bt *BridgeTelemetry) resolveStreamID(t *BridgeTask, vars Vars, lggr logger
 	}
 }
 
-func (t *BridgeTask) getBridgeURLFromName(ctx context.Context, name StringParam) (URLParam, error) {
+func (t *BridgeTask) getBridgeFromName(ctx context.Context, name StringParam) (bridges.BridgeType, error) {
 	bt, err := t.orm.FindBridge(ctx, bridges.BridgeName(name))
 	if err != nil {
-		return URLParam{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
+		return bridges.BridgeType{}, errors.Wrapf(err, "could not find bridge with name '%s'", name)
 	}
-	return URLParam(bt.URL), nil
+	return bt, nil
 }
 
 func withRunInfo(request MapParam, meta MapParam) MapParam {

@@ -297,6 +297,10 @@ func TestChipIngressBatchClient_ChainSelectorInAttributes(t *testing.T) {
 }
 
 func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	g := gomega.NewWithT(t)
 
 	chipClient := chipingressmocks.NewClient(t)
@@ -318,6 +322,10 @@ func TestChipIngressBatchClient_HealthMonitoring(t *testing.T) {
 }
 
 func TestChipIngressBatchClient_HealthMonitoring_PingFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	g := gomega.NewWithT(t)
 
 	chipClient := chipingressmocks.NewClient(t)

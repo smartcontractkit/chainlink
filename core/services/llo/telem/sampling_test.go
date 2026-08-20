@@ -141,6 +141,10 @@ func TestSample(t *testing.T) {
 
 // TestPruningLoop ensures the pruning loop works as expected.
 func TestPruningLoop(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)

@@ -13,6 +13,10 @@ import (
 )
 
 func TestNewUser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	tests := []struct {

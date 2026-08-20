@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/evilmartians/lefthook/refs/heads/master/schema.json
+output:
+  - summary
+  - success
+  - failure
+  - skips
+
+pre-commit:
+  # Compile the githooks CLI once per commit instead of paying `go run` build
+  # overhead per job. Binary lives in the gitignored tools/githooks/.bin/.
+  setup:
+    - run: |
+        command -v go >/dev/null 2>&1 && go build -C tools/githooks -o .bin/githooks . || true
+
+  # One outer piped group: first a parallel bundle, then golangci-lint runs
+  # strictly after every other job is done. This keeps the read-only scanners
+  # fast while preserving the write ordering we need: the Go mutators write
+  # .go files and go.mod/go.sum, so lint --fix must never run while mockery
+  # regenerates mocks or go mod tidy rewrites module files. The ordering lives
+  # in the group, not at hook level: a parallel flag injected by a global or
+  # local config must not break it (lefthook rejects parallel+piped together).
+  jobs:
+    - name: prep-then-lint
+      group:
+        piped: true
+        jobs:
+          - name: scanners-and-prep
+            group:
+              # Scanners only read the staged snapshot; go-mod-tidy and
+              # go-generate share the Go toolchain and module files, so they
+              # stay piped with tidy first.
+              parallel: true
+              jobs:
+                # Prevent committing secret keys or sensitive information
+                - name: betterleaks
+                  tags: [security]
+                  run: betterleaks git . --pre-commit --staged
+                  fail_text: "betterleaks failed or missing. Install: https://github.com/betterleaks/betterleaks#installation"
+
+                # Check for common typos in the codebase
+                - name: typos
+                  tags: [lint]
+                  exclude:
+                    - "go.mod"
+                    - "go.sum"
+                    - "*.lock"
+                    - "package-lock.json"
+                    - "pnpm-lock.yaml"
+                  run: typos {staged_files}
+                  fail_text: "typos failed or missing. Install: https://github.com/crate-ci/typos#install"
+
+                - name: tidy-then-generate
+                  group:
+                    piped: true
+                    jobs:
+                      # Tidy go.mod/go.sum in parallel for changed modules
+                      - name: go-mod-tidy
+                        tags: [gomod]
+                        glob:
+                          - "*.go"
+                          - "go.mod"
+                          - "go.sum"
+                        run: tools/githooks/.bin/githooks tidy {staged_files}
+                        stage_fixed: true
+
+                      # Regenerate code for changed packages (proto, config docs, go.md, mocks)
+                      - name: go-generate
+                        tags: [generate]
+                        glob:
+                          - "*.go"
+                          - "*.proto"
+                          - "go.mod"
+                          - "go.sum"
+                          - ".mockery.yaml"
+                        run: tools/githooks/.bin/githooks generate {staged_files}
+                        stage_fixed: true
+
+          # Lint only changed modules + packages — last, after generated and
+          # tidied code is stable.
+          - name: golangci-lint
+            tags: [lint]
+            glob:
+              - "*.go"
+              - "go.mod"
+              - "go.sum"
+            run: tools/githooks/.bin/githooks lint {staged_files}
+            stage_fixed: true
+
+pre-push:
+  setup:
+    - run: |
+        command -v go >/dev/null 2>&1 && go build -C tools/githooks -o .bin/githooks . || true
+
+  parallel: true
+  commands:
+    short-tests:
+      tags: test
+      glob:
+        - "*.go"
+        - "go.mod"
+        - "go.sum"
+      run: tools/githooks/.bin/githooks test {push_files}

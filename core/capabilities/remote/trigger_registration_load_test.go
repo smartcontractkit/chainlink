@@ -163,6 +163,10 @@ func (t *noopTrigger) AckEvent(_ context.Context, _ string, _ string, _ string) 
 // --- Test: Subscriber registrationLoop traffic volume ---
 
 func TestRegistrationTrafficVolume(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	cases := []struct {
@@ -253,6 +257,10 @@ func TestRegistrationTrafficVolume(t *testing.T) {
 // --- Test: Publisher sendRegistrationChecks traffic volume ---
 
 func TestRegistrationCheckTrafficVolume(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	cases := []struct {
 		nRegistrations  int
@@ -529,6 +537,10 @@ func TestRegistrationLoopLockDuration(t *testing.T) {
 // DON peers, workflow F=2 → quorum 5). This does not simulate dispatcher drops
 // or shared-channel saturation; see test log for that limitation.
 func TestTrafficAttribution_RegisterLoopVsChecksVsEventsAndAcks(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)

@@ -24,7 +24,6 @@ import (
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -196,6 +195,10 @@ func (s *mockCache) AddMany(values map[llotypes.StreamID]lloprotocol.StreamValue
 }
 
 func Test_DataSource(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	lggr := logger.NullLogger
 	mainCtx := t.Context()

@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"

@@ -575,6 +575,10 @@ func TestPruneCallbacks(t *testing.T) {
 }
 
 func TestHandlerStartClose(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	handler, _, _, _ := setupHandler(t)
 	ctx := t.Context()
 

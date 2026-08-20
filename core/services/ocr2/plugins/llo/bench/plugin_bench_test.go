@@ -6,10 +6,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
 const (
@@ -37,6 +38,10 @@ var benchWorkloads = []workload{
 // same format. This guards the benchmark: if the two drivers diverge, the
 // latency numbers are not comparing like for like.
 func TestParity(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	for _, w := range benchWorkloads {
 		t.Run(w.String(), func(t *testing.T) {

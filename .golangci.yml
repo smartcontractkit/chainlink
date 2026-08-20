@@ -213,6 +213,7 @@ linters:
       - "core/scripts/cre/environment/examples/workflows"
 issues:
   max-same-issues: 0
+  max-issues-per-linter: 0
 formatters:
   enable:
     - gci

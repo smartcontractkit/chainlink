@@ -1617,7 +1617,12 @@ func (m *mockLinkingService) GetOrganizationFromWorkflowOwner(ctx context.Contex
 	}, nil
 }
 
-func Test_Handler_OrganizationID(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver uses t.Setenv
+//nolint:paralleltest // beholdertest.NewObserver(t) cannot be used in parallel tests because it relies on global state
+func Test_Handler_OrganizationID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	observer := beholdertest.NewObserver(t)
 	emitter := custmsg.NewLabeler()
 	ctx := t.Context()

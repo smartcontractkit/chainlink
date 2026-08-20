@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package streams.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn/streamspb";
+
+service StreamService {
+  // Each client request replaces the complete subscription set.
+  rpc Subscribe(stream SubscribeRequest) returns (stream SubscribeResponse) {}
+}
+
+message SubscribeRequest {
+  repeated Subscription subscriptions = 1;
+}
+
+message Subscription {
+  google.protobuf.Struct data = 1;
+}
+
+message SubscribeResponse {
+  string timestamp = 2;
+  bytes observation_json = 3;
+  bytes payload_hash = 4;
+}
