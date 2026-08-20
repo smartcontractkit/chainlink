@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	registryclient "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/client"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -48,17 +48,21 @@ func Select(lggr logger.Logger, cfg ProxyConfig) (*capabilities.Registry, func()
 	// the proxy itself is a co-located process, so insecure credentials are stated
 	// explicitly here rather than defaulted in the client. A deployment that moves
 	// capabilities off-host has to change this line, which is the point.
-	client := registryclient.New(lggr, conn,
+	// addresses is where this process serves the capabilities it registers, filled in by the shim as
+	// it opens a listener for each: the registry on the other end holds addresses rather than
+	// values, so registering with it means naming where the value can be reached.
+	addresses := map[string]string{}
+	reg := registry.Local(lggr).WithRemote(conn, addresses,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	// Capabilities in this process are still handed over as values, so wrap the
-	// client in the migration shim that serves them at an address. Once every
-	// capability calls Add on crecore itself, drop the shim and return client.
-	shim := NewLOOPShim(lggr, client, "")
+	// registry in the migration shim that serves them at an address. Once every
+	// capability registers with its own address, drop the shim and return reg.
+	shim := NewLOOPShim(lggr, reg, addresses, "")
 
 	closeFn := func() error {
 		shimErr := shim.Close()
-		clientErr := client.Close()
+		clientErr := reg.Close()
 		connErr := conn.Close()
 		switch {
 		case shimErr != nil:

@@ -181,6 +181,11 @@ func createJobs(
 // the peer whose identity crecore holds on its behalf, the registry that says
 // which DON it is and what OCR configuration that DON runs under, and the peers
 // to dial before it has heard of anyone.
+//
+// The registry is one address serving both: --capabilities.proxy-url is where the
+// capabilities and the OCR configuration are read from, and --ocr.proxy-address is
+// where this node's peer and keys live. crecore serves both today, so they are the
+// same value.
 func capabilityRunnerJobSpec(node *cre.Node, don *cre.Don, creEnv *cre.Environment, command, bootstrapPeer string, configFlags []string) (*jobv1.ProposeJobRequest, error) {
 	if node.JobDistributorDetails == nil {
 		return nil, fmt.Errorf("node %s has no job distributor details", node.Name)
@@ -205,7 +210,9 @@ func capabilityRunnerJobSpec(node *cre.Node, don *cre.Don, creEnv *cre.Environme
 		"--ocr.transmit-account=" + transmitAccount,
 		"--capabilities.proxy-url=" + creCoreGRPCTarget,
 		fmt.Sprintf("--capabilities.capability-don-id=%d", don.ID),
-		"--consensus.bootstrappers=" + bootstrapPeer,
+		// Where the DON can first be reached belongs to the networking rather than to the
+		// capability, so it is an ocr.* setting beside the proxy that does the dialling.
+		"--ocr.bootstrappers=" + bootstrapPeer,
 	}
 	args = append(args, configFlags...)
 

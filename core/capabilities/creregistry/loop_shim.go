@@ -22,7 +22,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	registryclient "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/client"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 )
@@ -39,14 +38,18 @@ import (
 // remote registry cannot use that value — it dials, it does not accept broker IDs
 // — so the shim serves the capability locally and registers that address instead.
 // Once capabilities call Add on the registry directly with their own address
-// (registryclient.New plus registryclient.RegisterCapability), this shim has no
+// (registry.Local().WithRemote() plus registry.RegisterCapability), this shim has no
 // users and can be deleted.
 //
 // The listener binds to loopback by default: it exists so a co-located registry
 // process can reach capabilities in this process, not to publish them.
 type LOOPShim struct {
-	lggr   logger.Logger
-	client core.AddressableCapabilitiesRegistry
+	lggr     logger.Logger
+	registry registry.Registry
+
+	// addresses is shared with that registry: it announces a capability at the address found here
+	// under the capability's ID, so this fills an entry in before adding one. Written under mu.
+	addresses map[string]string
 
 	// listenAddr is what each capability's listener binds to. Host-only values
 	// (e.g. "127.0.0.1:0") pick a free port per capability.
@@ -80,13 +83,17 @@ var _ core.CapabilitiesRegistry = (*LOOPShim)(nil)
 
 // NewLOOPShim wraps an address-based registry so Add accepts in-process capability
 // values, serving each at an address of its own and registering that.
-func NewLOOPShim(lggr logger.Logger, client core.AddressableCapabilitiesRegistry, listenAddr string) *LOOPShim {
+func NewLOOPShim(lggr logger.Logger, reg registry.Registry, addresses map[string]string, listenAddr string) *LOOPShim {
 	if listenAddr == "" {
 		listenAddr = "127.0.0.1:0"
 	}
+	if addresses == nil {
+		addresses = map[string]string{}
+	}
 	return &LOOPShim{
 		lggr:       logger.Named(lggr, "CRERegistryLOOPShim"),
-		client:     client,
+		registry:   reg,
+		addresses:  addresses,
 		listenAddr: listenAddr,
 		listen:     func(addr string) (net.Listener, error) { return net.Listen("tcp", addr) },
 		served:     map[string]*servedCapability{},
@@ -118,7 +125,7 @@ func (s *LOOPShim) Add(ctx context.Context, cap capabilities.BaseCapability) err
 	s.mu.Unlock()
 
 	srv := grpc.NewServer()
-	if err = registryclient.RegisterCapability(s.lggr, srv, cap, info.CapabilityType); err != nil {
+	if err = registry.RegisterCapability(s.lggr, srv, cap, info.CapabilityType); err != nil {
 		srv.Stop()
 		return fmt.Errorf("could not serve capability %s: %w", info.ID, err)
 	}
@@ -138,6 +145,9 @@ func (s *LOOPShim) Add(ctx context.Context, cap capabilities.BaseCapability) err
 		return errors.New("shim is closed")
 	}
 	s.served[info.ID] = &servedCapability{srv: srv, addr: addr, cap: cap}
+	// Where the registry will announce this capability, set before it is added: adding is what reads
+	// it.
+	s.addresses[info.ID] = addr
 	s.mu.Unlock()
 
 	s.retire(info.ID, prev, replacing, addr)
@@ -149,10 +159,11 @@ func (s *LOOPShim) Add(ctx context.Context, cap capabilities.BaseCapability) err
 		}
 	}()
 
-	if err = s.client.AddAt(ctx, info.ID, info.CapabilityType, addr); err != nil {
+	if err = s.registry.Add(ctx, cap); err != nil {
 		// Registration failed, so nothing will ever dial this listener.
 		s.mu.Lock()
 		delete(s.served, info.ID)
+		delete(s.addresses, info.ID)
 		s.mu.Unlock()
 		srv.Stop()
 		return err
@@ -162,7 +173,11 @@ func (s *LOOPShim) Add(ctx context.Context, cap capabilities.BaseCapability) err
 
 // Remove deregisters the capability and stops serving it.
 func (s *LOOPShim) Remove(ctx context.Context, id string) error {
-	err := s.client.Remove(ctx, id)
+	err := s.registry.Remove(ctx, id)
+
+	s.mu.Lock()
+	delete(s.addresses, id)
+	s.mu.Unlock()
 
 	s.mu.Lock()
 	served, ok := s.served[id]
@@ -224,37 +239,37 @@ func isDeadCapability(c capabilities.BaseCapability) bool {
 // --- pass-through of everything except Add/Remove ---
 
 func (s *LOOPShim) Get(ctx context.Context, id string) (capabilities.BaseCapability, error) {
-	return s.client.Get(ctx, id)
+	return s.registry.Get(ctx, id)
 }
 
 func (s *LOOPShim) GetTrigger(ctx context.Context, id string) (capabilities.TriggerCapability, error) {
-	return s.client.GetTrigger(ctx, id)
+	return s.registry.GetTrigger(ctx, id)
 }
 
 func (s *LOOPShim) GetExecutable(ctx context.Context, id string) (capabilities.ExecutableCapability, error) {
-	return s.client.GetExecutable(ctx, id)
+	return s.registry.GetExecutable(ctx, id)
 }
 
 func (s *LOOPShim) List(ctx context.Context) ([]capabilities.BaseCapability, error) {
-	return s.client.List(ctx)
+	return s.registry.List(ctx)
 }
 
 func (s *LOOPShim) LocalNode(ctx context.Context) (capabilities.Node, error) {
-	return s.client.LocalNode(ctx)
+	return s.registry.LocalNode(ctx)
 }
 
 func (s *LOOPShim) NodeByPeerID(ctx context.Context, peerID ragetypes.PeerID) (capabilities.Node, error) {
-	return s.client.NodeByPeerID(ctx, peerID)
+	return s.registry.NodeByPeerID(ctx, peerID)
 }
 
 func (s *LOOPShim) ConfigForCapability(ctx context.Context, capabilityID string, donID uint32) (capabilities.CapabilityConfiguration, error) {
-	return s.client.ConfigForCapability(ctx, capabilityID, donID)
+	return s.registry.ConfigForCapability(ctx, capabilityID, donID)
 }
 
 func (s *LOOPShim) DONsForCapability(ctx context.Context, capabilityID string) ([]capabilities.DONWithNodes, error) {
-	return s.client.DONsForCapability(ctx, capabilityID)
+	return s.registry.DONsForCapability(ctx, capabilityID)
 }
 
 func (s *LOOPShim) DONByID(ctx context.Context, donID uint32) (capabilities.DON, error) {
-	return s.client.DONByID(ctx, donID)
+	return s.registry.DONByID(ctx, donID)
 }

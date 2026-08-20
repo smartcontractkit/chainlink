@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
-	registryclient "github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry/client"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 
@@ -42,10 +41,11 @@ func newShim(t *testing.T) (*LOOPShim, *regserver.Registry) {
 	reg := regserver.New(logger.Test(t), notSynced,
 		book.DialOption(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-	client := registryclient.New(logger.Test(t), registrytest.Serve(t, reg),
+	addresses := map[string]string{}
+	client := registry.Local(logger.Test(t)).WithRemote(registrytest.Serve(t, reg), addresses,
 		book.DialOption(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-	shim := NewLOOPShim(logger.Test(t), client, "")
+	shim := NewLOOPShim(logger.Test(t), client, addresses, "")
 	shim.listen = func(string) (net.Listener, error) { return book.Listen(), nil }
 	t.Cleanup(func() { _ = shim.Close() })
 	return shim, reg
@@ -276,10 +276,11 @@ func newShimWithUnreachableRegistry(t *testing.T) *LOOPShim {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = conn.Close() })
 
-	client := registryclient.New(logger.Test(t), conn,
+	addresses := map[string]string{}
+	client := registry.Local(logger.Test(t)).WithRemote(conn, addresses,
 		book.DialOption(), grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-	shim := NewLOOPShim(logger.Test(t), client, "")
+	shim := NewLOOPShim(logger.Test(t), client, addresses, "")
 	shim.listen = func(string) (net.Listener, error) { return book.Listen(), nil }
 	t.Cleanup(func() { _ = shim.Close() })
 	return shim
