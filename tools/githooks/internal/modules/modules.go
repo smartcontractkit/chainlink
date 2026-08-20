@@ -351,3 +351,56 @@ func GetChangedFiles(ctx context.Context, repoRoot string) ([]string, error) {
 
 	return files, nil
 }
+
+// CreateScopedPatch creates a temporary git patch comparing rev against current state for specific files.
+// Returns the path to the patch file, a cleanup function, and any error.
+func CreateScopedPatch(ctx context.Context, repoRoot string, rev string, files []string) (string, func(), error) {
+	if rev == "" || len(files) == 0 {
+		return "", func() {}, nil
+	}
+
+	args := []string{"diff", rev, "--"}
+	for _, f := range files {
+		trimmed := strings.TrimSpace(f)
+		if trimmed != "" {
+			args = append(args, trimmed)
+		}
+	}
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = repoRoot
+
+	var (
+		out    bytes.Buffer
+		errOut bytes.Buffer
+	)
+	cmd.Stdout = &out
+	cmd.Stderr = &errOut
+
+	if err := cmd.Run(); err != nil {
+		// If git diff failed with an error, return no patch so caller falls back gracefully
+		return "", func() {}, nil
+	}
+
+	tmpFile, err := os.CreateTemp("", "githooks-lint-*.patch")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("failed to create temp patch file: %w", err)
+	}
+
+	if _, err := tmpFile.Write(out.Bytes()); err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
+		return "", func() {}, fmt.Errorf("failed to write temp patch file: %w", err)
+	}
+
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpFile.Name())
+		return "", func() {}, fmt.Errorf("failed to close temp patch file: %w", err)
+	}
+
+	cleanup := func() {
+		_ = os.Remove(tmpFile.Name())
+	}
+
+	return tmpFile.Name(), cleanup, nil
+}

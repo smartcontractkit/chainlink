@@ -4,7 +4,7 @@ nodejs        20.13.1
 pnpm          10.6.5
 postgres      16.14
 helm          3.18.4
-golangci-lint 2.12.2
+golangci-lint 2.13.0
 protoc        29.3
 python        3.10.5
 
