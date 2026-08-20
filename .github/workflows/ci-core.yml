@@ -197,6 +197,15 @@ jobs:
           # so restrict checkpoint writes to push events where the matrix is the push diff.
           build-cache-write: ${{ github.event_name == 'push' && 'default-branch-only' || 'never' }}
 
+      - name: Debug Slack message
+        if: always()
+        env:
+          SLACK_TEXT: ":red-warn: golangci-lint: module `${{ matrix.modules }}` has ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues across ${{ steps.golang-lint.outputs.golang-report-file-count }} files\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}|View Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Download Report>\n*By severity*: ${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\n*By linter*: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
+        run: |
+          echo "Would send Slack message (send-if = failure && critical>0 && weekday):"
+          echo "channel=${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}"
+          echo "text=${SLACK_TEXT}"
+
       - name: Notify Slack
         if: ${{ failure() && steps.golang-lint.outputs.golang-report-critical-issue-count > 0 && needs.run-frequency.outputs.one-per-weekday-frequency == 'true' }}
         uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0

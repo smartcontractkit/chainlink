@@ -23,11 +23,15 @@ def process(
 ) -> Tuple[str, Dict[str, Any]]:
     suffix = get_artifact_suffix(module_name)
 
-    if not os.path.isfile(report_path):
-        raise FileNotFoundError(f"Report file not found: {report_path}")
-
-    with open(report_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    if report_path and os.path.isfile(report_path):
+        with open(report_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    else:
+        print(
+            f"::warning::Lint report not found at {report_path!r}; treating as empty report",
+            file=sys.stderr,
+        )
+        data = {"Issues": []}
 
     issues: List[Dict[str, Any]] = data.get("Issues") or []
 
@@ -76,8 +80,11 @@ def process(
     }
 
     # 2. Markdown Step Summary
+    display_module_name = module_name.strip()
+    if display_module_name in ("", ".", "./"):
+        display_module_name = "root"
     summary_lines = [
-        f"### 🔍 GolangCI Lint Results: `{module_name}`",
+        f"### 🔍 GolangCI Lint Results: `{display_module_name}`",
         "",
         "| Metric | Count |",
         "| :--- | :--- |",

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import json
-import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -98,6 +97,24 @@ class TestProcessReport(unittest.TestCase):
         self.assertEqual(outputs["file-count"], 0)
         self.assertEqual(outputs["issue-count"], 0)
         self.assertEqual(outputs["critical-issue-count"], 0)
+
+    def test_process_report_missing_file_treated_as_empty(self):
+        missing = Path(self.temp_dir.name) / "does-not-exist.json"
+
+        summary, outputs = process_report.process(
+            report_path=str(missing),
+            module_name="core/scripts",
+            summary_path=str(self.summary_file),
+            output_path=str(self.output_file),
+        )
+
+        self.assertEqual(outputs["file-count"], 0)
+        self.assertEqual(outputs["issue-count"], 0)
+        self.assertEqual(outputs["critical-issue-count"], 0)
+        self.assertEqual(outputs["suffix"], "core-scripts")
+
+        with open(self.output_file, "r") as f:
+            self.assertIn("suffix=core-scripts", f.read())
 
     def test_process_report_custom_critical_severities(self):
         data = {
