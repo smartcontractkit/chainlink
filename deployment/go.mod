@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/deployment
 
-go 1.26.5
+go 1.26.6
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
@@ -49,7 +49,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20260624154507-ea7ff77a0ddb
 	github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings v0.0.0-20260624154507-ea7ff77a0ddb
 	github.com/smartcontractkit/chainlink-ccip/deployment v0.0.0-20260818173204-4e52258ae336
-	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260811140401-3fb1738abb75
+	github.com/smartcontractkit/chainlink-common v0.11.2-0.20260821165059-fd6000fada11
 	github.com/smartcontractkit/chainlink-common/keystore v1.3.0
 	github.com/smartcontractkit/chainlink-data-streams v1.1.0
 	github.com/smartcontractkit/chainlink-deployments-framework v0.117.1
@@ -76,7 +76,7 @@ require (
 	github.com/smartcontractkit/smdkg v0.0.0-20260819115032-4afa3ab56bc4
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250502134807-c57d3d995945
 	github.com/spf13/cobra v1.10.2
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.0
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/vmihailenco/msgpack/v5 v5.4.1
 	github.com/xssnick/tonutils-go v1.14.1
@@ -125,7 +125,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20240927000941-0f3dac36c52b // indirect
 	github.com/alexflint/go-arg v1.5.1 // indirect
 	github.com/alexflint/go-scalar v1.2.0 // indirect
-	github.com/andybalholm/brotli v1.2.1 // indirect
+	github.com/andybalholm/brotli v1.2.2 // indirect
 	github.com/apache/arrow-go/v18 v18.6.0 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c // indirect
@@ -166,7 +166,7 @@ require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/buger/jsonparser v1.2.0 // indirect
 	github.com/buraksezer/consistent v0.10.0 // indirect
-	github.com/bytecodealliance/wasmtime-go/v47 v47.0.0 // indirect
+	github.com/bytecodealliance/wasmtime-go/v48 v48.0.0 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.15.0 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
