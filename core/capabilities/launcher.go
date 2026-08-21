@@ -60,11 +60,10 @@ type launcher struct {
 	// authenticated calling DON.
 	workflowDONBindingGate limits.GateLimiter
 
-	// requestHashFeatureFlag is shared by all executable capability servers;
-	// when the request's ExecutionTimestamp falls inside the active window,
-	// servers switch to the opt-in hasher that only includes allowlisted
-	// metadata fields in the requestID hash.
-	requestHashFeatureFlag limits.RangeLimiter[commonconfig.Timestamp]
+	// workflowTagHashFlag controls whether WorkflowTag is included in the
+	// request hash. ON by default to match current prod behavior; can be
+	// deactivated after rollout to exclude WorkflowTag from the requestID.
+	workflowTagHashFlag limits.RangeLimiter[commonconfig.Timestamp]
 
 	muSubServices sync.Mutex
 	subServices   []services.Service
@@ -121,9 +120,9 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow DON binding gate limiter: %w", err)
 	}
-	requestHashFeatureFlag, err := limits.MakeRangeLimiter[commonconfig.Timestamp](limitsFactory, cresettings.Default.PerWorkflow.FeatureOptInRequestHashActivePeriod)
+	workflowTagHashFlag, err := limits.MakeRangeLimiter[commonconfig.Timestamp](limitsFactory, cresettings.Default.PerWorkflow.FeatureRequestHashIncludeWorkflowTagActivePeriod)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request hash feature flag limiter: %w", err)
+		return nil, fmt.Errorf("failed to create workflow tag hash flag limiter: %w", err)
 	}
 	return &launcher{
 		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
@@ -141,7 +140,7 @@ func NewLauncher(
 		p2pStreamConfig:         p2pStreamConfig,
 		metrics:                 metrics,
 		workflowDONBindingGate:  workflowDONBindingGate,
-		requestHashFeatureFlag:  requestHashFeatureFlag,
+		workflowTagHashFlag:     workflowTagHashFlag,
 	}, nil
 }
 
@@ -191,9 +190,9 @@ func (w *launcher) Close() error {
 				w.lggr.Errorw("failed to close workflow DON binding gate limiter", "error", err)
 			}
 		}
-		if w.requestHashFeatureFlag != nil {
-			if err := w.requestHashFeatureFlag.Close(); err != nil {
-				w.lggr.Errorw("failed to close request hash feature flag limiter", "error", err)
+		if w.workflowTagHashFlag != nil {
+			if err := w.workflowTagHashFlag.Close(); err != nil {
+				w.lggr.Errorw("failed to close workflow tag hash flag limiter", "error", err)
 			}
 		}
 		return nil
@@ -776,20 +775,16 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 				// add to cachedShims later, only after startNewShim succeeds
 			}
 
-			var baseHasher, optInHasher remotetypes.MessageHasher
-			optInCfg := executable.OptInHasherConfig{}
+			var requestHasher remotetypes.MessageHasher
+			optInCfg := executable.OptInHasherConfig{IncludeWorkflowTag: w.workflowTagHashFlag}
 			switch config.RemoteExecutableConfig.RequestHasherType {
 			case capabilities.RequestHasherType_Simple:
-				baseHasher = executable.NewSimpleHasher()
-				optInHasher = executable.NewOptInHasher(optInCfg)
+				requestHasher = executable.NewSimpleHasher(optInCfg)
 			case capabilities.RequestHasherType_WriteReportExcludeSignatures:
-				baseHasher = executable.NewWriteReportExcludeSignaturesHasher()
-				optInHasher = executable.NewOptInWriteReportExcludeSignaturesHasher(optInCfg)
+				requestHasher = executable.NewWriteReportExcludeSignaturesHasher(optInCfg)
 			default:
-				baseHasher = executable.NewSimpleHasher()
-				optInHasher = executable.NewOptInHasher(optInCfg)
+				requestHasher = executable.NewSimpleHasher(optInCfg)
 			}
-			requestHasher := executable.NewFeatureFlagHasher(baseHasher, optInHasher, w.requestHashFeatureFlag)
 
 			err := server.SetConfig(
 				config.RemoteExecutableConfig,

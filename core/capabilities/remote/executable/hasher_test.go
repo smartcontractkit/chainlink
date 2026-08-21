@@ -26,7 +26,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash(t *testing.T) {
 	req1b := getRequest(t, []byte("testdata"), [][]byte{[]byte("sig3"), []byte("sig4")})
 	req2 := getRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
 
-	hasher := NewWriteReportExcludeSignaturesHasher()
+	hasher := NewWriteReportExcludeSignaturesHasher(OptInHasherConfig{})
 	hash1a, err := hasher.Hash(t.Context(), req1a)
 	require.NoError(t, err)
 	hash1b, err := hasher.Hash(t.Context(), req1b)
@@ -44,7 +44,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_Stellar(t *testing.T) {
 	req1b := getStellarRequest(t, []byte("testdata"), [][]byte{[]byte("sig3"), []byte("sig4")})
 	req2 := getStellarRequest(t, []byte("otherdata"), [][]byte{[]byte("sig1"), []byte("sig2")})
 
-	hasher := NewWriteReportExcludeSignaturesHasher()
+	hasher := NewWriteReportExcludeSignaturesHasher(OptInHasherConfig{})
 	hash1a, err := hasher.Hash(t.Context(), req1a)
 	require.NoError(t, err)
 	hash1b, err := hasher.Hash(t.Context(), req1b)
@@ -85,7 +85,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilPayload(t *testing.T) {
 
 	msgBody := &types.MessageBody{Payload: nilReqBytes}
 
-	hasher := NewWriteReportExcludeSignaturesHasher()
+	hasher := NewWriteReportExcludeSignaturesHasher(OptInHasherConfig{})
 	_, err = hasher.Hash(t.Context(), msgBody)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "capability request payload is nil")
@@ -119,7 +119,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_NilReport(t *testing.T) {
 		{Payload: capReqBytesStellar, CapabilityId: "stellar:123"},
 	}
 	for _, msgBody := range msgBodies {
-		hasher := NewWriteReportExcludeSignaturesHasher()
+		hasher := NewWriteReportExcludeSignaturesHasher(OptInHasherConfig{})
 		_, err = hasher.Hash(t.Context(), msgBody)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "WriteReportRequest.Report is nil")
@@ -134,7 +134,7 @@ func TestWriteReportExcludeSignaturesHasher_Hash_InvalidPayload(t *testing.T) {
 		Payload: []byte("invalid protobuf data"),
 	}
 
-	hasher := NewWriteReportExcludeSignaturesHasher()
+	hasher := NewWriteReportExcludeSignaturesHasher(OptInHasherConfig{})
 	_, err := hasher.Hash(t.Context(), msgBody)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "failed to unmarshal capability request")
@@ -157,7 +157,7 @@ func TestSimpleHasher_ExcludesSpendLimits(t *testing.T) {
 		{SpendType: "compute", Limit: "500"},
 	})
 
-	hasher := NewSimpleHasher()
+	hasher := NewSimpleHasher(OptInHasherConfig{})
 	hash1, err := hasher.Hash(t.Context(), req1)
 	require.NoError(t, err)
 	hash2, err := hasher.Hash(t.Context(), req2)
@@ -184,7 +184,7 @@ func TestSimpleHasher_ExcludesExecutionTimestamp(t *testing.T) {
 		WorkflowID: "wf1", WorkflowExecutionID: "exec1", ExecutionTimestamp: ts1,
 	})
 
-	hasher := NewSimpleHasher()
+	hasher := NewSimpleHasher(OptInHasherConfig{})
 	hash1, err := hasher.Hash(t.Context(), req1)
 	require.NoError(t, err)
 	hash2, err := hasher.Hash(t.Context(), req2)
@@ -213,7 +213,7 @@ func TestWriteReportExcludeSignaturesHasher_ExcludesSpendLimits(t *testing.T) {
 		{SpendType: "compute", Limit: "500"},
 	})
 
-	hasher := NewWriteReportExcludeSignaturesHasher()
+	hasher := NewWriteReportExcludeSignaturesHasher(OptInHasherConfig{})
 	hash1, err := hasher.Hash(t.Context(), req1)
 	require.NoError(t, err)
 	hash2, err := hasher.Hash(t.Context(), req2)
@@ -353,14 +353,66 @@ func getRequestWithWorkflowTag(t *testing.T, data []byte, tag string) *types.Mes
 	return &types.MessageBody{Payload: capReqBytes, CapabilityId: "evm:123"}
 }
 
-func TestOptInHasher_ExcludesWorkflowTag(t *testing.T) {
+func TestSimpleHasher_IncludesWorkflowTag_WhenFlagActive(t *testing.T) {
 	t.Parallel()
+
+	// ON-by-default window covers all timestamps including zero time.Time{}
+	flag := limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
+		Lower: commonconfig.Timestamp(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+		Upper: commonconfig.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+	})
+	defer flag.Close()
+
+	req1 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v1")
+	req2 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v2")
+
+	hasher := NewSimpleHasher(OptInHasherConfig{IncludeWorkflowTag: flag})
+	hash1, err := hasher.Hash(t.Context(), req1)
+	require.NoError(t, err)
+	hash2, err := hasher.Hash(t.Context(), req2)
+	require.NoError(t, err)
+
+	require.NotEqual(t, hash1, hash2) // same data, different WorkflowTag should produce different hash
+}
+
+func TestSimpleHasher_IncludesWorkflowTag_WithZeroTimestamp(t *testing.T) {
+	t.Parallel()
+
+	// ON-by-default window covers zero time.Time{} (year 1)
+	flag := limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
+		Lower: commonconfig.Timestamp(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+		Upper: commonconfig.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+	})
+	defer flag.Close()
+
+	// Request with zero ExecutionTimestamp (DON time not enabled) — WorkflowTag still included
+	req1 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v1")
+	req2 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v2")
+
+	hasher := NewSimpleHasher(OptInHasherConfig{IncludeWorkflowTag: flag})
+	hash1, err := hasher.Hash(t.Context(), req1)
+	require.NoError(t, err)
+	hash2, err := hasher.Hash(t.Context(), req2)
+	require.NoError(t, err)
+
+	require.NotEqual(t, hash1, hash2) // WorkflowTag included even with zero timestamp
+}
+
+func TestSimpleHasher_ExcludesWorkflowTag_WhenFlagInactive(t *testing.T) {
+	t.Parallel()
+
+	// Far-future window — inactive for all timestamps
+	flag := limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
+		Lower: commonconfig.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+		Upper: commonconfig.Timestamp(time.Date(2101, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+	})
+	defer flag.Close()
 
 	req1 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v1")
 	req2 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v2")
 	req3 := getRequestWithWorkflowTag(t, []byte("otherdata"), "tag-v1")
 
-	hasher := NewOptInHasher(OptInHasherConfig{})
+	hasher := NewSimpleHasher(OptInHasherConfig{IncludeWorkflowTag: flag})
 	hash1, err := hasher.Hash(t.Context(), req1)
 	require.NoError(t, err)
 	hash2, err := hasher.Hash(t.Context(), req2)
@@ -372,160 +424,23 @@ func TestOptInHasher_ExcludesWorkflowTag(t *testing.T) {
 	require.NotEqual(t, hash1, hash3) // different data should produce different hash
 }
 
-func TestOptInHasher_IncludesSpendLimits(t *testing.T) {
+func TestWriteReportExcludeSignaturesHasher_IncludesWorkflowTag_WhenFlagActive(t *testing.T) {
 	t.Parallel()
 
-	req1 := getRequestWithSpendLimits(t, []byte("testdata"), []capabilities.SpendLimit{
-		{SpendType: "gas", Limit: "1000"},
+	flag := limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
+		Lower: commonconfig.Timestamp(time.Date(1, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+		Upper: commonconfig.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
 	})
-	req2 := getRequestWithSpendLimits(t, []byte("testdata"), []capabilities.SpendLimit{
-		{SpendType: "gas", Limit: "2000"},
-	})
-
-	hasher := NewOptInHasher(OptInHasherConfig{})
-	hash1, err := hasher.Hash(t.Context(), req1)
-	require.NoError(t, err)
-	hash2, err := hasher.Hash(t.Context(), req2)
-	require.NoError(t, err)
-
-	require.NotEqual(t, hash1, hash2) // same data, different SpendLimits should produce different hash
-}
-
-func TestOptInHasher_ExcludesExecutionTimestamp(t *testing.T) {
-	t.Parallel()
-
-	ts1 := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
-	ts2 := time.Date(2025, 7, 20, 8, 30, 0, 0, time.UTC)
-	req1 := getRequestWithMetadata(t, []byte("testdata"), capabilities.RequestMetadata{
-		WorkflowID: "wf1", WorkflowExecutionID: "exec1", ExecutionTimestamp: ts1,
-	})
-	req2 := getRequestWithMetadata(t, []byte("testdata"), capabilities.RequestMetadata{
-		WorkflowID: "wf1", WorkflowExecutionID: "exec1", ExecutionTimestamp: ts2,
-	})
-
-	hasher := NewOptInHasher(OptInHasherConfig{})
-	hash1, err := hasher.Hash(t.Context(), req1)
-	require.NoError(t, err)
-	hash2, err := hasher.Hash(t.Context(), req2)
-	require.NoError(t, err)
-
-	require.Equal(t, hash1, hash2) // same data, different ExecutionTimestamp should produce same hash
-}
-
-func TestOptInHasher_IncludesSemanticFields(t *testing.T) {
-	t.Parallel()
-
-	req1 := getRequestWithMetadata(t, []byte("testdata"), capabilities.RequestMetadata{
-		WorkflowID: "wf1", WorkflowExecutionID: "exec1", ReferenceID: "step-a",
-	})
-	req2 := getRequestWithMetadata(t, []byte("testdata"), capabilities.RequestMetadata{
-		WorkflowID: "wf2", WorkflowExecutionID: "exec1", ReferenceID: "step-a",
-	})
-	req3 := getRequestWithMetadata(t, []byte("testdata"), capabilities.RequestMetadata{
-		WorkflowID: "wf1", WorkflowExecutionID: "exec1", ReferenceID: "step-b",
-	})
-
-	hasher := NewOptInHasher(OptInHasherConfig{})
-	hash1, err := hasher.Hash(t.Context(), req1)
-	require.NoError(t, err)
-	hash2, err := hasher.Hash(t.Context(), req2)
-	require.NoError(t, err)
-	hash3, err := hasher.Hash(t.Context(), req3)
-	require.NoError(t, err)
-
-	require.NotEqual(t, hash1, hash2) // different WorkflowID should produce different hash
-	require.NotEqual(t, hash1, hash3) // different ReferenceID should produce different hash
-}
-
-func TestOptInWriteReportExcludeSignaturesHasher_ExcludesWorkflowTag(t *testing.T) {
-	t.Parallel()
+	defer flag.Close()
 
 	req1 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v1")
 	req2 := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v2")
 
-	hasher := NewOptInWriteReportExcludeSignaturesHasher(OptInHasherConfig{})
+	hasher := NewWriteReportExcludeSignaturesHasher(OptInHasherConfig{IncludeWorkflowTag: flag})
 	hash1, err := hasher.Hash(t.Context(), req1)
 	require.NoError(t, err)
 	hash2, err := hasher.Hash(t.Context(), req2)
 	require.NoError(t, err)
 
-	require.Equal(t, hash1, hash2) // same data, different WorkflowTag should produce same hash
-}
-
-func TestFeatureFlagHasher_FlagInactive_DelegatesToBase(t *testing.T) {
-	t.Parallel()
-
-	// Flag window is in the far future — inactive for any current timestamp
-	flag := limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
-		Lower: commonconfig.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-		Upper: commonconfig.Timestamp(time.Date(2101, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-	})
-	defer flag.Close()
-
-	base := NewSimpleHasher()
-	optIn := NewOptInHasher(OptInHasherConfig{})
-	ffHasher := NewFeatureFlagHasher(base, optIn, flag)
-
-	// Request with a WorkflowTag — simpleHasher includes it, optInHasher excludes it
-	req := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v1")
-	hash, err := ffHasher.Hash(t.Context(), req)
-	require.NoError(t, err)
-
-	// When flag is inactive, should delegate to base (simpleHasher)
-	expectedHash, err := base.Hash(t.Context(), req)
-	require.NoError(t, err)
-	require.Equal(t, expectedHash, hash)
-}
-
-func TestFeatureFlagHasher_FlagActive_DelegatesToOptIn(t *testing.T) {
-	t.Parallel()
-
-	// Flag window covers all realistic timestamps — active
-	flag := limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
-		Lower: commonconfig.Timestamp(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-		Upper: commonconfig.Timestamp(time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-	})
-	defer flag.Close()
-
-	base := NewSimpleHasher()
-	optIn := NewOptInHasher(OptInHasherConfig{})
-	ffHasher := NewFeatureFlagHasher(base, optIn, flag)
-
-	// Request with a WorkflowTag and a current ExecutionTimestamp
-	ts := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
-	req := getRequestWithMetadata(t, []byte("testdata"), capabilities.RequestMetadata{
-		WorkflowID: "wf1", WorkflowExecutionID: "exec1", ExecutionTimestamp: ts, WorkflowTag: "tag-v1",
-	})
-	hash, err := ffHasher.Hash(t.Context(), req)
-	require.NoError(t, err)
-
-	// When flag is active, should delegate to optInHasher
-	expectedHash, err := optIn.Hash(t.Context(), req)
-	require.NoError(t, err)
-	require.Equal(t, expectedHash, hash)
-}
-
-func TestFeatureFlagHasher_ZeroTimestamp_DelegatesToBase(t *testing.T) {
-	t.Parallel()
-
-	// Flag window covers current time but not epoch (zero timestamp)
-	flag := limits.NewRangeLimiter[commonconfig.Timestamp](settings.Range[commonconfig.Timestamp]{
-		Lower: commonconfig.Timestamp(time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-		Upper: commonconfig.Timestamp(time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
-	})
-	defer flag.Close()
-
-	base := NewSimpleHasher()
-	optIn := NewOptInHasher(OptInHasherConfig{})
-	ffHasher := NewFeatureFlagHasher(base, optIn, flag)
-
-	// Request with zero ExecutionTimestamp (DON time not enabled)
-	req := getRequestWithWorkflowTag(t, []byte("testdata"), "tag-v1")
-	hash, err := ffHasher.Hash(t.Context(), req)
-	require.NoError(t, err)
-
-	// Zero timestamp falls outside the flag window — should delegate to base
-	expectedHash, err := base.Hash(t.Context(), req)
-	require.NoError(t, err)
-	require.Equal(t, expectedHash, hash)
+	require.NotEqual(t, hash1, hash2) // same data, different WorkflowTag should produce different hash
 }
