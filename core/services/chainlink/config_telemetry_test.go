@@ -600,3 +600,26 @@ func TestTelemetryConfig_MetricCardinalityLimit(t *testing.T) {
 		assert.Equal(t, 100000, tc.MetricCardinalityLimit())
 	})
 }
+
+func TestTelemetryConfig_MetricExportBatchSize(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		telemetry toml.Telemetry
+		expected  int
+	}{
+		{"ExplicitPositive", toml.Telemetry{MetricExportBatchSize: new(500)}, 500},
+		{"NilDisables", toml.Telemetry{}, 0},
+		{"ZeroDisables", toml.Telemetry{MetricExportBatchSize: new(0)}, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			tc := telemetryConfig{s: tt.telemetry}
+			assert.Equal(t, tt.expected, tc.MetricExportBatchSize())
+		})
+	}
+}

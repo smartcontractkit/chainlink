@@ -933,6 +933,8 @@ LogMaxQueueSize = 2048 # Default
 MetricViewsDenyAttributes = ['event_id'] # Default
 # MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
 MetricCardinalityLimit = 100000 # Default
+# MetricExportBatchSize limits metric data points per OTLP export request. 0 disables SDK-side batching.
+MetricExportBatchSize = 0 # Default
 
 # ResourceAttributes are global metadata to include with all telemetry.
 [Telemetry.ResourceAttributes]

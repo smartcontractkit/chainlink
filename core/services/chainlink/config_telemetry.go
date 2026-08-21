@@ -274,6 +274,13 @@ func (b *telemetryConfig) MetricCardinalityLimit() int {
 	return *b.s.MetricCardinalityLimit
 }
 
+func (b *telemetryConfig) MetricExportBatchSize() int {
+	if b.s.MetricExportBatchSize == nil || *b.s.MetricExportBatchSize <= 0 {
+		return 0
+	}
+	return *b.s.MetricExportBatchSize
+}
+
 func (b *telemetryConfig) PrometheusBridge() config.PrometheusBridge {
 	return &prometheusBridgeConfig{b.s.PrometheusBridge}
 }

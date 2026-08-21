@@ -406,6 +406,7 @@ LogExportInterval = '1s'
 LogMaxQueueSize = 2048
 MetricViewsDenyAttributes = ['event_id']
 MetricCardinalityLimit = 100000
+MetricExportBatchSize = 0
 
 [Telemetry.ResourceAttributes]
 Baz = 'test'

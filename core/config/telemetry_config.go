@@ -40,6 +40,7 @@ type Telemetry interface {
 	LogMaxQueueSize() int
 	MetricViewsDenyAttributes() []string
 	MetricCardinalityLimit() int
+	MetricExportBatchSize() int
 	PrometheusBridge() PrometheusBridge
 }
 
