@@ -281,6 +281,61 @@ func FindTestModules(repoRoot string, files []string) ([]ModulePackages, error) 
 	return result, nil
 }
 
+// GetMergeBase returns the merge-base of HEAD with the origin default branch
+// (refs/remotes/origin/HEAD). This matches the diff base CI uses for
+// only-new-issues, so local lint results align with CI. Falls back to "HEAD"
+// when the remote default branch is missing or shares no history.
+func GetMergeBase(ctx context.Context, repoRoot string) string {
+	refCmd := exec.CommandContext(ctx, "git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+	refCmd.Dir = repoRoot
+	refOut, err := refCmd.Output()
+	if err != nil {
+		return "HEAD"
+	}
+	defaultBranch := strings.TrimSpace(string(refOut))
+	if defaultBranch == "" {
+		return "HEAD"
+	}
+
+	mbCmd := exec.CommandContext(ctx, "git", "merge-base", "HEAD", defaultBranch)
+	mbCmd.Dir = repoRoot
+	mbOut, err := mbCmd.Output()
+	if err != nil {
+		return "HEAD"
+	}
+	if sha := strings.TrimSpace(string(mbOut)); sha != "" {
+		return sha
+	}
+	return "HEAD"
+}
+
+// GetChangedFilesSince returns files changed relative to rev, including
+// committed branch changes, staged changes, and unstaged working-tree changes
+// (git diff <rev> semantics). Deleted files are excluded.
+func GetChangedFilesSince(ctx context.Context, repoRoot, rev string) ([]string, error) {
+	cmd := exec.CommandContext(ctx, "git", "diff", "--name-only", "--diff-filter=d", rev)
+	cmd.Dir = repoRoot
+
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("git diff %s failed: %w (output: %s)", rev, err, out.String())
+	}
+
+	lines := strings.Split(out.String(), "\n")
+	var files []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" {
+			files = append(files, trimmed)
+		}
+	}
+
+	return files, nil
+}
+
 // GetStagedFiles fetches staged files from git.
 func GetStagedFiles(ctx context.Context, repoRoot string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "git", "diff", "--cached", "--name-only", "--diff-filter=d")
