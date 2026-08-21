@@ -269,7 +269,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		return
 	}
 
-	msgHash, err := cfg.hasher.Hash(msg)
+	msgHash, err := cfg.hasher.Hash(ctx, msg)
 	if err != nil {
 		r.lggr.Errorw("failed to get message hash", "err", err)
 		return
