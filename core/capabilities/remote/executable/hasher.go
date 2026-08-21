@@ -240,18 +240,18 @@ type OptInHasherConfig struct {
 // from the hash by default, preventing cross-version requestID divergence.
 func baseMetadataFields(md capabilities.RequestMetadata) capabilities.RequestMetadata {
 	return capabilities.RequestMetadata{
-		WorkflowID:                     md.WorkflowID,
-		WorkflowExecutionID:            md.WorkflowExecutionID,
-		WorkflowOwner:                  md.WorkflowOwner,
-		OrgID:                          md.OrgID,
-		WorkflowName:                   md.WorkflowName,
-		WorkflowDonID:                  md.WorkflowDonID,
-		WorkflowDonConfigVersion:       md.WorkflowDonConfigVersion,
-		ReferenceID:                    md.ReferenceID,
-		DecodedWorkflowName:            md.DecodedWorkflowName,
-		WorkflowRegistryChainSelector:  md.WorkflowRegistryChainSelector,
-		WorkflowRegistryAddress:        md.WorkflowRegistryAddress,
-		EngineVersion:                  md.EngineVersion,
+		WorkflowID:                    md.WorkflowID,
+		WorkflowExecutionID:           md.WorkflowExecutionID,
+		WorkflowOwner:                 md.WorkflowOwner,
+		OrgID:                         md.OrgID,
+		WorkflowName:                  md.WorkflowName,
+		WorkflowDonID:                 md.WorkflowDonID,
+		WorkflowDonConfigVersion:      md.WorkflowDonConfigVersion,
+		ReferenceID:                   md.ReferenceID,
+		DecodedWorkflowName:           md.DecodedWorkflowName,
+		WorkflowRegistryChainSelector: md.WorkflowRegistryChainSelector,
+		WorkflowRegistryAddress:       md.WorkflowRegistryAddress,
+		EngineVersion:                 md.EngineVersion,
 	}
 }
 

@@ -7,9 +7,6 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/smartcontractkit/libocr/ragep2p"
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -26,6 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	"github.com/smartcontractkit/libocr/ragep2p"
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
 var defaultStreamConfig = p2ptypes.StreamConfig{
@@ -134,13 +133,13 @@ func NewLauncher(
 			executableClients:  make(map[string]executable.Client),
 			executableServers:  make(map[string]executable.Server),
 		},
-		registry:                registry,
-		workflowDonNotifier:     workflowDonNotifier,
-		don2donSharedPeer:       don2donSharedPeer,
-		p2pStreamConfig:         p2pStreamConfig,
-		metrics:                 metrics,
-		workflowDONBindingGate:  workflowDONBindingGate,
-		workflowTagHashFlag:     workflowTagHashFlag,
+		registry:               registry,
+		workflowDonNotifier:    workflowDonNotifier,
+		don2donSharedPeer:      don2donSharedPeer,
+		p2pStreamConfig:        p2pStreamConfig,
+		metrics:                metrics,
+		workflowDONBindingGate: workflowDONBindingGate,
+		workflowTagHashFlag:    workflowTagHashFlag,
 	}, nil
 }
 
