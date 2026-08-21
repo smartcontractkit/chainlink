@@ -6,29 +6,25 @@ output:
   - skips
 
 pre-commit:
-  # Compile the githooks CLI once per commit instead of paying `go run` build
-  # overhead per job. Binary lives in the gitignored tools/githooks/.bin/.
+  # Compile the githooks CLI as the very first step so all subsequent hooks run
+  # against a freshly built binary. Output binary is in tools/githooks/.bin/.
   setup:
-    - run: |
-        command -v go >/dev/null 2>&1 && go build -C tools/githooks -o .bin/githooks . || true
+    - run: test -f tools/githooks/.bin/githooks && [ -z "$(find tools/githooks \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) -newer tools/githooks/.bin/githooks 2>/dev/null)" ] || go build -C tools/githooks -o .bin/githooks .
 
-  # One outer piped group: first a parallel bundle, then golangci-lint runs
+  # One outer group: first a parallel bundle, then golangci-lint runs
   # strictly after every other job is done. This keeps the read-only scanners
   # fast while preserving the write ordering we need: the Go mutators write
   # .go files and go.mod/go.sum, so lint --fix must never run while mockery
-  # regenerates mocks or go mod tidy rewrites module files. The ordering lives
-  # in the group, not at hook level: a parallel flag injected by a global or
-  # local config must not break it (lefthook rejects parallel+piped together).
+  # regenerates mocks or go mod tidy rewrites module files.
   jobs:
-    - name: prep-then-lint
+    - name: fix-then-lint
       group:
-        piped: true
         jobs:
-          - name: scanners-and-prep
+          - name: scanners
             group:
               # Scanners only read the staged snapshot; go-mod-tidy and
               # go-generate share the Go toolchain and module files, so they
-              # stay piped with tidy first.
+              # stay sequential with tidy first.
               parallel: true
               jobs:
                 # Prevent committing secret keys or sensitive information
@@ -49,10 +45,21 @@ pre-commit:
                   run: typos {staged_files}
                   fail_text: "typos failed or missing. Install: https://github.com/crate-ci/typos#install"
 
-                - name: tidy-then-generate
+                - name: fix-and-generate
                   group:
-                    piped: true
                     jobs:
+                      # Fix erroneous trailing whitespace in eligible code and text files
+                      - name: whitespace-fixer
+                        tags: [format]
+                        run: tools/githooks/.bin/githooks whitespace-fixer {staged_files}
+                        stage_fixed: true
+
+                      # Ensure eligible code and text files end with a single newline
+                      - name: end-of-file-fixer
+                        tags: [format]
+                        run: tools/githooks/.bin/githooks end-of-file-fixer {staged_files}
+                        stage_fixed: true
+
                       # Tidy go.mod/go.sum in parallel for changed modules
                       - name: go-mod-tidy
                         tags: [gomod]
@@ -88,8 +95,7 @@ pre-commit:
 
 pre-push:
   setup:
-    - run: |
-        command -v go >/dev/null 2>&1 && go build -C tools/githooks -o .bin/githooks . || true
+    - run: test -f tools/githooks/.bin/githooks && [ -z "$(find tools/githooks \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) -newer tools/githooks/.bin/githooks 2>/dev/null)" ] || go build -C tools/githooks -o .bin/githooks .
 
   parallel: true
   commands:
