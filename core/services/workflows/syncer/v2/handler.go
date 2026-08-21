@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -580,6 +581,17 @@ func (h *eventHandler) workflowActivatedEvent(
 	return h.workflowRegisteredEvent(ctx, registeredPayload)
 }
 
+// workflowTagBackfillActive reports whether the cresettings
+// PerWorkflow.FeatureWorkflowTagBackfillActivePeriod window covers time.Now().
+// Fail-closed: any error or missing limiter is treated as inactive so a
+// misconfigured deploy cannot silently start rewriting workflow_tag.
+func (h *eventHandler) workflowTagBackfillActive(ctx context.Context) bool {
+	if h.featureFlags == nil || h.featureFlags.WorkflowTagBackfill == nil {
+		return false
+	}
+	return h.featureFlags.WorkflowTagBackfill.Check(ctx, config.Timestamp(time.Now().Unix())) == nil
+}
+
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
 // This method must remain idempotent and must not error if retried multiple times.
 // workflowRegisteredEvent proceeds in two phases:
@@ -658,8 +670,13 @@ func (h *eventHandler) workflowRegisteredEvent(
 		backfill = true
 	}
 	// WorkflowTag is used by remote capability requests; an empty local value
-	// diverges the request hash from nodes that have the on-chain tag.
-	if spec.WorkflowTag != payload.WorkflowTag && payload.WorkflowTag != "" {
+	// diverges the request hash from nodes that have the on-chain tag. Gated by
+	// cresettings PerWorkflow.FeatureWorkflowTagBackfillActivePeriod: the
+	// backfill only fires when time.Now() falls inside the configured window,
+	// so ops can coordinate a healing pass across the DON. Default window is
+	// far-future, so a fresh deploy is a no-op.
+	if h.workflowTagBackfillActive(ctx) &&
+		spec.WorkflowTag != payload.WorkflowTag && payload.WorkflowTag != "" {
 		spec.WorkflowTag = payload.WorkflowTag
 		backfill = true
 	}
