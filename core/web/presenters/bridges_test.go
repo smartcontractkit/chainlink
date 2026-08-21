@@ -27,6 +27,7 @@ func TestBridgeResource(t *testing.T) {
 		Confirmations:          1,
 		OutgoingToken:          "vjNL7X8Ea6GFJoa6PBsvK2ECzNK3b8IZ",
 		MinimumContractPayment: assets.NewLinkFromJuels(1),
+		UseConnectionManager:   true,
 		CreatedAt:              timestamp,
 	}
 
@@ -46,6 +47,7 @@ func TestBridgeResource(t *testing.T) {
 			"confirmations":1,
 			"outgoingToken":"vjNL7X8Ea6GFJoa6PBsvK2ECzNK3b8IZ",
 			"minimumContractPayment":"1",
+			"useConnectionManager":true,
 			"createdAt":"2000-01-01T00:00:00Z"
 		}
 	}
@@ -71,6 +73,7 @@ func TestBridgeResource(t *testing.T) {
 			"incomingToken": "cd+OfGXy3UHEDAlD0y27F6/rJE14X1UI",
 			"outgoingToken":"vjNL7X8Ea6GFJoa6PBsvK2ECzNK3b8IZ",
 			"minimumContractPayment":"1",
+			"useConnectionManager":true,
 			"createdAt":"2000-01-01T00:00:00Z"
 		}
 	}

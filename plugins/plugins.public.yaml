@@ -18,7 +18,7 @@ plugins:
       # IMP: consult chainlink-sui team before updating this version
       # Must track the gRPC-migrated chainlink-sui used in go.mod, otherwise the DON runs a
       # pre-migration relayer (no gRPC ChainPoller) and never observes Sui source events.
-      gitRef: "v0.0.0-20260818034831-7bbba9ff0944"
+      gitRef: "v0.0.0-20260821005832-e896796fceed"
       installPath: "./relayer/cmd/chainlink-sui"
 
   cosmos:
@@ -118,10 +118,10 @@ plugins:
 
   confidential-http:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-http/capability"
-      gitRef: "b9926f01321595b1db0fa169fdafb3dbd24dd161"
+      gitRef: "9c9bdd52bec2622bf034f1020678d8bc30a3ced7"
       installPath: "./cmd/confidential-http"
 
   confidential-workflows:
     - moduleURI: "github.com/smartcontractkit/chainlink-confidential-compute/enclave/apps/confidential-workflows/capability"
-      gitRef: "b9926f01321595b1db0fa169fdafb3dbd24dd161"
+      gitRef: "9c9bdd52bec2622bf034f1020678d8bc30a3ced7"
       installPath: "./cmd/confidential-workflows"

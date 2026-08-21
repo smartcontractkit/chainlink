@@ -46,7 +46,7 @@ func (m *mockKey) VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b []byte, sig 
 
 func (m *mockKey) PublicKey() ocrtypes.OnchainPublicKey {
 	b := make([]byte, m.maxSignatureLen)
-	for i := 0; i < m.maxSignatureLen; i++ {
+	for i := range m.maxSignatureLen {
 		b[i] = byte(255)
 	}
 	return ocrtypes.OnchainPublicKey(b)

@@ -342,6 +342,10 @@ func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNam
 }
 
 func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
 	testMetrics := createTestMetrics(t)
@@ -377,6 +381,10 @@ func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
 	testMetrics := createTestMetrics(t)

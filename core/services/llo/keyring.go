@@ -3,9 +3,9 @@ package llo
 import (
 	"bytes"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
-
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -52,7 +52,7 @@ func (okr *onchainKeyring) PublicKey() types.OnchainPublicKey {
 	// byte string
 	onchainPublicKey := []byte{}
 
-	keys := maps.Values(okr.keys)
+	keys := slices.AppendSeq(make([]Key, 0, len(okr.keys)), maps.Values(okr.keys))
 	if len(keys) == 0 {
 		return onchainPublicKey
 	}

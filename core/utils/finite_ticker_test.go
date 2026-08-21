@@ -13,6 +13,10 @@ import (
 )
 
 func TestFiniteTicker(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	var counter atomic.Int32

@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 	"time"
-
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -201,7 +201,7 @@ func (c *Cache) start(_ context.Context) error {
 
 func (c *Cache) doBulkUpsert(ctx context.Context) {
 	c.mu.RLock()
-	values := maps.Values(c.bridgeLastValueCache)
+	values := slices.AppendSeq(make([]BridgeResponse, 0, len(c.bridgeLastValueCache)), maps.Values(c.bridgeLastValueCache))
 	c.mu.RUnlock()
 
 	if len(values) == 0 {

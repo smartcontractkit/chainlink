@@ -103,7 +103,7 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 
 	// unlike discovery, this endpoint is internal btw the node and plugin
 	pluginURL := fmt.Sprintf("http://%s:%d/metrics", l.loopHostName, p.EnvCfg.PrometheusPort)
-	req, err := http.NewRequestWithContext(gc.Request.Context(), "GET", pluginURL, nil)
+	req, err := http.NewRequestWithContext(gc.Request.Context(), http.MethodGet, pluginURL, nil)
 	if err != nil {
 		gc.Data(http.StatusInternalServerError, "text/plain", fmt.Appendf(nil, "error creating plugin metrics request: %s", err))
 		return

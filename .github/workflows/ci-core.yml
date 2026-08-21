@@ -172,7 +172,7 @@ jobs:
       # For golangci-lint-action's `only-new-issues` option.
       pull-requests: read
     runs-on: runs-on=${{ github.run_id }}-${{ strategy.job-index
-      }}/cpu=16/ram=32/family=c6gd/spot=false/image=ubuntu24-full-arm64/extras=s3-cache
+      }}/cpu=16/ram=32/family=c8g+c9g/spot=co/image=ubuntu24-full-arm64/extras=s3-cache
     strategy:
       fail-fast: false
       matrix:
@@ -197,15 +197,24 @@ jobs:
           # so restrict checkpoint writes to push events where the matrix is the push diff.
           build-cache-write: ${{ github.event_name == 'push' && 'default-branch-only' || 'never' }}
 
+      - name: Debug Slack message
+        if: always()
+        env:
+          SLACK_TEXT: ":red-warn: golangci-lint: module `${{ matrix.modules }}` has ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues across ${{ steps.golang-lint.outputs.golang-report-file-count }} files\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}|View Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Download Report>\n*By severity*: ${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\n*By linter*: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
+        run: |
+          echo "Would send Slack message (send-if = failure && critical>0 && weekday):"
+          echo "channel=${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}"
+          echo "text=${SLACK_TEXT}"
+
       - name: Notify Slack
         if: ${{ failure() && steps.golang-lint.outputs.golang-report-critical-issue-count > 0 && needs.run-frequency.outputs.one-per-weekday-frequency == 'true' }}
-        uses: slackapi/slack-github-action@03ea5433c137af7c0495bc0cad1af10403fc800c # 3.0.2
+        uses: slackapi/slack-github-action@dcb1066f776dd043e64d0e8ba94ca15cc7e1875d # v4.0.0
         with:
           method: chat.postMessage
           token: ${{ secrets.QA_SLACK_API_KEY }}
           payload: |
             channel: ${{ secrets.SLACK_TEAM_CORE_CHANNEL_ID}}
-            text: ":red-warn: golangci-lint: module `${{ matrix.modules }}` has ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues across ${{ steps.golang-lint.outputs.golang-report-file-count }} files\n<${{ format('https://github.com/{0}/actions/runs/{1}/jobs/{2}', github.repository, github.run_id, github.job_id) }}|View Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Download Report>\n*By severity*: ${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\n*By linter*: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
+            text: ":red-warn: golangci-lint: module `${{ matrix.modules }}` has ${{ steps.golang-lint.outputs.golang-report-issue-count }} issues across ${{ steps.golang-lint.outputs.golang-report-file-count }} files\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/job/${{ job.check_run_id }}|View Run> - <${{ steps.golang-lint.outputs.golang-report-artifact-url }}|Download Report>\n*By severity*: ${{ steps.golang-lint.outputs.golang-report-per-severity-count }}\n*By linter*: ${{ steps.golang-lint.outputs.golang-report-per-source-count }}"
 
   # Fails if any golangci-lint matrix jobs fails and silently succeeds otherwise
   # Consolidates golangci-lint matrix job results under one required `lint` check
@@ -592,9 +601,9 @@ jobs:
             # Not a scheduled event - no frequencies to set. They default to false.
             exit 0
           fi
-          
-          curent_day=$(date +%u)
-          if [ "$curent_day" -ge 6 ]; then
+
+          current_day=$(date +%u)
+          if [ "$current_day" -ge 6 ]; then
             # Weekend
             exit 0
           fi

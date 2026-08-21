@@ -1006,7 +1006,7 @@ func requestAndEstimateFulfillmentCost(
 ) {
 	_, err := consumerContract.RequestRandomness(consumer, vrfkey.PublicKey.MustHash(), subID, minConfs, gas, numWords, nativePayment)
 	require.NoError(t, err)
-	for i := 0; i < int(minConfs); i++ {
+	for range minConfs {
 		uni.backend.Commit()
 	}
 

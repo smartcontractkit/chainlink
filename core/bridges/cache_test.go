@@ -128,6 +128,10 @@ func TestBridgeCache_Type(t *testing.T) {
 }
 
 func TestBridgeCache_Response(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	t.Run("loads response from data source", func(t *testing.T) {

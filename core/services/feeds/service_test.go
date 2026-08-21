@@ -5097,7 +5097,7 @@ func Test_Service_GetJobRuns(t *testing.T) {
 					expectedRuns := []pipeline.Run{run1, run2, run3}
 					expectedSummaries := make([]*proto.JobRunSummary, 0, tc.want)
 
-					for i := 0; i < tc.want; i++ {
+					for i := range tc.want {
 						run := expectedRuns[i]
 						var finishedAt *timestamppb.Timestamp
 						if run.FinishedAt.Valid {

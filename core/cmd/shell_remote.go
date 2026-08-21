@@ -326,7 +326,7 @@ func (s *Shell) configV2Str(userOnly bool) (string, error) {
 	if err != nil {
 		return "", s.errorOut(err)
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return "", s.errorOut(errors.Errorf("got HTTP status %d: %s", resp.StatusCode, respPayload))
 	}
 	var configV2Resource web.ConfigV2Resource
