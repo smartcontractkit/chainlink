@@ -550,7 +550,21 @@ func (e *Engine) init(ctx context.Context) {
 		}
 	})
 
-	err = e.runTriggerSubscriptionPhase(ctx)
+	subscriptions, err := e.Subscribe(ctx)
+	if err != nil {
+		e.logger().Errorw("failed to subscribe to triggers", "err", err)
+		e.cfg.Hooks.OnInitialized(err)
+		return
+	}
+
+	cre := contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
+	if err := e.cfg.Hooks.OnSubscriptionsReady(subscriptions, cre); err != nil {
+		e.logger().Errorw("OnSubscriptionsReady hook failed", "err", err)
+		e.cfg.Hooks.OnInitialized(err)
+		return
+	}
+
+	err = e.runTriggerSubscriptionPhase(ctx, subscriptions)
 	if err != nil {
 		e.logger().Errorw("Workflow Engine initialization failed", "err", err)
 		e.cfg.Hooks.OnInitialized(err)
@@ -608,12 +622,7 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 	e.cfg.Hooks.OnNodeSynced(localNode, nil)
 }
 
-func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
-	subscriptions, err := e.Subscribe(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to subscribe to triggers: %w", err)
-	}
-
+func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions []*sdkpb.TriggerSubscription) error {
 	// check if all requested triggers exist in the registry
 	triggers := make([]capabilities.TriggerCapability, 0, len(subscriptions))
 	for _, sub := range subscriptions {

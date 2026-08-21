@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -399,6 +400,7 @@ type LifecycleHooks struct {
 	// OnInitialized is used to emit a workflowActivated event after the engine
 	// has completed initialization. It is also helpful for testing.
 	OnInitialized          func(err error)
+	OnSubscriptionsReady   func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error
 	OnSubscribedToTriggers func(triggerIDs []string)
 	OnTriggerEventDropped  func(triggerID, eventID, reason string)
 	OnExecutionFinished    func(executionID string, status string)
@@ -476,6 +478,9 @@ func (l *EngineLimits) setDefaultLimits() {
 func (h *LifecycleHooks) setDefaultHooks() {
 	if h.OnInitialized == nil {
 		h.OnInitialized = func(err error) {}
+	}
+	if h.OnSubscriptionsReady == nil {
+		h.OnSubscriptionsReady = func(subs []*sdkpb.TriggerSubscription, cre contexts.CRE) error { return nil }
 	}
 	if h.OnSubscribedToTriggers == nil {
 		h.OnSubscribedToTriggers = func(triggerIDs []string) {}
