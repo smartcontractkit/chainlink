@@ -997,6 +997,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	//nolint:paralleltest // TODO: Fix to be parallel
 	t.Run("test Aptos key validation", func(t *testing.T) {
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkAptos
@@ -1009,6 +1010,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	//nolint:paralleltest // TODO: Fix to be parallel
 	t.Run("test Tron key validation", func(t *testing.T) {
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkTron
@@ -1021,6 +1023,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	//nolint:paralleltest // TODO: Fix to be parallel
 	t.Run("test TON key validation", func(t *testing.T) {
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkTON
