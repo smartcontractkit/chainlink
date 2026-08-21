@@ -2127,7 +2127,7 @@ func Test_specStorage_StateMachine(t *testing.T) {
 		h.featureFlags = farFuture()
 		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
 		require.NotNil(t, store.spec)
-		assert.Equal(t, "", store.spec.WorkflowTag, "window in 2100+: local tag must remain untouched")
+		assert.Empty(t, store.spec.WorkflowTag, "window in 2100+: local tag must remain untouched")
 	})
 
 	t.Run("flag active: empty tag + Activated → backfill tag", func(t *testing.T) {
@@ -2225,7 +2225,7 @@ func Test_specStorage_StateMachine(t *testing.T) {
 		h.featureFlags = farFuture()
 		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
 		require.NotNil(t, store.spec)
-		require.Equal(t, "", store.spec.WorkflowTag, "before flip: tag stays empty")
+		require.Empty(t, store.spec.WorkflowTag, "before flip: tag stays empty")
 
 		// Ops narrows the window to cover time.Now(); redeliver → backfill fires.
 		h.featureFlags = alwaysActive()
