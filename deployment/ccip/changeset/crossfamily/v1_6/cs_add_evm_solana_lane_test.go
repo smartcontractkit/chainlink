@@ -45,7 +45,11 @@ func TestAddEVMSolanaLaneBidirectional(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
+			// Intentionally NOT parallel: each subtest spins up a full stack (Solana test-validator
+			// container + EVM geth nodes + Postgres DBs + CL nodes) via NewMemoryEnvironment. Running
+			// both concurrently OOM-kills the Solana validator mid-test (connection reset by peer /
+			// connection refused), which is the flake this serialization addresses. See fund.go's
+			// fundNodesSol retry + liveness probe for the matching self-diagnosis.
 			ctx := testcontext.Get(t)
 			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 			e := tenv.Env
