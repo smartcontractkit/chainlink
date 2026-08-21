@@ -502,7 +502,8 @@ func Test_ServerRequest_SingleExecutionNonBlocking(t *testing.T) {
 		require.NoError(t, err)
 
 		// cancel request before wf peer 0 finishes executing the capability
-		req.Cancel(t.Context(), types.Error_TIMEOUT, "cancelled by test")
+		cancelErr := req.Cancel(t.Context(), types.Error_TIMEOUT, "cancelled by test")
+		require.NoError(t, cancelErr)
 
 		// wf peer 0 returns without error
 		errA := <-errCh
