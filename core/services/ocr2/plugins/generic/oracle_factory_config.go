@@ -47,6 +47,12 @@ func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactory
 	cfg := params.Config
 	signing := params.OnchainSigning
 
+	// Nothing to resolve when the oracle factory is not used by this job. Resolving would
+	// otherwise force a transmitter/key lookup for jobs that never build an oracle.
+	if !cfg.Enabled {
+		return cfg, signing, nil
+	}
+
 	if cfg.OCRContractAddress == "" {
 		cfg.OCRContractAddress = params.CapRegistryAddress
 	}

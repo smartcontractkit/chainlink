@@ -31,6 +31,22 @@ func TestResolveOracleFactoryConfig_fromCapRegistry(t *testing.T) {
 	assert.Empty(t, signing.Config)
 }
 
+func TestResolveOracleFactoryConfig_disabledSkipsResolution(t *testing.T) {
+	t.Parallel()
+
+	cfg, signing, err := ResolveOracleFactoryConfig(context.Background(), ResolveOracleFactoryConfigParams{
+		Config:             job.OracleFactoryConfig{Enabled: false},
+		CapRegistryAddress: "0xabc",
+		CapRegistryChainID: "1337",
+		Logger:             logger.TestLogger(t),
+	})
+	require.NoError(t, err)
+	assert.Empty(t, cfg.OCRContractAddress)
+	assert.Empty(t, cfg.ChainID)
+	assert.Empty(t, cfg.TransmitterID)
+	assert.Empty(t, signing.Config)
+}
+
 func TestResolveOracleFactoryConfig_jobSpecOverridesCapRegistry(t *testing.T) {
 	t.Parallel()
 
