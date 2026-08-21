@@ -130,7 +130,7 @@ type LCAPresenter struct {
 }
 
 // ToRow presents the EVMChainResource as a slice of strings.
-func (p *LCAPresenter) ToRow() []string {
+func (p LCAPresenter) ToRow() []string {
 	return []string{p.EVMChainID.String(), p.Hash, strconv.FormatInt(p.BlockNumber, 10)}
 }
 
