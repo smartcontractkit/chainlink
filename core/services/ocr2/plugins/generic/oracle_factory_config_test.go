@@ -2,7 +2,6 @@ package generic
 
 import (
 	"context"
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -20,8 +19,7 @@ import (
 func TestResolveOracleFactoryConfig_fromCapRegistry(t *testing.T) {
 	t.Parallel()
 
-	cfg, signing, err := ResolveOracleFactoryConfig(ResolveOracleFactoryConfigParams{
-		Context:            context.Background(),
+	cfg, signing, err := ResolveOracleFactoryConfig(context.Background(), ResolveOracleFactoryConfigParams{
 		Config:             job.OracleFactoryConfig{Enabled: true},
 		CapRegistryAddress: "0xabc",
 		CapRegistryChainID: "1337",
@@ -36,8 +34,7 @@ func TestResolveOracleFactoryConfig_fromCapRegistry(t *testing.T) {
 func TestResolveOracleFactoryConfig_jobSpecOverridesCapRegistry(t *testing.T) {
 	t.Parallel()
 
-	cfg, _, err := ResolveOracleFactoryConfig(ResolveOracleFactoryConfigParams{
-		Context: context.Background(),
+	cfg, _, err := ResolveOracleFactoryConfig(context.Background(), ResolveOracleFactoryConfigParams{
 		Config: job.OracleFactoryConfig{
 			Enabled:            true,
 			OCRContractAddress: "0xjob",
@@ -61,13 +58,12 @@ func TestResolveOracleFactoryConfig_transmitterFromOCRConfig(t *testing.T) {
 	cc := &ocrtypes.ContractConfig{
 		Signers: []ocrtypes.OnchainPublicKey{
 			ocrtypes.OnchainPublicKey("other-signer"),
-			ocrtypes.OnchainPublicKey(kb.PublicKey()),
+			kb.PublicKey(),
 		},
 		Transmitters: []ocrtypes.Account{"0xOther", "0xMine"},
 	}
 
-	cfg, _, err := ResolveOracleFactoryConfig(ResolveOracleFactoryConfigParams{
-		Context:           context.Background(),
+	cfg, _, err := ResolveOracleFactoryConfig(context.Background(), ResolveOracleFactoryConfigParams{
 		Config:            job.OracleFactoryConfig{Enabled: true},
 		OCRKeyBundle:      kb,
 		OCRContractConfig: cc,
@@ -84,12 +80,11 @@ func TestResolveOracleFactoryConfig_jobSpecTransmitterOverridesOCRConfig(t *test
 	require.NoError(t, err)
 
 	cc := &ocrtypes.ContractConfig{
-		Signers:      []ocrtypes.OnchainPublicKey{ocrtypes.OnchainPublicKey(kb.PublicKey())},
+		Signers:      []ocrtypes.OnchainPublicKey{kb.PublicKey()},
 		Transmitters: []ocrtypes.Account{"0xFromOCR"},
 	}
 
-	cfg, _, err := ResolveOracleFactoryConfig(ResolveOracleFactoryConfigParams{
-		Context:           context.Background(),
+	cfg, _, err := ResolveOracleFactoryConfig(context.Background(), ResolveOracleFactoryConfigParams{
 		Config:            job.OracleFactoryConfig{Enabled: true, TransmitterID: "0xFromSpec"},
 		OCRKeyBundle:      kb,
 		OCRContractConfig: cc,
@@ -132,7 +127,7 @@ func TestSelectOCRKeyBundleForConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	cc := &ocrtypes.ContractConfig{
-		Signers: []ocrtypes.OnchainPublicKey{ocrtypes.OnchainPublicKey(kb2.PublicKey())},
+		Signers: []ocrtypes.OnchainPublicKey{kb2.PublicKey()},
 	}
 
 	got, ok := SelectOCRKeyBundleForConfig([]ocr2key.KeyBundle{kb1, kb2}, cc)
@@ -186,8 +181,4 @@ func TestDefaultTransmitterForChain(t *testing.T) {
 	// defaultTransmitterForChain requires a real keystore; covered indirectly via integration.
 	_, err := defaultTransmitterForChain(context.Background(), nil, "not-a-number")
 	require.Error(t, err)
-
-	chainID, ok := new(big.Int).SetString("1337", 10)
-	require.True(t, ok)
-	assert.Equal(t, 0, chainID.Cmp(chainID))
 }

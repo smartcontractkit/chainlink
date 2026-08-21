@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
+
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -278,8 +279,7 @@ func (d *Delegate) NewServices(
 
 	defaultBootstrappers := d.defaultBootstrappers
 
-	resolvedOracleFactory, resolvedSigning, resolveErr := generic.ResolveOracleFactoryConfig(generic.ResolveOracleFactoryConfigParams{
-		Context:              ctx,
+	resolvedOracleFactory, resolvedSigning, resolveErr := generic.ResolveOracleFactoryConfig(ctx, generic.ResolveOracleFactoryConfigParams{
 		Config:               oracleFactoryConfig,
 		OnchainSigning:       oracleFactoryConfig.OnchainSigning,
 		CapRegistryAddress:   d.capRegistryAddress,

@@ -5,10 +5,11 @@ import (
 	"encoding/json"
 	"testing"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -103,16 +104,21 @@ func TestBuildDesiredState_NilLocalConfig(t *testing.T) {
 }
 
 func TestExtractDefaultOCR3Config(t *testing.T) {
+	t.Parallel()
+
 	t.Run("empty config returns nil", func(t *testing.T) {
+		t.Parallel()
 		assert.Nil(t, extractDefaultOCR3Config(registrysyncer.CapabilityConfiguration{}))
 	})
 
 	t.Run("config without OCR3 returns nil", func(t *testing.T) {
+		t.Parallel()
 		cc := registrysyncer.CapabilityConfiguration{Config: mustMarshalCapConfig(t, map[string]string{"k": "v"})}
 		assert.Nil(t, extractDefaultOCR3Config(cc))
 	})
 
 	t.Run("returns default OCR3 config", func(t *testing.T) {
+		t.Parallel()
 		raw, err := proto.Marshal(&capabilitiespb.CapabilityConfig{
 			Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
 				capabilitiespb.OCR3ConfigDefaultKey: {

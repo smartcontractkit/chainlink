@@ -60,9 +60,9 @@ type OracleFactoryParams struct {
 	// OCRConfigService provides OCR config from the capabilities registry.
 	// When set, the factory will use dynamic tracker/digester that can switch
 	// between registry-based and legacy contract-based config.
-	OCRConfigService       capregconfig.OCRConfigService
-	CapabilityID           string
-	DefaultBootstrappers   []ocrcommontypes.BootstrapperLocator
+	OCRConfigService     capregconfig.OCRConfigService
+	CapabilityID         string
+	DefaultBootstrappers []ocrcommontypes.BootstrapperLocator
 }
 
 func NewOracleFactory(params OracleFactoryParams) (core.OracleFactory, error) {

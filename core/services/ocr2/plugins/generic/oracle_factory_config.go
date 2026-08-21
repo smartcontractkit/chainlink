@@ -9,16 +9,14 @@ import (
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 )
 
 type ResolveOracleFactoryConfigParams struct {
-	Context        context.Context
 	Config         job.OracleFactoryConfig
 	OnchainSigning job.OnchainSigningStrategy
 	// CapRegistryAddress and CapRegistryChainID are the Capabilities Registry
@@ -45,7 +43,7 @@ type ResolveOracleFactoryConfigParams struct {
 // defaults to this node's OCR key bundle. The transmitter is taken from the on-chain
 // OCR config entry paired with this node's signer when available, falling back to a
 // round-robin keystore address otherwise. Job spec values take precedence when set.
-func ResolveOracleFactoryConfig(params ResolveOracleFactoryConfigParams) (job.OracleFactoryConfig, job.OnchainSigningStrategy, error) {
+func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactoryConfigParams) (job.OracleFactoryConfig, job.OnchainSigningStrategy, error) {
 	cfg := params.Config
 	signing := params.OnchainSigning
 
@@ -78,7 +76,7 @@ func ResolveOracleFactoryConfig(params ResolveOracleFactoryConfigParams) (job.Or
 	}
 
 	if cfg.TransmitterID == "" && params.EthKeystore != nil && cfg.ChainID != "" {
-		transmitter, err := defaultTransmitterForChain(params.Context, params.EthKeystore, cfg.ChainID)
+		transmitter, err := defaultTransmitterForChain(ctx, params.EthKeystore, cfg.ChainID)
 		if err != nil {
 			return cfg, signing, err
 		}
