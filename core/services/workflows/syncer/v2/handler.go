@@ -675,14 +675,34 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// backfill only fires when time.Now() falls inside the configured window,
 	// so ops can coordinate a healing pass across the DON. Default window is
 	// far-future, so a fresh deploy is a no-op.
+	var (
+		tagBackfilled bool
+		tagBefore     string
+	)
 	if h.workflowTagBackfillActive(ctx) &&
 		spec.WorkflowTag != payload.WorkflowTag && payload.WorkflowTag != "" {
+		tagBefore = spec.WorkflowTag
 		spec.WorkflowTag = payload.WorkflowTag
 		backfill = true
+		tagBackfilled = true
 	}
 	if backfill {
 		if _, err := h.workflowArtifactsStore.UpsertWorkflowSpec(ctx, spec); err != nil {
 			h.lggr.Warnw("failed to backfill registered_at/source/workflow_tag", "workflowID", spec.WorkflowID, "err", err)
+		} else if tagBackfilled {
+			reason := "refreshed"
+			if tagBefore == "" {
+				reason = "filled_empty"
+			}
+			h.lggr.Infow("backfilled workflow_tag",
+				"workflowID", spec.WorkflowID,
+				"workflowOwner", spec.WorkflowOwner,
+				"workflowName", spec.WorkflowName,
+				"tagBefore", tagBefore,
+				"tagAfter", spec.WorkflowTag,
+				"reason", reason,
+			)
+			h.metrics.incrementWorkflowTagBackfill(ctx, reason)
 		}
 	}
 
