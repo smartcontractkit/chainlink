@@ -2,6 +2,7 @@ package lint
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,7 +15,7 @@ import (
 
 // Executor abstracts command execution for testability.
 type Executor interface {
-	Run(ctx context.Context, dir string, name string, args ...string) error
+	Run(ctx context.Context, dir, name string, args ...string) error
 }
 
 type osExecutor struct {
@@ -22,7 +23,7 @@ type osExecutor struct {
 	stderr io.Writer
 }
 
-func (e *osExecutor) Run(ctx context.Context, dir string, name string, args ...string) error {
+func (e *osExecutor) Run(ctx context.Context, dir, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Stdout = e.stdout
@@ -62,6 +63,7 @@ func Run(ctx context.Context, cfg Config) error {
 		execRunner = &osExecutor{stdout: cfg.Stdout, stderr: cfg.Stderr}
 	}
 
+	var errs []error
 	for _, target := range cfg.Targets {
 		modDir := cfg.RepoRoot
 		if target.Module != "." && target.Module != "" {
@@ -80,9 +82,10 @@ func Run(ctx context.Context, cfg Config) error {
 
 		fmt.Fprintf(cfg.Stdout, "==> Linting module '%s' packages: %s\n", target.Module, strings.Join(target.Packages, " "))
 		if err := execRunner.Run(ctx, modDir, "golangci-lint", args...); err != nil {
-			return fmt.Errorf("golangci-lint failed in %s: %w", target.Module, err)
+			// Keep linting remaining modules so their fixes are still applied.
+			errs = append(errs, fmt.Errorf("golangci-lint failed in %s: %w", target.Module, err))
 		}
 	}
 
-	return nil
+	return errors.Join(errs...)
 }

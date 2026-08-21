@@ -41,7 +41,7 @@ func TestLintCmdHelp(t *testing.T) {
 
 	err := root.Execute()
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "Discovers enclosing Go modules and packages for changed/staged files")
+	assert.Contains(t, buf.String(), "Discovers enclosing Go modules and packages for files changed since the merge-base with the default branch")
 	assert.Contains(t, buf.String(), "--fix")
 	assert.Contains(t, buf.String(), "--rev")
 }
