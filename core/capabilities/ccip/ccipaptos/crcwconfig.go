@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	aptosloop "github.com/smartcontractkit/chainlink-aptos/codec/loop"
+	aptosloop "github.com/smartcontractkit/chainlink-aptos/codec/loop" //nolint:depguard // ccipaptos is an Aptos LOOPP plugin and requires the chainlink-aptos SDK
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	aptosconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/aptos"

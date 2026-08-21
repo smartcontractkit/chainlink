@@ -1,15 +1,14 @@
 package ccipaptos
 
 import (
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 func NewGasEstimateProvider() EstimateProvider {
 	return EstimateProvider{}
 }
 
-type EstimateProvider struct {
-}
+type EstimateProvider struct{}
 
 // CalculateMerkleTreeGas is not implemented
 func (gp EstimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
@@ -17,6 +16,6 @@ func (gp EstimateProvider) CalculateMerkleTreeGas(numRequests int) uint64 {
 }
 
 // CalculateMessageMaxGas is not implemented.
-func (gp EstimateProvider) CalculateMessageMaxGas(msg cciptypes.Message) uint64 {
+func (gp EstimateProvider) CalculateMessageMaxGas(msg ccipocr3common.Message) uint64 {
 	return 0
 }
