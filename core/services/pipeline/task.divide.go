@@ -23,8 +23,8 @@ type DivideTask struct {
 var _ Task = (*DivideTask)(nil)
 
 var (
-	ErrDivideByZero    = errors.New("divide by zero")
-	ErrDivisionOverlow = errors.New("division overflow")
+	ErrDivideByZero     = errors.New("divide by zero")
+	ErrDivisionOverflow = errors.New("division overflow")
 )
 
 func (t *DivideTask) Type() TaskType {
@@ -59,7 +59,7 @@ func (t *DivideTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs [
 		scale := -precision
 		e := int64(a.Decimal().Exponent()) - int64(b.Decimal().Exponent()) - int64(scale)
 		if e > math.MaxInt32 || e < math.MinInt32 {
-			return Result{Error: ErrDivisionOverlow}, runInfo
+			return Result{Error: ErrDivisionOverflow}, runInfo
 		}
 
 		return Result{Value: a.Decimal().DivRound(b.Decimal(), precision)}, runInfo

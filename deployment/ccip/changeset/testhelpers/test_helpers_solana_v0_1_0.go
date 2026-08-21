@@ -373,7 +373,7 @@ func LatestBlocksByChain(ctx context.Context, env cldf.Environment) (map[uint64]
 	return latestBlocks, nil
 }
 
-func allocateCCIPChainSelectors(chains map[uint64]cldf_evm.Chain) (homeChainSel uint64, feeChainSel uint64) {
+func allocateCCIPChainSelectors(chains map[uint64]cldf_evm.Chain) (homeChainSel, feeChainSel uint64) {
 	// Lower chainSel is home chain.
 	var chainSels []uint64
 	// Say first chain is home chain.
@@ -948,8 +948,10 @@ func MatchTokenToTokenPool(ctx context.Context, client *rpc.Client, tokenPubKey 
 }
 
 // bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
-const GenericExtraArgsV2Tag = "0x181dcf10"
-const SVMExtraArgsV1Tag = "0x1f3b3aba"
+const (
+	GenericExtraArgsV2Tag = "0x181dcf10"
+	SVMExtraArgsV1Tag     = "0x1f3b3aba"
+)
 
 // MakeEVMExtraArgsV2 creates the extra args for the EVM2Any message that is destined
 // for an EVM chain. The extra args contain the gas limit and allow out of order flag.
@@ -1733,13 +1735,13 @@ func NewMintTokenInfo(auth *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnM
 	return MintTokenInfo{auth: auth, tokens: tokens}
 }
 
-func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnMintERC677) MintTokenInfo {
+func NewMintTokenWithCustomSender(auth, sender *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnMintERC677) MintTokenInfo {
 	return MintTokenInfo{auth: auth, sender: sender, tokens: tokens}
 }
 
 // ApproveToken approves the router to spend the given amount of tokens
 // Keeping this proxy method in order to not break compatibility
-func ApproveToken(env cldf.Environment, src uint64, tokenAddress common.Address, routerAddress common.Address, amount *big.Int) error {
+func ApproveToken(env cldf.Environment, src uint64, tokenAddress, routerAddress common.Address, amount *big.Int) error {
 	evmChains := env.BlockChains.EVMChains()
 	ch, ok := evmChains[src]
 	if !ok {
@@ -1993,7 +1995,8 @@ func TransferMultiple(
 			}
 
 			msg, blocks := Transfer(
-				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs, tt.FeeToken)
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs, tt.FeeToken,
+			)
 			if _, ok := expectedExecutionStates[pairId]; !ok {
 				expectedExecutionStates[pairId] = make(map[uint64]int)
 			}
@@ -2035,7 +2038,8 @@ type TokenBalanceAccumulator map[uint64][]ExpectedTokenBalance
 func (t TokenBalanceAccumulator) add(
 	destChain uint64,
 	receiver []byte,
-	expectedBalances []ExpectedBalance) {
+	expectedBalances []ExpectedBalance,
+) {
 	for _, expected := range expectedBalances {
 		token := expected.Token
 		balance := expected.Amount
@@ -2374,7 +2378,7 @@ func TransferOwnershipSolanaV0_1_0(
 	solSelector uint64,
 	needTimelockDeployed bool,
 	contractsToTransfer ccipChangeSetSolanaV0_1_0.CCIPContractsToTransfer,
-) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
+) (timelockSignerPDA, mcmSignerPDA solana.PublicKey) {
 	var err error
 	if needTimelockDeployed {
 		*e, _, err = commoncs.ApplyChangesets(t, *e, []commoncs.ConfiguredChangeSet{
@@ -2432,9 +2436,7 @@ func GenTestTransferOwnershipConfig(
 	state stateview.CCIPOnChainState,
 	withTestRouterTransfer bool,
 ) mcmschangesets.TransferToMCMSWithTimelockConfig {
-	var (
-		contracts = make(map[uint64][]common.Address)
-	)
+	contracts := make(map[uint64][]common.Address)
 
 	// chain contracts
 	for _, chain := range chains {
@@ -2543,9 +2545,9 @@ func UpdateFeeQuoterForToken(
 						},
 					},
 				},
-			}),
+			},
+		),
 	)
-
 	if err != nil {
 		lggr.Errorw("Failed to apply token transfer fee config updates", "err", err, "config", config)
 		return err

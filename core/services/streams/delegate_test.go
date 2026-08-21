@@ -14,7 +14,7 @@ import (
 
 type mockRegistry struct{}
 
-func (m *mockRegistry) Get(streamID StreamID) (p Pipeline, exists bool) { return }
+func (m *mockRegistry) Get(streamID StreamID) (p Pipeline, exists bool) { return p, exists }
 func (m *mockRegistry) Register(jb job.Job, rrs ResultRunSaver) error {
 	return nil
 }
@@ -56,7 +56,7 @@ func Test_Delegate(t *testing.T) {
 }
 
 func Test_ValidatedStreamSpec(t *testing.T) {
-	var tt = []struct {
+	tt := []struct {
 		name      string
 		toml      string
 		assertion func(t *testing.T, os job.Job, err error)

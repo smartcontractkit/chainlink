@@ -156,7 +156,7 @@ func (t *noopTrigger) UnregisterTrigger(_ context.Context, _ commoncap.TriggerRe
 	return nil
 }
 
-func (t *noopTrigger) AckEvent(_ context.Context, _ string, _ string, _ string) error {
+func (t *noopTrigger) AckEvent(_ context.Context, _, _, _ string) error {
 	return nil
 }
 

@@ -117,7 +117,8 @@ var (
 						HTTPURL:  mustURL("http://broadcast.mirror"),
 						SendOnly: new(true),
 					},
-				}},
+				},
+			},
 			{
 				ChainID: sqlutil.NewI(42),
 				Chain: evmcfg.Chain{
@@ -130,7 +131,8 @@ var (
 						Name:  new("foo"),
 						WSURL: mustURL("wss://web.socket/test/foo"),
 					},
-				}},
+				},
+			},
 			{
 				ChainID: sqlutil.NewI(137),
 				Chain: evmcfg.Chain{
@@ -143,7 +145,8 @@ var (
 						Name:  new("bar"),
 						WSURL: mustURL("wss://web.socket/test/bar"),
 					},
-				}},
+				},
+			},
 		},
 	}
 )
@@ -251,11 +254,13 @@ func TestConfig_Marshal(t *testing.T) {
 		SendTimeout:        commoncfg.MustNewDuration(5 * time.Second),
 		UseBatchSend:       new(true),
 		ChipIngressEnabled: new(false),
-		Endpoints: []toml.TelemetryIngressEndpoint{{
-			Network:      new("EVM"),
-			ChainID:      new("1"),
-			ServerPubKey: new("test-pub-key"),
-			URL:          mustURL("prom.test")},
+		Endpoints: []toml.TelemetryIngressEndpoint{
+			{
+				Network:      new("EVM"),
+				ChainID:      new("1"),
+				ServerPubKey: new("test-pub-key"),
+				URL:          mustURL("prom.test"),
+			},
 		},
 	}
 
@@ -265,7 +270,7 @@ func TestConfig_Marshal(t *testing.T) {
 		UnixTS:      new(true),
 		File: toml.LogFile{
 			Dir:        new("log/file/dir"),
-			MaxSize:    new((utils.FileSize)(100 * utils.GB)),
+			MaxSize:    new(utils.FileSize(100 * utils.GB)),
 			MaxAgeDays: new(int64(17)),
 			MaxBackups: new(int64(9)),
 		},
@@ -343,7 +348,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ResultWriteQueueDepth:     new(uint32(10)),
 		VerboseLogging:            new(false),
 		HTTPRequest: toml.JobPipelineHTTPRequest{
-			MaxSize:        new((utils.FileSize)(100 * utils.MB)),
+			MaxSize:        new(utils.FileSize(100 * utils.MB)),
 			DefaultTimeout: commoncfg.MustNewDuration(time.Minute),
 		},
 	}
@@ -529,12 +534,12 @@ func TestConfig_Marshal(t *testing.T) {
 		PollInterval:         commoncfg.MustNewDuration(time.Minute),
 		GatherDuration:       commoncfg.MustNewDuration(12 * time.Second),
 		GatherTraceDuration:  commoncfg.MustNewDuration(13 * time.Second),
-		MaxProfileSize:       new((utils.FileSize)(utils.GB)),
+		MaxProfileSize:       new(utils.FileSize(utils.GB)),
 		CPUProfileRate:       new(int64(7)),
 		MemProfileRate:       new(int64(9)),
 		BlockProfileRate:     new(int64(5)),
 		MutexProfileFraction: new(int64(2)),
-		MemThreshold:         new((utils.FileSize)(utils.GB)),
+		MemThreshold:         new(utils.FileSize(utils.GB)),
 		GoroutineThreshold:   new(int64(999)),
 	}
 	full.Pyroscope = toml.Pyroscope{
@@ -650,7 +655,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ShardAssignmentMode:      &mode,
 	}
 	full.LOOPP = toml.LOOPP{
-		GRPCServerMaxRecvMsgSize: new((utils.FileSize)(42 * utils.MB)),
+		GRPCServerMaxRecvMsgSize: new(utils.FileSize(42 * utils.MB)),
 	}
 	full.JobDistributor = toml.JobDistributor{
 		DisplayName: new("test-node"),
@@ -843,7 +848,8 @@ func TestConfig_Marshal(t *testing.T) {
 					HTTPURL:  mustURL("http://broadcast.mirror"),
 					SendOnly: new(true),
 				},
-			}},
+			},
+		},
 	}
 	full.Mercury = toml.Mercury{
 		Cache: toml.MercuryCache{
@@ -1583,10 +1589,14 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		wantWarning   string
 	}{
 		{name: "empty", wantEffective: emptyEffectiveTOML, wantSecrets: emptyEffectiveSecretsTOML},
-		{name: "full", inputSecrets: secretsFullTOML, inputConfig: fullTOML,
-			wantConfig: fullTOML, wantEffective: fullTOML, wantSecrets: secretsFullRedactedTOML, wantWarning: deprecated},
-		{name: "multi-chain", inputSecrets: secretsMultiTOML, inputConfig: multiChainTOML,
-			wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML, wantSecrets: secretsMultiRedactedTOML},
+		{
+			name: "full", inputSecrets: secretsFullTOML, inputConfig: fullTOML,
+			wantConfig: fullTOML, wantEffective: fullTOML, wantSecrets: secretsFullRedactedTOML, wantWarning: deprecated,
+		},
+		{
+			name: "multi-chain", inputSecrets: secretsMultiTOML, inputConfig: multiChainTOML,
+			wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML, wantSecrets: secretsMultiRedactedTOML,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1682,14 +1692,17 @@ func TestSecrets_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "partial",
+		{
+			name: "partial",
 			toml: `
 Database.AllowSimplePasswords = true`,
 			exp: `invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
-	- Password.Keystore: empty: must be provided and non-empty`},
+	- Password.Keystore: empty: must be provided and non-empty`,
+		},
 
-		{name: "invalid-urls",
+		{
+			name: "invalid-urls",
 			toml: `[Database]
 URL = "postgresql://user:passlocalhost:5432/asdf"
 BackupURL = "foo-bar?password=asdf"
@@ -1715,14 +1728,17 @@ AllowSimplePasswords = false`,
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 	
-	- Password.Keystore: empty: must be provided and non-empty`},
+	- Password.Keystore: empty: must be provided and non-empty`,
+		},
 
-		{name: "invalid-urls-allowed",
+		{
+			name: "invalid-urls-allowed",
 			toml: `[Database]
 URL = "postgresql://user:passlocalhost:5432/asdf"
 BackupURL = "foo-bar?password=asdf"
 AllowSimplePasswords = true`,
-			exp: `invalid secrets: Password.Keystore: empty: must be provided and non-empty`},
+			exp: `invalid secrets: Password.Keystore: empty: must be provided and non-empty`,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var s Secrets

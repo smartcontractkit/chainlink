@@ -575,7 +575,7 @@ func deriveCCIPSendAccounts(
 			for _, line := range res.Value.Logs {
 				e.Logger.Error(line)
 			}
-			return nil, nil, nil, fmt.Errorf("failed to exract accounts from simulated transaction log: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to extract accounts from simulated transaction log: %w", err)
 		}
 		e.Logger.Infof("Derive stage: %s. Len: %d\n", derivation.CurrentStage, len(derivation.AccountsToSave))
 

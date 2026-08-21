@@ -736,7 +736,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	r.pendingQueueStallTracker.record(seqNr)
 
 	// First, generate a random nonce that we'll use to sort the observations.
-	// Each node generates a nonce indepedently, to be concatenated later on.
+	// Each node generates a nonce independently, to be concatenated later on.
 	nonce, ierr := generateRandomNonce()
 	if ierr != nil {
 		return nil, fmt.Errorf("could not generate nonce for observation: %w", ierr)
@@ -2319,7 +2319,7 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 	// Step 4: Sort the kept items by sha(id || salt)
 	// The salt ensures that items are ordered randomly each time, preventing
 	// front-running and dishonest nodes from manipulating the order of items in the pending queue.
-	slices.SortFunc(keptItems, func(i *vaultcommon.StoredPendingQueueItem, j *vaultcommon.StoredPendingQueueItem) int {
+	slices.SortFunc(keptItems, func(i, j *vaultcommon.StoredPendingQueueItem) int {
 		return bytes.Compare(sortKey(i.Id, salt), sortKey(j.Id, salt))
 	})
 
@@ -2919,7 +2919,7 @@ func (r *ReportingPlugin) generateJSONReport(id string, requestType vaultcommon.
 	return wrapReportWithKeyBundleInfo(jsonb, rip)
 }
 
-func wrapReportWithKeyBundleInfo(report []byte, reportInfo []byte) (ocr3types.ReportWithInfo[[]byte], error) {
+func wrapReportWithKeyBundleInfo(report, reportInfo []byte) (ocr3types.ReportWithInfo[[]byte], error) {
 	infos, err := structpb.NewStruct(map[string]any{
 		// Use the EVM key bundle to sign the report.
 		"keyBundleName": "evm",

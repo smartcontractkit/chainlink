@@ -49,7 +49,7 @@ func newInMemoryORM(ds sqlutil.DataSource) *memoryORM {
 	return &memoryORM{ds: ds}
 }
 
-// NewInMemory sets up a keystore which NOOPs attempts to access the `encrypted_key_rings` table. Accessing `evm.key_states`
+// NewInMemory sets up a keystore which no-ops attempts to access the `encrypted_key_rings` table. Accessing `evm.key_states`
 // will still hit the DB.
 func NewInMemory(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, logf Logf) *master {
 	dbORM := NewORM(ds)

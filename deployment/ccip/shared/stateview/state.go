@@ -408,11 +408,11 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]evmstate.MCMSWithTime
 func (c CCIPOnChainState) SolanaMCMSStateByChain(e cldf.Environment) map[uint64]solstate.MCMSWithTimelockState {
 	mcmsStateByChain := make(map[uint64]solstate.MCMSWithTimelockState)
 	for chainSelector := range e.BlockChains.SolanaChains() {
-		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return mcmsStateByChain
 		}
-		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[chainSelector], addreses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[chainSelector], addresses)
 		if err != nil {
 			return mcmsStateByChain
 		}

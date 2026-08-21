@@ -20,7 +20,7 @@ type DonSubscriber interface {
 	Subscribe(ctx context.Context) (<-chan capabilities.DON, func(), error)
 }
 
-// DonNotifyWaitSubscriber handles the lifecyle of a Workflow DON update.  A node may
+// DonNotifyWaitSubscriber handles the lifecycle of a Workflow DON update.  A node may
 // only belong to a single workflow DON, but multiple capabilities DONs.  In practice,
 // this interface is used to update subscribers with the current workflow DON
 // state.

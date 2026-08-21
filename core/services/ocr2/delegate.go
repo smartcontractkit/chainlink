@@ -1507,7 +1507,7 @@ func (d *Delegate) newServicesLLO(
 
 	// FIXME: This is a bit confusing because the OCR2 key bundle actually
 	// includes an EVM on-chain key... but LLO only uses the key bundle for the
-	// offchain keys and the suppoprted onchain keys are defined in the plugin
+	// offchain keys and the supported onchain keys are defined in the plugin
 	// config on the job spec instead.
 	// https://smartcontract-it.atlassian.net/browse/MERC-3594
 	lggr.Infof("Using on-chain signing keys for LLO job %d (%s): %v", jb.ID, jb.Name.ValueOrZero(), kbm)

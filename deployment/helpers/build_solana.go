@@ -248,7 +248,7 @@ func buildLocally(e cldf.Environment, config BuildSolanaConfig, params DomainPar
 		return fmt.Errorf("error replacing keys for upgrade: %w", err)
 	}
 
-	// run sync to replace keys in programs that need to be synchonized
+	// run sync to replace keys in programs that need to be synchronized
 	for _, sync := range params.Syncers {
 		if err := sync(); err != nil {
 			return fmt.Errorf("error syncing program files: %w", err)

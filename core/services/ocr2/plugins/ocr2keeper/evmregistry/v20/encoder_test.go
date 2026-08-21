@@ -76,7 +76,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 		t.Run("an error is returned when an expected key is missing from the map", func(t *testing.T) {
 			oldMKeys := mKeys
-			mKeys = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas", "thisKeyWontExist"}
+			mKeys = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformData", "thisKeyWontExist"}
 			defer func() {
 				mKeys = oldMKeys
 			}()
@@ -88,7 +88,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 		t.Run("an error is returned when the third element of the map is not a slice of big.Int", func(t *testing.T) {
 			oldMKeys := mKeys
-			mKeys = []string{"fastGasWei", "linkNative", "wrappedPerformDatas", "upkeepIds"}
+			mKeys = []string{"fastGasWei", "linkNative", "wrappedPerformData", "upkeepIds"}
 			defer func() {
 				mKeys = oldMKeys
 			}()
@@ -110,13 +110,14 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			assert.Empty(t, upkeeps)
 		})
 
-		t.Run("an error is returned when the upkeep ids and performDatas are of different lengths", func(t *testing.T) {
+		//nolint:paralleltest // TODO: Fix me to be parallel later
+		t.Run("an error is returned when the upkeep ids and performData are of different lengths", func(t *testing.T) {
 			oldUnpackIntoMapFn := unpackIntoMapFn
 			unpackIntoMapFn = func(v map[string]any, data []byte) error {
 				v["fastGasWei"] = 1
 				v["linkNative"] = 2
 				v["upkeepIds"] = []*big.Int{big.NewInt(123), big.NewInt(456)}
-				v["wrappedPerformDatas"] = []struct {
+				v["wrappedPerformData"] = []struct {
 					CheckBlockNumber uint32   `json:"checkBlockNumber"`
 					CheckBlockhash   [32]byte `json:"checkBlockhash"`
 					PerformData      []byte   `json:"performData"`
@@ -140,7 +141,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 		t.Run("an error is returned when the first element of the map is not a big int", func(t *testing.T) {
 			oldMKeys := mKeys
-			mKeys = []string{"upkeepIds", "linkNative", "upkeepIds", "wrappedPerformDatas"}
+			mKeys = []string{"upkeepIds", "linkNative", "upkeepIds", "wrappedPerformData"}
 			defer func() {
 				mKeys = oldMKeys
 			}()
@@ -152,7 +153,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 		t.Run("an error is returned when the second element of the map is not a big int", func(t *testing.T) {
 			oldMKeys := mKeys
-			mKeys = []string{"fastGasWei", "upkeepIds", "upkeepIds", "wrappedPerformDatas"}
+			mKeys = []string{"fastGasWei", "upkeepIds", "upkeepIds", "wrappedPerformData"}
 			defer func() {
 				mKeys = oldMKeys
 			}()

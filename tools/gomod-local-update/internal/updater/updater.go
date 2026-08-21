@@ -30,7 +30,7 @@ func (g *systemGitExecutor) Command(ctx context.Context, args ...string) ([]byte
 const (
 	// File and mode constants
 	goModFile     = "go.mod"
-	goModFileMode = 0644
+	goModFileMode = 0o644
 	gitSHALength  = 12
 	gitTimeout    = 30 * time.Second
 	gitTimeFormat = time.RFC3339

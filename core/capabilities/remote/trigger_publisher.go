@@ -342,7 +342,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		// error, or a fresh registration flow).
 		//
 		// This did not matter when registration was synchronous—the "already exists" check
-		// above returned early without causing unncessary RegisterTrigger calls. With async registration,
+		// above returned early without causing unnecessary RegisterTrigger calls. With async registration,
 		// that check may pass in time, so once=true prevents duplicate RegisterTrigger calls for the same trigger.
 		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
 		if !ready {
