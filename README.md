@@ -193,6 +193,8 @@ git push                       # pre-push hooks will run minimal unit tests befo
 # Optionally use the `--no-verify` flag to disable githooks for specific commits/pushes
 git commit -m "commit message" --no-verify
 git push --no-verify
+# Or use LEFTHOOK=0
+LEFTHOOK=0 gh stack push
 ```
 
 **Note**: Hooks help you catch issues before pushing to CI. They're meant to be quick, local checks to stop common mistakes and oversights. They are neither exhaustive or mandatory. CI is the ultimate, mandatory source of authority on code quality checks.

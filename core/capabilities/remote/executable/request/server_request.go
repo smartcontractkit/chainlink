@@ -66,7 +66,8 @@ func (s *srMetrics) countExecutionResponse(ctx context.Context, status string, d
 	}
 	s.executeResponseCount.Add(
 		ctx, 1,
-		metric.WithAttributes(attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID), attribute.String("status", status), attribute.String("dispatcherErr", dv)))
+		metric.WithAttributes(attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID), attribute.String("status", status), attribute.String("dispatcherErr", dv)),
+	)
 }
 
 func newSrMetrics(capabilityID string, callingDonID uint32) (*srMetrics, error) {
@@ -139,11 +140,12 @@ type ServerRequest struct {
 	metrics *srMetrics
 }
 
-func NewServerRequest(capability capabilities.ExecutableCapability, method string, capabilityID string, capabilityDonID uint32,
+func NewServerRequest(capability capabilities.ExecutableCapability, method, capabilityID string, capabilityDonID uint32,
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string,
-	workflowDONBindingGate limits.GateLimiter, lggr logger.Logger) (*ServerRequest, error) {
+	workflowDONBindingGate limits.GateLimiter, lggr logger.Logger,
+) (*ServerRequest, error) {
 	lggr = logger.With(logger.Named(lggr, "ServerRequest"), "requestID", requestID) // cap ID and method name included in the parent logger
 
 	if workflowDONBindingGate == nil {
@@ -373,8 +375,7 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 	if err != nil {
 		lggr.Errorw("received execution error", "error", err)
 
-		var capError caperrors.Error
-		if errors.As(err, &capError) {
+		if capError, ok := errors.AsType[caperrors.Error](err); ok {
 			return nil, errors.New(capError.SerializeToRemoteString())
 		}
 		return nil, errors.New("failed to execute capability")

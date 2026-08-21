@@ -40,9 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
-var (
-	nilContext = cli.NewContext(nil, nil, nil)
-)
+var nilContext = cli.NewContext(nil, nil, nil)
 
 type startOptions struct {
 	// Use to set up mocks on the app
@@ -392,7 +390,7 @@ func (h *mockHTTPClient) Get(ctx context.Context, path string, headers ...map[st
 		json := fmt.Sprintf(`{"version":"%s","commitSHA":"%s"}`, h.mockVersion, h.mockSha)
 		r := io.NopCloser(bytes.NewReader([]byte(json)))
 		return &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       r,
 		}, nil
 	}

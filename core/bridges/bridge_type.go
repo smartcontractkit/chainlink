@@ -70,7 +70,8 @@ type BridgeType struct {
 // NewBridgeType returns a bridge type authentication (with plaintext
 // password) and a bridge type (with hashed password, for persisting)
 func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
-	*BridgeType, error) {
+	*BridgeType, error,
+) {
 	incomingToken := utils.NewSecret(24)
 	outgoingToken := utils.NewSecret(24)
 	salt := utils.NewSecret(24)
@@ -132,7 +133,7 @@ type BridgeMetaDataJSON struct {
 	Meta BridgeMetaData
 }
 
-func MarshalBridgeMetaData(latestAnswer *big.Int, updatedAt *big.Int) (map[string]any, error) {
+func MarshalBridgeMetaData(latestAnswer, updatedAt *big.Int) (map[string]any, error) {
 	b, err := json.Marshal(&BridgeMetaData{LatestAnswer: latestAnswer, UpdatedAt: updatedAt})
 	if err != nil {
 		return nil, err

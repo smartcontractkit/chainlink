@@ -16,7 +16,7 @@ import (
 
 // Executor abstracts command execution for testability.
 type Executor interface {
-	Run(ctx context.Context, dir string, name string, args ...string) error
+	Run(ctx context.Context, dir, name string, args ...string) error
 }
 
 type osExecutor struct {
@@ -24,7 +24,7 @@ type osExecutor struct {
 	stderr io.Writer
 }
 
-func (e *osExecutor) Run(ctx context.Context, dir string, name string, args ...string) error {
+func (e *osExecutor) Run(ctx context.Context, dir, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Stdout = e.stdout
@@ -109,7 +109,8 @@ func EnsureBinary(ctx context.Context, repoRoot string, stdout, stderr io.Writer
 	return nil
 }
 
-// Run executes test harness grouped by Go module.
+// Run executes test harness grouped by Go module sequentially, letting
+// `go test` parallelize test execution within each module.
 func Run(ctx context.Context, cfg Config) error {
 	mods := cfg.Modules
 	if len(mods) == 0 && len(cfg.Packages) > 0 {
@@ -142,6 +143,8 @@ func Run(ctx context.Context, cfg Config) error {
 			continue
 		}
 
+		fmt.Fprintf(cfg.Stdout, "==> Running tests on %s: %s\n", mod.Module, strings.Join(mod.Packages, " "))
+
 		if mod.Module == "." {
 			if cfg.Executor == nil {
 				if err := EnsureBinary(ctx, cfg.RepoRoot, cfg.Stdout, cfg.Stderr); err != nil {
@@ -156,7 +159,6 @@ func Run(ctx context.Context, cfg Config) error {
 			args = append(args, cfg.Args...)
 			args = append(args, mod.Packages...)
 
-			fmt.Fprintf(cfg.Stdout, "==> Running tests on %s: %s\n", mod.Module, strings.Join(mod.Packages, " "))
 			if err := execRunner.Run(ctx, cfg.RepoRoot, binPath, args...); err != nil {
 				return fmt.Errorf("tests failed on %s: %w", mod.Module, err)
 			}
@@ -170,7 +172,6 @@ func Run(ctx context.Context, cfg Config) error {
 			args = append(args, cfg.Args...)
 			args = append(args, mod.Packages...)
 
-			fmt.Fprintf(cfg.Stdout, "==> Running tests on %s: %s\n", mod.Module, strings.Join(mod.Packages, " "))
 			if err := execRunner.Run(ctx, modDir, "go", args...); err != nil {
 				return fmt.Errorf("tests failed on %s: %w", mod.Module, err)
 			}

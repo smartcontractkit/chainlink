@@ -62,7 +62,7 @@ func (m *mockRegistry) Get(streamID streams.StreamID) (p streams.Pipeline, exist
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	p, exists = m.pipelines[streamID]
-	return
+	return p, exists
 }
 
 func makePipelineWithSingleResult[T any](runID int64, res T, err error) *mockPipeline {
@@ -111,18 +111,21 @@ func (m *mockOpts) SeqNr() uint64 {
 	}
 	return m.seqNr
 }
+
 func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
 	if m.configDigest.Hex() == "" {
 		return ocr2types.ConfigDigest{6, 5, 4}
 	}
 	return m.configDigest
 }
+
 func (m *mockOpts) ObservationTimestamp() time.Time {
 	if m.observationTimestamp.IsZero() {
 		return time.Unix(1737936858, 0)
 	}
 	return m.observationTimestamp
 }
+
 func (m *mockOpts) LifeCycleStage() llotypes.LifeCycleStage {
 	if m.lifeCycleStage == "" {
 		return lloprotocol.LifeCycleStageProduction
@@ -152,6 +155,7 @@ func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.
 	defer m.mu.Unlock()
 	m.v3PremiumLegacyPackets = append(m.v3PremiumLegacyPackets, v3PremiumLegacyPacket{run, trrs, streamID, opts, val, err})
 }
+
 func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts telem.DSOpts, size int) (ch chan<- any) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -159,12 +163,14 @@ func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts telem.DSOpts, size
 
 	return m.ch
 }
+
 func (m *mockTelemeter) GetOutcomeTelemetryCh() chan<- *lloprotocol.LLOOutcomeTelemetry {
 	return nil
 }
 func (m *mockTelemeter) GetReportTelemetryCh() chan<- *lloprotocol.LLOReportTelemetry { return nil }
-func (m *mockTelemeter) CaptureEATelemetry() bool                                     { return true }
-func (m *mockTelemeter) CaptureObservationTelemetry() bool                            { return true }
+func (m *mockTelemeter) CaptureEATelemetry() bool { return true }
+
+func (m *mockTelemeter) CaptureObservationTelemetry() bool { return true }
 
 var observationTimeout = 500 * time.Millisecond
 
@@ -921,7 +927,7 @@ result3 -> result3_parse -> multiply3;
 
 	ds := newDataSource(lggr, r, telem.NullTelemeter)
 	vals := make(map[llotypes.StreamID]lloprotocol.StreamValue)
-	for i := uint32(0); i < 4*n; i++ {
+	for i := range 4 * n {
 		vals[i] = nil
 	}
 

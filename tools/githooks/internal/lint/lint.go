@@ -14,7 +14,7 @@ import (
 
 // Executor abstracts command execution for testability.
 type Executor interface {
-	Run(ctx context.Context, dir string, name string, args ...string) error
+	Run(ctx context.Context, dir, name string, args ...string) error
 }
 
 type osExecutor struct {
@@ -22,7 +22,7 @@ type osExecutor struct {
 	stderr io.Writer
 }
 
-func (e *osExecutor) Run(ctx context.Context, dir string, name string, args ...string) error {
+func (e *osExecutor) Run(ctx context.Context, dir, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Stdout = e.stdout
@@ -42,7 +42,9 @@ type Config struct {
 	Stderr   io.Writer
 }
 
-// Run iterates over affected module targets and runs golangci-lint on the changed packages.
+// Run iterates over affected module targets and runs golangci-lint on the
+// changed packages sequentially, letting golangci-lint parallelize internally
+// via --allow-parallel-runners.
 func Run(ctx context.Context, cfg Config) error {
 	if len(cfg.Targets) == 0 {
 		return nil
@@ -67,7 +69,7 @@ func Run(ctx context.Context, cfg Config) error {
 		}
 
 		var args []string
-		args = append(args, "run")
+		args = append(args, "run", "--allow-parallel-runners")
 		if cfg.Rev != "" {
 			args = append(args, "--new-from-rev="+cfg.Rev)
 		}

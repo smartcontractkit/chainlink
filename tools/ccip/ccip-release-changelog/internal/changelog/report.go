@@ -154,7 +154,8 @@ func RenderMarkdown(rep *Report) string {
 		}
 		if rr.Status != "identical" {
 			for _, c := range rr.Commits {
-				b.WriteString(rr.formatEntry(c) + "\n")
+				b.WriteString(rr.formatEntry(c))
+				b.WriteString("\n")
 			}
 			if len(rr.Commits) > 0 {
 				b.WriteString("\n")

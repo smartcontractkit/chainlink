@@ -238,7 +238,8 @@ func TestORM(t *testing.T) {
 	t.Run("it creates and deletes records for blockhash store jobs", func(t *testing.T) {
 		ctx := t.Context()
 		bhsJob, err := blockhashstore.ValidatedSpec(
-			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{CoordinatorV2Address: "0x613a38AC1659769640aaE063C651F48E0250454C"}).Toml())
+			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{CoordinatorV2Address: "0x613a38AC1659769640aaE063C651F48E0250454C"}).Toml(),
+		)
 		require.NoError(t, err)
 
 		err = orm.CreateJob(ctx, &bhsJob)
@@ -273,7 +274,8 @@ func TestORM(t *testing.T) {
 		bhsJob, err := blockheaderfeeder.ValidatedSpec(
 			testspecs.GenerateBlockHeaderFeederSpec(testspecs.BlockHeaderFeederSpecParams{
 				CoordinatorV2Address: "0x0000000000000000000000000000000000000001",
-			}).Toml())
+			}).Toml(),
+		)
 		require.NoError(t, err)
 
 		err = orm.CreateJob(ctx, &bhsJob)
@@ -472,7 +474,8 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 			BackoffMaxDelay:     time.Hour,
 			GasLanePrice:        assets.GWei(100),
 			VRFOwnerAddress:     "0x32891BD79647DC9136Fc0a59AAB48c7825eb624c",
-		}).
+		},
+	).
 		Toml())
 	require.NoError(t, err)
 
@@ -560,7 +563,8 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 			BackoffMaxDelay:              time.Hour,
 			GasLanePrice:                 assets.GWei(100),
 			CustomRevertsPipelineEnabled: true,
-		}).
+		},
+	).
 		Toml())
 	require.NoError(t, err)
 
@@ -993,7 +997,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run(("test Aptos key validation"), func(t *testing.T) {
+	t.Run("test Aptos key validation", func(t *testing.T) {
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkAptos
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
@@ -1005,7 +1009,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run(("test Tron key validation"), func(t *testing.T) {
+	t.Run("test Tron key validation", func(t *testing.T) {
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkTron
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
@@ -1017,7 +1021,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run(("test TON key validation"), func(t *testing.T) {
+	t.Run("test TON key validation", func(t *testing.T) {
 		ctx := t.Context()
 		jb.OCR2OracleSpec.Relay = relay.NetworkTON
 		err := job.ValidateKeyStoreMatch(ctx, jb.OCR2OracleSpec, keyStore, "bad key")
@@ -1879,8 +1883,8 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 }
 
 func Test_ORM_FindJobByWorkflow(t *testing.T) {
-	var addr1 = "0x0123456789012345678901234567890123456789"
-	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+	addr1 := "0x0123456789012345678901234567890123456789"
+	addr2 := "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd"
 	t.Parallel()
 	type fields struct {
 		ds sqlutil.DataSource
@@ -1895,7 +1899,6 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-
 		{
 			name: "wf not job found",
 			fields: fields{
@@ -2004,8 +2007,8 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 }
 
 func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
-	var addr1 = "0x012345678901234567890123456789012345ffff"
-	var addr2 = "0xabcdefabcdefabcdefabcdefabcdefabcdef0000"
+	addr1 := "0x012345678901234567890123456789012345ffff"
+	addr2 := "0xabcdefabcdefabcdefabcdefabcdefabcdef0000"
 	t.Parallel()
 	t.Run("multiple jobs", func(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
@@ -2073,8 +2076,8 @@ func mustInsertWFJob(t *testing.T, orm job.ORM, s *job.WorkflowSpec) int32 {
 	err := s.Validate(t.Context())
 	require.NoError(t, err, "failed to validate spec %v", s)
 	ctx := t.Context()
-	_, err = toml.Marshal(s.Workflow)
-	require.NoError(t, err, "failed to TOML marshal workflow %v", s.Workflow)
+	_, err = toml.Marshal(s)
+	require.NoError(t, err, "failed to TOML marshal workflow spec %v", s)
 	j := job.Job{
 		Type:          job.Workflow,
 		WorkflowSpec:  s,

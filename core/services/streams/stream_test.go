@@ -28,9 +28,11 @@ type mockRunner struct {
 func (m *mockRunner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error) {
 	return m.run, m.trrs, m.err
 }
+
 func (m *mockRunner) InitializePipeline(spec pipeline.Spec) (p *pipeline.Pipeline, err error) {
 	return m.p, m.err
 }
+
 func (m *mockRunner) InsertFinishedRun(ctx context.Context, ds sqlutil.DataSource, run *pipeline.Run, saveSuccessfulTaskRuns bool) error {
 	return m.err
 }
@@ -76,7 +78,7 @@ succeed;
 
 		t.Run("executes the pipeline (success)", func(t *testing.T) {
 			runner.run = &pipeline.Run{ID: 42}
-			runner.trrs = []pipeline.TaskRunResult{pipeline.TaskRunResult{ID: UUID}}
+			runner.trrs = []pipeline.TaskRunResult{{ID: UUID}}
 			runner.err = nil
 
 			run, trrs, err := strm.Run(ctx)

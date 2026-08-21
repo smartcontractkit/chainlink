@@ -275,7 +275,7 @@ func validateHexInput(input string, expectedLength int) error {
 	return nil
 }
 
-func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID, requestID string, callback handlers.Callback) error {
 	if err := validateHexInput(workflowID, workflowIDLength); err != nil {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID "+err.Error(), callback)
 		return errors.New("workflowID " + err.Error())
@@ -284,7 +284,7 @@ func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID 
 	return nil
 }
 
-func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflowOwner string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflowOwner, requestID string, callback handlers.Callback) error {
 	if err := validateHexInput(workflowOwner, workflowOwnerLength); err != nil {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner "+err.Error(), callback)
 		return errors.New("workflowOwner " + err.Error())
@@ -294,7 +294,7 @@ func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflow
 }
 
 // validateWorkflowName validates the workflowName length and format
-func (h *httpTriggerHandler) validateWorkflowName(ctx context.Context, workflowName string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowName(ctx context.Context, workflowName, requestID string, callback handlers.Callback) error {
 	if len(workflowName) == 0 {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowName cannot be empty", callback)
 		return errors.New("workflowName cannot be empty")
@@ -309,7 +309,7 @@ func (h *httpTriggerHandler) validateWorkflowName(ctx context.Context, workflowN
 }
 
 // validateWorkflowTag validates the workflowTag length and format
-func (h *httpTriggerHandler) validateWorkflowTag(ctx context.Context, workflowTag string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowTag(ctx context.Context, workflowTag, requestID string, callback handlers.Callback) error {
 	if len(workflowTag) == 0 {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowTag cannot be empty", callback)
 		return errors.New("workflowTag cannot be empty")
@@ -379,8 +379,7 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: workflowRef.workflowOwner, Workflow: workflowID})
 	if err := h.userRateLimiter.AllowErr(ctx); err != nil {
 		lggr := logger.With(h.lggr, platform.KeyWorkflowID, workflowID, platform.KeyWorkflowOwner, workflowRef.workflowOwner, "requestID", requestID, "err", err)
-		var errLimited limits.ErrorRateLimited
-		if errors.As(err, &errLimited) {
+		if errLimited, ok := errors.AsType[limits.ErrorRateLimited](err); ok {
 			switch errLimited.Scope {
 			case settings.ScopeWorkflow:
 				lggr.Errorf("failed to start execution: per workflow rate limit exceeded")
