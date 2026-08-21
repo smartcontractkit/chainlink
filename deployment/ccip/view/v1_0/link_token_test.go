@@ -9,7 +9,6 @@ import (
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/initial/link_token"
@@ -28,24 +27,6 @@ func TestLinkTokenView(t *testing.T) {
 	_, tx, lt, err := link_token.DeployLinkToken(chain.DeployerKey, chain.Client)
 	require.NoError(t, err)
 	_, err = chain.Confirm(tx)
-	require.NoError(t, err)
-
-	testLinkTokenViewWithChain(t, chain, lt)
-}
-
-func TestLinkTokenViewZk(t *testing.T) {
-	// Timeouts in CI
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-6427")
-	t.Parallel()
-
-	selector := chainselectors.TEST_90000050.Selector
-	env, err := environment.New(t.Context(),
-		environment.WithZKSyncContainer(t, []uint64{selector}),
-	)
-	require.NoError(t, err)
-
-	chain := env.BlockChains.EVMChains()[selector]
-	_, _, lt, err := link_token.DeployLinkTokenZk(nil, chain.ClientZkSyncVM, chain.DeployerKeyZkSyncVM, chain.Client)
 	require.NoError(t, err)
 
 	testLinkTokenViewWithChain(t, chain, lt)
