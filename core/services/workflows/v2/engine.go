@@ -56,6 +56,10 @@ var (
 	ErrShardDeniedNotOwner     = errors.New("shard ownership denied: not owner")
 	ErrShardDeniedOrchestrator = errors.New("shard ownership denied: orchestrator error")
 	ErrMeteringReserveFailed   = errors.New("metering reserve failed")
+
+	ErrEngineDraining = errors.New("engine is draining")
+	ErrQueueFull      = errors.New("trigger event queue is full")
+	ErrEnqueueFailed  = errors.New("failed to enqueue trigger event")
 )
 
 // Pin config version to 1 to avoid updating forwarder contracts on every single config update.
@@ -285,6 +289,131 @@ type resolvedOrg struct {
 	// configured), "resolver_error" (Get returned an error), or
 	// "empty_response" (Get returned an empty string). Empty on success.
 	Reason string
+}
+
+// HandleTriggerEvent is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
+func (e *Engine) HandleTriggerEvent(ctx context.Context, event trigger.RoutedTriggerEvent) error {
+	e.activeExecutions.Add(1)
+	defer e.activeExecutions.Add(-1)
+
+	eventID := event.Event.Event.ID
+	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
+	creCtx := contexts.CREValue(ctx)
+	// Tracer is no-op if DebugMode is false
+	ctx, span := e.tracer.Start(ctx, "workflow_execution",
+		trace.WithAttributes(
+			attribute.String("workflow_name", e.cfg.WorkflowName.String()),
+			attribute.String("version", "v2"),
+			attribute.String("org_id", creCtx.Org),
+			attribute.String("owner_id", creCtx.Owner),
+			attribute.String("workflow_id", creCtx.Workflow),
+		))
+	defer span.End()
+
+	return e.startExecution(ctx, event)
+}
+
+// Subscribe issues the WASM Subscribe request and returns the validated trigger subscriptions.
+func (e *Engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
+	// call into the workflow to get trigger subscriptions
+	subCtx, subCancel, err := e.cfg.LocalLimiters.TriggerSubscriptionTime.WithTimeout(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer subCancel()
+
+	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
+	if err != nil {
+		return nil, err
+	}
+	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
+	defer close(userLogChan)
+	e.srvcEng.Go(func(_ context.Context) {
+		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID, e.eventLabels())
+	})
+
+	var timeProvider TimeProvider = &types.LocalTimeProvider{}
+	if !e.cfg.UseLocalTimeProvider {
+		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.donTimeRequestTimeout(subCtx, e.cfg.LocalLimiters.DONTimeRequestTimeout), e.logger(), e.metrics)
+	}
+
+	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if moduleExecuteMaxResponseSizeBytes < 0 {
+		return nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
+	}
+	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
+		Request:         &sdkpb.ExecuteRequest_Subscribe{},
+		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
+		Config:          e.cfg.WorkflowConfig,
+	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute subscribe: %w", err)
+	}
+	if result.GetError() != "" {
+		return nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
+	}
+	subs := result.GetTriggerSubscriptions()
+	if subs == nil {
+		return nil, errors.New("subscribe result is nil")
+	}
+	err = e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(subs.Subscriptions))
+	if err != nil {
+		return nil, err
+	}
+
+	return subs.Subscriptions, nil
+}
+
+// Draining returns true if the engine has been marked for deletion and is no longer accepting new trigger events.
+func (e *Engine) Draining() bool {
+	return e.draining.Load()
+}
+
+// Put enqueues a trigger event into the engine's internal queue. It is a transitional method that wraps the existing queue.
+// It exists only until the dispatcher owns admission (CRE-6179). At that point the engine's queue is removed and the dispatcher calls HandleTriggerEvent directly.
+func (e *Engine) Put(ctx context.Context, event trigger.RoutedTriggerEvent) error { // transitional
+	triggerID := event.TriggerCapID
+	eventID := event.Event.Event.ID
+	idx := event.TriggerIndex
+
+	if e.Draining() {
+		e.logger().Infow("Engine is draining, dropping trigger event before enqueue", "triggerID", triggerID, "eventID", eventID)
+		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
+		tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
+		tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueDraining)
+		e.cfg.Hooks.OnTriggerEventDropped(triggerID, eventID, "draining")
+		return ErrEngineDraining
+	}
+	if err := e.allTriggerEventsQueueCh.Put(ctx, enqueuedTriggerEvent{
+		triggerCapID: triggerID,
+		triggerIndex: idx,
+		timestamp:    e.cfg.Clock.Now(),
+		event:        event.Event,
+	}); err != nil {
+		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
+		tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
+		var errFull limits.ErrorQueueFull
+		retErr := ErrEnqueueFailed
+		if errors.As(err, &errFull) {
+			// queue full, drop the event
+			e.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
+			tm.IncrementWorkflowTriggerEventQueueFullCounter(ctx)
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueQueueFull)
+			retErr = ErrQueueFull
+		} else {
+			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueFailed)
+		}
+		e.logger().Errorw("Failed to enqueue trigger event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
+		tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
+		return retErr
+	}
+	e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueuedCounter(ctx)
+	e.logger().Debugw("Enqueued trigger event", "triggerID", triggerID, "eventID", eventID)
+
+	return nil
 }
 
 // resolveOrgID resolves the organization ID for the given workflow owner.
@@ -600,37 +729,17 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 						tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonTriggerResponseError)
 						continue
 					}
-					if e.draining.Load() {
-						e.logger().Infow("Engine is draining, dropping trigger event before enqueue", "triggerID", triggerID, "eventID", eventID)
-						tm := e.metrics.With(platform.KeyTriggerID, triggerID)
-						tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
-						tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueDraining)
-						e.cfg.Hooks.OnTriggerEventDropped(triggerID, eventID, "draining")
-						continue
+
+					routed := trigger.RoutedTriggerEvent{
+						WorkflowID:   e.cfg.WorkflowID,
+						TriggerCapID: triggerID,
+						TriggerIndex: idx,
+						ObservedAt:   e.cfg.Clock.Now(),
+						Lamport:      0,
+						Event:        event,
 					}
-					if err := e.allTriggerEventsQueueCh.Put(ctx, enqueuedTriggerEvent{
-						triggerCapID: triggerID,
-						triggerIndex: idx,
-						timestamp:    e.cfg.Clock.Now(),
-						event:        event,
-					}); err != nil {
-						tm := e.metrics.With(platform.KeyTriggerID, triggerID)
-						tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
-						var errFull limits.ErrorQueueFull
-						if errors.As(err, &errFull) {
-							// queue full, drop the event
-							e.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
-							tm.IncrementWorkflowTriggerEventQueueFullCounter(ctx)
-							tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueQueueFull)
-						} else {
-							tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonEnqueueFailed)
-						}
-						e.logger().Errorw("Failed to enqueue trigger event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
-						tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
-						continue
-					}
-					e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueuedCounter(ctx)
-					e.logger().Debugw("Enqueued trigger event", "triggerID", triggerID, "eventID", eventID)
+
+					_ = e.Put(ctx, routed) // metrics are handled inside, error is ignored for now as this is a transitional method. Future dispatcher admitter (CRE-6176) will use this error.
 				}
 			}
 		})
@@ -641,59 +750,6 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	return nil
 }
 
-func (e *Engine) Subscribe(ctx context.Context) ([]*sdkpb.TriggerSubscription, error) {
-	// call into the workflow to get trigger subscriptions
-	subCtx, subCancel, err := e.cfg.LocalLimiters.TriggerSubscriptionTime.WithTimeout(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer subCancel()
-
-	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
-	if err != nil {
-		return nil, err
-	}
-	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
-	defer close(userLogChan)
-	e.srvcEng.Go(func(_ context.Context) {
-		e.emitUserLogs(subCtx, userLogChan, e.cfg.WorkflowID, e.eventLabels())
-	})
-
-	var timeProvider TimeProvider = &types.LocalTimeProvider{}
-	if !e.cfg.UseLocalTimeProvider {
-		timeProvider = NewDonTimeProvider(e.cfg.DonTimeStore, e.cfg.WorkflowID, e.donTimeRequestTimeout(subCtx, e.cfg.LocalLimiters.DONTimeRequestTimeout), e.logger(), e.metrics)
-	}
-
-	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if moduleExecuteMaxResponseSizeBytes < 0 {
-		return nil, fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
-	}
-	result, err := e.cfg.Module.Execute(subCtx, &sdkpb.ExecuteRequest{
-		Request:         &sdkpb.ExecuteRequest_Subscribe{},
-		MaxResponseSize: uint64(moduleExecuteMaxResponseSizeBytes),
-		Config:          e.cfg.WorkflowConfig,
-	}, NewDisallowedExecutionHelper(e.logger(), userLogChan, timeProvider, e.secretsFetcher(e.cfg.WorkflowID)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute subscribe: %w", err)
-	}
-	if result.GetError() != "" {
-		return nil, fmt.Errorf("failed to execute subscribe: %s", result.GetError())
-	}
-	subs := result.GetTriggerSubscriptions()
-	if subs == nil {
-		return nil, errors.New("subscribe result is nil")
-	}
-	err = e.cfg.LocalLimiters.TriggerSubscription.Check(ctx, len(subs.Subscriptions))
-	if err != nil {
-		return nil, err
-	}
-
-	return subs.Subscriptions, nil
-}
-
 func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 	for {
 		queueHead, err := e.allTriggerEventsQueueCh.Wait(ctx)
@@ -702,7 +758,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 		}
 		eventID := queueHead.event.Event.ID
 		triggerMetricLabels := e.metrics.With(platform.KeyTriggerID, queueHead.triggerCapID)
-		if e.draining.Load() {
+		if e.Draining() {
 			triggerMetricLabels.IncrementTriggerEventDequeueDroppedCounter(ctx)
 			triggerMetricLabels.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonDequeueDraining)
 			e.cfg.Hooks.OnTriggerEventDropped(queueHead.triggerCapID, eventID, "draining")
@@ -749,27 +805,6 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			_ = e.HandleTriggerEvent(ctx, routed)
 		})
 	}
-}
-
-func (e *Engine) HandleTriggerEvent(ctx context.Context, event trigger.RoutedTriggerEvent) error {
-	e.activeExecutions.Add(1)
-	defer e.activeExecutions.Add(-1)
-
-	eventID := event.Event.Event.ID
-	e.logger().Debugw("Scheduling a trigger event for execution", "eventID", eventID)
-	creCtx := contexts.CREValue(ctx)
-	// Tracer is no-op if DebugMode is false
-	ctx, span := e.tracer.Start(ctx, "workflow_execution",
-		trace.WithAttributes(
-			attribute.String("workflow_name", e.cfg.WorkflowName.String()),
-			attribute.String("version", "v2"),
-			attribute.String("org_id", creCtx.Org),
-			attribute.String("owner_id", creCtx.Owner),
-			attribute.String("workflow_id", creCtx.Workflow),
-		))
-	defer span.End()
-
-	return e.startExecution(ctx, event)
 }
 
 // startExecution initiates a new workflow execution, blocking until completed
