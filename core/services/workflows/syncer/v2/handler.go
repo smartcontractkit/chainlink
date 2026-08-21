@@ -123,13 +123,13 @@ type eventHandler struct {
 	tracer trace.Tracer
 
 	shardOrchestratorClient shardorchestrator.ClientInterface
-	shardingEnabled          bool
-	shardingFailoverEnabled  bool
-	myShardID                uint32
-	shardRoutingSteady       *shardownership.SteadySignal
-	shardResolver            shardownership.ShardResolver
-	shardDispatcher          remotetypes.Dispatcher
-	shardDonLookup           func(uint32) *commoncap.DON
+	shardingEnabled         bool
+	shardingFailoverEnabled bool
+	myShardID               uint32
+	shardRoutingSteady      *shardownership.SteadySignal
+	shardResolver           shardownership.ShardResolver
+	shardDispatcher         remotetypes.Dispatcher
+	shardDonLookup          func(uint32) *commoncap.DON
 
 	shardFailoverServices []services.Service
 	shardFailoverMu       sync.Mutex
@@ -1252,11 +1252,11 @@ func (h *eventHandler) newV2EngineConfig(
 		SdkName:                       sdkName,
 
 		ShardOrchestratorClient: h.shardOrchestratorClient,
-		ShardingEnabled:          h.shardingEnabled,
-		ShardingFailoverEnabled:  h.shardingFailoverEnabled,
-		MyShardID:                h.myShardID,
-		ShardRoutingSteady:       h.shardRoutingSteady,
-		ShardResolver:            h.shardResolver,
+		ShardingEnabled:         h.shardingEnabled,
+		ShardingFailoverEnabled: h.shardingFailoverEnabled,
+		MyShardID:               h.myShardID,
+		ShardRoutingSteady:      h.shardRoutingSteady,
+		ShardResolver:           h.shardResolver,
 	}
 
 	if h.shardingFailoverEnabled && h.shardDispatcher != nil {
@@ -1302,11 +1302,11 @@ func (h *eventHandler) wireShardFailoverHooks(cfg *v2.EngineConfig) {
 		cfg.Hooks.OnExecutionCompleted = func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
 			execStatus := mapExecutionStatus(status, errClass)
 			sender.Send(context.Background(), &ringpb.ExecutionCompleted{
-				WorkflowId:      workflowID,
-				TriggerEventId:  triggerEventID,
-				TriggerIndex:    uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
-				Status:          execStatus,
-				PrimaryShardId:  h.myShardID,
+				WorkflowId:     workflowID,
+				TriggerEventId: triggerEventID,
+				TriggerIndex:   uint32(triggerIndex), //nolint:gosec // G115: triggerIndex is small
+				Status:         execStatus,
+				PrimaryShardId: h.myShardID,
 			})
 		}
 
@@ -1397,6 +1397,7 @@ func mapExecutionStatus(status string, errClass events.ErrorClassification) ring
 		return ringpb.ExecutionStatus_EXECUTION_STATUS_UNSPECIFIED
 	}
 }
+
 // This will be called when the engine completes initialization (including trigger subscriptions).
 // We compose with any existing hook to avoid overwriting test hooks or other user-provided hooks.
 func (h *eventHandler) wireInitDoneHook(cfg *v2.EngineConfig, initDone chan<- error) {
