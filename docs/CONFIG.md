@@ -2324,6 +2324,7 @@ LogExportInterval = '1s' # Default
 LogMaxQueueSize = 2048 # Default
 MetricViewsDenyAttributes = ['event_id'] # Default
 MetricCardinalityLimit = 100000 # Default
+MetricExportBatchSize = 0 # Default
 ```
 Telemetry holds OTEL settings.
 This data includes open telemetry metrics, traces, & logs.
@@ -2533,6 +2534,12 @@ Empty disables default Beholder metric attribute deny views.
 MetricCardinalityLimit = 100000 # Default
 ```
 MetricCardinalityLimit sets the OTel SDK per-instrument attribute-set limit (0 disables).
+
+### MetricExportBatchSize
+```toml
+MetricExportBatchSize = 0 # Default
+```
+MetricExportBatchSize is the maximum number of metric data points in each OTLP export request. A positive value enables experimental SDK-side batching; 0 disables it. This is a count, not a byte limit, and does not replace the collector receive limit.
 
 ## Telemetry.ResourceAttributes
 ```toml
