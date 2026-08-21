@@ -177,6 +177,9 @@ NOOPs = "NOOPs"
 noop = "noop"
 noops = "noops"
 
+# ned = name for secondary noop
+ned = "ned"
+
 # PostgreSQL index types & valid English spelling variants
 brin = "brin"
 BRIN = "BRIN"
@@ -184,20 +187,3 @@ writeable = "writeable"
 transferrable = "transferrable"
 supercedes = "supercedes"
 unparseable = "unparseable"
-
-# Go codebase idioms & test abbreviations
-Statuser = "Statuser"
-Datas = "Datas"
-aspec = "aspec"
-exis = "exis"
-eis = "eis"
-ot = "ot"
-ned = "ned"
-ful = "ful"
-fuls = "fuls"
-wrk = "wrk"
-DONN = "DONN"
-Failer = "Failer"
-Successer = "Successer"
-BA = "BA"
-ba = "ba"

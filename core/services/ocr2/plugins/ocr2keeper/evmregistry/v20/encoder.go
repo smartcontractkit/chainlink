@@ -28,7 +28,7 @@ var (
 	ErrUnexpectedResult = errors.New("unexpected result struct")
 	packFn              = reportArgs.Pack
 	unpackIntoMapFn     = reportArgs.UnpackIntoMap
-	mKeys               = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas"}
+	mKeys               = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformData"}
 	reportArgs          = abi.Arguments{
 		{Name: mKeys[0], Type: Uint256},
 		{Name: mKeys[1], Type: Uint256},

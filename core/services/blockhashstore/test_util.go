@@ -31,9 +31,9 @@ func (t *TestCoordinator) Requests(_ context.Context, fromBlock uint64, toBlock 
 
 func (t *TestCoordinator) Fulfillments(_ context.Context, fromBlock uint64) ([]Event, error) {
 	var result []Event
-	for _, ful := range t.FulfillmentEvents {
-		if ful.Block >= fromBlock {
-			result = append(result, ful)
+	for _, fulfilment := range t.FulfillmentEvents {
+		if fulfilment.Block >= fromBlock {
+			result = append(result, fulfilment)
 		}
 	}
 	return result, nil

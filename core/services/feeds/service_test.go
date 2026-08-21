@@ -2629,12 +2629,12 @@ updateInterval = "30s"
 		{
 			name: "failed due to spec already approved",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 				}
-				svc.orm.On("GetSpec", mock.Anything, aspec.ID, mock.Anything).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, aSpec.ID, mock.Anything).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -3460,12 +3460,12 @@ updateInterval = "20m"
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -3864,12 +3864,12 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -4406,12 +4406,12 @@ chainID = 0
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,

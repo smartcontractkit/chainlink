@@ -49,10 +49,10 @@ type ExternalInitiatorsController struct {
 
 func (eic *ExternalInitiatorsController) Index(c *gin.Context, size, page, offset int) {
 	ctx := c.Request.Context()
-	eis, count, err := eic.App.BridgeORM().ExternalInitiators(ctx, offset, size)
-	resources := make([]presenters.ExternalInitiatorResource, 0, len(eis))
-	for _, ei := range eis {
-		resources = append(resources, presenters.NewExternalInitiatorResource(ei))
+	externalInitiators, count, err := eic.App.BridgeORM().ExternalInitiators(ctx, offset, size)
+	resources := make([]presenters.ExternalInitiatorResource, 0, len(externalInitiators))
+	for _, initiator := range externalInitiators {
+		resources = append(resources, presenters.NewExternalInitiatorResource(initiator))
 	}
 
 	paginatedResponse(c, "externalInitiators", size, page, resources, count, err)

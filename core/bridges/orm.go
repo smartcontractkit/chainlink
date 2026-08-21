@@ -209,14 +209,14 @@ func (o *orm) BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeRe
 // --- External Initiator
 
 // ExternalInitiators returns a list of external initiators sorted by name
-func (o *orm) ExternalInitiators(ctx context.Context, offset int, limit int) (exis []ExternalInitiator, count int, err error) {
+func (o *orm) ExternalInitiators(ctx context.Context, offset int, limit int) (initiators []ExternalInitiator, count int, err error) {
 	err = o.transact(ctx, true, func(tx *orm) error {
 		if err = tx.ds.GetContext(ctx, &count, "SELECT COUNT(*) FROM external_initiators"); err != nil {
 			return pkgerrors.Wrap(err, "ExternalInitiators failed to get count")
 		}
 
 		sql := `SELECT * FROM external_initiators ORDER BY name asc LIMIT $1 OFFSET $2;`
-		if err = tx.ds.SelectContext(ctx, &exis, sql, limit, offset); err != nil {
+		if err = tx.ds.SelectContext(ctx, &initiators, sql, limit, offset); err != nil {
 			return pkgerrors.Wrap(err, "ExternalInitiators failed to load external_initiators")
 		}
 		return nil

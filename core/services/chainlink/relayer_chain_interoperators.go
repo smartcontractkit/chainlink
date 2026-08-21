@@ -32,7 +32,7 @@ type RelayerChainInteroperators interface {
 
 	LoopRelayerStorer
 	LegacyChainer
-	ChainsNodesStatuser
+	StatusReader
 }
 
 // LoopRelayerStorer is key-value like interface for storing and
@@ -45,6 +45,7 @@ type LoopRelayerStorer interface {
 // LegacyChainer is an interface for getting legacy chains
 // This will be deprecated/removed when products depend only
 // on the relayer interface.
+//
 // Deprecated: use the Relayer interface
 type LegacyChainer interface {
 	// Deprecated: use the relayer interface
@@ -57,21 +58,21 @@ type NetworkChainStatus struct {
 	types.ChainStatus
 }
 
-type ChainStatuser interface {
+type ChainStatusReader interface {
 	ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]NetworkChainStatus, int, error)
 }
 
-// NodesStatuser is an interface for node configuration and state.
+// NodeStatusReader is an interface for node configuration and state.
 // TODO BCF-2440, BCF-2511 may need Node(ctx,name) to get a node status by name
-type NodesStatuser interface {
+type NodeStatusReader interface {
 	NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []types.NodeStatus, count int, err error)
 }
 
-// ChainsNodesStatuser report statuses about chains and nodes
-type ChainsNodesStatuser interface {
-	ChainStatuser
-	NodesStatuser
+// StatusReader report statuses about chains and nodes
+type StatusReader interface {
+	ChainStatusReader
+	NodeStatusReader
 }
 
 var _ RelayerChainInteroperators = &CoreRelayerChainInteroperators{}
