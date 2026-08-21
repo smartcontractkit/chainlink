@@ -634,7 +634,6 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for registration check message")
 	}
-
 }
 
 func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {

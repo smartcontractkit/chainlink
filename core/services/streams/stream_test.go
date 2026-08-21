@@ -76,7 +76,7 @@ succeed;
 
 		t.Run("executes the pipeline (success)", func(t *testing.T) {
 			runner.run = &pipeline.Run{ID: 42}
-			runner.trrs = []pipeline.TaskRunResult{pipeline.TaskRunResult{ID: UUID}}
+			runner.trrs = []pipeline.TaskRunResult{{ID: UUID}}
 			runner.err = nil
 
 			run, trrs, err := strm.Run(ctx)

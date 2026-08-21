@@ -339,27 +339,27 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
 	return &ReportingPlugin{
-			lggr:                         r.lggr.Named("VaultReportingPlugin"),
-			store:                        r.store,
-			cfg:                          cfg,
-			metrics:                      metrics,
-			onchainCfg:                   config,
-			validator:                    validator,
-			lifecycle:                    r.lifecycle,
-			maxObservationBytes:          pluginLimits.MaxObservationBytes,
-			maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
-			unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
-				handle := ocr3_1types.BlobHandle{}
-				err := handle.UnmarshalBinary(data)
-				return handle, err
-			},
-			marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
-				return handle.MarshalBinary()
-			},
-		}, ocr3_1types.ReportingPluginInfo1{
-			Name:   "VaultReportingPlugin",
-			Limits: pluginLimits,
-		}, nil
+		lggr:                         r.lggr.Named("VaultReportingPlugin"),
+		store:                        r.store,
+		cfg:                          cfg,
+		metrics:                      metrics,
+		onchainCfg:                   config,
+		validator:                    validator,
+		lifecycle:                    r.lifecycle,
+		maxObservationBytes:          pluginLimits.MaxObservationBytes,
+		maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
+		unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
+			handle := ocr3_1types.BlobHandle{}
+			err := handle.UnmarshalBinary(data)
+			return handle, err
+		},
+		marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
+			return handle.MarshalBinary()
+		},
+	}, ocr3_1types.ReportingPluginInfo1{
+		Name:   "VaultReportingPlugin",
+		Limits: pluginLimits,
+	}, nil
 }
 
 type ReportingPlugin struct {
@@ -1955,8 +1955,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersObservation(ctx context.C
 
 	if listResp.Success {
 		if err := r.validateListSecretIdentifiersResponseSize(ctx, listReq.Owner, len(listResp.Identifiers)); err != nil {
-			var errBoundLimited limits.ErrorBoundLimited[int]
-			if errors.As(err, &errBoundLimited) {
+			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
 				return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d): %w", len(listResp.Identifiers), errBoundLimited.Limit, err)
 			}
 			return fmt.Errorf("failed to check max secrets per owner limit: %w", err)
@@ -2557,8 +2556,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: req.Id.Owner})
 	if ierr := r.cfg.MaxSecretsPerOwner.Check(ctx, count+1); ierr != nil {
-		var errBoundLimited limits.ErrorBoundLimited[int]
-		if errors.As(ierr, &errBoundLimited) {
+		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](ierr); ok {
 			return nil, newUserError(fmt.Sprintf("could not write to key value store: owner %s has reached maximum number of secrets (limit=%d)", req.Id.Owner, errBoundLimited.Limit))
 		}
 		return nil, fmt.Errorf("failed to check max secrets per owner limit: %w", ierr)

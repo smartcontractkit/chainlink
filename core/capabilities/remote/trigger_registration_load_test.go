@@ -442,7 +442,7 @@ func BenchmarkRegistrationProcessing(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		publisher.Receive(ctx, regMsg)
 	}
 

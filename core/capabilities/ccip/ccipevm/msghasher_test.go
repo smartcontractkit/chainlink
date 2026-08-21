@@ -154,7 +154,7 @@ func createEVM2EVMMessage(t *testing.T, messageHasher *message_hasher.MessageHas
 	}
 
 	var tokenAmounts []cciptypes.RampTokenAmount
-	for i := 0; i < len(sourceTokenDatas); i++ {
+	for range sourceTokenDatas {
 		extraData := utils.RandomBytes32()
 		encodedDestExecData, err := utils.ABIEncode(`[{ "type": "uint32" }]`, rand.Uint32())
 		require.NoError(t, err)

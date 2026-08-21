@@ -1314,8 +1314,7 @@ func customerFacingError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var fetchErr *types.ArtifactFetchError
-	if errors.As(err, &fetchErr) {
+	if fetchErr, ok := errors.AsType[*types.ArtifactFetchError](err); ok {
 		return errors.New(fetchErr.CustomerError())
 	}
 	return err

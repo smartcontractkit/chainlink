@@ -35,7 +35,7 @@ var _ consensusserver.ConsensusCapability = (*fakeConsensusNoDAG)(nil)
 
 func NewFakeConsensusNoDAG(signers []ocr2key.KeyBundle, lggr logger.Logger) *fakeConsensusNoDAG {
 	configDigest := ocr2types.ConfigDigest{}
-	for i := range len(configDigest) {
+	for i := range configDigest {
 		configDigest[i] = byte(i)
 	}
 	fc := &fakeConsensusNoDAG{

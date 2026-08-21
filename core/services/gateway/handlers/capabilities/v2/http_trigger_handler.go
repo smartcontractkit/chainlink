@@ -379,8 +379,7 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: workflowRef.workflowOwner, Workflow: workflowID})
 	if err := h.userRateLimiter.AllowErr(ctx); err != nil {
 		lggr := logger.With(h.lggr, platform.KeyWorkflowID, workflowID, platform.KeyWorkflowOwner, workflowRef.workflowOwner, "requestID", requestID, "err", err)
-		var errLimited limits.ErrorRateLimited
-		if errors.As(err, &errLimited) {
+		if errLimited, ok := errors.AsType[limits.ErrorRateLimited](err); ok {
 			switch errLimited.Scope {
 			case settings.ScopeWorkflow:
 				lggr.Errorf("failed to start execution: per workflow rate limit exceeded")

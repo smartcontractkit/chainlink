@@ -3,12 +3,13 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math/big"
+	"slices"
 	"strconv"
 	"time"
 
 	"github.com/avast/retry-go/v4"
-	"golang.org/x/exp/maps"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -147,7 +148,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	// has a relayer for a particular chain, it can also transmit to that chain,
 	// so we also fetch the transmitter keys for all relayers.
 	allRelayers := d.relayers.GetIDToRelayerMap()
-	transmitterKeys, err := d.getTransmitterKeys(ctx, maps.Keys(allRelayers))
+	transmitterKeys, err := d.getTransmitterKeys(ctx, slices.AppendSeq(make([]types.RelayID, 0, len(allRelayers)), maps.Keys(allRelayers)))
 	if err != nil {
 		return nil, err
 	}

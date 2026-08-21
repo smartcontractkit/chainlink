@@ -123,7 +123,7 @@ func TestLPSkipController_LPSkipToBlock_HappyPath(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req, err := http.NewRequestWithContext(t.Context(), "POST", "/v2/lp_skip_to_block", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/v2/lp_skip_to_block", bytes.NewReader(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 

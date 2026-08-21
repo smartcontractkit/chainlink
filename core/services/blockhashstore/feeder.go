@@ -2,13 +2,14 @@ package blockhashstore
 
 import (
 	"context"
-	stderrors "errors"
+	"errors"
+	"fmt"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -109,7 +110,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 	latestBlock, err := f.latestBlock(ctx)
 	if err != nil {
 		f.lggr.Errorw("Failed to fetch current block number", "err", err)
-		return errors.Wrap(err, "fetching block number")
+		return fmt.Errorf("fetching block number: %w", err)
 	}
 
 	fromBlock, toBlock := GetSearchWindow(int(latestBlock), f.waitBlocks, f.lookbackBlocks) //nolint:gosec // G115
@@ -143,7 +144,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 			f.lggr.Errorw("Failed to check if block is already stored, attempting to store anyway",
 				"err", err,
 				"block", block)
-			errs = stderrors.Join(errs, errors.Wrap(err, "checking if stored"))
+			errs = errors.Join(errs, fmt.Errorf("checking if stored: %w", err))
 		} else if stored {
 			// IsStored() can be based on unfinalized blocks. Therefore, f.stored mapping is not updated
 			f.lggr.Infow("Blockhash already stored",
@@ -156,7 +157,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 		err = f.bhs.Store(ctx, block)
 		if err != nil {
 			f.lggr.Errorw("Failed to store block", "err", err, "block", block)
-			errs = stderrors.Join(errs, errors.Wrap(err, "storing block"))
+			errs = errors.Join(errs, fmt.Errorf("storing block: %w", err))
 			continue
 		}
 
@@ -214,7 +215,7 @@ func (f *Feeder) runTrusted(
 					"err", err,
 					"block", block)
 				f.errsLock.Lock()
-				errs = stderrors.Join(errs, errors.Wrap(err, "checking if stored"))
+				errs = errors.Join(errs, fmt.Errorf("checking if stored: %w", err))
 				f.errsLock.Unlock()
 			} else if stored {
 				f.lggr.Infow("Blockhash already stored",
@@ -243,12 +244,14 @@ func (f *Feeder) runTrusted(
 
 		// Get all logpoller blocks for the range including the batch and the latest block,
 		// as to include the recent blockhash.
-		lpBlocks, err := f.lp.GetBlocksRange(ctx, append(maps.Keys(batch), latestBlock))
+		blocks := slices.AppendSeq(make([]uint64, 0, len(batch)+1), maps.Keys(batch))
+		blocks = append(blocks, latestBlock)
+		lpBlocks, err := f.lp.GetBlocksRange(ctx, blocks)
 		if err != nil {
 			f.lggr.Errorw("Failed to get blocks range",
 				"err", err,
 				"blocks", batch)
-			errs = stderrors.Join(errs, errors.Wrap(err, "log poller get blocks range"))
+			errs = errors.Join(errs, fmt.Errorf("log poller get blocks range: %w", err))
 			return errs
 		}
 
@@ -284,7 +287,7 @@ func (f *Feeder) runTrusted(
 				"latestBlock", latestBlock,
 				"latestBlockhash", latestBlockhash,
 			)
-			errs = stderrors.Join(errs, errors.Wrap(err, "checking if stored"))
+			errs = errors.Join(errs, fmt.Errorf("checking if stored: %w", err))
 			return errs
 		}
 		for i, block := range blocksToStore {

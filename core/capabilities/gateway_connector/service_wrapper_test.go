@@ -294,7 +294,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscover(t *testing.T) {
 			t.Parallel()
 
 			keystoreKeysV2 := make([]ethkey.KeyV2, tt.keystoreKeyCount)
-			for i := 0; i < tt.keystoreKeyCount; i++ {
+			for i := range tt.keystoreKeyCount {
 				key, _ := testutils.NewPrivateKeyAndAddress(t)
 				keystoreKeysV2[i] = ethkey.FromPrivateKey(key)
 			}

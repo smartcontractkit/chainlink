@@ -275,8 +275,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersContribution(ctx context.
 	}
 
 	if err := r.validateListSecretIdentifiersResponseSize(ctx, req.Owner, len(resp.Identifiers)); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[int]
-		if errors.As(err, &errBoundLimited) {
+		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
 			return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d): %w", len(resp.Identifiers), errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check max secrets per owner limit: %w", err)
@@ -334,8 +333,7 @@ func (r *ReportingPlugin) validateEncryptedShareSize(ctx context.Context, es *va
 		return err
 	}
 	if err := r.cfg.MaxShareLengthBytes.Check(ctx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(err, &errBoundLimited) {
+		if _, ok := errors.AsType[limits.ErrorBoundLimited[pkgconfig.Size]](err); ok {
 			return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
 		}
 		return errors.New("failed to check share size")
