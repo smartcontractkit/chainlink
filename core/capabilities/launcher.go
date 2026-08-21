@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -58,6 +59,11 @@ type launcher struct {
 	// open they reject requests whose Metadata.WorkflowDonID does not match the
 	// authenticated calling DON.
 	workflowDONBindingGate limits.GateLimiter
+
+	// workflowTagHashFlag controls whether WorkflowTag is included in the
+	// request hash. ON by default to match current prod behavior; can be
+	// deactivated after rollout to exclude WorkflowTag from the requestID.
+	workflowTagHashFlag limits.RangeLimiter[commonconfig.Timestamp]
 
 	muSubServices sync.Mutex
 	subServices   []services.Service
@@ -114,6 +120,10 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow DON binding gate limiter: %w", err)
 	}
+	workflowTagHashFlag, err := limits.MakeRangeLimiter[commonconfig.Timestamp](limitsFactory, cresettings.Default.PerWorkflow.FeatureRequestHashIncludeWorkflowTagActivePeriod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workflow tag hash flag limiter: %w", err)
+	}
 	return &launcher{
 		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		dispatcher: dispatcher,
@@ -130,6 +140,7 @@ func NewLauncher(
 		p2pStreamConfig:        p2pStreamConfig,
 		metrics:                metrics,
 		workflowDONBindingGate: workflowDONBindingGate,
+		workflowTagHashFlag:    workflowTagHashFlag,
 	}, nil
 }
 
@@ -177,6 +188,11 @@ func (w *launcher) Close() error {
 		if w.workflowDONBindingGate != nil {
 			if err := w.workflowDONBindingGate.Close(); err != nil {
 				w.lggr.Errorw("failed to close workflow DON binding gate limiter", "error", err)
+			}
+		}
+		if w.workflowTagHashFlag != nil {
+			if err := w.workflowTagHashFlag.Close(); err != nil {
+				w.lggr.Errorw("failed to close workflow tag hash flag limiter", "error", err)
 			}
 		}
 		return nil
@@ -760,13 +776,14 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 			}
 
 			var requestHasher remotetypes.MessageHasher
+			optInCfg := executable.OptInHasherConfig{IncludeWorkflowTag: w.workflowTagHashFlag}
 			switch config.RemoteExecutableConfig.RequestHasherType {
 			case capabilities.RequestHasherType_Simple:
-				requestHasher = executable.NewSimpleHasher()
+				requestHasher = executable.NewSimpleHasher(optInCfg)
 			case capabilities.RequestHasherType_WriteReportExcludeSignatures:
-				requestHasher = executable.NewWriteReportExcludeSignaturesHasher()
+				requestHasher = executable.NewWriteReportExcludeSignaturesHasher(optInCfg)
 			default:
-				requestHasher = executable.NewSimpleHasher()
+				requestHasher = executable.NewSimpleHasher(optInCfg)
 			}
 
 			err := server.SetConfig(
