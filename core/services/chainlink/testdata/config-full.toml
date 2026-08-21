@@ -471,6 +471,7 @@ EnabledOCR2PluginTypes = ['median']
 
 [Sharding]
 ShardingEnabled = false
+ShardingFailoverEnabled = false
 ArbiterPort = 9876
 ArbiterPollInterval = '12s'
 ArbiterRetryInterval = '12s'
