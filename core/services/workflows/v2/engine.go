@@ -405,9 +405,8 @@ func (e *Engine) Put(ctx context.Context, event trigger.RoutedTriggerEvent) erro
 	}); err != nil {
 		tm := e.metrics.With(platform.KeyTriggerID, triggerID)
 		tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
-		var errFull limits.ErrorQueueFull
 		retErr := ErrEnqueueFailed
-		if errors.As(err, &errFull) {
+		if _, ok := errors.AsType[limits.ErrorQueueFull](err); ok {
 			// queue full, drop the event
 			e.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
 			tm.IncrementWorkflowTriggerEventQueueFullCounter(ctx)
@@ -557,7 +556,7 @@ func (e *Engine) init(ctx context.Context) {
 	}
 
 	cre := contexts.CRE{Org: e.orgID, Owner: e.cfg.WorkflowOwner, Workflow: e.cfg.WorkflowID}
-	if err := e.cfg.Hooks.OnSubscriptionsReady(subscriptions, cre); err != nil {
+	if err = e.cfg.Hooks.OnSubscriptionsReady(subscriptions, cre); err != nil {
 		e.logger().Errorw("OnSubscriptionsReady hook failed", "err", err)
 		e.cfg.Hooks.OnInitialized(err)
 		return
