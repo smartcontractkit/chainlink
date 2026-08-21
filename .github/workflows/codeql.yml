@@ -43,17 +43,18 @@ jobs:
             build-mode: none
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@d141ef83eb66d096ce8afc767e09115a65c63b60 # v2.1.2
-
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
 
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
+      # Note: CodeQL writes the build cache on push to default branch (develop).
+      # On release/* branches and PRs, build-cache-write resolves to never (restore-only).
       - name: Set up Go
         if: matrix.language == 'go'
         uses: ./.github/actions/setup-go
         with:
-          restore-build-cache-only: ${{ github.event_name != 'push' }}
+          build-cache-write: default-branch-only
           build-cache-version: "codeql"
 
       - name: Touching core/web/assets/index.html
