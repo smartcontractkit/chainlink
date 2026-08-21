@@ -51,7 +51,7 @@ hashed_default_assignment = false
 	const numWorkflows = 3
 	workflowIDs := make([]string, 0, numWorkflows)
 	for i := range numWorkflows {
-		workflowName := fmt.Sprintf("failover%d", i)
+		workflowName := fmt.Sprintf("failover-run%d", i)
 		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
 		workflowIDs = append(workflowIDs, workflowID)
 	}
