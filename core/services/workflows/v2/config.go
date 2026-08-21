@@ -493,7 +493,8 @@ func (h *LifecycleHooks) setDefaultHooks() {
 		h.OnExecutionFinished = func(executionID string, status string) {}
 	}
 	if h.OnExecutionCompleted == nil {
-		h.OnExecutionCompleted = func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {}
+		h.OnExecutionCompleted = func(workflowID string, triggerEventID string, triggerIndex int, status string, errClass events.ErrorClassification) {
+		}
 	}
 	if h.OnRateLimited == nil {
 		h.OnRateLimited = func(executionID string) {}

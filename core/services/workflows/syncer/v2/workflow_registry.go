@@ -848,11 +848,8 @@ func (w *workflowRegistry) filterWorkflowsByShard(ctx context.Context, workflows
 				if err != nil || !found {
 					continue
 				}
-				for _, s := range shards {
-					if s == w.myShardID {
-						filtered = append(filtered, wf)
-						break
-					}
+				if slices.Contains(shards, w.myShardID) {
+					filtered = append(filtered, wf)
 				}
 			} else {
 				if shardID, ok := mappings[id]; ok && shardID == w.myShardID {
