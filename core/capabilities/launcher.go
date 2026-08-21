@@ -7,6 +7,9 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/smartcontractkit/libocr/ragep2p"
+	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -23,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-	"github.com/smartcontractkit/libocr/ragep2p"
-	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
 var defaultStreamConfig = p2ptypes.StreamConfig{
