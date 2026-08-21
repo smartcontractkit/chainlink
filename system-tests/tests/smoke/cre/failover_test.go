@@ -3,7 +3,6 @@ package cre
 import (
 	"context"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,10 +12,7 @@ import (
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
-	ring_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
-	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	stvault "github.com/smartcontractkit/chainlink/system-tests/lib/cre/vault"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
@@ -137,30 +133,3 @@ hashed_default_assignment = false
 [per_org_assignment]
   org_test_failover = [1,0]
 `
-
-func waitForFailoverLogNeedle(t *testing.T, testEnv *ttypes.TestEnvironment, shardName string, needle string, timeout time.Duration) {
-	t.Helper()
-	testLogger := framework.L
-
-	require.Eventually(t, func() bool {
-		for _, nodeSet := range testEnv.Config.NodeSets {
-			if !strings.Contains(nodeSet.Name, shardName) {
-				continue
-			}
-			if nodeSet.Out == nil {
-				continue
-			}
-			for _, clNode := range nodeSet.Out.CLNodes {
-				logs, logErr := clNode.Container.FilterLogsByString(needle)
-				if logErr != nil {
-					testLogger.Warn().Err(logErr).Str("container", clNode.Container.Name).Msg("failed to filter logs")
-					continue
-				}
-				if len(logs) > 0 {
-					return true
-				}
-			}
-		}
-		return false
-	}, timeout, 5*time.Second, "log needle %q not found on shard %q within timeout", needle, shardName)
-}
