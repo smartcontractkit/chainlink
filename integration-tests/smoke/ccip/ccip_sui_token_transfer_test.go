@@ -2290,7 +2290,7 @@ func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(
 			// token_receiver == @0x0 iff the message carries no token amounts, else
 			// it aborts EInvalidTokenReceiver at init_execute and the whole
 			// execute PTB reverts, rolling back ExecutionStateChanged.
-			ExtraArgs:        testhelpers.MakeSuiExtraArgs(1_000_000, true, receiverObjectIDs, [32]byte{}),
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(1_000_000, true, receiverObjectIDs, [32]byte{}),
 		},
 	}
 	honestStartBlocks, honestExpectedSeqNums, honestExpectedExecStates, _ := testhelpers.TransferMultiple(ctx, t, e.Env, state, honestTcs)
