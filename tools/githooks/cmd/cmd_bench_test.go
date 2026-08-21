@@ -16,6 +16,8 @@ func BenchmarkCommandsHelp(b *testing.B) {
 		{"test", "--help"},
 		{"tidy", "--help"},
 		{"generate", "--help"},
+		{"end-of-file-fixer", "--help"},
+		{"whitespace-fixer", "--help"},
 	}
 
 	for _, args := range commands {

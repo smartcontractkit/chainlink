@@ -60,6 +60,7 @@ func TestRun(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Len(t, mock.runs, 2)
+
 		assert.Equal(t, "/repo", mock.runs[0].dir)
 		assert.Equal(t, "/repo/tools/test/.bin/test", mock.runs[0].name)
 		assert.Equal(t, []string{"-short", "./core/logger"}, mock.runs[0].args)
@@ -91,7 +92,7 @@ func TestRun(t *testing.T) {
 
 		err := testrunner.Run(t.Context(), cfg)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "test failed")
+		assert.Contains(t, err.Error(), "tests failed on .")
 	})
 
 	t.Run("no modules to test", func(t *testing.T) {
