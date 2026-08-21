@@ -39,7 +39,7 @@ func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	t.Run("effective", func(t *testing.T) {
-		resp, cleanup := client.Get("/v2/config/v2")
+		resp, cleanup := client.Get("/v2/config/v2") //nolint:bodyclose // body closed via t.Cleanup(cleanup)
 		t.Cleanup(cleanup)
 		var effective web.ConfigV2Resource
 		cltest.ParseJSONAPIResponse(t, resp, &effective)
@@ -48,7 +48,7 @@ func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 	})
 
 	t.Run("user", func(t *testing.T) {
-		resp, cleanup := client.Get("/v2/config/v2?userOnly=true")
+		resp, cleanup := client.Get("/v2/config/v2?userOnly=true") //nolint:bodyclose // body closed via t.Cleanup(cleanup)
 		t.Cleanup(cleanup)
 		var user web.ConfigV2Resource
 		cltest.ParseJSONAPIResponse(t, resp, &user)
@@ -97,7 +97,7 @@ func TestRendererTable_RenderExternalInitiatorAuthentication(t *testing.T) {
 			tw := &testWriter{test.content, t, false}
 			r := cmd.RendererTable{Writer: tw}
 
-			assert.NoError(t, r.Render(&eia))
+			require.NoError(t, r.Render(&eia))
 			assert.True(t, tw.found)
 		})
 	}

@@ -190,7 +190,7 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 }
 
 // RenderTable implements TableRenderer
-func (p *JobPresenter) RenderTable(rt RendererTable) error {
+func (p JobPresenter) RenderTable(rt RendererTable) error {
 	table := rt.newTable([]string{"ID", "Name", "Type", "Tasks", "Created At"})
 	table.SetAutoMergeCells(true)
 	for _, r := range p.ToRows() {
@@ -293,6 +293,7 @@ func (s *Shell) DeleteJob(c *cli.Context) error {
 	if err != nil {
 		return s.errorOut(err)
 	}
+	defer resp.Body.Close()
 	_, err = s.parseResponse(resp)
 	if err != nil {
 		return s.errorOut(err)

@@ -38,6 +38,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/promutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -89,7 +90,7 @@ func metricViews() []sdkmetric.View {
 	)
 }
 
-func initGlobals(cfgProm config.Prometheus, cfgTelemetry config.Telemetry, cfgTracing config.Tracing, lggr logger.Logger, beholderClient *beholder.Client) error {
+func initGlobals(cfgProm config.Prometheus, cfgTelemetry config.Telemetry, cfgTracing config.Tracing, lggr common.Logger, beholderClient *beholder.Client) error {
 	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
 	var err error
 	initGlobalsOnce.Do(func() {
@@ -115,7 +116,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTelemetry config.Telemetry, cfgTr
 	return err
 }
 
-func tracingConfig(cfgTracing config.Tracing, lggr logger.Logger) loop.TracingConfig {
+func tracingConfig(cfgTracing config.Tracing, lggr common.Logger) loop.TracingConfig {
 	return loop.TracingConfig{
 		Enabled:         cfgTracing.Enabled(),
 		CollectorTarget: cfgTracing.CollectorTarget(),
@@ -129,7 +130,7 @@ func tracingConfig(cfgTracing config.Tracing, lggr logger.Logger) loop.TracingCo
 // newBeholderClient builds a Beholder client from tracing/telemetry config
 // and sets the CSA signer used for auth header refresh.
 func newBeholderClient(
-	lggr logger.Logger,
+	lggr common.Logger,
 	keyStore keystore.Master,
 	cfgTracing config.Tracing,
 	cfgTelemetry config.Telemetry,
@@ -217,10 +218,10 @@ var ErrNoAPICredentialsAvailable = errors.New("API credentials must be supplied"
 type Shell struct {
 	Renderer
 	Config                         chainlink.GeneralConfig // initialized in Before
-	Logger                         logger.Logger           // initialized in Before
-	Registerer                     prometheus.Registerer   // initialized in Before
-	CloseLogger                    func() error            // called in After
-	SetOtelCore                    func(zapcore.Core)      // reference to UpdatableCore.Update
+	Logger                         logger.Logger
+	Registerer                     prometheus.Registerer // initialized in Before
+	CloseLogger                    func() error          // called in After
+	SetOtelCore                    func(zapcore.Core)    // reference to UpdatableCore.Update
 	AppFactory                     AppFactory
 	KeyStoreAuthenticator          TerminalKeyStoreAuthenticator
 	FallbackAPIInitializer         APIInitializer
@@ -361,6 +362,7 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 		backupCfg := cfg.Backup()
 		if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.OnVersionUpgrade() {
 			if err = takeBackupIfVersionUpgrade(cfg.URL(), rootDir, cfg.Backup(), appLggr, appv, dbv, healthReportPort); err != nil {
+				//nolint:gocritic // errors.Is/strings.Contains chain, not a switch candidate
 				if errors.Is(err, sql.ErrNoRows) {
 					appLggr.Debugf("Failed to find any node version in the DB: %v", err)
 				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
@@ -389,7 +391,7 @@ func handleNodeVersioning(ctx context.Context, db *sqlx.DB, appLggr logger.Logge
 	return nil
 }
 
-func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbackup.BackupConfig, lggr logger.Logger, appv, dbv *semver.Version, healthReportPort uint16) (err error) {
+func takeBackupIfVersionUpgrade(dbURL url.URL, rootDir string, cfg periodicbackup.BackupConfig, lggr logger.Logger, appv, dbv *semver.Version, healthReportPort uint16) (err error) {
 	if appv == nil {
 		lggr.Debug("Application version is missing, skipping automatic DB backup.")
 		return nil
@@ -404,7 +406,7 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 	}
 	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set Database.Backup.OnVersionUpgrade=false. To disable backups entirely set Database.Backup.Mode=none.", appv.String(), dbv.String())
 
-	databaseBackup, err := periodicbackup.NewDatabaseBackup(dbUrl, rootDir, cfg, lggr)
+	databaseBackup, err := periodicbackup.NewDatabaseBackup(dbURL, rootDir, cfg, lggr)
 	if err != nil {
 		return errors.Wrap(err, "takeBackupIfVersionUpgrade failed")
 	}
@@ -541,7 +543,7 @@ type server struct {
 	httpServer *http.Server
 	tlsServer  *http.Server
 	handler    *gin.Engine
-	lggr       logger.Logger
+	lggr       common.Logger
 }
 
 func (s *server) runFn(ip net.IP, port uint16, writeTimeout time.Duration) func() error {
@@ -594,16 +596,16 @@ type authenticatedHTTPClient struct {
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(lggr logger.Logger, clientOpts ClientOpts, cookieAuth CookieAuthenticator, sessionRequest sessions.SessionRequest) HTTPClient {
+func NewAuthenticatedHTTPClient(lggr common.Logger, clientOpts ClientOpts, cookieAuth CookieAuthenticator, sessionRequest sessions.SessionRequest) HTTPClient {
 	return &authenticatedHTTPClient{
-		client:         newHttpClient(lggr, clientOpts.InsecureSkipVerify),
+		client:         newHTTPClient(lggr, clientOpts.InsecureSkipVerify),
 		cookieAuth:     cookieAuth,
 		sessionRequest: sessionRequest,
 		remoteNodeURL:  clientOpts.RemoteNodeURL,
 	}
 }
 
-func newHttpClient(lggr logger.Logger, insecureSkipVerify bool) *http.Client {
+func newHTTPClient(lggr common.Logger, insecureSkipVerify bool) *http.Client {
 	tr := &http.Transport{
 		// User enables this at their own risk!
 		// #nosec G402
@@ -702,13 +704,13 @@ type ClientOpts struct {
 type SessionCookieAuthenticator struct {
 	config ClientOpts
 	store  CookieStore
-	lggr   logger.SugaredLogger
+	lggr   common.SugaredLogger
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(config ClientOpts, store CookieStore, lggr logger.Logger) CookieAuthenticator {
-	return &SessionCookieAuthenticator{config: config, store: store, lggr: logger.Sugared(lggr)}
+func NewSessionCookieAuthenticator(config ClientOpts, store CookieStore, lggr common.Logger) CookieAuthenticator {
+	return &SessionCookieAuthenticator{config: config, store: store, lggr: common.Sugared(lggr)}
 }
 
 // Cookie Returns the previously saved authentication cookie.
@@ -719,7 +721,7 @@ func (t *SessionCookieAuthenticator) Cookie() (*http.Cookie, error) {
 // Authenticate retrieves a session ID via a cookie and saves it to disk.
 func (t *SessionCookieAuthenticator) Authenticate(ctx context.Context, sessionRequest sessions.SessionRequest) (*http.Cookie, error) {
 	b := new(bytes.Buffer)
-	err := json.NewEncoder(b).Encode(sessionRequest)
+	err := json.NewEncoder(b).Encode(sessionRequest) //nolint:gosec // SessionRequest.Password is the login payload, not a leaked secret
 	if err != nil {
 		return nil, err
 	}
@@ -730,8 +732,8 @@ func (t *SessionCookieAuthenticator) Authenticate(ctx context.Context, sessionRe
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := newHttpClient(t.lggr, t.config.InsecureSkipVerify)
-	resp, err := client.Do(req)
+	client := newHTTPClient(t.lggr, t.config.InsecureSkipVerify)
+	resp, err := client.Do(req) //nolint:bodyclose // closed via defer t.lggr.ErrorIfFn below
 	if err != nil {
 		return nil, err
 	}
@@ -795,7 +797,7 @@ type DiskCookieStore struct {
 
 // Save stores a cookie.
 func (d DiskCookieStore) Save(cookie *http.Cookie) error {
-	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0o600)
+	return os.WriteFile(d.cookiePath(), []byte(cookie.String()), 0o600) //nolint:gosec // cookiePath derives from trusted config RootDir, not user input
 }
 
 // Removes any stored cookie.
@@ -829,11 +831,11 @@ func (d DiskCookieStore) cookiePath() string {
 
 type UserCache struct {
 	dir        string
-	lggr       func() logger.Logger // func b/c we don't have the final logger at construction time
+	lggr       func() common.Logger // func b/c we don't have the final logger at construction time
 	ensureOnce sync.Once
 }
 
-func NewUserCache(subdir string, lggr func() logger.Logger) (*UserCache, error) {
+func NewUserCache(subdir string, lggr func() common.Logger) (*UserCache, error) {
 	cd, err := os.UserCacheDir()
 	if err != nil {
 		return nil, err
@@ -993,7 +995,7 @@ func (f fileAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAd
 	return user, nil
 }
 
-func attemptAssumeAdminUser(users []sessions.User, lggr logger.Logger) (sessions.User, bool) {
+func attemptAssumeAdminUser(users []sessions.User, lggr common.Logger) (sessions.User, bool) {
 	if len(users) == 0 {
 		return sessions.User{}, false
 	}
@@ -1029,7 +1031,7 @@ func attemptAssumeAdminUser(users []sessions.User, lggr logger.Logger) (sessions
 
 var ErrNoCredentialFile = errors.New("no API user credential file was passed")
 
-func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionRequest, error) {
+func credentialsFromFile(file string, lggr common.Logger) (sessions.SessionRequest, error) {
 	if len(file) == 0 {
 		return sessions.SessionRequest{}, ErrNoCredentialFile
 	}

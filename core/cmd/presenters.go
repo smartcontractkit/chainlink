@@ -14,7 +14,7 @@ package cmd
 //		JAID
 //		presenters.JobResource
 //	}
-type JAID struct {
+type JAID struct { //nolint:recvcheck // JAID requires value receiver for GetID (MarshalIdentifier) and pointer receiver for SetID (UnmarshalIdentifier)
 	ID string `json:"id"`
 }
 
