@@ -67,6 +67,10 @@ var (
 // to validation on the forwarder side. What matters is DON ID and the set of signer public keys.
 const pinnedWorkflowDonConfigVersion = 1
 
+// Acknowledger check is only valid for M1, in M2 the OCR reporting plugin implements the Acknowledger interface.
+var _ trigger.Acknowledger = (*Engine)(nil)
+var _ trigger.EventSink = (*Engine)(nil)
+
 type Engine struct {
 	services.Service
 	srvcEng *services.Engine
@@ -241,6 +245,12 @@ func NewEngine(cfg *EngineConfig) (*Engine, error) {
 		capCallsSemaphore:       cfg.LocalLimiters.CapabilityConcurrency,
 	}
 
+	// Self-inject: the engine is its own acknowledger in M1.
+	// In M2, the OCR reporting plugin implements the Acknowledger.
+	if cfg.TriggerAcknowledger == nil {
+		cfg.TriggerAcknowledger = engine
+	}
+
 	// Build labels using the helper method
 	labels := engine.buildLabels(&localNode)
 
@@ -413,6 +423,31 @@ func (e *Engine) Put(ctx context.Context, event trigger.RoutedTriggerEvent) erro
 	e.metrics.With(platform.KeyTriggerID, triggerID).IncrementTriggerEventEnqueuedCounter(ctx)
 	e.logger().Debugw("Enqueued trigger event", "triggerID", triggerID, "eventID", eventID)
 
+	return nil
+}
+
+// Ack acknowledges a trigger event via the injected TriggerAcknowledger.
+// In M1 this is the existing engine's internal acknowledger logic. In M2 the
+// OCR reporting plugin implements this to ACK.
+func (e *Engine) Ack(ctx context.Context, triggerCapID, triggerRegistrationID, eventID string) error {
+	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", eventID)
+
+	tm := e.metrics.With(platform.KeyTriggerID, triggerCapID)
+
+	e.triggersRegMu.Lock()
+	trigger, ok := e.triggers[triggerRegistrationID]
+	e.triggersRegMu.Unlock()
+
+	if !ok {
+		tm.IncrementTriggerEventAckFailureCounter(ctx)
+		return fmt.Errorf("failed to find trigger %s", triggerRegistrationID)
+	}
+	err := trigger.AckEvent(ctx, triggerRegistrationID, eventID, trigger.method)
+	if err != nil {
+		tm.IncrementTriggerEventAckFailureCounter(ctx)
+		return err
+	}
+	tm.IncrementTriggerEventAckSuccessCounter(ctx)
 	return nil
 }
 
@@ -853,7 +888,7 @@ func (e *Engine) startExecution(ctx context.Context, event trigger.RoutedTrigger
 			tm.IncrementWorkflowTriggerEventErrorCounter(ctx)
 			tm.IncrementTriggerEventDroppedTotal(ctx, monitoring.TriggerDropReasonDuplicateExecution)
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-			ackErr := e.ackTriggerEvent(ctx, event.TriggerCapID, registrationID, &triggerEvent)
+			ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID)
 			if ackErr != nil {
 				e.lggr.Errorw("failed to re-ACK trigger event", "eventID", triggerEvent.ID, "err", ackErr)
 			}
@@ -904,7 +939,7 @@ func (e *Engine) startExecution(ctx context.Context, event trigger.RoutedTrigger
 			triggerDrop(monitoring.TriggerDropReasonShardDeniedOrchestrator)
 			executionStatus = store.StatusErrored
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-			if ackErr := e.ackTriggerEvent(ctx, event.TriggerCapID, registrationID, &triggerEvent); ackErr != nil {
+			if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID); ackErr != nil {
 				e.logger().Errorw("failed to ACK trigger after shard ownership orchestrator error", "eventID", triggerEvent.ID, "err", ackErr)
 			}
 			return ErrShardDeniedOrchestrator
@@ -923,7 +958,7 @@ func (e *Engine) startExecution(ctx context.Context, event trigger.RoutedTrigger
 			triggerDrop(monitoring.TriggerDropReasonShardDeniedNotOwner)
 			executionStatus = store.StatusErrored
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-			if ackErr := e.ackTriggerEvent(ctx, event.TriggerCapID, registrationID, &triggerEvent); ackErr != nil {
+			if ackErr := e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID); ackErr != nil {
 				e.logger().Errorw("failed to ACK trigger after shard ownership denial", "eventID", triggerEvent.ID, "err", ackErr)
 			}
 			return ErrShardDeniedNotOwner
@@ -997,7 +1032,7 @@ func (e *Engine) startExecution(ctx context.Context, event trigger.RoutedTrigger
 	_ = events.EmitExecutionStartedEvent(ctx, loggerLabels, triggerEvent.ID, executionID)
 
 	registrationID := TriggerRegistrationID(e.cfg.WorkflowID, event.TriggerIndex)
-	err = e.ackTriggerEvent(ctx, event.TriggerCapID, registrationID, &triggerEvent)
+	err = e.cfg.TriggerAcknowledger.Ack(ctx, event.TriggerCapID, registrationID, triggerEvent.ID)
 	if err != nil {
 		e.lggr.Errorf("failed to ACK trigger event (eventID=%s): %v", triggerEvent.ID, err)
 	}
@@ -1178,28 +1213,6 @@ func (e *Engine) startExecution(ctx context.Context, event trigger.RoutedTrigger
 	e.metrics.With("workflowID", e.cfg.WorkflowID, "workflowName", e.cfg.WorkflowName.String()).IncrementWorkflowExecutionSucceededCounter(ctx)
 	e.metrics.IncrementWorkflowExecutionFinishedCounter(ctx, executionStatus)
 	e.cfg.Hooks.OnResultReceived(result)
-	return nil
-}
-
-func (e *Engine) ackTriggerEvent(ctx context.Context, triggerCapID, triggerRegistrationID string, te *capabilities.TriggerEvent) error {
-	e.logger().Infow("ACKing trigger event", "triggerRegistrationID", triggerRegistrationID, "eventID", te.ID)
-
-	tm := e.metrics.With(platform.KeyTriggerID, triggerCapID)
-
-	e.triggersRegMu.Lock()
-	trigger, ok := e.triggers[triggerRegistrationID]
-	e.triggersRegMu.Unlock()
-
-	if !ok {
-		tm.IncrementTriggerEventAckFailureCounter(ctx)
-		return fmt.Errorf("failed to find trigger %s", triggerRegistrationID)
-	}
-	err := trigger.AckEvent(ctx, triggerRegistrationID, te.ID, trigger.method)
-	if err != nil {
-		tm.IncrementTriggerEventAckFailureCounter(ctx)
-		return err
-	}
-	tm.IncrementTriggerEventAckSuccessCounter(ctx)
 	return nil
 }
 
