@@ -1026,6 +1026,9 @@ func AddLaneSolanaChangesetsV0_1_0(e *DeployedEnv, solChainSelector, remoteChain
 	case chainsel.FamilyAptos:
 		// bytes4(keccak256("CCIP ChainFamilySelector APTOS"));
 		chainFamilySelector = [4]uint8{0xac, 0x77, 0xff, 0xec}
+	case chainsel.FamilySui:
+		// bytes4(keccak256("CCIP ChainFamilySelector Sui")) = 0xc4e05953
+		chainFamilySelector = [4]uint8{0xc4, 0xe0, 0x59, 0x53}
 	default:
 		panic("unsupported remote family")
 	}
