@@ -1411,7 +1411,10 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.5
+    # Move-2024-edition malicious packages need >= mainnet-v1.75.2 to emit transitive
+    # deps (mcms/fast_mcms) into the publish txn, else Sui rejects with
+    # PublishUpgradeMissingDependency. Matches PR #23468's .github/in-memory-tests.json.
+    sui_cli_version: mainnet-v1.75.2
     install_plugins_public: true
     free_disk_space: true
 
@@ -1557,7 +1560,10 @@ runner-test-matrix:
         --format=github-actions \
         -- -v -run "Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected" -timeout 20m -count=1 -parallel=1 ./smoke/ccip
     test_go_project_path: integration-tests
-    sui_cli_version: mainnet-v1.72.5
+    # Move-2024-edition malicious packages need >= mainnet-v1.75.2 to emit transitive
+    # deps (mcms/fast_mcms) into the publish txn, else Sui rejects with
+    # PublishUpgradeMissingDependency. Matches PR #23468's .github/in-memory-tests.json.
+    sui_cli_version: mainnet-v1.75.2
     install_plugins_public: true
     free_disk_space: true
 
