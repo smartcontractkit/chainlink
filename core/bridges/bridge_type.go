@@ -82,23 +82,23 @@ func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
 	}
 
 	return &BridgeTypeAuthentication{
-			Name:                   btr.Name,
-			URL:                    btr.URL,
-			Confirmations:          btr.Confirmations,
-			IncomingToken:          incomingToken,
-			OutgoingToken:          outgoingToken,
-			MinimumContractPayment: btr.MinimumContractPayment,
-			UseConnectionManager:   btr.UseConnectionManager,
-		}, &BridgeType{
-			Name:                   btr.Name,
-			URL:                    btr.URL,
-			Confirmations:          btr.Confirmations,
-			IncomingTokenHash:      hash,
-			Salt:                   salt,
-			OutgoingToken:          outgoingToken,
-			MinimumContractPayment: btr.MinimumContractPayment,
-			UseConnectionManager:   btr.UseConnectionManager,
-		}, nil
+		Name:                   btr.Name,
+		URL:                    btr.URL,
+		Confirmations:          btr.Confirmations,
+		IncomingToken:          incomingToken,
+		OutgoingToken:          outgoingToken,
+		MinimumContractPayment: btr.MinimumContractPayment,
+		UseConnectionManager:   btr.UseConnectionManager,
+	}, &BridgeType{
+		Name:                   btr.Name,
+		URL:                    btr.URL,
+		Confirmations:          btr.Confirmations,
+		IncomingTokenHash:      hash,
+		Salt:                   salt,
+		OutgoingToken:          outgoingToken,
+		MinimumContractPayment: btr.MinimumContractPayment,
+		UseConnectionManager:   btr.UseConnectionManager,
+	}, nil
 }
 
 // AuthenticateBridgeType returns true if the passed token matches its
