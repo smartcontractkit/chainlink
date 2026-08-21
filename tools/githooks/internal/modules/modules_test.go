@@ -219,6 +219,7 @@ func TestGetChangedFilesSince(t *testing.T) {
 	writeFile(t, dir, "a.go", "package a\n")
 	writeFile(t, dir, "keep.go", "package keep\n")
 	writeFile(t, dir, "del.go", "package del\n")
+	writeFile(t, dir, "index_only.go", "package index\n")
 	git(t, dir, "add", ".")
 	git(t, dir, "commit", "-m", "base")
 	baseSHA := git(t, dir, "rev-parse", "HEAD")
@@ -233,7 +234,12 @@ func TestGetChangedFilesSince(t *testing.T) {
 	git(t, dir, "add", "c.go")
 	writeFile(t, dir, "keep.go", "package keep // unstaged\n")
 
+	// Index-only staged change: modify, stage, then revert working tree to base content.
+	writeFile(t, dir, "index_only.go", "package index // staged\n")
+	git(t, dir, "add", "index_only.go")
+	writeFile(t, dir, "index_only.go", "package index\n")
+
 	files, err := modules.GetChangedFilesSince(t.Context(), dir, baseSHA)
 	require.NoError(t, err)
-	assert.ElementsMatch(t, []string{"a.go", "c.go", "keep.go"}, files)
+	assert.ElementsMatch(t, []string{"a.go", "c.go", "index_only.go", "keep.go"}, files)
 }

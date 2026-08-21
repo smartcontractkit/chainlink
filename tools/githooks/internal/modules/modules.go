@@ -313,26 +313,34 @@ func GetMergeBase(ctx context.Context, repoRoot string) string {
 // committed branch changes, staged changes, and unstaged working-tree changes
 // (git diff <rev> semantics). Deleted files are excluded.
 func GetChangedFilesSince(ctx context.Context, repoRoot, rev string) ([]string, error) {
-	cmd := exec.CommandContext(ctx, "git", "diff", "--name-only", "--diff-filter=d", rev)
-	cmd.Dir = repoRoot
-
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-
-	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("git diff %s failed: %w (output: %s)", rev, err, out.String())
+	// Union the working-tree diff (captures committed + unstaged changes) with the
+	// index diff (captures committed + staged changes), so index-only staged changes
+	// aren't missed.
+	diffArgs := [][]string{
+		{"diff", "--name-only", "--diff-filter=d", rev, "--"},
+		{"diff", "--cached", "--name-only", "--diff-filter=d", rev, "--"},
 	}
 
-	lines := strings.Split(out.String(), "\n")
-	var files []string
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			files = append(files, trimmed)
+	fileSet := make(map[string]struct{})
+	for _, args := range diffArgs {
+		cmd := exec.CommandContext(ctx, "git", args...)
+		cmd.Dir = repoRoot
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("git %s failed: %w (output: %s)", strings.Join(args, " "), err, string(out))
+		}
+		for line := range strings.SplitSeq(string(out), "\n") {
+			if trimmed := strings.TrimSpace(line); trimmed != "" {
+				fileSet[trimmed] = struct{}{}
+			}
 		}
 	}
 
+	files := make([]string, 0, len(fileSet))
+	for f := range fileSet {
+		files = append(files, f)
+	}
+	sort.Strings(files)
 	return files, nil
 }
 
