@@ -95,6 +95,14 @@ func TestGetters_JSONWithVarExprs(t *testing.T) {
 		{`{ "$(foo.bar)": $(zet) }`, "value", 123, pipeline.ErrBadInput, false},
 		{`{ "x": { "__chainlink_key_path__": 0 } }`, "", nil, pipeline.ErrBadInput, false},
 		{`{ "e": $(err)`, "e", nil, pipeline.ErrBadInput, false},
+		// Inputs that look like a JSON token followed by trailing data must be
+		// rejected so that the next getter (NonemptyString, etc.) gets a
+		// chance to handle them. Otherwise json.Decoder happily reads "0"
+		// out of an Ethereum address and discards the rest. See #21768.
+		{`0x1234567890abcdef1234567890abcdef12345678`, "", nil, pipeline.ErrBadInput, false},
+		{`0xdeadbeef`, "", nil, pipeline.ErrBadInput, false},
+		{`123abc`, "", nil, pipeline.ErrBadInput, false},
+		{`{"a":1} extra`, "", nil, pipeline.ErrBadInput, false},
 	}
 
 	for _, test := range tests {
