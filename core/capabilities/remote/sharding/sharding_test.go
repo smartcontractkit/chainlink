@@ -12,7 +12,7 @@ import (
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	shardingv1 "github.com/smartcontractkit/chainlink-protos/cre/go/sharding/v1"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	dispatchermocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
 )
@@ -40,11 +40,11 @@ func TestExecutionCompletedSender_SendsToAllMembers(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sender.Close() })
 
-	msg := &shardingv1.ExecutionCompleted{
+	msg := &ringpb.ExecutionCompleted{
 		WorkflowId:     "wf-1",
 		TriggerEventId: "evt-1",
 		TriggerIndex:   0,
-		Status:         shardingv1.ExecutionStatus_EXECUTION_STATUS_SUCCESS,
+		Status:         ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS,
 		PrimaryShardId: 1,
 	}
 
@@ -62,8 +62,8 @@ func TestExecutionCompletedReceiver_QuorumAggregation(t *testing.T) {
 		Members: []ragetypes.PeerID{makePeerID(1), makePeerID(2), makePeerID(3)},
 	}
 
-	received := make(chan *shardingv1.ExecutionCompleted, 1)
-	handler := func(msg *shardingv1.ExecutionCompleted) {
+	received := make(chan *ringpb.ExecutionCompleted, 1)
+	handler := func(msg *ringpb.ExecutionCompleted) {
 		received <- msg
 	}
 
@@ -72,11 +72,11 @@ func TestExecutionCompletedReceiver_QuorumAggregation(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = rcvr.Close() })
 
-	msg := &shardingv1.ExecutionCompleted{
+	msg := &ringpb.ExecutionCompleted{
 		WorkflowId:     "wf-1",
 		TriggerEventId: "evt-1",
 		TriggerIndex:   0,
-		Status:         shardingv1.ExecutionStatus_EXECUTION_STATUS_SUCCESS,
+		Status:         ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS,
 		PrimaryShardId: 1,
 	}
 	payload, err := proto.Marshal(msg)
@@ -101,7 +101,7 @@ func TestExecutionCompletedReceiver_QuorumAggregation(t *testing.T) {
 	select {
 	case got := <-received:
 		assert.Equal(t, "wf-1", got.WorkflowId)
-		assert.Equal(t, shardingv1.ExecutionStatus_EXECUTION_STATUS_SUCCESS, got.Status)
+		assert.Equal(t, ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS, got.Status)
 	case <-ctx.Done():
 		t.Fatal("timeout waiting for handler after quorum")
 	}
@@ -117,7 +117,7 @@ func TestExecutionCompletedReceiver_IgnoresUnknownPeers(t *testing.T) {
 	}
 
 	handlerCalled := false
-	handler := func(msg *shardingv1.ExecutionCompleted) {
+	handler := func(msg *ringpb.ExecutionCompleted) {
 		handlerCalled = true
 	}
 
@@ -126,10 +126,10 @@ func TestExecutionCompletedReceiver_IgnoresUnknownPeers(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = rcvr.Close() })
 
-	msg := &shardingv1.ExecutionCompleted{
+	msg := &ringpb.ExecutionCompleted{
 		WorkflowId:     "wf-1",
 		TriggerEventId: "evt-1",
-		Status:         shardingv1.ExecutionStatus_EXECUTION_STATUS_SUCCESS,
+		Status:         ringpb.ExecutionStatus_EXECUTION_STATUS_SUCCESS,
 	}
 	payload, err := proto.Marshal(msg)
 	require.NoError(t, err)
@@ -154,7 +154,7 @@ func TestShardHeartbeatReceiver_UpdatesLastSeen(t *testing.T) {
 		Members: []ragetypes.PeerID{makePeerID(1)},
 	}
 
-	handler := func(msg *shardingv1.ShardHeartbeat) {}
+	handler := func(msg *ringpb.ShardHeartbeat) {}
 
 	rcvr := NewShardHeartbeatReceiver(primary, handler, logger.Test(t))
 	err := rcvr.Start(ctx)
@@ -163,7 +163,7 @@ func TestShardHeartbeatReceiver_UpdatesLastSeen(t *testing.T) {
 
 	assert.Equal(t, int64(0), rcvr.LastSeen())
 
-	hb := &shardingv1.ShardHeartbeat{
+	hb := &ringpb.ShardHeartbeat{
 		PrimaryShardId: 1,
 		Timestamp:      12345,
 	}

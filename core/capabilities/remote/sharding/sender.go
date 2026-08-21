@@ -11,7 +11,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	shardingv1 "github.com/smartcontractkit/chainlink-protos/cre/go/sharding/v1"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 )
 
@@ -45,7 +45,7 @@ func (s *ExecutionCompletedSender) Close() error {
 	})
 }
 
-func (s *ExecutionCompletedSender) Send(ctx context.Context, msg *shardingv1.ExecutionCompleted) {
+func (s *ExecutionCompletedSender) Send(ctx context.Context, msg *ringpb.ExecutionCompleted) {
 	payload, err := proto.Marshal(msg)
 	if err != nil {
 		s.lggr.Errorw("failed to marshal ExecutionCompleted", "err", err)
@@ -135,7 +135,7 @@ func (s *ShardHeartbeatSender) heartbeatLoop() {
 }
 
 func (s *ShardHeartbeatSender) sendHeartbeat(ctx context.Context) {
-	hb := &shardingv1.ShardHeartbeat{
+	hb := &ringpb.ShardHeartbeat{
 		PrimaryShardId: s.primaryID,
 		Timestamp:      time.Now().Unix(),
 	}

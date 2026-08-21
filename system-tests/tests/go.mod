@@ -795,4 +795,4 @@ replace github.com/hashicorp/memberlist => github.com/grafana/memberlist v0.3.1-
 // Juno's local replace directive and is not used directly by chainlink
 exclude github.com/starknet-io/starknet-p2pspecs v0.0.0-00010101000000-000000000000
 
-replace github.com/smartcontractkit/chainlink-protos/cre/go => ../../../chainlink-protos/cre/go
+replace github.com/smartcontractkit/chainlink-protos/ring/go => ../../../chainlink-protos/ring/go

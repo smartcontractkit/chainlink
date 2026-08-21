@@ -14,13 +14,13 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	shardingv1 "github.com/smartcontractkit/chainlink-protos/cre/go/sharding/v1"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-type ExecutionCompletedHandler func(msg *shardingv1.ExecutionCompleted)
+type ExecutionCompletedHandler func(msg *ringpb.ExecutionCompleted)
 
 type ExecutionCompletedReceiver struct {
 	services.StateMachine
@@ -134,7 +134,7 @@ func (r *ExecutionCompletedReceiver) Receive(ctx context.Context, msg *remotetyp
 		return
 	}
 
-	var execCompleted shardingv1.ExecutionCompleted
+	var execCompleted ringpb.ExecutionCompleted
 	if err := proto.Unmarshal(msg.Payload, &execCompleted); err != nil {
 		r.lggr.Errorw("failed to unmarshal ExecutionCompleted", "err", err)
 		return
@@ -157,7 +157,7 @@ func (r *ExecutionCompletedReceiver) HealthReport() map[string]error {
 	return map[string]error{r.Name(): r.Healthy()}
 }
 
-type ShardHeartbeatHandler func(msg *shardingv1.ShardHeartbeat)
+type ShardHeartbeatHandler func(msg *ringpb.ShardHeartbeat)
 
 type ShardHeartbeatReceiver struct {
 	services.StateMachine
@@ -229,7 +229,7 @@ func (r *ShardHeartbeatReceiver) Receive(ctx context.Context, msg *remotetypes.M
 		return
 	}
 
-	var hb shardingv1.ShardHeartbeat
+	var hb ringpb.ShardHeartbeat
 	if err := proto.Unmarshal(msg.Payload, &hb); err != nil {
 		r.lggr.Errorw("failed to unmarshal ShardHeartbeat", "err", err)
 		return
