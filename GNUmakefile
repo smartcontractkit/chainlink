@@ -16,7 +16,7 @@ CL_LOOPINSTALL_OUTPUT_DIR ?=
 LOOPINSTALL_PUBLIC_ARGS  := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/public.json)
 LOOPINSTALL_PRIVATE_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/private.json)
 LOOPINSTALL_TESTING_ARGS := $(if $(strip $(CL_LOOPINSTALL_OUTPUT_DIR)),--output-installation-artifacts $(CL_LOOPINSTALL_OUTPUT_DIR)/testing.json)
-GOLANGCI_LINT_VERSION = "v2.12.2"
+GOLANGCI_LINT_VERSION = "v2.13.1"
 # Pin path so `make generate` does not pick up a different mockery (e.g. v3) from PATH.
 MOCKERY_BIN ?= $(shell command -v mockery 2>/dev/null || (GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" -a -f "$$GOBIN/mockery" ]; then echo "$$GOBIN/mockery"; else echo "$$(go env GOPATH)/bin/mockery"; fi))
 
@@ -232,6 +232,7 @@ codecgen: $(codecgen) ## Install codecgen
 protoc: ## Install protoc
 	core/scripts/install-protoc.sh 29.3 /
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
 	go install github.com/smartcontractkit/wsrpc/cmd/protoc-gen-go-wsrpc@`go list -m -json github.com/smartcontractkit/wsrpc | jq -r .Version`
 
 .PHONY: telemetry-protobuf

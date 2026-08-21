@@ -504,8 +504,7 @@ func (e *Engine) init(ctx context.Context) {
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
 	err := e.cfg.GlobalWorkflowLimit.Use(ctx, 1)
 	if err != nil {
-		var errLimited limits.ErrorResourceLimited[int]
-		if errors.As(err, &errLimited) {
+		if errLimited, ok := errors.AsType[limits.ErrorResourceLimited[int]](err); ok {
 			switch errLimited.Scope {
 			case settings.ScopeOwner:
 				e.logger().Infow("Per owner workflow count limit reached", "err", err)

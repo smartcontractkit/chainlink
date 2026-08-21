@@ -575,8 +575,8 @@ func TestETHTxTask(t *testing.T) {
 			servicetest.SetupNoOpMock(txManager)
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.LimitDefault = ptr(defaultGasLimit)
-				c.EVM[0].GasEstimator.LimitJobType.DR = ptr(drJobTypeGasLimit)
+				c.EVM[0].GasEstimator.LimitDefault = new(defaultGasLimit)
+				c.EVM[0].GasEstimator.LimitJobType.DR = new(drJobTypeGasLimit)
 			})
 			lggr := logger.TestLogger(t)
 
@@ -611,6 +611,3 @@ func TestETHTxTask(t *testing.T) {
 		})
 	}
 }
-
-//go:fix inline
-func ptr[T any](t T) *T { return new(t) }

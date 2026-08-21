@@ -102,7 +102,7 @@ func syntheticReport() *Report {
 		Err:    "compare smartcontractkit/chainlink-aptos abc...def: HTTP 404: Not Found",
 	}
 
-	rep.Repos = []RepoReport{ccip, broken, RepoReport{Config: TrackedRepos[2], Status: "identical"}, sol, ton, evm, core}
+	rep.Repos = []RepoReport{ccip, broken, {Config: TrackedRepos[2], Status: "identical"}, sol, ton, evm, core}
 
 	for _, rr := range rep.Repos {
 		rep.Flags = append(rep.Flags, repoFlags(rr, oldSnap, newSnap)...)

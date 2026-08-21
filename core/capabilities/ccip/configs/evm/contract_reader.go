@@ -408,7 +408,7 @@ var USDCReaderConfig = config.ChainReaderConfig{
 						GenericDataWordDetails: map[string]evm.DataWordDetail{
 							consts.CCTPMessageSentValue: {
 								Name: consts.CCTPMessageSentValue,
-								// Filtering by the 3rd word (indexing starts from 0) so it's ptr(2)
+								// Filtering by the 3rd word (indexing starts from 0) so it's new(2)
 								Index: new(2),
 								Type:  "bytes32",
 							},

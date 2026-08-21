@@ -2,9 +2,10 @@ package launcher
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"golang.org/x/exp/maps"
 	"golang.org/x/sync/errgroup"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -40,8 +41,8 @@ func (c pluginRegistry) TransitionFrom(prevPlugins pluginRegistry) error {
 		return fmt.Errorf("current pluginRegistry or prevPlugins have more than 4 instances: len(prevPlugins): %d, len(currPlugins): %d", len(prevPlugins), len(c))
 	}
 
-	prevOracles := mapset.NewSet[ocrtypes.ConfigDigest](maps.Keys(prevPlugins)...)
-	currOracles := mapset.NewSet[ocrtypes.ConfigDigest](maps.Keys(c)...)
+	prevOracles := mapset.NewSet(slices.Collect(maps.Keys(prevPlugins))...)
+	currOracles := mapset.NewSet(slices.Collect(maps.Keys(c))...)
 
 	var ops = make([]syncAction, 0, 2*MaxPlugins)
 	for digest := range prevOracles.Difference(currOracles).Iterator().C {

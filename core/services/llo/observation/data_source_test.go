@@ -195,6 +195,10 @@ func (s *mockCache) AddMany(values map[llotypes.StreamID]lloprotocol.StreamValue
 }
 
 func Test_DataSource(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	lggr := logger.NullLogger
 	mainCtx := t.Context()
@@ -917,7 +921,7 @@ result3 -> result3_parse -> multiply3;
 
 	ds := newDataSource(lggr, r, telem.NullTelemeter)
 	vals := make(map[llotypes.StreamID]lloprotocol.StreamValue)
-	for i := uint32(0); i < 4*n; i++ {
+	for i := range 4 * n {
 		vals[i] = nil
 	}
 

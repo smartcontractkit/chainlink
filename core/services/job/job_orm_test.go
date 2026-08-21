@@ -2073,8 +2073,8 @@ func mustInsertWFJob(t *testing.T, orm job.ORM, s *job.WorkflowSpec) int32 {
 	err := s.Validate(t.Context())
 	require.NoError(t, err, "failed to validate spec %v", s)
 	ctx := t.Context()
-	_, err = toml.Marshal(s.Workflow)
-	require.NoError(t, err, "failed to TOML marshal workflow %v", s.Workflow)
+	_, err = toml.Marshal(s)
+	require.NoError(t, err, "failed to TOML marshal workflow spec %v", s)
 	j := job.Job{
 		Type:          job.Workflow,
 		WorkflowSpec:  s,

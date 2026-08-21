@@ -101,11 +101,11 @@ These clients are supported by Chainlink, but have bugs that prevent Chainlink f
 
 - [Nethermind](https://github.com/NethermindEth/nethermind)
   Blocking issues:
-  - ~https://github.com/NethermindEth/nethermind/issues/4384~
+  - ~~[#4384](https://github.com/NethermindEth/nethermind/issues/4384)~~
 - [Erigon](https://github.com/ledgerwatch/erigon)
   Blocking issues:
-  - https://github.com/ledgerwatch/erigon/discussions/4946
-  - https://github.com/ledgerwatch/erigon/issues/4030#issuecomment-1113964017
+  - [#4946](https://github.com/ledgerwatch/erigon/discussions/4946)
+  - [#4030](https://github.com/ledgerwatch/erigon/issues/4030#issuecomment-1113964017)
 
 We cannot recommend specific version numbers for ethereum nodes since the software is being continually updated, but you should usually try to run the latest version available.
 
@@ -179,64 +179,27 @@ cosign verify index.docker.io/smartcontract/chainlink:${tag} \
 
 ## Development
 
-### Running tests
+### Githooks
 
-1. [Install pnpm 10 via npm](https://pnpm.io/installation#using-npm)
+Optionally install Git hooks with [Lefthook](https://lefthook.dev) to automatically catch lint errors, secrets, and typos before committing or pushing.
 
-2. Install [gencodec](https://github.com/fjl/gencodec) and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
+```sh
+# Install lefthook with asdf or mise, or directly: https://lefthook.dev/install/
+# Activate lefthook
+lefthook install
 
-3. Install mockery
-
-`make mockery`
-
-Using the `make` command will install the correct version.
-
-4. Generate and compile static assets:
-
-```bash
-make generate
+git commit -m "commit message" # pre-commit hooks will run against changes, checking for linting issues and typos
+git push                       # pre-push hooks will run minimal unit tests before activating CI
+# Optionally use the `--no-verify` flag to disable githooks for specific commits/pushes
+git commit -m "commit message" --no-verify
+git push --no-verify
+# Or use LEFTHOOK=0
+LEFTHOOK=0 gh stack push
 ```
 
-5. Prepare your development environment:
+**Note**: Hooks help you catch issues before pushing to CI. They're meant to be quick, local checks to stop common mistakes and oversights. They are neither exhaustive or mandatory. CI is the ultimate, mandatory source of authority on code quality checks.
 
-The tests require a postgres database. In turn, the environment variable
-`CL_DATABASE_URL` must be set to value that can connect to `_test` database, and the user must be able to create and drop
-the given `_test` database.
-
-Note: Other environment variables should not be set for all tests to pass
-
-There helper script for initial setup to create an appropriate test user. It requires postgres to be running on localhost at port 5432. You will be prompted for
-the `postgres` user password
-
-```bash
-make setup-testdb
-```
-
-This script will save the `CL_DATABASE_URL` in `.dbenv`
-
-Changes to database require migrations to be run. Similarly, `pull`'ing the repo may require migrations to run.
-After the one-time setup above:
-
-```
-source .dbenv
-make testdb
-```
-
-If you encounter the error `database accessed by other users (SQLSTATE 55006) exit status 1`
-and you want force the database creation then use
-
-```
-source .dbenv
-make testdb-force
-```
-
-7. Run tests:
-
-```bash
-go test ./...
-```
-
-### New, Condensed Test Flow
+### Condensed Test Flow (new)
 
 Use `make test` which handles most of the test DB setup for you in plain go (see [tools/test/README.md](tools/test/README.md) for details).
 
@@ -247,6 +210,64 @@ make test ARGS="./core/..." # Setup ephemeral test DB and run all tests in ./cor
 # Re-run tests in full isolation and get detailed stats to root out flakes and races
 make test ARGS="diagnose --iterations 5 --parallel-iterations 3 -- ./core/config/..."
 ```
+
+### Manual Test Flow (old)
+
+1. [Install pnpm 10 via npm](https://pnpm.io/installation#using-npm)
+
+2. Install [gencodec](https://github.com/fjl/gencodec) and [jq](https://stedolan.github.io/jq/download/) to be able to run `go generate ./...` and `make abigen`
+
+3. Install mockery
+
+   ```sh
+   # Using the `make` command will install the correct version.
+   make mockery
+   ```
+
+4. Generate and compile static assets:
+
+   ```bash
+   make generate
+   ```
+
+5. Prepare your development environment
+
+   The tests require a postgres database. In turn, the environment variable
+   `CL_DATABASE_URL` must be set to value that can connect to `_test` database, and the user must be able to create and drop
+   the given `_test` database.
+
+   Note: Other environment variables should not be set for all tests to pass
+
+   There helper script for initial setup to create an appropriate test user. It requires postgres to be running on localhost at port 5432. You will be prompted for
+   the `postgres` user password
+
+   ```bash
+   make setup-testdb
+   ```
+
+   This script will save the `CL_DATABASE_URL` in `.dbenv`
+
+   Changes to database require migrations to be run. Similarly, `pull`'ing the repo may require migrations to run.
+   After the one-time setup above:
+
+   ```sh
+   source .dbenv
+   make testdb
+   ```
+
+   If you encounter the error `database accessed by other users (SQLSTATE 55006) exit status 1`
+   and you want force the database creation then use
+
+   ```sh
+   source .dbenv
+   make testdb-force
+   ```
+
+6. Run tests:
+
+   ```bash
+   go test ./...
+   ```
 
 #### Notes
 
@@ -269,19 +290,17 @@ GORACE="log_path=$PWD/race" go test -race ./core/path/to/pkg -count 10
 GORACE="log_path=$PWD/race" go test -race ./core/path/to/pkg -count 100 -run TestFooBar/sub_test
 ```
 
-https://go.dev/doc/articles/race_detector
+<https://go.dev/doc/articles/race_detector>
 
 #### Fuzz tests
 
-As of Go 1.18, fuzz tests `func FuzzXXX(*testing.F)` are included as part of the normal test suite, so existing cases are executed with `go test`.
+As of Go 1.18, [fuzz tests](https://go.dev/doc/fuzz/) `func FuzzXXX(*testing.F)` are included as part of the normal test suite, so existing cases are executed with `go test`.
 
 Additionally, you can run active fuzzing to search for new cases:
 
 ```bash
 go test ./pkg/path -run=XXX -fuzz=FuzzTestName
 ```
-
-https://go.dev/doc/fuzz/
 
 ### Go Modules
 
@@ -299,7 +318,7 @@ The `integration-tests` and `core/scripts` modules import the root module using 
 so dependency changes in the root `go.mod` often require changes in those modules as well. After making a change, `go mod tidy`
 can be run on all three modules using:
 
-```
+```sh
 make gomodtidy
 ```
 
@@ -318,23 +337,23 @@ To use it:
 
 1. Install [nix package manager](https://nixos.org/download.html) in your system.
 
-- Enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
+   - Enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
 
 2. Run `nix develop`. You will be put in shell containing all the dependencies.
 
-- Optionally, `nix develop --command $SHELL` will make use of your current shell instead of the default (bash).
-- You can use `direnv` to enable it automatically when `cd`-ing into the folder; for that, enable [nix-direnv](https://github.com/nix-community/nix-direnv) and `use flake` on it.
+   - Optionally, `nix develop --command $SHELL` will make use of your current shell instead of the default (bash).
+   - You can use `direnv` to enable it automatically when `cd`-ing into the folder; for that, enable [nix-direnv](https://github.com/nix-community/nix-direnv) and `use flake` on it.
 
 3. Create a local postgres database:
 
-```sh
-mkdir -p $PGDATA && cd $PGDATA/
-initdb
-pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start
-createdb chainlink_test -h localhost
-createuser --superuser --password chainlink -h localhost
-# then type a test password, e.g.: chainlink, and set it in shell.nix CL_DATABASE_URL
-```
+   ```sh
+   mkdir -p $PGDATA && cd $PGDATA/
+   initdb
+   pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start
+   createdb chainlink_test -h localhost
+   createuser --superuser --password chainlink -h localhost
+   # then type a test password, e.g.: chainlink, and set it in shell.nix CL_DATABASE_URL
+   ```
 
 4. When re-entering project, you can restart postgres: `cd $PGDATA; pg_ctl -l postgres.log -o "--unix_socket_directories='$PWD'" start`
    Now you can run tests or compile code as usual.

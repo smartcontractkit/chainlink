@@ -27,9 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-//go:fix inline
-func ptr[T any](t T) *T { return new(t) }
-
 func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 

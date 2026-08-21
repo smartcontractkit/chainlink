@@ -116,7 +116,7 @@ func (e *loadedModule) tryAcquire() (acquired bool, exhausted bool) {
 			return e.refCount.CompareAndSwap(old, next)
 		}
 	}
-	for attempt := 0; attempt < tryAcquireMaxAttempts; attempt++ {
+	for range tryAcquireMaxAttempts {
 		n := e.refCount.Load()
 		if n == 0 {
 			return false, false
@@ -236,7 +236,7 @@ func (m *EvictableModule) Execute(ctx context.Context, request *sdkpb.ExecuteReq
 	// cancellation is not starved.
 	var pinned *loadedModule
 	var skewRecorded bool
-	for attempt := 0; attempt < executePinMaxAttempts; attempt++ {
+	for range executePinMaxAttempts {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}

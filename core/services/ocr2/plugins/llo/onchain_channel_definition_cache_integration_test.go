@@ -233,7 +233,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			url := "http://example.com/foo"
 			rc := NewMockReadCloser(invalidDefinitions)
 			client.SetResponseForURL(url, &http.Response{
-				StatusCode: 200,
+				StatusCode: http.StatusOK,
 				Body:       rc,
 			}, nil)
 
@@ -257,7 +257,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			url := "http://example.com/foo"
 			rc := NewMockReadCloser(invalidDefinitions)
 			client.SetResponseForURL(url, &http.Response{
-				StatusCode: 200,
+				StatusCode: http.StatusOK,
 				Body:       rc,
 			}, nil)
 
@@ -279,7 +279,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			rc := NewMockReadCloser([]byte("not found"))
 			url := "http://example.com/foo3"
 			client.SetResponseForURL(url, &http.Response{
-				StatusCode: 404,
+				StatusCode: http.StatusNotFound,
 				Body:       rc,
 			}, nil)
 
@@ -300,7 +300,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			rc := NewMockReadCloser([]byte{})
 			url := "http://example.com/foo3"
 			client.SetResponseForURL(url, &http.Response{
-				StatusCode: 200,
+				StatusCode: http.StatusOK,
 				Body:       rc,
 			}, nil)
 		}
@@ -317,7 +317,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			rc := NewMockReadCloser(sampleDefinitionsJSON)
 			url := "http://example.com/foo3"
 			client.SetResponseForURL(url, &http.Response{
-				StatusCode: 200,
+				StatusCode: http.StatusOK,
 				Body:       rc,
 			}, nil)
 		}
@@ -449,7 +449,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 			rc := NewMockReadCloser(sampleDefinitionsJSON)
 			url := "http://example.com/foo5"
 			client.SetResponseForURL(url, &http.Response{
-				StatusCode: 200,
+				StatusCode: http.StatusOK,
 				Body:       rc,
 			}, nil)
 
@@ -629,7 +629,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		rc := NewMockReadCloser(newDefinitionsJSON)
 		url := "http://example.com/migration-test.json"
 		client.SetResponseForURL(url, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 
@@ -779,7 +779,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url := "http://example.com/adder1-defs.json"
 		rc := NewMockReadCloser(adder1DefinitionsJSON)
 		client.SetResponseForURL(url, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adder1DefinitionsSHA)
@@ -821,7 +821,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url := "http://example.com/owner-defs.json"
 		rc := NewMockReadCloser(ownerDefinitionsJSON)
 		client.SetResponseForURL(url, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, ownerDefinitionsSHA)))
@@ -856,7 +856,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url2 := "http://example.com/adder-attempt.json"
 		rc = NewMockReadCloser(adderAttemptDefinitionsJSON)
 		client.SetResponseForURL(url2, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url2, adderAttemptDefinitionsSHA)
@@ -898,7 +898,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url := "http://example.com/adder1-channel300.json"
 		rc := NewMockReadCloser(adder1DefsJSON)
 		client.SetResponseForURL(url, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adder1DefsSHA)
@@ -934,7 +934,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url2 := "http://example.com/adder2-channel300.json"
 		rc = NewMockReadCloser(adder2DefsJSON)
 		client.SetResponseForURL(url2, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		_, err = configStoreContract.AddChannelDefinitions(adder2, donID, adder2ID, url2, adder2DefsSHA)
@@ -976,7 +976,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url := "http://example.com/adder-tombstone.json"
 		rc := NewMockReadCloser(adderTombstoneDefsJSON)
 		client.SetResponseForURL(url, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adderTombstoneDefsSHA)
@@ -1018,7 +1018,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url := "http://example.com/adder-channel500.json"
 		rc := NewMockReadCloser(adderDefsJSON)
 		client.SetResponseForURL(url, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adderDefsSHA)
@@ -1054,7 +1054,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url2 := "http://example.com/owner-overwrite.json"
 		rc = NewMockReadCloser(ownerDefsJSON)
 		client.SetResponseForURL(url2, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url2, ownerDefsSHA)))
@@ -1104,7 +1104,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url := "http://example.com/owner-channels600-601.json"
 		rc := NewMockReadCloser(ownerDefsJSON)
 		client.SetResponseForURL(url, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, ownerDefsSHA)))
@@ -1134,7 +1134,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url2 := "http://example.com/adder-channel602.json"
 		rc = NewMockReadCloser(adderDefsJSON)
 		client.SetResponseForURL(url2, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url2, adderDefsSHA)
@@ -1171,7 +1171,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url3 := "http://example.com/owner-removed-600.json"
 		rc = NewMockReadCloser(ownerDefsUpdatedJSON)
 		client.SetResponseForURL(url3, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url3, ownerDefsUpdatedSHA)))
@@ -1231,7 +1231,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url3 := "http://example.com/owner-removed-600.json"
 		rc := NewMockReadCloser(ownerDefsUpdatedJSON)
 		client.SetResponseForURL(url3, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url3, ownerDefsUpdatedSHA)))
@@ -1274,7 +1274,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url := "http://example.com/owner-dropped-600.json"
 		rc := NewMockReadCloser(ownerDefsDroppedJSON)
 		client.SetResponseForURL(url, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url, ownerDefsDroppedSHA)))
@@ -1413,7 +1413,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url := "http://example.com/adder1-channel700.json"
 		rc := NewMockReadCloser(adder1DefsJSON)
 		client.SetResponseForURL(url, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adder1DefsSHA)
@@ -1446,7 +1446,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url2 := "http://example.com/adder2-channel701.json"
 		rc = NewMockReadCloser(adder2DefsJSON)
 		client.SetResponseForURL(url2, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		_, err = configStoreContract.AddChannelDefinitions(adder2, donID, adder2ID, url2, adder2DefsSHA)
@@ -1496,7 +1496,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url := "http://example.com/too-many-channels.json"
 		rc := NewMockReadCloser(tooManyDefsJSON)
 		client.SetResponseForURL(url, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, tooManyDefsSHA)
@@ -1549,7 +1549,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url := "http://example.com/adder1-channel900.json"
 		rc := NewMockReadCloser(adder1DefsJSON)
 		client.SetResponseForURL(url, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		_, err = configStoreContract.AddChannelDefinitions(adder1, donID, adder1ID, url, adder1DefsSHA)
@@ -1580,7 +1580,7 @@ func Test_ChannelDefinitionCache_OwnerAndAdderMerging(t *testing.T) {
 		url2 := "http://example.com/owner-channel900.json"
 		rc = NewMockReadCloser(ownerDefsJSON)
 		client.SetResponseForURL(url2, &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       rc,
 		}, nil)
 		require.NoError(t, utils.JustError(configStoreContract.SetChannelDefinitions(steve, donID, url2, ownerDefsSHA)))

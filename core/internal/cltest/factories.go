@@ -49,8 +49,9 @@ func NewPeerID() (id ragep2ptypes.PeerID) {
 }
 
 type BridgeOpts struct {
-	Name string
-	URL  string
+	Name                 string
+	URL                  string
+	UseConnectionManager bool
 }
 
 // NewBridgeType create new bridge type given info slice
@@ -71,6 +72,7 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 	} else {
 		btr.URL = WebURL(t, "https://bridge.example.com/api?"+rnd)
 	}
+	btr.UseConnectionManager = opts.UseConnectionManager
 
 	bta, bt, err := bridges.NewBridgeType(btr)
 	require.NoError(t, err)
