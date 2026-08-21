@@ -13,28 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/githooks/internal/whitespace"
 )
 
-func BenchmarkFixContent_Go(b *testing.B) {
-	code := []byte(`package main
-
-const query = ` + "`" + `
-SELECT *   
-FROM table   
-` + "`" + `
-
-func main() {   
-	x := 1   
-	_ = x   
-}
-`)
-
-	b.ResetTimer()
-	b.ReportAllocs()
-
-	for b.Loop() {
-		_, _, _ = whitespace.FixContent("main.go", code)
-	}
-}
-
 func BenchmarkFixContent_Markdown(b *testing.B) {
 	doc := bytes.Repeat([]byte("This line has two trailing spaces.  \nNormal line.\n"), 50)
 
@@ -63,9 +41,9 @@ func BenchmarkRun_Parallel(b *testing.B) {
 	fileList := make([]string, numFiles)
 
 	for i := range numFiles {
-		name := fmt.Sprintf("file_%d.go", i)
+		name := fmt.Sprintf("file_%d.yaml", i)
 		full := filepath.Join(tmpDir, name)
-		_ = os.WriteFile(full, []byte("package main   \n\nfunc main() {}\n"), 0o600)
+		_ = os.WriteFile(full, []byte("key: value   \n\nkey2: value2\n"), 0o600)
 		fileList[i] = name
 	}
 

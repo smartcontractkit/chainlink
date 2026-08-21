@@ -5,7 +5,7 @@
 ## Features
 
 - **End-of-File Normalization:** Ensures eligible text and code files (`.go`, `.py`, `.md`, `.yaml`, `.json`, etc.) end with exactly one newline (`\n`), leaving empty files 0 bytes.
-- **Semantic-Safe Whitespace Fixing:** Fixes erroneous trailing whitespace with AST/token protections (preserving Go raw backtick multiline strings and Markdown 2-space hard line breaks).
+- **Trailing Whitespace Fixing:** Fixes erroneous trailing whitespace across eligible text and document files (preserving Markdown 2-space hard line breaks).
 - **Module & Package Resolution:** Automatically maps changed or staged Go files to their enclosing `go.mod` module roots and specific package paths (e.g. `./core/logger`).
 - **Targeted Code Generation:** Runs `go generate` only for packages where `.proto` or generate files changed, updates config schema docs and `go.md` when relevant files change, and regenerates mocks via `mockery` when affected packages are listed in a `.mockery.yaml`.
 - **Parallel Module Tidy:** Runs `go mod tidy` in parallel across all affected modules.
@@ -33,7 +33,7 @@ go -C tools/githooks run . end-of-file-fixer --check
 
 ### `whitespace-fixer` (aliases: `whitespace`, `ws-fixer`, `trailing-whitespace`)
 
-Fixes erroneous trailing whitespace across eligible code and text files while strictly preserving whitespace inside Go raw backtick strings.
+Fixes erroneous trailing whitespace across eligible text and document files (preserving Markdown 2-space hard line breaks).
 
 ```bash
 # Fix whitespace for staged files

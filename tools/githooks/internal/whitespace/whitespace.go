@@ -25,7 +25,7 @@ type Result struct {
 	ModifiedFiles []string
 }
 
-// FixContent routes content to the appropriate language-aware whitespace fixer based on file extension.
+// FixContent routes content to the appropriate whitespace fixer based on file extension.
 func FixContent(filePath string, content []byte) ([]byte, bool, error) {
 	if len(content) == 0 {
 		return content, false, nil
@@ -34,7 +34,7 @@ func FixContent(filePath string, content []byte) ([]byte, bool, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 	switch ext {
 	case ".go":
-		return FixGo(content)
+		return content, false, nil
 	case ".md", ".markdown", ".mdown", ".mkdn":
 		return FixMarkdown(content)
 	default:
@@ -45,7 +45,7 @@ func FixContent(filePath string, content []byte) ([]byte, bool, error) {
 // FixFile checks and trims extraneous whitespace for the file at filePath.
 func FixFile(filePath string, checkOnly bool) (bool, error) {
 	cleanPath := filepath.Clean(filePath)
-	if !filefilter.IsEligiblePath(cleanPath) {
+	if strings.ToLower(filepath.Ext(cleanPath)) == ".go" || !filefilter.IsEligiblePath(cleanPath) {
 		return false, nil
 	}
 

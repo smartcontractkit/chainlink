@@ -14,60 +14,14 @@ import (
 func TestFixContent_Go(t *testing.T) {
 	t.Parallel()
 
-	t.Run("trims trailing whitespace on regular go code lines", func(t *testing.T) {
+	t.Run("skips Go files completely", func(t *testing.T) {
 		t.Parallel()
 		input := []byte("package main    \n\nfunc main() {  \n\tx := 1    \n\t_ = x\n}\n")
-		expected := []byte("package main\n\nfunc main() {\n\tx := 1\n\t_ = x\n}\n")
 
 		fixed, changed, err := whitespace.FixContent("main.go", input)
 		require.NoError(t, err)
-		assert.True(t, changed)
-		assert.Equal(t, string(expected), string(fixed))
-	})
-
-	t.Run("trims blank lines with whitespace", func(t *testing.T) {
-		t.Parallel()
-		input := []byte("package main\n    \nfunc main() {}\n")
-		expected := []byte("package main\n\nfunc main() {}\n")
-
-		fixed, changed, err := whitespace.FixContent("main.go", input)
-		require.NoError(t, err)
-		assert.True(t, changed)
-		assert.Equal(t, string(expected), string(fixed))
-	})
-
-	t.Run("trims trailing spaces on comments", func(t *testing.T) {
-		t.Parallel()
-		input := []byte("package main\n\n// line comment with spaces   \n/* block comment with spaces   \nanother line   \n*/\n")
-		expected := []byte("package main\n\n// line comment with spaces\n/* block comment with spaces\nanother line\n*/\n")
-
-		fixed, changed, err := whitespace.FixContent("main.go", input)
-		require.NoError(t, err)
-		assert.True(t, changed)
-		assert.Equal(t, string(expected), string(fixed))
-	})
-
-	t.Run("STRICT INVARIANT: preserves trailing whitespace inside Go raw backtick strings", func(t *testing.T) {
-		t.Parallel()
-		// Inside raw string literal, trailing whitespace is intentional and semantically significant!
-		input := []byte("package main\n\nconst query = `\nSELECT *    \nFROM users   \nWHERE id = 1  \n`\n\nfunc Run() {   \n\t_ = query\n}\n")
-		expected := []byte("package main\n\nconst query = `\nSELECT *    \nFROM users   \nWHERE id = 1  \n`\n\nfunc Run() {\n\t_ = query\n}\n")
-
-		fixed, changed, err := whitespace.FixContent("main.go", input)
-		require.NoError(t, err)
-		assert.True(t, changed)
-		assert.Equal(t, string(expected), string(fixed))
-	})
-
-	t.Run("interpreted string literal on line with trailing spaces outside string", func(t *testing.T) {
-		t.Parallel()
-		input := []byte("package main\n\nfunc main() {\n\tmsg := \"hello world\"   \n\t_ = msg\n}\n")
-		expected := []byte("package main\n\nfunc main() {\n\tmsg := \"hello world\"\n\t_ = msg\n}\n")
-
-		fixed, changed, err := whitespace.FixContent("main.go", input)
-		require.NoError(t, err)
-		assert.True(t, changed)
-		assert.Equal(t, string(expected), string(fixed))
+		assert.False(t, changed)
+		assert.Equal(t, string(input), string(fixed))
 	})
 }
 
@@ -115,6 +69,50 @@ func TestFixContent_Markdown(t *testing.T) {
 		fixed, changed, err := whitespace.FixContent("README.md", input)
 		require.NoError(t, err)
 		assert.True(t, changed)
+		assert.Equal(t, string(expected), string(fixed))
+	})
+
+	t.Run("parity: non-blank line with tabs and two spaces trims tab and keeps two spaces", func(t *testing.T) {
+		t.Parallel()
+		input := []byte("Line with tab\t  \n")
+		expected := []byte("Line with tab  \n")
+
+		fixed, changed, err := whitespace.FixContent("README.md", input)
+		require.NoError(t, err)
+		assert.True(t, changed)
+		assert.Equal(t, string(expected), string(fixed))
+	})
+
+	t.Run("parity: CRLF line with two spaces preserves CRLF and two spaces", func(t *testing.T) {
+		t.Parallel()
+		input := []byte("Line with break  \r\nNext\r\n")
+		expected := []byte("Line with break  \r\nNext\r\n")
+
+		fixed, changed, err := whitespace.FixContent("README.md", input)
+		require.NoError(t, err)
+		assert.False(t, changed)
+		assert.Equal(t, string(expected), string(fixed))
+	})
+
+	t.Run("parity: blank line with two spaces and CRLF trims to empty CRLF line", func(t *testing.T) {
+		t.Parallel()
+		input := []byte("First\r\n  \r\nSecond\r\n")
+		expected := []byte("First\r\n\r\nSecond\r\n")
+
+		fixed, changed, err := whitespace.FixContent("README.md", input)
+		require.NoError(t, err)
+		assert.True(t, changed)
+		assert.Equal(t, string(expected), string(fixed))
+	})
+
+	t.Run("parity: line without trailing newline preserves two spaces", func(t *testing.T) {
+		t.Parallel()
+		input := []byte("No newline break  ")
+		expected := []byte("No newline break  ")
+
+		fixed, changed, err := whitespace.FixContent("README.md", input)
+		require.NoError(t, err)
+		assert.False(t, changed)
 		assert.Equal(t, string(expected), string(fixed))
 	})
 }
@@ -168,7 +166,7 @@ func TestFixContent_Generic(t *testing.T) {
 func TestFixFile(t *testing.T) {
 	t.Parallel()
 
-	t.Run("fixes trailing whitespace on disk when checkOnly is false", func(t *testing.T) {
+	t.Run("skips Go files", func(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()
 		filePath := filepath.Join(tmpDir, "app.go")
@@ -176,18 +174,33 @@ func TestFixFile(t *testing.T) {
 
 		changed, err := whitespace.FixFile(filePath, false)
 		require.NoError(t, err)
+		assert.False(t, changed)
+
+		content, err := os.ReadFile(filePath)
+		require.NoError(t, err)
+		assert.Equal(t, "package main   \n", string(content))
+	})
+
+	t.Run("fixes trailing whitespace in eligible text file on disk when checkOnly is false", func(t *testing.T) {
+		t.Parallel()
+		tmpDir := t.TempDir()
+		filePath := filepath.Join(tmpDir, "config.yaml")
+		require.NoError(t, os.WriteFile(filePath, []byte("key: value   \n"), 0o600))
+
+		changed, err := whitespace.FixFile(filePath, false)
+		require.NoError(t, err)
 		assert.True(t, changed)
 
 		content, err := os.ReadFile(filePath)
 		require.NoError(t, err)
-		assert.Equal(t, "package main\n", string(content))
+		assert.Equal(t, "key: value\n", string(content))
 	})
 
-	t.Run("checkOnly true reports changes without modifying disk", func(t *testing.T) {
+	t.Run("checkOnly true reports changes without modifying disk for eligible text file", func(t *testing.T) {
 		t.Parallel()
 		tmpDir := t.TempDir()
-		filePath := filepath.Join(tmpDir, "app.go")
-		require.NoError(t, os.WriteFile(filePath, []byte("package main   \n"), 0o600))
+		filePath := filepath.Join(tmpDir, "config.yaml")
+		require.NoError(t, os.WriteFile(filePath, []byte("key: value   \n"), 0o600))
 
 		changed, err := whitespace.FixFile(filePath, true)
 		require.NoError(t, err)
@@ -195,6 +208,6 @@ func TestFixFile(t *testing.T) {
 
 		content, err := os.ReadFile(filePath)
 		require.NoError(t, err)
-		assert.Equal(t, "package main   \n", string(content))
+		assert.Equal(t, "key: value   \n", string(content))
 	})
 }
