@@ -9,9 +9,9 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
@@ -34,19 +34,19 @@ type lockedDb struct {
 	appID         uuid.UUID
 	cfg           LockedDBConfig
 	lockCfg       config.Lock
-	lggr          logger.Logger
+	lggr          common.Logger
 	db            *sqlx.DB
 	leaseLock     LeaseLock
 	statsReporter *StatsReporter
 }
 
 // NewLockedDB creates a new instance of LockedDB.
-func NewLockedDB(appID uuid.UUID, cfg LockedDBConfig, lockCfg config.Lock, lggr logger.Logger) LockedDB {
+func NewLockedDB(appID uuid.UUID, cfg LockedDBConfig, lockCfg config.Lock, lggr common.Logger) LockedDB {
 	return &lockedDb{
 		appID:   appID,
 		cfg:     cfg,
 		lockCfg: lockCfg,
-		lggr:    lggr.Named("LockedDB"),
+		lggr:    common.Named(lggr, "LockedDB"),
 	}
 }
 
@@ -84,8 +84,7 @@ func (l *lockedDb) Open(ctx context.Context) (err error) {
 		l.lggr.Debugf("Using database locking mode: %s", lockingMode)
 
 		// Take the lease before any other DB operations
-		switch lockingMode {
-		case "lease":
+		if lockingMode == "lease" {
 			cfg := LeaseLockConfig{
 				DefaultQueryTimeout:  l.cfg.DefaultQueryTimeout(),
 				LeaseDuration:        l.lockCfg.LeaseDuration(),
@@ -148,5 +147,5 @@ func openDB(ctx context.Context, appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.
 	uri := cfg.URL()
 	static.SetConsumerName(&uri, "App", &appID)
 	db, err = NewConnection(ctx, uri.String(), cfg.DriverName(), cfg)
-	return
+	return db, err
 }

@@ -9,10 +9,10 @@ import (
 
 	chainselector "github.com/smartcontractkit/chain-selectors"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -30,7 +30,7 @@ type chainSelector struct {
 
 // resolveChainSelector looks up the chain_selector label for (chainID, network) once. On
 // failure it logs a warning and reports ok=false so callers omit the label rather than fail.
-func resolveChainSelector(lggr logger.Logger, chainID, network string) chainSelector {
+func resolveChainSelector(lggr common.Logger, chainID, network string) chainSelector {
 	details, err := chainselector.GetChainDetailsByChainIDAndFamily(chainID, strings.ToLower(network))
 	if err != nil {
 		lggr.Warnw("Failed to resolve chain selector for head metrics; omitting chain_selector label",
@@ -43,13 +43,13 @@ func resolveChainSelector(lggr logger.Logger, chainID, network string) chainSele
 // evmMetricsReporter records head/finality data for in-process EVM chains as Beholder metrics,
 // driven by HeadTracker's new-head events.
 type evmMetricsReporter struct {
-	lggr      logger.Logger
+	lggr      common.Logger
 	metrics   HeadMetrics
 	selectors map[uint64]chainSelector // keyed by EVM chain ID
 }
 
-func NewEVMMetricsReporter(metrics HeadMetrics, lggr logger.Logger, chainIDs ...*big.Int) HeadReporter {
-	lggr = lggr.Named("MetricsReporter")
+func NewEVMMetricsReporter(metrics HeadMetrics, lggr common.Logger, chainIDs ...*big.Int) HeadReporter {
+	lggr = common.Named(lggr, "MetricsReporter")
 	selectors := make(map[uint64]chainSelector, len(chainIDs))
 	for _, chainID := range chainIDs {
 		selectors[chainID.Uint64()] = resolveChainSelector(lggr, chainID.String(), chainselector.FamilyEVM)
@@ -88,17 +88,17 @@ func (r *evmMetricsReporter) ReportPeriodic(_ context.Context) error {
 // relayerMetricsReporter records head/finality data for generic (LOOP) relayers as Beholder
 // metrics, polled on the periodic tick since there is no HeadTracker to subscribe to.
 type relayerMetricsReporter struct {
-	lggr      logger.Logger
+	lggr      common.Logger
 	metrics   HeadMetrics
 	relays    map[types.RelayID]loop.Relayer
 	selectors map[types.RelayID]chainSelector
 }
 
-func NewRelayerMetricsReporter(metrics HeadMetrics, lggr logger.Logger, relayers map[types.RelayID]loop.Relayer) HeadReporter {
+func NewRelayerMetricsReporter(metrics HeadMetrics, lggr common.Logger, relayers map[types.RelayID]loop.Relayer) HeadReporter {
 	if relayers == nil {
 		return nil
 	}
-	lggr = lggr.Named("MetricsReporter")
+	lggr = common.Named(lggr, "MetricsReporter")
 	selectors := make(map[types.RelayID]chainSelector, len(relayers))
 	for relayID := range relayers {
 		selectors[relayID] = resolveChainSelector(lggr, relayID.ChainID, relayID.Network)

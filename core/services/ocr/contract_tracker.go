@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -28,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
 	"github.com/smartcontractkit/chainlink-evm/pkg/log"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
@@ -39,18 +39,18 @@ import (
 const configMailboxSanityLimit = 100
 
 var (
-	_ ocrtypes.ContractConfigTracker = &OCRContractTracker{}
-	_ log.Listener                   = &OCRContractTracker{}
-	_ heads.Trackable                = &OCRContractTracker{}
+	_ ocrtypes.ContractConfigTracker = &ContractTracker{}
+	_ log.Listener                   = &ContractTracker{}
+	_ heads.Trackable                = &ContractTracker{}
 
 	OCRContractConfigSet            = getEventTopic("ConfigSet")
 	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
 )
 
 type (
-	// OCRContractTracker complies with ContractConfigTracker interface and
+	// ContractTracker complies with ContractConfigTracker interface and
 	// handles log events related to the contract more generally
-	OCRContractTracker struct {
+	ContractTracker struct {
 		services.StateMachine
 
 		ethClient        evmclient.Client
@@ -59,8 +59,8 @@ type (
 		contractCaller   *offchainaggregator.OffchainAggregatorCaller
 		logBroadcaster   log.Broadcaster
 		jobID            int32
-		logger           logger.Logger
-		ocrDB            OCRContractTrackerDB
+		logger           common.SugaredLogger
+		ocrDB            ContractTrackerDB
 		ds               sqlutil.DataSource
 		blockTranslator  block.BlockTranslator
 		cfg              ocrcommon.Config
@@ -88,20 +88,23 @@ type (
 		latestBlockHeightMu sync.RWMutex
 	}
 
-	OCRContractTrackerDB interface {
+	ContractTrackerDB interface {
 		SaveLatestRoundRequested(ctx context.Context, rr offchainaggregator.OffchainAggregatorRoundRequested) error
 		LoadLatestRoundRequested(ctx context.Context) (rr offchainaggregator.OffchainAggregatorRoundRequested, err error)
-		WithDataSource(sqlutil.DataSource) OCRContractTrackerDB
+		WithDataSource(sqlutil.DataSource) ContractTrackerDB
 	}
+
+	OCRContractTrackerDB = ContractTrackerDB //nolint:revive // alias needed for backward compatibility
+	OCRContractTracker   = ContractTracker   //nolint:revive // alias needed for backward compatibility
 )
 
-func (t *OCRContractTracker) HealthReport() map[string]error {
+func (t *ContractTracker) HealthReport() map[string]error {
 	return map[string]error{t.Name(): t.Healthy()}
 }
 
-func (t *OCRContractTracker) Name() string { return t.logger.Name() }
+func (t *ContractTracker) Name() string { return t.logger.Name() }
 
-// NewOCRContractTracker makes a new OCRContractTracker
+// NewOCRContractTracker makes a new ContractTracker
 func NewOCRContractTracker(
 	contract *offchain_aggregator_wrapper.OffchainAggregator,
 	contractFilterer *offchainaggregator.OffchainAggregatorFilterer,
@@ -109,22 +112,22 @@ func NewOCRContractTracker(
 	ethClient evmclient.Client,
 	logBroadcaster log.Broadcaster,
 	jobID int32,
-	logger logger.Logger,
+	logger common.Logger,
 	ds sqlutil.DataSource,
-	ocrDB OCRContractTrackerDB,
+	ocrDB ContractTrackerDB,
 	cfg ocrcommon.Config,
 	headBroadcaster heads.Broadcaster,
 	mailMon *mailbox.Monitor,
-) (o *OCRContractTracker) {
-	logger = logger.Named("OCRContractTracker")
-	return &OCRContractTracker{
+) (o *ContractTracker) {
+	logger = common.Sugared(logger).Named("ContractTracker")
+	return &ContractTracker{
 		ethClient:            ethClient,
 		contract:             contract,
 		contractFilterer:     contractFilterer,
 		contractCaller:       contractCaller,
 		logBroadcaster:       logBroadcaster,
 		jobID:                jobID,
-		logger:               logger,
+		logger:               common.Sugared(logger),
 		ocrDB:                ocrDB,
 		ds:                   ds,
 		blockTranslator:      block.NewBlockTranslator(cfg.ChainType(), ethClient, logger),
@@ -141,11 +144,11 @@ func NewOCRContractTracker(
 
 // Start must be called before logs can be delivered
 // It ought to be called before starting OCR
-func (t *OCRContractTracker) Start(ctx context.Context) error {
-	return t.StartOnce("OCRContractTracker", func() (err error) {
+func (t *ContractTracker) Start(ctx context.Context) error {
+	return t.StartOnce("ContractTracker", func() (err error) {
 		t.latestRoundRequested, err = t.ocrDB.LoadLatestRoundRequested(ctx)
 		if err != nil {
-			return errors.Wrap(err, "OCRContractTracker#Start: failed to load latest round requested")
+			return errors.Wrap(err, "ContractTracker#Start: failed to load latest round requested")
 		}
 
 		t.unsubscribeLogs = t.logBroadcaster.Register(t, log.ListenerOpts{
@@ -167,15 +170,15 @@ func (t *OCRContractTracker) Start(ctx context.Context) error {
 		t.wg.Add(1)
 		go t.processLogs()
 
-		t.mailMon.Monitor(t.configsMB, "OCRContractTracker", "Configs", strconv.Itoa(int(t.jobID)))
+		t.mailMon.Monitor(t.configsMB, "ContractTracker", "Configs", strconv.Itoa(int(t.jobID)))
 
 		return nil
 	})
 }
 
 // Close should be called after teardown of the OCR job relying on this tracker
-func (t *OCRContractTracker) Close() error {
-	return t.StopOnce("OCRContractTracker", func() error {
+func (t *ContractTracker) Close() error {
+	return t.StopOnce("ContractTracker", func() error {
 		close(t.chStop)
 		t.wg.Wait()
 		t.unsubscribeHeads()
@@ -186,11 +189,11 @@ func (t *OCRContractTracker) Close() error {
 }
 
 // OnNewLongestChain conformed to HeadTrackable and updates latestBlockHeight
-func (t *OCRContractTracker) OnNewLongestChain(_ context.Context, h *evmtypes.Head) {
+func (t *ContractTracker) OnNewLongestChain(_ context.Context, h *evmtypes.Head) {
 	t.setLatestBlockHeight(h)
 }
 
-func (t *OCRContractTracker) setLatestBlockHeight(h *evmtypes.Head) {
+func (t *ContractTracker) setLatestBlockHeight(h *evmtypes.Head) {
 	var num int64
 	if h.L1BlockNumber.Valid {
 		num = h.L1BlockNumber.Int64
@@ -204,13 +207,13 @@ func (t *OCRContractTracker) setLatestBlockHeight(h *evmtypes.Head) {
 	}
 }
 
-func (t *OCRContractTracker) getLatestBlockHeight() int64 {
+func (t *ContractTracker) getLatestBlockHeight() int64 {
 	t.latestBlockHeightMu.RLock()
 	defer t.latestBlockHeightMu.RUnlock()
 	return t.latestBlockHeight
 }
 
-func (t *OCRContractTracker) processLogs() {
+func (t *ContractTracker) processLogs() {
 	defer t.wg.Done()
 	for {
 		select {
@@ -237,7 +240,7 @@ func (t *OCRContractTracker) processLogs() {
 
 // HandleLog complies with LogListener interface
 // It is not thread safe
-func (t *OCRContractTracker) HandleLog(ctx context.Context, lb log.Broadcast) {
+func (t *ContractTracker) HandleLog(ctx context.Context, lb log.Broadcast) {
 	was, err := t.logBroadcaster.WasAlreadyConsumed(ctx, lb)
 	if err != nil {
 		t.logger.Errorw("could not determine if log was already consumed", "err", err)
@@ -322,24 +325,24 @@ func (t *OCRContractTracker) HandleLog(ctx context.Context, lb log.Broadcast) {
 
 // IsLaterThan returns true if the first log was emitted "after" the second log
 // from the blockchain's point of view
-func IsLaterThan(incoming gethTypes.Log, existing gethTypes.Log) bool {
+func IsLaterThan(incoming, existing gethTypes.Log) bool {
 	return incoming.BlockNumber > existing.BlockNumber ||
 		(incoming.BlockNumber == existing.BlockNumber && incoming.TxIndex > existing.TxIndex) ||
 		(incoming.BlockNumber == existing.BlockNumber && incoming.TxIndex == existing.TxIndex && incoming.Index > existing.Index)
 }
 
 // JobID complies with LogListener interface
-func (t *OCRContractTracker) JobID() int32 {
+func (t *ContractTracker) JobID() int32 {
 	return t.jobID
 }
 
 // SubscribeToNewConfigs returns the tracker aliased as a ContractConfigSubscription
-func (t *OCRContractTracker) SubscribeToNewConfigs(context.Context) (ocrtypes.ContractConfigSubscription, error) {
-	return (*OCRContractConfigSubscription)(t), nil
+func (t *ContractTracker) SubscribeToNewConfigs(context.Context) (ocrtypes.ContractConfigSubscription, error) {
+	return (*ContractConfigSubscription)(t), nil
 }
 
 // LatestConfigDetails queries the eth node
-func (t *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+func (t *ContractTracker) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = t.chStop.Ctx(ctx)
 	defer cancel()
@@ -357,7 +360,7 @@ func (t *OCRContractTracker) LatestConfigDetails(ctx context.Context) (changedIn
 }
 
 // ConfigFromLogs queries the eth node for logs for this contract
-func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock uint64) (c ocrtypes.ContractConfig, err error) {
+func (t *ContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock uint64) (c ocrtypes.ContractConfig, err error) {
 	fromBlock, toBlock := t.blockTranslator.NumberToQueryRange(ctx, changedInBlock)
 	q := ethereum.FilterQuery{
 		FromBlock: fromBlock,
@@ -392,14 +395,14 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 }
 
 // LatestBlockHeight queries the eth node for the most recent header
-func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
+func (t *ContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
 	switch t.cfg.ChainType() {
 	case chaintype.ChainMetis:
 		// We skip confirmation checking anyway on these L2s so there's no need to
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
 		return 0, nil
-	case "", chaintype.ChainArbitrum, chaintype.ChainAstar, chaintype.ChainCelo, chaintype.ChainGnosis, chaintype.ChainHedera, chaintype.ChainKroma, chaintype.ChainOptimismBedrock, chaintype.ChainSei, chaintype.ChainScroll, chaintype.ChainWeMix, chaintype.ChainXLayer, chaintype.ChainZkEvm, chaintype.ChainZkSync, chaintype.ChainZircuit, chaintype.ChainRootstock, chaintype.ChainPharos:
+	case "", chaintype.ChainArbitrum, chaintype.ChainAstar, chaintype.ChainCelo, chaintype.ChainGnosis, chaintype.ChainHedera, chaintype.ChainKroma, chaintype.ChainOptimismBedrock, chaintype.ChainSei, chaintype.ChainScroll, chaintype.ChainWeMix, chaintype.ChainXLayer, chaintype.ChainZkEvm, chaintype.ChainZkSync, chaintype.ChainZircuit, chaintype.ChainRootstock, chaintype.ChainPharos, chaintype.ChainMantle, chaintype.ChainTron, chaintype.ChainJovay:
 		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()
@@ -422,10 +425,10 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 	}
 
 	if h.L1BlockNumber.Valid {
-		return uint64(h.L1BlockNumber.Int64), nil
+		return uint64(h.L1BlockNumber.Int64), nil //nolint:gosec // G115: L1 block height is non-negative
 	}
 
-	return uint64(h.Number), nil
+	return uint64(h.Number), nil //nolint:gosec // G115: block height is non-negative
 }
 
 // LatestRoundRequested returns the configDigest, epoch, and round from the latest
@@ -439,7 +442,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 //
 // As an optimization, this function may also return zero values, if no
 // RoundRequested event has been emitted after the latest NewTransmission event.
-func (t *OCRContractTracker) LatestRoundRequested(_ context.Context, lookback time.Duration) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, err error) {
+func (t *ContractTracker) LatestRoundRequested(_ context.Context, lookback time.Duration) (configDigest ocrtypes.ConfigDigest, epoch uint32, round uint8, err error) {
 	// NOTE: This should be "good enough" 99% of the time.
 	// It guarantees validity up to `EVM.BlockBackfillDepth` blocks ago
 	// Some further improvements could be made:

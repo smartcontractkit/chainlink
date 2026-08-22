@@ -16,21 +16,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type Transmitter struct {
-	lggr        logger.Logger
+	lggr        common.SugaredLogger
 	handler     *requests.Handler[*vaulttypes.Request, *vaulttypes.Response]
 	fromAccount types.Account
 	lifecycle   *vaultcap.RequestLifecycleTracker
 }
 
-func NewTransmitter(lggr logger.Logger, fromAccount types.Account, handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response], lifecycle *vaultcap.RequestLifecycleTracker) *Transmitter {
+func NewTransmitter(lggr common.Logger, fromAccount types.Account, handler *requests.Handler[*vaulttypes.Request, *vaulttypes.Response], lifecycle *vaultcap.RequestLifecycleTracker) *Transmitter {
 	return &Transmitter{
-		lggr:        lggr.Named("VaultTransmitter"),
+		lggr:        common.Sugared(lggr).Named("VaultTransmitter"),
 		handler:     handler,
 		fromAccount: fromAccount,
 		lifecycle:   lifecycle,

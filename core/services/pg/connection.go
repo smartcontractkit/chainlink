@@ -21,15 +21,16 @@ var MinRequiredPGVersion = 110000
 func init() {
 	// from: https://www.postgresql.org/support/versioning/
 	now := time.Now()
-	if now.Year() > 2023 {
+	switch {
+	case now.Year() > 2023:
 		MinRequiredPGVersion = 120000
-	} else if now.Year() > 2024 {
+	case now.Year() > 2024:
 		MinRequiredPGVersion = 130000
-	} else if now.Year() > 2025 {
+	case now.Year() > 2025:
 		MinRequiredPGVersion = 140000
-	} else if now.Year() > 2026 {
+	case now.Year() > 2026:
 		MinRequiredPGVersion = 150000
-	} else if now.Year() > 2027 {
+	case now.Year() > 2027:
 		MinRequiredPGVersion = 160000
 	}
 }
@@ -113,7 +114,7 @@ func checkVersion(db Getter, minVersion int) error {
 		return nil
 	}
 	if version < minVersion {
-		return fmt.Errorf("The minimum required Postgres server version is %d, you are running: %d, which is EOL (see: https://www.postgresql.org/support/versioning/). It is recommended to upgrade your Postgres server. To forcibly override this check, set SKIP_PG_VERSION_CHECK=true", minVersion/10000, version/10000)
+		return fmt.Errorf("the minimum required Postgres server version is %d, you are running: %d, which is EOL (see: https://www.postgresql.org/support/versioning/). It is recommended to upgrade your Postgres server. To forcibly override this check, set SKIP_PG_VERSION_CHECK=true", minVersion/10000, version/10000)
 	}
 	return nil
 }

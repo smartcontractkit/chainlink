@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
@@ -220,12 +221,12 @@ func parseEATelemetry(b []byte) (EATelemetry, error) {
 	}, nil
 }
 
-// getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and tries to return
+// getJSONParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and tries to return
 // the response as a *big.Int.
 // Currently utils.ToDecimal cannot handle hex strings, so this function also has a special case,
 // to check and handle if the result is a hex string, if the call to utils.ToDecimal fails.
 // Draft PR to add hex string handling to utils.ToDecimal: https://github.com/smartcontractkit/chainlink/pull/14841
-func getJsonParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *float64 {
+func getJSONParsedValue(trr pipeline.TaskRunResult, trrs *pipeline.TaskRunResults) *float64 {
 	nextTask := trrs.GetNextTaskOf(trr)
 	if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		asDecimal, err := utils.ToDecimal(nextTask.Result.Value)
@@ -273,7 +274,7 @@ func (e *EnhancedTelemetryService[T]) getObservation(finalResult *pipeline.Final
 }
 
 func (e *EnhancedTelemetryService[T]) getParsedValue(trrs *pipeline.TaskRunResults, trr pipeline.TaskRunResult) float64 {
-	parsedValue := getJsonParsedValue(trr, trrs)
+	parsedValue := getJSONParsedValue(trr, trrs)
 	if parsedValue == nil {
 		return 0
 	}
@@ -431,7 +432,11 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d Enhanced
 			bp = obs.BenchmarkPrice.Val
 		}
 		if obs.MarketStatus.Err == nil {
-			marketStatus = telem.MarketStatus(obs.MarketStatus.Val)
+			if obs.MarketStatus.Val > math.MaxInt32 {
+				marketStatus = telem.MarketStatus_UNKNOWN
+			} else {
+				marketStatus = telem.MarketStatus(obs.MarketStatus.Val)
+			}
 		}
 	}
 

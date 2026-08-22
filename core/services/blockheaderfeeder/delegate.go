@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
+	"math"
 	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/blockhash_store"
@@ -19,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -73,7 +74,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	chainService, err := d.legacyChains.Get(cid.String())
 	if err != nil {
 		return nil, fmt.Errorf(
-			"getting chain ID %s: %w", cid, err)
+			"getting chain ID %s: %w", cid, err,
+		)
 	}
 	chain, ok := chainService.(legacyevm.Chain)
 	if !ok {
@@ -84,10 +86,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return nil, errors.New("log poller must be enabled to run blockheaderfeeder")
 	}
 
-	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(chain.Config().EVM().FinalityDepth()) {
+	finalityDepth := chain.Config().EVM().FinalityDepth()
+	if finalityDepth > math.MaxInt32 {
+		return nil, fmt.Errorf("chain finality depth overflows int32: %d", finalityDepth)
+	}
+	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(finalityDepth) {
 		return nil, fmt.Errorf(
 			"lookbackBlocks must be greater than or equal to chain's finality depth (%d), currently %d",
-			chain.Config().EVM().FinalityDepth(), jb.BlockHeaderFeederSpec.LookbackBlocks)
+			finalityDepth, jb.BlockHeaderFeederSpec.LookbackBlocks,
+		)
 	}
 
 	ks := keys.NewChainStore(keystore.NewEthSigner(d.ks, cid), cid)
@@ -104,13 +111,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	fromAddresses := jb.BlockHeaderFeederSpec.FromAddresses
 
 	bhs, err := blockhash_store.NewBlockhashStore(
-		jb.BlockHeaderFeederSpec.BlockhashStoreAddress.Address(), chain.Client())
+		jb.BlockHeaderFeederSpec.BlockhashStoreAddress.Address(), chain.Client(),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "building BHS")
 	}
 
 	batchBlockhashStore, err := batch_blockhash_store.NewBatchBlockhashStore(
-		jb.BlockHeaderFeederSpec.BatchBlockhashStoreAddress.Address(), chain.Client())
+		jb.BlockHeaderFeederSpec.BatchBlockhashStoreAddress.Address(), chain.Client(),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "building batch BHS")
 	}
@@ -120,7 +129,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if jb.BlockHeaderFeederSpec.CoordinatorV2Address != nil {
 		var c *v2.VRFCoordinatorV2
 		if c, err = v2.NewVRFCoordinatorV2(
-			jb.BlockHeaderFeederSpec.CoordinatorV2Address.Address(), chain.Client()); err != nil {
+			jb.BlockHeaderFeederSpec.CoordinatorV2Address.Address(), chain.Client(),
+		); err != nil {
 			return nil, errors.Wrap(err, "building V2 coordinator")
 		}
 		var coord *blockhashstore.V2Coordinator
@@ -133,7 +143,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	if jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress != nil {
 		var c v2plus.IVRFCoordinatorV2PlusInternalInterface
 		if c, err = v2plus.NewIVRFCoordinatorV2PlusInternal(
-			jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress.Address(), chain.Client()); err != nil {
+			jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress.Address(), chain.Client(),
+		); err != nil {
 			return nil, errors.Wrap(err, "building V2 plus coordinator")
 		}
 		var coord *blockhashstore.V2PlusCoordinator
@@ -166,7 +177,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		return nil, errors.Wrap(err, "building batchBHS")
 	}
 
-	log := d.logger.Named("BlockHeaderFeeder").With(
+	log := logger.With(logger.Named(d.logger, "BlockHeaderFeeder"),
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"bhsAddress", bhs.Address(),
@@ -188,7 +199,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 			if err != nil {
 				return 0, errors.Wrap(err, "getting chain head")
 			}
-			return uint64(head.Number), nil
+			return uint64(head.Number), nil //nolint:gosec // G115
 		},
 		ks,
 		jb.BlockHeaderFeederSpec.GetBlockhashesBatchSize,
@@ -284,5 +295,5 @@ func CheckFromAddressesExist(jb job.Job, enabled []common.Address) (err error) {
 			err = stderrors.Join(err, fmt.Errorf("address not enabled: %s", a.Hex()))
 		}
 	}
-	return
+	return err
 }

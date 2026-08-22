@@ -103,7 +103,8 @@ func (lsn *listenerV2) getLogPollerFilterName() string {
 		"VRFListener",
 		"version", lsn.coordinator.Version(),
 		"keyhash", lsn.job.VRFSpec.PublicKey.MustHash(),
-		"coordinatorAddress", lsn.coordinator.Address())
+		"coordinatorAddress", lsn.coordinator.Address(),
+	)
 }
 
 // initializeLastProcessedBlock returns the earliest block number that we need to
@@ -123,7 +124,8 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 	ll := lsn.l.With(
 		"latestFinalizedBlock", latestBlock.FinalizedBlockNumber,
 		"latestBlock", latestBlock.BlockNumber,
-		"fromTimestamp", fromTimestamp)
+		"fromTimestamp", fromTimestamp,
+	)
 	ll.Debugw("Initializing last processed block")
 	defer func() {
 		ll.Debugw("Done initializing last processed block", "elapsed", time.Since(start))
@@ -142,7 +144,7 @@ func (lsn *listenerV2) initializeLastProcessedBlock(ctx context.Context) (lastPr
 	}
 
 	// get randomness requested logs with the appropriate keyhash
-	// keyhash is specified in topic1
+	// is specified in topic1
 	requests, err := lp.IndexedLogsCreatedAfter(
 		ctx,
 		lsn.coordinator.RandomWordsRequestedTopic(), // event sig
@@ -203,7 +205,8 @@ func (lsn *listenerV2) updateLastProcessedBlock(ctx context.Context, currLastPro
 	ll := lsn.l.With(
 		"currLastProcessedBlock", currLastProcessedBlock,
 		"latestBlock", latestBlock.BlockNumber,
-		"latestFinalizedBlock", latestBlock.FinalizedBlockNumber)
+		"latestFinalizedBlock", latestBlock.FinalizedBlockNumber,
+	)
 	ll.Debugw("updating last processed block")
 	defer func() {
 		ll.Debugw("done updating last processed block", "elapsed", time.Since(start))
@@ -268,7 +271,8 @@ func (lsn *listenerV2) pollLogs(ctx context.Context, minConfs uint32, lastProces
 		"lastProcessedBlock", lastProcessedBlock,
 		"minConfs", minConfs,
 		"latestBlock", latestBlock.BlockNumber,
-		"latestFinalizedBlock", latestBlock.FinalizedBlockNumber)
+		"latestFinalizedBlock", latestBlock.FinalizedBlockNumber,
+	)
 	ll.Debugw("polling for logs")
 	defer func() {
 		ll.Debugw("done polling for logs", "elapsed", time.Since(start))
@@ -440,7 +444,7 @@ func (lsn *listenerV2) handleRequested(requested []RandomWordsRequested, request
 // if the chain ID is not recognized it assumes a block time of 1 second
 // and returns the number of blocks in a day.
 func numReplayBlocks(requestTimeout time.Duration, chainID *big.Int) int64 {
-	var timeoutSeconds = int64(requestTimeout.Seconds())
+	timeoutSeconds := int64(requestTimeout.Seconds())
 	switch chainID.String() {
 	case
 		"1",        // eth mainnet

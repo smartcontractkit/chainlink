@@ -32,7 +32,7 @@ type RelayerChainInteroperators interface {
 
 	LoopRelayerStorer
 	LegacyChainer
-	StatusReader
+	ChainsNodesStature
 }
 
 // LoopRelayerStorer is key-value like interface for storing and
@@ -58,21 +58,21 @@ type NetworkChainStatus struct {
 	types.ChainStatus
 }
 
-type ChainStatusReader interface {
+type ChainStature interface {
 	ChainStatus(ctx context.Context, id types.RelayID) (types.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]NetworkChainStatus, int, error)
 }
 
-// NodeStatusReader is an interface for node configuration and state.
+// NodesStature is an interface for node configuration and state.
 // TODO BCF-2440, BCF-2511 may need Node(ctx,name) to get a node status by name
-type NodeStatusReader interface {
+type NodesStature interface {
 	NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...types.RelayID) (nodes []types.NodeStatus, count int, err error)
 }
 
-// StatusReader report statuses about chains and nodes
-type StatusReader interface {
-	ChainStatusReader
-	NodeStatusReader
+// ChainsNodesStature report statuses about chains and nodes
+type ChainsNodesStature interface {
+	ChainStature
+	NodesStature
 }
 
 var _ RelayerChainInteroperators = &CoreRelayerChainInteroperators{}
@@ -314,6 +314,7 @@ func (rs *CoreRelayerChainInteroperators) GetIDToRelayerMap() map[types.RelayID]
 
 // LegacyEVMChains returns a container with all the evm chains
 // TODO BCF-2511
+//
 // Deprecated: use the Relayer interface
 func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() legacyevm.LegacyChainContainer {
 	rs.mu.Lock()
@@ -339,14 +340,14 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
-	relayerIds := make([]types.RelayID, 0)
+	relayerIDs := make([]types.RelayID, 0, len(rs.loopRelayers))
 	for rid := range rs.loopRelayers {
-		relayerIds = append(relayerIds, rid)
+		relayerIDs = append(relayerIDs, rid)
 	}
-	sort.Slice(relayerIds, func(i, j int) bool {
-		return relayerIds[i].String() < relayerIds[j].String()
+	sort.Slice(relayerIDs, func(i, j int) bool {
+		return relayerIDs[i].String() < relayerIDs[j].String()
 	})
-	for _, rid := range relayerIds {
+	for _, rid := range relayerIDs {
 		lr := rs.loopRelayers[rid]
 		stat, err := lr.GetChainStatus(ctx)
 		if err != nil {
@@ -400,7 +401,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		})
 		for _, key := range keys {
 			lr := relayers[key]
-			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
+			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "") //nolint:gosec // G115: page size is far below math.MaxInt32
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
 				continue
@@ -415,8 +416,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 				totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
 				continue
 			}
-			nodeStats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
-
+			nodeStats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "") //nolint:gosec // G115: page size is far below math.MaxInt32
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
 				continue
@@ -475,6 +475,7 @@ func (rs *CoreRelayerChainInteroperators) Slice() []loop.Relayer {
 	defer rs.mu.Unlock()
 	return slices.Collect(maps.Values(rs.loopRelayers))
 }
+
 func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
 	return rs.srvs
 }

@@ -44,7 +44,7 @@ func MustInsertOCROracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress types
 	require.NoError(t, err)
 
 	require.NoError(t, db.Get(&spec, `INSERT INTO ocr2_oracle_specs (
-relay, relay_config, contract_id, p2pv2_bootstrappers, ocr_key_bundle_id, monitoring_endpoint, transmitter_id, 
+relay, relay_config, contract_id, p2pv2_bootstrappers, ocr_key_bundle_id, monitoring_endpoint, transmitter_id,
 blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, plugin_type, plugin_config, onchain_signing_strategy, allow_no_bootstrappers, created_at, updated_at) VALUES (
 'ethereum', '{}', $1, '{}', $2, $3, $4,
 0, 0, 0, 'median', $5, '{}', $6, NOW(), NOW()
@@ -461,55 +461,55 @@ func Test_DB_ReadWriteProtocolState(t *testing.T) {
 		assertCount(0)
 
 		err := db.WriteProtocolState(ctx, cd1, "key1", []byte{1})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assertCount(1)
 
 		err = db.WriteProtocolState(ctx, cd2, "key1", []byte{2})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assertCount(2)
 
 		err = db.WriteProtocolState(ctx, cd2, "key2", []byte{3})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assertCount(3)
 
 		// should overwrite
 		err = db.WriteProtocolState(ctx, cd2, "key2", []byte{4})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		val, err := db.ReadProtocolState(ctx, cd1, "key1")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, []byte{1}, val)
 
 		val, err = db.ReadProtocolState(ctx, cd2, "key1")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, []byte{2}, val)
 
 		val, err = db.ReadProtocolState(ctx, cd2, "key2")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, []byte{4}, val)
 
 		// should write empty value
 		err = db.WriteProtocolState(ctx, cd1, "key1", []byte{})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		val, err = db.ReadProtocolState(ctx, cd1, "key1")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, []byte{}, val)
 
 		assertCount(3)
 
 		// should delete value
 		err = db.WriteProtocolState(ctx, cd1, "key1", nil)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assertCount(2)
 
 		// trying to read missing value yields nil
 		val, err = db.ReadProtocolState(ctx, cd1, "key1")
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Nil(t, val)
 	})
 }

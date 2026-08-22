@@ -9,9 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
@@ -27,7 +27,7 @@ type Heartbeat struct {
 
 type HeartbeatConfig struct {
 	Beat         time.Duration
-	Lggr         logger.Logger
+	Lggr         common.Logger
 	P2P          string
 	AppID        string
 	CSAPublicKey string

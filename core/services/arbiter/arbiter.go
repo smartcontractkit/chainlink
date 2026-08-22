@@ -12,9 +12,9 @@ import (
 	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // Arbiter is the main service interface.
@@ -34,7 +34,7 @@ type arbiter struct {
 	ringArbiterHandler *RingArbiterHandler
 	state              *State
 	shardConfig        ShardConfigReader
-	lggr               logger.Logger
+	lggr               common.Logger
 
 	grpcAddr string
 	stopCh   services.StopChan
@@ -47,14 +47,14 @@ var _ Arbiter = (*arbiter)(nil)
 // contractReaderFactory is used to create the contract reader for querying the ShardConfig contract.
 // This follows the same pattern as the workflow registry syncer and capability registry syncer.
 func New(
-	lggr logger.Logger,
+	lggr common.Logger,
 	contractReaderFactory ContractReaderFactory,
 	shardConfigAddr string,
 	port uint16,
 	pollInterval time.Duration,
 	retryInterval time.Duration,
 ) (Arbiter, error) {
-	lggr = lggr.Named("Arbiter")
+	lggr = common.Named(lggr, "Arbiter")
 
 	// Create state
 	state := NewState()

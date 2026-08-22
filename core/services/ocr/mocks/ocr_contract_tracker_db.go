@@ -130,19 +130,19 @@ func (_c *OCRContractTrackerDB_SaveLatestRoundRequested_Call) RunAndReturn(run f
 }
 
 // WithDataSource provides a mock function with given fields: _a0
-func (_m *OCRContractTrackerDB) WithDataSource(_a0 sqlutil.DataSource) ocr.OCRContractTrackerDB {
+func (_m *OCRContractTrackerDB) WithDataSource(_a0 sqlutil.DataSource) ocr.ContractTrackerDB {
 	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
 		panic("no return value specified for WithDataSource")
 	}
 
-	var r0 ocr.OCRContractTrackerDB
-	if rf, ok := ret.Get(0).(func(sqlutil.DataSource) ocr.OCRContractTrackerDB); ok {
+	var r0 ocr.ContractTrackerDB
+	if rf, ok := ret.Get(0).(func(sqlutil.DataSource) ocr.ContractTrackerDB); ok {
 		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(ocr.OCRContractTrackerDB)
+			r0 = ret.Get(0).(ocr.ContractTrackerDB)
 		}
 	}
 
@@ -167,12 +167,12 @@ func (_c *OCRContractTrackerDB_WithDataSource_Call) Run(run func(_a0 sqlutil.Dat
 	return _c
 }
 
-func (_c *OCRContractTrackerDB_WithDataSource_Call) Return(_a0 ocr.OCRContractTrackerDB) *OCRContractTrackerDB_WithDataSource_Call {
+func (_c *OCRContractTrackerDB_WithDataSource_Call) Return(_a0 ocr.ContractTrackerDB) *OCRContractTrackerDB_WithDataSource_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *OCRContractTrackerDB_WithDataSource_Call) RunAndReturn(run func(sqlutil.DataSource) ocr.OCRContractTrackerDB) *OCRContractTrackerDB_WithDataSource_Call {
+func (_c *OCRContractTrackerDB_WithDataSource_Call) RunAndReturn(run func(sqlutil.DataSource) ocr.ContractTrackerDB) *OCRContractTrackerDB_WithDataSource_Call {
 	_c.Call.Return(run)
 	return _c
 }

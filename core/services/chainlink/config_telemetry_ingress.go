@@ -47,7 +47,7 @@ func (t *telemetryIngressConfig) UseBatchSend() bool {
 }
 
 func (t *telemetryIngressConfig) Endpoints() []config.TelemetryIngressEndpoint {
-	var endpoints []config.TelemetryIngressEndpoint
+	endpoints := make([]config.TelemetryIngressEndpoint, 0, len(t.c.Endpoints))
 	for _, e := range t.c.Endpoints {
 		endpoints = append(endpoints, &telemetryIngressEndpointConfig{
 			c: e,
