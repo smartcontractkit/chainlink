@@ -138,13 +138,13 @@ func Test_ParseCBOR(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			b, err := hexutil.Decode(test.in)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			json, err := ParseDietCBOR(b)
 			if test.wantErrored {
 				assert.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, test.want, json)
 			}
 		})
@@ -156,16 +156,16 @@ func Test_ParseCBORToStruct_Success(t *testing.T) {
 
 	hexCBOR := `0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`
 	bytesCBOR, err := hexutil.Decode(hexCBOR)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	parsed := struct {
-		Url  string   `cbor:"url"`
+		URL  string   `cbor:"url"`
 		Path []string `cbor:"path"`
 	}{}
 	err = ParseDietCBORToStruct(bytesCBOR, &parsed)
 
 	require.NoError(t, err)
-	require.Equal(t, "https://etherprice.com/api", parsed.Url)
+	require.Equal(t, "https://etherprice.com/api", parsed.URL)
 	require.Equal(t, []string{"recent", "usd"}, parsed.Path)
 }
 
@@ -174,10 +174,10 @@ func Test_ParseCBORToStruct_WrongFieldType(t *testing.T) {
 
 	hexCBOR := `0xbf6375726c781a68747470733a2f2f657468657270726963652e636f6d2f61706964706174689f66726563656e7463757364ffff000000`
 	bytesCBOR, err := hexutil.Decode(hexCBOR)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	parsed := struct {
-		Url  string `cbor:"url"`
+		URL  string `cbor:"url"`
 		Path []int  `cbor:"path"` // expect int but get string
 	}{}
 	err = ParseDietCBORToStruct(bytesCBOR, &parsed)
@@ -191,7 +191,7 @@ func Test_ParseCBORToStruct_BinaryStringOfWrongType(t *testing.T) {
 	// {"key":"value"} but with last byte replaced with invalid unicode (0x88)
 	hexCBOR := `0x636B65796576616C7588`
 	bytesCBOR, err := hexutil.Decode(hexCBOR)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	parsed := struct {
 		Key string `cbor:"key"`
@@ -276,12 +276,12 @@ func TestCoerceInterfaceMapToStringMap(t *testing.T) {
 		{"simple map", map[any]any{"key": "value"}, map[string]any{"key": "value"}},
 		{"int map", map[int]any{1: "value"}, map[int]any{1: "value"}},
 		{
-			"nested string map map",
+			"nested string map",
 			map[string]any{"key": map[any]any{"nk": "nv"}},
 			map[string]any{"key": map[string]any{"nk": "nv"}},
 		},
 		{
-			"nested map map",
+			"nested map",
 			map[any]any{"key": map[any]any{"nk": "nv"}},
 			map[string]any{"key": map[string]any{"nk": "nv"}},
 		},

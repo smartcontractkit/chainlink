@@ -12,10 +12,13 @@ import (
 )
 
 var (
-	// ErrorAuthFailed is a generic authentication failed - but not because of
+	// ErrAuthFailed is a generic authentication failed - but not because of
 	// some system failure on our behalf (i.e. HTTP 5xx), more detail is not
 	// given
-	ErrorAuthFailed = pkgerrors.New("Authentication failed")
+	ErrAuthFailed = pkgerrors.New("Authentication failed")
+
+	// ErrorAuthFailed is retained for backward compatibility.
+	ErrorAuthFailed = ErrAuthFailed //nolint:errname // backward compatibility
 )
 
 // Token is used for API authentication.
