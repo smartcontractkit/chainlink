@@ -31,7 +31,7 @@ func StartPyroscope(pyroConfig config.Pyroscope, pprofConfig PprofConfig) (*pyro
 		ApplicationName: "chainlink-node",
 
 		ServerAddress: pyroConfig.ServerAddress(),
-		AuthToken:     pyroConfig.AuthToken(),
+		AuthToken:     pyroConfig.AuthToken(), //nolint:staticcheck // SA1019
 
 		// We disable logging the profiling info, it will be in the Pyroscope instance anyways...
 		Logger: nil,

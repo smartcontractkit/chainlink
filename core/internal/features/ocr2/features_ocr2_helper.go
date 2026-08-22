@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/operatorforwarder/generated/authorized_forwarder"
@@ -647,7 +648,7 @@ updateInterval = "1m"
 	}
 }
 
-func InitOCR2(t *testing.T, lggr logger.Logger, b *simulated.Backend,
+func InitOCR2(t *testing.T, lggr commonlogger.Logger, b *simulated.Backend,
 	ocrContract *ocr2aggregator.OCR2Aggregator,
 	owner *bind.TransactOpts,
 	bootstrapNode *Node,

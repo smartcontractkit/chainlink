@@ -72,7 +72,8 @@ var _ common.Logger = (Logger)(nil)
 //   - Trace: Only included if compiled with the trace tag. For example: go test -tags trace ...
 //
 // Node Operator Docs: https://docs.chain.link/docs/configuration-variables/#log_level
-// Deprecated: use [common.Logger] & [common.SugaredLogger]
+//
+// Note: prefer [common.Logger] & [common.SugaredLogger]
 type Logger interface {
 	// With creates a new Logger with the given arguments
 	With(args ...any) Logger
@@ -159,7 +160,7 @@ func NewLogger() (Logger, func() error) {
 type Config struct {
 	LogLevel       zapcore.Level
 	Dir            string
-	JsonConsole    bool
+	JSONConsole    bool
 	UnixTS         bool
 	FileMaxSizeMB  int
 	FileMaxAgeDays int
@@ -187,7 +188,7 @@ func (c *Config) NewWithCores(cores ...zapcore.Core) (Logger, func() error) {
 		c.diskPollConfig = newDiskPollConfig(diskPollInterval)
 	}
 
-	cfg := newZapConfigProd(c.JsonConsole, c.UnixTS)
+	cfg := newZapConfigProd(c.JSONConsole, c.UnixTS)
 	cfg.Level.SetLevel(c.LogLevel)
 	var (
 		l           Logger
@@ -212,12 +213,12 @@ func (c *Config) NewWithCores(cores ...zapcore.Core) (Logger, func() error) {
 }
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk
-func (c Config) DebugLogsToDisk() bool {
+func (c *Config) DebugLogsToDisk() bool {
 	return c.FileMaxSizeMB > 0
 }
 
 // RequiredDiskSpace returns the required disk space in order to allow debug logs to be stored in disk
-func (c Config) RequiredDiskSpace() utils.FileSize {
+func (c *Config) RequiredDiskSpace() utils.FileSize {
 	return utils.FileSize(c.FileMaxSizeMB * utils.MB * (c.FileMaxBackups + 1)) //nolint:gosec // G115
 }
 
@@ -229,7 +230,7 @@ func (c *Config) DiskSpaceAvailable(path string) (utils.FileSize, error) {
 	return c.diskSpaceAvailableFn(path)
 }
 
-func (c Config) LogsFile() string {
+func (c *Config) LogsFile() string {
 	return filepath.Join(c.Dir, logsFile)
 }
 

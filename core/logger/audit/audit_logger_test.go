@@ -65,7 +65,7 @@ func (c Config) Environment() string {
 	return "test"
 }
 
-func (c Config) ForwardToUrl() (commonconfig.URL, error) {
+func (c Config) ForwardToUrl() (commonconfig.URL, error) { //nolint:revive // method name required by interface
 	url, err := commonconfig.ParseURL("http://localhost:9898")
 	if err != nil {
 		return commonconfig.URL{}, err
@@ -77,7 +77,7 @@ func (c Config) Headers() (models.ServiceHeaders, error) {
 	return make(models.ServiceHeaders, 0), nil
 }
 
-func (c Config) JsonWrapperKey() string {
+func (c Config) JsonWrapperKey() string { //nolint:revive // method name required by interface
 	return ""
 }
 
@@ -100,15 +100,15 @@ func TestCheckLoginAuditLog(t *testing.T) {
 
 	// Create new AuditLoggerService
 	auditLogger, err := audit.NewAuditLogger(logger.Named("AuditLogger"), &auditLoggerTestConfig)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	// Cast to concrete type so we can swap out the internals
-	auditLoggerService, ok := auditLogger.(*audit.AuditLoggerService)
+	auditLoggerService, ok := auditLogger.(*audit.LoggerService)
 	assert.True(t, ok)
 
 	// Swap the internals with a testing handler
 	auditLoggerService.SetLoggingClient(&mockHTTPClient)
-	assert.NoError(t, auditLoggerService.Ready())
+	require.NoError(t, auditLoggerService.Ready())
 
 	// Create a new chainlink test application passing in our test logger
 	// and audit logger
@@ -126,12 +126,12 @@ func TestCheckLoginAuditLog(t *testing.T) {
 
 	// Login
 	err = client.RemoteLogin(c)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	select {
 	case event := <-loggingChannel:
 		deserialized := &LoginLogItem{}
-		assert.NoError(t, json.Unmarshal([]byte(event.body), deserialized))
+		require.NoError(t, json.Unmarshal([]byte(event.body), deserialized))
 
 		assert.Equal(t, cltest.APIEmailAdmin, deserialized.Data.Email)
 		assert.Equal(t, "test", deserialized.Env)
@@ -141,5 +141,5 @@ func TestCheckLoginAuditLog(t *testing.T) {
 	case <-time.After(5 * time.Second):
 	}
 
-	assert.True(t, false)
+	assert.Fail(t, "timed out waiting for login audit log event")
 }

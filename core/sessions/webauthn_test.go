@@ -44,7 +44,7 @@ func TestWebAuthnSessionStore(t *testing.T) {
 	require.False(t, ok)
 
 	_, err = s.GetWebauthnSession(key)
-	assert.ErrorContains(t, err, "assertion not in challenge store")
+	require.ErrorContains(t, err, "assertion not in challenge store")
 
 	user := mustRandomUser(t)
 	cred := webauthn.Credential{

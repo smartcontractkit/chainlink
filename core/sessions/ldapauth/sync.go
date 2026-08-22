@@ -10,10 +10,10 @@ import (
 	"github.com/go-ldap/ldap/v3"
 	"github.com/lib/pq"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 )
 
@@ -21,7 +21,7 @@ type LDAPServerStateSyncer struct {
 	ds           sqlutil.DataSource
 	ldapClient   LDAPClient
 	config       config.LDAP
-	lggr         logger.Logger
+	lggr         common.SugaredLogger
 	nextSyncTime time.Time
 	done         chan struct{}
 	stopCh       services.StopChan
@@ -31,13 +31,13 @@ type LDAPServerStateSyncer struct {
 func NewLDAPServerStateSyncer(
 	ds sqlutil.DataSource,
 	config config.LDAP,
-	lggr logger.Logger,
+	lggr common.Logger,
 ) *LDAPServerStateSyncer {
 	return &LDAPServerStateSyncer{
 		ds:         ds,
 		ldapClient: newLDAPClient(config),
 		config:     config,
-		lggr:       lggr.Named("LDAPServerStateSync"),
+		lggr:       common.Sugared(lggr).Named("LDAPServerStateSync"),
 		done:       make(chan struct{}),
 		stopCh:     make(services.StopChan),
 	}
@@ -116,7 +116,6 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 	l.lggr.Info("Begin Upstream LDAP provider state sync after checking time against config UpstreamSyncInterval and UpstreamSyncRateLimit")
 
 	// For each defined role/group, query for the list of group members to gather the full list of possible users
-	users := []sessions.User{}
 
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
@@ -155,6 +154,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 		return
 	}
 
+	users := make([]sessions.User, 0, len(adminUsers)+len(editUsers)+len(runUsers)+len(readUsers))
 	users = append(users, adminUsers...)
 	users = append(users, editUsers...)
 	users = append(users, runUsers...)
