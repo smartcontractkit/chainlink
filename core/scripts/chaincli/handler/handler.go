@@ -15,6 +15,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 	link "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
-
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -107,15 +107,10 @@ func NewBaseHandler(cfg *config.Config) *baseHandler {
 	var fromAddr common.Address
 	var privateKey *ecdsa.PrivateKey
 	if cfg.PrivateKey != "" {
-		d := new(big.Int).SetBytes(common.FromHex(cfg.PrivateKey))
-		pkX, pkY := crypto.S256().ScalarBaseMult(d.Bytes())
-		privateKey = &ecdsa.PrivateKey{
-			PublicKey: ecdsa.PublicKey{
-				Curve: crypto.S256(),
-				X:     pkX,
-				Y:     pkY,
-			},
-			D: d,
+		var parseErr error
+		privateKey, parseErr = crypto.HexToECDSA(strings.TrimPrefix(cfg.PrivateKey, "0x"))
+		if parseErr != nil {
+			log.Fatal("error parsing private key: ", parseErr)
 		}
 
 		// Init from address
@@ -167,7 +162,7 @@ func (h *baseHandler) buildTxOpts(ctx context.Context) *bind.TransactOpts {
 		log.Fatal("NewKeyedTransactorWithChainID failed: ", err)
 	}
 
-	auth.Nonce = big.NewInt(int64(nonce))
+	auth.Nonce = new(big.Int).SetUint64(nonce)
 	auth.Value = big.NewInt(0)     // in wei
 	auth.GasLimit = h.cfg.GasLimit // in units
 	auth.GasPrice = gasPrice
@@ -220,7 +215,7 @@ func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) erro
 
 	if receipt.Status == ethtypes.ReceiptStatusFailed {
 		log.Println("Transaction failed: ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))
-		return errors.New("Transaction failed")
+		return errors.New("transaction failed")
 	}
 
 	return nil
@@ -498,7 +493,7 @@ func waitForNodeReady(ctx context.Context, addr string) error {
 	const timeout = 120
 	startTime := time.Now().Unix()
 	for {
-		req, err := http.NewRequestWithContext(ctx, "GET", addr+"/health", nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, addr+"/health", nil)
 		if err != nil {
 			return err
 		}

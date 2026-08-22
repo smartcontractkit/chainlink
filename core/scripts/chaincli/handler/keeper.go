@@ -14,8 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/umbracle/ethgo/abi"
 
-	"github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/mercury/streams"
-
 	automationForwarderLogic "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_forwarder_logic"
 	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registrylogic20 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_logic2_0"
@@ -29,6 +27,7 @@ import (
 	upkeep "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/verifiable_load_streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/verifiable_load_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/mercury/streams"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -398,21 +397,22 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		case config.Conditional:
 			checkData = []byte(k.cfg.UpkeepCheckData)
 			var err error
-			if k.cfg.UpkeepAverageEligibilityCadence > 0 {
+			switch {
+			case k.cfg.UpkeepAverageEligibilityCadence > 0:
 				upkeepAddr, deployUpkeepTx, _, err = upkeep.DeployUpkeepPerformCounterRestrictive(
 					k.buildTxOpts(ctx),
 					k.client,
 					big.NewInt(k.cfg.UpkeepTestRange),
 					big.NewInt(k.cfg.UpkeepAverageEligibilityCadence),
 				)
-			} else if k.cfg.VerifiableLoadTest {
+			case k.cfg.VerifiableLoadTest:
 				upkeepAddr, deployUpkeepTx, _, err = verifiable_load_upkeep_wrapper.DeployVerifiableLoadUpkeep(
 					k.buildTxOpts(ctx),
 					k.client,
 					common.HexToAddress(k.cfg.Registrar),
 					k.cfg.UseArbBlockNumber,
 				)
-			} else {
+			default:
 				upkeepAddr, deployUpkeepTx, _, err = upkeep_counter_wrapper.DeployUpkeepCounter(
 					k.buildTxOpts(ctx),
 					k.client,
@@ -538,26 +538,26 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		}
 	}
 
-	activeUpkeepIds := k.getActiveUpkeepIds(ctx, upkeepGetter, big.NewInt(existingCount), upkeepCount)
+	activeUpkeepIDs := k.getActiveUpkeepIDs(ctx, upkeepGetter, big.NewInt(existingCount), upkeepCount)
 
 	for index, upkeepAddr := range upkeepAddrs {
 		// Approve
 		k.approveFunds(ctx, registryAddr)
 
-		upkeepId := activeUpkeepIds[index]
+		upkeepID := activeUpkeepIDs[index]
 
 		// Fund
-		addFundsTx, err := deployer.AddFunds(k.buildTxOpts(ctx), upkeepId, k.addFundsAmount)
+		addFundsTx, err := deployer.AddFunds(k.buildTxOpts(ctx), upkeepID, k.addFundsAmount)
 		if err != nil {
-			log.Fatal(upkeepId, upkeepAddr.Hex(), ": AddFunds failed - ", err)
+			log.Fatal(upkeepID, upkeepAddr.Hex(), ": AddFunds failed - ", err)
 		}
 
 		// Onchain transaction
 		if err := k.waitTx(ctx, addFundsTx); err != nil {
-			log.Fatalf("AddFunds failed for upkeepId: %s, and upkeepAddr: %s, error is: %s", upkeepId, upkeepAddr.Hex(), err.Error())
+			log.Fatalf("AddFunds failed for upkeepId: %s, and upkeepAddr: %s, error is: %s", upkeepID, upkeepAddr.Hex(), err.Error())
 		}
 
-		log.Println(upkeepId, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
+		log.Println(upkeepID, upkeepAddr.Hex(), ": Upkeep funded - ", helpers.ExplorerLink(k.cfg.ChainID, addFundsTx.Hash()))
 	}
 
 	// set administrative offchain config for mercury upkeeps
@@ -571,7 +571,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			log.Fatalf("failed to fetch type and version from registry 2.1: %v", err)
 		}
 		log.Printf("registry version is %s", v)
-		log.Printf("active upkeep ids: %v", activeUpkeepIds)
+		log.Printf("active upkeep ids: %v", activeUpkeepIDs)
 
 		adminBytes, err := json.Marshal(streams.UpkeepPrivilegeConfig{
 			MercuryEnabled: true,
@@ -580,7 +580,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			log.Fatalf("failed to marshal upkeep privilege config: %v", err)
 		}
 
-		for _, id := range activeUpkeepIds {
+		for _, id := range activeUpkeepIDs {
 			tx, err2 := reg21.SetUpkeepPrivilegeConfig(k.buildTxOpts(ctx), id, adminBytes)
 			if err2 != nil {
 				log.Fatalf("failed to upkeep privilege config: %v", err2)
@@ -595,12 +595,12 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			if err2 != nil {
 				log.Fatalf("failed to fetch upkeep id %s from registry 2.1: %v", id, err2)
 			}
-			min, err2 := reg21.GetMinBalanceForUpkeep(nil, id)
+			minBal, err2 := reg21.GetMinBalanceForUpkeep(nil, id)
 			if err2 != nil {
 				log.Fatalf("failed to fetch upkeep id %s from registry 2.1: %v", id, err2)
 			}
 			log.Printf("    Balance: %s", info.Balance)
-			log.Printf("Min Balance: %s", min.String())
+			log.Printf("Min Balance: %s", minBal.String())
 		}
 	}
 
@@ -628,8 +628,8 @@ func (k *Keeper) setKeepers(ctx context.Context, cls []cmd.HTTPClient, deployer 
 }
 
 func (k *Keeper) keepers() ([]common.Address, []common.Address) {
-	var addrs []common.Address
-	var fromAddrs []common.Address
+	addrs := make([]common.Address, 0, len(k.cfg.Keepers))
+	fromAddrs := make([]common.Address, 0, len(k.cfg.Keepers))
 	for _, addr := range k.cfg.Keepers {
 		addrs = append(addrs, common.HexToAddress(addr))
 		fromAddrs = append(fromAddrs, k.fromAddr)
@@ -642,12 +642,12 @@ type activeUpkeepGetter interface {
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 }
 
-// getActiveUpkeepIds retrieves active upkeep ids from registry
-func (k *Keeper) getActiveUpkeepIds(ctx context.Context, registry activeUpkeepGetter, from, to *big.Int) []*big.Int {
-	activeUpkeepIds, _ := registry.GetActiveUpkeepIDs(&bind.CallOpts{
+// getActiveUpkeepIDs retrieves active upkeep ids from registry
+func (k *Keeper) getActiveUpkeepIDs(ctx context.Context, registry activeUpkeepGetter, from, to *big.Int) []*big.Int {
+	activeUpkeepIDs, _ := registry.GetActiveUpkeepIDs(&bind.CallOpts{
 		Pending: false,
 		From:    k.fromAddr,
 		Context: ctx,
 	}, from, to)
-	return activeUpkeepIds
+	return activeUpkeepIDs
 }

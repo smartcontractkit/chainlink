@@ -39,8 +39,8 @@ type upkeepInfo struct {
 
 type verifiableLoad interface {
 	GetAllActiveUpkeepIDsOnRegistry(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
-	Counters(opts *bind.CallOpts, upkeepId *big.Int) (*big.Int, error)
-	GetBucketedDelays(opts *bind.CallOpts, upkeepId *big.Int, bucket uint16) ([]*big.Int, error)
+	Counters(opts *bind.CallOpts, upkeepID *big.Int) (*big.Int, error)
+	GetBucketedDelays(opts *bind.CallOpts, upkeepID *big.Int, bucket uint16) ([]*big.Int, error)
 	Buckets(opts *bind.CallOpts, arg0 *big.Int) (uint16, error)
 }
 
@@ -76,11 +76,11 @@ func (k *Keeper) PrintVerifiableLoadStats(ctx context.Context, csv bool) {
 	opts := &bind.CallOpts{
 		From:        k.fromAddr,
 		Context:     ctx,
-		BlockNumber: big.NewInt(int64(blockNum)),
+		BlockNumber: new(big.Int).SetUint64(blockNum),
 	}
 
 	// get all active upkeep IDs on this verifiable load contract
-	upkeepIds, err := v.GetAllActiveUpkeepIDsOnRegistry(opts, big.NewInt(0), big.NewInt(0))
+	upkeepIDs, err := v.GetAllActiveUpkeepIDsOnRegistry(opts, big.NewInt(0), big.NewInt(0))
 	if err != nil {
 		log.Fatalf("failed to get active upkeep IDs from %s: %v", k.cfg.VerifiableLoadContractAddress, err)
 	}
@@ -102,7 +102,7 @@ func (k *Keeper) PrintVerifiableLoadStats(ctx context.Context, csv bool) {
 		go k.fetchUpkeepInfo(idChan, resultsChan, v, opts, &wg, csv)
 	}
 
-	for _, id := range upkeepIds {
+	for _, id := range upkeepIDs {
 		idChan <- id
 	}
 
@@ -130,7 +130,7 @@ func (k *Keeper) PrintVerifiableLoadStats(ctx context.Context, csv bool) {
 	if len(us.SortedAllDelays) > 0 {
 		maxDelay = us.SortedAllDelays[len(us.SortedAllDelays)-1]
 	}
-	log.Printf("For total %d upkeeps: total performs: %d, p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %f, average perform delay: %f\n", len(upkeepIds), us.TotalPerforms, p50, p90, p95, p99, maxDelay, us.TotalDelayBlock, us.TotalDelayBlock/float64(us.TotalPerforms))
+	log.Printf("For total %d upkeeps: total performs: %d, p50: %f, p90: %f, p95: %f, p99: %f, max delay: %f, total delay blocks: %f, average perform delay: %f\n", len(upkeepIDs), us.TotalPerforms, p50, p90, p95, p99, maxDelay, us.TotalDelayBlock, us.TotalDelayBlock/float64(us.TotalPerforms))
 	log.Printf("All STATS ABOVE ARE CALCULATED AT BLOCK %d", blockNum)
 }
 
@@ -141,13 +141,15 @@ func (k *Keeper) fetchUpkeepInfo(idChan chan *big.Int, resultsChan chan *upkeepI
 		// fetch how many times this upkeep has been executed
 		c, err := v.Counters(opts, id)
 		if err != nil {
-			log.Fatalf("failed to get counter for %s: %v", id.String(), err)
+			log.Printf("failed to get counter for %s: %v", id.String(), err)
+			return
 		}
 
 		// get all the buckets of an upkeep. 100 performs is a bucket.
 		b, err := v.Buckets(opts, id)
 		if err != nil {
-			log.Fatalf("failed to get current bucket count for %s: %v", id.String(), err)
+			log.Printf("failed to get current bucket count for %s: %v", id.String(), err)
+			return
 		}
 
 		info := &upkeepInfo{
@@ -210,7 +212,7 @@ func (k *Keeper) fetchBucketData(v verifiableLoad, opts *bind.CallOpts, id *big.
 		time.Sleep(retryDelay)
 	}
 
-	var floatBucketDelays []float64
+	floatBucketDelays := make([]float64, 0, len(bucketDelays))
 	for _, d := range bucketDelays {
 		floatBucketDelays = append(floatBucketDelays, float64(d.Uint64()))
 	}

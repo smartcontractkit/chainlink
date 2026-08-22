@@ -17,12 +17,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
 	ocr2keepers20config "github.com/smartcontractkit/chainlink-automation/pkg/v2/config"
-
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
 
-func OCR2GetConfig(hdlr *baseHandler, registry_addr string) error {
-	b, err := common.ParseHexOrString(registry_addr)
+func OCR2GetConfig(hdlr *baseHandler, registryAddr string) error {
+	b, err := common.ParseHexOrString(registryAddr)
 	if err != nil {
 		return fmt.Errorf("failed to parse address hash: %w", err)
 	}

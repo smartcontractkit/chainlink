@@ -42,7 +42,8 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 	fmt.Println("From, InitialBlock, LastBlock, PreviousBlock, Counter")
 	row := []string{"From", "InitialBlock", "LastBlock", "PreviousBlock", "Counter"}
 	if err = w.Write(row); err != nil {
-		log.Fatalln("error writing record to file", err)
+		log.Println("error writing record to file", err)
+		return
 	}
 
 	for upkeepIterator.Next() {
@@ -59,7 +60,8 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 			upkeepIterator.Event.PreviousBlock.String(),
 			upkeepIterator.Event.Counter.String()}
 		if err = w.Write(row); err != nil {
-			log.Fatalln("error writing record to file", err)
+			log.Println("error writing record to file", err)
+			return
 		}
 	}
 }

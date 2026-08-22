@@ -41,7 +41,7 @@ type NodeInfo struct {
 	NodeAddress           []string       `json:"ocrNodeAddress"`
 	OcrSigningAddress     []string       `json:"ocrSigningAddress"`
 	PayeeAddress          common.Address `json:"payeeAddress"`
-	PeerId                []string       `json:"peerId"`
+	PeerID                []string       `json:"peerId"`
 	Status                string         `json:"status"`
 }
 
@@ -68,9 +68,9 @@ func (node NodeInfo) Equals(ni NodeInfo, log logger.Logger) bool {
 		log.Errorf("Node address differs. The node returns %s but weiwatcher has %s", node.NodeAddress, ni.NodeAddress)
 	}
 
-	if !cmp.Equal(node.PeerId, ni.PeerId) {
+	if !cmp.Equal(node.PeerID, ni.PeerID) {
 		diffs++
-		log.Errorf("Peer Id differs. The node returns %s but weiwatcher has %s", node.PeerId, ni.PeerId)
+		log.Errorf("Peer Id differs. The node returns %s but weiwatcher has %s", node.PeerID, ni.PeerID)
 	}
 
 	if !cmp.Equal(node.Ocr2OffchainPublicKey, ni.Ocr2OffchainPublicKey) {
@@ -178,7 +178,8 @@ func (h *baseHandler) fetchNodeInfosFromWeiwatchers(ctx context.Context, log log
 
 	var nodeInfos []NodeInfo
 	if err := json.NewDecoder(resp.Body).Decode(&nodeInfos); err != nil {
-		log.Fatalf("failed to read response: %s", err)
+		log.Errorf("failed to read response: %s", err)
+		return nil
 	}
 
 	return nodeInfos
@@ -193,7 +194,7 @@ func (h *baseHandler) fetchNodeInfosFromNodes(ctx context.Context, i int, cl cmd
 	if err = jsonapi.Unmarshal(resp, &ethKeys); err != nil {
 		log.Fatalf("failed to unmarshal response body: %s", err)
 	}
-	var nodeAddresses []string
+	nodeAddresses := make([]string, 0, len(ethKeys))
 	for index := range ethKeys {
 		nodeAddresses = append(nodeAddresses, common.HexToAddress(ethKeys[index].Address).Hex())
 	}
@@ -209,7 +210,7 @@ func (h *baseHandler) fetchNodeInfosFromNodes(ctx context.Context, i int, cl cmd
 		log.Fatalf("failed to get node OCR2 config: %s", err)
 	}
 
-	peerId, err := getP2PKeyID(ctx, cl)
+	peerID, err := getP2PKeyID(ctx, cl)
 	if err != nil {
 		log.Fatalf("failed to get p2p keys: %s", err)
 	}
@@ -229,13 +230,13 @@ func (h *baseHandler) fetchNodeInfosFromNodes(ctx context.Context, i int, cl cmd
 		log.Warnf("%d th node has more than 1 CSA keys configured. Please verify with RTSP about which CSA key to use.", i)
 	}
 
-	return nodeAddresses, ocr2Config, peerId, &csaKeys
+	return nodeAddresses, ocr2Config, peerID, &csaKeys
 }
 
 func (h *baseHandler) scrapeNodeInfo(ctx context.Context, wg *sync.WaitGroup, i int, cl cmd.HTTPClient, nodes map[string]*NodeInfo, log logger.Logger) {
 	defer wg.Done()
 
-	nodeAddresses, ocr2Config, peerId, csaKeys := h.fetchNodeInfosFromNodes(ctx, i, cl, log)
+	nodeAddresses, ocr2Config, peerID, csaKeys := h.fetchNodeInfosFromNodes(ctx, i, cl, log)
 
 	// this assumes the nodes are not multichain nodes and have only 1 node address assigned.
 	// for a multichain node, we can pass in a chain id and filter `ethKeys` array based on the chain id
@@ -253,7 +254,7 @@ func (h *baseHandler) scrapeNodeInfo(ctx context.Context, wg *sync.WaitGroup, i 
 		Ocr2OffchainPublicKey: []string{ocr2Config.OffChainPublicKey},
 		Ocr2OnchainPublicKey:  []string{ocr2Config.OnchainPublicKey},
 		OcrSigningAddress:     []string{common.HexToAddress(strings.TrimPrefix(ocr2Config.OnchainPublicKey, "ocr2on_evm_")).Hex()},
-		PeerId:                []string{peerId},
+		PeerID:                []string{peerID},
 	}
 
 	err := writeJSON(ni, strconv.Itoa(i)+".json")
@@ -279,5 +280,5 @@ func writeJSON(data any, path string) error {
 		return err
 	}
 
-	return os.WriteFile(path, dataBytes, 0644) //nolint:gosec
+	return os.WriteFile(path, dataBytes, 0644) //nolint:gosec // file permissions for node config output
 }

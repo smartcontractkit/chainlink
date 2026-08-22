@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	registry20 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
-
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 )
 
@@ -25,10 +24,10 @@ func (k *Keeper) Withdraw(ctx context.Context, hexAddr string) {
 			log.Fatal("Registry failed: ", err)
 		}
 
-		activeUpkeepIds := k.getActiveUpkeepIds(ctx, keeperRegistry20, big.NewInt(0), big.NewInt(0))
+		activeUpkeepIDs := k.getActiveUpkeepIDs(ctx, keeperRegistry20, big.NewInt(0), big.NewInt(0))
 
 		log.Println("Canceling upkeeps...")
-		if err = k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, keeperRegistry20); err != nil {
+		if err = k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIDs, keeperRegistry20); err != nil {
 			log.Fatal("Failed to cancel upkeeps: ", err)
 		}
 	default:

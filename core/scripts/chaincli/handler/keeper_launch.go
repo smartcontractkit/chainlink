@@ -20,9 +20,8 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink-common/keystore"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	iregistry21 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registry20 "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
@@ -62,7 +61,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 	// Run chainlink nodes and create jobs
 	startedNodes := make([]startedNodeData, k.cfg.KeepersCount)
 	var wg sync.WaitGroup
-	for i := 0; i < k.cfg.KeepersCount; i++ {
+	for i := range k.cfg.KeepersCount {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -177,8 +176,8 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 				log.Fatal("Registry failed: ", err)
 			}
 
-			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
-			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
+			activeUpkeepIDs := k.getActiveUpkeepIDs(ctx, registry, big.NewInt(0), big.NewInt(0))
+			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIDs, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
 		case config.RegistryVersion2_1:
@@ -189,8 +188,8 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 			if err != nil {
 				log.Fatal("Registry failed: ", err)
 			}
-			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
-			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
+			activeUpkeepIDs := k.getActiveUpkeepIDs(ctx, registry, big.NewInt(0), big.NewInt(0))
+			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIDs, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
 		default:
@@ -201,28 +200,28 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 }
 
 // cancelAndWithdrawActiveUpkeeps cancels all active upkeeps and withdraws funds via the registry canceller interface.
-func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkeepIds []*big.Int, canceller canceller) error {
-	for i := range activeUpkeepIds {
-		upkeepId := activeUpkeepIds[i]
-		tx, err := canceller.CancelUpkeep(k.buildTxOpts(ctx), upkeepId)
+func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkeepIDs []*big.Int, canceller canceller) error {
+	for i := range activeUpkeepIDs {
+		upkeepID := activeUpkeepIDs[i]
+		tx, err := canceller.CancelUpkeep(k.buildTxOpts(ctx), upkeepID)
 		if err != nil {
-			return fmt.Errorf("failed to cancel upkeep %s: %w", upkeepId.String(), err)
+			return fmt.Errorf("failed to cancel upkeep %s: %w", upkeepID.String(), err)
 		}
 
 		if err = k.waitTx(ctx, tx); err != nil {
-			log.Fatalf("failed to cancel upkeep for upkeepId: %s, error is: %s", upkeepId.String(), err.Error())
+			log.Fatalf("failed to cancel upkeep for upkeepId: %s, error is: %s", upkeepID.String(), err.Error())
 		}
 
-		tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), upkeepId, k.fromAddr)
+		tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), upkeepID, k.fromAddr)
 		if err != nil {
-			return fmt.Errorf("failed to withdraw upkeep %s: %w", upkeepId.String(), err)
+			return fmt.Errorf("failed to withdraw upkeep %s: %w", upkeepID.String(), err)
 		}
 
 		if err = k.waitTx(ctx, tx); err != nil {
-			log.Fatalf("failed to withdraw upkeep for upkeepId: %s, error is: %s", upkeepId.String(), err.Error())
+			log.Fatalf("failed to withdraw upkeep for upkeepId: %s, error is: %s", upkeepID.String(), err.Error())
 		}
 
-		log.Printf("Upkeep %s successfully canceled and refunded: ", upkeepId.String())
+		log.Printf("Upkeep %s successfully canceled and refunded: ", upkeepID.String())
 	}
 
 	tx, err := canceller.RecoverFunds(k.buildTxOpts(ctx))
@@ -330,16 +329,16 @@ func (k *Keeper) addKeyToKeeper(ctx context.Context, client cmd.HTTPClient, priv
 	if err != nil {
 		log.Fatalf("Failed to encrypt piv key %s: %v", privKeyHex, err)
 	}
-	importUrl := url.URL{
+	importURL := url.URL{
 		Path: "/v2/keys/evm/import",
 	}
-	query := importUrl.Query()
+	query := importURL.Query()
 
 	query.Set("oldpassword", defaultChainlinkNodePassword)
 	query.Set("evmChainID", strconv.FormatInt(k.cfg.ChainID, 10))
 
-	importUrl.RawQuery = query.Encode()
-	resp, err := client.Post(ctx, importUrl.String(), bytes.NewReader(keyJSON))
+	importURL.RawQuery = query.Encode()
+	resp, err := client.Post(ctx, importURL.String(), bytes.NewReader(keyJSON))
 	if err != nil {
 		log.Fatalf("Failed to import priv key %s: %v", privKeyHex, err)
 	}

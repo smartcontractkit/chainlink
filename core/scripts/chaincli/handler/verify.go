@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -41,7 +42,7 @@ func (k *Keeper) changeToContractsDirectory() error {
 }
 
 func (k *Keeper) runCommand(command string) error {
-	cmd := exec.Command("bash", "-c", command)
+	cmd := exec.CommandContext(context.Background(), "bash", "-c", command)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 

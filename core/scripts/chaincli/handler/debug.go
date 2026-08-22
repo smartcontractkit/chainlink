@@ -27,7 +27,6 @@ import (
 	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
 	autov2common "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-
 	evm21 "github.com/smartcontractkit/chainlink-evm/pkg/automation/v21"
 	"github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/core"
 	"github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/encoding"
@@ -191,7 +190,7 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 		// find matching log event in tx
 		var triggeringEvent *types.Log
 		for i, log := range receipt.Logs {
-			if log.Index == uint(logIndex) {
+			if log.Index == uint(logIndex) { //nolint:gosec // logIndex is a valid log index
 				triggeringEvent = receipt.Logs[i]
 			}
 		}
@@ -299,7 +298,8 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				Block:    blockNum,
 			}
 
-			if streamsLookup.IsMercuryV02() {
+			switch {
+			case streamsLookup.IsMercuryV02():
 				message("using data streams lookup v0.2")
 				// check if upkeep is allowed to use mercury v0.2
 				var allowed bool
@@ -313,10 +313,10 @@ func (k *Keeper) Debug(ctx context.Context, args []string) {
 				if k.cfg.DataStreamsLegacyURL == "" {
 					failCheckConfig("Data streams v02 requires Legacy URL, check your DATA_STREAMS settings in .env", nil)
 				}
-			} else if streamsLookup.IsMercuryV03() {
+			case streamsLookup.IsMercuryV03():
 				// handle v0.3
 				message("using data streams lookup v0.3")
-			} else {
+			default:
 				resolveIneligible("upkeep reverted with StreamsLookup but the configuration is invalid")
 			}
 
@@ -536,15 +536,15 @@ func logMatchesTriggerConfig(log *types.Log, config ac.IAutomationV21PlusCommonL
 }
 
 func packTriggerData(log *types.Log, blockTime uint64) ([]byte, error) {
-	var topics [][32]byte
+	topics := make([][32]byte, 0, len(log.Topics))
 	for _, topic := range log.Topics {
 		topics = append(topics, topic)
 	}
 	b, err := core.CompatibleUtilsABI.Methods["_log"].Inputs.Pack(&ac.Log{
-		Index:       big.NewInt(int64(log.Index)),
-		Timestamp:   big.NewInt(int64(blockTime)),
+		Index:       new(big.Int).SetUint64(uint64(log.Index)),
+		Timestamp:   new(big.Int).SetUint64(blockTime),
 		TxHash:      log.TxHash,
-		BlockNumber: big.NewInt(int64(log.BlockNumber)),
+		BlockNumber: new(big.Int).SetUint64(log.BlockNumber),
 		BlockHash:   log.BlockHash,
 		Source:      log.Address,
 		Topics:      topics,
@@ -580,7 +580,7 @@ func mustAutomationTrigger(txHash [32]byte, logIndex int64, blockNum uint64, blo
 	trigger := ocr2keepers.Trigger{
 		LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
 			TxHash:      txHash,
-			Index:       uint32(logIndex),
+			Index:       uint32(logIndex), //nolint:gosec // logIndex fits in uint32
 			BlockNumber: ocr2keepers.BlockNumber(blockNum),
 			BlockHash:   blockHash,
 		},
@@ -625,7 +625,7 @@ func addLink(identifier string, link string) {
 }
 
 func printLinks() {
-	for i := 0; i < len(links); i++ {
+	for i := range links {
 		log.Println(links[i])
 	}
 }
@@ -641,7 +641,7 @@ func exit(msg string, err error, code int) {
 
 type TenderlyAPIResponse struct {
 	Simulation struct {
-		Id string
+		ID string `json:"id"`
 	}
 }
 
@@ -669,7 +669,7 @@ func tenderlySimLink(ctx context.Context, cfg *config.Config, chainID int64, blo
 	}
 	request, err := http.NewRequestWithContext(
 		ctx,
-		"POST",
+		http.MethodPost,
 		fmt.Sprintf("https://api.tenderly.co/api/v1/account/%s/project/%s/simulate", cfg.TenderlyAccountName, cfg.TenderlyProjectName),
 		bytes.NewBuffer(jsonData),
 	)
@@ -697,9 +697,9 @@ func tenderlySimLink(ctx context.Context, cfg *config.Config, chainID int64, blo
 		warning(fmt.Sprintf("unable to unmarshal tenderly response: %v", err))
 		return errResult
 	}
-	if responseJSON.Simulation.Id == "" {
+	if responseJSON.Simulation.ID == "" {
 		warning("unable to simulate tenderly tx")
 		return errResult
 	}
-	return common.TenderlySimLink(responseJSON.Simulation.Id)
+	return common.TenderlySimLink(responseJSON.Simulation.ID)
 }
