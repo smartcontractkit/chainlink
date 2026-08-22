@@ -55,7 +55,7 @@ func DeployChainContractsChangeset(env cldf.Environment, c ccipseq.DeployChainCo
 	}
 	return cldf.ChangesetOutput{
 		Reports:     report.ExecutionReports,
-		AddressBook: addressBook,
+		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }

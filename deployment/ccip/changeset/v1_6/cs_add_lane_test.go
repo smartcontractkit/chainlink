@@ -27,7 +27,7 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 
 	selectors := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilyEVM))
 	chain1, chain2 := selectors[0], selectors[1]
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, chain1, chain2, true)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, chain1, chain2, true))
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
@@ -62,11 +62,11 @@ func TestAddLanesWithSolana(t *testing.T) {
 	chain1, chain2 := evmSelectors[0], evmSelectors[1]
 	solSelectors := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chain_selectors.FamilySolana))
 	solChain := solSelectors[0]
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, chain1, solChain, true)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, chain1, solChain, true))
 	// AddLaneWithDefaultPricesAndFeeQuoterConfig involves calling AddRemoteChainToSolana
 	// which adds chain1 to solana
 	// so we can not call AddRemoteChainToSolana again with chain1 again, hence using chain2 below
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, solChain, chain2, true)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, solChain, chain2, true))
 	_, _, _, err = testhelpers.DeployTransferableTokenSolanaV0_1_1(e.Env.Logger, e.Env, chain1, solChain, e.Env.BlockChains.EVMChains()[chain1].DeployerKey, "MY_TOKEN")
 	require.NoError(t, err)
 }

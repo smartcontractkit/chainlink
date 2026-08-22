@@ -157,7 +157,7 @@ func (c DeployChainContractsConfig) Validate(e cldf.Environment, existingState s
 	// initialisation of the mcms contracts then happens via testhelpers.TransferOwnershipSolana
 	if chainState.Router.IsZero() {
 		if c.MCMSWithTimelockConfig == nil {
-			return fmt.Errorf("Router is not deployed. This looks like an initial deploy.MCMS config must be set for chain %d", c.ChainSelector)
+			return fmt.Errorf("router is not deployed. This looks like an initial deploy.MCMS config must be set for chain %d", c.ChainSelector)
 		}
 	}
 	return nil
@@ -217,13 +217,13 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           newAddresses,
+			AddressBook:           newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:             ds,
 		}, nil
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses,
+		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }
@@ -424,12 +424,13 @@ func deployChainContractsSolana(
 
 	// RMN REMOTE DEPLOY
 	var rmnRemoteAddress solana.PublicKey
-	if chainState.RMNRemote.IsZero() {
+	switch {
+	case chainState.RMNRemote.IsZero():
 		rmnRemoteAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ds, shared.RMNRemote, deployment.Version1_0_0, false, "")
 		if err != nil {
 			return batches, fmt.Errorf("failed to deploy program: %w", err)
 		}
-	} else if config.UpgradeConfig.NewRMNRemoteVersion != nil {
+	case config.UpgradeConfig.NewRMNRemoteVersion != nil:
 		rmnRemoteAddress = chainState.RMNRemote
 		newTxns, err := generateUpgradeTxns(e, chain, ab, ds, config, config.UpgradeConfig.NewRMNRemoteVersion, chainState.RMNRemote, shared.RMNRemote)
 		if err != nil {
@@ -442,7 +443,7 @@ func deployChainContractsSolana(
 				Transactions:  newTxns,
 			})
 		}
-	} else {
+	default:
 		e.Logger.Infow("Using existing rmn remote", "addr", chainState.RMNRemote.String())
 		rmnRemoteAddress = chainState.RMNRemote
 	}

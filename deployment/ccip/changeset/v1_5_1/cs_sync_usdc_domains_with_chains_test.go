@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
@@ -149,7 +148,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 			if test.DeployUSDC {
 				var err error
 				e, err = commoncs.Apply(t, e,
-					commonchangeset.Configure(
+					commoncs.Configure(
 						cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 						v1_5_1.ConfigureTokenPoolContractsConfig{
 							PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
@@ -217,7 +216,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 			if mcmsConfig != nil {
 				// Transfer ownership of token pools to timelock
 				e, err = commoncs.Apply(t, e,
-					commonchangeset.Configure(
+					commoncs.Configure(
 						cldf.CreateLegacyChangeSet(mcmschangesets.TransferToMCMSWithTimelockV2),
 						mcmschangesets.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: timelockOwnedContractsByChain,
@@ -229,7 +228,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 			}
 
 			e, err = commoncs.Apply(t, e,
-				commonchangeset.Configure(
+				commoncs.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
 					v1_5_1.ConfigureTokenPoolContractsConfig{
 						MCMS: mcmsConfig,
@@ -256,7 +255,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 			require.NoError(t, err)
 
 			e, err = commoncs.Apply(t, e,
-				commonchangeset.Configure(
+				commoncs.Configure(
 					cldf.CreateLegacyChangeSet(v1_5_1.SyncUSDCDomainsWithChainsChangeset),
 					v1_5_1.SyncUSDCDomainsWithChainsConfig{
 						MCMS: mcmsConfig,
