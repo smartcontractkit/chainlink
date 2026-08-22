@@ -23,12 +23,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -37,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	workflow_registry_v2_wrapper "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/workflow_registry_wrapper_v2"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -148,7 +148,7 @@ func sendVaultRequestToGatewayWithHeaders(t *testing.T, gatewayURL string, reque
 	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
 
 	for attempt := range maxRetries + 1 {
-		req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, gatewayURL, bytes.NewBuffer(requestBody))
 		require.NoError(t, err, "failed to create request")
 
 		req.Header.Set("Content-Type", "application/json")
@@ -188,7 +188,7 @@ func sendVaultRequestToGatewayWithHeadersNoT(gatewayURL string, requestBody []by
 	framework.L.Info().Msgf("Request Body: %s", string(requestBody))
 
 	for attempt := range maxRetries + 1 {
-		req, err := http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(requestBody))
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, gatewayURL, bytes.NewBuffer(requestBody))
 		if err != nil {
 			return 0, nil, fmt.Errorf("create request: %w", err)
 		}

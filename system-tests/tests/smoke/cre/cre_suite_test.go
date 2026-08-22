@@ -91,20 +91,21 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			allowlistSubtestName := "allowlist_auth_when_jwt_auth_disabled"
 			jwtSubtestName := "jwt_auth_rejected_when_jwt_auth_disabled"
 			vaultConfig := getVaultDefaultTestConfig(t)
-			if isVaultJWTAuthEnabledTopology(topology) {
+			switch {
+			case isVaultJWTAuthEnabledTopology(topology):
 				vaultConfig = getVaultJWTAuthEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_jwt_auth_enabled"
 				jwtSubtestName = "jwt_auth_when_jwt_auth_enabled"
-			} else if isVaultOptimizationsEnabledTopology(topology) {
+			case isVaultOptimizationsEnabledTopology(topology):
 				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
-			} else if isVaultIncludeInvalidEnabledTopology(topology) {
+			case isVaultIncludeInvalidEnabledTopology(topology):
 				vaultConfig = getVaultIncludeInvalidEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_vault_include_invalid_enabled"
-			} else if isVaultStallPurgeTopology(topology) {
+			case isVaultStallPurgeTopology(topology):
 				vaultConfig = getVaultStallPurgeTestConfig(t)
 				allowlistSubtestName = "pending_queue_stall_purge"
-			} else if isVaultWorkflowDONBindingEnabledTopology(topology) {
+			case isVaultWorkflowDONBindingEnabledTopology(topology):
 				vaultConfig = getVaultWorkflowDONBindingEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_workflow_don_binding_enabled"
 			}
@@ -300,7 +301,6 @@ func Test_CRE_V2_Aptos_Suite(t *testing.T) {
 	})
 }
 
-//nolint:paralleltest // isolate local cre env run
 func Test_CRE_V2_Stellar_Suite(t *testing.T) {
 	testEnv := t_helpers.SetupTestEnvironmentWithConfig(t, t_helpers.GetTestConfig(t, "/configs/workflow-gateway-don-stellar.toml"))
 

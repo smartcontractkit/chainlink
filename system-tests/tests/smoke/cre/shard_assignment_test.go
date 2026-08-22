@@ -45,13 +45,13 @@ func ExecuteManualShardAssignmentTest(t *testing.T, testEnv *ttypes.TestEnvironm
 	require.NoError(t, err, "failed to start linking service")
 	linkingService.SetOwnerOrg(defaultOwner, "org_test_manual")
 
-	shardAssignmentTOML := fmt.Sprintf(`
+	shardAssignmentTOML := `
 static_default_assignment = [1]
 hashed_default_assignment = false
 
 [per_org_assignment]
   org_test_manual = [0]
-`)
+`
 
 	shardLeaderDON := getShardZeroDon(t, testEnv)
 
