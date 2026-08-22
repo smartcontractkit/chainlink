@@ -198,12 +198,12 @@ func AppendCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, 
 func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 	p2pToUpdates map[p2pkey.PeerID]NodeUpdate) ([]kcr.CapabilitiesRegistryNodeParams, error) {
 	var out []kcr.CapabilitiesRegistryNodeParams
-	var p2pIds []p2pkey.PeerID
+	var p2pIDs []p2pkey.PeerID
 	for p2pID := range p2pToUpdates {
-		p2pIds = append(p2pIds, p2pID)
+		p2pIDs = append(p2pIDs, p2pID)
 	}
 
-	nodes, err := registry.GetNodesByP2PIds(&bind.CallOpts{}, PeerIDsToBytes(p2pIds))
+	nodes, err := registry.GetNodesByP2PIds(&bind.CallOpts{}, PeerIDsToBytes(p2pIDs))
 	if err != nil {
 		err = cldf.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to get nodes by p2p ids: %w", err)
@@ -216,7 +216,7 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 
 		ids := node.HashedCapabilityIds
 		if len(updates.Capabilities) > 0 {
-			is, err := capabilityIds(registry, updates.Capabilities)
+			is, err := capabilityIDs(registry, updates.Capabilities)
 			if err != nil {
 				return nil, fmt.Errorf("failed to get capability ids: %w", err)
 			}
@@ -261,7 +261,7 @@ func makeNodeParams(registry *kcr.CapabilitiesRegistry,
 	return out, nil
 }
 
-func capabilityIds(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability) ([][32]byte, error) {
+func capabilityIDs(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability) ([][32]byte, error) {
 	out := make([][32]byte, len(caps))
 	for i, cap := range caps {
 		id, err := registry.GetHashedCapabilityId(&bind.CallOpts{}, cap.LabelledName, cap.Version)

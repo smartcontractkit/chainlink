@@ -47,7 +47,7 @@ func TestUpdateNodes(t *testing.T) {
 		csOut, err := changeset.UpdateNodes(te.Env, &cfg)
 		require.NoError(t, err)
 		require.Empty(t, csOut.MCMSTimelockProposals)
-		require.Nil(t, csOut.AddressBook)
+		require.Nil(t, csOut.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
 
 		validateUpdate(t, te, updates)
 	})
@@ -84,7 +84,7 @@ func TestUpdateNodes(t *testing.T) {
 		csOut, err := changeset.UpdateNodes(te.Env, &cfg)
 		require.NoError(t, err)
 		require.Len(t, csOut.MCMSTimelockProposals, 1)
-		require.Nil(t, csOut.AddressBook)
+		require.Nil(t, csOut.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
 
 		err = applyProposal(t, te, commonchangeset.Configure(
 			cldf.CreateLegacyChangeSet(changeset.UpdateNodes),

@@ -42,7 +42,7 @@ func (d *RegisterableDon) Validate() error {
 		return errors.New("name is required")
 	}
 	if d.F == 0 {
-		return errors.New("F is required")
+		return errors.New("f is required")
 	}
 	if len(d.P2PIDs) == 0 {
 		return errors.New("P2PIDs is required")

@@ -66,6 +66,9 @@ func (c *workflowRegistryDeployer) Deploy(req changeset.DeployRequest) (*changes
 // and saves the address in the address book. This mutates the address book.
 func deployWorkflowRegistry(chain cldf_evm.Chain, ab cldf.AddressBook) (*changeset.DeployResponse, error) {
 	deployer, err := newWorkflowRegistryDeployer()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create WorkflowRegistryDeployer: %w", err)
+	}
 	resp, err := deployer.Deploy(changeset.DeployRequest{Chain: chain})
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy WorkflowRegistry: %w", err)

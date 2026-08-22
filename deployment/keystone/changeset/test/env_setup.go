@@ -357,7 +357,7 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 		OCR3Config:       &ocr3Config,
 	})
 	require.NoError(t, err)
-	require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
+	require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts") //nolint:staticcheck // SA1019 AddressBook is deprecated
 
 	evmChains := env.BlockChains.EVMChains()
 
