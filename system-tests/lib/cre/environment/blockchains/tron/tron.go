@@ -17,7 +17,6 @@ import (
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf_tron "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron"
 	tronprovider "github.com/smartcontractkit/chainlink-deployments-framework/chain/tron/provider"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
