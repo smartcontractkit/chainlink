@@ -31,7 +31,7 @@ func DeployLegacyConsumers(t *testing.T, chainClient *seth.Client, registry cont
 
 	upkeeps := DeployKeeperConsumers(t, chainClient, numberOfUpkeeps, isLogTrigger, isMercury)
 	require.Len(t, upkeeps, numberOfUpkeeps, "Number of upkeeps should match")
-	upkeepsAddresses := []string{}
+	upkeepsAddresses := make([]string, 0, len(upkeeps))
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
@@ -53,7 +53,7 @@ func DeployConsumers(t *testing.T, chainClient *seth.Client, registry contracts.
 
 	upkeeps := SetupKeeperConsumers(t, chainClient, numberOfUpkeeps, isLogTrigger, isMercury, config)
 	require.Len(t, upkeeps, numberOfUpkeeps, "Number of upkeeps should match")
-	upkeepsAddresses := []string{}
+	upkeepsAddresses := make([]string, 0, len(upkeeps))
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}

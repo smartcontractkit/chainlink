@@ -22,7 +22,7 @@ import (
 var ZeroAddress = common.Address{}
 
 func RegisterUpkeepContracts(t *testing.T, client *seth.Client, linkToken contracts.LinkToken, fundsForEachUpkeep *big.Int, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, isLogTrigger bool, isMercury bool, isBillingTokenNative bool, wethToken contracts.WETHToken) []*big.Int {
-	checkData := make([][]byte, 0)
+	checkData := make([][]byte, 0, numberOfContracts)
 	for range numberOfContracts {
 		checkData = append(checkData, []byte("0"))
 	}
@@ -54,7 +54,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, client *seth.Client, lin
 
 	executor := ctf_concurrency.NewConcurrentExecutor[UpkeepID, upkeepRegistrationResult, upkeepConfig](l)
 
-	configs := make([]upkeepConfig, 0)
+	configs := make([]upkeepConfig, 0, len(upkeepAddresses))
 	for i := range upkeepAddresses {
 		configs = append(configs, upkeepConfig{address: upkeepAddresses[i], data: checkData[i]})
 	}
@@ -254,7 +254,7 @@ func RegisterNewUpkeeps(
 ) ([]contracts.KeeperConsumer, []*big.Int) {
 	newlyDeployedUpkeeps := DeployKeeperConsumers(t, chainClient, numberOfNewUpkeeps, false, false)
 
-	addressesOfNewUpkeeps := []string{}
+	addressesOfNewUpkeeps := make([]string, 0, len(newlyDeployedUpkeeps))
 	for _, upkeep := range newlyDeployedUpkeeps {
 		addressesOfNewUpkeeps = append(addressesOfNewUpkeeps, upkeep.Address())
 	}

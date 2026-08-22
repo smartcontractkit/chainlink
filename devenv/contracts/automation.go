@@ -428,15 +428,6 @@ func (v *EthereumKeeperRegistry) SetKeepers(keepers []string, payees []string, o
 	opts := v.client.NewTXOpts()
 	var err error
 
-	keepersAddresses := make([]common.Address, 0)
-	for _, k := range keepers {
-		keepersAddresses = append(keepersAddresses, common.HexToAddress(k))
-	}
-	payeesAddresses := make([]common.Address, 0)
-	for _, p := range payees {
-		payeesAddresses = append(payeesAddresses, common.HexToAddress(p))
-	}
-
 	switch v.version {
 	case RegistryVersion_2_0:
 		_, err = v.client.Decode(v.registry2_0.SetConfig(opts,

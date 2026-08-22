@@ -152,7 +152,7 @@ type ExpectedFilter struct {
 
 // getExpectedFilters returns a slice of ExpectedFilter structs based on the provided log emitters and config
 func getExpectedFilters(logEmitters []contracts.LogEmitter, cfg *Config) []ExpectedFilter {
-	expectedFilters := make([]ExpectedFilter, 0)
+	expectedFilters := make([]ExpectedFilter, 0, len(cfg.General.EventsToEmit)*len(logEmitters))
 	for _, emitter := range logEmitters {
 		for _, event := range cfg.General.EventsToEmit {
 			expectedFilters = append(expectedFilters, ExpectedFilter{

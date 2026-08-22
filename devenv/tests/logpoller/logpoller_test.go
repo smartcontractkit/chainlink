@@ -172,7 +172,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	pdConfig, err := products.LoadOutput[automation.Configurator](outputFile)
 	require.NoError(t, err)
 
-	eventsToEmit := []abi.Event{}
+	eventsToEmit := make([]abi.Event, 0, len(EmitterABI.Events))
 	for _, event := range EmitterABI.Events {
 		eventsToEmit = append(eventsToEmit, event)
 	}
@@ -330,7 +330,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 		products.CleanupContainerLogs(t, products.DefaultSettings(allowedLogMessages...))
 	})
 
-	eventsToEmit := []abi.Event{}
+	eventsToEmit := make([]abi.Event, 0, len(EmitterABI.Events))
 	for _, event := range EmitterABI.Events {
 		eventsToEmit = append(eventsToEmit, event)
 	}
