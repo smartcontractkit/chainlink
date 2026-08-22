@@ -7,8 +7,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // GRPCServer implements the Arbiter gRPC interface from chainlink-common.
@@ -16,15 +16,15 @@ type GRPCServer struct {
 	ringpb.UnimplementedArbiterServer
 	shardConfig ShardConfigReader
 	state       *State
-	lggr        logger.Logger
+	lggr        common.Logger
 }
 
 // NewGRPCServer creates a new gRPC server instance.
-func NewGRPCServer(shardConfig ShardConfigReader, state *State, lggr logger.Logger) *GRPCServer {
+func NewGRPCServer(shardConfig ShardConfigReader, state *State, lggr common.Logger) *GRPCServer {
 	return &GRPCServer{
 		shardConfig: shardConfig,
 		state:       state,
-		lggr:        lggr.Named("GRPCServer"),
+		lggr:        common.Named(lggr, "GRPCServer"),
 	}
 }
 

@@ -912,7 +912,7 @@ func CreateLocalRegistry(t *testing.T, pid ragetypes.PeerID) *registrysyncer.Loc
 			},
 		},
 	)
-	return &localRegistry
+	return localRegistry
 }
 
 func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPublicKey [32]byte, vaultPublicKey []byte) *registrysyncer.LocalRegistry {
@@ -968,7 +968,7 @@ func CreateLocalRegistryWith1Node(t *testing.T, pid ragetypes.PeerID, workflowPu
 			},
 		},
 	)
-	return &localRegistry
+	return localRegistry
 }
 
 func TestSecretsFetcher_EnforcesSecretsCallsLimit(t *testing.T) {

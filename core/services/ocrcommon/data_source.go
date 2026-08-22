@@ -14,10 +14,10 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -30,7 +30,7 @@ type inMemoryDataSource struct {
 	pipelineRunner pipeline.Runner
 	jb             job.Job
 	spec           pipeline.Spec
-	lggr           logger.Logger
+	lggr           common.Logger
 
 	current bridges.BridgeMetaData
 	mu      sync.RWMutex
@@ -64,7 +64,7 @@ type ObservationTimestamp struct {
 	ConfigDigest string
 }
 
-func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, s Saver, chEnhancedTelemetry chan EnhancedTelemetryData) ocr1types.DataSource {
+func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr common.Logger, s Saver, chEnhancedTelemetry chan EnhancedTelemetryData) ocr1types.DataSource {
 	return &dataSource{
 		dataSourceBase: dataSourceBase{
 			inMemoryDataSource: inMemoryDataSource{
@@ -79,7 +79,7 @@ func NewDataSourceV1(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr lo
 	}
 }
 
-func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, s Saver, enhancedTelemChan chan EnhancedTelemetryData) median.DataSource {
+func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr common.Logger, s Saver, enhancedTelemChan chan EnhancedTelemetryData) median.DataSource {
 	return &dataSourceV2{
 		dataSourceBase: dataSourceBase{
 			inMemoryDataSource: inMemoryDataSource{
@@ -94,7 +94,7 @@ func NewDataSourceV2(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr lo
 	}
 }
 
-func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger) median.DataSource {
+func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr common.Logger) median.DataSource {
 	return &inMemoryDataSource{
 		pipelineRunner: pr,
 		jb:             jb,
@@ -103,9 +103,11 @@ func NewInMemoryDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, l
 	}
 }
 
-const defaultUpdateInterval = time.Minute * 5
-const defaultStalenessAlertThreshold = time.Hour * 24
-const dataSourceCacheKey = "dscache"
+const (
+	defaultUpdateInterval          = time.Minute * 5
+	defaultStalenessAlertThreshold = time.Hour * 24
+	dataSourceCacheKey             = "dscache"
+)
 
 type DataSourceCacheService interface {
 	Start(context.Context) error

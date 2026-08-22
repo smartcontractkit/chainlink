@@ -8,9 +8,9 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // GetLegacyChains maps the chain services of the node to the chain selectors in the job
@@ -24,7 +24,7 @@ import (
 // no chains cannot do work.
 func GetLegacyChains(
 	ctx context.Context,
-	lggr logger.Logger,
+	lggr common.Logger,
 	chainServices []commontypes.ChainService,
 	chainsInConfig []protocol.ChainSelector,
 ) (map[protocol.ChainSelector]legacyevm.Chain, []protocol.ChainSelector, error) {

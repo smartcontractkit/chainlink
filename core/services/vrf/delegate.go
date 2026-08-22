@@ -34,7 +34,7 @@ type Delegate struct {
 	porm         pipeline.ORM
 	ks           keystore.Master
 	legacyChains legacyevm.LegacyChainContainer
-	lggr         logger.Logger
+	lggr         logger.SugaredLogger
 	mailMon      *mailbox.Monitor
 }
 
@@ -44,15 +44,16 @@ func NewDelegate(
 	pr pipeline.Runner,
 	porm pipeline.ORM,
 	legacyChains legacyevm.LegacyChainContainer,
-	lggr logger.Logger,
-	mailMon *mailbox.Monitor) *Delegate {
+	lggr logger.SugaredLogger,
+	mailMon *mailbox.Monitor,
+) *Delegate {
 	return &Delegate{
 		ds:           ds,
 		ks:           ks,
 		pr:           pr,
 		porm:         porm,
 		legacyChains: legacyChains,
-		lggr:         lggr.Named("VRF"),
+		lggr:         logger.Sugared(lggr.Named("VRF")),
 		mailMon:      mailMon,
 	}
 }
@@ -109,7 +110,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	var batchCoordinatorV2 *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
 	if jb.VRFSpec.BatchCoordinatorAddress != nil {
 		batchCoordinatorV2, err = batch_vrf_coordinator_v2.NewBatchVRFCoordinatorV2(
-			jb.VRFSpec.BatchCoordinatorAddress.Address(), chain.Client())
+			jb.VRFSpec.BatchCoordinatorAddress.Address(), chain.Client(),
+		)
 		if err != nil {
 			return nil, errors.Wrap(err, "create batch coordinator wrapper")
 		}
@@ -225,26 +227,27 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 				lV2.Infow("Running without VRFOwnerAddress set on the spec")
 			}
 
-			return []job.ServiceCtx{v2.New(
-				chain.Config().EVM(),
-				chain.Config().EVM().GasEstimator(),
-				lV2,
-				chain,
-				chain.ID(),
-				d.ds,
-				v2.NewCoordinatorV2(coordinatorV2),
-				batchCoordinatorV2,
-				vrfOwner,
-				aggregator,
-				d.pr,
-				d.ks.Eth(),
-				jb,
-				func() {},
-				// the lookback in the deduper must be >= the lookback specified for the log poller
-				// otherwise we will end up re-delivering logs that were already delivered.
-				vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth())),
-				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
-			),
+			return []job.ServiceCtx{
+				v2.New(
+					chain.Config().EVM(),
+					chain.Config().EVM().GasEstimator(),
+					lV2,
+					chain,
+					chain.ID(),
+					d.ds,
+					v2.NewCoordinatorV2(coordinatorV2),
+					batchCoordinatorV2,
+					vrfOwner,
+					aggregator,
+					d.pr,
+					d.ks.Eth(),
+					jb,
+					func() {},
+					// the lookback in the deduper must be >= the lookback specified for the log poller
+					// otherwise we will end up re-delivering logs that were already delivered.
+					vrfcommon.NewInflightCache(int(chain.Config().EVM().FinalityDepth())),
+					vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
+				),
 			}, nil
 		}
 	}
@@ -258,7 +261,7 @@ func CheckFromAddressesExist(ctx context.Context, jb job.Job, gethks keystore.Et
 		_, err2 := gethks.Get(ctx, a.Hex())
 		err = stderrors.Join(err, err2)
 	}
-	return
+	return err
 }
 
 // CheckFromAddressMaxGasPrices checks if the provided gas price in the job spec gas lane parameter
@@ -272,11 +275,12 @@ func CheckFromAddressMaxGasPrices(jb job.Job, keySpecificMaxGas keySpecificMaxGa
 				err = stderrors.Join(err,
 					fmt.Errorf(
 						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
-						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String()))
+						a.Hex(), keySpecific.String(), jb.VRFSpec.GasLanePrice.String(),
+					))
 			}
 		}
 	}
-	return
+	return err
 }
 
 type keySpecificMaxGasFn func(common.Address) *assets.Wei
@@ -291,5 +295,5 @@ func FromAddressMaxGasPricesAllEqual(jb job.Job, keySpecificMaxGasPriceWei keySp
 			keySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
 		)
 	}
-	return
+	return allEqual
 }

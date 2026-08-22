@@ -15,12 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
-	config, err := GeneralConfigOpts{}.New()
+	config, err := (&GeneralConfigOpts{}).New()
 	require.NoError(t, err)
 	assert.Equal(t, (*url.URL)(nil), config.WebServer().BridgeResponseURL())
 	assert.False(t, config.EVMConfigs().RPCEnabled())
@@ -37,7 +38,7 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("all insecure configs are false by default", func(t *testing.T) {
-		config, err := GeneralConfigOpts{}.New()
+		config, err := (&GeneralConfigOpts{}).New()
 		require.NoError(t, err)
 
 		assert.False(t, config.Insecure().DevWebServer())
@@ -47,13 +48,14 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 	})
 
 	t.Run("insecure config ignore override on non-dev builds", func(t *testing.T) {
-		config, err := GeneralConfigOpts{
+		config, err := (&GeneralConfigOpts{
 			OverrideFn: func(c *Config, s *Secrets) {
 				*c.Insecure.DevWebServer = true
 				*c.Insecure.DisableRateLimiting = true
 				*c.Insecure.InfiniteDepthQueries = true
 				*c.AuditLogger.Enabled = true
-			}}.New()
+			},
+		}).New()
 		require.NoError(t, err)
 
 		// Just asserting that override logic work on a safe config
@@ -88,7 +90,7 @@ func TestValidateDB(t *testing.T) {
 	t.Run("unset db url", func(t *testing.T) {
 		t.Setenv(string(env.DatabaseURL), "")
 
-		config, err := GeneralConfigOpts{}.New()
+		config, err := (&GeneralConfigOpts{}).New()
 		require.NoError(t, err)
 
 		err = config.ValidateDB()
@@ -99,7 +101,7 @@ func TestValidateDB(t *testing.T) {
 	t.Run("dev url", func(t *testing.T) {
 		t.Setenv(string(env.DatabaseURL), "postgres://postgres:admin@localhost:5432/chainlink_dev_test?sslmode=disable")
 
-		config, err := GeneralConfigOpts{}.New()
+		config, err := (&GeneralConfigOpts{}).New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.NoError(t, err)
@@ -109,7 +111,7 @@ func TestValidateDB(t *testing.T) {
 		t.Setenv(string(env.DatabaseURL), "postgres://postgres:pwdTooShort@localhost:5432/chainlink_dev_prod?sslmode=disable")
 		t.Setenv(string(env.DatabaseAllowSimplePasswords), "false")
 
-		config, err := GeneralConfigOpts{}.New()
+		config, err := (&GeneralConfigOpts{}).New()
 		require.NoError(t, err)
 		err = config.ValidateDB()
 		require.Error(t, err)
@@ -118,7 +120,7 @@ func TestValidateDB(t *testing.T) {
 }
 
 func TestConfig_LogSQL(t *testing.T) {
-	config, err := GeneralConfigOpts{}.New()
+	config, err := (&GeneralConfigOpts{}).New()
 	require.NoError(t, err)
 
 	config.SetLogSQL(true)
@@ -200,11 +202,11 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		assert.Equal(t, databaseSecrets.Database.URL.URL().String(), opts.Secrets.Database.URL.URL().String())
 		assert.Equal(t, databaseSecrets.Database.BackupURL.URL().String(), opts.Secrets.Database.BackupURL.URL().String())
 
-		assert.Equal(t, (string)(*passwordSecrets.Password.Keystore), (string)(*opts.Password.Keystore))
-		assert.Equal(t, (string)(*passwordSecrets.Password.VRF), (string)(*opts.Password.VRF))
-		assert.Equal(t, (string)(*pyroscopeSecrets.Pyroscope.AuthToken), (string)(*opts.Secrets.Pyroscope.AuthToken))
-		assert.Equal(t, (string)(*prometheusSecrets.Prometheus.AuthToken), (string)(*opts.Prometheus.AuthToken))
-		assert.Equal(t, (string)(*thresholdSecrets.Threshold.ThresholdKeyShare), (string)(*opts.Threshold.ThresholdKeyShare))
+		assert.Equal(t, string(*passwordSecrets.Password.Keystore), string(*opts.Password.Keystore))
+		assert.Equal(t, string(*passwordSecrets.Password.VRF), string(*opts.Password.VRF))
+		assert.Equal(t, string(*pyroscopeSecrets.Pyroscope.AuthToken), string(*opts.Secrets.Pyroscope.AuthToken))
+		assert.Equal(t, string(*prometheusSecrets.Prometheus.AuthToken), string(*opts.Prometheus.AuthToken))
+		assert.Equal(t, string(*thresholdSecrets.Threshold.ThresholdKeyShare), string(*opts.Threshold.ThresholdKeyShare))
 
 		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ServerAddress.URL().String(), opts.Secrets.WebServer.LDAP.ServerAddress.URL().String())
 		assert.Equal(t, webserverLDAPSecrets.WebServer.LDAP.ReadOnlyUserLogin, opts.Secrets.WebServer.LDAP.ReadOnlyUserLogin)
@@ -226,7 +228,7 @@ func parseSecrets(secrets string) (*Secrets, error) {
 	return &s, nil
 }
 
-func assertDeepEqualityMercurySecrets(expected toml.MercurySecrets, actual toml.MercurySecrets) error {
+func assertDeepEqualityMercurySecrets(expected, actual toml.MercurySecrets) error {
 	if len(expected.Credentials) != len(actual.Credentials) {
 		return fmt.Errorf("maps are not equal in length: len(expected): %d, len(actual): %d", len(expected.Credentials), len(actual.Credentials))
 	}
@@ -234,10 +236,10 @@ func assertDeepEqualityMercurySecrets(expected toml.MercurySecrets, actual toml.
 	for key, value := range expected.Credentials {
 		equal := true
 		actualValue := actual.Credentials[key]
-		if (string)(*value.Username) != (string)(*actualValue.Username) {
+		if string(*value.Username) != string(*actualValue.Username) {
 			equal = false
 		}
-		if (string)(*value.Password) != (string)(*actualValue.Password) {
+		if string(*value.Password) != string(*actualValue.Password) {
 			equal = false
 		}
 		if value.URL.URL().String() != actualValue.URL.URL().String() {
@@ -245,14 +247,14 @@ func assertDeepEqualityMercurySecrets(expected toml.MercurySecrets, actual toml.
 		}
 		if !equal {
 			return fmt.Errorf("maps are not equal: expected[%s] = {%s, %s, %s}, actual[%s] = {%s, %s, %s}",
-				key, (string)(*value.Username), (string)(*value.Password), value.URL.URL().String(),
-				key, (string)(*actualValue.Username), (string)(*actualValue.Password), actualValue.URL.URL().String())
+				key, string(*value.Username), string(*value.Password), value.URL.URL().String(),
+				key, string(*actualValue.Username), string(*actualValue.Password), actualValue.URL.URL().String())
 		}
 	}
 	return nil
 }
 
-func merge(map1 toml.MercurySecrets, map2 toml.MercurySecrets) *toml.MercurySecrets {
+func merge(map1, map2 toml.MercurySecrets) *toml.MercurySecrets {
 	combinedMap := make(map[string]toml.MercuryCredentials)
 	maps.Copy(combinedMap, map1.Credentials)
 	maps.Copy(combinedMap, map2.Credentials)
