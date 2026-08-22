@@ -141,6 +141,7 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 		resp, cleanup := client.Get("/v2/bridge_types")
 		b.Cleanup(cleanup)
 		assert.Equal(b, http.StatusOK, resp.StatusCode, "Response should be successful")
+		_ = resp.Body.Close()
 	}
 }
 
@@ -155,10 +156,12 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, cleanup := client.Get("/v2/bridge_types?size=x")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 
 	resp, cleanup = client.Get("/v2/bridge_types?size=1")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -176,6 +179,7 @@ func TestBridgeTypesController_Index(t *testing.T) {
 	assert.Equal(t, bt[0].Confirmations, resources[0].Confirmations, "should have the same Confirmations")
 
 	resp, cleanup = client.Get(links["next"].Href)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -224,6 +228,7 @@ func TestBridgeTypesController_Create_Success(t *testing.T) {
 		"/v2/bridge_types",
 		bytes.NewBuffer(cltest.MustReadFile(t, "../testdata/apiresponses/create_random_number_bridge_type.json")),
 	)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	respJSON := cltest.ParseJSON(t, resp.Body)
@@ -260,6 +265,7 @@ func TestBridgeTypesController_Update_Success(t *testing.T) {
 	body := fmt.Sprintf(`{"name": "%s","url":"http://yourbridge"}`, bridgeName)
 	ud := bytes.NewBufferString(body)
 	resp, cleanup := client.Patch("/v2/bridge_types/"+bridgeName, ud)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -285,6 +291,7 @@ func TestBridgeController_Show(t *testing.T) {
 	require.NoError(t, app.BridgeORM().CreateBridgeType(ctx, bt))
 
 	resp, cleanup := client.Get("/v2/bridge_types/" + bt.Name.String())
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, resp.StatusCode, "Response should be successful")
 
@@ -295,6 +302,7 @@ func TestBridgeController_Show(t *testing.T) {
 	assert.Equal(t, bt.Confirmations, resource.Confirmations, "should have the same Confirmations")
 
 	resp, cleanup = client.Get("/v2/bridge_types/nosuchbridge")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be 404")
 }
@@ -311,6 +319,7 @@ func TestBridgeTypesController_Create_AdapterExistsError(t *testing.T) {
 		"/v2/bridge_types",
 		bytes.NewBuffer(cltest.MustReadFile(t, "../testdata/apiresponses/existing_core_adapter.json")),
 	)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
@@ -327,6 +336,7 @@ func TestBridgeTypesController_Create_BindJSONError(t *testing.T) {
 		"/v2/bridge_types",
 		bytes.NewBufferString("}"),
 	)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusUnprocessableEntity)
 }
@@ -343,6 +353,7 @@ func TestBridgeTypesController_Create_DatabaseError(t *testing.T) {
 		"/v2/bridge_types",
 		bytes.NewBufferString(`{"url":"http://without.a.name"}`),
 	)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }

@@ -33,18 +33,30 @@ func authSuccess(*gin.Context, webauth.Authenticator) error {
 	return nil
 }
 
-type stubAuthProvider struct {
+type userFindFailure struct {
+	sessions.AuthenticationProvider
+	err error
+}
+
+func (u userFindFailure) FindUser(ctx context.Context, email string) (sessions.User, error) {
+	return sessions.User{}, u.err
+}
+
+func (u userFindFailure) FindUserByAPIToken(ctx context.Context, token string) (sessions.User, error) {
+	return sessions.User{}, u.err
+}
+
+type userFindSuccess struct {
 	sessions.AuthenticationProvider
 	user sessions.User
-	err  error
 }
 
-func (s stubAuthProvider) FindUser(ctx context.Context, email string) (sessions.User, error) {
-	return s.user, s.err
+func (u userFindSuccess) FindUser(ctx context.Context, email string) (sessions.User, error) {
+	return u.user, nil
 }
 
-func (s stubAuthProvider) FindUserByAPIToken(ctx context.Context, token string) (sessions.User, error) {
-	return s.user, s.err
+func (u userFindSuccess) FindUserByAPIToken(ctx context.Context, token string) (sessions.User, error) {
+	return u.user, nil
 }
 
 func TestAuthenticateByToken_Success(t *testing.T) {
@@ -54,7 +66,7 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
 	err := user.SetAuthToken(&apiToken)
 	require.NoError(t, err)
-	authr := stubAuthProvider{user: user}
+	authr := userFindSuccess{user: user}
 
 	called := false
 	router := gin.New()
@@ -76,7 +88,7 @@ func TestAuthenticateByToken_Success(t *testing.T) {
 
 func TestAuthenticateByToken_AuthFailed(t *testing.T) {
 	t.Parallel()
-	authr := stubAuthProvider{err: auth.ErrorAuthFailed}
+	authr := userFindFailure{err: auth.ErrorAuthFailed}
 
 	called := false
 	router := gin.New()
@@ -103,7 +115,7 @@ func TestAuthenticateByToken_RejectsBlankAccessKey(t *testing.T) {
 	apiToken := auth.Token{AccessKey: key, Secret: secret}
 	err := user.SetAuthToken(&apiToken)
 	require.NoError(t, err)
-	authr := stubAuthProvider{user: user}
+	authr := userFindSuccess{user: user}
 
 	called := false
 	router := gin.New()
@@ -375,6 +387,7 @@ func TestRBAC_Routemap_Admin(t *testing.T) {
 			default:
 				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
+			defer resp.Body.Close()
 			defer cleanup()
 
 			assert.NotEqual(t, http.StatusUnauthorized, resp.StatusCode)
@@ -416,6 +429,7 @@ func TestRBAC_Routemap_Edit(t *testing.T) {
 			default:
 				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
+			defer resp.Body.Close()
 			defer cleanup()
 
 			// If this route allows up to an edit role, don't expect an unauthorized response
@@ -465,6 +479,7 @@ func TestRBAC_Routemap_Run(t *testing.T) {
 			default:
 				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
+			defer resp.Body.Close()
 			defer cleanup()
 
 			// If this route allows up to an edit minimal role, don't expect an unauthorized response
@@ -515,6 +530,7 @@ func TestRBAC_Routemap_ViewOnly(t *testing.T) {
 			default:
 				t.Fatalf("Unknown HTTP verb %s\n", route.verb)
 			}
+			defer resp.Body.Close()
 			defer cleanup()
 
 			// If this route only allows view only, don't expect an unauthorized response
