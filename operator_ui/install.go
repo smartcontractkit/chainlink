@@ -33,7 +33,7 @@ func main() {
 	tag := mustReadTagFile(path.Join(rootDir, tagPath))
 	strippedTag := stripVersionFromTag(tag)
 	assetName := fmt.Sprintf("%s-%s-%s.tgz", owner, repo, strippedTag)
-	downloadUrl := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", fullRepo, tag, assetName)
+	downloadURL := fmt.Sprintf("https://github.com/%s/releases/download/%s/%s", fullRepo, tag, assetName)
 
 	// Assuming that we're in "root/operator_ui/"
 	unpackPath := filepath.Join(rootDir, unpackDir)
@@ -43,11 +43,13 @@ func main() {
 	}
 
 	subPath := "package/artifacts/"
-	mustDownloadSubAsset(downloadUrl, downloadTimeoutSeconds, unpackPath, subPath)
+	if err := mustDownloadSubAsset(downloadURL, downloadTimeoutSeconds, unpackPath, subPath); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func mustReadTagFile(file string) string {
-	tagBytes, err := os.ReadFile(file)
+	tagBytes, err := os.ReadFile(file) //nolint:gosec // path is constructed from the tool's own rootDir, not untrusted input
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -60,39 +62,37 @@ func stripVersionFromTag(tag string) string {
 }
 
 func rmrf(path string) error {
-	err := os.RemoveAll(path)
+	err := os.RemoveAll(path) //nolint:gosec // path is the tool's own unpack dir, not untrusted input
 	if err != nil {
 		return err
 	}
 
-	err = os.Mkdir(path, 0755)
+	err = os.Mkdir(path, 0755) //nolint:gosec // path is the tool's own unpack dir, not untrusted input
 	return err
 }
 
 // Download a sub asset from a .tgz file and extract it to a destination path
-func mustDownloadSubAsset(downloadUrl string, downloadTimeoutSeconds int, unpackPath string, subPath string) {
-	fmt.Println("Downloading", downloadUrl)
+func mustDownloadSubAsset(downloadURL string, downloadTimeoutSeconds int, unpackPath string, subPath string) error {
+	fmt.Println("Downloading", downloadURL)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(downloadTimeoutSeconds)*time.Second)
 	defer cancel()
-	/* #nosec G107 */
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadUrl, nil)
+	//nolint:gosec // downloadURL is a fixed github.com release URL, not attacker-controlled
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("failed to create request: %w", err)
 	}
+	//nolint:gosec // SSRF: URL is a fixed github.com release URL
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Fatalln(err)
+		return fmt.Errorf("failed to download asset: %w", err)
 	}
 
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		log.Fatalln(fmt.Errorf("failed to fetch asset: %s", resp.Status))
+		return fmt.Errorf("failed to fetch asset: %s", resp.Status)
 	}
 
-	err = decompressTgzSubpath(resp.Body, unpackPath, subPath)
-	if err != nil {
-		log.Fatalln(err)
-	}
+	return decompressTgzSubpath(resp.Body, unpackPath, subPath)
 }
 
 // Decompress a .tgz file to a destination path, only extracting files that are in the subpath
@@ -134,7 +134,7 @@ func decompressTgzSubpath(file io.Reader, destPath string, subPath string) error
 		// Check the file type
 		switch header.Typeflag {
 		case tar.TypeDir: // Directory
-			if err := os.MkdirAll(target, 0755); err != nil {
+			if err := os.MkdirAll(target, 0755); err != nil { //nolint:gosec // target derives from fixed tar subpath, not untrusted input
 				return fmt.Errorf("failed to create directory: %w", err)
 			}
 			fmt.Println("Creating directory", target)
