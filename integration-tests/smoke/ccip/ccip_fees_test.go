@@ -116,7 +116,7 @@ func setupTokens(
 		tenv.Env.BlockChains.EVMChains()[src].DeployerKey,
 		tenv.Env.BlockChains.EVMChains()[dest].DeployerKey,
 		state,
-		tenv.Env.ExistingAddresses,
+		tenv.Env.ExistingAddresses, //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 		"MY_TOKEN",
 	)
 	require.NoError(t, err)

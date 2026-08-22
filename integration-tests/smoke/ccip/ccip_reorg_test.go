@@ -18,12 +18,12 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	cldf_chain "github.com/smartcontractkit/chainlink-deployments-framework/chain"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	ctf_client "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -79,7 +79,7 @@ func Test_CCIPReorg_BelowFinality_OnSource(t *testing.T) {
 	sourceClient := ctf_client.NewRPCClient(chainSelToRPCURL[sourceSelector], nil)
 
 	// Setup CCIP lane
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceSelector, destSelector, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceSelector, destSelector, false))
 	waitForLogPollerFilters(l)
 
 	// Send initial message
@@ -138,7 +138,7 @@ func Test_CCIPReorg_BelowFinality_OnDest(t *testing.T) {
 	destClient := ctf_client.NewRPCClient(chainSelToRPCURL[destSelector], nil)
 
 	// Test setup
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceSelector, destSelector, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceSelector, destSelector, false))
 	waitForLogPollerFilters(l)
 
 	// Initial operation
@@ -190,7 +190,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnDest(t *testing.T) {
 	destClient := ctf_client.NewRPCClient(chainSelToRPCURL[destSelector], nil)
 
 	// Test setup
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceSelector, destSelector, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceSelector, destSelector, false))
 	waitForLogPollerFilters(l)
 
 	// Initial operation
@@ -251,8 +251,8 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 	reorgSourceClient := ctf_client.NewRPCClient(chainSelToRPCURL[reorgSource], nil)
 
 	// Multi-lane setup
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, reorgSource, destSelector, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, nonReorgSource, destSelector, false)
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, reorgSource, destSelector, false))
+	require.NoError(t, testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, nonReorgSource, destSelector, false))
 	waitForLogPollerFilters(l)
 
 	// Send messages from both sources

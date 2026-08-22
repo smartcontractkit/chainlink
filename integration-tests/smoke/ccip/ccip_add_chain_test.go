@@ -75,7 +75,7 @@ func Test_AddChain(t *testing.T) {
 			if source == dest {
 				continue
 			}
-			testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(
+			err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(
 				t,
 				&e,
 				state,
@@ -83,6 +83,7 @@ func Test_AddChain(t *testing.T) {
 				dest,
 				false, // isTestRouter
 			)
+			require.NoError(t, err)
 		}
 	}
 
