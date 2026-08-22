@@ -405,7 +405,7 @@ func runJDCommand(cmd *cobra.Command, args []string) error {
 			if !jdFound {
 				jobID, err := cl.CreateJobDistributor(ctx, client.JobDistributorInput{
 					Name:      jdConfig.Name,
-					Uri:       jdConfig.URI,
+					URI:       jdConfig.URI,
 					PublicKey: jdConfig.PublicKey,
 				})
 

@@ -71,7 +71,7 @@ func (deployEVMLinkTokens) Apply(
 ) (cldf.ChangesetOutput, error) {
 	var (
 		out = cldf.ChangesetOutput{
-			AddressBook: cldf.NewMemoryAddressBook(),
+			AddressBook: cldf.NewMemoryAddressBook(), //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:   datastore.NewMemoryDataStore(),
 		}
 

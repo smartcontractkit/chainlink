@@ -76,15 +76,12 @@ func proposeGatewayJob(b operations.Bundle, deps ProposeGatewayJobDeps, input Pr
 		requestTimeoutSec = defaultGatewayRequestTimeoutSec
 	}
 
-	var gj pkg.GatewayJob
-	if input.ServiceCentricFormatEnabled {
-		built, err := buildServiceCentricJob(deps, input, requestTimeoutSec)
-		if err != nil {
-			return ProposeGatewayJobOutput{}, err
-		}
-		gj = built
-	} else {
+	if !input.ServiceCentricFormatEnabled {
 		return ProposeGatewayJobOutput{}, errors.New("ServiceCentricFormatEnabled has to be true - legacy format is no longer supported")
+	}
+	gj, err := buildServiceCentricJob(deps, input, requestTimeoutSec)
+	if err != nil {
+		return ProposeGatewayJobOutput{}, err
 	}
 
 	if err := gj.Validate(); err != nil {

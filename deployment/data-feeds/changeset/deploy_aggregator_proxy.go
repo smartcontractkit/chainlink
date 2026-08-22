@@ -54,7 +54,7 @@ func deployAggregatorProxyLogic(env cldf.Environment, c types.DeployAggregatorPr
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to save DataFeedsCache: %w", err)
 		}
 	}
-	return cldf.ChangesetOutput{DataStore: ds, AddressBook: ab}, nil
+	return cldf.ChangesetOutput{DataStore: ds, AddressBook: ab}, nil //nolint:staticcheck // SA1019 AddressBook is deprecated
 }
 
 func deployAggregatorProxyPrecondition(env cldf.Environment, c types.DeployAggregatorProxyConfig) error {

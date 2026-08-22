@@ -80,7 +80,6 @@ func TestGetOwnableContractV2(t *testing.T) {
 		targetAddrStr := targetAddr.String()
 		nonExistentAddr := testutils.NewAddress()
 		nonExistentAddrStr := nonExistentAddr.String()
-		v1 := semver.MustParse("1.1.0")
 
 		// Create an address ref for existing address
 		addrRef := datastore.AddressRef{
