@@ -53,7 +53,7 @@ func ToPluginType(s string) (PluginType, error) {
 	}
 }
 
-type Plugins struct {
+type Plugins struct { //nolint:recvcheck // Scan requires pointer receiver, Value requires value receiver
 	Commit     bool `json:"commit"`
 	Execute    bool `json:"execute"`
 	Median     bool `json:"median"`
@@ -122,7 +122,7 @@ func ChainTypeToProtoChainType(chainType ChainType) proto.ChainType {
 
 // FeedsManager defines a registered Feeds Manager Service and the connection
 // information.
-type FeedsManager struct {
+type FeedsManager struct { //nolint:revive // stutter is part of public API
 	ID                 int64
 	Name               string
 	URI                string
@@ -132,6 +132,8 @@ type FeedsManager struct {
 	UpdatedAt          time.Time
 	DisabledAt         *time.Time
 }
+
+type Manager = FeedsManager
 
 // ChainConfig defines the chain configuration for a Feeds Manager.
 type ChainConfig struct {
@@ -150,7 +152,7 @@ type ChainConfig struct {
 }
 
 // FluxMonitorConfig defines configuration for FluxMonitorJobs.
-type FluxMonitorConfig struct {
+type FluxMonitorConfig struct { //nolint:recvcheck // Scan requires pointer receiver, Value requires value receiver
 	Enabled bool `json:"enabled"`
 }
 
@@ -168,7 +170,7 @@ func (c *FluxMonitorConfig) Scan(value any) error {
 }
 
 // OCR1Config defines configuration for OCR1 Jobs.
-type OCR1Config struct {
+type OCR1Config struct { //nolint:recvcheck // Scan requires pointer receiver, Value requires value receiver
 	Enabled     bool        `json:"enabled"`
 	IsBootstrap bool        `json:"is_bootstrap"`
 	Multiaddr   null.String `json:"multiaddr"`
@@ -190,7 +192,7 @@ func (c *OCR1Config) Scan(value any) error {
 }
 
 // OCR2ConfigModel defines configuration for OCR2 Jobs.
-type OCR2ConfigModel struct {
+type OCR2ConfigModel struct { //nolint:recvcheck // Scan requires pointer receiver, Value requires value receiver
 	Enabled          bool        `json:"enabled"`
 	IsBootstrap      bool        `json:"is_bootstrap"`
 	Multiaddr        null.String `json:"multiaddr"`

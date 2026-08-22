@@ -9,7 +9,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type oracleFactoryDb struct {
@@ -17,7 +17,7 @@ type oracleFactoryDb struct {
 	// A single standard capabilities spec can instantiate multiple oracles
 	// TODO: NewOracle should take a unique identifier for the oracle
 	specID               int32
-	lggr                 logger.SugaredLogger
+	lggr                 common.SugaredLogger
 	config               *ocrtypes.ContractConfig
 	states               map[ocrtypes.ConfigDigest]*ocrtypes.PersistentState
 	pendingTransmissions map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission
@@ -26,15 +26,13 @@ type oracleFactoryDb struct {
 	mu sync.Mutex
 }
 
-var (
-	_ ocrtypes.Database = &oracleFactoryDb{}
-)
+var _ ocrtypes.Database = &oracleFactoryDb{}
 
 // NewDB returns a new DB scoped to this instanceID
-func OracleFactoryDB(specID int32, lggr logger.Logger) *oracleFactoryDb {
+func OracleFactoryDB(specID int32, lggr common.Logger) *oracleFactoryDb {
 	return &oracleFactoryDb{
 		specID:               specID,
-		lggr:                 logger.Sugared(lggr.Named("OracleFactoryMemoryDb")),
+		lggr:                 common.Sugared(lggr).Named("OracleFactoryMemoryDb"),
 		states:               make(map[ocrtypes.ConfigDigest]*ocrtypes.PersistentState),
 		pendingTransmissions: make(map[ocrtypes.ReportTimestamp]ocrtypes.PendingTransmission),
 		protocolStates:       make(map[ocrtypes.ConfigDigest]map[string][]byte),

@@ -3,11 +3,12 @@ package feeds
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/google/uuid"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -19,14 +20,14 @@ const (
 type RPCHandlers struct {
 	svc            Service
 	feedsManagerID int64
-	lggr           logger.Logger
+	lggr           common.SugaredLogger
 }
 
-func NewRPCHandlers(svc Service, feedsManagerID int64, lggr logger.Logger) *RPCHandlers {
+func NewRPCHandlers(svc Service, feedsManagerID int64, lggr common.Logger) *RPCHandlers {
 	return &RPCHandlers{
 		svc:            svc,
 		feedsManagerID: feedsManagerID,
-		lggr:           lggr.Named("RPCHandlers"),
+		lggr:           common.Sugared(lggr).Named("RPCHandlers"),
 	}
 }
 
@@ -37,11 +38,16 @@ func (h *RPCHandlers) ProposeJob(ctx context.Context, req *pb.ProposeJobRequest)
 		return nil, err
 	}
 
+	version := req.GetVersion()
+	if version > math.MaxInt32 || version < math.MinInt32 {
+		return nil, fmt.Errorf("job proposal version %d is out of int32 range", version)
+	}
+
 	_, err = h.svc.ProposeJob(ctx, &ProposeJobArgs{
 		Spec:           req.GetSpec(),
 		FeedsManagerID: h.feedsManagerID,
 		RemoteUUID:     remoteUUID,
-		Version:        int32(req.GetVersion()),
+		Version:        int32(version),
 		Multiaddrs:     req.GetMultiaddrs(),
 	})
 	if err != nil {

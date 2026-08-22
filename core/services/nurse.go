@@ -21,6 +21,7 @@ import (
 	"github.com/google/pprof/profile"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -67,7 +68,7 @@ const (
 	traceProfName = "trace"
 )
 
-func NewNurse(cfg Config, log logger.Logger) *Nurse {
+func NewNurse(cfg Config, log common.Logger) *Nurse {
 	n := &Nurse{
 		cfg:      cfg,
 		checks:   make(map[string]CheckFunc),
@@ -92,7 +93,7 @@ func (n *Nurse) start(_ context.Context) error {
 	runtime.SetBlockProfileRate(n.cfg.BlockProfileRate())
 	runtime.SetMutexProfileFraction(n.cfg.MutexProfileFraction())
 
-	err := utils.EnsureDirAndMaxPerms(n.cfg.ProfileRoot(), 0744)
+	err := utils.EnsureDirAndMaxPerms(n.cfg.ProfileRoot(), 0o744)
 	if err != nil {
 		return err
 	}
@@ -232,7 +233,6 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 
 	n.eng.Debugf("creating nurse log %s", filename)
 	file, err := os.Create(filename)
-
 	if err != nil {
 		return err
 	}
@@ -434,20 +434,23 @@ func (n *Nurse) totalProfileBytes() (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	var size int64
+	var size uint64
 	for _, p := range profiles {
-		size += p.Size()
+		sz := p.Size()
+		if sz < 0 {
+			return 0, errors.New("negative profile size encountered")
+		}
+		size += uint64(sz)
 	}
 	if size > math.MaxInt64 {
 		return 0, errors.New("total profile size overflows int64")
 	}
-	return uint64(size), nil
+	return size, nil
 }
 
 func (n *Nurse) listProfiles() ([]fs.FileInfo, error) {
 	out := make([]fs.FileInfo, 0)
 	entries, err := os.ReadDir(n.cfg.ProfileRoot())
-
 	if err != nil {
 		return nil, err
 	}

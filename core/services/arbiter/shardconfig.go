@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/dev/generated/latest/shard_config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -43,7 +43,7 @@ type shardConfigSyncer struct {
 	stopCh services.StopChan
 	wg     sync.WaitGroup
 
-	lggr                  logger.Logger
+	lggr                  common.Logger
 	shardConfigAddress    string
 	contractReaderFactory ContractReaderFactory
 	contractReader        types.ContractReader
@@ -65,10 +65,10 @@ func NewShardConfigSyncer(
 	shardConfigAddress string,
 	pollInterval time.Duration,
 	retryTimeout time.Duration,
-	lggr logger.Logger,
+	lggr common.Logger,
 ) ShardConfigReader {
 	return &shardConfigSyncer{
-		lggr:                  lggr.Named("ShardConfigSyncer"),
+		lggr:                  common.Named(lggr, "ShardConfigSyncer"),
 		shardConfigAddress:    shardConfigAddress,
 		contractReaderFactory: contractReaderFactory,
 		pollInterval:          pollInterval,

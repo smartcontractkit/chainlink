@@ -12,7 +12,6 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
@@ -27,41 +26,36 @@ type mockKey struct {
 	sig             []byte
 }
 
-func (m *mockKey) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
+func (m *mockKey) Sign(reportCtx types.ReportContext, report types.Report) ([]byte, error) {
 	return m.sig, nil
 }
 
-func (m *mockKey) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
+func (m *mockKey) Verify(publicKey types.OnchainPublicKey, reportCtx types.ReportContext, report types.Report, signature []byte) bool {
 	return m.verify
 }
 
-func (m *mockKey) Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
+func (m *mockKey) Sign3(digest types.ConfigDigest, seqNr uint64, r types.Report) (signature []byte, err error) {
 	return m.sig, nil
 }
 
-func (m *mockKey) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
+func (m *mockKey) Verify3(publicKey types.OnchainPublicKey, cd types.ConfigDigest, seqNr uint64, r types.Report, signature []byte) bool {
 	return m.verify
 }
 func (m *mockKey) SignBlob(b []byte) (sig []byte, err error) { return m.sig, nil }
-func (m *mockKey) VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b, sig []byte) bool {
+func (m *mockKey) VerifyBlob(publicKey types.OnchainPublicKey, b, sig []byte) bool {
 	return m.verify
 }
 
-func (m *mockKey) PublicKey() ocrtypes.OnchainPublicKey {
+func (m *mockKey) PublicKey() types.OnchainPublicKey {
 	b := make([]byte, m.maxSignatureLen)
 	for i := range m.maxSignatureLen {
 		b[i] = byte(255)
 	}
-	return ocrtypes.OnchainPublicKey(b)
+	return types.OnchainPublicKey(b)
 }
 
 func (m *mockKey) MaxSignatureLength() int {
 	return m.maxSignatureLen
-}
-
-func (m *mockKey) reset(format llotypes.ReportFormat) {
-	m.format = format
-	m.verify = false
 }
 
 func Test_Keyring(t *testing.T) {
@@ -90,7 +84,7 @@ func Test_Keyring(t *testing.T) {
 		},
 	}
 
-	cd, err := ocrtypes.BytesToConfigDigest(mustRandBytes(32))
+	cd, err := types.BytesToConfigDigest(mustRandBytes(32))
 	require.NoError(t, err)
 	seqNr := rand.Uint64N(math.MaxUint32 << 8)
 	t.Run("Sign+Verify", func(t *testing.T) {

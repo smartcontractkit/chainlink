@@ -93,14 +93,14 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 		expectedEVMChainCnt   int
 		expectedEVMNodeCnt    int
-		expectedEVMRelayerIds []types.RelayID
+		expectedEVMRelayerIDs []types.RelayID
 
 		expectedStarknetChainCnt int
 		expectedStarknetNodeCnt  int
 
 		expectedDummyChainCnt   int
 		expectedDummyNodeCnt    int
-		expectedDummyRelayerIds []types.RelayID
+		expectedDummyRelayerIDs []types.RelayID
 
 		expectedCosmosChainCnt int
 		expectedCosmosNodeCnt  int
@@ -108,8 +108,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		expectedSolanaChainCnt int
 		expectedSolanaNodeCnt  int
 	}{
-
-		{name: "2 evm chains with 3 nodes",
+		{
+			name: "2 evm chains with 3 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
@@ -126,14 +126,15 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
-			expectedEVMRelayerIds: []types.RelayID{
+			expectedEVMRelayerIDs: []types.RelayID{
 				{Network: relay.NetworkEVM, ChainID: evmChainID1.String()},
 				{Network: relay.NetworkEVM, ChainID: evmChainID2.String()},
 			},
 			expectedRelayerNetworks: map[string]struct{}{relay.NetworkEVM: {}},
 		},
 
-		{name: "all chains",
+		{
+			name: "all chains",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
@@ -154,7 +155,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
-			expectedEVMRelayerIds: []types.RelayID{
+			expectedEVMRelayerIDs: []types.RelayID{
 				{Network: relay.NetworkEVM, ChainID: evmChainID1.String()},
 				{Network: relay.NetworkEVM, ChainID: evmChainID2.String()},
 			},
@@ -174,7 +175,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 				expectedChainCnt := tt.expectedEVMChainCnt + tt.expectedCosmosChainCnt + tt.expectedSolanaChainCnt + tt.expectedStarknetChainCnt
 				allChainsStats, cnt, err := cr.ChainStatuses(testctx, 0, 0)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Len(t, allChainsStats, expectedChainCnt)
 				assert.Len(t, allChainsStats, cnt)
 				assert.Len(t, cr.Slice(), expectedChainCnt)
@@ -185,7 +186,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 				expectedNodeCnt := tt.expectedEVMNodeCnt + tt.expectedCosmosNodeCnt + tt.expectedSolanaNodeCnt + tt.expectedStarknetNodeCnt
 				allNodeStats, cnt, err := cr.NodeStatuses(testctx, 0, 0)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Len(t, allNodeStats, expectedNodeCnt)
 				assert.Len(t, allNodeStats, cnt)
 			}
@@ -235,32 +236,32 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				}
 
 				nodesStats, cnt, err := interops.NodeStatuses(testctx, 0, 0)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Len(t, nodesStats, expectedNodeCnt)
 				assert.Len(t, nodesStats, cnt)
 			}
 			assert.Equal(t, tt.expectedRelayerNetworks, gotRelayerNetworks)
 
-			allRelayerIds := [][]types.RelayID{
-				tt.expectedEVMRelayerIds,
+			allRelayerIDs := [][]types.RelayID{
+				tt.expectedEVMRelayerIDs,
 			}
 
-			for _, chainSpecificRelayerIds := range allRelayerIds {
-				for _, wantId := range chainSpecificRelayerIds {
-					lr, err := cr.Get(wantId)
+			for _, chainSpecificRelayerIDs := range allRelayerIDs {
+				for _, wantID := range chainSpecificRelayerIDs {
+					lr, err := cr.Get(wantID)
 					assert.NotNil(t, lr)
-					assert.NoError(t, err)
-					stat, err := cr.ChainStatus(testctx, wantId)
-					assert.NoError(t, err)
-					assert.Equal(t, wantId.ChainID, stat.ID)
+					require.NoError(t, err)
+					stat, err := cr.ChainStatus(testctx, wantID)
+					require.NoError(t, err)
+					assert.Equal(t, wantID.ChainID, stat.ID)
 					// check legacy chains for evm and cosmos
-					if wantId.Network == relay.NetworkEVM {
-						cs, err := cr.LegacyEVMChains().Get(wantId.ChainID)
-						assert.NoError(t, err)
+					if wantID.Network == relay.NetworkEVM {
+						cs, err := cr.LegacyEVMChains().Get(wantID.ChainID)
+						require.NoError(t, err)
 						c, ok := cs.(legacyevm.Chain)
 						require.True(t, ok)
 						assert.NotNil(t, c)
-						assert.Equal(t, wantId.ChainID, c.ID().String())
+						assert.Equal(t, wantID.ChainID, c.ID().String())
 					}
 				}
 			}

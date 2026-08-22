@@ -35,12 +35,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	vaultcap "github.com/smartcontractkit/chainlink/v2/core/capabilities/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -66,7 +66,7 @@ type ReportingPluginConfig struct {
 }
 
 func NewReportingPluginFactory(
-	lggr logger.Logger,
+	lggr common.Logger,
 	store *requests.Store[*vaulttypes.Request],
 	db dkgocrtypes.ResultPackageDatabase,
 	recipientKey *dkgrecipientkey.Key,
@@ -91,7 +91,7 @@ func NewReportingPluginFactory(
 	}
 
 	return &ReportingPluginFactory{
-		lggr:          lggr.Named("VaultReportingPluginFactory"),
+		lggr:          common.Sugared(lggr).Named("VaultReportingPluginFactory"),
 		store:         store,
 		cfg:           cfg,
 		db:            db,
@@ -102,7 +102,7 @@ func NewReportingPluginFactory(
 }
 
 type ReportingPluginFactory struct {
-	lggr          logger.Logger
+	lggr          common.SugaredLogger
 	store         *requests.Store[*vaulttypes.Request]
 	cfg           *ReportingPluginConfig
 	db            dkgocrtypes.ResultPackageDatabase
@@ -206,7 +206,7 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 	}, nil
 }
 
-func logLimit[N limits.Number](ctx context.Context, lggr logger.Logger, limiter limits.BoundLimiter[N]) N {
+func logLimit[N limits.Number](ctx context.Context, lggr common.Logger, limiter limits.BoundLimiter[N]) N {
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: "DUMMY-OWNER-FOR-LOGGING"})
 	limit, err := limiter.Limit(ctx)
 	if err != nil {
@@ -296,7 +296,7 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
-	plugin := &ReportingPlugin{
+	return &ReportingPlugin{
 		lggr:                         r.lggr.Named("VaultReportingPlugin"),
 		store:                        r.store,
 		cfg:                          cfg,
@@ -314,15 +314,14 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 		marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
 			return handle.MarshalBinary()
 		},
-	}
-	return plugin, ocr3_1types.ReportingPluginInfo1{
+	}, ocr3_1types.ReportingPluginInfo1{
 		Name:   "VaultReportingPlugin",
 		Limits: pluginLimits,
 	}, nil
 }
 
 type ReportingPlugin struct {
-	lggr       logger.Logger
+	lggr       common.SugaredLogger
 	store      *requests.Store[*vaulttypes.Request]
 	onchainCfg ocr3types.ReportingPluginConfig
 	cfg        *ReportingPluginConfig
@@ -392,7 +391,7 @@ func countPendingQueueStallSignalsInMap(obsByObserver map[uint8]*vaultcommon.Obs
 
 func (r *ReportingPlugin) purgeStalledPendingQueue(
 	ctx context.Context,
-	l logger.Logger,
+	l common.Logger,
 	store pendingQueueStore,
 	stallSignalCount int,
 ) (ocr3_1types.ReportsPlusPrecursor, error) {
@@ -1252,9 +1251,9 @@ func userFacingError(err error, fallback string) string {
 	return fallback
 }
 
-func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...any) {
+func logUserErrorAware(l common.Logger, msg string, err error, keysAndValues ...any) {
 	keysAndValues = append(keysAndValues, "error", err)
-	lggr := l.Helper(1)
+	lggr := common.Sugared(l).Helper(1)
 	if vaulttypes.IsUserError(err) {
 		lggr.Debugw(msg, keysAndValues...)
 		return
@@ -1932,7 +1931,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(chosen []*vaultcommon.Observ
 		}
 	}
 
-	sortedResponses := []*vaultcommon.SecretResponse{}
+	sortedResponses := make([]*vaultcommon.SecretResponse, 0, len(idToAggResponse))
 	for _, k := range slices.Sorted(maps.Keys(idToAggResponse)) {
 		sortedResponses = append(sortedResponses, idToAggResponse[k])
 	}
