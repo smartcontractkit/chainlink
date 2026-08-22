@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // Go's new embed feature doesn't allow us to embed things outside of the current module.
@@ -86,14 +86,14 @@ func (e *EmbedFileSystem) Open(name string) (http.File, error) {
 // existence of the file
 type gzipFileHandler struct {
 	root ServeFileSystem
-	lggr logger.SugaredLogger
+	lggr common.SugaredLogger
 }
 
 // GzipFileServer is a drop-in replacement for Go's standard http.FileServer
 // which adds support for static resources precompressed with gzip, at
 // the cost of removing the support for directory browsing.
-func GzipFileServer(root ServeFileSystem, lggr logger.Logger) http.Handler {
-	return &gzipFileHandler{root, logger.Sugared(lggr.Named("GzipFilehandler"))}
+func GzipFileServer(root ServeFileSystem, lggr common.Logger) http.Handler {
+	return &gzipFileHandler{root, common.Sugared(lggr).Named("GzipFilehandler")}
 }
 
 func (f *gzipFileHandler) openAndStat(path string) (http.File, os.FileInfo, error) {
@@ -219,7 +219,7 @@ func (f *gzipFileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // ServeGzippedAssets returns a middleware handler that serves static files in the given directory.
-func ServeGzippedAssets(urlPrefix string, fs ServeFileSystem, lggr logger.Logger) gin.HandlerFunc {
+func ServeGzippedAssets(urlPrefix string, fs ServeFileSystem, lggr common.Logger) gin.HandlerFunc {
 	fileserver := GzipFileServer(fs, lggr)
 	if urlPrefix != "" {
 		fileserver = http.StripPrefix(urlPrefix, fileserver)

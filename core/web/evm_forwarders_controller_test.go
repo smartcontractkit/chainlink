@@ -62,6 +62,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 	require.NoError(t, err)
 
 	resp, cleanup := controller.client.Post("/v2/nodes/evm/forwarders/track", bytes.NewReader(body))
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 
@@ -74,6 +75,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 	require.Len(t, controller.app.GetRelayers().List(chainlink.FilterRelayersByType(relay.NetworkEVM)).Slice(), 1)
 
 	resp, cleanup = controller.client.Delete("/v2/nodes/evm/forwarders/" + resource.ID)
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	assert.NoError(t, err)
@@ -111,9 +113,11 @@ func Test_EVMForwardersController_Index(t *testing.T) {
 		resp, cleanup := controller.client.Post("/v2/nodes/evm/forwarders/track", bytes.NewReader(body))
 		t.Cleanup(cleanup)
 		require.Equal(t, http.StatusCreated, resp.StatusCode)
+		_ = resp.Body.Close()
 	}
 
 	resp, cleanup := controller.client.Get("/v2/nodes/evm/forwarders?size=2")
+	defer resp.Body.Close()
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
