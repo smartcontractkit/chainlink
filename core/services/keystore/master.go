@@ -118,7 +118,7 @@ func newMaster(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, announ
 	}
 }
 
-func (ks master) CSA() CSA {
+func (ks *master) CSA() CSA {
 	return ks.csa
 }
 
