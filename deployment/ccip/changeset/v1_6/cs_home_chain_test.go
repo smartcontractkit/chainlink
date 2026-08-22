@@ -44,19 +44,19 @@ func TestDeployHomeChain(t *testing.T) {
 
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	p2pIds := nodes.NonBootstraps().PeerIDs()
+	p2pIDs := nodes.NonBootstraps().PeerIDs()
 	homeChainCfg := v1_6.DeployHomeChainConfig{
 		HomeChainSel:     homeChainSel,
 		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 		NodeOperators:    testhelpers.NewTestNodeOperator(e.BlockChains.EVMChains()[homeChainSel].DeployerKey.From),
 		NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-			"NodeOperator": p2pIds,
+			"NodeOperator": p2pIDs,
 		},
 	}
 	output, err := v1_6.DeployHomeChainChangeset(e, homeChainCfg)
 	require.NoError(t, err)
-	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
+	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook)) //nolint:staticcheck // SA1019 AddressBook is deprecated
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
@@ -76,7 +76,7 @@ func TestDeployHomeChain(t *testing.T) {
 			Name:  "NodeOperator",
 		},
 	}, capRegSnap.Nops)
-	require.Len(t, capRegSnap.Nodes, len(p2pIds))
+	require.Len(t, capRegSnap.Nodes, len(p2pIDs))
 }
 
 func TestDeployHomeChainIdempotent(t *testing.T) {

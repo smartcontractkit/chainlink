@@ -10,8 +10,9 @@ import (
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	proposeutils "github.com/smartcontractkit/cld-changesets/legacy/mcms/proposeutils"
+
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"

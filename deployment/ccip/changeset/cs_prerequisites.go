@@ -64,13 +64,13 @@ func DeployPrerequisitesChangeset(env cldf.Environment, cfg DeployPrerequisiteCo
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
 
 		return cldf.ChangesetOutput{
-			AddressBook: ab,
+			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:   ds,
 		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: ab,
+		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }

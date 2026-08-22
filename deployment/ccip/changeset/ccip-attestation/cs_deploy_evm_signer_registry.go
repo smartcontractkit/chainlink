@@ -103,5 +103,8 @@ func signerRegistryDeploymentLogic(e cldf.Environment, config SignerRegistryChan
 		e.Logger.Infof("Successfully deployed signer registry %s on %s", signerRegistry.Address.String(), chain.String())
 	}
 
-	return cldf.ChangesetOutput{AddressBook: addressBook, DataStore: ds}, nil
+	return cldf.ChangesetOutput{
+		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		DataStore:   ds,
+	}, nil
 }
