@@ -272,7 +272,7 @@ func NewApp(s *Shell) *cli.App {
 				lggrCfg := logger.Config{
 					LogLevel:    s.Config.Log().Level(),
 					Dir:         s.Config.Log().File().Dir(),
-					JsonConsole: s.Config.Log().JSONConsole(),
+					JSONConsole: s.Config.Log().JSONConsole(),
 					UnixTS:      s.Config.Log().UnixTimestamps(),
 					//nolint:gosec // filemaxsizesmb won't exceed max int
 					FileMaxSizeMB:  int(logFileMaxSizeMB),

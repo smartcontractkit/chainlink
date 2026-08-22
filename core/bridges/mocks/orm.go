@@ -629,9 +629,9 @@ func (_c *ORM_FindExternalInitiatorByName_Call) RunAndReturn(run func(context.Co
 	return _c
 }
 
-// GetCachedResponse provides a mock function with given fields: ctx, dotId, specId, maxElapsed
-func (_m *ORM) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
-	ret := _m.Called(ctx, dotId, specId, maxElapsed)
+// GetCachedResponse provides a mock function with given fields: ctx, dotID, specID, maxElapsed
+func (_m *ORM) GetCachedResponse(ctx context.Context, dotID string, specID int32, maxElapsed time.Duration) ([]byte, error) {
+	ret := _m.Called(ctx, dotID, specID, maxElapsed)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCachedResponse")
@@ -640,10 +640,10 @@ func (_m *ORM) GetCachedResponse(ctx context.Context, dotId string, specId int32
 	var r0 []byte
 	var r1 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, int32, time.Duration) ([]byte, error)); ok {
-		return rf(ctx, dotId, specId, maxElapsed)
+		return rf(ctx, dotID, specID, maxElapsed)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string, int32, time.Duration) []byte); ok {
-		r0 = rf(ctx, dotId, specId, maxElapsed)
+		r0 = rf(ctx, dotID, specID, maxElapsed)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
@@ -651,7 +651,7 @@ func (_m *ORM) GetCachedResponse(ctx context.Context, dotId string, specId int32
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, int32, time.Duration) error); ok {
-		r1 = rf(ctx, dotId, specId, maxElapsed)
+		r1 = rf(ctx, dotID, specID, maxElapsed)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -666,14 +666,14 @@ type ORM_GetCachedResponse_Call struct {
 
 // GetCachedResponse is a helper method to define mock.On call
 //   - ctx context.Context
-//   - dotId string
-//   - specId int32
+//   - dotID string
+//   - specID int32
 //   - maxElapsed time.Duration
-func (_e *ORM_Expecter) GetCachedResponse(ctx interface{}, dotId interface{}, specId interface{}, maxElapsed interface{}) *ORM_GetCachedResponse_Call {
-	return &ORM_GetCachedResponse_Call{Call: _e.mock.On("GetCachedResponse", ctx, dotId, specId, maxElapsed)}
+func (_e *ORM_Expecter) GetCachedResponse(ctx interface{}, dotID interface{}, specID interface{}, maxElapsed interface{}) *ORM_GetCachedResponse_Call {
+	return &ORM_GetCachedResponse_Call{Call: _e.mock.On("GetCachedResponse", ctx, dotID, specID, maxElapsed)}
 }
 
-func (_c *ORM_GetCachedResponse_Call) Run(run func(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration)) *ORM_GetCachedResponse_Call {
+func (_c *ORM_GetCachedResponse_Call) Run(run func(ctx context.Context, dotID string, specID int32, maxElapsed time.Duration)) *ORM_GetCachedResponse_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string), args[2].(int32), args[3].(time.Duration))
 	})
@@ -690,9 +690,9 @@ func (_c *ORM_GetCachedResponse_Call) RunAndReturn(run func(context.Context, str
 	return _c
 }
 
-// GetCachedResponseWithFinished provides a mock function with given fields: ctx, dotId, specId, maxElapsed
-func (_m *ORM) GetCachedResponseWithFinished(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
-	ret := _m.Called(ctx, dotId, specId, maxElapsed)
+// GetCachedResponseWithFinished provides a mock function with given fields: ctx, dotID, specID, maxElapsed
+func (_m *ORM) GetCachedResponseWithFinished(ctx context.Context, dotID string, specID int32, maxElapsed time.Duration) ([]byte, time.Time, error) {
+	ret := _m.Called(ctx, dotID, specID, maxElapsed)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetCachedResponseWithFinished")
@@ -702,10 +702,10 @@ func (_m *ORM) GetCachedResponseWithFinished(ctx context.Context, dotId string, 
 	var r1 time.Time
 	var r2 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, int32, time.Duration) ([]byte, time.Time, error)); ok {
-		return rf(ctx, dotId, specId, maxElapsed)
+		return rf(ctx, dotID, specID, maxElapsed)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, string, int32, time.Duration) []byte); ok {
-		r0 = rf(ctx, dotId, specId, maxElapsed)
+		r0 = rf(ctx, dotID, specID, maxElapsed)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
@@ -713,13 +713,13 @@ func (_m *ORM) GetCachedResponseWithFinished(ctx context.Context, dotId string, 
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, string, int32, time.Duration) time.Time); ok {
-		r1 = rf(ctx, dotId, specId, maxElapsed)
+		r1 = rf(ctx, dotID, specID, maxElapsed)
 	} else {
 		r1 = ret.Get(1).(time.Time)
 	}
 
 	if rf, ok := ret.Get(2).(func(context.Context, string, int32, time.Duration) error); ok {
-		r2 = rf(ctx, dotId, specId, maxElapsed)
+		r2 = rf(ctx, dotID, specID, maxElapsed)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -734,14 +734,14 @@ type ORM_GetCachedResponseWithFinished_Call struct {
 
 // GetCachedResponseWithFinished is a helper method to define mock.On call
 //   - ctx context.Context
-//   - dotId string
-//   - specId int32
+//   - dotID string
+//   - specID int32
 //   - maxElapsed time.Duration
-func (_e *ORM_Expecter) GetCachedResponseWithFinished(ctx interface{}, dotId interface{}, specId interface{}, maxElapsed interface{}) *ORM_GetCachedResponseWithFinished_Call {
-	return &ORM_GetCachedResponseWithFinished_Call{Call: _e.mock.On("GetCachedResponseWithFinished", ctx, dotId, specId, maxElapsed)}
+func (_e *ORM_Expecter) GetCachedResponseWithFinished(ctx interface{}, dotID interface{}, specID interface{}, maxElapsed interface{}) *ORM_GetCachedResponseWithFinished_Call {
+	return &ORM_GetCachedResponseWithFinished_Call{Call: _e.mock.On("GetCachedResponseWithFinished", ctx, dotID, specID, maxElapsed)}
 }
 
-func (_c *ORM_GetCachedResponseWithFinished_Call) Run(run func(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration)) *ORM_GetCachedResponseWithFinished_Call {
+func (_c *ORM_GetCachedResponseWithFinished_Call) Run(run func(ctx context.Context, dotID string, specID int32, maxElapsed time.Duration)) *ORM_GetCachedResponseWithFinished_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string), args[2].(int32), args[3].(time.Duration))
 	})
@@ -806,9 +806,9 @@ func (_c *ORM_UpdateBridgeType_Call) RunAndReturn(run func(context.Context, *bri
 	return _c
 }
 
-// UpsertBridgeResponse provides a mock function with given fields: ctx, dotId, specId, response
-func (_m *ORM) UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error {
-	ret := _m.Called(ctx, dotId, specId, response)
+// UpsertBridgeResponse provides a mock function with given fields: ctx, dotID, specID, response
+func (_m *ORM) UpsertBridgeResponse(ctx context.Context, dotID string, specID int32, response []byte) error {
+	ret := _m.Called(ctx, dotID, specID, response)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpsertBridgeResponse")
@@ -816,7 +816,7 @@ func (_m *ORM) UpsertBridgeResponse(ctx context.Context, dotId string, specId in
 
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context, string, int32, []byte) error); ok {
-		r0 = rf(ctx, dotId, specId, response)
+		r0 = rf(ctx, dotID, specID, response)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -831,14 +831,14 @@ type ORM_UpsertBridgeResponse_Call struct {
 
 // UpsertBridgeResponse is a helper method to define mock.On call
 //   - ctx context.Context
-//   - dotId string
-//   - specId int32
+//   - dotID string
+//   - specID int32
 //   - response []byte
-func (_e *ORM_Expecter) UpsertBridgeResponse(ctx interface{}, dotId interface{}, specId interface{}, response interface{}) *ORM_UpsertBridgeResponse_Call {
-	return &ORM_UpsertBridgeResponse_Call{Call: _e.mock.On("UpsertBridgeResponse", ctx, dotId, specId, response)}
+func (_e *ORM_Expecter) UpsertBridgeResponse(ctx interface{}, dotID interface{}, specID interface{}, response interface{}) *ORM_UpsertBridgeResponse_Call {
+	return &ORM_UpsertBridgeResponse_Call{Call: _e.mock.On("UpsertBridgeResponse", ctx, dotID, specID, response)}
 }
 
-func (_c *ORM_UpsertBridgeResponse_Call) Run(run func(ctx context.Context, dotId string, specId int32, response []byte)) *ORM_UpsertBridgeResponse_Call {
+func (_c *ORM_UpsertBridgeResponse_Call) Run(run func(ctx context.Context, dotID string, specID int32, response []byte)) *ORM_UpsertBridgeResponse_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		run(args[0].(context.Context), args[1].(string), args[2].(int32), args[3].([]byte))
 	})

@@ -19,7 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
-var isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
+var (
+	isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
+)
 
 type RequestValidator struct {
 	MaxRequestBatchSizeLimiter          limits.BoundLimiter[int]
@@ -93,7 +95,7 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 	return nil
 }
 
-func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner, encryptedValue string) error {
+func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner string, encryptedValue string) error {
 	rawCiphertext, err := hex.DecodeString(encryptedValue)
 	if err != nil {
 		return fmt.Errorf("failed to decode encrypted value: %w", err)
@@ -109,7 +111,7 @@ func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner, en
 	return nil
 }
 
-func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey, idOwner, idNamespace string) error {
+func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey string, idOwner string, idNamespace string) error {
 	if idKey == "" {
 		return errors.New("key cannot be empty")
 	}
@@ -288,7 +290,7 @@ func NewRequestValidatorFromLimitsFactory(limitsFactory limits.Factory) (*Reques
 // owner label (Ethereum address, left-padded to 32 bytes). owner must be non-empty;
 // when the public key is nil, verification is skipped for the same reasons as
 // verifyEncryptedSecret.
-func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret, owner string) error {
+func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret string, owner string) error {
 	cipherText, err := verifyEncryptedSecret(publicKey, secret)
 	if err != nil {
 		return err

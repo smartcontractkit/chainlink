@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/ratelimit"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -57,10 +58,8 @@ type triggerConnectorHandler struct {
 	registry            core.CapabilitiesRegistry
 }
 
-var (
-	_ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
-	_ services.Service               = &triggerConnectorHandler{}
-)
+var _ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
+var _ services.Service = &triggerConnectorHandler{}
 
 func NewTrigger(config string, registry core.CapabilitiesRegistry, connector core.GatewayConnector, lggr logger.Logger) (*triggerConnectorHandler, error) {
 	if connector == nil {
@@ -113,7 +112,7 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 				TriggerEventID := body.Sender + payload.TriggerEventId
 
 				// Emit trigger execution started event
-				workflowExecutionID, genErr := events.GenerateExecutionID(trigger.workflowID, TriggerEventID)
+				workflowExecutionID, genErr := workflows.GenerateExecutionIDWithTriggerIndex(trigger.workflowID, TriggerEventID, 0)
 				if genErr != nil {
 					h.lggr.Errorw("failed to generate execution ID", "err", genErr)
 					workflowExecutionID = ""
@@ -267,7 +266,7 @@ func (h *triggerConnectorHandler) UnregisterTrigger(ctx context.Context, req cap
 	return nil
 }
 
-func (h *triggerConnectorHandler) AckEvent(ctx context.Context, triggerID, eventID, method string) error {
+func (h *triggerConnectorHandler) AckEvent(ctx context.Context, triggerID, eventID string, method string) error {
 	return nil
 }
 
@@ -287,7 +286,6 @@ func (h *triggerConnectorHandler) Start(ctx context.Context) error {
 		return h.connector.AddHandler(ctx, []string{"web_api_trigger"}, h)
 	})
 }
-
 func (h *triggerConnectorHandler) Close() error {
 	return h.StopOnce("GatewayConnectorServiceWrapper", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)

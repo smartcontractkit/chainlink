@@ -490,8 +490,8 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		p.messageCache.Delete(key)
 		p.mu.Unlock()
 
-		ctx, cancel := p.stopCh.NewCtx()
-		err = p.cfg.Load().underlying.UnregisterTrigger(ctx, reg.request)
+		ctx2, cancel := p.stopCh.NewCtx()
+		err = p.cfg.Load().underlying.UnregisterTrigger(ctx2, reg.request)
 		if err != nil {
 			unregisterOutcome = "error"
 			p.lggr.Errorw("failed to unregister trigger on underlying", "workflowID", key.workflowID, "triggerID", key.triggerID, "err", err)

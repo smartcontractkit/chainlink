@@ -766,7 +766,7 @@ func (h *Handler) signSecretsResponse(
 		// Keep populating Signatures too: there are still readers of the array. The
 		// cleanup order is readers first, then writers (this), then the field itself,
 		// or builds go red.
-		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig}, //nolint:staticcheck // SA1019 backward compatibility
 	}, nil
 }
 
@@ -797,7 +797,7 @@ func (h *Handler) signCapabilityResponse(
 		// Keep populating Signatures too: there are still readers of the array. The
 		// cleanup order is readers first, then writers (this), then the field itself,
 		// or builds go red.
-		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig},
+		Signatures: []confidentialrelaytypes.RelayResponseSignature{sig}, //nolint:staticcheck // SA1019 backward compatibility
 	}, nil
 }
 
