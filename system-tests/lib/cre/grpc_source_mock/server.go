@@ -10,9 +10,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	sourcesv1 "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/privateregistry"
+	sourcesv1 "github.com/smartcontractkit/chainlink-protos/workflows/go/sources"
 )
 
 const (
