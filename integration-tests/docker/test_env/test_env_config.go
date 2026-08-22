@@ -33,7 +33,7 @@ func NewTestEnvConfigFromFile(path string) (*TestEnvConfig, error) {
 	return c, nil
 }
 
-func (c *TestEnvConfig) Json() string {
+func (c *TestEnvConfig) JSON() string {
 	b, _ := json.Marshal(c)
 	return string(b)
 }

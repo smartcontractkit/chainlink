@@ -149,15 +149,15 @@ func (n *ClNode) PrimaryETHAddress() (string, error) {
 	return n.API.PrimaryEthAddress()
 }
 
-func (n *ClNode) AddBootstrapJob(verifierAddr common.Address, chainId int64,
-	feedId [32]byte) (*nodeclient.Job, error) {
-	spec := it_utils.BuildBootstrapSpec(verifierAddr, chainId, feedId)
+func (n *ClNode) AddBootstrapJob(verifierAddr common.Address, chainID int64,
+	feedID [32]byte) (*nodeclient.Job, error) {
+	spec := it_utils.BuildBootstrapSpec(verifierAddr, chainID, feedID)
 	return n.API.MustCreateJob(spec)
 }
 
-func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64, chainId int64,
-	feedId [32]byte, customAllowedFaults *int, bootstrapUrl string,
-	mercuryServerUrl string, mercuryServerPubKey string,
+func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64, chainID int64,
+	feedID [32]byte, customAllowedFaults *int, bootstrapURL string,
+	mercuryServerURL string, mercuryServerPubKey string,
 	eaUrls []*url.URL) (*nodeclient.Job, error) {
 	csaKeys, _, err := n.API.ReadCSAKeys()
 	if err != nil {
@@ -170,10 +170,10 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 		return nil, err
 	}
 
-	var nodeOCRKeyId []string
+	var nodeOCRKeyID []string
 	for _, key := range nodeOCRKeys.Data {
 		if key.Attributes.ChainType == string(corekeys.EVM) {
-			nodeOCRKeyId = append(nodeOCRKeyId, key.ID)
+			nodeOCRKeyID = append(nodeOCRKeyID, key.ID)
 			break
 		}
 	}
@@ -194,9 +194,9 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 	}
 
 	spec := it_utils.BuildOCRSpec(
-		verifierAddr, chainId, fromBlock, feedId, bridges,
-		csaPubKey, mercuryServerUrl, mercuryServerPubKey, nodeOCRKeyId[0],
-		bootstrapUrl, allowedFaults)
+		verifierAddr, chainID, fromBlock, feedID, bridges,
+		csaPubKey, mercuryServerURL, mercuryServerPubKey, nodeOCRKeyID[0],
+		bootstrapURL, allowedFaults)
 
 	return n.API.MustCreateJob(spec)
 }
@@ -213,14 +213,14 @@ func (n *ClNode) GetAPIClient() *nodeclient.ChainlinkClient {
 	return n.API
 }
 
-func (n *ClNode) GetPeerUrl() (string, error) {
+func (n *ClNode) GetPeerURL() (string, error) {
 	p2pKeys, err := n.API.MustReadP2PKeys()
 	if err != nil {
 		return "", err
 	}
-	p2pId := p2pKeys.Data[0].Attributes.PeerID
+	p2pID := p2pKeys.Data[0].Attributes.PeerID
 
-	return fmt.Sprintf("%s@%s:%d", p2pId, n.GetContainerName(), 6690), nil
+	return fmt.Sprintf("%s@%s:%d", p2pID, n.GetContainerName(), 6690), nil
 }
 
 func (n *ClNode) GetNodeCSAKeys() (*nodeclient.CSAKeys, error) {
@@ -312,7 +312,7 @@ func (n *ClNode) containerStartOrRestart(restartDb bool) error {
 		return fmt.Errorf("%s err: %w", ErrConnectNodeClient, err)
 	}
 
-	graphqlClient, err := newChainLinkGraphqlClient(config)
+	graphqlClient, err := newChainLinkGraphqlClient(testcontext.Get(n.t), config)
 	if err != nil {
 		return fmt.Errorf("%s err: %w", ErrConnectNodeGraphqlClient, err)
 	}
@@ -453,8 +453,8 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	}, nil
 }
 
-func newChainLinkGraphqlClient(c *nodeclient.ChainlinkConfig) (grapqlClient.Client, error) {
-	nodeClient, err := grapqlClient.New(c.URL, grapqlClient.Credentials{Email: c.Email, Password: c.Password})
+func newChainLinkGraphqlClient(ctx context.Context, c *nodeclient.ChainlinkConfig) (grapqlClient.Client, error) {
+	nodeClient, err := grapqlClient.NewWithContext(ctx, c.URL, grapqlClient.Credentials{Email: c.Email, Password: c.Password})
 	if err != nil {
 		return nil, err
 	}
