@@ -227,11 +227,11 @@ func main() {
 		switch *vrfVersion {
 		case "v2":
 			feeConfigV2 := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-				FulfillmentFlatFeeLinkPPMTier1: uint32(constants.FlatFeeTier1),
-				FulfillmentFlatFeeLinkPPMTier2: uint32(constants.FlatFeeTier2),
-				FulfillmentFlatFeeLinkPPMTier3: uint32(constants.FlatFeeTier3),
-				FulfillmentFlatFeeLinkPPMTier4: uint32(constants.FlatFeeTier4),
-				FulfillmentFlatFeeLinkPPMTier5: uint32(constants.FlatFeeTier5),
+				FulfillmentFlatFeeLinkPPMTier1: uint32(constants.FlatFeeTier1), //nolint:gosec // fee tier fits in uint32
+				FulfillmentFlatFeeLinkPPMTier2: uint32(constants.FlatFeeTier2), //nolint:gosec // fee tier fits in uint32
+				FulfillmentFlatFeeLinkPPMTier3: uint32(constants.FlatFeeTier3), //nolint:gosec // fee tier fits in uint32
+				FulfillmentFlatFeeLinkPPMTier4: uint32(constants.FlatFeeTier4), //nolint:gosec // fee tier fits in uint32
+				FulfillmentFlatFeeLinkPPMTier5: uint32(constants.FlatFeeTier5), //nolint:gosec // fee tier fits in uint32
 				ReqsForTier2:                   big.NewInt(constants.ReqsForTier2),
 				ReqsForTier3:                   big.NewInt(constants.ReqsForTier3),
 				ReqsForTier4:                   big.NewInt(constants.ReqsForTier4),
@@ -282,10 +282,10 @@ func main() {
 				StalenessSeconds:                  *stalenessSeconds,
 				GasAfterPayment:                   *gasAfterPayment,
 				FallbackWeiPerUnitLink:            constants.FallbackWeiPerUnitLink,
-				FulfillmentFlatFeeNativePPM:       uint32(*flatFeeNativePPM),
-				FulfillmentFlatFeeLinkDiscountPPM: uint32(*flatFeeLinkDiscountPPM),
-				NativePremiumPercentage:           uint8(*nativePremiumPercentage),
-				LinkPremiumPercentage:             uint8(*linkPremiumPercentage),
+				FulfillmentFlatFeeNativePPM:       uint32(*flatFeeNativePPM),       //nolint:gosec // fee fits in uint32
+				FulfillmentFlatFeeLinkDiscountPPM: uint32(*flatFeeLinkDiscountPPM), //nolint:gosec // fee fits in uint32
+				NativePremiumPercentage:           uint8(*nativePremiumPercentage), //nolint:gosec // premium fits in uint8
+				LinkPremiumPercentage:             uint8(*linkPremiumPercentage),   //nolint:gosec // premium fits in uint8
 			}
 
 			coordinatorJobSpecConfig := model.CoordinatorJobSpecConfig{
@@ -315,8 +315,8 @@ func main() {
 				bhsJobSpecConfig,
 				*simulationBlock,
 				*coordinatorType,
-				uint8(*optimismL1GasFeeCalculationMode),
-				uint8(*optimismL1GasFeeCoefficient),
+				uint8(*optimismL1GasFeeCalculationMode), //nolint:gosec // mode fits in uint8
+				uint8(*optimismL1GasFeeCoefficient),     //nolint:gosec // coefficient fits in uint8
 			)
 		}
 
@@ -401,7 +401,7 @@ func getVRFKeys(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) []prese
 }
 
 func createJob(jobSpec string, client *clcmd.Shell, app *cli.App, output *bytes.Buffer) {
-	if err := os.WriteFile("job-spec.toml", []byte(jobSpec), 0666); err != nil { //nolint:gosec
+	if err := os.WriteFile("job-spec.toml", []byte(jobSpec), 0600); err != nil {
 		helpers.PanicErr(err)
 	}
 	job := presenters.JobResource{}
@@ -415,7 +415,7 @@ func createJob(jobSpec string, client *clcmd.Shell, app *cli.App, output *bytes.
 }
 
 func exportVRFKey(client *clcmd.Shell, app *cli.App, vrfKey presenters.VRFKeyResource, output *bytes.Buffer) {
-	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil { //nolint:gosec
+	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0600); err != nil {
 		helpers.PanicErr(err)
 	}
 	flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
@@ -429,7 +429,7 @@ func exportVRFKey(client *clcmd.Shell, app *cli.App, vrfKey presenters.VRFKeyRes
 }
 
 func importVRFKey(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) {
-	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil { //nolint:gosec
+	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0600); err != nil {
 		helpers.PanicErr(err)
 	}
 	flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
@@ -456,7 +456,7 @@ func getAllJobIDs(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) []str
 	helpers.PanicErr(err)
 	jobs := clcmd.JobPresenters{}
 	helpers.PanicErr(json.Unmarshal(output.Bytes(), &jobs))
-	var jobIDs []string
+	jobIDs := make([]string, 0, len(jobs))
 	for _, job := range jobs {
 		jobIDs = append(jobIDs, job.ID)
 	}
@@ -476,7 +476,7 @@ func printETHKeyData(ethKeys []presenters.ETHKeyResource) {
 }
 
 func mapEthKeysToSendingKeyArr(ethKeys []presenters.ETHKeyResource) []model.SendingKey {
-	var sendingKeys []model.SendingKey
+	sendingKeys := make([]model.SendingKey, 0, len(ethKeys))
 	for _, ethKey := range ethKeys {
 		sendingKey := model.SendingKey{Address: ethKey.Address, BalanceEth: ethKey.EthBalance.ToInt()}
 		sendingKeys = append(sendingKeys, sendingKey)
@@ -485,7 +485,7 @@ func mapEthKeysToSendingKeyArr(ethKeys []presenters.ETHKeyResource) []model.Send
 }
 
 func mapVrfKeysToStringArr(vrfKeys []presenters.VRFKeyResource) []string {
-	var vrfKeysString []string
+	vrfKeysString := make([]string, 0, len(vrfKeys))
 	for _, vrfKey := range vrfKeys {
 		vrfKeysString = append(vrfKeysString, vrfKey.Uncompressed)
 	}
@@ -520,7 +520,6 @@ func connectToNode(nodeURL *string, output *bytes.Buffer, credFile string) (*clc
 }
 
 func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffer, numVRFKeys *int, nodeURL *string) []presenters.VRFKeyResource {
-	var allVRFKeys []presenters.VRFKeyResource
 	var newKeys []presenters.VRFKeyResource
 
 	vrfKeys := getVRFKeys(client, app, output)
@@ -548,6 +547,7 @@ func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffe
 		}(), ", "))
 	}
 	fmt.Println()
+	allVRFKeys := make([]presenters.VRFKeyResource, 0, len(vrfKeys)+len(newKeys))
 	allVRFKeys = append(allVRFKeys, vrfKeys...)
 	allVRFKeys = append(allVRFKeys, newKeys...)
 	return allVRFKeys
@@ -564,7 +564,6 @@ func createVRFKey(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) prese
 }
 
 func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffer, numEthKeys *int, nodeURL *string) []presenters.ETHKeyResource {
-	var allETHKeysNode []presenters.ETHKeyResource
 	var ethKeys []presenters.ETHKeyResource
 	var newKeys []presenters.ETHKeyResource
 	// check for ETH keys
@@ -602,6 +601,7 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 	}
 	output.Reset()
 	fmt.Println()
+	allETHKeysNode := make([]presenters.ETHKeyResource, 0, len(ethKeys)+len(newKeys))
 	allETHKeysNode = append(allETHKeysNode, ethKeys...)
 	allETHKeysNode = append(allETHKeysNode, newKeys...)
 	return allETHKeysNode
