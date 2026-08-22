@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/s3provider"
-
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -402,7 +401,7 @@ func copyExportedFields(dst, src any) {
 	sv := reflect.ValueOf(src).Elem()
 	dt := dv.Type()
 
-	for i := 0; i < dt.NumField(); i++ {
+	for i := range dt.NumField() {
 		f := dt.Field(i)
 		if f.PkgPath != "" { // unexported
 			continue
