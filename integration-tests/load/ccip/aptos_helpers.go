@@ -54,6 +54,7 @@ func fundAptosAccount(t *testing.T, signer aptos.TransactionSigner, to aptos.Acc
 	t.Logf("Funded account %s from %s with %f APT", to.StringLong(), sender.StringLong(), float64(amount)/1e8)
 }
 
+//nolint:unused // Can be removed by ccip aptos devs if they no longer require this function
 func fundAdditionalAptosKeys(
 	t *testing.T,
 	signer aptos.TransactionSigner,
@@ -91,6 +92,7 @@ func fundAdditionalAptosKeys(
 	return funded, nil
 }
 
+//nolint:unused // Can be removed by ccip aptos devs if they no longer require this function
 func fundAptosLoadAccountsWithBnM(
 	lggr logger.Logger,
 	e cldf.Environment,
@@ -101,7 +103,7 @@ func fundAptosLoadAccountsWithBnM(
 		"chain", aptosChainSelector,
 		"numAccounts", len(loadAccounts))
 
-	addresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSelector)
+	addresses, err := e.ExistingAddresses.AddressesForChain(aptosChainSelector) //nolint:staticcheck // SA1019 AddressBook is deprecated
 	if err != nil {
 		return fmt.Errorf("failed to get addresses for chain %d: %w", aptosChainSelector, err)
 	}
@@ -185,6 +187,7 @@ func fundAptosLoadAccountsWithBnM(
 	return nil
 }
 
+//nolint:unused // Can be removed by ccip aptos devs if they no longer require this function
 func subscribeAptosTransmitEvents(
 	ctx context.Context,
 	t *testing.T,
@@ -304,9 +307,9 @@ func subscribeAptosTransmitEvents(
 
 				report := finalSeqNrReport{
 					sourceChainSelector: csPair.SourceChainSelector,
-					expectedSeqNrRange: ccipocr3.SeqNumRange{
-						ccipocr3.SeqNum(seqNumRange.Start.Load()),
-						ccipocr3.SeqNum(seqNumRange.End.Load()),
+					expectedSeqNrRange: ccipocr3.SeqNumRange{ //nolint:staticcheck // SA1019 not migrating to ccipocr3common yet
+						ccipocr3.SeqNum(seqNumRange.Start.Load()), //nolint:staticcheck // SA1019 not migrating to ccipocr3common yet
+						ccipocr3.SeqNum(seqNumRange.End.Load()),   //nolint:staticcheck // SA1019 not migrating to ccipocr3common yet
 					},
 				}
 
@@ -318,6 +321,7 @@ func subscribeAptosTransmitEvents(
 	}
 }
 
+//nolint:unused // Can be removed by ccip aptos devs if they no longer require this function
 func subscribeAptosCommitEvents(
 	ctx context.Context,
 	t *testing.T,
@@ -341,7 +345,7 @@ func subscribeAptosCommitEvents(
 
 	// Track seen messages and expected ranges
 	seenMessages := make(map[uint64][]uint64)
-	expectedRange := make(map[uint64]ccipocr3.SeqNumRange)
+	expectedRange := make(map[uint64]ccipocr3.SeqNumRange) //nolint:staticcheck // SA1019 not migrating to ccipocr3common yet
 	completedSrcChains := make(map[uint64]bool)
 
 	for _, srcChain := range srcChains {
@@ -388,7 +392,9 @@ func subscribeAptosCommitEvents(
 			report := eventWithVersion.Event
 
 			// Process both blessed and unblessed merkle roots
-			allRoots := append(report.BlessedMerkleRoots, report.UnblessedMerkleRoots...)
+			allRoots := make([]module_offramp.MerkleRoot, 0, len(report.BlessedMerkleRoots)+len(report.UnblessedMerkleRoots))
+			allRoots = append(allRoots, report.BlessedMerkleRoots...)
+			allRoots = append(allRoots, report.UnblessedMerkleRoots...)
 			for _, mr := range allRoots {
 				// Push metrics for each sequence number in the range
 				for i := mr.MinSeqNr; i <= mr.MaxSeqNr; i++ {
@@ -461,6 +467,7 @@ func subscribeAptosCommitEvents(
 	}
 }
 
+//nolint:unused // Can be removed by ccip aptos devs if they no longer require this function
 func subscribeAptosExecutionEvents(
 	ctx context.Context,
 	t *testing.T,
@@ -484,7 +491,7 @@ func subscribeAptosExecutionEvents(
 
 	// Track seen messages and expected ranges
 	seenMessages := make(map[uint64][]uint64)
-	expectedRange := make(map[uint64]ccipocr3.SeqNumRange)
+	expectedRange := make(map[uint64]ccipocr3.SeqNumRange) //nolint:staticcheck // SA1019 not migrating to ccipocr3common yet
 	completedSrcChains := make(map[uint64]bool)
 
 	for _, srcChain := range srcChains {
