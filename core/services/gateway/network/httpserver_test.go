@@ -48,7 +48,7 @@ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint3
 
 	port := server.GetPort()
 	url = fmt.Sprintf("http://%s:%d%s", HTTPTestHost, port, HTTPTestPath)
-	return
+	return server, handler, url
 }
 
 func sendRequest(t *testing.T, url string, body []byte, httpMethod string, origin *string) (*http.Response, []byte) {
@@ -74,6 +74,7 @@ func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
 	handler.On("ProcessRequest", mock.Anything, mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
 	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodPost, nil)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
 }
@@ -83,6 +84,7 @@ func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 	_, _, url := startNewServer(t, 5, 100_000, false, nil)
 
 	resp, _ := sendRequest(t, url, []byte("0123456789"), http.MethodPost, nil)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
@@ -92,6 +94,7 @@ func TestHTTPServer_HandleHealthCheck(t *testing.T) {
 
 	url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
 	resp, respBytes := sendRequest(t, url, []byte{}, http.MethodPost, nil)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte(network.HealthCheckResponse), respBytes)
 }
@@ -105,6 +108,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 
 	origin := "https://remix.ethereum.org"
 	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
 	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
@@ -121,6 +125,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
 
 	origin := "https://remix.ethereum.org"
 	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
 	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
@@ -131,6 +136,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
 
 	origin = "https://another.valid.domain.com"
 	resp, respBytes = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
 	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
@@ -141,6 +147,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOriginWildcards(t *test
 
 	origin = "http://example.gov"
 	resp, respBytes = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
 	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
@@ -155,6 +162,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest
 
 	origin := "https://remix.ethereum.org"
 	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodOptions, &origin)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	require.Empty(t, respBytes)
 	require.Equal(t, origin, resp.Header.Get("Access-Control-Allow-Origin"))
@@ -171,6 +179,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T)
 
 	origin := "https://not.allowed.origin.com"
 	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
 	require.Empty(t, resp.Header.Get("Access-Control-Allow-Origin"))
@@ -187,6 +196,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *t
 
 	origin := "https://ethereum.remix.org" // doesn't end with ethereum.org
 	resp, respBytes := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
 	require.Empty(t, resp.Header.Get("Access-Control-Allow-Origin"))
@@ -197,6 +207,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *t
 
 	origin = "http://another.valid.domain.org" // http instead of https
 	resp, respBytes = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
 	require.Empty(t, resp.Header.Get("Access-Control-Allow-Origin"))
@@ -207,6 +218,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOriginWildcards(t *t
 
 	origin = "http://example.gov" // port missing
 	resp, respBytes = sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte("response"), respBytes)
 	require.Empty(t, resp.Header.Get("Access-Control-Allow-Origin"))

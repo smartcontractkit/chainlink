@@ -82,7 +82,7 @@ func TestKeepAliveLoop_StuckNodeBlocksAll(t *testing.T) {
 	}
 
 	donMgr := &donConnectionManager{
-		donConfig:  &config.DONConfig{DonId: "test_don"},
+		donConfig:  &config.DONConfig{DonID: "test_don"},
 		nodes:      mockNodes,
 		handlers:   nil,
 		closeWait:  sync.WaitGroup{},

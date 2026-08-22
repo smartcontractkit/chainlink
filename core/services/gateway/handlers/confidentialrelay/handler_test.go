@@ -124,7 +124,7 @@ func setupHandlerWithConfig(t *testing.T, numNodes, f int, handlerConfig Config)
 	}
 
 	donConfig := &config.DONConfig{
-		DonId:   "test_relay_don",
+		DonID:   "test_relay_don",
 		F:       f,
 		Members: members,
 	}
@@ -215,13 +215,13 @@ func TestConfidentialRelayHandler_ForwardsBundleAtQuorum(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
-		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
+		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp)) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.NotNil(t, jsonResp.Result)
 		var bundle relaytypes.SignedCapabilityResponseBundle
-		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle))
+		assert.NoError(t, json.Unmarshal(*jsonResp.Result, &bundle)) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Len(t, bundle.Responses, 3, "the gateway forwards every collected signed response")
 	})
 
@@ -460,7 +460,7 @@ func TestConfidentialRelayHandler_ForwardsAllDivergentResponses(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.NoError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
 		assert.NoError(t, json.Unmarshal(resp.RawResponse, &jsonResp))
@@ -499,7 +499,7 @@ func TestConfidentialRelayHandler_BundlerErrorReturnsFatal(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 	})
 
@@ -572,7 +572,7 @@ func TestConfidentialRelayHandler_TimeoutBelowQuorumFloorReturnsTimeout(t *testi
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.RequestTimeoutError, resp.ErrorCode)
 	})
 
@@ -602,7 +602,7 @@ func TestConfidentialRelayHandler_TimeoutNoResponses(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.RequestTimeoutError, resp.ErrorCode)
 	})
 
@@ -752,7 +752,7 @@ func TestConfidentialRelayHandler_QuorumGraceConfig(t *testing.T) {
 			lggr := logger.Test(t)
 			methodConfig, err := json.Marshal(tc.cfg)
 			require.NoError(t, err)
-			donConfig := &config.DONConfig{DonId: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
+			donConfig := &config.DONConfig{DonID: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
 			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 
 			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory)
@@ -797,7 +797,7 @@ func TestConfidentialRelayHandler_RateLimitedNode(t *testing.T) {
 	// F=0 so the forward threshold (2F+1) is 1: a single response from the one-node
 	// DON forwards immediately, isolating the rate-limit behavior under test.
 	donConfig := &config.DONConfig{
-		DonId:   "test_relay_don",
+		DonID:   "test_relay_don",
 		F:       0,
 		Members: []config.NodeConfig{nodeOne},
 	}
@@ -906,11 +906,11 @@ func TestConfidentialRelayHandler_AllNodesFanOutFail(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
 		err = json.Unmarshal(resp.RawResponse, &jsonResp)
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Contains(t, jsonResp.Error.Message, "failed to forward user request to nodes")
 	})
 
@@ -975,11 +975,11 @@ func TestConfidentialRelayHandler_FanOutFailsWhenQuorumBecomesImpossible(t *test
 	var wg sync.WaitGroup
 	wg.Go(func() {
 		resp, err := cb.Wait(t.Context())
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Equal(t, api.FatalError, resp.ErrorCode)
 		var jsonResp jsonrpc.Response[json.RawMessage]
 		err = json.Unmarshal(resp.RawResponse, &jsonResp)
-		assert.NoError(t, err)
+		assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 		assert.Contains(t, jsonResp.Error.Message, "failed to forward user request to nodes")
 	})
 
@@ -995,7 +995,7 @@ func TestConfidentialRelayHandler_FanOutToNodes_IsConcurrent(t *testing.T) {
 	lggr := logger.Test(t)
 	don := newBarrierDON(2)
 	donConfig := &config.DONConfig{
-		DonId: "test_relay_don",
+		DonID: "test_relay_don",
 		F:     1,
 		Members: []config.NodeConfig{
 			{Name: "node0", Address: "0x0000"},
@@ -1059,7 +1059,7 @@ func TestConfidentialRelayHandler_NodeSendTimeoutConfig(t *testing.T) {
 			lggr := logger.Test(t)
 			methodConfig, err := json.Marshal(tc.cfg)
 			require.NoError(t, err)
-			donConfig := &config.DONConfig{DonId: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
+			donConfig := &config.DONConfig{DonID: "test_relay_don", F: 1, Members: []config.NodeConfig{nodeOne}}
 			limitsFactory := limits.Factory{Settings: cresettings.DefaultGetter, Logger: lggr}
 
 			h, err := NewHandler(methodConfig, donConfig, mocks.NewDON(t), lggr, clockwork.NewFakeClock(), limitsFactory)
@@ -1080,7 +1080,7 @@ func TestConfidentialRelayHandler_BlockedNodeDoesNotStallFanOut(t *testing.T) {
 	lggr := logger.Test(t)
 	don := &blockedDON{blockedAddr: "0x0002"}
 	donConfig := &config.DONConfig{
-		DonId: "test_relay_don",
+		DonID: "test_relay_don",
 		F:     1,
 		Members: []config.NodeConfig{
 			{Name: "node0", Address: "0x0000"},

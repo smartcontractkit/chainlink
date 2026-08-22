@@ -69,6 +69,7 @@ func TestWSServer_HandleRequest_AuthHeaderTooBig(t *testing.T) {
 
 	authHeader := base64.StdEncoding.EncodeToString(bytes.Repeat([]byte("abcdefgh"), 64))
 	resp := sendRequestWithHeader(t, urlStr, network.WsServerHandshakeAuthHeaderName, authHeader)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
@@ -77,6 +78,7 @@ func TestWSServer_HandleRequest_AuthHeaderIncorrectlyBase64Encoded(t *testing.T)
 	_, _, urlStr := startNewWSServer(t, 100_000)
 
 	resp := sendRequestWithHeader(t, urlStr, network.WsServerHandshakeAuthHeaderName, "}}}")
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
@@ -88,6 +90,7 @@ func TestWSServer_HandleRequest_AuthHeaderInvalid(t *testing.T) {
 
 	authHeader := base64.StdEncoding.EncodeToString([]byte("abcd"))
 	resp := sendRequestWithHeader(t, urlStr, network.WsServerHandshakeAuthHeaderName, authHeader)
+	defer resp.Body.Close()
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 

@@ -57,8 +57,10 @@ type triggerConnectorHandler struct {
 	registry            core.CapabilitiesRegistry
 }
 
-var _ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
-var _ services.Service = &triggerConnectorHandler{}
+var (
+	_ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
+	_ services.Service               = &triggerConnectorHandler{}
+)
 
 func NewTrigger(config string, registry core.CapabilitiesRegistry, connector core.GatewayConnector, lggr logger.Logger) (*triggerConnectorHandler, error) {
 	if connector == nil {
@@ -99,12 +101,12 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 			if trigger.allowedTopics[topic] {
 				matchedWorkflows++
 				if !trigger.allowedSenders[sender.String()] {
-					err = fmt.Errorf("unauthorized Sender %s, messageID %s", sender.String(), body.MessageId)
+					err = fmt.Errorf("unauthorized Sender %s, messageID %s", sender.String(), body.MessageID)
 					h.lggr.Debugw(err.Error())
 					continue
 				}
 				if !trigger.rateLimiter.Allow(body.Sender) {
-					err = fmt.Errorf("request rate-limited for sender %s, messageID %s", sender.String(), body.MessageId)
+					err = fmt.Errorf("request rate-limited for sender %s, messageID %s", sender.String(), body.MessageID)
 					continue
 				}
 				fullyMatchedWorkflows++
@@ -265,7 +267,7 @@ func (h *triggerConnectorHandler) UnregisterTrigger(ctx context.Context, req cap
 	return nil
 }
 
-func (h *triggerConnectorHandler) AckEvent(ctx context.Context, triggerID, eventID string, method string) error {
+func (h *triggerConnectorHandler) AckEvent(ctx context.Context, triggerID, eventID, method string) error {
 	return nil
 }
 
@@ -285,6 +287,7 @@ func (h *triggerConnectorHandler) Start(ctx context.Context) error {
 		return h.connector.AddHandler(ctx, []string{"web_api_trigger"}, h)
 	})
 }
+
 func (h *triggerConnectorHandler) Close() error {
 	return h.StopOnce("GatewayConnectorServiceWrapper", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
@@ -313,8 +316,8 @@ func (h *triggerConnectorHandler) sendResponse(ctx context.Context, gatewayID st
 	}
 
 	body := &api.MessageBody{
-		MessageId: requestBody.MessageId,
-		DonId:     requestBody.DonId,
+		MessageID: requestBody.MessageID,
+		DonID:     requestBody.DonID,
 		Method:    requestBody.Method,
 		Receiver:  requestBody.Sender,
 		Payload:   payloadJSON,

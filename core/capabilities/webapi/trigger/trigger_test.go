@@ -43,8 +43,8 @@ type testHarness struct {
 	trigger   *triggerConnectorHandler
 }
 
-func workflowTriggerConfig(_ testHarness, addresses []string, topics []string) (*values.Map, error) {
-	var rateLimitConfig, err = values.NewMap(map[string]any{
+func workflowTriggerConfig(_ testHarness, addresses, topics []string) (*values.Map, error) {
+	rateLimitConfig, err := values.NewMap(map[string]any{
 		"GlobalRPS":      100.0,
 		"GlobalBurst":    101,
 		"PerSenderRPS":   102.0,
@@ -106,9 +106,9 @@ func gatewayRequest(t *testing.T, privateKey string, topics []string, methodName
 	require.NoError(t, err)
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: messageID,
+			MessageID: messageID,
 			Method:    methodName,
-			DonId:     donID,
+			DonID:     donID,
 			Payload:   json.RawMessage(payloadJSON),
 		},
 	}

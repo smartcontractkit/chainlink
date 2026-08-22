@@ -124,7 +124,7 @@ func newTestConfig(t *testing.T, nNodes int) (*config.GatewayConfig, []gc.TestNo
 [nodeServerConfig]
 Path = "/node"
 [connectionManagerConfig]
-AuthGatewayId = "my_gateway_no_3"
+AuthGatewayID = "my_gateway_no_3"
 AuthTimestampToleranceSec = 5
 AuthChallengeLen = 100
 [[shardedDONs]]
@@ -158,9 +158,9 @@ func TestConnectionManager_StartHandshake(t *testing.T) {
 	mgr := newConnectionManager(t, config, clock)
 
 	authHeaderElems := network.AuthHeaderElems{
-		Timestamp: uint32(clock.Now().Unix()),
-		DonId:     "my_don_1",
-		GatewayId: "my_gateway_no_3",
+		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // G115: uint32 timestamp matches the auth handshake protocol
+		DonID:     "my_don_1",
+		GatewayID: "my_gateway_no_3",
 	}
 
 	// valid
@@ -173,13 +173,13 @@ func TestConnectionManager_StartHandshake(t *testing.T) {
 
 	// invalid DON ID
 	badAuthHeaderElems := authHeaderElems
-	badAuthHeaderElems.DonId = "my_don_2"
+	badAuthHeaderElems.DonID = "my_don_2"
 	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &badAuthHeaderElems, nodes[0].PrivateKey))
-	require.ErrorIs(t, err, network.ErrAuthInvalidDonId)
+	require.ErrorIs(t, err, network.ErrAuthInvalidDonID)
 
 	// invalid Gateway URL
 	badAuthHeaderElems = authHeaderElems
-	badAuthHeaderElems.GatewayId = "www.example.com"
+	badAuthHeaderElems.GatewayID = "www.example.com"
 	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &badAuthHeaderElems, nodes[0].PrivateKey))
 	require.ErrorIs(t, err, network.ErrAuthInvalidGateway)
 
@@ -210,28 +210,28 @@ func TestConnectionManager_FinalizeHandshake(t *testing.T) {
 	mgr := newConnectionManager(t, config, clock)
 
 	authHeaderElems := network.AuthHeaderElems{
-		Timestamp: uint32(clock.Now().Unix()),
-		DonId:     "my_don_1",
-		GatewayId: "my_gateway_no_3",
+		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // G115: uint32 timestamp matches the auth handshake protocol
+		DonID:     "my_don_1",
+		GatewayID: "my_gateway_no_3",
 	}
 
 	// correct
-	attemptId, challenge, err := mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, nodes[0].PrivateKey))
+	attemptID, challenge, err := mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, nodes[0].PrivateKey))
 	require.NoError(t, err)
 	response, err := gc.SignData(nodes[0].PrivateKey, challenge)
 	require.NoError(t, err)
-	require.NoError(t, mgr.FinalizeHandshake(attemptId, response, nil))
+	require.NoError(t, mgr.FinalizeHandshake(attemptID, response, nil))
 
 	// invalid attempt
 	err = mgr.FinalizeHandshake("fake_attempt", response, nil)
 	require.ErrorIs(t, err, network.ErrChallengeAttemptNotFound)
 
 	// invalid signature
-	attemptId, challenge, err = mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, nodes[0].PrivateKey))
+	attemptID, challenge, err = mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, nodes[0].PrivateKey))
 	require.NoError(t, err)
 	response, err = gc.SignData(nodes[1].PrivateKey, challenge)
 	require.NoError(t, err)
-	err = mgr.FinalizeHandshake(attemptId, response, nil)
+	err = mgr.FinalizeHandshake(attemptID, response, nil)
 	require.ErrorIs(t, err, network.ErrChallengeInvalidSignature)
 }
 
@@ -452,8 +452,9 @@ func newWebSocketPair(t *testing.T) (serverConn, clientConn *websocket.Conn) {
 	}))
 	t.Cleanup(s.Close)
 
-	clientConn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(s.URL, "http"), nil)
+	clientConn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(s.URL, "http"), nil)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 	t.Cleanup(func() { clientConn.Close() })
 
 	select {
@@ -469,9 +470,9 @@ func newWebSocketPair(t *testing.T) (serverConn, clientConn *websocket.Conn) {
 func doHandshake(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Clock, node gc.TestNode, conn *websocket.Conn) {
 	t.Helper()
 	authHeaderElems := network.AuthHeaderElems{
-		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // test clock is always small positive
-		DonId:     "my_don_1",
-		GatewayId: "my_gateway_no_3",
+		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // G115: uint32 timestamp matches the auth handshake protocol //nolint:gosec // test clock is always small positive
+		DonID:     "my_don_1",
+		GatewayID: "my_gateway_no_3",
 	}
 	attemptID, challenge, err := mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, node.PrivateKey))
 	require.NoError(t, err)

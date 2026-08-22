@@ -49,12 +49,12 @@ func (c *webSocketClient) Connect(ctx context.Context, url *url.URL) (*websocket
 	hdr.Add(WsServerHandshakeAuthHeaderName, authHeaderStr)
 
 	conn, resp, err := c.dialer.DialContext(ctx, url.String(), hdr)
-
 	if err != nil {
 		c.lggr.Errorf("WebSocketClient: couldn't connect to %s: %v", url.String(), err)
 		c.tryCloseConn(conn)
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	challengeStr := resp.Header.Get(WsServerHandshakeChallengeHeaderName)
 	if challengeStr == "" {

@@ -21,7 +21,7 @@ type GatewayConfig struct {
 }
 
 type ConnectionManagerConfig struct {
-	AuthGatewayId             string
+	AuthGatewayID             string
 	AuthTimestampToleranceSec uint32
 	AuthChallengeLen          uint32
 	HeartbeatIntervalSec      uint32
@@ -32,7 +32,7 @@ type ConnectionManagerConfig struct {
 }
 
 type DONConfig struct {
-	DonId         string
+	DonID         string
 	HandlerName   string          // Deprecated: use Handlers instead
 	HandlerConfig json.RawMessage // Deprecated: use Handlers instead
 	Members       []NodeConfig
