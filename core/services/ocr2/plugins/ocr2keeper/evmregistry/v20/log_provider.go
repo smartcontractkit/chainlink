@@ -16,6 +16,7 @@ import (
 	pluginutils "github.com/smartcontractkit/chainlink-automation/pkg/util"
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 	"github.com/smartcontractkit/chainlink-automation/pkg/v2/encoding"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -32,7 +33,7 @@ type LogProvider struct {
 	mu                sync.RWMutex
 	runState          int
 	runError          error
-	logger            logger.Logger
+	logger            commonlogger.Logger
 	logPoller         logpoller.LogPoller
 	registryAddress   common.Address
 	lookbackBlocks    int64
@@ -49,7 +50,7 @@ func LogProviderFilterName(addr common.Address) string {
 
 func NewLogProvider(
 	ctx context.Context,
-	logger logger.Logger,
+	logger logger.SugaredLogger,
 	logPoller logpoller.LogPoller,
 	registryAddress common.Address,
 	client evmclient.Client,
@@ -249,14 +250,14 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 
 	vals := []ocr2keepers.StaleReportLog{}
 	for _, r := range reorged {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
+		upkeepID := ocr2keepers.UpkeepIdentifier(r.Id.String())
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepID)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from reorged report log: %w", err)
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepID),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end.BlockNumber - r.BlockNumber,
@@ -264,14 +265,14 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		vals = append(vals, l)
 	}
 	for _, r := range staleUpkeep {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
+		upkeepID := ocr2keepers.UpkeepIdentifier(r.Id.String())
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepID)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from stale report log: %w", err)
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepID),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end.BlockNumber - r.BlockNumber,
@@ -279,14 +280,14 @@ func (c *LogProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleR
 		vals = append(vals, l)
 	}
 	for _, r := range insufficientFunds {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepId)
+		upkeepID := ocr2keepers.UpkeepIdentifier(r.Id.String())
+		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(ctx, r.TxHash, upkeepID)
 		if err != nil {
 			c.logger.Error("error while fetching checkBlockNumber from insufficient funds report log: %w", err)
 			continue
 		}
 		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
+			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepID),
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
 			TransactionHash: r.TxHash.Hex(),
 			Confirmations:   end.BlockNumber - r.BlockNumber,
@@ -307,8 +308,7 @@ func (c *LogProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]performed, e
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryUpkeepPerformed:
+		if l, ok := abilog.(*registry.KeeperRegistryUpkeepPerformed); ok {
 			if l == nil {
 				continue
 			}
@@ -335,8 +335,7 @@ func (c *LogProvider) unmarshalReorgUpkeepLogs(logs []logpoller.Log) ([]reorged,
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryReorgedUpkeepReport:
+		if l, ok := abilog.(*registry.KeeperRegistryReorgedUpkeepReport); ok {
 			if l == nil {
 				continue
 			}
@@ -363,8 +362,7 @@ func (c *LogProvider) unmarshalStaleUpkeepLogs(logs []logpoller.Log) ([]staleUpk
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryStaleUpkeepReport:
+		if l, ok := abilog.(*registry.KeeperRegistryStaleUpkeepReport); ok {
 			if l == nil {
 				continue
 			}
@@ -391,8 +389,7 @@ func (c *LogProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log)
 			return results, err
 		}
 
-		switch l := abilog.(type) {
-		case *registry.KeeperRegistryInsufficientFundsUpkeepReport:
+		if l, ok := abilog.(*registry.KeeperRegistryInsufficientFundsUpkeepReport); ok {
 			if l == nil {
 				continue
 			}
@@ -442,7 +439,7 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(ctx context.Context, txHash 
 
 	for _, upkeep := range decodedReport {
 		// TODO: the log provider should be in the evm package for isolation
-		res, ok := upkeep.(EVMAutomationUpkeepResult20)
+		res, ok := upkeep.(AutomationUpkeepResult20)
 		if !ok {
 			return "", errors.New("unexpected type")
 		}

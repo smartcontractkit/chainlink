@@ -23,12 +23,12 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (d Duration) MarshalJSON() ([]byte, error) {
-	return []byte(time.Duration(d).String()), nil
+func (d *Duration) MarshalJSON() ([]byte, error) {
+	return []byte(time.Duration(*d).String()), nil
 }
 
-func (d Duration) Value() time.Duration {
-	return time.Duration(d)
+func (d *Duration) Value() time.Duration {
+	return time.Duration(*d)
 }
 
 // NOTE: This plugin config is shared among different versions of keepers

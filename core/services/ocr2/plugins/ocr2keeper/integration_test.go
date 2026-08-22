@@ -87,7 +87,8 @@ func deployKeeper20Registry(
 		0, // Payment model
 		linkAddr,
 		linkFeedAddr,
-		gasFeedAddr)
+		gasFeedAddr,
+	)
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -245,10 +246,8 @@ func runKeeperPluginBasic(t *testing.T) {
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
-	var (
-		oracles []confighelper.OracleIdentityExtra
-		nodes   []Node
-	)
+	oracles := make([]confighelper.OracleIdentityExtra, 0, 4)
+	nodes := make([]Node, 0, 4)
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
 	for i := range 4 {
@@ -433,7 +432,8 @@ func setupForwarderForNode(
 	caller *bind.TransactOpts,
 	backend evmtypes.Backend,
 	recipient common.Address,
-	linkAddr common.Address) common.Address {
+	linkAddr common.Address,
+) common.Address {
 	ctx := t.Context()
 	faddr, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(caller, backend.Client(), linkAddr, caller.From, recipient, []byte{})
 	require.NoError(t, err)
@@ -451,7 +451,7 @@ func setupForwarderForNode(
 	_, err = forwarderORM.CreateForwarder(ctx, faddr, sqlutil.Big(*chainID))
 	require.NoError(t, err)
 
-	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+	chainService, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String()) //nolint:staticcheck // test still relies on the legacy chain container
 	require.NoError(t, err)
 	chain, ok := chainService.(legacyevm.Chain)
 	require.True(t, ok)
@@ -499,7 +499,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	backend.Commit()
 	registry := deployKeeper20Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
-	effectiveTransmitters := make([]common.Address, 0)
+	effectiveTransmitters := make([]common.Address, 0, 4)
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, bootstrapTransmitter, bootstrapKb := setupNode(t, bootstrapNodePort, nodeKeys[0], backend, nil, mercury.NewSimulatedMercuryServer())
@@ -507,10 +507,8 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	bootstrapNode := Node{
 		appBootstrap, bootstrapTransmitter, bootstrapKb,
 	}
-	var (
-		oracles []confighelper.OracleIdentityExtra
-		nodes   []Node
-	)
+	oracles := make([]confighelper.OracleIdentityExtra, 0, 4)
+	nodes := make([]Node, 0, 4)
 	// Set up the minimum 4 oracles all funded
 	ports := freeport.GetN(t, 4)
 	for i := range 4 {
@@ -629,7 +627,7 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	require.NoError(t, err)
 
 	// Make sure we are using forwarders and not node keys as transmitters on chain.
-	eoaList := make([]common.Address, 0)
+	eoaList := make([]common.Address, 0, len(nodes))
 	for _, n := range nodes {
 		eoaList = append(eoaList, n.Transmitter)
 	}
@@ -721,7 +719,7 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 
 	assert.Len(t, names, 2)
 	assert.Equal(t, logpoller.FilterName("OCR2KeeperRegistry - LogProvider", address), names[0])
-	assert.Equal(t, logpoller.FilterName("EvmRegistry - Upkeep events for", address), names[1])
+	assert.Equal(t, logpoller.FilterName("RegistryService - Upkeep events for", address), names[1])
 
 	spec = &job.OCR2OracleSpec{
 		PluginType: types.OCR2Keeper,

@@ -107,7 +107,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 				TriggerConfig: newPlainLogTriggerConfig(addrs[i]),
 				// using block number at which the upkeep was registered,
 				// before we emitted any logs
-				UpdateBlock: uint64(n),
+				UpdateBlock: uint64(n), //nolint:gosec // G115: n is a non-negative test fixture index
 			})
 			require.NoError(t, err)
 		}
@@ -444,7 +444,7 @@ func deployUpkeepCounter(
 		})
 		require.NoError(t, err)
 	}
-	return
+	return ids, contractsAddrs, contracts
 }
 
 func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerConfig {
@@ -496,7 +496,7 @@ func setupBackend(t *testing.T) (backend evmtypes.Backend, stop func(), opts []*
 	backend = cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	_, stop = cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	opts = []*bind.TransactOpts{sergey, steve, carrol}
-	return
+	return backend, stop, opts
 }
 
 func setupDB(t *testing.T) *sqlx.DB {
@@ -512,8 +512,7 @@ func setupDB(t *testing.T) *sqlx.DB {
 	return db
 }
 
-type mockUpkeepStateStore struct {
-}
+type mockUpkeepStateStore struct{}
 
 func (m *mockUpkeepStateStore) SelectByWorkIDs(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 	states := make([]ocr2keepers.UpkeepState, len(workIDs))

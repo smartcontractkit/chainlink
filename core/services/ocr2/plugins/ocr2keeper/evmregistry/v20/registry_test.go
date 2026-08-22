@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -46,7 +47,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 
 			mht := headstest.NewTracker[*evmtypes.Head, common.Hash](t)
 
-			rg := &EvmRegistry{
+			rg := &RegistryService{
 				HeadProvider: HeadProvider{
 					ht: mht,
 				},
@@ -56,9 +57,9 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 			keys, err := rg.GetActiveUpkeepIDs(t.Context())
 
 			if test.ExpectedErr != nil {
-				assert.ErrorIs(t, err, test.ExpectedErr)
+				require.ErrorIs(t, err, test.ExpectedErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			if len(test.ExpectedKeys) > 0 {
@@ -197,7 +198,7 @@ func TestPollLogs(t *testing.T) {
 				mp.On("LogsWithSigs", mock.Anything, fc.InputStart, fc.InputEnd, upkeepStateEvents, test.Address).Return(fc.OutputLogs, fc.OutputErr)
 			}
 
-			rg := &EvmRegistry{
+			rg := &RegistryService{
 				addr:          test.Address,
 				lastPollBlock: test.LastPoll,
 				poller:        mp,
@@ -208,9 +209,9 @@ func TestPollLogs(t *testing.T) {
 
 			assert.Equal(t, test.ExpectedLastPoll, rg.lastPollBlock)
 			if test.ExpectedErr != nil {
-				assert.ErrorIs(t, err, test.ExpectedErr)
+				require.ErrorIs(t, err, test.ExpectedErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
 			var outputLogCount int
