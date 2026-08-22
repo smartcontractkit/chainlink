@@ -65,9 +65,9 @@ func (t *ModeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []R
 	}
 
 	var (
-		m     = make(map[string]entry, len(values))
-		max   uint64
-		modes []any
+		m        = make(map[string]entry, len(values))
+		maxCount uint64
+		modes    []any
 	)
 	for _, val := range values {
 		var comparable string
@@ -98,15 +98,15 @@ func (t *ModeTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []R
 			original: val,
 		}
 
-		if m[comparable].count > max {
+		if m[comparable].count > maxCount {
 			modes = []any{val}
-			max = m[comparable].count
-		} else if m[comparable].count == max {
+			maxCount = m[comparable].count
+		} else if m[comparable].count == maxCount {
 			modes = append(modes, val)
 		}
 	}
 	return Result{Value: map[string]any{
 		"results":     modes,
-		"occurrences": max,
+		"occurrences": maxCount,
 	}}, runInfo
 }

@@ -117,11 +117,11 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.Len(t, finalResults.AllErrors, 12)
 	require.Len(t, finalResults.FatalErrors, 3)
 	assert.Equal(t, "9650000000000000000000", finalResults.Values[0].(decimal.Decimal).String())
-	assert.NoError(t, finalResults.FatalErrors[0])
+	require.NoError(t, finalResults.FatalErrors[0])
 	assert.Equal(t, "foo-index-1", finalResults.Values[1].(string))
-	assert.NoError(t, finalResults.FatalErrors[1])
+	require.NoError(t, finalResults.FatalErrors[1])
 	assert.Equal(t, "bar-index-2", finalResults.Values[2].(string))
-	assert.NoError(t, finalResults.FatalErrors[2])
+	require.NoError(t, finalResults.FatalErrors[2])
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
@@ -153,7 +153,7 @@ func Test_PipelineRunner_ExecuteEthAbiDecode(t *testing.T) {
 
 	s := fmt.Sprintf(`
 		ds1 [type=bridge name="%s" timeout=0 requestData=<{"data": {"address": "0x1234"}}>]
-		ds1_parse [type=jsonparse path="data,result"]  
+		ds1_parse [type=jsonparse path="data,result"]
 		ds1_decode [type=ethabidecode abi="int256 data" data="$(ds1_parse)"];
 		ds1_value [type="multiply" input="$(ds1_decode.data)" times=1]
 
@@ -535,7 +535,8 @@ final                [type=mean]
 fail_but_i_dont_care -> final;
 succeed1 -> final;
 succeed2 -> final;
-`}
+`,
+	}
 	vars := pipeline.NewVarsFrom(nil)
 
 	_, taskResults, err := r.ExecuteAndInsertFinishedRun(t.Context(), spec, vars, false)
@@ -580,7 +581,8 @@ final                [type=mean]
 fail_but_i_dont_care -> final;
 succeed1 -> final;
 succeed2 -> final;
-`}
+`,
+	}
 	vars := pipeline.NewVarsFrom(nil)
 
 	_, taskResults, err := r.ExecuteAndInsertFinishedRun(t.Context(), spec, vars, false)
@@ -650,15 +652,15 @@ func Test_PipelineRunner_AsyncJob_Basic(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		// TODO: assert finding the id
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]any{}
-		require.NoError(t, json.NewEncoder(w).Encode(response))
+		assert.NoError(t, json.NewEncoder(w).Encode(response))
 	})
 
 	// 1. Setup bridge
@@ -780,15 +782,15 @@ func Test_PipelineRunner_AsyncJob_InstantRestart(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var reqBody adapterRequest
 		payload, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		defer r.Body.Close()
 		err = json.Unmarshal(payload, &reqBody)
-		require.NoError(t, err)
-		require.Contains(t, reqBody.ResponseURL, "http://localhost:6688/v2/resume/")
+		assert.NoError(t, err)
+		assert.Contains(t, reqBody.ResponseURL, "http://localhost:6688/v2/resume/")
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("X-Chainlink-Pending", "true")
 		response := map[string]any{}
-		require.NoError(t, json.NewEncoder(w).Encode(response))
+		assert.NoError(t, json.NewEncoder(w).Encode(response))
 	})
 
 	// 1. Setup bridge
@@ -1057,7 +1059,8 @@ succeed;
 		_, trrs, err := r.ExecuteRun(t.Context(), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, 1)
-		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
+		op := trrs[0].Result.Value.(pipeline.ObjectParam)
+		assert.Equal(t, "1", op.DecimalValue.Decimal().String())
 
 		// does not automatically cache
 		require.Nil(t, spec.Pipeline)
@@ -1072,6 +1075,7 @@ succeed;
 		_, trrs, err = r.ExecuteRun(t.Context(), spec, vars)
 		require.NoError(t, err)
 		require.Len(t, trrs, 1)
-		assert.Equal(t, "1", trrs[0].Result.Value.(pipeline.ObjectParam).DecimalValue.Decimal().String())
+		op = trrs[0].Result.Value.(pipeline.ObjectParam)
+		assert.Equal(t, "1", op.DecimalValue.Decimal().String())
 	})
 }
