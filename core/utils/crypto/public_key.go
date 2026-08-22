@@ -22,12 +22,12 @@ func PublicKeyFromHex(hexStr string) (*PublicKey, error) {
 	return &pubKey, err
 }
 
-func (k PublicKey) String() string {
-	return hex.EncodeToString(k)
+func (k *PublicKey) String() string {
+	return hex.EncodeToString(*k)
 }
 
-func (k PublicKey) MarshalJSON() ([]byte, error) {
-	return json.Marshal(hex.EncodeToString(k))
+func (k *PublicKey) MarshalJSON() ([]byte, error) {
+	return json.Marshal(hex.EncodeToString(*k))
 }
 
 func (k *PublicKey) UnmarshalJSON(in []byte) error {
@@ -58,6 +58,6 @@ func (k *PublicKey) Scan(value any) error {
 	}
 }
 
-func (k PublicKey) Value() (driver.Value, error) {
-	return []byte(k), nil
+func (k *PublicKey) Value() (driver.Value, error) {
+	return []byte(*k), nil
 }

@@ -15,10 +15,10 @@ func TestGetSignersEthAddress_Success(t *testing.T) {
 
 	msg := []byte("test message")
 	sig, err := GenerateEthSignature(privateKey, msg)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	recoveredAddress, err := GetSignersEthAddress(msg, sig)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, address, recoveredAddress)
 }
 
@@ -40,14 +40,14 @@ func TestGenerateEthPrefixedMsgHash(t *testing.T) {
 
 func TestGenerateEthSignature(t *testing.T) {
 	privateKey, err := crypto.GenerateKey()
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	msg := []byte("test message")
 	signature, err := GenerateEthSignature(privateKey, msg)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Len(t, signature, 65)
 
 	recoveredPub, err := crypto.SigToPub(GenerateEthPrefixedMsgHash(msg).Bytes(), signature)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	assert.Equal(t, privateKey.PublicKey, *recoveredPub)
 }

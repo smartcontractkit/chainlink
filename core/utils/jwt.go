@@ -93,7 +93,7 @@ func (m *SigningMethodEth) Alg() string {
 }
 
 // Sign signs the given signing string using the given key
-// key is expected to be an *ecdsa.PrivateKey
+// is expected to be an *ecdsa.PrivateKey
 // returns the signature as a 65-byte array (r, s, v) with v being 0 or 1
 func (m *SigningMethodEth) Sign(signingString string, key any) ([]byte, error) {
 	var ecdsaKey *ecdsa.PrivateKey
@@ -111,7 +111,7 @@ func (m *SigningMethodEth) Sign(signingString string, key any) ([]byte, error) {
 }
 
 // Verify verifies the given signature for the given signing string using the given public key
-// key is expected to be a gethcommon.Address
+// is expected to be a gethcommon.Address
 func (m *SigningMethodEth) Verify(signingString string, signature []byte, key any) error {
 	var ethAddr gethcommon.Address
 	switch k := key.(type) {
