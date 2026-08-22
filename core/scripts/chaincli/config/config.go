@@ -21,7 +21,7 @@ const (
 // Config represents configuration fields
 type Config struct {
 	NodeURL              string   `mapstructure:"NODE_URL"`
-	NodeHttpURL          string   `mapstructure:"NODE_HTTP_URL"`
+	NodeHTTPURL          string   `mapstructure:"NODE_HTTP_URL"`
 	ExplorerAPIKey       string   `mapstructure:"EXPLORER_API_KEY"`
 	NetworkName          string   `mapstructure:"NETWORK_NAME"`
 	ChainID              int64    `mapstructure:"CHAIN_ID"`

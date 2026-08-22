@@ -23,14 +23,13 @@ import (
 	mobyclient "github.com/moby/moby/client"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-
 	"github.com/spf13/cobra"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	billingplatformservice "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/billing_platform_service"
 	chipingressset "github.com/smartcontractkit/chainlink-testing-framework/framework/components/dockercompose/chip_ingress_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
-
+	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/topologyviz"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
@@ -44,8 +43,6 @@ import (
 	feature_set "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/sets"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/cre/environment/topologyviz"
 )
 
 const (
@@ -579,11 +576,15 @@ func setupDashboards(ctx context.Context, setupCfg SetupConfig) error {
 	var isGrafanaUp = func() bool {
 		for range 30 {
 			time.Sleep(1 * time.Second)
-			req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
-			_, err := http.DefaultClient.Do(req)
+			req, reqErr := http.NewRequestWithContext(context.Background(), http.MethodGet, "http://localhost:3000", nil)
+			if reqErr != nil {
+				continue
+			}
+			resp, err := http.DefaultClient.Do(req)
 			if err != nil {
 				continue
 			}
+			_ = resp.Body.Close()
 			return true
 		}
 
@@ -865,7 +866,7 @@ func StartCLIEnvironment(
 	cmdContext context.Context,
 	relativePathToRepoRoot string,
 	in *envconfig.Config,
-	capabilities []cre.InstallableCapability, // Deprecated: use Features instead
+	capabilities []cre.InstallableCapability, //nolint:staticcheck // use Features instead; retained for backward compatibility
 	features cre.Features,
 	extraJobSpecFunctions []cre.JobSpecFn,
 	env cre.CLIEnvironmentDependencies,

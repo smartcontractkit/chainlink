@@ -97,9 +97,9 @@ func main() {
 	}
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: *messageID,
+			MessageID: *messageID,
 			Method:    *methodName,
-			DonId:     *donID,
+			DonID:     *donID,
 			Payload:   payloadJSON,
 		},
 	}
@@ -108,7 +108,7 @@ func main() {
 		return
 	}
 
-	codec := api.JsonRPCCodec{}
+	codec := api.JSONRPCCodec{}
 	rawMsg, err := codec.EncodeLegacyRequest(msg)
 	if err != nil {
 		fmt.Println("error JSON-RPC encoding", err)
@@ -116,7 +116,7 @@ func main() {
 	}
 
 	createRequest := func() (req *http.Request, err error) {
-		req, err = http.NewRequestWithContext(context.Background(), "POST", *gatewayURL, bytes.NewBuffer(rawMsg))
+		req, err = http.NewRequestWithContext(context.Background(), http.MethodPost, *gatewayURL, bytes.NewBuffer(rawMsg))
 		if err == nil {
 			req.Header.Set("Content-Type", "application/json")
 		}

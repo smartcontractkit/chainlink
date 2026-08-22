@@ -205,7 +205,7 @@ func (k *Keeper) VerifyContract(params ...string) {
 	// Format the command string with the commandArgs
 	command := fmt.Sprintf(
 		"NODE_HTTP_URL='%s' EXPLORER_API_KEY='%s' NETWORK_NAME='%s' pnpm hardhat verify --network env %s",
-		k.cfg.NodeHttpURL,
+		k.cfg.NodeHTTPURL,
 		k.cfg.ExplorerAPIKey,
 		k.cfg.NetworkName,
 		strings.Join(commandArgs, " "),

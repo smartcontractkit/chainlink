@@ -336,7 +336,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 		return "", nil, fmt.Errorf("failed to create creds files: %w", err)
 	}
 
-	var baseTOML = fmt.Sprintf(nodeTOML, h.cfg.ChainID, h.cfg.NodeURL, h.cfg.NodeHttpURL)
+	var baseTOML = fmt.Sprintf(nodeTOML, h.cfg.ChainID, h.cfg.NodeURL, h.cfg.NodeHTTPURL)
 	tomlFile, tomlFileCleanup, err := createTomlFile(baseTOML)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create toml file: %w", err)
