@@ -9,7 +9,7 @@ import (
 // RegistrarConfig generates contains static configuration
 type RegistrarConfig interface {
 	RegisterLOOP(config CmdConfig) (func() *exec.Cmd, loop.GRPCOpts, error)
-	UnregisterLOOP(ID string)
+	UnregisterLOOP(id string)
 }
 
 type registarConfig struct {
@@ -38,6 +38,6 @@ func (pc *registarConfig) RegisterLOOP(cfg CmdConfig) (func() *exec.Cmd, loop.GR
 	return cmdFn, pc.grpcOpts, nil
 }
 
-func (pc *registarConfig) UnregisterLOOP(ID string) {
-	pc.loopUnregisterFn(ID)
+func (pc *registarConfig) UnregisterLOOP(id string) {
+	pc.loopUnregisterFn(id)
 }
