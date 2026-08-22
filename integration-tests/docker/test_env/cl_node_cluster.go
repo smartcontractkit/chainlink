@@ -60,7 +60,7 @@ func (c *ClCluster) Stop() error {
 }
 
 func (c *ClCluster) NodeAPIs() []*nodeclient.ChainlinkClient {
-	clients := make([]*nodeclient.ChainlinkClient, 0)
+	clients := make([]*nodeclient.ChainlinkClient, 0, len(c.Nodes))
 	for _, c := range c.Nodes {
 		clients = append(clients, c.API)
 	}
