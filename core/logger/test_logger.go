@@ -34,7 +34,8 @@ func TestLoggerObserved(tb testing.TB, lvl zapcore.Level) (Logger, *observer.Obs
 // testLogger returns a new SugaredLogger for tests. core is optional.
 func testLogger(tb testing.TB, core zapcore.Core, lvl zapcore.Level) SugaredLogger {
 	a := zap.NewAtomicLevelAt(lvl)
-	opts := []zaptest.LoggerOption{zaptest.Level(a)}
+	opts := make([]zaptest.LoggerOption, 0, 2)
+	opts = append(opts, zaptest.Level(a))
 	zapOpts := []zap.Option{zap.AddCaller(), zap.AddStacktrace(zapcore.ErrorLevel)}
 	if core != nil {
 		zapOpts = append(zapOpts, zap.WrapCore(func(c zapcore.Core) zapcore.Core {

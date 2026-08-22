@@ -25,7 +25,6 @@ func testDialContext(ctx context.Context, network, address string) (net.Conn, er
 		// https://golang.org/pkg/net/http/#RoundTripper
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
-		DualStack: true,
 	}).DialContext(ctx, network, address)
 	if err != nil {
 		return con, err

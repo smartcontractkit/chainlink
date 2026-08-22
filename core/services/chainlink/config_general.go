@@ -172,14 +172,14 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 
 func (o *GeneralConfigOpts) parse() (err error) {
 	for _, c := range o.ConfigStrings {
-		err := o.parseConfig(c)
+		err = o.parseConfig(c)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, s := range o.SecretsStrings {
-		err := o.parseSecrets(s)
+		err = o.parseSecrets(s)
 		if err != nil {
 			return err
 		}
