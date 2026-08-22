@@ -12,13 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 
 	libformat "github.com/smartcontractkit/chainlink/system-tests/lib/format"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
@@ -83,7 +81,7 @@ func WebAPITriggerValue(gatewayURL, donID, privateKey string, timeout time.Durat
 	}
 
 	createRequest := func() (req *http.Request, err error) {
-		req, err = http.NewRequestWithContext(context.Background(), "POST", gatewayURL, bytes.NewBuffer(rawMsg))
+		req, err = http.NewRequestWithContext(context.Background(), http.MethodPost, gatewayURL, bytes.NewBuffer(rawMsg))
 		if err == nil {
 			req.Header.Set("Content-Type", "application/json")
 		}
