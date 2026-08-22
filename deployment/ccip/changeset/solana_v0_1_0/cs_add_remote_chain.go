@@ -118,7 +118,7 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 		}
 
 		return cldf.ChangesetOutput{
-			AddressBook: ab,
+			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:   ds,
 		}, errors.Join(err, err2)
 	}
@@ -138,7 +138,7 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           ab,
+			AddressBook:           ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:             ds,
 		}, nil
 	}
@@ -148,7 +148,10 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
+	return cldf.ChangesetOutput{
+		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		DataStore:   ds,
+	}, nil
 }
 
 func doAddRemoteChainToRouter(
@@ -353,7 +356,10 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 		if err2 != nil {
 			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
 		}
-		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2)
+		return cldf.ChangesetOutput{
+			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			DataStore:   ds,
+		}, errors.Join(err, err2)
 	}
 
 	// create proposals for ixns
@@ -369,7 +375,7 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 		}
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           ab,
+			AddressBook:           ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:             ds,
 		}, nil
 	}
@@ -379,7 +385,10 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
+	return cldf.ChangesetOutput{
+		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		DataStore:   ds,
+	}, nil
 }
 
 func doAddRemoteChainToFeeQuoter(
@@ -542,7 +551,10 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 		if err2 != nil {
 			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
 		}
-		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2)
+		return cldf.ChangesetOutput{
+			AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+			DataStore:   ds,
+		}, errors.Join(err, err2)
 	}
 
 	// create proposals for ixns
@@ -558,7 +570,7 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 		}
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           ab,
+			AddressBook:           ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:             ds,
 		}, nil
 	}
@@ -568,7 +580,10 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, nil
+	return cldf.ChangesetOutput{
+		AddressBook: ab, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		DataStore:   ds,
+	}, nil
 }
 
 func doAddRemoteChainToOffRamp(

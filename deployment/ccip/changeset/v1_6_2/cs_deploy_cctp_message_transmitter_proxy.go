@@ -101,7 +101,7 @@ func deployCCTPMessageTransmitterProxyContractLogic(env cldf.Environment, c Depl
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses,
+		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }

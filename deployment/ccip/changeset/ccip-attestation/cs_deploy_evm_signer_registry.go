@@ -106,5 +106,8 @@ func signerRegistryDeploymentLogic(e cldf.Environment, config SignerRegistryChan
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
-	return cldf.ChangesetOutput{AddressBook: addressBook, DataStore: ds}, nil
+	return cldf.ChangesetOutput{
+		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
+		DataStore:   ds,
+	}, nil
 }

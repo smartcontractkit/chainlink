@@ -81,7 +81,7 @@ func DeployBurnMintERC20PausableFreezableTransparent(e cldf.Environment, c BurnM
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: addressBook,
+		AddressBook: addressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }

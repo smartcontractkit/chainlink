@@ -218,7 +218,7 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           newAddresses,
+			AddressBook:           newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
 			DataStore:             ds,
 		}, nil
 	}
@@ -229,7 +229,7 @@ func DeployChainContractsChangeset(e cldf.Environment, c DeployChainContractsCon
 	}
 
 	return cldf.ChangesetOutput{
-		AddressBook: newAddresses,
+		AddressBook: newAddresses, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:   ds,
 	}, nil
 }

@@ -286,7 +286,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 	// use a clone of env to avoid modifying the original env
 	e := env.Clone()
 	finalCSOut := &cldf.ChangesetOutput{
-		AddressBook: cldf.NewMemoryAddressBook(),
+		AddressBook: cldf.NewMemoryAddressBook(), //nolint:staticcheck // SA1019 AddressBook is deprecated
 	}
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
@@ -312,7 +312,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate pool deployment configuration: %w", err)
 			}
 			e.Logger.Infow("deployed token and created pool deployment config", "token", token)
-			if err := finalCSOut.AddressBook.Merge(ab); err != nil {
+			if err := finalCSOut.AddressBook.Merge(ab); err != nil { //nolint:staticcheck // SA1019 AddressBook is deprecated
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 			}
 			// populate the configuration for deploying and configuring token pools and token admin registry

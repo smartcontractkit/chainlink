@@ -187,7 +187,7 @@ func E2ETokenPoolv2(env cldf.Environment, cfg E2ETokenPoolConfigv2) (cldf.Change
 	// it will try to add addresses from the cs output which already exist in the env
 	e := env.Clone()
 	finalCSOut := &cldf.ChangesetOutput{
-		AddressBook: cldf.NewMemoryAddressBook(),
+		AddressBook: cldf.NewMemoryAddressBook(), //nolint:staticcheck // SA1019 AddressBook is deprecated
 	}
 
 	// token pool and lookup table

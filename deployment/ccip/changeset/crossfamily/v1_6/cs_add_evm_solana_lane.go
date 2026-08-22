@@ -537,7 +537,7 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 
 	return cldf.ChangesetOutput{
 		MCMSTimelockProposals: report.Output.Proposals,
-		AddressBook:           report.Output.AddressBook,
+		AddressBook:           report.Output.AddressBook, //nolint:staticcheck // SA1019 AddressBook is deprecated
 		DataStore:             ds,
 	}, nil
 }
