@@ -138,7 +138,7 @@ func TestConfigureOCR3(t *testing.T) {
 		resp, err := changeset.DeployOCR3V2(te.Env, &changeset.DeployRequestV2{ChainSel: registrySel})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))
+		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook)) //nolint:staticcheck // SA1019 AddressBook is deprecated
 
 		require.NoError(t, resp.DataStore.Merge(te.Env.DataStore))
 		te.Env.DataStore = resp.DataStore.Seal()
@@ -197,7 +197,7 @@ func TestConfigureOCR3(t *testing.T) {
 		resp, err := changeset.DeployOCR3V2(te.Env, &changeset.DeployRequestV2{ChainSel: registrySel})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))
+		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook)) //nolint:staticcheck // SA1019 AddressBook is deprecated
 
 		// Verify after merge there are original contracts plus one new one
 		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
@@ -239,7 +239,7 @@ func TestConfigureOCR3(t *testing.T) {
 			Qualifier: "test-ocr-contract"})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
-		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook))
+		require.NoError(t, te.Env.ExistingAddresses.Merge(resp.AddressBook)) //nolint:staticcheck // SA1019 AddressBook is deprecated
 		refs := resp.DataStore.Addresses().Filter(datastore.AddressRefByQualifier("test-ocr-contract"))
 		require.Len(t, refs, 1)
 
