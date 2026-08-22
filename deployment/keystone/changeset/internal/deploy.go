@@ -1,16 +1,13 @@
 package internal
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"math"
 	"math/big"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -280,15 +277,15 @@ func ConfigureRegistry(ctx context.Context, lggr logger.Logger, req *ConfigureRe
 		})
 	}
 
-	nodeIdToP2PID := map[string][32]byte{}
+	nodeIDToP2PID := map[string][32]byte{}
 	for nodeID, params := range nodesResp.NodeIDToParams {
-		nodeIdToP2PID[nodeID] = params.P2pId
+		nodeIDToP2PID[nodeID] = params.P2pId
 	}
 	// register DONS
 	donsResp, err := RegisterDons(lggr, RegisterDonsRequest{
 		Env:                   req.Env,
 		RegistryChainSelector: req.RegistryChainSel,
-		NodeIDToP2PID:         nodeIdToP2PID,
+		NodeIDToP2PID:         nodeIDToP2PID,
 		DonToCapabilities:     donToCapabilities,
 		DonsToRegister:        donsToRegister,
 	})
@@ -802,17 +799,6 @@ type RegisterDonsResponse struct {
 	Ops      *mcmstypes.BatchOperation
 }
 
-func sortedHash(p2pids [][32]byte) string {
-	sha256Hash := sha256.New()
-	sort.Slice(p2pids, func(i, j int) bool {
-		return bytes.Compare(p2pids[i][:], p2pids[j][:]) < 0
-	})
-	for _, id := range p2pids {
-		sha256Hash.Write(id[:])
-	}
-	return hex.EncodeToString(sha256Hash.Sum(nil))
-}
-
 func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsResponse, error) {
 	if err := req.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid request: %w", err)
@@ -831,7 +817,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	lggr.Infow("registering DONs...", "len", len(req.DonsToRegister))
 	// track hash of sorted p2pids to don name because the registry return value does not include the don name
 	// and we need to map it back to the don name to access the other mapping data such as the don's capabilities & nodes
-	p2pIdsToDon := make(map[string]string)
+	p2pIDsToDon := make(map[string]string)
 	var addedDons = 0
 
 	donInfos, err := registry.GetDONs(&bind.CallOpts{})
@@ -841,13 +827,13 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	}
 	existingDONs := make(map[string]struct{})
 	for _, donInfo := range donInfos {
-		existingDONs[sortedHash(donInfo.NodeP2PIds)] = struct{}{}
+		existingDONs[SortedHash(donInfo.NodeP2PIds)] = struct{}{}
 	}
 	lggr.Infow("fetched existing DONs...", "len", len(donInfos), "lenByNodesHash", len(existingDONs))
 
 	transactions := make([]mcmstypes.Transaction, 0)
 	for _, don := range req.DonsToRegister {
-		var p2pIds [][32]byte
+		var p2pIDs [][32]byte
 		for _, n := range don.Nodes {
 			if n.IsBootstrap {
 				continue
@@ -856,11 +842,11 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 			if !ok {
 				return nil, fmt.Errorf("node params not found for non-bootstrap node %s", n.NodeID)
 			}
-			p2pIds = append(p2pIds, p2pID)
+			p2pIDs = append(p2pIDs, p2pID)
 		}
 
-		p2pSortedHash := sortedHash(p2pIds)
-		p2pIdsToDon[p2pSortedHash] = don.Name
+		p2pSortedHash := SortedHash(p2pIDs)
+		p2pIDsToDon[p2pSortedHash] = don.Name
 
 		if _, ok := existingDONs[p2pSortedHash]; ok {
 			lggr.Debugw("don already exists, ignoring", "don", don.Name, "p2p sorted hash", p2pSortedHash)
@@ -897,8 +883,8 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		}
 
 		lggr.Debugw("calling add don", "don", don.Name, "p2p sorted hash", p2pSortedHash, "cgs", cfgs, "wfSupported", wfSupported, "f", don.F,
-			"p2pids", p2pIds, "node count", len(p2pIds))
-		tx, err := registry.AddDON(txOpts, p2pIds, cfgs, true, wfSupported, don.F)
+			"p2pids", p2pIDs, "node count", len(p2pIDs))
+		tx, err := registry.AddDON(txOpts, p2pIDs, cfgs, true, wfSupported, don.F)
 		if err != nil {
 			err = cldf.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 			return nil, fmt.Errorf("failed to call AddDON for don '%s' p2p2Id hash %s capability %v: %w", don.Name, p2pSortedHash, cfgs, err)
@@ -942,13 +928,12 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	for i := range 10 {
 		lggr.Debugw("attempting to get DONs from registry", "attempt#", i)
 		donInfos, err = registry.GetDONs(&bind.CallOpts{})
-		if !containsAllDONs(donInfos, p2pIdsToDon) {
-			lggr.Debugw("some expected dons not registered yet, re-checking after a delay ...")
-			time.Sleep(2 * time.Second)
-		} else {
+		if containsAllDONs(donInfos, p2pIDsToDon) {
 			foundAll = true
 			break
 		}
+		lggr.Debugw("some expected dons not registered yet, re-checking after a delay ...")
+		time.Sleep(2 * time.Second)
 	}
 	if err != nil {
 		err = cldf.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
@@ -962,9 +947,9 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 		DonInfos: make(map[string]capabilities_registry.CapabilitiesRegistryDONInfo),
 	}
 	for i, donInfo := range donInfos {
-		donName, ok := p2pIdsToDon[sortedHash(donInfo.NodeP2PIds)]
+		donName, ok := p2pIDsToDon[SortedHash(donInfo.NodeP2PIds)]
 		if !ok {
-			lggr.Debugw("irrelevant DON found in the registry, ignoring", "p2p sorted hash", sortedHash(donInfo.NodeP2PIds))
+			lggr.Debugw("irrelevant DON found in the registry, ignoring", "p2p sorted hash", SortedHash(donInfo.NodeP2PIds))
 			continue
 		}
 		lggr.Debugw("adding don info to the response (keyed by DON name)", "don", donName)
@@ -974,16 +959,16 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	return &resp, nil
 }
 
-// are all DONs from p2pIdsToDon in donInfos
-func containsAllDONs(donInfos []capabilities_registry.CapabilitiesRegistryDONInfo, p2pIdsToDon map[string]string) bool {
+// are all DONs from p2pIDsToDon in donInfos
+func containsAllDONs(donInfos []capabilities_registry.CapabilitiesRegistryDONInfo, p2pIDsToDon map[string]string) bool {
 	found := make(map[string]struct{})
 	for _, donInfo := range donInfos {
-		hash := sortedHash(donInfo.NodeP2PIds)
-		if _, ok := p2pIdsToDon[hash]; ok {
+		hash := SortedHash(donInfo.NodeP2PIds)
+		if _, ok := p2pIDsToDon[hash]; ok {
 			found[hash] = struct{}{}
 		}
 	}
-	return len(found) == len(p2pIdsToDon)
+	return len(found) == len(p2pIDsToDon)
 }
 
 type ForwarderConfig struct {
