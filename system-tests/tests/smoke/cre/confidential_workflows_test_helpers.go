@@ -100,13 +100,13 @@ func newDeferredGatewayProxy(t *testing.T, port int) *deferredGatewayProxy {
 
 	p := &deferredGatewayProxy{}
 	rp := &httputil.ReverseProxy{
-		Director: func(req *http.Request) {
+		Rewrite: func(req *httputil.ProxyRequest) {
 			p.mu.RLock()
 			defer p.mu.RUnlock()
 			if p.target != nil {
-				req.URL.Scheme = p.target.Scheme
-				req.URL.Host = p.target.Host
-				req.Host = p.target.Host
+				req.Out.URL.Scheme = p.target.Scheme
+				req.Out.URL.Host = p.target.Host
+				req.Out.Host = p.target.Host
 			}
 		},
 	}

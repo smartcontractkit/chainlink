@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	libcre "github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/config"
-
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
@@ -111,23 +110,23 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 			switch ref.Type {
 			case "WorkflowRegistry":
 				if cache.ChainSelector == ref.ChainSelector {
-					os.Setenv("MAINNET_WORKFLOW_REGISTRY_CONTRACT_ADDRESS", ref.Address)
+					t.Setenv("MAINNET_WORKFLOW_REGISTRY_CONTRACT_ADDRESS", ref.Address)
 				}
 			case "CapabilitiesRegistry":
 				if cache.ChainSelector == ref.ChainSelector {
-					os.Setenv("MAINNET_CAPABILITIES_REGISTRY_CONTRACT_ADDRESS", ref.Address)
+					t.Setenv("MAINNET_CAPABILITIES_REGISTRY_CONTRACT_ADDRESS", ref.Address)
 				}
 			default:
 				continue
 			}
 		}
 
-		os.Setenv("MAINNET_WORKFLOW_REGISTRY_CHAIN_SELECTOR", strconv.FormatUint(cache.ChainSelector, 10))
-		os.Setenv("MAINNET_CAPABILITIES_REGISTRY_CHAIN_SELECTOR", strconv.FormatUint(cache.ChainSelector, 10))
-		os.Setenv("STREAMS_API_URL", priceURL)
-		os.Setenv("STREAMS_API_KEY", "cannot be empty")
-		os.Setenv("STREAMS_API_SECRET", "cannot be empty")
-		os.Setenv("TEST_OWNERS", strings.Join(cache.WorkflowOwnersStrings(), ","))
+		t.Setenv("MAINNET_WORKFLOW_REGISTRY_CHAIN_SELECTOR", strconv.FormatUint(cache.ChainSelector, 10))
+		t.Setenv("MAINNET_CAPABILITIES_REGISTRY_CHAIN_SELECTOR", strconv.FormatUint(cache.ChainSelector, 10))
+		t.Setenv("STREAMS_API_URL", priceURL)
+		t.Setenv("STREAMS_API_KEY", "cannot be empty")
+		t.Setenv("STREAMS_API_SECRET", "cannot be empty")
+		t.Setenv("TEST_OWNERS", strings.Join(cache.WorkflowOwnersStrings(), ","))
 
 		// Select the appropriate chain for billing service from available chains in the environment.
 		// otherwise, if RPCURL is defined, billing service can be used standalone
@@ -146,8 +145,8 @@ func startBillingStackIfIsNotRunning(t *testing.T, relativePathToRepoRoot, envir
 
 			rpcURL := strings.Replace(selectedChain.Nodes[0].ExternalHTTPUrl, "127.0.0.1", "host.docker.internal", 1)
 
-			os.Setenv("MAINNET_WORKFLOW_REGISTRY_RPC_URL", rpcURL)
-			os.Setenv("MAINNET_CAPABILITIES_REGISTRY_RPC_URL", rpcURL)
+			t.Setenv("MAINNET_WORKFLOW_REGISTRY_RPC_URL", rpcURL)
+			t.Setenv("MAINNET_CAPABILITIES_REGISTRY_RPC_URL", rpcURL)
 		}
 
 		framework.L.Info().Str("state file", config.MustBillingStateFileAbsPath(relativePathToRepoRoot)).Msg("Billing state file was not found. Starting Billing...")
