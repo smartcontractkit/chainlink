@@ -25,7 +25,6 @@ import (
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/workflow"
 	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
@@ -194,7 +193,7 @@ func executeHTTPTriggerRequestExpectingFailure(t *testing.T, testEnv *ttypes.Tes
 		}
 
 		// Execute the HTTP request that should fail due to unauthorized key
-		req, err := http.NewRequestWithContext(t.Context(), "POST", gatewayURL.String(), bytes.NewBuffer(triggerRequestBody))
+		req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, gatewayURL.String(), bytes.NewBuffer(triggerRequestBody))
 		if err != nil {
 			testLogger.Warn().Msgf("Failed to create HTTP request: %v", err)
 			return false
