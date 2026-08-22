@@ -176,9 +176,9 @@ func TestDivideTask_Overflow(t *testing.T) {
 	t.Parallel()
 
 	d1, err := decimal.NewFromString("6.34e-01")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	d2, err := decimal.NewFromString("6.34e-10")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	task := pipeline.DivideTask{
 		BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),

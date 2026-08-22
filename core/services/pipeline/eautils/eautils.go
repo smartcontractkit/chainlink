@@ -56,7 +56,7 @@ func BestEffortExtractEAError(responseBytes []byte) error {
 	var errorResponse adapterErrorResponse
 	err := json.Unmarshal(responseBytes, &errorResponse)
 	if err != nil {
-		return nil
+		return err
 	}
 	if errorResponse.Error != nil {
 		return errorResponse.Error

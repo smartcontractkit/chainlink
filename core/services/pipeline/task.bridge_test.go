@@ -873,7 +873,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 
 	mp := map[string]any{"meta": metaDataForBridge}
 	res, _ := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]any{"jobRun": mp}), nil)
-	assert.NoError(t, res.Error)
+	require.NoError(t, res.Error)
 
 	assert.True(t, httpCalled.Load())
 }
@@ -1100,7 +1100,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{URL: bridgeURL.String()})
 
 	allHeaders := func(headers http.Header) (s []string) {
-		var keys []string
+		keys := make([]string, 0, len(headers))
 		for k := range headers {
 			keys = append(keys, k)
 		}
@@ -1134,7 +1134,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		result, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
-		assert.NoError(t, result.Error)
+		require.NoError(t, result.Error)
 
 		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
 	})
@@ -1155,7 +1155,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 		result, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
-		assert.Error(t, result.Error)
+		require.Error(t, result.Error)
 		assert.Equal(t, `headers must have an even number of elements`, result.Error.Error())
 		assert.Nil(t, result.Value)
 	})
@@ -1177,7 +1177,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		result, runInfo := task.Run(t.Context(), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
-		assert.NoError(t, result.Error)
+		require.NoError(t, result.Error)
 
 		assert.Equal(t, []string{"Content-Length", "38", "Content-Type", "footype", "User-Agent", "Go-http-client/1.1", "X-Header-1", "foo", "X-Header-2", "bar"}, allHeaders(headers))
 	})
@@ -1200,7 +1200,8 @@ func TestBridgeTask_AdapterResponseStatusFailure(t *testing.T) {
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			err := json.NewEncoder(w).Encode(testAdapterResponse)
 			assert.NoError(t, err)
-		}))
+		}),
+	)
 	defer s1.Close()
 
 	feedURL, err := url.ParseRequestURI(s1.URL)
@@ -1301,7 +1302,8 @@ func TestBridgeTask_AdapterTimeout(t *testing.T) {
 	s1 := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(time.Second) // delay enough to time-out
-		}))
+		}),
+	)
 	defer s1.Close()
 
 	feedURL, err := url.ParseRequestURI(s1.URL)

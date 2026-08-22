@@ -30,7 +30,7 @@ type ObjectParam struct {
 	MapValue     MapParam
 }
 
-func (o ObjectParam) MarshalJSON() ([]byte, error) {
+func (o *ObjectParam) MarshalJSON() ([]byte, error) {
 	switch o.Type {
 	case NilType:
 		return json.Marshal(nil)
@@ -48,7 +48,7 @@ func (o ObjectParam) MarshalJSON() ([]byte, error) {
 	panic(fmt.Sprintf("Invalid type for ObjectParam %v", o.Type))
 }
 
-func (o ObjectParam) Marshal() (string, error) {
+func (o *ObjectParam) Marshal() (string, error) {
 	b, err := o.MarshalJSON()
 	if err != nil {
 		return "", err
@@ -56,7 +56,7 @@ func (o ObjectParam) Marshal() (string, error) {
 	return string(b), nil
 }
 
-func (o ObjectParam) String() string {
+func (o *ObjectParam) String() string {
 	value, err := o.Marshal()
 	if err != nil {
 		return fmt.Sprintf("<error Stringifying: %v>", err)
