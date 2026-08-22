@@ -8,11 +8,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -43,11 +44,12 @@ type batchTestSetup struct {
 
 func newBatchTestSetup(t *testing.T, opts ...testhelpers.TestOps) batchTestSetup {
 	// Setup 3 chains, with 2 lanes going to the dest.
-	options := []testhelpers.TestOps{
+	options := make([]testhelpers.TestOps, 0, 3+len(opts))
+	options = append(options,
 		testhelpers.WithMultiCall3(),
 		testhelpers.WithNumOfChains(3),
 		testhelpers.WithNumOfUsersPerChain(2),
-	}
+	)
 	options = append(options, opts...)
 
 	e, _, _ := testsetups.NewIntegrationEnvironment(
@@ -72,8 +74,10 @@ func newBatchTestSetup(t *testing.T, opts ...testhelpers.TestOps) batchTestSetup
 	)
 
 	// connect sourceChain1 and sourceChain2 to destChain
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain1, destChain, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain2, destChain, false)
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain1, destChain, false)
+	require.NoError(t, err)
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain2, destChain, false)
+	require.NoError(t, err)
 
 	return batchTestSetup{e, state, sourceChain1, sourceChain2, destChain}
 }
@@ -516,7 +520,7 @@ func sendMessages(
 		return fmt.Errorf("get message sent event: %w", err)
 	}
 	defer func() {
-		require.NoError(t, iter.Close())
+		assert.NoError(t, iter.Close())
 	}()
 
 	// there should be numMessages messages emitted

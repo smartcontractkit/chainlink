@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -74,7 +74,7 @@ func Test_AddChainE2E(t *testing.T) {
 	for _, src := range initialSetToDeploy {
 		for _, dest := range initialSetToDeploy {
 			if src != dest {
-				testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(
+				err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(
 					t,
 					&e,
 					state,
@@ -82,6 +82,7 @@ func Test_AddChainE2E(t *testing.T) {
 					dest,
 					false,
 				)
+				require.NoError(t, err)
 			}
 		}
 	}
