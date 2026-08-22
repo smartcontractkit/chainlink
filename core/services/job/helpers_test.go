@@ -195,8 +195,8 @@ func compareOCRJobSpecs(t *testing.T, expected, actual job.Job) {
 	require.Equal(t, expected.OCROracleSpec.ContractConfigConfirmations, actual.OCROracleSpec.ContractConfigConfirmations)
 }
 
-func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchUrl, timeout string) *job.Job {
-	var ocrSpec = job.OCROracleSpec{
+func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig, contractAddress, transmitterAddress, keyBundle, fetchURL, timeout string) *job.Job {
+	ocrSpec := job.OCROracleSpec{
 		P2PV2Bootstrappers:                     pq.StringArray{},
 		ObservationTimeout:                     sqlutil.Interval(10 * time.Second),
 		BlockchainTimeout:                      sqlutil.Interval(20 * time.Second),
@@ -205,13 +205,13 @@ func makeMinimalHTTPOracleSpec(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralC
 		ContractConfigConfirmations:            uint16(3),
 		EVMChainID:                             sqlutil.New(testutils.FixtureChainID),
 	}
-	var os = job.Job{
+	os := job.Job{
 		Name:          null.NewString("a job", true),
 		Type:          job.OffchainReporting,
 		SchemaVersion: 1,
 		ExternalJobID: uuid.New(),
 	}
-	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, testutils.FixtureChainID.String(), fetchUrl, timeout)
+	s := fmt.Sprintf(minimalNonBootstrapTemplate, contractAddress, transmitterAddress, keyBundle, testutils.FixtureChainID.String(), fetchURL, timeout)
 	keyStore := cltest.NewKeyStore(t, db)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		ChainConfigs:   cfg.EVMConfigs(),
@@ -257,7 +257,7 @@ func makeOCRJobSpecFromToml(t *testing.T, jobSpecToml string) *job.Job {
 	t.Helper()
 
 	id := uuid.New()
-	var jb = job.Job{
+	jb := job.Job{
 		Name:          null.StringFrom(id.String()),
 		ExternalJobID: id,
 	}
@@ -296,7 +296,7 @@ func makeOCR2JobSpecFromToml(t testing.TB, jobSpecToml string) *job.Job {
 	t.Helper()
 
 	id := uuid.New()
-	var jb = job.Job{
+	jb := job.Job{
 		Name:          null.StringFrom(id.String()),
 		ExternalJobID: id,
 	}

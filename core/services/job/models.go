@@ -36,24 +36,24 @@ import (
 )
 
 const (
-	BlockHeaderFeeder    Type = (Type)(pipeline.BlockHeaderFeederJobType)
-	BlockhashStore       Type = (Type)(pipeline.BlockhashStoreJobType)
-	Bootstrap            Type = (Type)(pipeline.BootstrapJobType)
-	CRESettings          Type = (Type)(pipeline.CRESettings)
-	Cron                 Type = (Type)(pipeline.CronJobType)
-	CCIP                 Type = (Type)(pipeline.CCIPJobType)
-	CCVCommitteeVerifier Type = (Type)(pipeline.CCVCommitteeVerifierJobType)
-	CCVExecutor          Type = (Type)(pipeline.CCVExecutorJobType)
-	DirectRequest        Type = (Type)(pipeline.DirectRequestJobType)
-	FluxMonitor          Type = (Type)(pipeline.FluxMonitorJobType)
-	Gateway              Type = (Type)(pipeline.GatewayJobType)
-	OffchainReporting    Type = (Type)(pipeline.OffchainReportingJobType)
-	OffchainReporting2   Type = (Type)(pipeline.OffchainReporting2JobType)
-	Stream               Type = (Type)(pipeline.StreamJobType)
-	VRF                  Type = (Type)(pipeline.VRFJobType)
-	Webhook              Type = (Type)(pipeline.WebhookJobType)
-	Workflow             Type = (Type)(pipeline.WorkflowJobType)
-	StandardCapabilities Type = (Type)(pipeline.StandardCapabilitiesJobType)
+	BlockHeaderFeeder    Type = Type(pipeline.BlockHeaderFeederJobType)
+	BlockhashStore       Type = Type(pipeline.BlockhashStoreJobType)
+	Bootstrap            Type = Type(pipeline.BootstrapJobType)
+	CRESettings          Type = Type(pipeline.CRESettings)
+	Cron                 Type = Type(pipeline.CronJobType)
+	CCIP                 Type = Type(pipeline.CCIPJobType)
+	CCVCommitteeVerifier Type = Type(pipeline.CCVCommitteeVerifierJobType)
+	CCVExecutor          Type = Type(pipeline.CCVExecutorJobType)
+	DirectRequest        Type = Type(pipeline.DirectRequestJobType)
+	FluxMonitor          Type = Type(pipeline.FluxMonitorJobType)
+	Gateway              Type = Type(pipeline.GatewayJobType)
+	OffchainReporting    Type = Type(pipeline.OffchainReportingJobType)
+	OffchainReporting2   Type = Type(pipeline.OffchainReporting2JobType)
+	Stream               Type = Type(pipeline.StreamJobType)
+	VRF                  Type = Type(pipeline.VRFJobType)
+	Webhook              Type = Type(pipeline.WebhookJobType)
+	Workflow             Type = Type(pipeline.WorkflowJobType)
+	StandardCapabilities Type = Type(pipeline.StandardCapabilitiesJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -206,13 +206,13 @@ func ExternalJobIDEncodeBytesToTopic(id uuid.UUID) common.Hash {
 // ExternalIDEncodeStringToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the string representation of the UUID, removing the dashes
 // so that its 32 characters long and then encoding those characters to bytes.
-func (j Job) ExternalIDEncodeStringToTopic() common.Hash {
+func (j *Job) ExternalIDEncodeStringToTopic() common.Hash {
 	return ExternalJobIDEncodeStringToTopic(j.ExternalJobID)
 }
 
 // ExternalIDEncodeBytesToTopic encodes the external job ID (UUID) into a log topic (32 bytes)
 // by taking the 16 bytes underlying the UUID and right padding it.
-func (j Job) ExternalIDEncodeBytesToTopic() common.Hash {
+func (j *Job) ExternalIDEncodeBytesToTopic() common.Hash {
 	return ExternalJobIDEncodeBytesToTopic(j.ExternalJobID)
 }
 
@@ -258,7 +258,7 @@ type PipelineRun struct {
 	PruningKey int64 `json:"-"`
 }
 
-func (pr PipelineRun) GetID() string {
+func (pr *PipelineRun) GetID() string {
 	return strconv.FormatInt(pr.ID, 10)
 }
 
@@ -294,7 +294,7 @@ type OCROracleSpec struct {
 }
 
 // GetID is a getter function that returns the ID of the spec.
-func (s OCROracleSpec) GetID() string {
+func (s *OCROracleSpec) GetID() string {
 	return strconv.Itoa(int(s.ID))
 }
 
@@ -310,7 +310,7 @@ func (s *OCROracleSpec) SetID(value string) error {
 
 // JSONConfig is a map for config properties which are encoded as JSON in the database by implementing
 // sql.Scanner and driver.Valuer.
-type JSONConfig map[string]any
+type JSONConfig map[string]any //nolint:recvcheck // Scan requires pointer receiver to unmarshal into map, Value requires value receiver for driver.Valuer
 
 // Bytes returns the raw bytes
 func (r JSONConfig) Bytes() []byte {
@@ -421,10 +421,10 @@ func (s *OCR2OracleSpec) getChainID() (string, error) {
 		return s.ChainID, nil
 	}
 	// backward compatible job spec
-	return s.getChainIdFromRelayConfig()
+	return s.getChainIDFromRelayConfig()
 }
 
-func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
+func (s *OCR2OracleSpec) getChainIDFromRelayConfig() (string, error) {
 	v, exists := s.RelayConfig["chainID"]
 	if !exists {
 		return "", errors.New("chainID does not exist")
@@ -445,7 +445,7 @@ func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
 }
 
 // GetID is a getter function that returns the ID of the spec.
-func (s OCR2OracleSpec) GetID() string {
+func (s *OCR2OracleSpec) GetID() string {
 	return strconv.Itoa(int(s.ID))
 }
 
@@ -474,7 +474,7 @@ type WebhookSpec struct {
 	UpdatedAt                     time.Time `json:"updatedAt" toml:"-"`
 }
 
-func (w WebhookSpec) GetID() string {
+func (w *WebhookSpec) GetID() string {
 	return strconv.Itoa(int(w.ID))
 }
 
@@ -506,7 +506,7 @@ type CronSpec struct {
 	UpdatedAt    time.Time    `toml:"-"`
 }
 
-func (s CronSpec) GetID() string {
+func (s *CronSpec) GetID() string {
 	return strconv.Itoa(int(s.ID))
 }
 
@@ -522,11 +522,11 @@ func (s *CronSpec) SetID(value string) error {
 type FluxMonitorSpec struct {
 	ID              int32                 `toml:"-"`
 	ContractAddress evmtypes.EIP55Address `toml:"contractAddress"`
-	Threshold       tomlutils.Float32     `toml:"threshold,float"`
+	Threshold       tomlutils.Float32     `toml:"threshold,float"` //nolint:revive // false positive
 	// AbsoluteThreshold is the maximum absolute change allowed in a fluxmonitored
 	// value before a new round should be kicked off, so that the current value
 	// can be reported on-chain.
-	AbsoluteThreshold   tomlutils.Float32 `toml:"absoluteThreshold,float"`
+	AbsoluteThreshold   tomlutils.Float32 `toml:"absoluteThreshold,float"` //nolint:revive // false positive
 	PollTimerPeriod     time.Duration
 	PollTimerDisabled   bool
 	IdleTimerPeriod     time.Duration
@@ -743,7 +743,7 @@ type GatewaySpec struct {
 	UpdatedAt     time.Time  `toml:"-"`
 }
 
-func (s GatewaySpec) GetID() string {
+func (s *GatewaySpec) GetID() string {
 	return strconv.Itoa(int(s.ID))
 }
 
@@ -951,7 +951,7 @@ type StandardCapabilitiesConfig struct {
 	OracleFactory     OracleFactoryConfig `toml:"oracle_factory"`
 }
 
-type OracleFactoryConfig struct {
+type OracleFactoryConfig struct { //nolint:recvcheck // Scan requires pointer receiver to unmarshal into struct, Value requires value receiver for driver.Valuer
 	Enabled            bool                   `toml:"enabled"`
 	BootstrapPeers     []string               `toml:"bootstrap_peers"`
 	OCRContractAddress string                 `toml:"ocr_contract_address"`

@@ -320,7 +320,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			CSAKeystore:          csaKeystore,
 			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 		})
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		testRelayGetter := &relayGetter{
 			r: evmRelayer,
