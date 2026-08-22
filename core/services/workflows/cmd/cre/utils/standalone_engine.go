@@ -27,7 +27,6 @@ import (
 	generichost "github.com/smartcontractkit/chainlink-common/pkg/workflows/host"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/fakes"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
@@ -290,7 +289,7 @@ func NewFakeCapabilities(ctx context.Context, lggr logger.Logger, registry *capa
 	signers := make([]ocr2key.KeyBundle, nSigners)
 	for i := range nSigners {
 		signer := ocr2key.MustNewInsecure(fakes.SeedForKeys(), corekeys.EVM)
-		lggr.Infow("Generated new consensus signer", "addrss", common.BytesToAddress(signer.PublicKey()))
+		lggr.Infow("Generated new consensus signer", "address", common.BytesToAddress(signer.PublicKey()))
 		signers[i] = signer
 	}
 	fakeConsensusNoDAG := fakes.NewFakeConsensusNoDAG(signers, lggr)

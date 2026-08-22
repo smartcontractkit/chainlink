@@ -1,6 +1,6 @@
 // Package addrbook provides a way to filter addresses based on labels.
 //
-// Addressbook is depcreated but this remains as a temporary solution
+// Addressbook is deprecated but this remains as a temporary solution
 // for backwards compatibility.
 
 package addrbook
@@ -27,7 +27,7 @@ func (la LabeledAddresses) And(labels ...string) LabeledAddresses {
 			continue
 		}
 
-		// ingore unlabeled contracts if labels are received
+		// ignore unlabeled contracts if labels are received
 		if filterByLabels && tv.Labels.IsEmpty() {
 			continue
 		}

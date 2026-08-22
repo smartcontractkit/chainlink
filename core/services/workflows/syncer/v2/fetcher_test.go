@@ -49,6 +49,10 @@ func (w *wrapper) GetGatewayConnector() connector.GatewayConnector {
 }
 
 func TestNewFetcherService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
@@ -359,6 +363,10 @@ func TestNewFetcherService(t *testing.T) {
 }
 
 func TestNewFetcherFunc(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()

@@ -5,14 +5,13 @@ import (
 	"io"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/cmd"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/web"
-	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/web"
+	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
 func TestRendererJSON_RenderVRFKeys(t *testing.T) {
@@ -36,7 +35,7 @@ func TestRendererTable_RenderConfigurationV2(t *testing.T) {
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	wantUser, wantEffective := app.Config.ConfigTOML()
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 	client := app.NewHTTPClient(nil)
 
 	t.Run("effective", func(t *testing.T) {

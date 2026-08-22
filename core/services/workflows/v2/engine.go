@@ -36,8 +36,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	billing "github.com/smartcontractkit/chainlink-protos/billing/go"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
+	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	protoevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
-
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/events"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -332,8 +332,7 @@ func (e *Engine) init(ctx context.Context) {
 	// TODO(CAPPL-794): consider moving this outside of the engine, into the Syncer
 	err := e.cfg.GlobalWorkflowLimit.Use(ctx, 1)
 	if err != nil {
-		var errLimited limits.ErrorResourceLimited[int]
-		if errors.As(err, &errLimited) {
+		if errLimited, ok := errors.AsType[limits.ErrorResourceLimited[int]](err); ok {
 			switch errLimited.Scope {
 			case settings.ScopeOwner:
 				e.logger().Infow("Per owner workflow count limit reached", "err", err)
@@ -652,8 +651,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 					}); err != nil {
 						tm := e.metrics.With(platform.KeyTriggerID, triggerID)
 						tm.IncrementTriggerEventEnqueueDroppedCounter(ctx)
-						var errFull limits.ErrorQueueFull
-						if errors.As(err, &errFull) {
+						if _, ok := errors.AsType[limits.ErrorQueueFull](err); ok {
 							// queue full, drop the event
 							e.logger().Errorw("Trigger event queue is full, dropping event", "triggerID", triggerID, "triggerIndex", idx, "err", err)
 							tm.IncrementWorkflowTriggerEventQueueFullCounter(ctx)
@@ -802,8 +800,29 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}()
 
 	needShardOwnerCheck := e.cfg.ShardRoutingSteady == nil || !e.cfg.ShardRoutingSteady.SkipCommittedOwnerCheck()
-	if e.cfg.ShardingEnabled && e.cfg.ShardOrchestratorClient != nil && needShardOwnerCheck {
-		verdict, mapResp, ownErr := shardownership.CheckCommittedOwner(ctx, e.cfg.ShardOrchestratorClient, e.cfg.WorkflowID, e.cfg.MyShardID)
+	if e.cfg.ShardingEnabled && needShardOwnerCheck {
+		var verdict shardownership.Verdict
+		var mapResp *ringpb.GetWorkflowShardMappingResponse
+		var ownErr error
+
+		switch {
+		case e.cfg.ShardResolver != nil:
+			shardID, found, resolveErr := e.cfg.ShardResolver.ResolveShard(ctx, e.cfg.WorkflowID, e.cfg.WorkflowOwner)
+			switch {
+			case resolveErr != nil:
+				verdict = shardownership.DenyOrchestratorError
+				ownErr = resolveErr
+			case !found || shardID != e.cfg.MyShardID:
+				verdict = shardownership.DenyNotOwner
+			default:
+				verdict = shardownership.Allow
+			}
+		case e.cfg.ShardOrchestratorClient != nil:
+			verdict, mapResp, ownErr = shardownership.CheckCommittedOwner(ctx, e.cfg.ShardOrchestratorClient, e.cfg.WorkflowID, e.cfg.MyShardID)
+		default:
+			verdict = shardownership.Allow
+		}
+
 		switch verdict {
 		case shardownership.Allow:
 		case shardownership.DenyOrchestratorError:

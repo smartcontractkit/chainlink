@@ -84,7 +84,8 @@ jobs:
             "Test_CRE_V2_Suite_Bucket_B": [
                {"topology":"workflow-gateway-capabilities","configs":"configs/workflow-gateway-capabilities-don.toml"},
                {"topology":"workflow-gateway-capabilities-vault-jwt_auth-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"},
-               {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"}
+               {"topology":"workflow-gateway-capabilities-vault-optimizations-enabled","configs":"configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"},
+               {"topology":"workflow-gateway-capabilities-vault-stall-purge","configs":"configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"}
              ],
             "Test_CRE_V2_Aptos_Suite": [
                {"topology":"workflow-gateway-aptos","configs":"configs/workflow-gateway-don-aptos.toml"}
@@ -101,20 +102,32 @@ jobs:
             "Test_CRE_V2_Solana_Read_Accounts": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
-          "Test_CRE_V2_Solana_Read_Block": [
+            "Test_CRE_V2_Solana_Read_Block": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
-          "Test_CRE_V2_Solana_Read_Tx": [
+            "Test_CRE_V2_Solana_Read_Tx": [
                {"topology":"workflow","configs":"configs/workflow-don-solana.toml"}
              ],
             "Test_CRE_V2_Sharding": [
                {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
+             ],
+            "Test_CRE_V2_ShardingWithHttpTrigger": [
+               {"topology":"workflow-gateway-sharded","configs":"configs/workflow-gateway-sharded-don.toml"}
+             ],
+            "Test_CRE_V2_ShardManualAssignment": [
+               {"topology":"workflow-gateway-sharded-manual","configs":"configs/workflow-gateway-sharded-manual.toml"}
+             ],
+            "Test_CRE_V2_ShardRingOCROverrides": [
+               {"topology":"workflow-gateway-sharded-ringocr-overrides","configs":"configs/workflow-gateway-sharded-ringocr-overrides.toml"}
              ],
             "Test_CRE_V2_Module_Cache": [
                {"topology":"workflow-gateway-cache-test","configs":"configs/workflow-gateway-don-cache-test.toml"}
              ],
             "Test_CRE_V2_HTTP_Action_Multi_Gateway": [
                {"topology":"workflow-gateway-capabilities-multi-gateway","configs":"configs/workflow-gateway-capabilities-multi-gateway-don.toml"}
+             ],
+            "Test_CRE_V2_ConfidentialWorkflows_Relay": [
+               {"topology":"workflow-gateway-capabilities-confidential-workflows","configs":"configs/workflow-gateway-capabilities-don-confidential-workflows.toml"}
              ]
           }'
 
@@ -319,6 +332,49 @@ jobs:
           done
           exit 1
 
+      # The confidential compute relay leg needs a chainlink-confidential-compute
+      # checkout: the CRE nodes run its confidential-http capability binary, and
+      # the test drives its enclave harness (tests/testhelpers) to start local
+      # enclaves. These runners are not Nitro-capable, so the harness falls back
+      # to fake enclaves (local processes over loopback vsock emulation).
+      # The confidential-workflows *capability* binary ships in the node image via
+      # plugins/plugins.public.yaml. The *enclave* side is not a plugin: the test
+      # drives chainlink-confidential-compute's enclave harness, which shells out
+      # to that repo's fake-enclave runner. Check it out at the same revision the
+      # plugin is built from so the capability and the enclave app always match.
+      - name: Resolve confidential compute revision
+        if: ${{ contains(matrix.tests.test_name, 'ConfidentialWorkflows') }}
+        id: cc-rev
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref=$(yq -r '.plugins."confidential-workflows"[0].gitRef' plugins/plugins.public.yaml)
+          if [ -z "$ref" ] || [ "$ref" = "null" ]; then
+            echo "could not resolve confidential-workflows gitRef from plugins/plugins.public.yaml" >&2
+            exit 1
+          fi
+          echo "Resolved confidential compute revision: $ref"
+          echo "ref=$ref" >> "${GITHUB_OUTPUT}"
+
+      - name: Checkout chainlink-confidential-compute
+        if: ${{ contains(matrix.tests.test_name, 'ConfidentialWorkflows') }}
+        uses: actions/checkout@v7
+        with:
+          repository: smartcontractkit/chainlink-confidential-compute
+          ref: ${{ steps.cc-rev.outputs.ref }}
+          path: chainlink-confidential-compute
+          persist-credentials: false
+
+      # Prebuild the enclave app and host binaries the fake-enclave runner
+      # executes, so the cost lands here rather than in the test's own timeout.
+      # confidential-workflows is its own Go module, so this has to build from
+      # inside it rather than from the repository root.
+      - name: Prebuild fake enclave binaries
+        if: ${{ contains(matrix.tests.test_name, 'ConfidentialWorkflows') }}
+        shell: bash
+        working-directory: chainlink-confidential-compute/enclave/apps/confidential-workflows
+        run: go build ./environments/fake/...
+
       - name: Start local CRE${{ matrix.tests.cre_version }}
         id: start-local-cre
         uses: ./.github/actions/start-local-cre-environment
@@ -330,6 +386,9 @@ jobs:
           chip-router-image: "${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{
             secrets.QA_AWS_REGION }}.amazonaws.com/local-cre-chip-router:v1.0.1"
           ctf-configs: ${{ matrix.tests.configs }}
+          # The confidential workflows test starts enclaves on the harness's
+          # default ports; the gateway needs them allowlisted to reach them.
+          env-start-extra-args: ${{ contains(matrix.tests.test_name, 'ConfidentialWorkflows') && '-e 8080,8081,8082,8083' || '' }}
           retry-count: "3"
           retry-delay-seconds: "15"
           cleanup-on-error: "false"
@@ -355,6 +414,7 @@ jobs:
           TEST_TIMEOUT: 7m # let's leave 3 minutes for other steps (the whole job times out after 10 minutes)
           RUN_QUARANTINED_TESTS: "true" # always run quarantined tests in CI
           TOPOLOGY_NAME: ${{ matrix.tests.topology }}
+          CONFIDENTIAL_COMPUTE_ROOT: ${{ github.workspace }}/chainlink-confidential-compute
           GITHUB_TOKEN: ${{ steps.github-token.outputs.access-token || '' }} # to avoid rate limiting when downloading protobuf files from GitHub
           PARALLEL_COUNT: "10"
           CRE_TEST_PARALLEL_ENABLED: "true"

@@ -50,7 +50,7 @@ import (
 var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
 func TestRunner(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db)
 
@@ -126,13 +126,13 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, bridgeVT.Name.String(), bridgeER.Name.String())
-		require.NoError(t, jobORM.CreateJob(testutils.Context(t), jb))
+		require.NoError(t, jobORM.CreateJob(t.Context(), jb))
 		require.NotNil(t, jb.PipelineSpec)
 		require.NotZero(t, jb.PipelineSpec.JobID)
 
 		m, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
 		require.NoError(t, err)
-		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]any{"jobRun": map[string]any{"meta": m}}), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(t.Context(), *jb.PipelineSpec, pipeline.NewVarsFrom(map[string]any{"jobRun": map[string]any{"meta": m}}), true)
 		require.NoError(t, err)
 
 		results := taskResults.FinalResult()
@@ -177,7 +177,7 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("must delete job before deleting bridge", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
@@ -201,7 +201,7 @@ func TestRunner(t *testing.T) {
 	})
 
 	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		// Create a random bridge name
 		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{})
 
@@ -238,7 +238,7 @@ func TestRunner(t *testing.T) {
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Same for ocr2
-		jb2, err := validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), fmt.Sprintf(`
+		jb2, err := validate.ValidatedOracleSpecToml(t.Context(), config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -273,7 +273,7 @@ answer1      [type=median index=0];
 		assert.Contains(t, err.Error(), "not all bridges exist")
 
 		// Duplicate bridge names that exist is ok
-		jb3, err := validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), fmt.Sprintf(`
+		jb3, err := validate.ValidatedOracleSpecToml(t.Context(), config.OCR2(), config.Insecure(), fmt.Sprintf(`
 type               = "offchainreporting2"
 pluginType         = "median"
 schemaVersion      = 1
@@ -312,7 +312,7 @@ answer1      [type=median index=0];
 	})
 
 	t.Run("handles the case where the parsed value is literally null", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		var httpURL string
 		resp := `{"USD": null}`
 		{
@@ -325,7 +325,7 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)
 
-		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(t.Context(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 
 		results := taskResults.FinalResult()
@@ -368,10 +368,10 @@ answer1      [type=median index=0];
 
 		// Need a job in order to create a run
 		jb := makeSimpleFetchOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, false)
-		err := jobORM.CreateJob(testutils.Context(t), jb)
+		err := jobORM.CreateJob(t.Context(), jb)
 		require.NoError(t, err)
 
-		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(t.Context(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 
 		results := taskResults.FinalResult()
@@ -413,10 +413,10 @@ answer1      [type=median index=0];
 
 		// Need a job in order to create a run
 		jb := makeSimpleFetchOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, true)
-		err := jobORM.CreateJob(testutils.Context(t), jb)
+		err := jobORM.CreateJob(t.Context(), jb)
 		require.NoError(t, err)
 
-		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
+		runID, taskResults, err := runner.ExecuteAndInsertFinishedRun(t.Context(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 
 		results := taskResults.FinalResult()
@@ -448,7 +448,7 @@ answer1      [type=median index=0];
 	})
 
 	t.Run("minimal bootstrap", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		s := `
 		type               = "offchainreporting"
 		schemaVersion      = 1
@@ -462,7 +462,7 @@ answer1      [type=median index=0];
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
 		jb.MaxTaskDuration = sqlutil.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(testutils.Context(t), &jb)
+		err = jobORM.CreateJob(t.Context(), &jb)
 		require.NoError(t, err)
 
 		lggr := logger.TestLogger(t)
@@ -483,12 +483,12 @@ answer1      [type=median index=0];
 			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
+		_, err = sd.ServicesForSpec(t.Context(), jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("test min non-bootstrap", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		kb, err := keyStore.OCR().Create(ctx)
 		require.NoError(t, err)
 
@@ -499,7 +499,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 
 		jb.MaxTaskDuration = sqlutil.Interval(cltest.MustParseDuration(t, "1s"))
-		err = jobORM.CreateJob(testutils.Context(t), &jb)
+		err = jobORM.CreateJob(t.Context(), &jb)
 		require.NoError(t, err)
 		assert.Equal(t, jb.MaxTaskDuration, sqlutil.Interval(cltest.MustParseDuration(t, "1s")))
 
@@ -519,7 +519,7 @@ answer1      [type=median index=0];
 			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
+		_, err = sd.ServicesForSpec(t.Context(), jb)
 		require.NoError(t, err)
 	})
 
@@ -529,7 +529,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
-		err = jobORM.CreateJob(testutils.Context(t), &jb)
+		err = jobORM.CreateJob(t.Context(), &jb)
 		require.NoError(t, err)
 
 		lggr := logger.TestLogger(t)
@@ -548,12 +548,12 @@ answer1      [type=median index=0];
 			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		_, err = sd.ServicesForSpec(testutils.Context(t), jb)
+		_, err = sd.ServicesForSpec(t.Context(), jb)
 		require.NoError(t, err)
 	})
 
 	t.Run("test enhanced telemetry service creation", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		testCases := []struct {
 			jbCaptureEATelemetry   bool
 			specCaptureEATelemetry bool
@@ -591,7 +591,7 @@ answer1      [type=median index=0];
 			require.NoError(t, err)
 
 			jb.MaxTaskDuration = sqlutil.Interval(cltest.MustParseDuration(t, "1s"))
-			err = jobORM.CreateJob(testutils.Context(t), &jb)
+			err = jobORM.CreateJob(t.Context(), &jb)
 			require.NoError(t, err)
 			assert.Equal(t, jb.MaxTaskDuration, sqlutil.Interval(cltest.MustParseDuration(t, "1s")))
 
@@ -613,7 +613,7 @@ answer1      [type=median index=0];
 			)
 
 			jb.OCROracleSpec.CaptureEATelemetry = tc.jbCaptureEATelemetry
-			services, err := sd.ServicesForSpec(testutils.Context(t), jb)
+			services, err := sd.ServicesForSpec(t.Context(), jb)
 			require.NoError(t, err)
 
 			enhancedTelemetryServiceCreated := false
@@ -630,7 +630,7 @@ answer1      [type=median index=0];
 	})
 
 	t.Run("test job spec error is created", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		// Create a keystore with an ocr key bundle and p2p key.
 		kb, err := keyStore.OCR().Create(ctx)
 		require.NoError(t, err)
@@ -657,7 +657,7 @@ answer1      [type=median index=0];
 			config,
 			servicetest.Run(t, mailboxtest.NewMonitor(t)),
 		)
-		services, err := sd.ServicesForSpec(testutils.Context(t), *jb)
+		services, err := sd.ServicesForSpec(t.Context(), *jb)
 		require.NoError(t, err)
 
 		// Return an error getting the contract code.
@@ -691,14 +691,14 @@ answer1      [type=median index=0];
 
 		// TODO: This breaks the txdb connection, failing subsequent tests. Resolve in the future
 		// Noop once the job is gone.
-		// jobORM.RecordError(testutils.Context(t), jb.ID, "test")
+		// jobORM.RecordError(t.Context(), jb.ID, "test")
 		// err = db.Find(&se).Error
 		// require.NoError(t, err)
 		// require.Len(t, se, 0)
 	})
 
 	t.Run("timeouts", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		// There are 4 timeouts:
 		// - ObservationTimeout = how long the whole OCR time needs to run, or it fails (default 10 seconds)
 		// - config.JobPipelineMaxTaskDuration() = node level maximum time for a pipeline task (default 10 minutes)
@@ -716,7 +716,7 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)
 
-		_, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
+		_, taskResults, err := runner.ExecuteAndInsertFinishedRun(t.Context(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 		results := taskResults.FinalResult()
 		assert.Nil(t, results.Values[0])
@@ -726,7 +726,7 @@ answer1      [type=median index=0];
 		jb.Name = null.NewString("a job 2", true)
 		err = jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)
-		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
+		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(t.Context(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 		results = taskResults.FinalResult()
 		assert.Equal(t, 10.1, results.Values[0])
@@ -739,14 +739,14 @@ answer1      [type=median index=0];
 		err = jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)
 
-		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
+		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(t.Context(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 		resultsNoFatalErrs := taskResults.FinalResult()
 		assert.Error(t, resultsNoFatalErrs.FatalErrors[0])
 	})
 
 	t.Run("deleting jobs", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		var httpURL string
 		{
 			resp := `{"USD": 42.42}`
@@ -759,7 +759,7 @@ answer1      [type=median index=0];
 		err := jobORM.CreateJob(ctx, jb)
 		require.NoError(t, err)
 
-		_, taskResults, err := runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
+		_, taskResults, err := runner.ExecuteAndInsertFinishedRun(t.Context(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 		results := taskResults.FinalResult()
 		assert.Len(t, results.Values, 1)
@@ -771,7 +771,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 
 		// Create another run, it should fail
-		_, _, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
+		_, _, err = runner.ExecuteAndInsertFinishedRun(t.Context(), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.Error(t, err)
 	})
 }
@@ -789,7 +789,7 @@ func TestRunner_WebhookJobRemoved(t *testing.T) {
 	})
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	var (
 		eiName    = "substrate-ei"

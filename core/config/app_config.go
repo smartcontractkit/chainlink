@@ -61,6 +61,7 @@ type AppConfig interface {
 	WebServer() WebServer
 	Tracing() Tracing
 	Telemetry() Telemetry
+	Metering() Metering
 	CRE() CRE
 	CCV() CCV
 	Billing() Billing

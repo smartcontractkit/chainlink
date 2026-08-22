@@ -8,9 +8,8 @@ import (
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/aptos-labs/aptos-go-sdk/bcs"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 // ExecutePluginCodecV1 is a codec for encoding and decoding execute plugin reports.

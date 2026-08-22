@@ -25,17 +25,15 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"gopkg.in/guregu/null.v4"
 
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
-
-	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/csakey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocrkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads"
+	proto "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -302,7 +300,7 @@ func Test_Service_RegisterManager(t *testing.T) {
 	svc.orm.On("CreateBatchChainConfig", mock.Anything, params.ChainConfigs, mock.Anything).
 		Return([]int64{}, nil)
 	// ListManagers runs in a goroutine so it might be called.
-	svc.orm.On("ListManagers", testutils.Context(t)).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+	svc.orm.On("ListManagers", t.Context()).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
 	transactCall.Run(func(args mock.Arguments) {
 		fn := args[1].(func(orm feeds.ORM) error)
@@ -310,7 +308,7 @@ func Test_Service_RegisterManager(t *testing.T) {
 	})
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
-	actual, err := svc.RegisterManager(testutils.Context(t), params)
+	actual, err := svc.RegisterManager(t.Context(), params)
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
@@ -345,7 +343,7 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 		multiFeedsManagers := true
 		c.Feature.MultiFeedsManagers = &multiFeedsManagers
 	})
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	svc.orm.On("ManagerExists", ctx, params.PublicKey).Return(false, nil)
 	svc.orm.On("CreateManager", mock.Anything, &mgr, mock.Anything).
@@ -398,14 +396,14 @@ func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 	svc.orm.On("CreateManager", mock.Anything, &mgr, mock.Anything).
 		Return(id, errors.New("orm error"))
 	// ListManagers runs in a goroutine so it might be called.
-	svc.orm.On("ListManagers", testutils.Context(t)).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+	svc.orm.On("ListManagers", t.Context()).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 
 	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
 	transactCall.Run(func(args mock.Arguments) {
 		fn := args[1].(func(orm feeds.ORM) error)
 		transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
 	})
-	_, err = svc.RegisterManager(testutils.Context(t), params)
+	_, err = svc.RegisterManager(t.Context(), params)
 	require.Error(t, err)
 	assert.Equal(t, "orm error", err.Error())
 }
@@ -435,7 +433,7 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 		multiFeedsManagers := true
 		c.Feature.MultiFeedsManagers = &multiFeedsManagers
 	})
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	svc.orm.On("ManagerExists", ctx, params.PublicKey).Return(true, nil)
 	// ListManagers runs in a goroutine so it might be called.
@@ -449,7 +447,7 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 
 func Test_Service_ListManagers(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		mgr  = feeds.FeedsManager{}
@@ -468,7 +466,7 @@ func Test_Service_ListManagers(t *testing.T) {
 
 func Test_Service_GetManager(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		id  = int64(1)
@@ -495,7 +493,7 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
 
-	err := svc.UpdateManager(testutils.Context(t), mgr)
+	err := svc.UpdateManager(t.Context(), mgr)
 	require.NoError(t, err)
 }
 
@@ -509,7 +507,7 @@ func Test_Service_EnableFeedsManager(t *testing.T) {
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
 
-	actual, err := svc.EnableManager(testutils.Context(t), 1)
+	actual, err := svc.EnableManager(t.Context(), 1)
 	require.NoError(t, err)
 	require.NotNil(t, actual)
 }
@@ -523,14 +521,14 @@ func Test_Service_DisableFeedsManager(t *testing.T) {
 	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 
-	actual, err := svc.DisableManager(testutils.Context(t), 1)
+	actual, err := svc.DisableManager(t.Context(), 1)
 	require.NoError(t, err)
 	require.NotNil(t, actual)
 }
 
 func Test_Service_ListManagersByIDs(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		mgr  = feeds.FeedsManager{}
@@ -650,7 +648,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 				NopFriendlyName: "",
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
-			actual, err := svc.CreateChainConfig(testutils.Context(t), cfg)
+			actual, err := svc.CreateChainConfig(t.Context(), cfg)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedID, actual)
 			waitSyncNodeInfoCall(t, svc.logs)
@@ -674,7 +672,7 @@ func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
 
 		svc = setupTestService(t)
 	)
-	_, err := svc.CreateChainConfig(testutils.Context(t), cfg)
+	_, err := svc.CreateChainConfig(t.Context(), cfg)
 	require.Error(t, err)
 	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
@@ -713,14 +711,14 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 		NopFriendlyName: "",
 	}).Return(&proto.UpdateNodeResponse{}, nil)
 
-	actual, err := svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
+	actual, err := svc.DeleteChainConfig(t.Context(), cfg.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
 	waitSyncNodeInfoCall(t, svc.logs)
 }
 
 func Test_Service_ListChainConfigsByManagerIDs(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	var (
 		mgr = feeds.FeedsManager{ID: 1}
 		cfg = feeds.ChainConfig{
@@ -828,7 +826,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 				NopFriendlyName: "nop-friendly-name-test",
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
-			actual, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
+			actual, err := svc.UpdateChainConfig(t.Context(), cfg)
 			require.NoError(t, err)
 			assert.Equal(t, int64(1), actual)
 			waitSyncNodeInfoCall(t, svc.logs)
@@ -852,7 +850,7 @@ func Test_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
 
 		svc = setupTestService(t)
 	)
-	_, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
+	_, err := svc.UpdateChainConfig(t.Context(), cfg)
 	require.Error(t, err)
 	assert.Equal(t, "invalid admin address: 0x00000000000", err.Error())
 }
@@ -1104,7 +1102,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 				tc.before(svc)
 			}
 
-			actual, err := svc.ProposeJob(testutils.Context(t), tc.args)
+			actual, err := svc.ProposeJob(t.Context(), tc.args)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
@@ -1421,7 +1419,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 				tc.before(svc)
 			}
 
-			_, err := svc.DeleteJob(testutils.Context(t), tc.args)
+			_, err := svc.DeleteJob(t.Context(), tc.args)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
@@ -1648,7 +1646,7 @@ answer1      [type=median index=0];
 				tc.before(svc)
 			}
 
-			_, err := svc.RevokeJob(testutils.Context(t), tc.args)
+			_, err := svc.RevokeJob(t.Context(), tc.args)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
@@ -1805,7 +1803,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				NopFriendlyName: "",
 			}).Return(&proto.UpdateNodeResponse{}, nil)
 
-			err = svc.SyncNodeInfo(testutils.Context(t), mgr.ID)
+			err = svc.SyncNodeInfo(t.Context(), mgr.ID)
 			require.NoError(t, err)
 		})
 	}
@@ -1883,7 +1881,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
-				return svc.CreateChainConfig(testutils.Context(t), cfg)
+				return svc.CreateChainConfig(t.Context(), cfg)
 			},
 			wantLogs: []string{
 				`failed to sync node info attempt="0" err="SyncNodeInfo.UpdateNode call failed: error-0"`,
@@ -1908,7 +1906,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
-				return svc.UpdateChainConfig(testutils.Context(t), cfg)
+				return svc.UpdateChainConfig(t.Context(), cfg)
 			},
 			wantLogs: []string{
 				`failed to sync node info attempt="0" err="SyncNodeInfo.UpdateNode call partially failed: error chain 3"`,
@@ -1934,7 +1932,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
-				return svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
+				return svc.DeleteChainConfig(t.Context(), cfg.ID)
 			},
 			wantLogs: []string{
 				`failed to sync node info attempt="0" err="SyncNodeInfo.UpdateNode call partially failed: error chain 6"`,
@@ -1959,7 +1957,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("12"), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
-				return svc.CreateChainConfig(testutils.Context(t), cfg)
+				return svc.CreateChainConfig(t.Context(), cfg)
 			},
 			wantLogs: []string{
 				`failed to sync node info attempt="0" err="SyncNodeInfo.UpdateNode call partially failed: error chain 9"`,
@@ -1993,7 +1991,7 @@ func Test_Service_IsJobManaged(t *testing.T) {
 	t.Parallel()
 
 	svc := setupTestService(t)
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	jobID := int64(1)
 
 	svc.orm.On("IsJobManaged", mock.Anything, jobID).Return(true, nil)
@@ -2005,7 +2003,7 @@ func Test_Service_IsJobManaged(t *testing.T) {
 
 func Test_Service_ListJobProposalsByManagersIDs(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		jp    = feeds.JobProposal{}
@@ -2025,7 +2023,7 @@ func Test_Service_ListJobProposalsByManagersIDs(t *testing.T) {
 
 func Test_Service_GetJobProposal(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		id = int64(1)
@@ -2259,7 +2257,7 @@ func Test_Service_CancelSpec(t *testing.T) {
 				tc.before(svc)
 			}
 
-			err := svc.CancelSpec(testutils.Context(t), tc.specID)
+			err := svc.CancelSpec(t.Context(), tc.specID)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
@@ -2275,7 +2273,7 @@ func Test_Service_CancelSpec(t *testing.T) {
 
 func Test_Service_GetSpec(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		id   = int64(1)
@@ -2294,7 +2292,7 @@ func Test_Service_GetSpec(t *testing.T) {
 
 func Test_Service_ListSpecsByJobProposalIDs(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	var (
 		id    = int64(1)
@@ -2323,7 +2321,7 @@ func Test_Service_ApproveSpec(t *testing.T) {
 	now := time.Now()
 
 	var (
-		ctx  = testutils.Context(t)
+		ctx  = t.Context()
 		defn = `
 name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
 type               = "offchainreporting2"
@@ -2426,7 +2424,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2477,7 +2475,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2528,7 +2526,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2631,12 +2629,12 @@ updateInterval = "30s"
 		{
 			name: "failed due to spec already approved",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 				}
-				svc.orm.On("GetSpec", mock.Anything, aspec.ID, mock.Anything).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, aSpec.ID, mock.Anything).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -2709,7 +2707,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2752,7 +2750,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2796,7 +2794,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2978,7 +2976,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3012,7 +3010,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3069,7 +3067,7 @@ func Test_Service_ApproveSpec_OCR2(t *testing.T) {
 	chainID := int64(0)
 
 	var (
-		ctx  = testutils.Context(t)
+		ctx  = t.Context()
 		defn = `
 name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
 type               = "offchainreporting2"
@@ -3198,7 +3196,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3249,7 +3247,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3338,7 +3336,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3386,7 +3384,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3429,7 +3427,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3462,12 +3460,12 @@ updateInterval = "20m"
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -3569,7 +3567,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3603,7 +3601,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3657,7 +3655,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 	streamID := uint32(1009001032)
 
 	var (
-		ctx = testutils.Context(t)
+		ctx = t.Context()
 
 		jp = &feeds.JobProposal{
 			ID:             1,
@@ -3712,7 +3710,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 							return j.Name.String == streamName
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3754,7 +3752,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 							return j.Name.String == streamName
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3803,7 +3801,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 							return j.Name.String == streamName
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3866,12 +3864,12 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -3971,7 +3969,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 							return j.Name.String == streamName
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4004,7 +4002,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 							return j.Name.String == streamName
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4061,7 +4059,7 @@ func Test_Service_ApproveSpec_Bootstrap(t *testing.T) {
 	chainID := int64(0)
 
 	var (
-		ctx  = testutils.Context(t)
+		ctx  = t.Context()
 		defn = `
 name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
 type = 'bootstrap'
@@ -4144,7 +4142,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4195,7 +4193,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4284,7 +4282,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4332,7 +4330,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4375,7 +4373,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4408,12 +4406,12 @@ chainID = 0
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -4515,7 +4513,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4549,7 +4547,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4599,7 +4597,7 @@ chainID = 0
 
 func Test_Service_RejectSpec(t *testing.T) {
 	var (
-		ctx = testutils.Context(t)
+		ctx = t.Context()
 		jp  = &feeds.JobProposal{
 			ID:             1,
 			FeedsManagerID: 100,
@@ -4738,7 +4736,7 @@ func Test_Service_RejectSpec(t *testing.T) {
 
 func Test_Service_UpdateSpecDefinition(t *testing.T) {
 	var (
-		ctx         = testutils.Context(t)
+		ctx         = t.Context()
 		specID      = int64(1)
 		updatedSpec = "updated spec"
 		spec        = &feeds.JobProposalSpec{
@@ -5085,7 +5083,7 @@ func Test_Service_GetJobRuns(t *testing.T) {
 				tc.before(svc)
 			}
 
-			actual, err := svc.GetJobRuns(testutils.Context(t), tc.args)
+			actual, err := svc.GetJobRuns(t.Context(), tc.args)
 
 			if tc.wantErr != "" {
 				require.Error(t, err)
@@ -5099,7 +5097,7 @@ func Test_Service_GetJobRuns(t *testing.T) {
 					expectedRuns := []pipeline.Run{run1, run2, run3}
 					expectedSummaries := make([]*proto.JobRunSummary, 0, tc.want)
 
-					for i := 0; i < tc.want; i++ {
+					for i := range tc.want {
 						run := expectedRuns[i]
 						var finishedAt *timestamppb.Timestamp
 						if run.FinishedAt.Valid {

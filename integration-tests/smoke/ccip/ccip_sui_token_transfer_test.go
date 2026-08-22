@@ -27,6 +27,7 @@ import (
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	module_dummy_receiver "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_dummy_receiver/ccip_dummy_receiver"
+	module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	codec "github.com/smartcontractkit/chainlink-sui/codec"
 	sui_deployment "github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
@@ -44,7 +45,6 @@ import (
 )
 
 func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Plain(t *testing.T) {
-	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11054")
 	e, sourceChain, destChain := testSetupTokenTransferSui2Evm(t)
 
 	feeTokenOutput := mintLinkTokenOnSui(t, e.Env, sourceChain, 100000000000)
@@ -220,7 +220,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert(t *testing.T) {
 					Token:         "0x0",
 					Amount:        1e9,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -247,7 +248,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_LockReleaseTokenPool_Revert(t *testing.T) {
 					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
 					Amount:        1500000000,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -388,7 +390,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain(t *testing.T) {
 					Token:         "0x0",
 					Amount:        1e9,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -415,7 +418,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_Plain(t *testing.T) {
 					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
 					Amount:        1500000000,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -468,8 +472,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 
 	deps := getOpTxDeps(suiChain)
 
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
-
 	// Ensure Sui state is fully consistent before curse operation
 	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
@@ -485,8 +487,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 	})
 	require.NoError(t, err)
 
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
-
 	t.Run("Destination chain is cursed - should fail", func(t *testing.T) {
 		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 		msg := testhelpers.SuiSendRequest{
@@ -499,7 +499,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 					Token:         linkTokenOutput.Objects.MintedLinkTokenObjectId,
 					Amount:        2000000000,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -512,8 +513,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_ThenGloballyCursedUncursed
 		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
 		t.Log("Expected error: ", err)
 	})
-
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	// Ensure Sui state is fully consistent before uncurse operation
 	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
@@ -640,7 +639,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_DenylistedSe
 				Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
 				Amount:        1500000000,
 			},
-		}}
+		},
+	}
 
 	baseOpts := []ccipclient.SendReqOpts{
 		ccipclient.WithSourceChain(sourceChain),
@@ -713,8 +713,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithAllowlist_AfterSignerA
 	preRecvBal := evmBurnMint677BalanceOf(t, updatedEnv, destChain, evmToken, ccipReceiverAddress)
 	transferWei := new(big.Int).Mul(big.NewInt(1500000000), big.NewInt(1_000_000_000))
 	expectedRecvBal := new(big.Int).Add(preRecvBal, transferWei)
-
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	tcs := []testhelpers.TestTransferRequest{
 		{
@@ -802,7 +800,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 					Token:         linkTokenOutput3.Objects.MintedLinkTokenObjectId,
 					Amount:        999999999999,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -817,7 +816,7 @@ func Test_CCIPTokenTransfer_Sui2EVM_BurnMintTokenPool_WithRateLimit(t *testing.T
 	})
 }
 
-func mintLinkTokenOnSui(t *testing.T, e cldf.Environment, sourceChain uint64, amount uint64) sui_ops.OpTxResult[linkops.MintLinkTokenOutput] {
+func mintLinkTokenOnSui(t *testing.T, e cldf.Environment, sourceChain, amount uint64) sui_ops.OpTxResult[linkops.MintLinkTokenOutput] {
 	state, err := stateview.LoadOnchainState(e)
 	require.NoError(t, err)
 
@@ -889,8 +888,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 	selectorBytes := make([]byte, 16)
 	binary.BigEndian.PutUint64(selectorBytes[8:], destChain)
 
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
-
 	// Ensure Sui state is fully consistent before curse operation
 	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
@@ -902,8 +899,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 		Subject:          selectorBytes,
 	})
 	require.NoError(t, err)
-
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	t.Run("Destination chain is cursed - should fail", func(t *testing.T) {
 		waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
@@ -917,7 +912,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 					Token:         linkTokenOutput.Objects.MintedLinkTokenObjectId,
 					Amount:        1500000000,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -930,8 +926,6 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_ThenCurseUncurse(t *testing
 		assertSuiSourceRevertExpectedError(t, err, "failed to execute ccip_send with err: transaction failed with error: MoveAbort", "function_name: Some(\"validate_lock_or_burn\") }, 3)")
 		t.Log("Expected error: ", err)
 	})
-
-	waitForSuiRPCSync(t, e.Env.BlockChains.SuiChains()[sourceChain])
 
 	// Ensure Sui state is fully consistent before uncurse operation
 	waitForSuiRPCSyncSlow(t, e.Env.BlockChains.SuiChains()[sourceChain])
@@ -1136,7 +1130,8 @@ func Test_CCIPTokenTransfer_Sui2EVM_ManagedTokenPool_WithRateLimit(t *testing.T)
 					Token:         linkTokenOutput2.Objects.MintedLinkTokenObjectId,
 					Amount:        20000000000,
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1202,7 +1197,8 @@ func Test_CCIPTokenTransfer_EVM2Sui_ManagedTokenPool_WithRateLimit(t *testing.T)
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(5e18), // send 5 LINK
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1360,7 +1356,8 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1390,7 +1387,8 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 					Token:  evmToken.Address(),
 					Amount: big.NewInt(1),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -1416,7 +1414,8 @@ func Test_CCIPTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) {
 					Token:  common.HexToAddress("0x0000000000000000000000000000000000000000"), // Invalid token
 					Amount: big.NewInt(1e8),
 				},
-			}}
+			},
+		}
 
 		baseOpts := []ccipclient.SendReqOpts{
 			ccipclient.WithSourceChain(sourceChain),
@@ -2099,7 +2098,7 @@ func Test_CCIPZeroGasLimitTokenTransfer_EVM2Sui_BurnMintTokenPool(t *testing.T) 
 	testhelpers.WaitForTokenBalances(ctx, t, e.Env, expectedTokenBalances)
 }
 
-func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64) {
+func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sourceChain, destChain uint64) {
 	e, _, _ = testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -2123,7 +2122,199 @@ func testSetupTokenTransferSui2Evm(t *testing.T) (e testhelpers.DeployedEnv, sou
 	return e, sourceChain, destChain
 }
 
-func testSetupHelperEvm2Sui(t *testing.T) (e testhelpers.DeployedEnv, sourceChain uint64, destChain uint64, deployerSourceChain *bind.TransactOpts, suiTokenBytes []byte, suiAddr [32]byte) {
+// Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected
+// verifies the offchain ReleaseOrMintParams ownership guard end-to-end. A
+// TEST-only malicious Sui burn-mint LINK pool is registered with an
+// executor-transmitter-owned SUI coin id in its release_or_mint_params, and its
+// release_or_mint declares an extra &mut Coin<SUI> drain tail. During a normal
+// EVM->Sui token transfer the production execute PTB builder appends that coin
+// to the pool callback under the transmitter's signature; the guard rejects the
+// transmitter-owned entry during PTB build, so the execute PTB is never
+// submitted, EXECUTION_STATE_SUCCESS is never persisted, and the transmitter's
+// coin is not drained. Mirrors Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected.
+func Test_CCIP_TokenTransfer_EVM2Sui_PoolReleaseOrMintTransmitterOwned_Rejected(t *testing.T) {
+	e, sourceChain, destChain, deployerSourceChain, _, suiAddr := testSetupHelperEvm2Sui(t)
+
+	suiChain := e.Env.BlockChains.SuiChains()[destChain]
+	waitForSuiRPCSync(t, suiChain)
+
+	// release_or_mint_params is fixed at pool initialize, so resolve the exec
+	// transmitter's SUI gas coin before deploying the malicious pool.
+	transmitterAddr := suiExecTransmitterAddress(t, e, destChain)
+	require.NotEmpty(t, transmitterAddr)
+	coins, err := suiChain.Client.QueryCoinsByAddress(testhelpers.Context(t), transmitterAddr, "0x2::coin::Coin<0x2::sui::SUI>")
+	require.NoError(t, err)
+	require.NotEmpty(t, coins, "exec transmitter must own SUI gas coins")
+	transmitterCoinID := coins[0].GetObjectId()
+	preCoinBalance := new(big.Int).SetUint64(coins[0].GetBalance())
+
+	// Deploy the malicious LINK burn-mint pool as the Sui dest pool, registered
+	// with the transmitter coin id in release_or_mint_params. The EVM-side
+	// token/pool + cross-registration are handled by the sibling helper.
+	updatedEnv, evmToken, _, _, _, err := testhelpers.HandleMaliciousBurnMintTokenPoolDeploymentForSUI(
+		e.Env, destChain, sourceChain, "0x1", []string{transmitterCoinID},
+	)
+	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	testhelpers.MintAndAllow(
+		t,
+		e.Env,
+		state,
+		map[uint64][]testhelpers.MintTokenInfo{
+			sourceChain: {
+				testhelpers.NewMintTokenInfo(deployerSourceChain, evmToken),
+			},
+		},
+	)
+
+	// Deploy a benign dummy receiver for the message leg. The exploit vector is
+	// the pool, not the receiver, so the receiverObjectIDs carry no drain coin.
+	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+			SuiChainSelector: destChain,
+			McmsOwner:        "0x1",
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutput := output[0].Reports[0]
+	receiverOutput, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+	require.True(t, ok)
+
+	id := strings.TrimPrefix(receiverOutput.PackageId, "0x")
+	receiverByte, err := hex.DecodeString(id)
+	require.NoError(t, err)
+
+	_, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
+			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       receiverOutput.Objects.OwnerCapObjectId,
+			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
+			DummyReceiverPackageId: receiverOutput.PackageId,
+		}),
+	})
+	require.NoError(t, err)
+
+	var clockObj [32]byte
+	copy(clockObj[:], hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000006",
+	))
+	var receiverStateObj [32]byte
+	copy(receiverStateObj[:], hexutil.MustDecode(receiverOutput.Objects.CCIPReceiverStateObjectId))
+	receiverObjectIDs := [][32]byte{clockObj, receiverStateObj}
+
+	tcs := []testhelpers.TestTransferRequest{
+		{
+			Name:             "Pool release_or_mint transmitter-owned coin drain attempt",
+			SourceChain:      sourceChain,
+			DestChain:        destChain,
+			Receiver:         receiverByte,
+			TokenReceiverATA: suiAddr[:],
+			// Exploit message is never finalized: the guard aborts the execute PTB
+			// before submission, so no ExecutionStateChanged event fires. The real
+			// assertion is the explicit GetExecutionState DevInspect below (require.Error).
+			// UNTOUCHED is the honest expected state; TransferMultiple's expected-states
+			// map is discarded here, so this field is documentary only.
+			ExpectedStatus: testhelpers.EXECUTION_STATE_UNTOUCHED,
+			Tokens: []router.ClientEVMTokenAmount{
+				{
+					Token:  evmToken.Address(),
+					Amount: big.NewInt(1e18),
+				},
+			},
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(1_000_000, true, receiverObjectIDs, suiAddr),
+			// No ExpectedTokenBalances: the guard aborts the execute PTB before
+			// submission, so no token is released/minted on Sui. The real balance
+			// check is the explicit suiCoinByID assertion on the transmitter coin
+			// below; WaitForTokenBalances' accumulator is discarded here anyway.
+		},
+	}
+
+	ctx := testhelpers.Context(t)
+	prepareEvm2SuiTransferLane(t, e, state, sourceChain, destChain)
+	startBlocks, expectedSeqNums, _, _ := testhelpers.TransferMultiple(ctx, t, e.Env, state, tcs)
+
+	pair := testhelpers.SourceDestPair{SourceChainSelector: sourceChain, DestChainSelector: destChain}
+	seqRange, ok := expectedSeqNums[pair]
+	require.True(t, ok, "expected a sequence number for the exploit transfer")
+	seqExploit := uint64(seqRange.Start())
+
+	// Let the DON replay + settle so the source event is OCR-committed and the
+	// dest exec is attempted. The guard rejects the transmitter-owned
+	// release_or_mint_params entry during PTB build, so no execute transaction is
+	// submitted and EXECUTION_STATE_SUCCESS never commits.
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
+
+	// Confirm the report was committed, so the exec rejection below is meaningful.
+	err = testhelpers.ConfirmMultipleCommits(t, e.Env, state, startBlocks, false, expectedSeqNums)
+	require.NoError(t, err)
+
+	// With no executed transaction, the sequence is absent and get_execution_state
+	// aborts EUnknownSequenceNumber (atomic-rollback / never-finalized guarantee).
+	suiState, err := sui_deployment.LoadOnchainStatesui(e.Env)
+	require.NoError(t, err)
+	offrampContract, err := module_offramp.NewOfframp(suiState[destChain].EffectiveOffRampPackageID(), suiChain.Client)
+	require.NoError(t, err)
+	offRampStateObj := codec.Object{Id: suiState[destChain].OffRampStateObjectId}
+	devInspectOpts := &suiBind.CallOpts{
+		Signer:           suiChain.Signer,
+		WaitForExecution: true,
+	}
+	_, err = offrampContract.DevInspect().GetExecutionState(ctx, devInspectOpts, offRampStateObj, sourceChain, seqExploit)
+	require.Error(t, err, "exploit execute must not finalize (get_execution_state must NOT return SUCCESS)")
+
+	// No drain: the guard rejects the transmitter-owned release_or_mint_params
+	// entry, so the pool's release_or_mint never receives the coin. The coin may
+	// still be selected as the gas coin for unrelated transactions, so its balance
+	// can drop by a tiny fraction, but a drain would transfer its value off the
+	// transmitter or split it down to ~0. Assert the coin is still owned by the
+	// transmitter AND retained most of its value.
+	postCoinBalance, stillOwned := suiCoinByID(t, suiChain, transmitterAddr, transmitterCoinID)
+	require.Truef(t, stillOwned,
+		"transmitter coin %s is no longer owned by the transmitter after execute (guard should prevent the pool from taking it)",
+		transmitterCoinID)
+	decrease := new(big.Int).Sub(preCoinBalance, postCoinBalance)
+	half := new(big.Int).Quo(preCoinBalance, big.NewInt(2))
+	require.Negativef(t, decrease.Cmp(half),
+		"transmitter coin drained: pre=%s post=%s decrease=%s (guard should prevent the pool from taking the coin's value; only gas should be charged)",
+		preCoinBalance.String(), postCoinBalance.String(), decrease.String())
+
+	// Lane-not-stuck control: a subsequent honest EVM->Sui arbitrary-data message
+	// must still finalize SUCCESS. The guard skips only the exploit's token-pool
+	// command (non-retryable, off-chain); the offramp must keep processing later
+	// messages, proving the lane is not head-of-line blocked by the rejected seq.
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	honestTcs := []testhelpers.TestTransferRequest{
+		{
+			Name:             "EVM2Sui arbitrary message after rejected exploit (lane not stuck)",
+			SourceChain:      sourceChain,
+			DestChain:        destChain,
+			Receiver:         receiverByte,
+			TokenReceiverATA: []byte{},
+			ExpectedStatus:   testhelpers.EXECUTION_STATE_SUCCESS,
+			Tokens:           []router.ClientEVMTokenAmount{}, // arbitrary data, no token-pool command
+			Data:             []byte("lane not stuck"),
+			// Message-only: token receiver must be zero. The Sui offramp asserts
+			// token_receiver == @0x0 iff the message carries no token amounts, else
+			// it aborts EInvalidTokenReceiver at init_execute and the whole
+			// execute PTB reverts, rolling back ExecutionStateChanged.
+			ExtraArgs: testhelpers.MakeSuiExtraArgs(1_000_000, true, receiverObjectIDs, [32]byte{}),
+		},
+	}
+	honestStartBlocks, honestExpectedSeqNums, honestExpectedExecStates, _ := testhelpers.TransferMultiple(ctx, t, e.Env, state, honestTcs)
+	replayEvm2SuiTransferLane(t, e, sourceChain, destChain)
+	err = testhelpers.ConfirmMultipleCommits(t, e.Env, state, honestStartBlocks, false, honestExpectedSeqNums)
+	require.NoError(t, err)
+	honestExecStates := testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, testhelpers.SeqNumberRangeToSlice(honestExpectedSeqNums), honestStartBlocks)
+	require.Equal(t, honestExpectedExecStates, honestExecStates, "honest EVM2Sui message must execute after the rejected exploit (lane not stuck)")
+}
+
+func testSetupHelperEvm2Sui(t *testing.T) (e testhelpers.DeployedEnv, sourceChain, destChain uint64, deployerSourceChain *bind.TransactOpts, suiTokenBytes []byte, suiAddr [32]byte) {
 	e, _, _ = testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithNumOfChains(2),
@@ -2183,7 +2374,7 @@ func getOpTxDeps(suiChain sui.Chain) sui_ops.OpTxDeps {
 	}
 }
 
-func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertErrorMsg string, execRevertCauseErrorMsg string) {
+func assertSuiSourceRevertExpectedError(t *testing.T, err error, execRevertErrorMsg, execRevertCauseErrorMsg string) {
 	require.Error(t, err)
 	fmt.Println("Error: ", err.Error())
 	require.Contains(t, err.Error(), execRevertErrorMsg)
@@ -2225,7 +2416,7 @@ func replayEvm2SuiTransferLane(t *testing.T, e testhelpers.DeployedEnv, sourceCh
 func waitForSuiRPCSyncWithOptions(t *testing.T, suiChain sui.Chain, timeout time.Duration, minAdvance uint64) {
 	t.Helper()
 
-	const pollInterval = 200 * time.Millisecond
+	const pollInterval = 1 * time.Second
 
 	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	defer cancel()

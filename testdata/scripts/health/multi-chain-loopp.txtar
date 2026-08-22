@@ -86,11 +86,12 @@ NetworkNameFull = 'foobar'
 [[Sui.Nodes]]
 Name = 'node'
 URL = 'https://sui.rpc'
-# Empty gRPC fields keep the plugin on its JSON-RPC path and avoid a nil-pointer deref
-# in the Sui LOOPP's NewRelayer (relayer.go: *nodeConfig.GrpcTarget/GrpcToken). Remove
-# once the chainlink-sui ref is bumped to a version that nil-guards these optional fields.
-GrpcTarget = ''
-GrpcToken = ''
+# The Sui LOOPP requires a gRPC endpoint on every node; empty values fail config
+# validation. Target is host:port derived from the node URL; token matches the
+# test default used by nodetestutils.createSuiChainConfig. The client dials lazily,
+# so a dummy target boots the plugin for health checks without connecting.
+GrpcTarget = 'sui.rpc:443'
+GrpcToken = 'test'
 
 [[Ton]]
 ChainID = '-217'
@@ -181,6 +182,7 @@ ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.Rela
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.PluginRelayerConfigEmitter
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain
+ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.BalanceMonitor
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.MultiNode
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.StellarTxm
 ok Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarRelayer
@@ -188,6 +190,7 @@ ok Sui.67.RelayerService
 ok Sui.67.RelayerService.PluginRelayerClient
 ok Sui.67.RelayerService.PluginRelayerClient.PluginSui
 ok Sui.67.RelayerService.PluginRelayerClient.PluginSui.PluginRelayerConfigEmitter
+ok Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiIndexers
 ok Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiTxm
 ok Sui.67.RelayerService.PluginRelayerClient.SuiRelayer
 ok TON.-217.RelayerService
@@ -802,6 +805,15 @@ ok WorkflowStore
     },
     {
       "type": "checks",
+      "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.BalanceMonitor",
+      "attributes": {
+        "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.BalanceMonitor",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
       "id": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.MultiNode",
       "attributes": {
         "name": "Stellar.cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472.RelayerService.PluginRelayerClient.PluginStellar.StellarChain.MultiNode",
@@ -859,6 +871,15 @@ ok WorkflowStore
       "id": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.PluginRelayerConfigEmitter",
       "attributes": {
         "name": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.PluginRelayerConfigEmitter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiIndexers",
+      "attributes": {
+        "name": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiIndexers",
         "status": "passing",
         "output": ""
       }

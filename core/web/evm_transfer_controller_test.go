@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
-
 	evmmocks "github.com/smartcontractkit/chainlink/v2/common/chains/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
@@ -458,6 +457,10 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 }
 
 func TestTransfersController_FindTxAttempt(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	tx := txmgr.Tx{ID: 1}
 	attempt := txmgr.TxAttempt{ID: 2}

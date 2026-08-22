@@ -14,15 +14,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
 func TestFingerprint(t *testing.T) {
 	t.Parallel()
 
-	ot := time.Now()
-	bytes32 := sha256.Sum256([]byte(ot.String()))
+	observationTime := time.Now()
+	bytes32 := sha256.Sum256([]byte(observationTime.String()))
 	configDigest := bytes32[:]
 	donID := uint32(2)
 	streamID := uint32(123)
@@ -42,11 +41,11 @@ func TestFingerprint(t *testing.T) {
 				DonId:                donID,
 				StreamId:             streamID,
 				ConfigDigest:         configDigest,
-				ObservationTimestamp: ot.UnixNano(),
+				ObservationTimestamp: observationTime.UnixNano(),
 			},
 			typ:         synchronization.LLOObservation,
 			fingerprint: fmt.Sprintf("%d-%d-%x", donID, streamID, configDigest),
-			ts:          int32(ot.Unix()), //nolint:gosec // G115
+			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
@@ -54,11 +53,11 @@ func TestFingerprint(t *testing.T) {
 			msg: &lloprotocol.LLOOutcomeTelemetry{
 				DonId:                           donID,
 				ConfigDigest:                    configDigest,
-				ObservationTimestampNanoseconds: uint64(ot.UnixNano()),
+				ObservationTimestampNanoseconds: uint64(observationTime.UnixNano()),
 			},
 			typ:         synchronization.LLOOutcome,
 			fingerprint: fmt.Sprintf("%d-%x", donID, configDigest),
-			ts:          int32(ot.Unix()), //nolint:gosec // G115
+			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
@@ -67,11 +66,11 @@ func TestFingerprint(t *testing.T) {
 				DonId:                           donID,
 				ChannelId:                       channelID,
 				ConfigDigest:                    configDigest,
-				ObservationTimestampNanoseconds: uint64(ot.UnixNano()),
+				ObservationTimestampNanoseconds: uint64(observationTime.UnixNano()),
 			},
 			typ:         synchronization.LLOReport,
 			fingerprint: fmt.Sprintf("%d-%d-%x", donID, channelID, configDigest),
-			ts:          int32(ot.Unix()), //nolint:gosec // G115
+			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
@@ -82,11 +81,11 @@ func TestFingerprint(t *testing.T) {
 				SpecId:               345,
 				BridgeAdapterName:    "bridge-adapter",
 				ConfigDigest:         configDigest,
-				ObservationTimestamp: ot.UnixNano(),
+				ObservationTimestamp: observationTime.UnixNano(),
 			},
 			typ:         synchronization.PipelineBridge,
 			fingerprint: fmt.Sprintf("%d-%d-%d-%s-%x", donID, streamID, 345, "bridge-adapter", configDigest),
-			ts:          int32(ot.Unix()), //nolint:gosec // G115
+			ts:          int32(observationTime.Unix()), //nolint:gosec // G115
 			err:         nil,
 		},
 		{
@@ -142,6 +141,10 @@ func TestSample(t *testing.T) {
 
 // TestPruningLoop ensures the pruning loop works as expected.
 func TestPruningLoop(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	lggr := logger.TestSugared(t)

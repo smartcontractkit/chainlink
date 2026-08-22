@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestHandleShutdown(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	proc, err := os.FindProcess(os.Getpid())
 	require.NoError(t, err)
 
@@ -23,7 +25,7 @@ func TestHandleShutdown(t *testing.T) {
 
 	for name, sig := range tests {
 		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(testutils.Context(t))
+			ctx, cancel := context.WithCancel(t.Context())
 			go HandleShutdown(func(string) {
 				cancel()
 			})

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	evm_fee_quoter "github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/fee_quoter"
 	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf_sui "github.com/smartcontractkit/chainlink-deployments-framework/chain/sui"
 	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	module_dummy_receiver "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_dummy_receiver/ccip_dummy_receiver"
@@ -28,8 +29,10 @@ import (
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
+	cslclient "github.com/smartcontractkit/chainlink-sui/relayer/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mlt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagelimitationstest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
@@ -345,16 +348,20 @@ func Test_CCIP_Messaging_Sui2EVM_Revert_Part2(t *testing.T) {
 
 // evm2SuiMessagingFixtures is shared setup for EVM→Sui messaging tests split for CI isolation.
 type evm2SuiMessagingFixtures struct {
-	e                      testhelpers.DeployedEnv
-	sourceChain, destChain uint64
-	state                  stateview.CCIPOnChainState
-	setup                  messagingtest.TestSetup
-	receiverByte           []byte
-	receiverObjectIDs      [][32]byte
-	receiverPkgID          string
-	receiverStateObjID     string
-	srcFQDestConfig        evm_fee_quoter.FeeQuoterDestChainConfig
-	nativeFeeToken         string
+	e                       testhelpers.DeployedEnv
+	sourceChain, destChain  uint64
+	state                   stateview.CCIPOnChainState
+	setup                   messagingtest.TestSetup
+	receiverByte            []byte
+	receiverObjectIDs       [][32]byte
+	receiverPkgID           string
+	receiverStateObjID      string
+	legitReceiverByte       []byte
+	legitReceiverObjectIDs  [][32]byte
+	legitReceiverPkgID      string
+	legitReceiverStateObjID string
+	srcFQDestConfig         evm_fee_quoter.FeeQuoterDestChainConfig
+	nativeFeeToken          string
 }
 
 func prepareEVM2SuiMessagingTest(t *testing.T) evm2SuiMessagingFixtures {
@@ -764,4 +771,275 @@ func Test_CCIP_EVM2Sui_ZeroReceiver(t *testing.T) {
 			},
 		)
 	})
+}
+
+// prepareEVM2SuiMaliciousReceiverTest mirrors prepareEVM2SuiMessagingTest but deploys + registers
+// the TEST-only malicious receiver whose ccip_receive declares &mut over a transmitter-owned SUI
+// coin tail. Used by the transmitter-ownership guard E2E test.
+func prepareEVM2SuiMaliciousReceiverTest(t *testing.T) evm2SuiMessagingFixtures {
+	t.Helper()
+	ctx := testcontext.Get(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithNumOfChains(2),
+		testhelpers.WithSuiChains(1),
+	)
+
+	evmChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilyEVM))
+	suiChainSelectors := e.Env.BlockChains.ListChainSelectors(chain.WithFamily(chain_selectors.FamilySui))
+
+	state, err := stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	sourceChain := evmChainSelectors[0]
+	destChain := suiChainSelectors[0]
+
+	t.Log("Source chain (EVM): ", sourceChain, "Dest chain (Sui): ", destChain)
+
+	err = testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+	require.NoError(t, err)
+
+	// Deploy the TEST-only malicious receiver.
+	_, output, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployMaliciousReceiver{}, sui_cs.DeployMaliciousReceiverConfig{
+			SuiChainSelector: destChain,
+			McmsOwner:        "0x1",
+		}),
+	})
+	require.NoError(t, err)
+
+	rawOutput := output[0].Reports[0]
+	outputMap, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployMaliciousReceiverObjects])
+	require.True(t, ok)
+
+	id := strings.TrimPrefix(outputMap.PackageId, "0x")
+	receiverByteDecoded, err := hex.DecodeString(id)
+	require.NoError(t, err)
+
+	// Register the malicious receiver in the OffRamp receiver registry.
+	updatedEnv, _, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.RegisterMaliciousReceiver{}, sui_cs.RegisterMaliciousReceiverConfig{
+			SuiChainSelector:           destChain,
+			OwnerCapObjectId:           outputMap.Objects.OwnerCapObjectId,
+			CCIPObjectRefObjectId:      state.SuiChains[destChain].CCIPObjectRef,
+			MaliciousReceiverPackageId: outputMap.PackageId,
+		}),
+	})
+	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	e.RefreshAdapters()
+
+	// Deploy + register the legit (dummy) receiver so the "lane not stuck" control message can
+	// target an honest receiver. The malicious receiver is uncallable under the transmitter-
+	// ownership guard: its ccip_receive requires a &mut Coin<SUI> tail, any SUI coin passed as a
+	// PTB input is address-owned by the transmitter (the signer) and rejected, and SUI coins cannot
+	// be shared. So the control must target a different, honest receiver.
+	_, dummyOutput, err := commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployDummyReceiver{}, sui_cs.DeployDummyReceiverConfig{
+			SuiChainSelector: destChain,
+			McmsOwner:        "0x1",
+		}),
+	})
+	require.NoError(t, err)
+
+	dummyRawOutput := dummyOutput[0].Reports[0]
+	dummyOutputMap, ok := dummyRawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployDummyReceiverObjects])
+	require.True(t, ok)
+
+	dummyID := strings.TrimPrefix(dummyOutputMap.PackageId, "0x")
+	legitReceiverByte, err := hex.DecodeString(dummyID)
+	require.NoError(t, err)
+
+	updatedEnv, _, err = commoncs.ApplyChangesets(t, e.Env, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.RegisterDummyReceiver{}, sui_cs.RegisterDummyReceiverConfig{
+			SuiChainSelector:       destChain,
+			OwnerCapObjectId:       dummyOutputMap.Objects.OwnerCapObjectId,
+			CCIPObjectRefObjectId:  state.SuiChains[destChain].CCIPObjectRef,
+			DummyReceiverPackageId: dummyOutputMap.PackageId,
+		}),
+	})
+	require.NoError(t, err)
+	e.Env = updatedEnv
+
+	state, err = stateview.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	e.RefreshAdapters()
+
+	sender := common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
+	setup := messagingtest.NewTestSetupWithDeployedEnv(
+		t,
+		e,
+		state,
+		sourceChain,
+		destChain,
+		sender,
+		false, // test router
+	)
+
+	var clockObj [32]byte
+	copy(clockObj[:], hexutil.MustDecode(
+		"0x0000000000000000000000000000000000000000000000000000000000000006",
+	))
+	var stateObj [32]byte
+	copy(stateObj[:], hexutil.MustDecode(outputMap.Objects.CCIPReceiverStateObjectId))
+	receiverObjectIDs := [][32]byte{clockObj, stateObj}
+
+	var legitStateObj [32]byte
+	copy(legitStateObj[:], hexutil.MustDecode(dummyOutputMap.Objects.CCIPReceiverStateObjectId))
+	legitReceiverObjectIDs := [][32]byte{clockObj, legitStateObj}
+
+	srcFQDestConfig, err := state.Chains[sourceChain].FeeQuoter.GetDestChainConfig(&bind.CallOpts{Context: ctx}, destChain)
+	require.NoError(t, err, "Failed to get destination chain config")
+
+	return evm2SuiMessagingFixtures{
+		e: e, sourceChain: sourceChain, destChain: destChain,
+		state: state, setup: setup,
+		receiverByte: receiverByteDecoded, receiverObjectIDs: receiverObjectIDs,
+		receiverPkgID: outputMap.PackageId, receiverStateObjID: outputMap.Objects.CCIPReceiverStateObjectId,
+		legitReceiverByte: legitReceiverByte, legitReceiverObjectIDs: legitReceiverObjectIDs,
+		legitReceiverPkgID: dummyOutputMap.PackageId, legitReceiverStateObjID: dummyOutputMap.Objects.CCIPReceiverStateObjectId,
+		srcFQDestConfig: srcFQDestConfig, nativeFeeToken: "0x0",
+	}
+}
+
+// suiCoinByID returns the balance of the named SUI coin owned by account and whether it is still
+// owned by the account. A coin transferred away by a drain is reported as (0, false).
+func suiCoinByID(t *testing.T, chain cldf_sui.Chain, account, coinID string) (*big.Int, bool) {
+	t.Helper()
+	coins, err := chain.Client.QueryCoinsByAddress(testhelpers.Context(t), account, "0x2::coin::Coin<0x2::sui::SUI>")
+	require.NoError(t, err)
+	for _, c := range coins {
+		if c.GetObjectId() == coinID {
+			return new(big.Int).SetUint64(c.GetBalance()), true
+		}
+	}
+	return new(big.Int), false // coin no longer owned by the account
+}
+
+// suiExecTransmitterAddress derives the Sui exec transmitter address from the DON node OCR
+// configs. Sui uses a single key shared by the commit and exec plugins (see
+// nodetestutils.fundNodesSui); the OCR config carries that key's public key as TransmitAccount
+// for Sui chains (deployment.ChainConfigsToOCRConfig). We mirror the relayer's own signer
+// derivation: client.GetAddressFromPublicKey on the raw 32-byte ed25519 pubkey.
+func suiExecTransmitterAddress(t *testing.T, e testhelpers.DeployedEnv, destChain uint64) string {
+	t.Helper()
+	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	for _, n := range nodes {
+		if n.IsBootstrap {
+			continue
+		}
+		cfg, ok := n.OCRConfigForChainSelector(destChain)
+		if !ok {
+			continue
+		}
+		pubKeyBytes, err := hex.DecodeString(strings.TrimPrefix(string(cfg.TransmitAccount), "0x"))
+		require.NoError(t, err, "decoded Sui transmitter pubkey")
+		addr, err := cslclient.GetAddressFromPublicKey(pubKeyBytes)
+		require.NoError(t, err)
+		return addr
+	}
+	require.Fail(t, "no non-bootstrap node with a Sui OCR config found")
+	return ""
+}
+
+// Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected verifies the offchain
+// transmitter-ownership guard end-to-end. A malicious Sui receiver declares &mut over a
+// transmitter-owned SUI gas coin handed in as a receiverObjectIds tail. The guard rejects that
+// tail object, the receiver leg is skipped, the execute PTB reverts on-chain, and the optimistic
+// EXECUTION_STATE_SUCCESS rolls back atomically (get_execution_state aborts EUnknownSequenceNumber)
+// with the transmitter's SUI balance unchanged (no drain). Mirrors Test_CCIP_ReceiverReverts_EVM2Sui.
+func Test_CCIP_Messaging_EVM2Sui_TransmitterOwnedTail_Rejected(t *testing.T) {
+	fx := prepareEVM2SuiMaliciousReceiverTest(t)
+	var nonce uint64
+
+	testhelpers.WaitForEventFilterRegistrationOnLane(t, fx.state, fx.e.Env.Offchain, fx.sourceChain, fx.destChain)
+
+	suiChain := fx.e.Env.BlockChains.SuiChains()[fx.destChain]
+	waitForSuiRPCSync(t, suiChain)
+
+	// Resolve the exec transmitter's SUI gas coin to name as the exploit tail object.
+	transmitterAddr := suiExecTransmitterAddress(t, fx.e, fx.destChain)
+	require.NotEmpty(t, transmitterAddr)
+	coins, err := suiChain.Client.QueryCoinsByAddress(testhelpers.Context(t), transmitterAddr, "0x2::coin::Coin<0x2::sui::SUI>")
+	require.NoError(t, err)
+	require.NotEmpty(t, coins, "exec transmitter must own SUI gas coins")
+	transmitterCoinID := coins[0].GetObjectId()
+	preCoinBalance := new(big.Int).SetUint64(coins[0].GetBalance())
+
+	// Tail order matches malicious ccip_receive: clock, state, drain_coin.
+	var drainCoinObj [32]byte
+	copy(drainCoinObj[:], hexutil.MustDecode(transmitterCoinID))
+	receiverObjectIDs := make([][32]byte, 0, len(fx.receiverObjectIDs)+1)
+	receiverObjectIDs = append(receiverObjectIDs, fx.receiverObjectIDs...)
+	receiverObjectIDs = append(receiverObjectIDs, drainCoinObj)
+
+	// Send the exploit message. Validate commit only; the execute PTB reverts atomically.
+	out := messagingtest.Run(t,
+		messagingtest.TestCase{
+			TestSetup:      fx.setup,
+			Nonce:          &nonce,
+			ValidationType: messagingtest.ValidationTypeCommit,
+			Receiver:       fx.receiverByte,
+			MsgData:        []byte("drain attempt"),
+			ExtraArgs:      testhelpers.MakeSuiExtraArgs(1_000_000, true, receiverObjectIDs, [32]byte{}),
+		},
+	)
+	require.NotEmpty(t, out.MsgSentEvent.SequenceNumber)
+	seqExploit := out.MsgSentEvent.SequenceNumber
+
+	// Let the DON attempt execution of the exploit message (it reverts atomically).
+	messagingtest.SleepReplayAndSettle(t, fx.e.Env, 30*time.Second, fx.sourceChain)
+
+	// The reverted execute PTB rolls back the optimistic EXECUTION_STATE_SUCCESS, so the sequence
+	// is absent and get_execution_state aborts EUnknownSequenceNumber (atomic-rollback guarantee).
+	ctx := testhelpers.Context(t)
+	suiState, err := sui_deployment.LoadOnchainStatesui(fx.e.Env)
+	require.NoError(t, err)
+	offrampContract, err := module_offramp.NewOfframp(suiState[fx.destChain].EffectiveOffRampPackageID(), suiChain.Client)
+	require.NoError(t, err)
+	offRampStateObj := codec.Object{Id: suiState[fx.destChain].OffRampStateObjectId}
+	devInspectOpts := &suiBind.CallOpts{
+		Signer:           suiChain.Signer,
+		WaitForExecution: true,
+	}
+	_, err = offrampContract.DevInspect().GetExecutionState(ctx, devInspectOpts, offRampStateObj, fx.sourceChain, seqExploit)
+	require.Error(t, err, "exploit execute must roll back atomically (get_execution_state must NOT return SUCCESS)")
+
+	// No drain: the guard skips the receiver leg, so the tail coin is never passed to ccip_receive
+	// and the receiver cannot take it. The tail coin may still be selected as the gas coin for the
+	// reverted execute (the guard frees it from being a PTB input), so its balance can drop by the
+	// gas charge — but only by a tiny fraction. A drain would either transfer the whole coin off the
+	// transmitter, or split its value out leaving it at ~0. Assert the coin is still owned by the
+	// transmitter AND retained most of its value.
+	postCoinBalance, stillOwned := suiCoinByID(t, suiChain, transmitterAddr, transmitterCoinID)
+	require.Truef(t, stillOwned,
+		"transmitter tail coin %s is no longer owned by the transmitter after execute (guard should prevent the receiver from taking it)",
+		transmitterCoinID)
+	decrease := new(big.Int).Sub(preCoinBalance, postCoinBalance)
+	half := new(big.Int).Quo(preCoinBalance, big.NewInt(2))
+	require.Negativef(t, decrease.Cmp(half),
+		"transmitter tail coin drained: pre=%s post=%s decrease=%s (guard should prevent the receiver from taking the coin's value; only gas should be charged)",
+		preCoinBalance.String(), postCoinBalance.String(), decrease.String())
+
+	// Lane-not-stuck control: a subsequent honest EVM->Sui message to the LEGIT (dummy)
+	// receiver must still finalize SUCCESS. The malicious receiver is uncallable under the guard,
+	// so the control targets the dummy receiver instead. The guard skips only the exploit's
+	// receiver leg; the offramp must keep processing later messages, proving the lane is not
+	// head-of-line blocked by the rejected seq.
+	waitForSuiRPCSync(t, suiChain)
+	messagingtest.Run(t,
+		messagingtest.TestCase{
+			TestSetup:              fx.setup,
+			Nonce:                  &nonce,
+			ValidationType:         messagingtest.ValidationTypeExec,
+			Receiver:               fx.legitReceiverByte,
+			MsgData:                []byte("lane not stuck"),
+			ExtraArgs:              testhelpers.MakeSuiExtraArgs(1_000_000, true, fx.legitReceiverObjectIDs, [32]byte{}),
+			ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+		},
+	)
 }

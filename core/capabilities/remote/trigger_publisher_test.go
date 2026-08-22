@@ -16,6 +16,7 @@ import (
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
@@ -33,7 +34,7 @@ func TestTriggerPublisher_Register(t *testing.T) {
 
 	underlyingTriggerCap, publisher, _, peers := newServices(t, capabilityDONID, workflowDONID, 1, time.Second)
 
-	// invalid sender case - node 0 is not a member of the workflow DON, registration shoudn't happen
+	// invalid sender case - node 0 is not a member of the workflow DON, registration shouldn't happen
 	regEvent := newRegisterTriggerMessage(t, workflowDONID, peers[0])
 	publisher.Receive(ctx, regEvent)
 	require.Empty(t, underlyingTriggerCap.registrationsCh)
@@ -44,8 +45,6 @@ func TestTriggerPublisher_Register(t *testing.T) {
 	require.Eventually(t, func() bool { return len(underlyingTriggerCap.registrationsCh) > 0 }, 2*time.Second, 10*time.Millisecond)
 	forwarded := <-underlyingTriggerCap.registrationsCh
 	require.Equal(t, workflowID1, forwarded.Metadata.WorkflowID)
-
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
@@ -66,8 +65,6 @@ func TestTriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
 	}).Return(nil)
 	underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
 	<-awaitOutgoingMessageCh
-
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
@@ -110,8 +107,6 @@ func TestTriggerPublisher_ReceiveTriggerEvents_BatchingEnabled(t *testing.T) {
 		underlyingTriggerCap.eventCh <- commoncap.TriggerResponse{}
 		time.Sleep(batchPeriod)
 		<-awaitOutgoingMessageCh
-
-		require.NoError(t, publisher.Close())
 	})
 }
 
@@ -127,7 +122,6 @@ func TestTriggerPublisher_ReceiveTriggerEventAcks(t *testing.T) {
 	publisher.Receive(ctx, regEvent)
 
 	require.Eventually(t, func() bool { return underlyingTriggerCap.ackCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
@@ -243,10 +237,9 @@ func TestTriggerPublisher_SetConfig_Basic(t *testing.T) {
 	})
 }
 
-func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, maxBatchSize uint32, batchCollectionPeriod time.Duration) (*testTrigger, remotetypes.ReceiverService, *mocks.Dispatcher, []p2ptypes.PeerID) {
+func newServices(t *testing.T, capabilityDONID, workflowDONID, maxBatchSize uint32, batchCollectionPeriod time.Duration) (*testTrigger, remotetypes.ReceiverService, *mocks.Dispatcher, []p2ptypes.PeerID) {
 	t.Helper()
 	lggr := logger.Test(t)
-	ctx := t.Context()
 	capInfo := commoncap.CapabilityInfo{
 		ID:             capID,
 		CapabilityType: commoncap.CapabilityTypeTrigger,
@@ -286,7 +279,7 @@ func newServices(t *testing.T, capabilityDONID uint32, workflowDONID uint32, max
 	}
 	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
-	require.NoError(t, publisher.Start(ctx))
+	servicetest.Run(t, publisher)
 	return underlying, publisher, dispatcher, peers
 }
 
@@ -313,7 +306,7 @@ func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes
 	}
 }
 
-func newAckEventMessage(t *testing.T, eventID string, triggerID string, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
+func newAckEventMessage(t *testing.T, eventID, triggerID string, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
 	return &remotetypes.MessageBody{
 		Sender:      sender[:],
 		Method:      remotetypes.MethodTriggerEventAck,
@@ -363,7 +356,7 @@ func (tr *testTrigger) UnregisterTrigger(_ context.Context, request commoncap.Tr
 	return nil
 }
 
-func (tr *testTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
+func (tr *testTrigger) AckEvent(_ context.Context, triggerID, eventID, method string) error {
 	tr.eventAckd = true
 	tr.ackCount.Add(1)
 	if tr.ackBlock != nil {
@@ -399,7 +392,6 @@ func TestTriggerPublisher_AckEvent_DoesNotBlockReceive(t *testing.T) {
 
 	close(underlying.ackBlock)
 	require.Eventually(t, func() bool { return underlying.ackCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_MultipleTriggersSameWorkflow(t *testing.T) {
@@ -546,7 +538,7 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 
 	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
-	require.NoError(t, publisher.Start(ctx))
+	servicetest.Run(t, publisher)
 
 	// Register trigger
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
@@ -568,7 +560,6 @@ func TestTriggerPublisher_ExplicitUnregister(t *testing.T) {
 	}
 	publisher.Receive(ctx, unregMsg)
 	require.Equal(t, "triggerA", waitForUnregister(t, underlying.unregisterCalled))
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
@@ -626,7 +617,7 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 	}).Return(nil).Maybe()
 
 	// Start before Receive so initMetrics() has run (RegisterTrigger success path records metrics).
-	require.NoError(t, publisher.Start(ctx))
+	servicetest.Run(t, publisher)
 
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
 	publisher.Receive(ctx, regEvent)
@@ -643,11 +634,13 @@ func TestTriggerPublisher_SendsRegistrationChecks(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for registration check message")
 	}
-
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
@@ -695,7 +688,7 @@ func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
 
 	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
-	require.NoError(t, publisher.Start(ctx))
+	servicetest.Run(t, publisher)
 
 	for i := range nRegs {
 		publisher.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], fmt.Sprintf("trigger_%d", i)))
@@ -719,8 +712,6 @@ func TestTriggerPublisher_RegistrationChecksChunkByMaxBatchSize(t *testing.T) {
 		}
 		return has100 && has50 && n100 >= 2 && len(chunkLens) >= 3
 	}, 3*time.Second, 20*time.Millisecond)
-
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
@@ -772,7 +763,7 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 
 	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
-	require.NoError(t, publisher.Start(ctx))
+	servicetest.Run(t, publisher)
 
 	// Register a trigger from the valid workflow DON member
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[1], "triggerA")
@@ -805,8 +796,6 @@ func TestTriggerPublisher_UnregisterValidatesSenderMembership(t *testing.T) {
 	unregMsg.Sender = peers[1][:]
 	publisher.Receive(ctx, unregMsg)
 	require.Equal(t, "triggerA", waitForUnregister(t, underlying.unregisterCalled))
-
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
@@ -858,7 +847,7 @@ func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
 	underlying := newMultiTrigger(capInfo)
 	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
-	require.NoError(t, publisher.Start(ctx))
+	servicetest.Run(t, publisher)
 
 	for _, p := range []p2ptypes.PeerID{peers[1], peers[2], peers[3]} {
 		publisher.Receive(ctx, newRegisterTriggerMessageWithTriggerID(t, workflowDONID, p, "triggerA"))
@@ -890,8 +879,6 @@ func TestTriggerPublisher_UnregisterRequiresQuorum(t *testing.T) {
 
 	recvUnreg(peers[3])
 	require.Equal(t, "triggerA", waitForUnregister(t, underlying.unregisterCalled))
-
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
@@ -954,11 +941,13 @@ func TestTriggerPublisher_UnregisterInvalidMetadata(t *testing.T) {
 			publisher.Receive(ctx, msg)
 		})
 	}
-
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.Test(t)
@@ -1014,7 +1003,7 @@ func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
 
 	// Start before Receive so initMetrics() has run on registration and ACK paths.
-	require.NoError(t, publisher.Start(ctx))
+	servicetest.Run(t, publisher)
 
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[0], "triggerA")
 	publisher.Receive(ctx, regEvent)
@@ -1046,8 +1035,6 @@ func TestTriggerPublisher_AckCacheCleanup(t *testing.T) {
 	}
 	require.True(t, sentTo[peers[0]], "event should be re-sent to peers[0] after ack cache cleanup")
 	require.True(t, sentTo[peers[1]], "event should be sent to peers[1]")
-
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.T) {
@@ -1107,7 +1094,7 @@ func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.
 
 	publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
 	require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
-	require.NoError(t, publisher.Start(ctx))
+	servicetest.Run(t, publisher)
 
 	regEvent := newRegisterTriggerMessageWithTriggerID(t, workflowDONID, peers[0], "triggerA")
 	publisher.Receive(ctx, regEvent)
@@ -1147,8 +1134,6 @@ func TestTriggerPublisher_SecondDeliveryAfterFullAck_ReachesAllPeers(t *testing.
 	finalTotal := triggerEventSendCount
 	triggerEventMu.Unlock()
 	require.Equal(t, 4, finalTotal, "two delivery rounds × two workflow peers")
-
-	require.NoError(t, publisher.Close())
 }
 
 func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
@@ -1197,7 +1182,7 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 		}
 		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
 		require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
-		require.NoError(t, publisher.Start(ctx))
+		servicetest.Run(t, publisher)
 
 		regMsg := newRegisterTriggerMessage(t, workflowDONID, peers[1])
 		publisher.Receive(ctx, regMsg)
@@ -1206,8 +1191,6 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 		publisher.Receive(ctx, regMsg)
 		publisher.Receive(ctx, regMsg)
 		require.Eventually(t, func() bool { return underlying.callCount.Load() == 1 }, 2*time.Second, 10*time.Millisecond)
-
-		require.NoError(t, publisher.Close())
 	})
 
 	t.Run("system error allows retries", func(t *testing.T) {
@@ -1252,7 +1235,7 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 		}
 		publisher := remote.NewTriggerPublisher(capInfo.ID, "", dispatcher, lggr)
 		require.NoError(t, publisher.SetConfig(config, underlying, capDonInfo, workflowDONs))
-		require.NoError(t, publisher.Start(ctx))
+		servicetest.Run(t, publisher)
 
 		regMsg := newRegisterTriggerMessage(t, workflowDONID, peers[1])
 		publisher.Receive(ctx, regMsg)
@@ -1273,8 +1256,6 @@ func TestTriggerPublisher_RegisterTrigger_FailureShortCircuit(t *testing.T) {
 			publisher.Receive(ctx, regMsg)
 			return underlying.callCount.Load() >= 3
 		}, 2*time.Second, 10*time.Millisecond)
-
-		require.NoError(t, publisher.Close())
 	})
 }
 
@@ -1298,7 +1279,7 @@ func (tr *errTrigger) UnregisterTrigger(_ context.Context, _ commoncap.TriggerRe
 	return nil
 }
 
-func (tr *errTrigger) AckEvent(_ context.Context, _ string, _ string, _ string) error {
+func (tr *errTrigger) AckEvent(_ context.Context, _, _, _ string) error {
 	return nil
 }
 
@@ -1342,7 +1323,7 @@ func (tr *multiTrigger) Info(_ context.Context) (commoncap.CapabilityInfo, error
 	return tr.info, nil
 }
 
-func (tr *multiTrigger) AckEvent(_ context.Context, triggerID string, eventID string, method string) error {
+func (tr *multiTrigger) AckEvent(_ context.Context, triggerID, eventID, method string) error {
 	return nil
 }
 

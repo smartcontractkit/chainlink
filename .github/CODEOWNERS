@@ -50,16 +50,6 @@
 # Keeper/Automation-related services
 /core/services/ocr2/plugins/ocr2keeper/ @smartcontractkit/dev-services
 
-# Chainlink Functions
-/core/services/functions/ @smartcontractkit/dev-services
-/core/services/ocr2/plugins/functions/ @smartcontractkit/dev-services
-/core/services/s4/ @smartcontractkit/dev-services
-/core/services/ocr2/plugins/s4/ @smartcontractkit/dev-services
-/core/services/ocr2/plugins/threshold/ @smartcontractkit/dev-services
-/core/services/relay/evm/functions/ @smartcontractkit/dev-services
-/core/scripts/functions/ @smartcontractkit/dev-services
-/core/scripts/gateway/ @smartcontractkit/dev-services
-
 # Keystone
 /core/services/registrysyncer/ @smartcontractkit/keystone
 /core/services/workflows/ @smartcontractkit/keystone
@@ -98,6 +88,7 @@
 /.github/workflows/devenv* @smartcontractkit/devex-tooling @smartcontractkit/devex-cicd @smartcontractkit/core
 /tools/plugout/ @smartcontractkit/devex-cicd @smartcontractkit/core
 /tools/test/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
+/tools/githooks/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 

@@ -1,37 +1,52 @@
 version: "2"
+
 run:
+  timeout: 5m
   allow-parallel-runners: true
+  modules-download-mode: readonly
   build-tags:
     - integration
     - dev
     - trace
+
 linters:
+  default: standard
   enable:
+    - asciicheck
+    - bodyclose
     - containedctx
     - copyloopvar
     - depguard
     - errname
     - errorlint
     - exhaustive
+    - exptostd
     - fatcontext
     - ginkgolinter
+    - gocheckcompilerdirectives
     - gocritic
     - gosec
+    - intrange
     - loggercheck
     - mirror
     - misspell
     - modernize
+    - nilerr
     - noctx
     - nolintlint
     - paralleltest
     - perfsprint
     - prealloc
+    - reassign
+    - recvcheck
     - revive
     - rowserrcheck
     - spancheck
     - sqlclosecheck
     - testifylint
     - unconvert
+    - usestdlibvars
+    - usetesting
     - whitespace
   settings:
     depguard:
@@ -98,15 +113,11 @@ linters:
       excludes:
         - G101
         - G104
-        # - G204
-        # - G304
-        # - G404
     govet:
       enable:
         - shadow
       settings:
         printf:
-          # Additionally check chainlink custom loggers
           funcs:
             - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Tracef
             - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Debugf
@@ -127,7 +138,6 @@ linters:
             - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Tracef
             - (github.com/smartcontractkit/chainlink-common/pkg/logger.SugaredLogger).Criticalf
     loggercheck:
-      # Check that *w logging functions have even number of args (i.e., well formed key-value pairs).
       rules:
         - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Tracew
         - (github.com/smartcontractkit/chainlink/v2/core/logger.Logger).Debugw
@@ -170,12 +180,10 @@ linters:
         - name: range
         - name: receiver-naming
         - name: time-naming
-        # - name: unexported-return
         - name: indent-error-flow
         - name: errorf
         - name: empty-block
         - name: superfluous-else
-        # - name: unused-parameter
         - name: unreachable-code
         - name: redefines-builtin-id
         - name: waitgroup-by-value
@@ -189,15 +197,13 @@ linters:
         - name: modifies-parameter
         - name: identical-branches
         - name: get-return
-        # - name: flag-parameter
         - name: early-return
         - name: defer
         - name: constant-logical-expr
-        # - name: confusing-naming
-        # - name: confusing-results
         - name: bool-literal-in-expr
         - name: atomic
   exclusions:
+    warn-unused: true
     generated: lax
     presets:
       - comments
@@ -213,9 +219,11 @@ linters:
       - "core/scripts/cre/environment/examples/workflows"
 issues:
   max-same-issues: 0
+  max-issues-per-linter: 0
 formatters:
   enable:
     - gci
+    - gofmt
   settings:
     gci:
       custom-order: true
@@ -223,6 +231,8 @@ formatters:
         - standard
         - default
         - prefix(github.com/smartcontractkit/)
-        - prefix(github.com/smartcontractkit/chainlink/)
+        - prefix(github.com/smartcontractkit/chainlink)
+    gofmt:
+      simplify: true
   exclusions:
     generated: lax

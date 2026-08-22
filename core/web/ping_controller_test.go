@@ -53,7 +53,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	require.NoError(t, err)
 
 	url := app.Server.URL + "/v2/ping"
-	request, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	require.NoError(t, err)
 	request.Header.Set("Content-Type", web.MediaType)
 	request.Header.Set("X-Chainlink-EA-AccessKey", eia.AccessKey)
@@ -78,7 +78,7 @@ func TestPingController_Show_NoCredentials(t *testing.T) {
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	url := app.Server.URL + "/v2/ping"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	require.NoError(t, err)
 	resp, err := client.Do(req)
 	require.NoError(t, err)

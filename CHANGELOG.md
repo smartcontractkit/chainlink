@@ -1,5 +1,25 @@
 # Changelog Chainlink Core
 
+## 2.61.0
+
+### Minor Changes
+
+- [#23389](https://github.com/smartcontractkit/chainlink/pull/23389) [`7433cf1`](https://github.com/smartcontractkit/chainlink/commit/7433cf1f55afe2d1281d3fda6a80a81d1a63f6cb) - Minor bump to start next version
+
+## 2.60.0
+
+### Minor Changes
+
+- [#23372](https://github.com/smartcontractkit/chainlink/pull/23372) [`7e14931`](https://github.com/smartcontractkit/chainlink/commit/7e1493120d585bdc67764835d73db3655d6d9973) - #added adds V2 call_capability to wasm with proper response handling #bugfix
+
+- [#23327](https://github.com/smartcontractkit/chainlink/pull/23327) [`d2f97d2`](https://github.com/smartcontractkit/chainlink/commit/d2f97d2cd6c5fcca678123f954b499049850b6bd) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23037](https://github.com/smartcontractkit/chainlink/pull/23037) [`003236a`](https://github.com/smartcontractkit/chainlink/commit/003236a45e91c858c09226eba4bb0efcf228be09) - #internal Add node-measured round-trip metrics to the confidential workflows ConfidentialModule: `enclave_execution_time_ms` (histogram) and `enclave_execution_failures` (counter), labeled by workflow. These are trusted (node-measured) and complement the non-attested `enclave.*` metrics forwarded from the enclave.
+
+- [#23375](https://github.com/smartcontractkit/chainlink/pull/23375) [`3e2a831`](https://github.com/smartcontractkit/chainlink/commit/3e2a83144bc06c43c34a12ebe82723e2ca9c9a6c) - #internal Move `BuildWorkflowGetSecretsRequestID` to chainlink-common's vault capability package and use it in place of the `vaultutils` copy, so all consumers derive the VaultDON GetSecrets request ID from a single definition.
+
 ## 2.59.0
 
 ### Minor Changes

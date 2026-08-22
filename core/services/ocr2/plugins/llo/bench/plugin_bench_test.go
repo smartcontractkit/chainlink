@@ -6,10 +6,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
 const (
@@ -37,6 +38,10 @@ var benchWorkloads = []workload{
 // same format. This guards the benchmark: if the two drivers diverge, the
 // latency numbers are not comparing like for like.
 func TestParity(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	for _, w := range benchWorkloads {
 		t.Run(w.String(), func(t *testing.T) {
@@ -89,7 +94,7 @@ func BenchmarkFullRound(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				v30Round(b, p, seq, prev, benchN)
 			}
 			b.StopTimer()
@@ -110,7 +115,7 @@ func BenchmarkFullRound(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				v31Round(b, p, db, seq, benchN)
 				seq++
 			}
@@ -143,7 +148,7 @@ func BenchmarkObservation(b *testing.B) {
 			ctx := context.Background()
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := p.Observation(ctx, outctx, nil); err != nil {
 					b.Fatal(err)
 				}
@@ -159,7 +164,7 @@ func BenchmarkObservation(b *testing.B) {
 			defer rtx.Discard()
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := p.Observation(ctx, seq, ocrtypes.AttributedQuery{}, rtx, nil); err != nil {
 					b.Fatal(err)
 				}
@@ -186,7 +191,7 @@ func BenchmarkStateAdvance(b *testing.B) {
 			aos := replicate(obs, benchN)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := p.Outcome(ctx, outctx, nil, aos); err != nil {
 					b.Fatal(err)
 				}
@@ -205,7 +210,7 @@ func BenchmarkStateAdvance(b *testing.B) {
 			aos := replicate(obs, benchN)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				wtx, err := db.NewReadWriteTransaction()
 				if err != nil {
 					b.Fatal(err)
@@ -236,7 +241,7 @@ func BenchmarkReports(b *testing.B) {
 			ctx := context.Background()
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := p.Reports(ctx, seq, outcome); err != nil {
 					b.Fatal(err)
 				}
@@ -263,7 +268,7 @@ func BenchmarkReports(b *testing.B) {
 			require.NotEmpty(b, reports)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := p.Reports(ctx, seq, prec); err != nil {
 					b.Fatal(err)
 				}

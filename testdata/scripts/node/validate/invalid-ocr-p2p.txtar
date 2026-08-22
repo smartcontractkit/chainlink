@@ -418,6 +418,16 @@ MetricCardinalityLimit = 100000
 Enabled = false
 Prefixes = ['go_']
 
+[Metering]
+MeterRecordsEnabled = false
+MeterSnapshotsEnabled = false
+Product = 'cre'
+Tenant = ''
+NumericTenantID = ''
+Environment = ''
+Zone = ''
+NodeID = ''
+
 [Workflows]
 [Workflows.Limits]
 Global = 200
@@ -469,6 +479,7 @@ ArbiterRetryInterval = '12s'
 ShardIndex = 0
 ShardOrchestratorPort = 50051
 ShardOrchestratorAddress = ''
+ShardAssignmentMode = 'manual-only'
 
 [LOOPP]
 GRPCServerMaxRecvMsgSize = '32.00mb'

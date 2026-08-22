@@ -262,8 +262,14 @@ jobs:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
       name: integration
       deployment: false
-    runs-on: ubuntu-latest
-    needs: [labels, enforce-ctf-version, changes]
+    runs-on: ${{ matrix.image.runner }}
+    needs:
+      [
+        labels,
+        enforce-ctf-version,
+        run-core-cre-e2e-tests-setup,
+        run-ccip-v1-6-e2e-tests-setup,
+      ]
     permissions:
       id-token: write
       contents: read
@@ -277,12 +283,8 @@ jobs:
             cache-scope: core
             any-should-run: >-
               ${{
-                github.event_name == 'workflow_dispatch' ||
-                needs.changes.outputs.general-changes == 'true' ||
-                needs.changes.outputs.core-changes == 'true' ||
-                needs.changes.outputs.cre-changes == 'true' ||
-                needs.changes.outputs.ccip-changes == 'true' ||
-                needs.labels.outputs.run-e2e-tests-label-found == 'true'
+                needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true' ||
+                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
               }}
 
           - name: (plugins)
@@ -292,11 +294,7 @@ jobs:
             cache-scope: plugins
             any-should-run: >-
               ${{
-                github.event_name == 'workflow_dispatch' ||
-                needs.changes.outputs.general-changes == 'true' ||
-                needs.changes.outputs.core-changes == 'true' ||
-                needs.changes.outputs.cre-changes == 'true' ||
-                needs.labels.outputs.run-e2e-tests-label-found == 'true'
+                needs.run-core-cre-e2e-tests-setup.outputs.should-run == 'true'
               }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners

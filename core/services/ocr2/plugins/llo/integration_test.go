@@ -63,7 +63,6 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -337,7 +336,7 @@ func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.Onch
 
 	require.NoError(t, err)
 
-	return
+	return signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig
 }
 
 // generateOCR31Config maps the shared OCRConfig to ocr3_1confighelper's OCR3.1
@@ -462,7 +461,7 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	} else {
 		topic = llo.StagingConfigSet
 	}
-	logs, err := backend.Client().FilterLogs(t.Context(), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
+	logs, err := backend.Client().FilterLogs(t.Context(), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{{topic, donIDPadded}}})
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(logs), 1)
 
@@ -937,7 +936,7 @@ lloConfigMode = "bluegreen"
 					},
 				}),
 			},
-			// Sample funding rate scheam
+			// Sample funding rate schema
 			4: {
 				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 				Streams: []llotypes.Stream{
@@ -1916,7 +1915,8 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 	offchainConfig := lloprotocol.OffchainConfig{
 		ProtocolVersion:                     0,
 		DefaultMinReportIntervalNanoseconds: 0,
-		EnableObservationCompression:        false}
+		EnableObservationCompression:        false,
+	}
 	for _, ocr31 := range []bool{false, true} {
 		name := "OCR3.0/v30"
 		if ocr31 {
@@ -2106,7 +2106,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 				seenSeqNr := uint64(0)
 				highestObsTsNanos := uint64(0)
 				highestValidAfterNanos := uint64(0)
-				for i := 0; i < len(allReports[digest]); i++ {
+				for i := range len(allReports[digest]) {
 					r := allReports[digest][i]
 					switch digest {
 					case greenDigest:
@@ -2337,7 +2337,7 @@ func testIntegrationLLOChannelMerging(t *testing.T, ocr31 bool) {
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
-	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+	t.Run("Channel merging lifecycle with owners and adders", func(t *testing.T) {
 		packetCh := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
@@ -2454,7 +2454,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		}
 
 		// Scenario 1: Owner adds initial channels
-		t.Run("Owner adds initial channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+		t.Run("Owner adds initial channels", func(t *testing.T) {
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
 					ReportFormat: llotypes.ReportFormatJSON,
@@ -2514,7 +2514,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 2: Adders add new channels
-		t.Run("Adders add new channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+		t.Run("Adders add new channels", func(t *testing.T) {
 			// Adder1 adds channels
 			adder1Definitions := llotypes.ChannelDefinitions{
 				10: {
@@ -2612,7 +2612,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 3: Owner tombstone some channels
-		t.Run("Owner tombstone channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+		t.Run("Owner tombstone channels", func(t *testing.T) {
 			// Owner updates definitions, add tombstone to channel 2 and 21
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
@@ -2692,7 +2692,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 4: Owner overwrites adder channel
-		t.Run("Owner overwrites adder channel", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+		t.Run("Owner overwrites adder channel", func(t *testing.T) {
 			// Owner sets a channel definition with same ID as adder1's channel 10
 			channelDefinitions := llotypes.ChannelDefinitions{
 				1: {
@@ -2756,7 +2756,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		})
 
 		// Scenario 5: Verify adder cannot remove channels
-		t.Run("Adder cannot remove channels", func(t *testing.T) { //nolint:paralleltest // subtest used for documentation
+		t.Run("Adder cannot remove channels", func(t *testing.T) {
 			// Adder1 tries to set definitions that exclude channel 11 (which they previously added)
 			adder1NewDefinitions := llotypes.ChannelDefinitions{
 				10: {
@@ -3029,6 +3029,132 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		"tombstoned channel's stream should not be observed (no additional bridge calls)")
 }
 
+// TestIntegration_LLO_bridgeConnManagerHappyPath exercises the BridgeConnManager
+// flow end to end: BridgeTask.Run subscribes to a new asset pair on a bridge with
+// UseConnectionManager=true, the fake EA (a real gRPC server implementing
+// streamspb.StreamServiceServer) sends back an observation, and BridgeConnManager
+// caches it for BridgeTask.Run to serve on subsequent pipeline runs, ultimately
+// producing an LLO report carrying that value. Happy path only.
+func TestIntegration_LLO_bridgeConnManagerHappyPath(t *testing.T) {
+	t.Parallel()
+
+	const (
+		salt     = 600
+		donID    = uint32(848484)
+		streamID = uint32(290)
+	)
+
+	offchainConfig := lloprotocol.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(1 * time.Second),
+	}
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := range nNodes {
+		k := big.NewInt(int64(salt + i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo_bridgeconnmanager", backend, bootstrapCSAKey, nil)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	packetCh := make(chan *packet, 100000)
+	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+	serverPubKey := serverKey.PublicKey
+	srv := NewMercuryServer(t, serverKey, packetCh)
+	serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+		c.Mercury.Transmitter.Protocol = new(mercurytransmitter.MercuryTransmitterProtocolGRPC)
+	})
+
+	chainID := testutils.SimulatedChainID
+	relayType := "evm"
+	relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+	addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-bridgeconnmanager", relayType, relayConfig)
+
+	pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+
+	price := decimal.NewFromFloat(1234.5)
+	for i, node := range nodes {
+		bridgeName := createGRPCStreamBridge(t, "connmanager", i, price, node.App.BridgeORM())
+		addSingleDecimalStreamJob(t, node, streamID, bridgeName)
+		addLLOJob(
+			t,
+			node,
+			configuratorAddress,
+			bootstrapPeerID,
+			bootstrapNodePort,
+			clientPubKeys[i],
+			"bridgeconnmanager-stream-test",
+			pluginConfig,
+			relayType,
+			relayConfig,
+		)
+	}
+
+	channelDefinitions := llotypes.ChannelDefinitions{
+		1: {
+			ReportFormat: llotypes.ReportFormatJSON,
+			Streams: []llotypes.Stream{
+				{StreamID: streamID, Aggregator: llotypes.AggregatorMedian},
+			},
+		},
+	}
+	url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+	_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+	require.NoError(t, err)
+	backend.Commit()
+
+	setProductionConfig(
+		t, donID, steve, backend, configurator, configuratorAddress, nodes,
+		WithOracles(oracles), WithOffchainConfig(offchainConfig),
+	)
+
+	// The fake EA only starts sending observations once BridgeConnManager's
+	// EAConn sends its first subscription snapshot (on a fixed 10s interval), so
+	// this loop tolerates reports that predate the first cached observation and
+	// keeps polling until one carries the expected price.
+	require.Eventually(t, func() bool {
+		pckt, errReceive := receiveWithTimeout(t, packetCh, 2*time.Second)
+		if errReceive != nil {
+			return false
+		}
+		req := pckt.req
+		if req.ReportFormat != uint32(llotypes.ReportFormatJSON) {
+			return false
+		}
+		_, _, r, _, errDecode := (lloreportcodec.JSONReportCodec{}).UnpackDecode(req.Payload)
+		if errDecode != nil || r.ChannelID != 1 {
+			return false
+		}
+		if len(r.Values) != 1 {
+			return false
+		}
+		dv, ok := r.Values[0].(*lloprotocol.Decimal)
+		if !ok {
+			return false
+		}
+		return dv.Decimal().Equal(price)
+	}, reportTimeout, 100*time.Millisecond, "expected a report sourced from the bridge connection manager cache")
+}
+
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := range nNodes {
@@ -3049,7 +3175,7 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
 		})
 	}
-	return
+	return oracles, nodes
 }
 
 func newChannelDefinitionsServer(t *testing.T, channelDefinitions llotypes.ChannelDefinitions) (url string, sha [32]byte) {
@@ -3100,11 +3226,11 @@ func newSingleABIEncoder(typ string, multiplier *sqlutil.Big) (enc lloevm.ABIEnc
 		if err != nil {
 			panic(err)
 		}
-		return
+		return enc
 	}
 	err := json.Unmarshal(fmt.Appendf(nil, `{"type":"%s","multiplier":"%s"}`, typ, multiplier.String()), &enc)
 	if err != nil {
 		panic(err)
 	}
-	return
+	return enc
 }

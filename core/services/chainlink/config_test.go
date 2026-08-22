@@ -17,6 +17,8 @@ import (
 
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/config/configtest"
@@ -24,15 +26,11 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	mercurytransmitter "github.com/smartcontractkit/chainlink-data-streams/llo/transmitter/dataengine"
-	"github.com/smartcontractkit/chainlink-framework/multinode"
-
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/chaintype"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -70,7 +68,7 @@ var (
 				},
 			},
 			Log: toml.Log{
-				Level:       ptr(toml.LogLevel(zapcore.PanicLevel)),
+				Level:       new(toml.LogLevel(zapcore.PanicLevel)),
 				JSONConsole: new(true),
 			},
 			JobPipeline: toml.JobPipeline{
@@ -119,7 +117,8 @@ var (
 						HTTPURL:  mustURL("http://broadcast.mirror"),
 						SendOnly: new(true),
 					},
-				}},
+				},
+			},
 			{
 				ChainID: sqlutil.NewI(42),
 				Chain: evmcfg.Chain{
@@ -132,7 +131,8 @@ var (
 						Name:  new("foo"),
 						WSURL: mustURL("wss://web.socket/test/foo"),
 					},
-				}},
+				},
+			},
 			{
 				ChainID: sqlutil.NewI(137),
 				Chain: evmcfg.Chain{
@@ -145,7 +145,8 @@ var (
 						Name:  new("bar"),
 						WSURL: mustURL("wss://web.socket/test/bar"),
 					},
-				}},
+				},
+			},
 		},
 	}
 )
@@ -253,21 +254,23 @@ func TestConfig_Marshal(t *testing.T) {
 		SendTimeout:        commoncfg.MustNewDuration(5 * time.Second),
 		UseBatchSend:       new(true),
 		ChipIngressEnabled: new(false),
-		Endpoints: []toml.TelemetryIngressEndpoint{{
-			Network:      new("EVM"),
-			ChainID:      new("1"),
-			ServerPubKey: new("test-pub-key"),
-			URL:          mustURL("prom.test")},
+		Endpoints: []toml.TelemetryIngressEndpoint{
+			{
+				Network:      new("EVM"),
+				ChainID:      new("1"),
+				ServerPubKey: new("test-pub-key"),
+				URL:          mustURL("prom.test"),
+			},
 		},
 	}
 
 	full.Log = toml.Log{
-		Level:       ptr(toml.LogLevel(zapcore.DPanicLevel)),
+		Level:       new(toml.LogLevel(zapcore.DPanicLevel)),
 		JSONConsole: new(true),
 		UnixTS:      new(true),
 		File: toml.LogFile{
 			Dir:        new("log/file/dir"),
-			MaxSize:    new((utils.FileSize)(100 * utils.GB)),
+			MaxSize:    new(utils.FileSize(100 * utils.GB)),
 			MaxAgeDays: new(int64(17)),
 			MaxBackups: new(int64(9)),
 		},
@@ -282,7 +285,7 @@ func TestConfig_Marshal(t *testing.T) {
 		SecureCookies:           new(true),
 		SessionTimeout:          commoncfg.MustNewDuration(time.Hour),
 		SessionReaperExpiration: commoncfg.MustNewDuration(7 * 24 * time.Hour),
-		HTTPMaxSize:             ptr(utils.FileSize(uint64(32770))),
+		HTTPMaxSize:             new(utils.FileSize(uint64(32770))),
 		StartTimeout:            commoncfg.MustNewDuration(15 * time.Second),
 		ListenIP:                mustIP("192.158.1.37"),
 		MFA: toml.WebServerMFA{
@@ -345,7 +348,7 @@ func TestConfig_Marshal(t *testing.T) {
 		ResultWriteQueueDepth:     new(uint32(10)),
 		VerboseLogging:            new(false),
 		HTTPRequest: toml.JobPipelineHTTPRequest{
-			MaxSize:        new((utils.FileSize)(100 * utils.MB)),
+			MaxSize:        new(utils.FileSize(100 * utils.MB)),
 			DefaultTimeout: commoncfg.MustNewDuration(time.Minute),
 		},
 	}
@@ -456,9 +459,9 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID:                 new("1"),
 			ContractVersion:         new("1.0.0"),
 			NetworkID:               new("evm"),
-			MaxBinarySize:           ptr(utils.FileSize(20 * utils.MB)),
-			MaxEncryptedSecretsSize: ptr(utils.FileSize(26.4 * utils.KB)),
-			MaxConfigSize:           ptr(utils.FileSize(50 * utils.KB)),
+			MaxBinarySize:           new(utils.FileSize(20 * utils.MB)),
+			MaxEncryptedSecretsSize: new(utils.FileSize(26.4 * utils.KB)),
+			MaxConfigSize:           new(utils.FileSize(50 * utils.KB)),
 			SyncStrategy:            new("event"),
 			MaxConcurrency:          new(12),
 			MaxActivationRetries:    new(100),
@@ -531,12 +534,12 @@ func TestConfig_Marshal(t *testing.T) {
 		PollInterval:         commoncfg.MustNewDuration(time.Minute),
 		GatherDuration:       commoncfg.MustNewDuration(12 * time.Second),
 		GatherTraceDuration:  commoncfg.MustNewDuration(13 * time.Second),
-		MaxProfileSize:       new((utils.FileSize)(utils.GB)),
+		MaxProfileSize:       new(utils.FileSize(utils.GB)),
 		CPUProfileRate:       new(int64(7)),
 		MemProfileRate:       new(int64(9)),
 		BlockProfileRate:     new(int64(5)),
 		MutexProfileFraction: new(int64(2)),
-		MemThreshold:         new((utils.FileSize)(utils.GB)),
+		MemThreshold:         new(utils.FileSize(utils.GB)),
 		GoroutineThreshold:   new(int64(999)),
 	}
 	full.Pyroscope = toml.Pyroscope{
@@ -591,6 +594,16 @@ func TestConfig_Marshal(t *testing.T) {
 			Prefixes: []string{"ocr_"},
 		},
 	}
+	full.Metering = toml.Metering{
+		MeterRecordsEnabled:   new(true),
+		MeterSnapshotsEnabled: new(true),
+		Product:               new("cre"),
+		Tenant:                new("mainline"),
+		NumericTenantID:       new("42"),
+		Environment:           new("production"),
+		Zone:                  new("wf-zone-a"),
+		NodeID:                new("clp-cre-wf-zone-a-1"),
+	}
 	full.CRE = toml.CreConfig{
 		UseLocalTimeProvider: new(true),
 		EnableDKGRecipient:   new(false),
@@ -630,6 +643,7 @@ func TestConfig_Marshal(t *testing.T) {
 		PollingInterval:        commoncfg.MustNewDuration(time.Hour),
 		EnabledOCR2PluginTypes: &enabledOCR2PluginTypes,
 	}
+	mode := "manual-only"
 	full.Sharding = toml.Sharding{
 		ShardingEnabled:          new(false),
 		ArbiterPort:              new(uint16(9876)),
@@ -638,9 +652,10 @@ func TestConfig_Marshal(t *testing.T) {
 		ShardIndex:               new(uint16(0)),
 		ShardOrchestratorPort:    new(uint16(50051)),
 		ShardOrchestratorAddress: &commoncfg.URL{},
+		ShardAssignmentMode:      &mode,
 	}
 	full.LOOPP = toml.LOOPP{
-		GRPCServerMaxRecvMsgSize: new((utils.FileSize)(42 * utils.MB)),
+		GRPCServerMaxRecvMsgSize: new(utils.FileSize(42 * utils.MB)),
 	}
 	full.JobDistributor = toml.JobDistributor{
 		DisplayName: new("test-node"),
@@ -811,7 +826,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 				Workflow: evmcfg.Workflow{
 					GasLimitDefault:   new(uint64(400000)),
-					TxAcceptanceState: ptr(commontypes.Unconfirmed),
+					TxAcceptanceState: new(commontypes.Unconfirmed),
 					PollPeriod:        commoncfg.MustNewDuration(time.Second * 2),
 					AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 30),
 				},
@@ -833,7 +848,8 @@ func TestConfig_Marshal(t *testing.T) {
 					HTTPURL:  mustURL("http://broadcast.mirror"),
 					SendOnly: new(true),
 				},
-			}},
+			},
+		},
 	}
 	full.Mercury = toml.Mercury{
 		Cache: toml.MercuryCache{
@@ -845,7 +861,7 @@ func TestConfig_Marshal(t *testing.T) {
 			CertFile: new("/path/to/cert.pem"),
 		},
 		Transmitter: toml.MercuryTransmitter{
-			Protocol:             ptr(mercurytransmitter.MercuryTransmitterProtocolGRPC),
+			Protocol:             new(mercurytransmitter.MercuryTransmitterProtocolGRPC),
 			TransmitQueueMaxSize: new(uint32(123)),
 			TransmitTimeout:      commoncfg.MustNewDuration(234 * time.Second),
 			TransmitConcurrency:  new(uint32(456)),
@@ -1573,10 +1589,14 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		wantWarning   string
 	}{
 		{name: "empty", wantEffective: emptyEffectiveTOML, wantSecrets: emptyEffectiveSecretsTOML},
-		{name: "full", inputSecrets: secretsFullTOML, inputConfig: fullTOML,
-			wantConfig: fullTOML, wantEffective: fullTOML, wantSecrets: secretsFullRedactedTOML, wantWarning: deprecated},
-		{name: "multi-chain", inputSecrets: secretsMultiTOML, inputConfig: multiChainTOML,
-			wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML, wantSecrets: secretsMultiRedactedTOML},
+		{
+			name: "full", inputSecrets: secretsFullTOML, inputConfig: fullTOML,
+			wantConfig: fullTOML, wantEffective: fullTOML, wantSecrets: secretsFullRedactedTOML, wantWarning: deprecated,
+		},
+		{
+			name: "multi-chain", inputSecrets: secretsMultiTOML, inputConfig: multiChainTOML,
+			wantConfig: multiChainTOML, wantEffective: multiChainEffectiveTOML, wantSecrets: secretsMultiRedactedTOML,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1632,7 +1652,7 @@ func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 		SecretsStrings: []string{secretsFullTOML},
 	}
 	_, err := opts.New()
-	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: {")
+	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: U+007B '{'")
 }
 
 func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
@@ -1660,7 +1680,7 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	}
 	c, err := opts.New()
 	require.NoError(t, err)
-	c.SetPasswords(ptr(pwdOverride), nil)
+	c.SetPasswords(new(pwdOverride), nil)
 	assert.Equal(t, pwdOverride, c.Password().Keystore())
 	dbURL := c.Database().URL()
 	assert.Equal(t, dbURLOverride, (&dbURL).String())
@@ -1672,14 +1692,17 @@ func TestSecrets_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "partial",
+		{
+			name: "partial",
 			toml: `
 Database.AllowSimplePasswords = true`,
 			exp: `invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
-	- Password.Keystore: empty: must be provided and non-empty`},
+	- Password.Keystore: empty: must be provided and non-empty`,
+		},
 
-		{name: "invalid-urls",
+		{
+			name: "invalid-urls",
 			toml: `[Database]
 URL = "postgresql://user:passlocalhost:5432/asdf"
 BackupURL = "foo-bar?password=asdf"
@@ -1705,14 +1728,17 @@ AllowSimplePasswords = false`,
 	Must not comprise:
 		Leading or trailing whitespace (note that a trailing newline in the password file, if present, will be ignored)
 	
-	- Password.Keystore: empty: must be provided and non-empty`},
+	- Password.Keystore: empty: must be provided and non-empty`,
+		},
 
-		{name: "invalid-urls-allowed",
+		{
+			name: "invalid-urls-allowed",
 			toml: `[Database]
 URL = "postgresql://user:passlocalhost:5432/asdf"
 BackupURL = "foo-bar?password=asdf"
 AllowSimplePasswords = true`,
-			exp: `invalid secrets: Password.Keystore: empty: must be provided and non-empty`},
+			exp: `invalid secrets: Password.Keystore: empty: must be provided and non-empty`,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var s Secrets
@@ -1828,9 +1854,6 @@ func TestConfig_warnings(t *testing.T) {
 		})
 	}
 }
-
-//go:fix inline
-func ptr[T any](t T) *T { return new(t) }
 
 func mustHexToBig(t *testing.T, hx string) *big.Int {
 	n, err := hex.ParseBig(hx)
