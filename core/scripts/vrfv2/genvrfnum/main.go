@@ -53,7 +53,7 @@ func main() {
 		blockNum := cmd.Uint64("blocknum", 10, "block number the request is in")
 		cbGasLimit := cmd.Uint("cb-gas-limit", 100_000, "callback gas limit")
 		numWords := cmd.Uint("num-words", 1, "num words")
-		numWorkers := cmd.Uint64("num-workers", uint64(runtime.NumCPU()), "num workers")
+		numWorkers := cmd.Uint64("num-workers", uint64(runtime.NumCPU()), "num workers") //nolint:gosec // NumCPU is positive
 
 		helpers.ParseArgs(cmd, os.Args[2:], "pw", "sender", "blockhash")
 
@@ -82,7 +82,7 @@ func main() {
 			outChan chan []string) {
 			numIters := 0
 			for nonce := nonceRange[0]; nonce <= nonceRange[1]; nonce++ {
-				var record []string
+				record := make([]string, 0, 16)
 
 				// construct preseed using typical preseed data
 				preSeed := preseed(keyHash, sender, *subID, nonce)
@@ -96,9 +96,9 @@ func main() {
 					PreSeed:          preSeed,
 					BlockHash:        blockhash,
 					BlockNum:         *blockNum,
-					SubId:            *subID,
-					CallbackGasLimit: uint32(*cbGasLimit),
-					NumWords:         uint32(*numWords),
+					SubID:            *subID,
+					CallbackGasLimit: uint32(*cbGasLimit), //nolint:gosec // callback gas limit fits in uint32
+					NumWords:         uint32(*numWords),   //nolint:gosec // num words fits in uint32
 					Sender:           sender,
 				}
 				finalSeed := proof.FinalSeedV2(preseedData)
@@ -143,7 +143,7 @@ func main() {
 			}
 		}
 
-		ranges := nonceRanges(1, uint64(*numCount), *numWorkers)
+		ranges := nonceRanges(1, uint64(*numCount), *numWorkers) //nolint:gosec // numCount is positive
 
 		fmt.Println("nonce ranges:", ranges, "generating proofs...")
 
@@ -190,7 +190,7 @@ func main() {
 			}
 		}
 
-		for i := 0; i < *numWorkers; i++ {
+		for range *numWorkers {
 			go verify(proofsChan)
 		}
 

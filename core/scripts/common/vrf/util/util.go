@@ -5,7 +5,7 @@ import (
 )
 
 func MapToSendingKeyArr(nodeSendingKeys []string) []model.SendingKey {
-	var sendingKeys []model.SendingKey
+	sendingKeys := make([]model.SendingKey, 0, len(nodeSendingKeys))
 
 	for _, key := range nodeSendingKeys {
 		sendingKeys = append(sendingKeys, model.SendingKey{Address: key})
@@ -14,7 +14,7 @@ func MapToSendingKeyArr(nodeSendingKeys []string) []model.SendingKey {
 }
 
 func MapToAddressArr(sendingKeys []model.SendingKey) []string {
-	var sendingKeysString []string
+	sendingKeysString := make([]string, 0, len(sendingKeys))
 	for _, sendingKey := range sendingKeys {
 		sendingKeysString = append(sendingKeysString, sendingKey.Address)
 	}
