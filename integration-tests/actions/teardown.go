@@ -80,7 +80,8 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 	gasPrice := big.NewInt(0)
 	gasFeeCap := big.NewInt(0)
 	gasTipCap := big.NewInt(0)
-	if client.Cfg.Network.EIP1559DynamicFees {
+	switch {
+	case client.Cfg.Network.EIP1559DynamicFees:
 		if payload.GasFeeCap == nil || payload.GasTipCap == nil {
 			txOptions := client.NewTXOpts(seth.WithGasLimit(gasLimit))
 			gasFeeCap = txOptions.GasFeeCap
@@ -92,10 +93,10 @@ func SendFunds(logger zerolog.Logger, client *seth.Client, payload FundsToSendPa
 		if payload.GasTipCap != nil {
 			gasTipCap = payload.GasTipCap
 		}
-	} else if payload.GasPrice == nil {
+	case payload.GasPrice == nil:
 		txOptions := client.NewTXOpts(seth.WithGasLimit(gasLimit))
 		gasPrice = txOptions.GasPrice
-	} else {
+	default:
 		gasPrice = payload.GasPrice
 	}
 
@@ -209,11 +210,11 @@ func TeardownSuite(
 	chainlinkNodes []*nodeclient.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter,
 	failingLogLevel zapcore.Level,
-	grafnaUrlProvider testreporters.GrafanaURLProvider,
+	grafnaURLProvider testreporters.GrafanaURLProvider,
 	evmClients ...blockchain.EVMClient,
 ) error {
 	l := logging.GetTestLogger(t)
-	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel, grafnaUrlProvider); err != nil {
+	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel, grafnaURLProvider); err != nil {
 		return fmt.Errorf("error dumping environment logs, leaving environment running for manual retrieval, err: %w", err)
 	}
 	err := DeleteAllJobs(chainlinkNodes)
