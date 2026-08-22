@@ -15,7 +15,7 @@ type jobPipelineConfig struct {
 }
 
 func (j *jobPipelineConfig) DefaultHTTPLimit() int64 {
-	return int64(*j.c.HTTPRequest.MaxSize)
+	return int64(*j.c.HTTPRequest.MaxSize) //nolint:gosec // G115: HTTP request size limit is far below math.MaxInt64
 }
 
 func (j *jobPipelineConfig) DefaultHTTPTimeout() commonconfig.Duration {

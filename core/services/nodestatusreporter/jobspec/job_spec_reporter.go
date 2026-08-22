@@ -12,10 +12,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/nodestatusreporter/jobspec/events"
@@ -49,7 +49,7 @@ func NewJobSpecReporter(
 	csaPublicKey string,
 	nodeVersion string,
 	hostname string,
-	lggr logger.Logger,
+	lggr common.Logger,
 ) *Service {
 	s := &Service{
 		config:       config,

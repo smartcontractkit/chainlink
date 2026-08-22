@@ -280,7 +280,7 @@ func Test_Service_RegisterManager(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		mgr = feeds.FeedsManager{
+		mgr = feeds.Manager{
 			Name:      "FMS",
 			URI:       "localhost:8080",
 			PublicKey: pubKey,
@@ -300,7 +300,7 @@ func Test_Service_RegisterManager(t *testing.T) {
 	svc.orm.On("CreateBatchChainConfig", mock.Anything, params.ChainConfigs, mock.Anything).
 		Return([]int64{}, nil)
 	// ListManagers runs in a goroutine so it might be called.
-	svc.orm.On("ListManagers", t.Context()).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+	svc.orm.On("ListManagers", t.Context()).Return([]feeds.Manager{mgr}, nil).Maybe()
 	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
 	transactCall.Run(func(args mock.Arguments) {
 		fn := args[1].(func(orm feeds.ORM) error)
@@ -327,7 +327,7 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		mgr = feeds.FeedsManager{
+		mgr = feeds.Manager{
 			Name:      "FMS",
 			URI:       "localhost:8080",
 			PublicKey: pubKey,
@@ -351,7 +351,7 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	svc.orm.On("CreateBatchChainConfig", mock.Anything, params.ChainConfigs, mock.Anything).
 		Return([]int64{}, nil)
 	// ListManagers runs in a goroutine so it might be called.
-	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+	svc.orm.On("ListManagers", ctx).Return([]feeds.Manager{mgr}, nil).Maybe()
 	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
 	transactCall.Run(func(args mock.Arguments) {
 		fn := args[1].(func(orm feeds.ORM) error)
@@ -378,7 +378,7 @@ func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		mgr = feeds.FeedsManager{
+		mgr = feeds.Manager{
 			Name:      "FMS",
 			URI:       "localhost:8080",
 			PublicKey: pubKey,
@@ -396,7 +396,7 @@ func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 	svc.orm.On("CreateManager", mock.Anything, &mgr, mock.Anything).
 		Return(id, errors.New("orm error"))
 	// ListManagers runs in a goroutine so it might be called.
-	svc.orm.On("ListManagers", t.Context()).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+	svc.orm.On("ListManagers", t.Context()).Return([]feeds.Manager{mgr}, nil).Maybe()
 
 	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
 	transactCall.Run(func(args mock.Arguments) {
@@ -417,7 +417,7 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		mgr = feeds.FeedsManager{
+		mgr = feeds.Manager{
 			Name:      "FMS",
 			URI:       "localhost:8080",
 			PublicKey: pubKey,
@@ -437,7 +437,7 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 
 	svc.orm.On("ManagerExists", ctx, params.PublicKey).Return(true, nil)
 	// ListManagers runs in a goroutine so it might be called.
-	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
+	svc.orm.On("ListManagers", ctx).Return([]feeds.Manager{mgr}, nil).Maybe()
 
 	_, err = svc.RegisterManager(ctx, params)
 	require.Error(t, err)
@@ -450,8 +450,8 @@ func Test_Service_ListManagers(t *testing.T) {
 	ctx := t.Context()
 
 	var (
-		mgr  = feeds.FeedsManager{}
-		mgrs = []feeds.FeedsManager{mgr}
+		mgr  = feeds.Manager{}
+		mgrs = []feeds.Manager{mgr}
 	)
 	svc := setupTestService(t)
 
@@ -470,7 +470,7 @@ func Test_Service_GetManager(t *testing.T) {
 
 	var (
 		id  = int64(1)
-		mgr = feeds.FeedsManager{ID: id}
+		mgr = feeds.Manager{ID: id}
 	)
 	svc := setupTestService(t)
 
@@ -485,7 +485,7 @@ func Test_Service_GetManager(t *testing.T) {
 }
 
 func Test_Service_UpdateFeedsManager(t *testing.T) {
-	mgr := feeds.FeedsManager{ID: 1}
+	mgr := feeds.Manager{ID: 1}
 
 	svc := setupTestService(t)
 
@@ -498,7 +498,7 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 }
 
 func Test_Service_EnableFeedsManager(t *testing.T) {
-	mgr := feeds.FeedsManager{ID: 1}
+	mgr := feeds.Manager{ID: 1}
 
 	svc := setupTestService(t)
 
@@ -513,7 +513,7 @@ func Test_Service_EnableFeedsManager(t *testing.T) {
 }
 
 func Test_Service_DisableFeedsManager(t *testing.T) {
-	mgr := feeds.FeedsManager{ID: 1}
+	mgr := feeds.Manager{ID: 1}
 
 	svc := setupTestService(t)
 
@@ -531,8 +531,8 @@ func Test_Service_ListManagersByIDs(t *testing.T) {
 	ctx := t.Context()
 
 	var (
-		mgr  = feeds.FeedsManager{}
-		mgrs = []feeds.FeedsManager{mgr}
+		mgr  = feeds.Manager{}
+		mgrs = []feeds.Manager{mgr}
 	)
 	svc := setupTestService(t)
 
@@ -588,7 +588,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var (
-				mgr         = feeds.FeedsManager{ID: 1}
+				mgr         = feeds.Manager{ID: 1}
 				nodeVersion = &versioning.NodeVersion{
 					Version: "1.0.0",
 				}
@@ -658,7 +658,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 
 func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
 	var (
-		mgr = feeds.FeedsManager{ID: 1}
+		mgr = feeds.Manager{ID: 1}
 		cfg = feeds.ChainConfig{
 			FeedsManagerID:    mgr.ID,
 			ChainID:           "42",
@@ -679,7 +679,7 @@ func Test_Service_CreateChainConfig_InvalidAdminAddress(t *testing.T) {
 
 func Test_Service_DeleteChainConfig(t *testing.T) {
 	var (
-		mgr         = feeds.FeedsManager{ID: 1}
+		mgr         = feeds.Manager{ID: 1}
 		nodeVersion = &versioning.NodeVersion{
 			Version: "1.0.0",
 		}
@@ -720,7 +720,7 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 func Test_Service_ListChainConfigsByManagerIDs(t *testing.T) {
 	ctx := t.Context()
 	var (
-		mgr = feeds.FeedsManager{ID: 1}
+		mgr = feeds.Manager{ID: 1}
 		cfg = feeds.ChainConfig{
 			ID:             1,
 			FeedsManagerID: mgr.ID,
@@ -773,7 +773,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var (
-				mgr         = feeds.FeedsManager{ID: 1}
+				mgr         = feeds.Manager{ID: 1}
 				nodeVersion = &versioning.NodeVersion{
 					Version: "1.0.0",
 				}
@@ -836,7 +836,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 
 func Test_Service_UpdateChainConfig_InvalidAdminAddress(t *testing.T) {
 	var (
-		mgr = feeds.FeedsManager{ID: 1}
+		mgr = feeds.Manager{ID: 1}
 		cfg = feeds.ChainConfig{
 			FeedsManagerID:    mgr.ID,
 			ChainID:           "42",
@@ -1705,7 +1705,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 			var (
 				multiaddr     = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
-				mgr           = &feeds.FeedsManager{ID: 1}
+				mgr           = &feeds.Manager{ID: 1}
 				forwarderAddr = "0x0002"
 				ccfg          = feeds.ChainConfig{
 					ID:             100,
@@ -1812,7 +1812,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 	t.Parallel()
 
-	mgr := feeds.FeedsManager{ID: 1}
+	mgr := feeds.Manager{ID: 1}
 	nodeVersion := &versioning.NodeVersion{Version: "1.0.0"}
 	cfg := feeds.ChainConfig{
 		FeedsManagerID:          mgr.ID,
@@ -2629,12 +2629,12 @@ updateInterval = "30s"
 		{
 			name: "failed due to spec already approved",
 			before: func(svc *TestService) {
-				aSpec := &feeds.JobProposalSpec{
+				aspect := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 				}
-				svc.orm.On("GetSpec", mock.Anything, aSpec.ID, mock.Anything).Return(aSpec, nil)
+				svc.orm.On("GetSpec", mock.Anything, aspect.ID, mock.Anything).Return(aspect, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -3218,7 +3218,7 @@ updateInterval = "20m"
 			force: false,
 		},
 		{
-			name:        "cancelled spec success when when no other spec is approved",
+			name:        "cancelled spec success when no other spec is approved",
 			httpTimeout: commonconfig.MustNewDuration(1 * time.Minute),
 			before: func(svc *TestService) {
 				otherSpec := feeds.JobProposalSpec{
@@ -3460,12 +3460,12 @@ updateInterval = "20m"
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aSpec := &feeds.JobProposalSpec{
+				aspect := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspect, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -3864,12 +3864,12 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aSpec := &feeds.JobProposalSpec{
+				aspect := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspect, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -4406,12 +4406,12 @@ chainID = 0
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aSpec := &feeds.JobProposalSpec{
+				aspect := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspect, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -4827,11 +4827,11 @@ func Test_Service_StartStop(t *testing.T) {
 	key := cltest.DefaultCSAKey
 
 	var (
-		mgr = feeds.FeedsManager{
+		mgr = feeds.Manager{
 			ID:  1,
 			URI: "localhost:2000",
 		}
-		mgr2 = feeds.FeedsManager{
+		mgr2 = feeds.Manager{
 			ID:  2,
 			URI: "localhost:2001",
 		}
@@ -4852,7 +4852,7 @@ func Test_Service_StartStop(t *testing.T) {
 			beforeFunc: func(svc *TestService) {
 				svc.csaKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr}, nil)
+				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.Manager{mgr}, nil)
 				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 				svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 				svc.connMgr.On("Close")
@@ -4865,7 +4865,7 @@ func Test_Service_StartStop(t *testing.T) {
 			beforeFunc: func(svc *TestService) {
 				svc.csaKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr, mgr2}, nil)
+				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.Manager{mgr, mgr2}, nil)
 				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
 				svc.connMgr.On("IsConnected", mgr2.ID).Return(false)
 				svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Twice()
@@ -4878,7 +4878,7 @@ func Test_Service_StartStop(t *testing.T) {
 			beforeFunc: func(svc *TestService) {
 				svc.csaKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
-				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{}, nil)
+				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.Manager{}, nil)
 				svc.connMgr.On("Close")
 			},
 		},

@@ -857,7 +857,7 @@ func (w *workflowRegistry) syncUsingReconciliationStrategy(ctx context.Context) 
 		case <-ticker:
 			don, err := w.workflowDonNotifier.WaitForDon(ctx)
 			if err != nil {
-				w.lggr.Errorw("failed to get get don from notifier", "err", err)
+				w.lggr.Errorw("failed to get don from notifier", "err", err)
 				continue
 			}
 			w.lggr.Debugw("fetching workflow metadata from all sources", "don", don.Families)
@@ -1240,7 +1240,7 @@ func (w *workflowRegistry) getAllowlistedRequests(ctx context.Context, contractR
 
 	var newAllowlistedRequests []workflow_registry_wrapper_v2.WorkflowRegistryOwnerAllowlistedRequest
 	readIdentifier = contractBinding.ReadIdentifier(GetActiveAllowlistedRequestsReverseMethodName)
-	var endIndex = new(big.Int).Sub(totalAllowlistedRequestsResult, big.NewInt(1))
+	endIndex := new(big.Int).Sub(totalAllowlistedRequestsResult, big.NewInt(1))
 	var startIndex *big.Int
 
 	for {

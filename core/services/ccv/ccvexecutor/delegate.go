@@ -14,10 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink-ccv/executor"
 	"github.com/smartcontractkit/chainlink-ccv/integration/pkg/constructors"
 	"github.com/smartcontractkit/chainlink-ccv/protocol"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -37,7 +37,7 @@ type Delegate struct {
 
 func NewDelegate(lggr logger.Logger, ccvConfig config.CCV, ethKs keystore.Eth, chainServices []commontypes.ChainService) *Delegate {
 	return &Delegate{
-		delegateLogger: lggr.Named("CCVExecutorDelegate"),
+		delegateLogger: logger.Named(lggr, "CCVExecutorDelegate"),
 		lggr:           lggr,
 		ccvConfig:      ccvConfig,
 		chainServices:  chainServices,
@@ -73,7 +73,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 	}
 
 	// Chains in the executor configuration should dictate what we end up verifying for.
-	var chainsInConfig = make([]protocol.ChainSelector, 0, len(decodedCfg.ChainConfiguration))
+	chainsInConfig := make([]protocol.ChainSelector, 0, len(decodedCfg.ChainConfiguration))
 	for chainSelStr := range decodedCfg.ChainConfiguration {
 		parsed, err2 := strconv.ParseUint(chainSelStr, 10, 64)
 		if err2 != nil {
@@ -87,8 +87,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to get legacy chains: %w", err)
 	}
 
-	var roundRobins = make(map[protocol.ChainSelector]keys.RoundRobin, len(legacyChains))
-	var fromAddresses = make(map[protocol.ChainSelector][]common.Address, len(legacyChains))
+	roundRobins := make(map[protocol.ChainSelector]keys.RoundRobin, len(legacyChains))
+	fromAddresses := make(map[protocol.ChainSelector][]common.Address, len(legacyChains))
 
 	for chainSel := range legacyChains {
 		id, err3 := chainselectors.GetChainIDFromSelector(uint64(chainSel))
@@ -110,9 +110,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 
 	// TODO: pass secrets as a separate param in the constructor.
 	ec, err := constructors.NewExecutorCoordinator(
-		d.lggr.
-			Named("CCVExecutorCoordinator").
-			Named(decodedCfg.ExecutorID),
+		logger.Named(
+			logger.Named(d.lggr, "CCVExecutorCoordinator"),
+			decodedCfg.ExecutorID,
+		),
 		decodedCfg,
 		legacyChains,
 		roundRobins,

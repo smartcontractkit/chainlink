@@ -47,7 +47,7 @@ func Test_LeaseLock(t *testing.T) {
 		leaseLock2 := newLeaseLock(t, db, cfg)
 		go func() {
 			defer leaseLock2.Release()
-			require.NoError(t, leaseLock2.TakeAndHold(t.Context()))
+			assert.NoError(t, leaseLock2.TakeAndHold(t.Context()))
 			close(started2)
 		}()
 
@@ -95,7 +95,7 @@ func Test_LeaseLock(t *testing.T) {
 		gotLease := make(chan struct{})
 		go func() {
 			errInternal := leaseLock.TakeAndHold(t.Context())
-			require.NoError(t, errInternal)
+			assert.NoError(t, errInternal)
 			close(gotLease)
 		}()
 

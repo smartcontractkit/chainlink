@@ -103,12 +103,11 @@ func (orm *orm) GetSecretsURLByHash(ctx context.Context, hash string) (string, e
 func (orm *orm) GetContentsByHash(ctx context.Context, hash string) (string, error) {
 	var contents string
 	err := orm.ds.GetContext(ctx, &contents,
-		`SELECT contents 
-         FROM workflow_secrets 
+		`SELECT contents
+         FROM workflow_secrets
          WHERE secrets_url_hash = $1`,
 		hash,
 	)
-
 	if err != nil {
 		return "", err // Return an empty Artifact struct and the error
 	}
@@ -119,12 +118,11 @@ func (orm *orm) GetContentsByHash(ctx context.Context, hash string) (string, err
 func (orm *orm) GetContents(ctx context.Context, url string) (string, error) {
 	var contents string
 	err := orm.ds.GetContext(ctx, &contents,
-		`SELECT contents 
-         FROM workflow_secrets 
+		`SELECT contents
+         FROM workflow_secrets
          WHERE secrets_url = $1`,
 		url,
 	)
-
 	if err != nil {
 		return "", err // Return an empty Artifact struct and the error
 	}
@@ -184,7 +182,6 @@ func (orm *orm) Update(ctx context.Context, hash, contents string) (int64, error
          RETURNING id`,
 		hash, contents,
 	).Scan(&id)
-
 	if err != nil {
 		return 0, err
 	}
@@ -201,7 +198,6 @@ func (orm *orm) Create(ctx context.Context, url, hash, contents string) (int64, 
          RETURNING id`,
 		url, hash, contents,
 	).Scan(&id)
-
 	if err != nil {
 		return 0, err
 	}
@@ -289,7 +285,8 @@ func (orm *orm) UpsertWorkflowSpec(ctx context.Context, spec *job.WorkflowSpec) 
 
 func (orm *orm) UpsertWorkflowSpecWithSecrets(
 	ctx context.Context,
-	spec *job.WorkflowSpec, url, hash, contents string) (int64, error) {
+	spec *job.WorkflowSpec, url, hash, contents string,
+) (int64, error) {
 	var id int64
 	err := sqlutil.TransactDataSource(ctx, orm.ds, nil, func(tx sqlutil.DataSource) error {
 		var sid int64
@@ -297,8 +294,8 @@ func (orm *orm) UpsertWorkflowSpecWithSecrets(
 			`INSERT INTO workflow_secrets (secrets_url, secrets_url_hash, contents)
 			 VALUES ($1, $2, $3)
 			 ON CONFLICT (secrets_url_hash) DO UPDATE
-         	 SET 
-			 	secrets_url_hash = EXCLUDED.secrets_url_hash, 
+         	 SET
+			 	secrets_url_hash = EXCLUDED.secrets_url_hash,
 				contents = EXCLUDED.contents,
 				secrets_url = EXCLUDED.secrets_url
 			 RETURNING id`,

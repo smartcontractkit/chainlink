@@ -67,7 +67,7 @@ func newMockedEncodeTransmissionInfo(state uint8) ([]byte, error) {
 	buffer.Write(info.TransmissionID[:])
 
 	// 2. Encode State (uint8, ABI pads to 32 bytes: 31 zeros + 1 byte)
-	stateSlot := make([]byte, 31)
+	stateSlot := make([]byte, 31, 32)
 	stateSlot = append(stateSlot, info.State)
 	buffer.Write(stateSlot)
 
@@ -83,7 +83,7 @@ func newMockedEncodeTransmissionInfo(state uint8) ([]byte, error) {
 	if info.InvalidReceiver {
 		invReceiverByte = 1
 	}
-	invalidReceiverSlot := make([]byte, 31)
+	invalidReceiverSlot := make([]byte, 31, 32)
 	invalidReceiverSlot = append(invalidReceiverSlot, invReceiverByte)
 	buffer.Write(invalidReceiverSlot)
 
@@ -92,7 +92,7 @@ func newMockedEncodeTransmissionInfo(state uint8) ([]byte, error) {
 	if info.Success {
 		successByte = 1
 	}
-	successSlot := make([]byte, 31)
+	successSlot := make([]byte, 31, 32)
 	successSlot = append(successSlot, successByte)
 	buffer.Write(successSlot)
 
@@ -477,7 +477,7 @@ func TestEvmWrite(t *testing.T) {
 	})
 }
 
-func findLogMatch(t *testing.T, observed *observer.ObservedLogs, msg string, key string, value string) {
+func findLogMatch(t *testing.T, observed *observer.ObservedLogs, msg, key, value string) {
 	require.Eventually(t, func() bool {
 		filteredByMsg := observed.FilterMessage(msg)
 		matches := filteredByMsg.
@@ -495,6 +495,7 @@ func findLogMatch(t *testing.T, observed *observer.ObservedLogs, msg string, key
 		return len(matches) > 0
 	}, 30*time.Second, 1*time.Second)
 }
+
 func TestExtractNetwork(t *testing.T) {
 	testCases := []struct {
 		networkName  string
