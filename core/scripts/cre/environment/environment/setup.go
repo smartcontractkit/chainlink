@@ -12,9 +12,6 @@ import (
 	"strings"
 	"text/template"
 
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/log"
 	mobyclient "github.com/moby/moby/client"
@@ -23,6 +20,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 	"github.com/tidwall/gjson"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/tracking"
@@ -895,7 +894,7 @@ func pullImage(ctx context.Context, awsProfile string, localImage, ecrImage stri
 		}
 
 		// Get ECR login password after successful SSO login
-		ecrHostname := strings.Split(ecrImage, "/")[0]
+		ecrHostname, _, _ := strings.Cut(ecrImage, "/")
 		ecrLoginCmd := exec.CommandContext(ctx, "aws", "ecr", "get-login-password", "--region", "us-west-2", "--profile", awsProfile)
 		password, passErr := ecrLoginCmd.Output()
 		if passErr != nil {
@@ -972,7 +971,7 @@ func checkIfGHLIIsInstalled(ctx context.Context, minGHCLIVersion string, noPromp
 		if brewInfoErr != nil {
 			fmt.Fprint(os.Stderr, string(brewInfoOutput))
 			logger.Warn().Msgf("GH CLI wasn't installed via brew, please update it manually to at least %s", minGHCLIVersion)
-			return false, nil
+			return false, nil //nolint:nilerr // expected if gh is not managed by brew
 		}
 
 		brewUpgradeCmd := exec.CommandContext(ctx, "brew", "upgrade", "gh")
@@ -980,7 +979,7 @@ func checkIfGHLIIsInstalled(ctx context.Context, minGHCLIVersion string, noPromp
 		if brewUpdateErr != nil {
 			fmt.Fprint(os.Stderr, string(brewUpdateOutput))
 			logger.Warn().Msgf("failed to upgrade GitHub CLI via Homebrew, please update it manually to at least %s", minGHCLIVersion)
-			return false, nil
+			return false, nil //nolint:nilerr // handled by fallback warning
 		}
 		logger.Info().Msg("  ✓ GitHub CLI upgraded to latest via Homebrew")
 

@@ -17,7 +17,6 @@ import (
 	ptypes "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
-
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	crecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"

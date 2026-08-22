@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
@@ -581,7 +580,7 @@ func resolveWorkflowDONNodeInfo(resolver *LocalCREStateResolver, sel workflowDON
 	port, count, nodeErr := resolver.workflowDONNodeInfoFor(donMeta)
 	if nodeErr != nil {
 		// Kubernetes and other providers without direct DB access fall back to a static wait.
-		return 0, 0, nil
+		return 0, 0, nil //nolint:nilerr // providers without direct DB access fall back to static wait
 	}
 	return port, count, nil
 }
