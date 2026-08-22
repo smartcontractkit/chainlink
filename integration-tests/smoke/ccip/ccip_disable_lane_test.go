@@ -42,7 +42,7 @@ func TestDisableLane(t *testing.T) {
 		evmChains              = e.BlockChains.EVMChains()
 		expectedSeqNumExec     = make(map[testhelpers.SourceDestPair][]uint64)
 		startBlocks            = make(map[uint64]*uint64)
-		pairs                  []testhelpers.SourceDestPair
+		pairs                  = make([]testhelpers.SourceDestPair, 0, 2)
 		linkPrice              = bigint.E18Mult(100)
 		wethPrice              = bigint.E18Mult(4000)
 		noOfRequests           = 3

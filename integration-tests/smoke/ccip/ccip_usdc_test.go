@@ -64,7 +64,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		ownerChainA,
 		ownerChainC,
 		state,
-		e.ExistingAddresses,
+		e.ExistingAddresses, //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
 		"MY_TOKEN",
 	)
 	require.NoError(t, err)
