@@ -12,21 +12,19 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	evmtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
-
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/jobs"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
-	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
-
-	evmtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_owner"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/jobs"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 )
 
 type CoordinatorConfigV2 struct {
@@ -101,11 +99,11 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
 
 	feeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-		FulfillmentFlatFeeLinkPPMTier1: uint32(*flatFeeTier1),
-		FulfillmentFlatFeeLinkPPMTier2: uint32(*flatFeeTier2),
-		FulfillmentFlatFeeLinkPPMTier3: uint32(*flatFeeTier3),
-		FulfillmentFlatFeeLinkPPMTier4: uint32(*flatFeeTier4),
-		FulfillmentFlatFeeLinkPPMTier5: uint32(*flatFeeTier5),
+		FulfillmentFlatFeeLinkPPMTier1: uint32(*flatFeeTier1), //nolint:gosec // fee tier fits in uint32
+		FulfillmentFlatFeeLinkPPMTier2: uint32(*flatFeeTier2), //nolint:gosec // fee tier fits in uint32
+		FulfillmentFlatFeeLinkPPMTier3: uint32(*flatFeeTier3), //nolint:gosec // fee tier fits in uint32
+		FulfillmentFlatFeeLinkPPMTier4: uint32(*flatFeeTier4), //nolint:gosec // fee tier fits in uint32
+		FulfillmentFlatFeeLinkPPMTier5: uint32(*flatFeeTier5), //nolint:gosec // fee tier fits in uint32
 		ReqsForTier2:                   big.NewInt(*reqsForTier2),
 		ReqsForTier3:                   big.NewInt(*reqsForTier3),
 		ReqsForTier4:                   big.NewInt(*reqsForTier4),
@@ -216,12 +214,7 @@ func VRFV2DeployUniverse(
 		helpers.PanicErr(err)
 		pk, err := crypto.UnmarshalPubkey(pubBytes)
 		helpers.PanicErr(err)
-		var pkBytes []byte
-		if big.NewInt(0).Mod(pk.Y, big.NewInt(2)).Uint64() != 0 {
-			pkBytes = append(pk.X.Bytes(), 1)
-		} else {
-			pkBytes = append(pk.X.Bytes(), 0)
-		}
+		pkBytes := crypto.CompressPubkey(pk)
 		var newPK secp256k1.PublicKey
 		copy(newPK[:], pkBytes)
 
@@ -283,10 +276,10 @@ func VRFV2DeployUniverse(
 	SetCoordinatorConfig(
 		e,
 		*coordinator,
-		uint16(coordinatorConfig.MinConfs),
-		uint32(coordinatorConfig.MaxGasLimit),
-		uint32(coordinatorConfig.StalenessSeconds),
-		uint32(coordinatorConfig.GasAfterPayment),
+		uint16(coordinatorConfig.MinConfs),    //nolint:gosec // min confs fits in uint16
+		uint32(coordinatorConfig.MaxGasLimit), //nolint:gosec // max gas limit fits in uint32
+		uint32(coordinatorConfig.StalenessSeconds), //nolint:gosec // staleness fits in uint32
+		uint32(coordinatorConfig.GasAfterPayment),  //nolint:gosec // gas after payment fits in uint32
 		coordinatorConfig.FallbackWeiPerUnitLink,
 		coordinatorConfig.FeeConfig,
 	)
@@ -335,8 +328,9 @@ func VRFV2DeployUniverse(
 		// VRF Owner
 		vrfOwner, err := vrf_owner.NewVRFOwner(vrfOwnerAddress, e.Ec)
 		helpers.PanicErr(err)
-		var authorizedSendersSlice []common.Address
-		for _, s := range nodesMap[model.VRFPrimaryNodeName].SendingKeys {
+		sendingKeys := nodesMap[model.VRFPrimaryNodeName].SendingKeys
+		authorizedSendersSlice := make([]common.Address, 0, len(sendingKeys))
+		for _, s := range sendingKeys {
 			authorizedSendersSlice = append(authorizedSendersSlice, common.HexToAddress(s.Address))
 		}
 		fmt.Printf("\nSetting authorised senders for VRF Owner: %v, Authorised senders %v\n", vrfOwnerAddress.String(), authorizedSendersSlice)
