@@ -284,7 +284,7 @@ flowchart LR
 
 	ccip-contract-examples/chains/evm --> chainlink-ccip
 	click ccip-contract-examples/chains/evm href "https://github.com/smartcontractkit/ccip-contract-examples"
-	ccip-owner-contracts --> chain-selectors
+	ccip-owner-contracts
 	click ccip-owner-contracts href "https://github.com/smartcontractkit/ccip-owner-contracts"
 	chain-selectors
 	click chain-selectors href "https://github.com/smartcontractkit/chain-selectors"
@@ -605,7 +605,6 @@ flowchart LR
 	click chainlink/v2/tools/test href "https://github.com/smartcontractkit/chainlink"
 	cld-changesets --> ccip-owner-contracts
 	cld-changesets --> chainlink-protos/op-catalog
-	cld-changesets --> mcms
 	cld-changesets --> quarantine
 	click cld-changesets href "https://github.com/smartcontractkit/cld-changesets"
 	cre-sdk-go --> chainlink-protos/cre/go
