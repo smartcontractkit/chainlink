@@ -19,7 +19,7 @@ func NewCmdFactory(register func(id string) (*RegisteredLoop, error), lcfg CmdCo
 		return nil, fmt.Errorf("failed to register %s LOOP plugin: %w", lcfg.ID, err)
 	}
 	return func() *exec.Cmd {
-		cmd := exec.Command(lcfg.Cmd) //#nosec G204 -- we control the value of the cmd so the lint/sec error is a false positive
+		cmd := exec.Command(lcfg.Cmd) //nolint:noctx,gosec // LOOP process; ctx attached by caller at execution, cmd value controlled by us
 		cmd.Env = append(cmd.Env, lcfg.Env...)
 		cmd.Env = append(cmd.Env, registeredLoop.EnvCfg.AsCmdEnv()...)
 		return cmd
