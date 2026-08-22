@@ -92,7 +92,7 @@ func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
 	out, err := workflowregistry.UpdateAllowedDons(te.Env, req)
 	require.NoError(t, err)
 	require.Len(t, out.MCMSTimelockProposals, 1)
-	require.Nil(t, out.AddressBook)
+	require.Nil(t, out.AddressBook) //nolint:staticcheck // SA1019 AddressBook is deprecated
 
 	_, err = commonchangeset.Apply(t, te.Env,
 		commonchangeset.Configure(

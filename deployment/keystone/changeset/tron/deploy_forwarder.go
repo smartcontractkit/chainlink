@@ -73,5 +73,5 @@ func (cs DeployForwarder) Apply(env cldf.Environment, req *DeployForwarderReques
 		}
 	}
 
-	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil
+	return cldf.ChangesetOutput{AddressBook: ab, DataStore: dataStore}, nil //nolint:staticcheck // SA1019 AddressBook is deprecated
 }
