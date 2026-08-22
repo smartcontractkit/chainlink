@@ -10,7 +10,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-
 	"github.com/smartcontractkit/chainlink/deployment/cre/jobs"
 )
 

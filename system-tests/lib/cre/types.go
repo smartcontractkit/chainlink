@@ -256,7 +256,7 @@ func (c *WorkflowRegistryOutput) Store(absPath string) error {
 	return storeLocalArtifact(c, absPath)
 }
 
-func (c WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
+func (c *WorkflowRegistryOutput) WorkflowOwnersStrings() []string {
 	owners := make([]string, len(c.WorkflowOwners))
 	for idx, owner := range c.WorkflowOwners {
 		owners[idx] = owner.String()
