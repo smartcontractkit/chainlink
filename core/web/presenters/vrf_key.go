@@ -2,7 +2,7 @@ package presenters
 
 import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 type VRFKeyResource struct {
@@ -17,7 +17,7 @@ func (VRFKeyResource) GetName() string {
 	return "encryptedVRFKeys"
 }
 
-func NewVRFKeyResource(key vrfkey.KeyV2, lggr logger.Logger) *VRFKeyResource {
+func NewVRFKeyResource(key vrfkey.KeyV2, lggr common.Logger) *VRFKeyResource {
 	uncompressed, err := key.PublicKey.StringUncompressed()
 	if err != nil {
 		lggr.Errorw("Unable to get uncompressed pk", "err", err)
@@ -30,7 +30,7 @@ func NewVRFKeyResource(key vrfkey.KeyV2, lggr logger.Logger) *VRFKeyResource {
 	}
 }
 
-func NewVRFKeyResources(keys []vrfkey.KeyV2, lggr logger.Logger) []VRFKeyResource {
+func NewVRFKeyResources(keys []vrfkey.KeyV2, lggr common.Logger) []VRFKeyResource {
 	rs := make([]VRFKeyResource, 0, len(keys))
 	for _, key := range keys {
 		rs = append(rs, *NewVRFKeyResource(key, lggr))
