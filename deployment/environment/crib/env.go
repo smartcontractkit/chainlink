@@ -14,7 +14,7 @@ const (
 	RMNNodeIdentitiesFileName = "rmn-node-identities.json"
 )
 
-type CRIBEnv struct {
+type Env struct {
 	lggr                logger.Logger
 	cribEnvStateDirPath string
 }
@@ -25,14 +25,14 @@ type DeployerKeys struct {
 	AptosKey string
 }
 
-func NewDevspaceEnvFromStateDir(lggr logger.Logger, envStateDir string) CRIBEnv {
-	return CRIBEnv{
+func NewDevspaceEnvFromStateDir(lggr logger.Logger, envStateDir string) Env {
+	return Env{
 		lggr:                lggr,
 		cribEnvStateDirPath: envStateDir,
 	}
 }
 
-func (c CRIBEnv) GetConfig(deployerKeys DeployerKeys) (DeployOutput, error) {
+func (c Env) GetConfig(deployerKeys DeployerKeys) (DeployOutput, error) {
 	reader := NewOutputReader(c.cribEnvStateDirPath)
 	nodesDetails, err := reader.ReadNodesDetails()
 	if err != nil {

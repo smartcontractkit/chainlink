@@ -381,7 +381,7 @@ func (c *client) login() error {
 
 	payload := strings.NewReader(string(b))
 
-	req, err := http.NewRequest("POST", c.endpoints.Sessions, payload)
+	req, err := http.NewRequestWithContext(context.Background(), "POST", c.endpoints.Sessions, payload)
 	if err != nil {
 		return err
 	}
