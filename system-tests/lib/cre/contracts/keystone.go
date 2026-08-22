@@ -325,7 +325,7 @@ func (d *dons) mustToV2ConfigureInput(chainSelector uint64, contractAddress stri
 
 	return cap_reg_v2_seq.ConfigureCapabilitiesRegistryInput{
 		RegistryChainSel: chainSelector,
-		ContractAddress:  contractAddress,
+		ContractAddress:  contractAddress, //nolint:staticcheck // ContractAddress is deprecated in favor of RegistryRef
 		Nops:             nops,
 		Nodes:            nodes,
 		Capabilities:     capabilities,
