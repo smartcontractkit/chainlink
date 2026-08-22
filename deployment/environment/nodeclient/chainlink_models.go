@@ -538,7 +538,7 @@ type StarkNetChainCreate struct {
 type StarkNetNodeAttributes struct {
 	Name    string `json:"name"`
 	ChainID string `json:"chainId"`
-	Url     string `json:"url"`
+	URL     string `json:"url"`
 }
 
 // StarkNetNode is the model that represents the starknet node when read
@@ -1081,7 +1081,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 		MaxTaskDuration:       o.MaxTaskDuration,
 		ContractID:            o.OCR2OracleSpec.ContractID,
 		FeedID:                feedID,
-		Relay:                 string(o.OCR2OracleSpec.Relay),
+		Relay:                 o.OCR2OracleSpec.Relay,
 		PluginType:            string(o.OCR2OracleSpec.PluginType),
 		RelayConfig:           string(relayConfig),
 		PluginConfig:          o.OCR2OracleSpec.PluginConfig,

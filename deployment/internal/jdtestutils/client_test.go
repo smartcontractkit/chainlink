@@ -350,7 +350,7 @@ func TestJobClientJobAPI(t *testing.T) {
 }
 
 // need some non-ocr job type to avoid the ocr validation and the p2pwrapper check
-func testJobProposalTOML(t *testing.T, externalJobId string) string {
+func testJobProposalTOML(t *testing.T, externalJobID string) string {
 	tomlString := `
 type = "standardcapabilities"
 schemaVersion = 1
@@ -360,5 +360,5 @@ forwardingAllowed = false
 command = "/home/capabilities/nowhere"
 config = ""
 `
-	return fmt.Sprintf(tomlString, externalJobId, externalJobId)
+	return fmt.Sprintf(tomlString, externalJobID, externalJobID)
 }
