@@ -499,7 +499,7 @@ func (m *Metrics) IncrementTriggerRequestCount(ctx context.Context, lggr logger.
 
 func (m *Metrics) IncrementRequestErrors(ctx context.Context, errorCode int64, lggr logger.Logger) {
 	errCode := api.FromJSONRPCErrorCode(errorCode)
-	httpErrorCode := api.ToHttpErrorCode(errCode)
+	httpErrorCode := api.ToHTTPErrorCode(errCode)
 	m.trigger.requestErrors.Add(ctx, 1, metric.WithAttributes(
 		attribute.Int64(AttrErrorCode, errorCode),
 		attribute.String(AttrErrorString, errCode.String()),
@@ -527,7 +527,7 @@ func (m *Metrics) RecordRequestHandlerLatency(ctx context.Context, latencyMs int
 	m.trigger.requestHandlerLatency.Record(ctx, latencyMs)
 }
 
-func (m *Metrics) IncrementTriggerCapabilityRequestCount(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) IncrementTriggerCapabilityRequestCount(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.capabilityRequestCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -535,7 +535,7 @@ func (m *Metrics) IncrementTriggerCapabilityRequestCount(ctx context.Context, no
 	))
 }
 
-func (m *Metrics) IncrementTriggerCapabilityRequestFailures(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) IncrementTriggerCapabilityRequestFailures(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.capabilityRequestFailures.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -543,7 +543,7 @@ func (m *Metrics) IncrementTriggerCapabilityRequestFailures(ctx context.Context,
 	))
 }
 
-func (m *Metrics) RecordGatewayToNodeLatency(ctx context.Context, latencyMs int64, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) RecordGatewayToNodeLatency(ctx context.Context, latencyMs int64, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.gatewayToNodeLatency.Record(ctx, latencyMs, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -551,7 +551,7 @@ func (m *Metrics) RecordGatewayToNodeLatency(ctx context.Context, latencyMs int6
 	))
 }
 
-func (m *Metrics) IncrementMetadataProcessingFailures(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) IncrementMetadataProcessingFailures(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.metadataProcessingFailures.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),
@@ -559,7 +559,7 @@ func (m *Metrics) IncrementMetadataProcessingFailures(ctx context.Context, nodeA
 	))
 }
 
-func (m *Metrics) IncrementMetadataRequestCount(ctx context.Context, nodeAddress string, methodName string, lggr logger.Logger) {
+func (m *Metrics) IncrementMetadataRequestCount(ctx context.Context, nodeAddress, methodName string, lggr logger.Logger) {
 	m.trigger.metadataRequestCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String(AttrNodeAddress, nodeAddress),
 		attribute.String(AttrNodeName, m.nodeAddressToNodeName[nodeAddress]),

@@ -121,7 +121,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	attemptId, challenge, err := s.acceptor.StartHandshake(authBytes)
+	attemptID, challenge, err := s.acceptor.StartHandshake(authBytes)
 	if err != nil {
 		s.lggr.Debugw("received invalid auth header", "err", err)
 		w.WriteHeader(http.StatusUnauthorized)
@@ -137,7 +137,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 		if conn != nil {
 			conn.Close()
 		}
-		s.acceptor.AbortHandshake(attemptId)
+		s.acceptor.AbortHandshake(attemptID)
 		return
 	}
 
@@ -152,14 +152,14 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	if err != nil || msgType != websocket.BinaryMessage {
 		s.lggr.Errorw("invalid handshake message", "msgType", msgType, "err", err, "remoteAddr", conn.RemoteAddr())
 		conn.Close()
-		s.acceptor.AbortHandshake(attemptId)
+		s.acceptor.AbortHandshake(attemptID)
 		return
 	}
 
-	if err = s.acceptor.FinalizeHandshake(attemptId, response, conn); err != nil {
+	if err = s.acceptor.FinalizeHandshake(attemptID, response, conn); err != nil {
 		s.lggr.Errorw("unable to finalize handshake", "err", err)
 		conn.Close()
-		s.acceptor.AbortHandshake(attemptId)
+		s.acceptor.AbortHandshake(attemptID)
 		return
 	}
 }
@@ -177,29 +177,30 @@ func (s *webSocketServer) Close() error {
 		s.cancelBaseContext()
 		err = s.server.Shutdown(context.Background())
 		<-s.doneCh
-		return
+		return err
 	})
 }
 
-func (s *webSocketServer) runServer() (err error) {
-	s.listener, err = net.Listen("tcp", s.server.Addr)
+func (s *webSocketServer) runServer() error {
+	listener, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", s.server.Addr)
 	if err != nil {
-		return
+		return err
 	}
+	s.listener = listener
 	tlsEnabled := s.config.TLSEnabled
 	go func() {
 		if tlsEnabled {
-			err := s.server.ServeTLS(s.listener, s.config.TLSCertPath, s.config.TLSKeyPath)
-			if err != http.ErrServerClosed {
-				s.lggr.Error("gateway WS server closed with error:", err)
+			serveErr := s.server.ServeTLS(s.listener, s.config.TLSCertPath, s.config.TLSKeyPath)
+			if serveErr != http.ErrServerClosed {
+				s.lggr.Error("gateway WS server closed with error:", serveErr)
 			}
 		} else {
-			err := s.server.Serve(s.listener)
-			if err != http.ErrServerClosed {
-				s.lggr.Error("gateway WS server closed with error:", err)
+			serveErr := s.server.Serve(s.listener)
+			if serveErr != http.ErrServerClosed {
+				s.lggr.Error("gateway WS server closed with error:", serveErr)
 			}
 		}
 		s.doneCh <- struct{}{}
 	}()
-	return
+	return nil
 }
