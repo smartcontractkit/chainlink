@@ -37,6 +37,7 @@ func TestPipelineJobSpecErrorsController_Delete_2(t *testing.T) {
 	require.NotEqual(t, -1, id, "error not found")
 
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/pipeline/job_spec_errors/%v", id))
+	defer resp.Body.Close()
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusNoContent)
 
@@ -55,6 +56,7 @@ func TestPipelineJobSpecErrorsController_Delete_NotFound(t *testing.T) {
 	_, client, _, _, _, _ := setupJobSpecsControllerTestsWithJobs(t)
 
 	resp, cleanup := client.Delete("/v2/pipeline/job_spec_errors/99999")
+	defer resp.Body.Close()
 	defer cleanup()
 
 	assert.Equal(t, http.StatusNotFound, resp.StatusCode, "Response should be not found")

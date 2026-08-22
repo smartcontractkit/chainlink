@@ -49,6 +49,6 @@ func (c ConfigV2Resource) GetID() string {
 	return utils.NewBytes32ID()
 }
 
-func (c *ConfigV2Resource) SetID(string) error {
+func (c ConfigV2Resource) SetID(string) error {
 	return nil
 }

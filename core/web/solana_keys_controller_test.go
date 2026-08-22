@@ -21,6 +21,7 @@ func TestSolanaKeysController_Index_HappyPath(t *testing.T) {
 	keys, _ := keyStore.Solana().GetAll()
 
 	response, cleanup := client.Get("/v2/keys/solana")
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -43,6 +44,7 @@ func TestSolanaKeysController_Create_HappyPath(t *testing.T) {
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/solana", nil)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -67,6 +69,7 @@ func TestSolanaKeysController_Delete_NonExistentSolanaKeyID(t *testing.T) {
 
 	nonExistentSolanaKeyID := "foobar"
 	response, cleanup := client.Delete("/v2/keys/solana/" + nonExistentSolanaKeyID)
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusNotFound, response.StatusCode)
 }
@@ -82,6 +85,7 @@ func TestSolanaKeysController_Delete_HappyPath(t *testing.T) {
 	key, _ := keyStore.Solana().Create(ctx)
 
 	response, cleanup := client.Delete("/v2/keys/solana/" + key.ID())
+	defer response.Body.Close()
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	require.Error(t, utils.JustError(keyStore.Solana().Get(key.ID())))
