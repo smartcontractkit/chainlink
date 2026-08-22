@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jmoiron/sqlx"
 	"github.com/shopspring/decimal"
 
@@ -166,7 +165,7 @@ func main() {
 			common.HexToAddress(*coordinatorAddress), // vrf coordinator address
 			*subID,                                   // subscription id
 			common.HexToHash(*keyHash),               // key hash
-			uint16(*requestConfs),                    // request confirmations
+			uint16(*requestConfs),                    //nolint:gosec // request confirmations fits in uint16
 			big.NewInt(*upkeepIntervalSeconds),       // upkeep interval seconds
 		)
 		helpers.PanicErr(err)
@@ -234,9 +233,9 @@ func main() {
 				PreSeed:          ps,
 				BlockHash:        bhSlice[i],
 				BlockNum:         blockNumSlice[i].Uint64(),
-				SubId:            subIDSlice[i].Uint64(),
-				CallbackGasLimit: uint32(cbLimitsSlice[i].Uint64()),
-				NumWords:         uint32(numWordsSlice[i].Uint64()),
+				SubID:            subIDSlice[i].Uint64(),
+				CallbackGasLimit: uint32(cbLimitsSlice[i].Uint64()), //nolint:gosec // callback gas limit fits in uint32
+				NumWords:         uint32(numWordsSlice[i].Uint64()), //nolint:gosec // num words fits in uint32
 				Sender:           senderSlice[i],
 			}
 			fmt.Printf("preseed data iteration %d: %+v\n", i, preSeedData)
@@ -322,9 +321,9 @@ func main() {
 			PreSeed:          ps,
 			BlockHash:        common.HexToHash(*blockHash),
 			BlockNum:         *blockNum,
-			SubId:            *subID,
-			CallbackGasLimit: uint32(*cbGasLimit),
-			NumWords:         uint32(*numWords),
+			SubID:            *subID,
+			CallbackGasLimit: uint32(*cbGasLimit), //nolint:gosec // callback gas limit fits in uint32
+			NumWords:         uint32(*numWords),   //nolint:gosec // num words fits in uint32
 			Sender:           common.HexToAddress(*sender),
 		}
 		fmt.Printf("preseed data: %+v\n", preSeedData)
@@ -417,10 +416,10 @@ func main() {
 		}
 
 		if *startBlock == -1 {
-			closestBlock, err2 := v2scripts.ClosestBlock(e, common.HexToAddress(*batchAddr), uint64(*endBlock), uint64(*batchSize))
+			closestBlock, err2 := v2scripts.ClosestBlock(e, common.HexToAddress(*batchAddr), uint64(*endBlock), uint64(*batchSize)) //nolint:gosec // block number fits in uint64
 			// found a block with blockhash stored that's more recent that end block
 			if err2 == nil {
-				*startBlock = int64(closestBlock)
+				*startBlock = int64(closestBlock) //nolint:gosec // block number fits in int64
 			} else {
 				fmt.Println("encountered error while looking for closest block:", err2)
 				tx, err2 := bhs.StoreEarliest(e.Owner)
@@ -428,7 +427,7 @@ func main() {
 				receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "Store Earliest")
 				// storeEarliest will store receipt block number minus 256 which is the earliest block
 				// the blockhash() instruction will work on.
-				*startBlock = receipt.BlockNumber.Int64() - 256
+				*startBlock = int64(receipt.BlockNumber.Uint64() - 256) //nolint:gosec // block number fits in int64
 			}
 		}
 
@@ -529,17 +528,17 @@ func main() {
 		v2scripts.SetCoordinatorConfig(
 			e,
 			*coordinator,
-			uint16(*minConfs),
-			uint32(*maxGasLimit),
-			uint32(*stalenessSeconds),
-			uint32(*gasAfterPayment),
+			uint16(*minConfs),         //nolint:gosec // min confs fits in uint16
+			uint32(*maxGasLimit),      //nolint:gosec // max gas limit fits in uint32
+			uint32(*stalenessSeconds), //nolint:gosec // staleness fits in uint32
+			uint32(*gasAfterPayment),  //nolint:gosec // gas after payment fits in uint32
 			decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
 			vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-				FulfillmentFlatFeeLinkPPMTier1: uint32(*flatFeeTier1),
-				FulfillmentFlatFeeLinkPPMTier2: uint32(*flatFeeTier2),
-				FulfillmentFlatFeeLinkPPMTier3: uint32(*flatFeeTier3),
-				FulfillmentFlatFeeLinkPPMTier4: uint32(*flatFeeTier4),
-				FulfillmentFlatFeeLinkPPMTier5: uint32(*flatFeeTier5),
+				FulfillmentFlatFeeLinkPPMTier1: uint32(*flatFeeTier1), //nolint:gosec // fee tier fits in uint32
+				FulfillmentFlatFeeLinkPPMTier2: uint32(*flatFeeTier2), //nolint:gosec // fee tier fits in uint32
+				FulfillmentFlatFeeLinkPPMTier3: uint32(*flatFeeTier3), //nolint:gosec // fee tier fits in uint32
+				FulfillmentFlatFeeLinkPPMTier4: uint32(*flatFeeTier4), //nolint:gosec // fee tier fits in uint32
+				FulfillmentFlatFeeLinkPPMTier5: uint32(*flatFeeTier5), //nolint:gosec // fee tier fits in uint32
 				ReqsForTier2:                   big.NewInt(*reqsForTier2),
 				ReqsForTier3:                   big.NewInt(*reqsForTier3),
 				ReqsForTier4:                   big.NewInt(*reqsForTier4),
@@ -575,9 +574,9 @@ func main() {
 		}
 		pubBytes, err := hex.DecodeString(*deregisterKeyUncompressedPubKey)
 		helpers.PanicErr(err)
-		pk, err := crypto.UnmarshalPubkey(pubBytes)
-		helpers.PanicErr(err)
-		tx, err := coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y})
+		x := new(big.Int).SetBytes(pubBytes[1:33])
+		y := new(big.Int).SetBytes(pubBytes[33:65])
+		tx, err := coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{x, y})
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "coordinator-subscription":
@@ -588,7 +587,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*address), e.Ec)
 		helpers.PanicErr(err)
 		fmt.Println("sub-id", *subID, "address", *address, coordinator.Address())
-		s, err := coordinator.GetSubscription(nil, uint64(*subID))
+		s, err := coordinator.GetSubscription(nil, uint64(*subID)) //nolint:gosec // subID fits in uint64
 		helpers.PanicErr(err)
 		fmt.Printf("Subscription %+v\n", s)
 	case "consumer-deploy":
@@ -802,7 +801,7 @@ func main() {
 			common.HexToAddress(*consumerAddress),
 			e.Ec)
 		helpers.PanicErr(err)
-		tx, err := consumer.RequestRandomWords(e.Owner, *subID, uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords), keyHashBytes)
+		tx, err := consumer.RequestRandomWords(e.Owner, *subID, uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords), keyHashBytes) //nolint:gosec // flags fit in target types
 		helpers.PanicErr(err)
 		fmt.Println("TX", helpers.ExplorerLink(e.ChainID, tx.Hash()))
 		r, err := bind.WaitMined(context.Background(), e.Ec, tx)
@@ -834,9 +833,9 @@ func main() {
 			e.Ec)
 		helpers.PanicErr(err)
 		var txes []*types.Transaction
-		for i := 0; i < int(*runs); i++ {
-			tx, err := consumer.RequestRandomWords(e.Owner, *subID, uint16(*requestConfirmations),
-				keyHashBytes, uint16(*requests))
+		for i := range *runs {
+			tx, err := consumer.RequestRandomWords(e.Owner, *subID, uint16(*requestConfirmations), //nolint:gosec // request confirmations fits in uint16
+				keyHashBytes, uint16(*requests)) //nolint:gosec // requests fits in uint16
 			helpers.PanicErr(err)
 			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
 			txes = append(txes, tx)
@@ -878,14 +877,14 @@ func main() {
 			e.Ec)
 		helpers.PanicErr(err)
 		var txes []*types.Transaction
-		for i := 0; i < int(*runs); i++ {
+		for i := range *runs {
 			requestRandTX, errRequestRandomWords := consumer.RequestRandomWords(
 				e.Owner,
-				uint16(*requestConfirmations),
+				uint16(*requestConfirmations), //nolint:gosec // request confirmations fits in uint16
 				keyHashBytes,
-				uint32(*cbGasLimit),
-				uint32(*numWords),
-				uint16(*requests),
+				uint32(*cbGasLimit), //nolint:gosec // gas limit fits in uint32
+				uint32(*numWords),   //nolint:gosec // num words fits in uint32
+				uint16(*requests),   //nolint:gosec // requests fits in uint16
 				decimal.RequireFromString(*subFundingAmountJuels).BigInt(),
 			)
 			helpers.PanicErr(errRequestRandomWords)
@@ -907,7 +906,7 @@ func main() {
 			panic("Actual Coordinator Owner and provided Coordinator Owner Addresses does not match")
 		}
 
-		var subId uint64
+		var subID uint64
 		var wg sync.WaitGroup
 
 		wg.Add(1)
@@ -918,8 +917,8 @@ func main() {
 			helpers.PanicErr(errw)
 			defer subCreatedSubscription.Unsubscribe()
 			subscriptionCreatedEvent := <-subCreatedChan
-			subId = subscriptionCreatedEvent.SubId
-			fmt.Println("VRF Owner Test Consumer's Sub ID:", subId)
+			subID = subscriptionCreatedEvent.SubId
+			fmt.Println("VRF Owner Test Consumer's Sub ID:", subID)
 			defer wg.Done()
 		}()
 
@@ -934,8 +933,8 @@ func main() {
 			receipt = helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("load test %d", i+1))
 		}
 		blockNumber := receipt.BlockNumber.Uint64()
-		fmt.Println("subId", subId)
-		subFundedIterator, err := coordinator.FilterSubscriptionFunded(&bind.FilterOpts{End: &blockNumber}, []uint64{subId})
+		fmt.Println("subId", subID)
+		subFundedIterator, err := coordinator.FilterSubscriptionFunded(&bind.FilterOpts{End: &blockNumber}, []uint64{subID})
 		helpers.PanicErr(err)
 
 		if !subFundedIterator.Next() {
@@ -978,15 +977,15 @@ func main() {
 			e.Ec)
 		helpers.PanicErr(err)
 		var txes []*types.Transaction
-		for i := 0; i < int(*runs); i++ {
+		for i := range *runs {
 			tx, err := consumer.RequestRandomWords(
 				e.Owner,
 				*subID,
-				uint16(*requestConfirmations),
+				uint16(*requestConfirmations), //nolint:gosec // request confirmations fits in uint16
 				keyHashBytes,
-				uint32(*cbGasLimit),
-				uint32(*numWords),
-				uint16(*requests),
+				uint32(*cbGasLimit), //nolint:gosec // gas limit fits in uint32
+				uint32(*numWords),   //nolint:gosec // num words fits in uint32
+				uint16(*requests),   //nolint:gosec // requests fits in uint16
 			)
 			helpers.PanicErr(err)
 			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
@@ -1039,7 +1038,7 @@ func main() {
 		helpers.ParseArgs(trans, os.Args[2:], "coordinator-address", "sub-id", "to")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		tx, err := coordinator.RequestSubscriptionOwnerTransfer(e.Owner, uint64(*subID), common.HexToAddress(*to))
+		tx, err := coordinator.RequestSubscriptionOwnerTransfer(e.Owner, uint64(*subID), common.HexToAddress(*to)) //nolint:gosec // subID fits in uint64
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-accept-sub":
@@ -1049,7 +1048,7 @@ func main() {
 		helpers.ParseArgs(accept, os.Args[2:], "coordinator-address", "sub-id")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		tx, err := coordinator.AcceptSubscriptionOwnerTransfer(e.Owner, uint64(*subID))
+		tx, err := coordinator.AcceptSubscriptionOwnerTransfer(e.Owner, uint64(*subID)) //nolint:gosec // subID fits in uint64
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-cancel-sub":
@@ -1059,7 +1058,7 @@ func main() {
 		helpers.ParseArgs(cancel, os.Args[2:], "coordinator-address", "sub-id")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		tx, err := coordinator.CancelSubscription(e.Owner, uint64(*subID), e.Owner.From)
+		tx, err := coordinator.CancelSubscription(e.Owner, uint64(*subID), e.Owner.From) //nolint:gosec // subID fits in uint64
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-fund-sub":
@@ -1076,7 +1075,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		v2scripts.EoaFundSubscription(e, *coordinator, *consumerLinkAddress, amount, uint64(*subID))
+		v2scripts.EoaFundSubscription(e, *coordinator, *consumerLinkAddress, amount, uint64(*subID)) //nolint:gosec // subID fits in uint64
 	case "eoa-read":
 		cmd := flag.NewFlagSet("eoa-read", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer", "", "consumer address")
@@ -1097,7 +1096,7 @@ func main() {
 		helpers.ParseArgs(cancel, os.Args[2:], "coordinator-address", "sub-id")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		tx, err := coordinator.OwnerCancelSubscription(e.Owner, uint64(*subID))
+		tx, err := coordinator.OwnerCancelSubscription(e.Owner, uint64(*subID)) //nolint:gosec // subID fits in uint64
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "sub-balance":
@@ -1207,12 +1206,12 @@ func main() {
 		}
 		pubBytes, err := hex.DecodeString(*uncompressedPubKey)
 		helpers.PanicErr(err)
-		pk, err := crypto.UnmarshalPubkey(pubBytes)
-		helpers.PanicErr(err)
+		x := new(big.Int).SetBytes(pubBytes[1:33])
+		y := new(big.Int).SetBytes(pubBytes[33:65])
 
 		var deregisterTx *types.Transaction
 		if !*skipDeregister {
-			deregisterTx, err = coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{pk.X, pk.Y})
+			deregisterTx, err = coordinator.DeregisterProvingKey(e.Owner, [2]*big.Int{x, y})
 			helpers.PanicErr(err)
 			fmt.Println("Deregister transaction", helpers.ExplorerLink(e.ChainID, deregisterTx.Hash()))
 		}
@@ -1221,7 +1220,7 @@ func main() {
 		e.Owner.GasPrice.Mul(e.Owner.GasPrice, big.NewInt(2))
 		registerTx, err := coordinator.RegisterProvingKey(e.Owner,
 			common.HexToAddress(*newOracleAddress),
-			[2]*big.Int{pk.X, pk.Y})
+			[2]*big.Int{x, y})
 		helpers.PanicErr(err)
 		fmt.Println("Register transaction", helpers.ExplorerLink(e.ChainID, registerTx.Hash()))
 
@@ -1311,7 +1310,7 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "size")
 		wrapper, err := vrfv2_wrapper.NewVRFV2Wrapper(common.HexToAddress(*wrapperAddress), e.Ec)
 		helpers.PanicErr(err)
-		tx, err := wrapper.SetFulfillmentTxSize(e.Owner, uint32(*size))
+		tx, err := wrapper.SetFulfillmentTxSize(e.Owner, uint32(*size)) //nolint:gosec // size fits in uint32
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "set fulfillment tx size")
 	case "wrapper-consumer-deploy":
@@ -1335,7 +1334,7 @@ func main() {
 			common.HexToAddress(*consumerAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		tx, err := consumer.MakeRequest(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords))
+		tx, err := consumer.MakeRequest(e.Owner, uint32(*cbGasLimit), uint16(*confirmations), uint32(*numWords)) //nolint:gosec // flags fit in target types
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "wrapper-consumer-request-status":
