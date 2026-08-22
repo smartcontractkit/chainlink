@@ -13,14 +13,10 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-	evmrelayer "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -34,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	coreevmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 )
 
@@ -60,19 +55,6 @@ func (d delegate) ServicesForSpec(ctx context.Context, js job.Job) ([]job.Servic
 
 func clearDB(t *testing.T, db *sqlx.DB) {
 	cltest.ClearDBTables(t, db, "jobs", "pipeline_runs", "pipeline_specs", "pipeline_task_runs")
-}
-
-type relayGetter struct {
-	r *evmrelayer.Relayer
-	c legacyevm.Chain
-}
-
-func (g *relayGetter) Get(id types.RelayID) (loop.Relayer, error) {
-	return coreevmrelayer.NewLegacyAdapter(g.r, g.c), nil
-}
-
-func (g *relayGetter) GetIDToRelayerMap() map[types.RelayID]loop.Relayer {
-	return map[types.RelayID]loop.Relayer{}
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
