@@ -381,45 +381,6 @@ func (d *Delegate) NewServices(
 		cntor = d.gatewayConnectorWrapper.GetGatewayConnector()
 	}
 
-<<<<<<< HEAD
-=======
-	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
-	if command == commandOverrideForWebAPITrigger {
-		if d.gatewayConnectorWrapper == nil || cntor == nil {
-			return nil, errors.New("gateway connector is required for web API Trigger capability")
-		}
-		triggerSrvc, err := trigger.NewTrigger(configJSON, d.registry, cntor, log)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
-		}
-		return []job.ServiceCtx{triggerSrvc}, nil
-	}
-
-	if command == commandOverrideForWebAPITarget {
-		if d.gatewayConnectorWrapper == nil || cntor == nil {
-			return nil, errors.New("gateway connector is required for web API Target capability")
-		}
-		if len(configJSON) == 0 {
-			return nil, errors.New("config is empty")
-		}
-		var targetCfg webapi.ServiceConfig
-		err := toml.Unmarshal([]byte(configJSON), &targetCfg)
-		if err != nil {
-			return nil, err
-		}
-		lggr := logger.Named(d.logger, "WebAPITarget")
-		handler, err := webapi.NewOutgoingConnectorHandler(cntor, targetCfg, capabilities.MethodWebAPITarget, lggr, d.selectorOpts...)
-		if err != nil {
-			return nil, err
-		}
-		capability, err := webapitarget.NewCapability(targetCfg, d.registry, handler, lggr)
-		if err != nil {
-			return nil, err
-		}
-		return []job.ServiceCtx{capability, handler}, nil
-	}
-
->>>>>>> 03aa0795b8 (refactor(core/services): standardize chainlink-common logger and fix pg version check)
 	dependencies := core.StandardCapabilitiesDependencies{
 		Config:             configJSON,
 		Store:              kvStore,

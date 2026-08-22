@@ -25,12 +25,12 @@ type BridgeTypeRequest struct {
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
-func (bt BridgeTypeRequest) GetID() string {
+func (bt *BridgeTypeRequest) GetID() string {
 	return bt.Name.String()
 }
 
 // GetName returns the pluralized "type" of this structure for jsonapi serialization.
-func (bt BridgeTypeRequest) GetName() string {
+func (bt *BridgeTypeRequest) GetName() string {
 	return "bridges"
 }
 
@@ -70,8 +70,7 @@ type BridgeType struct {
 // NewBridgeType returns a bridge type authentication (with plaintext
 // password) and a bridge type (with hashed password, for persisting)
 func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
-	*BridgeType, error,
-) {
+	*BridgeType, error) {
 	incomingToken := utils.NewSecret(24)
 	outgoingToken := utils.NewSecret(24)
 	salt := utils.NewSecret(24)
@@ -133,7 +132,7 @@ type BridgeMetaDataJSON struct {
 	Meta BridgeMetaData
 }
 
-func MarshalBridgeMetaData(latestAnswer, updatedAt *big.Int) (map[string]any, error) {
+func MarshalBridgeMetaData(latestAnswer *big.Int, updatedAt *big.Int) (map[string]any, error) {
 	b, err := json.Marshal(&BridgeMetaData{LatestAnswer: latestAnswer, UpdatedAt: updatedAt})
 	if err != nil {
 		return nil, err
@@ -181,18 +180,18 @@ func (t *BridgeName) UnmarshalJSON(input []byte) error {
 }
 
 // MarshalJSON converts a BridgeName to a JSON byte slice.
-func (t BridgeName) MarshalJSON() ([]byte, error) {
+func (t *BridgeName) MarshalJSON() ([]byte, error) {
 	return json.Marshal(t.String())
 }
 
 // String returns this BridgeName as a string.
-func (t BridgeName) String() string {
-	return string(t)
+func (t *BridgeName) String() string {
+	return string(*t)
 }
 
 // Value returns this instance serialized for database storage.
-func (t BridgeName) Value() (driver.Value, error) {
-	return string(t), nil
+func (t *BridgeName) Value() (driver.Value, error) {
+	return string(*t), nil
 }
 
 // Scan reads the database value and returns an instance.

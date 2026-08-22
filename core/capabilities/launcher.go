@@ -286,7 +286,6 @@ func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyn
 	remoteWorkflowDONs := []registrysyncer.DON{}
 	myDONs := map[uint32]bool{}
 	myDONFamiliesSet := map[string]bool{}
-	myDONFamilies := []string{}
 	for _, id := range allDONIDs {
 		d := localRegistry.IDsToDONs[id]
 		for _, peerID := range d.Members {
@@ -306,6 +305,7 @@ func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyn
 			}
 		}
 	}
+	myDONFamilies := make([]string, 0, len(myDONFamiliesSet))
 	for family := range myDONFamiliesSet {
 		myDONFamilies = append(myDONFamilies, family)
 	}
