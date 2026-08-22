@@ -10,7 +10,7 @@ import (
 type Map map[string]any
 
 // ImplementsGraphQLType implements GraphQL type for Map
-func (Map) ImplementsGraphQLType(name string) bool { return name == "Map" }
+func (*Map) ImplementsGraphQLType(name string) bool { return name == "Map" }
 
 // UnmarshalGraphQL sets the Map
 func (m *Map) UnmarshalGraphQL(input any) error {
@@ -24,8 +24,8 @@ func (m *Map) UnmarshalGraphQL(input any) error {
 }
 
 // MarshalJSON returns json
-func (m Map) MarshalJSON() ([]byte, error) {
+func (m *Map) MarshalJSON() ([]byte, error) {
 	// Cast this so we don't have infinite recursion
 	// (don't want json.Marshal calling the MarshalJSON method on m)
-	return json.Marshal(map[string]any(m))
+	return json.Marshal(map[string]any(*m))
 }

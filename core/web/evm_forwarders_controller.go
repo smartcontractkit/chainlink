@@ -85,7 +85,7 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 		if err2 != nil {
 			// If the chain id doesn't even exist, or logpoller is disabled, then there isn't any filter to clean up.  Returning an error
 			// here could be dangerous as it would make it impossible to delete a forwarder with an invalid chain id
-			return nil
+			return nil //nolint:nilerr // intentional: a missing chain id means no forwarder filter to clean up
 		}
 		chain, ok := chainService.(legacyevm.Chain)
 		if !ok {

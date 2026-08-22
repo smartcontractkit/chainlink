@@ -46,6 +46,7 @@ func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 			BlockNumber: 100,
 			ChainID:     "1",
 		})
+		defer resp.Body.Close()
 		assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
 		b, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
@@ -59,6 +60,7 @@ func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 			Family:      "solana",
 			ChainID:     "1",
 		})
+		defer resp.Body.Close()
 		assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
 		b, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
@@ -71,6 +73,7 @@ func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 			BlockNumber: 100,
 			Family:      "evm",
 		})
+		defer resp.Body.Close()
 		assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
 		b, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
@@ -84,6 +87,7 @@ func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 			Family:      "evm",
 			ChainID:     "1",
 		})
+		defer resp.Body.Close()
 		assert.Equal(t, http.StatusUnprocessableEntity, resp.StatusCode)
 		b, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
@@ -97,6 +101,7 @@ func TestLPSkipController_LPSkipToBlock(t *testing.T) {
 			Family:      "evm",
 			ChainID:     "99999",
 		})
+		defer resp.Body.Close()
 		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 		b, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
