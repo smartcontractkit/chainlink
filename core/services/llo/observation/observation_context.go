@@ -97,7 +97,7 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 	}
 	if ch := GetObservationTelemetryCh(ctx); ch != nil {
 		cd := opts.ConfigDigest()
-		telemetry := &telem.LLOObservationTelemetry{
+		ot := &telem.LLOObservationTelemetry{
 			StreamId:              streamID,
 			ObservationTimestamp:  opts.ObservationTimestamp().UnixNano(),
 			ObservationFinishedAt: observationFinishedAt.UnixNano(),
@@ -105,31 +105,31 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 			ConfigDigest:          cd[:],
 		}
 		if err != nil {
-			telemetry.ObservationError = new(string)
-			*telemetry.ObservationError = err.Error()
+			ot.ObservationError = new(string)
+			*ot.ObservationError = err.Error()
 		}
 		if val != nil {
-			telemetry.StreamValueType = int32(val.Type())
+			ot.StreamValueType = int32(val.Type())
 			b, err := val.MarshalBinary()
 			if err != nil {
 				oc.l.Errorw("failed to MarshalBinary on stream value", "error", err)
 			} else {
-				telemetry.StreamValueBinary = b
+				ot.StreamValueBinary = b
 			}
 			s, err := val.MarshalText()
 			if err != nil {
 				oc.l.Errorw("failed to MarshalText on stream value", "error", err)
 			} else {
-				telemetry.StreamValueText = string(s)
+				ot.StreamValueText = string(s)
 			}
 		}
 		select {
-		case ch <- telemetry:
+		case ch <- ot:
 		default:
 			oc.l.Error("telemetry channel is full, dropping observation telemetry")
 		}
 	}
-	return
+	return val, err
 }
 
 func resultToStreamValue(val any) (lloprotocol.StreamValue, error) {

@@ -11,9 +11,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 )
 
@@ -42,7 +42,7 @@ type (
 
 	databaseBackup struct {
 		services.StateMachine
-		logger          logger.Logger
+		logger          common.Logger
 		databaseURL     url.URL
 		mode            config.DatabaseBackupMode
 		frequency       time.Duration
@@ -59,11 +59,11 @@ type (
 )
 
 // NewDatabaseBackup instantiates a *databaseBackup
-func NewDatabaseBackup(dbUrl url.URL, rootDir string, backupConfig BackupConfig, lggr logger.Logger) (DatabaseBackup, error) {
-	lggr = lggr.Named("DatabaseBackup")
-	dbBackupUrl := backupConfig.URL()
-	if dbBackupUrl != nil {
-		dbUrl = *dbBackupUrl
+func NewDatabaseBackup(dbURL url.URL, rootDir string, backupConfig BackupConfig, lggr common.Logger) (DatabaseBackup, error) {
+	lggr = common.Named(lggr, "DatabaseBackup")
+	dbBackupURL := backupConfig.URL()
+	if dbBackupURL != nil {
+		dbURL = *dbBackupURL
 	}
 
 	outputParentDir := filepath.Join(rootDir, "backup")
@@ -78,7 +78,7 @@ func NewDatabaseBackup(dbUrl url.URL, rootDir string, backupConfig BackupConfig,
 	return &databaseBackup{
 		services.StateMachine{},
 		lggr,
-		dbUrl,
+		dbURL,
 		backupConfig.Mode(),
 		backupConfig.Frequency(),
 		outputParentDir,
@@ -106,7 +106,7 @@ func (backup *databaseBackup) Start(context.Context) error {
 					return
 				case <-ticker.C:
 					backup.logger.Infow("Starting automatic database backup, this can take a while. To disable periodic backups, set Database.Backup.Frequency=0. To disable database backups entirely, set Database.Backup.Mode=none.")
-					//nolint:errcheck
+					//nolint:errcheck // backup failure is surfaced via the logger and SvcErrBuffer
 					backup.RunBackup(static.Version)
 				}
 			}
@@ -141,7 +141,7 @@ func (backup *databaseBackup) RunBackup(version string) error {
 	result, err := backup.runBackup(version)
 	duration := time.Since(startAt)
 	if err != nil {
-		backup.logger.Criticalw("Backup failed", "duration", duration, "err", err)
+		common.Sugared(backup.logger).Criticalw("Backup failed", "duration", duration, "err", err)
 		backup.SvcErrBuffer.Append(err)
 		return err
 	}
@@ -185,12 +185,11 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 	maskedArgs := maskArgs(args)
 	backup.logger.Debugf("Running pg_dump with: %v", maskedArgs)
 
-	cmd := exec.Command(
+	cmd := exec.CommandContext(context.Background(),
 		"pg_dump", args...,
 	)
 
 	_, err = cmd.Output()
-
 	if err != nil {
 		partialResult := &backupResult{
 			size:            0,

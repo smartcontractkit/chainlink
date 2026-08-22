@@ -10,21 +10,21 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 type ORM interface {
 	ManagerExists(ctx context.Context, publicKey crypto.PublicKey) (bool, error)
 	CountManagers(ctx context.Context) (int64, error)
-	CreateManager(ctx context.Context, ms *FeedsManager) (int64, error)
-	GetManager(ctx context.Context, id int64) (*FeedsManager, error)
-	ListManagers(ctx context.Context) (mgrs []FeedsManager, err error)
-	ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error)
-	UpdateManager(ctx context.Context, mgr FeedsManager) error
-	EnableManager(ctx context.Context, id int64) (*FeedsManager, error)
-	DisableManager(ctx context.Context, id int64) (*FeedsManager, error)
+	CreateManager(ctx context.Context, ms *Manager) (int64, error)
+	GetManager(ctx context.Context, id int64) (*Manager, error)
+	ListManagers(ctx context.Context) (mgrs []Manager, err error)
+	ListManagersByIDs(ctx context.Context, ids []int64) ([]Manager, error)
+	UpdateManager(ctx context.Context, mgr Manager) error
+	EnableManager(ctx context.Context, id int64) (*Manager, error)
+	DisableManager(ctx context.Context, id int64) (*Manager, error)
 
 	CreateBatchChainConfig(ctx context.Context, cfgs []ChainConfig) ([]int64, error)
 	CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error)
@@ -57,7 +57,7 @@ type ORM interface {
 	UpdateSpecDefinition(ctx context.Context, id int64, spec string) error
 
 	IsJobManaged(ctx context.Context, jobID int64) (bool, error)
-	IsJobManagedByFeedsManager(ctx context.Context, jobID int64, feedsManagerID int64) (bool, error)
+	IsJobManagedByFeedsManager(ctx context.Context, jobID, feedsManagerID int64) (bool, error)
 
 	Transact(context.Context, func(ORM) error) error
 	WithDataSource(sqlutil.DataSource) ORM
@@ -67,11 +67,11 @@ var _ ORM = &orm{}
 
 type orm struct {
 	ds   sqlutil.DataSource
-	lggr logger.Logger
+	lggr common.Logger
 }
 
-func NewORM(ds sqlutil.DataSource, lggr logger.Logger) *orm {
-	namedLogger := logger.Sugared(lggr.Named("FeedsORM"))
+func NewORM(ds sqlutil.DataSource, lggr common.Logger) *orm {
+	namedLogger := common.Sugared(lggr).Named("FeedsORM")
 	return &orm{
 		ds:   ds,
 		lggr: namedLogger,
@@ -112,7 +112,7 @@ SELECT EXISTS (
 }
 
 // CreateManager creates a feeds manager.
-func (o *orm) CreateManager(ctx context.Context, ms *FeedsManager) (id int64, err error) {
+func (o *orm) CreateManager(ctx context.Context, ms *Manager) (id int64, err error) {
 	stmt := `
 INSERT INTO feeds_managers (name, uri, public_key, created_at, updated_at)
 VALUES ($1,$2,$3,NOW(),NOW())
@@ -151,7 +151,7 @@ RETURNING id;
 // CreateBatchChainConfig creates multiple chain configs.
 func (o *orm) CreateBatchChainConfig(ctx context.Context, cfgs []ChainConfig) (ids []int64, err error) {
 	if len(cfgs) == 0 {
-		return
+		return ids, err
 	}
 
 	stmt := `
@@ -275,20 +275,20 @@ RETURNING id;
 }
 
 // GetManager gets a feeds manager by id.
-func (o *orm) GetManager(ctx context.Context, id int64) (mgr *FeedsManager, err error) {
+func (o *orm) GetManager(ctx context.Context, id int64) (mgr *Manager, err error) {
 	stmt := `
 SELECT id, name, uri, public_key, created_at, updated_at, disabled_at
 FROM feeds_managers
 WHERE id = $1
 `
 
-	mgr = new(FeedsManager)
+	mgr = new(Manager)
 	err = o.ds.GetContext(ctx, mgr, stmt, id)
 	return mgr, errors.Wrap(err, "GetManager failed")
 }
 
 // ListManager lists all feeds managers.
-func (o *orm) ListManagers(ctx context.Context) (mgrs []FeedsManager, err error) {
+func (o *orm) ListManagers(ctx context.Context) (mgrs []Manager, err error) {
 	stmt := `
 SELECT id, name, uri, public_key, created_at, updated_at, disabled_at
 FROM feeds_managers
@@ -300,21 +300,21 @@ ORDER BY created_at;
 }
 
 // ListManagersByIDs gets feeds managers by ids.
-func (o *orm) ListManagersByIDs(ctx context.Context, ids []int64) (managers []FeedsManager, err error) {
+func (o *orm) ListManagersByIDs(ctx context.Context, ids []int64) (managers []Manager, err error) {
 	stmt := `
 SELECT id, name, uri, public_key, created_at, updated_at, disabled_at
 FROM feeds_managers
 WHERE id = ANY($1)
 ORDER BY created_at, id;`
 
-	mgrIds := pq.Array(ids)
-	err = o.ds.SelectContext(ctx, &managers, stmt, mgrIds)
+	mgrIDs := pq.Array(ids)
+	err = o.ds.SelectContext(ctx, &managers, stmt, mgrIDs)
 
 	return managers, errors.Wrap(err, "GetManagers failed")
 }
 
 // UpdateManager updates the manager details.
-func (o *orm) UpdateManager(ctx context.Context, mgr FeedsManager) (err error) {
+func (o *orm) UpdateManager(ctx context.Context, mgr Manager) (err error) {
 	stmt := `
 UPDATE feeds_managers
 SET name = $1, uri = $2, public_key = $3, updated_at = NOW()
@@ -335,14 +335,14 @@ WHERE id = $4;
 	return nil
 }
 
-func (o *orm) EnableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+func (o *orm) EnableManager(ctx context.Context, id int64) (*Manager, error) {
 	stmt := `
 		UPDATE feeds_managers
 		SET disabled_at = NULL
 		WHERE id = $1
 		RETURNING *;
 `
-	mgr := new(FeedsManager)
+	mgr := new(Manager)
 	err := o.ds.GetContext(ctx, mgr, stmt, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "EnableManager failed")
@@ -350,14 +350,14 @@ func (o *orm) EnableManager(ctx context.Context, id int64) (*FeedsManager, error
 	return mgr, nil
 }
 
-func (o *orm) DisableManager(ctx context.Context, id int64) (*FeedsManager, error) {
+func (o *orm) DisableManager(ctx context.Context, id int64) (*Manager, error) {
 	stmt := `
 		UPDATE feeds_managers
 		SET disabled_at = NOW()
 		WHERE id = $1
 		RETURNING *;
 `
-	mgr := new(FeedsManager)
+	mgr := new(Manager)
 	err := o.ds.GetContext(ctx, mgr, stmt, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "DisableManager failed")
@@ -896,7 +896,7 @@ SELECT exists (
 }
 
 // IsJobManagedByFeedsManager determines if a job is managed by a specific feeds manager.
-func (o *orm) IsJobManagedByFeedsManager(ctx context.Context, jobID int64, feedsManagerID int64) (exists bool, err error) {
+func (o *orm) IsJobManagedByFeedsManager(ctx context.Context, jobID, feedsManagerID int64) (exists bool, err error) {
 	stmt := `
 SELECT exists (
 	SELECT 1

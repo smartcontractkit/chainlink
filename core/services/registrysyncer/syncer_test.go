@@ -26,6 +26,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	kcr_v1 "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
@@ -70,7 +71,7 @@ func startNewChainWithRegistry(t *testing.T) (*kcr_v1.CapabilitiesRegistry, comm
 }
 
 type crFactory struct {
-	lggr      logger.Logger
+	lggr      commonlogger.Logger
 	ht        logpoller.HeadTracker
 	logPoller logpoller.LogPoller
 	client    evmclient.Client
@@ -166,7 +167,7 @@ func (o *orm) Cleanup() {
 	close(o.addLocalRegistryCh)
 }
 
-func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer.LocalRegistry) error {
+func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.addLocalRegistryCh <- struct{}{}
@@ -182,7 +183,7 @@ func (o *orm) LatestLocalRegistry(ctx context.Context) (*registrysyncer.LocalReg
 }
 
 func toPeerIDs(ids [][32]byte) []p2ptypes.PeerID {
-	var pids []p2ptypes.PeerID
+	pids := make([]p2ptypes.PeerID, 0, len(ids))
 	for _, id := range ids {
 		pids = append(pids, id)
 	}
@@ -589,7 +590,7 @@ func TestSyncer_LocalNode(t *testing.T) {
 }
 
 func newTestSyncer(
-	lggr logger.Logger,
+	lggr commonlogger.Logger,
 	getPeerID func() (p2ptypes.PeerID, error),
 	relayer registrysyncer.ContractReaderFactory,
 	registryAddress string,

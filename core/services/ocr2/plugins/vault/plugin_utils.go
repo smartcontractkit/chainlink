@@ -10,16 +10,16 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // gateAllows reports whether the given CRE gate allows the gated behavior.
 // When evaluation errors for reasons other than ErrorNotAllowed, it logs an error and returns false.
-func gateAllows(ctx context.Context, lggr logger.Logger, gate limits.GateLimiter, gateName string) bool {
+func gateAllows(ctx context.Context, lggr common.Logger, gate limits.GateLimiter, gateName string) bool {
 	err := gate.AllowErr(ctx)
 	if err == nil {
 		return true
@@ -199,14 +199,14 @@ func initializePluginLimits(ctx context.Context, limitsFactory limits.Factory) (
 	}, nil
 }
 
-func (r *ReportingPlugin) roundLggr(seqNr uint64) logger.Logger {
+func (r *ReportingPlugin) roundLggr(seqNr uint64) common.SugaredLogger {
 	return r.lggr.With("seqNr", seqNr)
 }
 
-func (r *ReportingPlugin) requestLggr(seqNr uint64, requestID string) logger.Logger {
+func (r *ReportingPlugin) requestLggr(seqNr uint64, requestID string) common.SugaredLogger {
 	return r.roundLggr(seqNr).With("requestID", requestID)
 }
 
-func (r *ReportingPlugin) typedRequestLggr(seqNr uint64, requestID, requestType string) logger.Logger {
+func (r *ReportingPlugin) typedRequestLggr(seqNr uint64, requestID, requestType string) common.SugaredLogger {
 	return r.requestLggr(seqNr, requestID).With("requestType", requestType)
 }

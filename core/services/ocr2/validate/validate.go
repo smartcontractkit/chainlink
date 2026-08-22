@@ -30,7 +30,7 @@ import (
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
 func ValidatedOracleSpecToml(ctx context.Context, config OCR2Config, insConf InsecureConfig, tomlString string, rc plugins.RegistrarConfig) (job.Job, error) {
-	var jb = job.Job{}
+	jb := job.Job{}
 	var spec job.OCR2OracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
@@ -168,14 +168,12 @@ type OCR2GenericPluginConfig struct {
 }
 
 func (o *OCR2GenericPluginConfig) UnmarshalJSON(data []byte) error {
-	err := json.Unmarshal(data, &o.innerConfig)
-	if err != nil {
-		return nil
-	}
+	// innerConfig is best-effort: ignore a type mismatch so the raw PluginConfig
+	// map below is always populated.
+	_ = json.Unmarshal(data, &o.innerConfig)
 
 	m := map[string]any{}
-	err = json.Unmarshal(data, &m)
-	if err != nil {
+	if err := json.Unmarshal(data, &m); err != nil {
 		return err
 	}
 

@@ -213,8 +213,8 @@ func NewLocalRegistry(
 	idsToDONs map[DonID]DON,
 	idsToNodes map[types.PeerID]NodeInfo,
 	idsToCapabilities map[string]Capability,
-) LocalRegistry {
-	return LocalRegistry{
+) *LocalRegistry {
+	return &LocalRegistry{
 		Logger:            logger.Named(lggr, "LocalRegistry"),
 		GetPeerID:         getPeerID,
 		IDsToDONs:         idsToDONs,
@@ -395,8 +395,8 @@ func (l *LocalRegistry) ensureNotEmpty() error {
 	return nil
 }
 
-func DeepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
-	var lrCopy LocalRegistry
+func DeepCopyLocalRegistry(lr *LocalRegistry) *LocalRegistry {
+	lrCopy := &LocalRegistry{}
 	lrCopy.Logger = lr.Logger
 	lrCopy.GetPeerID = lr.GetPeerID
 	lrCopy.IDsToDONs = make(map[DonID]DON, len(lr.IDsToDONs))

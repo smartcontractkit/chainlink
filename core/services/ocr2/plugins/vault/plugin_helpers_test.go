@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/requests"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -23,7 +24,7 @@ import (
 type testPluginOption func(*testPluginBuildOpts)
 
 type testPluginBuildOpts struct {
-	lggr                                    logger.Logger
+	lggr                                    common.SugaredLogger
 	store                                   *requests.Store[*vaulttypes.Request]
 	publicKey                               *tdh2easy.PublicKey
 	privateKeyShare                         *tdh2easy.PrivateShare
@@ -49,8 +50,8 @@ type testPluginBuildOpts struct {
 	maxReportsPlusPrecursorBytesOverride    int
 }
 
-func withLggr(lggr logger.Logger) testPluginOption {
-	return func(o *testPluginBuildOpts) { o.lggr = lggr }
+func withLggr(lggr common.Logger) testPluginOption {
+	return func(o *testPluginBuildOpts) { o.lggr = common.Sugared(lggr) }
 }
 
 func withStore(store *requests.Store[*vaulttypes.Request]) testPluginOption {
@@ -108,7 +109,7 @@ func withVaultSignedResponseRequestIDEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultSignedResponseRequestIDEnabled = true }
 }
 
-func withOnchainCfg(n int, f int) testPluginOption {
+func withOnchainCfg(n, f int) testPluginOption {
 	return func(o *testPluginBuildOpts) {
 		o.onchainCfg = ocr3types.ReportingPluginConfig{N: n, F: f}
 	}
@@ -141,7 +142,7 @@ func withMaxReportsPlusPrecursorBytes(n int) testPluginOption {
 func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPlugin {
 	t.Helper()
 	o := testPluginBuildOpts{
-		lggr:                              logger.TestLogger(t),
+		lggr:                              common.Sugared(logger.TestLogger(t)),
 		store:                             requests.NewStore[*vaulttypes.Request](),
 		onchainCfg:                        ocr3types.ReportingPluginConfig{N: 0, F: 0},
 		maxSecretsPerOwner:                1,

@@ -297,7 +297,7 @@ multiply3 	  	 [type=multiply times=1 streamID=3 index=2]; // force conversion t
 
 result1 -> multiply2;
 result2 -> result2_parse;
-result3 -> result3_parse -> multiply3; 
+result3 -> result3_parse -> multiply3;
 `,
 			},
 		}
@@ -447,7 +447,7 @@ multiply3 	  	 [type=multiply times=1 streamID=%d index=2]; // force conversion 
 
 result1 -> multiply2;
 result2 -> result2_parse;
-result3 -> result3_parse -> multiply3; 
+result3 -> result3_parse -> multiply3;
 `, i+n, i+2*n, i+3*n),
 			},
 		}

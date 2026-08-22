@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -46,7 +47,7 @@ type RelayGetter interface {
 }
 
 type Delegate struct {
-	logger                  logger.Logger
+	logger                  logger.SugaredLogger
 	ds                      sqlutil.DataSource
 	jobORM                  job.ORM
 	registry                core.CapabilitiesRegistry
@@ -76,7 +77,7 @@ const (
 type NewOracleFactoryFn func(generic.OracleFactoryParams) (core.OracleFactory, error)
 
 func NewDelegate(
-	logger logger.Logger,
+	logger logger.SugaredLogger,
 	ds sqlutil.DataSource,
 	jobORM job.ORM,
 	registry core.CapabilitiesRegistry,
@@ -170,7 +171,7 @@ func (d *Delegate) NewServices(
 	oracleFactoryConfig job.OracleFactoryConfig,
 	capabilityDonID uint32,
 ) ([]job.ServiceCtx, error) {
-	log := d.logger.Named("StandardCapabilities").Named(strconv.Itoa(int(jobID))).Named(jobName)
+	log := logger.Sugared(d.logger.Named("StandardCapabilities").Named(strconv.Itoa(int(jobID))).Named(jobName))
 
 	kvStore := job.NewKVStore(jobID, d.ds)
 
@@ -354,7 +355,7 @@ func (d *Delegate) NewServices(
 // infrastructure issues like getPeerID failing or the registry being unavailable —
 // results in returning 0 with a warning logged. The caller then falls back to
 // labeling events with the consumer workflow's DON ID. See CRE-4409.
-func resolveCapabilityDonID(ctx context.Context, lggr logger.Logger, registry core.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) uint32 {
+func resolveCapabilityDonID(ctx context.Context, lggr common.Logger, registry core.CapabilitiesRegistry, getPeerID func() (p2ptypes.PeerID, error), capabilityID string) uint32 {
 	if registry == nil {
 		lggr.Warnw("Capabilities registry is nil; falling back to workflow DON ID for event labeling", "capabilityID", capabilityID)
 		return 0

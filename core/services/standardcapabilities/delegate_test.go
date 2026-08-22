@@ -88,7 +88,7 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			forwardingAllowed = false
 			command = "path/to/binary"
 			config = """"""
-			
+
 			[oracle_factory]
 			enabled = true
 			bootstrap_peers = ["12D3KooWBAzThfs9pD4WcsFKCi68EUz2fZgZskDBT6JcJRndPss5@cl-keystone-two-bt-0:5001"]
@@ -130,7 +130,7 @@ func Test_ValidatedStandardCapabilitiesSpec(t *testing.T) {
 			jobSpec, err := ValidatedStandardCapabilitiesSpec(tc.tomlString)
 
 			if tc.expectedError != "" {
-				assert.ErrorContains(t, err, tc.expectedError)
+				require.ErrorContains(t, err, tc.expectedError)
 			} else {
 				require.NoError(t, err)
 			}
@@ -331,9 +331,11 @@ func (s *stubLocalCapabilities) RegistryBasedLaunchAllowlist() []string { return
 func (s *stubLocalCapabilities) Capabilities() map[string]config.CapabilityNodeConfig {
 	return nil
 }
+
 func (s *stubLocalCapabilities) IsAllowlisted(capabilityID string) bool {
 	return s.allowlisted[capabilityID]
 }
+
 func (s *stubLocalCapabilities) GetCapabilityConfig(string) config.CapabilityNodeConfig {
 	return nil
 }

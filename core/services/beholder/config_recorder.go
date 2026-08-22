@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // ConfigRecorder periodically records Beholder config info metric.
@@ -17,14 +17,14 @@ type ConfigRecorder struct {
 	interval time.Duration
 }
 
-func NewConfigRecorder(logger logger.Logger, interval time.Duration) *ConfigRecorder {
+func NewConfigRecorder(lggr common.Logger, interval time.Duration) *ConfigRecorder {
 	cr := &ConfigRecorder{
 		interval: interval,
 	}
 	cr.Service, cr.eng = services.Config{
 		Name:  "BeholderConfigRecorder",
 		Start: cr.start,
-	}.NewServiceEngine(logger)
+	}.NewServiceEngine(lggr)
 	return cr
 }
 

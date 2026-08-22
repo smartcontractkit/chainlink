@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -23,14 +24,14 @@ func TestRelayerSet_List(t *testing.T) {
 	testGetter := TestRelayGetter{relayers: testRelayersMap}
 
 	relayerSet, err := NewRelayerSet(testGetter, uuid.New(), 1, true)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	relayers, err := relayerSet.List(t.Context())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, relayers, 3)
 
 	relayers, err = relayerSet.List(t.Context(), types.RelayID{Network: "N1", ChainID: "C1"}, types.RelayID{Network: "N3", ChainID: "C3"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Len(t, relayers, 2)
 
@@ -50,10 +51,10 @@ func TestRelayerSet_Get(t *testing.T) {
 	testGetter := TestRelayGetter{relayers: testRelayersMap}
 
 	relayerSet, err := NewRelayerSet(testGetter, uuid.New(), 1, true)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = relayerSet.Get(t.Context(), types.RelayID{Network: "N1", ChainID: "C1"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = relayerSet.Get(t.Context(), types.RelayID{Network: "N4", ChainID: "C4"})
 	assert.Error(t, err)
@@ -70,10 +71,10 @@ func TestRelayerSet_NewPluginProvider(t *testing.T) {
 
 	externalJobID := uuid.New()
 	relayerSet, err := NewRelayerSet(testGetter, externalJobID, 1, true)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	relayer, err := relayerSet.Get(t.Context(), types.RelayID{Network: "N1", ChainID: "C1"})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	_, err = relayer.NewPluginProvider(t.Context(), core.RelayArgs{
 		ContractID:   "c1",
@@ -89,7 +90,7 @@ func TestRelayerSet_NewPluginProvider(t *testing.T) {
 		TransmitterID: "t1",
 		PluginConfig:  []byte("pluginconfig"),
 	})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	assert.Equal(t, types.RelayArgs{
 		ExternalJobID: externalJobID,

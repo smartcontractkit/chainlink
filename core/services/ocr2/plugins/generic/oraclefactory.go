@@ -32,7 +32,7 @@ type oracleFactory struct {
 	jobName                string
 	jobORM                 job.ORM
 	kb                     ocr2key.KeyBundle
-	lggr                   logger.Logger
+	lggr                   logger.SugaredLogger
 	config                 job.OracleFactoryConfig
 	onchainSigningStrategy job.OnchainSigningStrategy
 	peerWrapper            *ocrcommon.SingletonPeerWrapper
@@ -48,7 +48,7 @@ type OracleFactoryParams struct {
 	JobName                string
 	JobORM                 job.ORM
 	KB                     ocr2key.KeyBundle
-	Logger                 logger.Logger
+	Logger                 logger.SugaredLogger
 	Config                 job.OracleFactoryConfig
 	OnchainSigningStrategy job.OnchainSigningStrategy
 	PeerWrapper            *ocrcommon.SingletonPeerWrapper
@@ -108,7 +108,7 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		return nil, fmt.Errorf("expected relayer to be of type relayerWrapper, got %T", relayer)
 	}
 
-	var relayConfig = struct {
+	relayConfig := struct {
 		ChainID                string   `json:"chainID"`
 		EffectiveTransmitterID string   `json:"effectiveTransmitterID"`
 		SendingKeys            []string `json:"sendingKeys"`
@@ -139,13 +139,15 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		// Wrap with dynamic tracker/digester from OCRConfigService (with fallback).
 		// NOTE: Standard Capabilities currently support only one OCR instance so we're using OCR3ConfigDefaultKey.
 		configTracker, err = of.ocrConfigService.GetConfigTracker(
-			of.capabilityID, capabilitiespb.OCR3ConfigDefaultKey, legacyConfigProvider.ContractConfigTracker())
+			of.capabilityID, capabilitiespb.OCR3ConfigDefaultKey, legacyConfigProvider.ContractConfigTracker(),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get config tracker: %w", err)
 		}
 
 		configDigester, err = of.ocrConfigService.GetConfigDigester(
-			of.capabilityID, capabilitiespb.OCR3ConfigDefaultKey, legacyConfigProvider.OffchainConfigDigester())
+			of.capabilityID, capabilitiespb.OCR3ConfigDefaultKey, legacyConfigProvider.OffchainConfigDigester(),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get config digester: %w", err)
 		}
@@ -191,7 +193,6 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		OnchainKeyring:     ocr3shims.OnchainKeyringAsOnchainKeyring2(onchainKeyringAdapter),
 		MetricsRegisterer:  prometheus.WrapRegistererWith(map[string]string{"job_name": of.jobName}, prometheus.DefaultRegisterer),
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create new OCR oracle", err)
 	}

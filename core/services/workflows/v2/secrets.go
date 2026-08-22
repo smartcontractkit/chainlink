@@ -165,17 +165,17 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	s.lggr.Debugw("get secrets request received", "vaultRequestID", vaultRequestID, "metadata", metadata)
 	s.callCounter.mu.Lock()
 	secretsCalled := s.callCounter.called + 1
-	if err := s.secretsCallsLimit.Check(ctx, secretsCalled); err != nil {
+	if checkErr := s.secretsCallsLimit.Check(ctx, secretsCalled); checkErr != nil {
 		s.callCounter.mu.Unlock()
-		return nil, err
+		return nil, checkErr
 	}
 	s.callCounter.called = secretsCalled
 	s.callCounter.mu.Unlock()
 	start := time.Now()
 	resp, err := func() ([]*sdkpb.SecretResponse, error) {
-		free, err := s.semaphore.Wait(ctx, 1)
-		if err != nil {
-			return nil, err
+		free, waitErr := s.semaphore.Wait(ctx, 1)
+		if waitErr != nil {
+			return nil, waitErr
 		}
 		defer free()
 		return s.getSecretsForBatchWithLocalFallback(ctx, request)

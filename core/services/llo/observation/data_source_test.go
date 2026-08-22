@@ -168,7 +168,7 @@ func (m *mockTelemeter) GetOutcomeTelemetryCh() chan<- *lloprotocol.LLOOutcomeTe
 	return nil
 }
 func (m *mockTelemeter) GetReportTelemetryCh() chan<- *lloprotocol.LLOReportTelemetry { return nil }
-func (m *mockTelemeter) CaptureEATelemetry() bool                                     { return true }
+func (m *mockTelemeter) CaptureEATelemetry() bool { return true }
 
 func (m *mockTelemeter) CaptureObservationTelemetry() bool { return true }
 
@@ -512,7 +512,7 @@ func Test_DataSource(t *testing.T) {
 				wg.Go(func() {
 					vals := lloprotocol.StreamValues{1: nil}
 					err := ds.Observe(ctx, vals, opts)
-					assert.NoError(t, err)
+					assert.NoError(t, err) //nolint:testifylint // require illegal inside wg.Go goroutine
 					assert.Equal(t, lloprotocol.StreamValues{1: lloprotocol.ToDecimal(decimal.NewFromInt(100))}, vals)
 				})
 			}

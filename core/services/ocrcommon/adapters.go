@@ -19,7 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringAdapter)(nil)
@@ -40,7 +40,7 @@ func (k *OCR3OnchainKeyringAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uin
 	return k.o.Sign(ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
-			Epoch:        uint32(seqNr),
+			Epoch:        uint32(seqNr), //nolint:gosec // seqNr maps to the uint32 epoch field
 			Round:        0,
 		},
 		ExtraHash: [32]byte(make([]byte, 32)),
@@ -51,7 +51,7 @@ func (k *OCR3OnchainKeyringAdapter) Verify(opk ocrtypes.OnchainPublicKey, digest
 	return k.o.Verify(opk, ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
-			Epoch:        uint32(seqNr),
+			Epoch:        uint32(seqNr), //nolint:gosec // seqNr maps to the uint32 epoch field
 			Round:        0,
 		},
 		ExtraHash: [32]byte(make([]byte, 32)),
@@ -76,7 +76,7 @@ func (c *OCR3ContractTransmitterAdapter) Transmit(ctx context.Context, digest oc
 	return c.ct.Transmit(ctx, ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
-			Epoch:        uint32(seqNr),
+			Epoch:        uint32(seqNr), //nolint:gosec // seqNr maps to the uint32 epoch field
 			Round:        0,
 		},
 		ExtraHash: [32]byte(make([]byte, 32)),
@@ -87,8 +87,10 @@ func (c *OCR3ContractTransmitterAdapter) FromAccount(ctx context.Context) (ocrty
 	return c.ct.FromAccount(ctx)
 }
 
-var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
-var _ ocr3types.OnchainKeyring2[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
+var (
+	_ ocr3types.OnchainKeyring[[]byte]  = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
+	_ ocr3types.OnchainKeyring2[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
+)
 
 func MarshalMultichainKeyBundle(ost map[string]ocr2key.KeyBundle) (ocrtypes.OnchainPublicKey, error) {
 	pubKeys := map[string]ocrtypes.OnchainPublicKey{}
@@ -169,10 +171,10 @@ func UnmarshalMultichainPublicKey(d []byte) (map[string]ocrtypes.OnchainPublicKe
 type OCR3OnchainKeyringMultiChainAdapter struct {
 	keyBundles map[string]ocr2key.KeyBundle
 	publicKey  ocrtypes.OnchainPublicKey
-	lggr       logger.Logger
+	lggr       common.Logger
 }
 
-func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
+func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, lggr common.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
 	if len(ost) == 0 {
 		return nil, errors.New("no key bundles provided")
 	}
@@ -245,7 +247,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest,
 	return kb.Sign(ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
-			Epoch:        uint32(seqNr),
+			Epoch:        uint32(seqNr), //nolint:gosec // seqNr maps to the uint32 epoch field
 			Round:        0,
 		},
 		ExtraHash: [32]byte(make([]byte, 32)),
@@ -271,7 +273,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) Verify(opk ocrtypes.OnchainPublicK
 	return kb.Verify(publicKey, ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{
 			ConfigDigest: digest,
-			Epoch:        uint32(seqNr),
+			Epoch:        uint32(seqNr), //nolint:gosec // seqNr maps to the uint32 epoch field
 			Round:        0,
 		},
 		ExtraHash: [32]byte(make([]byte, 32)),

@@ -24,6 +24,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
@@ -43,7 +44,7 @@ import (
 )
 
 type crFactory struct {
-	lggr      logger.Logger
+	lggr      commonlogger.Logger
 	ht        logpoller.HeadTracker
 	logPoller logpoller.LogPoller
 	client    evmclient.Client
@@ -139,7 +140,7 @@ func (o *orm) Cleanup() {
 	close(o.addLocalRegistryCh)
 }
 
-func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry registrysyncer.LocalRegistry) error {
+func (o *orm) AddLocalRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.addLocalRegistryCh <- struct{}{}
@@ -728,7 +729,7 @@ func TestReader_V2_FamilyOperations(t *testing.T) {
 	nodeSetD := [][32]byte{randomWord(), randomWord(), randomWord()}
 
 	// Create all nodes with both capabilities
-	allNodes := []capabilities_registry_v2.CapabilitiesRegistryNodeParams{}
+	allNodes := make([]capabilities_registry_v2.CapabilitiesRegistryNodeParams, 0, len(nodeSetA)+len(nodeSetB)+len(nodeSetC)+len(nodeSetD))
 
 	// Add nodes for DON A (workflow-family-a)
 	for _, nodeID := range nodeSetA {
@@ -1057,7 +1058,7 @@ func (r *CapabilitiesRegistryReader) GetDONsInFamily(ctx context.Context, family
 	return familyADONs, err
 }
 
-func (r *CapabilitiesRegistryReader) GetHistoricalDONInfo(ctx context.Context, donID uint32, configCount uint32) (*capabilities_registry_v2.CapabilitiesRegistryDONInfo, error) {
+func (r *CapabilitiesRegistryReader) GetHistoricalDONInfo(ctx context.Context, donID, configCount uint32) (*capabilities_registry_v2.CapabilitiesRegistryDONInfo, error) {
 	var historicalDON capabilities_registry_v2.CapabilitiesRegistryDONInfo
 	err := r.contractReader.GetLatestValue(
 		ctx,
