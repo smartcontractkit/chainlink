@@ -130,7 +130,7 @@ func UpdateNodeCapabilities(env cldf.Environment, req *UpdateNodeCapabilitiesReq
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		if capReg.McmsContracts == nil {
-			return out, fmt.Errorf("expected capabiity registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
+			return out, fmt.Errorf("expected capability registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
 		}
 		timelocksPerChain := map[uint64]string{
 			c.Chain.Selector: capReg.McmsContracts.Timelock.Address().Hex(),

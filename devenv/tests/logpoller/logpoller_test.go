@@ -252,7 +252,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
-	err = registerFiltersAndAssertUniquness(l, lpTestEnv.registry, lpTestEnv.upkeepIDs, lpTestEnv.logEmitters, cfg, lpTestEnv.upKeepsNeeded)
+	err = registerFiltersAndAssertUniqueness(l, lpTestEnv.registry, lpTestEnv.upkeepIDs, lpTestEnv.logEmitters, cfg, lpTestEnv.upKeepsNeeded)
 	require.NoError(t, err, "Error registering filters")
 
 	l.Info().Msg("No duplicate filters found. OK!")
@@ -434,8 +434,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	if eb > math.MaxInt64 {
 		t.Fatalf("end block overflows int64: %d", eb)
 	}
-
-	endBlock, err := getEndBlockToWaitFor(int64(eb), pdConfig.Config[0])
+	endBlock, err := getEndBlockToWaitFor(int64(eb), pdConfig.Config[0]) //nolint:gosec // G115
 	require.NoError(t, err, "Error getting end block to wait for")
 
 	require.NotZero(t, duration, "test duration cannot be zero")
@@ -450,7 +449,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
-	err = registerFiltersAndAssertUniquness(l, lpTestEnv.registry, lpTestEnv.upkeepIDs, lpTestEnv.logEmitters, cfg, lpTestEnv.upKeepsNeeded)
+	err = registerFiltersAndAssertUniqueness(l, lpTestEnv.registry, lpTestEnv.upkeepIDs, lpTestEnv.logEmitters, cfg, lpTestEnv.upKeepsNeeded)
 	require.NoError(t, err, "Error registering filters")
 
 	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx, l, nil, t, lpTestEnv, expectedFilters)

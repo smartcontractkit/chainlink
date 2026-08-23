@@ -8,14 +8,14 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/mercury"
 	llodatasource "github.com/smartcontractkit/chainlink-data-streams/llo/datasource"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
 	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec/evm"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"

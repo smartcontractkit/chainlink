@@ -39,7 +39,7 @@ func TestPlugin_ValidateObservation_GetSecrets_BogusShareLabelRejected(t *testin
 
 	honestResp := buildHonestGetSecretsResponse(t, id, esHex, vaultPub, vaultShares[0], []string{encKey}, esBytes, id.Owner)
 	byzResp := proto.Clone(honestResp).(*vaultcommon.GetSecretsResponse)
-	byzResp.Responses[0].GetData().EncryptedDecryptionKeyShares[0].EncryptionKey = strings.Repeat("ba", 32)
+	byzResp.Responses[0].GetData().EncryptedDecryptionKeyShares[0].EncryptionKey = strings.Repeat("cd", 32)
 
 	rdr := &kv{m: make(map[string]response)}
 	writeGetSecretsPendingQueueItem(t, rdr, vaulttypes.KeyFor(id), req)
@@ -64,7 +64,7 @@ func TestPlugin_ValidateObservation_GetSecrets_EmbeddedRequestMismatchRejected(t
 	require.NoError(t, err)
 
 	realKey := strings.Repeat("ab", 32)
-	bogusKey := strings.Repeat("ba", 32)
+	bogusKey := strings.Repeat("cd", 32)
 	id := &vaultcommon.SecretIdentifier{Owner: "52bc44d5378309ee2abf1539bf71de1b7d7be3b5", Namespace: "main", Key: "mysecret"}
 	pendingReq := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{realKey}}},
@@ -100,7 +100,7 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeysFlag(t *test
 	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	realKey := strings.Repeat("ab", 32)
-	bogusKey := strings.Repeat("ba", 32)
+	bogusKey := strings.Repeat("cd", 32)
 	req := &vaultcommon.GetSecretsRequest{
 		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{realKey}}},
 	}
@@ -184,9 +184,9 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_PermutedEnt
 
 	shaAB, err := plugin.shaForObservation(ctx, makeObs([]string{keyA, keyB}, []string{"share-a1", "share-b1"}))
 	require.NoError(t, err)
-	shaBA, err := plugin.shaForObservation(ctx, makeObs([]string{keyB, keyA}, []string{"share-b2", "share-a2"}))
+	shaCD, err := plugin.shaForObservation(ctx, makeObs([]string{keyB, keyA}, []string{"share-b2", "share-a2"}))
 	require.NoError(t, err)
-	require.NotEqual(t, shaAB, shaBA)
+	require.NotEqual(t, shaAB, shaCD)
 }
 
 func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_DifferentShareBytesSameLabels(t *testing.T) {

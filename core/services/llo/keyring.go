@@ -3,17 +3,17 @@ package llo
 import (
 	"bytes"
 	"fmt"
+	"maps"
+	"slices"
 	"sort"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"golang.org/x/exp/maps"
-
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec/evm"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodec/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
@@ -30,7 +30,7 @@ type Key interface {
 	Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error)
 	Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool
 	SignBlob(b []byte) (sig []byte, err error)
-	VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b []byte, sig []byte) bool
+	VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b, sig []byte) bool
 	PublicKey() ocrtypes.OnchainPublicKey
 	MaxSignatureLength() int
 }
@@ -52,7 +52,7 @@ func (okr *onchainKeyring) PublicKey() types.OnchainPublicKey {
 	// byte string
 	onchainPublicKey := []byte{}
 
-	keys := maps.Values(okr.keys)
+	keys := slices.AppendSeq(make([]Key, 0, len(okr.keys)), maps.Values(okr.keys))
 	if len(keys) == 0 {
 		return onchainPublicKey
 	}
@@ -78,7 +78,7 @@ func (okr *onchainKeyring) MaxSignatureLength() (n int) {
 	for _, k := range okr.keys {
 		n += k.MaxSignatureLength()
 	}
-	return
+	return n
 }
 
 func (okr *onchainKeyring) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[llotypes.ReportInfo]) (signature []byte, err error) {

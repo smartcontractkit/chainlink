@@ -455,7 +455,7 @@ TraceLogging = false # Default
 # ConfigLogValidation ensures contract configuration logs are accessible when validating OCR jobs. Enable this when using RPC providers that don't maintain complete historical logs.
 ConfigLogValidation = false # Default
 
-# P2P has a versioned networking stack. Currenly only `[P2P.V2]` is supported.
+# P2P has a versioned networking stack. Currently only `[P2P.V2]` is supported.
 # All nodes in the OCR network should share the same networking stack.
 [P2P]
 # IncomingMessageBufferSize is the per-remote number of incoming
@@ -696,7 +696,7 @@ MaxMessageLenBytes = 500000 # Default
 MessageRateLimiterRate = 100.0 # Default
 # MessageRateLimiterCapacity is the "burst" of the message rate limiter.
 MessageRateLimiterCapacity = 500 # Default
-# BytesRateLimiterRate is the max size of precessed messages per second.
+# BytesRateLimiterRate is the max size of processed messages per second.
 BytesRateLimiterRate = 5000000.0 # Default
 # BytesRateLimiterCapacity is the "burst" of the message rate limiter (in bytes).
 BytesRateLimiterCapacity = 10000000 # Default
@@ -960,6 +960,28 @@ Enabled = false # Default
 # By default, we only forward the go runtime metrics. Empty means forward everything.
 Prefixes = ["go_"] # Default
 
+# Metering configures durable resource metering emission and the coarse
+# deployment/node identity dimensions stamped on emitted MeterRecords and
+# MeterSnapshots.
+[Metering]
+# MeterRecordsEnabled enables durable MeterRecord emission for LOOP plugins.
+MeterRecordsEnabled = false # Default
+# MeterSnapshotsEnabled enables durable MeterSnapshot emission for LOOP plugins.
+# Requires MeterRecordsEnabled = true.
+MeterSnapshotsEnabled = false # Default
+# Product is the deployment product identity dimension, e.g. 'cre'.
+Product = 'cre' # Default
+# Tenant is the human-readable tenant name, e.g. 'mainline'.
+Tenant = '' # Default
+# NumericTenantID is the numbered tenant identifier represented as a string.
+NumericTenantID = '' # Default
+# Environment is the deployment environment identity dimension, e.g. 'production'.
+Environment = '' # Default
+# Zone is the deployment zone identity dimension, e.g. 'wf-zone-a'.
+Zone = '' # Default
+# NodeID is the node's logical name, e.g. 'clp-cre-wf-zone-a-1' (not the CSA public key).
+NodeID = '' # Default
+
 [CRE.Streams]
 # WsURL is the websockets url for the streams sdk config
 WsURL = "streams.url" # Example
@@ -1045,6 +1067,9 @@ ShardOrchestratorPort = 50051 # Default
 # ShardOrchestratorAddress is the URL that the shard orchestration client will try to connect to.
 # Required when ShardingEnabled=true and ShardIndex > 0.
 ShardOrchestratorAddress = '' # Default
+# ShardAssignmentMode controls how workflows are assigned to shards.
+# One of: "manual-only" (default), "ringocr-only", "ringocr-with-overrides".
+ShardAssignmentMode = 'manual-only' # Default
 
 # Local Out-Of-Process Plugins
 [LOOPP]

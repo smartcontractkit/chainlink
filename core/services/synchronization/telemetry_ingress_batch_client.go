@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 )
 
@@ -195,7 +194,7 @@ func (tc *telemetryIngressBatchClient) close() (err error) {
 	return
 }
 
-// Send directs incoming telmetry messages to the worker responsible for pushing it to
+// Send directs incoming telemetry messages to the worker responsible for pushing it to
 // the ingress server. If the worker telemetry buffer is full, messages are dropped
 // and a warning is logged.
 func (tc *telemetryIngressBatchClient) Send(ctx context.Context, telemData []byte, contractID string, telemType TelemetryType) {

@@ -16,6 +16,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"golang.org/x/crypto/nacl/box"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -25,13 +32,6 @@ import (
 	"github.com/smartcontractkit/smdkg/dummydkg"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
-	"go.uber.org/zap/zapcore"
-	"golang.org/x/crypto/nacl/box"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/dkgrecipientkey"
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
@@ -2727,6 +2727,7 @@ func writeGetSecretsPendingQueueItem(t *testing.T, kv *kv, obsID string, req *va
 func marshalObservations(t *testing.T, observations ...observation) []byte {
 	obs := &vaultcommon.Observations{
 		Observations: []*vaultcommon.Observation{},
+		SortNonce:    testSortNonce(),
 	}
 	for _, ob := range observations {
 		o := &vaultcommon.Observation{
@@ -2834,7 +2835,8 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 		types.AttributedQuery{},
 		[]types.AttributedObservation{
 			{Observer: 0, Observation: types.Observation(obs1b)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -2898,7 +2900,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 		t.Context(),
 		1,
 		types.AttributedQuery{},
-		aos, kvStore, nil)
+		aos, kvStore, nil,
+	)
 	require.NoError(t, err)
 
 	twoFPlusOne := 2*r.onchainCfg.F + 1
@@ -3078,7 +3081,7 @@ func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testin
 		kv,
 		nil,
 	)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "observation at position 0 has id")
 
 	respDel := &vaultcommon.DeleteSecretsResponse{
 		Responses: []*vaultcommon.DeleteSecretResponse{
@@ -3095,6 +3098,121 @@ func TestPlugin_ValidateObservations_RequiresObservedIDsInPendingQueue(t *testin
 		nil,
 	)
 	require.NoError(t, err)
+}
+
+func TestPlugin_ValidateObservation_RejectsTruncatedObservations(t *testing.T) {
+	t.Parallel()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id1 := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret1"}
+	id2 := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret2"}
+	delReq := &vaultcommon.DeleteSecretsRequest{RequestId: "request-1", Ids: []*vaultcommon.SecretIdentifier{id1}}
+	getReq := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id2}}}
+	anyDel, err := anypb.New(delReq)
+	require.NoError(t, err)
+	anyGet, err := anypb.New(getReq)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, kv).WritePendingQueue(t.Context(), []*vaultcommon.StoredPendingQueueItem{
+		{Id: vaulttypes.KeyFor(id1), Item: anyDel},
+		{Id: vaulttypes.KeyFor(id2), Item: anyGet},
+	})
+	require.NoError(t, err)
+
+	respDel := &vaultcommon.DeleteSecretsResponse{
+		Responses: []*vaultcommon.DeleteSecretResponse{{Id: id1, Success: false, Error: ""}},
+	}
+	obsb := marshalObservations(t, observation{id1, delReq, respDel})
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: types.Observation(obsb)},
+		kv,
+		nil,
+	)
+	require.ErrorContains(t, err, "got 1 store-backed observations, want 2")
+}
+
+func TestPlugin_ValidateObservation_RejectsOutOfOrderObservations(t *testing.T) {
+	t.Parallel()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id1 := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret1"}
+	id2 := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret2"}
+	delReq := &vaultcommon.DeleteSecretsRequest{RequestId: "request-1", Ids: []*vaultcommon.SecretIdentifier{id1}}
+	getReq := &vaultcommon.GetSecretsRequest{Requests: []*vaultcommon.SecretRequest{{Id: id2}}}
+	anyDel, err := anypb.New(delReq)
+	require.NoError(t, err)
+	anyGet, err := anypb.New(getReq)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, kv).WritePendingQueue(t.Context(), []*vaultcommon.StoredPendingQueueItem{
+		{Id: vaulttypes.KeyFor(id1), Item: anyDel},
+		{Id: vaulttypes.KeyFor(id2), Item: anyGet},
+	})
+	require.NoError(t, err)
+
+	respGet := &vaultcommon.GetSecretsResponse{Responses: []*vaultcommon.SecretResponse{{Id: id2}}}
+	respDel := &vaultcommon.DeleteSecretsResponse{
+		Responses: []*vaultcommon.DeleteSecretResponse{{Id: id1, Success: false, Error: ""}},
+	}
+	obsb := marshalObservations(t, observation{id2, getReq, respGet}, observation{id1, delReq, respDel})
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: types.Observation(obsb)},
+		kv,
+		nil,
+	)
+	require.ErrorContains(t, err, "observation at position 0 has id")
+}
+
+func TestPlugin_ValidateObservation_RejectsExcessObservations(t *testing.T) {
+	t.Parallel()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id1 := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret1"}
+	delReq := &vaultcommon.DeleteSecretsRequest{RequestId: "request-1", Ids: []*vaultcommon.SecretIdentifier{id1}}
+	anyDel, err := anypb.New(delReq)
+	require.NoError(t, err)
+	err = newTestWriteStore(t, kv).WritePendingQueue(t.Context(), []*vaultcommon.StoredPendingQueueItem{
+		{Id: vaulttypes.KeyFor(id1), Item: anyDel},
+	})
+	require.NoError(t, err)
+
+	id2 := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret2"}
+	delReq2 := &vaultcommon.DeleteSecretsRequest{RequestId: "request-2", Ids: []*vaultcommon.SecretIdentifier{id2}}
+	respDel := &vaultcommon.DeleteSecretsResponse{
+		Responses: []*vaultcommon.DeleteSecretResponse{{Id: id1, Success: false, Error: ""}},
+	}
+	respDel2 := &vaultcommon.DeleteSecretsResponse{
+		Responses: []*vaultcommon.DeleteSecretResponse{{Id: id2, Success: false, Error: ""}},
+	}
+	obsb := marshalObservations(t, observation{id1, delReq, respDel}, observation{id2, delReq2, respDel2})
+	err = r.ValidateObservation(
+		t.Context(),
+		seqNr,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: types.Observation(obsb)},
+		kv,
+		nil,
+	)
+	require.ErrorContains(t, err, "got 2 store-backed observations, want at most 1")
 }
 
 func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T) {
@@ -3121,8 +3239,7 @@ func TestPlugin_ValidateObservations_DisallowsDuplicateBlobHandles(t *testing.T)
 			{1},
 		},
 	}
-	obsb, err := proto.Marshal(obs)
-	require.NoError(t, err)
+	obsb := protoMarshal(t, obs)
 
 	bf := &blobber{
 		blobs: [][]byte{
@@ -3192,7 +3309,8 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 		types.AttributedQuery{},
 		[]types.AttributedObservation{
 			{Observer: 0, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -3247,7 +3365,8 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -3353,7 +3472,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 			{Observer: 0, Observation: types.Observation(obsb1)},
 			{Observer: 1, Observation: types.Observation(obsb2)},
 			{Observer: 2, Observation: types.Observation(obsb3)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -3385,6 +3505,422 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	assert.True(t, proto.Equal(expectedResp, o.GetGetSecretsResponse()), o.GetGetSecretsResponse())
 
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_ByzantineDivergentSHA(t *testing.T) {
+	t.Parallel()
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	// N=4, F=1: 2F+1=3, F+1=2. One Byzantine observation with a divergent SHA must not stall the GET.
+	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	honestResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+	// Byzantine: divergent SHA via a different EncryptedValue (ciphertext substitution).
+	byzantineResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "byzantine-encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	obsb1 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-1")})
+	obsb2 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-2")})
+	obsbByz := marshalObservations(t, observation{id, req, byzantineResp("byzantine-share")})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(), seqNr, types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb1)},
+			{Observer: 1, Observation: types.Observation(obsb2)},
+			{Observer: 2, Observation: types.Observation(obsbByz)},
+		}, kv, nil,
+	)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	assert.Len(t, os.Outcomes, 1)
+
+	got := os.Outcomes[0].GetGetSecretsResponse().Responses[0].GetData().EncryptedDecryptionKeyShares[0].Shares
+	assert.Equal(t, []string{"encrypted-share-1", "encrypted-share-2"}, got)
+	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_Disabled_NoOutcome(t *testing.T) {
+	t.Parallel()
+	// Same byzantine-divergent-SHA scenario as above, but with the flag OFF: the legacy 2F+1
+	// same-SHA requirement is unmet (honest group is only F+1=2 < 2F+1=3), so no outcome.
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	honestResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+	byzantineResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "byzantine-encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	obsb1 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-1")})
+	obsb2 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-2")})
+	obsbByz := marshalObservations(t, observation{id, req, byzantineResp("byzantine-share")})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(), seqNr, types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb1)},
+			{Observer: 1, Observation: types.Observation(obsb2)},
+			{Observer: 2, Observation: types.Observation(obsbByz)},
+		}, kv, nil,
+	)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	assert.Empty(t, os.Outcomes)
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_InsufficientTotal(t *testing.T) {
+	t.Parallel()
+	// N=4, F=1: 2F+1=3. Only 2 observations total (both honest, same SHA). Request legitimacy
+	// (>= 2F+1) fails even though the same-SHA group meets F+1, so no outcome.
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	honestResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	obsb1 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-1")})
+	obsb2 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-2")})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(), seqNr, types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb1)},
+			{Observer: 1, Observation: types.Observation(obsb2)},
+		}, kv, nil,
+	)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	assert.Empty(t, os.Outcomes)
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_NoFPlus1Group(t *testing.T) {
+	t.Parallel()
+	// N=4, F=1: 2F+1=3, F+1=2. Three observations each with a distinct SHA (no group reaches F+1=2).
+	// Share sufficiency fails even though total meets 2F+1, so no outcome.
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	resp := func(ciphertext, share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: ciphertext,
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	obsb1 := marshalObservations(t, observation{id, req, resp("encrypted-value-a", "share-1")})
+	obsb2 := marshalObservations(t, observation{id, req, resp("encrypted-value-b", "share-2")})
+	obsb3 := marshalObservations(t, observation{id, req, resp("encrypted-value-c", "share-3")})
+	reportPrecursor, err := r.StateTransition(
+		t.Context(), seqNr, types.AttributedQuery{},
+		[]types.AttributedObservation{
+			{Observer: 0, Observation: types.Observation(obsb1)},
+			{Observer: 1, Observation: types.Observation(obsb2)},
+			{Observer: 2, Observation: types.Observation(obsb3)},
+		}, kv, nil,
+	)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	assert.Empty(t, os.Outcomes)
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_AggregatesAllSharesUpTo2FPlus1(t *testing.T) {
+	t.Parallel()
+	// N=10, F=3: 2F+1=7, F+1=4. All 10 honest observations share a SHA (shares are stripped from
+	// the SHA). The winning group (10) is capped at 2F+1=7 shares.
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 4)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	honestResp := func(share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: "encrypted-value",
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	aos := make([]types.AttributedObservation, 0, 10)
+	for i := range 10 {
+		obsb := marshalObservations(t, observation{id, req, honestResp(fmt.Sprintf("encrypted-share-%d", i+1))})
+		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i), Observation: types.Observation(obsb)})
+	}
+	reportPrecursor, err := r.StateTransition(t.Context(), seqNr, types.AttributedQuery{}, aos, kv, nil)
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
+	assert.Len(t, os.Outcomes, 1)
+
+	twoFPlusOne := 2*r.onchainCfg.F + 1
+	got := os.Outcomes[0].GetGetSecretsResponse().Responses[0].GetData().EncryptedDecryptionKeyShares[0].Shares
+	assert.Len(t, got, twoFPlusOne)
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_TieBreakPicksLexicographicallySmallestSHA(t *testing.T) {
+	t.Parallel()
+	// N=10, F=3: 2F+1=7, F+1=4. Two SHA groups each of size F+1=4 (total 8 >= 2F+1). Both groups
+	// qualify for share sufficiency; chooseGetSecretsObservations iterates SHAs in sorted order and
+	// keeps the first largest group (strict `>`), so the lexicographically smallest SHA must win.
+	// Shares are stripped from the SHA, so within a group only the ciphertext drives the SHA; the
+	// committed ciphertext therefore identifies the winning group. The result must also be stable
+	// across repeated invocations (guards against nondeterministic map iteration in the tie-break).
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 4)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	resp := func(ciphertext, share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: ciphertext,
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	// Group A: observers 0-3 (ciphertext-a). Group B: observers 4-7 (ciphertext-b).
+	aos := make([]types.AttributedObservation, 0, 8)
+	for i := range 4 {
+		obsb := marshalObservations(t, observation{id, req, resp("ciphertext-a", fmt.Sprintf("a-share-%d", i+1))})
+		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i), Observation: types.Observation(obsb)})
+	}
+	for i := range 4 {
+		obsb := marshalObservations(t, observation{id, req, resp("ciphertext-b", fmt.Sprintf("b-share-%d", i+1))})
+		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i + 4), Observation: types.Observation(obsb)})
+	}
+
+	// Determine which group has the lexicographically smaller SHA.
+	shaForCiphertext := func(ciphertext string) string {
+		obsb := marshalObservations(t, observation{id, req, resp(ciphertext, "irrelevant")})
+		op := &vaultcommon.Observations{}
+		require.NoError(t, proto.Unmarshal(obsb, op))
+		sha, err := r.shaForObservation(t.Context(), op.Observations[0])
+		require.NoError(t, err)
+		return sha
+	}
+	shaA := shaForCiphertext("ciphertext-a")
+	shaB := shaForCiphertext("ciphertext-b")
+	expectedCiphertext := "ciphertext-a"
+	expectedShares := []string{"a-share-1", "a-share-2", "a-share-3", "a-share-4"}
+	if shaB < shaA {
+		expectedCiphertext = "ciphertext-b"
+		expectedShares = []string{"b-share-1", "b-share-2", "b-share-3", "b-share-4"}
+	}
+
+	// Repeated invocation must produce byte-identical outcomes.
+	var first []byte
+	for run := range 5 {
+		reportPrecursor, err := r.StateTransition(t.Context(), seqNr, types.AttributedQuery{}, aos, kv, nil)
+		require.NoError(t, err)
+		if first == nil {
+			first = reportPrecursor
+			continue
+		}
+		assert.True(t, bytes.Equal(first, reportPrecursor), "relaxed consensus outcome differs across repeated invocations (run %d)", run)
+	}
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(first, os))
+	require.Len(t, os.Outcomes, 1)
+	data := os.Outcomes[0].GetGetSecretsResponse().Responses[0].GetData()
+	assert.Equal(t, expectedCiphertext, data.EncryptedValue)
+	assert.ElementsMatch(t, expectedShares, data.EncryptedDecryptionKeyShares[0].Shares)
+}
+
+func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_DeterministicAcrossInvocations(t *testing.T) {
+	t.Parallel()
+	// G1 determinism for the relaxed path. chooseGetSecretsObservations iterates a SHA->obs map
+	// and must select deterministically; OCR3.1 delivers identical attributed observations to
+	// every node, so cross-node determinism reduces to same-input determinism. This test forces
+	// the relaxed selection through a multi-SHA map (one honest majority group plus several
+	// divergent Byzantine SHAs) and asserts byte-identical outcomes across repeated invocations.
+	// A regression to unsorted map iteration (`range shaToObs`) would flake here.
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 4)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3), withVaultGetSecretsRelaxedConsensusEnabled())
+
+	seqNr := uint64(1)
+	kv := &kv{m: make(map[string]response)}
+
+	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
+	encKey := "my-encryption-key"
+	req := &vaultcommon.GetSecretsRequest{
+		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
+	}
+	resp := func(ciphertext, share string) *vaultcommon.GetSecretsResponse {
+		return &vaultcommon.GetSecretsResponse{
+			Responses: []*vaultcommon.SecretResponse{{
+				Id: id,
+				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
+					EncryptedValue: ciphertext,
+					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
+						EncryptionKey: encKey, Shares: []string{share},
+					}},
+				}},
+			}},
+		}
+	}
+
+	aos := make([]types.AttributedObservation, 0, 10)
+	// Honest majority: 7 observers share a SHA (shares are stripped), distinct shares each.
+	for i := range 7 {
+		obsb := marshalObservations(t, observation{id, req, resp("ciphertext-honest", fmt.Sprintf("honest-share-%d", i+1))})
+		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i), Observation: types.Observation(obsb)})
+	}
+	// Byzantine: 3 observers each with a distinct divergent SHA (no group reaches F+1).
+	for i, ct := range []string{"byz-ciphertext-1", "byz-ciphertext-2", "byz-ciphertext-3"} {
+		obsb := marshalObservations(t, observation{id, req, resp(ct, fmt.Sprintf("byz-share-%d", i+1))})
+		aos = append(aos, types.AttributedObservation{Observer: commontypes.OracleID(i + 7), Observation: types.Observation(obsb)})
+	}
+
+	var first []byte
+	for run := range 10 {
+		reportPrecursor, err := r.StateTransition(t.Context(), seqNr, types.AttributedQuery{}, aos, kv, nil)
+		require.NoError(t, err)
+		if first == nil {
+			first = reportPrecursor
+			continue
+		}
+		assert.True(t, bytes.Equal(first, reportPrecursor), "relaxed consensus outcome differs across repeated invocations (run %d)", run)
+	}
+
+	os := &vaultcommon.Outcomes{}
+	require.NoError(t, proto.Unmarshal(first, os))
+	require.Len(t, os.Outcomes, 1)
+	data := os.Outcomes[0].GetGetSecretsResponse().Responses[0].GetData()
+	assert.Equal(t, "ciphertext-honest", data.EncryptedValue)
+	assert.Len(t, data.EncryptedDecryptionKeyShares[0].Shares, 2*r.onchainCfg.F+1)
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testing.T) {
@@ -3481,7 +4017,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testin
 			{Observer: 0, Observation: types.Observation(obsb1)},
 			{Observer: 1, Observation: types.Observation(obsb2)},
 			{Observer: 2, Observation: types.Observation(obsb3)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -3572,7 +4109,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_CapsSharesAtTwoFPlusOne(t *tes
 			{Observer: 1, Observation: types.Observation(obsb2)},
 			{Observer: 2, Observation: types.Observation(obsb3)},
 			{Observer: 3, Observation: types.Observation(obsb4)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -3790,7 +4328,8 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -4537,7 +5076,8 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -4627,7 +5167,8 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -4753,10 +5294,10 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
-			keyPrefix + vaulttypes.KeyFor(id): response{
+			keyPrefix + vaulttypes.KeyFor(id): {
 				data: ssb,
 			},
 		},
@@ -4920,10 +5461,10 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
-			keyPrefix + vaulttypes.KeyFor(id): response{
+			keyPrefix + vaulttypes.KeyFor(id): {
 				data: ssb,
 			},
 		},
@@ -4953,7 +5494,8 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, rdr, nil)
+		}, rdr, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -5001,7 +5543,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
 		},
@@ -5031,7 +5573,8 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, rdr, nil)
+		}, rdr, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -5190,7 +5733,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
 		},
@@ -5274,7 +5817,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
 		},
@@ -5503,7 +6046,8 @@ func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -5523,8 +6067,15 @@ func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
+func testSortNonce() []byte {
+	return bytes.Repeat([]byte{'a'}, sortNonceLength)
+}
+
 func protoMarshal(t *testing.T, msg proto.Message) []byte {
 	t.Helper()
+	if obs, ok := msg.(*vaultcommon.Observations); ok && len(obs.SortNonce) == 0 {
+		obs.SortNonce = testSortNonce()
+	}
 	b, err := proto.Marshal(msg)
 	require.NoError(t, err)
 	return b
@@ -5956,12 +6507,13 @@ func TestPlugin_StateTransition_OutcomesNotStoppedByPrecursorWireSizeWhenOptimiz
 }
 
 func TestPlugin_ValidateObservation_WireSizeExceedsMax(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withMaxObservationBytes(20))
 
 	obs := &vaultcommon.Observations{
-		SortNonce:    bytes.Repeat([]byte{'a'}, 500),
+		SortNonce:    bytes.Repeat([]byte{'a'}, sortNonceLength),
 		Observations: []*vaultcommon.Observation{},
 	}
 	obsb, err := proto.Marshal(obs)
@@ -5977,6 +6529,186 @@ func TestPlugin_ValidateObservation_WireSizeExceedsMax(t *testing.T) {
 		nil,
 	)
 	require.ErrorContains(t, err, "wire size")
+}
+
+func TestPlugin_ValidateObservation_RejectsInvalidSortNonceLength(t *testing.T) {
+	t.Parallel()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+
+	obs := &vaultcommon.Observations{
+		SortNonce:    bytes.Repeat([]byte{'a'}, 500),
+		Observations: []*vaultcommon.Observation{},
+	}
+	obsb, err := proto.Marshal(obs)
+	require.NoError(t, err)
+
+	err = r.ValidateObservation(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: types.Observation(obsb)},
+		&kv{m: make(map[string]response)},
+		nil,
+	)
+	require.ErrorContains(t, err, "sort nonce must be 32 bytes")
+}
+
+func writeDeleteSecretsPendingQueueItems(t *testing.T, rdr *kv, requestIDs ...string) {
+	t.Helper()
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     "owner",
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+	items := make([]*vaultcommon.StoredPendingQueueItem, 0, len(requestIDs))
+	for _, reqID := range requestIDs {
+		d := &vaultcommon.DeleteSecretsRequest{
+			RequestId: reqID,
+			Ids:       []*vaultcommon.SecretIdentifier{id},
+		}
+		anyd, err := anypb.New(d)
+		require.NoError(t, err)
+		items = append(items, &vaultcommon.StoredPendingQueueItem{Id: reqID, Item: anyd})
+	}
+	require.NoError(t, newTestWriteStore(t, rdr).WritePendingQueue(t.Context(), items))
+}
+
+func writeGetSecretsPendingQueueItems(t *testing.T, rdr *kv, pk *tdh2easy.PublicKey, requestIDs ...string) {
+	t.Helper()
+	owner := "0x0001020304050607080900010203040506070809"
+	id := &vaultcommon.SecretIdentifier{
+		Owner:     owner,
+		Namespace: "main",
+		Key:       "my_secret",
+	}
+
+	plaintext := []byte("my-secret-value")
+	var label [32]byte
+	ownerAddress := common.HexToAddress(owner)
+	copy(label[12:], ownerAddress.Bytes())
+	ciphertext, err := tdh2easy.EncryptWithLabel(pk, plaintext, label)
+	require.NoError(t, err)
+	ciphertextBytes, err := ciphertext.Marshal()
+	require.NoError(t, err)
+	require.NoError(t, newTestWriteStore(t, rdr).WriteSecret(t.Context(), id, &vaultcommon.StoredSecret{
+		EncryptedSecret: ciphertextBytes,
+	}))
+
+	pubK, _, err := box.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+	pks := hex.EncodeToString(pubK[:])
+
+	items := make([]*vaultcommon.StoredPendingQueueItem, 0, len(requestIDs))
+	for _, reqID := range requestIDs {
+		p := &vaultcommon.GetSecretsRequest{
+			Requests: []*vaultcommon.SecretRequest{
+				{
+					Id:             id,
+					EncryptionKeys: []string{pks},
+				},
+			},
+		}
+		anyp, err := anypb.New(p)
+		require.NoError(t, err)
+		items = append(items, &vaultcommon.StoredPendingQueueItem{Id: reqID, Item: anyp})
+	}
+	require.NoError(t, newTestWriteStore(t, rdr).WritePendingQueue(t.Context(), items))
+}
+
+func observePendingQueueOnly(t *testing.T, r *ReportingPlugin, rdr *kv) *vaultcommon.Observations {
+	t.Helper()
+	data, err := r.Observation(t.Context(), 1, types.AttributedQuery{}, rdr, &blobber{})
+	require.NoError(t, err)
+	obs := &vaultcommon.Observations{}
+	require.NoError(t, proto.Unmarshal(data, obs))
+	return obs
+}
+
+func validatePendingQueueObservation(t *testing.T, r *ReportingPlugin, rdr *kv, obs *vaultcommon.Observations) error {
+	t.Helper()
+	obsb, err := proto.Marshal(obs)
+	require.NoError(t, err)
+	return r.ValidateObservation(
+		t.Context(),
+		1,
+		types.AttributedQuery{},
+		types.AttributedObservation{Observer: 0, Observation: types.Observation(obsb)},
+		rdr,
+		&blobber{},
+	)
+}
+
+func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
+	t.Parallel()
+	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
+	require.NoError(t, err)
+
+	t.Run("accepts full observation when all pending items fit", func(t *testing.T) {
+		t.Parallel()
+		rdr := &kv{m: make(map[string]response)}
+		writeDeleteSecretsPendingQueueItems(t, rdr, "request-1", "request-2")
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+		obs := observePendingQueueOnly(t, r, rdr)
+		require.Len(t, obs.Observations, 2)
+
+		require.NoError(t, validatePendingQueueObservation(t, r, rdr, obs))
+	})
+
+	t.Run("accepts wire capped truncation", func(t *testing.T) {
+		t.Parallel()
+		rdr := &kv{m: make(map[string]response)}
+		writeGetSecretsPendingQueueItems(t, rdr, pk, "request-1", "request-2")
+
+		rCalib := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(10*1024*1024))
+		fullObs := observePendingQueueOnly(t, rCalib, rdr)
+		require.Len(t, fullObs.Observations, 2)
+
+		oneItemObs := &vaultcommon.Observations{
+			Observations:      fullObs.Observations[:1],
+			PendingQueueItems: fullObs.PendingQueueItems,
+			SortNonce:         fullObs.SortNonce,
+		}
+		sizeOne := proto.Size(oneItemObs)
+		sizeTwo := proto.Size(fullObs)
+		require.Greater(t, sizeTwo, sizeOne)
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(sizeOne))
+		truncatedObs := observePendingQueueOnly(t, r, rdr)
+		require.Len(t, truncatedObs.Observations, 1)
+
+		require.NoError(t, validatePendingQueueObservation(t, r, rdr, truncatedObs))
+	})
+
+	t.Run("rejects wrong observation order", func(t *testing.T) {
+		t.Parallel()
+		rdr := &kv{m: make(map[string]response)}
+		writeDeleteSecretsPendingQueueItems(t, rdr, "request-1", "request-2")
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+		obs := observePendingQueueOnly(t, r, rdr)
+		require.Len(t, obs.Observations, 2)
+		obs.Observations[0], obs.Observations[1] = obs.Observations[1], obs.Observations[0]
+
+		err := validatePendingQueueObservation(t, r, rdr, obs)
+		require.ErrorContains(t, err, "observation at position 0 has id request-2, want request-1")
+	})
+
+	t.Run("rejects observation id not from pending queue", func(t *testing.T) {
+		t.Parallel()
+		rdr := &kv{m: make(map[string]response)}
+		writeDeleteSecretsPendingQueueItems(t, rdr, "request-1")
+
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
+		obs := observePendingQueueOnly(t, r, rdr)
+		require.Len(t, obs.Observations, 1)
+		obs.Observations[0].Id = "not-in-queue"
+
+		err := validatePendingQueueObservation(t, r, rdr, obs)
+		require.ErrorContains(t, err, "observation at position 0 has id not-in-queue, want request-1")
+	})
 }
 
 func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservationsFromOneNode(t *testing.T) {
@@ -6088,8 +6820,7 @@ func TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation(t *testin
 		PendingQueueItems: pendingQueueItems,
 	}
 
-	o1b, err := proto.Marshal(o1)
-	require.NoError(t, err)
+	o1b := protoMarshal(t, o1)
 
 	bf := &blobber{
 		blobs: blobs,
@@ -7390,7 +8121,8 @@ func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *te
 		[]types.AttributedObservation{
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -7463,7 +8195,8 @@ func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -7800,6 +8533,10 @@ func TestLogUserErrorAware(t *testing.T) {
 }
 
 func TestPlugin_broadcastBlobPayloads(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Run("empty payloads returns empty slice", func(t *testing.T) {
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
@@ -8156,7 +8893,8 @@ func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testin
 			payload: &vaultcommon.CreateSecretsRequest{
 				RequestId:        "req",
 				EncryptedSecrets: buildMaxEncryptedSecrets(),
-			}},
+			},
+		},
 		{
 			name: "UpdateSecretsRequest",
 			payload: &vaultcommon.UpdateSecretsRequest{

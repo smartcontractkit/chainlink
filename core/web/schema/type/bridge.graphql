@@ -5,6 +5,7 @@ type Bridge {
     confirmations: Int!
     outgoingToken: String!
     minimumContractPayment: String!
+    useConnectionManager: Boolean!
     createdAt: Time!
 }
 
@@ -23,6 +24,7 @@ input CreateBridgeInput {
     url: String!
     confirmations: Int!
     minimumContractPayment: String!
+    useConnectionManager: Boolean
 }
 
 # CreateBridgeSuccess defines the success response when creating a bridge
@@ -40,6 +42,7 @@ input UpdateBridgeInput {
     url: String!
     confirmations: Int!
     minimumContractPayment: String!
+    useConnectionManager: Boolean
 }
 
 # UpdateBridgeSuccess defines the success response when updating a bridge

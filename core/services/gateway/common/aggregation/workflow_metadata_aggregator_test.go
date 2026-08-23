@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	gateway_common "github.com/smartcontractkit/chainlink-common/pkg/types/gateway"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 )
 
@@ -25,7 +24,7 @@ func TestWorkflowMetadataAggregator_StartStop(t *testing.T) {
 	testMetrics := createTestMetrics(t)
 	agg := NewWorkflowMetadataAggregator(lggr, 2, 100*time.Millisecond, testMetrics)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	err := agg.Start(ctx)
 	require.NoError(t, err)
@@ -195,20 +194,18 @@ func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
 	observation3 := createTestWorkflowMetadata("workflowID2", "workflowName2", "workflowOwner2", "workflowTag2", []gateway_common.AuthorizedKey{authorizedKey3})
 
 	// Test aggregation with no observations
-	result, err := agg.Aggregate()
-	require.NoError(t, err)
+	result := agg.Aggregate()
 	require.Empty(t, result)
 
 	// Add observations below threshold
-	err = agg.Collect(observation1, "node1")
+	err := agg.Collect(observation1, "node1")
 	require.NoError(t, err)
 	err = agg.Collect(observation2, "node1")
 	require.NoError(t, err)
 	err = agg.Collect(observation3, "node1")
 	require.NoError(t, err)
 
-	result, err = agg.Aggregate()
-	require.NoError(t, err)
+	result = agg.Aggregate()
 	require.Empty(t, result)
 
 	// Add observations to reach threshold for workflowID1
@@ -217,16 +214,14 @@ func TestWorkflowMetadataAggregator_Aggregate(t *testing.T) {
 	err = agg.Collect(observation2, "node2")
 	require.NoError(t, err)
 
-	result, err = agg.Aggregate()
-	require.NoError(t, err)
+	result = agg.Aggregate()
 	require.Len(t, result, 2) // observation1 and observation2 reach threshold
 
 	// Add observation to reach threshold for workflowID2
 	err = agg.Collect(observation3, "node2")
 	require.NoError(t, err)
 
-	result, err = agg.Aggregate()
-	require.NoError(t, err)
+	result = agg.Aggregate()
 	require.Len(t, result, 3) // observation3 reaches threshold
 }
 
@@ -267,8 +262,7 @@ func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	// All observations should reach threshold
-	result, err := agg.Aggregate()
-	require.NoError(t, err)
+	result := agg.Aggregate()
 	require.Len(t, result, 3)
 
 	// Verify chronological order
@@ -326,8 +320,7 @@ func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNam
 	require.NoError(t, err)
 
 	// Only observations that reached threshold should be returned
-	result, err := agg.Aggregate()
-	require.NoError(t, err)
+	result := agg.Aggregate()
 	require.Len(t, result, 2)
 
 	// Verify order: observation3 (newer) before observation1 (older)
@@ -339,8 +332,7 @@ func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNam
 	err = agg.Collect(observation2, "node2")
 	require.NoError(t, err)
 
-	result, err = agg.Aggregate()
-	require.NoError(t, err)
+	result = agg.Aggregate()
 	require.Len(t, result, 3)
 
 	// Verify order: observation3 (newest), observation2 (middle), observation1 (oldest)
@@ -350,6 +342,10 @@ func TestWorkflowMetadataAggregator_Aggregate_ChronologicalOrder_SameWorkflowNam
 }
 
 func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
 	testMetrics := createTestMetrics(t)
@@ -377,7 +373,7 @@ func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 	require.Len(t, agg.observations, 2)
 	require.Len(t, agg.observedAt, 2)
 
-	err = agg.Start(testutils.Context(t))
+	err = agg.Start(t.Context())
 	require.NoError(t, err)
 	// Wait for cleanup interval to pass
 	time.Sleep(cleanupInterval + 100*time.Millisecond)
@@ -385,6 +381,10 @@ func TestWorkflowMetadataAggregator_ReapObservations(t *testing.T) {
 }
 
 func TestWorkflowMetadataAggregator_ReapObservations_UnexpiredObservation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	lggr := logger.Test(t)
 	cleanupInterval := 1 * time.Second
 	testMetrics := createTestMetrics(t)

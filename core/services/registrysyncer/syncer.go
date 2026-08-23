@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -14,8 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-
-	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 )
 
 type Listener interface {
@@ -294,7 +294,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	defer s.mu.RUnlock()
 
 	if len(s.listeners) == 0 {
-		s.lggr.Warn("sync called, but no listeners are registered; nooping")
+		s.lggr.Warn("sync called, but no listeners are registered; no-op")
 		return nil
 	}
 

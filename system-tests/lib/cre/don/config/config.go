@@ -115,6 +115,7 @@ func PrepareNodeTOMLs(
 					Topology:                  topology,
 					Provider:                  creEnv.Provider,
 					ChipRouterInternalGRPCURL: chipRouterInternalGRPCURL,
+					EnableMetering:            localNodeSets[i].EnableMetering,
 				},
 				configFactoryFunctions,
 			)
@@ -186,6 +187,9 @@ func PrepareNodeTOMLs(
 	for i := range localNodeSets {
 		for j := range localNodeSets[i].NodeSpecs {
 			if localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides != "" {
+				if err := validateUserConfigOverrides(localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides); err != nil {
+					return nil, errors.Wrapf(err, "invalid user_config_overrides for nodeset %q node %d", localNodeSets[i].Name, j)
+				}
 				localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides = transformUserConfigOverrides(
 					localNodeSets[i].NodeSpecs[j].Node.UserConfigOverrides,
 				)
@@ -329,7 +333,7 @@ func addBootstrapNodeConfig(
 		ContractPollInterval: commonconfig.MustNewDuration(1 * time.Second),
 	}
 
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstrapperPeerID, []string{"localhost:" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
@@ -416,7 +420,7 @@ func addWorkerNodeConfig(
 	donMetadata *cre.DonMetadata,
 	m *cre.NodeMetadata,
 ) (corechainlink.Config, error) {
-	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstraperPeerID, []string{ocrPeeringData.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
+	ocrBoostrapperLocator, ocrBErr := commontypes.NewBootstrapperLocator(ocrPeeringData.OCRBootstrapperPeerID, []string{ocrPeeringData.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringData.Port)})
 	if ocrBErr != nil {
 		return existingConfig, errors.Wrap(ocrBErr, "failed to create OCR bootstrapper locator")
 	}
@@ -449,6 +453,10 @@ func addWorkerNodeConfig(
 		existingConfig.Billing = coretoml.Billing{
 			URL:        new("billing-platform-service:2223"),
 			TLSEnabled: new(false),
+		}
+
+		if commonInputs.enableMetering {
+			existingConfig.Metering = meteringNodeConfig(donMetadata, m.Index)
 		}
 	}
 
@@ -570,6 +578,23 @@ func addWorkerNodeConfig(
 	return existingConfig, nil
 }
 
+// meteringNodeConfig returns the [Metering] section for a worker node with
+// local-cre deployment dimensions. NodeID is derived from the DON name and
+// node index to be unique per node within the DON (required by
+// Metering.ValidateConfig and per-node snapshot dedup).
+func meteringNodeConfig(donMetadata *cre.DonMetadata, nodeIndex int) coretoml.Metering {
+	return coretoml.Metering{
+		MeterRecordsEnabled:   new(true),
+		MeterSnapshotsEnabled: new(true),
+		Product:               new("cre"),
+		Tenant:                new("local-cre"),
+		NumericTenantID:       new("1"),
+		Environment:           new("local"),
+		Zone:                  new(donMetadata.Name),
+		NodeID:                new(donMetadata.Name + "-node-" + strconv.Itoa(nodeIndex)),
+	}
+}
+
 func addGatewayNodeConfig(
 	existingConfig corechainlink.Config,
 	ocrPeeringData cre.OCRPeeringData,
@@ -672,6 +697,7 @@ type commonInputs struct {
 	provider infra.Provider
 
 	chipRouterInternalGRPCURL string
+	enableMetering            bool
 }
 
 func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
@@ -716,6 +742,7 @@ func gatherCommonInputs(input cre.GenerateConfigsInput) (*commonInputs, error) {
 		},
 		provider:                  input.Provider,
 		chipRouterInternalGRPCURL: input.ChipRouterInternalGRPCURL,
+		enableMetering:            input.EnableMetering,
 	}, nil
 }
 
@@ -969,6 +996,37 @@ func transformAdditionalSourceURLs(sources []coretoml.AdditionalWorkflowSource) 
 	}
 
 	return transformed
+}
+
+// frameworkManagedSections are top-level node-config tables the framework
+// generates itself (see baseNodeConfig/addWorkerNodeConfig): Telemetry points
+// nodes at the chip-router (the test sink and other consumers subscribe to the
+// router, so overriding ChipIngressEndpoint silently bypasses them), Billing
+// at the local billing service, and Metering is gated by the nodeset-level
+// enable_metering flag. Overriding any of them in user_config_overrides wins
+// the last-one-wins config merge on the node and desynchronizes the
+// environment from what the framework wired up.
+var frameworkManagedSections = []string{"Telemetry", "Billing", "Metering"}
+
+// validateUserConfigOverrides rejects user_config_overrides that set
+// framework-managed config tables. It parses the TOML rather than string
+// matching so comments mentioning these sections stay legal.
+func validateUserConfigOverrides(userConfig string) error {
+	var parsed map[string]any
+	if err := toml.Unmarshal([]byte(userConfig), &parsed); err != nil {
+		return errors.Wrap(err, "user_config_overrides is not valid TOML")
+	}
+	for _, section := range frameworkManagedSections {
+		if _, found := parsed[section]; found {
+			return errors.Errorf(
+				"[%s] is framework-managed and cannot be set via user_config_overrides; "+
+					"the framework generates it (pointing telemetry at the chip-router). "+
+					"For metering, set enable_metering = true on the nodeset instead",
+				section,
+			)
+		}
+	}
+	return nil
 }
 
 // transformUserConfigOverrides transforms URLs in a user config overrides string to use

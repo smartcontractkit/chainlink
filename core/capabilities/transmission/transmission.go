@@ -4,15 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/smartcontractkit/libocr/permutation"
+	"golang.org/x/crypto/sha3"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
+	"github.com/smartcontractkit/libocr/permutation"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
-
-	"golang.org/x/crypto/sha3"
 )
 
 var (
@@ -38,7 +37,7 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 	}
 	err := config.UnwrapTo(&tc)
 	if err != nil {
-		return TransmissionConfig{}, fmt.Errorf("failed to unwrap tranmission config from value map: %w", err)
+		return TransmissionConfig{}, fmt.Errorf("failed to unwrap transmission config from value map: %w", err)
 	}
 
 	// Default if no schedule and deltaStage is provided

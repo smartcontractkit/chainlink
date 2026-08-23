@@ -1,9 +1,11 @@
-golang        1.26.5
+golang        1.26.6
 mockery       2.53.6
 nodejs        20.13.1
 pnpm          10.6.5
 postgres      16.14
 helm          3.18.4
-golangci-lint 2.12.2
+golangci-lint 2.13.1
 protoc        29.3
 python        3.10.5
+betterleaks   1.8.0
+typos         1.49.0

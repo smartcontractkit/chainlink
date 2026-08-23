@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 )
@@ -187,8 +186,7 @@ func dumpSchema(dbURL url.URL, restrictKey string) (string, error) {
 
 	schema, err := cmd.Output()
 	if err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) {
+		if ee, ok := errors.AsType[*exec.ExitError](err); ok {
 			return "", fmt.Errorf("failed to dump schema: %w\n%s", err, string(ee.Stderr))
 		}
 		return "", fmt.Errorf("failed to dump schema: %w", err)
@@ -196,7 +194,7 @@ func dumpSchema(dbURL url.URL, restrictKey string) (string, error) {
 	return string(schema), nil
 }
 
-func checkSchema(dbURL url.URL, prevSchema string, restrictKey string) error {
+func checkSchema(dbURL url.URL, prevSchema, restrictKey string) error {
 	newSchema, err := dumpSchema(dbURL, restrictKey)
 	if err != nil {
 		return err
@@ -264,7 +262,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	for gerr := range errCh {
 		err = errors.Join(err, gerr)
 	}
-	return
+	return err
 }
 
 type failedToRandomizeTestDBSequencesError struct{}

@@ -8,9 +8,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/stretchr/testify/require"
+
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"

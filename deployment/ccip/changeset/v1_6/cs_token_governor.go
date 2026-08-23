@@ -478,7 +478,7 @@ func BeingDefaultAdminTransferTokenGovernor(env cldf.Environment, c TokenGoverno
 	}
 
 	state, _ := stateview.LoadOnchainState(env)
-	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("token governor transfer adming ownership")
+	deployerGroup := deployergroup.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("token governor transfer admin ownership")
 
 	for chainSelector, tokens := range c.Tokens {
 		opts, err := deployerGroup.GetDeployer(chainSelector)

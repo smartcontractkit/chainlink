@@ -10,7 +10,7 @@ and then exposed for use in persistent environments like testnet/mainnet.
 - [View](#view)
 - [Environment](#environment)
 - [Job Distributor](#job-distributor)
-- [Changesets](#changsets)
+- [Changesets](#changesets)
 - [Directory Structure](#directory-structure)
 - [Integration Testing](#integration-testing)
 - [FAQ](#faq)
@@ -50,7 +50,7 @@ The job distributor is a product agnostic in-house service for
 managing jobs and CL nodes. It is required to use if you want to 
 manage your system through chainlink deployments.
 
-## Changsets
+## Changesets
 A [changeset](https://github.com/smartcontractkit/chainlink/blob/develop/deployment/changeset.go#L21) is a 
 Go function which describes a set of changes to be applied to an environment given some configuration:
 ```go

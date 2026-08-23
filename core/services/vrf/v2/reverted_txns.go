@@ -729,7 +729,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 		"RequestID", revertedTxn.DBReceipt.RequestID,
 		"RequestTxHash", revertedTxn.DBReceipt.RequestTxHash,
 	)
-	forceFulfiled := true
+	forceFulfilled := true
 	forceFulfillmentAttempt := revertedTxn.DBReceipt.ForceFulfillmentAttempt + 1
 	etx, err = lsn.chain.TxManager().CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:    fromAddress,
@@ -741,7 +741,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 			RequestID:               &reqID,
 			SubID:                   &revertedTxn.DBReceipt.SubID,
 			RequestTxHash:           &reqTxHash,
-			ForceFulfilled:          &forceFulfiled,
+			ForceFulfilled:          &forceFulfilled,
 			ForceFulfillmentAttempt: &forceFulfillmentAttempt,
 			// No max link since simulation failed
 		},

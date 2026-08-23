@@ -36,7 +36,26 @@ type ConfigureVaultDKGInput struct {
 
 type DKGDon struct {
 	contracts.DonNodeSet
+	// DealerPublicKeys are the DKG public keys of the dealers (the nodes that contribute
+	// shares in this run). Both DealerPublicKeys and RecipientPublicKeys must always be set
+	// explicitly so the intent of the run is unambiguous:
+	//   - Fresh DKG (PreviousInstanceID nil): DealerPublicKeys must equal RecipientPublicKeys
+	//     (every participant both deals and receives).
+	//   - Resharing (PreviousInstanceID set): DealerPublicKeys must exactly equal the previous
+	//     instance's RecipientPublicKeys (same values, same order) — the old holders reshare to
+	//     the new set. RecipientPublicKeys is the new participant set. The smdkg plugin rejects
+	//     the config if dealers do not match the prior recipients.
+	DealerPublicKeys []string `json:"dealerPublicKeys" yaml:"dealerPublicKeys"`
+	// RecipientPublicKeys are the DKG public keys of the recipients (the resulting participant
+	// set that will hold shares of the master secret). NodeIDs correspond positionally to
+	// RecipientPublicKeys.
 	RecipientPublicKeys []string `json:"recipientPublicKeys" yaml:"recipientPublicKeys"`
+	// PreviousInstanceID, when set, makes this a resharing DKG instead of a fresh dealing.
+	// It must be the currently-live DKG instance ID (e.g.
+	// "sanmarinodkg/v1/<dkgContract>/<configDigest>"). Resharing preserves the group
+	// (master) public key while changing the participant/share set; a fresh dealing
+	// (nil) generates a NEW group key. Leave nil only for the very first DKG config.
+	PreviousInstanceID *string `json:"previousInstanceID,omitempty" yaml:"previousInstanceID,omitempty"`
 }
 
 type ConfigureVaultDKG struct{}
@@ -57,8 +76,17 @@ func (l ConfigureVaultDKG) VerifyPreconditions(_ cldf.Environment, input Configu
 	if len(input.DON.RecipientPublicKeys) == 0 {
 		return errors.New("at least one recipient public key is required")
 	}
+	if len(input.DON.DealerPublicKeys) == 0 {
+		return errors.New("at least one dealer public key is required (set dealerPublicKeys explicitly: equal to recipientPublicKeys for a fresh DKG, or equal to the previous instance's recipientPublicKeys for a reshare)")
+	}
 	if len(input.DON.NodeIDs) != len(input.DON.RecipientPublicKeys) {
 		return errors.New("the number of don node IDs must match the number of recipient public keys")
+	}
+	// For a fresh DKG every participant both deals and receives, so the sets must be identical.
+	// For a reshare they legitimately differ (dealers = previous recipients), so only enforce
+	// equality when this is not a reshare.
+	if input.DON.PreviousInstanceID == nil && !equalStringSlices(input.DON.DealerPublicKeys, input.DON.RecipientPublicKeys) {
+		return errors.New("for a fresh DKG (no previousInstanceID) dealerPublicKeys must equal recipientPublicKeys")
 	}
 	if input.OracleConfig == nil {
 		return errors.New("oracle config is required")
@@ -133,7 +161,20 @@ func (l ConfigureVaultDKG) Apply(e cldf.Environment, input ConfigureVaultDKGInpu
 func dkgOffchainConfig(don DKGDon, threshold int) *ocr3_1.DKGOffchainConfig {
 	return &ocr3_1.DKGOffchainConfig{
 		T:                   threshold,
-		DealerPublicKeys:    don.RecipientPublicKeys,
+		DealerPublicKeys:    don.DealerPublicKeys,
 		RecipientPublicKeys: don.RecipientPublicKeys,
+		PreviousInstanceID:  don.PreviousInstanceID,
 	}
+}
+
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }

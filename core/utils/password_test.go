@@ -66,7 +66,7 @@ func TestPasswordFromFile(t *testing.T) {
 		t.Run(test.password, func(t *testing.T) {
 			t.Parallel()
 
-			pwdFile, err := os.CreateTemp("", "")
+			pwdFile, err := os.CreateTemp(t.TempDir(), "")
 			assert.NoError(t, err)
 			defer os.Remove(pwdFile.Name())
 			_, err = pwdFile.WriteString(test.password)

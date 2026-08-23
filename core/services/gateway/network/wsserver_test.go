@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
@@ -50,11 +49,11 @@ func startNewWSServer(t *testing.T, readTimeoutMillis uint32) (server network.We
 
 	port := server.GetPort()
 	url = fmt.Sprintf("http://%s:%d%s", WSTestHost, port, WSTestPath)
-	return
+	return server, acceptor, url
 }
 
-func sendRequestWithHeader(t *testing.T, url string, headerName string, headerValue string) *http.Response {
-	req, err := http.NewRequestWithContext(testutils.Context(t), "POST", url, bytes.NewBuffer([]byte{}))
+func sendRequestWithHeader(t *testing.T, url, headerName, headerValue string) *http.Response {
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, url, bytes.NewBuffer([]byte{}))
 	require.NoError(t, err)
 	req.Header.Set(headerName, headerValue)
 
@@ -111,7 +110,7 @@ func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 	urlStr = strings.Replace(urlStr, "http", "ws", 1)
 	parsedURL, err := url.Parse(urlStr)
 	require.NoError(t, err)
-	conn, err := client.Connect(testutils.Context(t), parsedURL)
+	conn, err := client.Connect(t.Context(), parsedURL)
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 
@@ -139,7 +138,7 @@ func TestWSServer_WSClient_DefaultConfig_Failure(t *testing.T) {
 	urlStr = strings.Replace(urlStr, "http", "ws", 1)
 	parsedURL, err := url.Parse(urlStr)
 	require.NoError(t, err)
-	conn, err := client.Connect(testutils.Context(t), parsedURL)
+	conn, err := client.Connect(t.Context(), parsedURL)
 	require.NoError(t, err)
 	require.NotNil(t, conn)
 

@@ -13,8 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
-
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -25,17 +23,17 @@ import (
 
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/chainaccessor"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipaptos"  // Register Aptos plugin config factories
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"    // Register EVM plugin config factories
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana" // Register Solana plugin config factories

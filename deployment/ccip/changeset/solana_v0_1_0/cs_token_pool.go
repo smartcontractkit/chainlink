@@ -972,7 +972,7 @@ func (cfg TokenPoolLookupTableConfig) Validate(e cldf.Environment, chainState so
 }
 
 // this changeset is called in AddTokenPoolAndLookupTable
-// call this indepently only for some very specific reason, otherwise this should not be called and
+// call this independently only for some very specific reason, otherwise this should not be called and
 // AddTokenPoolAndLookupTable should be called instead
 func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig) (cldf.ChangesetOutput, error) {
 	e.Logger.Infow("Adding token pool lookup table", "cfg", cfg)

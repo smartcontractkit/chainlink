@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	eventsv2 "github.com/smartcontractkit/chainlink-protos/workflows/go/v2"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -60,8 +59,7 @@ func nonRetryable(err error) error {
 }
 
 func classifyActivationError(err error) ActivationRetryPolicy {
-	var policyErr *activationPolicyError
-	if errors.As(err, &policyErr) {
+	if policyErr, ok := errors.AsType[*activationPolicyError](err); ok {
 		return policyErr.policy
 	}
 

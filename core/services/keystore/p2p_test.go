@@ -22,7 +22,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	keyStore := keystore.ExposedNewMaster(t, db)
-	require.NoError(t, keyStore.Unlock(testutils.Context(t), cltest.Password))
+	require.NoError(t, keyStore.Unlock(t.Context(), cltest.Password))
 	ks := keyStore.P2P()
 	reset := func() {
 		ctx := context.Background() // Executed on cleanup
@@ -49,7 +49,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 
 	t.Run("creates a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		retrievedKey, err := ks.Get(key.PeerID())
@@ -59,7 +59,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 
 	t.Run("imports and exports a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		exportJSON, err := ks.Export(key.PeerID(), cltest.Password)
@@ -87,7 +87,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 
 	t.Run("adds an externally created key / deletes a key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		newKey, err := p2pkey.NewV2()
 		require.NoError(t, err)
 		err = ks.Add(ctx, newKey)
@@ -110,7 +110,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 
 	t.Run("ensures key", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		err := ks.EnsureKey(ctx)
 		assert.NoError(t, err)
 
@@ -128,7 +128,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 
 	t.Run("GetOrFirst", func(t *testing.T) {
 		defer reset()
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		_, err := ks.GetOrFirst(p2pkey.PeerID{})
 		require.Contains(t, err.Error(), "no p2p keys exist")
 		id := p2pkey.PeerID{0xa0}
@@ -157,7 +157,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 	})
 
 	t.Run("clears p2p_peers on delete", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		key, err := ks.Create(ctx)
 		require.NoError(t, err)
 		type P2PPeer struct {
@@ -193,7 +193,7 @@ func Test_P2PKeyStore_E2E(t *testing.T) {
 	})
 
 	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {
-		ctx := testutils.Context(t)
+		ctx := t.Context()
 		exportedKey := `{"publicKey":"fcc1fdebde28322dde17233fe7bd6dcde447d60d5cc1de518962deed102eea35","peerID":"p2p_12D3KooWSq2UZgSXvhGLG5uuAAmz1JNjxHMJViJB39aorvbbYo8p","crypto":{"cipher":"aes-128-ctr","ciphertext":"adb2dff72148a8cd467f6f06a03869e7cedf180cf2a4decdb86875b2e1cf3e58c4bd2b721ecdaa88a0825fa9abfc309bf32dbb35a5c0b6cb01ac89a956d78e0550eff351","cipherparams":{"iv":"6cc4381766a4efc39f762b2b8d09dfba"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"ff5055ae4cdcdc2d0404307d578262e2caeb0210f82db3a0ecbdba727c6f5259"},"mac":"d37e4f1dea98d85960ef3205099fc71741715ae56a3b1a8f9215a78de9b95595"}}`
 		importedKey, err := ks.Import(ctx, []byte(exportedKey), "p4SsW0rD1!@#_")
 		require.NoError(t, err)

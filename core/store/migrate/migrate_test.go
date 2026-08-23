@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	evmcfg "github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -85,7 +84,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	require.NoError(t, err)
 	nonBootstrapPipelineID, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
-	newFormatBoostrapPipelineID2, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
+	newFormatBootstrapPipelineID2, err := pipelineORM.CreateSpec(ctx, pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
 
 	// OCR2 struct at migration v0099
@@ -170,7 +169,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 		Offchainreporting2OracleSpecID: &nonBootstrapSpec.ID,
 	}
 
-	newFormatBoostrapSpec := job.BootstrapSpec{
+	newFormatBootstrapSpec := job.BootstrapSpec{
 		ID:                                1,
 		ContractID:                        "evm_187246hr3781h9fd198fh391g8f924",
 		Relay:                             "evm",
@@ -187,9 +186,9 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 			ExternalJobID:   uuid.New(),
 			Type:            job.Bootstrap,
 			SchemaVersion:   1,
-			PipelineSpecID:  newFormatBoostrapPipelineID2,
-			BootstrapSpecID: &newFormatBoostrapSpec.ID,
-			BootstrapSpec:   &newFormatBoostrapSpec,
+			PipelineSpecID:  newFormatBootstrapPipelineID2,
+			BootstrapSpecID: &newFormatBootstrapSpec.ID,
+			BootstrapSpec:   &newFormatBootstrapSpec,
 		},
 	}
 

@@ -6,24 +6,21 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
+	"github.com/stretchr/testify/require"
 
 	libocrtypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestHomeChainReader_ChainConfigs(t *testing.T) {
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.Test(t)
 	uni := integrationhelpers.NewTestUniverse(ctx, t, lggr)
 	// We need 3*f + 1 p2pIDs to have enough nodes to bootstrap

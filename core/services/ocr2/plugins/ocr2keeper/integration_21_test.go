@@ -32,10 +32,8 @@ import (
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ethkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_forwarder_logic"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/dummy_protocol_wrapper"
@@ -50,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/mercury"
 	"github.com/smartcontractkit/chainlink-evm/pkg/automation/v21/mercury/streams"
+	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	evm "github.com/smartcontractkit/chainlink-evm/pkg/relay"
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
@@ -188,7 +187,7 @@ func TestIntegration_KeeperPlugin_PerformAndUpkeepPrivilegeConfig(t *testing.T) 
 
 func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	t.Parallel()
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809; DEPENDENT ON SPECIFIC BLOCK PATTTERN?")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809; DEPENDENT ON SPECIFIC BLOCK PATTERN?")
 
 	// setup blockchain
 	sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link

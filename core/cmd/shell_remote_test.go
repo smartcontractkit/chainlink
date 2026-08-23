@@ -24,7 +24,6 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
-
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -41,9 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
-var (
-	nilContext = cli.NewContext(nil, nil, nil)
-)
+var nilContext = cli.NewContext(nil, nil, nil)
 
 type startOptions struct {
 	// Use to set up mocks on the app
@@ -74,7 +71,7 @@ func startNewApplicationV2(t *testing.T, overrideFn func(c *chainlink.Config, s 
 	})
 
 	app := cltest.NewApplicationWithConfigAndKey(t, config, sopts.FlagsAndDeps...)
-	require.NoError(t, app.Start(testutils.Context(t)))
+	require.NoError(t, app.Start(t.Context()))
 
 	return app
 }
@@ -154,7 +151,7 @@ func TestShell_CreateExternalInitiator(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.JobPipeline.ExternalInitiatorsEnabled = new(true)
 			})
@@ -199,7 +196,7 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 			})
 			client, _ := app.NewShellAndRenderer()
 
-			initialExis := len(cltest.AllExternalInitiators(t, app.GetDB()))
+			beginningInitiators := len(cltest.AllExternalInitiators(t, app.GetDB()))
 
 			set := flag.NewFlagSet("create", 0)
 			flagSetApplyFromAction(client.CreateExternalInitiator, set, "")
@@ -210,8 +207,8 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 			err := client.CreateExternalInitiator(c)
 			assert.Error(t, err)
 
-			exis := cltest.AllExternalInitiators(t, app.GetDB())
-			assert.Len(t, exis, initialExis)
+			initiators := cltest.AllExternalInitiators(t, app.GetDB())
+			assert.Len(t, initiators, beginningInitiators)
 		})
 	}
 }
@@ -229,7 +226,7 @@ func TestShell_DestroyExternalInitiator(t *testing.T) {
 		&bridges.ExternalInitiatorRequest{Name: uuid.New().String()},
 	)
 	require.NoError(t, err)
-	err = app.BridgeORM().CreateExternalInitiator(testutils.Context(t), exi)
+	err = app.BridgeORM().CreateExternalInitiator(t.Context(), exi)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
@@ -393,7 +390,7 @@ func (h *mockHTTPClient) Get(ctx context.Context, path string, headers ...map[st
 		json := fmt.Sprintf(`{"version":"%s","commitSHA":"%s"}`, h.mockVersion, h.mockSha)
 		r := io.NopCloser(bytes.NewReader([]byte(json)))
 		return &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       r,
 		}, nil
 	}
@@ -538,7 +535,7 @@ func TestShell_ConfigV2(t *testing.T) {
 func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	// Serial: full app + OCR + synchronous pipeline run; avoid parallel scheduling
 	// starving the test deadline and keep bridge traffic on local httptest only.
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.JobPipeline.HTTPRequest.DefaultTimeout = commonconfig.MustNewDuration(2 * time.Second)
 		c.EVM[0].Enabled = new(true)
@@ -575,7 +572,7 @@ func TestShell_RunOCRJob_HappyPath(t *testing.T) {
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 	jb.OCROracleSpec.TransmitterAddress = &key.EIP55Address
 
-	err = app.AddJobV2(testutils.Context(t), &jb)
+	err = app.AddJobV2(t.Context(), &jb)
 	require.NoError(t, err)
 
 	set := flag.NewFlagSet("test", 0)
@@ -628,7 +625,7 @@ func TestShell_RunOCRJob_JobNotFound(t *testing.T) {
 
 func TestShell_AutoLogin(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 
@@ -657,7 +654,7 @@ func TestShell_AutoLogin(t *testing.T) {
 
 func TestShell_AutoLogin_AuthFails(t *testing.T) {
 	t.Parallel()
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	app := startNewApplicationV2(t, nil)
 

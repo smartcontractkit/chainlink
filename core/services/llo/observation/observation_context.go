@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -98,7 +97,7 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 	}
 	if ch := GetObservationTelemetryCh(ctx); ch != nil {
 		cd := opts.ConfigDigest()
-		ot := &telem.LLOObservationTelemetry{
+		telemetry := &telem.LLOObservationTelemetry{
 			StreamId:              streamID,
 			ObservationTimestamp:  opts.ObservationTimestamp().UnixNano(),
 			ObservationFinishedAt: observationFinishedAt.UnixNano(),
@@ -106,26 +105,26 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 			ConfigDigest:          cd[:],
 		}
 		if err != nil {
-			ot.ObservationError = new(string)
-			*ot.ObservationError = err.Error()
+			telemetry.ObservationError = new(string)
+			*telemetry.ObservationError = err.Error()
 		}
 		if val != nil {
-			ot.StreamValueType = int32(val.Type())
+			telemetry.StreamValueType = int32(val.Type())
 			b, err := val.MarshalBinary()
 			if err != nil {
 				oc.l.Errorw("failed to MarshalBinary on stream value", "error", err)
 			} else {
-				ot.StreamValueBinary = b
+				telemetry.StreamValueBinary = b
 			}
 			s, err := val.MarshalText()
 			if err != nil {
 				oc.l.Errorw("failed to MarshalText on stream value", "error", err)
 			} else {
-				ot.StreamValueText = string(s)
+				telemetry.StreamValueText = string(s)
 			}
 		}
 		select {
-		case ch <- ot:
+		case ch <- telemetry:
 		default:
 			oc.l.Error("telemetry channel is full, dropping observation telemetry")
 		}

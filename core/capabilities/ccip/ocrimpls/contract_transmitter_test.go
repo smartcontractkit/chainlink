@@ -22,9 +22,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/multi_ocr3_helper"
 	kschaintype "github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
@@ -47,7 +44,9 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-evm/pkg/writer"
-	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"    // Register EVM plugin config factories
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm" // Register EVM plugin config factories
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana" // Register Solana plugin config factories
 	_ "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipton"    // Register Ton plugin config factories
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
@@ -460,7 +459,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 
 	// create the chain writer service
 	txm, gasEstimator := makeTestEvmTxm(t, db, simClient, chainStore)
-	require.NoError(t, txm.Start(testutils.Context(t)), "failed to start tx manager")
+	require.NoError(t, txm.Start(t.Context()), "failed to start tx manager")
 	t.Cleanup(func() { require.NoError(t, txm.Close()) })
 
 	chainWriter, err := writer.NewChainWriterService(
@@ -469,9 +468,10 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		txm,
 		gasEstimator,
 		chainWriterConfigRaw(transmitters[0], assets.GWei(1)),
-		nil)
+		nil,
+	)
 	require.NoError(t, err, "failed to create chain writer")
-	require.NoError(t, chainWriter.Start(testutils.Context(t)), "failed to start chain writer")
+	require.NoError(t, chainWriter.Start(t.Context()), "failed to start chain writer")
 	t.Cleanup(func() { require.NoError(t, chainWriter.Close()) })
 
 	lggr := logger.Test(t)
@@ -513,7 +513,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 
 func (uni testUniverse[RI]) SignReport(t *testing.T, configDigest ocrtypes.ConfigDigest, rwi ocr3types.ReportWithInfo[RI], seqNum uint64) []ocrtypes.AttributedOnchainSignature {
 	var attributedSigs []ocrtypes.AttributedOnchainSignature
-	for i := uint8(0); i < uni.f+1; i++ {
+	for i := range uni.f + 1 {
 		t.Log("signing report with", hexutil.Encode(uni.keyrings[i].PublicKey()))
 		sig, err := uni.keyrings[i].Sign(configDigest, seqNum, rwi)
 		require.NoError(t, err, "failed to sign report")
@@ -604,7 +604,7 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 	)
 
 	broadcaster := heads.NewBroadcaster(logger.Nop())
-	require.NoError(t, broadcaster.Start(testutils.Context(t)), "failed to start head broadcaster")
+	require.NoError(t, broadcaster.Start(t.Context()), "failed to start head broadcaster")
 	t.Cleanup(func() { require.NoError(t, broadcaster.Close()) })
 
 	ht := heads.NewTracker(
@@ -616,12 +616,12 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 		headSaver,
 		mailbox.NewMonitor("contract_transmitter_test", logger.Nop()),
 	)
-	require.NoError(t, ht.Start(testutils.Context(t)), "failed to start head tracker")
+	require.NoError(t, ht.Start(t.Context()), "failed to start head tracker")
 	t.Cleanup(func() { require.NoError(t, ht.Close()) })
 
 	lp := logpoller.NewLogPoller(logpoller.NewORM(ormChainID, db, logger.Nop()),
 		ethClient, logger.Nop(), ht, lpOpts)
-	require.NoError(t, lp.Start(testutils.Context(t)), "failed to start log poller")
+	require.NoError(t, lp.Start(t.Context()), "failed to start log poller")
 	t.Cleanup(func() { require.NoError(t, lp.Close()) })
 
 	// logic for building components (from evm/evm_txm.go) -------
@@ -648,7 +648,8 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 		estimator,
 		ht,
 		nil,
-		false)
+		false,
+	)
 	require.NoError(t, err, "can't create tx manager")
 
 	_, unsub := broadcaster.Subscribe(txm)
@@ -820,6 +821,7 @@ func (g *TestGasEstimatorConfig) Mode() string               { return "FixedPric
 func (g *TestGasEstimatorConfig) LimitJobType() evmconfig.LimitJobType {
 	return &TestLimitJobTypeConfig{}
 }
+
 func (g *TestGasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
 	return assets.GWei(1)
 }
@@ -830,8 +832,7 @@ func (e *TestEvmConfig) GasEstimator() evmconfig.GasEstimator {
 	return &TestGasEstimatorConfig{bumpThreshold: e.BumpThreshold}
 }
 
-type TestLimitJobTypeConfig struct {
-}
+type TestLimitJobTypeConfig struct{}
 
 func (l *TestLimitJobTypeConfig) OCR() *uint32    { return new(uint32(0)) }
 func (l *TestLimitJobTypeConfig) OCR2() *uint32   { return new(uint32(0)) }

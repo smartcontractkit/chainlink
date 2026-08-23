@@ -549,7 +549,7 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to group curse actions: %w", err)
 	}
 
-	// For each chain in the environement get the RMNRemote contract and call uncurse
+	// For each chain in the environment get the RMNRemote contract and call uncurse
 	cursableChains, err := GetCursableChains(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)

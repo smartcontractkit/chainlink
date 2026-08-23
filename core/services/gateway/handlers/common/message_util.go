@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 )
 

@@ -103,7 +103,7 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 
 	// unlike discovery, this endpoint is internal btw the node and plugin
 	pluginURL := fmt.Sprintf("http://%s:%d/metrics", l.loopHostName, p.EnvCfg.PrometheusPort)
-	req, err := http.NewRequestWithContext(gc.Request.Context(), "GET", pluginURL, nil)
+	req, err := http.NewRequestWithContext(gc.Request.Context(), http.MethodGet, pluginURL, nil)
 	if err != nil {
 		gc.Data(http.StatusInternalServerError, "text/plain", fmt.Appendf(nil, "error creating plugin metrics request: %s", err))
 		return
@@ -144,7 +144,7 @@ func pprofURLVals(gc *gin.Context) (urlVals url.Values, timeout time.Duration) {
 			timeout = time.Duration(i+PPROFOverheadSeconds) * time.Second
 		}
 	}
-	return
+	return urlVals, timeout
 }
 
 func (l *LoopRegistryServer) pluginPPROFHandler(gc *gin.Context) {
@@ -187,7 +187,7 @@ func (l *LoopRegistryServer) pluginPPROFPOSTSymbolHandler(gc *gin.Context) {
 	l.doRequest(gc, "POST", pluginURL, bytes.NewReader(body), timeout, pluginName)
 }
 
-func (l *LoopRegistryServer) doRequest(gc *gin.Context, method string, url string, body io.Reader, timeout time.Duration, pluginName string) {
+func (l *LoopRegistryServer) doRequest(gc *gin.Context, method, url string, body io.Reader, timeout time.Duration, pluginName string) {
 	ctx, cancel := context.WithTimeout(gc.Request.Context(), timeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, method, url, body)

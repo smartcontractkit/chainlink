@@ -237,7 +237,7 @@ func (p *Plugin) Reports(_ context.Context, _ uint64, outcome ocr3types.Outcome)
 		TransmissionDelays: make([]time.Duration, p.config.N),
 	}
 
-	for i := 0; i < p.config.N; i++ {
+	for i := range p.config.N {
 		allOraclesTransmitNow.Transmitters[i] = commontypes.OracleID(i)
 	}
 

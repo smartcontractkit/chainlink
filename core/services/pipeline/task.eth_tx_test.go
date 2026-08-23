@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
-
 	txmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -98,7 +97,8 @@ func TestETHTxTask(t *testing.T) {
 					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
-			nil, nil, "", pipeline.RunInfo{},
+			nil, nil, "",
+			pipeline.RunInfo{},
 		},
 		{
 			"happy (with vars)",
@@ -142,7 +142,8 @@ func TestETHTxTask(t *testing.T) {
 					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
-			nil, nil, "", pipeline.RunInfo{},
+			nil, nil, "",
+			pipeline.RunInfo{},
 		},
 		{
 			"happy (with minConfirmations as variable expression)",
@@ -174,7 +175,8 @@ func TestETHTxTask(t *testing.T) {
 					return tx.MinConfirmations == clnull.Uint32From(2)
 				})).Return(txmgr.Tx{}, nil)
 			},
-			nil, nil, "", pipeline.RunInfo{IsPending: true},
+			nil, nil, "",
+			pipeline.RunInfo{IsPending: true},
 		},
 		{
 			"happy (with vars 2)",
@@ -220,7 +222,8 @@ func TestETHTxTask(t *testing.T) {
 					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
-			nil, nil, "", pipeline.RunInfo{},
+			nil, nil, "",
+			pipeline.RunInfo{},
 		},
 		{
 			"happy (no `from`, keystore has key)",
@@ -266,7 +269,8 @@ func TestETHTxTask(t *testing.T) {
 					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
-			nil, nil, "", pipeline.RunInfo{},
+			nil, nil, "",
+			pipeline.RunInfo{},
 		},
 		{
 			"happy (missing keys in txMeta)",
@@ -297,7 +301,8 @@ func TestETHTxTask(t *testing.T) {
 					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
-			nil, nil, "", pipeline.RunInfo{},
+			nil, nil, "",
+			pipeline.RunInfo{},
 		},
 		{
 			"happy (missing gasLimit takes config default)",
@@ -332,7 +337,8 @@ func TestETHTxTask(t *testing.T) {
 					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
-			nil, nil, "", pipeline.RunInfo{},
+			nil, nil, "",
+			pipeline.RunInfo{},
 		},
 		{
 			"happy (missing gasLimit takes spec defined value)",
@@ -367,7 +373,8 @@ func TestETHTxTask(t *testing.T) {
 					SignalCallback: true,
 				}).Return(txmgr.Tx{}, nil)
 			},
-			nil, nil, "", pipeline.RunInfo{},
+			nil, nil, "",
+			pipeline.RunInfo{},
 		},
 		{
 			"error from keystore",
@@ -396,7 +403,8 @@ func TestETHTxTask(t *testing.T) {
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID).Return(nil, errors.New("uh oh"))
 			},
-			nil, pipeline.ErrTaskRunFailed, "while querying keystore", pipeline.RunInfo{IsRetryable: true},
+			nil, pipeline.ErrTaskRunFailed, "while querying keystore",
+			pipeline.RunInfo{IsRetryable: true},
 		},
 		{
 			"error from tx manager",
@@ -432,7 +440,8 @@ func TestETHTxTask(t *testing.T) {
 					SignalCallback: true,
 				}).Return(txmgr.Tx{}, errors.New("uh oh"))
 			},
-			nil, pipeline.ErrTaskRunFailed, "while creating transaction", pipeline.RunInfo{IsRetryable: true},
+			nil, pipeline.ErrTaskRunFailed, "while creating transaction",
+			pipeline.RunInfo{IsRetryable: true},
 		},
 		{
 			"extra keys in txMeta",
@@ -449,7 +458,8 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {},
-			nil, pipeline.ErrBadInput, "txMeta", pipeline.RunInfo{},
+			nil, pipeline.ErrBadInput, "txMeta",
+			pipeline.RunInfo{},
 		},
 		{
 			"bad values in txMeta",
@@ -466,7 +476,8 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {},
-			nil, pipeline.ErrBadInput, "txMeta", pipeline.RunInfo{},
+			nil, pipeline.ErrBadInput, "txMeta",
+			pipeline.RunInfo{},
 		},
 		{
 			"missing `to`",
@@ -483,7 +494,8 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {},
-			nil, pipeline.ErrParameterEmpty, "to", pipeline.RunInfo{},
+			nil, pipeline.ErrParameterEmpty, "to",
+			pipeline.RunInfo{},
 		},
 		{
 			"errored input",
@@ -500,7 +512,8 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.NewVarsFrom(nil),
 			[]pipeline.Result{{Error: errors.New("uh oh")}},
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {},
-			nil, pipeline.ErrTooManyErrors, "task inputs", pipeline.RunInfo{},
+			nil, pipeline.ErrTooManyErrors, "task inputs",
+			pipeline.RunInfo{},
 		},
 		{
 			"async mode (with > 0 minConfirmations)",
@@ -523,7 +536,8 @@ func TestETHTxTask(t *testing.T) {
 					return tx.MinConfirmations == clnull.Uint32From(3) && tx.PipelineTaskRunID != nil
 				})).Return(txmgr.Tx{}, nil)
 			},
-			nil, nil, "", pipeline.RunInfo{IsPending: true},
+			nil, nil, "",
+			pipeline.RunInfo{IsPending: true},
 		},
 		{
 			"non-existent chain-id",
@@ -550,7 +564,8 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 			},
-			nil, nil, chains.ErrNoSuchChainID.Error(), pipeline.RunInfo{IsRetryable: true},
+			nil, nil, chains.ErrNoSuchChainID.Error(),
+			pipeline.RunInfo{IsRetryable: true},
 		},
 	}
 
@@ -576,8 +591,8 @@ func TestETHTxTask(t *testing.T) {
 			servicetest.SetupNoOpMock(txManager)
 			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].GasEstimator.LimitDefault = ptr(defaultGasLimit)
-				c.EVM[0].GasEstimator.LimitJobType.DR = ptr(drJobTypeGasLimit)
+				c.EVM[0].GasEstimator.LimitDefault = new(defaultGasLimit)
+				c.EVM[0].GasEstimator.LimitJobType.DR = new(drJobTypeGasLimit)
 			})
 			lggr := logger.TestLogger(t)
 
@@ -594,7 +609,7 @@ func TestETHTxTask(t *testing.T) {
 			test.setupClientMocks(keyStore, txManager)
 			task.HelperSetDependencies(legacyChains, keyStore, test.specGasLimit, pipeline.DirectRequestJobType)
 
-			result, runInfo := task.Run(testutils.Context(t), lggr, test.vars, test.inputs)
+			result, runInfo := task.Run(t.Context(), lggr, test.vars, test.inputs)
 			assert.Equal(t, test.expectedRunInfo, runInfo)
 
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
@@ -612,6 +627,3 @@ func TestETHTxTask(t *testing.T) {
 		})
 	}
 }
-
-//go:fix inline
-func ptr[T any](t T) *T { return new(t) }

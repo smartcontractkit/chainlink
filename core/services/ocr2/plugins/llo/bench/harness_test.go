@@ -41,18 +41,18 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	llodatasource "github.com/smartcontractkit/chainlink-data-streams/llo/datasource"
-	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/dev/v31"
-	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
-	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	memkvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/ocrintegrationtesthelpers"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	llodatasource "github.com/smartcontractkit/chainlink-data-streams/llo/datasource"
+	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/dev/v31"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
+	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
 	corello "github.com/smartcontractkit/chainlink/v2/core/services/llo"
 )
 
@@ -102,9 +102,9 @@ func (w workload) channelDefinitions() (llotypes.ChannelDefinitions, []llotypes.
 	defs := make(llotypes.ChannelDefinitions, w.numChannels)
 	var streamIDs []llotypes.StreamID
 	var sid llotypes.StreamID
-	for c := 0; c < w.numChannels; c++ {
+	for c := range w.numChannels {
 		streams := make([]llotypes.Stream, 0, w.streamsPerChannel)
-		for s := 0; s < w.streamsPerChannel; s++ {
+		for range w.streamsPerChannel {
 			sid++
 			streams = append(streams, llotypes.Stream{StreamID: sid, Aggregator: llotypes.AggregatorMedian})
 			streamIDs = append(streamIDs, sid)

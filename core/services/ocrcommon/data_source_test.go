@@ -8,16 +8,16 @@ import (
 	"time"
 
 	promtestutil "github.com/prometheus/client_golang/prometheus/testutil"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/spf13/cast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
@@ -46,12 +46,16 @@ func Test_InMemoryDataSource(t *testing.T) {
 		}, nil)
 
 	ds := ocrcommon.NewInMemoryDataSource(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t))
-	val, err := ds.Observe(testutils.Context(t), types.ReportTimestamp{})
+	val, err := ds.Observe(t.Context(), types.ReportTimestamp{})
 	require.NoError(t, err)
 	assert.Equal(t, mockValue, val.String()) // returns expected value after pipeline run
 }
 
 func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	changeResultValue := func(runner *pipelinemocks.Runner, value string, returnErr, once bool) {
 		result := pipeline.Result{
 			Value: value,
@@ -94,7 +98,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		var val *big.Int
 		require.Eventually(t, func() bool {
 			var valErr error
-			val, valErr = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+			val, valErr = dsCache.Observe(t.Context(), types.ReportTimestamp{})
 			return valErr == nil && val.Int64() == mockVal
 		}, time.Second*2, time.Millisecond*100)
 
@@ -103,7 +107,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		time.Sleep(time.Second*2 + time.Millisecond*100)
 		// 3. Set value in between updates and call Observe (shouldn't flake because of huge wait time)
 		changeResultValue(runner, strconv.FormatInt(mockVal+2, 10), false, false)
-		val, err = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+		val, err = dsCache.Observe(t.Context(), types.ReportTimestamp{})
 		require.NoError(t, err)
 		assert.Equal(t, mockVal+2, val.Int64())
 	})
@@ -126,7 +130,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		servicetest.Run(t, dsCache)
 
 		time.Sleep(time.Millisecond * 100)
-		val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+		val, err := dsCache.Observe(t.Context(), types.ReportTimestamp{})
 		require.NoError(t, err)
 		assert.Equal(t, persistedVal.String(), val.String())
 	})
@@ -145,7 +149,7 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		servicetest.Run(t, dsCache)
 
 		time.Sleep(time.Millisecond * 100)
-		_, err = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
+		_, err = dsCache.Observe(t.Context(), types.ReportTimestamp{})
 		require.Error(t, err)
 	})
 }
@@ -190,7 +194,7 @@ func Test_InMemoryDataSourceWithProm(t *testing.T) {
 		pipeline.Spec{},
 		logger.TestLogger(t),
 	)
-	val, err := ds.Observe(testutils.Context(t), types.ReportTimestamp{})
+	val, err := ds.Observe(t.Context(), types.ReportTimestamp{})
 	require.NoError(t, err)
 
 	assert.JSONEq(t, jsonParseTaskValue, val.String()) // returns expected value after pipeline run
@@ -221,7 +225,7 @@ func Test_NewDataSourceV2(t *testing.T) {
 		}, nil)
 
 	ds := ocrcommon.NewDataSourceV2(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), ms, nil)
-	val, err := ds.Observe(testutils.Context(t), types.ReportTimestamp{})
+	val, err := ds.Observe(t.Context(), types.ReportTimestamp{})
 	require.NoError(t, err)
 	assert.Equal(t, mockValue, val.String()) // returns expected value after pipeline run
 	assert.Equal(t, &pipeline.Run{}, ms.r)   // expected data properly passed to channel
@@ -242,7 +246,7 @@ func Test_NewDataSourceV1(t *testing.T) {
 		}, nil)
 
 	ds := ocrcommon.NewDataSourceV1(runner, job.Job{}, pipeline.Spec{}, logger.TestLogger(t), ms, nil)
-	val, err := ds.Observe(testutils.Context(t), ocrtypes.ReportTimestamp{})
+	val, err := ds.Observe(t.Context(), ocrtypes.ReportTimestamp{})
 	require.NoError(t, err)
 	assert.Equal(t, mockValue, new(big.Int).Set(val).String()) // returns expected value after pipeline run
 	assert.Equal(t, &pipeline.Run{}, ms.r)                     // expected data properly passed to channel

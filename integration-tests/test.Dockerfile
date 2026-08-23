@@ -3,7 +3,7 @@ ARG IMAGE_VERSION=latest
 FROM ${BASE_IMAGE}:${IMAGE_VERSION} AS build-env
 
 WORKDIR /go/testdir
-# Deplyment module uses a local replace for latest code
+# Deployment module uses a local replace for latest code
 COPY deployment/go.mod deployment/go.sum /go/testdir/deployment/
 COPY go.mod go.sum  ./
 COPY integration-tests/go.mod integration-tests/go.sum ./integration-tests/
