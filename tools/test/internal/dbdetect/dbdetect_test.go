@@ -80,6 +80,8 @@ func TestIsDiagnoseCommand(t *testing.T) {
 }
 
 func TestNeedsPostgres(t *testing.T) {
+	t.Parallel()
+
 	repoRoot := findRepoRoot(t)
 	t.Logf("repoRoot: %q", repoRoot)
 
@@ -165,6 +167,7 @@ func TestNeedsPostgres(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			got, err := NeedsPostgres(repoRoot, tt.args)
 			if tt.wantErr {
 				assert.Error(t, err)
