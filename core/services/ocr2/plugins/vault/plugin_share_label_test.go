@@ -96,7 +96,7 @@ func TestPlugin_ValidateObservation_GetSecrets_EmbeddedRequestMismatchRejected(t
 	require.ErrorContains(t, err, "embedded GetSecrets request does not match pending queue request")
 }
 
-func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeysFlag(t *testing.T) {
+func TestPlugin_ShaForObservation_GetSecrets_IncludesEncryptionKeysInSHA(t *testing.T) {
 	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	realKey := strings.Repeat("ab", 32)
@@ -131,22 +131,15 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeysFlag(t *test
 	byzObs.Response = &vaultcommon.Observation_GetSecretsResponse{GetSecretsResponse: byzResp}
 
 	ctx := context.Background()
-	pluginOff := newTestReportingPlugin(t, withOnchainCfg(4, 1))
-	shaHonestOff, err := pluginOff.shaForObservation(ctx, honestObs)
+	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1))
+	shaHonest, err := plugin.shaForObservation(ctx, honestObs)
 	require.NoError(t, err)
-	shaByzOff, err := pluginOff.shaForObservation(ctx, byzObs)
+	shaByz, err := plugin.shaForObservation(ctx, byzObs)
 	require.NoError(t, err)
-	require.Equal(t, shaHonestOff, shaByzOff)
-
-	pluginOn := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
-	shaHonestOn, err := pluginOn.shaForObservation(ctx, honestObs)
-	require.NoError(t, err)
-	shaByzOn, err := pluginOn.shaForObservation(ctx, byzObs)
-	require.NoError(t, err)
-	require.NotEqual(t, shaHonestOn, shaByzOn)
+	require.NotEqual(t, shaHonest, shaByz)
 }
 
-func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_PermutedEntryOrder(t *testing.T) {
+func TestPlugin_ShaForObservation_GetSecrets_PermutedEntryOrder(t *testing.T) {
 	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	keyA := strings.Repeat("aa", 32)
@@ -180,7 +173,7 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_PermutedEnt
 	}
 
 	ctx := context.Background()
-	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
+	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1))
 
 	shaAB, err := plugin.shaForObservation(ctx, makeObs([]string{keyA, keyB}, []string{"share-a1", "share-b1"}))
 	require.NoError(t, err)
@@ -189,7 +182,7 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_PermutedEnt
 	require.NotEqual(t, shaAB, shaCD)
 }
 
-func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_DifferentShareBytesSameLabels(t *testing.T) {
+func TestPlugin_ShaForObservation_GetSecrets_DifferentShareBytesSameLabels(t *testing.T) {
 	t.Parallel()
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
 	encKey := strings.Repeat("ab", 32)
@@ -221,7 +214,7 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_DifferentSh
 	}
 
 	ctx := context.Background()
-	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1), withVaultGetSecretsShareAggregationIncludesPublicKeys())
+	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1))
 
 	sha1, err := plugin.shaForObservation(ctx, makeObs("share-from-node-1"))
 	require.NoError(t, err)
@@ -230,7 +223,7 @@ func TestPlugin_ShaForObservation_ShareAggregationIncludesPublicKeys_DifferentSh
 	require.Equal(t, sha1, sha2)
 }
 
-func TestPlugin_StateTransition_GetSecretsRequest_ShareAggregationIncludesPublicKeys_CombinesShares(t *testing.T) {
+func TestPlugin_StateTransition_GetSecretsRequest_CombinesSharesByEncryptionKey(t *testing.T) {
 	t.Parallel()
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
@@ -239,7 +232,6 @@ func TestPlugin_StateTransition_GetSecretsRequest_ShareAggregationIncludesPublic
 		withLggr(lggr),
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultGetSecretsShareAggregationIncludesPublicKeys(),
 	)
 
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}

@@ -56,19 +56,18 @@ type ReportingPluginConfig struct {
 	PrivateKeyShare *tdh2easy.PrivateShare
 
 	// Sourced from the offchain config
-	MaxSecretsPerOwner                                limits.BoundLimiter[int]
-	MaxShareLengthBytes                               limits.BoundLimiter[pkgconfig.Size]
-	MaxBatchSize                                      limits.BoundLimiter[int]
-	MaxPendingQueueWriteSize                          limits.BoundLimiter[int]
-	MaxBlobPayloadBytes                               limits.BoundLimiter[pkgconfig.Size]
-	VaultForceEmptyOCRRounds                          limits.GateLimiter
-	VaultOptimizationsEnabled                         limits.GateLimiter
-	VaultJSONOmitUnpopulatedEnabled                   limits.GateLimiter
-	VaultSignedResponseRequestIDEnabled               limits.GateLimiter
-	VaultGetSecretsShareAggregationIncludesPublicKeys limits.GateLimiter
-	VaultGetSecretsRelaxedConsensusEnabled            limits.GateLimiter
-	VaultIncludeInvalidPendingItemsEnabled            limits.GateLimiter
-	VaultPendingQueueStallThreshold                   limits.BoundLimiter[int]
+	MaxSecretsPerOwner                     limits.BoundLimiter[int]
+	MaxShareLengthBytes                    limits.BoundLimiter[pkgconfig.Size]
+	MaxBatchSize                           limits.BoundLimiter[int]
+	MaxPendingQueueWriteSize               limits.BoundLimiter[int]
+	MaxBlobPayloadBytes                    limits.BoundLimiter[pkgconfig.Size]
+	VaultForceEmptyOCRRounds               limits.GateLimiter
+	VaultOptimizationsEnabled              limits.GateLimiter
+	VaultJSONOmitUnpopulatedEnabled        limits.GateLimiter
+	VaultSignedResponseRequestIDEnabled    limits.GateLimiter
+	VaultGetSecretsRelaxedConsensusEnabled limits.GateLimiter
+	VaultIncludeInvalidPendingItemsEnabled limits.GateLimiter
+	VaultPendingQueueStallThreshold        limits.BoundLimiter[int]
 }
 
 func NewReportingPluginFactory(
@@ -193,11 +192,6 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultOptimizationsEnabled: %w", err)
 	}
 
-	vaultGetSecretsShareAggregationIncludesPublicKeys, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultGetSecretsShareAggregationIncludesPublicKeys)
-	if err != nil {
-		return nil, fmt.Errorf("VaultGetSecretsShareAggregationIncludesPublicKeys: %w", err)
-	}
-
 	vaultJSONOmitUnpopulatedEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultJSONOmitUnpopulatedEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("VaultJSONOmitUnpopulatedEnabled: %w", err)
@@ -234,17 +228,16 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 	}
 
 	return &ReportingPluginConfig{
-		MaxShareLengthBytes:                               maxShareLengthBytesLimiter,
-		MaxBlobPayloadBytes:                               maxBlobPayloadBytesLimiter,
-		MaxPendingQueueWriteSize:                          maxPendingQueueWriteSizeLimiter,
-		VaultForceEmptyOCRRounds:                          vaultForceEmptyOCRRounds,
-		VaultOptimizationsEnabled:                         vaultOptimizationsEnabled,
-		VaultJSONOmitUnpopulatedEnabled:                   vaultJSONOmitUnpopulatedEnabled,
-		VaultSignedResponseRequestIDEnabled:               vaultSignedResponseRequestIDEnabled,
-		VaultGetSecretsShareAggregationIncludesPublicKeys: vaultGetSecretsShareAggregationIncludesPublicKeys,
-		VaultGetSecretsRelaxedConsensusEnabled:            vaultGetSecretsRelaxedConsensusEnabled,
-		VaultIncludeInvalidPendingItemsEnabled:            vaultIncludeInvalidPendingItemsEnabled,
-		VaultPendingQueueStallThreshold:                   vaultPendingQueueStallThreshold,
+		MaxShareLengthBytes:                    maxShareLengthBytesLimiter,
+		MaxBlobPayloadBytes:                    maxBlobPayloadBytesLimiter,
+		MaxPendingQueueWriteSize:               maxPendingQueueWriteSizeLimiter,
+		VaultForceEmptyOCRRounds:               vaultForceEmptyOCRRounds,
+		VaultOptimizationsEnabled:              vaultOptimizationsEnabled,
+		VaultJSONOmitUnpopulatedEnabled:        vaultJSONOmitUnpopulatedEnabled,
+		VaultSignedResponseRequestIDEnabled:    vaultSignedResponseRequestIDEnabled,
+		VaultGetSecretsRelaxedConsensusEnabled: vaultGetSecretsRelaxedConsensusEnabled,
+		VaultIncludeInvalidPendingItemsEnabled: vaultIncludeInvalidPendingItemsEnabled,
+		VaultPendingQueueStallThreshold:        vaultPendingQueueStallThreshold,
 	}, nil
 }
 
@@ -676,10 +669,6 @@ func (r *ReportingPlugin) prepareLegacyObservationPendingQueueBlobs(
 
 func (r *ReportingPlugin) optimizationsEnabled(ctx context.Context) bool {
 	return gateAllows(ctx, r.lggr, r.cfg.VaultOptimizationsEnabled, "VaultOptimizationsEnabled")
-}
-
-func (r *ReportingPlugin) shareAggregationIncludesPublicKeys(ctx context.Context) bool {
-	return gateAllows(ctx, r.lggr, r.cfg.VaultGetSecretsShareAggregationIncludesPublicKeys, "VaultGetSecretsShareAggregationIncludesPublicKeys")
 }
 
 func (r *ReportingPlugin) jsonOmitUnpopulatedEnabled(ctx context.Context) bool {
@@ -1700,14 +1689,9 @@ func (r *ReportingPlugin) shaForObservation(ctx context.Context, o *vaultcommon.
 		cloned := proto.CloneOf(o)
 		for _, rsp := range cloned.GetGetSecretsResponse().Responses {
 			if rsp.GetData() != nil {
-				if r.shareAggregationIncludesPublicKeys(ctx) {
-					for _, es := range rsp.GetData().EncryptedDecryptionKeyShares {
-						es.Shares = nil
-						es.BinaryShares = nil
-					}
-				} else {
-					// Exclude the encrypted shares from the sha, as these need to be aggregated later.
-					rsp.GetData().EncryptedDecryptionKeyShares = nil
+				for _, es := range rsp.GetData().EncryptedDecryptionKeyShares {
+					es.Shares = nil
+					es.BinaryShares = nil
 				}
 			}
 		}
