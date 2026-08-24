@@ -936,7 +936,10 @@ func TestTranslateVaultResponse_HexShares(t *testing.T) {
 }
 
 func TestTranslateVaultResponse_VaultError(t *testing.T) {
+	t.Parallel()
+
 	t.Run("user error is classified as a user error", func(t *testing.T) {
+		t.Parallel()
 		vaultResp := []*vault.SecretResponse{
 			{
 				Id: &vault.SecretIdentifier{Key: "API_TOKEN", Namespace: "main"},
@@ -955,6 +958,7 @@ func TestTranslateVaultResponse_VaultError(t *testing.T) {
 	})
 
 	t.Run("system fallback is not classified as a user error", func(t *testing.T) {
+		t.Parallel()
 		vaultResp := []*vault.SecretResponse{
 			{
 				Id: &vault.SecretIdentifier{Key: "API_TOKEN", Namespace: "main"},
@@ -973,6 +977,8 @@ func TestTranslateVaultResponse_VaultError(t *testing.T) {
 }
 
 func TestIsUserError(t *testing.T) {
+	t.Parallel()
+
 	t.Run("vaultSecretError wrapping a user error message is detected", func(t *testing.T) {
 		t.Parallel()
 		err := &vaultSecretError{namespace: "main", key: "API_TOKEN", msg: "key does not exist"}
