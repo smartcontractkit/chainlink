@@ -34,12 +34,14 @@ import (
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow/server"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -2080,6 +2082,155 @@ func Test_specStorage_StateMachine(t *testing.T) {
 		h := makeHandler(store)
 		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(activePayload)))
 		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, createdAtI64)
+	})
+
+	// alwaysActive returns EngineFeatureFlags with a WorkflowTagBackfill limiter
+	// whose active window covers every possible time — used to simulate the ops
+	// team narrowing the cresettings window to include time.Now().
+	alwaysActive := func() *v2.EngineFeatureFlags {
+		return &v2.EngineFeatureFlags{
+			WorkflowTagBackfill: limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
+				Lower: 0,
+				Upper: config.Timestamp(time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+			}),
+		}
+	}
+	// farFuture mirrors the cresettings default: window sits in the 22nd century
+	// so time.Now() never falls inside, matching a fresh-deploy no-op.
+	farFuture := func() *v2.EngineFeatureFlags {
+		return &v2.EngineFeatureFlags{
+			WorkflowTagBackfill: limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
+				Lower: config.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+				Upper: config.Timestamp(time.Date(2101, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+			}),
+		}
+	}
+
+	t.Run("flag inactive (default window): stale tag + Activated → no backfill", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = "v1.2.3"
+		h := makeHandler(store)
+		h.featureFlags = farFuture()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		assert.Empty(t, store.spec.WorkflowTag, "window in 2100+: local tag must remain untouched")
+	})
+
+	t.Run("flag active: empty tag + Activated → backfill tag", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = "v1.2.3"
+		h := makeHandler(store)
+		h.featureFlags = alwaysActive()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		assert.Equal(t, "v1.2.3", store.spec.WorkflowTag, "flag active: empty local tag should be backfilled from payload")
+	})
+
+	t.Run("flag active: stale tag + Activated → tag refreshed", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "v1.0.0",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = "v2.0.0"
+		h := makeHandler(store)
+		h.featureFlags = alwaysActive()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		assert.Equal(t, "v2.0.0", store.spec.WorkflowTag, "flag active: stale local tag should be refreshed from payload")
+	})
+
+	t.Run("flag active: local set + payload empty → local preserved", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "v1.0.0",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = ""
+		h := makeHandler(store)
+		h.featureFlags = alwaysActive()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		assert.Equal(t, "v1.0.0", store.spec.WorkflowTag, "empty payload tag must not clobber a good local tag")
+	})
+
+	t.Run("flag inactive → active: retro-backfill on next event", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = "v3.0.0"
+		h := makeHandler(store)
+
+		// First pass: window in far future, no backfill.
+		h.featureFlags = farFuture()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		require.Empty(t, store.spec.WorkflowTag, "before flip: tag stays empty")
+
+		// Ops narrows the window to cover time.Now(); redeliver → backfill fires.
+		h.featureFlags = alwaysActive()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		assert.Equal(t, "v3.0.0", store.spec.WorkflowTag, "after flip: tag backfilled")
 	})
 }
 
