@@ -245,14 +245,16 @@ codecgen: $(codecgen) ## Install codecgen
 .PHONY: protoc
 protoc: ## Install protoc
 	@core/scripts/install-protoc.sh 29.3 /
-	@if ! command -v protoc-gen-go >/dev/null 2>&1; then \
-		go install google.golang.org/protobuf/cmd/protoc-gen-go@`go list -m -json google.golang.org/protobuf | jq -r .Version`; \
+	@PROTOBUF_VERSION=$$(awk '$$1 == "google.golang.org/protobuf" {print $$2}' go.mod 2>/dev/null || go list -m -json google.golang.org/protobuf 2>/dev/null | jq -r .Version); \
+	if ! command -v protoc-gen-go >/dev/null 2>&1 || [ -z "$$PROTOBUF_VERSION" ] || ! go version -m "$$(command -v protoc-gen-go)" 2>/dev/null | grep -q "$$PROTOBUF_VERSION"; then \
+		go install google.golang.org/protobuf/cmd/protoc-gen-go@$${PROTOBUF_VERSION:-latest}; \
 	fi
 	@if ! command -v protoc-gen-go-grpc >/dev/null 2>&1 || ! go version -m "$$(command -v protoc-gen-go-grpc)" 2>/dev/null | grep -q "v1.6.2"; then \
 		go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2; \
 	fi
-	@if ! command -v protoc-gen-go-wsrpc >/dev/null 2>&1; then \
-		go install github.com/smartcontractkit/wsrpc/cmd/protoc-gen-go-wsrpc@`go list -m -json github.com/smartcontractkit/wsrpc | jq -r .Version`; \
+	@WSRPC_VERSION=$$(awk '$$1 == "github.com/smartcontractkit/wsrpc" {print $$2}' go.mod 2>/dev/null || go list -m -json github.com/smartcontractkit/wsrpc 2>/dev/null | jq -r .Version); \
+	if ! command -v protoc-gen-go-wsrpc >/dev/null 2>&1 || [ -z "$$WSRPC_VERSION" ] || ! go version -m "$$(command -v protoc-gen-go-wsrpc)" 2>/dev/null | grep -q "$$WSRPC_VERSION"; then \
+		go install github.com/smartcontractkit/wsrpc/cmd/protoc-gen-go-wsrpc@$${WSRPC_VERSION:-latest}; \
 	fi
 
 .PHONY: telemetry-protobuf

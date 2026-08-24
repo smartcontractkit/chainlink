@@ -177,4 +177,55 @@ func TestRun(t *testing.T) {
 		require.Len(t, calledCmds, 1)
 		assert.Equal(t, []string{"generate", "./core/web"}, calledCmds[0])
 	})
+
+	t.Run("skips non-code assets without calling runner", func(t *testing.T) {
+		t.Parallel()
+
+		called := false
+		runner := func(ctx context.Context, dir string, args ...string) error {
+			called = true
+			return nil
+		}
+
+		files := []string{"README.md", "docs/index.html", "core/web/assets/app.css", "package.json"}
+
+		err := generate.Run(t.Context(), repoRoot, files, generate.Config{Runner: runner})
+		require.NoError(t, err)
+		assert.False(t, called)
+	})
+
+	t.Run("runs go generate concurrently across multiple packages", func(t *testing.T) {
+		t.Parallel()
+
+		root := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module github.com/smartcontractkit/chainlink/v2\n"), 0o600))
+
+		pkg1 := filepath.Join(root, "core/services/pkg1")
+		pkg2 := filepath.Join(root, "core/services/pkg2")
+		require.NoError(t, os.MkdirAll(pkg1, 0o750))
+		require.NoError(t, os.MkdirAll(pkg2, 0o750))
+
+		require.NoError(t, os.WriteFile(filepath.Join(pkg1, "a.go"), []byte("package pkg1\n\n//go:generate echo pkg1\n"), 0o600))
+		require.NoError(t, os.WriteFile(filepath.Join(pkg2, "b.go"), []byte("package pkg2\n\n//go:generate echo pkg2\n"), 0o600))
+
+		var (
+			mu         sync.Mutex
+			calledCmds [][]string
+		)
+		runner := func(ctx context.Context, dir string, args ...string) error {
+			mu.Lock()
+			calledCmds = append(calledCmds, args)
+			mu.Unlock()
+			return nil
+		}
+
+		err := generate.Run(t.Context(), root, []string{"core/services/pkg1/a.go", "core/services/pkg2/b.go"}, generate.Config{Runner: runner})
+		require.NoError(t, err)
+
+		mu.Lock()
+		defer mu.Unlock()
+		assert.Len(t, calledCmds, 2)
+		assert.Contains(t, calledCmds, []string{"generate", "./core/services/pkg1"})
+		assert.Contains(t, calledCmds, []string{"generate", "./core/services/pkg2"})
+	})
 }
