@@ -467,10 +467,14 @@ func newWebSocketPair(t *testing.T) (serverConn, clientConn *websocket.Conn) {
 
 // doHandshake performs StartHandshake + FinalizeHandshake with the given conn.
 func doHandshake(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Clock, node gc.TestNode, conn *websocket.Conn) {
+	doHandshakeForDON(t, mgr, clock, "my_don_1", node, conn)
+}
+
+func doHandshakeForDON(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Clock, donID string, node gc.TestNode, conn *websocket.Conn) {
 	t.Helper()
 	authHeaderElems := network.AuthHeaderElems{
 		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // test clock is always small positive
-		DonId:     "my_don_1",
+		DonId:     donID,
 		GatewayId: "my_gateway_no_3",
 	}
 	attemptID, challenge, err := mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, node.PrivateKey))
@@ -478,6 +482,89 @@ func doHandshake(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Cl
 	response, err := gc.SignData(node.PrivateKey, challenge)
 	require.NoError(t, err)
 	require.NoError(t, mgr.FinalizeHandshake(attemptID, response, conn))
+}
+
+func TestConnectionManager_ReadyForTraffic(t *testing.T) {
+	t.Parallel()
+
+	cfg, nodes := newTestConfig(t, 4)
+	cfg.ShardedDONs[0].F = 1
+	clock := clockwork.NewFakeClock()
+	mgr := newConnectionManager(t, cfg, clock)
+	require.NoError(t, mgr.Start(t.Context()))
+	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
+
+	require.Error(t, mgr.ReadyForTraffic(t.Context()))
+	for i := range 2 {
+		serverConn, _ := newWebSocketPair(t)
+		doHandshake(t, mgr, clock, nodes[i], serverConn)
+	}
+	require.Error(t, mgr.ReadyForTraffic(t.Context()), "2F connections must not be ready")
+
+	serverConn, clientConn := newWebSocketPair(t)
+	doHandshake(t, mgr, clock, nodes[2], serverConn)
+	require.NoError(t, mgr.ReadyForTraffic(t.Context()), "2F+1 connections must be ready")
+
+	require.NoError(t, clientConn.Close())
+	require.Eventually(t, func() bool {
+		return mgr.ReadyForTraffic(t.Context()) != nil
+	}, 5*time.Second, 10*time.Millisecond, "disconnect below 2F+1 must revoke readiness")
+}
+
+func TestConnectionManager_ReadyForTrafficRequiresEveryShard(t *testing.T) {
+	t.Parallel()
+
+	cfg, nodes := newTestConfig(t, 8)
+	cfg.ShardedDONs[0].F = 1
+	cfg.ShardedDONs[0].Shards = []config.Shard{
+		{Nodes: cfg.ShardedDONs[0].Shards[0].Nodes[:4]},
+		{Nodes: cfg.ShardedDONs[0].Shards[0].Nodes[4:]},
+	}
+	clock := clockwork.NewFakeClock()
+	mgr := newConnectionManager(t, cfg, clock)
+	require.NoError(t, mgr.Start(t.Context()))
+	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
+
+	for i := range 3 {
+		serverConn, _ := newWebSocketPair(t)
+		doHandshakeForDON(t, mgr, clock, "my_don_1", nodes[i], serverConn)
+	}
+	require.Error(t, mgr.ReadyForTraffic(t.Context()), "one ready shard must not mask an unready shard")
+
+	for i := 4; i < 7; i++ {
+		serverConn, _ := newWebSocketPair(t)
+		doHandshakeForDON(t, mgr, clock, "my_don_1_1", nodes[i], serverConn)
+	}
+	require.NoError(t, mgr.ReadyForTraffic(t.Context()))
+}
+
+func TestConnectionManager_ReadyForTrafficFailsClosedAndSortsErrors(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	gMetrics, err := monitoring.NewGatewayMetrics()
+	require.NoError(t, err)
+	lf := limits.Factory{Logger: lggr}
+
+	empty, err := gateway.NewConnectionManager(&config.GatewayConfig{
+		NodeServerConfig: network.WebSocketServerConfig{HTTPServerConfig: network.HTTPServerConfig{Path: "/node"}},
+	}, clockwork.NewFakeClock(), gMetrics, lggr, lf)
+	require.NoError(t, err)
+	require.EqualError(t, empty.ReadyForTraffic(t.Context()), "no relay DON shards configured")
+
+	nodes := gc.NewTestNodes(t, 2)
+	cfg := &config.GatewayConfig{
+		NodeServerConfig: network.WebSocketServerConfig{HTTPServerConfig: network.HTTPServerConfig{Path: "/node"}},
+		ShardedDONs: []config.ShardedDONConfig{
+			{DonName: "z-don", F: 0, Shards: []config.Shard{{Nodes: []config.NodeConfig{{Name: "z", Address: nodes[0].Address}}}}},
+			{DonName: "a-don", F: 0, Shards: []config.Shard{{Nodes: []config.NodeConfig{{Name: "a", Address: nodes[1].Address}}}}},
+		},
+	}
+	mgr, err := gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, lf)
+	require.NoError(t, err)
+	err = mgr.ReadyForTraffic(t.Context())
+	require.Error(t, err)
+	require.Less(t, strings.Index(err.Error(), "a-don"), strings.Index(err.Error(), "z-don"))
 }
 
 func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {

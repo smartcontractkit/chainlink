@@ -18,6 +18,27 @@ import (
 
 var upgrader = websocket.Upgrader{}
 
+func newWebSocketPair(t *testing.T) (*websocket.Conn, *websocket.Conn) {
+	t.Helper()
+
+	serverConnCh := make(chan *websocket.Conn, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		require.NoError(t, err)
+		serverConnCh <- conn
+	}))
+	t.Cleanup(server.Close)
+
+	clientConn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	require.NoError(t, err)
+	serverConn := <-serverConnCh
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+	return serverConn, clientConn
+}
+
 type serverSideLogic struct {
 	connWrapper network.WSConnectionWrapper
 }
@@ -72,6 +93,53 @@ func TestWSConnectionWrapper_WriteError_TriggersClose(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("closeCh was not signaled after write error; stale connection will block reconnect indefinitely")
 	}
+	require.False(t, clientConnWrapper.IsConnected())
+}
+
+func TestWSConnectionWrapper_ConnectedState(t *testing.T) {
+	t.Parallel()
+
+	connWrapper := network.NewWSConnectionWrapper(logger.Test(t))
+	servicetest.Run(t, connWrapper)
+	require.False(t, connWrapper.IsConnected())
+
+	serverConn, clientConn := newWebSocketPair(t)
+	closeCh := connWrapper.Reset(serverConn)
+	require.True(t, connWrapper.IsConnected())
+
+	require.NoError(t, clientConn.Close())
+	select {
+	case <-closeCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("connection close was not observed")
+	}
+	require.False(t, connWrapper.IsConnected())
+}
+
+func TestWSConnectionWrapper_OldReadPumpCannotClearReplacement(t *testing.T) {
+	t.Parallel()
+
+	connWrapper := network.NewWSConnectionWrapper(logger.Test(t))
+	servicetest.Run(t, connWrapper)
+
+	serverConnA, _ := newWebSocketPair(t)
+	closeA := connWrapper.Reset(serverConnA)
+	serverConnB, clientConnB := newWebSocketPair(t)
+	connWrapper.Reset(serverConnB)
+
+	select {
+	case <-closeA:
+	case <-time.After(5 * time.Second):
+		t.Fatal("old connection close was not observed")
+	}
+	require.True(t, connWrapper.IsConnected())
+
+	payload := []byte("replacement connection")
+	require.NoError(t, connWrapper.Write(t.Context(), websocket.TextMessage, payload))
+	msgType, got, err := clientConnB.ReadMessage()
+	require.NoError(t, err)
+	require.Equal(t, websocket.TextMessage, msgType)
+	require.Equal(t, payload, got)
 }
 
 func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +41,7 @@ type ConnectionManager interface {
 
 	DONConnectionManager(donId string) *donConnectionManager
 	GetPort() int
+	ReadyForTraffic(ctx context.Context) error
 }
 
 type connectionManager struct {
@@ -299,6 +301,41 @@ func (m *connectionManager) AbortHandshake(attemptId string) {
 
 func (m *connectionManager) GetPort() int {
 	return m.wsServer.GetPort()
+}
+
+func (m *connectionManager) ReadyForTraffic(ctx context.Context) error {
+	if len(m.dons) == 0 {
+		m.gMetrics.RecordUserReady(ctx, false)
+		return errors.New("no relay DON shards configured")
+	}
+
+	donIDs := make([]string, 0, len(m.dons))
+	for donID := range m.dons {
+		donIDs = append(donIDs, donID)
+	}
+	sort.Strings(donIDs)
+
+	var readinessErrs []error
+	for _, donID := range donIDs {
+		don := m.dons[donID]
+		connected := 0
+		for _, node := range don.nodes {
+			if node.conn.IsConnected() {
+				connected++
+			}
+		}
+
+		required := 2*don.donConfig.F + 1
+		configured := len(don.nodes)
+		m.gMetrics.RecordRelayConnectionState(ctx, donID, connected, required, configured)
+		if connected < required {
+			readinessErrs = append(readinessErrs, fmt.Errorf("DON %s has %d connected nodes; requires %d", donID, connected, required))
+		}
+	}
+
+	ready := len(readinessErrs) == 0
+	m.gMetrics.RecordUserReady(ctx, ready)
+	return errors.Join(readinessErrs...)
 }
 
 func (m *donConnectionManager) SetHandler(serviceName string, handler handlers.Handler) {
