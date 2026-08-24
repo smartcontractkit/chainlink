@@ -100,6 +100,33 @@ CRE_PR_IMAGE=<your image> CRE_BASELINE_IMAGE=<develop image> \
 CTF_CONFIGS=configs/mixed-env-don.toml go run . env start
 ```
 
+### Running it locally with local images
+
+By default the rendered topology sets `pull_image = true`, which makes the environment pull each node image from a registry. If both your images are local builds, that pull fails — a bare ref like `chainlink:develop` resolves against Docker Hub, where no such public repo exists (`pull access denied for chainlink`). Pass `--local` to render with `pull_image = false` so the environment uses the images already in your local Docker daemon.
+
+If you've run Local CRE before, your current branch is already built as `chainlink-tmp:latest`. To get a local develop image, build one tagged `develop`:
+
+```bash
+DOCKER_TAG=develop make docker
+```
+
+Confirm both images exist:
+
+```bash
+docker image ls | grep chainlink
+# chainlink-tmp:latest
+# chainlink:develop
+```
+
+Then render with `--local` and start as usual:
+
+```bash
+CRE_PR_IMAGE=chainlink-tmp:latest CRE_BASELINE_IMAGE=chainlink:develop \
+  ./configs/render-mixed-env.sh --local
+
+CTF_CONFIGS=configs/mixed-env-don.toml go run . env start
+```
+
 Then run the smoke suite with the check active:
 
 ```bash
