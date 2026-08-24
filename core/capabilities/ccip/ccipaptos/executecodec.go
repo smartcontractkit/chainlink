@@ -131,9 +131,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 		}
 		s.U256(*item.Amount.Int)
 	})
-	if err != nil { // Check error from SerializeSequenceWithFunction itself
-		return nil, fmt.Errorf("failed during token_amounts serialization: %w", err)
-	}
 	if s.Error() != nil { // Check error set within the lambda
 		return nil, fmt.Errorf("failed to serialize token_amounts: %w", s.Error())
 	}
@@ -142,9 +139,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 	bcs.SerializeSequenceWithFunction(offchainTokenData, s, func(s *bcs.Serializer, item []byte) {
 		s.WriteBytes(item)
 	})
-	if err != nil { // Check error from SerializeSequenceWithFunction itself
-		return nil, fmt.Errorf("failed during offchain_token_data serialization: %w", err)
-	}
 	if s.Error() != nil { // Check error set within the lambda (though unlikely here)
 		return nil, fmt.Errorf("failed to serialize offchain_token_data: %w", s.Error())
 	}
@@ -157,9 +151,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report ccipocr3.Execu
 		}
 		s.FixedBytes(item[:])
 	})
-	if err != nil { // Check error from SerializeSequenceWithFunction itself
-		return nil, fmt.Errorf("failed during proofs serialization: %w", err)
-	}
 	if s.Error() != nil { // Check error set within the lambda
 		return nil, fmt.Errorf("failed to serialize proofs: %w", s.Error())
 	}
