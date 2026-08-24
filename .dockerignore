@@ -75,3 +75,8 @@ go.work.sum
 # Go module + build caches and must never enter the build context.
 cache-mount/
 scratch/
+
+# local dev: rsynced chainlink-ton source (see plugins.public.yaml moduleURI)
+.local-ton/.git
+.local-ton/result
+.local-ton/cmd/result
