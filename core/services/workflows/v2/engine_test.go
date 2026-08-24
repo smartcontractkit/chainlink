@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -58,6 +59,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
+	triggertype "github.com/smartcontractkit/chainlink/v2/core/services/workflows/trigger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
@@ -2411,6 +2413,177 @@ func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
 			"This test uses a REAL engine, REAL DON notifier, and triggers a REAL DON update.")
 
 	_ = cfg // Keep reference
+}
+
+func TestEngine_HandleTriggerEvent(t *testing.T) {
+	t.Parallel()
+
+	capreg := regmocks.NewCapabilitiesRegistry(t)
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+	billingClient := setupMockBillingClient(t)
+
+	baseCfg := defaultTestConfig(t, nil)
+	baseCfg.CapRegistry = capreg
+	baseCfg.BillingClient = billingClient
+
+	ctx := contexts.WithCRE(t.Context(), contexts.CRE{
+		Owner:    baseCfg.WorkflowOwner,
+		Workflow: baseCfg.WorkflowID,
+	})
+
+	makeEvent := func(eventID string) triggertype.RoutedTriggerEvent {
+		return triggertype.RoutedTriggerEvent{
+			WorkflowID:   baseCfg.WorkflowID,
+			TriggerCapID: "id_0",
+			TriggerIndex: 0,
+			ObservedAt:   time.Now(),
+			Event: capabilities.TriggerResponse{
+				Event: capabilities.TriggerEvent{
+					TriggerType: "basic-trigger@1.0.0",
+					ID:          eventID,
+				},
+			},
+		}
+	}
+
+	// newTestEngine creates a fresh engine + hooks for each subtest.
+	// setupModule is called to set module expectations BEFORE NewEngine.
+	type engineWithChans struct {
+		engine              *v2.Engine
+		executionFinishedCh chan string // receives status
+		executionErrorCh    chan string // receives error message
+		resultReceivedCh    chan *sdkpb.ExecutionResult
+	}
+	newTestEngine := func(t *testing.T, setupModule func(module *modulemocks.ModuleV2)) engineWithChans {
+		t.Helper()
+		module := modulemocks.NewModuleV2(t)
+		setupModule(module)
+
+		executionFinishedCh := make(chan string, 1)
+		executionErrorCh := make(chan string, 1)
+		resultReceivedCh := make(chan *sdkpb.ExecutionResult, 1)
+
+		testCfg := *baseCfg
+		testCfg.Module = module
+		testCfg.Hooks = v2.LifecycleHooks{
+			OnExecutionFinished: func(_ string, status string) {
+				executionFinishedCh <- status
+			},
+			OnExecutionError: func(msg string) {
+				executionErrorCh <- msg
+			},
+			OnResultReceived: func(res *sdkpb.ExecutionResult) {
+				resultReceivedCh <- res
+			},
+		}
+
+		engine, err := v2.NewEngine(&testCfg)
+		require.NoError(t, err)
+		return engineWithChans{engine, executionFinishedCh, executionErrorCh, resultReceivedCh}
+	}
+
+	t.Run("happy path completes with status completed", func(t *testing.T) {
+		t.Parallel()
+		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+				Return(&sdkpb.ExecutionResult{
+					Result: &sdkpb.ExecutionResult_Value{},
+				}, nil).
+				Once()
+		})
+
+		err := ew.engine.HandleTriggerEvent(ctx, makeEvent("happy_event"))
+		require.NoError(t, err)
+
+		require.Equal(t, "completed", <-ew.executionFinishedCh)
+		select {
+		case msg := <-ew.executionErrorCh:
+			t.Fatalf("unexpected OnExecutionError: %s", msg)
+		default:
+		}
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
+
+	t.Run("module execution error returns errored status", func(t *testing.T) {
+		t.Parallel()
+		execErr := errors.New("wasm panic: out of memory")
+		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+				Return(nil, execErr).
+				Once()
+		})
+
+		// startExecution catches the error internally and returns nil —
+		// the execution ran, it just failed. The error surfaces via hooks.
+		err := ew.engine.HandleTriggerEvent(ctx, makeEvent("module_error_event"))
+		require.NoError(t, err)
+
+		require.Equal(t, "errored", <-ew.executionFinishedCh)
+		require.Contains(t, <-ew.executionErrorCh, "out of memory")
+		select {
+		case res := <-ew.resultReceivedCh:
+			t.Fatalf("OnResultReceived should not fire on error, got: %v", res)
+		default:
+		}
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
+
+	t.Run("module result error returns errored status", func(t *testing.T) {
+		t.Parallel()
+		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+				Return(&sdkpb.ExecutionResult{
+					Result: &sdkpb.ExecutionResult_Error{
+						Error: "user workflow error: assertion failed",
+					},
+				}, nil).
+				Once()
+		})
+
+		err := ew.engine.HandleTriggerEvent(ctx, makeEvent("result_error_event"))
+		require.NoError(t, err)
+
+		require.Equal(t, "errored", <-ew.executionFinishedCh)
+		require.Contains(t, <-ew.executionErrorCh, "assertion failed")
+		select {
+		case res := <-ew.resultReceivedCh:
+			t.Fatalf("OnResultReceived should not fire on result error, got: %v", res)
+		default:
+		}
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
+
+	t.Run("duplicate event ID is rejected with ErrDuplicateExecution", func(t *testing.T) {
+		t.Parallel()
+		ew := newTestEngine(t, func(module *modulemocks.ModuleV2) {
+			// Only ONE execution should reach Module.Execute.
+			module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+				Return(&sdkpb.ExecutionResult{
+					Result: &sdkpb.ExecutionResult_Value{},
+				}, nil).
+				Once()
+		})
+
+		event := makeEvent("dup_event")
+
+		// First call succeeds.
+		err := ew.engine.HandleTriggerEvent(ctx, event)
+		require.NoError(t, err)
+		require.Equal(t, "completed", <-ew.executionFinishedCh)
+
+		// Second call with the same event ID must be rejected.
+		err = ew.engine.HandleTriggerEvent(ctx, event)
+		require.ErrorIs(t, err, v2.ErrDuplicateExecution)
+
+		// No second execution should have fired.
+		select {
+		case status := <-ew.executionFinishedCh:
+			t.Fatalf("unexpected second execution with status: %s", status)
+		case <-time.After(200 * time.Millisecond):
+			// expected — no second execution
+		}
+		require.Equal(t, int32(0), ew.engine.ActiveExecutions())
+	})
 }
 
 // setupMockBillingClient creates a mock billing client with default expectations.
