@@ -1179,12 +1179,6 @@ github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260821155228-
 github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260821155228-fa1d775e2138/go.mod h1:Oz1I5l+jsFc+YWPjLIrYdn5XUtjA3Iw/E6Z2G6pq5Q0=
 github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 h1:3R9f6pguDIjei+nKx5dUT9j6fX8urGmlZA7Ad3x9UBs=
 github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96/go.mod h1:pSW9q0/YqQE5R65Z/2zsyD9c50JZf+yRJJvN6Jo3LCU=
-github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260824214358-1805ed24ab6a h1:pVP7ZJ4z5OzzDd0vWXNQBOicLSDylSEL9NtwgfDSD3A=
-github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260824214358-1805ed24ab6a/go.mod h1:1RCKAzvGOLC/51vbJUOPPjx5uxTCxeL0QXU32UvQeug=
-github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260820224955-011a846f2fb8 h1:fl7VPhcgZA3r3eFg5/xEUDZ/BU6Z/9TfdEhPkZSEIuM=
-github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260820224955-011a846f2fb8/go.mod h1:WjihFo64itMaOcaDMJ97iz0cJYO2zlLfPdUkF7/mQNo=
-github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260824185738-842f2b3d6f29 h1:cKHD233tui97hIa9Vd0/6ERkjjNtnQaV6heD4+lRiLg=
-github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260824185738-842f2b3d6f29/go.mod h1:WjihFo64itMaOcaDMJ97iz0cJYO2zlLfPdUkF7/mQNo=
 github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260824214358-1805ed24ab6a h1:K3iF3VEBv6YLtLDUfEh4Oqn45OPZk19lizy1hfGLiws=
 github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260824214358-1805ed24ab6a/go.mod h1:WjihFo64itMaOcaDMJ97iz0cJYO2zlLfPdUkF7/mQNo=
 github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a h1:Xu8iBnBQEibWIXTCwKYf8okXjFtzJ0KochjL03h+T40=
