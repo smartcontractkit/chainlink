@@ -1101,7 +1101,7 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, seqNr uint64, r
 		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest, requestsCountForID)
 		if ierr != nil {
 			logUserErrorAware(l, "failed to observe get secret request item", ierr, "id", secretRequest.Id)
-			errorMsg := userFacingError(ierr, "failed to handle get secret request")
+			errorMsg := userFacingError(ierr, vaulttypes.SecretGetSystemErrorFallback)
 			resps = append(resps, &vaultcommon.SecretResponse{
 				Id: secretRequest.Id,
 				Result: &vaultcommon.SecretResponse_Error{

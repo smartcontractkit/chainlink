@@ -618,6 +618,33 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 		},
 		{
+			name:        "secrets get vault system error classified as internal",
+			registry:    secretsGetTestRegistry,
+			req:         secretsGetTestRequest,
+			workflowID:  "wf-secrets-1",
+			executionID: "0000000000000000000000000000000000000000000000000000000000000001",
+			helper: func(_ *testing.T) *mockExecutionHelper {
+				return &mockExecutionHelper{
+					rawSecrets: []*vault.SecretResponse{
+						{
+							Id: &vault.SecretIdentifier{
+								Key:       "API_TOKEN",
+								Namespace: "main",
+							},
+							Result: &vault.SecretResponse_Error{
+								Error: vaulttypes.SecretGetSystemErrorFallback,
+							},
+						},
+					},
+				}
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.NotNil(t, resp.Error)
+				// Vault system failures are internal errors → ErrInternal, not a user error.
+				assert.Equal(t, jsonrpc.ErrInternal, resp.Error.Code)
+			},
+		},
+		{
 			name: "unsupported method",
 			registry: func(_ *testing.T) *mockCapRegistry {
 				return withEnclaveConfig(&mockCapRegistry{})
@@ -909,21 +936,40 @@ func TestTranslateVaultResponse_HexShares(t *testing.T) {
 }
 
 func TestTranslateVaultResponse_VaultError(t *testing.T) {
-	vaultResp := []*vault.SecretResponse{
-		{
-			Id: &vault.SecretIdentifier{Key: "API_TOKEN", Namespace: "main"},
-			Result: &vault.SecretResponse_Error{
-				Error: "key does not exist",
+	t.Run("user error is classified as a user error", func(t *testing.T) {
+		vaultResp := []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{Key: "API_TOKEN", Namespace: "main"},
+				Result: &vault.SecretResponse_Error{
+					Error: "key does not exist",
+				},
 			},
-		},
-	}
+		}
 
-	result, err := translateVaultResponse(vaultResp, "aabbcc")
-	require.Nil(t, result)
-	require.Error(t, err)
-	assert.True(t, vaulttypes.IsUserError(err), "vault per-secret error should be classified as user error")
-	assert.Contains(t, err.Error(), "key does not exist")
-	assert.Contains(t, err.Error(), "main/API_TOKEN")
+		result, err := translateVaultResponse(vaultResp, "aabbcc")
+		require.Nil(t, result)
+		require.Error(t, err)
+		assert.True(t, vaulttypes.IsUserError(err), "vault per-secret error should be classified as user error")
+		assert.Contains(t, err.Error(), "key does not exist")
+		assert.Contains(t, err.Error(), "main/API_TOKEN")
+	})
+
+	t.Run("system fallback is not classified as a user error", func(t *testing.T) {
+		vaultResp := []*vault.SecretResponse{
+			{
+				Id: &vault.SecretIdentifier{Key: "API_TOKEN", Namespace: "main"},
+				Result: &vault.SecretResponse_Error{
+					Error: vaulttypes.SecretGetSystemErrorFallback,
+				},
+			},
+		}
+
+		result, err := translateVaultResponse(vaultResp, "aabbcc")
+		require.Nil(t, result)
+		require.Error(t, err)
+		assert.False(t, vaulttypes.IsUserError(err), "vault system fallback must not be classified as a user error")
+		assert.Contains(t, err.Error(), vaulttypes.SecretGetSystemErrorFallback)
+	})
 }
 
 func TestIsUserError(t *testing.T) {
@@ -931,6 +977,12 @@ func TestIsUserError(t *testing.T) {
 		t.Parallel()
 		err := &vaultSecretError{namespace: "main", key: "API_TOKEN", msg: "key does not exist"}
 		assert.True(t, vaulttypes.IsUserError(err))
+	})
+
+	t.Run("vaultSecretError wrapping the system fallback is not detected", func(t *testing.T) {
+		t.Parallel()
+		err := &vaultSecretError{namespace: "main", key: "API_TOKEN", msg: vaulttypes.SecretGetSystemErrorFallback}
+		assert.False(t, vaulttypes.IsUserError(err))
 	})
 
 	t.Run("plain error is not a user error", func(t *testing.T) {

@@ -10,15 +10,17 @@ import (
 // SecretResponse.Error field. The vault OCR plugin classifies user-caused
 // failures (e.g. "key does not exist", "key already exists", invalid public
 // key) as *vaulttypes.UserError and surfaces the raw message through
-// userFacingError. By the time the relay handler sees the string the Go type
-// is gone (protobuf boundary), so translateVaultResponse re-wraps it in this
-// type to carry the vault plugin's classification across.
+// userFacingError. System failures are replaced with a generic fallback
+// (vaulttypes.SecretGetSystemErrorFallback) so their details do not leak.
 //
-// Unwrap returns a *vaulttypes.UserError so vaulttypes.IsUserError (errors.As)
-// can detect it through this wrapper. The handler then maps it to
-// jsonrpc.ErrInvalidParams (a client error) instead of ErrInternal, so the
-// enclave receives the actual cause and the metrics/logs reflect a user error
-// rather than an internal failure.
+// By the time the relay handler sees the string the Go type is gone (protobuf
+// boundary), so translateVaultResponse re-wraps it here. Unwrap returns a
+// *vaulttypes.UserError only for user-caused messages; for the system fallback
+// it returns nil, so vaulttypes.IsUserError (errors.As) reports false and the
+// handler keeps the failure classified as jsonrpc.ErrInternal. The handler then
+// maps user errors to jsonrpc.ErrInvalidParams so the enclave receives the
+// actual cause and the metrics/logs reflect a user error rather than an
+// internal failure.
 type vaultSecretError struct {
 	namespace string
 	key       string
@@ -30,5 +32,8 @@ func (e *vaultSecretError) Error() string {
 }
 
 func (e *vaultSecretError) Unwrap() error {
+	if vaulttypes.IsSecretGetSystemError(e.msg) {
+		return nil
+	}
 	return vaulttypes.NewUserError(e.msg)
 }

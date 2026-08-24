@@ -247,3 +247,17 @@ func IsUserError(err error) bool {
 	var ue *UserError
 	return errors.As(err, &ue)
 }
+
+// SecretGetSystemErrorFallback is the generic message the vault OCR plugin
+// substitutes for a non-user (system) failure on a get-secrets request item
+// (see userFacingError). The Go error type is lost at the protobuf
+// SecretResponse.error string boundary, so downstream consumers cannot recover
+// it; this constant is the shared marker they match against to keep system
+// failures classified as internal rather than user errors.
+const SecretGetSystemErrorFallback = "failed to handle get secret request"
+
+// IsSecretGetSystemError reports whether msg is the get-secrets system-error
+// fallback, i.e. a failure that must not be classified as a user error.
+func IsSecretGetSystemError(msg string) bool {
+	return msg == SecretGetSystemErrorFallback
+}
