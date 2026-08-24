@@ -45,7 +45,7 @@ func defaultRunner(ctx context.Context, dir string, args ...string) error {
 	}
 
 	if len(args) > 0 && args[0] == "mockery" {
-		cmd := exec.CommandContext(ctx, resolveMockeryBin(), args[1:]...) //nolint:gosec // args come from the local hook pipeline, not remote input
+		cmd := exec.CommandContext(ctx, resolveMockeryBin(ctx), args[1:]...) //nolint:gosec // args come from the local hook pipeline, not remote input
 		cmd.Dir = dir
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("mockery %v in %s failed: %w (output: %s)", args[1:], dir, err, string(out))
@@ -64,21 +64,21 @@ func defaultRunner(ctx context.Context, dir string, args ...string) error {
 // resolveMockeryBin finds the mockery binary the same way GNUmakefile's
 // MOCKERY_BIN does, so the hook and `make generate` never run different
 // mockery versions. MOCKERY_BIN itself is honored first as an override.
-func resolveMockeryBin() string {
+func resolveMockeryBin(ctx context.Context) string {
 	if bin := os.Getenv("MOCKERY_BIN"); bin != "" {
 		return bin
 	}
 	if path, err := exec.LookPath("mockery"); err == nil {
 		return path
 	}
-	if out, err := exec.Command("go", "env", "GOBIN").Output(); err == nil {
+	if out, err := exec.CommandContext(ctx, "go", "env", "GOBIN").Output(); err == nil {
 		if gobin := strings.TrimSpace(string(out)); gobin != "" {
 			if p := filepath.Join(gobin, "mockery"); isFile(p) {
 				return p
 			}
 		}
 	}
-	if out, err := exec.Command("go", "env", "GOPATH").Output(); err == nil {
+	if out, err := exec.CommandContext(ctx, "go", "env", "GOPATH").Output(); err == nil {
 		if gopath := strings.TrimSpace(string(out)); gopath != "" {
 			return filepath.Join(gopath, "bin", "mockery")
 		}
