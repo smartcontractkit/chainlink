@@ -1,6 +1,7 @@
 package generate
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -273,10 +274,16 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 			runConfigDocs = true
 		}
 
+		// Check if operator UI tag changed -> trigger core/web asset generation
+		if cleanRel == "operator_ui/TAG" {
+			genTargets[genTarget{modDir: absRoot, pattern: "./core/web"}] = struct{}{}
+		}
+
 		// Check proto or generate files
 		if strings.HasSuffix(cleanRel, ".proto") ||
 			baseName == "generate.go" ||
-			baseName == "gen.go" {
+			baseName == "gen.go" ||
+			(filepath.Ext(absFile) == ".go" && hasGoGenerateDirective(absFile)) {
 			modDir, targetModErr := modules.FindModuleDir(absRoot, absFile)
 			if targetModErr != nil {
 				return fmt.Errorf("failed to find Go module for %s: %w", file, targetModErr)
@@ -515,4 +522,13 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 	}
 
 	return nil
+}
+
+// hasGoGenerateDirective checks if a Go source file contains a //go:generate directive.
+func hasGoGenerateDirective(filePath string) bool {
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		return false
+	}
+	return bytes.Contains(content, []byte("//go:generate"))
 }

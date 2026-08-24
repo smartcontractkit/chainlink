@@ -3,6 +3,7 @@ package generate_test
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -134,5 +135,46 @@ func TestRun(t *testing.T) {
 
 		require.Len(t, calledCmds, 1)
 		assert.Equal(t, []string{"generate", "./core/services/nodestatusreporter/bridgestatus/events"}, calledCmds[0])
+	})
+
+	t.Run("runs go generate on package with changed .go file containing go:generate directive", func(t *testing.T) {
+		t.Parallel()
+
+		root := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module github.com/smartcontractkit/chainlink/v2\n"), 0o600))
+		typesPkg := filepath.Join(root, "core/capabilities/remote/types")
+		require.NoError(t, os.MkdirAll(typesPkg, 0o750))
+		typesFile := filepath.Join(typesPkg, "types.go")
+		require.NoError(t, os.WriteFile(typesFile, []byte("package types\n\n//go:generate protoc --proto_path=. messages.proto\n"), 0o600))
+
+		var calledCmds [][]string
+		runner := func(ctx context.Context, dir string, args ...string) error {
+			calledCmds = append(calledCmds, args)
+			return nil
+		}
+
+		err := generate.Run(t.Context(), root, []string{"core/capabilities/remote/types/types.go"}, generate.Config{Runner: runner})
+		require.NoError(t, err)
+
+		require.Len(t, calledCmds, 1)
+		assert.Equal(t, []string{"generate", "./core/capabilities/remote/types"}, calledCmds[0])
+	})
+
+	t.Run("runs go generate on core/web when operator_ui/TAG changes", func(t *testing.T) {
+		t.Parallel()
+
+		var calledCmds [][]string
+		runner := func(ctx context.Context, dir string, args ...string) error {
+			calledCmds = append(calledCmds, args)
+			return nil
+		}
+
+		files := []string{"operator_ui/TAG"}
+
+		err := generate.Run(t.Context(), repoRoot, files, generate.Config{Runner: runner})
+		require.NoError(t, err)
+
+		require.Len(t, calledCmds, 1)
+		assert.Equal(t, []string{"generate", "./core/web"}, calledCmds[0])
 	})
 }
