@@ -3,7 +3,7 @@ package aptosconfig
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-aptos/codec" //nolint:depguard // Aptos LOOPP plugin requires the chainlink-aptos SDK
+	"github.com/smartcontractkit/chainlink-aptos/codec"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/aptos"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip/consts"
 )
