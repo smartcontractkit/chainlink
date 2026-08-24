@@ -45,11 +45,7 @@ func defaultRunner(ctx context.Context, dir string, args ...string) error {
 	}
 
 	if len(args) > 0 && args[0] == "mockery" {
-		mockeryBin := os.Getenv("MOCKERY_BIN")
-		if mockeryBin == "" {
-			mockeryBin = "mockery"
-		}
-		cmd := exec.CommandContext(ctx, mockeryBin, args[1:]...) //nolint:gosec // args come from the local hook pipeline, not remote input
+		cmd := exec.CommandContext(ctx, resolveMockeryBin(), args[1:]...) //nolint:gosec // args come from the local hook pipeline, not remote input
 		cmd.Dir = dir
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("mockery %v in %s failed: %w (output: %s)", args[1:], dir, err, string(out))
@@ -63,6 +59,36 @@ func defaultRunner(ctx context.Context, dir string, args ...string) error {
 		return fmt.Errorf("go %v in %s failed: %w (output: %s)", args, dir, err, string(out))
 	}
 	return nil
+}
+
+// resolveMockeryBin finds the mockery binary the same way GNUmakefile's
+// MOCKERY_BIN does, so the hook and `make generate` never run different
+// mockery versions. MOCKERY_BIN itself is honored first as an override.
+func resolveMockeryBin() string {
+	if bin := os.Getenv("MOCKERY_BIN"); bin != "" {
+		return bin
+	}
+	if path, err := exec.LookPath("mockery"); err == nil {
+		return path
+	}
+	if out, err := exec.Command("go", "env", "GOBIN").Output(); err == nil {
+		if gobin := strings.TrimSpace(string(out)); gobin != "" {
+			if p := filepath.Join(gobin, "mockery"); isFile(p) {
+				return p
+			}
+		}
+	}
+	if out, err := exec.Command("go", "env", "GOPATH").Output(); err == nil {
+		if gopath := strings.TrimSpace(string(out)); gopath != "" {
+			return filepath.Join(gopath, "bin", "mockery")
+		}
+	}
+	return "mockery"
+}
+
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }
 
 // genTarget is a go generate invocation scoped to a module directory.
@@ -261,7 +287,7 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 		// Fast pre-filter: skip files that cannot trigger generators or mockery
 		if ext != ".go" && ext != ".proto" && ext != ".yaml" && ext != ".yml" &&
 			baseName != "go.mod" && baseName != "go.sum" && baseName != "TAG" &&
-			!strings.Contains(file, "core/config") {
+			!strings.Contains(filepath.ToSlash(file), "core/config") {
 			continue
 		}
 
@@ -546,10 +572,16 @@ func hasGoGenerateDirective(filePath string) bool {
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 64*1024), 10*1024*1024)
 	for scanner.Scan() {
 		if bytes.Contains(scanner.Bytes(), []byte("//go:generate")) {
 			return true
 		}
+	}
+	if scanner.Err() != nil {
+		// Fail open: assume a directive may be present rather than silently
+		// skipping generation for a file we couldn't fully scan.
+		return true
 	}
 	return false
 }
