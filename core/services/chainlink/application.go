@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -466,7 +467,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
+		return nil, fmt.Errorf("failed to initialize CRE: %w", err)
 	}
 	srvcs = append(srvcs, creServices)
 
@@ -1017,8 +1018,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 		app.logger.Info("Gracefully exiting...")
 
 		// Stop services in the reverse order from which they were started
-		for i := len(app.srvcs) - 1; i >= 0; i-- {
-			service := app.srvcs[i]
+		for _, service := range slices.Backward(app.srvcs) {
 			app.logger.Debugw("Closing service...", "name", service.Name())
 			err = stderrors.Join(err, service.Close())
 		}

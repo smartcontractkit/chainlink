@@ -23,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common/aggregation"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2/metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -42,17 +41,20 @@ const (
 
 type savedCallback struct {
 	handlers.Callback
-	requestStartTime   time.Time
-	createdAt          time.Time
-	responseAggregator *aggregation.IdenticalNodeResponseAggregator
-	doneCh             chan struct{} // closed when callback is responded to. signals sendWithRetries to stop retrying
+	requestStartTime time.Time
+	createdAt        time.Time
+	// responseAggregators holds one IdenticalNodeResponseAggregator per shard the
+	// workflow is assigned to, keyed by shard donID. The first shard to reach its
+	// quorum produces the user response.
+	responseAggregators map[string]*aggregation.IdenticalNodeResponseAggregator
+	doneCh              chan struct{} // closed when callback is responded to. signals sendWithRetries to stop retrying
 }
 
 type httpTriggerHandler struct {
 	services.StateMachine
 	config                  ServiceConfig
-	don                     handlers.DON
-	donConfig               *config.DONConfig
+	shards                  []*shardEndpoint
+	nodeAddrToShard         map[string]*shardEndpoint
 	lggr                    logger.Logger
 	callbacksMu             sync.Mutex
 	callbacks               map[string]savedCallback // requestID -> savedCallback
@@ -69,13 +71,13 @@ type HTTPTriggerHandler interface {
 	HandleNodeTriggerResponse(ctx context.Context, resp *jsonrpc.Response[json.RawMessage], nodeAddr string) error
 }
 
-func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, donConfig *config.DONConfig, don handlers.DON, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, metrics *metrics.Metrics) *httpTriggerHandler {
+func NewHTTPTriggerHandler(lggr logger.Logger, cfg ServiceConfig, shards []*shardEndpoint, nodeAddrToShard map[string]*shardEndpoint, workflowMetadataHandler *WorkflowMetadataHandler, userRateLimiter limits.RateLimiter, metrics *metrics.Metrics) *httpTriggerHandler {
 	return &httpTriggerHandler{
 		lggr:                    logger.Named(lggr, "RequestCallbacks"),
 		callbacks:               make(map[string]savedCallback),
 		config:                  cfg,
-		don:                     don,
-		donConfig:               donConfig,
+		shards:                  shards,
+		nodeAddrToShard:         nodeAddrToShard,
 		stopCh:                  make(services.StopChan),
 		workflowMetadataHandler: workflowMetadataHandler,
 		userRateLimiter:         userRateLimiter,
@@ -129,12 +131,12 @@ func (h *httpTriggerHandler) HandleUserTriggerRequest(ctx context.Context, req *
 		return errors.New("error marshaling trigger request: " + err.Error())
 	}
 
-	doneCh, err := h.setupCallback(ctx, req.ID, callback, requestStartTime)
+	doneCh, err := h.setupCallback(ctx, req.ID, callback, requestStartTime, workflowID)
 	if err != nil {
 		return err
 	}
 
-	return h.sendWithRetries(ctx, legacyExecutionID, executionIDWithTriggerIndex, reqWithKey, doneCh)
+	return h.sendWithRetries(ctx, legacyExecutionID, executionIDWithTriggerIndex, reqWithKey, workflowID, doneCh)
 }
 
 func (h *httpTriggerHandler) validatedTriggerRequest(ctx context.Context, req *jsonrpc.Request[json.RawMessage], callback handlers.Callback) (*jsonrpc.Request[gateway_common.HTTPTriggerRequest], error) {
@@ -273,7 +275,7 @@ func validateHexInput(input string, expectedLength int) error {
 	return nil
 }
 
-func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID, requestID string, callback handlers.Callback) error {
 	if err := validateHexInput(workflowID, workflowIDLength); err != nil {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowID "+err.Error(), callback)
 		return errors.New("workflowID " + err.Error())
@@ -282,7 +284,7 @@ func (h *httpTriggerHandler) validateWorkflowID(ctx context.Context, workflowID 
 	return nil
 }
 
-func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflowOwner string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflowOwner, requestID string, callback handlers.Callback) error {
 	if err := validateHexInput(workflowOwner, workflowOwnerLength); err != nil {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowOwner "+err.Error(), callback)
 		return errors.New("workflowOwner " + err.Error())
@@ -292,7 +294,7 @@ func (h *httpTriggerHandler) validateWorkflowOwner(ctx context.Context, workflow
 }
 
 // validateWorkflowName validates the workflowName length and format
-func (h *httpTriggerHandler) validateWorkflowName(ctx context.Context, workflowName string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowName(ctx context.Context, workflowName, requestID string, callback handlers.Callback) error {
 	if len(workflowName) == 0 {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowName cannot be empty", callback)
 		return errors.New("workflowName cannot be empty")
@@ -307,7 +309,7 @@ func (h *httpTriggerHandler) validateWorkflowName(ctx context.Context, workflowN
 }
 
 // validateWorkflowTag validates the workflowTag length and format
-func (h *httpTriggerHandler) validateWorkflowTag(ctx context.Context, workflowTag string, requestID string, callback handlers.Callback) error {
+func (h *httpTriggerHandler) validateWorkflowTag(ctx context.Context, workflowTag, requestID string, callback handlers.Callback) error {
 	if len(workflowTag) == 0 {
 		h.handleUserError(ctx, requestID, jsonrpc.ErrInvalidRequest, "workflowTag cannot be empty", callback)
 		return errors.New("workflowTag cannot be empty")
@@ -377,8 +379,7 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: workflowRef.workflowOwner, Workflow: workflowID})
 	if err := h.userRateLimiter.AllowErr(ctx); err != nil {
 		lggr := logger.With(h.lggr, platform.KeyWorkflowID, workflowID, platform.KeyWorkflowOwner, workflowRef.workflowOwner, "requestID", requestID, "err", err)
-		var errLimited limits.ErrorRateLimited
-		if errors.As(err, &errLimited) {
+		if errLimited, ok := errors.AsType[limits.ErrorRateLimited](err); ok {
 			switch errLimited.Scope {
 			case settings.ScopeWorkflow:
 				lggr.Errorf("failed to start execution: per workflow rate limit exceeded")
@@ -394,7 +395,7 @@ func (h *httpTriggerHandler) checkRateLimit(ctx context.Context, workflowID, req
 	return nil
 }
 
-func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string, callback handlers.Callback, requestStartTime time.Time) (<-chan struct{}, error) {
+func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string, callback handlers.Callback, requestStartTime time.Time, workflowID string) (<-chan struct{}, error) {
 	h.callbacksMu.Lock()
 	defer h.callbacksMu.Unlock()
 
@@ -403,20 +404,32 @@ func (h *httpTriggerHandler) setupCallback(ctx context.Context, requestID string
 		return nil, fmt.Errorf("in-flight request ID: %s", requestID)
 	}
 
-	// (N+F)//2 + 1 threshold where N = number of nodes, F = number of faulty nodes
-	threshold := (len(h.donConfig.Members)+h.donConfig.F)/2 + 1
-	agg, err := aggregation.NewIdenticalNodeResponseAggregator(threshold)
-	if err != nil {
-		return nil, errors.New("failed to create response aggregator: " + err.Error())
+	// Build one response aggregator per shard the workflow is assigned to.
+	assigned := h.workflowMetadataHandler.WorkflowShards(workflowID)
+	if len(assigned) == 0 {
+		// this shouldn't happen because we checked it in authorizeRequest()
+		h.handleUserError(ctx, requestID, jsonrpc.ErrInternal, fmt.Sprintf("Workflow %s is not assigned to any DONs", workflowID), callback)
+		return nil, errors.New("workflow is not assigned to any shards")
+	}
+
+	aggregators := make(map[string]*aggregation.IdenticalNodeResponseAggregator, len(assigned))
+	for _, shard := range assigned {
+		// (N+F)//2 + 1 threshold where N = number of nodes, F = number of faulty nodes
+		threshold := (len(shard.members)+shard.f)/2 + 1
+		agg, err := aggregation.NewIdenticalNodeResponseAggregator(threshold)
+		if err != nil {
+			return nil, errors.New("failed to create response aggregator: " + err.Error())
+		}
+		aggregators[shard.donID] = agg
 	}
 
 	doneCh := make(chan struct{})
 	h.callbacks[requestID] = savedCallback{
-		Callback:           callback,
-		requestStartTime:   requestStartTime,
-		createdAt:          time.Now(),
-		responseAggregator: agg,
-		doneCh:             doneCh,
+		Callback:            callback,
+		requestStartTime:    requestStartTime,
+		createdAt:           time.Now(),
+		responseAggregators: aggregators,
+		doneCh:              doneCh,
 	}
 	return doneCh, nil
 }
@@ -440,12 +453,24 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 	if !exists {
 		return errors.New("callback not found for request ID: " + resp.ID)
 	}
-	aggResp, err := saved.responseAggregator.CollectAndAggregate(resp, nodeAddr)
+
+	// Route the response into the aggregator for the shard that owns this node.
+	shard, ok := h.nodeAddrToShard[nodeAddr]
+	if !ok {
+		return fmt.Errorf("received trigger response from unknown node %s (no owning shard)", nodeAddr)
+	}
+	agg, ok := saved.responseAggregators[shard.donID]
+	if !ok {
+		// The node belongs to a shard this workflow isn't assigned to (or the
+		// callback was captured before the workflow was assigned there).
+		return fmt.Errorf("node %s (shard %s) is not assigned to workflow for request ID %s", nodeAddr, shard.donID, resp.ID)
+	}
+	aggResp, err := agg.CollectAndAggregate(resp, nodeAddr)
 	if err != nil {
 		return err
 	}
 	if aggResp == nil {
-		h.lggr.Debugw("Not enough responses to aggregate", "requestID", resp.ID, "nodeAddress", nodeAddr)
+		h.lggr.Debugw("Not enough responses to aggregate", "requestID", resp.ID, "nodeAddress", nodeAddr, "shard", shard.donID)
 		return nil
 	}
 	rawResp, err := json.Marshal(aggResp)
@@ -461,7 +486,8 @@ func (h *httpTriggerHandler) HandleNodeTriggerResponse(ctx context.Context, resp
 		return err
 	}
 
-	// Only after successfully sending the response, clean up the callback
+	// First shard to reach quorum wins: only after successfully sending the
+	// response, clean up the callback (closes doneCh, stopping all shard sends).
 	h.cleanupCallback(resp.ID)
 	latencyMs := time.Since(saved.requestStartTime).Milliseconds()
 	h.metrics.RecordRequestHandlerLatency(ctx, latencyMs, h.lggr)
@@ -568,14 +594,31 @@ type nodeSendResult struct {
 	err         error
 }
 
-// sendWithRetries attempts to send the request to all DON members in parallel,
-// retrying failed nodes until either all succeed or the max trigger request duration is reached.
-// Each send attempt is bounded by a per-node timeout, smaller than the overall request duration,
-// so that a single slow or unresponsive node can't delay delivery to the rest of the DON.
-// doneCh is closed when the callback has been responded to (quorum reached), allowing immediate termination.
-func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutionID, executionIDWithTriggerIndex string, req *jsonrpc.Request[json.RawMessage], doneCh <-chan struct{}) error {
+// sendWithRetries fans the request out to every shard the workflow is assigned
+// to, running an independent per-shard retry loop in parallel. Each per-shard
+// loop sends to that shard's members via the shard's own connection manager,
+// retrying failed nodes until all succeed or the max trigger request duration
+// is reached. Each send attempt is bounded by a per-node timeout, smaller than
+// the overall request duration, so that a single slow or unresponsive node can't
+// delay delivery to the rest of the DON.
+// doneCh is closed when the callback has been responded to (first shard reaches
+// quorum), allowing immediate termination of all shard loops.
+func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutionID, executionIDWithTriggerIndex string, req *jsonrpc.Request[json.RawMessage], workflowID string, doneCh <-chan struct{}) error {
 	if doneCh == nil {
 		return errors.New("doneCh cannot be nil")
+	}
+
+	assigned := h.workflowMetadataHandler.WorkflowShards(workflowID)
+	if len(assigned) == 0 {
+		// this shouldn't happen because we checked it in authorizeRequest()
+		h.callbacksMu.Lock()
+		saved, exists := h.callbacks[req.ID]
+		if exists {
+			h.handleUserError(ctx, req.ID, jsonrpc.ErrInternal, fmt.Sprintf("Workflow %s is not assigned to any DONs", workflowID), saved.Callback)
+			h.cleanupCallback(req.ID)
+		}
+		h.callbacksMu.Unlock()
+		return fmt.Errorf("workflow %s not assigned to any shard", workflowID)
 	}
 
 	// Create a context that will be cancelled when the max request duration is reached
@@ -583,6 +626,27 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutio
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, maxDuration)
 	defer cancel()
 
+	// Run one send loop per assigned shard in parallel.
+	errCh := make(chan error, len(assigned))
+	for _, shard := range assigned {
+		h.wg.Go(func() {
+			errCh <- h.sendToShard(ctxWithTimeout, shard, legacyExecutionID, executionIDWithTriggerIndex, req, doneCh)
+		})
+	}
+
+	var combinedErr error
+	for range assigned {
+		if err := <-errCh; err != nil {
+			combinedErr = errors.Join(combinedErr, err)
+		}
+	}
+	return combinedErr
+}
+
+// sendToShard sends the request to all members of a single shard, retrying
+// failures until all succeed, the callback is responded to (doneCh), or ctx is
+// cancelled (overall max duration).
+func (h *httpTriggerHandler) sendToShard(ctx context.Context, shard *shardEndpoint, legacyExecutionID, executionIDWithTriggerIndex string, req *jsonrpc.Request[json.RawMessage], doneCh <-chan struct{}) error {
 	nodeTimeout := time.Duration(h.config.NodeSendTimeoutMs) * time.Millisecond
 
 	successfulNodes := make(map[string]bool)
@@ -595,7 +659,7 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutio
 
 	for {
 		var pending []string
-		for _, member := range h.donConfig.Members {
+		for _, member := range shard.members {
 			if !successfulNodes[member.Address] {
 				pending = append(pending, member.Address)
 			}
@@ -609,12 +673,12 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutio
 			go func(nodeAddress string) {
 				defer wg.Done()
 
-				nodeCtx, nodeCancel := context.WithTimeout(ctxWithTimeout, nodeTimeout)
+				nodeCtx, nodeCancel := context.WithTimeout(ctx, nodeTimeout)
 				defer nodeCancel()
 
 				h.metrics.IncrementTriggerCapabilityRequestCount(ctx, nodeAddress, gateway_common.MethodWorkflowExecute, h.lggr)
 				sendStart := time.Now()
-				err := h.don.SendToNode(nodeCtx, nodeAddress, req)
+				err := shard.connMgr.SendToNode(nodeCtx, nodeAddress, req)
 				h.metrics.RecordGatewayToNodeLatency(ctx, time.Since(sendStart).Milliseconds(), nodeAddress, gateway_common.MethodWorkflowExecute, h.lggr)
 				if err != nil {
 					h.metrics.IncrementTriggerCapabilityRequestFailures(ctx, nodeAddress, gateway_common.MethodWorkflowExecute, h.lggr)
@@ -632,6 +696,7 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutio
 				combinedErr = errors.Join(combinedErr, fmt.Errorf("node %s: %w", res.nodeAddress, res.err))
 				h.lggr.Debugw("Failed to send trigger request to node, will retry",
 					"node", res.nodeAddress,
+					"shard", shard.donID,
 					"legacyExecutionID", legacyExecutionID,
 					"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
 					"error", res.err)
@@ -640,35 +705,38 @@ func (h *httpTriggerHandler) sendWithRetries(ctx context.Context, legacyExecutio
 			}
 		}
 
-		if len(successfulNodes) == len(h.donConfig.Members) {
-			h.lggr.Infow("Successfully sent trigger request to all nodes",
+		if len(successfulNodes) == len(shard.members) {
+			h.lggr.Infow("Successfully sent trigger request to all nodes in shard",
+				"shard", shard.donID,
 				"legacyExecutionID", legacyExecutionID,
 				"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
-				"nodeCount", len(h.donConfig.Members))
+				"nodeCount", len(shard.members))
 			return nil
 		}
 
 		// Not all nodes succeeded, wait and retry
 		h.lggr.Debugw("Retrying failed nodes for trigger request",
+			"shard", shard.donID,
 			"legacyExecutionID", legacyExecutionID,
 			"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
-			"failedCount", len(h.donConfig.Members)-len(successfulNodes),
+			"failedCount", len(shard.members)-len(successfulNodes),
 			"errors", combinedErr)
 
 		select {
 		case <-doneCh:
 			h.lggr.Infow("Callback already responded to, stopping retries",
+				"shard", shard.donID,
 				"legacyExecutionID", legacyExecutionID,
 				"executionIDWithTriggerIndex", executionIDWithTriggerIndex,
 				"requestID", req.ID,
 				"successNodes", len(successfulNodes),
-				"totalNodes", len(h.donConfig.Members))
+				"totalNodes", len(shard.members))
 			return nil
 		case <-time.After(b.Duration()):
 			continue
-		case <-ctxWithTimeout.Done():
-			return fmt.Errorf("request retry time exceeded, some nodes may not have received the request: legacyExecutionID=%s, executionIDWithTriggerIndex=%s, successNodes=%d, totalNodes=%d",
-				legacyExecutionID, executionIDWithTriggerIndex, len(successfulNodes), len(h.donConfig.Members))
+		case <-ctx.Done():
+			return fmt.Errorf("shard %s: request retry time exceeded, some nodes may not have received the request: legacyExecutionID=%s, executionIDWithTriggerIndex=%s, successNodes=%d, totalNodes=%d",
+				shard.donID, legacyExecutionID, executionIDWithTriggerIndex, len(successfulNodes), len(shard.members))
 		}
 	}
 }

@@ -71,12 +71,12 @@ func (c *inflightCache) Contains(lg types.Log) bool {
 
 func (c *inflightCache) prune(logBlock uint64) {
 	// Only prune every pruneInterval blocks
-	if int(logBlock)-int(c.lastPruneHeight) < cachePruneInterval {
+	if int(logBlock)-int(c.lastPruneHeight) < cachePruneInterval { //nolint:gosec // G115
 		return
 	}
 
 	for key := range c.cache {
-		if int(key.blockNumber) < int(logBlock)-c.lookback {
+		if int(key.blockNumber) < int(logBlock)-c.lookback { //nolint:gosec // G115
 			delete(c.cache, key)
 		}
 	}

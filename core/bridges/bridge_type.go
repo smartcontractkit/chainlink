@@ -21,6 +21,7 @@ type BridgeTypeRequest struct {
 	URL                    models.WebURL `json:"url"`
 	Confirmations          uint32        `json:"confirmations"`
 	MinimumContractPayment *assets.Link  `json:"minimumContractPayment"`
+	UseConnectionManager   bool          `json:"useConnectionManager"`
 }
 
 // GetID returns the ID of this structure for jsonapi serialization.
@@ -48,6 +49,7 @@ type BridgeTypeAuthentication struct {
 	IncomingToken          string
 	OutgoingToken          string
 	MinimumContractPayment *assets.Link
+	UseConnectionManager   bool `json:"useConnectionManager"`
 }
 
 // BridgeType is used for external adapters and has fields for
@@ -62,12 +64,14 @@ type BridgeType struct {
 	MinimumContractPayment *assets.Link
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
+	UseConnectionManager   bool `json:"useConnectionManager"`
 }
 
 // NewBridgeType returns a bridge type authentication (with plaintext
 // password) and a bridge type (with hashed password, for persisting)
 func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
-	*BridgeType, error) {
+	*BridgeType, error,
+) {
 	incomingToken := utils.NewSecret(24)
 	outgoingToken := utils.NewSecret(24)
 	salt := utils.NewSecret(24)
@@ -78,21 +82,23 @@ func NewBridgeType(btr *BridgeTypeRequest) (*BridgeTypeAuthentication,
 	}
 
 	return &BridgeTypeAuthentication{
-			Name:                   btr.Name,
-			URL:                    btr.URL,
-			Confirmations:          btr.Confirmations,
-			IncomingToken:          incomingToken,
-			OutgoingToken:          outgoingToken,
-			MinimumContractPayment: btr.MinimumContractPayment,
-		}, &BridgeType{
-			Name:                   btr.Name,
-			URL:                    btr.URL,
-			Confirmations:          btr.Confirmations,
-			IncomingTokenHash:      hash,
-			Salt:                   salt,
-			OutgoingToken:          outgoingToken,
-			MinimumContractPayment: btr.MinimumContractPayment,
-		}, nil
+		Name:                   btr.Name,
+		URL:                    btr.URL,
+		Confirmations:          btr.Confirmations,
+		IncomingToken:          incomingToken,
+		OutgoingToken:          outgoingToken,
+		MinimumContractPayment: btr.MinimumContractPayment,
+		UseConnectionManager:   btr.UseConnectionManager,
+	}, &BridgeType{
+		Name:                   btr.Name,
+		URL:                    btr.URL,
+		Confirmations:          btr.Confirmations,
+		IncomingTokenHash:      hash,
+		Salt:                   salt,
+		OutgoingToken:          outgoingToken,
+		MinimumContractPayment: btr.MinimumContractPayment,
+		UseConnectionManager:   btr.UseConnectionManager,
+	}, nil
 }
 
 // AuthenticateBridgeType returns true if the passed token matches its
@@ -127,7 +133,7 @@ type BridgeMetaDataJSON struct {
 	Meta BridgeMetaData
 }
 
-func MarshalBridgeMetaData(latestAnswer *big.Int, updatedAt *big.Int) (map[string]any, error) {
+func MarshalBridgeMetaData(latestAnswer, updatedAt *big.Int) (map[string]any, error) {
 	b, err := json.Marshal(&BridgeMetaData{LatestAnswer: latestAnswer, UpdatedAt: updatedAt})
 	if err != nil {
 		return nil, err

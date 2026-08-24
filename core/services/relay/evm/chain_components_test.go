@@ -174,7 +174,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 					},
 				},
 			},
-			expectedError: fmt.Errorf("failed to init dw querying for event: %q, err: data word: %q at index: %d details, were calculated automatically and shouldn't be manully overridden by cfg",
+			expectedError: fmt.Errorf("failed to init dw querying for event: %q, err: data word: %q at index: %d details, were calculated automatically and shouldn't be manully overridden by cfg", // typos:ignore // 'manully' should be 'manually', error text from upstream dep
 				"SomeEvent", "DW", 0),
 		},
 		{
@@ -210,7 +210,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := read.NewChainReaderService(testutils.Context(t), logger.Nop(), nil, nil, nil, config.ChainReaderConfig{Contracts: tt.chainContractReaders})
+			_, err := read.NewChainReaderService(t.Context(), logger.Nop(), nil, nil, nil, config.ChainReaderConfig{Contracts: tt.chainContractReaders})
 			require.Error(t, err)
 			if err != nil {
 				assert.Contains(t, err.Error(), tt.expectedError.Error())
@@ -225,7 +225,7 @@ func TestChainReader_HealthReport(t *testing.T) {
 	ht := headstest.NewTracker[*clevmtypes.Head, common.Hash](t)
 	htError := errors.New("head tracker error")
 	ht.EXPECT().HealthReport().Return(map[string]error{"ht_name": htError}).Once()
-	cr, err := read.NewChainReaderService(testutils.Context(t), logger.Nop(), lp, ht, nil, config.ChainReaderConfig{Contracts: nil})
+	cr, err := read.NewChainReaderService(t.Context(), logger.Nop(), lp, ht, nil, config.ChainReaderConfig{Contracts: nil})
 	require.NoError(t, err)
 	healthReport := cr.HealthReport()
 	require.True(t, services.ContainsError(healthReport, clcommontypes.ErrFinalityViolated), "expected chain reader to propagate logpoller's error")
@@ -358,7 +358,7 @@ func (h *helper) LogPoller(t *testing.T) logpoller.LogPoller {
 	if h.lp != nil {
 		return h.lp
 	}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	lggr := logger.Nop()
 	db := h.Database()
 
@@ -451,7 +451,7 @@ func (h *helper) NewSqlxDB(t *testing.T) *sqlx.DB {
 }
 
 func (h *helper) Context(t *testing.T) context.Context {
-	return testutils.Context(t)
+	return t.Context()
 }
 
 func (h *helper) ChainReaderEVMClient(ctx context.Context, t *testing.T, ht logpoller.HeadTracker, conf config.ChainReaderConfig) client.Client {

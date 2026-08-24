@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-
 	suite_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/config"
 	evm_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/evm/evmread/config"
 	solana_config "github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre/solana/solread/config"
@@ -360,6 +359,17 @@ func Test_CRE_V2_Sharding(t *testing.T) {
 		// Reinitialize OperationsBundle so that it can reexecute shard config updates instead of caching them.
 		testEnv.CreEnvironment.CldfEnvironment.OperationsBundle = operations.NewBundle(t.Context, logger.TestLogger(t), operations.NewMemoryReporter())
 		ExecuteShardingTestWithEVMLogTrigger(t, testEnv)
+	})
+}
+
+//nolint:paralleltest // subtests share the same sharding config
+func Test_CRE_V2_ShardingWithHttpTrigger(t *testing.T) {
+	testEnv := t_helpers.SetupTestEnvironmentWithConfig(
+		t,
+		t_helpers.GetTestConfig(t, "/configs/workflow-gateway-sharded-don.toml"),
+	)
+	t.Run("ExecuteShardingTestWithHTTPTrigger", func(t *testing.T) {
+		ExecuteShardingTestWithHTTPTrigger(t, testEnv)
 	})
 }
 

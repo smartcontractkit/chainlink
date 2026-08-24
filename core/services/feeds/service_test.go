@@ -2424,7 +2424,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2475,7 +2475,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2526,7 +2526,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2629,12 +2629,12 @@ updateInterval = "30s"
 		{
 			name: "failed due to spec already approved",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					Status:        feeds.SpecStatusApproved,
 					JobProposalID: jp.ID,
 				}
-				svc.orm.On("GetSpec", mock.Anything, aspec.ID, mock.Anything).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, aSpec.ID, mock.Anything).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -2707,7 +2707,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2750,7 +2750,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2794,7 +2794,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -2976,7 +2976,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3010,7 +3010,7 @@ updateInterval = "30s"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3196,7 +3196,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3247,7 +3247,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3336,7 +3336,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3384,7 +3384,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3427,7 +3427,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3460,12 +3460,12 @@ updateInterval = "20m"
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -3567,7 +3567,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3601,7 +3601,7 @@ updateInterval = "20m"
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3710,7 +3710,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 							return j.Name.String == streamName
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3752,7 +3752,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 							return j.Name.String == streamName
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3801,7 +3801,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 							return j.Name.String == streamName
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -3864,12 +3864,12 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -3969,7 +3969,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 							return j.Name.String == streamName
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4002,7 +4002,7 @@ func Test_Service_ApproveSpec_Stream(t *testing.T) {
 							return j.Name.String == streamName
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4142,7 +4142,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4193,7 +4193,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4282,7 +4282,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4330,7 +4330,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4373,7 +4373,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4406,12 +4406,12 @@ chainID = 0
 		{
 			name: "cannot approve an approved spec",
 			before: func(svc *TestService) {
-				aspec := &feeds.JobProposalSpec{
+				aSpec := &feeds.JobProposalSpec{
 					ID:            spec.ID,
 					JobProposalID: jp.ID,
 					Status:        feeds.SpecStatusApproved,
 				}
-				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aspec, nil)
+				svc.orm.On("GetSpec", mock.Anything, spec.ID).Return(aSpec, nil)
 				svc.orm.On("GetJobProposal", mock.Anything, jp.ID).Return(jp, nil)
 			},
 			id:      spec.ID,
@@ -4513,7 +4513,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -4547,7 +4547,7 @@ chainID = 0
 							return j.Name.String == "LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000"
 						}),
 					).
-					Run(func(args mock.Arguments) { (args.Get(2).(*job.Job)).ID = 1 }).
+					Run(func(args mock.Arguments) { args.Get(2).(*job.Job).ID = 1 }).
 					Return(nil)
 				svc.orm.On("ApproveSpec",
 					mock.Anything,
@@ -5097,7 +5097,7 @@ func Test_Service_GetJobRuns(t *testing.T) {
 					expectedRuns := []pipeline.Run{run1, run2, run3}
 					expectedSummaries := make([]*proto.JobRunSummary, 0, tc.want)
 
-					for i := 0; i < tc.want; i++ {
+					for i := range tc.want {
 						run := expectedRuns[i]
 						var finishedAt *timestamppb.Timestamp
 						if run.FinishedAt.Valid {

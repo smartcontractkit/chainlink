@@ -111,7 +111,7 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 		var commitTransmitters []string
 
 		for _, transmitter := range commitArgs.Transmitters {
-			// 1) Strip any “0x” prefix
+			// 1) Strip any "0x" prefix
 			clean := strings.TrimPrefix(transmitter, "0x")
 
 			// 2) Decode the clean hex into bytes
@@ -144,7 +144,7 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 		var execTransmitters []string
 
 		for _, transmitter := range execArgs.Transmitters {
-			// 1) Strip any “0x” prefix
+			// 1) Strip any "0x" prefix
 			clean := strings.TrimPrefix(transmitter, "0x")
 
 			// 2) Decode the clean hex into bytes
@@ -159,7 +159,7 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 			addr := "0x" + hex.EncodeToString(hash[:])
 			execTransmitters = append(execTransmitters, addr)
 		}
-		_, err = cld_ops.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigCommitInput)
+		commitReport, err := cld_ops.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigCommitInput)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
@@ -178,15 +178,16 @@ func (s SetOCR3Offramp) Apply(e cldf.Environment, config v1_6.SetOCR3OffRampConf
 			Transmitters:                   execTransmitters,
 		}
 
-		report, err := cld_ops.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigExecInput)
+		execReport, err := cld_ops.ExecuteOperation(e.OperationsBundle, offrampops.SetOCR3ConfigOp, deps.SuiChain, setOCR3ConfigExecInput)
 		if err != nil {
 			return cldf.ChangesetOutput{}, err
 		}
 
-		genericReport := report.ToGenericReport()
+		commitGenericReport := commitReport.ToGenericReport()
+		execGenericReport := execReport.ToGenericReport()
 		if config.MCMS != nil {
-			defs := []cld_ops.Definition{genericReport.Def}
-			inputs := []any{genericReport.Input}
+			defs := []cld_ops.Definition{commitGenericReport.Def, execGenericReport.Def}
+			inputs := []any{commitGenericReport.Input, execGenericReport.Input}
 
 			suiTimelockConfig := suiutils.TimelockConfig{
 				MCMSAction:   config.MCMS.MCMSAction,

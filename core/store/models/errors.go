@@ -52,8 +52,7 @@ func (jae *JSONAPIErrors) Add(detail string) {
 // Merge combines the arrays of the passed error if it is of type JSONAPIErrors,
 // otherwise simply adds a single error with the error string as detail.
 func (jae *JSONAPIErrors) Merge(e error) {
-	var jsonErr *JSONAPIErrors
-	if errors.As(e, &jsonErr) {
+	if jsonErr, ok := errors.AsType[*JSONAPIErrors](e); ok {
 		jae.Errors = append(jae.Errors, jsonErr.Errors...)
 		return
 	}

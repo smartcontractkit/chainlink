@@ -183,6 +183,10 @@ func (c *capturingRegistrar) RegisterLOOP(cfg plugins.CmdConfig) (func() *exec.C
 func (c *capturingRegistrar) UnregisterLOOP(string) {}
 
 func TestStandardCapabilityStart(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Run("NOK-not_found_binary_does_not_block", func(t *testing.T) {
 		ctx := t.Context()
 		lggr := logger.TestLogger(t)

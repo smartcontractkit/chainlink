@@ -125,13 +125,6 @@ packages:
       dir: "core/services/feeds/mocks"
     interfaces:
       FeedsManagerClient:
-  github.com/smartcontractkit/chainlink/v2/core/services/functions:
-    interfaces:
-      ExternalAdapterClient:
-      BridgeAccessor:
-      FunctionsListener:
-      OffchainTransmitter:
-      ORM:
   github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector:
     interfaces:
       GatewayConnector:
@@ -146,14 +139,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2:
     interfaces:
       HTTPTriggerHandler:
-  github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist:
-    interfaces:
-      OnchainAllowlist:
-      ORM:
-  github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions:
-    interfaces:
-      OnchainSubscriptions:
-      ORM:
   github.com/smartcontractkit/chainlink/v2/core/services/gateway/network:
     interfaces:
       ConnectionInitiator:
@@ -199,9 +184,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper:
     interfaces:
       PrometheusBackend:
-  github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold:
-    interfaces:
-      Decryptor:
   github.com/smartcontractkit/chainlink/v2/core/services/p2p/types:
     interfaces:
       Peer:
@@ -234,10 +216,6 @@ packages:
       dir: "core/services/relay/evm/types/mocks"
     interfaces:
       LogPollerWrapper:
-  github.com/smartcontractkit/chainlink/v2/core/services/s4:
-    interfaces:
-      ORM:
-      Storage:
   github.com/smartcontractkit/chainlink/v2/core/services/synchronization:
     interfaces:
       TelemetryService:
@@ -289,9 +267,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/v2:
     interfaces:
       RegistrySyncer:
-  github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer:
-    interfaces:
-      ORM:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/v2:
     interfaces:
       ORM:

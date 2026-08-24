@@ -13,6 +13,7 @@ type ShardAssignmentConfig struct {
 	StaticDefaultAssignment []uint32
 	DisabledShards          []uint32
 	PerOwnerAssignment      map[string][]uint32
+	PerOrgAssignment        map[string][]uint32
 	HashedDefaultAssignment bool
 	HashedOwnerAssignment   map[string]bool
 }
@@ -25,6 +26,7 @@ const (
 func ParseShardAssignmentConfig(raw string) (*ShardAssignmentConfig, error) {
 	cfg := &ShardAssignmentConfig{
 		PerOwnerAssignment:    make(map[string][]uint32),
+		PerOrgAssignment:      make(map[string][]uint32),
 		HashedOwnerAssignment: make(map[string]bool),
 	}
 
@@ -100,6 +102,35 @@ func ParseShardAssignmentConfig(raw string) (*ShardAssignmentConfig, error) {
 				return nil, fmt.Errorf("per_owner_assignment[%q] must not be empty", key)
 			}
 			cfg.PerOwnerAssignment[normalized] = shards
+		}
+	}
+
+	if perOrg := tree.Get("per_org_assignment"); perOrg != nil {
+		tbl, ok := perOrg.(*toml.Tree)
+		if !ok {
+			return nil, errors.New("per_org_assignment must be a table")
+		}
+		for _, key := range tbl.Keys() {
+			if strings.TrimSpace(key) == "" {
+				return nil, errors.New("per_org_assignment keys must not be empty")
+			}
+			v := tbl.Get(key)
+			vals, ok := v.([]any)
+			if !ok {
+				return nil, fmt.Errorf("per_org_assignment[%q] must be an array of integers", key)
+			}
+			var shards []uint32
+			for _, iv := range vals {
+				shardID, err := toShardID(iv)
+				if err != nil {
+					return nil, fmt.Errorf("invalid shard ID in per_org_assignment[%q]: %w", key, err)
+				}
+				shards = append(shards, shardID)
+			}
+			if len(shards) == 0 {
+				return nil, fmt.Errorf("per_org_assignment[%q] must not be empty", key)
+			}
+			cfg.PerOrgAssignment[key] = shards
 		}
 	}
 

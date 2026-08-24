@@ -2835,7 +2835,8 @@ func TestPlugin_StateTransition_InsufficientObservations(t *testing.T) {
 		types.AttributedQuery{},
 		[]types.AttributedObservation{
 			{Observer: 0, Observation: types.Observation(obs1b)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -2899,7 +2900,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_ResponseSizeWithinLimit(t *tes
 		t.Context(),
 		1,
 		types.AttributedQuery{},
-		aos, kvStore, nil)
+		aos, kvStore, nil,
+	)
 	require.NoError(t, err)
 
 	twoFPlusOne := 2*r.onchainCfg.F + 1
@@ -3307,7 +3309,8 @@ func TestPlugin_StateTransition_ShasDontMatch(t *testing.T) {
 		types.AttributedQuery{},
 		[]types.AttributedObservation{
 			{Observer: 0, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -3362,7 +3365,8 @@ func TestPlugin_StateTransition_AggregatesValidationErrors(t *testing.T) {
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -3468,7 +3472,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 			{Observer: 0, Observation: types.Observation(obsb1)},
 			{Observer: 1, Observation: types.Observation(obsb2)},
 			{Observer: 2, Observation: types.Observation(obsb3)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -3555,7 +3560,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_ByzantineDive
 			{Observer: 0, Observation: types.Observation(obsb1)},
 			{Observer: 1, Observation: types.Observation(obsb2)},
 			{Observer: 2, Observation: types.Observation(obsbByz)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -3619,7 +3625,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_Disabled_NoOu
 			{Observer: 0, Observation: types.Observation(obsb1)},
 			{Observer: 1, Observation: types.Observation(obsb2)},
 			{Observer: 2, Observation: types.Observation(obsbByz)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -3664,7 +3671,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_InsufficientT
 		[]types.AttributedObservation{
 			{Observer: 0, Observation: types.Observation(obsb1)},
 			{Observer: 1, Observation: types.Observation(obsb2)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -3711,7 +3719,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_NoFPlus1Group
 			{Observer: 0, Observation: types.Observation(obsb1)},
 			{Observer: 1, Observation: types.Observation(obsb2)},
 			{Observer: 2, Observation: types.Observation(obsb3)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -4008,7 +4017,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesBinaryShares(t *testin
 			{Observer: 0, Observation: types.Observation(obsb1)},
 			{Observer: 1, Observation: types.Observation(obsb2)},
 			{Observer: 2, Observation: types.Observation(obsb3)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -4099,7 +4109,8 @@ func TestPlugin_StateTransition_GetSecretsRequest_CapsSharesAtTwoFPlusOne(t *tes
 			{Observer: 1, Observation: types.Observation(obsb2)},
 			{Observer: 2, Observation: types.Observation(obsb3)},
 			{Observer: 3, Observation: types.Observation(obsb4)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -4317,7 +4328,8 @@ func TestPlugin_StateTransition_CreateSecretsRequest_WritesSecrets(t *testing.T)
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -5064,7 +5076,8 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_SecretDoesntExist(t *testin
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -5154,7 +5167,8 @@ func TestPlugin_StateTransition_UpdateSecretsRequest_WritesSecrets(t *testing.T)
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -5280,10 +5294,10 @@ func TestPlugin_Observation_DeleteSecrets(t *testing.T) {
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
-			keyPrefix + vaulttypes.KeyFor(id): response{
+			keyPrefix + vaulttypes.KeyFor(id): {
 				data: ssb,
 			},
 		},
@@ -5447,10 +5461,10 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
-			keyPrefix + vaulttypes.KeyFor(id): response{
+			keyPrefix + vaulttypes.KeyFor(id): {
 				data: ssb,
 			},
 		},
@@ -5480,7 +5494,8 @@ func TestPlugin_StateTransition_DeleteSecretsRequest(t *testing.T) {
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, rdr, nil)
+		}, rdr, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -5528,7 +5543,7 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
 		},
@@ -5558,7 +5573,8 @@ func TestPlugin_StateTransition_DeleteSecretsRequest_SecretDoesNotExist(t *testi
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, rdr, nil)
+		}, rdr, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -5717,7 +5733,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_NoNamespaceProvided(t *testing
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
 		},
@@ -5801,7 +5817,7 @@ func TestPlugin_Observation_ListSecretIdentifiers_FilterByNamespace(t *testing.T
 	seqNr := uint64(1)
 	rdr := &kv{
 		m: map[string]response{
-			metadataPrefix + "foo": response{
+			metadataPrefix + "foo": {
 				data: mdb,
 			},
 		},
@@ -6030,7 +6046,8 @@ func TestPlugin_StateTransition_ListSecretIdentifiers(t *testing.T) {
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -8104,7 +8121,8 @@ func TestPlugin_StateTransition_PendingQueueEnabled_NewQuora_NotGetRequest(t *te
 		[]types.AttributedObservation{
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -8177,7 +8195,8 @@ func TestPlugin_StateTransition_PendingQueueEnabled_GetRequest(t *testing.T) {
 			{Observer: 0, Observation: types.Observation(obsb)},
 			{Observer: 1, Observation: types.Observation(obsb)},
 			{Observer: 2, Observation: types.Observation(obsb)},
-		}, kv, nil)
+		}, kv, nil,
+	)
 	require.NoError(t, err)
 
 	os := &vaultcommon.Outcomes{}
@@ -8514,6 +8533,10 @@ func TestLogUserErrorAware(t *testing.T) {
 }
 
 func TestPlugin_broadcastBlobPayloads(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Run("empty payloads returns empty slice", func(t *testing.T) {
 		marshalBlobOverride := func(ocr3_1types.BlobHandle) ([]byte, error) {
 			return []byte("handle"), nil
@@ -8870,7 +8893,8 @@ func TestProperty_broadcastBlobPayloads_MaxSizePayloadsWithinBlobLimit(t *testin
 			payload: &vaultcommon.CreateSecretsRequest{
 				RequestId:        "req",
 				EncryptedSecrets: buildMaxEncryptedSecrets(),
-			}},
+			},
+		},
 		{
 			name: "UpdateSecretsRequest",
 			payload: &vaultcommon.UpdateSecretsRequest{
