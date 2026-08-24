@@ -339,27 +339,27 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
 	return &ReportingPlugin{
-		lggr:                         r.lggr.Named("VaultReportingPlugin"),
-		store:                        r.store,
-		cfg:                          cfg,
-		metrics:                      metrics,
-		onchainCfg:                   config,
-		validator:                    validator,
-		lifecycle:                    r.lifecycle,
-		maxObservationBytes:          pluginLimits.MaxObservationBytes,
-		maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
-		unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
-			handle := ocr3_1types.BlobHandle{}
-			err := handle.UnmarshalBinary(data)
-			return handle, err
-		},
-		marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
-			return handle.MarshalBinary()
-		},
-	}, ocr3_1types.ReportingPluginInfo1{
-		Name:   "VaultReportingPlugin",
-		Limits: pluginLimits,
-	}, nil
+			lggr:                         r.lggr.Named("VaultReportingPlugin"),
+			store:                        r.store,
+			cfg:                          cfg,
+			metrics:                      metrics,
+			onchainCfg:                   config,
+			validator:                    validator,
+			lifecycle:                    r.lifecycle,
+			maxObservationBytes:          pluginLimits.MaxObservationBytes,
+			maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
+			unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
+				handle := ocr3_1types.BlobHandle{}
+				err := handle.UnmarshalBinary(data)
+				return handle, err
+			},
+			marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
+				return handle.MarshalBinary()
+			},
+		}, ocr3_1types.ReportingPluginInfo1{
+			Name:   "VaultReportingPlugin",
+			Limits: pluginLimits,
+		}, nil
 }
 
 type ReportingPlugin struct {
@@ -1428,25 +1428,12 @@ func (r *ReportingPlugin) observeDeleteSecretRequest(ctx context.Context, reader
 	return id, nil
 }
 
-func newUserError(msg string) *userError {
-	return &userError{msg: msg}
-}
-
-type userError struct {
-	msg string
-}
-
-func (u *userError) Error() string {
-	return u.msg
-}
-
-func (u *userError) Is(target error) bool {
-	_, ok := target.(*userError)
-	return ok
+func newUserError(msg string) *vaulttypes.UserError {
+	return vaulttypes.NewUserError(msg)
 }
 
 func userFacingError(err error, fallback string) string {
-	if errors.Is(err, &userError{}) {
+	if vaulttypes.IsUserError(err) {
 		return err.Error()
 	}
 
@@ -1456,7 +1443,7 @@ func userFacingError(err error, fallback string) string {
 func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...any) {
 	keysAndValues = append(keysAndValues, "error", err)
 	lggr := l.Helper(1)
-	if errors.Is(err, &userError{}) {
+	if vaulttypes.IsUserError(err) {
 		lggr.Debugw(msg, keysAndValues...)
 		return
 	}

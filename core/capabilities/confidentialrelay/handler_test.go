@@ -588,6 +588,36 @@ func TestHandler_HandleGatewayMessage(t *testing.T) {
 			},
 		},
 		{
+			name:        "secrets get vault user error classified as invalid params",
+			registry:    secretsGetTestRegistry,
+			req:         secretsGetTestRequest,
+			workflowID:  "wf-secrets-1",
+			executionID: "0000000000000000000000000000000000000000000000000000000000000001",
+			helper: func(_ *testing.T) *mockExecutionHelper {
+				return &mockExecutionHelper{
+					rawSecrets: []*vault.SecretResponse{
+						{
+							Id: &vault.SecretIdentifier{
+								Key:       "API_TOKEN",
+								Namespace: "main",
+							},
+							Result: &vault.SecretResponse_Error{
+								Error: "key does not exist",
+							},
+						},
+					},
+				}
+			},
+			checkResp: func(t *testing.T, resp *jsonrpc.Response[json.RawMessage]) {
+				require.NotNil(t, resp.Error)
+				// Vault per-secret errors are user errors → ErrInvalidParams, not ErrInternal.
+				assert.Equal(t, jsonrpc.ErrInvalidParams, resp.Error.Code)
+				// The actual vault error message must reach the enclave (not "internal error").
+				assert.Contains(t, resp.Error.Message, "key does not exist")
+				assert.Contains(t, resp.Error.Message, "main/API_TOKEN")
+			},
+		},
+		{
 			name: "unsupported method",
 			registry: func(_ *testing.T) *mockCapRegistry {
 				return withEnclaveConfig(&mockCapRegistry{})
@@ -876,6 +906,49 @@ func TestTranslateVaultResponse_HexShares(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, result.Secrets, 1)
 	require.Equal(t, base64.StdEncoding.EncodeToString(shareBytes), result.Secrets[0].EncryptedShares[0])
+}
+
+func TestTranslateVaultResponse_VaultError(t *testing.T) {
+	vaultResp := []*vault.SecretResponse{
+		{
+			Id: &vault.SecretIdentifier{Key: "API_TOKEN", Namespace: "main"},
+			Result: &vault.SecretResponse_Error{
+				Error: "key does not exist",
+			},
+		},
+	}
+
+	result, err := translateVaultResponse(vaultResp, "aabbcc")
+	require.Nil(t, result)
+	require.Error(t, err)
+	assert.True(t, vaulttypes.IsUserError(err), "vault per-secret error should be classified as user error")
+	assert.Contains(t, err.Error(), "key does not exist")
+	assert.Contains(t, err.Error(), "main/API_TOKEN")
+}
+
+func TestIsUserError(t *testing.T) {
+	t.Run("vaultSecretError wrapping a user error message is detected", func(t *testing.T) {
+		t.Parallel()
+		err := &vaultSecretError{namespace: "main", key: "API_TOKEN", msg: "key does not exist"}
+		assert.True(t, vaulttypes.IsUserError(err))
+	})
+
+	t.Run("plain error is not a user error", func(t *testing.T) {
+		t.Parallel()
+		err := fmt.Errorf("failed to read secret from key-value store: connection refused")
+		assert.False(t, vaulttypes.IsUserError(err))
+	})
+
+	t.Run("nil is not a user error", func(t *testing.T) {
+		t.Parallel()
+		assert.False(t, vaulttypes.IsUserError(nil))
+	})
+
+	t.Run("direct vaulttypes.UserError is detected", func(t *testing.T) {
+		t.Parallel()
+		err := vaulttypes.NewUserError("key does not exist")
+		assert.True(t, vaulttypes.IsUserError(err))
+	})
 }
 
 func TestVerifyWorkflowAuthorization(t *testing.T) {

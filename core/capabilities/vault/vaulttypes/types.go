@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"time"
@@ -216,4 +217,33 @@ func ValidateSignatures(resp *SignedOCRResponse, allowedSigners []common.Address
 	}
 
 	return fmt.Errorf("only %d valid signatures, need at least %d", len(validSigners), minRequired)
+}
+
+// UserError is a vault error caused by the caller (e.g. requesting a secret
+// that does not exist, providing an invalid public key, exceeding the per-owner
+// secret limit). It lives in the shared vaulttypes package so both the vault
+// OCR plugin and downstream consumers (e.g. the confidential relay handler) can
+// use errors.As to distinguish user errors from internal failures.
+type UserError struct {
+	msg string
+}
+
+// NewUserError creates a *UserError with the given message.
+func NewUserError(msg string) *UserError {
+	return &UserError{msg: msg}
+}
+
+func (u *UserError) Error() string {
+	return u.msg
+}
+
+func (u *UserError) Is(target error) bool {
+	_, ok := target.(*UserError)
+	return ok
+}
+
+// IsUserError reports whether err is a vault UserError.
+func IsUserError(err error) bool {
+	var ue *UserError
+	return errors.As(err, &ue)
 }
