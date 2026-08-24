@@ -339,27 +339,27 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
 	return &ReportingPlugin{
-			lggr:                         r.lggr.Named("VaultReportingPlugin"),
-			store:                        r.store,
-			cfg:                          cfg,
-			metrics:                      metrics,
-			onchainCfg:                   config,
-			validator:                    validator,
-			lifecycle:                    r.lifecycle,
-			maxObservationBytes:          pluginLimits.MaxObservationBytes,
-			maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
-			unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
-				handle := ocr3_1types.BlobHandle{}
-				err := handle.UnmarshalBinary(data)
-				return handle, err
-			},
-			marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
-				return handle.MarshalBinary()
-			},
-		}, ocr3_1types.ReportingPluginInfo1{
-			Name:   "VaultReportingPlugin",
-			Limits: pluginLimits,
-		}, nil
+		lggr:                         r.lggr.Named("VaultReportingPlugin"),
+		store:                        r.store,
+		cfg:                          cfg,
+		metrics:                      metrics,
+		onchainCfg:                   config,
+		validator:                    validator,
+		lifecycle:                    r.lifecycle,
+		maxObservationBytes:          pluginLimits.MaxObservationBytes,
+		maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
+		unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
+			handle := ocr3_1types.BlobHandle{}
+			err := handle.UnmarshalBinary(data)
+			return handle, err
+		},
+		marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
+			return handle.MarshalBinary()
+		},
+	}, ocr3_1types.ReportingPluginInfo1{
+		Name:   "VaultReportingPlugin",
+		Limits: pluginLimits,
+	}, nil
 }
 
 type ReportingPlugin struct {
