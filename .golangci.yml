@@ -53,6 +53,8 @@ linters:
       rules:
         main:
           list-mode: lax
+          files:
+            - "$all"
           deny:
             - pkg: cosmossdk.io/errors
               desc: Use the standard library instead

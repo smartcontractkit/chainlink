@@ -9,66 +9,66 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
-var randomCommitReport = func() ccipocr3common.CommitPluginReport {
-	return ccipocr3common.CommitPluginReport{
-		BlessedMerkleRoots: []ccipocr3common.MerkleRootChain{
+var randomCommitReport = func() ccipocr3.CommitPluginReport {
+	return ccipocr3.CommitPluginReport{
+		BlessedMerkleRoots: []ccipocr3.MerkleRootChain{
 			{
 				OnRampAddress: common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
-				ChainSel:      ccipocr3common.ChainSelector(rand.Uint64()),
-				SeqNumsRange: ccipocr3common.NewSeqNumRange(
-					ccipocr3common.SeqNum(rand.Uint64()),
-					ccipocr3common.SeqNum(rand.Uint64()),
+				ChainSel:      ccipocr3.ChainSelector(rand.Uint64()),
+				SeqNumsRange: ccipocr3.NewSeqNumRange(
+					ccipocr3.SeqNum(rand.Uint64()),
+					ccipocr3.SeqNum(rand.Uint64()),
 				),
 				MerkleRoot: utils.RandomBytes32(),
 			},
 			{
 				OnRampAddress: common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
-				ChainSel:      ccipocr3common.ChainSelector(rand.Uint64()),
-				SeqNumsRange: ccipocr3common.NewSeqNumRange(
-					ccipocr3common.SeqNum(rand.Uint64()),
-					ccipocr3common.SeqNum(rand.Uint64()),
-				),
-				MerkleRoot: utils.RandomBytes32(),
-			},
-		},
-		UnblessedMerkleRoots: []ccipocr3common.MerkleRootChain{
-			{
-				OnRampAddress: common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
-				ChainSel:      ccipocr3common.ChainSelector(rand.Uint64()),
-				SeqNumsRange: ccipocr3common.NewSeqNumRange(
-					ccipocr3common.SeqNum(rand.Uint64()),
-					ccipocr3common.SeqNum(rand.Uint64()),
-				),
-				MerkleRoot: utils.RandomBytes32(),
-			},
-			{
-				OnRampAddress: common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
-				ChainSel:      ccipocr3common.ChainSelector(rand.Uint64()),
-				SeqNumsRange: ccipocr3common.NewSeqNumRange(
-					ccipocr3common.SeqNum(rand.Uint64()),
-					ccipocr3common.SeqNum(rand.Uint64()),
+				ChainSel:      ccipocr3.ChainSelector(rand.Uint64()),
+				SeqNumsRange: ccipocr3.NewSeqNumRange(
+					ccipocr3.SeqNum(rand.Uint64()),
+					ccipocr3.SeqNum(rand.Uint64()),
 				),
 				MerkleRoot: utils.RandomBytes32(),
 			},
 		},
-		PriceUpdates: ccipocr3common.PriceUpdates{
-			TokenPriceUpdates: []ccipocr3common.TokenPrice{
+		UnblessedMerkleRoots: []ccipocr3.MerkleRootChain{
+			{
+				OnRampAddress: common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
+				ChainSel:      ccipocr3.ChainSelector(rand.Uint64()),
+				SeqNumsRange: ccipocr3.NewSeqNumRange(
+					ccipocr3.SeqNum(rand.Uint64()),
+					ccipocr3.SeqNum(rand.Uint64()),
+				),
+				MerkleRoot: utils.RandomBytes32(),
+			},
+			{
+				OnRampAddress: common.LeftPadBytes(utils.RandomAddress().Bytes(), 32),
+				ChainSel:      ccipocr3.ChainSelector(rand.Uint64()),
+				SeqNumsRange: ccipocr3.NewSeqNumRange(
+					ccipocr3.SeqNum(rand.Uint64()),
+					ccipocr3.SeqNum(rand.Uint64()),
+				),
+				MerkleRoot: utils.RandomBytes32(),
+			},
+		},
+		PriceUpdates: ccipocr3.PriceUpdates{
+			TokenPriceUpdates: []ccipocr3.TokenPrice{
 				{
-					TokenID: ccipocr3common.UnknownEncodedAddress(utils.RandomAddress().String()),
-					Price:   ccipocr3common.NewBigInt(utils.RandUint256()),
+					TokenID: ccipocr3.UnknownEncodedAddress(utils.RandomAddress().String()),
+					Price:   ccipocr3.NewBigInt(utils.RandUint256()),
 				},
 			},
-			GasPriceUpdates: []ccipocr3common.GasPriceChain{
-				{GasPrice: ccipocr3common.NewBigInt(utils.RandUint256()), ChainSel: ccipocr3common.ChainSelector(rand.Uint64())},
-				{GasPrice: ccipocr3common.NewBigInt(utils.RandUint256()), ChainSel: ccipocr3common.ChainSelector(rand.Uint64())},
-				{GasPrice: ccipocr3common.NewBigInt(utils.RandUint256()), ChainSel: ccipocr3common.ChainSelector(rand.Uint64())},
+			GasPriceUpdates: []ccipocr3.GasPriceChain{
+				{GasPrice: ccipocr3.NewBigInt(utils.RandUint256()), ChainSel: ccipocr3.ChainSelector(rand.Uint64())},
+				{GasPrice: ccipocr3.NewBigInt(utils.RandUint256()), ChainSel: ccipocr3.ChainSelector(rand.Uint64())},
+				{GasPrice: ccipocr3.NewBigInt(utils.RandUint256()), ChainSel: ccipocr3.ChainSelector(rand.Uint64())},
 			},
 		},
-		RMNSignatures: []ccipocr3common.RMNECDSASignature{
+		RMNSignatures: []ccipocr3.RMNECDSASignature{
 			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
 			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
 		},
@@ -78,18 +78,18 @@ var randomCommitReport = func() ccipocr3common.CommitPluginReport {
 func TestCommitPluginCodecV1(t *testing.T) {
 	testCases := []struct {
 		name   string
-		report func(report ccipocr3common.CommitPluginReport) ccipocr3common.CommitPluginReport
+		report func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport
 		expErr bool
 	}{
 		{
 			name: "base report",
-			report: func(report ccipocr3common.CommitPluginReport) ccipocr3common.CommitPluginReport {
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
 				return report
 			},
 		},
 		{
 			name: "empty token address",
-			report: func(report ccipocr3common.CommitPluginReport) ccipocr3common.CommitPluginReport {
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
 				report.PriceUpdates.TokenPriceUpdates[0].TokenID = ""
 				return report
 			},
@@ -97,23 +97,23 @@ func TestCommitPluginCodecV1(t *testing.T) {
 		},
 		{
 			name: "empty merkle root",
-			report: func(report ccipocr3common.CommitPluginReport) ccipocr3common.CommitPluginReport {
-				report.BlessedMerkleRoots[0].MerkleRoot = ccipocr3common.Bytes32{}
-				report.UnblessedMerkleRoots[0].MerkleRoot = ccipocr3common.Bytes32{}
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
+				report.BlessedMerkleRoots[0].MerkleRoot = ccipocr3.Bytes32{}
+				report.UnblessedMerkleRoots[0].MerkleRoot = ccipocr3.Bytes32{}
 				return report
 			},
 		},
 		{
 			name: "zero token price",
-			report: func(report ccipocr3common.CommitPluginReport) ccipocr3common.CommitPluginReport {
-				report.PriceUpdates.TokenPriceUpdates[0].Price = ccipocr3common.NewBigInt(big.NewInt(0))
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
+				report.PriceUpdates.TokenPriceUpdates[0].Price = ccipocr3.NewBigInt(big.NewInt(0))
 				return report
 			},
 		},
 		{
 			name: "zero gas price",
-			report: func(report ccipocr3common.CommitPluginReport) ccipocr3common.CommitPluginReport {
-				report.PriceUpdates.GasPriceUpdates[0].GasPrice = ccipocr3common.NewBigInt(big.NewInt(0))
+			report: func(report ccipocr3.CommitPluginReport) ccipocr3.CommitPluginReport {
+				report.PriceUpdates.GasPriceUpdates[0].GasPrice = ccipocr3.NewBigInt(big.NewInt(0))
 				return report
 			},
 		},

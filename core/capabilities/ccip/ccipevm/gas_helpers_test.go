@@ -10,7 +10,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_3/message_hasher"
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 func Test_calculateMessageMaxGas(t *testing.T) {
@@ -74,13 +74,13 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			msg := ccipocr3common.Message{
+			msg := ccipocr3.Message{
 				Data:         make([]byte, tt.args.dataLen),
 				TokenAmounts: getTokenAmounts(t, tt.args.numTokens, tt.args.tokenGasOverhead),
 				ExtraArgs:    tt.args.extraArgs,
 			}
 			// Set the source chain selector to be EVM for now
-			msg.Header.SourceChainSelector = ccipocr3common.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
+			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
 			ep := EstimateProvider{extraDataCodec}
 			got := ep.CalculateMessageMaxGas(msg)
 			t.Log(got)
@@ -132,13 +132,13 @@ func TestCalculateMaxGas(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			msg := ccipocr3common.Message{
+			msg := ccipocr3.Message{
 				Data:         make([]byte, tt.dataLength),
 				TokenAmounts: getTokenAmounts(t, tt.numberOfTokens, tt.tokenGasOverhead),
 				ExtraArgs:    tt.extraArgs,
 			}
 
-			msg.Header.SourceChainSelector = ccipocr3common.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
+			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
 			ep := EstimateProvider{extraDataCodec: extraDataCodec}
 			gotTree := ep.CalculateMerkleTreeGas(tt.numRequests)
 			gotMsg := ep.CalculateMessageMaxGas(msg)
@@ -169,13 +169,13 @@ func makeExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	return extraArgs
 }
 
-func getTokenAmounts(t *testing.T, numTokens int, tokenGasOverhead uint32) []ccipocr3common.RampTokenAmount {
+func getTokenAmounts(t *testing.T, numTokens int, tokenGasOverhead uint32) []ccipocr3.RampTokenAmount {
 	tokenDestGasOverhead, err := abiEncodeUint32(tokenGasOverhead)
 	require.NoError(t, err)
 
-	tokenAmounts := make([]ccipocr3common.RampTokenAmount, numTokens)
+	tokenAmounts := make([]ccipocr3.RampTokenAmount, numTokens)
 	for i := range numTokens {
-		tokenAmounts[i] = ccipocr3common.RampTokenAmount{
+		tokenAmounts[i] = ccipocr3.RampTokenAmount{
 			DestExecData: tokenDestGasOverhead,
 		}
 	}

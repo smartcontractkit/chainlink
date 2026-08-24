@@ -3,7 +3,7 @@ package ccipevm
 import (
 	"context"
 
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/abihelpers"
 )
 
@@ -29,7 +29,7 @@ func NewEVMTokenDataEncoder() EVMTokenDataEncoder {
 	return EVMTokenDataEncoder{}
 }
 
-func (e EVMTokenDataEncoder) EncodeUSDC(_ context.Context, message, attestation ccipocr3common.Bytes) (ccipocr3common.Bytes, error) {
+func (e EVMTokenDataEncoder) EncodeUSDC(_ context.Context, message, attestation ccipocr3.Bytes) (ccipocr3.Bytes, error) {
 	return abihelpers.EncodeAbiStruct(usdcAttestationPayload{
 		Message:     message,
 		Attestation: attestation,
