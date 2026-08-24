@@ -105,7 +105,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/storage-service v0.3.0
 	github.com/smartcontractkit/chainlink-protos/workflows/go v0.0.0-20260821155228-fa1d775e2138
 	github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96
-	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260820224955-011a846f2fb8
+	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260824214358-1805ed24ab6a
 	github.com/smartcontractkit/cre-sdk-go v1.17.0-capdev.1
 	github.com/smartcontractkit/cre-sdk-go/capabilities/networking/http v1.3.0
 	github.com/smartcontractkit/cre-sdk-go/capabilities/scheduler/cron v1.3.0
@@ -350,6 +350,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/chainlink-ccv/verifier v0.0.0-20251211142334-5c3421fe2c8d // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.3.0 // indirect
+	github.com/smartcontractkit/chainlink-ton v1.0.5-0.20260824214358-1805ed24ab6a // indirect
 	github.com/smartcontractkit/chainlink-tron/relayer v0.0.11-0.20260408092456-3c6369888d4a // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
