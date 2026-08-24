@@ -993,7 +993,7 @@ func TestIsUserError(t *testing.T) {
 
 	t.Run("plain error is not a user error", func(t *testing.T) {
 		t.Parallel()
-		err := fmt.Errorf("failed to read secret from key-value store: connection refused")
+		err := errors.New("failed to read secret from key-value store: connection refused")
 		assert.False(t, vaulttypes.IsUserError(err))
 	})
 
