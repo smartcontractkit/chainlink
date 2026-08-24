@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/ccip_home"
 	ccipreader "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
@@ -34,8 +34,8 @@ func TestHomeChainReader_ChainConfigs(t *testing.T) {
 
 	// ==============================Apply configs to Capability Contract=================================
 	encodedChainConfig, err := chainconfig.EncodeChainConfig(chainconfig.ChainConfig{
-		GasPriceDeviationPPB:    ccipocr3common.NewBigIntFromInt64(1000),
-		DAGasPriceDeviationPPB:  ccipocr3common.NewBigIntFromInt64(1_000_000),
+		GasPriceDeviationPPB:    ccipocr3.NewBigIntFromInt64(1000),
+		DAGasPriceDeviationPPB:  ccipocr3.NewBigIntFromInt64(1_000_000),
 		OptimisticConfirmations: 1,
 	})
 	require.NoError(t, err)
@@ -60,9 +60,9 @@ func TestHomeChainReader_ChainConfigs(t *testing.T) {
 	t.Logf("homchain reader is ready")
 
 	// ================================Test HomeChain Reader===============================
-	expectedChainConfigs := map[ccipocr3common.ChainSelector]ccipreader.ChainConfig{}
+	expectedChainConfigs := map[ccipocr3.ChainSelector]ccipreader.ChainConfig{}
 	for _, c := range inputConfig {
-		expectedChainConfigs[ccipocr3common.ChainSelector(c.ChainSelector)] = ccipreader.ChainConfig{
+		expectedChainConfigs[ccipocr3.ChainSelector(c.ChainSelector)] = ccipreader.ChainConfig{
 			FChain:         int(c.ChainConfig.FChain),
 			SupportedNodes: toPeerIDs(c.ChainConfig.Readers),
 			Config:         mustDecodeChainConfig(t, c.ChainConfig.Config),
@@ -88,7 +88,7 @@ func TestHomeChainReader_ChainConfigs(t *testing.T) {
 	configs, err = uni.HomeChainReader.GetAllChainConfigs()
 	require.NoError(t, err)
 
-	delete(expectedChainConfigs, ccipocr3common.ChainSelector(integrationhelpers.ChainC))
+	delete(expectedChainConfigs, ccipocr3.ChainSelector(integrationhelpers.ChainC))
 	require.Equal(t, expectedChainConfigs, configs)
 }
 

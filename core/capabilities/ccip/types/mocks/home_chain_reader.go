@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/libocr/ragep2p/types"
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 )
 
 var _ ccipreaderpkg.HomeChain = (*HomeChainReader)(nil)
@@ -18,27 +18,27 @@ type HomeChainReader struct {
 	mock.Mock
 }
 
-func (_m *HomeChainReader) GetChainConfig(chainSelector ccipocr3common.ChainSelector) (ccipreaderpkg.ChainConfig, error) {
+func (_m *HomeChainReader) GetChainConfig(chainSelector ccipocr3.ChainSelector) (ccipreaderpkg.ChainConfig, error) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (_m *HomeChainReader) GetAllChainConfigs() (map[ccipocr3common.ChainSelector]ccipreaderpkg.ChainConfig, error) {
+func (_m *HomeChainReader) GetAllChainConfigs() (map[ccipocr3.ChainSelector]ccipreaderpkg.ChainConfig, error) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (_m *HomeChainReader) GetSupportedChainsForPeer(id types.PeerID) (mapset.Set[ccipocr3common.ChainSelector], error) {
+func (_m *HomeChainReader) GetSupportedChainsForPeer(id types.PeerID) (mapset.Set[ccipocr3.ChainSelector], error) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (_m *HomeChainReader) GetKnownCCIPChains() (mapset.Set[ccipocr3common.ChainSelector], error) {
+func (_m *HomeChainReader) GetKnownCCIPChains() (mapset.Set[ccipocr3.ChainSelector], error) {
 	// TODO implement me
 	panic("implement me")
 }
 
-func (_m *HomeChainReader) GetFChain() (map[ccipocr3common.ChainSelector]int, error) {
+func (_m *HomeChainReader) GetFChain() (map[ccipocr3.ChainSelector]int, error) {
 	// TODO implement me
 	panic("implement me")
 }

@@ -9,7 +9,7 @@ import (
 	agbinary "github.com/gagliardetto/binary"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/latest/fee_quoter"
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
@@ -33,7 +33,7 @@ var (
 type ExtraDataDecoder struct{}
 
 // DecodeExtraArgsToMap is a helper function for converting Borsh encoded extra args bytes into map[string]any
-func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs ccipocr3common.Bytes) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs ccipocr3.Bytes) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}
@@ -83,7 +83,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs ccipocr3common.Bytes) (
 }
 
 // DecodeDestExecDataToMap is a helper function for converting dest exec data bytes into map[string]any
-func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData ccipocr3common.Bytes) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData ccipocr3.Bytes) (map[string]any, error) {
 	return map[string]any{
 		svmDestExecDataKey: binary.BigEndian.Uint32(destExecData),
 	}, nil
