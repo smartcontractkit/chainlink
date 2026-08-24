@@ -47,7 +47,7 @@ func TestSessionsController_Create(t *testing.T) {
 
 			ctx := t.Context()
 			body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, test.email, test.password)
-			request, err := http.NewRequestWithContext(ctx, "POST", app.Server.URL+"/sessions", bytes.NewBufferString(body))
+			request, err := http.NewRequestWithContext(ctx, http.MethodPost, app.Server.URL+"/sessions", bytes.NewBufferString(body))
 			require.NoError(t, err)
 			resp, err := client.Do(request)
 			require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	mustInsertSession(t, app.GetDB(), &staleSession)
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, user.Email, cltest.Password)
-	req, err := http.NewRequestWithContext(ctx, "POST", app.Server.URL+"/sessions", bytes.NewBufferString(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, app.Server.URL+"/sessions", bytes.NewBufferString(body))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
@@ -153,7 +153,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 
 			ctx := t.Context()
 			cookie := cltest.MustGenerateSessionCookie(t, test.sessionID)
-			request, err := http.NewRequestWithContext(ctx, "DELETE", app.Server.URL+"/sessions", nil)
+			request, err := http.NewRequestWithContext(ctx, http.MethodDelete, app.Server.URL+"/sessions", nil)
 			require.NoError(t, err)
 			request.AddCookie(cookie)
 
@@ -193,7 +193,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
 	mustInsertSession(t, app.GetDB(), &staleSession)
 
-	request, err := http.NewRequestWithContext(ctx, "DELETE", app.Server.URL+"/sessions", nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodDelete, app.Server.URL+"/sessions", nil)
 	require.NoError(t, err)
 	request.AddCookie(cookie)
 

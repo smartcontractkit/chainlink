@@ -27,9 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-//go:fix inline
-func ptr[T any](t T) *T { return new(t) }
-
 func TestEthKeysPresenter_RenderTable(t *testing.T) {
 	t.Parallel()
 
@@ -277,7 +274,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 
 	// Export the key
 	testdir := filepath.Join(os.TempDir(), t.Name())
-	err = os.MkdirAll(testdir, 0700|os.ModeDir)
+	err = os.MkdirAll(testdir, 0o700|os.ModeDir)
 	require.NoError(t, err)
 	defer os.RemoveAll(testdir)
 	keyfilepath := filepath.Join(testdir, "key")
@@ -344,6 +341,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	require.Error(t, err, "Error exporting")
 	require.Error(t, utils.JustError(os.Stat(keyName)))
 }
+
 func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	t.Parallel()
 
@@ -385,7 +383,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 
 	// Export the key
 	testdir := filepath.Join(os.TempDir(), t.Name())
-	err = os.MkdirAll(testdir, 0700|os.ModeDir)
+	err = os.MkdirAll(testdir, 0o700|os.ModeDir)
 	require.NoError(t, err)
 	defer os.RemoveAll(testdir)
 	keyfilepath := filepath.Join(testdir, "key")

@@ -30,7 +30,7 @@ func (g *systemGitExecutor) Command(ctx context.Context, args ...string) ([]byte
 const (
 	// File and mode constants
 	goModFile     = "go.mod"
-	goModFileMode = 0644
+	goModFileMode = 0o644
 	gitSHALength  = 12
 	gitTimeout    = 30 * time.Second
 	gitTimeFormat = time.RFC3339
@@ -87,7 +87,7 @@ func (u *Updater) getGitInfo(remote, branch string) (string, time.Time, error) {
 	if len(out) == 0 {
 		return "", time.Time{}, fmt.Errorf("%w: no output from git ls-remote", ErrModOperation)
 	}
-	sha := strings.Split(string(out), "\t")[0]
+	sha, _, _ := strings.Cut(string(out), "\t")
 	if len(sha) == 0 {
 		return "", time.Time{}, fmt.Errorf("%w: empty SHA from git ls-remote", ErrModOperation)
 	}

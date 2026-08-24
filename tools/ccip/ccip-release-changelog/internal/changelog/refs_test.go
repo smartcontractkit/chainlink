@@ -12,7 +12,7 @@ import (
 func gitCmd(t *testing.T, dir string, args ...string) {
 	t.Helper()
 	full := append([]string{"-c", "user.name=Test", "-c", "user.email=test@example.com",
-		"-c", "init.defaultBranch=main"}, args...)
+		"-c", "init.defaultBranch=main", "-c", "commit.gpgsign=false"}, args...)
 	cmd := exec.CommandContext(context.Background(), "git", full...)
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {

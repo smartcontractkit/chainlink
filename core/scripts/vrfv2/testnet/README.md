@@ -236,7 +236,7 @@ in the blockhash store already, or this will not work.
 
 There may be a situation where you want to backfill a lot of blockhashes, down to a certain block number.
 
-This is where "Backwrads Mode" comes in - you're going to need the following:
+This is where "Backwards Mode" comes in - you're going to need the following:
 
 * A block number that has already been stored in the BHS. The closer it is to the target block range you want to store,
 the better. You can view the most oldest "Store" transactions on the BHS contract that is still ahead of the block range you

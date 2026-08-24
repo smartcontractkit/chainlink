@@ -23,5 +23,5 @@ Mode = 'FeeHistory'
 CacheTimeout = '2s'
 
 [GasEstimator.BlockHistory]
-# As we see blocks containing between ~[8-12]tx, to get about ~1000 tx to check we would need to rougly go 100 tx back
+# As we see blocks containing between ~[8-12]tx, to get about ~1000 tx to check we would need to roughly go 100 tx back
 BlockHistorySize = 100

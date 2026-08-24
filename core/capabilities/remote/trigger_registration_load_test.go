@@ -156,7 +156,7 @@ func (t *noopTrigger) UnregisterTrigger(_ context.Context, _ commoncap.TriggerRe
 	return nil
 }
 
-func (t *noopTrigger) AckEvent(_ context.Context, _ string, _ string, _ string) error {
+func (t *noopTrigger) AckEvent(_ context.Context, _, _, _ string) error {
 	return nil
 }
 
@@ -442,7 +442,7 @@ func BenchmarkRegistrationProcessing(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		publisher.Receive(ctx, regMsg)
 	}
 

@@ -37,7 +37,7 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 	}
 	err := config.UnwrapTo(&tc)
 	if err != nil {
-		return TransmissionConfig{}, fmt.Errorf("failed to unwrap tranmission config from value map: %w", err)
+		return TransmissionConfig{}, fmt.Errorf("failed to unwrap transmission config from value map: %w", err)
 	}
 
 	// Default if no schedule and deltaStage is provided

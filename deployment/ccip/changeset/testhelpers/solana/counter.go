@@ -9,7 +9,7 @@ import (
 )
 
 // The generated go bindings reference to BaseState which is marked as an account on it's own
-// when the bindings attempt to decode it they check for distriminator, which is wrong since
+// when the bindings attempt to decode it they check for discriminator, which is wrong since
 // the it's embedded into the account as a field.
 //
 // We work around this using a custom decoder that only decodes the counter value.

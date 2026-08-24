@@ -174,7 +174,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 					},
 				},
 			},
-			expectedError: fmt.Errorf("failed to init dw querying for event: %q, err: data word: %q at index: %d details, were calculated automatically and shouldn't be manully overridden by cfg",
+			expectedError: fmt.Errorf("failed to init dw querying for event: %q, err: data word: %q at index: %d details, were calculated automatically and shouldn't be manully overridden by cfg", // typos:ignore // 'manully' should be 'manually', error text from upstream dep
 				"SomeEvent", "DW", 0),
 		},
 		{

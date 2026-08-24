@@ -76,7 +76,7 @@ func NewApp(s *Shell) *cli.App {
 		s.secretsFileIsSet = c.IsSet("secrets")
 
 		// Default to using a stdout logger only.
-		// This is overidden for server commands which may start a rotating
+		// This is overridden for server commands which may start a rotating
 		// logger instead.
 		lggr, closeFn := logger.NewLogger()
 

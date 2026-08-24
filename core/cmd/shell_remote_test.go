@@ -40,9 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 )
 
-var (
-	nilContext = cli.NewContext(nil, nil, nil)
-)
+var nilContext = cli.NewContext(nil, nil, nil)
 
 type startOptions struct {
 	// Use to set up mocks on the app
@@ -198,7 +196,7 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 			})
 			client, _ := app.NewShellAndRenderer()
 
-			initialExis := len(cltest.AllExternalInitiators(t, app.GetDB()))
+			beginningInitiators := len(cltest.AllExternalInitiators(t, app.GetDB()))
 
 			set := flag.NewFlagSet("create", 0)
 			flagSetApplyFromAction(client.CreateExternalInitiator, set, "")
@@ -209,8 +207,8 @@ func TestShell_CreateExternalInitiator_Errors(t *testing.T) {
 			err := client.CreateExternalInitiator(c)
 			assert.Error(t, err)
 
-			exis := cltest.AllExternalInitiators(t, app.GetDB())
-			assert.Len(t, exis, initialExis)
+			initiators := cltest.AllExternalInitiators(t, app.GetDB())
+			assert.Len(t, initiators, beginningInitiators)
 		})
 	}
 }
@@ -392,7 +390,7 @@ func (h *mockHTTPClient) Get(ctx context.Context, path string, headers ...map[st
 		json := fmt.Sprintf(`{"version":"%s","commitSHA":"%s"}`, h.mockVersion, h.mockSha)
 		r := io.NopCloser(bytes.NewReader([]byte(json)))
 		return &http.Response{
-			StatusCode: 200,
+			StatusCode: http.StatusOK,
 			Body:       r,
 		}, nil
 	}

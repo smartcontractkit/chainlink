@@ -119,7 +119,7 @@ func createJobs(
 			"contractQualifier":    "",
 			"capRegVersion":        capRegVersion.String(),
 			"templateName":         "don-time",
-			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstraperPeerID + "@" + ocrPeeringCfg.OCRBootstraperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
+			"bootstrapperOCR3Urls": []string{ocrPeeringCfg.OCRBootstrapperPeerID + "@" + ocrPeeringCfg.OCRBootstrapperHost + ":" + strconv.Itoa(ocrPeeringCfg.Port)},
 		},
 	}
 	if creEnv.FreshExternalJobIDs {

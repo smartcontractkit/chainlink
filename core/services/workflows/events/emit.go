@@ -238,8 +238,7 @@ func ClassifyError(execErr error, fallback ErrorClassification) ErrorClassificat
 	if execErr == nil {
 		return ErrorClassificationUnspecified
 	}
-	var capErr caperrors.Error
-	if errors.As(execErr, &capErr) {
+	if capErr, ok := errors.AsType[caperrors.Error](execErr); ok {
 		switch capErr.Origin() {
 		case caperrors.OriginUser:
 			return ErrorClassificationUser
@@ -270,7 +269,7 @@ func classifiedExecutionStatus(status eventsv2.ExecutionStatus, errClass ErrorCl
 	}
 }
 
-func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status string, executionID string, execErr error, errClass ErrorClassification, lggr logger.Logger) error {
+func EmitExecutionFinishedEvent(ctx context.Context, labels map[string]string, status, executionID string, execErr error, errClass ErrorClassification, lggr logger.Logger) error {
 	metadata := buildWorkflowMetadata(labels, executionID)
 
 	event := &events.WorkflowExecutionFinished{
