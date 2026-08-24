@@ -57,7 +57,7 @@
   http_port_range_start = 10100
 
   # even though this DON is not using any capability for chain with ID 2337 we still need it to be connected to it,
-  # because bootstrap job for capability DON will be created on the boostrap node from this DON
+  # because bootstrap job for capability DON will be created on the bootstrap node from this DON
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }

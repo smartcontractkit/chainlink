@@ -24,7 +24,7 @@ type mockRun struct {
 	args []string
 }
 
-func (m *mockExecutor) Run(ctx context.Context, dir string, name string, args ...string) error {
+func (m *mockExecutor) Run(ctx context.Context, dir, name string, args ...string) error {
 	m.runs = append(m.runs, mockRun{dir: dir, name: name, args: args})
 	return m.err
 }

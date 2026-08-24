@@ -104,7 +104,7 @@ func parseGatewayConfig(t *testing.T, tomlConfig string) *config.GatewayConfig {
 	return &cfg
 }
 
-func parseConnectorConfig(t *testing.T, tomlConfig string, nodeAddress string, nodeURL string) *connector.ConnectorConfig {
+func parseConnectorConfig(t *testing.T, tomlConfig, nodeAddress, nodeURL string) *connector.ConnectorConfig {
 	nodeConfig := fmt.Sprintf(tomlConfig, nodeAddress, nodeURL)
 	var cfg connector.ConnectorConfig
 	require.NoError(t, toml.Unmarshal([]byte(nodeConfig), &cfg))
@@ -231,7 +231,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	require.JSONEq(t, nodeResponsePayload, string(respMsg.Body.Payload))
 }
 
-func newJSONRPCHTTPRequestObject(t *testing.T, messageID string, userURL string, signerKey *ecdsa.PrivateKey) *http.Request {
+func newJSONRPCHTTPRequestObject(t *testing.T, messageID, userURL string, signerKey *ecdsa.PrivateKey) *http.Request {
 	msg := &api.Message{Body: api.MessageBody{MessageId: messageID, Method: "test"}}
 	require.NoError(t, msg.Sign(signerKey))
 	msgBytes, err := json.Marshal(msg)

@@ -172,7 +172,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			ctx,
 			homeChainRelayer,
 			spec.CCIPSpec.CapabilityLabelledName,
-			spec.CCIPSpec.CapabilityVersion)
+			spec.CCIPSpec.CapabilityVersion,
+		)
 		return err2
 	},
 		retry.Attempts(0), // retry forever
@@ -182,7 +183,8 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			d.lggr.Warnw(
 				"failed to get home chain contract reader, retrying. if this is consistently happening please check home chain RPC health",
 				"attempt", attempt,
-				"err", err)
+				"err", err,
+			)
 		}),
 	)
 	if err != nil {

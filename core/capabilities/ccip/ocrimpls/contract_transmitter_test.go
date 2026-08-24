@@ -468,7 +468,8 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		txm,
 		gasEstimator,
 		chainWriterConfigRaw(transmitters[0], assets.GWei(1)),
-		nil)
+		nil,
+	)
 	require.NoError(t, err, "failed to create chain writer")
 	require.NoError(t, chainWriter.Start(t.Context()), "failed to start chain writer")
 	t.Cleanup(func() { require.NoError(t, chainWriter.Close()) })
@@ -647,7 +648,8 @@ func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore
 		estimator,
 		ht,
 		nil,
-		false)
+		false,
+	)
 	require.NoError(t, err, "can't create tx manager")
 
 	_, unsub := broadcaster.Subscribe(txm)
@@ -819,6 +821,7 @@ func (g *TestGasEstimatorConfig) Mode() string               { return "FixedPric
 func (g *TestGasEstimatorConfig) LimitJobType() evmconfig.LimitJobType {
 	return &TestLimitJobTypeConfig{}
 }
+
 func (g *TestGasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
 	return assets.GWei(1)
 }
@@ -829,8 +832,7 @@ func (e *TestEvmConfig) GasEstimator() evmconfig.GasEstimator {
 	return &TestGasEstimatorConfig{bumpThreshold: e.BumpThreshold}
 }
 
-type TestLimitJobTypeConfig struct {
-}
+type TestLimitJobTypeConfig struct{}
 
 func (l *TestLimitJobTypeConfig) OCR() *uint32    { return new(uint32(0)) }
 func (l *TestLimitJobTypeConfig) OCR2() *uint32   { return new(uint32(0)) }

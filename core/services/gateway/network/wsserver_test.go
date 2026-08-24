@@ -49,10 +49,10 @@ func startNewWSServer(t *testing.T, readTimeoutMillis uint32) (server network.We
 
 	port := server.GetPort()
 	url = fmt.Sprintf("http://%s:%d%s", WSTestHost, port, WSTestPath)
-	return
+	return server, acceptor, url
 }
 
-func sendRequestWithHeader(t *testing.T, url string, headerName string, headerValue string) *http.Response {
+func sendRequestWithHeader(t *testing.T, url, headerName, headerValue string) *http.Response {
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, url, bytes.NewBuffer([]byte{}))
 	require.NoError(t, err)
 	req.Header.Set(headerName, headerValue)

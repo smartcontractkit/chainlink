@@ -310,7 +310,7 @@ func consensusObservationError(errObs []*vaultcommon.Observation, f int) string 
 	return fallback
 }
 
-func classifyContributions(obs []*vaultcommon.Observation) (ok []*vaultcommon.Observation, err []*vaultcommon.Observation) {
+func classifyContributions(obs []*vaultcommon.Observation) (ok, err []*vaultcommon.Observation) {
 	for _, o := range obs {
 		switch {
 		case observationContributionIsErr(o):

@@ -220,7 +220,7 @@ func parseEATelemetry(b []byte) (EATelemetry, error) {
 	}, nil
 }
 
-// getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and trys to return
+// getJsonParsedValue checks if the next logical task is of type pipeline.TaskTypeJSONParse and tries to return
 // the response as a *big.Int.
 // Currently utils.ToDecimal cannot handle hex strings, so this function also has a special case,
 // to check and handle if the result is a hex string, if the call to utils.ToDecimal fails.

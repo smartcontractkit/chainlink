@@ -35,8 +35,10 @@ type Cache struct {
 	mu                   sync.RWMutex
 }
 
-var _ ORM = (*Cache)(nil)
-var _ services.Service = (*Cache)(nil)
+var (
+	_ ORM              = (*Cache)(nil)
+	_ services.Service = (*Cache)(nil)
+)
 
 func NewCache(base ORM, lggr logger.Logger, upsertInterval time.Duration) *Cache {
 	c := &Cache{
@@ -123,7 +125,7 @@ func (c *Cache) DeleteBridgeType(ctx context.Context, bt *BridgeType) error {
 	return err
 }
 
-func (c *Cache) BridgeTypes(ctx context.Context, offset int, limit int) ([]BridgeType, int, error) {
+func (c *Cache) BridgeTypes(ctx context.Context, offset, limit int) ([]BridgeType, int, error) {
 	return c.ORM.BridgeTypes(ctx, offset, limit)
 }
 

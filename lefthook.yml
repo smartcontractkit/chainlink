@@ -36,13 +36,7 @@ pre-commit:
                 # Check for common typos in the codebase
                 - name: typos
                   tags: [lint]
-                  exclude:
-                    - "go.mod"
-                    - "go.sum"
-                    - "*.lock"
-                    - "package-lock.json"
-                    - "pnpm-lock.yaml"
-                  run: typos {staged_files}
+                  run: typos --force-exclude --format brief {staged_files}
                   fail_text: "typos failed or missing. Install: https://github.com/crate-ci/typos#install"
 
                 - name: fix-and-generate
@@ -61,16 +55,20 @@ pre-commit:
                         stage_fixed: true
 
                       # Tidy go.mod/go.sum in parallel for changed modules
+                      # No {staged_files}: same merge-base diff base as lint/generate.
                       - name: go-mod-tidy
                         tags: [gomod]
                         glob:
                           - "*.go"
                           - "go.mod"
                           - "go.sum"
-                        run: tools/githooks/.bin/githooks tidy {staged_files}
+                        run: tools/githooks/.bin/githooks tidy
                         stage_fixed: true
 
                       # Regenerate code for changed packages (proto, config docs, go.md, mocks)
+                      # No {staged_files}: like lint, the command diffs against the merge-base
+                      # with the default branch so earlier branch commits still trigger their
+                      # generators.
                       - name: go-generate
                         tags: [generate]
                         glob:
@@ -79,18 +77,21 @@ pre-commit:
                           - "go.mod"
                           - "go.sum"
                           - ".mockery.yaml"
-                        run: tools/githooks/.bin/githooks generate {staged_files}
+                        run: tools/githooks/.bin/githooks generate
                         stage_fixed: true
 
-          # Lint only changed modules + packages — last, after generated and
-          # tidied code is stable.
+          # Lint changed modules + packages — last, after generated and
+          # tidied code is stable. No {staged_files}: the lint command diffs
+          # against the merge-base with the default branch (same base CI's
+          # only-new-issues uses), so issues introduced by earlier commits of
+          # the branch are still caught and fixed.
           - name: golangci-lint
             tags: [lint]
             glob:
               - "*.go"
               - "go.mod"
               - "go.sum"
-            run: tools/githooks/.bin/githooks lint {staged_files}
+            run: tools/githooks/.bin/githooks lint
             stage_fixed: true
 
 pre-push:

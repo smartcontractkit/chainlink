@@ -109,7 +109,7 @@ func newLoadedModule(mod host.ModuleV2) *loadedModule {
 // A plain Add(1) would race with a release that already drove the count to zero
 // and called Close, leading to a use-after-close. CAS makes the increment
 // conditional on the entry still being live.
-func (e *loadedModule) tryAcquire() (acquired bool, exhausted bool) {
+func (e *loadedModule) tryAcquire() (acquired, exhausted bool) {
 	cas := tryAcquireCompareAndSwap
 	if cas == nil {
 		cas = func(e *loadedModule, old, next int64) bool {

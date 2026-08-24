@@ -41,7 +41,7 @@ type ConnectionConfig interface {
 	MaxIdleConns() int
 }
 
-func NewConnection(ctx context.Context, uri string, driverName string, config ConnectionConfig) (db *sqlx.DB, err error) {
+func NewConnection(ctx context.Context, uri, driverName string, config ConnectionConfig) (db *sqlx.DB, err error) {
 	if driverName == commonpg.DriverTxWrappedPostgres {
 		if err = sqltest.RegisterTxDB(uri); err != nil {
 			return nil, fmt.Errorf("failed to register %s: %w", commonpg.DriverTxWrappedPostgres, err)

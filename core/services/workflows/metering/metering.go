@@ -85,7 +85,7 @@ type ProtoDetail struct {
 type ReportStep struct {
 	// The ID of the capability being used in this step
 	CapabilityID string
-	// CapDONN is the total number of nodes in a capability DON.
+	// CapdonN is the total number of nodes in a capability DON.
 	CapdonN uint32
 	// The maximum amount of universal credits that should be used in this step
 	Deduction decimal.Decimal

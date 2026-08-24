@@ -148,13 +148,13 @@ func createEVM2EVMMessage(t *testing.T, messageHasher *message_hasher.MessageHas
 	require.NoError(t, err)
 
 	numTokens := rand.Intn(10)
-	var sourceTokenDatas [][]byte
+	sourceTokenBytes := make([][]byte, 0, numTokens)
 	for range numTokens {
-		sourceTokenDatas = append(sourceTokenDatas, sourceTokenData)
+		sourceTokenBytes = append(sourceTokenBytes, sourceTokenData)
 	}
 
 	var tokenAmounts []cciptypes.RampTokenAmount
-	for range sourceTokenDatas {
+	for range sourceTokenBytes {
 		extraData := utils.RandomBytes32()
 		encodedDestExecData, err := utils.ABIEncode(`[{ "type": "uint32" }]`, rand.Uint32())
 		require.NoError(t, err)
@@ -226,7 +226,9 @@ func testSetup(t *testing.T) *testSetupData {
 	}
 }
 
-func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
+func TestMessageHasher_againstRmnSharedVector(t *testing.T) {
+	t.Parallel()
+
 	transactor := evmtestutils.MustNewSimTransactor(t)
 	backend := backends.NewSimulatedBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},

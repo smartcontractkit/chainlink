@@ -294,7 +294,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	defer s.mu.RUnlock()
 
 	if len(s.listeners) == 0 {
-		s.lggr.Warn("sync called, but no listeners are registered; nooping")
+		s.lggr.Warn("sync called, but no listeners are registered; no-op")
 		return nil
 	}
 

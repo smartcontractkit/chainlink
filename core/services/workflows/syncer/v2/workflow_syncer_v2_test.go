@@ -454,7 +454,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	}, tests.WaitTimeout(t), 10*time.Millisecond)
 }
 
-func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
+func Test_StartReconciliation_InitialStateSyncV2(t *testing.T) {
 	t.Parallel()
 	t.Run("with heavy load", func(t *testing.T) {
 		t.Parallel()
@@ -622,7 +622,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 	}
 }
 
-func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
+func Test_StartReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)

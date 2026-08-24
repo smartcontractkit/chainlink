@@ -20,8 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-const bufferCapacity = 2048
-const webRequestTimeout = 10
+const (
+	bufferCapacity    = 2048
+	webRequestTimeout = 10
+)
 
 type Data = map[string]any
 
@@ -113,7 +115,7 @@ func (l *AuditLoggerService) SetLoggingClient(newClient HTTPAuditLoggerInterface
 
 // Entrypoint for new audit logs. This buffers all logs that come in they will
 // sent out by the goroutine that was started when the AuditLoggerService was
-// created. If this service was not enabled, this immeidately returns.
+// created. If this service was not enabled, this immediately returns.
 //
 // This function never blocks.
 func (l *AuditLoggerService) Audit(eventID EventID, data Data) {

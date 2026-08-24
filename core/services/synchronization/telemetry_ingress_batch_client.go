@@ -194,7 +194,7 @@ func (tc *telemetryIngressBatchClient) close() (err error) {
 	return
 }
 
-// Send directs incoming telmetry messages to the worker responsible for pushing it to
+// Send directs incoming telemetry messages to the worker responsible for pushing it to
 // the ingress server. If the worker telemetry buffer is full, messages are dropped
 // and a warning is logged.
 func (tc *telemetryIngressBatchClient) Send(ctx context.Context, telemData []byte, contractID string, telemType TelemetryType) {

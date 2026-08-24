@@ -16,7 +16,8 @@ func newLintCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "lint [files...]",
 		Short: "Run golangci-lint on changed packages across modules",
-		Long:  "Discovers enclosing Go modules and packages for changed/staged files and executes golangci-lint on only those packages.",
+		Long: "Discovers enclosing Go modules and packages for files changed since the merge-base with the " +
+			"default branch and executes golangci-lint on only those packages, matching the CI diff base.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 
@@ -25,14 +26,19 @@ func newLintCmd() *cobra.Command {
 				return fmt.Errorf("could not find repo root: %w", err)
 			}
 
+			// An empty rev means "diff against the merge-base with the default
+			// branch", the same base CI's only-new-issues uses. Using HEAD here
+			// instead would hide issues introduced by earlier branch commits.
+			if rev == "" {
+				rev = modules.GetMergeBase(ctx, repoRoot)
+			}
+
 			files := args
 			if len(files) == 0 {
-				var staged []string
-				staged, err = modules.GetStagedFiles(ctx, repoRoot)
+				files, err = modules.GetChangedFilesSince(ctx, repoRoot, rev)
 				if err != nil {
 					return err
 				}
-				files = staged
 			}
 
 			targets, err := modules.FindAffectedModules(repoRoot, files)
@@ -58,7 +64,7 @@ func newLintCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&fix, "fix", true, "Fix issues automatically where possible")
-	cmd.Flags().StringVar(&rev, "rev", "HEAD", "Show issues in modified lines since rev")
+	cmd.Flags().StringVar(&rev, "rev", "", "Show issues introduced since rev (default: merge-base with the origin default branch)")
 
 	return cmd
 }

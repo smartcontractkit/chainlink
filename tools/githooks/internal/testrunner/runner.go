@@ -16,7 +16,7 @@ import (
 
 // Executor abstracts command execution for testability.
 type Executor interface {
-	Run(ctx context.Context, dir string, name string, args ...string) error
+	Run(ctx context.Context, dir, name string, args ...string) error
 }
 
 type osExecutor struct {
@@ -24,7 +24,7 @@ type osExecutor struct {
 	stderr io.Writer
 }
 
-func (e *osExecutor) Run(ctx context.Context, dir string, name string, args ...string) error {
+func (e *osExecutor) Run(ctx context.Context, dir, name string, args ...string) error {
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Stdout = e.stdout

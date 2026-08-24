@@ -217,11 +217,12 @@ type mockBridgeConfig struct{}
 func (m *mockBridgeConfig) BridgeResponseURL() *url.URL {
 	return nil
 }
+
 func (m *mockBridgeConfig) BridgeCacheTTL() time.Duration {
 	return 0
 }
 
-func createBridge(t testing.TB, name string, val string, borm bridges.ORM, maxCalls int64) {
+func createBridge(t testing.TB, name, val string, borm bridges.ORM, maxCalls int64) {
 	callcount := atomic.NewInt64(0)
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		n := callcount.Inc()

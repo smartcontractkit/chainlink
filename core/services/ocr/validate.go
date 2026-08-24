@@ -131,14 +131,14 @@ func ValidatedOracleSpecTomlCfg(gcfg GeneralConfig, configFn func(id *big.Int, c
 
 // Parameters that must be explicitly set by the operator.
 var (
-	// Common to both bootstrap and non-boostrap
+	// Common to both bootstrap and non-bootstrap
 	params = map[string]struct{}{
 		"type":            {},
 		"schemaVersion":   {},
 		"contractAddress": {},
 		"isBootstrapPeer": {},
 	}
-	// Boostrap and non-bootstrap parameters
+	// Bootstrap and non-bootstrap parameters
 	// are mutually exclusive.
 	bootstrapParams    = map[string]struct{}{}
 	nonBootstrapParams = map[string]struct{}{
