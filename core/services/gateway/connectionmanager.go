@@ -339,12 +339,12 @@ func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress strin
 }
 
 func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState) {
+	defer m.closeWait.Done()
 	ctx, cancel := m.shutdownCh.NewCtx()
 	defer cancel()
 	for {
 		select {
 		case <-m.shutdownCh:
-			m.closeWait.Done()
 			return
 		case item := <-nodeState.conn.ReadChannel():
 			var resp jsonrpc.Response[json.RawMessage]

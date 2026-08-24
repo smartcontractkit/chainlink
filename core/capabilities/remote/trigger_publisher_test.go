@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -292,6 +294,7 @@ func allowRegistrationChecks(dispatcher *mocks.Dispatcher) {
 func newRegisterTriggerMessage(t *testing.T, callerDonID uint32, sender p2ptypes.PeerID) *remotetypes.MessageBody {
 	// trigger registration event
 	triggerRequest := commoncap.TriggerRegistrationRequest{
+		TriggerID: t.Name() + strconv.Itoa(rand.Int()),
 		Metadata: commoncap.RequestMetadata{
 			WorkflowID: workflowID1,
 		},

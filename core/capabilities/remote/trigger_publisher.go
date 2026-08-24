@@ -314,6 +314,10 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
+		if !validation.IsValidID(req.TriggerID) {
+			p.lggr.Errorw("received trigger request with invalid trigger ID", "triggerID", SanitizeLogString(req.TriggerID))
+			return
+		}
 		if err = validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
 			p.lggr.Errorw("received trigger request with invalid workflow ID", "workflowId", SanitizeLogString(req.Metadata.WorkflowID), "err", err)
 			return
@@ -637,11 +641,16 @@ func (p *triggerPublisher) cacheCleanupLoop() {
 			// no longer want a registration respond to MethodTriggerRegistrationCheck
 			// with MethodUnregisterTrigger, which is handled in Receive.
 			p.mu.Lock()
-			deleted := p.ackCache.DeleteOlderThan(now - cfg.remoteConfig.MessageExpiry.Milliseconds())
+			ts := now - cfg.remoteConfig.MessageExpiry.Milliseconds()
+			ackDel := p.ackCache.DeleteOlderThan(ts)
+			msgDel := p.messageCache.DeleteOlderThan(ts)
 			p.mu.Unlock()
 
-			if deleted > 0 {
-				p.lggr.Debugw("cleaned expired AckCache entries", "deleted", deleted)
+			if ackDel > 0 {
+				p.lggr.Debugw("cleaned expired AckCache entries", "deleted", ackDel)
+			}
+			if msgDel > 0 {
+				p.lggr.Debugw("cleaned expired message entries", "deleted", msgDel)
 			}
 		}
 	}
