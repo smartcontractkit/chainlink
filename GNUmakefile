@@ -192,7 +192,7 @@ generate: codecgen mockery protoc gomods ## Execute all go:generate commands.
 
 .PHONY: rm-mocked
 rm-mocked:
-	$(RM_MOCKED_CMD) | xargs rm -f
+	@files=$$($(RM_MOCKED_CMD)); if [ -n "$$files" ]; then echo "$$files" | xargs rm -f; fi
 
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
