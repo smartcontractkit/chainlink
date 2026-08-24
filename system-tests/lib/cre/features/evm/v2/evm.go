@@ -1,59 +1,46 @@
 package v2
 
 import (
-	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
-	"maps"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
-	"dario.cat/mergo"
 	"github.com/Masterminds/semver/v3"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-	cre_jobs "github.com/smartcontractkit/chainlink/deployment/cre/jobs"
-	cre_jobs_ops "github.com/smartcontractkit/chainlink/deployment/cre/jobs/operations"
-	cre_jobs_pkg "github.com/smartcontractkit/chainlink/deployment/cre/jobs/pkg"
-	job_types "github.com/smartcontractkit/chainlink/deployment/cre/jobs/types"
-	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
-	"github.com/smartcontractkit/chainlink/deployment/cre/pkg/offchain"
-	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
-
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+
+	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
+	"github.com/smartcontractkit/chainlink/deployment/cre/ocr3"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	ks_contracts_op "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/operations/contracts"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
-	credon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/standardcapability"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/jobhelpers"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
-	"github.com/smartcontractkit/chainlink/deployment/cre/forwarder"
-
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 )
 
 const (
 	flag                = cre.EVMCapability
-	configTemplate      = `{"chainId":{{printf "%d" .ChainID}}, "network":"{{.NetworkFamily}}", "logTriggerPollInterval":{{printf "%d" .LogTriggerPollInterval}}, "creForwarderAddress":"{{.CreForwarderAddress}}", "receiverGasMinimum":{{.ReceiverGasMinimum}}, "nodeAddress":"{{.NodeAddress}}", "deltaStage":{{printf "%d" .DeltaStage}}{{with .LogTriggerSendChannelBufferSize}},"logTriggerSendChannelBufferSize":{{printf "%d" .}}{{end}}{{with .LogTriggerLimitQueryLogSize}},"logTriggerLimitQueryLogSize":{{printf "%d" .}}{{end}}}`
 	registrationRefresh = 20 * time.Second
 	registrationExpiry  = 60 * time.Second
 	deltaStage          = 500*time.Millisecond + 1*time.Second // block time + 1 second delta
@@ -191,6 +178,57 @@ func chainsWithEVMCapability(chains []blockchains.Blockchain, dons []*cre.Don) m
 	return chainsWithEVMCapability
 }
 
+// The EVM binary runs as a capability runner rather than as a standard
+// capability: it reaches the chain itself - its own RPC client, log poller and
+// transaction manager over its own tables - and borrows from the crecore process
+// beside it only what a node alone has. Those addresses are the ones the node
+// launches crecore with, so they must match the [Capabilities.Proxy] block in the
+// topology config (GRPCPort), which is what enables crecore in the first place.
+const (
+	// creCoreGRPCTarget is crecore's single gRPC address: the OCR proxy, the chain
+	// keys it signs with, and the capabilities registry are all served on it.
+	creCoreGRPCTarget = "localhost:50051"
+
+	// runnerHTTPPortBase is where this capability's runners serve /metrics,
+	// /debug/pprof, health and - the part the node needs - the settings reload
+	// endpoint. One per chain, numbered from here, since a node running the EVM
+	// capability on two chains runs two of these. Loopback inside the node's
+	// container; it only has to avoid crecore's 50051/50052 and the ports the other
+	// capability runners take (consensus 50053, cron 50054).
+	runnerHTTPPortBase = 50060
+)
+
+// evmFlagPrefix is the namespace the EVM binary registers its own settings under,
+// so a value from capability_defaults.toml becomes a flag.
+const evmFlagPrefix = "--evm."
+
+// evmValueFlags maps the keys accepted under [capability_configs.evm.values] to
+// the binary's flag names. Unknown keys are rejected rather than dropped: a value
+// set in the TOML and silently ignored looks like the binary disagreeing with its
+// configuration.
+//
+// The keys that name something this feature works out for itself - the chain, the
+// forwarder it deploys, the account a node signs with - are not here; they are
+// passed below and would be two sources for one answer.
+var evmValueFlags = map[string]string{
+	"LogTriggerPollInterval":          "log-trigger-poll-interval",
+	"LogTriggerSendChannelBufferSize": "log-trigger-send-channel-buffer-size",
+	"LogTriggerLimitQueryLogSize":     "log-trigger-limit-query-log-size",
+	"ReceiverGasMinimum":              "receiver-gas-minimum",
+	"ForwarderLookbackBlocks":         "forwarder-lookback-blocks",
+	"ObservationPollerWorkersCount":   "observation-poller-workers-count",
+	"ObservationPollPeriod":           "observation-poll-period",
+	"ChainHeightPollPeriod":           "chain-height-poll-period",
+	"UnknownRequestsTTL":              "unknown-requests-ttl",
+}
+
+// runtimeValueFlags are the values this feature resolves rather than reads: they
+// come from the environment it just built, so a TOML naming them is a
+// configuration that can disagree with the deployment.
+var runtimeValueFlags = map[string]bool{
+	"ChainID": true, "NetworkFamily": true, "CreForwarderAddress": true, "NodeAddress": true, "DeltaStage": true,
+}
+
 func createJobs(
 	ctx context.Context,
 	don *cre.Don,
@@ -222,28 +260,26 @@ func createJobs(
 	if err != nil {
 		return fmt.Errorf("could not find enabled chainIDs for '%s' in don '%s': %w", flag, don.Name, err)
 	}
+	// Sorted so that a chain's HTTP port, which is its position in this list, is the
+	// same on every run rather than following the order the capability was declared.
+	slices.Sort(enabledChainIDs)
 
 	registryChainID, rcErr := chainselectors.ChainIdFromSelector(creEnv.RegistryChainSelector)
 	if rcErr != nil {
 		return fmt.Errorf("failed to get chain ID from registry chain selector %d: %w", creEnv.RegistryChainSelector, rcErr)
 	}
 
-	type proposalWork struct {
-		chainID          uint64
-		chainIDStr       string
-		chainSelector    uint64
-		capabilityConfig cre.CapabilityConfig
-		command          string
-		workerNode       *cre.Node
-	}
+	specs := make(cre.DonJobs, 0, len(enabledChainIDs)*len(workerNodes))
+	for i, chainID := range enabledChainIDs {
+		chain, chainErr := evmChain(creEnv, chainID)
+		if chainErr != nil {
+			return chainErr
+		}
 
-	workItems := make([]proposalWork, 0, len(enabledChainIDs)*len(workerNodes))
-	for _, chainID := range enabledChainIDs {
 		chainSelector, selErr := chainselectors.SelectorFromChainId(chainID)
 		if selErr != nil {
 			return errors.Wrapf(selErr, "failed to get chain selector from chainID %d", chainID)
 		}
-		chainIDStr := strconv.FormatUint(chainID, 10)
 
 		capabilityConfig, resolveErr := cre.ResolveCapabilityConfig(nodeSet, flag, cre.ChainCapabilityScope(chainID))
 		if resolveErr != nil {
@@ -252,194 +288,231 @@ func createJobs(
 
 		command, cErr := standardcapability.GetCommand(capabilityConfig.BinaryName)
 		if cErr != nil {
-			return errors.Wrap(cErr, "failed to get command for Read Contract capability")
+			return errors.Wrap(cErr, "failed to get command for the EVM capability")
+		}
+
+		configFlags, configErr := buildConfigFlags(capabilityConfig)
+		if configErr != nil {
+			return configErr
+		}
+
+		forwarderKey := datastore.NewAddressRefKey(
+			chainSelector,
+			datastore.ContractType(keystone_changeset.KeystoneForwarder.String()),
+			semver.MustParse("1.0.0"),
+			"",
+		)
+		creForwarder, fErr := creEnv.CldfEnvironment.DataStore.Addresses().Get(forwarderKey)
+		if fErr != nil {
+			return errors.Wrap(fErr, "failed to get CRE Forwarder address")
 		}
 
 		for _, workerNode := range workerNodes {
-			workItems = append(workItems, proposalWork{
-				chainID:          chainID,
-				chainIDStr:       chainIDStr,
-				chainSelector:    chainSelector,
-				capabilityConfig: capabilityConfig,
-				command:          command,
-				workerNode:       workerNode,
+			spec, specErr := capabilityRunnerJobSpec(runnerInputs{
+				node:                workerNode,
+				don:                 don,
+				chain:               chain,
+				chainID:             chainID,
+				registryChainID:     registryChainID,
+				httpPort:            runnerHTTPPortBase + i,
+				command:             command,
+				creForwarderAddress: creForwarder.Address,
+				bootstrapPeer:       formatBootstrapPeer(bootstrap),
+				configFlags:         configFlags,
 			})
+			if specErr != nil {
+				return specErr
+			}
+			specs = append(specs, spec)
 		}
 	}
-
-	results := make([]map[string][]string, len(workItems))
-	group, groupCtx := errgroup.WithContext(ctx)
-	group.SetLimit(jobhelpers.Parallelism(len(workItems)))
-
-	for i, workItem := range workItems {
-		group.Go(func() error {
-			chainID := workItem.chainID
-			chainSelector := workItem.chainSelector
-			workerNode := workItem.workerNode
-
-			evmKey, ok := workerNode.Keys.EVM[chainID]
-			if !ok {
-				return fmt.Errorf("failed to get EVM key (chainID %d, node index %d)", chainID, workerNode.Index)
-			}
-			nodeAddress := evmKey.PublicAddress.Hex()
-
-			evmRegistryKey, ok := workerNode.Keys.EVM[registryChainID]
-			if !ok {
-				return fmt.Errorf("failed to get registry EVM key (chainID %d, node index %d) enabledChainIDs: %v", registryChainID, workerNode.Index, enabledChainIDs)
-			}
-			nodeRegistryAddress := evmRegistryKey.PublicAddress.Hex()
-
-			creForwarderKey := datastore.NewAddressRefKey(
-				chainSelector,
-				datastore.ContractType(keystone_changeset.KeystoneForwarder.String()),
-				semver.MustParse("1.0.0"),
-				"",
-			)
-			creForwarderAddress, cErr := creEnv.CldfEnvironment.DataStore.Addresses().Get(creForwarderKey)
-			if cErr != nil {
-				return errors.Wrap(cErr, "failed to get CRE Forwarder address")
-			}
-
-			runtimeFallbacks := buildRuntimeValues(chainID, "evm", creForwarderAddress.Address, nodeAddress)
-			templateData := maps.Clone(workItem.capabilityConfig.Values)
-
-			var aErr error
-			templateData, aErr = credon.ApplyRuntimeValues(templateData, runtimeFallbacks)
-			if aErr != nil {
-				return errors.Wrap(aErr, "failed to apply runtime values")
-			}
-
-			tmpl, tErr := template.New("evmConfig").Parse(configTemplate)
-			if tErr != nil {
-				return errors.Wrapf(tErr, "failed to parse %s config template", flag)
-			}
-
-			var configBuffer bytes.Buffer
-			if execErr := tmpl.Execute(&configBuffer, templateData); execErr != nil {
-				return errors.Wrapf(execErr, "failed to execute %s config template", flag)
-			}
-
-			configStr := configBuffer.String()
-
-			if validateErr := credon.ValidateTemplateSubstitution(configStr, flag); validateErr != nil {
-				return fmt.Errorf("%s template validation failed: %w\nRendered template: %s", flag, validateErr, configStr)
-			}
-
-			evmKeyBundle, ok := workerNode.Keys.OCR2BundleIDs[chainselectors.FamilyEVM] // we can always expect evm bundle key id present since evm is the registry chain
-			if !ok {
-				return fmt.Errorf("failed to get key bundle id for evm family for node %s", workerNode.Name)
-			}
-
-			bootstrapPeers := []string{fmt.Sprintf("%s@%s:%d", strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"), bootstrap.Host, cre.OCRPeeringPort)}
-
-			strategyName := "single-chain"
-			if len(workerNode.Keys.OCR2BundleIDs) > 1 {
-				strategyName = "multi-chain"
-			}
-
-			capRegVersion, ok := creEnv.ContractVersions[keystone_changeset.CapabilitiesRegistry.String()]
-			if !ok {
-				return errors.New("CapabilitiesRegistry version not found in contract versions")
-			}
-			registryAddrRefKey := cre_jobs_pkg.GetCapRegAddressRefKey(creEnv.RegistryChainSelector, "", capRegVersion.String())
-			registryContractAddrRef, err := creEnv.CldfEnvironment.DataStore.Addresses().Get(registryAddrRefKey)
-			if err != nil {
-				return fmt.Errorf("failed to get contract address for ref key %s: %w", registryAddrRefKey, err)
-			}
-
-			workerInput := cre_jobs.ProposeJobSpecInput{
-				Domain:      offchain.ProductLabel,
-				Environment: creEnv.CldfEnvironment.Name,
-				DONName:     don.Name,
-				JobName:     fmt.Sprintf("evm-worker-%d", chainID),
-				ExtraLabels: map[string]string{cre.CapabilityLabelKey: flag},
-				DONFilters: []offchain.TargetDONFilter{
-					{Key: offchain.FilterKeyDONName, Value: don.Name},
-					{Key: "p2p_id", Value: workerNode.Keys.PeerID()}, // required since each node requires a different config (it contains its own from address)
-				},
-				Template: job_types.EVM,
-				Inputs: job_types.JobSpecInput{
-					"command": workItem.command,
-					"config":  configStr,
-					"oracleFactory": cre_jobs_pkg.OracleFactory{
-						Enabled:            true,
-						ChainID:            workItem.chainIDStr,
-						BootstrapPeers:     bootstrapPeers,
-						OCRContractAddress: registryContractAddrRef.Address,
-						OCRKeyBundleID:     evmKeyBundle,
-						TransmitterID:      nodeRegistryAddress,
-						OnchainSigningStrategy: cre_jobs_pkg.OnchainSigningStrategy{
-							StrategyName: strategyName,
-							Config:       workerNode.Keys.OCR2BundleIDs,
-						},
-					},
-					"useCapRegOCRConfig": true,
-					"capRegVersion":      capRegVersion.String(),
-				},
-			}
-			if creEnv.FreshExternalJobIDs {
-				workerInput.Inputs["externalJobID"] = uuid.NewString()
-			}
-
-			workerVerErr := cre_jobs.ProposeJobSpec{}.VerifyPreconditions(*creEnv.CldfEnvironment, workerInput)
-			if workerVerErr != nil {
-				return fmt.Errorf("precondition verification failed for EVM worker job: %w", workerVerErr)
-			}
-
-			workerReport, workerErr := cre_jobs.ProposeJobSpec{}.Apply(*creEnv.CldfEnvironment, workerInput)
-			if workerErr != nil {
-				return fmt.Errorf("failed to propose EVM worker job spec: %w", workerErr)
-			}
-
-			specs := make(map[string][]string)
-			for _, r := range workerReport.Reports {
-				out, ok := r.Output.(cre_jobs_ops.ProposeStandardCapabilityJobOutput)
-				if !ok {
-					return fmt.Errorf("unable to cast to ProposeStandardCapabilityJobOutput, actual type: %T", r.Output)
-				}
-				mErr := mergo.Merge(&specs, out.Specs, mergo.WithAppendSlice)
-				if mErr != nil {
-					return fmt.Errorf("failed to merge worker job specs: %w", mErr)
-				}
-			}
-
-			select {
-			case <-groupCtx.Done():
-				return groupCtx.Err()
-			default:
-			}
-
-			results[i] = specs
-			return nil
-		})
+	if len(specs) == 0 {
+		return fmt.Errorf("no worker nodes found in %s DON to run the EVM capability", don.GetName())
 	}
 
-	if wErr := group.Wait(); wErr != nil {
-		return wErr
-	}
-
-	specs, mErr := jobhelpers.MergeSpecsByIndex(results)
-	if mErr != nil {
-		return mErr
-	}
-
-	approveErr := jobs.Approve(ctx, creEnv.CldfEnvironment.Offchain, dons, specs)
-	if approveErr != nil {
-		return fmt.Errorf("failed to approve EVM jobs: %w", approveErr)
+	if err := jobs.Create(ctx, creEnv.CldfEnvironment.Offchain, dons, specs); err != nil {
+		return fmt.Errorf("failed to create EVM jobs: %w", err)
 	}
 
 	return nil
 }
 
-// buildRuntimeValues creates runtime-generated  values for any keys not specified in TOML
-func buildRuntimeValues(chainID uint64, networkFamily, creForwarderAddress, nodeAddress string) map[string]any {
-	return map[string]any{
-		"ChainID":             chainID,
-		"NetworkFamily":       networkFamily,
-		"CreForwarderAddress": creForwarderAddress,
-		"NodeAddress":         nodeAddress,
-		"DeltaStage":          deltaStage,
+// runnerInputs is one job: one node, running this capability against one chain.
+type runnerInputs struct {
+	node            *cre.Node
+	don             *cre.Don
+	chain           blockchains.Blockchain
+	chainID         uint64
+	registryChainID uint64
+	httpPort        int
+
+	command             string
+	creForwarderAddress string
+	bootstrapPeer       string
+	configFlags         []string
+}
+
+// capabilityRunnerJobSpec builds the capabilityrunner job that launches the EVM
+// binary on one node, for one chain.
+//
+// The node supervises the process over the empty LOOP and notifies it of CRE
+// settings updates on --http.port; the database it keeps its chain state in comes
+// from the node's own CL_DATABASE_URL, which the process inherits, in a schema of
+// its own. Everything else it is told here, since a process that hosts no node
+// cannot look any of it up: the chain to dial, the peer and keys crecore holds on
+// its behalf, and which DON it is.
+func capabilityRunnerJobSpec(in runnerInputs) (*jobv1.ProposeJobRequest, error) {
+	if in.node.JobDistributorDetails == nil {
+		return nil, fmt.Errorf("node %s has no job distributor details", in.node.Name)
 	}
+	peerID := strings.TrimPrefix(in.node.PeerID(), "p2p_")
+	if peerID == "" {
+		return nil, fmt.Errorf("node %s has no P2P peer ID", in.node.Name)
+	}
+
+	// The account this node transmits from on the registry chain, which is what the
+	// OCR configuration lists it under, and the account it sends this chain's
+	// transactions from - the same node, two chains, two keys.
+	transmitAccount, err := transmitAccountFor(in.node, in.registryChainID)
+	if err != nil {
+		return nil, err
+	}
+	chainKey, ok := in.node.Keys.EVM[in.chainID]
+	if !ok {
+		return nil, fmt.Errorf("node %s has no EVM key for chain %d", in.node.Name, in.chainID)
+	}
+
+	rpc := in.chain.CtfOutput().Nodes[0]
+
+	args := []string{
+		// One instance, configured as it is here. The binary also has an "embed"
+		// subcommand for running several in one process, which is for local runs
+		// rather than for the node.
+		"run",
+		fmt.Sprintf("--http.port=%d", in.httpPort),
+		"--ocr.proxy-address=" + creCoreGRPCTarget,
+		"--ocr.peer-id=" + peerID,
+		"--ocr.transmit-account=" + transmitAccount,
+		"--ocr.bootstrappers=" + in.bootstrapPeer,
+		"--keystore.proxy-address=" + creCoreGRPCTarget,
+		"--capabilities.proxy-url=" + creCoreGRPCTarget,
+		fmt.Sprintf("--capabilities.capability-don-id=%d", in.don.ID),
+		// Its own schema in the node's database, created by the node's migrations
+		// (0303_create_cre_standalone_schemas.sql): the tables are chainlink-evm's, and
+		// the node's own copies of them are not this capability's to share. One schema
+		// for every chain, not one per chain - these tables carry an evm_chain_id, which
+		// is how the node keeps every chain in its own single evm schema.
+		"--database.schema=evm_capability",
+		fmt.Sprintf("--evm.chain-id=%d", in.chainID),
+		"--evm.http-url=" + rpc.InternalHTTPUrl,
+		"--evm.cre-forwarder-address=" + in.creForwarderAddress,
+		"--evm.node-address=" + chainKey.PublicAddress.Hex(),
+		"--evm.delta-stage=" + deltaStage.String(),
+	}
+	if rpc.InternalWSUrl != "" {
+		args = append(args, "--evm.ws-url="+rpc.InternalWSUrl)
+	} else {
+		// Without a websocket the RPC pool has to poll for heads, and a pool doing
+		// neither declares the chain unreachable.
+		args = append(args, "--evm.new-heads-poll-interval=1s")
+	}
+	args = append(args, in.configFlags...)
+
+	quoted := make([]string, 0, len(args))
+	for _, a := range args {
+		quoted = append(quoted, fmt.Sprintf("%q", a))
+	}
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: in.node.JobDistributorDetails.NodeID,
+		Spec: fmt.Sprintf(`
+type = "capabilityrunner"
+schemaVersion = 1
+externalJobID = "%s"
+name = "evm-worker-%d"
+command = "%s"
+args = [%s]
+`,
+			uuid.NewString(),
+			in.chainID,
+			in.command,
+			strings.Join(quoted, ", "),
+		),
+	}, nil
+}
+
+// buildConfigFlags turns [capability_configs.evm.values] into --evm.* flags. An
+// empty set leaves every field at the binary's own default.
+func buildConfigFlags(capConfig cre.CapabilityConfig) ([]string, error) {
+	keys := make([]string, 0, len(capConfig.Values))
+	for k := range capConfig.Values {
+		keys = append(keys, k)
+	}
+	// Sorted so the args - and so the job spec a node is proposed - are the same on
+	// every run rather than following map iteration order.
+	sort.Strings(keys)
+
+	configFlags := make([]string, 0, len(keys))
+	for _, k := range keys {
+		if runtimeValueFlags[k] {
+			// Resolved from the environment below; a configured copy could only disagree
+			// with it, so it is ignored rather than argued with.
+			continue
+		}
+		name, ok := evmValueFlags[k]
+		if !ok {
+			return nil, fmt.Errorf("unknown EVM capability config value %q; the EVM binary accepts %s",
+				k, strings.Join(sortedKeys(evmValueFlags), ", "))
+		}
+		configFlags = append(configFlags, fmt.Sprintf("%s%s=%v", evmFlagPrefix, name, capConfig.Values[k]))
+	}
+	return configFlags, nil
+}
+
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// evmChain is the blockchain this capability reads, as the environment built it.
+func evmChain(creEnv *cre.Environment, chainID uint64) (blockchains.Blockchain, error) {
+	for _, bc := range creEnv.Blockchains {
+		if bc.IsFamily(blockchain.FamilyEVM) && bc.ChainID() == chainID {
+			return bc, nil
+		}
+	}
+	return nil, fmt.Errorf("no EVM chain %d in this environment", chainID)
+}
+
+// transmitAccountFor returns the account the node is registered to transmit from:
+// its EVM address on the registry chain, as lowercase hex with no 0x prefix.
+//
+// The presentation is the point, not just the address. libocr compares this to the
+// config as an account string, and the config's copy is produced by whoever decodes
+// it: for a capability read out of the CapabilitiesRegistry that is
+// capabilitiespb.OCR3ConfigFromProto, which renders each on-chain transmitter as
+// hex.EncodeToString of its 20 bytes. So this renders it the same way rather than
+// reading it back from JD, which reports the EIP-55 form and would never match.
+func transmitAccountFor(node *cre.Node, registryChainID uint64) (string, error) {
+	if node.Keys == nil {
+		return "", fmt.Errorf("node %s has no keys", node.Name)
+	}
+	key, ok := node.Keys.EVM[registryChainID]
+	if !ok || key == nil {
+		return "", fmt.Errorf("node %s has no EVM key for the registry chain %d, so it has no account to transmit from", node.Name, registryChainID)
+	}
+	return hex.EncodeToString(key.PublicAddress.Bytes()), nil
+}
+
+func formatBootstrapPeer(bootstrap *cre.Node) string {
+	return fmt.Sprintf("%s@%s:%d",
+		strings.TrimPrefix(bootstrap.Keys.PeerID(), "p2p_"),
+		bootstrap.Host,
+		cre.OCRPeeringPort)
 }
 
 // getEvmMethodConfigs returns the method configs for all EVM methods we want to support, if any method is missing it

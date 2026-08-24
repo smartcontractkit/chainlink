@@ -22,13 +22,13 @@
   binary_name = "evm"
 
 [capability_configs.evm.values]
-  LogTriggerPollInterval = 1500000000  # 1.5s in nanoseconds
+  # Durations are written as durations: these become --evm.* flags on the binary.
+  LogTriggerPollInterval = "1.5s"
   ReceiverGasMinimum = 500
   # LogTriggerSendChannelBufferSize = 1000 # default 1000, ommited here to use default
   # LogTriggerLimitQueryLogSize = 1000 # default 1000, ommited here to use default
-  # Runtime values below are typically filled at runtime, but may be overridden
-  # CreForwarderAddress = "0x0000000000000000000000000000000000000000"
-  # NodeAddress = "0x0000000000000000000000000000000000000000"
+  # The chain, the forwarder and this node's account are resolved from the environment
+  # the capability runs in, so they are not settings here.
 
 [capability_configs.http-action]
   binary_name = "http_action"

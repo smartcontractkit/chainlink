@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	beholderServices "github.com/smartcontractkit/chainlink/v2/core/services/beholder"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cre/keyseed"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -642,6 +643,18 @@ func (s *Shell) runNode(c *cli.Context) error {
 	err2 = app.GetKeyStore().CSA().EnsureKey(rootCtx)
 	if err2 != nil {
 		return fmt.Errorf("failed to ensure CSA key: %w", err2)
+	}
+
+	// The CRE processes this node launches beside itself read a different keystore in
+	// the same database, and they have to read the same keys: the p2p proxy announces
+	// as this node's peer and signs rounds as its OCR identity. Copied here, after the
+	// keys above exist and before app.Start launches anything that reads them.
+	//
+	// A bootstrap, not a migration - see the keyseed package.
+	if s.Config.Capabilities().Proxy().Enabled() {
+		if err2 = keyseed.Seed(rootCtx, lggr, app.GetKeyStore(), s.DS, s.Config.Password().Keystore(), keyseed.DefaultNames); err2 != nil {
+			return fmt.Errorf("failed to copy this node's keys into the CRE keystore: %w", err2)
+		}
 	}
 
 	if e := checkFilePermissions(lggr, s.Config.RootDir()); e != nil {

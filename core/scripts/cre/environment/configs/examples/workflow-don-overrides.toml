@@ -46,7 +46,7 @@
 
     # Chain-specific evm override example
     [nodesets.capability_configs.evm-1337.values]
-       LogTriggerPollInterval = 2500000000  # 2.5s in nanoseconds
+       LogTriggerPollInterval = "2.5s"
 
 # [nodesets.capability_configs.http-action]
 #    binary_name = "http_action"

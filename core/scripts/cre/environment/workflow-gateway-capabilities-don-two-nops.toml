@@ -57,7 +57,9 @@
     port = 13000
 
  # override_mode = "each": one block per node, in order node0, node1, node2, node3.
-  # Nodes 2 and 3 route OCR + DON-to-DON through the p2p proxy.
+  # Every worker routes OCR + DON-to-DON through the p2p proxy: the capabilities they run
+  # are separate processes now, and each one signs, transmits and reaches its DON through
+  # the proxy beside it. A worker without one runs a capability that can do none of those.
   [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
@@ -65,7 +67,13 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
+      user_config_overrides = '''
+[Capabilities.Proxy]
+Enabled = true
+Command = '/usr/local/bin/crecore'
+GRPCPort = 50051
+HTTPPort = 50052
+'''
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -73,7 +81,13 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      user_config_overrides = ""
+      user_config_overrides = '''
+[Capabilities.Proxy]
+Enabled = true
+Command = '/usr/local/bin/crecore'
+GRPCPort = 50051
+HTTPPort = 50052
+'''
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -124,7 +138,9 @@ HTTPPort = 50052
     port = 13100
 
   # override_mode = "each": one block per node, in order node0, node1, node2, node3.
-  # Nodes 2 and 3 route OCR + DON-to-DON through the p2p proxy.
+  # Every worker routes OCR + DON-to-DON through the p2p proxy: the capabilities they run
+  # are separate processes now, and each one signs, transmits and reaches its DON through
+  # the proxy beside it. A worker without one runs a capability that can do none of those.
   [[nodesets.node_specs]]
     roles = ["plugin"]
     [nodesets.node_specs.node]
@@ -132,7 +148,13 @@ HTTPPort = 50052
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
+      user_config_overrides = '''
+[Capabilities.Proxy]
+Enabled = true
+Command = '/usr/local/bin/crecore'
+GRPCPort = 50051
+HTTPPort = 50052
+'''
 
   [[nodesets.node_specs]]
     roles = ["plugin"]
@@ -140,7 +162,13 @@ HTTPPort = 50052
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      user_config_overrides = ""
+      user_config_overrides = '''
+[Capabilities.Proxy]
+Enabled = true
+Command = '/usr/local/bin/crecore'
+GRPCPort = 50051
+HTTPPort = 50052
+'''
 
   [[nodesets.node_specs]]
     roles = ["plugin"]

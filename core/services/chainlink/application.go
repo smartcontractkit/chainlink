@@ -65,6 +65,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvcommitteeverifier"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ccv/ccvexecutor"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cre"
+	"github.com/smartcontractkit/chainlink/v2/core/services/cre/keyseed"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cresettings"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
@@ -629,14 +630,19 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, loopRegistry.Register, loopRegistry.Unregister)
 
+	// creStandaloneSchema is where the p2p proxy keeps its tables. It matches the schema
+	// core's own migrations create (0303_create_cre_standalone_schemas.sql), so the proxy
+	// needs no right to create one in the database it is pointed at.
+	const creStandaloneSchema = "crecore"
+
 	// When the CRE p2p proxy is enabled, launch the proxy binary as a LOOP. It
 	// serves the OCR and DON-to-DON proxy gRPC that the clients (wired below and
 	// in the CRE) connect to.
 	if cfg.Capabilities().Proxy().Enabled() {
-		// The launched process does not inherit our environment, so pass the proxy
-		// its config explicitly: addresses as CLI args, secrets via env. It gets
-		// its P2P key from the shared DB keystore table itself (via
-		// CL_DATABASE_URL + CL_PASSWORD_KEYSTORE); we do not export the key here.
+		// The launched process does not inherit our environment, so pass the proxy its
+		// config explicitly. Its keys are not among it: what it gets is where they are -
+		// this database, that keystore, those names - and it reads the same keys we do,
+		// copied into the CRE keystore by keyseed at startup.
 		proxyDBURL := cfg.Database().URL()
 
 		// The proxy also serves the CapabilitiesRegistry, which it reads from chain
@@ -659,7 +665,17 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			"--evm.chain-id=" + extRegistry.ChainID(),
 			"--evm.http-url=" + proxyEVMRPC.HTTPURL,
 			"--database.url=" + proxyDBURL.String(),
-			"--ocr.keystore-password=" + cfg.Password().Keystore(),
+			// Its own schema in this database, created by our migrations: the proxy keeps
+			// tables of its own - p2p announcements, the last registry it read - and they
+			// have no more business in public beside ours than ours have in its.
+			"--database.schema=" + creStandaloneSchema,
+			"--keystore.password=" + cfg.Password().Keystore(),
+			// Which keys, said here rather than left to the proxy's defaults: these are the
+			// names our own keyseed copied this node's keys under, so the two sides are wired
+			// from one set of names instead of two that happen to agree.
+			"--keystore.name=" + keyseed.DefaultNames.Store,
+			"--keystore.peer-key=" + keyseed.DefaultNames.Peer,
+			"--keystore.ocr-key=" + keyseed.DefaultNames.OCR,
 		}
 		// The proxy's pool needs heads: without either of these it can neither
 		// subscribe nor poll, so it declares the node unreachable and never reads the
