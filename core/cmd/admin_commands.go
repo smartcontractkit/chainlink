@@ -397,16 +397,14 @@ func (s *Shell) Profile(c *cli.Context) error {
 	return nil
 }
 
-func (s *Shell) discoverPlugins(ctx context.Context) (
-	got []struct {
-		Targets []string          `yaml:"targets"`
-		Labels  map[string]string `yaml:"labels"`
-	},
-	err error,
+func (s *Shell) discoverPlugins(ctx context.Context) ([]struct {
+	Targets []string          `yaml:"targets"`
+	Labels  map[string]string `yaml:"labels"`
+}, error,
 ) {
 	resp, err := s.HTTP.Get(ctx, "/discovery")
 	if err != nil {
-		return got, err
+		return nil, err
 	}
 	defer func() {
 		if resp.Body != nil {
@@ -415,14 +413,18 @@ func (s *Shell) discoverPlugins(ctx context.Context) (
 	}()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return got, err
+		return nil, err
 	}
 
+	var got []struct {
+		Targets []string          `yaml:"targets"`
+		Labels  map[string]string `yaml:"labels"`
+	}
 	if err = json.Unmarshal(data, &got); err != nil {
 		s.Logger.Errorf("failed to unmarshal discovery response: %s", string(data))
-		return got, err
+		return nil, err
 	}
-	return got, err
+	return got, nil
 }
 
 func (s *Shell) profile(ctx context.Context, genDir, name string, vitals []string, seconds int) error {
