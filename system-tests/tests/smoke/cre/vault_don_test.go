@@ -212,33 +212,31 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		executeVaultSecretsDeleteTest(t, secretID, owner, owner, gwURL, []string{"alt"}, sc, wfReg)
 	})
 
-	if isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
-		t.Run("identifier_validation", func(t *testing.T) {
-			if parallelEnabled {
-				t.Parallel()
-			}
-			subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
-			sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
-			owner := sc.MustGetRootKeyAddress().Hex()
-			wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
-			wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
-			require.NoError(t, err)
-			require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
-			vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
-			enc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-basic", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
-			require.NoError(t, err)
-			ulCh := make(chan *workflowevents.UserLogs, 1000)
-			bmCh := make(chan *commonevents.BaseMessage, 1000)
-			sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
-			t.Cleanup(func() {
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
-			})
-			executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
-			executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
+	t.Run("identifier_validation", func(t *testing.T) {
+		if parallelEnabled {
+			t.Parallel()
+		}
+		subEnv := t_helpers.SetupTestEnvironmentWithPerTestKeys(t, testEnv.TestConfig)
+		sc := subEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient
+		owner := sc.MustGetRootKeyAddress().Hex()
+		wfRegAddr := crecontracts.MustGetAddressFromDataStore(subEnv.CreEnvironment.CldfEnvironment.DataStore, subEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
+		wfReg, err := workflow_registry_v2_wrapper.NewWorkflowRegistry(common.HexToAddress(wfRegAddr), sc.Client)
+		require.NoError(t, err)
+		require.NoError(t, creworkflow.LinkOwner(sc, common.HexToAddress(wfRegAddr), subEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()]))
+		vaultParsedPublicKey := mustVaultPublicKey(t, vaultPublicKey)
+		enc, err := vaultutils.EncryptSecretWithWorkflowOwner("secret-basic", vaultParsedPublicKey, sc.MustGetRootKeyAddress())
+		require.NoError(t, err)
+		ulCh := make(chan *workflowevents.UserLogs, 1000)
+		bmCh := make(chan *commonevents.BaseMessage, 1000)
+		sink := t_helpers.StartChipTestSink(t, t_helpers.GetPublishFn(testLogger, ulCh, bmCh))
+		t.Cleanup(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			t_helpers.ShutdownChipSinkWithDrain(ctx, sink, ulCh, bmCh)
 		})
-	}
+		executeVaultSecretsIdentifierValidationTest(t, enc, owner, gwURL, sc, wfReg)
+		executeVaultSecretsGetInvalidIdentifierViaWorkflowTest(t, subEnv, "vget1", ulCh, bmCh)
+	})
 
 	t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
 		ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
@@ -498,24 +496,6 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 	})
 }
 
-func ExecuteVaultJWTDisabledTest(t *testing.T, fixture *vaultScenarioFixture) {
-	t.Helper()
-	issuer := fixture.Issuer
-	gatewayURL := fixture.GatewayURL
-	vaultPublicKey := fixture.VaultPublicKey
-
-	orgID := "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	gwURL := gatewayURL.String()
-
-	t.Run("jwt_with_workflow_owner_rejected_when_jwt_auth_disabled", func(t *testing.T) {
-		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, gwURL, "JWTBasedAuth is disabled")
-	})
-
-	t.Run("jwt_without_workflow_owner_rejected_when_jwt_auth_disabled", func(t *testing.T) {
-		executeVaultJWTSecretsCreateUnauthorizedTest(t, issuer, vaultPublicKey, orgID, gwURL, "JWTBasedAuth is disabled")
-	})
-}
-
 // ExecuteVaultIncludeInvalidLivenessSmokeTest verifies that an erroring workflow GetSecrets for a
 // deleted secret does not stall concurrent valid gateway creates while include-invalid is enabled.
 func ExecuteVaultIncludeInvalidLivenessSmokeTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
@@ -594,16 +574,10 @@ func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixtu
 	owner := workflowOwnerAddress.Hex()
 	expectedResponseOwner := owner
 	orgID := ""
-	orgIDAsSecretOwnerEnabled := isVaultJWTAuthEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath)
 	if linkingService != nil {
 		orgID = "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
 		linkingService.SetOwnerOrg(owner, orgID)
-		if orgIDAsSecretOwnerEnabled {
-			expectedResponseOwner = orgID
-		}
-	}
-	if orgIDAsSecretOwnerEnabled {
-		require.NotEmpty(t, orgID, "JWT auth enabled topology must link the workflow owner to an org ID")
+		expectedResponseOwner = orgID
 	}
 
 	wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
@@ -934,65 +908,6 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 
 	if !sawObsTrunc && !sawOutcomeTrunc {
 		framework.L.Info().Msg("no observation: more pending queue items than can be observed or state transition: more observations than can be included in response in recent docker logs — observation and precursor outcome packing did not truncate in the sampled window (expected under default limits)")
-	}
-}
-
-func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
-	t.Parallel()
-	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
-
-	testCases := []struct {
-		name        string
-		configPath  string
-		wantJWTGate string
-		wantLinking bool
-	}{
-		{
-			name:        "enabled",
-			configPath:  vaultJWTAuthEnabledConfigPath,
-			wantJWTGate: "true",
-			wantLinking: false,
-		},
-		{
-			name:        "default",
-			configPath:  vaultDefaultConfigPath,
-			wantJWTGate: "false",
-			wantLinking: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			cfg := &envconfig.Config{}
-			require.NoError(t, cfg.Load(t_helpers.GetTestConfig(t, tc.configPath).EnvironmentConfigPath))
-
-			for _, nodeSet := range cfg.NodeSets {
-				switch nodeSet.Name {
-				case "workflow", "capabilities":
-				case "bootstrap-gateway":
-					continue
-				default:
-					continue
-				}
-				settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
-				if settingsRaw == "" {
-					require.Equal(t, "false", tc.wantJWTGate)
-				} else {
-					var settings map[string]string
-					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
-					require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
-				}
-
-				for _, nodeSpec := range nodeSet.NodeSpecs {
-					if tc.wantLinking {
-						require.Contains(t, nodeSpec.Node.UserConfigOverrides, "[CRE.Linking]")
-						require.Contains(t, nodeSpec.Node.UserConfigOverrides, dockerHost+":18124")
-						continue
-					}
-					require.Empty(t, nodeSpec.Node.UserConfigOverrides)
-				}
-			}
-		})
 	}
 }
 

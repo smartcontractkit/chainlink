@@ -58,7 +58,6 @@ import (
 
 const (
 	vaultDefaultConfigPath                   = "/configs/workflow-gateway-capabilities-don.toml"
-	vaultJWTAuthEnabledConfigPath            = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
 	vaultWorkflowDONBindingEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-workflow-don-binding-enabled.toml"
 	vaultStallPurgeConfigPath                = "/configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"
 	vaultJWTIssuerListenAddr                 = "0.0.0.0:18123"
@@ -287,12 +286,6 @@ type vaultRequestAuth struct {
 	authorize    func(t *testing.T, req *jsonrpc.Request[json.RawMessage])
 }
 
-func getVaultJWTAuthEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
-	t.Helper()
-
-	return t_helpers.GetTestConfig(t, vaultJWTAuthEnabledConfigPath)
-}
-
 func getVaultDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
@@ -309,10 +302,6 @@ func getVaultWorkflowDONBindingEnabledTestConfig(t *testing.T) *ttypes.TestConfi
 	t.Helper()
 
 	return t_helpers.GetTestConfig(t, vaultWorkflowDONBindingEnabledConfigPath)
-}
-
-func isVaultJWTAuthEnabledTopology(topologyName string) bool {
-	return strings.Contains(topologyName, "vault-jwt_auth-enabled")
 }
 
 func isVaultStallPurgeTopology(topologyName string) bool {
