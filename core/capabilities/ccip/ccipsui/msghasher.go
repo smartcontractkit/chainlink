@@ -17,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 )
 
@@ -33,7 +33,7 @@ var (
 // Compatible with ccip::offramp version 1.6.0
 type MessageHasherV1 struct {
 	lggr           logger.Logger
-	extraDataCodec ccipocr3common.ExtraDataCodecBundle
+	extraDataCodec ccipocr3.ExtraDataCodecBundle
 }
 
 type any2SuiTokenTransfer struct {
@@ -44,7 +44,7 @@ type any2SuiTokenTransfer struct {
 	Amount            *big.Int
 }
 
-func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3common.ExtraDataCodecBundle) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3.ExtraDataCodecBundle) *MessageHasherV1 {
 	return &MessageHasherV1{
 		lggr:           lggr,
 		extraDataCodec: extraDataCodec,
@@ -56,7 +56,7 @@ func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipocr3common.ExtraD
 // The main structure of the hash is as follows:
 // Fixed-size message fields are included in nested hash to reduce stack pressure.
 // This hashing scheme is also used by RMN. If changing it, please notify the RMN maintainers.
-func (h *MessageHasherV1) Hash(ctx context.Context, msg ccipocr3common.Message) (ccipocr3common.Bytes32, error) {
+func (h *MessageHasherV1) Hash(ctx context.Context, msg ccipocr3.Message) (ccipocr3.Bytes32, error) {
 	lggr := logutil.WithContextValues(ctx, h.lggr)
 	lggr = logger.With(
 		lggr,
@@ -289,7 +289,7 @@ func encodeBytes(b []byte) []byte {
 	return result
 }
 
-func parseExtraDataMap(input map[string]any, sourceChainSelector ccipocr3common.ChainSelector) (*big.Int, [32]byte, error) {
+func parseExtraDataMap(input map[string]any, sourceChainSelector ccipocr3.ChainSelector) (*big.Int, [32]byte, error) {
 	// gasLimit key differs by source family:
 	//   - SuiExtraArgsV1 (EVM/Sui sources, ABI/BCS) uses "gasLimit" (lowercase).
 	//   - Solana GenericExtraArgsV2 (Borsh, tag 0x181dcf10) uses "GasLimit" — the Borsh
@@ -379,4 +379,4 @@ func addressBytesToBytes32(addr []byte) ([32]byte, error) {
 }
 
 // Interface compliance check
-var _ ccipocr3common.MessageHasher = (*MessageHasherV1)(nil)
+var _ ccipocr3.MessageHasher = (*MessageHasherV1)(nil)
