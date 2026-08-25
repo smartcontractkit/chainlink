@@ -293,7 +293,7 @@ jobs:
 
           - cmd: go_core_fuzz
             os: runs-on=${{
-              github.run_id}}-fuzz/cpu=8/ram=32/family=m7id+m7idn+m8id+m8idn/spot=co/image=ubuntu24-full-x64/extras=s3-cache
+              github.run_id}}-fuzz/cpu=8/family=c7id+c7idn+c8id+c8idn/spot=co/image=ubuntu24-full-x64/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
             trunk-auto-quarantine: "false"
             go-mod-directory: ""
