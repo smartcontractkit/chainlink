@@ -179,7 +179,7 @@ jobs:
         modules: ${{ fromJson(needs.filter.outputs.affected-modules) }}
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -331,7 +331,7 @@ jobs:
       actions: read
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0
         with:
           metrics: cpu,network,memory,disk,io
 
@@ -560,7 +560,7 @@ jobs:
         shell: bash
     steps:
       - name: Enable S3 Cache for Self-Hosted Runners
-        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
+        uses: runs-on/action@46910bf61b41721b0579f237e186afb35477007a # v2.3.0
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
