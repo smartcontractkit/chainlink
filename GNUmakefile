@@ -195,7 +195,7 @@ generate: codecgen mockery protoc gomods ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
 	find . -type d -name "*temp-repo*" -exec rm -rf {} + 2>/dev/null || true
 	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
-	find . \( -name .git -o -name node_modules -o -name .yarn -o -name vendor \) -prune -o -name .mockery.yaml -print0 | xargs -0 -n1 -P0 -I{} sh -c 'cd "$$(dirname "{}")" && $(MOCKERY_BIN)'
+	find . -type f -name .mockery.yaml -execdir $(MOCKERY_BIN) \; ## Execute mockery for all .mockery.yaml files (see mockery target: v2)
 
 .PHONY: rm-mocked
 rm-mocked:

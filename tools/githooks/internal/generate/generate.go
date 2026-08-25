@@ -473,8 +473,14 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 		})
 	}
 
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
 	// Mockery runs: scoped per-package configs for changed packages, full runs
 	// for config-file or dependency changes matching CI's `make generate`.
+	// Mockery internally uses all CPU cores, so configs are run sequentially to
+	// avoid thread oversubscription and memory contention.
 	if len(mockeryTargets) > 0 {
 		mockeryDirs := make([]string, 0, len(mockeryTargets))
 		for dir := range mockeryTargets {
@@ -507,13 +513,9 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 			}
 
 			if target.full {
-				dir := dir
-				g.Go(func() error {
-					if err := runner(gCtx, dir, "mockery"); err != nil {
-						return fmt.Errorf("mockery in %s: %w", dir, err)
-					}
-					return nil
-				})
+				if err := runner(ctx, dir, "mockery"); err != nil {
+					return fmt.Errorf("mockery in %s: %w", dir, err)
+				}
 				continue
 			}
 
@@ -552,17 +554,13 @@ func Run(ctx context.Context, repoRoot string, files []string, cfg ...Config) er
 				return fmt.Errorf("failed to close scoped mockery config: %w", closeErr)
 			}
 
-			runDir := dir
-			g.Go(func() error {
-				if err := runner(gCtx, runDir, "mockery", "--config", tmpConfig); err != nil {
-					return fmt.Errorf("mockery in %s: %w", runDir, err)
-				}
-				return nil
-			})
+			if err := runner(ctx, dir, "mockery", "--config", tmpConfig); err != nil {
+				return fmt.Errorf("mockery in %s: %w", dir, err)
+			}
 		}
 	}
 
-	return g.Wait()
+	return nil
 }
 
 // hasGoGenerateDirective checks if a Go source file contains a //go:generate directive.
