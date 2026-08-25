@@ -276,7 +276,7 @@ func newHTTPFetcher(baseURL string, lggr logger.Logger) types.FetcherFunc {
 		}
 
 		reader := resp.Body
-		if req.MaxResponseBytes != 0 {
+		if req.MaxResponseBytes > 0 {
 			reader = http.MaxBytesReader(nil, resp.Body, int64(req.MaxResponseBytes))
 		}
 		data, err := io.ReadAll(reader)
