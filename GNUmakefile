@@ -28,7 +28,8 @@ WSRPC_VERSION ?= $(shell awk '$$1 == "github.com/smartcontractkit/wsrpc" {print 
 define ensure_go_tool
 	@TARGET_VER="$(strip $(3))"; \
 	if [ -z "$$TARGET_VER" ]; then TARGET_VER="latest"; fi; \
-	if ! command -v $(1) >/dev/null 2>&1 || [ "$$TARGET_VER" = "latest" ] || ! (go version -m "$$(command -v $(1))" 2>/dev/null || $(1) --version 2>&1) | grep -qE "(^|[^0-9.])$$TARGET_VER([^0-9.]|$$)"; then \
+	CLEAN_VER="$${TARGET_VER#v}"; \
+	if ! command -v $(1) >/dev/null 2>&1 || [ "$$TARGET_VER" = "latest" ] || ! (go version -m "$$(command -v $(1))" 2>/dev/null || "$(1)" --version 2>&1) | grep -qE "(^|[^0-9.])v?$$CLEAN_VER([^0-9.]|$$)"; then \
 		go install $(2)@$$TARGET_VER; \
 	fi
 endef
@@ -195,7 +196,7 @@ generate: codecgen mockery protoc gomods ## Execute all go:generate commands.
 	## Updating PATH makes sure that go:generate uses the version of protoc installed by the protoc make command.
 	find . -type d -name "*temp-repo*" -exec rm -rf {} + 2>/dev/null || true
 	export PATH="$(HOME)/.local/bin:$(PATH)"; gomods -w go generate -x ./...
-	find . -type f -name .mockery.yaml -execdir $(MOCKERY_BIN) \; ## Execute mockery for all .mockery.yaml files (see mockery target: v2)
+	find . \( -name .git -o -name node_modules -o -name .yarn -o -name vendor \) -prune -o -type f -name .mockery.yaml -print0 | xargs -0 -n1 -P0 -I{} sh -c 'cd "$$(dirname "{}")" && $(MOCKERY_BIN)' ## Execute mockery for all .mockery.yaml files (see mockery target: v2)
 
 .PHONY: rm-mocked
 rm-mocked:

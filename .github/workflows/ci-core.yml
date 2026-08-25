@@ -548,23 +548,34 @@ jobs:
   clean:
     name: Clean Go Tidy & Generate
     if: ${{ github.actor != 'dependabot[bot]' }}
-    runs-on: ubuntu22.04-8cores-32GB
+    runs-on:
+      - runs-on=${{ github.run_id }}
+      - cpu=8
+      - family=m8g+m9g
+      - image=ubuntu24-full-x64
+      - extras=s3-cache
     defaults:
       run:
         shell: bash
     steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        uses: runs-on/action@4e5f72399b6b17f2e79c511c1b38a315a64d22dc # v2.2.0
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Setup Go
-        uses: ./.github/actions/setup-go
+        uses: actions/setup-go@v7
         with:
-          only-modules: "true"
-      - name: Install protoc-gen-go-wsrpc
-        run: curl
-          https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc
-          --output "$HOME/go/bin/protoc-gen-go-wsrpc" && chmod +x
-          "$HOME/go/bin/protoc-gen-go-wsrpc"
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: "**/go.sum"
+      - name: Cache Protoc
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.local/bin/protoc
+            ~/.local/include
+          key: ${{ runner.os }}-${{ runner.arch }}-protoc-29.3
       - name: make generate
         run: |
           make rm-mocked
