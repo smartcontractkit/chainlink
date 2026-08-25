@@ -1,5 +1,15 @@
 # Changelog Chainlink Core
 
+## 2.62.0
+
+### Minor Changes
+
+- [#23445](https://github.com/smartcontractkit/chainlink/pull/23445) [`22f4d8a`](https://github.com/smartcontractkit/chainlink/commit/22f4d8a0b17dc311b20ef42a94de0cef6135c9d4) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23472](https://github.com/smartcontractkit/chainlink/pull/23472) [`3aaa5fb`](https://github.com/smartcontractkit/chainlink/commit/3aaa5fbcccaefd0db2915ae3b176c213e8ffd0b0) - Bump chainlink-ccip to latest main
+
 ## 2.61.0
 
 ### Minor Changes
