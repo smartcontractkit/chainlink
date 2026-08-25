@@ -96,18 +96,20 @@ func TestHTTPServer_HandleHealthCheck(t *testing.T) {
 	t.Parallel()
 
 	t.Run("ready for traffic", func(t *testing.T) {
+		t.Parallel()
 		_, _, url := startNewServer(t, 100_000, 100_000, false, nil)
 		url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
-		resp, respBytes := sendRequest(t, url, nil, http.MethodGet, nil)
+		resp, respBytes := sendRequest(t, url, nil, http.MethodGet, nil) //nolint:bodyclose // sendRequest closes the body.
 		require.Equal(t, http.StatusOK, resp.StatusCode)
 		require.Equal(t, []byte(network.HealthCheckResponse), respBytes)
 	})
 
 	t.Run("not ready for traffic", func(t *testing.T) {
+		t.Parallel()
 		checker := func(context.Context) error { return errors.New("relay DON unavailable") }
 		_, _, url := startNewServer(t, 100_000, 100_000, false, nil, checker)
 		url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
-		resp, respBytes := sendRequest(t, url, nil, http.MethodGet, nil)
+		resp, respBytes := sendRequest(t, url, nil, http.MethodGet, nil) //nolint:bodyclose // sendRequest closes the body.
 		require.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
 		require.Equal(t, []byte("Service Unavailable\n"), respBytes)
 		require.NotContains(t, string(respBytes), "relay DON")

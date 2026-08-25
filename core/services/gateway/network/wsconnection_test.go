@@ -21,17 +21,25 @@ var upgrader = websocket.Upgrader{}
 func newWebSocketPair(t *testing.T) (*websocket.Conn, *websocket.Conn) {
 	t.Helper()
 
-	serverConnCh := make(chan *websocket.Conn, 1)
+	type upgradeResult struct {
+		conn *websocket.Conn
+		err  error
+	}
+	serverConnCh := make(chan upgradeResult, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
-		require.NoError(t, err)
-		serverConnCh <- conn
+		serverConnCh <- upgradeResult{conn: conn, err: err}
 	}))
 	t.Cleanup(server.Close)
 
-	clientConn, _, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	clientConn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	require.NoError(t, err)
-	serverConn := <-serverConnCh
+	result := <-serverConnCh
+	require.NoError(t, result.err)
+	serverConn := result.conn
 	t.Cleanup(func() {
 		_ = clientConn.Close()
 		_ = serverConn.Close()
