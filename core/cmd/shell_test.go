@@ -20,7 +20,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/beholdertest"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -343,7 +342,7 @@ func TestNewUserCache(t *testing.T) {
 	// because test.TempDir and ioutil.TempDir don't work well here
 	subDir := filepath.Base(fmt.Sprintf("%s-%d", t.Name(), r.Int64()))
 	lggr := logger.TestLogger(t)
-	c, err := cmd.NewUserCache(subDir, func() common.Logger { return lggr })
+	c, err := cmd.NewUserCache(subDir, func() logger.Logger { return lggr })
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, os.Remove(c.RootDir()))

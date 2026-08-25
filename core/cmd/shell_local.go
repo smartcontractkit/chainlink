@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger/otelzap"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -690,7 +689,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 	return grp.Wait()
 }
 
-func checkFilePermissions(lggr common.Logger, rootDir string) error {
+func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 	// Ensure tls sub directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
 	if _, err := os.Stat(tlsDir); err != nil && !os.IsNotExist(err) {

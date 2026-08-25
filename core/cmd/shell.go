@@ -831,11 +831,11 @@ func (d DiskCookieStore) cookiePath() string {
 
 type UserCache struct {
 	dir        string
-	lggr       func() common.Logger // func b/c we don't have the final logger at construction time
+	lggr       func() logger.Logger // func b/c we don't have the final logger at construction time
 	ensureOnce sync.Once
 }
 
-func NewUserCache(subdir string, lggr func() common.Logger) (*UserCache, error) {
+func NewUserCache(subdir string, lggr func() logger.Logger) (*UserCache, error) {
 	cd, err := os.UserCacheDir()
 	if err != nil {
 		return nil, err

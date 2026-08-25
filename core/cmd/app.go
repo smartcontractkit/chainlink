@@ -13,7 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/urfave/cli"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -100,7 +99,7 @@ func NewApp(s *Shell) *cli.App {
 			s.Renderer = RendererJSON{Writer: os.Stdout}
 		}
 
-		cookieJar, err := NewUserCache("cookies", func() common.Logger { return s.Logger })
+		cookieJar, err := NewUserCache("cookies", func() logger.Logger { return s.Logger })
 		if err != nil {
 			return fmt.Errorf("error initialize chainlink cookie cache: %w", err)
 		}
