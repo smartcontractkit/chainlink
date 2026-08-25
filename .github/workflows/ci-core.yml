@@ -32,6 +32,13 @@ jobs:
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
         }}
+      should-run-tools-tests: >-
+        ${{
+          steps.match-some.outputs.workflow == 'true' ||
+          steps.match-some.outputs.tools == 'true' ||
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
+        }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -50,6 +57,10 @@ jobs:
             workflow:
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
+            tools:
+              - 'tools/ci/**'
+              - 'tools/githooks/**'
+              - 'tools/test/**'
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         id: match-every
         with:
@@ -544,6 +555,32 @@ jobs:
             ./output.txt
             ./coverage.txt
           retention-days: 7
+
+  tools-tests:
+    name: Tools Unit Tests
+    needs: [filter]
+    runs-on: ubuntu-latest
+    if: ${{ needs.filter.outputs.should-run-tools-tests == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          build-cache-version: tools-tests
+          build-cache-write: default-branch-only
+          go-version-file: tools/ci/go.mod
+          go-module-file: tools/ci/go.sum
+
+      - name: Run tools/ci tests
+        run: go -C tools/ci test -v ./...
+
+      - name: Run tools/githooks tests
+        run: go -C tools/githooks test -v ./...
+
+      - name: Run tools/test tests
+        run: go -C tools/test test -v ./...
 
   clean:
     name: Clean Go Tidy & Generate
