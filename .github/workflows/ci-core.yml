@@ -552,8 +552,9 @@ jobs:
       - runs-on=${{ github.run_id }}
       - cpu=8
       - family=m8g+m9g
-      - image=ubuntu24-full-x64
+      - image=ubuntu24-full
       - extras=s3-cache
+      - spot=co
     defaults:
       run:
         shell: bash
