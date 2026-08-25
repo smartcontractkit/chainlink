@@ -322,16 +322,27 @@ func (m *connectionManager) ReadyForTraffic(ctx context.Context) error {
 	for _, donID := range donIDs {
 		don := m.dons[donID]
 		connected := 0
-		for _, node := range don.nodes {
+		disconnectedNodeAddresses := make([]string, 0, len(don.nodes))
+		for nodeAddress, node := range don.nodes {
 			if node.conn.IsConnected() {
 				connected++
+			} else {
+				disconnectedNodeAddresses = append(disconnectedNodeAddresses, nodeAddress)
 			}
 		}
+		sort.Strings(disconnectedNodeAddresses)
 
 		required := 2*don.donConfig.F + 1
 		configured := len(don.nodes)
 		m.gMetrics.RecordDONConnectionState(ctx, donID, connected, required, configured)
 		if connected < required {
+			m.lggr.Debugw("DON shard is not ready for traffic",
+				"donID", donID,
+				"connected", connected,
+				"required", required,
+				"configured", configured,
+				"disconnectedNodeAddresses", disconnectedNodeAddresses,
+			)
 			readinessErrs = append(readinessErrs, fmt.Errorf("DON %s has %d connected nodes; requires %d", donID, connected, required))
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -536,6 +538,37 @@ func TestConnectionManager_ReadyForTrafficRequiresEveryShard(t *testing.T) {
 		doHandshakeForDON(t, mgr, clock, "my_don_1_1", nodes[i], serverConn)
 	}
 	require.NoError(t, mgr.ReadyForTraffic(t.Context()))
+}
+
+func TestConnectionManager_ReadyForTrafficLogsDisconnectedNodes(t *testing.T) {
+	t.Parallel()
+
+	cfg, nodes := newTestConfig(t, 4)
+	cfg.ShardedDONs[0].F = 1
+	lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
+	gMetrics, err := monitoring.NewGatewayMetrics()
+	require.NoError(t, err)
+	mgr, err := gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
+	require.NoError(t, err)
+
+	require.Error(t, mgr.ReadyForTraffic(t.Context()))
+	entries := logs.FilterMessage("DON shard is not ready for traffic").All()
+	require.Len(t, entries, 1)
+	fields := entries[0].ContextMap()
+	require.Equal(t, "my_don_1", fields["donID"])
+	require.Equal(t, int64(0), fields["connected"])
+	require.Equal(t, int64(3), fields["required"])
+
+	disconnected := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		disconnected = append(disconnected, node.Address)
+	}
+	sort.Strings(disconnected)
+	disconnectedValues := make([]any, len(disconnected))
+	for i, address := range disconnected {
+		disconnectedValues[i] = address
+	}
+	require.Equal(t, disconnectedValues, fields["disconnectedNodeAddresses"])
 }
 
 func TestConnectionManager_ReadyForTrafficFailsClosedAndSortsErrors(t *testing.T) {
