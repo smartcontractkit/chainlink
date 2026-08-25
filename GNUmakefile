@@ -20,6 +20,18 @@ GOLANGCI_LINT_VERSION = "v2.13.1"
 MOCKERY_VERSION = 2.53.6
 # Pin path so `make generate` does not pick up a different mockery (e.g. v3) from PATH.
 MOCKERY_BIN ?= $(shell command -v mockery 2>/dev/null || (GOBIN="$$(go env GOBIN)"; if [ -n "$$GOBIN" -a -f "$$GOBIN/mockery" ]; then echo "$$GOBIN/mockery"; else echo "$$(go env GOPATH)/bin/mockery"; fi))
+PROTOBUF_VERSION ?= $(shell awk '$$1 == "google.golang.org/protobuf" {print $$2}' go.mod 2>/dev/null)
+WSRPC_VERSION ?= $(shell awk '$$1 == "github.com/smartcontractkit/wsrpc" {print $$2}' go.mod 2>/dev/null)
+
+# Ensure a Go binary is installed at the expected version without querying module proxy if present.
+# Arguments: $(1)=binary_name $(2)=module_path $(3)=version
+define ensure_go_tool
+	@TARGET_VER="$(strip $(3))"; \
+	if [ -z "$$TARGET_VER" ]; then TARGET_VER="latest"; fi; \
+	if ! command -v $(1) >/dev/null 2>&1 || [ "$$TARGET_VER" = "latest" ] || ! (go version -m "$$(command -v $(1))" 2>/dev/null || $(1) --version 2>&1) | grep -qE "(^|[^0-9.])$$TARGET_VER([^0-9.]|$$)"; then \
+		go install $(2)@$$TARGET_VER; \
+	fi
+endef
 
 # Use rg if present, fallback to pruned find + grep. NUL-delimited so paths
 # with spaces/newlines survive the xargs -0 in rm-mocked below.
@@ -221,9 +233,7 @@ testdb-user-only: ## Prepares the test database with user only.
 
 .PHONY: gomods
 gomods: ## Install gomods
-	@if ! command -v gomods >/dev/null 2>&1 || ! go version -m "$$(command -v gomods)" 2>/dev/null | grep -qE '(^|[[:space:]])v0\.1\.7([[:space:]]|$$)'; then \
-		go install github.com/jmank88/gomods@v0.1.7; \
-	fi
+	$(call ensure_go_tool,gomods,github.com/jmank88/gomods,v0.1.7)
 
 .PHONY: gomodslocalupdate
 gomodslocalupdate: gomods ## Run gomod-local-update
@@ -233,30 +243,18 @@ gomodslocalupdate: gomods ## Run gomod-local-update
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	@if ! command -v $(MOCKERY_BIN) >/dev/null 2>&1 || ! $(MOCKERY_BIN) --version 2>&1 | grep -qE '(^|[^0-9.])$(MOCKERY_VERSION)([^0-9.]|$$)'; then \
-		go install github.com/vektra/mockery/v2@v$(MOCKERY_VERSION); \
-	fi
+	$(call ensure_go_tool,$(MOCKERY_BIN),github.com/vektra/mockery/v2,v$(MOCKERY_VERSION))
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
-	@if ! command -v codecgen >/dev/null 2>&1 || ! go version -m "$$(command -v codecgen)" 2>/dev/null | grep -qE '(^|[[:space:]])v1\.2\.10([[:space:]]|$$)'; then \
-		go install github.com/ugorji/go/codec/codecgen@v1.2.10; \
-	fi
+	$(call ensure_go_tool,codecgen,github.com/ugorji/go/codec/codecgen,v1.2.10)
 
 .PHONY: protoc
 protoc: ## Install protoc
 	@core/scripts/install-protoc.sh 29.3 /
-	@PROTOBUF_VERSION=$$(awk '$$1 == "google.golang.org/protobuf" {print $$2}' go.mod 2>/dev/null || go list -m -json google.golang.org/protobuf 2>/dev/null | jq -r .Version); \
-	if ! command -v protoc-gen-go >/dev/null 2>&1 || [ -z "$$PROTOBUF_VERSION" ] || ! go version -m "$$(command -v protoc-gen-go)" 2>/dev/null | grep -qE "(^|[[:space:]])$$PROTOBUF_VERSION([[:space:]]|$$)"; then \
-		go install google.golang.org/protobuf/cmd/protoc-gen-go@$${PROTOBUF_VERSION:-latest}; \
-	fi
-	@if ! command -v protoc-gen-go-grpc >/dev/null 2>&1 || ! go version -m "$$(command -v protoc-gen-go-grpc)" 2>/dev/null | grep -qE '(^|[[:space:]])v1\.6\.2([[:space:]]|$$)'; then \
-		go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2; \
-	fi
-	@WSRPC_VERSION=$$(awk '$$1 == "github.com/smartcontractkit/wsrpc" {print $$2}' go.mod 2>/dev/null || go list -m -json github.com/smartcontractkit/wsrpc 2>/dev/null | jq -r .Version); \
-	if ! command -v protoc-gen-go-wsrpc >/dev/null 2>&1 || [ -z "$$WSRPC_VERSION" ] || ! go version -m "$$(command -v protoc-gen-go-wsrpc)" 2>/dev/null | grep -qE "(^|[[:space:]])$$WSRPC_VERSION([[:space:]]|$$)"; then \
-		go install github.com/smartcontractkit/wsrpc/cmd/protoc-gen-go-wsrpc@$${WSRPC_VERSION:-latest}; \
-	fi
+	$(call ensure_go_tool,protoc-gen-go,google.golang.org/protobuf/cmd/protoc-gen-go,$(PROTOBUF_VERSION))
+	$(call ensure_go_tool,protoc-gen-go-grpc,google.golang.org/grpc/cmd/protoc-gen-go-grpc,v1.6.2)
+	$(call ensure_go_tool,protoc-gen-go-wsrpc,github.com/smartcontractkit/wsrpc/cmd/protoc-gen-go-wsrpc,$(WSRPC_VERSION))
 
 .PHONY: telemetry-protobuf
 telemetry-protobuf: $(telemetry-protobuf) ## Generate telemetry protocol buffers.
@@ -286,9 +284,7 @@ lint-fix: gomods ## Run golangci-lint with --fix for all modules
 
 .PHONY: modgraph
 modgraph:
-	@if ! command -v modgraph >/dev/null 2>&1 || ! go version -m "$$(command -v modgraph)" 2>/dev/null | grep -qE '(^|[[:space:]])v0\.1\.4([[:space:]]|$$)'; then \
-		go install github.com/jmank88/modgraph@v0.1.4; \
-	fi
+	$(call ensure_go_tool,modgraph,github.com/jmank88/modgraph,v0.1.4)
 	./tools/bin/modgraph > go.md
 
 .PHONY: test-short

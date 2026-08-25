@@ -80,7 +80,9 @@ func resolveMockeryBin(ctx context.Context) string {
 	}
 	if out, err := exec.CommandContext(ctx, "go", "env", "GOPATH").Output(); err == nil {
 		if gopath := strings.TrimSpace(string(out)); gopath != "" {
-			return filepath.Join(gopath, "bin", "mockery")
+			if p := filepath.Join(gopath, "bin", "mockery"); isFile(p) {
+				return p
+			}
 		}
 	}
 	return "mockery"
