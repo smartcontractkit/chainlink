@@ -3739,7 +3739,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_TieBreakPicksLexicographically
 		obsb := marshalObservations(t, observation{id, req, resp(ciphertext, "irrelevant")})
 		op := &vaultcommon.Observations{}
 		require.NoError(t, proto.Unmarshal(obsb, op))
-		sha, err := r.shaForObservation(t.Context(), op.Observations[0])
+		sha, err := r.shaForObservation(op.Observations[0])
 		require.NoError(t, err)
 		return sha
 	}
@@ -6242,16 +6242,15 @@ func TestPlugin_StateTransition_OutcomesStoppedByPrecursorWireSize(t *testing.T)
 			},
 		}
 	}
-	ws := NewWriteStore(&kv{m: make(map[string]response)}, newTestMetrics(t))
 
 	rPrec := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	out1 := &vaultcommon.Outcome{Id: "list-1", RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS}
-	rPrec.stateTransitionListSecretIdentifiers(ctx, ws, []*vaultcommon.Observation{buildListObs("list-1")}, out1)
+	rPrec.stateTransitionListSecretIdentifiers([]*vaultcommon.Observation{buildListObs("list-1")}, out1)
 	sz1 := proto.Size(&vaultcommon.Outcomes{Outcomes: []*vaultcommon.Outcome{out1}})
 
 	out2 := &vaultcommon.Outcome{Id: "list-2", RequestType: vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS}
-	rPrec.stateTransitionListSecretIdentifiers(ctx, ws, []*vaultcommon.Observation{buildListObs("list-2")}, out2)
+	rPrec.stateTransitionListSecretIdentifiers([]*vaultcommon.Observation{buildListObs("list-2")}, out2)
 	szBoth := proto.Size(&vaultcommon.Outcomes{Outcomes: []*vaultcommon.Outcome{out1, out2}})
 	require.Greater(t, szBoth, sz1)
 
@@ -7021,7 +7020,7 @@ func TestPlugin_ValidateObservation_GetSecrets_MismatchedResponseOwnerRejected(t
 		},
 	}
 
-	require.NoError(t, r.validateContribution(t.Context(), newTestReadStore(t, &kv{m: make(map[string]response)}), pendingItem, obs))
+	require.NoError(t, r.validateContribution(t.Context(), pendingItem, obs))
 }
 
 func TestPlugin_ValidateObservation_PanicsOnEmptyShares(t *testing.T) {

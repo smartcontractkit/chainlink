@@ -130,11 +130,10 @@ func TestPlugin_ShaForObservation_GetSecrets_IncludesEncryptionKeysInSHA(t *test
 	byzObs := proto.Clone(honestObs).(*vaultcommon.Observation)
 	byzObs.Response = &vaultcommon.Observation_GetSecretsResponse{GetSecretsResponse: byzResp}
 
-	ctx := context.Background()
 	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1))
-	shaHonest, err := plugin.shaForObservation(ctx, honestObs)
+	shaHonest, err := plugin.shaForObservation(honestObs)
 	require.NoError(t, err)
-	shaByz, err := plugin.shaForObservation(ctx, byzObs)
+	shaByz, err := plugin.shaForObservation(byzObs)
 	require.NoError(t, err)
 	require.NotEqual(t, shaHonest, shaByz)
 }
@@ -172,12 +171,11 @@ func TestPlugin_ShaForObservation_GetSecrets_PermutedEntryOrder(t *testing.T) {
 		}
 	}
 
-	ctx := context.Background()
 	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1))
 
-	shaAB, err := plugin.shaForObservation(ctx, makeObs([]string{keyA, keyB}, []string{"share-a1", "share-b1"}))
+	shaAB, err := plugin.shaForObservation(makeObs([]string{keyA, keyB}, []string{"share-a1", "share-b1"}))
 	require.NoError(t, err)
-	shaCD, err := plugin.shaForObservation(ctx, makeObs([]string{keyB, keyA}, []string{"share-b2", "share-a2"}))
+	shaCD, err := plugin.shaForObservation(makeObs([]string{keyB, keyA}, []string{"share-b2", "share-a2"}))
 	require.NoError(t, err)
 	require.NotEqual(t, shaAB, shaCD)
 }
@@ -213,12 +211,11 @@ func TestPlugin_ShaForObservation_GetSecrets_DifferentShareBytesSameLabels(t *te
 		}
 	}
 
-	ctx := context.Background()
 	plugin := newTestReportingPlugin(t, withOnchainCfg(4, 1))
 
-	sha1, err := plugin.shaForObservation(ctx, makeObs("share-from-node-1"))
+	sha1, err := plugin.shaForObservation(makeObs("share-from-node-1"))
 	require.NoError(t, err)
-	sha2, err := plugin.shaForObservation(ctx, makeObs("share-from-node-2"))
+	sha2, err := plugin.shaForObservation(makeObs("share-from-node-2"))
 	require.NoError(t, err)
 	require.Equal(t, sha1, sha2)
 }
