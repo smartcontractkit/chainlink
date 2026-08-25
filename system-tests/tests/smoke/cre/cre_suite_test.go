@@ -95,9 +95,6 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 				vaultConfig = getVaultJWTAuthEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_jwt_auth_enabled"
 				jwtSubtestName = "jwt_auth_when_jwt_auth_enabled"
-			} else if isVaultOptimizationsEnabledTopology(topology) {
-				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
-				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
 			} else if isVaultStallPurgeTopology(topology) {
 				vaultConfig = getVaultStallPurgeTestConfig(t)
 				allowlistSubtestName = "pending_queue_stall_purge"

@@ -36,7 +36,6 @@ type testPluginBuildOpts struct {
 	maxRequestBatchSize                  int
 	batchSize                            int
 	maxBlobPayloadBytes                  int
-	vaultOptimizationsEnabled            bool
 	vaultPendingQueueStallThreshold      int
 	marshalBlob                          func(ocr3_1types.BlobHandle) ([]byte, error)
 	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
@@ -73,10 +72,6 @@ func withMaxIdentifierLengths(owner, namespace, key int) testPluginOption {
 
 func withMaxSecretsPerOwner(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.maxSecretsPerOwner = n }
-}
-
-func withVaultOptimizationsEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
 }
 
 func withVaultPendingQueueStallThreshold(n int) testPluginOption {
@@ -133,9 +128,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		opt(&o)
 	}
 	cfg := makeReportingPluginConfig(t, o.batchSize, o.publicKey, o.privateKeyShare, o.maxSecretsPerOwner, o.maxBlobPayloadBytes)
-	if o.vaultOptimizationsEnabled {
-		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
-	}
 	if o.vaultPendingQueueStallThreshold > 0 {
 		stallLimiter, err := limits.MakeUpperBoundLimiter(
 			limits.Factory{Settings: cresettings.DefaultGetter},
@@ -252,7 +244,6 @@ func makeReportingPluginConfig(
 		MaxShareLengthBytes:             shareLimiter,
 		MaxBlobPayloadBytes:             maxBlobPayloadLimiter,
 		VaultForceEmptyOCRRounds:        limits.NewGateLimiter(false),
-		VaultOptimizationsEnabled:       limits.NewGateLimiter(false),
 		VaultPendingQueueStallThreshold: pendingQueueStallThresholdLimiter,
 	}
 }

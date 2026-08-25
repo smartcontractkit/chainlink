@@ -59,7 +59,6 @@ import (
 const (
 	vaultDefaultConfigPath                   = "/configs/workflow-gateway-capabilities-don.toml"
 	vaultJWTAuthEnabledConfigPath            = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
-	vaultOptimizationsEnabledConfigPath      = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
 	vaultWorkflowDONBindingEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-workflow-don-binding-enabled.toml"
 	vaultStallPurgeConfigPath                = "/configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"
 	vaultJWTIssuerListenAddr                 = "0.0.0.0:18123"
@@ -300,12 +299,6 @@ func getVaultDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
 	return t_helpers.GetTestConfig(t, vaultDefaultConfigPath)
 }
 
-func getVaultOptimizationsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
-	t.Helper()
-
-	return t_helpers.GetTestConfig(t, vaultOptimizationsEnabledConfigPath)
-}
-
 func getVaultStallPurgeTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
@@ -320,10 +313,6 @@ func getVaultWorkflowDONBindingEnabledTestConfig(t *testing.T) *ttypes.TestConfi
 
 func isVaultJWTAuthEnabledTopology(topologyName string) bool {
 	return strings.Contains(topologyName, "vault-jwt_auth-enabled")
-}
-
-func isVaultOptimizationsEnabledTopology(topologyName string) bool {
-	return strings.Contains(topologyName, "vault-optimizations-enabled")
 }
 
 func isVaultStallPurgeTopology(topologyName string) bool {
@@ -1411,7 +1400,7 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, requestOwner, expecte
 }
 
 // executeVaultBinaryEncodedSharesSmokeTest verifies a workflow can fetch a secret when the vault
-// DON emits binary-encoded decryption shares (VaultOptimizationsEnabled). GetSecrets is not
+// DON emits binary-encoded decryption shares. GetSecrets is not
 // exposed on the vault gateway; binary encoding is confirmed via vault node logs after the
 // workflow triggers a capability get.
 func executeVaultBinaryEncodedSharesSmokeTest(
