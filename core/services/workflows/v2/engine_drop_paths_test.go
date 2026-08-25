@@ -39,10 +39,10 @@ const (
 )
 
 // failAfterNBoundLimiter succeeds (returning ok, nil) for the first n calls to Limit,
-// then returns failErr for every call after that. LogEvent and ExecutionResponse are
-// both peeked once during trigger-subscription init (before any execution exists) and
-// again per execution, so an always-failing fake would break engine initialization
-// before execution-time fallback could ever be exercised.
+// then returns (ok, failErr) after that, mirroring the real chainlink-common
+// BoundLimiter. LogEvent and ExecutionResponse are both peeked once during
+// trigger-subscription init and again per execution, so an always-failing fake would
+// break engine initialization before the value-on-error path could be exercised.
 type failAfterNBoundLimiter[N limits.Number] struct {
 	mu      sync.Mutex
 	calls   int
@@ -56,8 +56,7 @@ func (f *failAfterNBoundLimiter[N]) Limit(context.Context) (N, error) {
 	defer f.mu.Unlock()
 	f.calls++
 	if f.calls > f.n {
-		var zero N
-		return zero, f.failErr
+		return f.ok, f.failErr // last known good value, not zero; err is advisory
 	}
 	return f.ok, nil
 }
@@ -251,6 +250,32 @@ func TestEngine_LimitReadFallback_ExecutesAnyway(t *testing.T) { //nolint:parall
 			assert.Equal(t, eventsv2.ExecutionStatus_EXECUTION_STATUS_SUCCEEDED, evt.Status)
 		})
 	}
+}
+
+// TestEngine_LimitReadFallback_UsesLastKnownGoodValue: on a read failure, the engine
+// must use whatever value the limiter returns, not substitute its own compiled default.
+func TestEngine_LimitReadFallback_UsesLastKnownGoodValue(t *testing.T) { //nolint:paralleltest // uses beholdertest.NewObserver, a global singleton swap
+	const lastKnownGood = config.Size(12345)
+
+	harness := newDropPathHarness(t, setupMockBillingClient(t), func(cfg *v2.EngineConfig) {
+		cfg.LocalLimiters.ExecutionResponse = &failAfterNBoundLimiter[config.Size]{n: 1, ok: lastKnownGood, failErr: errors.New("limit read boom")}
+	})
+
+	var gotMaxResponseSize uint64
+	harness.module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).
+		Run(func(_ context.Context, req *sdkpb.ExecuteRequest, _ host.ExecutionHelper) {
+			gotMaxResponseSize = req.MaxResponseSize
+		}).
+		Return(nil, nil).Once()
+	harness.eventCh <- capabilities.TriggerResponse{
+		Event: capabilities.TriggerEvent{TriggerType: "basic-trigger@1.0.0", ID: "event_last_known_good"},
+	}
+
+	executionID := <-harness.executionFinishedCh
+	require.NotEmpty(t, executionID)
+
+	assert.Equal(t, uint64(lastKnownGood), gotMaxResponseSize,
+		"engine must use the value the limiter returned, not fall back to its own compiled default")
 }
 
 // setupInsufficientFundingBilling returns a billing mock whose ReserveCredits denies

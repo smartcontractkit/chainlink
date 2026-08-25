@@ -843,9 +843,9 @@ func (c WorkflowsMetricLabeler) IncrementOrgIDMissingCounter(ctx context.Context
 	c.em.orgIDMissingCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-// IncrementLimitReadFallbackCounter records one limit read that failed and fell
-// back to its static default instead of dropping the execution/event. limitKey
-// should be the canonical settings.Setting.Key for the limit that failed.
+// IncrementLimitReadFallbackCounter records one limit read that failed and fell back
+// to a default instead of dropping the execution/event. limitKey should be the
+// canonical settings.Setting.Key for the limit that failed.
 func (c WorkflowsMetricLabeler) IncrementLimitReadFallbackCounter(ctx context.Context, limitKey string) {
 	lc := c.With(platform.KeyLimitKey, limitKey)
 	otelLabels := beholder.OtelAttributes(lc.Labels).AsStringAttributes()

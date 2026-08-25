@@ -704,7 +704,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 			// A settings read failure is not an expiry: run the execution rather than
 			// dropping a customer's trigger event over a transient config read.
 			e.logger().Errorw("Failed to check trigger event queue age limit; proceeding with execution", "err", ageErr)
-			triggerMetricLabels.IncrementLimitCheckUnenforcedCounter(ctx, e.cfg.LocalLimiters.defaults().TriggerEventQueueTimeout.Key)
+			triggerMetricLabels.IncrementLimitCheckUnenforcedCounter(ctx, cresettings.Default.PerWorkflow.TriggerEventQueueTimeout.Key)
 		}
 		semWaitStart := e.cfg.Clock.Now()
 		free, err := e.executionsSemaphore.Wait(ctx, 1) // block if too many concurrent workflow executions
@@ -915,12 +915,14 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 		e.deductStandardBalances(ctx, meteringReport)
 	}
 
+	// WithTimeout returns a usable ctx/cancel even on a read failure; err is advisory.
 	execCtx, execCancel, err := e.cfg.LocalLimiters.ExecutionTime.WithTimeout(ctx)
 	if err != nil {
-		executionTimeout := e.cfg.LocalLimiters.defaults().ExecutionTimeout
-		lggr.Errorw("Failed to get execution time limit; falling back to default", "err", err, "default", executionTimeout.DefaultValue)
-		e.metrics.IncrementLimitReadFallbackCounter(ctx, executionTimeout.Key)
-		execCtx, execCancel = context.WithTimeout(ctx, executionTimeout.DefaultValue)
+		lggr.Errorw("Failed to get execution time limit; proceeding with last known/default timeout", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.ExecutionTimeout.Key)
+		if execCtx == nil { // only nil when there's no tenant to resolve a limit for at all
+			execCtx, execCancel = context.WithTimeout(ctx, cresettings.Default.PerWorkflow.ExecutionTimeout.DefaultValue)
+		}
 	}
 	defer execCancel()
 	triggerCapID := wrappedTriggerEvent.triggerCapID
@@ -938,10 +940,8 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	// (called per log line in emitUserLogs) is what actually enforces the cap.
 	maxUserLogEventsPerExecution, err := e.cfg.LocalLimiters.LogEvent.Limit(ctx)
 	if err != nil {
-		logEventLimit := e.cfg.LocalLimiters.defaults().LogEventLimit
-		lggr.Errorw("Failed to get log event limit; falling back to default", "err", err, "default", logEventLimit.DefaultValue)
-		e.metrics.IncrementLimitReadFallbackCounter(ctx, logEventLimit.Key)
-		maxUserLogEventsPerExecution = logEventLimit.DefaultValue
+		lggr.Errorw("Failed to get log event limit; using last known/default value", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.LogEventLimit.Key)
 	}
 	userLogChan := make(chan *protoevents.LogLine, maxUserLogEventsPerExecution)
 	defer close(userLogChan)
@@ -1024,12 +1024,11 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	suspension := &suspensionTracker{}
 	timeProvider = newMeasuredTimeProvider(timeProvider, e.cfg.Clock, suspension)
 
+	// Limit is always usable even on a read failure; err is advisory.
 	moduleExecuteMaxResponseSizeBytes, err := e.cfg.LocalLimiters.ExecutionResponse.Limit(ctx)
 	if err != nil {
-		executionResponseLimit := e.cfg.LocalLimiters.defaults().ExecutionResponseLimit
-		lggr.Errorw("Failed to get execution response size limit; falling back to default", "err", err, "default", executionResponseLimit.DefaultValue)
-		e.metrics.IncrementLimitReadFallbackCounter(ctx, executionResponseLimit.Key)
-		moduleExecuteMaxResponseSizeBytes = executionResponseLimit.DefaultValue
+		lggr.Errorw("Failed to get execution response size limit; using last known/default value", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.ExecutionResponseLimit.Key)
 	}
 	if moduleExecuteMaxResponseSizeBytes < 0 {
 		execErr = fmt.Errorf("invalid moduleExecuteMaxResponseSizeBytes; must not be negative: %d", moduleExecuteMaxResponseSizeBytes)
@@ -1276,12 +1275,11 @@ func (e *Engine) deductStandardBalances(ctx context.Context, meteringReport *met
 	// V2Engine runs the entirety of a module's execution as compute. Ensure that the max execution time can run.
 	// Add an extra second of metering padding for context cancel propagation
 	ctxCancelPadding := (time.Millisecond * 1000).Milliseconds()
+	// Limit is always usable even on a read failure; err is advisory.
 	workflowExecutionTimeout, err := e.cfg.LocalLimiters.ExecutionTime.Limit(ctx)
 	if err != nil {
-		executionTimeout := e.cfg.LocalLimiters.defaults().ExecutionTimeout
-		e.logger().Errorw("Failed to get execution time limit; falling back to default", "err", err, "default", executionTimeout.DefaultValue)
-		e.metrics.IncrementLimitReadFallbackCounter(ctx, executionTimeout.Key)
-		workflowExecutionTimeout = executionTimeout.DefaultValue
+		e.logger().Errorw("Failed to get execution time limit; using last known/default value", "err", err)
+		e.metrics.IncrementLimitReadFallbackCounter(ctx, cresettings.Default.PerWorkflow.ExecutionTimeout.Key)
 	}
 	compMs := decimal.NewFromInt(workflowExecutionTimeout.Milliseconds() + ctxCancelPadding)
 	computeUnit := billing.ResourceType_RESOURCE_TYPE_COMPUTE.String()
@@ -1313,14 +1311,14 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 			}
 			// A settings read failure should not stop the drain. Fail open instead.
 			e.logger().Errorw("Failed to check user log event limit; emitting anyway", "err", err)
-			e.metrics.IncrementLimitCheckUnenforcedCounter(emitCtx, e.cfg.LocalLimiters.defaults().LogEventLimit.Key)
+			e.metrics.IncrementLimitCheckUnenforcedCounter(emitCtx, cresettings.Default.PerWorkflow.LogEventLimit.Key)
 		}
 		if err := e.cfg.LocalLimiters.LogLine.Check(emitCtx, config.Size(len(logLine.Message))); err != nil {
 			if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[config.Size]](err); ok {
 				logLine.Message = logLine.Message[:errBoundLimited.Limit] + " ...(truncated)"
 			} else {
 				e.logger().Errorw("Failed to check user log line limit; emitting untruncated", "err", err)
-				e.metrics.IncrementLimitCheckUnenforcedCounter(emitCtx, e.cfg.LocalLimiters.defaults().LogLineLimit.Key)
+				e.metrics.IncrementLimitCheckUnenforcedCounter(emitCtx, cresettings.Default.PerWorkflow.LogLineLimit.Key)
 			}
 		}
 
@@ -1367,18 +1365,19 @@ func (e *Engine) emitUserLogs(ctx context.Context, userLogChan chan *protoevents
 }
 
 func (e *Engine) donTimeRequestTimeout(ctx context.Context, limiter limits.TimeLimiter) time.Duration {
-	defaultTimeout := e.cfg.LocalLimiters.defaults().DONTime.RequestTimeout.DefaultValue
-	if limiter != nil {
-		limit, err := limiter.Limit(ctx)
-		if err != nil {
-			e.logger().Errorw("Failed to get DON time request timeout", "err", err)
-			return defaultTimeout
-		}
-		if limit <= 0 {
-			e.logger().Warnw("DON time request timeout is less than or equal to 0, using default timeout", "defaultTimeout", defaultTimeout)
-			return defaultTimeout
-		}
-		return limit
+	defaultTimeout := cresettings.Default.PerWorkflow.DONTime.RequestTimeout.DefaultValue
+	if limiter == nil {
+		return defaultTimeout
 	}
-	return defaultTimeout
+	// Limit is always usable even on a read failure; only a nonsensical (<=0) result
+	// falls back to defaultTimeout.
+	limit, err := limiter.Limit(ctx)
+	if err != nil {
+		e.logger().Errorw("Failed to get DON time request timeout; using last known/default value", "err", err)
+	}
+	if limit <= 0 {
+		e.logger().Warnw("DON time request timeout is less than or equal to 0, using default timeout", "defaultTimeout", defaultTimeout)
+		return defaultTimeout
+	}
+	return limit
 }
