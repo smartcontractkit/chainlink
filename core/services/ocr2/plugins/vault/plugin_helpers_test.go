@@ -37,7 +37,6 @@ type testPluginBuildOpts struct {
 	batchSize                              int
 	maxBlobPayloadBytes                    int
 	vaultOptimizationsEnabled              bool
-	vaultGetSecretsRelaxedConsensusEnabled bool
 	vaultIncludeInvalidPendingItemsEnabled bool
 	vaultPendingQueueStallThreshold        int
 	marshalBlob                            func(ocr3_1types.BlobHandle) ([]byte, error)
@@ -79,10 +78,6 @@ func withMaxSecretsPerOwner(n int) testPluginOption {
 
 func withVaultOptimizationsEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
-}
-
-func withVaultGetSecretsRelaxedConsensusEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultGetSecretsRelaxedConsensusEnabled = true }
 }
 
 func withVaultIncludeInvalidPendingItemsEnabled() testPluginOption {
@@ -145,9 +140,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	cfg := makeReportingPluginConfig(t, o.batchSize, o.publicKey, o.privateKeyShare, o.maxSecretsPerOwner, o.maxBlobPayloadBytes)
 	if o.vaultOptimizationsEnabled {
 		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
-	}
-	if o.vaultGetSecretsRelaxedConsensusEnabled {
-		cfg.VaultGetSecretsRelaxedConsensusEnabled = limits.NewGateLimiter(true)
 	}
 	if o.vaultIncludeInvalidPendingItemsEnabled {
 		cfg.VaultIncludeInvalidPendingItemsEnabled = limits.NewGateLimiter(true)
@@ -269,7 +261,6 @@ func makeReportingPluginConfig(
 		MaxBlobPayloadBytes:                    maxBlobPayloadLimiter,
 		VaultForceEmptyOCRRounds:               limits.NewGateLimiter(false),
 		VaultOptimizationsEnabled:              limits.NewGateLimiter(false),
-		VaultGetSecretsRelaxedConsensusEnabled: limits.NewGateLimiter(false),
 		VaultIncludeInvalidPendingItemsEnabled: limits.NewGateLimiter(false),
 		VaultPendingQueueStallThreshold:        pendingQueueStallThresholdLimiter,
 	}

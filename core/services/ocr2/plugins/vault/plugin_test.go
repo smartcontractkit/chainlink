@@ -3507,13 +3507,13 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesShares(t *testing.T) {
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
-func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_ByzantineDivergentSHA(t *testing.T) {
+func TestPlugin_StateTransition_GetSecretsRequest_ByzantineDivergentSHA(t *testing.T) {
 	t.Parallel()
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	// N=4, F=1: 2F+1=3, F+1=2. One Byzantine observation with a divergent SHA must not stall the GET.
-	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultGetSecretsRelaxedConsensusEnabled())
+	r := newTestReportingPlugin(t, withLggr(lggr), withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	seqNr := uint64(1)
 	kv := &kv{m: make(map[string]response)}
@@ -3573,10 +3573,10 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_ByzantineDive
 	assert.Equal(t, 1, observed.FilterMessage("sufficient observations for sha").Len())
 }
 
-func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_Disabled_NoOutcome(t *testing.T) {
+func TestPlugin_StateTransition_GetSecretsRequest_InsufficientTotal(t *testing.T) {
 	t.Parallel()
-	// Same byzantine-divergent-SHA scenario as above, but with the flag OFF: the legacy 2F+1
-	// same-SHA requirement is unmet (honest group is only F+1=2 < 2F+1=3), so no outcome.
+	// N=4, F=1: 2F+1=3. Only 2 observations total (both honest, same SHA). Request legitimacy
+	// (>= 2F+1) fails even though the same-SHA group meets F+1, so no outcome.
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -3602,67 +3602,6 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_Disabled_NoOu
 			}},
 		}
 	}
-	byzantineResp := func(share string) *vaultcommon.GetSecretsResponse {
-		return &vaultcommon.GetSecretsResponse{
-			Responses: []*vaultcommon.SecretResponse{{
-				Id: id,
-				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
-					EncryptedValue: "byzantine-encrypted-value",
-					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
-						EncryptionKey: encKey, Shares: []string{share},
-					}},
-				}},
-			}},
-		}
-	}
-
-	obsb1 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-1")})
-	obsb2 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-2")})
-	obsbByz := marshalObservations(t, observation{id, req, byzantineResp("byzantine-share")})
-	reportPrecursor, err := r.StateTransition(
-		t.Context(), seqNr, types.AttributedQuery{},
-		[]types.AttributedObservation{
-			{Observer: 0, Observation: types.Observation(obsb1)},
-			{Observer: 1, Observation: types.Observation(obsb2)},
-			{Observer: 2, Observation: types.Observation(obsbByz)},
-		}, kv, nil,
-	)
-	require.NoError(t, err)
-
-	os := &vaultcommon.Outcomes{}
-	require.NoError(t, proto.Unmarshal(reportPrecursor, os))
-	assert.Empty(t, os.Outcomes)
-}
-
-func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_InsufficientTotal(t *testing.T) {
-	t.Parallel()
-	// N=4, F=1: 2F+1=3. Only 2 observations total (both honest, same SHA). Request legitimacy
-	// (>= 2F+1) fails even though the same-SHA group meets F+1, so no outcome.
-	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
-	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultGetSecretsRelaxedConsensusEnabled())
-
-	seqNr := uint64(1)
-	kv := &kv{m: make(map[string]response)}
-
-	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
-	encKey := "my-encryption-key"
-	req := &vaultcommon.GetSecretsRequest{
-		Requests: []*vaultcommon.SecretRequest{{Id: id, EncryptionKeys: []string{encKey}}},
-	}
-	honestResp := func(share string) *vaultcommon.GetSecretsResponse {
-		return &vaultcommon.GetSecretsResponse{
-			Responses: []*vaultcommon.SecretResponse{{
-				Id: id,
-				Result: &vaultcommon.SecretResponse_Data{Data: &vaultcommon.SecretData{
-					EncryptedValue: "encrypted-value",
-					EncryptedDecryptionKeyShares: []*vaultcommon.EncryptedShares{{
-						EncryptionKey: encKey, Shares: []string{share},
-					}},
-				}},
-			}},
-		}
-	}
 
 	obsb1 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-1")})
 	obsb2 := marshalObservations(t, observation{id, req, honestResp("encrypted-share-2")})
@@ -3680,13 +3619,13 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_InsufficientT
 	assert.Empty(t, os.Outcomes)
 }
 
-func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_NoFPlus1Group(t *testing.T) {
+func TestPlugin_StateTransition_GetSecretsRequest_NoFPlus1Group(t *testing.T) {
 	t.Parallel()
 	// N=4, F=1: 2F+1=3, F+1=2. Three observations each with a distinct SHA (no group reaches F+1=2).
 	// Share sufficiency fails even though total meets 2F+1, so no outcome.
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultGetSecretsRelaxedConsensusEnabled())
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
 
 	seqNr := uint64(1)
 	kv := &kv{m: make(map[string]response)}
@@ -3728,13 +3667,13 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_NoFPlus1Group
 	assert.Empty(t, os.Outcomes)
 }
 
-func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_AggregatesAllSharesUpTo2FPlus1(t *testing.T) {
+func TestPlugin_StateTransition_GetSecretsRequest_AggregatesAllSharesUpTo2FPlus1(t *testing.T) {
 	t.Parallel()
 	// N=10, F=3: 2F+1=7, F+1=4. All 10 honest observations share a SHA (shares are stripped from
 	// the SHA). The winning group (10) is capped at 2F+1=7 shares.
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 4)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3), withVaultGetSecretsRelaxedConsensusEnabled())
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3))
 
 	seqNr := uint64(1)
 	kv := &kv{m: make(map[string]response)}
@@ -3775,7 +3714,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_AggregatesAll
 	assert.Len(t, got, twoFPlusOne)
 }
 
-func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_TieBreakPicksLexicographicallySmallestSHA(t *testing.T) {
+func TestPlugin_StateTransition_GetSecretsRequest_TieBreakPicksLexicographicallySmallestSHA(t *testing.T) {
 	t.Parallel()
 	// N=10, F=3: 2F+1=7, F+1=4. Two SHA groups each of size F+1=4 (total 8 >= 2F+1). Both groups
 	// qualify for share sufficiency; chooseGetSecretsObservations iterates SHAs in sorted order and
@@ -3785,7 +3724,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_TieBreakPicks
 	// across repeated invocations (guards against nondeterministic map iteration in the tie-break).
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 4)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3), withVaultGetSecretsRelaxedConsensusEnabled())
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3))
 
 	seqNr := uint64(1)
 	kv := &kv{m: make(map[string]response)}
@@ -3858,7 +3797,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_TieBreakPicks
 	assert.ElementsMatch(t, expectedShares, data.EncryptedDecryptionKeyShares[0].Shares)
 }
 
-func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_DeterministicAcrossInvocations(t *testing.T) {
+func TestPlugin_StateTransition_GetSecretsRequest_DeterministicAcrossInvocations(t *testing.T) {
 	t.Parallel()
 	// G1 determinism for the relaxed path. chooseGetSecretsObservations iterates a SHA->obs map
 	// and must select deterministically; OCR3.1 delivers identical attributed observations to
@@ -3868,7 +3807,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_RelaxedConsensus_Deterministic
 	// A regression to unsorted map iteration (`range shaToObs`) would flake here.
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 4)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3), withVaultGetSecretsRelaxedConsensusEnabled())
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(10, 3))
 
 	seqNr := uint64(1)
 	kv := &kv{m: make(map[string]response)}
