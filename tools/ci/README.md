@@ -7,6 +7,8 @@
 | Command | Description | Replaces |
 |---|---|---|
 | `ci version` | Print version information (text or `--json`) | Custom version checks |
+| `ci image resolve` | Resolve Chainlink Docker image URI (ECR public or SDLC) | `.github/scripts/resolve-chainlink-image.sh` |
+| `ci changeset check-tags` | Validate semver in changeset frontmatter and check release tags | `.github/scripts/check-changeset-tags.sh` |
 
 ## Usage
 

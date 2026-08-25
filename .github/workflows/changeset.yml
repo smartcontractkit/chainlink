@@ -56,11 +56,16 @@ jobs:
             core-changeset:
               - added: '.changeset/*.md'
 
+      - name: Setup CI CLI
+        if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
+        uses: ./.github/actions/setup-ci-cli
+
       - name: Check for changeset tags for core
         id: changeset-tags
         if: ${{ steps.files-changed.outputs.core-changeset == 'true' }}
-        shell: bash
-        run: bash ./.github/scripts/check-changeset-tags.sh ${{ steps.files-changed.outputs.core-changeset_files }}
+        env:
+          CHANGESET_FILE_PATH: ${{ steps.files-changed.outputs.core-changeset_files }}
+        run: ci changeset check-tags "$CHANGESET_FILE_PATH"
 
       - name: Setup pnpm
         uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
