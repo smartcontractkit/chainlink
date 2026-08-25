@@ -263,6 +263,9 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesSharesByEncryptionKey(
 		}
 	}
 
+	kv := &kv{m: make(map[string]response)}
+	writeGetSecretsPendingQueueItem(t, kv, vaulttypes.KeyFor(id), req)
+
 	obsb1 := marshalObservations(t, observation{id, req, makeResp([]string{keyA, keyB}, "share-a1", "share-b1")})
 	obsb2 := marshalObservations(t, observation{id, req, makeResp([]string{keyA, keyB}, "share-a2", "share-b2")})
 	obsb3 := marshalObservations(t, observation{id, req, makeResp([]string{keyA, keyB}, "share-a3", "share-b3")})
@@ -276,7 +279,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CombinesSharesByEncryptionKey(
 			{Observer: 1, Observation: libocrtypes.Observation(obsb2)},
 			{Observer: 2, Observation: libocrtypes.Observation(obsb3)},
 		},
-		&kv{m: make(map[string]response)},
+		kv,
 		nil,
 	)
 	require.NoError(t, err)

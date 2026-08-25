@@ -184,60 +184,6 @@ func (r *ReportingPlugin) validateGetSecretsRequestPayload(ctx context.Context, 
 	return nil
 }
 
-func (r *ReportingPlugin) validateEncryptedSecretsRequestWire(
-	ctx context.Context,
-	secrets []*vaultcommon.EncryptedSecret,
-	method string,
-) error {
-	if err := r.validator.CheckRequestBatchSize(ctx, len(secrets)); err != nil {
-		return err
-	}
-
-	// We disallow duplicate create/update requests within a single batch request.
-	// This prevents users from clobbering their own writes.
-	idSet := map[string]bool{}
-	for _, s := range secrets {
-		if s.Id == nil {
-			return fmt.Errorf("%s request contains nil secret identifier", method)
-		}
-		if err := r.validator.ValidateSecretIdentifier(ctx, s.Id.Key, s.Id.Owner, s.Id.Namespace); err != nil {
-			return fmt.Errorf("%s request contains invalid secret identifier: %w", method, err)
-		}
-		key := vaulttypes.KeyFor(s.Id)
-		if idSet[key] {
-			return fmt.Errorf("%s requests cannot contain duplicate request for a given secret identifier: %s", method, s.Id)
-		}
-		idSet[key] = true
-
-		if err := r.validator.ValidateCiphertextSize(ctx, s.Id.Owner, s.EncryptedValue); err != nil {
-			return fmt.Errorf("%s request: %w", method, err)
-		}
-	}
-	return nil
-}
-
-func (r *ReportingPlugin) validateDeleteSecretsRequestWire(ctx context.Context, ids []*vaultcommon.SecretIdentifier) error {
-	if err := r.validator.CheckRequestBatchSize(ctx, len(ids)); err != nil {
-		return err
-	}
-
-	idSet := map[string]bool{}
-	for _, id := range ids {
-		if id == nil {
-			return errors.New("DeleteSecrets request contains nil secret identifier")
-		}
-		if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, id.Namespace); err != nil {
-			return fmt.Errorf("DeleteSecrets request contains invalid secret identifier: %w", err)
-		}
-		key := vaulttypes.KeyFor(id)
-		if idSet[key] {
-			return fmt.Errorf("DeleteSecrets requests cannot contain duplicate request for a given secret identifier: %s", id)
-		}
-		idSet[key] = true
-	}
-	return nil
-}
-
 func (r *ReportingPlugin) validateDeleteSecretsRequestPayload(ctx context.Context, req *vaultcommon.DeleteSecretsRequest) error {
 	if err := r.validator.CheckRequestBatchSize(ctx, len(req.Ids)); err != nil {
 		return err

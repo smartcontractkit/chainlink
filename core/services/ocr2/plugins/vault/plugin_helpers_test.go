@@ -23,26 +23,25 @@ import (
 type testPluginOption func(*testPluginBuildOpts)
 
 type testPluginBuildOpts struct {
-	lggr                                   logger.Logger
-	store                                  *requests.Store[*vaulttypes.Request]
-	publicKey                              *tdh2easy.PublicKey
-	privateKeyShare                        *tdh2easy.PrivateShare
-	onchainCfg                             ocr3types.ReportingPluginConfig
-	maxSecretsPerOwner                     int
-	maxCiphertextLengthBytes               int
-	maxIdentifierOwnerLengthBytes          int
-	maxIdentifierNamespaceLengthBytes      int
-	maxIdentifierKeyLengthBytes            int
-	maxRequestBatchSize                    int
-	batchSize                              int
-	maxBlobPayloadBytes                    int
-	vaultOptimizationsEnabled              bool
-	vaultIncludeInvalidPendingItemsEnabled bool
-	vaultPendingQueueStallThreshold        int
-	marshalBlob                            func(ocr3_1types.BlobHandle) ([]byte, error)
-	unmarshalBlob                          func([]byte) (ocr3_1types.BlobHandle, error)
-	maxObservationBytesOverride            int
-	maxReportsPlusPrecursorBytesOverride   int
+	lggr                                 logger.Logger
+	store                                *requests.Store[*vaulttypes.Request]
+	publicKey                            *tdh2easy.PublicKey
+	privateKeyShare                      *tdh2easy.PrivateShare
+	onchainCfg                           ocr3types.ReportingPluginConfig
+	maxSecretsPerOwner                   int
+	maxCiphertextLengthBytes             int
+	maxIdentifierOwnerLengthBytes        int
+	maxIdentifierNamespaceLengthBytes    int
+	maxIdentifierKeyLengthBytes          int
+	maxRequestBatchSize                  int
+	batchSize                            int
+	maxBlobPayloadBytes                  int
+	vaultOptimizationsEnabled            bool
+	vaultPendingQueueStallThreshold      int
+	marshalBlob                          func(ocr3_1types.BlobHandle) ([]byte, error)
+	unmarshalBlob                        func([]byte) (ocr3_1types.BlobHandle, error)
+	maxObservationBytesOverride          int
+	maxReportsPlusPrecursorBytesOverride int
 }
 
 func withLggr(lggr logger.Logger) testPluginOption {
@@ -78,10 +77,6 @@ func withMaxSecretsPerOwner(n int) testPluginOption {
 
 func withVaultOptimizationsEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
-}
-
-func withVaultIncludeInvalidPendingItemsEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultIncludeInvalidPendingItemsEnabled = true }
 }
 
 func withVaultPendingQueueStallThreshold(n int) testPluginOption {
@@ -140,9 +135,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	cfg := makeReportingPluginConfig(t, o.batchSize, o.publicKey, o.privateKeyShare, o.maxSecretsPerOwner, o.maxBlobPayloadBytes)
 	if o.vaultOptimizationsEnabled {
 		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
-	}
-	if o.vaultIncludeInvalidPendingItemsEnabled {
-		cfg.VaultIncludeInvalidPendingItemsEnabled = limits.NewGateLimiter(true)
 	}
 	if o.vaultPendingQueueStallThreshold > 0 {
 		stallLimiter, err := limits.MakeUpperBoundLimiter(
@@ -252,17 +244,16 @@ func makeReportingPluginConfig(
 	require.NoError(t, err)
 
 	return &ReportingPluginConfig{
-		MaxBatchSize:                           bsl,
-		MaxPendingQueueWriteSize:               maxPendingQueueWriteSizeLimiter,
-		PublicKey:                              publicKey,
-		PrivateKeyShare:                        privateKeyShare,
-		MaxSecretsPerOwner:                     msl,
-		MaxShareLengthBytes:                    shareLimiter,
-		MaxBlobPayloadBytes:                    maxBlobPayloadLimiter,
-		VaultForceEmptyOCRRounds:               limits.NewGateLimiter(false),
-		VaultOptimizationsEnabled:              limits.NewGateLimiter(false),
-		VaultIncludeInvalidPendingItemsEnabled: limits.NewGateLimiter(false),
-		VaultPendingQueueStallThreshold:        pendingQueueStallThresholdLimiter,
+		MaxBatchSize:                    bsl,
+		MaxPendingQueueWriteSize:        maxPendingQueueWriteSizeLimiter,
+		PublicKey:                       publicKey,
+		PrivateKeyShare:                 privateKeyShare,
+		MaxSecretsPerOwner:              msl,
+		MaxShareLengthBytes:             shareLimiter,
+		MaxBlobPayloadBytes:             maxBlobPayloadLimiter,
+		VaultForceEmptyOCRRounds:        limits.NewGateLimiter(false),
+		VaultOptimizationsEnabled:       limits.NewGateLimiter(false),
+		VaultPendingQueueStallThreshold: pendingQueueStallThresholdLimiter,
 	}
 }
 

@@ -247,9 +247,6 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
 			ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
 		})
-	}
-
-	if isVaultIncludeInvalidEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
 		t.Run("include_invalid_pending_items_liveness", func(t *testing.T) {
 			ExecuteVaultIncludeInvalidLivenessSmokeTest(t, fixture, testEnv)
 		})
@@ -950,22 +947,16 @@ func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
 }
 
-func TestVaultIncludeInvalidPendingItemsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
-	t.Parallel()
-	require.False(t, cresettings.Default.VaultIncludeInvalidPendingItemsEnabled.DefaultValue)
-}
-
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 
 	testCases := []struct {
-		name                   string
-		configPath             string
-		wantJWTGate            string
-		wantLinking            bool
-		wantOptimizationsGate  string
-		wantIncludeInvalidGate string
+		name                  string
+		configPath            string
+		wantJWTGate           string
+		wantLinking           bool
+		wantOptimizationsGate string
 	}{
 		{
 			name:        "enabled",
@@ -986,13 +977,6 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			wantLinking:           false,
 			wantOptimizationsGate: "true",
 		},
-		{
-			name:                   "include_invalid_enabled",
-			configPath:             vaultIncludeInvalidEnabledConfigPath,
-			wantJWTGate:            "false",
-			wantLinking:            false,
-			wantIncludeInvalidGate: "true",
-		},
 	}
 
 	for _, tc := range testCases {
@@ -1004,7 +988,7 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 				switch nodeSet.Name {
 				case "workflow", "capabilities":
 				case "bootstrap-gateway":
-					if tc.wantOptimizationsGate != "true" && tc.wantIncludeInvalidGate != "true" {
+					if tc.wantOptimizationsGate != "true" {
 						continue
 					}
 				default:
@@ -1016,16 +1000,10 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 					if tc.wantOptimizationsGate != "" {
 						require.Equal(t, "false", tc.wantOptimizationsGate)
 					}
-					if tc.wantIncludeInvalidGate != "" {
-						require.Equal(t, "false", tc.wantIncludeInvalidGate)
-					}
 				} else {
 					var settings map[string]string
 					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
 					if tc.wantOptimizationsGate == "true" {
-						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
-					} else if tc.wantIncludeInvalidGate == "true" {
-						require.Equal(t, "true", settings["VaultIncludeInvalidPendingItemsEnabled"])
 						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
 					} else {
 						require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
@@ -1062,7 +1040,6 @@ func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {
 		require.NotEmpty(t, settingsRaw)
 		var configuredSettings map[string]json.RawMessage
 		require.NoError(t, json.Unmarshal([]byte(settingsRaw), &configuredSettings))
-		require.JSONEq(t, `"true"`, string(configuredSettings["VaultIncludeInvalidPendingItemsEnabled"]))
 		require.JSONEq(t, `"false"`, string(configuredSettings["VaultOptimizationsEnabled"]))
 		require.JSONEq(t, `"3"`, string(configuredSettings["VaultPendingQueueStallThreshold"]))
 		require.JSONEq(t, `"4kb"`, string(configuredSettings["VaultMaxObservationSizeLimit"]))
