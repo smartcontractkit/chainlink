@@ -98,9 +98,6 @@ func runSuiteScenario(t *testing.T, topology string, scenario suite_config.Suite
 			} else if isVaultOptimizationsEnabledTopology(topology) {
 				vaultConfig = getVaultOptimizationsEnabledTestConfig(t)
 				allowlistSubtestName = "allowlist_auth_when_vault_optimizations_enabled"
-			} else if isVaultIncludeInvalidEnabledTopology(topology) {
-				vaultConfig = getVaultIncludeInvalidEnabledTestConfig(t)
-				allowlistSubtestName = "allowlist_auth_when_vault_include_invalid_enabled"
 			} else if isVaultStallPurgeTopology(topology) {
 				vaultConfig = getVaultStallPurgeTestConfig(t)
 				allowlistSubtestName = "pending_queue_stall_purge"
