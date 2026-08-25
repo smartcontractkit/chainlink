@@ -100,6 +100,10 @@ func Test_CRE_V2_ConfidentialWorkflows_Relay(t *testing.T) {
 		// signatures instead of f+1 (enclave/nitro/host), matching the relay's
 		// requireBFTQuorum = true in the topology TOML.
 		t.Setenv("REQUIRE_BFT_QUORUM", "true")
+		// The vsock outbound proxy blocks loopback and local interface IPs by
+		// default; the fake storage service and artifact server are host-local, so
+		// opt the test host servers into allowing local destinations.
+		t.Setenv("OUTBOUND_ALLOW_LOCAL_FOR_TESTS", "true")
 		t.Setenv("ENCLAVE_SETTINGS", fmt.Sprintf(
 			`{"storageKey":%q,"storageServiceUrl":%q,"storageServiceTls":false,"gatewayUrl":%q}`,
 			confidentialStorageKeyHex,
