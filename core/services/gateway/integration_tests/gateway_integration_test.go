@@ -195,6 +195,8 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	userPort, nodePort := gateway.GetUserPort(), gateway.GetNodePort()
 	userURL := fmt.Sprintf("http://localhost:%d/user", userPort)
 	nodeURL := fmt.Sprintf("ws://localhost:%d/node", nodePort)
+	require.Equal(t, http.StatusServiceUnavailable, getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", userPort)))
+	require.Equal(t, http.StatusOK, getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", nodePort)))
 
 	// Launch Connector
 	client := &client{privateKey: nodeKeys.PrivateKey}
@@ -204,6 +206,9 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	require.NoError(t, connector.AddHandler(t.Context(), []string{"test"}, client))
 	client.connector = connector
 	servicetest.Run(t, connector)
+	require.Eventually(t, func() bool {
+		return getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", userPort)) == http.StatusOK
+	}, testutils.WaitTimeout(t), testutils.TestInterval)
 
 	// Send requests until one of them reaches Connector (i.e. the node)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -231,7 +236,17 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	require.JSONEq(t, nodeResponsePayload, string(respMsg.Body.Payload))
 }
 
-func newJSONRPCHTTPRequestObject(t *testing.T, messageID string, userURL string, signerKey *ecdsa.PrivateKey) *http.Request {
+func getHTTPStatus(t *testing.T, url string) int {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	return resp.StatusCode
+}
+
+func newJSONRPCHTTPRequestObject(t *testing.T, messageID, userURL string, signerKey *ecdsa.PrivateKey) *http.Request {
 	msg := &api.Message{Body: api.MessageBody{MessageId: messageID, Method: "test"}}
 	require.NoError(t, msg.Sign(signerKey))
 	msgBytes, err := json.Marshal(msg)
