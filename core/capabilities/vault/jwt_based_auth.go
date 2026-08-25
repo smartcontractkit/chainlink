@@ -21,7 +21,6 @@ import (
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 )
 
@@ -109,7 +108,6 @@ type jwtBasedAuth struct {
 	audience        string
 	jwksURL         string
 	refreshInterval time.Duration
-	authEnabledGate limits.GateLimiter
 
 	expectedTenantID uint64
 
@@ -125,31 +123,10 @@ type jwtBasedAuth struct {
 	limitsFactory limits.Factory
 }
 
-type jwtBasedAuthOptions struct {
-	authEnabledGate limits.GateLimiter
-}
-
-// JWTBasedAuthOption customizes JWTBasedAuth construction without multiplying constructors.
-type JWTBasedAuthOption func(*jwtBasedAuthOptions)
-
-// WithJWTBasedAuthGateLimiter overrides the gate limiter that decides whether JWT-based auth is enabled.
-func WithJWTBasedAuthGateLimiter(gateLimiter limits.GateLimiter) JWTBasedAuthOption {
-	return func(opts *jwtBasedAuthOptions) {
-		opts.authEnabledGate = gateLimiter
-	}
-}
-
 // NewJWTBasedAuth creates a JWTBasedAuth authorizer that verifies Auth0-issued JWTs
 // against the provider's JWKS endpoint. The JWKS is fetched lazily on first
 // use and refreshed on key-ID cache misses (rate-limited).
-func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr logger.Logger, opts ...JWTBasedAuthOption) (*jwtBasedAuth, error) {
-	options := jwtBasedAuthOptions{}
-	for _, opt := range opts {
-		opt(&options)
-	}
-	if options.authEnabledGate == nil {
-		options.authEnabledGate = newVaultJWTAuthEnabledGateLimiter(limitsFactory, lggr)
-	}
+func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr logger.Logger) (*jwtBasedAuth, error) {
 	if cfg.IssuerURL == "" {
 		return nil, errors.New("issuer URL is required")
 	}
@@ -180,7 +157,6 @@ func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr 
 		audience:         cfg.Audience,
 		jwksURL:          jwksURL,
 		refreshInterval:  refreshInterval,
-		authEnabledGate:  options.authEnabledGate,
 		expectedTenantID: expectedTenantID,
 		httpClient:       httpClient,
 		lggr:             logger.Named(lggr, "VaultJWTBasedAuth"),
@@ -195,16 +171,6 @@ func NewJWTBasedAuth(cfg JWTBasedAuthConfig, limitsFactory limits.Factory, lggr 
 	return v, nil
 }
 
-func newVaultJWTAuthEnabledGateLimiter(limitsFactory limits.Factory, lggr logger.Logger) limits.GateLimiter {
-	limiter, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultJWTAuthEnabled)
-	if err != nil {
-		logger.Named(lggr, "VaultJWTBasedAuth").Errorw("failed to create VaultJWTAuthEnabled limiter", "error", err)
-		return limits.NewGateLimiter(false)
-	}
-
-	return limiter
-}
-
 func (v *jwtBasedAuth) start(context.Context) error {
 	v.eng.GoTick(services.NewTicker(v.refreshInterval), func(ctx context.Context) {
 		if err := v.refreshJWKS(ctx); err != nil {
@@ -215,21 +181,11 @@ func (v *jwtBasedAuth) start(context.Context) error {
 }
 
 func (v *jwtBasedAuth) close() error {
-	return v.authEnabledGate.Close()
+	return nil
 }
 
 // AuthorizeRequest verifies JWTBasedAuth state and token claims, and returns a common AuthResult.
 func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (*AuthResult, error) {
-	isEnabled, err := v.authEnabledGate.Limit(ctx)
-	if err != nil {
-		v.lggr.Errorw("failed to resolve JWTBasedAuth gate", "method", req.Method, "requestID", req.ID, "error", err)
-		return nil, fmt.Errorf("failed to resolve JWTBasedAuth gate: %w", err)
-	}
-	if !isEnabled {
-		v.lggr.Debugw("JWTBasedAuth rejected request because it is disabled", "method", req.Method, "requestID", req.ID)
-		return nil, errors.New("JWTBasedAuth is disabled")
-	}
-
 	claims, err := v.validateToken(ctx, req.Auth)
 	if err != nil {
 		v.lggr.Debugw("JWTBasedAuth token validation failed", "method", req.Method, "requestID", req.ID, "error", err)
