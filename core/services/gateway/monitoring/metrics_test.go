@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-func TestGatewayMetrics_RecordReadiness(t *testing.T) {
+func TestGatewayMetrics_RecordReadiness(t *testing.T) { //nolint:paralleltest // The test replaces the process-global Beholder client.
 	reader := sdkmetric.NewManualReader()
 	meterProvider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 	t.Cleanup(func() { require.NoError(t, meterProvider.Shutdown(context.Background())) })
