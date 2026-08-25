@@ -146,7 +146,6 @@ func TestValidateObservation_IncludeInvalid_AcceptsNonMaximalPrefix(t *testing.T
 	r := newTestReportingPlugin(t,
 		withKeys(pk, shares[0]),
 		withOnchainCfg(4, 1),
-		withVaultOptimizationsEnabled(),
 		withMaxObservationBytes(10*1024*1024),
 	)
 

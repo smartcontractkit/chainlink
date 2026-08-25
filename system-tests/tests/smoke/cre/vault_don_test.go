@@ -24,7 +24,6 @@ import (
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
@@ -189,11 +188,9 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		namespaces := []string{"main", "alt"}
 
 		executeVaultAllowListSecretsCreateTest(t, createEnc, secretID, owner, owner, gwURL, namespaces, sc, wfReg)
-		if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
-			t.Run("binary_encoded_shares", func(t *testing.T) {
-				executeVaultBinaryEncodedSharesSmokeTest(t, testEnv, secretID, "main", createValue, ulCh, bmCh)
-			})
-		}
+		t.Run("binary_encoded_shares", func(t *testing.T) {
+			executeVaultBinaryEncodedSharesSmokeTest(t, testEnv, secretID, "main", createValue, ulCh, bmCh)
+		})
 		executeVaultSecretsUpdateTest(t, updateEnc, secretID, owner, owner, gwURL, namespaces, sc, wfReg)
 		executeVaultSecretsListTest(t, secretID, owner, owner, gwURL, "main", sc, wfReg)
 		executeVaultSecretsListTest(t, secretID, owner, owner, gwURL, "alt", sc, wfReg)
@@ -243,14 +240,12 @@ func ExecuteVaultAllowListBasedTests(t *testing.T, fixture *vaultScenarioFixture
 		})
 	}
 
-	if isVaultOptimizationsEnabledTopology(testEnv.TestConfig.EnvironmentConfigPath) {
-		t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
-			ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
-		})
-		t.Run("include_invalid_pending_items_liveness", func(t *testing.T) {
-			ExecuteVaultIncludeInvalidLivenessSmokeTest(t, fixture, testEnv)
-		})
-	}
+	t.Run("pending_queue_blob_batching_many_concurrent_creates", func(t *testing.T) {
+		ExecuteVaultBlobBatchingSmokeTest(t, fixture, testEnv)
+	})
+	t.Run("include_invalid_pending_items_liveness", func(t *testing.T) {
+		ExecuteVaultIncludeInvalidLivenessSmokeTest(t, fixture, testEnv)
+	})
 }
 
 func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, testEnv *ttypes.TestEnvironment) {
@@ -942,21 +937,15 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 	}
 }
 
-func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
-	t.Parallel()
-	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
-}
-
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 	t.Parallel()
 	dockerHost := strings.TrimPrefix(framework.HostDockerInternal(), "http://")
 
 	testCases := []struct {
-		name                  string
-		configPath            string
-		wantJWTGate           string
-		wantLinking           bool
-		wantOptimizationsGate string
+		name        string
+		configPath  string
+		wantJWTGate string
+		wantLinking bool
 	}{
 		{
 			name:        "enabled",
@@ -970,13 +959,6 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 			wantJWTGate: "false",
 			wantLinking: false,
 		},
-		{
-			name:                  "optimizations_enabled",
-			configPath:            vaultOptimizationsEnabledConfigPath,
-			wantJWTGate:           "false",
-			wantLinking:           false,
-			wantOptimizationsGate: "true",
-		},
 	}
 
 	for _, tc := range testCases {
@@ -988,29 +970,17 @@ func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {
 				switch nodeSet.Name {
 				case "workflow", "capabilities":
 				case "bootstrap-gateway":
-					if tc.wantOptimizationsGate != "true" {
-						continue
-					}
+					continue
 				default:
 					continue
 				}
 				settingsRaw := nodeSet.EnvVars["CL_CRE_SETTINGS_DEFAULT"]
 				if settingsRaw == "" {
 					require.Equal(t, "false", tc.wantJWTGate)
-					if tc.wantOptimizationsGate != "" {
-						require.Equal(t, "false", tc.wantOptimizationsGate)
-					}
 				} else {
 					var settings map[string]string
 					require.NoError(t, json.Unmarshal([]byte(settingsRaw), &settings))
-					if tc.wantOptimizationsGate == "true" {
-						require.Equal(t, "true", settings["VaultOptimizationsEnabled"])
-					} else {
-						require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
-						if v, ok := settings["VaultOptimizationsEnabled"]; ok {
-							require.Equal(t, "false", v)
-						}
-					}
+					require.Equal(t, tc.wantJWTGate, settings["VaultJWTAuthEnabled"])
 				}
 
 				for _, nodeSpec := range nodeSet.NodeSpecs {
@@ -1040,7 +1010,6 @@ func TestVaultStallPurgeTopology_LoadExpectedConfig(t *testing.T) {
 		require.NotEmpty(t, settingsRaw)
 		var configuredSettings map[string]json.RawMessage
 		require.NoError(t, json.Unmarshal([]byte(settingsRaw), &configuredSettings))
-		require.JSONEq(t, `"false"`, string(configuredSettings["VaultOptimizationsEnabled"]))
 		require.JSONEq(t, `"3"`, string(configuredSettings["VaultPendingQueueStallThreshold"]))
 		require.JSONEq(t, `"4kb"`, string(configuredSettings["VaultMaxObservationSizeLimit"]))
 		var perOwner map[string]string

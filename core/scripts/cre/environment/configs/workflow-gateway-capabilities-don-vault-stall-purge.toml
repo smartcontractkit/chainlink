@@ -1,5 +1,5 @@
 # Custom local CRE topology for Vault pending-queue stall purge smoke coverage.
-# Optimizations stay disabled so a valid-at-ingress ciphertext can produce an oversized store-backed observation.
+# Uses a small max observation size so a valid-at-ingress ciphertext can produce an oversized store-backed observation.
 [chip_router]
   image = "local-cre-chip-router:v1.0.1"
 
@@ -37,7 +37,7 @@
   override_mode = "all"
   http_port_range_start = 10100
   supported_evm_chains = [1337, 2337]
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"VaultOptimizationsEnabled":"false","VaultPendingQueueStallThreshold":"3","VaultMaxObservationSizeLimit":"4kb","PerOwner":{"VaultCiphertextSizeLimit":"8kb"}}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"VaultPendingQueueStallThreshold":"3","VaultMaxObservationSizeLimit":"4kb","PerOwner":{"VaultCiphertextSizeLimit":"8kb"}}' }
   capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
   registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
 
@@ -62,7 +62,7 @@
   override_mode = "all"
   http_port_range_start = 10200
   supported_evm_chains = [1337, 2337]
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"VaultOptimizationsEnabled":"false","VaultPendingQueueStallThreshold":"3","VaultMaxObservationSizeLimit":"4kb","PerOwner":{"VaultCiphertextSizeLimit":"8kb"}}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"VaultPendingQueueStallThreshold":"3","VaultMaxObservationSizeLimit":"4kb","PerOwner":{"VaultCiphertextSizeLimit":"8kb"}}' }
   capabilities = ["vault", "evm-2337"]
 
   [nodesets.db]
@@ -85,7 +85,7 @@
   override_mode = "each"
   http_port_range_start = 10300
   supported_evm_chains = [1337, 2337]
-  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"VaultOptimizationsEnabled":"false","VaultPendingQueueStallThreshold":"3","VaultMaxObservationSizeLimit":"4kb","PerOwner":{"VaultCiphertextSizeLimit":"8kb"}}' }
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"VaultPendingQueueStallThreshold":"3","VaultMaxObservationSizeLimit":"4kb","PerOwner":{"VaultCiphertextSizeLimit":"8kb"}}' }
 
   [nodesets.db]
     image = "postgres:12.0"
