@@ -34,12 +34,14 @@ import (
 	caperrors "github.com/smartcontractkit/chainlink-common/pkg/capabilities/errors"
 	confworkflowtypes "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/actions/confidentialworkflow/server"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/resourcemanager"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
@@ -160,7 +162,7 @@ func (m *mockDrainableEngine) Close() error {
 
 // mockEngineFactory returns a standard mock engine factory for tests.
 // It sends nil to initDone to signal successful initialization.
-func mockEngineFactory(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+func mockEngineFactory(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
 	if initDone != nil {
 		initDone <- nil
 	}
@@ -260,7 +262,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	defaultValidationFnWithFetch := func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+	defaultValidationFnWithFetch := func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
 		defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
 		// Verify that the URLs have been called
@@ -315,7 +317,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
 				if _, err := hex.DecodeString(name.Hex()); err != nil {
 					return nil, fmt.Errorf("invalid workflow name: %w", err)
 				}
@@ -359,7 +361,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					signedConfigURL:                      {Body: config, Err: nil},
 				})
 			},
-			engineFactoryFn: func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
+			engineFactoryFn: func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error) {
 				if initDone != nil {
 					initDone <- nil
 				}
@@ -382,7 +384,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
-				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string,
+				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string,
 			) {
 				err := h.workflowRegisteredEvent(ctx, event)
 				require.Error(t, err)
@@ -418,7 +420,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 					ConfigURL:     configURLFactory(hex.EncodeToString(wfID)),
 				}
 			},
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
 				me := &mockEngine{}
 				err := h.engineRegistry.Add(wfID, event.Source, me)
 				require.NoError(t, err)
@@ -456,7 +458,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 			},
 			engineFactoryFn: mockEngineFactory,
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
 				me := &mockEngine{}
 				oldWfIDBytes := [32]byte{0, 1, 2, 3, 5}
 				err := h.engineRegistry.Add(oldWfIDBytes, event.Source, me)
@@ -498,7 +500,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				}
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
-				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string,
+				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string,
 			) {
 				err := h.workflowRegisteredEvent(ctx, event)
 				require.NoError(t, err)
@@ -546,7 +548,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			},
 			engineFactoryFn: mockEngineFactory,
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler,
-				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string,
+				s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string,
 			) {
 				// Create the record in the database
 				entry := &job.WorkflowSpec{
@@ -595,7 +597,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				})
 			},
 			engineFactoryFn: mockEngineFactory,
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
 				defaultValidationFn(t, ctx, event, h, s, wfOwner, wfName, wfID, fetcher)
 
 				// Verify that the URLs have been called
@@ -632,7 +634,7 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 				})
 			},
 			engineFactoryFn: mockEngineFactory,
-			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string) {
+			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string) {
 				// Create the record in the database
 				entry := &job.WorkflowSpec{
 					Workflow:      hex.EncodeToString(binary),
@@ -897,8 +899,8 @@ type testCase struct {
 	WFOwner          []byte
 	fetcherFactory   func(wfID []byte) *mockFetcher
 	Event            func(wfID []byte, wfName string, wfOwner []byte) WorkflowRegisteredEvent
-	validationFn     func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL string, configURL string)
-	engineFactoryFn  func(ctx context.Context, wfid string, owner string, name types.WorkflowName, tag string, config []byte, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
+	validationFn     func(t *testing.T, ctx context.Context, event WorkflowRegisteredEvent, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID types.WorkflowID, fetcher *mockFetcher, binaryURL, configURL string)
+	engineFactoryFn  func(ctx context.Context, wfid, owner string, name types.WorkflowName, tag string, config, binary []byte, binaryURL string, initDone chan<- error) (services.Service, error)
 }
 
 func testRunningWorkflow(t *testing.T, tc testCase) {
@@ -1617,7 +1619,12 @@ func (m *mockLinkingService) GetOrganizationFromWorkflowOwner(ctx context.Contex
 	}, nil
 }
 
-func Test_Handler_OrganizationID(t *testing.T) { //nolint:paralleltest // beholdertest.NewObserver uses t.Setenv
+//nolint:paralleltest // beholdertest.NewObserver(t) cannot be used in parallel tests because it relies on global state
+func Test_Handler_OrganizationID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	observer := beholdertest.NewObserver(t)
 	emitter := custmsg.NewLabeler()
 	ctx := t.Context()
@@ -1809,10 +1816,12 @@ type testActionBase struct {
 
 var _ commoncap.ExecutableAndTriggerCapability = (*testActionBase)(nil)
 
-func (t *testActionBase) AckEvent(_ context.Context, _ string, _ string, _ string) error { return nil }
+func (t *testActionBase) AckEvent(_ context.Context, _, _, _ string) error { return nil }
+
 func (t *testActionBase) RegisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) (<-chan commoncap.TriggerResponse, error) {
 	panic("not implemented for this test")
 }
+
 func (t *testActionBase) UnregisterTrigger(_ context.Context, _ commoncap.TriggerRegistrationRequest) error {
 	return nil
 }
@@ -2075,6 +2084,155 @@ func Test_specStorage_StateMachine(t *testing.T) {
 		h := makeHandler(store)
 		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(activePayload)))
 		assertStubState(t, store, true, job.WorkflowSpecStatusActive, false, createdAtI64)
+	})
+
+	// alwaysActive returns EngineFeatureFlags with a WorkflowTagBackfill limiter
+	// whose active window covers every possible time — used to simulate the ops
+	// team narrowing the cresettings window to include time.Now().
+	alwaysActive := func() *v2.EngineFeatureFlags {
+		return &v2.EngineFeatureFlags{
+			WorkflowTagBackfill: limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
+				Lower: 0,
+				Upper: config.Timestamp(time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+			}),
+		}
+	}
+	// farFuture mirrors the cresettings default: window sits in the 22nd century
+	// so time.Now() never falls inside, matching a fresh-deploy no-op.
+	farFuture := func() *v2.EngineFeatureFlags {
+		return &v2.EngineFeatureFlags{
+			WorkflowTagBackfill: limits.NewRangeLimiter[config.Timestamp](settings.Range[config.Timestamp]{
+				Lower: config.Timestamp(time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+				Upper: config.Timestamp(time.Date(2101, 1, 1, 0, 0, 0, 0, time.UTC).Unix()),
+			}),
+		}
+	}
+
+	t.Run("flag inactive (default window): stale tag + Activated → no backfill", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = "v1.2.3"
+		h := makeHandler(store)
+		h.featureFlags = farFuture()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		assert.Empty(t, store.spec.WorkflowTag, "window in 2100+: local tag must remain untouched")
+	})
+
+	t.Run("flag active: empty tag + Activated → backfill tag", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = "v1.2.3"
+		h := makeHandler(store)
+		h.featureFlags = alwaysActive()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		assert.Equal(t, "v1.2.3", store.spec.WorkflowTag, "flag active: empty local tag should be backfilled from payload")
+	})
+
+	t.Run("flag active: stale tag + Activated → tag refreshed", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "v1.0.0",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = "v2.0.0"
+		h := makeHandler(store)
+		h.featureFlags = alwaysActive()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		assert.Equal(t, "v2.0.0", store.spec.WorkflowTag, "flag active: stale local tag should be refreshed from payload")
+	})
+
+	t.Run("flag active: local set + payload empty → local preserved", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "v1.0.0",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = ""
+		h := makeHandler(store)
+		h.featureFlags = alwaysActive()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		assert.Equal(t, "v1.0.0", store.spec.WorkflowTag, "empty payload tag must not clobber a good local tag")
+	})
+
+	t.Run("flag inactive → active: retro-backfill on next event", func(t *testing.T) {
+		t.Parallel()
+		store := &stubWorkflowArtifactsStore{
+			persistUpserts: true,
+			spec: &job.WorkflowSpec{
+				WorkflowID:    wfID.Hex(),
+				Status:        job.WorkflowSpecStatusActive,
+				WorkflowOwner: "aabbccdd",
+				WorkflowName:  "wf-name",
+				Workflow:      hexWorkflow,
+				Config:        string(configData),
+				RegisteredAt:  createdAtI64,
+				WorkflowTag:   "",
+			},
+		}
+		payload := activePayload
+		payload.WorkflowTag = "v3.0.0"
+		h := makeHandler(store)
+
+		// First pass: window in far future, no backfill.
+		h.featureFlags = farFuture()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		require.NotNil(t, store.spec)
+		require.Empty(t, store.spec.WorkflowTag, "before flip: tag stays empty")
+
+		// Ops narrows the window to cover time.Now(); redeliver → backfill fires.
+		h.featureFlags = alwaysActive()
+		require.NoError(t, h.workflowActivatedEvent(t.Context(), WorkflowActivatedEvent(payload)))
+		assert.Equal(t, "v3.0.0", store.spec.WorkflowTag, "after flip: tag backfilled")
 	})
 }
 

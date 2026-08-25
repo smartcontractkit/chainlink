@@ -49,7 +49,8 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 			if n == 1 {
 				<-continueFirst
 			}
-		}).Return(nil, nil).Times(2)
+		},
+	).Return(nil, nil).Times(2)
 	module.EXPECT().Close().Once()
 
 	capreg := regmocks.NewCapabilitiesRegistry(t)
@@ -76,7 +77,7 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 			if executionID == wantExecID2 {
 				close(executionFinishedCh)
@@ -159,6 +160,10 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 // fresh events are sent and all execute. Total: 10 events, 5 expire, 5
 // execute.
 func TestEngine_StaleTriggerEventIsSkipped(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	const queueTimeout = 5 * time.Second
@@ -216,7 +221,7 @@ func TestEngine_StaleTriggerEventIsSkipped(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}

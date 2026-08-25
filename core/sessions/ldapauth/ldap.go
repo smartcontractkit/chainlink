@@ -50,8 +50,10 @@ const (
 	UniqueMemberAttribute = "uniqueMember"
 )
 
-var ErrUserNotInUpstream = errors.New("LDAP query returned no matching users")
-var ErrUserNoLDAPGroups = errors.New("user present in directory, but matching no role groups assigned")
+var (
+	ErrUserNotInUpstream = errors.New("LDAP query returned no matching users")
+	ErrUserNoLDAPGroups  = errors.New("user present in directory, but matching no role groups assigned")
+)
 
 type ldapAuthenticator struct {
 	ds          sqlutil.DataSource
@@ -501,7 +503,7 @@ func (l *ldapAuthenticator) SetPassword(ctx context.Context, user *sessions.User
 }
 
 // TestPassword tests if an LDAP login bind can be performed with provided credentials, returns nil if success
-func (l *ldapAuthenticator) TestPassword(ctx context.Context, email string, password string) error {
+func (l *ldapAuthenticator) TestPassword(ctx context.Context, email, password string) error {
 	conn, err := l.ldapClient.CreateEphemeralConnection()
 	if err != nil {
 		return errors.New("unable to establish connection to LDAP server with provided URL and credentials")
@@ -612,7 +614,7 @@ func (l *ldapAuthenticator) Sessions(ctx context.Context, offset, limit int) ([]
 	return sessions, nil
 }
 
-// FindExternalInitiator supports the 'Run' role external intiator header auth functionality
+// FindExternalInitiator supports the 'Run' role external initiator header auth functionality
 func (l *ldapAuthenticator) FindExternalInitiator(ctx context.Context, eia *auth.Token) (*bridges.ExternalInitiator, error) {
 	exi := &bridges.ExternalInitiator{}
 	err := l.ds.GetContext(ctx, exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
@@ -782,7 +784,7 @@ func (l *ldapAuthenticator) groupSearchResultsToUserRole(ldapGroups []*ldap.Entr
 	)
 }
 
-func GroupSearchResultsToUserRole(ldapGroups []*ldap.Entry, adminCN string, editCN string, runCN string, readCN string) (sessions.UserRole, error) {
+func GroupSearchResultsToUserRole(ldapGroups []*ldap.Entry, adminCN, editCN, runCN, readCN string) (sessions.UserRole, error) {
 	// If defined Admin group name is present in groups search result, return UserRoleAdmin
 	for _, group := range ldapGroups {
 		if group.GetAttributeValue("cn") == adminCN {

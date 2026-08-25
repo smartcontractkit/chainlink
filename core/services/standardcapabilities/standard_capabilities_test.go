@@ -183,6 +183,10 @@ func (c *capturingRegistrar) RegisterLOOP(cfg plugins.CmdConfig) (func() *exec.C
 func (c *capturingRegistrar) UnregisterLOOP(string) {}
 
 func TestStandardCapabilityStart(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Run("NOK-not_found_binary_does_not_block", func(t *testing.T) {
 		ctx := t.Context()
 		lggr := logger.TestLogger(t)
@@ -199,7 +203,8 @@ func TestStandardCapabilityStart(t *testing.T) {
 				},
 				OCRContractAddress: "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
 				ChainID:            "31337",
-			}}
+			},
+		}
 
 		dependencies := core.StandardCapabilitiesDependencies{
 			Config:             spec.Config,
@@ -224,7 +229,7 @@ func TestStandardCapabilityStart(t *testing.T) {
 
 type telemetryServiceMock struct{}
 
-func (t *telemetryServiceMock) Send(ctx context.Context, network string, chainID string, contractID string, telemetryType string, payload []byte) error {
+func (t *telemetryServiceMock) Send(ctx context.Context, network, chainID, contractID, telemetryType string, payload []byte) error {
 	return nil
 }
 
@@ -233,9 +238,11 @@ type kvstoreMock struct{}
 func (k *kvstoreMock) Store(ctx context.Context, key string, val []byte) error {
 	return nil
 }
+
 func (k *kvstoreMock) Get(ctx context.Context, key string) ([]byte, error) {
 	return nil, nil
 }
+
 func (k *kvstoreMock) PruneExpiredEntries(ctx context.Context, maxAge time.Duration) (int64, error) {
 	return 0, nil
 }
@@ -245,6 +252,7 @@ type keystoreMock struct{ core.UnimplementedKeystore }
 func (k *keystoreMock) Accounts(ctx context.Context) (accounts []string, err error) {
 	return nil, nil
 }
+
 func (k *keystoreMock) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
 	return nil, nil
 }
@@ -260,6 +268,7 @@ type relayerSetMock struct{}
 func (r *relayerSetMock) Get(ctx context.Context, relayID types.RelayID) (core.Relayer, error) {
 	return nil, nil
 }
+
 func (r *relayerSetMock) List(ctx context.Context, relayIDs ...types.RelayID) (map[types.RelayID]core.Relayer, error) {
 	return nil, nil
 }
@@ -281,6 +290,7 @@ type oracleMock struct{}
 func (o *oracleMock) Start(ctx context.Context) error {
 	return nil
 }
+
 func (o *oracleMock) Close(ctx context.Context) error {
 	return nil
 }

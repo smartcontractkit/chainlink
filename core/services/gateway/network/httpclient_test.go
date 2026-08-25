@@ -19,6 +19,10 @@ import (
 )
 
 func TestHTTPClient_Send(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	// Setup the test environment
@@ -308,6 +312,10 @@ func TestHTTPClient_Send(t *testing.T) {
 // this means that the errors returned can change depending on whether the tests are
 // run on osx or on linux.
 func TestHTTPClient_BlocksUnallowed(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	// Setup the test environment

@@ -88,6 +88,7 @@
 /.github/workflows/devenv* @smartcontractkit/devex-tooling @smartcontractkit/devex-cicd @smartcontractkit/core
 /tools/plugout/ @smartcontractkit/devex-cicd @smartcontractkit/core
 /tools/test/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
+/tools/githooks/ @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 
 /core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 

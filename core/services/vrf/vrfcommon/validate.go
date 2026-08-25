@@ -15,12 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-var (
-	ErrKeyNotSet = errors.New("key not set")
-)
+var ErrKeyNotSet = errors.New("key not set")
 
 func ValidatedVRFSpec(tomlString string) (job.Job, error) {
-	var jb = job.Job{
+	jb := job.Job{
 		ExternalJobID: uuid.New(), // Default to generating a uuid, can be overwritten by the specified one in tomlString.
 	}
 
@@ -87,7 +85,7 @@ func ValidatedVRFSpec(tomlString string) (job.Job, error) {
 
 		if t.Type() == pipeline.TaskTypeVRFV2 || t.Type() == pipeline.TaskTypeVRFV2Plus {
 			if len(spec.FromAddresses) == 0 {
-				return jb, errors.Wrap(ErrKeyNotSet, "fromAddreses needs to have a non-zero length")
+				return jb, errors.Wrap(ErrKeyNotSet, "fromAddresses needs to have a non-zero length")
 			}
 		}
 	}

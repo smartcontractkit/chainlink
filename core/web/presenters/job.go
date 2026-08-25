@@ -337,7 +337,7 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 	}
 }
 
-// BlockHeaderFeederSpec defines the job parameters for a blcok header feeder job.
+// BlockHeaderFeederSpec defines the job parameters for a block header feeder job.
 type BlockHeaderFeederSpec struct {
 	CoordinatorV1Address       *types.EIP55Address  `json:"coordinatorV1Address"`
 	CoordinatorV2Address       *types.EIP55Address  `json:"coordinatorV2Address"`
@@ -624,7 +624,7 @@ func NewJobResource(j job.Job) *JobResource {
 
 	jes := make([]JobError, 0, len(j.JobSpecErrors))
 	for _, e := range j.JobSpecErrors {
-		jes = append(jes, NewJobError((e)))
+		jes = append(jes, NewJobError(e))
 	}
 	resource.Errors = jes
 

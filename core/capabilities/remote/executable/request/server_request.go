@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"go.opentelemetry.io/otel/attribute"
@@ -66,7 +67,8 @@ func (s *srMetrics) countExecutionResponse(ctx context.Context, status string, d
 	}
 	s.executeResponseCount.Add(
 		ctx, 1,
-		metric.WithAttributes(attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID), attribute.String("status", status), attribute.String("dispatcherErr", dv)))
+		metric.WithAttributes(attribute.String("callingDON", s.callingDonID), attribute.String("capabilityID", s.capabilityID), attribute.String("status", status), attribute.String("dispatcherErr", dv)),
+	)
 }
 
 func newSrMetrics(capabilityID string, callingDonID uint32) (*srMetrics, error) {
@@ -133,17 +135,30 @@ type ServerRequest struct {
 	// Metadata.WorkflowDonID to match the authenticated calling DON.
 	workflowDONBindingGate limits.GateLimiter
 
-	mux  sync.Mutex
+	// stateMux guards requesters, responseSentToRequester, response, and executionCancel.
+	// It is held only for short map/field operations, never during capability execution.
+	stateMux sync.Mutex
+
+	// executionClaimed is set to true exactly once (via CAS) by the message that
+	// wins the right to execute the capability. All other messages skip execution.
+	executionClaimed atomic.Bool
+
+	// executionCancel cancels the in-flight capability execution context.
+	// Set under stateMux when execution starts; called by Cancel to stop
+	// execution early (e.g. on request expiry) instead of waiting for completion.
+	executionCancel context.CancelFunc
+
 	lggr logger.Logger
 
 	metrics *srMetrics
 }
 
-func NewServerRequest(capability capabilities.ExecutableCapability, method string, capabilityID string, capabilityDonID uint32,
+func NewServerRequest(capability capabilities.ExecutableCapability, method, capabilityID string, capabilityDonID uint32,
 	capabilityPeerID p2ptypes.PeerID,
 	callingDon capabilities.DON, requestID string,
 	dispatcher types.Dispatcher, requestTimeout time.Duration, capMethodName string,
-	workflowDONBindingGate limits.GateLimiter, lggr logger.Logger) (*ServerRequest, error) {
+	workflowDONBindingGate limits.GateLimiter, lggr logger.Logger,
+) (*ServerRequest, error) {
 	lggr = logger.With(logger.Named(lggr, "ServerRequest"), "requestID", requestID) // cap ID and method name included in the parent logger
 
 	if workflowDONBindingGate == nil {
@@ -178,9 +193,6 @@ func NewServerRequest(capability capabilities.ExecutableCapability, method strin
 func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) error {
 	e.metrics.countExecutionRequest(ctx)
 
-	e.mux.Lock()
-	defer e.mux.Unlock()
-
 	if msg.Sender == nil {
 		return errors.New("sender missing from message")
 	}
@@ -190,22 +202,61 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 		return fmt.Errorf("failed to convert message sender to PeerID: %w", err)
 	}
 
+	e.stateMux.Lock()
 	if err := e.addRequester(requester); err != nil {
+		e.stateMux.Unlock()
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
 
-	e.lggr.Debugw("OnMessage called for request", "calls", len(e.requesters),
-		"hasResponse", e.response != nil, "requester", requester.String(), "minRequsters", e.callingDon.F+1)
+	quorumReached := e.minimumRequiredRequestsReceived()
+	calls := len(e.requesters)
+	hasResponse := e.hasResponse()
+	e.stateMux.Unlock()
 
-	if e.minimumRequiredRequestsReceived() && !e.hasResponse() {
+	e.lggr.Debugw("OnMessage called for request", "requester", requester.String(),
+		"quorumReached", quorumReached, "hasResponse", hasResponse, "minRequesters", e.callingDon.F+1, "calls", calls)
+
+	// Only one message wins the right to execute. All others skip execution
+	// and either wait for the executor's fan-out or self-send if the response
+	// is already available.
+	if quorumReached && !hasResponse && e.executionClaimed.CompareAndSwap(false, true) {
 		switch e.method {
 		case types.MethodExecute:
-			e.executeRequest(ctx, msg, executeCapabilityRequest)
+			ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
+			defer cancel()
+
+			// Expose the cancel func so Cancel can stop the in-flight execution early.
+			e.stateMux.Lock()
+			e.executionCancel = cancel
+			e.stateMux.Unlock()
+			success := false
+			start := time.Now()
+			responsePayload, responseErr := executeCapabilityRequest(ctxWithTimeout, e.lggr, e.capability, msg.Payload, e.callingDon.ID, e.workflowDONBindingGate)
+
+			e.stateMux.Lock()
+			// Cancel may have already set a timeout error response; never overwrite an
+			// existing response.
+			if !e.hasResponse() {
+				if responseErr != nil {
+					e.setError(types.Error_INTERNAL_ERROR, responseErr.Error())
+				} else {
+					success = true
+					e.setResult(responsePayload)
+				}
+			}
+			e.stateMux.Unlock()
+
+			e.metrics.countExecution(ctxWithTimeout, success)
+			e.metrics.recordExecutionDuration(ctxWithTimeout, time.Since(start), success)
 		default:
+			e.stateMux.Lock()
 			e.setError(types.Error_INTERNAL_ERROR, "unknown method %s"+e.method)
+			e.stateMux.Unlock()
 		}
 	}
 
+	e.stateMux.Lock()
+	defer e.stateMux.Unlock()
 	if err := e.sendResponses(ctx); err != nil {
 		return fmt.Errorf("failed to send responses: %w", err)
 	}
@@ -222,10 +273,21 @@ func (e *ServerRequest) Evictable(minRetention time.Duration) bool {
 	return age > e.requestTimeout && age > minRetention
 }
 
+// Cancel stops any in-flight execution by cancelling its context and, if no
+// response has been produced yet, records err as the response and fans it out
+// to all requesters.
 func (e *ServerRequest) Cancel(ctx context.Context, err types.Error, msg string) error {
-	e.mux.Lock()
-	defer e.mux.Unlock()
+	e.stateMux.Lock()
+	defer e.stateMux.Unlock()
 
+	// Cancel the in-flight execution, if any. The executor goroutine returns
+	// early on the cancelled context and skips overwriting the response set
+	// below (guarded by hasResponse).
+	if e.executionCancel != nil {
+		e.executionCancel()
+	}
+
+	// Only set cancellation error if no response exists (matches original behavior)
 	if !e.hasResponse() {
 		e.setError(err, msg)
 		if err := e.sendResponses(ctx); err != nil {
@@ -234,26 +296,6 @@ func (e *ServerRequest) Cancel(ctx context.Context, err types.Error, msg string)
 	}
 
 	return nil
-}
-
-type executeFn func(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability, payload []byte, callingDonID uint32, workflowDONBindingGate limits.GateLimiter) ([]byte, error)
-
-func (e *ServerRequest) executeRequest(ctx context.Context, msg *types.MessageBody, method executeFn) {
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
-	defer cancel()
-
-	success := false
-	start := time.Now()
-	responsePayload, err := method(ctxWithTimeout, e.lggr, e.capability, msg.Payload, e.callingDon.ID, e.workflowDONBindingGate)
-	if err != nil {
-		e.setError(types.Error_INTERNAL_ERROR, err.Error())
-	} else {
-		success = true
-		e.setResult(responsePayload)
-	}
-
-	e.metrics.countExecution(ctx, success)
-	e.metrics.recordExecutionDuration(ctx, time.Since(start), success)
 }
 
 func (e *ServerRequest) addRequester(from p2ptypes.PeerID) error {
@@ -373,8 +415,7 @@ func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capabilit
 	if err != nil {
 		lggr.Errorw("received execution error", "error", err)
 
-		var capError caperrors.Error
-		if errors.As(err, &capError) {
+		if capError, ok := errors.AsType[caperrors.Error](err); ok {
 			return nil, errors.New(capError.SerializeToRemoteString())
 		}
 		return nil, errors.New("failed to execute capability")

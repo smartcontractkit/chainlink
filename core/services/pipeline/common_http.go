@@ -30,7 +30,7 @@ func makeHTTPRequest(
 		bodyBytes, err = json.Marshal(requestData)
 		if err != nil {
 			err = errors.Wrap(err, "failed to encode request body as JSON")
-			return
+			return responseBytes, statusCode, respHeaders, start, finish, err
 		}
 		bodyReader = bytes.NewReader(bodyBytes)
 	}
@@ -39,7 +39,7 @@ func makeHTTPRequest(
 	request, err = http.NewRequestWithContext(ctx, string(method), url.String(), bodyReader)
 	if err != nil {
 		err = errors.Wrap(err, "failed to create http.Request")
-		return
+		return responseBytes, statusCode, respHeaders, start, finish, err
 	}
 	request.Header.Set("Content-Type", "application/json")
 	if len(reqHeaders)%2 != 0 {
@@ -61,17 +61,19 @@ func makeHTTPRequest(
 	finish = time.Now()
 	if ctx.Err() != nil {
 		err = errors.New("http request timed out or interrupted")
-		return
+		return responseBytes, statusCode, respHeaders, start, finish, err
 	}
 	if err != nil {
 		err = errors.Wrapf(err, "error making http request")
-		return
+		return responseBytes, statusCode, respHeaders, start, finish, err
 	}
 
 	if statusCode >= 400 {
 		err = errors.Errorf("got error from %s: (status code %v) %s", url.String(), statusCode, bestEffortExtractError(responseBytes))
+	} else if statusCode >= 300 {
+		err = errors.Errorf("redirect error %s: (status code %v) %s", url.String(), statusCode, bestEffortExtractError(responseBytes))
 	}
-	return
+	return responseBytes, statusCode, respHeaders, start, finish, err
 }
 
 type PossibleErrorResponses struct {
@@ -107,7 +109,7 @@ func httpRequestCtx(ctx context.Context, t Task, cfg Config) (requestCtx context
 		requestCtx = ctx
 		cancel = func() {}
 	}
-	return
+	return requestCtx, cancel
 }
 
 // statusCodeGroup maps to course status code group (e.g. 2xx, 4xx, 5xx) to reduce metric cardinality.

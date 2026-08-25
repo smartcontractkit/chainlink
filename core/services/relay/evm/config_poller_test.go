@@ -66,7 +66,8 @@ func TestConfigPoller(t *testing.T) {
 		user, err = bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 		require.NoError(t, err)
 		b = simulated.NewBackend(types.GenesisAlloc{
-			user.From: {Balance: big.NewInt(1000000000000000000)}},
+			user.From: {Balance: big.NewInt(1000000000000000000)},
+		},
 			simulated.WithBlockGasLimit(5*ethconfig.Defaults.Miner.GasCeil))
 		require.NotNil(t, b)
 		ec = b.Client()
@@ -348,7 +349,7 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 			ConfigEncryptionPublicKey: evmutils.RandomBytes32(),
 		})
 	}
-	// Gnerate OnchainConfig
+	// Generate OnchainConfig
 	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(big.NewInt(0), big.NewInt(10))
 	require.NoError(t, err)
 	// Change the offramp config

@@ -33,14 +33,14 @@ type FundsToSend struct {
 }
 
 type FundsToSendSol struct {
-	Recipent   solana.PublicKey
+	Recipient  solana.PublicKey
 	PrivateKey solana.PrivateKey
 	Amount     uint64
 }
 
 func SendFundsSol(ctx context.Context, logger zerolog.Logger, client *rpc.Client, payload FundsToSendSol) error {
 	funder := payload.PrivateKey
-	recipient := payload.Recipent
+	recipient := payload.Recipient
 	if recipient.IsZero() {
 		return errors.New("recipient is zero")
 	}
@@ -182,7 +182,6 @@ func SendFunds(ctx context.Context, logger zerolog.Logger, client *seth.Client, 
 	}
 
 	signedTx, err := types.SignNewTx(payload.PrivateKey, types.LatestSignerForChainID(big.NewInt(client.ChainID)), rawTx)
-
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to sign tx")
 	}

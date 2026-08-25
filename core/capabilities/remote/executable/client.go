@@ -58,9 +58,11 @@ type Client interface {
 	SetConfig(remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, requestTimeout time.Duration, transmissionConfig *transmission.TransmissionConfig, signers [][]byte, minResponsesToAggregate uint32) error
 }
 
-var _ Client = &client{}
-var _ types.Receiver = &client{}
-var _ services.Service = &client{}
+var (
+	_ Client           = &client{}
+	_ types.Receiver   = &client{}
+	_ services.Service = &client{}
+)
 
 const defaultExpiryCheckInterval = 30 * time.Second
 
@@ -69,7 +71,7 @@ var (
 	ErrContextDoneBeforeResponseQuorum = errors.New("context done before remote client received a quorum of responses")
 )
 
-func NewClient(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *client {
+func NewClient(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *client {
 	return &client{
 		capabilityID:             capabilityID,
 		capMethodName:            capMethodName,
@@ -199,7 +201,7 @@ func (c *client) expireRequests() {
 		}
 
 		if c.dispatcher.Ready() != nil {
-			c.cancelAllRequests(errors.New("dispatcher not ready"))
+			c.cancelAllRequestsLocked(errors.New("dispatcher not ready"))
 			return
 		}
 	}
@@ -207,7 +209,11 @@ func (c *client) expireRequests() {
 
 func (c *client) cancelAllRequests(err error) {
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.cancelAllRequestsLocked(err)
+	c.mutex.Unlock()
+}
+
+func (c *client) cancelAllRequestsLocked(err error) {
 	for _, req := range c.requestIDToCallerRequest {
 		req.Cancel(err)
 	}

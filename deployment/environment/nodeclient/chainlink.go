@@ -59,7 +59,7 @@ func NewChainlinkClient(c *ChainlinkConfig, logger zerolog.Logger) (*ChainlinkCl
 	}, nil
 }
 
-func initRestyClient(url string, email string, password string, headers map[string]string, timeout *time.Duration) (*resty.Client, error) {
+func initRestyClient(url, email, password string, headers map[string]string, timeout *time.Duration) (*resty.Client, error) {
 	isDebug := os.Getenv("RESTY_DEBUG") == "true"
 	// G402 - TODO: certificates
 	//nolint
@@ -380,11 +380,14 @@ func (c *ChainlinkClient) MustReadOCRKeys() (*OCRKeys, error) {
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	for index := range ocrKeys.Data {
 		ocrKeys.Data[index].Attributes.ConfigPublicKey = strings.TrimPrefix(
-			ocrKeys.Data[index].Attributes.ConfigPublicKey, "ocrcfg_")
+			ocrKeys.Data[index].Attributes.ConfigPublicKey, "ocrcfg_",
+		)
 		ocrKeys.Data[index].Attributes.OffChainPublicKey = strings.TrimPrefix(
-			ocrKeys.Data[index].Attributes.OffChainPublicKey, "ocroff_")
+			ocrKeys.Data[index].Attributes.OffChainPublicKey, "ocroff_",
+		)
 		ocrKeys.Data[index].Attributes.OnChainSigningAddress = strings.TrimPrefix(
-			ocrKeys.Data[index].Attributes.OnChainSigningAddress, "ocrsad_")
+			ocrKeys.Data[index].Attributes.OnChainSigningAddress, "ocrsad_",
+		)
 	}
 	return ocrKeys, err
 }
@@ -685,7 +688,7 @@ func (c *ChainlinkClient) ExportEVMKeysForChain(chainid string) ([]*ExportedEVMK
 }
 
 // CreateTxKey creates a tx key on the Chainlink node
-func (c *ChainlinkClient) CreateTxKey(chain string, chainId string) (*TxKey, *http.Response, error) {
+func (c *ChainlinkClient) CreateTxKey(chain, chainId string) (*TxKey, *http.Response, error) {
 	txKey := &TxKey{}
 	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating Tx Key")
 	resp, err := c.APIClient.R().
@@ -718,7 +721,7 @@ func (c *ChainlinkClient) ReadTxKeys(chain string) (*TxKeys, *http.Response, err
 }
 
 // DeleteTxKey deletes an tx key based on the provided ID
-func (c *ChainlinkClient) DeleteTxKey(chain string, id string) (*http.Response, error) {
+func (c *ChainlinkClient) DeleteTxKey(chain, id string) (*http.Response, error) {
 	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting Tx Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
@@ -849,7 +852,7 @@ func (c *ChainlinkClient) ImportVRFKey(vrfExportKey *VRFExportKey) (*VRFKey, *ht
 	return vrfKey, resp.RawResponse, err
 }
 
-// CreateCSAKey creates a CSA key on the Chainlink node, only 1 CSA key per noe
+// CreateCSAKey creates a CSA key on the Chainlink node, only 1 CSA key per node
 func (c *ChainlinkClient) CreateCSAKey() (*CSAKey, *http.Response, error) {
 	csaKey := &CSAKey{}
 	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating CSA Key")
@@ -1181,7 +1184,7 @@ func VerifyStatusCodeWithResponse(res *resty.Response, expStatusCd int) error {
 	return nil
 }
 
-func CreateNodeKeysBundle(nodes []*ChainlinkClient, chainName string, chainId string) ([]NodeKeysBundle, []*CLNodesWithKeys, error) {
+func CreateNodeKeysBundle(nodes []*ChainlinkClient, chainName, chainId string) ([]NodeKeysBundle, []*CLNodesWithKeys, error) {
 	nkb := make([]NodeKeysBundle, 0)
 	var clNodes []*CLNodesWithKeys
 	for _, n := range nodes {
@@ -1257,7 +1260,7 @@ func (c *ChainlinkClient) TrackForwarder(chainID *big.Int, address common.Addres
 		Address: address.Hex(),
 	}
 	c.l.Debug().Str(NodeURL, c.Config.URL).
-		Str("Forwarder address", (address).Hex()).
+		Str("Forwarder address", address.Hex()).
 		Str("Chain ID", chainID.String()).
 		Msg("Track forwarder")
 	resp, err := c.APIClient.R().

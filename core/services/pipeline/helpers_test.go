@@ -8,6 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn"
 )
 
 const (
@@ -36,13 +37,18 @@ func (t *BridgeTask) HelperSetDependencies(
 	orm bridges.ORM,
 	specId int32,
 	id uuid.UUID,
-	httpClient *http.Client) {
+	httpClient *http.Client,
+) {
 	t.config = config
 	t.bridgeConfig = bridgeConfig
 	t.orm = orm
 	t.uuid = id
 	t.httpClient = httpClient
-	t.specId = specId
+	t.specID = specId
+}
+
+func (t *BridgeTask) HelperSetBridgeConnManager(bridgeConnManager bridgeconn.BridgeConnManager) {
+	t.bridgeConnManager = bridgeConnManager
 }
 
 func (t *HTTPTask) HelperSetDependencies(config Config, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) {

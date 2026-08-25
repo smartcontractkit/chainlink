@@ -66,22 +66,25 @@ type gateway struct {
 }
 
 func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger, lf limits.Factory) (Gateway, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid gateway config: %w", err)
+	}
+	if len(cfg.Services) == 0 || len(cfg.ShardedDONs) == 0 {
+		return nil, errors.New("no services or DONs configured - Gateway has to use service-based configuration")
+	}
+
 	codec := &api.JsonRPCCodec{}
 	gMetrics, err := monitoring.NewGatewayMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("error creating gateway metrics: %w", err)
 	}
-	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, lggr, lf)
-	if err != nil {
-		return nil, err
-	}
 	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), gMetrics, lggr, lf)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(cfg.Services) == 0 || len(cfg.ShardedDONs) == 0 {
-		return nil, errors.New("no services or DONs configured - Gateway has to use service-based configuration")
+	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, connMgr.ReadyForTraffic, lggr, lf)
+	if err != nil {
+		return nil, err
 	}
 
 	lggr.Infow("setting up gateway from config", "nServices", len(cfg.Services), "nShardedDONs", len(cfg.ShardedDONs))
@@ -210,7 +213,7 @@ func (g *gateway) Close() error {
 		for _, handler := range g.serviceToMultiHandler {
 			err = errors.Join(err, handler.Close())
 		}
-		return
+		return err
 	})
 }
 
@@ -229,7 +232,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte, auth st
 		// Arbitrary limit to prevent abuse
 		return newError(jsonRequest.ID, api.UserMessageParseError, "request ID is too long: "+strconv.Itoa(len(jsonRequest.ID))+". max is 200 characters")
 	}
-	var isLegacyRequest = false
+	isLegacyRequest := false
 	var h handlers.Handler
 	var handlerKey string
 	if msg == nil || msg.Body.DonId == "" {

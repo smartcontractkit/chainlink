@@ -484,7 +484,7 @@ func TestEngine_OrganizationIdLogger(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -570,7 +570,7 @@ func TestEngine_OrganizationIdLogger_OrgResolverFailure(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -680,7 +680,7 @@ func TestEngine_OrganizationIdPreservedAfterLocalNodeSync(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnNodeSynced: func(node capabilities.Node, err error) {
@@ -816,7 +816,7 @@ func TestEngine_Execution(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -933,7 +933,7 @@ func TestEngine_ExecutionTimeout(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			// Verify the execution status is timeout
 			require.Equal(t, "timeout", status)
 			executionFinishedCh <- executionID
@@ -1024,7 +1024,7 @@ func TestEngine_Metering_ValidBillingClient(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -1417,7 +1417,7 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			// Verify the execution status is errored due to capability timeout
 			require.Equal(t, "errored", status)
 			executionFinishedCh <- executionID
@@ -1510,6 +1510,10 @@ func TestEngine_CapabilityCallTimeout(t *testing.T) {
 }
 
 func TestEngine_WASMBinary_Simple(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	cmd := "core/services/workflows/test/wasm/v2/cmd"
 	log := logger.Test(t)
@@ -1541,7 +1545,7 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnResultReceived: func(er *sdkpb.ExecutionResult) {
@@ -1594,6 +1598,10 @@ func TestEngine_WASMBinary_Simple(t *testing.T) {
 }
 
 func TestEngine_WASMBinary_With_Config(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_config"
 	binaryB := wasmtest.GetTestBinary(t, cmd, false)
 
@@ -1630,7 +1638,7 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnResultReceived: func(er *sdkpb.ExecutionResult) {
@@ -1690,6 +1698,10 @@ func TestEngine_WASMBinary_With_Config(t *testing.T) {
 }
 
 func TestSecretsFetcher_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	cmd := "core/services/workflows/test/wasm/v2/cmd/with_secrets"
 	binaryB := wasmtest.GetTestBinary(t, cmd, false)
@@ -1819,7 +1831,7 @@ func TestSecretsFetcher_Integration(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 		OnResultReceived: func(er *sdkpb.ExecutionResult) {
@@ -1916,7 +1928,7 @@ func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, status string) {
+		OnExecutionFinished: func(executionID, status string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -1979,6 +1991,10 @@ func TestEngine_DuplicateTriggerSameConfig(t *testing.T) {
 }
 
 func TestEngine_DeduplicatesSameEventID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	module := modulemocks.NewModuleV2(t)
@@ -2003,7 +2019,7 @@ func TestEngine_DeduplicatesSameEventID(t *testing.T) {
 		OnSubscribedToTriggers: func(triggerIDs []string) {
 			subscribedToTriggersCh <- triggerIDs
 		},
-		OnExecutionFinished: func(executionID string, _ string) {
+		OnExecutionFinished: func(executionID, _ string) {
 			executionFinishedCh <- executionID
 		},
 	}
@@ -2289,6 +2305,10 @@ func TestEngine_HandleNewDON(t *testing.T) {
 // 3. Trigger a real DON update via NotifyDonSet() with ConfigVersion = 2
 // 4. Verify that the beholder logger labels are still pinned to ConfigVersion = 1
 func TestEngine_DonVersionLabelUpdatePinned(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
@@ -2503,7 +2523,7 @@ func requireEventsLabels(t *testing.T, beholderObserver beholdertest.Observer, w
 
 // eventMessagesMatchStatus returns observed BaseMessage texts and which expected
 // messages are still missing. Order does not matter.
-func eventMessagesMatchStatus(msgs []beholder.Message, expected []string) (observed []string, missing []string) {
+func eventMessagesMatchStatus(msgs []beholder.Message, expected []string) (observed, missing []string) {
 	want := make(map[string]struct{}, len(expected))
 	for _, e := range expected {
 		want[e] = struct{}{}
@@ -2555,7 +2575,7 @@ func requireEventsMessages(t *testing.T, beholderObserver beholdertest.Observer,
 
 // userLogMatchStatus returns user log lines observed via beholder and which expected
 // substrings (matched in order) are still missing.
-func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (observed []string, missing []string) {
+func userLogMatchStatus(msgs []beholder.Message, expectedSubstrings []string) (observed, missing []string) {
 	nextToFind := 0
 	for _, msg := range msgs {
 		if msg.Attrs["beholder_entity"] != "workflows.v1.UserLogs" {
@@ -2681,7 +2701,8 @@ func (c *MockCapabilityWrapper) Execute(ctx context.Context, request capabilitie
 
 func (c *MockCapabilityWrapper) Info(_ context.Context) (capabilities.CapabilityInfo, error) {
 	return capabilities.NewCapabilityInfo(
-		c.ID(), capabilities.CapabilityTypeCombined, "Mock of capability %s"+c.ID())
+		c.ID(), capabilities.CapabilityTypeCombined, "Mock of capability %s"+c.ID(),
+	)
 }
 
 type TriggerCapabilityWrapper struct {
@@ -2691,7 +2712,7 @@ type TriggerCapabilityWrapper struct {
 
 var _ capabilities.TriggerCapability = &TriggerCapabilityWrapper{}
 
-func (c *TriggerCapabilityWrapper) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+func (c *TriggerCapabilityWrapper) AckEvent(ctx context.Context, triggerID, eventID, method string) error {
 	return nil
 }
 

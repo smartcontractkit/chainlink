@@ -53,8 +53,10 @@ import (
 	. "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/evmtesting" //nolint:revive // dot-imports
 )
 
-const commonGasLimitOnEvms = uint64(4712388)
-const finalityDepth = 4
+const (
+	commonGasLimitOnEvms = uint64(4712388)
+	finalityDepth        = 4
+)
 
 func TestContractReaderEventsInitValidation(t *testing.T) {
 	tests := []struct {
@@ -93,7 +95,8 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 			},
 			expectedError: fmt.Errorf(
 				"%w: conflicting chain reader polling filter definitions for contract: %s event: %s, can't have polling filter defined both on contract and event level",
-				clcommontypes.ErrInvalidConfig, "ContractWithConflict", "EventWithConflict"),
+				clcommontypes.ErrInvalidConfig, "ContractWithConflict", "EventWithConflict",
+			),
 		},
 		{
 			name: "No polling filter defined",
@@ -110,7 +113,8 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 			},
 			expectedError: fmt.Errorf(
 				"%w: chain reader has no polling filter defined for contract: %s, event: %s",
-				clcommontypes.ErrInvalidConfig, "ContractWithNoFilter", "EventWithNoFilter"),
+				clcommontypes.ErrInvalidConfig, "ContractWithNoFilter", "EventWithNoFilter",
+			),
 		},
 		{
 			name: "Invalid chain reader definition read type",
@@ -127,7 +131,8 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 			},
 			expectedError: fmt.Errorf(
 				"%w: invalid chain reader definition read type",
-				clcommontypes.ErrInvalidConfig),
+				clcommontypes.ErrInvalidConfig,
+			),
 		},
 		{
 			name: "Event not present in ABI",
@@ -147,7 +152,8 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 			},
 			expectedError: fmt.Errorf(
 				"%w: event %q doesn't exist",
-				clcommontypes.ErrInvalidConfig, "EventName"),
+				clcommontypes.ErrInvalidConfig, "EventName",
+			),
 		},
 		{
 			name: "Event has a unnecessary data word index override",
@@ -174,7 +180,7 @@ func TestContractReaderEventsInitValidation(t *testing.T) {
 					},
 				},
 			},
-			expectedError: fmt.Errorf("failed to init dw querying for event: %q, err: data word: %q at index: %d details, were calculated automatically and shouldn't be manully overridden by cfg",
+			expectedError: fmt.Errorf("failed to init dw querying for event: %q, err: data word: %q at index: %d details, were calculated automatically and shouldn't be manully overridden by cfg", // typos:ignore // 'manully' should be 'manually', error text from upstream dep
 				"SomeEvent", "DW", 0),
 		},
 		{
@@ -420,7 +426,8 @@ func (h *helper) GasPriceBufferPercent() int64 {
 func (h *helper) Backend() bind.ContractBackend {
 	if h.sim == nil {
 		h.sim = simulated.NewBackend(
-			evmtypes.GenesisAlloc{h.accounts[0].From: {Balance: big.NewInt(math.MaxInt64)}, h.accounts[1].From: {Balance: big.NewInt(math.MaxInt64)}}, simulated.WithBlockGasLimit(commonGasLimitOnEvms*5000))
+			evmtypes.GenesisAlloc{h.accounts[0].From: {Balance: big.NewInt(math.MaxInt64)}, h.accounts[1].From: {Balance: big.NewInt(math.MaxInt64)}}, simulated.WithBlockGasLimit(commonGasLimitOnEvms*5000),
+		)
 		cltest.Mine(h.sim, 1*time.Second)
 	}
 
@@ -507,7 +514,7 @@ func (h *helper) TXM(t *testing.T, client client.Client) evmtxmgr.TxManager {
 	require.NoError(t, keyStore.Add(h.Context(t), h.accounts[1].From, h.ChainID()))
 	require.NoError(t, keyStore.Enable(h.Context(t), h.accounts[1].From, h.ChainID()))
 
-	chainService, err := app.GetRelayers().LegacyEVMChains().Get((h.ChainID()).String())
+	chainService, err := app.GetRelayers().LegacyEVMChains().Get(h.ChainID().String())
 	require.NoError(t, err)
 	chain, ok := chainService.(legacyevm.Chain)
 	require.True(t, ok)

@@ -29,6 +29,19 @@ func (o *ConfidentialRelay) Flag() cre.CapabilityFlag {
 	return flag
 }
 
+// boolFromValues reads a bool from a capability config's values, falling back to
+// def when the key is absent or not a bool. Lets a topology set the relay's knobs
+// in TOML rather than requiring a Go-constructed feature.
+func boolFromValues(values map[string]any, key string, def bool) bool {
+	if v, ok := values[key]; ok {
+		if b, isBool := v.(bool); isBool {
+			return b
+		}
+	}
+
+	return def
+}
+
 func (o *ConfidentialRelay) PreEnvStartup(
 	ctx context.Context,
 	testLogger zerolog.Logger,
@@ -66,8 +79,8 @@ func (o *ConfidentialRelay) PreEnvStartup(
 			}
 
 			enabled := true
-			trustEnclaves := o.TrustEnclaves
-			requireBFTQuorum := o.RequireBFTQuorum
+			trustEnclaves := boolFromValues(capConfig.Values, "trustEnclaves", o.TrustEnclaves)
+			requireBFTQuorum := boolFromValues(capConfig.Values, "requireBFTQuorum", o.RequireBFTQuorum)
 			typedConfig.CRE.ConfidentialRelay = &coretoml.ConfidentialRelayConfig{
 				Enabled:          &enabled,
 				TrustEnclaves:    &trustEnclaves,

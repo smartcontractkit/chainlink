@@ -60,7 +60,7 @@ func validateRequestResponseItemCount(requestCount, responseCount int, method st
 
 func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaultcommon.SecretIdentifier) (*vaultcommon.SecretIdentifier, error) {
 	if id == nil {
-		return nil, newUserError("secret identifier cannot be nil")
+		return nil, vaulttypes.NewUserError("secret identifier cannot be nil")
 	}
 
 	namespace := id.Namespace
@@ -69,7 +69,7 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 	}
 
 	if err := r.validator.ValidateSecretIdentifier(ctx, id.Key, id.Owner, namespace); err != nil {
-		return nil, newUserError(err.Error())
+		return nil, vaulttypes.NewUserError(err.Error())
 	}
 
 	return &vaultcommon.SecretIdentifier{
@@ -82,21 +82,21 @@ func (r *ReportingPlugin) validateSecretIdentifier(ctx context.Context, id *vaul
 func (r *ReportingPlugin) validateDuplicateSecretIdentifierUserError(id *vaultcommon.SecretIdentifier, counts map[string]int) error {
 	key := secretIdentifierKey(id)
 	if counts[key] > 1 {
-		return newUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
+		return vaulttypes.NewUserError("duplicate request for secret identifier " + vaulttypes.KeyFor(id))
 	}
 	return nil
 }
 
-func (r *ReportingPlugin) validateEncryptedSecretCiphertextSize(ctx context.Context, owner string, encryptedValue string) error {
+func (r *ReportingPlugin) validateEncryptedSecretCiphertextSize(ctx context.Context, owner, encryptedValue string) error {
 	if ierr := r.validator.ValidateCiphertextSize(ctx, owner, encryptedValue); ierr != nil {
-		return newUserError(ierr.Error())
+		return vaulttypes.NewUserError(ierr.Error())
 	}
 	return nil
 }
 
-func (r *ReportingPlugin) validateEncryptedSecretLabel(owner string, encryptedValue string) error {
+func (r *ReportingPlugin) validateEncryptedSecretLabel(owner, encryptedValue string) error {
 	if err := vaultcap.EnsureRightLabelOnSecret(r.cfg.PublicKey, encryptedValue, owner); err != nil {
-		return newUserError("failed to verify ciphertext: " + err.Error())
+		return vaulttypes.NewUserError("failed to verify ciphertext: " + err.Error())
 	}
 	return nil
 }
@@ -274,7 +274,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersResponseSize(ctx context.
 func decodeEncryptedSecretHex(encryptedValue string) ([]byte, error) {
 	encryptedSecret, err := hex.DecodeString(encryptedValue)
 	if err != nil {
-		return nil, newUserError("could not decode secret value: invalid hex: " + err.Error())
+		return nil, vaulttypes.NewUserError("could not decode secret value: invalid hex: " + err.Error())
 	}
 	return encryptedSecret, nil
 }

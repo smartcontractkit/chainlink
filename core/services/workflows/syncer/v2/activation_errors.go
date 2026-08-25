@@ -59,8 +59,7 @@ func nonRetryable(err error) error {
 }
 
 func classifyActivationError(err error) ActivationRetryPolicy {
-	var policyErr *activationPolicyError
-	if errors.As(err, &policyErr) {
+	if policyErr, ok := errors.AsType[*activationPolicyError](err); ok {
 		return policyErr.policy
 	}
 

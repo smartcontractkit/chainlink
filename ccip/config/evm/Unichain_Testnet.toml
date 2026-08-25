@@ -3,12 +3,12 @@ ChainID = '1301'
 ChainType = 'optimismBedrock'
 # finality_depth was: ~1900
 FinalityDepth = 2000
-# block_time was:  ~1s, adding 1 second buffer 
+# block_time was:  ~1s, adding 1 second buffer
 LogPollInterval = '2s'
 
 # batching_size_finalization_percentage = 30% according to the explorer batching view
 # ( batching_size_finalization_percentage * finality_depth) * block_time / 60 secs = ~10  min (finality time)
-# After running soak tests using 10m threw issues as there are batchs that take 35m, so we are bumping it to 45m to be sure 
+# After running soak tests using 10m threw issues as there are batchs that take 35m, so we are bumping it to 45m to be sure
 NoNewFinalizedHeadsThreshold = '45m'
 
 FinalityTagEnabled = true
@@ -23,5 +23,5 @@ Mode = 'FeeHistory'
 CacheTimeout = '2s'
 
 [GasEstimator.BlockHistory]
-# As we see blocks containing between ~[8-12]tx, to get about ~1000 tx to check we would need to rougly go 100 tx back
+# As we see blocks containing between ~[8-12]tx, to get about ~1000 tx to check we would need to roughly go 100 tx back
 BlockHistorySize = 100

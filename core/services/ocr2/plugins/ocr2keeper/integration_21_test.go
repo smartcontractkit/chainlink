@@ -187,7 +187,7 @@ func TestIntegration_KeeperPlugin_PerformAndUpkeepPrivilegeConfig(t *testing.T) 
 
 func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	t.Parallel()
-	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809; DEPENDENT ON SPECIFIC BLOCK PATTTERN?")
+	t.Skip("fails after geth upgrade https://github.com/smartcontractkit/chainlink/pull/11809; DEPENDENT ON SPECIFIC BLOCK PATTERN?")
 
 	// setup blockchain
 	sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link
@@ -568,7 +568,6 @@ func listenPerformedN(t *testing.T, backend evmtypes.Backend, registry *iregistr
 			End:     &currentBlock,
 			Context: t.Context(),
 		}, ids, success)
-
 		if err != nil {
 			return false
 		}
@@ -966,7 +965,6 @@ func (c *feedLookupUpkeepController) DeployUpkeeps(
 			false,
 			checkErrResult,
 		)
-
 		if err != nil {
 			require.NoError(t, err, "test dependent on contract deployment")
 

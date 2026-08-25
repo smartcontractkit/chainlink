@@ -92,7 +92,7 @@ func (n *Nurse) start(_ context.Context) error {
 	runtime.SetBlockProfileRate(n.cfg.BlockProfileRate())
 	runtime.SetMutexProfileFraction(n.cfg.MutexProfileFraction())
 
-	err := utils.EnsureDirAndMaxPerms(n.cfg.ProfileRoot(), 0744)
+	err := utils.EnsureDirAndMaxPerms(n.cfg.ProfileRoot(), 0o744)
 	if err != nil {
 		return err
 	}
@@ -232,7 +232,6 @@ func (n *Nurse) appendLog(now time.Time, reason string, meta Meta) error {
 
 	n.eng.Debugf("creating nurse log %s", filename)
 	file, err := os.Create(filename)
-
 	if err != nil {
 		return err
 	}
@@ -286,7 +285,7 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 		n.eng.Debug("gather cpu received stop")
 
 	case <-time.After(n.cfg.GatherDuration().Duration()):
-		n.eng.Debugf("gather cpu duration elapsed %s. stoping profiling.", n.cfg.GatherDuration().Duration().String())
+		n.eng.Debugf("gather cpu duration elapsed %s. stopping profiling.", n.cfg.GatherDuration().Duration().String())
 	}
 
 	pprof.StopCPUProfile()
@@ -447,7 +446,6 @@ func (n *Nurse) totalProfileBytes() (uint64, error) {
 func (n *Nurse) listProfiles() ([]fs.FileInfo, error) {
 	out := make([]fs.FileInfo, 0)
 	entries, err := os.ReadDir(n.cfg.ProfileRoot())
-
 	if err != nil {
 		return nil, err
 	}

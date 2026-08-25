@@ -63,7 +63,8 @@ func configureHybridTokenPoolChains(t *testing.T, e cldf.Environment, selectorA,
 			TokenSymbol: testhelpers.TestTokenSymbol,
 			PoolUpdates: tokenPoolConfig,
 			MCMS:        mcmsConfig,
-		}))
+		},
+	))
 	require.NoError(t, err)
 }
 
@@ -398,9 +399,9 @@ func TestHybridTokenPoolUpdateGroupsChangeset_WithMCMS(t *testing.T) {
 			require.Equal(t, v1_5_1.BurnAndMint, v1_5_1.Group(groupAB))
 
 			poolB := state.Chains[selectorB].HybridWithExternalMinterFastTransferTokenPools[testhelpers.TestTokenSymbol][tc.contractVersion]
-			groupBA, err := poolB.GetGroup(nil, selectorA)
+			groupCD, err := poolB.GetGroup(nil, selectorA)
 			require.NoError(t, err)
-			require.Equal(t, v1_5_1.BurnAndMint, v1_5_1.Group(groupBA))
+			require.Equal(t, v1_5_1.BurnAndMint, v1_5_1.Group(groupCD))
 		})
 	}
 }

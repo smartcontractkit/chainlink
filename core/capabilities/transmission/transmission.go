@@ -37,7 +37,7 @@ func ExtractTransmissionConfig(config *values.Map) (TransmissionConfig, error) {
 	}
 	err := config.UnwrapTo(&tc)
 	if err != nil {
-		return TransmissionConfig{}, fmt.Errorf("failed to unwrap tranmission config from value map: %w", err)
+		return TransmissionConfig{}, fmt.Errorf("failed to unwrap transmission config from value map: %w", err)
 	}
 
 	// Default if no schedule and deltaStage is provided
@@ -106,7 +106,7 @@ func GetPeerIDToTransmissionDelaysForConfig(donPeerIDs []types.PeerID, transmiss
 	return peerIDToTransmissionDelay, nil
 }
 
-func delayFor(position int, schedule []int, permutation []int, deltaStage time.Duration) *time.Duration {
+func delayFor(position int, schedule, permutation []int, deltaStage time.Duration) *time.Duration {
 	sum := 0
 	for i, s := range schedule {
 		sum += s

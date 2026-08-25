@@ -1,6 +1,6 @@
 package presenters
 
-// SolanaMsgResource repesents a Solana message JSONAPI resource.
+// SolanaMsgResource represents a Solana message JSONAPI resource.
 type SolanaMsgResource struct {
 	JAID
 	ChainID string
@@ -15,7 +15,7 @@ func (SolanaMsgResource) GetName() string {
 }
 
 // NewSolanaMsgResource returns a new partial SolanaMsgResource.
-func NewSolanaMsgResource(id string, chainID string) SolanaMsgResource {
+func NewSolanaMsgResource(id, chainID string) SolanaMsgResource {
 	return SolanaMsgResource{
 		JAID:    NewPrefixedJAID(id, chainID),
 		ChainID: chainID,

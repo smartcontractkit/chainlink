@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/registry"
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
@@ -58,6 +59,11 @@ type launcher struct {
 	// open they reject requests whose Metadata.WorkflowDonID does not match the
 	// authenticated calling DON.
 	workflowDONBindingGate limits.GateLimiter
+
+	// workflowTagHashFlag controls whether WorkflowTag is included in the
+	// request hash. ON by default to match current prod behavior; can be
+	// deactivated after rollout to exclude WorkflowTag from the requestID.
+	workflowTagHashFlag limits.RangeLimiter[commonconfig.Timestamp]
 
 	muSubServices sync.Mutex
 	subServices   []services.Service
@@ -114,6 +120,10 @@ func NewLauncher(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow DON binding gate limiter: %w", err)
 	}
+	workflowTagHashFlag, err := limits.MakeRangeLimiter[commonconfig.Timestamp](limitsFactory, cresettings.Default.PerWorkflow.FeatureRequestHashIncludeWorkflowTagActivePeriod)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workflow tag hash flag limiter: %w", err)
+	}
 	return &launcher{
 		lggr:       logger.Sugared(lggr).Named("CapabilitiesLauncher"),
 		dispatcher: dispatcher,
@@ -130,6 +140,7 @@ func NewLauncher(
 		p2pStreamConfig:        p2pStreamConfig,
 		metrics:                metrics,
 		workflowDONBindingGate: workflowDONBindingGate,
+		workflowTagHashFlag:    workflowTagHashFlag,
 	}, nil
 }
 
@@ -177,6 +188,11 @@ func (w *launcher) Close() error {
 		if w.workflowDONBindingGate != nil {
 			if err := w.workflowDONBindingGate.Close(); err != nil {
 				w.lggr.Errorw("failed to close workflow DON binding gate limiter", "error", err)
+			}
+		}
+		if w.workflowTagHashFlag != nil {
+			if err := w.workflowTagHashFlag.Close(); err != nil {
+				w.lggr.Errorw("failed to close workflow tag hash flag limiter", "error", err)
 			}
 		}
 		return nil
@@ -238,7 +254,7 @@ func (w *launcher) OnNewRegistry(ctx context.Context, localRegistry *registrysyn
 	}) {
 		return errors.New("service has been stopped")
 	}
-	return
+	return err
 }
 
 func (w *launcher) onNewRegistry(ctx context.Context, localRegistry *registrysyncer.LocalRegistry) error {
@@ -391,7 +407,7 @@ func (w *launcher) warnOnDuplicateInFamilyCapabilities(remoteCapabilityDONs []re
 	}
 }
 
-func donFamiliesOverlap(donA []string, donB []string) bool {
+func donFamiliesOverlap(donA, donB []string) bool {
 	if len(donA) == 0 && len(donB) == 0 {
 		return true // legacy setting with empty families - ignore filtering
 	}
@@ -406,7 +422,7 @@ func donFamiliesOverlap(donA []string, donB []string) bool {
 // addRemoteCapabilities adds remote capabilities from a remote DON to the local node,
 // allowing the local node to use these capabilities in its workflows.
 // it is best effort to ensure that valid capabilities are added even if some fail
-func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) {
+func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) {
 	for cid, c := range remoteDON.CapabilityConfigurations {
 		capabilityConfig, err := c.Unmarshal()
 		if err != nil {
@@ -593,7 +609,7 @@ func signersFor(don registrysyncer.DON, localRegistry *registrysyncer.LocalRegis
 }
 
 // Add a V2 capability with multiple methods, using CombinedClient.
-func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON registrysyncer.DON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) error {
+func (w *launcher) addRemoteCapabilityV2(ctx context.Context, capID string, methodConfig map[string]capabilities.CapabilityMethodConfig, myDON, remoteDON registrysyncer.DON, localRegistry *registrysyncer.LocalRegistry) error {
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capabilities.CapabilityTypeCombined,
@@ -711,7 +727,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 	}
 	for method, config := range methodConfig {
 		if config.RemoteTriggerConfig != nil { // trigger
-			underlyingTriggerCapability, ok := (underlying).(capabilities.TriggerCapability)
+			underlyingTriggerCapability, ok := underlying.(capabilities.TriggerCapability)
 			if !ok {
 				return fmt.Errorf("capability %s does not implement TriggerCapability", capID)
 			}
@@ -740,7 +756,7 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 				w.lggr.Infow("added new remote trigger publisher", "capID", capID, "method", method)
 			}
 		} else { // executable
-			underlyingExecutableCapability, ok := (underlying).(capabilities.ExecutableCapability)
+			underlyingExecutableCapability, ok := underlying.(capabilities.ExecutableCapability)
 			if !ok {
 				return fmt.Errorf("capability %s does not implement ExecutableCapability", capID)
 			}
@@ -760,13 +776,14 @@ func (w *launcher) serveCapabilityV2(ctx context.Context, capID string, methodCo
 			}
 
 			var requestHasher remotetypes.MessageHasher
+			optInCfg := executable.OptInHasherConfig{IncludeWorkflowTag: w.workflowTagHashFlag}
 			switch config.RemoteExecutableConfig.RequestHasherType {
 			case capabilities.RequestHasherType_Simple:
-				requestHasher = executable.NewSimpleHasher()
+				requestHasher = executable.NewSimpleHasher(optInCfg)
 			case capabilities.RequestHasherType_WriteReportExcludeSignatures:
-				requestHasher = executable.NewWriteReportExcludeSignaturesHasher()
+				requestHasher = executable.NewWriteReportExcludeSignaturesHasher(optInCfg)
 			default:
-				requestHasher = executable.NewSimpleHasher()
+				requestHasher = executable.NewSimpleHasher(optInCfg)
 			}
 
 			err := server.SetConfig(

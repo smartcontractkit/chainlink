@@ -71,7 +71,7 @@ type telemetryIngressBatchClient struct {
 
 // NewTelemetryIngressBatchClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, csaKeyStore keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration, telemSendTimeout time.Duration, useUniconn bool) TelemetryService {
+func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, csaKeyStore keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize, telemMaxBatchSize uint, telemSendInterval, telemSendTimeout time.Duration, useUniconn bool) TelemetryService {
 	c := &telemetryIngressBatchClient{
 		telemBufferSize:   telemBufferSize,
 		telemMaxBatchSize: telemMaxBatchSize,
@@ -191,10 +191,10 @@ func (tc *telemetryIngressBatchClient) close() (err error) {
 	if tc.csaSigner != nil {
 		err = errors.Join(err, tc.csaSigner.Close())
 	}
-	return
+	return err
 }
 
-// Send directs incoming telmetry messages to the worker responsible for pushing it to
+// Send directs incoming telemetry messages to the worker responsible for pushing it to
 // the ingress server. If the worker telemetry buffer is full, messages are dropped
 // and a warning is logged.
 func (tc *telemetryIngressBatchClient) Send(ctx context.Context, telemData []byte, contractID string, telemType TelemetryType) {

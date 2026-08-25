@@ -64,6 +64,36 @@ func TestGateway_NewGatewayFromConfig_NoServicesOrDONs(t *testing.T) {
 	require.ErrorContains(t, err, "no services or DONs configured")
 }
 
+func TestGateway_NewGatewayFromConfig_ValidatesConfig(t *testing.T) {
+	t.Parallel()
+
+	tomlConfig := buildConfig(`
+[connectionManagerConfig]
+HeartbeatIntervalSec = 20
+PongTimeoutSec = 10
+
+[[shardedDONs]]
+DonName = "donA"
+F = 0
+
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "n0"
+Address = "0x0001020304050607080900010203040506070809"
+
+[[services]]
+ServiceName = "workflows"
+DONs = ["donA"]
+
+[[services.Handlers]]
+Name = "dummy"
+`)
+
+	lggr := logger.Test(t)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), newGatewayHandler(t), lggr, limits.Factory{Logger: lggr})
+	require.ErrorContains(t, err, "invalid gateway config: PongTimeoutSec (10) must be greater than HeartbeatIntervalSec (20)")
+}
+
 func TestGateway_NewGatewayFromConfig_InvalidHandler(t *testing.T) {
 	t.Parallel()
 
@@ -379,7 +409,7 @@ Name = "dummy"
 	servicetest.Run(t, gatewayObj)
 }
 
-func requireJSONRPCResult(t *testing.T, method string, response []byte, expectedID string, expectedResult string) {
+func requireJSONRPCResult(t *testing.T, method string, response []byte, expectedID, expectedResult string) {
 	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s,"method":"%s"}`, expectedID, expectedResult, method), string(response))
 }
 
@@ -409,7 +439,7 @@ func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handlermocks.Han
 
 // newSignedLegacyRequest creates a signed legacy request message for testing purposes.
 // Legacy requests embed
-func newSignedLegacyRequest(t *testing.T, messageID string, method string, donID string, payload []byte) []byte {
+func newSignedLegacyRequest(t *testing.T, messageID, method, donID string, payload []byte) []byte {
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: messageID,
@@ -428,7 +458,7 @@ func newSignedLegacyRequest(t *testing.T, messageID string, method string, donID
 }
 
 // newJSONRpcRequest creates a json rpc based request message for testing purposes.
-func newJSONRpcRequest(t *testing.T, requestID string, method string, payload []byte) []byte {
+func newJSONRpcRequest(t *testing.T, requestID, method string, payload []byte) []byte {
 	rawPayload := json.RawMessage(payload)
 	request := jsonrpc.Request[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,

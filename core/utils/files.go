@@ -61,10 +61,10 @@ func WriteFileWithMaxPerms(path string, data []byte, perms os.FileMode) (err err
 	defer func() { err = stderrors.Join(err, f.Close()) }()
 	err = EnsureFileMaxPerms(f, perms)
 	if err != nil {
-		return
+		return err
 	}
 	_, err = f.Write(data)
-	return
+	return err
 }
 
 // EnsureFileMaxPerms ensures that the given file has permissions
@@ -91,7 +91,7 @@ func EnsureFilepathMaxPerms(filepath string, perms os.FileMode) (err error) {
 	return EnsureFileMaxPerms(dst, perms)
 }
 
-// FileSize repesents a file size in bytes.
+// FileSize represents a file size in bytes.
 type FileSize uint64
 
 const (

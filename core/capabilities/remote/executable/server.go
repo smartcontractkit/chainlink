@@ -70,9 +70,11 @@ type Server interface {
 		messageHasher types.MessageHasher) error
 }
 
-var _ Server = &server{}
-var _ types.Receiver = &server{}
-var _ services.Service = &server{}
+var (
+	_ Server           = &server{}
+	_ types.Receiver   = &server{}
+	_ services.Service = &server{}
+)
 
 type requestAndMsgID struct {
 	request   *request.ServerRequest
@@ -95,7 +97,8 @@ func NewServer(capabilityID, methodName string, peerID p2ptypes.PeerID, dispatch
 
 // SetConfig sets the remote server configuration dynamically
 func (r *server) SetConfig(remoteExecutableConfig *commoncap.RemoteExecutableConfig, underlying commoncap.ExecutableCapability,
-	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, messageHasher types.MessageHasher) error {
+	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON, messageHasher types.MessageHasher,
+) error {
 	currCfg := r.cfg.Load()
 	if remoteExecutableConfig == nil {
 		r.lggr.Info("no remote config provided, using default values")
@@ -269,7 +272,7 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 		return
 	}
 
-	msgHash, err := cfg.hasher.Hash(msg)
+	msgHash, err := cfg.hasher.Hash(ctx, msg)
 	if err != nil {
 		r.lggr.Errorw("failed to get message hash", "err", err)
 		return
@@ -281,17 +284,14 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	r.lggr.Debugw("received request", "msgId", msg.MessageId, "requestID", requestID)
 
-	if requestIDs, ok := r.messageIDToRequestIDsCount[messageID]; ok {
+	requestIDs, requestIDsOK := r.messageIDToRequestIDsCount[messageID]
+	if requestIDsOK {
 		requestIDs[requestID]++
-	} else {
-		r.messageIDToRequestIDsCount[messageID] = map[string]int{requestID: 1}
-	}
-
-	requestIDs := r.messageIDToRequestIDsCount[messageID]
-	if len(requestIDs) > 1 {
-		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
-		// so a warning is logged
-		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
+		if len(requestIDs) > 1 {
+			// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
+			// so a warning is logged
+			r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
+		}
 	}
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
@@ -312,6 +312,11 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 			request:   sr,
 			messageID: messageID,
 		}
+	}
+
+	if !requestIDsOK {
+		// This is separate from inverse case because we want to wait until after the early returns in between.
+		r.messageIDToRequestIDsCount[messageID] = map[string]int{requestID: 1}
 	}
 
 	reqAndMsgID := r.requestIDToRequest[requestID]

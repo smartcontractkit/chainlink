@@ -15,9 +15,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	vault_helpers "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -820,7 +821,6 @@ func (n *Node) setUpAndLinkJobDistributor(ctx context.Context, cldfEnv *cldf.Env
 		return nil
 	},
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to connect node %s to job distributor: %w", n.Name, err)
 	}

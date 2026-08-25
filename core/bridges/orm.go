@@ -17,14 +17,14 @@ type ORM interface {
 	FindBridge(ctx context.Context, name BridgeName) (bt BridgeType, err error)
 	FindBridges(ctx context.Context, name []BridgeName) (bts []BridgeType, err error)
 	DeleteBridgeType(ctx context.Context, bt *BridgeType) error
-	BridgeTypes(ctx context.Context, offset int, limit int) ([]BridgeType, int, error)
+	BridgeTypes(ctx context.Context, offset, limit int) ([]BridgeType, int, error)
 	CreateBridgeType(ctx context.Context, bt *BridgeType) error
 	UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error
 
 	GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error)
 	UpsertBridgeResponse(ctx context.Context, dotId string, specId int32, response []byte) error
 
-	ExternalInitiators(ctx context.Context, offset int, limit int) ([]ExternalInitiator, int, error)
+	ExternalInitiators(ctx context.Context, offset, limit int) ([]ExternalInitiator, int, error)
 	CreateExternalInitiator(ctx context.Context, externalInitiator *ExternalInitiator) error
 	DeleteExternalInitiator(ctx context.Context, name string) error
 	FindExternalInitiator(ctx context.Context, eia *auth.Token) (*ExternalInitiator, error)
@@ -59,7 +59,7 @@ func (o *orm) FindBridge(ctx context.Context, name BridgeName) (bt BridgeType, e
 	stmt := "SELECT * FROM bridge_types WHERE name = $1"
 	err = o.ds.GetContext(ctx, &bt, stmt, name.String())
 
-	return
+	return bt, err
 }
 
 // FindBridges looks up multiple bridges in a single query.
@@ -107,7 +107,7 @@ func (o *orm) DeleteBridgeType(ctx context.Context, bt *BridgeType) error {
 
 // BridgeTypes returns bridge types ordered by name filtered limited by the
 // passed params.
-func (o *orm) BridgeTypes(ctx context.Context, offset int, limit int) (bridges []BridgeType, count int, err error) {
+func (o *orm) BridgeTypes(ctx context.Context, offset, limit int) (bridges []BridgeType, count int, err error) {
 	err = o.transact(ctx, true, func(tx *orm) error {
 		if err = tx.ds.GetContext(ctx, &count, "SELECT COUNT(*) FROM bridge_types"); err != nil {
 			return pkgerrors.Wrap(err, "BridgeTypes failed to get count")
@@ -119,13 +119,13 @@ func (o *orm) BridgeTypes(ctx context.Context, offset int, limit int) (bridges [
 		return nil
 	})
 
-	return
+	return bridges, count, err
 }
 
 // CreateBridgeType saves the bridge type.
 func (o *orm) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
-	stmt := `INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, minimum_contract_payment, created_at, updated_at)
-	VALUES (:name, :url, :confirmations, :incoming_token_hash, :salt, :outgoing_token, :minimum_contract_payment, now(), now())
+	stmt := `INSERT INTO bridge_types (name, url, confirmations, incoming_token_hash, salt, outgoing_token, minimum_contract_payment, use_connection_manager, created_at, updated_at)
+	VALUES (:name, :url, :confirmations, :incoming_token_hash, :salt, :outgoing_token, :minimum_contract_payment, :use_connection_manager, now(), now())
 	RETURNING *;`
 	err := o.transact(ctx, false, func(tx *orm) error {
 		stmt, err := tx.ds.PrepareNamedContext(ctx, stmt)
@@ -141,8 +141,8 @@ func (o *orm) CreateBridgeType(ctx context.Context, bt *BridgeType) error {
 
 // UpdateBridgeType updates the bridge type.
 func (o *orm) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *BridgeTypeRequest) error {
-	stmt := "UPDATE bridge_types SET url = $1, confirmations = $2, minimum_contract_payment = $3 WHERE name = $4 RETURNING *"
-	err := o.ds.GetContext(ctx, bt, stmt, btr.URL, btr.Confirmations, btr.MinimumContractPayment, bt.Name)
+	stmt := "UPDATE bridge_types SET url = $1, confirmations = $2, minimum_contract_payment = $3, use_connection_manager = $4 WHERE name = $5 RETURNING *"
+	err := o.ds.GetContext(ctx, bt, stmt, btr.URL, btr.Confirmations, btr.MinimumContractPayment, btr.UseConnectionManager, bt.Name)
 
 	return err
 }
@@ -209,19 +209,19 @@ func (o *orm) BulkUpsertBridgeResponse(ctx context.Context, responses []BridgeRe
 // --- External Initiator
 
 // ExternalInitiators returns a list of external initiators sorted by name
-func (o *orm) ExternalInitiators(ctx context.Context, offset int, limit int) (exis []ExternalInitiator, count int, err error) {
+func (o *orm) ExternalInitiators(ctx context.Context, offset, limit int) (initiators []ExternalInitiator, count int, err error) {
 	err = o.transact(ctx, true, func(tx *orm) error {
 		if err = tx.ds.GetContext(ctx, &count, "SELECT COUNT(*) FROM external_initiators"); err != nil {
 			return pkgerrors.Wrap(err, "ExternalInitiators failed to get count")
 		}
 
 		sql := `SELECT * FROM external_initiators ORDER BY name asc LIMIT $1 OFFSET $2;`
-		if err = tx.ds.SelectContext(ctx, &exis, sql, limit, offset); err != nil {
+		if err = tx.ds.SelectContext(ctx, &initiators, sql, limit, offset); err != nil {
 			return pkgerrors.Wrap(err, "ExternalInitiators failed to load external_initiators")
 		}
 		return nil
 	})
-	return
+	return initiators, count, err
 }
 
 // CreateExternalInitiator inserts a new external initiator
@@ -269,5 +269,5 @@ func (o *orm) FindExternalInitiator(ctx context.Context, eia *auth.Token) (*Exte
 // FindExternalInitiatorByName finds an external initiator given an authentication request
 func (o *orm) FindExternalInitiatorByName(ctx context.Context, iname string) (exi ExternalInitiator, err error) {
 	err = o.ds.GetContext(ctx, &exi, `SELECT * FROM external_initiators WHERE lower(name) = lower($1)`, iname)
-	return
+	return exi, err
 }

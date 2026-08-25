@@ -11,6 +11,10 @@
 #   CRE_PR_IMAGE=<pr image>  CRE_BASELINE_IMAGE=<develop image> \
 #     ./configs/render-mixed-env.sh
 #
+# Add --local to render with pull_image = false (uses local daemon images
+# instead of pulling from a registry). CRE_PULL_IMAGE is substituted with
+# "true" by default, or "false" when --local is passed.
+#
 # The rendered configs/mixed-env-don.toml is gitignored.
 #
 # IMPORTANT: do not set CTF_CHAINLINK_IMAGE when using this topology — a non-empty
@@ -57,7 +61,7 @@
   http_port_range_start = 10100
 
   # even though this DON is not using any capability for chain with ID 2337 we still need it to be connected to it,
-  # because bootstrap job for capability DON will be created on the boostrap node from this DON
+  # because bootstrap job for capability DON will be created on the bootstrap node from this DON
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
@@ -72,28 +76,28 @@
     roles = ["plugin"]
     [nodesets.node_specs.node]
       image = "${CRE_PR_IMAGE}"
-      pull_image = true
+      pull_image = ${CRE_PULL_IMAGE}
       user_config_overrides = ""
 
   [[nodesets.node_specs]] # node 1 - PR
     roles = ["plugin"]
     [nodesets.node_specs.node]
       image = "${CRE_PR_IMAGE}"
-      pull_image = true
+      pull_image = ${CRE_PULL_IMAGE}
       user_config_overrides = ""
 
   [[nodesets.node_specs]] # node 2 - develop
     roles = ["plugin"]
     [nodesets.node_specs.node]
       image = "${CRE_BASELINE_IMAGE}"
-      pull_image = true
+      pull_image = ${CRE_PULL_IMAGE}
       user_config_overrides = ""
 
   [[nodesets.node_specs]] # node 3 - develop
     roles = ["plugin"]
     [nodesets.node_specs.node]
       image = "${CRE_BASELINE_IMAGE}"
-      pull_image = true
+      pull_image = ${CRE_PULL_IMAGE}
       user_config_overrides = ""
 
 [[nodesets]]
@@ -120,28 +124,28 @@
     roles = ["plugin"]
     [nodesets.node_specs.node]
       image = "${CRE_PR_IMAGE}"
-      pull_image = true
+      pull_image = ${CRE_PULL_IMAGE}
       user_config_overrides = ""
 
   [[nodesets.node_specs]] # node 1 - PR
     roles = ["plugin"]
     [nodesets.node_specs.node]
       image = "${CRE_PR_IMAGE}"
-      pull_image = true
+      pull_image = ${CRE_PULL_IMAGE}
       user_config_overrides = ""
 
   [[nodesets.node_specs]] # node 2 - develop
     roles = ["plugin"]
     [nodesets.node_specs.node]
       image = "${CRE_BASELINE_IMAGE}"
-      pull_image = true
+      pull_image = ${CRE_PULL_IMAGE}
       user_config_overrides = ""
 
   [[nodesets.node_specs]] # node 3 - develop
     roles = ["plugin"]
     [nodesets.node_specs.node]
       image = "${CRE_BASELINE_IMAGE}"
-      pull_image = true
+      pull_image = ${CRE_PULL_IMAGE}
       user_config_overrides = ""
 
 [[nodesets]]
@@ -165,7 +169,7 @@
     roles = ["bootstrap", "gateway"]
     [nodesets.node_specs.node]
       image = "${CRE_BASELINE_IMAGE}"
-      pull_image = true
+      pull_image = ${CRE_PULL_IMAGE}
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
       custom_ports = ["5002:5002","15002:15002"]

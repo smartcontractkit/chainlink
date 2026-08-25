@@ -686,6 +686,10 @@ func TestIsValidJSON(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	lggr := logger.Test(t)
 	cfg := ServiceConfig{
 		MaxTriggerRequestDurationMs: 2000, // 2 seconds for test
@@ -747,6 +751,10 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_Retries(t *testing.T) {
 }
 
 func TestHttpTriggerHandler_HandleUserTriggerRequest_SendsToNodesInParallel(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	lggr := logger.Test(t)
@@ -868,7 +876,8 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_SlowNodeDoesNotBlockOthers(
 				return ctx.Err()
 			}
 			return nil
-		}).Twice()
+		},
+	).Twice()
 
 	err := handler.Start(t.Context())
 	require.NoError(t, err)
@@ -2121,4 +2130,364 @@ func TestHttpTriggerHandler_HandleUserTriggerRequest_StopsRetriesOnQuorum(t *tes
 		require.NoError(t, err)
 		mockDon.AssertExpectations(t)
 	})
+}
+
+// createMultiShardTriggerHandler builds a trigger handler over multiple shards
+// of a single DON. Each shard gets its own mock DON connection manager. Returns
+// the handler, the mock DONs (one per shard), and the shard endpoints.
+func createMultiShardTriggerHandler(t *testing.T, donName string, shardNodeSets [][]string, f int) (*httpTriggerHandler, []*handlermocks.DON, []*shardEndpoint) {
+	t.Helper()
+	lggr := logger.Test(t)
+	cfg := WithDefaults(ServiceConfig{
+		MaxTriggerRequestDurationMs: 5000,
+		NodeSendTimeoutMs:           5000,
+	})
+
+	shardsCfg := make([]config.Shard, len(shardNodeSets))
+	connMgrs := make([]handlers.DON, len(shardNodeSets))
+	mockDons := make([]*handlermocks.DON, len(shardNodeSets))
+	for i, addrs := range shardNodeSets {
+		members := make([]config.NodeConfig, len(addrs))
+		for j, addr := range addrs {
+			members[j] = config.NodeConfig{Address: addr}
+		}
+		shardsCfg[i] = config.Shard{Nodes: members}
+		mockDons[i] = handlermocks.NewDON(t)
+		connMgrs[i] = mockDons[i]
+	}
+
+	shardedDONs := []config.ShardedDONConfig{
+		{DonName: donName, F: f, Shards: shardsCfg},
+	}
+	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, [][]handlers.DON{connMgrs})
+	require.NoError(t, err)
+
+	allMembersSlice := allMembers(shards)
+	testMetrics, err := metrics.NewMetrics(allMembersSlice)
+	require.NoError(t, err)
+	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
+	userRateLimiter := createTestUserRateLimiter()
+	handler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics)
+	return handler, mockDons, shards
+}
+
+// TestHttpTriggerHandler_MultiShardQuorumRace verifies the core sharding
+// behavior: when a workflow is assigned to multiple shards, the FIRST shard to
+// reach quorum produces the user response. Late responses from the other shard
+// are rejected with "callback not found" after cleanup.
+func TestHttpTriggerHandler_MultiShardQuorumRace(t *testing.T) {
+	t.Parallel()
+
+	// 2 shards, each with 3 nodes, F=1, threshold=(3+1)//2+1=3
+	handler, mockDons, shards := createMultiShardTriggerHandler(t, "don",
+		[][]string{{"n1", "n2", "n3"}, {"n4", "n5", "n6"}}, 1)
+
+	privateKey := createTestPrivateKey(t)
+	registerWorkflowOnShards(t, handler, workflowID, privateKey, shards[0], shards[1])
+
+	triggerReq := createTestTriggerRequest(workflowID)
+	reqBytes, err := json.Marshal(triggerReq)
+	require.NoError(t, err)
+	rawParams := json.RawMessage(reqBytes)
+	req := &jsonrpc.Request[json.RawMessage]{
+		Version: "2.0",
+		ID:      "test-quorum-race",
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawParams,
+	}
+	req.Auth = createTestJWTToken(t, req, privateKey)
+	callback := hc.NewCallback()
+
+	// All 6 nodes receive the send successfully on the first attempt.
+	for _, addr := range []string{"n1", "n2", "n3"} {
+		mockDons[0].EXPECT().SendToNode(mock.Anything, addr, mock.Anything).Return(nil).Once()
+	}
+	for _, addr := range []string{"n4", "n5", "n6"} {
+		mockDons[1].EXPECT().SendToNode(mock.Anything, addr, mock.Anything).Return(nil).Once()
+	}
+
+	require.NoError(t, handler.Start(t.Context()))
+	t.Cleanup(func() { _ = handler.Close() })
+
+	// HandleUserTriggerRequest blocks until all shard sends complete; since all
+	// succeed on the first attempt, it returns immediately.
+	err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
+	require.NoError(t, err)
+
+	// Shard 1 reaches quorum first (3 identical responses).
+	rawRes := json.RawMessage(`{"result":"from-shard1"}`)
+	nodeResp := &jsonrpc.Response[json.RawMessage]{
+		Version: "2.0",
+		ID:      req.ID,
+		Result:  &rawRes,
+	}
+	for _, addr := range []string{"n4", "n5", "n6"} {
+		require.NoError(t, handler.HandleNodeTriggerResponse(t.Context(), nodeResp, addr))
+	}
+
+	// User should have received the response from shard 1.
+	payload, err := callback.Wait(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, api.NoError, payload.ErrorCode)
+	require.NotEmpty(t, payload.RawResponse)
+
+	// Late response from shard 0 must be rejected: callback was already cleaned up.
+	err = handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "n1")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "callback not found")
+
+	// Callback should no longer exist.
+	handler.callbacksMu.Lock()
+	_, exists := handler.callbacks[req.ID]
+	handler.callbacksMu.Unlock()
+	require.False(t, exists)
+}
+
+// TestHttpTriggerHandler_NodeResponseFromUnassignedShard verifies that a node
+// response from a shard the workflow is NOT assigned to is rejected.
+func TestHttpTriggerHandler_NodeResponseFromUnassignedShard(t *testing.T) {
+	t.Parallel()
+
+	// 3 shards; workflow registered on shard 0 and shard 1 only.
+	handler, mockDons, shards := createMultiShardTriggerHandler(t, "don",
+		[][]string{{"n1", "n2", "n3"}, {"n4", "n5", "n6"}, {"n7", "n8", "n9"}}, 1)
+
+	privateKey := createTestPrivateKey(t)
+	registerWorkflowOnShards(t, handler, workflowID, privateKey, shards[0], shards[1])
+
+	triggerReq := createTestTriggerRequest(workflowID)
+	reqBytes, err := json.Marshal(triggerReq)
+	require.NoError(t, err)
+	rawParams := json.RawMessage(reqBytes)
+	req := &jsonrpc.Request[json.RawMessage]{
+		Version: "2.0",
+		ID:      "test-unassigned-shard",
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawParams,
+	}
+	req.Auth = createTestJWTToken(t, req, privateKey)
+	callback := hc.NewCallback()
+
+	for _, addr := range []string{"n1", "n2", "n3"} {
+		mockDons[0].EXPECT().SendToNode(mock.Anything, addr, mock.Anything).Return(nil).Once()
+	}
+	for _, addr := range []string{"n4", "n5", "n6"} {
+		mockDons[1].EXPECT().SendToNode(mock.Anything, addr, mock.Anything).Return(nil).Once()
+	}
+	// mockDons[2] (shard 2) gets NO expectations: any send to it would be a bug.
+
+	require.NoError(t, handler.Start(t.Context()))
+	t.Cleanup(func() { _ = handler.Close() })
+
+	err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
+	require.NoError(t, err)
+
+	// Response from a node in the unassigned shard 2 must be rejected.
+	rawRes := json.RawMessage(`{"result":"success"}`)
+	nodeResp := &jsonrpc.Response[json.RawMessage]{
+		Version: "2.0",
+		ID:      req.ID,
+		Result:  &rawRes,
+	}
+	err = handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "n7")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not assigned to workflow")
+}
+
+// TestHttpTriggerHandler_NodeResponseFromUnknownNode verifies that a response
+// from a node address that does not appear in any shard is rejected.
+func TestHttpTriggerHandler_NodeResponseFromUnknownNode(t *testing.T) {
+	t.Parallel()
+
+	handler, mockDons, shards := createMultiShardTriggerHandler(t, "don",
+		[][]string{{"n1", "n2", "n3"}, {"n4", "n5", "n6"}}, 1)
+
+	privateKey := createTestPrivateKey(t)
+	registerWorkflowOnShards(t, handler, workflowID, privateKey, shards[0], shards[1])
+
+	triggerReq := createTestTriggerRequest(workflowID)
+	reqBytes, err := json.Marshal(triggerReq)
+	require.NoError(t, err)
+	rawParams := json.RawMessage(reqBytes)
+	req := &jsonrpc.Request[json.RawMessage]{
+		Version: "2.0",
+		ID:      "test-unknown-node",
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawParams,
+	}
+	req.Auth = createTestJWTToken(t, req, privateKey)
+	callback := hc.NewCallback()
+
+	for _, addr := range []string{"n1", "n2", "n3"} {
+		mockDons[0].EXPECT().SendToNode(mock.Anything, addr, mock.Anything).Return(nil).Once()
+	}
+	for _, addr := range []string{"n4", "n5", "n6"} {
+		mockDons[1].EXPECT().SendToNode(mock.Anything, addr, mock.Anything).Return(nil).Once()
+	}
+
+	require.NoError(t, handler.Start(t.Context()))
+	t.Cleanup(func() { _ = handler.Close() })
+
+	err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
+	require.NoError(t, err)
+
+	rawRes := json.RawMessage(`{"result":"success"}`)
+	nodeResp := &jsonrpc.Response[json.RawMessage]{
+		Version: "2.0",
+		ID:      req.ID,
+		Result:  &rawRes,
+	}
+	err = handler.HandleNodeTriggerResponse(t.Context(), nodeResp, "totally-unknown-node")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unknown node")
+}
+
+// TestHttpTriggerHandler_MultiShardSendFailureResilience verifies that when the
+// request fan-out reaches multiple shards, a total failure in one shard does not
+// prevent the user from receiving a response. The healthy shard reaches quorum,
+// which closes doneCh and stops the failing shard's retry loop.
+func TestHttpTriggerHandler_MultiShardSendFailureResilience(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	cfg := WithDefaults(ServiceConfig{
+		MaxTriggerRequestDurationMs: 5000,
+		NodeSendTimeoutMs:           5000,
+		RetryConfig: RetryConfig{
+			InitialIntervalMs: 10,
+			MaxIntervalTimeMs: 50,
+			Multiplier:        2,
+		},
+	})
+
+	// 2 shards, each with 3 nodes, F=1, threshold=3.
+	shardedDONs := []config.ShardedDONConfig{
+		{DonName: "don", F: 1, Shards: []config.Shard{
+			{Nodes: []config.NodeConfig{{Address: "n1"}, {Address: "n2"}, {Address: "n3"}}},
+			{Nodes: []config.NodeConfig{{Address: "n4"}, {Address: "n5"}, {Address: "n6"}}},
+		}},
+	}
+	shard0Don := handlermocks.NewDON(t)
+	shard1Don := handlermocks.NewDON(t)
+	connMgrs := [][]handlers.DON{{shard0Don, shard1Don}}
+	shards, nodeAddrToShard, err := buildShardEndpoints(shardedDONs, connMgrs)
+	require.NoError(t, err)
+
+	allMembersSlice := allMembers(shards)
+	testMetrics, err := metrics.NewMetrics(allMembersSlice)
+	require.NoError(t, err)
+	metadataHandler := NewWorkflowMetadataHandler(lggr, cfg, shards, nodeAddrToShard, testMetrics)
+	userRateLimiter := createTestUserRateLimiter()
+	handler := NewHTTPTriggerHandler(lggr, cfg, shards, nodeAddrToShard, metadataHandler, userRateLimiter, testMetrics)
+
+	privateKey := createTestPrivateKey(t)
+	registerWorkflowOnShards(t, handler, workflowID, privateKey, shards[0], shards[1])
+
+	triggerReq := createTestTriggerRequest(workflowID)
+	reqBytes, err := json.Marshal(triggerReq)
+	require.NoError(t, err)
+	rawParams := json.RawMessage(reqBytes)
+	req := &jsonrpc.Request[json.RawMessage]{
+		Version: "2.0",
+		ID:      "test-shard-failure-resilience",
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawParams,
+	}
+	req.Auth = createTestJWTToken(t, req, privateKey)
+	callback := hc.NewCallback()
+
+	// Shard 0's sends always fail (will keep retrying until doneCh closes).
+	shard0Don.EXPECT().SendToNode(mock.Anything, mock.Anything, mock.Anything).Return(errors.New("connection error")).Maybe()
+
+	// Shard 1's sends succeed; signal when all 3 have completed.
+	shard1Sent := make(chan struct{})
+	var shard1SendCount atomic.Int32
+	for _, addr := range []string{"n4", "n5", "n6"} {
+		shard1Don.EXPECT().SendToNode(mock.Anything, addr, mock.Anything).RunAndReturn(
+			func(ctx context.Context, nodeAddress string, r *jsonrpc.Request[json.RawMessage]) error {
+				if shard1SendCount.Add(1) == 3 {
+					close(shard1Sent)
+				}
+				return nil
+			},
+		).Once()
+	}
+
+	require.NoError(t, handler.Start(t.Context()))
+	t.Cleanup(func() { _ = handler.Close() })
+
+	// HandleUserTriggerRequest blocks while shard 0 retries, so run it async.
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
+	}()
+
+	// Wait for shard 1's sends to complete.
+	select {
+	case <-shard1Sent:
+	case <-t.Context().Done():
+		t.Fatal("timed out waiting for shard 1 sends")
+	}
+
+	// Send responses from shard 1 to reach quorum.
+	rawRes := json.RawMessage(`{"result":"from-shard1"}`)
+	nodeResp := &jsonrpc.Response[json.RawMessage]{
+		Version: "2.0",
+		ID:      req.ID,
+		Result:  &rawRes,
+	}
+	for _, addr := range []string{"n4", "n5", "n6"} {
+		require.NoError(t, handler.HandleNodeTriggerResponse(t.Context(), nodeResp, addr))
+	}
+
+	// User should receive the response from the healthy shard.
+	payload, err := callback.Wait(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, api.NoError, payload.ErrorCode)
+	require.NotEmpty(t, payload.RawResponse)
+
+	// HandleUserTriggerRequest should return once doneCh closes (stopping shard 0).
+	select {
+	case err = <-errCh:
+		require.NoError(t, err, "sendToShard returns nil when doneCh closes")
+	case <-t.Context().Done():
+		t.Fatal("timed out waiting for HandleUserTriggerRequest to return")
+	}
+}
+
+// TestHttpTriggerHandler_WorkflowNotAssignedToAnyShard verifies that
+// setupCallback returns an error when the workflow has no shard assignments.
+func TestHttpTriggerHandler_WorkflowNotAssignedToAnyShard(t *testing.T) {
+	t.Parallel()
+
+	handler, _, _ := createMultiShardTriggerHandler(t, "don",
+		[][]string{{"n1", "n2", "n3"}}, 1)
+
+	privateKey := createTestPrivateKey(t)
+	// Register the workflow's key and reference but assign it to NO shards.
+	registerWorkflowOnShards(t, handler, workflowID, privateKey)
+
+	triggerReq := createTestTriggerRequest(workflowID)
+	reqBytes, err := json.Marshal(triggerReq)
+	require.NoError(t, err)
+	rawParams := json.RawMessage(reqBytes)
+	req := &jsonrpc.Request[json.RawMessage]{
+		Version: "2.0",
+		ID:      "test-no-shards-assigned",
+		Method:  gateway_common.MethodWorkflowExecute,
+		Params:  &rawParams,
+	}
+	req.Auth = createTestJWTToken(t, req, privateKey)
+	callback := hc.NewCallback()
+
+	require.NoError(t, handler.Start(t.Context()))
+	t.Cleanup(func() { _ = handler.Close() })
+
+	err = handler.HandleUserTriggerRequest(t.Context(), req, callback, time.Now())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not assigned to any shards")
+
+	r, err := callback.Wait(t.Context())
+	require.NoError(t, err)
+	requireUserErrorSent(t, r, jsonrpc.ErrInternal)
 }

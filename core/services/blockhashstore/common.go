@@ -16,7 +16,7 @@ import (
 // coordinator.
 type Coordinator interface {
 	// Requests fetches VRF requests that occurred within the specified blocks.
-	Requests(ctx context.Context, fromBlock uint64, toBlock uint64) ([]Event, error)
+	Requests(ctx context.Context, fromBlock, toBlock uint64) ([]Event, error)
 
 	// Fulfillments fetches VRF fulfillments that occurred since the specified block.
 	Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error)
@@ -71,18 +71,18 @@ func GetUnfulfilledBlocksAndRequests(
 		requestIDToBlock[req.ID] = req.Block
 	}
 
-	fuls, err := coordinator.Fulfillments(ctx, fromBlock)
+	fulfillments, err := coordinator.Fulfillments(ctx, fromBlock)
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF fulfillments",
 			"err", err)
 		return nil, errors.Wrap(err, "fetching VRF fulfillments")
 	}
-	for _, ful := range fuls {
-		requestBlock, ok := requestIDToBlock[ful.ID]
+	for _, fulfillment := range fulfillments {
+		requestBlock, ok := requestIDToBlock[fulfillment.ID]
 		if !ok {
 			continue
 		}
-		delete(blockToRequests[requestBlock], ful.ID)
+		delete(blockToRequests[requestBlock], fulfillment.ID)
 	}
 
 	return blockToRequests, nil
@@ -110,7 +110,7 @@ func DecreasingBlockRange(start, end *big.Int) (ret []*big.Int, err error) {
 	for i := new(big.Int).Set(start); i.Cmp(end) >= 0; i.Sub(i, big.NewInt(1)) {
 		ret = append(ret, new(big.Int).Set(i))
 	}
-	return
+	return ret, err
 }
 
 // GetSearchWindow returns the search window (fromBlock, toBlock) given the latest block number, wait blocks and lookback blocks

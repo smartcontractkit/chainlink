@@ -141,7 +141,8 @@ func (lsn *listenerV2) handleRevertedTxns(ctx context.Context, pollPeriod time.D
 func (lsn *listenerV2) fetchRecentSingleTxns(ctx context.Context,
 	ds sqlutil.DataSource,
 	chainID uint64,
-	pollPeriod time.Duration) ([]TxnReceiptDB, error) {
+	pollPeriod time.Duration,
+) ([]TxnReceiptDB, error) {
 	// (state = 'confirmed' OR state = 'unconfirmed')
 	sqlQuery := fmt.Sprintf(`
 		WITH already_ff as (
@@ -204,7 +205,8 @@ func (lsn *listenerV2) fetchRecentSingleTxns(ctx context.Context,
 func (lsn *listenerV2) fetchRecentBatchTxns(ctx context.Context,
 	ds sqlutil.DataSource,
 	chainID uint64,
-	pollPeriod time.Duration) ([]TxnReceiptDB, error) {
+	pollPeriod time.Duration,
+) ([]TxnReceiptDB, error) {
 	sqlQuery := fmt.Sprintf(`
 		WITH already_ff as (
 			SELECT meta->>'RequestID' as request_id
@@ -263,7 +265,8 @@ func (lsn *listenerV2) fetchRecentBatchTxns(ctx context.Context,
 func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 	ds sqlutil.DataSource,
 	chainID uint64,
-	pollPeriod time.Duration) ([]TxnReceiptDB, error) {
+	pollPeriod time.Duration,
+) ([]TxnReceiptDB, error) {
 	sqlQuery := fmt.Sprintf(`
 		WITH txes AS (
 			SELECT *
@@ -350,7 +353,7 @@ func (lsn *listenerV2) fetchRevertedForceFulfilmentTxns(ctx context.Context,
 
 func unique(rs []TxnReceiptDB) (res []TxnReceiptDB) {
 	if len(rs) == 0 {
-		return
+		return res
 	}
 	exists := make(map[string]bool)
 	res = make([]TxnReceiptDB, 0)
@@ -364,9 +367,9 @@ func unique(rs []TxnReceiptDB) (res []TxnReceiptDB) {
 	return res
 }
 
-func UniqueByReqID(revertedForceTxns []TxnReceiptDB, allForceTxns []TxnReceiptDB) (res []TxnReceiptDB) {
+func UniqueByReqID(revertedForceTxns, allForceTxns []TxnReceiptDB) (res []TxnReceiptDB) {
 	if len(revertedForceTxns) == 0 {
-		return
+		return res
 	}
 
 	// Load all force fulfillment txns into a map
@@ -427,10 +430,12 @@ func (lsn *listenerV2) postSQLLog(ctx context.Context, begin time.Time, pollPeri
 	pct := float64(elapsed) / float64(timeout)
 	pct *= 100
 
-	kvs := []any{"ms", elapsed.Milliseconds(),
+	kvs := []any{
+		"ms", elapsed.Milliseconds(),
 		"timeout", timeout.Milliseconds(),
 		"percent", strconv.FormatFloat(pct, 'f', 1, 64),
-		"sql", queryName}
+		"sql", queryName,
+	}
 
 	if elapsed >= timeout {
 		lsn.l.Criticalw("ExtremelySlowSQLQuery", kvs...)
@@ -444,7 +449,8 @@ func (lsn *listenerV2) postSQLLog(ctx context.Context, begin time.Time, pollPeri
 }
 
 func (lsn *listenerV2) filterRevertedTxns(ctx context.Context,
-	recentReceipts []TxnReceiptDB) []RevertedVRFTxn {
+	recentReceipts []TxnReceiptDB,
+) []RevertedVRFTxn {
 	revertedVRFTxns := make([]RevertedVRFTxn, 0)
 	for _, txnReceipt := range recentReceipts {
 		switch txnReceipt.ToAddress.Hex() {
@@ -498,7 +504,8 @@ func (lsn *listenerV2) filterRevertedTxns(ctx context.Context,
 
 func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 	txnReceiptDB TxnReceiptDB) (
-	*RevertedVRFTxn, error) {
+	*RevertedVRFTxn, error,
+) {
 	requestID := common.HexToHash(txnReceiptDB.RequestID).Big()
 	commitment, err := lsn.coordinator.GetCommitment(&bind.CallOpts{Context: ctx}, requestID)
 	if err != nil {
@@ -530,9 +537,13 @@ func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 		return nil, fmt.Errorf("error fetching revert reason %v: %w", txnReceiptDB.TxHash, err)
 	}
 	revertErr, err := evmclient.ExtractRPCError(rpcError)
+	var data any
+	if revertErr != nil {
+		data = revertErr.Data
+	}
 	lsn.l.Infow("InsufficientBalRevertedTxn",
 		"RawRevertData", rpcError,
-		"ParsedRevertData", revertErr.Data,
+		"ParsedRevertData", data,
 		"ParsingErr", err,
 	)
 	if err != nil {
@@ -574,12 +585,14 @@ func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 		DBReceipt:  txnReceiptDB,
 		IsBatchReq: false,
 		Proof:      *proof,
-		Commitment: *reqCommitment}, nil
+		Commitment: *reqCommitment,
+	}, nil
 }
 
 func (lsn *listenerV2) filterBatchRevertedTxn(ctx context.Context,
 	txnReceiptDB TxnReceiptDB) (
-	[]RevertedVRFTxn, error) {
+	[]RevertedVRFTxn, error,
+) {
 	if len(txnReceiptDB.EncodedPayload) <= 4 {
 		return nil, fmt.Errorf("invalid encodedPayload: %v", hexutil.Encode(txnReceiptDB.EncodedPayload))
 	}
@@ -604,6 +617,9 @@ func (lsn *listenerV2) filterBatchRevertedTxn(ctx context.Context,
 	// BatchVRFCoordinatorV2
 	revertedTxns := make([]RevertedVRFTxn, 0)
 	for _, log := range txnReceiptDB.EVMReceipt.Logs {
+		if len(log.Topics) < 2 {
+			continue
+		}
 		if log.Topics[0] != batchCoordinatorV2ABI.Events["RawErrorReturned"].ID {
 			continue
 		}
@@ -729,7 +745,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 		"RequestID", revertedTxn.DBReceipt.RequestID,
 		"RequestTxHash", revertedTxn.DBReceipt.RequestTxHash,
 	)
-	forceFulfiled := true
+	forceFulfilled := true
 	forceFulfillmentAttempt := revertedTxn.DBReceipt.ForceFulfillmentAttempt + 1
 	etx, err = lsn.chain.TxManager().CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:    fromAddress,
@@ -741,7 +757,7 @@ func (lsn *listenerV2) enqueueForceFulfillmentForRevertedTxn(
 			RequestID:               &reqID,
 			SubID:                   &revertedTxn.DBReceipt.SubID,
 			RequestTxHash:           &reqTxHash,
-			ForceFulfilled:          &forceFulfiled,
+			ForceFulfilled:          &forceFulfilled,
 			ForceFulfillmentAttempt: &forceFulfillmentAttempt,
 			// No max link since simulation failed
 		},

@@ -20,7 +20,7 @@ BumpPercent = 20
 BumpThreshold = 60
 EIP1559DynamicFees = true
 FeeCapDefault = '120 gwei'
-# Mantle reccomends setting Priority Fee to 0 in their docs linked here: https://docs-v2.mantle.xyz/devs/concepts/tx-fee/eip-1559#application-of-eip-1559-in-mantle-v2-tectonic
+# Mantle recommends setting Priority Fee to 0 in their docs linked here: https://docs-v2.mantle.xyz/devs/concepts/tx-fee/eip-1559#application-of-eip-1559-in-mantle-v2-tectonic
 TipCapDefault = '0 wei'
 TipCapMin = '0 wei'
 

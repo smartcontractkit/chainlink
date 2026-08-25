@@ -6,7 +6,7 @@ consumer for a funded VRF subscription.
 
 This guide covers:
  1. Deploying the contract
- 2. Creating, funding, checking balance, and adding a consumer to a VRF V2+ 
+ 2. Creating, funding, checking balance, and adding a consumer to a VRF V2+
     subscription
  3. Requesting randomness from the contract
 
@@ -43,7 +43,7 @@ export ORACLE_ADDRESS=<YOUR ORACLE NODE ADDRESS>
 export PUB_KEY=<YOUR UNCOMPRESSED PUBLIC KEY>
 ```
 
-By default, the script automatically estimates gas limits for operations. Optionally, `ETH_GAS_LIMIT_DEFAULT` environment variable can be set to override gas limit for operations. 
+By default, the script automatically estimates gas limits for operations. Optionally, `ETH_GAS_LIMIT_DEFAULT` environment variable can be set to override gas limit for operations.
 
 Now "cd" into the VRF V2 testnet scripts directory:
 
@@ -150,12 +150,12 @@ go run . eoa-add-sub-consumer --coordinator-address $COORDINATOR --sub-id=$SUB_I
 
 ### Requesting Randomness
 
-At this point, the consumer is authorized as a consumer of a funded 
+At this point, the consumer is authorized as a consumer of a funded
 subscription, and is ready to request random words.
 
 To make a request, run:
 ```shell
-go run . eoa-request --consumer-address=$CONSUMER --sub-id=$SUB_ID --key-hash=$KEY_HASH --num-words 1 
+go run . eoa-request --consumer-address=$CONSUMER --sub-id=$SUB_ID --key-hash=$KEY_HASH --num-words 1
 ```
 
 You should get the output:
@@ -175,7 +175,7 @@ insufficient funds / LINK, or incorrect contract addresses.
 
 [Tenderly](https://dashboard.tenderly.co/explorer) can be useful for debugging
 why a transaction failed. For example [this Rinkeby transaction](https://dashboard.tenderly.co/tx/rinkeby/0x71a7279033b47472ca453f7a19ccb685d0f32cdb4854a45052f1aaccd80436e9)
-failed because a non-owner tried to request random words from 
+failed because a non-owner tried to request random words from
 [VRFExternalSubOwnerExample](../../../../contracts/src/v0.8/tests/VRFExternalSubOwnerExample.sol).
 
 ## Using the `BatchBlockhashStore` Contract
@@ -229,12 +229,12 @@ go run . batch-bhs-storeVerify -batch-bhs-address $BATCH_BHS_ADDRESS -num-blocks
 where `$BATCH_BHS_ADDRESS` points to the `BatchBlockhashStore` contract deployed above, `-num-blocks` is the amount of blocks to store, and
 `-start-block` is the block to start storing from, backwards. The block number specified by `-start-block` MUST be
 in the blockhash store already, or this will not work.
- 
+
 ### Batch BHS "Backwards Mode"
 
 There may be a situation where you want to backfill a lot of blockhashes, down to a certain block number.
 
-This is where "Backwrads Mode" comes in - you're going to need the following:
+This is where "Backwards Mode" comes in - you're going to need the following:
 
 * A block number that has already been stored in the BHS. The closer it is to the target block range you want to store,
 the better. You can view the most oldest "Store" transactions on the BHS contract that is still ahead of the block range you

@@ -717,7 +717,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	srvs = append(srvs, dm)
 
 	fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
-	err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700))
+	err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
 	}
@@ -818,7 +818,7 @@ func (d *Delegate) newServicesVaultPlugin(
 	srvs = append(srvs, dkgProvider)
 
 	fullPathDKG := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String(), "_dkg")
-	err = utils.EnsureDirAndMaxPerms(fullPathDKG, os.FileMode(0700))
+	err = utils.EnsureDirAndMaxPerms(fullPathDKG, os.FileMode(0o700))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create key value store directory: %w", err)
 	}
@@ -1507,7 +1507,7 @@ func (d *Delegate) newServicesLLO(
 
 	// FIXME: This is a bit confusing because the OCR2 key bundle actually
 	// includes an EVM on-chain key... but LLO only uses the key bundle for the
-	// offchain keys and the suppoprted onchain keys are defined in the plugin
+	// offchain keys and the supported onchain keys are defined in the plugin
 	// config on the job spec instead.
 	// https://smartcontract-it.atlassian.net/browse/MERC-3594
 	lggr.Infof("Using on-chain signing keys for LLO job %d (%s): %v", jb.ID, jb.Name.ValueOrZero(), kbm)
@@ -1563,7 +1563,7 @@ func (d *Delegate) newServicesLLO(
 	// and DKG OCR3.1 plugins are (pebble under OCR2().KeyValueStoreRootDir()).
 	if pluginCfg.IsOCR31() {
 		fullPath := filepath.Join(d.cfg.OCR2().KeyValueStoreRootDir(), jb.ExternalJobID.String())
-		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0700)); err != nil {
+		if err = utils.EnsureDirAndMaxPerms(fullPath, os.FileMode(0o700)); err != nil {
 			return nil, fmt.Errorf("failed to create LLO key value store directory: %w", err)
 		}
 		cfg.BinaryNetworkEndpoint2Factory = d.peerWrapper.Peer3_1
@@ -1969,5 +1969,5 @@ type logWriter struct {
 func (l *logWriter) Write(p []byte) (n int, err error) {
 	l.log.Debug(string(p), nil)
 	n = len(p)
-	return
+	return n, err
 }

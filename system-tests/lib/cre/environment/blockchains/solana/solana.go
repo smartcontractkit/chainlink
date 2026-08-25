@@ -61,6 +61,7 @@ type Blockchain struct {
 func (s *Blockchain) ChainSelector() uint64 {
 	return s.chainSelector
 }
+
 func (s *Blockchain) ChainID() uint64 {
 	return 0 // Solana doesn't use numeric chain IDs
 }
@@ -108,7 +109,7 @@ func (s *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 	s.testLogger.Info().Msgf("Attempting to fund Solana account %s", recipient.String())
 
 	err := libfunding.SendFundsSol(ctx, s.testLogger, s.SolClient, libfunding.FundsToSendSol{
-		Recipent:   recipient,
+		Recipient:  recipient,
 		PrivateKey: s.PrivateKey,
 		Amount:     amount,
 	})

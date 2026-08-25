@@ -1271,7 +1271,7 @@ PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 TraceLogging = false # Default
 EnableExperimentalRageP2P = false # Default
 ```
-P2P has a versioned networking stack. Currenly only `[P2P.V2]` is supported.
+P2P has a versioned networking stack. Currently only `[P2P.V2]` is supported.
 All nodes in the OCR network should share the same networking stack.
 
 ### IncomingMessageBufferSize
@@ -1967,7 +1967,7 @@ MessageRateLimiterCapacity is the "burst" of the message rate limiter.
 ```toml
 BytesRateLimiterRate = 5000000.0 # Default
 ```
-BytesRateLimiterRate is the max size of precessed messages per second.
+BytesRateLimiterRate is the max size of processed messages per second.
 
 ### BytesRateLimiterCapacity
 ```toml
@@ -16734,7 +16734,7 @@ MinAttempts = 3 # Example
 ```toml
 Enabled = false # Default
 ```
-Enabled enables or disables automatically purging transactions that have been idenitified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.
+Enabled enables or disables automatically purging transactions that have been identified as terminally stuck (will never be included on-chain). This feature is only expected to be used by ZK chains.
 
 ### DetectionApiUrl
 ```toml
@@ -16957,7 +16957,7 @@ SenderAddress is optional and can be set to a specific sender address for gas li
 
 If you are using gas limit estimation:
 - Setting SenderAddress is optional for most products. If it is set, the from address for the transaction for gas estimation will be set to the inputted SenderAddress. If it is not set, the actual address the transaction is sent from is used if available.
-- Setting SenderAddress is neccessary for gas limit estimation to function correctly for CCIP. Gas limit estimation works only in CCIP 1.6 and above if SenderAddress is set to the given example value (0x00c11c11c11C11c11C11c11c11C11C11c11C11c1). This value is hardcoded in the CCIP 1.6 contracts and is not needed for other products.
+- Setting SenderAddress is necessary for gas limit estimation to function correctly for CCIP. Gas limit estimation works only in CCIP 1.6 and above if SenderAddress is set to the given example value (0x00c11c11c11C11c11C11c11c11C11C11c11C11c1). This value is hardcoded in the CCIP 1.6 contracts and is not needed for other products.
 
 
 ### BumpMin
@@ -17030,7 +17030,7 @@ In EIP-1559 mode, the following changes occur to how configuration works:
 - All new transactions will be sent as type 0x2 transactions specifying a TipCap and FeeCap. Be aware that existing pending legacy transactions will continue to be gas bumped in legacy mode.
 - `BlockHistoryEstimator` will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
 - `FixedPriceEstimator` will use `GasTipCapDefault` instead of `GasPriceDefault` for the tip cap
-- `FixedPriceEstimator` will use `GasFeeCapDefault` instaed of `GasPriceDefault` for the fee cap
+- `FixedPriceEstimator` will use `GasFeeCapDefault` instead of `GasPriceDefault` for the fee cap
 - `PriceMin` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
 - `PriceMax` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
 - `Keeper.GasTipCapBufferPercent` is ignored in EIP-1559 mode and `Keeper.GasTipCapBufferPercent` is used instead
@@ -17486,7 +17486,7 @@ ReplacementTransactionUnderpriced = '(: |^)replacement transaction underpriced' 
 LimitReached = '(: |^)limit reached' # Example
 TransactionAlreadyInMempool = '(: |^)transaction already in mempool' # Example
 TerminallyUnderpriced = '(: |^)terminally underpriced' # Example
-InsufficientEth = '(: |^)insufficeint eth' # Example
+InsufficientEth = '(: |^)insufficient eth' # Example
 TxFeeExceedsCap = '(: |^)tx fee exceeds cap' # Example
 L2FeeTooLow = '(: |^)l2 fee too low' # Example
 L2FeeTooHigh = '(: |^)l2 fee too high' # Example
@@ -17538,7 +17538,7 @@ TerminallyUnderpriced is a regex pattern to match against terminally underpriced
 
 ### InsufficientEth
 ```toml
-InsufficientEth = '(: |^)insufficeint eth' # Example
+InsufficientEth = '(: |^)insufficient eth' # Example
 ```
 InsufficientEth is a regex pattern to match against insufficient eth errors.
 
@@ -17758,7 +17758,7 @@ GasLimitDefault is the default gas limit for workflow transactions.
 ```toml
 TxAcceptanceState = 2 # Default
 ```
-TxAcceptanceState is the default acceptance state for writer DON tranmissions.
+TxAcceptanceState is the default acceptance state for writer DON transmissions.
 
 ### PollPeriod
 ```toml
@@ -17770,7 +17770,7 @@ PollPeriod is the default poll period for checking transmission state
 ```toml
 AcceptanceTimeout = '30s' # Default
 ```
-AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
+AcceptanceTimeout is the default timeout for a transmission to be accepted on chain
 
 ## Cosmos
 ```toml
@@ -17849,7 +17849,7 @@ GasLimitMultiplier scales the estimated gas limit.
 ```toml
 MaxMsgsPerBatch = 100 # Default
 ```
-MaxMsgsPerBatch limits the numbers of mesages per transaction batch.
+MaxMsgsPerBatch limits the numbers of messages per transaction batch.
 
 ### OCR2CachePollPeriod
 ```toml
@@ -18072,7 +18072,7 @@ Ensure the value is greater than the number of blocks that would be produced bet
 ```toml
 ComputeUnitLimitDefault = 200_000 # Default
 ```
-ComputeUnitLimitDefault is the compute units limit applied to transactions unless overriden during the txm enqueue
+ComputeUnitLimitDefault is the compute units limit applied to transactions unless overridden during the txm enqueue
 
 ### EstimateComputeUnitLimit
 ```toml
@@ -18116,7 +18116,7 @@ TxAcceptanceState = 3 # Default
 ```toml
 AcceptanceTimeout = '45s' # Default
 ```
-AcceptanceTimeout is the default timeout for a tranmission to be accepted on chain
+AcceptanceTimeout is the default timeout for a transmission to be accepted on chain
 
 ### ForwarderAddress
 ```toml
@@ -18161,7 +18161,7 @@ PollPeriod is the default poll period for checking transmission state
 ```toml
 TxAcceptanceState = 3 # Default
 ```
-TxAcceptanceState is the default acceptance state for writer DON tranmissions.
+TxAcceptanceState is the default acceptance state for writer DON transmissions.
 
 ## Solana.MultiNode
 ```toml
@@ -18220,7 +18220,7 @@ SyncThreshold is the number of blocks behind the best node that a node can be be
 ```toml
 NodeIsSyncingEnabled = false # Default
 ```
-NodeIsSyncingEnabled enables the feature to avoid sending transactions to nodes that are syncing. Not relavant for Solana.
+NodeIsSyncingEnabled enables the feature to avoid sending transactions to nodes that are syncing. Not relevant for Solana.
 
 ### LeaseDuration
 ```toml
@@ -18419,4 +18419,3 @@ URL is the base HTTP(S) endpoint for this node.
 APIKey = 'key' # Example
 ```
 APIKey Header is optional and only required for Nethermind RPCs
-

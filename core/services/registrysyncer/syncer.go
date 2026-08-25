@@ -63,9 +63,7 @@ type registrySyncer struct {
 
 var _ services.Service = &registrySyncer{}
 
-var (
-	defaultTickInterval = 12 * time.Second
-)
+var defaultTickInterval = 12 * time.Second
 
 // New instantiates a new RegistrySyncer
 func New(
@@ -294,7 +292,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	defer s.mu.RUnlock()
 
 	if len(s.listeners) == 0 {
-		s.lggr.Warn("sync called, but no listeners are registered; nooping")
+		s.lggr.Warn("sync called, but no listeners are registered; no-op")
 		return nil
 	}
 

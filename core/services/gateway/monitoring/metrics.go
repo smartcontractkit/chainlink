@@ -21,6 +21,10 @@ type GatewayMetrics struct {
 	nodeConnectedEvents    metric.Int64Counter
 	keepalivePingsSent     metric.Int64Counter
 	keepalivePongsReceived metric.Int64Counter
+	donConnectedNodes      metric.Int64Gauge
+	donRequiredNodes       metric.Int64Gauge
+	donConfiguredNodes     metric.Int64Gauge
+	userReady              metric.Int64Gauge
 }
 
 type HTTPServerMetrics struct {
@@ -28,7 +32,7 @@ type HTTPServerMetrics struct {
 	requestCount    metric.Int64Counter
 }
 
-func (m *GatewayMetrics) RecordNodeMsgHandlerDuration(ctx context.Context, nodeAddress string, nodeName string, duration time.Duration, success bool) {
+func (m *GatewayMetrics) RecordNodeMsgHandlerDuration(ctx context.Context, nodeAddress, nodeName string, duration time.Duration, success bool) {
 	m.nodeMsgHandleDuration.Record(ctx, duration.Milliseconds(), metric.WithAttributes(
 		attribute.String("nodeAddress", nodeAddress),
 		attribute.String("nodeName", nodeName),
@@ -36,7 +40,7 @@ func (m *GatewayMetrics) RecordNodeMsgHandlerDuration(ctx context.Context, nodeA
 	))
 }
 
-func (m *GatewayMetrics) RecordNodeMsgHandlerInvocation(ctx context.Context, nodeAddress string, nodeName string, success bool) {
+func (m *GatewayMetrics) RecordNodeMsgHandlerInvocation(ctx context.Context, nodeAddress, nodeName string, success bool) {
 	m.nodeMsgHandleCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("nodeAddress", nodeAddress),
 		attribute.String("nodeName", nodeName),
@@ -44,28 +48,28 @@ func (m *GatewayMetrics) RecordNodeMsgHandlerInvocation(ctx context.Context, nod
 	))
 }
 
-func (m *GatewayMetrics) RecordUserMsgHandlerDuration(ctx context.Context, method string, responseCode string, duration time.Duration) {
+func (m *GatewayMetrics) RecordUserMsgHandlerDuration(ctx context.Context, method, responseCode string, duration time.Duration) {
 	m.userMsgHandleDuration.Record(ctx, duration.Milliseconds(), metric.WithAttributes(
 		attribute.String("method", method),
 		attribute.String("responseCode", responseCode),
 	))
 }
 
-func (m *GatewayMetrics) RecordUserMsgHandlerInvocation(ctx context.Context, method string, responseCode string) {
+func (m *GatewayMetrics) RecordUserMsgHandlerInvocation(ctx context.Context, method, responseCode string) {
 	m.userMsgHandleCount.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("method", method),
 		attribute.String("responseCode", responseCode),
 	))
 }
 
-func (m *GatewayMetrics) RecordNodeConnectedEvent(ctx context.Context, nodeAddress string, nodeName string) {
+func (m *GatewayMetrics) RecordNodeConnectedEvent(ctx context.Context, nodeAddress, nodeName string) {
 	m.nodeConnectedEvents.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("nodeAddress", nodeAddress),
 		attribute.String("nodeName", nodeName),
 	))
 }
 
-func (m *GatewayMetrics) RecordKeepalivePingsSent(ctx context.Context, nodeAddress string, nodeName string, success bool) {
+func (m *GatewayMetrics) RecordKeepalivePingsSent(ctx context.Context, nodeAddress, nodeName string, success bool) {
 	m.keepalivePingsSent.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("nodeAddress", nodeAddress),
 		attribute.String("nodeName", nodeName),
@@ -73,11 +77,26 @@ func (m *GatewayMetrics) RecordKeepalivePingsSent(ctx context.Context, nodeAddre
 	))
 }
 
-func (m *GatewayMetrics) RecordKeepalivePongsReceived(ctx context.Context, nodeAddress string, nodeName string) {
+func (m *GatewayMetrics) RecordKeepalivePongsReceived(ctx context.Context, nodeAddress, nodeName string) {
 	m.keepalivePongsReceived.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("nodeAddress", nodeAddress),
 		attribute.String("nodeName", nodeName),
 	))
+}
+
+func (m *GatewayMetrics) RecordDONConnectionState(ctx context.Context, donID string, connected, required, configured int) {
+	attrs := metric.WithAttributes(attribute.String("donID", donID))
+	m.donConnectedNodes.Record(ctx, int64(connected), attrs)
+	m.donRequiredNodes.Record(ctx, int64(required), attrs)
+	m.donConfiguredNodes.Record(ctx, int64(configured), attrs)
+}
+
+func (m *GatewayMetrics) RecordUserReady(ctx context.Context, ready bool) {
+	value := int64(0)
+	if ready {
+		value = 1
+	}
+	m.userReady.Record(ctx, value)
 }
 
 func NewGatewayMetrics() (*GatewayMetrics, error) {
@@ -116,6 +135,26 @@ func NewGatewayMetrics() (*GatewayMetrics, error) {
 		return nil, err
 	}
 
+	donConnectedNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_connected_nodes")
+	if err != nil {
+		return nil, err
+	}
+
+	donRequiredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_required_nodes")
+	if err != nil {
+		return nil, err
+	}
+
+	donConfiguredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_configured_nodes")
+	if err != nil {
+		return nil, err
+	}
+
+	userReady, err := beholder.GetMeter().Int64Gauge("platform_gateway_user_ready")
+	if err != nil {
+		return nil, err
+	}
+
 	return &GatewayMetrics{
 		nodeMsgHandleDuration:  nodeMsgHandleDuration,
 		nodeMsgHandleCount:     nodeMsgHandleCount,
@@ -124,6 +163,10 @@ func NewGatewayMetrics() (*GatewayMetrics, error) {
 		nodeConnectedEvents:    nodeConnectedEvents,
 		keepalivePingsSent:     keepalivePingsSent,
 		keepalivePongsReceived: keepalivePongsReceived,
+		donConnectedNodes:      donConnectedNodes,
+		donRequiredNodes:       donRequiredNodes,
+		donConfiguredNodes:     donConfiguredNodes,
+		userReady:              userReady,
 	}, nil
 }
 

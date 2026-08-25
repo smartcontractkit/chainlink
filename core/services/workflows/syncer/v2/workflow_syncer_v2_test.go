@@ -96,7 +96,7 @@ func Test_InitialStateSyncV2(t *testing.T) {
 	numberWorkflows := 250
 	for i := range numberWorkflows {
 		var workflowID [32]byte
-		_, err = rand.Read((workflowID)[:])
+		_, err = rand.Read(workflowID[:])
 		require.NoError(t, err)
 		workflow := RegisterWorkflowCMDV2{
 			Name:      fmt.Sprintf("test-wf-%d", i),
@@ -454,7 +454,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivatedV2(t *testing.T) {
 	}, tests.WaitTimeout(t), 10*time.Millisecond)
 }
 
-func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
+func Test_StartReconciliation_InitialStateSyncV2(t *testing.T) {
 	t.Parallel()
 	t.Run("with heavy load", func(t *testing.T) {
 		t.Parallel()
@@ -477,7 +477,7 @@ func Test_StratReconciliation_InitialStateSyncV2(t *testing.T) {
 		numberWorkflows := 1_000
 		for i := range numberWorkflows {
 			var workflowID [32]byte
-			_, err = rand.Read((workflowID)[:])
+			_, err = rand.Read(workflowID[:])
 			require.NoError(t, err)
 			workflow := RegisterWorkflowCMDV2{
 				Name:      fmt.Sprintf("test-wf-%d", i),
@@ -551,7 +551,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 	numberWorkflows := 2
 	for i := range numberWorkflows {
 		var workflowID [32]byte
-		_, err = rand.Read((workflowID)[:])
+		_, err = rand.Read(workflowID[:])
 		require.NoError(t, err)
 		workflow := RegisterWorkflowCMDV2{
 			Name:      fmt.Sprintf("test-wf-%d", i),
@@ -622,7 +622,7 @@ func Test_RegistrySyncer_DONUpdate(t *testing.T) {
 	}
 }
 
-func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
+func Test_StartReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	backendTH := testutils.NewEVMBackendTH(t)
@@ -639,7 +639,7 @@ func Test_StratReconciliation_RetriesWithBackoffV2(t *testing.T) {
 	updateAllowedDONsV2(t, backendTH, wfRegistryC, []string{donFamily})
 
 	var workflowID [32]byte
-	_, err = rand.Read((workflowID)[:])
+	_, err = rand.Read(workflowID[:])
 	require.NoError(t, err)
 	workflow := RegisterWorkflowCMDV2{
 		Name:      "test-wf",

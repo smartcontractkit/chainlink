@@ -10,9 +10,9 @@ Resources
 
 ### Local
 Follow the instructions in CRIB Setup to get CRIB running. If you want to execute against a specific Chainlink image,
-you can set the `DEVSPACE_IMAGE_TAG` environment variable in the .env you create in the crib repo. This image tag can be found in ECR. 
+you can set the `DEVSPACE_IMAGE_TAG` environment variable in the .env you create in the crib repo. This image tag can be found in ECR.
 
-Make sure you're using `kind` as the provider to run these changes locally. 
+Make sure you're using `kind` as the provider to run these changes locally.
 ```sh
 DEVSPACE_IMAGE= <found in ECR>
 DEVSPACE_IMAGE_TAG= <found in ECR>
@@ -31,20 +31,20 @@ MessageTypeWeights=[100,0,0]
 RequestFrequency="10s"
 LoadDuration="1m"
 # destination chain selectors to send messages to ie [3379446385462418246,909606746561742123, etc.]
-EnabledDestionationChains=[3379446385462418246]
+EnabledDestinationChains=[3379446385462418246]
 # Directory where we receive environment configuration from crib
 CribEnvDirectory="directory/to/crib/output"
 
 ```
 
-Execute the test using 
+Execute the test using
 ```sh
 export TIMEOUT=6h
 go test -run ^TestCCIPLoad_RPS$ ./integration-tests/load/ccip -v -timeout $TIMEOUT`
 ```
 
 ## Remote
-Update the `PROVIDER=aws` and `DEVSPACE_NAMESPACE` in crib environment and deploy. Everything else should be the same. 
+Update the `PROVIDER=aws` and `DEVSPACE_NAMESPACE` in crib environment and deploy. Everything else should be the same.
 
 ## Running Chaos Tests (Remote only)
 

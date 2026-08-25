@@ -20,6 +20,16 @@ export PATH
 
 echo "Running go_core_deployment_tests for event: $GITHUB_EVENT_NAME"
 GO_TEST_FLAGS="-timeout=${GO_TEST_TIMEOUT}"
+# Cap concurrency to avoid OOM-killing Solana/other validators on the 32GB runner.
+# go test defaults -p and -parallel to GOMAXPROCS (8 on cpu=8), so up to 8 packages AND
+# up to 8 tests-within-a-package run at once. Many CCIP changeset tests each spawn a full
+# stack (Solana validator + EVM geth nodes + Postgres + in-process CL nodes); 3+ concurrent
+# stacks exhaust 32GB and the kernel OOM-kills the validator (connection reset by peer /
+# connection refused mid-test). -parallel=1 removes the dominant 8-stacks-from-one-package
+# case; -p=2 caps total concurrent stacks at 2 (2 packages x 1 test) which fits 32GB while
+# keeping 2-way throughput. If shards still OOM, drop -p to 1; if CI is too slow, the real
+# fix is to move heavy container tests behind a build tag into a dedicated serial job.
+GO_TEST_FLAGS="$GO_TEST_FLAGS -p=2 -parallel=1"
 if [[ "$GITHUB_EVENT_NAME" == 'push' || "$GITHUB_EVENT_NAME" == 'workflow_dispatch' || "$GITHUB_EVENT_NAME" == 'schedule' ]]; then
   GO_TEST_FLAGS="$GO_TEST_FLAGS -count=1"
 elif [[ "$GITHUB_EVENT_NAME" == 'schedule' ]]; then

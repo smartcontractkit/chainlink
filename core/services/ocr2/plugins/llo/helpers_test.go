@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/bridgeconn/streamspb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
@@ -81,7 +83,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 
 	t.Cleanup(s.Stop)
 
-	return
+	return serverURL
 }
 
 //nolint:containedctx // it's just to pass the context back for testing
@@ -340,7 +342,8 @@ observationSource = """
 		askBridgeName,
 	))
 }
-func addBootstrapJob(t *testing.T, bootstrapNode Node, configuratorAddress common.Address, name string, relayType, relayConfig string) {
+
+func addBootstrapJob(t *testing.T, bootstrapNode Node, configuratorAddress common.Address, name, relayType, relayConfig string) {
 	bootstrapNode.AddBootstrapJob(t, fmt.Sprintf(`
 type                              = "bootstrap"
 relay                             = "%s"
@@ -462,7 +465,84 @@ func createSingleDecimalCountingBridge(t *testing.T, name string, i int, p decim
 	return bridgeName
 }
 
-func createBridge(t *testing.T, bridgeName string, responseJSON string, borm bridges.ORM) {
+// grpcStreamBridgeServer is a minimal stand-in for a streams-adapter EA: it
+// implements the streamspb.StreamServiceServer side of BridgeConnManager's
+// protocol and, for every subscription it receives, immediately replies with a
+// fixed price under the payload hash BridgeConnManager expects to find in its
+// observation cache (see bridgeConnManager.bridgeObservationCacheKey).
+type grpcStreamBridgeServer struct {
+	streamspb.UnimplementedStreamServiceServer
+	bridgeName string // trimmed of the "bridge-" prefix, matching bridgeConnManager's own trimming
+	price      decimal.Decimal
+}
+
+func (s *grpcStreamBridgeServer) Subscribe(stream streamspb.StreamService_SubscribeServer) error {
+	for {
+		req, err := stream.Recv()
+		if err != nil {
+			return nil //nolint:nilerr // client closing the stream ends the test happy-path; no error to report
+		}
+		for _, sub := range req.GetSubscriptions() {
+			hash, err := grpcStreamBridgeObservationHash(s.bridgeName, sub.GetData().AsMap())
+			if err != nil {
+				return err
+			}
+			resp := &streamspb.SubscribeResponse{
+				Timestamp:       time.Now().UTC().Format(time.RFC3339),
+				ObservationJson: fmt.Appendf(nil, `{"result": %s}`, s.price.String()),
+				PayloadHash:     hash[:],
+			}
+			if err := stream.Send(resp); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// grpcStreamBridgeObservationHash mirrors bridgeConnManager's
+// bridgeObservationCacheKey so this fake EA's responses land in the real cache.
+func grpcStreamBridgeObservationHash(bridgeName string, data map[string]any) ([32]byte, error) {
+	lookupBytes, err := json.Marshal(data)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	b := make([]byte, 0, len(bridgeName)+len(lookupBytes))
+	b = append(b, bridgeName...)
+	b = append(b, lookupBytes...)
+	return sha256.Sum256(b), nil
+}
+
+// createGRPCStreamBridge starts a plaintext gRPC server implementing the
+// streams-adapter side of BridgeConnManager's protocol and registers a bridge
+// with UseConnectionManager=true pointing at it, so BridgeTask.Run reads
+// observations from BridgeConnManager's cache instead of making an HTTP call.
+func createGRPCStreamBridge(t *testing.T, name string, i int, p decimal.Decimal, borm bridges.ORM) (bridgeName string) {
+	ctx := t.Context()
+	trimmedName := fmt.Sprintf("%s-%d", name, i)
+	bridgeName = "bridge-" + trimmedName
+
+	var lc net.ListenConfig
+	lis, err := lc.Listen(ctx, "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	s := grpc.NewServer()
+	streamspb.RegisterStreamServiceServer(s, &grpcStreamBridgeServer{bridgeName: trimmedName, price: p})
+	go func() {
+		_ = s.Serve(lis)
+	}()
+	t.Cleanup(s.Stop)
+
+	u, err := url.Parse("http://" + lis.Addr().String())
+	require.NoError(t, err)
+	require.NoError(t, borm.CreateBridgeType(ctx, &bridges.BridgeType{
+		Name:                 bridges.BridgeName(bridgeName),
+		URL:                  models.WebURL(*u),
+		UseConnectionManager: true,
+	}))
+	return bridgeName
+}
+
+func createBridge(t *testing.T, bridgeName, responseJSON string, borm bridges.ORM) {
 	ctx := t.Context()
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusOK)

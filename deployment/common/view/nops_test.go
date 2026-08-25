@@ -48,10 +48,12 @@ func TestGenerateNopsView(t *testing.T) {
 			Labels: []*ptypes.Label{
 				{
 					Key:   "role",
-					Value: new("tester")},
+					Value: new("tester"),
+				},
 				{
 					Key:   "p2p",
-					Value: new(p2pIDs[i])},
+					Value: new(p2pIDs[i]),
+				},
 			},
 		}
 		deploymentNodes = append(deploymentNodes, node)
@@ -101,7 +103,7 @@ func TestGenerateNopsView(t *testing.T) {
 	})
 
 	t.Run("node not found in JD", func(t *testing.T) {
-		v, err := GenerateNOPsViewV2(t.Context(), lggr, []string{"node_uknown"}, jdService, "test", nil)
+		v, err := GenerateNOPsViewV2(t.Context(), lggr, []string{"node_unknown"}, jdService, "test", nil)
 		require.NoError(t, err)
 		assert.Empty(t, v)
 	})

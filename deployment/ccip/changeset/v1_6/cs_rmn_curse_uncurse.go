@@ -176,7 +176,7 @@ func (c RMNCurseConfig) Validate(e cldf.Environment) error {
 // One noteworthy behaviour is that this means that message can be sent from destination to source but will not be executed on the source
 // Given 3 chains A, B, C
 // CurseLaneOnlyOnSource(A, B) will curse A with the curse subject of B
-func CurseLaneOnlyOnSource(sourceSelector uint64, destinationSelector uint64) CurseAction {
+func CurseLaneOnlyOnSource(sourceSelector, destinationSelector uint64) CurseAction {
 	// Curse from source to destination
 	return func(e cldf.Environment) ([]RMNCurseAction, error) {
 		family, err := chain_selectors.GetSelectorFamily(sourceSelector)
@@ -210,7 +210,7 @@ func CurseGloballyOnlyOnChain(selector uint64) CurseAction {
 // Call Curse on both RMNRemote from source and destination to prevent message from source to destination and vice versa
 // Given 3 chains A, B, C
 // CurseLaneBidirectionally(A, B) will curse A with the curse subject of B and B with the curse subject of A
-func CurseLaneBidirectionally(sourceSelector uint64, destinationSelector uint64) CurseAction {
+func CurseLaneBidirectionally(sourceSelector, destinationSelector uint64) CurseAction {
 	// Bidirectional curse between two chains
 	return func(e cldf.Environment) ([]RMNCurseAction, error) {
 		curseActions1, err := CurseLaneOnlyOnSource(sourceSelector, destinationSelector)(e)
@@ -327,7 +327,7 @@ func FilterOutNotConnectedLanes(e cldf.Environment, curseActions []RMNCurseActio
 	return returnActions, nil
 }
 
-func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf bool, onlyKeepGlobal bool) (map[uint64][]globals.Subject, error) {
+func groupRMNSubjectBySelector(rmnSubjects []RMNCurseAction, avoidCursingSelf, onlyKeepGlobal bool) (map[uint64][]globals.Subject, error) {
 	grouped := make(map[uint64][]globals.Subject)
 	for _, s := range rmnSubjects {
 		family, err := chain_selectors.GetSelectorFamily(s.ChainSelector)
@@ -549,7 +549,7 @@ func RMNUncurseChangeset(e cldf.Environment, cfg RMNCurseConfig) (cldf.Changeset
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to group curse actions: %w", err)
 	}
 
-	// For each chain in the environement get the RMNRemote contract and call uncurse
+	// For each chain in the environment get the RMNRemote contract and call uncurse
 	cursableChains, err := GetCursableChains(e)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to get cursable chains: %w", err)
@@ -1014,6 +1014,7 @@ func (c *AptosCursableChain) cacheCurses() error {
 	}
 	return nil
 }
+
 func (c *AptosCursableChain) Curse(deployerGroup *deployergroup.DeployerGroup, subjects []globals.Subject) error {
 	err := assertEndianness(subjects, chain_selectors.FamilyAptos)
 	if err != nil {

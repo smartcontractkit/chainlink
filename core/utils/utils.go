@@ -198,11 +198,11 @@ func (q *BoundedQueue[T]) Take() (t T) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if len(q.items) == 0 {
-		return
+		return t
 	}
 	t = q.items[0]
 	q.items = q.items[1:]
-	return
+	return t
 }
 
 // Empty check is a BoundedQueue is empty
@@ -270,7 +270,7 @@ func (q *BoundedPriorityQueue[T]) Take() (t T) {
 		}
 		return queue.Take()
 	}
-	return
+	return t
 }
 
 // Empty checks the BoundedPriorityQueue
@@ -392,7 +392,7 @@ func (t *CronTicker) Stop() bool {
 	return false
 }
 
-// Ticks returns the underlying chanel.
+// Ticks returns the underlying channel.
 func (t *CronTicker) Ticks() <-chan time.Time {
 	return t.ch
 }
@@ -509,7 +509,7 @@ func (eb *ErrorBuffer) Flush() (err error) {
 	defer eb.mu.RUnlock()
 	err = errors.Join(eb.buffer...)
 	eb.buffer = nil
-	return
+	return err
 }
 
 func (eb *ErrorBuffer) Append(incoming error) {

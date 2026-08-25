@@ -56,7 +56,7 @@ func (m *mockShardConfigContractReader) Unbind(ctx context.Context, bindings []t
 	return nil
 }
 
-func (m *mockShardConfigContractReader) GetLatestValue(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) error {
+func (m *mockShardConfigContractReader) GetLatestValue(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error {
 	if m.err != nil {
 		return m.err
 	}
@@ -66,7 +66,7 @@ func (m *mockShardConfigContractReader) GetLatestValue(ctx context.Context, read
 	return nil
 }
 
-func (m *mockShardConfigContractReader) GetLatestValueWithHeadData(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params any, returnVal any) (head *types.Head, err error) {
+func (m *mockShardConfigContractReader) GetLatestValueWithHeadData(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) (head *types.Head, err error) {
 	err = m.GetLatestValue(ctx, readIdentifier, confidenceLevel, params, returnVal)
 	return nil, err
 }
@@ -115,6 +115,10 @@ func TestShardConfigSyncer_GetDesiredShardCount_BeforeFetch(t *testing.T) {
 }
 
 func TestShardConfigSyncer_GetDesiredShardCount_AfterFetch(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	lggr := logger.TestLogger(t)
 	mockReader := &mockShardConfigContractReader{shardCount: 42}
 	factory := mockShardConfigReaderFactory(mockReader)

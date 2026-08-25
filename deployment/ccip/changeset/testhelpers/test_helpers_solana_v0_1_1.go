@@ -59,7 +59,7 @@ func TransferOwnershipSolanaV0_1_1(
 	solSelector uint64,
 	needTimelockDeployed bool,
 	contractsToTransfer ccipChangeSetSolanaV0_1_1.CCIPContractsToTransfer,
-) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
+) (timelockSignerPDA, mcmSignerPDA solana.PublicKey) {
 	var err error
 	if needTimelockDeployed {
 		*e, _, err = commoncs.ApplyChangesets(t, *e, []commoncs.ConfiguredChangeSet{
@@ -539,7 +539,7 @@ func deriveCCIPSendAccounts(
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to calculate the router config PDA: %w", err)
 	}
-	var re = regexp.MustCompile(`^TokenTransferStaticAccounts/\d+/0$`)
+	re := regexp.MustCompile(`^TokenTransferStaticAccounts/\d+/0$`)
 	for {
 		params := solRouter.DeriveAccountsCcipSendParams{
 			DestChainSelector: destChainSelector,
@@ -575,7 +575,7 @@ func deriveCCIPSendAccounts(
 			for _, line := range res.Value.Logs {
 				e.Logger.Error(line)
 			}
-			return nil, nil, nil, fmt.Errorf("failed to exract accounts from simulated transaction log: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to extract accounts from simulated transaction log: %w", err)
 		}
 		e.Logger.Infof("Derive stage: %s. Len: %d\n", derivation.CurrentStage, len(derivation.AccountsToSave))
 

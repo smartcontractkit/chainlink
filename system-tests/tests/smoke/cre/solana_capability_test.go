@@ -41,8 +41,10 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
 
-var _ rpc.Client
-var _ solgo.Message
+var (
+	_ rpc.Client
+	_ solgo.Message
+)
 
 func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	creEnvironment := tenv.CreEnvironment
@@ -51,11 +53,13 @@ func ExecuteSolanaWriteTest(t *testing.T, tenv *configuration.TestEnvironment) {
 	// prevalidate environment
 	forwarders := creEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
 		datastore.AddressRefByQualifier(ks_sol.DefaultForwarderQualifier),
-		datastore.AddressRefByType(ks_sol.ForwarderContract))
+		datastore.AddressRefByType(ks_sol.ForwarderContract),
+	)
 	require.Len(t, forwarders, 1)
 	forwarderStates := creEnvironment.CldfEnvironment.DataStore.Addresses().Filter(
 		datastore.AddressRefByQualifier(ks_sol.DefaultForwarderQualifier),
-		datastore.AddressRefByType(ks_sol.ForwarderState))
+		datastore.AddressRefByType(ks_sol.ForwarderState),
+	)
 	require.Len(t, forwarderStates, 1)
 
 	// 1. Get solana chain
@@ -319,10 +323,10 @@ func waitForFeedUpdate(t *testing.T, solclient *rpc.Client, s *setup) {
 			}
 			var r report
 			data := decimalReportAccount.Value.Data.GetBinary()
-			descriminatorLen := 8
-			expectedLen := descriminatorLen + 4 + 16
+			discriminatorLen := 8
+			expectedLen := discriminatorLen + 4 + 16
 			require.GreaterOrEqual(t, len(data), expectedLen)
-			offset := descriminatorLen
+			offset := discriminatorLen
 			r.timestamp = binary.LittleEndian.Uint32(data[offset : offset+4])
 			offset += 4
 			answerLE := data[offset : offset+16]
@@ -368,7 +372,7 @@ func parsePackedU128(le [16]byte) (amount *big.Int, block uint64, unused uint8) 
 	if top.BitLen() > 0 && top.Bit(0) == 1 {
 		unused = 1
 	}
-	return
+	return amount, block, unused
 }
 
 func getDecimalReportAccount(t *testing.T, s *setup) solgo.PublicKey {

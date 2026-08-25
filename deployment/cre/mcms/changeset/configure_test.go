@@ -11,7 +11,7 @@ import (
 
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 
-	mcmsbindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	mcmsbindings "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	testenv "github.com/smartcontractkit/chainlink-deployments-framework/engine/test/environment"
@@ -97,12 +97,14 @@ func TestMCMSConfiguration(t *testing.T) {
 	}
 }
 
-var updatedEOA = common.HexToAddress("0xA01E9eD15b18D3688D0B84D88a98ed750D56999C")
-var testMCMSCfg2 = cldfproposalutils.MCMSWithTimelockConfig{
-	Proposer:  pkg.MustGetMCMSConfig(1, []common.Address{updatedEOA}, nil),
-	Bypasser:  pkg.MustGetMCMSConfig(1, []common.Address{updatedEOA}, nil),
-	Canceller: pkg.MustGetMCMSConfig(1, []common.Address{updatedEOA}, nil),
-}
+var (
+	updatedEOA   = common.HexToAddress("0xA01E9eD15b18D3688D0B84D88a98ed750D56999C")
+	testMCMSCfg2 = cldfproposalutils.MCMSWithTimelockConfig{
+		Proposer:  pkg.MustGetMCMSConfig(1, []common.Address{updatedEOA}, nil),
+		Bypasser:  pkg.MustGetMCMSConfig(1, []common.Address{updatedEOA}, nil),
+		Canceller: pkg.MustGetMCMSConfig(1, []common.Address{updatedEOA}, nil),
+	}
+)
 
 // var mcmsConfig = cldfproposalutils.TimelockConfig{
 // 	MinDelay:   5 * time.Second,

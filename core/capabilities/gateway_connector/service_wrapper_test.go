@@ -96,7 +96,7 @@ func (f *fakeOrderedKeyProvider) ListKeys(ctx context.Context, chainID *big.Int,
 	return f.keys, nil
 }
 
-func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ecdsa.PrivateKey) (*gatewayconnector.ServiceWrapper, error) {
+func generateWrapper(t *testing.T, privateKey, keystoreKey *ecdsa.PrivateKey) (*gatewayconnector.ServiceWrapper, error) {
 	lggr := logger.Test(t)
 	privateKeyV2 := ethkey.FromPrivateKey(privateKey)
 	addr := privateKeyV2.Address
@@ -294,7 +294,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscover(t *testing.T) {
 			t.Parallel()
 
 			keystoreKeysV2 := make([]ethkey.KeyV2, tt.keystoreKeyCount)
-			for i := 0; i < tt.keystoreKeyCount; i++ {
+			for i := range tt.keystoreKeyCount {
 				key, _ := testutils.NewPrivateKeyAndAddress(t)
 				keystoreKeysV2[i] = ethkey.FromPrivateKey(key)
 			}

@@ -103,8 +103,10 @@ type TriggerPublisher interface {
 	SetConfig(config *commoncap.RemoteTriggerConfig, underlying commoncap.TriggerCapability, capDonInfo commoncap.DON, workflowDONs map[uint32]commoncap.DON) error
 }
 
-var _ TriggerPublisher = &triggerPublisher{}
-var _ types.ReceiverService = &triggerPublisher{}
+var (
+	_ TriggerPublisher      = &triggerPublisher{}
+	_ types.ReceiverService = &triggerPublisher{}
+)
 
 const (
 	minAllowedBatchCollectionPeriod = 10 * time.Millisecond
@@ -112,7 +114,7 @@ const (
 	defaultMaxParallelRegisters     = 100 // TODO: make this configurable https://smartcontract-it.atlassian.net/browse/PLEX-3266
 )
 
-func NewTriggerPublisher(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
+func NewTriggerPublisher(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerPublisher {
 	slotUsageAttrs := []attribute.KeyValue{
 		attribute.String("capabilityID", capabilityID),
 		attribute.String("capMethodName", capMethodName),
@@ -314,6 +316,10 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 			p.lggr.Errorw("sender not a member of its workflow DON", "callerDonId", msg.CallerDonId, "sender", sender)
 			return
 		}
+		if !validation.IsValidID(req.TriggerID) {
+			p.lggr.Errorw("received trigger request with invalid trigger ID", "triggerID", SanitizeLogString(req.TriggerID))
+			return
+		}
 		if err = validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
 			p.lggr.Errorw("received trigger request with invalid workflow ID", "workflowId", SanitizeLogString(req.Metadata.WorkflowID), "err", err)
 			return
@@ -342,7 +348,7 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		// error, or a fresh registration flow).
 		//
 		// This did not matter when registration was synchronous—the "already exists" check
-		// above returned early without causing unncessary RegisterTrigger calls. With async registration,
+		// above returned early without causing unnecessary RegisterTrigger calls. With async registration,
 		// that check may pass in time, so once=true prevents duplicate RegisterTrigger calls for the same trigger.
 		ready, payloads := p.messageCache.Ready(key, minRequired, nowMs-cfg.remoteConfig.RegistrationExpiry.Milliseconds(), true)
 		if !ready {
@@ -546,9 +552,8 @@ func (p *triggerPublisher) Receive(ctx context.Context, msg *types.MessageBody) 
 		nowMs := time.Now().UnixMilli()
 		p.ackCache.Insert(key, sender, nowMs, msg.Payload)
 		minRequired := uint32(2*callerDon.F + 1)
-		// false is set to <once> to return ready even after quorum
-		// to add redundancy in case AckEvent fails below.
-		ready, _ := p.ackCache.Ready(key, minRequired, 0, false)
+		// true is set to <once> avoid ACK traffic on each retransmit.
+		ready, _ := p.ackCache.Ready(key, minRequired, 0, true)
 		ackCount := len(p.ackCache.Peers(key))
 		if !ready {
 			p.mu.Unlock()
@@ -638,11 +643,16 @@ func (p *triggerPublisher) cacheCleanupLoop() {
 			// no longer want a registration respond to MethodTriggerRegistrationCheck
 			// with MethodUnregisterTrigger, which is handled in Receive.
 			p.mu.Lock()
-			deleted := p.ackCache.DeleteOlderThan(now - cfg.remoteConfig.MessageExpiry.Milliseconds())
+			ts := now - cfg.remoteConfig.MessageExpiry.Milliseconds()
+			ackDel := p.ackCache.DeleteOlderThan(ts)
+			msgDel := p.messageCache.DeleteOlderThan(ts)
 			p.mu.Unlock()
 
-			if deleted > 0 {
-				p.lggr.Debugw("cleaned expired AckCache entries", "deleted", deleted)
+			if ackDel > 0 {
+				p.lggr.Debugw("cleaned expired AckCache entries", "deleted", ackDel)
+			}
+			if msgDel > 0 {
+				p.lggr.Debugw("cleaned expired message entries", "deleted", msgDel)
 			}
 		}
 	}

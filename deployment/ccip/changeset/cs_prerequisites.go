@@ -333,7 +333,8 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 				lggr.Warnw(
 					"RMNProxy is not owned by the deployer and RMNProxy is not pointing to the correct RMN contract, "+
 						"run SetRMNRemoteOnRMNProxyChangeset to update RMN with a proposal",
-					"chain", chain.String(), "owner", rmnOwner, "currentRMN", currentRMNAddr, "expectedRMN", rmnAddr)
+					"chain", chain.String(), "owner", rmnOwner, "currentRMN", currentRMNAddr, "expectedRMN", rmnAddr,
+				)
 			} else {
 				tx, err := rmnProxy.SetARM(chain.DeployerKey, rmnAddr)
 				if err != nil {
@@ -359,7 +360,8 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 				)
 				tokenAdminRegistryAddr, tx2, tokenAdminRegistry, err2 = token_admin_registry.DeployTokenAdminRegistry(
 					chain.DeployerKey,
-					chain.Client)
+					chain.Client,
+				)
 
 				return cldf.ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
 					Address: tokenAdminRegistryAddr, Contract: tokenAdminRegistry, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.TokenAdminRegistry, deployment.Version1_5_0), Err: err2,
@@ -393,7 +395,8 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 				regModAddr, tx2, regMod, err2 = registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
 					chain.DeployerKey,
 					chain.Client,
-					tokenAdminReg.Address())
+					tokenAdminReg.Address(),
+				)
 
 				return cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
 					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0), Err: err2,
@@ -655,7 +658,7 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 }
 
 // deployTokenPools deploys contracts are deployed by the TokenPoolFactory. These contracts are
-// FactoryBurnMintERC20, BurnMintTokenPool, BurnFronMintTokenPool, BurnWithFromMintTokenPool & LockReleaseTokenPool
+// FactoryBurnMintERC20, BurnMintTokenPool, BurnFromMintTokenPool, BurnWithFromMintTokenPool & LockReleaseTokenPool
 // We deploy them here so that we can verify them. All subsequent user deployments would then be verified.
 func deployTokenPools(
 	lggr logger.Logger,

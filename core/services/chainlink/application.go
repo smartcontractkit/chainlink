@@ -133,7 +133,7 @@ type Application interface {
 
 	// ReplayFromBlock replays logs from on or after the given block number. If forceBroadcast (evm only)
 	// is set to true, consumers will reprocess data even if it has already been processed.
-	ReplayFromBlock(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool) error
+	ReplayFromBlock(ctx context.Context, chainFamily, chainID string, number uint64, forceBroadcast bool) error
 
 	// ID is unique to this particular application instance
 	ID() uuid.UUID
@@ -145,7 +145,7 @@ type Application interface {
 	// DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
 	DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error
 	// LPSkipToBlock repositions the LogPoller to start processing from the given block number.
-	LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error
+	LPSkipToBlock(ctx context.Context, chainFamily, chainID string, blockNumber int64) error
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -467,7 +467,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
+		return nil, fmt.Errorf("failed to initialize CRE: %w", err)
 	}
 	srvcs = append(srvcs, creServices)
 
@@ -630,61 +630,63 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	loopRegistrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, loopRegistry.Register, loopRegistry.Unregister)
 
-	var (
-		delegates = map[job.Type]job.Delegate{
-			job.DirectRequest: &job.DeprecatedDelegate{Type: job.DirectRequest},
-			job.VRF: vrf.NewDelegate(
-				opts.DS,
-				keyStore,
-				pipelineRunner,
-				pipelineORM,
-				legacyEVMChains,
-				globalLogger,
-				mailMon),
-			job.Webhook: &job.DeprecatedDelegate{Type: job.Webhook},
-			job.Cron: cron.NewDelegate(
-				pipelineRunner,
-				globalLogger),
-			job.BlockhashStore: blockhashstore.NewDelegate(
-				cfg,
-				globalLogger,
-				legacyEVMChains,
-				keyStore.Eth()),
-			job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
-				cfg,
-				globalLogger,
-				legacyEVMChains,
-				keyStore.Eth()),
-			job.Gateway: gateway.NewDelegate(
-				legacyEVMChains,
-				keyStore.Eth(),
-				opts.DS,
-				opts.CapabilitiesRegistry,
-				creServices.WorkflowRegistrySyncer,
-				globalLogger,
-				limitsFactory,
-			),
-			job.Stream: streams.NewDelegate(
-				globalLogger,
-				streamRegistry,
-				pipelineRunner,
-				cfg.JobPipeline(),
-			),
-			job.CCVCommitteeVerifier: ccvcommitteeverifier.NewDelegate(
-				globalLogger,
-				opts.DS,
-				cfg.CCV(),
-				keyStore.OCR2(),
-				relayChainInterops.LegacyEVMChains().Slice(),
-			),
-			job.CCVExecutor: ccvexecutor.NewDelegate(
-				globalLogger,
-				cfg.CCV(),
-				keyStore.Eth(),
-				relayChainInterops.LegacyEVMChains().Slice(),
-			),
-		}
-	)
+	delegates := map[job.Type]job.Delegate{
+		job.DirectRequest: &job.DeprecatedDelegate{Type: job.DirectRequest},
+		job.VRF: vrf.NewDelegate(
+			opts.DS,
+			keyStore,
+			pipelineRunner,
+			pipelineORM,
+			legacyEVMChains,
+			globalLogger,
+			mailMon,
+		),
+		job.Webhook: &job.DeprecatedDelegate{Type: job.Webhook},
+		job.Cron: cron.NewDelegate(
+			pipelineRunner,
+			globalLogger,
+		),
+		job.BlockhashStore: blockhashstore.NewDelegate(
+			cfg,
+			globalLogger,
+			legacyEVMChains,
+			keyStore.Eth(),
+		),
+		job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
+			cfg,
+			globalLogger,
+			legacyEVMChains,
+			keyStore.Eth(),
+		),
+		job.Gateway: gateway.NewDelegate(
+			legacyEVMChains,
+			keyStore.Eth(),
+			opts.DS,
+			opts.CapabilitiesRegistry,
+			creServices.WorkflowRegistrySyncer,
+			globalLogger,
+			limitsFactory,
+		),
+		job.Stream: streams.NewDelegate(
+			globalLogger,
+			streamRegistry,
+			pipelineRunner,
+			cfg.JobPipeline(),
+		),
+		job.CCVCommitteeVerifier: ccvcommitteeverifier.NewDelegate(
+			globalLogger,
+			opts.DS,
+			cfg.CCV(),
+			keyStore.OCR2(),
+			relayChainInterops.LegacyEVMChains().Slice(),
+		),
+		job.CCVExecutor: ccvexecutor.NewDelegate(
+			globalLogger,
+			cfg.CCV(),
+			keyStore.Eth(),
+			relayChainInterops.LegacyEVMChains().Slice(),
+		),
+	}
 
 	// Workflow job type has been removed; use a deprecated delegate so existing jobs
 	// surface a visible error in the UI rather than silently doing nothing.
@@ -1201,7 +1203,7 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 }
 
 // ReplayFromBlock implements the Application interface.
-func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool) error {
+func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamily, chainID string, number uint64, forceBroadcast bool) error {
 	if chainFamily == relay.NetworkEVM {
 		// TODO: Implement EVM Replay on Relayer instead of using LegacyChains - BCFR-1160
 		chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID)
@@ -1287,7 +1289,7 @@ func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) 
 }
 
 // LPSkipToBlock repositions the LogPoller to start processing from the given block number.
-func (app *ChainlinkApplication) LPSkipToBlock(ctx context.Context, chainFamily string, chainID string, blockNumber int64) error {
+func (app *ChainlinkApplication) LPSkipToBlock(ctx context.Context, chainFamily, chainID string, blockNumber int64) error {
 	if chainFamily != relay.NetworkEVM {
 		return fmt.Errorf("LPSkipToBlock is only supported for %s chain family", relay.NetworkEVM)
 	}

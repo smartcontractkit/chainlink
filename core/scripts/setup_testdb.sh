@@ -21,7 +21,7 @@ BEGIN
         CREATE ROLE $username WITH LOGIN PASSWORD '$password';
     END IF;
 END \$\$;
-SELECT 'CREATE DATABASE $database WITH OWNER $username;' 
+SELECT 'CREATE DATABASE $database WITH OWNER $username;'
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$database')\gexec
 
 -- Grant all privileges on the database to the user
@@ -65,19 +65,19 @@ db_url=$(echo "CL_DATABASE_URL=postgresql://$username:$password@localhost:5432/$
 echo $db_url
 repo=$(git rev-parse --show-toplevel)
 pushd $repo
-export $db_url 
+export $db_url
 make testdb-force || exit_error "Failed to create test database"
 popd
 
 # Set the database URL in the .dbenv file
 dbenv=$repo/.dbenv
 echo "\n!Success!\n"
-echo "Datbase URL: $db_url"
+echo "Database URL: $db_url"
 
 echo "export $db_url" >> $dbenv
 echo "Has been set in the $dbenv file"
 
-echo "Either" 
+echo "Either"
 echo "    source $dbenv"
 echo "Or explicitly set environment variable in your shell"
 echo "    export $db_url"

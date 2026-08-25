@@ -49,6 +49,10 @@ func (w *wrapper) GetGatewayConnector() connector.GatewayConnector {
 }
 
 func TestNewFetcherService(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	ctx := t.Context()
 	lggr := logger.TestLogger(t)
@@ -359,6 +363,10 @@ func TestNewFetcherService(t *testing.T) {
 }
 
 func TestNewFetcherFunc(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	ctx := t.Context()
@@ -410,7 +418,7 @@ func TestNewFetcherFunc(t *testing.T) {
 		testFilePath := filepath.Join(tempDir, "test.txt")
 
 		// Write test content to file
-		err := os.WriteFile(testFilePath, testContent, 0600)
+		err := os.WriteFile(testFilePath, testContent, 0o600)
 		require.NoError(t, err)
 
 		baseURL := "file://" + tempDir
@@ -457,7 +465,7 @@ func TestNewFetcherFunc(t *testing.T) {
 	t.Run("file fetcher resolves HTTP URL to basename", func(t *testing.T) {
 		t.Parallel()
 		tempDir := t.TempDir()
-		err := os.WriteFile(filepath.Join(tempDir, "binary.wasm"), testContent, 0600)
+		err := os.WriteFile(filepath.Join(tempDir, "binary.wasm"), testContent, 0o600)
 		require.NoError(t, err)
 
 		fetcher, err := NewFetcherFunc("file://"+tempDir, lggr)
@@ -572,7 +580,7 @@ func TestNewFetcherFunc(t *testing.T) {
 }
 
 // gatewayResponse creates an unsigned gateway response with a response body.
-func gatewayResponse(t *testing.T, msgID string, donID string, statusCode int) *api.Message {
+func gatewayResponse(t *testing.T, msgID, donID string, statusCode int) *api.Message {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
@@ -593,7 +601,7 @@ func gatewayResponse(t *testing.T, msgID string, donID string, statusCode int) *
 
 // inconsistentPayload creates an unsigned gateway response with an inconsistent payload.  The
 // ExecutionError is true, but there is no ErrorMessage, so it is invalid.
-func inconsistentPayload(t *testing.T, msgID string, donID string) *api.Message {
+func inconsistentPayload(t *testing.T, msgID, donID string) *api.Message {
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
 		ExecutionError: true,
 	})

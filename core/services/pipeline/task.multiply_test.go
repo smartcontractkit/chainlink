@@ -205,5 +205,5 @@ func TestMultiplyTask_Overflow(t *testing.T) {
 	result, runInfo := task.Run(t.Context(), logger.TestLogger(t), vars, []pipeline.Result{{Value: "123"}})
 	assert.False(t, runInfo.IsPending)
 	assert.False(t, runInfo.IsRetryable)
-	require.Equal(t, pipeline.ErrMultiplyOverlow, errors.Cause(result.Error))
+	require.Equal(t, pipeline.ErrMultiplyOverflow, errors.Cause(result.Error))
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -62,7 +62,8 @@ func MaybeLoadMCMSWithTimelockChainState(
 	proposerMCMS.Labels.Add(types.ProposerRole.String())
 	bypasserMCMS.Labels.Add(types.BypasserRole.String())
 	cancellerMCMS.Labels.Add(types.CancellerRole.String())
-	wantTypes := []cldf.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy,
+	wantTypes := []cldf.TypeAndVersion{
+		timelock, proposer, canceller, bypasser, callProxy,
 		proposerMCMS, bypasserMCMS, cancellerMCMS,
 	}
 

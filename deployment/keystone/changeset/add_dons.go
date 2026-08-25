@@ -84,7 +84,7 @@ func (d *RegisterableDon) ToDONToRegister(registry *kcr.CapabilitiesRegistry) (d
 	}
 	donToRegister.Nodes = nodes
 
-	return
+	return donToRegister, nodeIDToP2PID, donCapabilities, err
 }
 
 type AddDonsRequest struct {
@@ -135,7 +135,7 @@ func (r AddDonsRequest) convertInternal(registry *kcr.CapabilitiesRegistry) (don
 		donToCapabilities[don.Name] = dc
 		maps.Copy(nodeIDToP2PID, nodes)
 	}
-	return
+	return donsToRegister, nodeIDToP2PID, donToCapabilities, err
 }
 
 // AddDons adds a DON to the capabilities registry
@@ -157,7 +157,6 @@ func AddDons(env cldf.Environment, req *AddDonsRequest) (cldf.ChangesetOutput, e
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to load capability registry: %w", err)
 	}
 	donsToRegister, nodeIDToP2PID, donToCapabilities, err := req.convertInternal(capReg.Contract)
-
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert DON to register: %w", err)
 	}
@@ -181,7 +180,7 @@ func AddDons(env cldf.Environment, req *AddDonsRequest) (cldf.ChangesetOutput, e
 		}
 
 		if capReg.McmsContracts == nil {
-			return out, fmt.Errorf("expected capabiity registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
+			return out, fmt.Errorf("expected capability registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
 		}
 
 		timelocksPerChain := map[uint64]string{

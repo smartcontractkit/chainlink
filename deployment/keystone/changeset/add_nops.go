@@ -69,7 +69,6 @@ func AddNops(env cldf.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, e
 		UseMCMS:       useMCMS,
 	}
 	resp, err := internal.RegisterNOPS(env.GetContext(), env.Logger, req2)
-
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -80,7 +79,7 @@ func AddNops(env cldf.Environment, req *AddNopsRequest) (cldf.ChangesetOutput, e
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		if capReg.McmsContracts == nil {
-			return out, fmt.Errorf("expected capabiity registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
+			return out, fmt.Errorf("expected capability registry contract %s to be owned by MCMS", capReg.Contract.Address().String())
 		}
 		timelocksPerChain := map[uint64]string{
 			registryChain.Selector: capReg.McmsContracts.Timelock.Address().Hex(),

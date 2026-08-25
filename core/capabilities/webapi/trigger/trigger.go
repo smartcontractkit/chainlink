@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -40,7 +42,8 @@ type webapiTrigger struct {
 	workflowID     string
 	allowedSenders map[string]bool
 	allowedTopics  map[string]bool
-	ch             chan<- capabilities.TriggerResponse
+	ch             chan<- capabilities.TriggerResponse // set nil after closing
+	chWriteMu      sync.Mutex                          // must hold to send or close
 	config         webapicap.TriggerConfig
 	rateLimiter    *ratelimit.RateLimiter
 }
@@ -53,12 +56,14 @@ type triggerConnectorHandler struct {
 	connector           core.GatewayConnector
 	lggr                logger.Logger
 	mu                  sync.Mutex
-	registeredWorkflows map[string]webapiTrigger
+	registeredWorkflows map[string]*webapiTrigger
 	registry            core.CapabilitiesRegistry
 }
 
-var _ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
-var _ services.Service = &triggerConnectorHandler{}
+var (
+	_ capabilities.TriggerCapability = (*triggerConnectorHandler)(nil)
+	_ services.Service               = &triggerConnectorHandler{}
+)
 
 func NewTrigger(config string, registry core.CapabilitiesRegistry, connector core.GatewayConnector, lggr logger.Logger) (*triggerConnectorHandler, error) {
 	if connector == nil {
@@ -68,7 +73,7 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector cor
 		CapabilityInfo:      webapiTriggerInfo,
 		Validator:           capabilities.NewValidator[webapicap.TriggerConfig, struct{}, webapicap.TriggerRequestPayload](capabilities.ValidatorArgs{Info: webapiTriggerInfo}),
 		connector:           connector,
-		registeredWorkflows: map[string]webapiTrigger{},
+		registeredWorkflows: map[string]*webapiTrigger{},
 		registry:            registry,
 		lggr:                logger.Named(lggr, "WorkflowConnectorHandler"),
 	}
@@ -90,11 +95,15 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 		return errors.New("empty Workflow Topics")
 	}
 
+	h.mu.Lock()
+	triggers := slices.Collect(maps.Values(h.registeredWorkflows))
+	h.mu.Unlock()
+
 	// workflows that have matched topics
 	matchedWorkflows := 0
 	// workflows that have matched topic and passed all checks
 	fullyMatchedWorkflows := 0
-	for _, trigger := range h.registeredWorkflows {
+	for _, trigger := range triggers {
 		for _, topic := range topics {
 			if trigger.allowedTopics[topic] {
 				matchedWorkflows++
@@ -128,10 +137,17 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 						Outputs:     wrappedPayload,
 					},
 				}
+				trigger.chWriteMu.Lock()
+				if trigger.ch == nil {
+					trigger.chWriteMu.Unlock()
+					return nil
+				}
 				select {
 				case <-ctx.Done():
+					trigger.chWriteMu.Unlock()
 					return nil
 				case trigger.ch <- tr:
+					trigger.chWriteMu.Unlock()
 					// Sending n topics that match a workflow with n allowedTopics, can only be triggered once.
 					break
 				}
@@ -240,7 +256,7 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 
 	ch := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
 
-	h.registeredWorkflows[req.TriggerID] = webapiTrigger{
+	h.registeredWorkflows[req.TriggerID] = &webapiTrigger{
 		workflowID:     req.Metadata.WorkflowID,
 		allowedTopics:  allowedTopicsMap,
 		allowedSenders: allowedSendersMap,
@@ -260,12 +276,15 @@ func (h *triggerConnectorHandler) UnregisterTrigger(ctx context.Context, req cap
 		return fmt.Errorf("triggerId %s not registered", req.TriggerID)
 	}
 
+	workflow.chWriteMu.Lock()
 	close(workflow.ch)
+	workflow.ch = nil
+	workflow.chWriteMu.Unlock()
 	delete(h.registeredWorkflows, req.TriggerID)
 	return nil
 }
 
-func (h *triggerConnectorHandler) AckEvent(ctx context.Context, triggerID, eventID string, method string) error {
+func (h *triggerConnectorHandler) AckEvent(ctx context.Context, triggerID, eventID, method string) error {
 	return nil
 }
 
@@ -285,6 +304,7 @@ func (h *triggerConnectorHandler) Start(ctx context.Context) error {
 		return h.connector.AddHandler(ctx, []string{"web_api_trigger"}, h)
 	})
 }
+
 func (h *triggerConnectorHandler) Close() error {
 	return h.StopOnce("GatewayConnectorServiceWrapper", func() error {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)

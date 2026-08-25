@@ -117,7 +117,7 @@ func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec stri
 		env.Logger.Debugf("nodeIDs provided. Fetching nodes for node IDs %s", nodeFilters.NodeIDs)
 		nodes, err = getNodes(ctx, env, nodeFilters.NodeIDs)
 		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get nodes for ndoe Ids %s: %w", nodeFilters.NodeIDs, err)
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get nodes for node Ids %s: %w", nodeFilters.NodeIDs, err)
 		}
 	} else {
 		// Fetch nodes based on filter
@@ -170,7 +170,7 @@ func ProposeJobs(ctx context.Context, env cldf.Environment, workflowJobSpec stri
 	return out, nil
 }
 
-func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, workflowName string, environment string, zone string) {
+func DeleteJobs(ctx context.Context, env cldf.Environment, jobIDs []string, workflowName, environment, zone string) {
 	if len(jobIDs) == 0 {
 		env.Logger.Debugf("jobIDs not present. Listing jobs to delete via workflow name")
 		jobSelectors := []*jdtypesv1.Selector{

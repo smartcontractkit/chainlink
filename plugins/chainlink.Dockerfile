@@ -7,7 +7,7 @@
 # Stage: deps-base — module downloads, no source tree.
 # Stages that don't need the full source (remote plugins, delve) branch from
 # here so that source-only changes never invalidate their layer cache.
-FROM golang:1.26.5-bookworm AS deps-base
+FROM golang:1.26.6-bookworm AS deps-base
 RUN go version
 RUN apt-get update && apt-get install -y --no-install-recommends jq=1.6-2.1+deb12u2 && rm -rf /var/lib/apt/lists/*
 
@@ -116,7 +116,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates=20260601~24.04.1 \
     gnupg=2.4.4-2ubuntu17.4 \
     lsb-release=12.0-2 \
-    curl=8.5.0-2ubuntu10.11 \
+    curl=8.5.0-2ubuntu10.13 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Postgres for CLI tools, needed specifically for DB backups

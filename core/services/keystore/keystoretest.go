@@ -33,7 +33,7 @@ func (o *memoryORM) saveEncryptedKeyRing(ctx context.Context, kr *models.Encrypt
 	for _, c := range callbacks {
 		err = errors.Join(err, c(o.ds))
 	}
-	return
+	return err
 }
 
 func (o *memoryORM) getEncryptedKeyRing(ctx context.Context) (models.EncryptedKeyRing, error) {
@@ -49,7 +49,7 @@ func newInMemoryORM(ds sqlutil.DataSource) *memoryORM {
 	return &memoryORM{ds: ds}
 }
 
-// NewInMemory sets up a keystore which NOOPs attempts to access the `encrypted_key_rings` table. Accessing `evm.key_states`
+// NewInMemory sets up a keystore which no-ops attempts to access the `encrypted_key_rings` table. Accessing `evm.key_states`
 // will still hit the DB.
 func NewInMemory(ds sqlutil.DataSource, scryptParams keystore.ScryptParams, logf Logf) *master {
 	dbORM := NewORM(ds)

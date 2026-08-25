@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/proxy_admin"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/token_governor"
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmschangesets "github.com/smartcontractkit/cld-changesets/legacy/mcms/changesets"
 	evmstate "github.com/smartcontractkit/cld-changesets/legacy/pkg/family/evm"
@@ -193,7 +193,7 @@ func (c CCIPOnChainState) resolveOnRampAddress(e cldf.Environment, chainSelector
 	return common.Address{}, false
 }
 
-func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, validateHomeChain bool, validateOwnership bool, chainsToValidate map[uint64]bool) map[uint64][]error {
+func (c CCIPOnChainState) runPostDeploymentValidation(e cldf.Environment, validateHomeChain, validateOwnership bool, chainsToValidate map[uint64]bool) map[uint64][]error {
 	e.Logger.Infow("Starting post-deployment validation", "totalEVMChains", len(c.EVMChains()), "validateHomeChain", validateHomeChain, "validateOwnership", validateOwnership)
 	offRampsBySelector := make(map[uint64]offramp.OffRampInterface)
 	chainErrs := make(map[uint64][]error)
@@ -408,11 +408,11 @@ func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]evmstate.MCMSWithTime
 func (c CCIPOnChainState) SolanaMCMSStateByChain(e cldf.Environment) map[uint64]solstate.MCMSWithTimelockState {
 	mcmsStateByChain := make(map[uint64]solstate.MCMSWithTimelockState)
 	for chainSelector := range e.BlockChains.SolanaChains() {
-		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return mcmsStateByChain
 		}
-		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[chainSelector], addreses)
+		mcmState, err := solstate.MaybeLoadMCMSWithTimelockChainState(e.BlockChains.SolanaChains()[chainSelector], addresses)
 		if err != nil {
 			return mcmsStateByChain
 		}
@@ -496,7 +496,7 @@ func (c CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 	case chain_selectors.FamilySui:
 
 		// TODO: fetch this value from offRamp getOffRampDynamicConfig
-		return (uint32(2 * 60 * 60)), nil
+		return uint32(2 * 60 * 60), nil
 	}
 	return 0, fmt.Errorf("unsupported chain family %s", family)
 }
@@ -1246,7 +1246,8 @@ func LoadChainState(ctx context.Context, chain cldf_evm.Chain, addresses map[str
 			state.ABIByAddress[address] = burn_mint_erc677.BurnMintERC677ABI
 		case cldf.NewTypeAndVersion(ccipshared.CCTPMessageTransmitterProxy, deployment.Version1_6_2).String():
 			cmtp, err := cctp_message_transmitter_proxy.NewCCTPMessageTransmitterProxy(
-				common.HexToAddress(address), chain.Client)
+				common.HexToAddress(address), chain.Client,
+			)
 			if err != nil {
 				return state, err
 			}

@@ -192,6 +192,10 @@ func Test_Server_Execute_RespondsAfterSufficientRequests(t *testing.T) {
 }
 
 func Test_Server_InsufficientCallers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	ctx := t.Context()
@@ -301,7 +305,7 @@ func Test_Server_V2Request_ExcludesNonDeterministicInputAttributes(t *testing.T)
 
 type v2WriteChainMessageHasher struct{}
 
-func (r *v2WriteChainMessageHasher) Hash(msg *remotetypes.MessageBody) ([32]byte, error) {
+func (r *v2WriteChainMessageHasher) Hash(ctx context.Context, msg *remotetypes.MessageBody) ([32]byte, error) {
 	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
@@ -332,7 +336,8 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 	underlying commoncap.ExecutableCapability,
 	numWorkflowPeers int, workflowDonF uint8,
 	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration,
-	messageHasher remotetypes.MessageHasher) ([]*serverTestClient, []services.Service) {
+	messageHasher remotetypes.MessageHasher,
+) ([]*serverTestClient, []services.Service) {
 	lggr := logger.Test(t)
 	if config.RequestTimeout == 0 {
 		config.RequestTimeout = capabilityNodeResponseTimeout
@@ -424,9 +429,12 @@ func (r *serverTestClient) Receive(_ context.Context, msg *remotetypes.MessageBo
 }
 
 func newServerTestClient(peerID p2ptypes.PeerID, capabilityDonInfo commoncap.DON,
-	dispatcher remotetypes.Dispatcher) *serverTestClient {
-	return &serverTestClient{peerID: peerID, dispatcher: dispatcher, capabilityDonInfo: capabilityDonInfo,
-		receivedMessages: make(chan *remotetypes.MessageBody, 100), callerDonID: "workflow-don"}
+	dispatcher remotetypes.Dispatcher,
+) *serverTestClient {
+	return &serverTestClient{
+		peerID: peerID, dispatcher: dispatcher, capabilityDonInfo: capabilityDonInfo,
+		receivedMessages: make(chan *remotetypes.MessageBody, 100), callerDonID: "workflow-don",
+	}
 }
 
 func (r *serverTestClient) Info(ctx context.Context) (commoncap.CapabilityInfo, error) {
@@ -872,6 +880,10 @@ func Test_Server_SetConfig_ShutdownRaces(t *testing.T) {
 }
 
 func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	lggr := logger.Test(t)
 	numWorkflowPeers := 4
@@ -967,7 +979,7 @@ func Test_Server_Execute_WithConcurrentSetConfig(t *testing.T) {
 	for callerIdx, caller := range workflowNodes {
 		for execIdx := range numExecuteCalls {
 			wg.Add(1)
-			go func(callerID int, execID int, node *serverTestClient) {
+			go func(callerID, execID int, node *serverTestClient) {
 				defer wg.Done()
 
 				// Random delay between 0-100ms

@@ -36,7 +36,7 @@ func (d deltaCConfig) DeltaCOverride() time.Duration { return time.Hour * 24 * 7
 func (d deltaCConfig) DeltaCJitterOverride() time.Duration { return time.Hour }
 
 func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsContract *mocks.Flags) (uni configOverriderUni) {
-	var testLogger = logger.TestLogger(t)
+	testLogger := logger.TestLogger(t)
 	contractAddress := cltest.NewEIP55Address()
 
 	flags := &ocr.ContractFlags{FlagsInterface: flagsContract}
@@ -56,6 +56,10 @@ func newConfigOverriderUni(t *testing.T, pollITicker utils.TickerBase, flagsCont
 }
 
 func TestIntegration_OCRConfigOverrider_EntersHibernation(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	g := gomega.NewWithT(t)
 
 	flagsContract := mocks.NewFlags(t)
@@ -145,7 +149,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 	})
 
 	t.Run("Errors if flags contract is missing", func(t *testing.T) {
-		var testLogger = logger.TestLogger(t)
+		testLogger := logger.TestLogger(t)
 		contractAddress := cltest.NewEIP55Address()
 		flags := &ocr.ContractFlags{FlagsInterface: nil}
 		_, err := ocr.NewConfigOverriderImpl(
@@ -160,7 +164,7 @@ func Test_OCRConfigOverrider(t *testing.T) {
 	})
 
 	t.Run("DeltaC should be stable per address", func(t *testing.T) {
-		var testLogger = logger.TestLogger(t)
+		testLogger := logger.TestLogger(t)
 		flagsContract := mocks.NewFlags(t)
 		flags := &ocr.ContractFlags{FlagsInterface: flagsContract}
 

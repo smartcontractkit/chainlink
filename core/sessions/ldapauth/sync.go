@@ -171,7 +171,7 @@ func (l *LDAPServerStateSyncer) Work(ctx context.Context) {
 		}
 	}
 
-	// For each unique user in list of active sessions, check for 'Is Active' propery if defined in the config. Some LDAP providers
+	// For each unique user in list of active sessions, check for 'Is Active' property if defined in the config. Some LDAP providers
 	// list group members that are no longer marked as active
 	usersActiveFlags, err := l.validateUsersActive(dedupedEmails, conn)
 	if err != nil {

@@ -73,7 +73,7 @@ func ValidatedOracleSpecToml(gcfg GeneralConfig, legacyChains legacyevm.LegacyCh
 }
 
 func ValidatedOracleSpecTomlCfg(gcfg GeneralConfig, configFn func(id *big.Int, contractAddress types.EIP55Address) (evmconfig.ChainScopedConfig, error), tomlString string) (job.Job, error) {
-	var jb = job.Job{}
+	jb := job.Job{}
 	var spec job.OCROracleSpec
 	tree, err := toml.Load(tomlString)
 	if err != nil {
@@ -131,14 +131,14 @@ func ValidatedOracleSpecTomlCfg(gcfg GeneralConfig, configFn func(id *big.Int, c
 
 // Parameters that must be explicitly set by the operator.
 var (
-	// Common to both bootstrap and non-boostrap
+	// Common to both bootstrap and non-bootstrap
 	params = map[string]struct{}{
 		"type":            {},
 		"schemaVersion":   {},
 		"contractAddress": {},
 		"isBootstrapPeer": {},
 	}
-	// Boostrap and non-bootstrap parameters
+	// Bootstrap and non-bootstrap parameters
 	// are mutually exclusive.
 	bootstrapParams    = map[string]struct{}{}
 	nonBootstrapParams = map[string]struct{}{

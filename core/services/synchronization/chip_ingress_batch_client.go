@@ -32,7 +32,7 @@ type chipIngressBatchClient struct {
 
 // NewChipIngressBatchClient returns a client backed by chipingress.Client that
 // can send telemetry to the chip ingress server
-func NewChipIngressBatchClient(chipClient chipingress.Client, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration, telemSendTimeout time.Duration) ChipIngressService {
+func NewChipIngressBatchClient(chipClient chipingress.Client, logging bool, lggr logger.Logger, telemBufferSize, telemMaxBatchSize uint, telemSendInterval, telemSendTimeout time.Duration) ChipIngressService {
 	c := &chipIngressBatchClient{
 		telemBufferSize:   telemBufferSize,
 		telemMaxBatchSize: telemMaxBatchSize,
@@ -56,7 +56,7 @@ func (cc *chipIngressBatchClient) start(ctx context.Context) error {
 	return nil
 }
 
-// Send directs incoming telmetry messages to the worker responsible for pushing it to
+// Send directs incoming telemetry messages to the worker responsible for pushing it to
 // the ingress server. If the worker telemetry buffer is full, messages are dropped
 // and a warning is logged.
 func (cc *chipIngressBatchClient) Send(ctx context.Context, payload TelemPayload) {

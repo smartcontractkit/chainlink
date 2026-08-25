@@ -43,8 +43,8 @@ type testHarness struct {
 	trigger   *triggerConnectorHandler
 }
 
-func workflowTriggerConfig(_ testHarness, addresses []string, topics []string) (*values.Map, error) {
-	var rateLimitConfig, err = values.NewMap(map[string]any{
+func workflowTriggerConfig(_ testHarness, addresses, topics []string) (*values.Map, error) {
+	rateLimitConfig, err := values.NewMap(map[string]any{
 		"GlobalRPS":      100.0,
 		"GlobalBurst":    101,
 		"PerSenderRPS":   102.0,
@@ -157,6 +157,10 @@ func requireChanMsg[T capabilities.TriggerResponse](t *testing.T, ch <-chan capa
 }
 
 func TestTriggerExecute(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	th := setup(t)
 	ctx := t.Context()
 	ctx, cancelContext := context.WithDeadline(ctx, time.Now().Add(10*time.Second))

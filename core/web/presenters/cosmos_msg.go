@@ -1,6 +1,6 @@
 package presenters
 
-// CosmosMsgResource repesents a Cosmos message JSONAPI resource.
+// CosmosMsgResource represents a Cosmos message JSONAPI resource.
 type CosmosMsgResource struct {
 	JAID
 	ChainID    string
@@ -15,7 +15,7 @@ func (CosmosMsgResource) GetName() string {
 }
 
 // NewCosmosMsgResource returns a new partial CosmosMsgResource.
-func NewCosmosMsgResource(id string, chainID string, contractID string) CosmosMsgResource {
+func NewCosmosMsgResource(id, chainID, contractID string) CosmosMsgResource {
 	return CosmosMsgResource{
 		JAID:       NewPrefixedJAID(id, chainID),
 		ChainID:    chainID,

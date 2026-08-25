@@ -78,9 +78,11 @@ type TriggerSubscriber interface {
 	SetConfig(config *commoncap.RemoteTriggerConfig, capInfo commoncap.CapabilityInfo, localDONID uint32, remoteDON commoncap.DON, aggregator types.Aggregator) error
 }
 
-var _ commoncap.TriggerCapability = &triggerSubscriber{}
-var _ types.Receiver = &triggerSubscriber{}
-var _ services.Service = &triggerSubscriber{}
+var (
+	_ commoncap.TriggerCapability = &triggerSubscriber{}
+	_ types.Receiver              = &triggerSubscriber{}
+	_ services.Service            = &triggerSubscriber{}
+)
 
 const (
 	// Engine reads trigger events without blocking and applies its own limits
@@ -88,7 +90,7 @@ const (
 	maxBatchedWorkflowIDs = 1000
 )
 
-func NewTriggerSubscriber(capabilityID string, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerSubscriber {
+func NewTriggerSubscriber(capabilityID, capMethodName string, dispatcher types.Dispatcher, lggr logger.Logger) *triggerSubscriber {
 	return &triggerSubscriber{
 		capabilityID:        capabilityID,
 		capMethodName:       capMethodName,
@@ -144,7 +146,7 @@ func (s *triggerSubscriber) Info(ctx context.Context) (commoncap.CapabilityInfo,
 	return cfg.capInfo, nil
 }
 
-func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID string, eventID string, method string) error {
+func (s *triggerSubscriber) AckEvent(ctx context.Context, triggerID, eventID, method string) error {
 	s.lggr.Debugw("AckEvent called on subscriber", "triggerID", triggerID, "eventID", eventID)
 	cfg := s.cfg.Load()
 	for _, peerID := range cfg.capDonInfo.Members {
@@ -318,13 +320,20 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			meta.WorkflowIds = meta.WorkflowIds[:maxBatchedWorkflowIDs]
 		}
 		for idx, workflowID := range meta.WorkflowIds {
+			s.mu.RLock()
+			_, found := s.registeredWorkflows[workflowID]
+			s.mu.RUnlock()
+			if !found {
+				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "sender", sender)
+				continue
+			}
+			s.mu.Lock()
 			var triggerID string
 			if idx < len(meta.TriggerIds) {
 				triggerID = meta.TriggerIds[idx]
 			}
-			s.mu.RLock()
-			triggerMap, found := s.registeredWorkflows[workflowID]
 			var registration *subRegState
+			triggerMap, found := s.registeredWorkflows[workflowID]
 			if found {
 				if triggerID != "" {
 					// received a message from updated publisher, which provided a triggerID
@@ -341,10 +350,9 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 					}
 				}
 			}
-			s.mu.RUnlock()
 			if registration == nil {
 				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "triggerID", triggerID, "sender", sender)
-				continue
+				continue // was unregistered in the meantime
 			}
 
 			key := triggerEventKey{
@@ -353,7 +361,6 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				triggerID:      triggerID,
 			}
 			rk := ackReplayKey{triggerID: triggerID, triggerEventID: meta.TriggerEventId}
-			s.mu.Lock()
 			if _, ok := s.ackReplayCache[rk]; ok {
 				// Event has already been ACKd by engine, so we don't need to re-deliver
 				s.mu.Unlock()

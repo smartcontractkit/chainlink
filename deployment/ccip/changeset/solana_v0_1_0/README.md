@@ -26,7 +26,7 @@
 - [Token Pool Operations](#token-pool-operations)
   - [Deploying Token Pool Executables](#deploy-new-token-pool-executables)
     - [Deploy New Token Pool Executable (CLL)](#deploy-new-token-pool-executable-cll)
-    - [Deploy New Token Pool Executable (Parnters)](#deploy-new-token-pool-executable-parnters)
+    - [Deploy New Token Pool Executable (Partners)](#deploy-new-token-pool-executable-partners)
   - [Adding Token Pools for Solana Tokens (Deploying Token Pool PDAs)](#adding-token-pools-for-solana-tokens-deploying-token-pool-pdas)
   - [Updating Token Pool Rate Limits for a EVM <> Solana Lane](#updating-token-pool-rate-limits-for-a-evm--solana-lane)
 - [Ownership/Authority Transfer](#ownershipauthority-transfer)
@@ -460,7 +460,7 @@ var _ cldf.ChangeSet[SetTokenAuthorityConfig] = SetTokenAuthority
 
 - We deploy the BnM and LnR token pool executables as part of DeployChainContractsChangeset for Chainlink
 
-##### Deploy New Token Pool Executable (Parnters)
+##### Deploy New Token Pool Executable (Partners)
 
 - For partners, you need to deploy a new executable like below
 - At the time of writing this, there are talks around using the same executable for partners as well (so something to keep in mind for later)
@@ -815,7 +815,7 @@ registry.Add("0321_deploy_CCIP_TEST_solana_token_pool",
 ## Verify Contracts
 
 ```golang
-// initially verify programs afer deploy
+// initially verify programs after deploy
 registry.Add("0086_verify_solana_programs",
   migrations.ConfigureLegacy(ccipchangesetsolana.VerifyBuild).
     With(ccipchangesetsolana.VerifyBuildConfig{
@@ -846,7 +846,7 @@ registry.Add("0086_verify_solana_programs",
       MCMS: &proposalutils.TimelockConfig{
         // if possible, we should make this very small, ideally 5 mins
         // because otherwise we will non verified updated contracts for > 3 hours
-		    MinDelay: minDelay, 
+		    MinDelay: minDelay,
 	    }
       UpgradeAuthority: timelockSignerPDA,
     }))
@@ -861,7 +861,7 @@ registry.Add("0086_verify_solana_programs",
       MCMS: &proposalutils.TimelockConfig{
         // if possible, we should make this very small, ideally 5 mins
         // because otherwise we will non verified updated contracts for > 3 hours
-		    MinDelay: minDelay, 
+		    MinDelay: minDelay,
 	    },
       UpgradeAuthority: timelockSignerPDA,
       RemoteVerification: true // this is KEY in step 2

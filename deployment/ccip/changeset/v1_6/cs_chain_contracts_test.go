@@ -317,11 +317,11 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			onRamp := state.Chains[source].OnRamp
 			config, err := onRamp.GetDynamicConfig(&bind.CallOpts{Context: ctx})
 			require.NoError(t, err)
-			feeAgggregator := config.FeeAggregator
+			feeAggregator := config.FeeAggregator
 			deployer := tenv.Env.BlockChains.EVMChains()[source].DeployerKey
 
 			// LINK
-			tx, err := linkToken.GrantMintRole(deployer, feeAgggregator)
+			tx, err := linkToken.GrantMintRole(deployer, feeAggregator)
 			require.NoError(t, err)
 			_, err = tenv.Env.BlockChains.EVMChains()[source].Confirm(tx)
 			require.NoError(t, err)
@@ -343,10 +343,10 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			require.NoError(t, err)
 
 			// check init balances
-			aggregatorInitLinks, err := linkToken.BalanceOf(&bind.CallOpts{Context: ctx}, feeAgggregator)
+			aggregatorInitLinks, err := linkToken.BalanceOf(&bind.CallOpts{Context: ctx}, feeAggregator)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), aggregatorInitLinks.Int64())
-			aggregatorInitWeth, err := weth9.BalanceOf(&bind.CallOpts{Context: ctx}, feeAgggregator)
+			aggregatorInitWeth, err := weth9.BalanceOf(&bind.CallOpts{Context: ctx}, feeAggregator)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), aggregatorInitWeth.Int64())
 
@@ -372,10 +372,10 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 			require.NoError(t, err)
 
 			// Assert that feeAggregator receives all fee tokens from OnRamp
-			aggregatorLinks, err := linkToken.BalanceOf(&bind.CallOpts{Context: ctx}, feeAgggregator)
+			aggregatorLinks, err := linkToken.BalanceOf(&bind.CallOpts{Context: ctx}, feeAggregator)
 			require.NoError(t, err)
 			assert.Equal(t, tokenAmount, aggregatorLinks)
-			aggregatorWeth, err := weth9.BalanceOf(&bind.CallOpts{Context: ctx}, feeAgggregator)
+			aggregatorWeth, err := weth9.BalanceOf(&bind.CallOpts{Context: ctx}, feeAggregator)
 			require.NoError(t, err)
 			assert.Equal(t, tokenAmount, aggregatorWeth)
 		})
@@ -945,7 +945,8 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 func TestSetOCR3ConfigValidations(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(
 		t,
-		testhelpers.WithPrerequisiteDeploymentOnly(nil))
+		testhelpers.WithPrerequisiteDeploymentOnly(nil),
+	)
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	allChains := e.Env.BlockChains.ListChainSelectors(cldf_chain.WithFamily(chainselectors.FamilyEVM))
@@ -1192,7 +1193,8 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "token TEST not found in state for chain")
@@ -1243,7 +1245,8 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.NoError(t, err)
 			tokenAddress, err := state.Chains[source].TokenAddressBySymbol()
@@ -1329,7 +1332,8 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 						},
 						FeedChainSelector: tenv.FeedChainSel,
 						MCMS:              mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "price feed for token TEST not found in state for chain")
@@ -1354,7 +1358,8 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 						},
 						FeedChainSelector: tenv.FeedChainSel,
 						MCMS:              mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.NoError(t, err)
 			tokenAddress, err := state.Chains[source].TokenAddressBySymbol()
@@ -1439,7 +1444,8 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "min fee must be less than max fee for token")
@@ -1475,7 +1481,8 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.NoError(t, err)
 		})
@@ -1548,7 +1555,8 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), "min fee must be less than max fee")
@@ -1592,7 +1600,8 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangesetV2(t *testing.T) {
 							},
 						},
 						MCMS: mcmsConfig,
-					}),
+					},
+				),
 			)
 			require.NoError(t, err)
 

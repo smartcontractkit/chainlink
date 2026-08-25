@@ -19,6 +19,10 @@ import (
 )
 
 func TestWasmFileSpecFactory(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	binaryLocation := createTestBinary(t)
 	configLocation := "testdata/config.json"
 	config, err := os.ReadFile(configLocation)
@@ -57,7 +61,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 		ctx := t.Context()
 		brLoc := strings.Replace(binaryLocation, ".wasm", ".br", 1)
 		compressedBytes := b.Bytes()
-		require.NoError(t, os.WriteFile(brLoc, compressedBytes, 0600))
+		require.NoError(t, os.WriteFile(brLoc, compressedBytes, 0o600))
 
 		factory := job.WasmFileSpecFactory{}
 		actual, rawSpec, actualSha, err2 := factory.Spec(t.Context(), brLoc, configLocation)

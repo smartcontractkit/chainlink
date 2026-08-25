@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -33,6 +34,9 @@ type HTTPRequestHandler interface {
 	ProcessRequest(ctx context.Context, rawMessage []byte, auth string) (rawResponse []byte, httpStatusCode int)
 }
 
+// HealthChecker gates whether the user HTTP server should receive traffic.
+type HealthChecker func(context.Context) error
+
 type HTTPServerConfig struct {
 	Host                   string
 	Port                   uint16
@@ -56,7 +60,7 @@ func (c *HTTPServerConfig) ensureLimiters(lf limits.Factory) (err error) {
 		limit.DefaultValue = config.Size(c.MaxRequestBytes)
 		c.MaxRequestBytesLimiter, err = limits.MakeBoundLimiter(lf, limit)
 	}
-	return
+	return err
 }
 
 type httpServer struct {
@@ -68,6 +72,7 @@ type httpServer struct {
 	doneCh            chan struct{}
 	cancelBaseContext context.CancelFunc
 	hMetrics          *monitoring.HTTPServerMetrics
+	healthChecker     HealthChecker
 	lggr              logger.Logger
 }
 
@@ -76,7 +81,13 @@ const (
 	HealthCheckResponse = "OK"
 )
 
-func NewHTTPServer(config *HTTPServerConfig, lggr logger.Logger, lf limits.Factory) (HTTPServer, error) {
+func NewHTTPServer(config *HTTPServerConfig, healthChecker HealthChecker, lggr logger.Logger, lf limits.Factory) (HTTPServer, error) {
+	if healthChecker == nil {
+		return nil, errors.New("health checker is required")
+	}
+	if config.Path == HealthCheckPath {
+		return nil, fmt.Errorf("HTTP request path %q conflicts with health check path", config.Path)
+	}
 	if err := config.ensureLimiters(lf); err != nil {
 		return nil, fmt.Errorf("failed to create limiters: %w", err)
 	}
@@ -90,6 +101,7 @@ func NewHTTPServer(config *HTTPServerConfig, lggr logger.Logger, lf limits.Facto
 		doneCh:            make(chan struct{}),
 		cancelBaseContext: cancelBaseCtx,
 		hMetrics:          hMetrics,
+		healthChecker:     healthChecker,
 		lggr:              logger.Named(lggr, "HTTPServer"),
 	}
 	mux := http.NewServeMux()
@@ -112,17 +124,20 @@ func NewHTTPServer(config *HTTPServerConfig, lggr logger.Logger, lf limits.Facto
 }
 
 func (s *httpServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
+	if err := s.healthChecker(r.Context()); err != nil {
+		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
-	_, err := w.Write([]byte(HealthCheckResponse))
-	if err != nil {
-		s.lggr.Debug("error when writing response for healthcheck", err)
+	if _, err := w.Write([]byte(HealthCheckResponse)); err != nil {
+		s.lggr.Debug("error when writing response for health check", err)
 	}
 }
 
 // split URL into: scheme, hostname, port
 func (s *httpServer) splitURL(rawURL string) (string, string, string, error) {
 	// lowercase the URL to avoid case sensitivity issues
-	parsedURL, err := url.Parse(strings.ToLower((rawURL)))
+	parsedURL, err := url.Parse(strings.ToLower(rawURL))
 	if err != nil {
 		return "", "", "", fmt.Errorf("error parsing URL: %w", err)
 	}
@@ -250,14 +265,14 @@ func (s *httpServer) Close() error {
 		s.cancelBaseContext()
 		err = s.server.Shutdown(context.Background())
 		<-s.doneCh
-		return
+		return err
 	})
 }
 
 func (s *httpServer) runServer() (err error) {
 	s.listener, err = net.Listen("tcp", s.server.Addr)
 	if err != nil {
-		return
+		return err
 	}
 	tlsEnabled := s.config.TLSEnabled
 
@@ -275,5 +290,5 @@ func (s *httpServer) runServer() (err error) {
 		}
 		s.doneCh <- struct{}{}
 	}()
-	return
+	return err
 }

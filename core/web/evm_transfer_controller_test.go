@@ -110,7 +110,7 @@ func TestTransfersController_CreateSuccess_From_WithRelayer(t *testing.T) {
 	request := models.SendEtherRequest{
 		DestinationAddress: to,
 		FromAddress:        from,
-		Amount:             (assets.Eth)(*amount),
+		Amount:             assets.Eth(*amount),
 		SkipWaitTxAttempt:  true,
 		EVMChainID:         sqlutil.New(chainB),
 	}
@@ -142,7 +142,7 @@ func TestTransfersController_CreateSuccess_From_WithRelayer(t *testing.T) {
 		From:       &from,
 		To:         &to,
 		EVMChainID: *sqlutil.New(chainB),
-		Value:      ((*assets.Eth)(amount)).String(),
+		Value:      (*assets.Eth)(amount).String(),
 		Data:       []byte{},
 	}, resp)
 }
@@ -457,6 +457,10 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 }
 
 func TestTransfersController_FindTxAttempt(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 	tx := txmgr.Tx{ID: 1}
 	attempt := txmgr.TxAttempt{ID: 2}

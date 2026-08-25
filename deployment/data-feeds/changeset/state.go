@@ -10,7 +10,7 @@ import (
 
 	"github.com/aptos-labs/aptos-go-sdk"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/gethwrappers"
 
 	cldf_aptos "github.com/smartcontractkit/chainlink-deployments-framework/chain/aptos"
 	cldf_chain_utils "github.com/smartcontractkit/chainlink-deployments-framework/chain/utils"
@@ -34,9 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
 )
 
-var (
-	DataFeedsCache datastore.ContractType = "DataFeedsCache"
-)
+var DataFeedsCache datastore.ContractType = "DataFeedsCache"
 
 type DataFeedsChainState struct {
 	ABIByAddress    map[string]string
@@ -99,7 +97,7 @@ func LoadOnchainState(e cldf.Environment) (DataFeedsOnChainState, error) {
 		if len(addressesRef) == 0 {
 			continue
 		}
-		var addresses = make(map[string]cldf.TypeAndVersion)
+		addresses := make(map[string]cldf.TypeAndVersion)
 		for _, addrRef := range addressesRef {
 			tv := cldf.NewTypeAndVersion(cldf.ContractType(addrRef.Type), *addrRef.Version)
 			addresses[addrRef.Address] = tv

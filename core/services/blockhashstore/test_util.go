@@ -19,7 +19,7 @@ func (t *TestCoordinator) Addresses() []common.Address {
 	return []common.Address{}
 }
 
-func (t *TestCoordinator) Requests(_ context.Context, fromBlock uint64, toBlock uint64) ([]Event, error) {
+func (t *TestCoordinator) Requests(_ context.Context, fromBlock, toBlock uint64) ([]Event, error) {
 	var result []Event
 	for _, req := range t.RequestEvents {
 		if req.Block >= fromBlock && req.Block <= toBlock {
@@ -31,9 +31,9 @@ func (t *TestCoordinator) Requests(_ context.Context, fromBlock uint64, toBlock 
 
 func (t *TestCoordinator) Fulfillments(_ context.Context, fromBlock uint64) ([]Event, error) {
 	var result []Event
-	for _, ful := range t.FulfillmentEvents {
-		if ful.Block >= fromBlock {
-			result = append(result, ful)
+	for _, fulfilment := range t.FulfillmentEvents {
+		if fulfilment.Block >= fromBlock {
+			result = append(result, fulfilment)
 		}
 	}
 	return result, nil
@@ -129,8 +129,7 @@ func (t *TestBatchBHS) StoreVerifyHeader(ctx context.Context, blockNumbers []*bi
 	return nil
 }
 
-type TestBlockHeaderProvider struct {
-}
+type TestBlockHeaderProvider struct{}
 
 func (p *TestBlockHeaderProvider) RlpHeadersBatch(ctx context.Context, blockRange []*big.Int) ([][]byte, error) {
 	var headers [][]byte

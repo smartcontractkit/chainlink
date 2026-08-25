@@ -454,7 +454,7 @@ func (oi *oidcAuthenticator) CreateUser(ctx context.Context, user *clsessions.Us
 }
 
 // UpdateRole is not supported for read only OIDC
-func (oi *oidcAuthenticator) UpdateRole(ctx context.Context, email string, newRole string) (clsessions.User, error) {
+func (oi *oidcAuthenticator) UpdateRole(ctx context.Context, email, newRole string) (clsessions.User, error) {
 	return clsessions.User{}, clsessions.ErrNotSupported
 }
 
@@ -485,7 +485,7 @@ func (oi *oidcAuthenticator) SetPassword(ctx context.Context, user *clsessions.U
 }
 
 // TestPassword only supports the potential local admin user, as there is no queryable identity server for the OIDC implementation
-func (oi *oidcAuthenticator) TestPassword(ctx context.Context, email string, password string) error {
+func (oi *oidcAuthenticator) TestPassword(ctx context.Context, email, password string) error {
 	// Fall back to test local users table in case of supported local CLI users as well
 	var hashedPassword string
 	if err := oi.ds.GetContext(ctx, &hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
@@ -568,7 +568,7 @@ func (oi *oidcAuthenticator) Sessions(ctx context.Context, offset, limit int) ([
 	return sessions, nil
 }
 
-// FindExternalInitiator supports the 'Run' role external intiator header auth functionality
+// FindExternalInitiator supports the 'Run' role external initiator header auth functionality
 func (oi *oidcAuthenticator) FindExternalInitiator(ctx context.Context, eia *auth.Token) (*bridges.ExternalInitiator, error) {
 	exi := &bridges.ExternalInitiator{}
 	err := oi.ds.GetContext(ctx, exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
@@ -596,7 +596,7 @@ func (oi *oidcAuthenticator) localLoginFallback(ctx context.Context, sr clsessio
 	return user, nil
 }
 
-func (oi *oidcAuthenticator) IDClaimsToUserRole(idClaims []string, adminClaim string, editClaim string, runClaim string, readClaim string) (clsessions.UserRole, error) {
+func (oi *oidcAuthenticator) IDClaimsToUserRole(idClaims []string, adminClaim, editClaim, runClaim, readClaim string) (clsessions.UserRole, error) {
 	// If defined Admin group name is present in id claims, return UserRoleAdmin
 	if slices.Contains(idClaims, adminClaim) {
 		return clsessions.UserRoleAdmin, nil
