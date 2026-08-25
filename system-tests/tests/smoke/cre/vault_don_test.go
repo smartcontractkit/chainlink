@@ -950,19 +950,9 @@ func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
 }
 
-func TestVaultJSONOmitUnpopulatedEnabled_CRESettingDefaultsDisabled(t *testing.T) {
-	t.Parallel()
-	require.False(t, cresettings.Default.VaultJSONOmitUnpopulatedEnabled.DefaultValue)
-}
-
 func TestVaultIncludeInvalidPendingItemsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	t.Parallel()
 	require.False(t, cresettings.Default.VaultIncludeInvalidPendingItemsEnabled.DefaultValue)
-}
-
-func TestVaultSignedResponseRequestIDEnabled_CRESettingDefaultsDisabled(t *testing.T) {
-	t.Parallel()
-	require.False(t, cresettings.Default.VaultSignedResponseRequestIDEnabled.DefaultValue)
 }
 
 func TestVaultStaticTopologies_LoadExpectedConfig(t *testing.T) {

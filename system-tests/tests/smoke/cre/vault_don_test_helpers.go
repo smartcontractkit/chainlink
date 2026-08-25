@@ -561,10 +561,7 @@ func requireSignedPayloadRequestID(t *testing.T, method, userRequestID, authoriz
 
 	signedRequestID, err := vaultutils.SignedPayloadRequestID(method, payload)
 	require.NoError(t, err)
-	if signedRequestID == "" {
-		// VaultSignedResponseRequestIDEnabled is off on vault nodes; skip until the gate is enabled in the test stack.
-		return
-	}
+	require.NotEmpty(t, signedRequestID, "signed payload requestId should not be empty")
 
 	expectedSuffix := vaulttypes.RequestIDSeparator + userRequestID
 	require.True(t, strings.HasSuffix(signedRequestID, expectedSuffix),
