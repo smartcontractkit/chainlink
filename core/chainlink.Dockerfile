@@ -12,6 +12,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends jq=1.6-2.1+deb1
 WORKDIR /chainlink
 
 COPY go.mod go.sum ./
+# Local dev: go.mod replaces cciplib with ./.local-ton/cciplib, so its go.mod
+# must exist before `go mod download` can resolve the build list.
+COPY .local-ton/cciplib/go.mod ./.local-ton/cciplib/go.mod
 COPY plugins/scripts/setup_git_auth.sh ./plugins/scripts/
 
 # CL_GOPRIVATE: set to "github.com/smartcontractkit/*" when building images
@@ -61,6 +64,7 @@ ARG CL_INSTALL_TESTING_PLUGINS=false
 
 COPY plugins/plugins.public.yaml plugins/plugins.private.yaml plugins/plugins.testing.yaml ./plugins/
 COPY plugins/scripts/ ./plugins/scripts/
+COPY .local-ton/ ./.local-ton/
 
 ENV CL_LOOPINSTALL_OUTPUT_DIR=/tmp/loopinstall-output \
     GIT_CONFIG_GLOBAL=/tmp/gitconfig-github-token

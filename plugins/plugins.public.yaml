@@ -55,8 +55,7 @@ plugins:
       installPath: "./mercury/cmd/chainlink-mercury"
 
   ton:
-    - moduleURI: "github.com/smartcontractkit/chainlink-ton"
-      gitRef: "v1.0.5-0.20260629213843-c52e07523035"
+    - moduleURI: "/chainlink/.local-ton"
       installPath: "./cmd/chainlink-ton"
 
   tron:
