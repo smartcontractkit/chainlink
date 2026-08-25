@@ -1101,7 +1101,7 @@ func (r *ReportingPlugin) observeGetSecrets(ctx context.Context, seqNr uint64, r
 		resp, ierr := r.observeGetSecretsRequest(ctx, reader, secretRequest, requestsCountForID)
 		if ierr != nil {
 			logUserErrorAware(l, "failed to observe get secret request item", ierr, "id", secretRequest.Id)
-			errorMsg := userFacingError(ierr, "failed to handle get secret request")
+			errorMsg := userFacingError(ierr, vaulttypes.SecretGetSystemErrorFallback)
 			resps = append(resps, &vaultcommon.SecretResponse{
 				Id: secretRequest.Id,
 				Result: &vaultcommon.SecretResponse_Error{
@@ -1128,11 +1128,11 @@ type share struct {
 func (s *share) encryptWithKeyBinary(pk string) ([]byte, error) {
 	publicKey, err := hex.DecodeString(pk)
 	if err != nil {
-		return nil, newUserError("failed to convert public key to bytes: " + err.Error())
+		return nil, vaulttypes.NewUserError("failed to convert public key to bytes: " + err.Error())
 	}
 
 	if len(publicKey) != curve25519.PointSize {
-		return nil, newUserError(fmt.Sprintf("invalid public key size: expected %d bytes, got %d bytes", curve25519.PointSize, len(publicKey)))
+		return nil, vaulttypes.NewUserError(fmt.Sprintf("invalid public key size: expected %d bytes, got %d bytes", curve25519.PointSize, len(publicKey)))
 	}
 
 	publicKeyLength := [curve25519.PointSize]byte(publicKey)
@@ -1181,7 +1181,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 		return nil, fmt.Errorf("failed to read secret from key-value store: %w", err)
 	}
 	if secret == nil {
-		return nil, newUserError("key does not exist")
+		return nil, vaulttypes.NewUserError("key does not exist")
 	}
 
 	sh, err := generatePlaintextShare(r.cfg.PublicKey, r.cfg.PrivateKeyShare, secret.EncryptedSecret, id.Owner)
@@ -1422,31 +1422,14 @@ func (r *ReportingPlugin) observeDeleteSecretRequest(ctx context.Context, reader
 	}
 
 	if ss == nil {
-		return id, newUserError("key does not exist")
+		return id, vaulttypes.NewUserError("key does not exist")
 	}
 
 	return id, nil
 }
 
-func newUserError(msg string) *userError {
-	return &userError{msg: msg}
-}
-
-type userError struct {
-	msg string
-}
-
-func (u *userError) Error() string {
-	return u.msg
-}
-
-func (u *userError) Is(target error) bool {
-	_, ok := target.(*userError)
-	return ok
-}
-
 func userFacingError(err error, fallback string) string {
-	if errors.Is(err, &userError{}) {
+	if vaulttypes.IsUserError(err) {
 		return err.Error()
 	}
 
@@ -1456,7 +1439,7 @@ func userFacingError(err error, fallback string) string {
 func logUserErrorAware(l logger.Logger, msg string, err error, keysAndValues ...any) {
 	keysAndValues = append(keysAndValues, "error", err)
 	lggr := l.Helper(1)
-	if errors.Is(err, &userError{}) {
+	if vaulttypes.IsUserError(err) {
 		lggr.Debugw(msg, keysAndValues...)
 		return
 	}
@@ -2531,7 +2514,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecrets(ctx context.Context, stor
 
 func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.CreateSecretResponse) (*vaultcommon.CreateSecretResponse, error) {
 	if resp.GetError() != "" {
-		return resp, newUserError(resp.GetError())
+		return resp, vaulttypes.NewUserError(resp.GetError())
 	}
 
 	encryptedSecret, err := decodeEncryptedSecretHex(req.EncryptedValue)
@@ -2545,7 +2528,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 	}
 
 	if secret != nil {
-		return nil, newUserError("could not write to key value store: key already exists")
+		return nil, vaulttypes.NewUserError("could not write to key value store: key already exists")
 	}
 
 	count, err := store.GetSecretIdentifiersCountForOwner(ctx, req.Id.Owner)
@@ -2557,7 +2540,7 @@ func (r *ReportingPlugin) stateTransitionCreateSecretsRequest(ctx context.Contex
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: req.Id.Owner})
 	if ierr := r.cfg.MaxSecretsPerOwner.Check(ctx, count+1); ierr != nil {
 		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](ierr); ok {
-			return nil, newUserError(fmt.Sprintf("could not write to key value store: owner %s has reached maximum number of secrets (limit=%d)", req.Id.Owner, errBoundLimited.Limit))
+			return nil, vaulttypes.NewUserError(fmt.Sprintf("could not write to key value store: owner %s has reached maximum number of secrets (limit=%d)", req.Id.Owner, errBoundLimited.Limit))
 		}
 		return nil, fmt.Errorf("failed to check max secrets per owner limit: %w", ierr)
 	}
@@ -2649,7 +2632,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecrets(ctx context.Context, stor
 
 func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Context, store WriteKVStore, req *vaultcommon.EncryptedSecret, resp *vaultcommon.UpdateSecretResponse) (*vaultcommon.UpdateSecretResponse, error) {
 	if resp.GetError() != "" {
-		return resp, newUserError(resp.GetError())
+		return resp, vaulttypes.NewUserError(resp.GetError())
 	}
 
 	encryptedSecret, err := decodeEncryptedSecretHex(req.EncryptedValue)
@@ -2663,7 +2646,7 @@ func (r *ReportingPlugin) stateTransitionUpdateSecretsRequest(ctx context.Contex
 	}
 
 	if secret == nil {
-		return nil, newUserError("could not write update to key value store: key does not exist")
+		return nil, vaulttypes.NewUserError("could not write update to key value store: key does not exist")
 	}
 
 	err = store.WriteSecret(ctx, req.Id, &vaultcommon.StoredSecret{
@@ -2753,7 +2736,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecrets(ctx context.Context, stor
 
 func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Context, store WriteKVStore, id *vaultcommon.SecretIdentifier, resp *vaultcommon.DeleteSecretResponse) (*vaultcommon.DeleteSecretResponse, error) {
 	if resp.GetError() != "" {
-		return resp, newUserError(resp.GetError())
+		return resp, vaulttypes.NewUserError(resp.GetError())
 	}
 
 	err := store.DeleteSecret(ctx, id)
