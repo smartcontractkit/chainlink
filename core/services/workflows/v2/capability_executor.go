@@ -64,7 +64,10 @@ func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 		{"evm", "GetTransactionReceipt"}: limiters.ChainReadCalls,
 		{"evm", "HeaderByNumber"}:        limiters.ChainReadCalls,
 
-		{"aptos", "View"}: limiters.ChainReadCalls,
+		{"aptos", "AccountAPTBalance"}:   limiters.ChainReadCalls,
+		{"aptos", "View"}:                limiters.ChainReadCalls,
+		{"aptos", "TransactionByHash"}:   limiters.ChainReadCalls,
+		{"aptos", "AccountTransactions"}: limiters.ChainReadCalls,
 
 		{"solana", "GetAccountInfoWithOpts"}:      limiters.ChainReadCalls,
 		{"solana", "GetBalance"}:                  limiters.ChainReadCalls,
@@ -74,6 +77,7 @@ func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 		{"solana", "GetSignatureStatuses"}:        limiters.ChainReadCalls,
 		{"solana", "GetSlotHeight"}:               limiters.ChainReadCalls,
 		{"solana", "GetTransaction"}:              limiters.ChainReadCalls,
+		{"solana", "GetProgramAccounts"}:          limiters.ChainReadCalls,
 
 		{"stellar", "GetLatestLedger"}: limiters.ChainReadCalls,
 		{"stellar", "ReadContract"}:    limiters.ChainReadCalls,
