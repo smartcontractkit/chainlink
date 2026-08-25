@@ -1,4 +1,4 @@
-package changelog
+package engine
 
 import (
 	"context"
@@ -8,12 +8,12 @@ import (
 	"strings"
 )
 
-// Generate runs the full analysis for two refs of the core repo checkout at
-// repoDir.
-func Generate(ctx context.Context, repoDir, oldRef, newRef string) (*Report, error) {
+// Generate runs the full analysis for the given product over two refs of the
+// core repo checkout at repoDir.
+func Generate(ctx context.Context, repoDir string, product Product, oldRef, newRef string) (*Report, error) {
 	g := gitRunner{dir: repoDir}
 	gh := newGHClient(ctx)
-	return Analyze(ctx, g, gh, oldRef, newRef)
+	return Analyze(ctx, g, gh, product, oldRef, newRef)
 }
 
 // PostSummary posts a message into a Slack thread.

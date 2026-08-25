@@ -1,4 +1,4 @@
-# ccip-release-changelog
+# release-changelog
 
 Generates a CCIP-focused release changelog between two refs of this repo
 (SHAs, tags like `v2.55.0`, or release branches like `release/2.56.0`), for
@@ -24,14 +24,31 @@ For each ref pair it produces:
 From the repo root (requires a full git history checkout):
 
 ```
-go run ./tools/ccip/ccip-release-changelog/cmd/ccip-release-changelog \
+go run ./tools/release/release-changelog/cmd/release-changelog \
     --old v2.55.0 --new release/2.56.0 \
     [--out report.md] [--slack-thread https://<ws>.slack.com/archives/<channel>/p<ts>]
 ```
 
-Refs can be SHAs, tags, or branch names. If a branch only exists remotely
-(e.g. `release/2.56.0` has never been checked out locally), the tool
-automatically falls back to `origin/<ref>`.
+Both `--old` and `--new` accept any ref: SHAs, tags (`v2.55.0`,
+`v2.56.1-rc.3`), or branches (`release/2.57.2`). Resolution order: local
+refs, then `origin/<ref>`, then an on-demand `git fetch origin <ref>` (into
+`FETCH_HEAD` only — no local branches/tags are created). If a ref can't be
+found anywhere, the error suggests similarly named remote refs (e.g. asking
+for `v2.56.1` when only `release/2.56.1` and `v2.56.1-rc.N` exist).
+
+You can also pass **CCIP image tags or image URIs** directly — the exact
+version string used across the release process:
+
+```
+--old 2.56.1-ccip-rc.2
+--old v2.56.1-ccip-rc.2   # hybrid form (v-prefix + -ccip-) also accepted
+--old public.ecr.aws/chainlink/ccip:2.56.1-ccip-rc.2
+```
+
+`build-publish.yml` derives the image tag from the git tag that built it
+(`v2.56.1-rc.2` → image `2.56.1-ccip-rc.2`), so the tool inverts that mapping
+locally — **no image is ever pulled or inspected**. The report header notes
+the mapping (`image tag → git tag`) for the audit trail.
 
 Environment:
 
@@ -47,10 +64,27 @@ takes the same inputs and uses the `SLACK_BOT_TOKEN_RELENG` secret.
 
 ## Configuration
 
-All tracking behavior lives in one place: the `TrackedRepos` variable in
-[`internal/changelog/config.go`](./internal/changelog/config.go). There are
-**no CLI flags or workflow inputs for tracking** — edit that file and
-re-run. Each entry is a `RepoConfig`:
+The code is split into a product-agnostic engine and product packages:
+
+- **[`internal/engine/`](./internal/engine/)** — everything generic: git ref
+  resolution, go.mod/plugins.yaml parsing, compare-API changelogs, path
+  filtering, risk flags, report rendering, Slack delivery. It knows nothing
+  about CCIP; the `Product` it runs on is passed in by the caller.
+- **[`internal/products/ccip/`](./internal/products/ccip/)** — the **CCIP
+  product definition**: the tracked repo list (`Repos`) and the CCIP ref
+  normalizer (`normalizeRef`, which maps CCIP image tags/URIs to git tags).
+- **[`cmd/release-changelog/main.go`](./cmd/release-changelog/main.go)** —
+  wires `ccip.Product` into `engine.Generate`. The product choice is a
+  visible, reviewable line of code.
+
+**Adding support for another product** (e.g. Core releases): create
+`internal/products/<name>/` with its own `Product` value (copy
+`ccip.go`), then wire it into a main package. Once a second product exists,
+a `--product` flag / workflow input can select between them at runtime.
+
+There are **no CLI flags or workflow inputs for tracking** — edit
+`internal/products/ccip/ccip.go` and re-run. Each `Repos` entry is an
+`engine.RepoConfig`:
 
 | Field | Meaning |
 |---|---|
@@ -107,27 +141,30 @@ IncludePaths: []string{"core/capabilities/ccip/", "deployment/ccip/"},
 
 ### After editing
 
-The golden tests render from `TrackedRepos`, so they must be regenerated:
+The golden tests render from an inline engine fixture (not the real product
+config), so they stay stable across config edits — but engine changes to
+rendering or flag logic require regenerating them:
 
 ```
-UPDATE_GOLDEN=1 go test ./tools/ccip/ccip-release-changelog/...
-go test ./tools/ccip/ccip-release-changelog/...
-golangci-lint run ./tools/ccip/ccip-release-changelog/...
+UPDATE_GOLDEN=1 go test ./tools/release/release-changelog/...
+go test ./tools/release/release-changelog/...
+golangci-lint run ./tools/release/release-changelog/...
 ```
 
 Then sanity-check a real run, e.g. `--old v2.55.0 --new release/2.56.0`.
 
-### Related knobs (not in config.go)
+### Related knobs (not in the product config)
+
+All in [`internal/engine/`](./internal/engine/):
 
 - Keyword callout pattern (`breaking|revert|hotfix|security|config|fix!`):
-  `keywordPattern` in
-  [`internal/changelog/analyze.go`](./internal/changelog/analyze.go).
+  `keywordPattern` in `analyze.go`.
 - Slack message/markdown layout: `report.go`; compare-API behavior:
-  `github.go`.
+  `github.go`; git ref resolution: `refs.go`.
 
 ## Development
 
 ```
-go test ./tools/ccip/ccip-release-changelog/...          # unit + golden tests
-UPDATE_GOLDEN=1 go test ./tools/ccip/ccip-release-changelog/...  # regen goldens
+go test ./tools/release/release-changelog/...          # unit + golden tests
+UPDATE_GOLDEN=1 go test ./tools/release/release-changelog/...  # regen goldens
 ```
