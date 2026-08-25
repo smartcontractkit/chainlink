@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/teeattestation/nitro"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
 var _ core.GatewayConnectorHandler = (*Handler)(nil)
@@ -345,7 +344,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 	result, err := translateVaultResponse(vaultResp, params.EnclavePublicKey)
 	if err != nil {
 		code := jsonrpc.ErrInternal
-		if vaulttypes.IsUserError(err) {
+		if IsUserError(err) {
 			code = jsonrpc.ErrInvalidParams
 		}
 		return h.errorResponse(ctx, gatewayID, req, code, err)
@@ -387,11 +386,7 @@ func translateVaultResponse(vaultResp []*vault.SecretResponse, enclaveKey string
 
 	for _, sr := range vaultResp {
 		if sr.GetError() != "" {
-			return nil, &vaultSecretError{
-				namespace: sr.Id.GetNamespace(),
-				key:       sr.Id.GetKey(),
-				msg:       sr.GetError(),
-			}
+			return nil, newVaultSecretError(sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
 		}
 
 		data := sr.GetData()

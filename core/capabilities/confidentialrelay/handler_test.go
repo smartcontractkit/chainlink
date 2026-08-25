@@ -952,7 +952,7 @@ func TestTranslateVaultResponse_VaultError(t *testing.T) {
 		result, err := translateVaultResponse(vaultResp, "aabbcc")
 		require.Nil(t, result)
 		require.Error(t, err)
-		assert.True(t, vaulttypes.IsUserError(err), "vault per-secret error should be classified as user error")
+		assert.True(t, IsUserError(err), "vault per-secret error should be classified as user error")
 		assert.Contains(t, err.Error(), "key does not exist")
 		assert.Contains(t, err.Error(), "main/API_TOKEN")
 	})
@@ -971,7 +971,7 @@ func TestTranslateVaultResponse_VaultError(t *testing.T) {
 		result, err := translateVaultResponse(vaultResp, "aabbcc")
 		require.Nil(t, result)
 		require.Error(t, err)
-		assert.False(t, vaulttypes.IsUserError(err), "vault system fallback must not be classified as a user error")
+		assert.False(t, IsUserError(err), "vault system fallback must not be classified as a user error")
 		assert.Contains(t, err.Error(), vaulttypes.SecretGetSystemErrorFallback)
 	})
 }
@@ -979,33 +979,27 @@ func TestTranslateVaultResponse_VaultError(t *testing.T) {
 func TestIsUserError(t *testing.T) {
 	t.Parallel()
 
-	t.Run("vaultSecretError wrapping a user error message is detected", func(t *testing.T) {
+	t.Run("vaultSecretError with user error is detected", func(t *testing.T) {
 		t.Parallel()
-		err := &vaultSecretError{namespace: "main", key: "API_TOKEN", msg: "key does not exist"}
-		assert.True(t, vaulttypes.IsUserError(err))
+		err := newVaultSecretError("main", "API_TOKEN", "key does not exist")
+		assert.True(t, IsUserError(err))
 	})
 
-	t.Run("vaultSecretError wrapping the system fallback is not detected", func(t *testing.T) {
+	t.Run("vaultSecretError with system fallback is not detected", func(t *testing.T) {
 		t.Parallel()
-		err := &vaultSecretError{namespace: "main", key: "API_TOKEN", msg: vaulttypes.SecretGetSystemErrorFallback}
-		assert.False(t, vaulttypes.IsUserError(err))
+		err := newVaultSecretError("main", "API_TOKEN", vaulttypes.SecretGetSystemErrorFallback)
+		assert.False(t, IsUserError(err))
 	})
 
 	t.Run("plain error is not a user error", func(t *testing.T) {
 		t.Parallel()
 		err := errors.New("failed to read secret from key-value store: connection refused")
-		assert.False(t, vaulttypes.IsUserError(err))
+		assert.False(t, IsUserError(err))
 	})
 
 	t.Run("nil is not a user error", func(t *testing.T) {
 		t.Parallel()
-		assert.False(t, vaulttypes.IsUserError(nil))
-	})
-
-	t.Run("direct vaulttypes.UserError is detected", func(t *testing.T) {
-		t.Parallel()
-		err := vaulttypes.NewUserError("key does not exist")
-		assert.True(t, vaulttypes.IsUserError(err))
+		assert.False(t, IsUserError(nil))
 	})
 }
 
