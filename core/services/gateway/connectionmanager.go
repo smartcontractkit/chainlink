@@ -306,7 +306,7 @@ func (m *connectionManager) GetPort() int {
 func (m *connectionManager) ReadyForTraffic(ctx context.Context) error {
 	if len(m.dons) == 0 {
 		m.gMetrics.RecordUserReady(ctx, false)
-		return errors.New("no relay DON shards configured")
+		return errors.New("no DON shards configured")
 	}
 
 	donIDs := make([]string, 0, len(m.dons))
@@ -327,7 +327,7 @@ func (m *connectionManager) ReadyForTraffic(ctx context.Context) error {
 
 		required := 2*don.donConfig.F + 1
 		configured := len(don.nodes)
-		m.gMetrics.RecordRelayConnectionState(ctx, donID, connected, required, configured)
+		m.gMetrics.RecordDONConnectionState(ctx, donID, connected, required, configured)
 		if connected < required {
 			readinessErrs = append(readinessErrs, fmt.Errorf("DON %s has %d connected nodes; requires %d", donID, connected, required))
 		}

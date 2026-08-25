@@ -550,7 +550,7 @@ func TestConnectionManager_ReadyForTrafficFailsClosedAndSortsErrors(t *testing.T
 		NodeServerConfig: network.WebSocketServerConfig{HTTPServerConfig: network.HTTPServerConfig{Path: "/node"}},
 	}, clockwork.NewFakeClock(), gMetrics, lggr, lf)
 	require.NoError(t, err)
-	require.EqualError(t, empty.ReadyForTraffic(t.Context()), "no relay DON shards configured")
+	require.EqualError(t, empty.ReadyForTraffic(t.Context()), "no DON shards configured")
 
 	nodes := gc.NewTestNodes(t, 2)
 	cfg := &config.GatewayConfig{

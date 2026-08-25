@@ -21,9 +21,9 @@ type GatewayMetrics struct {
 	nodeConnectedEvents    metric.Int64Counter
 	keepalivePingsSent     metric.Int64Counter
 	keepalivePongsReceived metric.Int64Counter
-	relayConnectedNodes    metric.Int64Gauge
-	relayRequiredNodes     metric.Int64Gauge
-	relayConfiguredNodes   metric.Int64Gauge
+	donConnectedNodes      metric.Int64Gauge
+	donRequiredNodes       metric.Int64Gauge
+	donConfiguredNodes     metric.Int64Gauge
 	userReady              metric.Int64Gauge
 }
 
@@ -84,11 +84,11 @@ func (m *GatewayMetrics) RecordKeepalivePongsReceived(ctx context.Context, nodeA
 	))
 }
 
-func (m *GatewayMetrics) RecordRelayConnectionState(ctx context.Context, relayDonID string, connected, required, configured int) {
-	attrs := metric.WithAttributes(attribute.String("relayDonID", relayDonID))
-	m.relayConnectedNodes.Record(ctx, int64(connected), attrs)
-	m.relayRequiredNodes.Record(ctx, int64(required), attrs)
-	m.relayConfiguredNodes.Record(ctx, int64(configured), attrs)
+func (m *GatewayMetrics) RecordDONConnectionState(ctx context.Context, donID string, connected, required, configured int) {
+	attrs := metric.WithAttributes(attribute.String("donID", donID))
+	m.donConnectedNodes.Record(ctx, int64(connected), attrs)
+	m.donRequiredNodes.Record(ctx, int64(required), attrs)
+	m.donConfiguredNodes.Record(ctx, int64(configured), attrs)
 }
 
 func (m *GatewayMetrics) RecordUserReady(ctx context.Context, ready bool) {
@@ -135,17 +135,17 @@ func NewGatewayMetrics() (*GatewayMetrics, error) {
 		return nil, err
 	}
 
-	relayConnectedNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_relay_connected_nodes")
+	donConnectedNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_connected_nodes")
 	if err != nil {
 		return nil, err
 	}
 
-	relayRequiredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_relay_required_nodes")
+	donRequiredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_required_nodes")
 	if err != nil {
 		return nil, err
 	}
 
-	relayConfiguredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_relay_configured_nodes")
+	donConfiguredNodes, err := beholder.GetMeter().Int64Gauge("platform_gateway_don_configured_nodes")
 	if err != nil {
 		return nil, err
 	}
@@ -163,9 +163,9 @@ func NewGatewayMetrics() (*GatewayMetrics, error) {
 		nodeConnectedEvents:    nodeConnectedEvents,
 		keepalivePingsSent:     keepalivePingsSent,
 		keepalivePongsReceived: keepalivePongsReceived,
-		relayConnectedNodes:    relayConnectedNodes,
-		relayRequiredNodes:     relayRequiredNodes,
-		relayConfiguredNodes:   relayConfiguredNodes,
+		donConnectedNodes:      donConnectedNodes,
+		donRequiredNodes:       donRequiredNodes,
+		donConfiguredNodes:     donConfiguredNodes,
 		userReady:              userReady,
 	}, nil
 }
