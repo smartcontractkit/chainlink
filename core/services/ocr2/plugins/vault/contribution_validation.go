@@ -79,7 +79,6 @@ func observationToErrContribution(o *vaultcommon.Observation, msg string) *vault
 // StateTransition-only and are intentionally not checked here.
 func (r *ReportingPlugin) validateContribution(
 	ctx context.Context,
-	_ ReadKVStore,
 	pendingItem *vaultcommon.StoredPendingQueueItem,
 	o *vaultcommon.Observation,
 ) error {

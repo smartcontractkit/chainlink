@@ -757,9 +757,9 @@ func (r *ReportingPlugin) observePendingQueueItem(
 	case *vaultcommon.GetSecretsRequest:
 		r.observeGetSecrets(ctx, seqNr, req.Id, readKV, tp, o)
 	case *vaultcommon.CreateSecretsRequest:
-		r.observeCreateSecrets(ctx, seqNr, req.Id, readKV, tp, o)
+		r.observeCreateSecrets(ctx, seqNr, req.Id, tp, o)
 	case *vaultcommon.UpdateSecretsRequest:
-		r.observeUpdateSecrets(ctx, seqNr, req.Id, readKV, tp, o)
+		r.observeUpdateSecrets(ctx, seqNr, req.Id, tp, o)
 	case *vaultcommon.DeleteSecretsRequest:
 		r.observeDeleteSecrets(ctx, seqNr, req.Id, readKV, tp, o)
 	case *vaultcommon.ListSecretIdentifiersRequest:
@@ -772,8 +772,6 @@ func (r *ReportingPlugin) observePendingQueueItem(
 }
 
 func (r *ReportingPlugin) validatePendingQueueObservationsPrefix(
-	ctx context.Context,
-	seqNr uint64,
 	pendingQueueItems []*vaultcommon.StoredPendingQueueItem,
 	obs *vaultcommon.Observations,
 ) error {
@@ -813,7 +811,7 @@ func (r *ReportingPlugin) appendPendingQueueObservations(
 			}
 			r.requestLggr(seqNr, req.Id).Warnw("pending queue item observation failed; emitting error contribution", "error", err)
 		} else {
-			if cerr := r.validateContribution(ctx, readKV, req, o); cerr != nil {
+			if cerr := r.validateContribution(ctx, req, o); cerr != nil {
 				o = observationToErrContribution(o, userFacingError(cerr, "request is not valid"))
 				r.requestLggr(seqNr, req.Id).Warnw("pending queue item failed contribution self-check; emitting error contribution", "error", cerr)
 			}
@@ -1040,7 +1038,7 @@ func (r *ReportingPlugin) observeGetSecretsRequest(ctx context.Context, reader R
 	}, nil
 }
 
-func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, seqNr uint64, requestID string, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, seqNr uint64, requestID string, req proto.Message, o *vaultcommon.Observation) {
 	l := r.typedRequestLggr(seqNr, requestID, "CreateSecrets")
 	tp := req.(*vaultcommon.CreateSecretsRequest)
 	o.RequestType = vaultcommon.RequestType_CREATE_SECRETS
@@ -1080,7 +1078,7 @@ func (r *ReportingPlugin) observeCreateSecrets(ctx context.Context, seqNr uint64
 	}
 }
 
-func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, seqNr uint64, requestID string, reader ReadKVStore, req proto.Message, o *vaultcommon.Observation) {
+func (r *ReportingPlugin) observeUpdateSecrets(ctx context.Context, seqNr uint64, requestID string, req proto.Message, o *vaultcommon.Observation) {
 	l := r.typedRequestLggr(seqNr, requestID, "UpdateSecrets")
 	tp := req.(*vaultcommon.UpdateSecretsRequest)
 	o.RequestType = vaultcommon.RequestType_UPDATE_SECRETS
@@ -1324,7 +1322,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 
 	idToObs := map[string]*vaultcommon.Observation{}
 	for _, o := range obs.Observations {
-		err := r.validateContribution(ctx, readKV, pendingQueueByID[o.Id], o)
+		err := r.validateContribution(ctx, pendingQueueByID[o.Id], o)
 		if err != nil {
 			valLggr.Debugw("validate observation failed", "requestID", o.Id, "error", err)
 			return errors.New("invalid observation: " + err.Error())
@@ -1344,7 +1342,7 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 	//   max observation byte limit.
 	// - that all pending queue items can be fetched as blobs.
 	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
-		if err := r.validatePendingQueueObservationsPrefix(ctx, seqNr, pendingQueueItems, obs); err != nil {
+		if err := r.validatePendingQueueObservationsPrefix(pendingQueueItems, obs); err != nil {
 			return err
 		}
 	}
@@ -1512,7 +1510,7 @@ func shaForProto(msg proto.Message) (string, error) {
 	return fmt.Sprintf("%x", sha256.Sum256(protoBytes)), nil
 }
 
-func (r *ReportingPlugin) shaForObservation(ctx context.Context, o *vaultcommon.Observation) (string, error) {
+func (r *ReportingPlugin) shaForObservation(o *vaultcommon.Observation) (string, error) {
 	switch o.RequestType {
 	case vaultcommon.RequestType_GET_SECRETS:
 		cloned := proto.CloneOf(o)
@@ -1685,7 +1683,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// of the entries matching a given sha.
 		shaToObs := map[string][]*vaultcommon.Observation{}
 		for _, ob := range obs {
-			sha, err := r.shaForObservation(ctx, ob)
+			sha, err := r.shaForObservation(ob)
 			if err != nil {
 				r.lggr.Errorw("failed to compute sha for observation", "error", err, "observation", ob)
 				continue
@@ -1734,7 +1732,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		item := pendingQueueByID[id]
 		guardFailed := false
 		for _, ob := range chosen {
-			if gerr := r.validateContribution(ctx, writeKV, item, ob); gerr != nil {
+			if gerr := r.validateContribution(ctx, item, ob); gerr != nil {
 				l.Warnw("state transition guard rejected chosen observation; skipping item",
 					"seqNr", seqNr, "id", id, "error", gerr)
 				guardFailed = true
@@ -1754,7 +1752,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 		switch first.RequestType {
 		case vaultcommon.RequestType_GET_SECRETS:
-			r.stateTransitionGetSecrets(ctx, writeKV, chosen, o)
+			r.stateTransitionGetSecrets(chosen, o)
 		case vaultcommon.RequestType_CREATE_SECRETS:
 			r.stateTransitionCreateSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_UPDATE_SECRETS:
@@ -1762,7 +1760,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		case vaultcommon.RequestType_DELETE_SECRETS:
 			r.stateTransitionDeleteSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS:
-			r.stateTransitionListSecretIdentifiers(ctx, writeKV, chosen, o)
+			r.stateTransitionListSecretIdentifiers(chosen, o)
 		default:
 			l.Debugw("unknown request type, skipping...", "requestType", first.RequestType, "id", id)
 			continue
@@ -1926,7 +1924,7 @@ func sortKey(id string, nonce []byte) []byte {
 	return h.Sum(nil)
 }
 
-func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader ReadKVStore, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
+func (r *ReportingPlugin) stateTransitionGetSecrets(chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
 	// Next, we deal with the responses.
 	// For each request, we take the Id of the first observation
 	// then aggregate the encrypted shares across all observations.
@@ -1946,7 +1944,7 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader 
 			}
 
 			if rsp.GetData() != nil {
-				r.aggregateGetSecretsShares(ctx, mergedResp, rsp)
+				r.aggregateGetSecretsShares(mergedResp, rsp)
 			}
 		}
 	}
@@ -1964,7 +1962,6 @@ func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader 
 }
 
 func (r *ReportingPlugin) aggregateGetSecretsShares(
-	ctx context.Context,
 	mergedResp *vaultcommon.SecretResponse,
 	rsp *vaultcommon.SecretResponse,
 ) {
@@ -2261,7 +2258,7 @@ func (r *ReportingPlugin) stateTransitionDeleteSecretsRequest(ctx context.Contex
 	}, nil
 }
 
-func (r *ReportingPlugin) stateTransitionListSecretIdentifiers(ctx context.Context, store WriteKVStore, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
+func (r *ReportingPlugin) stateTransitionListSecretIdentifiers(chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
 	// All of the logic for the ListSecretIdentifiers request is in the
 	// observation phase. This returns the observations in sorted order,
 	// so we can just take the first aggregated response and use it as the outcome.
@@ -2435,6 +2432,8 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxShareLengthBytes.Close(),
 		r.cfg.MaxBatchSize.Close(),
 		r.cfg.MaxPendingQueueWriteSize.Close(),
+		r.cfg.MaxBlobPayloadBytes.Close(),
 		r.cfg.VaultForceEmptyOCRRounds.Close(),
+		r.cfg.VaultPendingQueueStallThreshold.Close(),
 	)
 }

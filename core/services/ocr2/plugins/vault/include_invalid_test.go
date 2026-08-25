@@ -522,7 +522,7 @@ func TestValidateContribution_GetSecretsOversizedShareRejected(t *testing.T) {
 		},
 	}
 
-	err = r.validateContribution(t.Context(), newTestReadStore(t, &kv{m: make(map[string]response)}), pendingItem, o)
+	err = r.validateContribution(t.Context(), pendingItem, o)
 	require.Error(t, err, "validateContribution must reject oversized shares so the self-check stamps an error contribution")
 	require.ErrorContains(t, err, "exceeds maximum size allowed")
 }
