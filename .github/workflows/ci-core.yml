@@ -566,12 +566,10 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup Go
-        uses: ./.github/actions/setup-go
+        uses: actions/setup-go@v7
         with:
-          build-cache-version: tools-tests
-          build-cache-write: default-branch-only
-          go-version-file: tools/ci/go.mod
-          go-module-file: tools/ci/go.sum
+          go-version-file: go.mod
+          cache: true
 
       - name: Run tools/ci tests
         run: go -C tools/ci test -v ./...

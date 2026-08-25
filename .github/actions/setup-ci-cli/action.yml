@@ -17,11 +17,10 @@ runs:
 
     - name: Setup Go (on cache miss)
       if: ${{ steps.cache-ci-cli.outputs.cache-hit != 'true' }}
-      uses: ./.github/actions/setup-go
+      uses: actions/setup-go@v6
       with:
         go-version-file: tools/ci/go.mod
-        go-module-file: tools/ci/go.sum
-        only-modules: "true"
+        cache: true
 
     - name: Build CI CLI
       if: ${{ steps.cache-ci-cli.outputs.cache-hit != 'true' }}
