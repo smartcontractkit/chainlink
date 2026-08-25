@@ -63,7 +63,6 @@ type ReportingPluginConfig struct {
 	MaxBlobPayloadBytes                    limits.BoundLimiter[pkgconfig.Size]
 	VaultForceEmptyOCRRounds               limits.GateLimiter
 	VaultOptimizationsEnabled              limits.GateLimiter
-	VaultGetSecretsRelaxedConsensusEnabled limits.GateLimiter
 	VaultIncludeInvalidPendingItemsEnabled limits.GateLimiter
 	VaultPendingQueueStallThreshold        limits.BoundLimiter[int]
 }
@@ -190,11 +189,6 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultOptimizationsEnabled: %w", err)
 	}
 
-	vaultGetSecretsRelaxedConsensusEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultGetSecretsRelaxedConsensusEnabled)
-	if err != nil {
-		return nil, fmt.Errorf("VaultGetSecretsRelaxedConsensusEnabled: %w", err)
-	}
-
 	vaultIncludeInvalidPendingItemsEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultIncludeInvalidPendingItemsEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("VaultIncludeInvalidPendingItemsEnabled: %w", err)
@@ -221,7 +215,6 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxPendingQueueWriteSize:               maxPendingQueueWriteSizeLimiter,
 		VaultForceEmptyOCRRounds:               vaultForceEmptyOCRRounds,
 		VaultOptimizationsEnabled:              vaultOptimizationsEnabled,
-		VaultGetSecretsRelaxedConsensusEnabled: vaultGetSecretsRelaxedConsensusEnabled,
 		VaultIncludeInvalidPendingItemsEnabled: vaultIncludeInvalidPendingItemsEnabled,
 		VaultPendingQueueStallThreshold:        vaultPendingQueueStallThreshold,
 	}, nil
@@ -655,10 +648,6 @@ func (r *ReportingPlugin) prepareLegacyObservationPendingQueueBlobs(
 
 func (r *ReportingPlugin) optimizationsEnabled(ctx context.Context) bool {
 	return gateAllows(ctx, r.lggr, r.cfg.VaultOptimizationsEnabled, "VaultOptimizationsEnabled")
-}
-
-func (r *ReportingPlugin) getSecretsRelaxedConsensusEnabled(ctx context.Context) bool {
-	return gateAllows(ctx, r.lggr, r.cfg.VaultGetSecretsRelaxedConsensusEnabled, "VaultGetSecretsRelaxedConsensusEnabled")
 }
 
 func (r *ReportingPlugin) includeInvalidPendingItemsEnabled(ctx context.Context) bool {
@@ -2050,7 +2039,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		// Once we have it, we can break, as mathematically only one
 		// sha can reach at least 2F+1 observaions.
 		chosen := []*vaultcommon.Observation{}
-		if r.getSecretsRelaxedConsensusEnabled(ctx) && len(obs) > 0 && obs[0].RequestType == vaultcommon.RequestType_GET_SECRETS {
+		if len(obs) > 0 && obs[0].RequestType == vaultcommon.RequestType_GET_SECRETS {
 			if chosen = r.chooseGetSecretsObservations(len(obs), shaToObs); chosen != nil {
 				r.lggr.Debugw("sufficient observations for sha", "requestType", "GetSecrets", "relaxedConsensus", true, "totalForID", len(obs), "count", len(chosen), "threshold", r.onchainCfg.F+1, "id", id)
 			}
@@ -2058,18 +2047,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 			for _, sha := range slices.Sorted(maps.Keys(shaToObs)) {
 				obs := shaToObs[sha]
 
-				o := obs[0]
-				switch {
-				case o.RequestType == vaultcommon.RequestType_GET_SECRETS && len(obs) >= 2*r.onchainCfg.F+1:
-					// GetRequests required 2F+1 observations because we need exactly T=F+1 shares to reconstruct the secret.
-					// Since F shares can be fault, that means T+F=2F+1 shares are required, necessitating 2F+1 observations.
-					if r.optimizationsEnabled(ctx) {
-						chosen = shaToObs[sha][:2*r.onchainCfg.F+1]
-					} else {
-						chosen = shaToObs[sha]
-					}
-					l.Debugw("sufficient observations for sha", "sha", sha, "requestType", "GetSecrets", "count", len(obs), "threshold", 2*r.onchainCfg.F+1, "id", id)
-				case o.RequestType != vaultcommon.RequestType_GET_SECRETS && len(obs) >= r.onchainCfg.F+1:
+				if len(obs) >= r.onchainCfg.F+1 {
 					// F+1 means that at least 1 honest node has provided this observation, so that's enough for all other request
 					// types.
 					// Technically we could have two shas with F+1 observations. If that happens we'll pick the last one.
