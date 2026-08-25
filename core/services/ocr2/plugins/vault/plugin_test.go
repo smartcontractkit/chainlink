@@ -8434,17 +8434,21 @@ func TestPlugin_ValidateObservation_ListSecretIdentifiersExceedsMaxSecretsPerOwn
 }
 
 func TestUserFacingError(t *testing.T) {
+	t.Parallel()
 	t.Run("returns error message for userError", func(t *testing.T) {
+		t.Parallel()
 		err := vaulttypes.NewUserError("key does not exist")
 		assert.Equal(t, "key does not exist", userFacingError(err, "fallback"))
 	})
 
 	t.Run("returns fallback for non-userError", func(t *testing.T) {
+		t.Parallel()
 		err := errors.New("internal failure")
 		assert.Equal(t, "fallback msg", userFacingError(err, "fallback msg"))
 	})
 
 	t.Run("returns wrapped error message for wrapped userError", func(t *testing.T) {
+		t.Parallel()
 		err := fmt.Errorf("context: %w", vaulttypes.NewUserError("bad key"))
 		assert.Equal(t, "context: bad key", userFacingError(err, "fallback"))
 	})
