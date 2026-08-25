@@ -7,6 +7,7 @@ import (
 	"log"
 	"maps"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -870,9 +871,10 @@ func toRateCard(resp *billing.GetWorkflowExecutionRatesResponse) (map[string]dec
 }
 
 func medianSpend(spends []decimal.Decimal) decimal.Decimal {
-	sort.Slice(spends, func(i, j int) bool {
-		return spends[j].GreaterThan(spends[i])
-	})
+	if len(spends) == 0 {
+		return decimal.Zero
+	}
+	slices.SortFunc(spends, decimal.Decimal.Compare)
 
 	if len(spends)%2 > 0 {
 		return spends[len(spends)/2]

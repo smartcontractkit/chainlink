@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	stderrors "errors"
+	"fmt"
 	"maps"
 	"math"
 	"math/big"
@@ -414,6 +415,9 @@ func (t *BridgeTask) resolveFailureOrCache(
 	}
 	if adapterErr := eautils.BestEffortExtractEAError(out.body); adapterErr != nil {
 		out.err = adapterErr
+	}
+	if out.err == nil {
+		out.err = fmt.Errorf("bridge %s: failure status %d: %s", t.Name, out.statusCode, bestEffortExtractError(out.body))
 	}
 
 	promBridgeErrors.WithLabelValues(t.Name).Inc()

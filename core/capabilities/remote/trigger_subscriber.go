@@ -318,13 +318,20 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 			meta.WorkflowIds = meta.WorkflowIds[:maxBatchedWorkflowIDs]
 		}
 		for idx, workflowID := range meta.WorkflowIds {
+			s.mu.RLock()
+			_, found := s.registeredWorkflows[workflowID]
+			s.mu.RUnlock()
+			if !found {
+				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "sender", sender)
+				continue
+			}
+			s.mu.Lock()
 			var triggerID string
 			if idx < len(meta.TriggerIds) {
 				triggerID = meta.TriggerIds[idx]
 			}
-			s.mu.RLock()
-			triggerMap, found := s.registeredWorkflows[workflowID]
 			var registration *subRegState
+			triggerMap, found := s.registeredWorkflows[workflowID]
 			if found {
 				if triggerID != "" {
 					// received a message from updated publisher, which provided a triggerID
@@ -341,10 +348,9 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 					}
 				}
 			}
-			s.mu.RUnlock()
 			if registration == nil {
 				s.lggr.Errorw("received message for unregistered workflow/trigger", "workflowID", SanitizeLogString(workflowID), "triggerID", triggerID, "sender", sender)
-				continue
+				continue // was unregistered in the meantime
 			}
 
 			key := triggerEventKey{
@@ -353,7 +359,6 @@ func (s *triggerSubscriber) Receive(_ context.Context, msg *types.MessageBody) {
 				triggerID:      triggerID,
 			}
 			rk := ackReplayKey{triggerID: triggerID, triggerEventID: meta.TriggerEventId}
-			s.mu.Lock()
 			if _, ok := s.ackReplayCache[rk]; ok {
 				// Event has already been ACKd by engine, so we don't need to re-deliver
 				s.mu.Unlock()
