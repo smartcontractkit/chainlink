@@ -299,10 +299,11 @@ func (m *localCapabilityManager) buildConfigJSON(info *capabilityInfo) (string, 
 	return string(b), nil
 }
 
-// extractDefaultOCR3Config returns the default on-chain OCR3 config parsed from the
+// extractDefaultOCR3Config returns the `default` on-chain OCR3 config parsed from the
 // capability configuration, or nil when the configuration is empty, cannot be parsed,
 // or carries no OCR3 config. The delegate uses it to align the node's signer and
 // transmitter with the registry.
+// By `default,` we mean the config from the registry stored under the "default" key.
 func extractDefaultOCR3Config(cc registrysyncer.CapabilityConfiguration) *ocrtypes.ContractConfig {
 	if len(cc.Config) == 0 {
 		return nil
@@ -311,11 +312,11 @@ func extractDefaultOCR3Config(cc registrysyncer.CapabilityConfiguration) *ocrtyp
 	if err != nil {
 		return nil
 	}
-	config, ok := parsed.Ocr3Configs[capabilitiespb.OCR3ConfigDefaultKey]
+	cfg, ok := parsed.Ocr3Configs[capabilitiespb.OCR3ConfigDefaultKey]
 	if !ok {
 		return nil
 	}
-	return &config
+	return &cfg
 }
 
 func (m *localCapabilityManager) closeServices(rc *runningCapability) error {

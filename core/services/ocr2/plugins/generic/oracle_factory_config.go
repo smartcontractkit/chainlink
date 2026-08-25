@@ -3,51 +3,49 @@ package generic
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"math/big"
 
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )
 
 type ResolveOracleFactoryConfigParams struct {
-	Config         job.OracleFactoryConfig
+	Config job.OracleFactoryConfig
+	// OnchainSigning is the signing strategy from the job spec. When empty, it is
+	// populated from the node's OCR key bundles keyed by chain family name.
 	OnchainSigning job.OnchainSigningStrategy
 	// CapRegistryAddress and CapRegistryChainID are the Capabilities Registry
 	// contract address and its chain ID. The oracle factory reads its OCR config
 	// (signers/transmitters) from the registry, so the contract/chain default to
 	// the registry's own address/chain when not set in the job spec.
-	CapRegistryAddress   string
-	CapRegistryChainID   string
-	DefaultBootstrappers []ocrcommontypes.BootstrapperLocator
-	OCRKeyBundle         ocr2key.KeyBundle
-	OCRKeystore          keystore.OCR2
-	EthKeystore          keystore.Eth
-	// OCRContractConfig is the on-chain OCR config for this capability, read from the
-	// Capabilities Registry. When set, the transmitter is taken from the entry paired
-	// with this node's signer (OCRKeyBundle) rather than a round-robin keystore default,
-	// so the node uses exactly the transmitter the OCR config expects. It is nil when no
-	// registry config is available yet, in which case the local defaults are used.
-	OCRContractConfig *ocrtypes.ContractConfig
-	Logger            logger.Logger
+	CapRegistryAddress string
+	CapRegistryChainID string
+	// OCRKeyBundles maps chain family name (e.g. "evm") to the node's OCR key bundle
+	// for that family. Used to fill in the signing strategy config when the job spec
+	// does not provide one.
+	OCRKeyBundles map[string]ocr2key.KeyBundle
+	// Transmitter is the transmitter address extracted from the on-chain OCR config,
+	// paired with this node's signer. When non-empty, it is used as the transmitter
+	// when the job spec does not set one. Empty when no registry config is available.
+	Transmitter string
+	EthKeystore keystore.Eth
+	Logger      common.Logger
 }
 
 // ResolveOracleFactoryConfig fills missing oracle factory fields. Contract address
-// and chain ID default to the Capabilities Registry's address/chain. The signing key
-// defaults to this node's OCR key bundle. The transmitter is taken from the on-chain
-// OCR config entry paired with this node's signer when available, falling back to a
-// round-robin keystore address otherwise. Job spec values take precedence when set.
-func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactoryConfigParams) (job.OracleFactoryConfig, job.OnchainSigningStrategy, error) {
+// and chain ID default to the Capabilities Registry's address/chain. The signing
+// config defaults to the node's OCR key bundles. The transmitter is taken from the
+// Transmitter param (extracted from the on-chain OCR config by the caller) when
+// available, falling back to a round-robin keystore address otherwise. Job spec
+// values take precedence when set.
+func ResolveOracleFactoryConfig(_ context.Context, params ResolveOracleFactoryConfigParams) (job.OracleFactoryConfig, job.OnchainSigningStrategy, error) {
 	cfg := params.Config
 	signing := params.OnchainSigning
 
-	// Nothing to resolve when the oracle factory is not used by this job. Resolving would
+	// Nothing to resolve when this job does not use the oracle factory. Resolving would
 	// otherwise force a transmitter/key lookup for jobs that never build an oracle.
 	if !cfg.Enabled {
 		return cfg, signing, nil
@@ -60,33 +58,27 @@ func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactory
 		cfg.ChainID = params.CapRegistryChainID
 	}
 
-	if cfg.OCRKeyBundleID == "" && params.OCRKeyBundle != nil {
-		cfg.OCRKeyBundleID = params.OCRKeyBundle.ID()
+	// TODO: support other chain families besides EVM.
+	if cfg.OCRKeyBundleID == "" {
+		if kb, ok := params.OCRKeyBundles["evm"]; ok {
+			cfg.OCRKeyBundleID = kb.ID()
+		}
 	}
 
-	if len(signing.Config) == 0 && cfg.OCRKeyBundleID != "" {
+	if len(signing.Config) == 0 && len(params.OCRKeyBundles) > 0 {
 		if signing.StrategyName == "" {
 			signing.StrategyName = "multi-chain"
 		}
-		signing.Config = map[string]string{"evm": cfg.OCRKeyBundleID}
-	}
-
-	// Prefer the transmitter the on-chain OCR config pairs with this node's signer.
-	if cfg.TransmitterID == "" && params.OCRKeyBundle != nil && params.OCRContractConfig != nil {
-		if transmitter, ok := transmitterForSigner(*params.OCRContractConfig, params.OCRKeyBundle.PublicKey()); ok {
-			cfg.TransmitterID = transmitter
-		} else if params.Logger != nil {
-			params.Logger.Warnw("node signer not found in on-chain OCR config; falling back to round-robin transmitter",
-				"ocrKeyBundleID", cfg.OCRKeyBundleID)
+		signing.Config = make(map[string]string)
+		// TODO: support other chain families besides EVM.
+		for family, kb := range params.OCRKeyBundles {
+			signing.Config[family] = kb.ID()
 		}
 	}
 
-	if cfg.TransmitterID == "" && params.EthKeystore != nil && cfg.ChainID != "" {
-		transmitter, err := defaultTransmitterForChain(ctx, params.EthKeystore, cfg.ChainID)
-		if err != nil {
-			return cfg, signing, err
-		}
-		cfg.TransmitterID = transmitter
+	// Prefer the transmitter extracted from the on-chain OCR config by the caller.
+	if cfg.TransmitterID == "" && params.Transmitter != "" {
+		cfg.TransmitterID = params.Transmitter
 	}
 
 	return cfg, signing, nil
@@ -111,10 +103,10 @@ func SelectOCRKeyBundleForConfig(bundles []ocr2key.KeyBundle, cc *ocrtypes.Contr
 	return nil, false
 }
 
-// transmitterForSigner returns the transmitter account paired with the given signer in
+// TransmitterForSigner returns the transmitter account paired with the given signer in
 // the on-chain OCR config. Signers[i] and Transmitters[i] describe the same oracle, so
 // locating this node's signer yields the transmitter the OCR config expects for it.
-func transmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPublicKey) (string, bool) {
+func TransmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPublicKey) (string, bool) {
 	for i, s := range cc.Signers {
 		if bytes.Equal(s, signer) {
 			if i < len(cc.Transmitters) {
@@ -124,29 +116,4 @@ func transmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPub
 		}
 	}
 	return "", false
-}
-
-func defaultTransmitterForChain(ctx context.Context, ethKS keystore.Eth, chainID string) (string, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-
-	chainIDBig, ok := new(big.Int).SetString(chainID, 10)
-	if !ok {
-		return "", fmt.Errorf("invalid chain_id %q", chainID)
-	}
-
-	addr, err := ethKS.GetRoundRobinAddress(ctx, chainIDBig)
-	if err != nil {
-		return "", fmt.Errorf("failed to get transmitter for chain_id %s: %w", chainID, err)
-	}
-
-	return addr.String(), nil
-}
-
-func resolveBootstrapPeers(
-	specPeers []string,
-	defaultBootstrappers []ocrcommontypes.BootstrapperLocator,
-) ([]ocrcommontypes.BootstrapperLocator, error) {
-	return ocrcommon.GetValidatedBootstrapPeers(specPeers, defaultBootstrappers, false)
 }

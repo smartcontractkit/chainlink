@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto"
 	"fmt"
+	"reflect"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -188,6 +189,12 @@ func (d *Delegate) NewServices(
 ) ([]job.ServiceCtx, error) {
 	log := d.logger.Named("StandardCapabilities").Named(strconv.Itoa(int(jobID))).Named(jobName)
 
+	// Bootstrap peers are always resolved from TOML config; the job spec must not
+	// carry them. Fail early when the node is not configured with default bootstrappers.
+	if oracleFactoryConfig.Enabled && len(oracleFactoryConfig.BootstrapPeers) == 0 && len(d.defaultBootstrappers) == 0 {
+		return nil, errors.New("no bootstrap peers configured in Capabilities.Peering.V2.DefaultBootstrappers")
+	}
+
 	kvStore := job.NewKVStore(jobID, d.ds)
 
 	// Enable signing and decryption for the capability, if available.
@@ -248,22 +255,26 @@ func (d *Delegate) NewServices(
 	}
 
 	var ocrEvmKeyBundle ocr2key.KeyBundle
-	switch {
-	case len(ocrEvmKeyBundles) == 0:
+
+	if ocrContractConfig != nil {
+		// Always select the exact bundle matching the on-chain OCR config from the
+		// Capabilities Registry. If none matches, OCR won't work, so we fail here
+		// rather than silently picking a non-matching bundle.
+		// TODO: extend to cover other chain families besides EVM.
+		kb, ok := generic.SelectOCRKeyBundleForConfig(ocrEvmKeyBundles, ocrContractConfig)
+		if !ok {
+			return nil, errors.New("none of the node's EVM OCR key bundles match the signers in the on-chain OCR config")
+		}
+		ocrEvmKeyBundle = kb
+	} else if len(ocrEvmKeyBundles) == 0 {
 		ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, corekeys.EVM)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create OCR key bundle")
 		}
-	case len(ocrEvmKeyBundles) == 1:
+	} else {
+		// No on-chain OCR config available yet; use the first bundle as a fallback, which may cause unexpected behavior
+		// if using the OracleFactory.
 		ocrEvmKeyBundle = ocrEvmKeyBundles[0]
-	default:
-		// Multiple bundles: prefer the one registered as a signer in the on-chain OCR config.
-		if kb, ok := generic.SelectOCRKeyBundleForConfig(ocrEvmKeyBundles, ocrContractConfig); ok {
-			ocrEvmKeyBundle = kb
-		} else {
-			log.Infof("found %d EVM OCR key bundles and none matched the on-chain OCR config; using the first, which may cause unexpected behavior if using the OracleFactory", len(ocrEvmKeyBundles))
-			ocrEvmKeyBundle = ocrEvmKeyBundles[0]
-		}
 	}
 
 	// Best-effort resolve the authoritative capability DON ID for this plugin
@@ -277,24 +288,39 @@ func (d *Delegate) NewServices(
 		log.Debugw("Resolved capability DON ID from registry", "capabilityID", capabilityID, "donID", capabilityDonID)
 	}
 
-	defaultBootstrappers := d.defaultBootstrappers
+	// Extract the transmitter paired with this node's signer from the on-chain OCR config.
+	// The caller passes it to ResolveOracleFactoryConfig so the node uses exactly the
+	// transmitter the OCR config expects. Empty when no registry config is available.
+	var transmitter string
+	if ocrContractConfig != nil {
+		if t, ok := generic.TransmitterForSigner(*ocrContractConfig, ocrEvmKeyBundle.PublicKey()); ok {
+			transmitter = t
+		} else {
+			log.Warnw("node signer not found in on-chain OCR config; falling back to round-robin transmitter",
+				"ocrKeyBundleID", ocrEvmKeyBundle.ID())
+		}
+	}
+
+	ocrKeyBundles := map[string]ocr2key.KeyBundle{"evm": ocrEvmKeyBundle}
 
 	resolvedOracleFactory, resolvedSigning, resolveErr := generic.ResolveOracleFactoryConfig(ctx, generic.ResolveOracleFactoryConfigParams{
-		Config:               oracleFactoryConfig,
-		OnchainSigning:       oracleFactoryConfig.OnchainSigning,
-		CapRegistryAddress:   d.capRegistryAddress,
-		CapRegistryChainID:   d.capRegistryChainID,
-		DefaultBootstrappers: defaultBootstrappers,
-		OCRKeyBundle:         ocrEvmKeyBundle,
-		OCRKeystore:          d.ks.OCR2(),
-		EthKeystore:          d.ks.Eth(),
-		OCRContractConfig:    ocrContractConfig,
-		Logger:               log,
+		Config:             oracleFactoryConfig,
+		OnchainSigning:     oracleFactoryConfig.OnchainSigning,
+		CapRegistryAddress: d.capRegistryAddress,
+		CapRegistryChainID: d.capRegistryChainID,
+		OCRKeyBundles:      ocrKeyBundles,
+		Transmitter:        transmitter,
+		EthKeystore:        d.ks.Eth(),
+		Logger:             log,
 	})
 	if resolveErr != nil {
 		return nil, fmt.Errorf("failed to resolve oracle factory config: %w", resolveErr)
 	}
-	oracleFactoryConfig = resolvedOracleFactory
+	// Only assign `resolvedOracleFactory` when the caller did not provide an
+	// oracle factory config.
+	if reflect.DeepEqual(oracleFactoryConfig, job.OracleFactoryConfig{}) {
+		oracleFactoryConfig = resolvedOracleFactory
+	}
 
 	var oracleFactory core.OracleFactory
 	// NOTE: special case for custom Oracle Factory for use in tests
@@ -311,7 +337,7 @@ func (d *Delegate) NewServices(
 			RelayerSet:             relayerSet,
 			OCRConfigService:       d.ocrConfigService,
 			CapabilityID:           capabilityID,
-			DefaultBootstrappers:   defaultBootstrappers,
+			DefaultBootstrappers:   d.defaultBootstrappers,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory from function: %w", err)
@@ -337,7 +363,7 @@ func (d *Delegate) NewServices(
 			EthKeystore:            d.ks.Eth(),
 			OCRConfigService:       d.ocrConfigService,
 			CapabilityID:           capabilityID,
-			DefaultBootstrappers:   defaultBootstrappers,
+			DefaultBootstrappers:   d.defaultBootstrappers,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
@@ -485,7 +511,6 @@ func ValidatedStandardCapabilitiesSpec(tomlString string) (job.Job, error) {
 	if len(jb.StandardCapabilitiesSpec.Command) == 0 {
 		return jb, errors.Errorf("standard capabilities command must be set")
 	}
-
 	// Skip validation if Oracle Factory is not enabled
 	if !jb.StandardCapabilitiesSpec.OracleFactory.Enabled {
 		return jb, nil

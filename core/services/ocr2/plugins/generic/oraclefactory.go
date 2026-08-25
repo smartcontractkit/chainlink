@@ -160,12 +160,9 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		configDigester = legacyConfigProvider.OffchainConfigDigester()
 	}
 
-	bootstrapPeers, err := resolveBootstrapPeers(of.config.BootstrapPeers, of.defaultBootstrappers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve bootstrap peers: %w", err)
-	}
+	bootstrapPeers := of.defaultBootstrappers
 	if len(bootstrapPeers) == 0 {
-		return nil, errors.New("no bootstrap peers found in job spec or Capabilities.Peering.V2.DefaultBootstrappers")
+		return nil, errors.New("no bootstrap peers found in Capabilities.Peering.V2.DefaultBootstrappers")
 	}
 
 	keyBundles := map[string]ocr2key.KeyBundle{}
