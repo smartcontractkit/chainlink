@@ -303,6 +303,9 @@ func (m *connectionManager) GetPort() int {
 	return m.wsServer.GetPort()
 }
 
+// ReadyForTraffic returns nil when every configured DON shard has at least
+// 2F+1 active authenticated connections. Since each shard contains at least
+// 3F+1 nodes, readiness tolerates F disconnected nodes per shard.
 func (m *connectionManager) ReadyForTraffic(ctx context.Context) error {
 	if len(m.dons) == 0 {
 		m.gMetrics.RecordUserReady(ctx, false)
