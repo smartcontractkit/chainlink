@@ -37,8 +37,6 @@ type testPluginBuildOpts struct {
 	batchSize                              int
 	maxBlobPayloadBytes                    int
 	vaultOptimizationsEnabled              bool
-	vaultJSONOmitUnpopulatedEnabled        bool
-	vaultSignedResponseRequestIDEnabled    bool
 	vaultGetSecretsRelaxedConsensusEnabled bool
 	vaultIncludeInvalidPendingItemsEnabled bool
 	vaultPendingQueueStallThreshold        int
@@ -83,10 +81,6 @@ func withVaultOptimizationsEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultOptimizationsEnabled = true }
 }
 
-func withVaultJSONOmitUnpopulatedEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultJSONOmitUnpopulatedEnabled = true }
-}
-
 func withVaultGetSecretsRelaxedConsensusEnabled() testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultGetSecretsRelaxedConsensusEnabled = true }
 }
@@ -97,10 +91,6 @@ func withVaultIncludeInvalidPendingItemsEnabled() testPluginOption {
 
 func withVaultPendingQueueStallThreshold(n int) testPluginOption {
 	return func(o *testPluginBuildOpts) { o.vaultPendingQueueStallThreshold = n }
-}
-
-func withVaultSignedResponseRequestIDEnabled() testPluginOption {
-	return func(o *testPluginBuildOpts) { o.vaultSignedResponseRequestIDEnabled = true }
 }
 
 func withOnchainCfg(n int, f int) testPluginOption {
@@ -156,9 +146,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 	if o.vaultOptimizationsEnabled {
 		cfg.VaultOptimizationsEnabled = limits.NewGateLimiter(true)
 	}
-	if o.vaultJSONOmitUnpopulatedEnabled {
-		cfg.VaultJSONOmitUnpopulatedEnabled = limits.NewGateLimiter(true)
-	}
 	if o.vaultGetSecretsRelaxedConsensusEnabled {
 		cfg.VaultGetSecretsRelaxedConsensusEnabled = limits.NewGateLimiter(true)
 	}
@@ -172,9 +159,6 @@ func newTestReportingPlugin(t *testing.T, opts ...testPluginOption) *ReportingPl
 		)
 		require.NoError(t, err)
 		cfg.VaultPendingQueueStallThreshold = stallLimiter
-	}
-	if o.vaultSignedResponseRequestIDEnabled {
-		cfg.VaultSignedResponseRequestIDEnabled = limits.NewGateLimiter(true)
 	}
 	ctx := context.Background()
 	pl, err := initializePluginLimits(ctx, limits.Factory{Settings: cresettings.DefaultGetter})
@@ -285,8 +269,6 @@ func makeReportingPluginConfig(
 		MaxBlobPayloadBytes:                    maxBlobPayloadLimiter,
 		VaultForceEmptyOCRRounds:               limits.NewGateLimiter(false),
 		VaultOptimizationsEnabled:              limits.NewGateLimiter(false),
-		VaultJSONOmitUnpopulatedEnabled:        limits.NewGateLimiter(false),
-		VaultSignedResponseRequestIDEnabled:    limits.NewGateLimiter(false),
 		VaultGetSecretsRelaxedConsensusEnabled: limits.NewGateLimiter(false),
 		VaultIncludeInvalidPendingItemsEnabled: limits.NewGateLimiter(false),
 		VaultPendingQueueStallThreshold:        pendingQueueStallThresholdLimiter,

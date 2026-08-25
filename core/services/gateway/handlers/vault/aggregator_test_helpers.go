@@ -45,7 +45,7 @@ func makeSignedCreateSecretsResponse(t *testing.T, requestID string, numSigners 
 			},
 		},
 	}
-	payload, err := vaultutils.ToCanonicalJSON(createResp, false)
+	payload, err := vaultutils.ToCanonicalJSON(createResp)
 	require.NoError(t, err)
 
 	return makeSignedVaultResponse(t, vaulttypes.MethodSecretsCreate, requestID, json.RawMessage(payload), numSigners)

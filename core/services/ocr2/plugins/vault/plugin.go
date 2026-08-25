@@ -63,8 +63,6 @@ type ReportingPluginConfig struct {
 	MaxBlobPayloadBytes                    limits.BoundLimiter[pkgconfig.Size]
 	VaultForceEmptyOCRRounds               limits.GateLimiter
 	VaultOptimizationsEnabled              limits.GateLimiter
-	VaultJSONOmitUnpopulatedEnabled        limits.GateLimiter
-	VaultSignedResponseRequestIDEnabled    limits.GateLimiter
 	VaultGetSecretsRelaxedConsensusEnabled limits.GateLimiter
 	VaultIncludeInvalidPendingItemsEnabled limits.GateLimiter
 	VaultPendingQueueStallThreshold        limits.BoundLimiter[int]
@@ -192,11 +190,6 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultOptimizationsEnabled: %w", err)
 	}
 
-	vaultJSONOmitUnpopulatedEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultJSONOmitUnpopulatedEnabled)
-	if err != nil {
-		return nil, fmt.Errorf("VaultJSONOmitUnpopulatedEnabled: %w", err)
-	}
-
 	vaultGetSecretsRelaxedConsensusEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultGetSecretsRelaxedConsensusEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("VaultGetSecretsRelaxedConsensusEnabled: %w", err)
@@ -210,11 +203,6 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 	vaultPendingQueueStallThreshold, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultPendingQueueStallThreshold)
 	if err != nil {
 		return nil, fmt.Errorf("VaultPendingQueueStallThreshold: %w", err)
-	}
-
-	vaultSignedResponseRequestIDEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultSignedResponseRequestIDEnabled)
-	if err != nil {
-		return nil, fmt.Errorf("VaultSignedResponseRequestIDEnabled: %w", err)
 	}
 
 	maxBlobPayloadBytesLimiter, err := limits.MakeUpperBoundLimiter(factory, cresettings.Default.VaultMaxBlobPayloadSizeLimit)
@@ -233,8 +221,6 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		MaxPendingQueueWriteSize:               maxPendingQueueWriteSizeLimiter,
 		VaultForceEmptyOCRRounds:               vaultForceEmptyOCRRounds,
 		VaultOptimizationsEnabled:              vaultOptimizationsEnabled,
-		VaultJSONOmitUnpopulatedEnabled:        vaultJSONOmitUnpopulatedEnabled,
-		VaultSignedResponseRequestIDEnabled:    vaultSignedResponseRequestIDEnabled,
 		VaultGetSecretsRelaxedConsensusEnabled: vaultGetSecretsRelaxedConsensusEnabled,
 		VaultIncludeInvalidPendingItemsEnabled: vaultIncludeInvalidPendingItemsEnabled,
 		VaultPendingQueueStallThreshold:        vaultPendingQueueStallThreshold,
@@ -332,27 +318,27 @@ func (r *ReportingPluginFactory) NewReportingPlugin(ctx context.Context, config 
 	r.lifecycle.SetConfigDigest(config.ConfigDigest.String())
 
 	return &ReportingPlugin{
-		lggr:                         r.lggr.Named("VaultReportingPlugin"),
-		store:                        r.store,
-		cfg:                          cfg,
-		metrics:                      metrics,
-		onchainCfg:                   config,
-		validator:                    validator,
-		lifecycle:                    r.lifecycle,
-		maxObservationBytes:          pluginLimits.MaxObservationBytes,
-		maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
-		unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
-			handle := ocr3_1types.BlobHandle{}
-			err := handle.UnmarshalBinary(data)
-			return handle, err
-		},
-		marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
-			return handle.MarshalBinary()
-		},
-	}, ocr3_1types.ReportingPluginInfo1{
-		Name:   "VaultReportingPlugin",
-		Limits: pluginLimits,
-	}, nil
+			lggr:                         r.lggr.Named("VaultReportingPlugin"),
+			store:                        r.store,
+			cfg:                          cfg,
+			metrics:                      metrics,
+			onchainCfg:                   config,
+			validator:                    validator,
+			lifecycle:                    r.lifecycle,
+			maxObservationBytes:          pluginLimits.MaxObservationBytes,
+			maxReportsPlusPrecursorBytes: pluginLimits.MaxReportsPlusPrecursorBytes,
+			unmarshalBlob: func(data []byte) (ocr3_1types.BlobHandle, error) {
+				handle := ocr3_1types.BlobHandle{}
+				err := handle.UnmarshalBinary(data)
+				return handle, err
+			},
+			marshalBlob: func(handle ocr3_1types.BlobHandle) ([]byte, error) {
+				return handle.MarshalBinary()
+			},
+		}, ocr3_1types.ReportingPluginInfo1{
+			Name:   "VaultReportingPlugin",
+			Limits: pluginLimits,
+		}, nil
 }
 
 type ReportingPlugin struct {
@@ -671,10 +657,6 @@ func (r *ReportingPlugin) optimizationsEnabled(ctx context.Context) bool {
 	return gateAllows(ctx, r.lggr, r.cfg.VaultOptimizationsEnabled, "VaultOptimizationsEnabled")
 }
 
-func (r *ReportingPlugin) jsonOmitUnpopulatedEnabled(ctx context.Context) bool {
-	return gateAllows(ctx, r.lggr, r.cfg.VaultJSONOmitUnpopulatedEnabled, "VaultJSONOmitUnpopulatedEnabled")
-}
-
 func (r *ReportingPlugin) getSecretsRelaxedConsensusEnabled(ctx context.Context) bool {
 	return gateAllows(ctx, r.lggr, r.cfg.VaultGetSecretsRelaxedConsensusEnabled, "VaultGetSecretsRelaxedConsensusEnabled")
 }
@@ -703,10 +685,6 @@ func (r *ReportingPlugin) shouldPurgePendingQueue(ctx context.Context) bool {
 
 	stalledObservationCount := r.pendingQueueStallTracker.getCount()
 	return stalledObservationCount >= stallThreshold
-}
-
-func (r *ReportingPlugin) signedResponseRequestIDEnabled(ctx context.Context) bool {
-	return gateAllows(ctx, r.lggr, r.cfg.VaultSignedResponseRequestIDEnabled, "VaultSignedResponseRequestIDEnabled")
 }
 
 type pendingQueueStore interface {
@@ -2795,10 +2773,8 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			})
 		case vaultcommon.RequestType_CREATE_SECRETS:
 			createResp := proto.Clone(o.GetCreateSecretsResponse()).(*vaultcommon.CreateSecretsResponse)
-			if r.signedResponseRequestIDEnabled(ctx) {
-				createResp.RequestId = o.Id
-			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, createResp, r.jsonOmitUnpopulatedEnabled(ctx))
+			createResp.RequestId = o.Id
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, createResp)
 			if err != nil {
 				l.Errorw("failed to generate JSON report", "error", err, "requestID", o.Id)
 				continue
@@ -2809,10 +2785,8 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			})
 		case vaultcommon.RequestType_UPDATE_SECRETS:
 			updateResp := proto.Clone(o.GetUpdateSecretsResponse()).(*vaultcommon.UpdateSecretsResponse)
-			if r.signedResponseRequestIDEnabled(ctx) {
-				updateResp.RequestId = o.Id
-			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, updateResp, r.jsonOmitUnpopulatedEnabled(ctx))
+			updateResp.RequestId = o.Id
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, updateResp)
 			if err != nil {
 				l.Errorw("failed to generate JSON report", "error", err, "requestID", o.Id)
 				continue
@@ -2823,10 +2797,8 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			})
 		case vaultcommon.RequestType_DELETE_SECRETS:
 			deleteResp := proto.Clone(o.GetDeleteSecretsResponse()).(*vaultcommon.DeleteSecretsResponse)
-			if r.signedResponseRequestIDEnabled(ctx) {
-				deleteResp.RequestId = o.Id
-			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, deleteResp, r.jsonOmitUnpopulatedEnabled(ctx))
+			deleteResp.RequestId = o.Id
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, deleteResp)
 			if err != nil {
 				l.Errorw("failed to generate JSON report", "error", err, "requestID", o.Id)
 				continue
@@ -2837,10 +2809,8 @@ func (r *ReportingPlugin) Reports(ctx context.Context, seqNr uint64, reportsPlus
 			})
 		case vaultcommon.RequestType_LIST_SECRET_IDENTIFIERS:
 			listResp := proto.Clone(o.GetListSecretIdentifiersResponse()).(*vaultcommon.ListSecretIdentifiersResponse)
-			if r.signedResponseRequestIDEnabled(ctx) {
-				listResp.RequestId = o.Id
-			}
-			rep, err := r.generateJSONReport(o.Id, o.RequestType, listResp, r.jsonOmitUnpopulatedEnabled(ctx))
+			listResp.RequestId = o.Id
+			rep, err := r.generateJSONReport(o.Id, o.RequestType, listResp)
 			if err != nil {
 				l.Errorw("failed to generate JSON report", "error", err, "requestID", o.Id)
 				continue
@@ -2881,12 +2851,12 @@ func (r *ReportingPlugin) generateProtoReport(id string, requestType vaultcommon
 	return wrapReportWithKeyBundleInfo(rpb, rip)
 }
 
-func (r *ReportingPlugin) generateJSONReport(id string, requestType vaultcommon.RequestType, msg proto.Message, omitUnpopulated bool) (ocr3types.ReportWithInfo[[]byte], error) {
+func (r *ReportingPlugin) generateJSONReport(id string, requestType vaultcommon.RequestType, msg proto.Message) (ocr3types.ReportWithInfo[[]byte], error) {
 	if msg == nil {
 		return ocr3types.ReportWithInfo[[]byte]{}, errors.New("invalid report: response cannot be nil")
 	}
 
-	jsonb, err := vaultutils.ToCanonicalJSON(msg, omitUnpopulated)
+	jsonb, err := vaultutils.ToCanonicalJSON(msg)
 	if err != nil {
 		return ocr3types.ReportWithInfo[[]byte]{}, fmt.Errorf("failed to convert proto to canonical JSON: %w", err)
 	}
