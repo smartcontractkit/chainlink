@@ -475,7 +475,7 @@ func (s *Services) newRegistrySyncer(
 	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
 		s.SetDelegatesDeps = func(stdcapDelegate *standardcapabilities.Delegate) (commonsrv.Service, error) {
 			newServicesFn := func(ctx context.Context, capID string, donID uint32, command string, configJSON string, ocr3Config *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
-				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), job.OracleFactoryConfig{}, donID, ocr3Config)
+				return stdcapDelegate.NewServices(ctx, command, configJSON, 0, capID, uuid.New(), nil, donID, ocr3Config)
 			}
 			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
 			if lcmErr != nil {

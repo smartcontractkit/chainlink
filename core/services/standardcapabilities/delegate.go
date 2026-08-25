@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto"
 	"fmt"
-	"reflect"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -165,7 +164,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	// gap; tracked as a follow-up. See CRE-4409.
 	// The job-spec launch path has no registry OCR3 config to thread; NewServices falls
 	// back to the cached OCRConfigService when available.
-	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, spec.StandardCapabilitiesSpec.OracleFactory, 0, nil)
+	return d.NewServices(ctx, command, configJSON, spec.ID, spec.Name.ValueOrZero(), spec.ExternalJobID, &spec.StandardCapabilitiesSpec.OracleFactory, 0, nil)
 }
 
 // NewServices builds the per-job services for a Standard Capabilities LOOP.
@@ -183,7 +182,7 @@ func (d *Delegate) NewServices(
 	jobID int32,
 	jobName string,
 	externalJobID uuid.UUID,
-	oracleFactoryConfig job.OracleFactoryConfig,
+	oracleFactoryConfig *job.OracleFactoryConfig,
 	capabilityDonID uint32,
 	registryOCRConfig *ocrtypes.ContractConfig,
 ) ([]job.ServiceCtx, error) {
@@ -191,7 +190,7 @@ func (d *Delegate) NewServices(
 
 	// Bootstrap peers are always resolved from TOML config; the job spec must not
 	// carry them. Fail early when the node is not configured with default bootstrappers.
-	if oracleFactoryConfig.Enabled && len(oracleFactoryConfig.BootstrapPeers) == 0 && len(d.defaultBootstrappers) == 0 {
+	if oracleFactoryConfig != nil && oracleFactoryConfig.Enabled && len(oracleFactoryConfig.BootstrapPeers) == 0 && len(d.defaultBootstrappers) == 0 {
 		return nil, errors.New("no bootstrap peers configured in Capabilities.Peering.V2.DefaultBootstrappers")
 	}
 
@@ -303,23 +302,27 @@ func (d *Delegate) NewServices(
 
 	ocrKeyBundles := map[string]ocr2key.KeyBundle{"evm": ocrEvmKeyBundle}
 
-	resolvedOracleFactory, resolvedSigning, resolveErr := generic.ResolveOracleFactoryConfig(ctx, generic.ResolveOracleFactoryConfigParams{
-		Config:             oracleFactoryConfig,
-		OnchainSigning:     oracleFactoryConfig.OnchainSigning,
-		CapRegistryAddress: d.capRegistryAddress,
-		CapRegistryChainID: d.capRegistryChainID,
-		OCRKeyBundles:      ocrKeyBundles,
-		Transmitter:        transmitter,
-		EthKeystore:        d.ks.Eth(),
-		Logger:             log,
-	})
-	if resolveErr != nil {
-		return nil, fmt.Errorf("failed to resolve oracle factory config: %w", resolveErr)
-	}
-	// Only assign `resolvedOracleFactory` when the caller did not provide an
-	// oracle factory config.
-	if reflect.DeepEqual(oracleFactoryConfig, job.OracleFactoryConfig{}) {
-		oracleFactoryConfig = resolvedOracleFactory
+	// When the caller did not provide an oracle factory config (nil), resolve one
+	// from the Capabilities Registry and node keystore. When a config is provided
+	// (job-spec boot path), use it as-is for backward compatibility.
+	var oracleFactoryCfg job.OracleFactoryConfig
+	var resolvedSigning job.OnchainSigningStrategy
+	var resolveErr error
+	if oracleFactoryConfig == nil {
+		oracleFactoryCfg, resolvedSigning, resolveErr = generic.ResolveOracleFactoryConfig(ctx, generic.ResolveOracleFactoryConfigParams{
+			CapRegistryAddress: d.capRegistryAddress,
+			CapRegistryChainID: d.capRegistryChainID,
+			OCRKeyBundles:      ocrKeyBundles,
+			Transmitter:        transmitter,
+			EthKeystore:        d.ks.Eth(),
+			Logger:             log,
+		})
+		if resolveErr != nil {
+			return nil, fmt.Errorf("failed to resolve oracle factory config: %w", resolveErr)
+		}
+	} else {
+		oracleFactoryCfg = *oracleFactoryConfig
+		resolvedSigning = oracleFactoryConfig.OnchainSigning
 	}
 
 	var oracleFactory core.OracleFactory
@@ -331,7 +334,7 @@ func (d *Delegate) NewServices(
 			JobID:                  jobID,
 			JobName:                jobName,
 			KB:                     ocrEvmKeyBundle,
-			Config:                 oracleFactoryConfig,
+			Config:                 oracleFactoryCfg,
 			OnchainSigningStrategy: resolvedSigning,
 			PeerWrapper:            d.ocrPeerWrapper,
 			RelayerSet:             relayerSet,
@@ -343,9 +346,7 @@ func (d *Delegate) NewServices(
 			return nil, fmt.Errorf("failed to create oracle factory from function: %w", err)
 		}
 	} else {
-		log.Debug("oracleFactoryConfig: ", oracleFactoryConfig)
-
-		if oracleFactoryConfig.Enabled && d.ocrPeerWrapper == nil {
+		if oracleFactoryCfg.Enabled && d.ocrPeerWrapper == nil {
 			return nil, errors.New("P2P stack required for Oracle Factory")
 		}
 
@@ -355,7 +356,7 @@ func (d *Delegate) NewServices(
 			JobID:                  jobID,
 			JobName:                jobName,
 			KB:                     ocrEvmKeyBundle,
-			Config:                 oracleFactoryConfig,
+			Config:                 oracleFactoryCfg,
 			OnchainSigningStrategy: resolvedSigning,
 			PeerWrapper:            d.ocrPeerWrapper,
 			RelayerSet:             relayerSet,
