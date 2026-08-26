@@ -31,7 +31,7 @@ MessageTypeWeights=[100,0,0]
 RequestFrequency="10s"
 LoadDuration="1m"
 # destination chain selectors to send messages to ie [3379446385462418246,909606746561742123, etc.]
-EnabledDestionationChains=[3379446385462418246]
+EnabledDestinationChains=[3379446385462418246]
 # Directory where we receive environment configuration from crib
 CribEnvDirectory="directory/to/crib/output"
 

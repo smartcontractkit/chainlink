@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"testing"
 	"time"
@@ -105,7 +106,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			return m.Body.MessageId == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
 				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 200 &&
+				payload.StatusCode == http.StatusOK &&
 				len(payload.Headers) == 0 &&
 				string(payload.Body) == "response body" &&
 				!payload.ExecutionError
@@ -141,7 +142,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 			return m.Body.MessageId == "123" &&
 				MethodWebAPITarget == m.Body.Method &&
 				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 404 &&
+				payload.StatusCode == http.StatusNotFound &&
 				string(payload.Body) == "access denied" &&
 				len(payload.Headers) == 0 &&
 				!payload.ExecutionError
@@ -189,7 +190,7 @@ func TestHandler_SendHTTPMessageToClient(t *testing.T) {
 	})
 }
 
-func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, methodName string, timestamp string, payload string) *api.Message {
+func triggerRequest(t *testing.T, key *ecdsa.PrivateKey, topics []string, methodName, timestamp, payload string) *api.Message {
 	messageID := "12345"
 	if methodName == "" {
 		methodName = MethodWebAPITrigger
@@ -361,7 +362,7 @@ func TestHandlerReceiveHTTPMessageFromClient(t *testing.T) {
 		handler.mu.Unlock()
 	})
 
-	// TODO: Validate Senders and rate limit chck, pending question in trigger about where senders and rate limits are validated
+	// TODO: Validate Senders and rate limit check, pending question in trigger about where senders and rate limits are validated
 }
 
 func TestHandleComputeActionMessage(t *testing.T) {
@@ -409,7 +410,7 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			return m.Body.MessageId == "123" &&
 				MethodComputeAction == m.Body.Method &&
 				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 200 &&
+				payload.StatusCode == http.StatusOK &&
 				len(payload.Headers) == 0 &&
 				string(payload.Body) == "response body" &&
 				!payload.ExecutionError
@@ -446,7 +447,7 @@ func TestHandleComputeActionMessage(t *testing.T) {
 			return m.Body.MessageId == "123" &&
 				MethodComputeAction == m.Body.Method &&
 				m.Body.DonId == "testDonId" &&
-				payload.StatusCode == 404 &&
+				payload.StatusCode == http.StatusNotFound &&
 				string(payload.Body) == "access denied" &&
 				len(payload.Headers) == 0 &&
 				!payload.ExecutionError

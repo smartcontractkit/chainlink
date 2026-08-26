@@ -466,7 +466,8 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 			tls.HTTPSPort(),
 			tls.CertFile(),
 			tls.KeyFile(),
-			config.WebServer().HTTPWriteTimeout())
+			config.WebServer().HTTPWriteTimeout(),
+		)
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), serverStartTimeoutDuration, runServer)
 	}
 
@@ -723,7 +724,7 @@ func (t *SessionCookieAuthenticator) Authenticate(ctx context.Context, sessionRe
 		return nil, err
 	}
 	url := t.config.RemoteNodeURL.String() + "/sessions"
-	req, err := http.NewRequestWithContext(ctx, "POST", url, b)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, b)
 	if err != nil {
 		return nil, err
 	}

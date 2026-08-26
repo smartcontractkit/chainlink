@@ -14,7 +14,7 @@ import (
 
 type mockRegistry struct{}
 
-func (m *mockRegistry) Get(streamID StreamID) (p Pipeline, exists bool) { return }
+func (m *mockRegistry) Get(streamID StreamID) (p Pipeline, exists bool) { return p, exists }
 func (m *mockRegistry) Register(jb job.Job, rrs ResultRunSaver) error {
 	return nil
 }
@@ -56,7 +56,7 @@ func Test_Delegate(t *testing.T) {
 }
 
 func Test_ValidatedStreamSpec(t *testing.T) {
-	var tt = []struct {
+	tt := []struct {
 		name      string
 		toml      string
 		assertion func(t *testing.T, os job.Job, err error)
@@ -90,7 +90,7 @@ answer1      [type=median index=0];
 			name: "unparseable toml",
 			toml: `not toml`,
 			assertion: func(t *testing.T, jb job.Job, err error) {
-				assert.EqualError(t, err, "toml unmarshal error on job: toml: expected character =")
+				assert.EqualError(t, err, "toml unmarshal error on job: toml: expected '=' after key")
 			},
 		},
 		{

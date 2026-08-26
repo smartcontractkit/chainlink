@@ -65,6 +65,9 @@ type webSocketServer struct {
 
 func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAcceptor, lggr logger.Logger, lf limits.Factory) (WebSocketServer, error) {
 	config.applyDefaults()
+	if config.Path == HealthCheckPath {
+		return nil, fmt.Errorf("WebSocket request path %q conflicts with health check path", config.Path)
+	}
 	if err := config.ensureLimiters(lf); err != nil {
 		return nil, err
 	}
@@ -81,6 +84,7 @@ func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAccept
 		lggr:              logger.Named(lggr, "WebSocketServer"),
 	}
 	mux := http.NewServeMux()
+	mux.Handle(HealthCheckPath, http.HandlerFunc(server.handleHealthCheck))
 	mux.Handle(config.Path, http.HandlerFunc(server.handleRequest))
 	server.server = &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", config.Host, config.Port),
@@ -91,6 +95,13 @@ func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAccept
 		WriteTimeout:      time.Duration(config.WriteTimeoutMillis) * time.Millisecond,
 	}
 	return server, nil
+}
+
+func (s *webSocketServer) handleHealthCheck(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write([]byte(HealthCheckResponse)); err != nil {
+		s.lggr.Debugw("error writing health response", "err", err)
+	}
 }
 
 func (s *webSocketServer) GetPort() int {

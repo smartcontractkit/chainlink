@@ -31,6 +31,7 @@ func (m *mockPingConn) Name() string                         { return "mockPingC
 func (m *mockPingConn) Ready() error                         { return nil }
 func (m *mockPingConn) Reset(*websocket.Conn) <-chan error   { return nil }
 func (m *mockPingConn) ReadChannel() <-chan network.ReadItem { return nil }
+func (m *mockPingConn) IsConnected() bool                    { return true }
 func (m *mockPingConn) Close() error                         { return nil }
 
 func (m *mockPingConn) Write(ctx context.Context, msgType int, _ []byte) error {

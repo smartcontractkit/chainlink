@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -239,7 +239,7 @@ func (t checkTree) WriteHTMLTo(w io.Writer) error {
 }
 
 func (t checkTree) writeHTMLTo(w *linePrefixWriter) error {
-	keys := maps.Keys(t)
+	keys := slices.AppendSeq(make([]string, 0, len(t)), maps.Keys(t))
 	slices.Sort(keys)
 	for _, short := range keys {
 		node := t[short]

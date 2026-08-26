@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -362,6 +364,160 @@ func Test_ServerRequest_MessageValidation(t *testing.T) {
 	})
 }
 
+func Test_ServerRequest_SingleExecutionNonBlocking(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	capabilityPeerID := NewP2PPeerID(t)
+
+	numWorkflowPeers := 2
+	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
+	for i := range numWorkflowPeers {
+		workflowPeers[i] = NewP2PPeerID(t)
+	}
+
+	callingDon := commoncap.DON{
+		Members: workflowPeers,
+		ID:      1,
+		F:       0, // we want wf peer 0 to execute and peer 1 to return immediately
+	}
+
+	executeInputs, err := values.NewMap(
+		map[string]any{
+			"executeValue1": "aValue1",
+		},
+	)
+	require.NoError(t, err)
+
+	capabilityRequest := commoncap.CapabilityRequest{
+		Metadata: commoncap.RequestMetadata{
+			WorkflowID:          "workflowID",
+			WorkflowExecutionID: "workflowExecutionID",
+		},
+		Inputs: executeInputs,
+	}
+
+	rawRequest, err := pb.MarshalCapabilityRequest(capabilityRequest)
+	require.NoError(t, err)
+
+	t.Run("Execute capability", func(t *testing.T) {
+		t.Parallel()
+
+		started := make(chan struct{})
+		release := make(chan struct{})
+		capability := BlockingTestCapability{counter: &atomic.Int32{}, started: started, release: release}
+		// need a concurrent dispatcher here as we call onMessage for wf peer 0 concurrently
+		// before this, all onMessage calls were sequential
+		dispatcher := &concurrentTestDispatcher{}
+		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), lggr)
+		require.NoError(t, err)
+
+		errCh := make(chan error, 1)
+
+		// wf peer 0 calls onMessage
+		// we have to do this in a goroutine because the capability blocks until we close the release channel
+		go func() {
+			errCh <- sendValidRequest(
+				req,
+				workflowPeers,
+				capabilityPeerID,
+				rawRequest,
+			)
+		}()
+
+		// wait on started to prove that wf peer 0 has started executing the capability
+		<-started
+
+		// wf peer 1 calls onMessage
+		err = req.OnMessage(context.Background(), &types.MessageBody{
+			Version:         0,
+			Sender:          workflowPeers[1][:],
+			Receiver:        capabilityPeerID[:],
+			MessageId:       []byte("workflowID" + "workflowExecutionID"),
+			CapabilityId:    "capabilityID",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
+			Method:          types.MethodExecute,
+			Payload:         rawRequest,
+		})
+		// wf peer 1 should immediately return as its not blocked
+		require.NoError(t, err)
+
+		t.Log("WF Peer 1 has returned. Closing channel now. This will let capability execution finish and WF Peer 0 can finish.")
+		close(release)
+		// ensure wf peer 0 returns without error
+		errA := <-errCh
+		require.NoError(t, errA)
+
+		// ensure that the capability was only executed once and that both workflow peers received a response
+		require.Equal(t, int32(1), capability.counter.Load())
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_OK, dispatcher.msgs[0].Error)
+		assert.Equal(t, types.Error_OK, dispatcher.msgs[1].Error)
+	})
+
+	t.Run("Cancel Execute capability", func(t *testing.T) {
+		t.Parallel()
+
+		started := make(chan struct{})
+		release := make(chan struct{})
+		capability := BlockingTestCapability{counter: &atomic.Int32{}, started: started, release: release}
+		// need a concurrent dispatcher here as we call onMessage for wf peer 0 concurrently
+		// before this, all onMessage calls were sequential
+		dispatcher := &concurrentTestDispatcher{}
+		req, err := request.NewServerRequest(capability, types.MethodExecute, "capabilityID", 2,
+			capabilityPeerID, callingDon, "requestMessageID", dispatcher, 10*time.Minute, "", limits.NewGateLimiter(false), lggr)
+		require.NoError(t, err)
+
+		errCh := make(chan error, 1)
+
+		// wf peer 0 calls onMessage
+		// we have to do this in a goroutine because the capability blocks until we close the release channel
+		go func() {
+			errCh <- sendValidRequest(
+				req,
+				workflowPeers,
+				capabilityPeerID,
+				rawRequest,
+			)
+		}()
+
+		// wait on started to prove that wf peer 0 has started executing the capability
+		<-started
+
+		// wf peer 1 calls onMessage
+		err = req.OnMessage(context.Background(), &types.MessageBody{
+			Version:         0,
+			Sender:          workflowPeers[1][:],
+			Receiver:        capabilityPeerID[:],
+			MessageId:       []byte("workflowID" + "workflowExecutionID"),
+			CapabilityId:    "capabilityID",
+			CapabilityDonId: 2,
+			CallerDonId:     1,
+			Method:          types.MethodExecute,
+			Payload:         rawRequest,
+		})
+		// wf peer 1 should immediately return as its not blocked
+		require.NoError(t, err)
+
+		// cancel request before wf peer 0 finishes executing the capability
+		cancelErr := req.Cancel(t.Context(), types.Error_TIMEOUT, "cancelled by test")
+		require.NoError(t, cancelErr)
+
+		// wf peer 0 returns without error
+		errA := <-errCh
+		require.NoError(t, errA)
+
+		// ensure that the capability was only executed once
+		// ensure that both workflow peers received a timeout error
+		require.Equal(t, int32(1), capability.counter.Load())
+		assert.Len(t, dispatcher.msgs, 2)
+		assert.Equal(t, types.Error_TIMEOUT, dispatcher.msgs[0].Error)
+		assert.Equal(t, types.Error_TIMEOUT, dispatcher.msgs[1].Error)
+	})
+}
+
 func Test_ServerRequest_Evictable(t *testing.T) {
 	t.Parallel()
 
@@ -466,6 +622,18 @@ func (t *testDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody
 	return nil
 }
 
+type concurrentTestDispatcher struct {
+	testDispatcher
+	mu sync.Mutex
+}
+
+func (t *concurrentTestDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.msgs = append(t.msgs, msgBody)
+	return nil
+}
+
 type abstractTestCapability struct {
 }
 
@@ -493,6 +661,34 @@ func (t TestCapability) Execute(ctx context.Context, request commoncap.Capabilit
 		return commoncap.CapabilityResponse{}, err
 	}
 
+	return commoncap.CapabilityResponse{
+		Value: response,
+	}, nil
+}
+
+type BlockingTestCapability struct {
+	abstractTestCapability
+	counter *atomic.Int32
+	started chan struct{}
+	release chan struct{}
+}
+
+func (t BlockingTestCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
+	close(t.started)
+	value := request.Inputs.Underlying["executeValue1"]
+
+	response, err := values.NewMap(map[string]any{"response": value})
+	if err != nil {
+		return commoncap.CapabilityResponse{}, err
+	}
+	t.counter.Add(1)
+
+	// Block until we're released.
+	select {
+	case <-t.release:
+	case <-ctx.Done():
+		return commoncap.CapabilityResponse{}, ctx.Err()
+	}
 	return commoncap.CapabilityResponse{
 		Value: response,
 	}, nil

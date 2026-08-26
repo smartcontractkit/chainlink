@@ -1,0 +1,189 @@
+# Configuration for typos (https://github.com/crate-ci/typos)
+
+[files]
+extend-exclude = [
+    # Dependencies & vendor
+    "vendor/**",
+    "node_modules/**",
+
+    # Database migrations (checksummed/historical)
+    "**/migrate/migrations/**",
+    "**/migrations/**",
+
+    # Mockery and test mocks
+    "**/mocks/**",
+    "**/*_mock.go",
+    "**/*_mocks.go",
+    "**/*_mock_generated.go",
+    "**/mock_*.go",
+    "**/mocks.go",
+
+    # Code generation (Go generate, Protobuf, gRPC, bindings, anchor-go, etc.)
+    "**/*.pb.go",
+    "**/*.pb.gw.go",
+    "**/*_grpc.pb.go",
+    "**/*_generated.go",
+    "**/generated/**",
+    "**/gen/**",
+    "**/*.gen.go",
+    "**/*_string.go",
+    "**/bindings/**",
+    "**/bind/**",
+    "**/gethwrappers/**",
+    "**/data_feeds_cache/**",
+    "system-tests/tests/smoke/cre/**/contracts/**",
+    "system-tests/tests/smoke/cre/**/src/generated/**",
+
+    # Web & UI assets, bundles, and build outputs
+    "core/web/assets/**",
+    "operator_ui/dist/**",
+    "operator_ui/build/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/public/**",
+    "**/*.min.js",
+    "**/*.min.css",
+    "**/*.map",
+
+    # Documentation & graph generated files & historical changelogs
+    "go.md",
+    "docs/CONFIG.md",
+    "CHANGELOG.md",
+    "CHANGELOG/**",
+
+    # Test fixtures, dumps, logs, and coverage reports
+    "**/testdata/**",
+    "**/fixtures/**",
+    "*.log",
+    "*.out",
+    "*.ndjson",
+    "*.jsonl",
+    "*.csv",
+    "benchmark_summary.json",
+    "pr-*_review.xml",
+    "tests.log",
+    "diagnose-*/**",
+
+    # Incompatible file types: Vector graphics, images & media
+    "*.svg",
+    "*.png",
+    "*.jpg",
+    "*.jpeg",
+    "*.gif",
+    "*.ico",
+    "*.webp",
+    "*.bmp",
+    "*.tiff",
+    "*.pdf",
+    "*.mp4",
+    "*.webm",
+
+    # Incompatible file types: Compressed archives & artifacts
+    "*.zip",
+    "*.tar",
+    "*.tar.gz",
+    "*.tgz",
+    "*.gz",
+    "*.bz2",
+    "*.tbz2",
+    "*.xz",
+    "*.txz",
+    "*.zst",
+    "*.zstd",
+    "*.lz4",
+    "*.lzma",
+    "*.7z",
+    "*.rar",
+    "*.br",
+    "*.br.b64",
+
+    # Incompatible file types: Binaries & compiled artifacts
+    "*.wasm",
+    "*.wasm.br",
+    "*.bin",
+    "*.hex",
+    "*.iso",
+    "*.dylib",
+    "*.so",
+    "*.a",
+    "*.o",
+    "*.test",
+    "*.aes",
+    "*.db",
+    "*.sqlite",
+    "*.sqlite3",
+    "*.sqlite3-*",
+
+    # Incompatible file types: Lock files & module checksums
+    "go.sum",
+    "**/go.sum",
+    "*.sum",
+    "**/*.sum",
+    "go.mod",
+    "**/go.mod",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "flake.lock",
+    "*.lock",
+
+    # Incompatible file types: Keystores & cert bundles
+    "*.keystore",
+    "*.p12",
+    "*.pfx",
+]
+
+[default]
+extend-ignore-re = [
+    # Ignore PEM certificate and private key blocks
+    "(?s)-----BEGIN [A-Z ]+-----(.*?)-----END [A-Z ]+-----",
+
+    # Hexadecimal values (0x-prefixed, hashes, selectors >= 8 hex chars)
+    "\\b0x[0-9a-fA-F]+\\b",
+    "\\b[0-9a-fA-F]{8,}\\b",
+
+    # Cryptographic keys, addresses, and random hashes/tokens (>= 20 characters)
+    "\\b[A-Za-z0-9+/=]{20,}\\b",
+
+    # Inline comment ignore directives (Go/JS/C `//`, Python/Shell/YAML `#`, SQL `--`, HTML `<!--`)
+    "(?m)^.*(//|#|--|<!--)\\s*typos:ignore.*$",
+
+    # Inline block ignore directives (`/* typos:disable */ ... /* typos:enable */`)
+    "(?s)/\\*\\s*typos:disable\\s*\\*/.*?/\\*\\s*typos:enable\\s*\\*/",
+    "(?s)<!--\\s*typos:disable\\s*-->.*?<!--\\s*typos:enable\\s*-->",
+]
+
+[default.extend-words]
+# Domain terms & Chainlink acronyms
+LOOPP = "LOOPP"
+CCIP = "CCIP"
+OCR = "OCR"
+OCR2 = "OCR2"
+OCR3 = "OCR3"
+DON = "DON"
+DONs = "DONs"
+VRF = "VRF"
+CRE = "CRE"
+BHS = "BHS"
+CSA = "CSA"
+MCMS = "MCMS"
+LLO = "LLO"
+TXMGR = "TXMGR"
+CLL = "CLL"
+EVM = "EVM"
+WSRPC = "WSRPC"
+NOOP = "NOOP"
+NOOPs = "NOOPs"
+noop = "noop"
+noops = "noops"
+
+# ned = name for secondary noop
+ned = "ned"
+
+# PostgreSQL index types & valid English spelling variants
+brin = "brin"
+BRIN = "BRIN"
+writeable = "writeable"
+transferrable = "transferrable"
+supercedes = "supercedes"
+unparseable = "unparseable"

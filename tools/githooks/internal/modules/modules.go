@@ -281,6 +281,69 @@ func FindTestModules(repoRoot string, files []string) ([]ModulePackages, error) 
 	return result, nil
 }
 
+// GetMergeBase returns the merge-base of HEAD with the origin default branch
+// (refs/remotes/origin/HEAD). This matches the diff base CI uses for
+// only-new-issues, so local lint results align with CI. Falls back to "HEAD"
+// when the remote default branch is missing or shares no history.
+func GetMergeBase(ctx context.Context, repoRoot string) string {
+	refCmd := exec.CommandContext(ctx, "git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD")
+	refCmd.Dir = repoRoot
+	refOut, err := refCmd.Output()
+	if err != nil {
+		return "HEAD"
+	}
+	defaultBranch := strings.TrimSpace(string(refOut))
+	if defaultBranch == "" {
+		return "HEAD"
+	}
+
+	mbCmd := exec.CommandContext(ctx, "git", "merge-base", "HEAD", defaultBranch)
+	mbCmd.Dir = repoRoot
+	mbOut, err := mbCmd.Output()
+	if err != nil {
+		return "HEAD"
+	}
+	if sha := strings.TrimSpace(string(mbOut)); sha != "" {
+		return sha
+	}
+	return "HEAD"
+}
+
+// GetChangedFilesSince returns files changed relative to rev, including
+// committed branch changes, staged changes, and unstaged working-tree changes
+// (git diff <rev> semantics). Deleted files are excluded.
+func GetChangedFilesSince(ctx context.Context, repoRoot, rev string) ([]string, error) {
+	// Union the working-tree diff (captures committed + unstaged changes) with the
+	// index diff (captures committed + staged changes), so index-only staged changes
+	// aren't missed.
+	diffArgs := [][]string{
+		{"diff", "--name-only", "--diff-filter=d", rev, "--"},
+		{"diff", "--cached", "--name-only", "--diff-filter=d", rev, "--"},
+	}
+
+	fileSet := make(map[string]struct{})
+	for _, args := range diffArgs {
+		cmd := exec.CommandContext(ctx, "git", args...)
+		cmd.Dir = repoRoot
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return nil, fmt.Errorf("git %s failed: %w (output: %s)", strings.Join(args, " "), err, string(out))
+		}
+		for line := range strings.SplitSeq(string(out), "\n") {
+			if trimmed := strings.TrimSpace(line); trimmed != "" {
+				fileSet[trimmed] = struct{}{}
+			}
+		}
+	}
+
+	files := make([]string, 0, len(fileSet))
+	for f := range fileSet {
+		files = append(files, f)
+	}
+	sort.Strings(files)
+	return files, nil
+}
+
 // GetStagedFiles fetches staged files from git.
 func GetStagedFiles(ctx context.Context, repoRoot string) ([]string, error) {
 	cmd := exec.CommandContext(ctx, "git", "diff", "--cached", "--name-only", "--diff-filter=d")

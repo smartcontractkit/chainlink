@@ -1,6 +1,6 @@
 package presenters
 
-// SolanaMsgResource repesents a Solana message JSONAPI resource.
+// SolanaMsgResource represents a Solana message JSONAPI resource.
 type SolanaMsgResource struct {
 	JAID
 	ChainID string

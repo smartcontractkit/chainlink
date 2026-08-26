@@ -348,7 +348,7 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 			ConfigEncryptionPublicKey: evmutils.RandomBytes32(),
 		})
 	}
-	// Gnerate OnchainConfig
+	// Generate OnchainConfig
 	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(big.NewInt(0), big.NewInt(10))
 	require.NoError(t, err)
 	// Change the offramp config
