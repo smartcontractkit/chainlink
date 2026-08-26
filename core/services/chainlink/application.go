@@ -27,6 +27,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
 
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -92,7 +94,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/oidcauth"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 )
 
 // Application implements the common functions used in the core node.

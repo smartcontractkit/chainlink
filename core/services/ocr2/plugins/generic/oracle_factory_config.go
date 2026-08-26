@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/ocr2key"
+	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
