@@ -2,8 +2,8 @@
 
 This module centralizes CI operations. All changes must adhere strictly to these rules:
 
-1. **Pure logic in `internal/`**:
-   - All domain logic lives in `internal/<package>`, written as pure functions taking explicit structs and returning `(T, error)`.
+1. **Logic in `internal/`**:
+   - All domain logic lives in `internal/<package>`, taking explicit structs and returning `(T, error)`. Filesystem reads are allowed; avoid reading env vars, parsing CLI flags, or writing directly to stdout/stderr.
    - Never call `os.Getenv`, read flags, or write to standard streams directly inside `internal/` (except `internal/ghaction`).
 2. **`cmd/` is a thin shell**:
    - Parse flags, resolve environment fallbacks, call `internal/`, and render outputs.

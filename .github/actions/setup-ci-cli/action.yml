@@ -13,7 +13,7 @@ runs:
       uses: actions/cache@v6
       with:
         path: tools/ci/.bin/ci
-        key: ci-cli-${{ runner.os }}-${{ hashFiles('tools/ci/**') }}
+        key: ci-cli-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/ci/**') }}
 
     - name: Setup Go (on cache miss)
       if: ${{ steps.cache-ci-cli.outputs.cache-hit != 'true' }}

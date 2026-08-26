@@ -109,7 +109,7 @@ func ComputeMatrix(targets []Target, opts MatrixOptions) []Target {
 
 	// If any workflow definition or GitHub action changed, run all targets.
 	for _, file := range opts.ChangedFiles {
-		if strings.HasPrefix(file, ".github/workflows/ci-core.yml") || strings.HasPrefix(file, ".github/actions/") {
+		if strings.HasPrefix(file, ".github/workflows/") || strings.HasPrefix(file, ".github/actions/") {
 			return targets
 		}
 	}

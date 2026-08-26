@@ -108,6 +108,11 @@ func TestComputeMatrix_WorkflowFilesChanged(t *testing.T) {
 	})
 	assert.Equal(t, targets, matrix)
 
+	matrixOtherWorkflow := tools.ComputeMatrix(targets, tools.MatrixOptions{
+		ChangedFiles: []string{".github/workflows/cre-system-tests.yaml"},
+	})
+	assert.Equal(t, targets, matrixOtherWorkflow)
+
 	matrixAction := tools.ComputeMatrix(targets, tools.MatrixOptions{
 		ChangedFiles: []string{".github/actions/setup-go/action.yml"},
 	})

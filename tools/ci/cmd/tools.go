@@ -85,7 +85,12 @@ func runToolsMatrix(ctx context.Context, cmd *cobra.Command, opts *toolsMatrixOp
 			}
 		}
 	} else if !opts.all && eventName != "schedule" && eventName != "workflow_dispatch" {
-		changedFileList, _ = getGitChangedFiles(ctx, repoRoot, opts.baseRef)
+		var diffErr error
+		changedFileList, diffErr = getGitChangedFiles(ctx, repoRoot, opts.baseRef)
+		if diffErr != nil {
+			// Fall back to running all tool targets if diff cannot be resolved (e.g. shallow clone in CI)
+			opts.all = true
+		}
 	}
 
 	filteredTargets := tools.ComputeMatrix(allTargets, tools.MatrixOptions{
