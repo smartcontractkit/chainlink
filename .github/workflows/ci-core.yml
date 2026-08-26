@@ -591,7 +591,8 @@ jobs:
         uses: ./.github/actions/setup-gotestsum
 
       - name: Run tests
-        run: gotestsum --format github-actions -- -C ${{ matrix.target.dir }} ${{ matrix.target.packages }}
+        working-directory: ${{ matrix.target.dir }}
+        run: gotestsum --format github-actions -- ${{ matrix.target.packages }}
 
   clean:
     name: Clean Go Tidy & Generate
