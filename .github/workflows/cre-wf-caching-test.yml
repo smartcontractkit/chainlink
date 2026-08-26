@@ -48,7 +48,7 @@ jobs:
           metrics: cpu,network,memory,disk,io
 
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
