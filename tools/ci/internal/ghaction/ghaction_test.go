@@ -32,6 +32,9 @@ func TestGHAction_SetOutput_File(t *testing.T) {
 }
 
 func TestGHAction_SetOutput_FallbackStdout(t *testing.T) {
+	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+		t.Skip("skipping in CI: GITHUB_OUTPUT is set in CI environment")
+	}
 	t.Parallel()
 	var stdout bytes.Buffer
 	act := ghaction.New(&stdout, "", "")
@@ -61,6 +64,9 @@ func TestGHAction_SetEnv_File(t *testing.T) {
 }
 
 func TestGHAction_SetEnv_FallbackStdout(t *testing.T) {
+	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+		t.Skip("skipping in CI: GITHUB_ENV is set in CI environment")
+	}
 	t.Parallel()
 	var stdout bytes.Buffer
 	act := ghaction.New(&stdout, "", "")
@@ -89,6 +95,9 @@ func TestGHAction_AddStepSummary_File(t *testing.T) {
 }
 
 func TestGHAction_AddStepSummary_FallbackStdout(t *testing.T) {
+	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+		t.Skip("skipping in CI: GITHUB_STEP_SUMMARY is set in CI environment")
+	}
 	t.Parallel()
 	var stdout bytes.Buffer
 	act := ghaction.NewWithOptions(&stdout, "", "", "")
