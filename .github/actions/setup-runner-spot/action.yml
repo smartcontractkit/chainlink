@@ -1,0 +1,56 @@
+name: Setup Runner Spot
+description: Determines the optimal RunsOn spot instance strategy for CI jobs
+inputs:
+  strategy:
+    description: "Explicit spot strategy override ('co', 'pco', 'lowest-price', 'false')"
+    required: false
+    default: ""
+  default-strategy:
+    description: "Default spot strategy if enabled ('pco', 'co')"
+    required: false
+    default: ""
+  force-on-demand:
+    description: "Force on-demand / disable spot ('true' or 'false')"
+    required: false
+    default: "false"
+
+outputs:
+  spot:
+    description: "Resolved spot setting value (e.g. 'false', 'co', 'pco', 'lowest-price')"
+    value: ${{ steps.resolve-spot.outputs.spot }}
+  spot_flag:
+    description: "Resolved spot setting as RunsOn flag (e.g. 'spot=false', 'spot=co', 'spot=pco')"
+    value: ${{ steps.resolve-spot.outputs.spot_flag }}
+  spot_param:
+    description: "Alias for spot_flag (e.g. 'spot=false', 'spot=co', 'spot=pco')"
+    value: ${{ steps.resolve-spot.outputs.spot_param }}
+  enabled:
+    description: "Whether spot is enabled ('true' or 'false')"
+    value: ${{ steps.resolve-spot.outputs.enabled }}
+  strategy:
+    description: "Resolved spot strategy name"
+    value: ${{ steps.resolve-spot.outputs.strategy }}
+  reason:
+    description: "Reasoning for the resolved spot setting"
+    value: ${{ steps.resolve-spot.outputs.reason }}
+  is_release:
+    description: "Whether run is on release branch or tag ('true' or 'false')"
+    value: ${{ steps.resolve-spot.outputs.is_release }}
+  is_merge_queue:
+    description: "Whether run is merge queue event/branch ('true' or 'false')"
+    value: ${{ steps.resolve-spot.outputs.is_merge_queue }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup CI CLI
+      uses: ./.github/actions/setup-ci-cli
+
+    - name: Resolve Spot Setting
+      id: resolve-spot
+      shell: bash
+      env:
+        RUNNER_SPOT_STRATEGY: ${{ inputs.strategy }}
+        RUNNER_DEFAULT_SPOT_STRATEGY: ${{ inputs.default-strategy }}
+        RUNNER_FORCE_ON_DEMAND: ${{ inputs.force-on-demand }}
+      run: ci runner spot

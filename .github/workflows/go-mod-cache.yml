@@ -34,10 +34,15 @@ jobs:
       pull-requests: read
     outputs:
       changed: ${{ steps.changes.outputs.src || 'true' }}
+      spot_flag: ${{ steps.spot.outputs.spot_flag }}
+      spot_param: ${{ steps.spot.outputs.spot_param }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Resolve Spot Setting
+        id: spot
+        uses: ./.github/actions/setup-runner-spot
       - uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
         if: github.event_name == 'pull_request'
         id: changes
@@ -64,10 +69,22 @@ jobs:
             suffix: "Deployment (Github-hosted)"
             go-mod-directory: "deployment/"
 
-          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
+          - runs-on:
+              - runs-on=${{ github.run_id }}-core
+              - cpu=8
+              - ram=16
+              - family=c6id
+              - ${{ needs.filter.outputs.spot_param }}
+              - extras=s3-cache
             suffix: "Core (Self-hosted)"
 
-          - runs-on: runs-on=${{ github.run_id }}/cpu=8/ram=16/family=c6id/spot=false/extras=s3-cache
+          - runs-on:
+              - runs-on=${{ github.run_id }}-deployment
+              - cpu=8
+              - ram=16
+              - family=c6id
+              - ${{ needs.filter.outputs.spot_param }}
+              - extras=s3-cache
             suffix: "Deployment (Self-hosted)"
             go-mod-directory: "deployment/"
 

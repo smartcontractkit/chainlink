@@ -113,6 +113,7 @@ func newRunnerSpotCmd() *cobra.Command {
 				outputs := map[string]string{
 					"spot":           res.Spot,
 					"spot_flag":      res.SpotFlag,
+					"spot_param":     res.SpotFlag,
 					"enabled":        strconv.FormatBool(res.Enabled),
 					"strategy":       string(res.Strategy),
 					"reason":         res.Reason,

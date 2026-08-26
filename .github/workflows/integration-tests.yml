@@ -211,7 +211,18 @@ jobs:
       run-e2e-tests-label-found: ${{ steps.label-runs-e2e-tests.outputs.check-label-found || 'false' }}
       skip-e2e-regression-label-found: ${{ steps.label-skip-e2e-regression.outputs.check-label-found || 'false' }}
       skip-mixed-env-label-found: ${{ steps.label-skip-mixed-env.outputs.check-label-found || 'false' }}
+      spot_flag: ${{ steps.spot.outputs.spot_flag }}
+      spot_param: ${{ steps.spot.outputs.spot_param }}
     steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Resolve Spot Setting
+        id: spot
+        uses: ./.github/actions/setup-runner-spot
+
       - name: Get PR Labels (runs-on-opt-out)
         if: github.event_name == 'pull_request'
         id: label-runs-on-opt-out
@@ -246,8 +257,8 @@ jobs:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
           # include unique label (core/plugins) to ensure jobs are not competing for the same runner
-          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=16/ram=64/family=m7i+m8i/spot=co/extras=s3-cache+tmpfs
-          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=16/ram=64/family=m7i+m8i/spot=co/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=16/ram=64/family=m7i+m8i/${{ steps.spot.outputs.spot_flag }}/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=16/ram=64/family=m7i+m8i/${{ steps.spot.outputs.spot_flag }}/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"
@@ -586,9 +597,17 @@ jobs:
          needs.run-ccip-v1-6-e2e-tests-setup.outputs.should-run == 'true')
       }}
     needs:
+      - labels
       - run-core-cre-e2e-tests-setup
       - run-ccip-v1-6-e2e-tests-setup
-    runs-on: runs-on=${{ github.run_id }}-compile/cpu=32/ram=64/family=c7i+c8i/spot=co/volume=100GB/extras=s3-cache
+    runs-on:
+      - runs-on=${{ github.run_id }}-compile
+      - cpu=32
+      - ram=64
+      - family=c7i+c8i
+      - ${{ needs.labels.outputs.spot_param }}
+      - volume=100GB
+      - extras=s3-cache
     environment:
       name: integration
       deployment: false

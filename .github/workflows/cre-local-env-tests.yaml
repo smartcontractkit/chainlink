@@ -28,7 +28,13 @@ on:
 
 jobs:
   changes:
-    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m7i+m8i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on:
+      - runs-on=${{ github.run_id }}
+      - cpu=16
+      - ram=64
+      - family=m7i+m8i
+      - image=ubuntu24-full-x64
+      - extras=s3-cache+tmpfs
     environment:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
       name: integration
@@ -44,12 +50,18 @@ jobs:
           github.event_name == 'pull_request' && contains(join(github.event.pull_request.labels.*.name, ' '), 'run-local-cre-env-tests') ||
           steps.changes.outputs.ci_changes == 'true'
         }}
+      spot_flag: ${{ steps.spot.outputs.spot_flag }}
+      spot_param: ${{ steps.spot.outputs.spot_param }}
     timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
           ref: ${{ github.event_name == 'pull_request' && github.sha || inputs.chainlink_version }}
+
+      - name: Resolve Spot Setting
+        id: spot
+        uses: ./.github/actions/setup-runner-spot
 
       - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v4.0.1
         id: changes
@@ -59,7 +71,14 @@ jobs:
               - '.github/workflows/cre-local-env-tests.yaml'
 
   test-cli:
-    runs-on: runs-on=${{ github.run_id }}/cpu=16/ram=64/family=m7i+m8i/spot=false/image=ubuntu24-full-x64/extras=s3-cache+tmpfs
+    runs-on:
+      - runs-on=${{ github.run_id }}
+      - cpu=16
+      - ram=64
+      - family=m7i+m8i
+      - ${{ needs.changes.outputs.spot_param }}
+      - image=ubuntu24-full-x64
+      - extras=s3-cache+tmpfs
     environment:
       # http://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/control-deployments#using-environments-without-deployments
       name: integration
