@@ -41,19 +41,19 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	llodatasource "github.com/smartcontractkit/chainlink-data-streams/llo/datasource"
+	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/dev/v31"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/dev/v31/llotest"
+	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
+	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
+	corello "github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	memkvdb "github.com/smartcontractkit/libocr/offchainreporting2plus/ocrintegrationtesthelpers"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	llodatasource "github.com/smartcontractkit/chainlink-data-streams/llo/datasource"
-	llov31 "github.com/smartcontractkit/chainlink-data-streams/llo/dev/v31"
-	lloprotocol "github.com/smartcontractkit/chainlink-data-streams/llo/protocol"
-	llov30 "github.com/smartcontractkit/chainlink-data-streams/llo/v30"
-	corello "github.com/smartcontractkit/chainlink/v2/core/services/llo"
 )
 
 // benchConfigDigest is a fixed config digest shared by both plugins. v31 passes
@@ -68,6 +68,10 @@ const (
 	// observation may vote to add per round (MaxObservationUpdateChannelDefinitionsLength).
 	// Establishing C channels therefore takes ~ceil(C/channelsPerRound) rounds.
 	channelsPerRound = 5
+	// pumpWaitTimeout bounds how long a round driver waits for the blob pump to
+	// park a snapshot. Generous: it is only reached when the pump is genuinely
+	// stuck, never on the happy path.
+	pumpWaitTimeout = 10 * time.Second
 	// warmupRoundSlack is added on top of the minimum rounds needed to add every
 	// channel, to allow the last batch to become reportable and to absorb the
 	// bootstrap round.
@@ -213,7 +217,7 @@ func buildV30(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) ocr3typ
 	return p
 }
 
-func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1types.ReportingPlugin[llotypes.ReportInfo], ocr3_1types.KeyValueDatabase) {
+func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1types.ReportingPlugin[llotypes.ReportInfo], ocr3_1types.KeyValueDatabase, *llotest.BlobBroadcastFetcher) {
 	tb.Helper()
 	factory := llov31.NewPluginFactory(llov31.PluginFactoryParams{
 		Config:                 llov31.Config{VerboseLogging: false},
@@ -224,11 +228,14 @@ func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1
 		Logger:                 logger.Nop(),
 		OnchainConfigCodec:     mockOnchainConfigCodec{},
 		ReportCodecs:           reportCodecs(),
-		// Negative disables blob offloading; observations always inline. See the
-		// package-level scope note.
-		BlobThreshold: -1,
 	})
-	p, _, err := factory.NewReportingPlugin(context.Background(), pluginConfig(n, f), nil)
+	// v31 disseminates stream values exclusively through blobs, so the plugin
+	// needs a BlobBroadcastFetcher both at construction (the blob pump
+	// broadcasts through it) and on every Observation/StateTransition call (the
+	// round decodes observations by fetching the blobs they reference). A nil
+	// fetcher yields a plugin whose observations never carry stream values.
+	bbf := llotest.NewBlobBroadcastFetcher()
+	p, _, err := factory.NewReportingPlugin(context.Background(), pluginConfig(n, f), bbf)
 	require.NoError(tb, err)
 
 	// libocr's in-memory KeyValueDatabase (the same helper v31's integration
@@ -240,7 +247,7 @@ func buildV31(tb testing.TB, defs llotypes.ChannelDefinitions, n, f int) (ocr3_1
 	db, err := dbFactory.NewKeyValueDatabase(benchConfigDigest)
 	require.NoError(tb, err)
 	tb.Cleanup(func() { _ = db.Close() })
-	return p, db
+	return p, db, bbf
 }
 
 // ---------------------------------------------------------------------------
@@ -284,14 +291,14 @@ func v30Round(tb testing.TB, p ocr3types.ReportingPlugin[llotypes.ReportInfo], s
 // lifecycle: Observation reads a snapshot of the state committed after seqNr-1;
 // StateTransition mutates a batch that is committed to advance the state to
 // seqNr. It mutates db.
-func v31Round(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo], db ocr3_1types.KeyValueDatabase, seqNr uint64, n int) ([]ocr3types.ReportPlus[llotypes.ReportInfo], []byte) {
+func v31Round(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo], db ocr3_1types.KeyValueDatabase, bbf ocr3_1types.BlobBroadcastFetcher, seqNr uint64, n int) ([]ocr3types.ReportPlus[llotypes.ReportInfo], []byte) {
 	ctx := context.Background()
 
 	var obs []byte
 	if seqNr > 1 {
 		rtx, err := db.NewReadTransaction()
 		require.NoError(tb, err)
-		obs, err = p.Observation(ctx, seqNr, ocrtypes.AttributedQuery{}, rtx, nil)
+		obs, err = p.Observation(ctx, seqNr, ocrtypes.AttributedQuery{}, rtx, bbf)
 		rtx.Discard()
 		require.NoError(tb, err)
 	}
@@ -299,7 +306,7 @@ func v31Round(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo],
 
 	wtx, err := db.NewReadWriteTransaction()
 	require.NoError(tb, err)
-	prec, err := p.StateTransition(ctx, seqNr, ocrtypes.AttributedQuery{}, aos, wtx, nil)
+	prec, err := p.StateTransition(ctx, seqNr, ocrtypes.AttributedQuery{}, aos, wtx, bbf)
 	if err != nil {
 		wtx.Discard()
 		require.NoError(tb, err)
@@ -319,6 +326,36 @@ func bootOrReplicate(obs []byte, n int, seqNr uint64) []ocrtypes.AttributedObser
 		return replicate(nil, n)
 	}
 	return replicate(obs, n)
+}
+
+// v31RoundSynced drives one v31 round and then waits for the blob pump to park
+// a fresh snapshot, so the *next* round finds stream values.
+//
+// v31 gathers stream values on the pump goroutine, off the round path: a round
+// kicks the pump and consumes whatever the previous kick parked. A driver that
+// spins rounds in a tight loop (a round here costs microseconds, not the
+// hundreds of milliseconds a real OCR round takes) outruns the pump, so every
+// round misses and no channel ever becomes reportable. Waiting for a broadcast
+// between rounds restores the wall-clock gap a real round has.
+//
+// The wait is best-effort: the bootstrap round (seqNr 1) has no Observation and
+// therefore never kicks the pump, and the caller's own round budget is the real
+// failure signal, so a timeout here is not fatal.
+func v31RoundSynced(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo], db ocr3_1types.KeyValueDatabase, bbf *llotest.BlobBroadcastFetcher, seqNr uint64, n int) ([]ocr3types.ReportPlus[llotypes.ReportInfo], []byte) {
+	tb.Helper()
+	before := bbf.Broadcasts()
+	reports, obs := v31Round(tb, p, db, bbf, seqNr, n)
+	waitForPump(tb, bbf, before)
+	return reports, obs
+}
+
+// waitForPump blocks until the pump has broadcast a blob beyond `before`, or
+// pumpWaitTimeout elapses.
+func waitForPump(tb testing.TB, bbf *llotest.BlobBroadcastFetcher, before int) {
+	tb.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), pumpWaitTimeout)
+	defer cancel()
+	_ = bbf.WaitForBroadcast(ctx, before)
 }
 
 // ---------------------------------------------------------------------------
@@ -356,11 +393,16 @@ func warmV30(tb testing.TB, p ocr3types.ReportingPlugin[llotypes.ReportInfo], n,
 // reportable, returning the next seqNr to use. Unlike v30, v31 must chain
 // (state lives in the mutated KeyValueDatabase), so measured iterations continue from
 // this seqNr.
-func warmV31(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo], db ocr3_1types.KeyValueDatabase, n, channels int) (nextSeq uint64) {
+//
+// Warmup also primes the blob pump: stream values are gathered off the round
+// path, so the first round after the channel definitions land finds nothing
+// parked yet and carries no stream values. The loop runs until reports actually
+// appear, which absorbs that.
+func warmV31(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo], db ocr3_1types.KeyValueDatabase, bbf *llotest.BlobBroadcastFetcher, n, channels int) (nextSeq uint64) {
 	tb.Helper()
 	maxRounds := warmupRounds(channels)
 	for seqNr := uint64(1); seqNr <= maxRounds; seqNr++ {
-		reports, _ := v31Round(tb, p, db, seqNr, n)
+		reports, _ := v31RoundSynced(tb, p, db, bbf, seqNr, n)
 		if len(reports) >= channels {
 			return seqNr + 1
 		}
