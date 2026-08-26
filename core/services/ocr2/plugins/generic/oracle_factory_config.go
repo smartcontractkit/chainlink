@@ -3,6 +3,8 @@ package generic
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"math/big"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -41,7 +43,7 @@ type ResolveOracleFactoryConfigParams struct {
 // Transmitter param (extracted from the on-chain OCR config by the caller) when
 // available, falling back to a round-robin keystore address otherwise. Job spec
 // values take precedence when set.
-func ResolveOracleFactoryConfig(_ context.Context, params ResolveOracleFactoryConfigParams) (job.OracleFactoryConfig, job.OnchainSigningStrategy, error) {
+func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactoryConfigParams) (job.OracleFactoryConfig, job.OnchainSigningStrategy, error) {
 	cfg := params.Config
 	signing := params.OnchainSigning
 
@@ -81,6 +83,16 @@ func ResolveOracleFactoryConfig(_ context.Context, params ResolveOracleFactoryCo
 		cfg.TransmitterID = params.Transmitter
 	}
 
+	// Fall back to a round-robin keystore address when no transmitter was resolved
+	// from the on-chain OCR config.
+	if cfg.TransmitterID == "" && params.EthKeystore != nil && cfg.ChainID != "" {
+		transmitter, err := defaultTransmitterForChain(ctx, params.EthKeystore, cfg.ChainID)
+		if err != nil {
+			return cfg, signing, fmt.Errorf("failed to resolve transmitter: %w", err)
+		}
+		cfg.TransmitterID = transmitter
+	}
+
 	return cfg, signing, nil
 }
 
@@ -116,4 +128,18 @@ func TransmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPub
 		}
 	}
 	return "", false
+}
+
+func defaultTransmitterForChain(ctx context.Context, ethKS keystore.Eth, chainID string) (string, error) {
+	chainIDBig, ok := new(big.Int).SetString(chainID, 10)
+	if !ok {
+		return "", fmt.Errorf("invalid chain_id %q", chainID)
+	}
+
+	addr, err := ethKS.GetRoundRobinAddress(ctx, chainIDBig)
+	if err != nil {
+		return "", fmt.Errorf("failed to get transmitter for chain_id %s: %w", chainID, err)
+	}
+
+	return addr.String(), nil
 }
