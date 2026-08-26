@@ -3,6 +3,7 @@ module github.com/smartcontractkit/chainlink/v2/tools/ci
 go 1.26.6
 
 require (
+	github.com/sethvargo/go-githubactions v1.4.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.12.1
 )

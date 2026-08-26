@@ -17,7 +17,7 @@ runs:
 
     - name: Setup Go (on cache miss)
       if: ${{ steps.cache-ci-cli.outputs.cache-hit != 'true' }}
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version-file: tools/ci/go.mod
         cache: true
