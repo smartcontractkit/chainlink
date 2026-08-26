@@ -101,6 +101,50 @@ func TestETHTxTask(t *testing.T) {
 			pipeline.RunInfo{},
 		},
 		{
+			// #21768: a literal address in `from` (not wrapped in a JSON array)
+			// used to fail with "AddressSliceParam: cannot convert int64".
+			"happy (literal from address, #21768)",
+			`0x882969652440ccf14a5dbb9bd53eb21cb1e11e5c`,
+			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
+			"foobar",
+			"12345",
+			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
+			`0`,
+			testutils.FixtureChainID.String(),
+			`{"CheckerType": "vrf_v2", "VRFCoordinatorAddress": "0x2E396ecbc8223Ebc16EC45136228AE5EDB649943"}`,
+			nil,
+			false,
+			pipeline.NewVarsFrom(nil),
+			nil,
+			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
+				data := []byte("foobar")
+				gasLimit := uint64(12345)
+				jobID := int32(321)
+				addr := common.HexToAddress("0x2E396ecbc8223Ebc16EC45136228AE5EDB649943")
+				txMeta := &txmgr.TxMeta{
+					JobID:         &jobID,
+					RequestID:     &reqID,
+					RequestTxHash: &reqTxHash,
+					FailOnRevert:  null.BoolFrom(false),
+				}
+				keyStore.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, from).Return(from, nil)
+				txManager.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
+					FromAddress:    from,
+					ToAddress:      to,
+					EncodedPayload: data,
+					FeeLimit:       gasLimit,
+					Meta:           txMeta,
+					Strategy:       txmgrcommon.NewSendEveryStrategy(),
+					Checker: txmgr.TransmitCheckerSpec{
+						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
+						VRFCoordinatorAddress: &addr,
+					},
+					SignalCallback: true,
+				}).Return(txmgr.Tx{}, nil)
+			},
+			nil, nil, "", pipeline.RunInfo{},
+		},
+		{
 			"happy (with vars)",
 			`[ $(fromAddr) ]`,
 			"$(toAddr)",
