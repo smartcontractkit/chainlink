@@ -308,41 +308,36 @@ func (d *Delegate) NewServices(
 
 	ocrKeyBundles := map[string]ocr2key.KeyBundle{"evm": ocrEvmKeyBundle}
 
-	// When the caller did not provide an oracle factory config (nil), resolve one
-	// from the Capabilities Registry and node keystore. When a config is provided
-	// (job-spec boot path), use it as-is for backward compatibility.
+	// Always resolve the oracle factory config to fill in any missing fields
+	// (contract address, chain ID, key bundle, transmitter, signing strategy).
+	// Job spec values take precedence; empty fields are resolved from the
+	// Capabilities Registry and node keystore.
 	var oracleFactoryCfg job.OracleFactoryConfig
 	var resolvedSigning job.OnchainSigningStrategy
 	var resolveErr error
-	if oracleFactoryConfig == nil {
-		log.Infow("resolving oracle factory config from Capabilities Registry and node keystore",
-			"capabilityID", capabilityID,
-			"capRegistryAddress", d.capRegistryAddress,
-			"capRegistryChainID", d.capRegistryChainID,
-			"transmitter", transmitter,
-			"hasOCRContractConfig", ocrContractConfig != nil)
-		oracleFactoryCfg, resolvedSigning, resolveErr = generic.ResolveOracleFactoryConfig(ctx, generic.ResolveOracleFactoryConfigParams{
-			CapRegistryAddress: d.capRegistryAddress,
-			CapRegistryChainID: d.capRegistryChainID,
-			OCRKeyBundles:      ocrKeyBundles,
-			Transmitter:        transmitter,
-			EthKeystore:        d.ks.Eth(),
-			Logger:             log,
-		})
-		if resolveErr != nil {
-			return nil, fmt.Errorf("failed to resolve oracle factory config: %w", resolveErr)
-		}
-	} else {
-		log.Infow("using oracle factory config from job spec",
-			"capabilityID", capabilityID,
-			"enabled", oracleFactoryConfig.Enabled,
-			"ocrContractAddress", oracleFactoryConfig.OCRContractAddress,
-			"chainID", oracleFactoryConfig.ChainID,
-			"ocrKeyBundleID", oracleFactoryConfig.OCRKeyBundleID,
-			"transmitterID", oracleFactoryConfig.TransmitterID,
-			"numBootstrapPeers", len(oracleFactoryConfig.BootstrapPeers))
+	if oracleFactoryConfig != nil {
 		oracleFactoryCfg = *oracleFactoryConfig
 		resolvedSigning = oracleFactoryConfig.OnchainSigning
+	}
+	log.Infow("resolving oracle factory config",
+		"capabilityID", capabilityID,
+		"hasJobSpecConfig", oracleFactoryConfig != nil,
+		"capRegistryAddress", d.capRegistryAddress,
+		"capRegistryChainID", d.capRegistryChainID,
+		"transmitter", transmitter,
+		"hasOCRContractConfig", ocrContractConfig != nil)
+	oracleFactoryCfg, resolvedSigning, resolveErr = generic.ResolveOracleFactoryConfig(ctx, generic.ResolveOracleFactoryConfigParams{
+		Config:             oracleFactoryCfg,
+		OnchainSigning:     resolvedSigning,
+		CapRegistryAddress: d.capRegistryAddress,
+		CapRegistryChainID: d.capRegistryChainID,
+		OCRKeyBundles:      ocrKeyBundles,
+		Transmitter:        transmitter,
+		EthKeystore:        d.ks.Eth(),
+		Logger:             log,
+	})
+	if resolveErr != nil {
+		return nil, fmt.Errorf("failed to resolve oracle factory config: %w", resolveErr)
 	}
 
 	var oracleFactory core.OracleFactory

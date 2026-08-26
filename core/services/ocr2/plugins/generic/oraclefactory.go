@@ -160,9 +160,15 @@ func (of *oracleFactory) NewOracle(ctx context.Context, args core.OracleArgs) (c
 		configDigester = legacyConfigProvider.OffchainConfigDigester()
 	}
 
-	bootstrapPeers := of.defaultBootstrappers
+	bootstrapPeers, err := ocrcommon.ParseBootstrapPeers(of.config.BootstrapPeers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse bootstrap peers: %w", err)
+	}
 	if len(bootstrapPeers) == 0 {
-		return nil, errors.New("no bootstrap peers found in Capabilities.Peering.V2.DefaultBootstrappers")
+		bootstrapPeers = of.defaultBootstrappers
+	}
+	if len(bootstrapPeers) == 0 {
+		return nil, errors.New("no bootstrap peers found in job spec or Capabilities.Peering.V2.DefaultBootstrappers")
 	}
 
 	keyBundles := map[string]ocr2key.KeyBundle{}
