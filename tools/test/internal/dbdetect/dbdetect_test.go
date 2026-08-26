@@ -83,6 +83,10 @@ func TestNeedsPostgres(t *testing.T) {
 	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
 		t.Skip("skipping in CI: relies on local repo state and package graph analysis")
 	}
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+
 	repoRoot := findRepoRoot(t)
 	t.Logf("repoRoot: %q", repoRoot)
 
