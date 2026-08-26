@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strconv"
 	"time"
 
@@ -44,7 +43,7 @@ func newRunnerSpotCmd() *cobra.Command {
 		Short: "Determine the spot setting for runs-on runners",
 		Long:  "Evaluates GitHub event type, branch/tag refs, merge queue status, and strategies to output the optimal spot configuration.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			act := ghaction.New(cmd.OutOrStdout(), "", "")
+			act := ghaction.NewAction(cmd.OutOrStdout())
 			ctx, _ := act.Context()
 
 			if eventName == "" && ctx != nil {
@@ -66,19 +65,31 @@ func newRunnerSpotCmd() *cobra.Command {
 				headRef = ctx.HeadRef
 			}
 			if !forceOnDemand {
-				envForce := act.Getenv("RUNNER_FORCE_ON_DEMAND")
+				envForce := act.GetInput("force_on_demand")
+				if envForce == "" {
+					envForce = act.Getenv("RUNNER_FORCE_ON_DEMAND")
+				}
 				if envForce == "true" || envForce == "1" {
 					forceOnDemand = true
 				}
 			}
 			if strategy == "" {
+				strategy = act.GetInput("strategy")
+			}
+			if strategy == "" {
 				strategy = act.Getenv("RUNNER_SPOT_STRATEGY")
+			}
+			if defaultStrategy == "" {
+				defaultStrategy = act.GetInput("default_strategy")
 			}
 			if defaultStrategy == "" {
 				defaultStrategy = act.Getenv("RUNNER_DEFAULT_SPOT_STRATEGY")
 			}
 
 			var evalTime time.Time
+			if evalTimeStr == "" {
+				evalTimeStr = act.GetInput("time")
+			}
 			if evalTimeStr != "" {
 				var err error
 				evalTime, err = time.Parse(time.RFC3339, evalTimeStr)
@@ -109,7 +120,7 @@ func newRunnerSpotCmd() *cobra.Command {
 				return err
 			}
 
-			if os.Getenv("GITHUB_OUTPUT") != "" {
+			if act.Getenv("GITHUB_OUTPUT") != "" {
 				outputs := map[string]string{
 					"spot":           res.Spot,
 					"spot_flag":      res.SpotFlag,
@@ -131,7 +142,7 @@ func newRunnerSpotCmd() *cobra.Command {
 				return enc.Encode(res)
 			}
 
-			if os.Getenv("GITHUB_OUTPUT") == "" {
+			if act.Getenv("GITHUB_OUTPUT") == "" {
 				fmt.Fprintln(cmd.OutOrStdout(), res.SpotFlag)
 			}
 

@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"io"
 	"os"
+	"sort"
 
 	"github.com/sethvargo/go-githubactions"
 )
@@ -16,6 +17,11 @@ type Action struct {
 	outputPath  string
 	envPath     string
 	summaryPath string
+}
+
+// NewAction creates a new Action context with default environment variable paths.
+func NewAction(out io.Writer) *Action {
+	return New(out, "", "")
 }
 
 // New creates a new Action context. If outputPath or envPath are empty,
@@ -76,8 +82,13 @@ func (a *Action) SetOutput(key, value string) error {
 
 // SetOutputs writes multiple key-value pairs to GITHUB_OUTPUT file, or falls back to out when unset.
 func (a *Action) SetOutputs(outputs map[string]string) error {
-	for k, v := range outputs {
-		if err := a.SetOutput(k, v); err != nil {
+	keys := make([]string, 0, len(outputs))
+	for k := range outputs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		if err := a.SetOutput(k, outputs[k]); err != nil {
 			return err
 		}
 	}
