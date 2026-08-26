@@ -302,6 +302,7 @@ func TestPlugin_Observation_NothingInBatch(t *testing.T) {
 }
 
 func TestPlugin_Observation_GetSecretsRequest_OmitsRequest(t *testing.T) {
+	t.Parallel()
 	r := newTestReportingPlugin(t)
 
 	id := &vaultcommon.SecretIdentifier{Owner: "owner", Namespace: "main", Key: "secret"}
@@ -1566,6 +1567,7 @@ func TestPlugin_Observation_GetSecretsRequest_Success(t *testing.T) {
 }
 
 func TestPlugin_Observation_GetSecretsRequest_BinaryShares(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]))
@@ -4066,6 +4068,7 @@ func TestPlugin_StateTransition_GetSecretsRequest_CapsSharesAtTwoFPlusOne(t *tes
 }
 
 func TestPlugin_StateTransition_GetSecretsRequest_OmitsOutcomeRequest(t *testing.T) {
+	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
 	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1))
@@ -8159,6 +8162,8 @@ func TestPlugin_ValidateObservation_RequestBatchLimit(t *testing.T) {
 				anyp, err = anypb.New(obsItem.GetUpdateSecretsRequest())
 			case vaultcommon.RequestType_DELETE_SECRETS:
 				anyp, err = anypb.New(obsItem.GetDeleteSecretsRequest())
+			default:
+				t.FailNow()
 			}
 			require.NoError(t, err)
 			require.NoError(t, newTestWriteStore(t, rdr).WritePendingQueue(t.Context(), []*vaultcommon.StoredPendingQueueItem{
