@@ -36,11 +36,12 @@ func newChangesetCheckTagsCmd() *cobra.Command {
 		Short: "Check if at least one release tag exists in a changeset file",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			act := ghaction.New(cmd.OutOrStdout(), "", "")
 			if len(args) > 0 {
 				filePath = args[0]
 			}
 			if filePath == "" {
-				filePath = os.Getenv("CHANGESET_FILE_PATH")
+				filePath = act.Getenv("CHANGESET_FILE_PATH")
 			}
 			paths := strings.Fields(filePath)
 			if len(paths) == 0 {

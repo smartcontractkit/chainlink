@@ -36,20 +36,21 @@ func newImageResolveCmd() *cobra.Command {
 		Use:   "resolve",
 		Short: "Resolve a Chainlink Docker image URI based on ECR type and environment variables",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			act := ghaction.New(cmd.OutOrStdout(), "", "")
 			if ecrType == "" {
-				ecrType = os.Getenv("ECR_TYPE")
+				ecrType = act.Getenv("ECR_TYPE")
 			}
 			if repositoryPath == "" {
-				repositoryPath = os.Getenv("CHAINLINK_IMAGE_REPO_PATH")
+				repositoryPath = act.Getenv("CHAINLINK_IMAGE_REPO_PATH")
 			}
 			if imageTag == "" {
-				imageTag = os.Getenv("CHAINLINK_IMAGE_TAG")
+				imageTag = act.Getenv("CHAINLINK_IMAGE_TAG")
 			}
 			if awsAccount == "" {
-				awsAccount = os.Getenv("AWS_ACCOUNT_NUMBER")
+				awsAccount = act.Getenv("AWS_ACCOUNT_NUMBER")
 			}
 			if awsRegion == "" {
-				awsRegion = os.Getenv("AWS_REGION")
+				awsRegion = act.Getenv("AWS_REGION")
 			}
 
 			resolved, err := image.Resolve(image.ResolveOptions{
@@ -64,7 +65,6 @@ func newImageResolveCmd() *cobra.Command {
 			}
 
 			if os.Getenv("GITHUB_OUTPUT") != "" {
-				act := ghaction.New(cmd.OutOrStdout(), "", "")
 				if err := act.SetOutput("resolved_image", resolved); err != nil {
 					return err
 				}

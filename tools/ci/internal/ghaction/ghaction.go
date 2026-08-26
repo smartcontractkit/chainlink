@@ -2,6 +2,7 @@ package ghaction
 
 import (
 	"fmt"
+	"html/template"
 	"io"
 	"os"
 
@@ -73,6 +74,16 @@ func (a *Action) SetOutput(key, value string) error {
 	return nil
 }
 
+// SetOutputs writes multiple key-value pairs to GITHUB_OUTPUT file, or falls back to out when unset.
+func (a *Action) SetOutputs(outputs map[string]string) error {
+	for k, v := range outputs {
+		if err := a.SetOutput(k, v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // SetEnv writes a key-value pair to GITHUB_ENV file, or falls back to out when unset.
 func (a *Action) SetEnv(key, value string) error {
 	if a.envPath == "" {
@@ -91,6 +102,32 @@ func (a *Action) AddStepSummary(markdown string) error {
 	}
 	a.Action.AddStepSummary(markdown)
 	return nil
+}
+
+// AddStepSummaryTemplate parses and executes a template string, writing the result to GITHUB_STEP_SUMMARY or out.
+func (a *Action) AddStepSummaryTemplate(tmpl string, data any) error {
+	if a.summaryPath == "" {
+		t, err := template.New("summary").Parse(tmpl)
+		if err != nil {
+			return fmt.Errorf("failed to parse summary template: %w", err)
+		}
+		if err := t.Execute(a.out, data); err != nil {
+			return fmt.Errorf("failed to execute summary template: %w", err)
+		}
+		fmt.Fprintln(a.out)
+		return nil
+	}
+	return a.Action.AddStepSummaryTemplate(tmpl, data)
+}
+
+// IsGitHubActions returns true if executing in a GitHub Actions runner environment.
+func (a *Action) IsGitHubActions() bool {
+	return a.Getenv("GITHUB_ACTIONS") == "true" || a.outputPath != ""
+}
+
+// Context returns the typed GitHubContext populated from GitHub Actions environment variables and event payload.
+func (a *Action) Context() (*githubactions.GitHubContext, error) {
+	return a.Action.Context()
 }
 
 // WithGroup executes fn wrapped inside a group command block.
