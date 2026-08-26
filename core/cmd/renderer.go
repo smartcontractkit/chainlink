@@ -100,7 +100,6 @@ func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
 }
 
 func render(name string, table *tablewriter.Table) error {
-	// TODO table.SetRowLine(true)
 	symbols := tw.NewSymbolCustom("double-line").
 		WithColumn("║").
 		WithRow("═").
