@@ -31,5 +31,5 @@ runs:
       id: set-path
       shell: bash
       run: |
-        echo "$GITHUB_WORKSPACE/tools/ci/.bin" >> "$GITHUB_PATH"
-        echo "ci-path=$GITHUB_WORKSPACE/tools/ci/.bin/ci" >> "$GITHUB_OUTPUT"
+        echo "$GITHUB_WORKSPACE/tools/ci/.bin" | tee -a "$GITHUB_PATH"
+        echo "ci-path=$GITHUB_WORKSPACE/tools/ci/.bin/ci" | tee -a "$GITHUB_OUTPUT"
