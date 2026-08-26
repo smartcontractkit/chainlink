@@ -69,9 +69,12 @@ const (
 	// Establishing C channels therefore takes ~ceil(C/channelsPerRound) rounds.
 	channelsPerRound = 5
 	// pumpWaitTimeout bounds how long a round driver waits for the blob pump to
-	// park a snapshot. Generous: it is only reached when the pump is genuinely
-	// stuck, never on the happy path.
-	pumpWaitTimeout = 10 * time.Second
+	// park a snapshot. A cycle costs microseconds even at the widest workload, so
+	// this is ~100x headroom on the happy path. It is deliberately small because
+	// the timeout is also hit on rounds where the pump legitimately parks nothing
+	// (no channel definitions in state yet), and those waits are pure dead time
+	// in the warmup of every v31 sub-benchmark.
+	pumpWaitTimeout = 250 * time.Millisecond
 	// warmupRoundSlack is added on top of the minimum rounds needed to add every
 	// channel, to allow the last batch to become reportable and to absorb the
 	// bootstrap round.
@@ -338,14 +341,17 @@ func bootOrReplicate(obs []byte, n int, seqNr uint64) []ocrtypes.AttributedObser
 // round misses and no channel ever becomes reportable. Waiting for a broadcast
 // between rounds restores the wall-clock gap a real round has.
 //
-// The wait is best-effort: the bootstrap round (seqNr 1) has no Observation and
-// therefore never kicks the pump, and the caller's own round budget is the real
-// failure signal, so a timeout here is not fatal.
+// The wait is best-effort: the caller's own round budget is the real failure
+// signal, so a timeout here is not fatal. The bootstrap round (seqNr 1) has no
+// Observation and therefore never kicks the pump, so waiting on it can only
+// time out; skip it.
 func v31RoundSynced(tb testing.TB, p ocr3_1types.ReportingPlugin[llotypes.ReportInfo], db ocr3_1types.KeyValueDatabase, bbf *llotest.BlobBroadcastFetcher, seqNr uint64, n int) ([]ocr3types.ReportPlus[llotypes.ReportInfo], []byte) {
 	tb.Helper()
 	before := bbf.Broadcasts()
 	reports, obs := v31Round(tb, p, db, bbf, seqNr, n)
-	waitForPump(tb, bbf, before)
+	if seqNr > 1 {
+		waitForPump(tb, bbf, before)
+	}
 	return reports, obs
 }
 
