@@ -69,6 +69,7 @@ func TestRunnerSpot_CLI_GithubOutput(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(ghContent), "spot")
 	assert.Contains(t, string(ghContent), "spot_flag")
+	assert.Contains(t, string(ghContent), "spot_param")
 	assert.Contains(t, string(ghContent), "is_release")
 }
 
