@@ -385,17 +385,17 @@ func (d *Delegate) NewServices(
 			return nil, fmt.Errorf("failed to create oracle factory: %w", err)
 		}
 	}
-	var connector connector.GatewayConnector
+	var cntor connector.GatewayConnector
 	if d.gatewayConnectorWrapper != nil {
-		connector = d.gatewayConnectorWrapper.GetGatewayConnector()
+		cntor = d.gatewayConnectorWrapper.GetGatewayConnector()
 	}
 
 	// NOTE: special cases for built-in capabilities (to be moved into LOOPPs in the future)
 	if command == commandOverrideForWebAPITrigger {
-		if d.gatewayConnectorWrapper == nil || connector == nil {
+		if d.gatewayConnectorWrapper == nil || cntor == nil {
 			return nil, errors.New("gateway connector is required for web API Trigger capability")
 		}
-		triggerSrvc, err := trigger.NewTrigger(configJSON, d.registry, connector, log)
+		triggerSrvc, err := trigger.NewTrigger(configJSON, d.registry, cntor, log)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create a Web API Trigger service: %w", err)
 		}
@@ -403,7 +403,7 @@ func (d *Delegate) NewServices(
 	}
 
 	if command == commandOverrideForWebAPITarget {
-		if d.gatewayConnectorWrapper == nil || connector == nil {
+		if d.gatewayConnectorWrapper == nil || cntor == nil {
 			return nil, errors.New("gateway connector is required for web API Target capability")
 		}
 		if len(configJSON) == 0 {
@@ -415,7 +415,7 @@ func (d *Delegate) NewServices(
 			return nil, err
 		}
 		lggr := d.logger.Named("WebAPITarget")
-		handler, err := webapi.NewOutgoingConnectorHandler(connector, targetCfg, capabilities.MethodWebAPITarget, lggr, d.selectorOpts...)
+		handler, err := webapi.NewOutgoingConnectorHandler(cntor, targetCfg, capabilities.MethodWebAPITarget, lggr, d.selectorOpts...)
 		if err != nil {
 			return nil, err
 		}
@@ -432,7 +432,7 @@ func (d *Delegate) NewServices(
 		CapabilityRegistry: d.registry,
 		RelayerSet:         relayerSet,
 		OracleFactory:      oracleFactory,
-		GatewayConnector:   connector,
+		GatewayConnector:   cntor,
 		P2PKeystore:        ks,
 		OrgResolver:        d.orgResolver,
 		CRESettings:        d.creSettings,
