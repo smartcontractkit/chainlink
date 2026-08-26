@@ -101,7 +101,7 @@ func signerRegistryDeploymentLogic(e cldf.Environment, config SignerRegistryChan
 		e.Logger.Infof("Successfully deployed signer registry %s on %s", signerRegistry.Address.String(), chain.String())
 	}
 
-	ds, err := shared.PopulateDataStore(addressBook)
+	ds, err := shared.PopulateDataStore(addressBook, nil) // skipped: this changeset deploys only chain-singletons
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

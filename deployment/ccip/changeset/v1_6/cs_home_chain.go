@@ -72,11 +72,15 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", err, cldf.ErrInvalidConfig)
 	}
 	ab := cldf.NewMemoryAddressBook()
+	homeRefs := cldf.NewMemoryAddressBook()
 	// Note we also deploy the cap reg.
-	_, err = deployHomeChain(env.Logger, env, ab, env.ExistingAddresses, env.BlockChains.EVMChains()[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
+	_, err = deployHomeChain(env.Logger, env, ab, homeRefs, env.ExistingAddresses, env.BlockChains.EVMChains()[cfg.HomeChainSel], cfg.RMNStaticConfig, cfg.RMNDynamicConfig, cfg.NodeOperators, cfg.NodeP2PIDsPerNodeOpAdmin)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy cap reg", "err", err, "addresses", env.ExistingAddresses)
-		ds, err2 := populateHomeChainDataStore(env.ExistingAddresses, ab)
+		// Build the partial datastore from ab only so it stays consistent with the returned
+		// AddressBook; homeRefs refs are datastore-only on the success path and would otherwise
+		// appear in the datastore without a matching address-book entry on a partial output.
+		ds, err2 := populateHomeChainDataStore(ab, nil)
 		if err2 != nil {
 			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
 		}
@@ -87,7 +91,7 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 		}, errors.Join(err, err2)
 	}
 
-	ds, err := populateHomeChainDataStore(env.ExistingAddresses, ab)
+	ds, err := populateHomeChainDataStore(ab, homeRefs)
 	if err != nil {
 		return cldf.ChangesetOutput{}, err
 	}
@@ -98,30 +102,49 @@ func DeployHomeChainChangeset(env cldf.Environment, cfg DeployHomeChainConfig) (
 	}, nil
 }
 
-func populateHomeChainDataStore(existingAddresses cldf.AddressBook, ab cldf.AddressBook) (*datastore.MemoryDataStore, error) {
-	dsAb := cldf.NewMemoryAddressBook()
-	if existingAddresses != nil {
-		if err := dsAb.Merge(existingAddresses); err != nil {
-			return nil, fmt.Errorf("merge existing addresses for DataStore: %w", err)
-		}
-	}
-	if err := dsAb.Merge(ab); err != nil {
-		return nil, fmt.Errorf("merge new addresses for DataStore: %w", err)
-	}
-	ds, err := shared.PopulateDataStore(dsAb)
-	if err != nil {
+// populateHomeChainDataStore builds the datastore for the home chain from the changeset's
+// newly-referenced contracts (ab) merged with the datastore-only scoped home-refs book. Together
+// they carry the home-chain singleton contracts (CapabilitiesRegistry, CCIPHome, RMNHome) whether
+// newly deployed or already present, without pulling in unrelated multi-instance refs from the
+// full existing address book (which cannot be qualified without caller knowledge). The merge is
+// done at the datastore level (Upsert) so overlapping entries are not rejected as duplicates.
+func populateHomeChainDataStore(ab cldf.AddressBook, homeRefs cldf.AddressBook) (*datastore.MemoryDataStore, error) {
+	ds := datastore.NewMemoryDataStore()
+	if dsAB, err := shared.PopulateDataStore(ab, nil); err != nil {
 		return nil, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	} else if err := ds.Merge(dsAB.Seal()); err != nil {
+		return nil, fmt.Errorf("failed to merge home chain refs into DataStore: %w", err)
+	}
+	// When homeRefs is nil, only ab is populated. The failure path uses this so the partial
+	// datastore stays consistent with the returned AddressBook (which does not carry homeRefs).
+	if homeRefs == nil {
+		return ds, nil
+	}
+	if dsHome, err := shared.PopulateDataStore(homeRefs, nil); err != nil {
+		return nil, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+	} else if err := ds.Merge(dsHome.Seal()); err != nil {
+		return nil, fmt.Errorf("failed to merge home refs into DataStore: %w", err)
 	}
 	return ds, nil
 }
 
+// saveExistingContractIfNeeded records a home-chain singleton ref. homeRefs is a datastore-only
+// book that always receives the ref so the output datastore can resolve existing home contracts
+// (CapabilitiesRegistry, CCIPHome, RMNHome) even when they were not deployed this run. ab is the
+// changeset's returned address book; the ref is only added there when it is not already present in
+// existingAddresses, so a repeated application stays idempotent (callers merge ab back into the
+// environment and AddressBook.Merge rejects duplicate addresses).
 func saveExistingContractIfNeeded(
 	ab cldf.AddressBook,
+	homeRefs cldf.AddressBook,
 	existingAddresses cldf.AddressBook,
 	chainSelector uint64,
 	address common.Address,
 	tv cldf.TypeAndVersion,
 ) error {
+	if err := homeRefs.Save(chainSelector, address.Hex(), tv); err != nil {
+		return fmt.Errorf("save %s to home refs: %w", tv.Type, err)
+	}
 	if existingAddresses != nil {
 		addrs, err := existingAddresses.AddressesForChain(chainSelector)
 		if err == nil {
@@ -131,7 +154,7 @@ func saveExistingContractIfNeeded(
 		}
 	}
 	if err := ab.Save(chainSelector, address.Hex(), tv); err != nil {
-		return fmt.Errorf("save existing %s to address book: %w", tv.Type, err)
+		return fmt.Errorf("save %s to address book: %w", tv.Type, err)
 	}
 	return nil
 }
@@ -178,6 +201,7 @@ func deployCapReg(
 	lggr logger.Logger,
 	state stateview.CCIPOnChainState,
 	ab cldf.AddressBook,
+	homeRefs cldf.AddressBook,
 	existingAddresses cldf.AddressBook,
 	chain cldf_evm.Chain,
 ) (*cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
@@ -187,7 +211,7 @@ func deployCapReg(
 		if cr != nil {
 			lggr.Infow("Found CapabilitiesRegistry in chain state", "address", cr.Address().String())
 			tv := cldf.NewTypeAndVersion(shared.CapabilitiesRegistry, deployment.Version1_0_0)
-			if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, cr.Address(), tv); err != nil {
+			if err := saveExistingContractIfNeeded(ab, homeRefs, existingAddresses, chain.Selector, cr.Address(), tv); err != nil {
 				return nil, err
 			}
 			return &cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
@@ -224,6 +248,7 @@ func deployHomeChain(
 	lggr logger.Logger,
 	e cldf.Environment,
 	ab cldf.AddressBook,
+	homeRefs cldf.AddressBook,
 	existingAddresses cldf.AddressBook,
 	chain cldf_evm.Chain,
 	rmnHomeStatic rmn_home.RMNHomeStaticConfig,
@@ -237,7 +262,7 @@ func deployHomeChain(
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	// Deploy CapabilitiesRegistry, CCIPHome, RMNHome
-	capReg, err := deployCapReg(lggr, state, ab, existingAddresses, chain)
+	capReg, err := deployCapReg(lggr, state, ab, homeRefs, existingAddresses, chain)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +277,7 @@ func deployHomeChain(
 		ccipHome := state.Chains[chain.Selector].CCIPHome
 		lggr.Infow("CCIPHome already deployed", "addr", ccipHome.Address().String())
 		tv := cldf.NewTypeAndVersion(shared.CCIPHome, deployment.Version1_6_0)
-		if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, ccipHome.Address(), tv); err != nil {
+		if err := saveExistingContractIfNeeded(ab, homeRefs, existingAddresses, chain.Selector, ccipHome.Address(), tv); err != nil {
 			return nil, err
 		}
 		ccipHomeAddr = ccipHome.Address()
@@ -283,7 +308,7 @@ func deployHomeChain(
 	if rmnHome != nil {
 		lggr.Infow("RMNHome already deployed", "addr", rmnHome.Address().String())
 		tv := cldf.NewTypeAndVersion(shared.RMNHome, deployment.Version1_6_0)
-		if err := saveExistingContractIfNeeded(ab, existingAddresses, chain.Selector, rmnHome.Address(), tv); err != nil {
+		if err := saveExistingContractIfNeeded(ab, homeRefs, existingAddresses, chain.Selector, rmnHome.Address(), tv); err != nil {
 			return nil, err
 		}
 	} else {

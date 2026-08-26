@@ -152,12 +152,13 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 	}
 
 	addressBook := cldf.NewMemoryAddressBook()
+	qualifiers := make(map[shared.AddressKey]string)
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := e.BlockChains.EVMChains()[chainSelector]
 
 		for token, config := range tokens {
-			_, err := cldf.DeployContract(e.Logger, chain, addressBook,
+			deploy, err := cldf.DeployContract(e.Logger, chain, addressBook,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*transparent_upgradeable_proxy.TransparentUpgradeableProxy] {
 					var errs []error
 
@@ -211,10 +212,11 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy TransparentUpgradeableProxy for %s token on %s: %w", token, chain.Name(), err)
 			}
+			qualifiers[shared.AddressKey{ChainSelector: chainSelector, Address: deploy.Address.Hex()}] = config.Symbol
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(addressBook)
+	ds, err := shared.PopulateDataStore(addressBook, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
@@ -233,6 +235,7 @@ func SaveProxyAdmin(e cldf.Environment, c TransparentUpgradeableProxyChangesetCo
 	}
 
 	addressBook := cldf.NewMemoryAddressBook()
+	qualifiers := make(map[shared.AddressKey]string)
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := e.BlockChains.EVMChains()[chainSelector]
@@ -257,10 +260,11 @@ func SaveProxyAdmin(e cldf.Environment, c TransparentUpgradeableProxyChangesetCo
 			if err := addressBook.Save(chainSelector, proxyAdmin.String(), cldf.NewTypeAndVersion(shared.ProxyAdmin, deployment.Version1_6_1)); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to save ProxyAdmin at %s for %s token on %s: %w", proxyAdmin, config.Symbol, chain.Name(), err)
 			}
+			qualifiers[shared.AddressKey{ChainSelector: chainSelector, Address: proxyAdmin.String()}] = config.Symbol
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(addressBook)
+	ds, err := shared.PopulateDataStore(addressBook, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

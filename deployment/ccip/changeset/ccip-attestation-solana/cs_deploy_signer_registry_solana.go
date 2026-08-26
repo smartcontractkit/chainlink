@@ -74,7 +74,7 @@ func DeployBaseSignerRegistryContractChangeset(e cldf.Environment, c DeployBaseS
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy base signer registry contract: %w", err)
 	}
 
-	ds, err := shared.PopulateDataStore(newAddresses)
+	ds, err := shared.PopulateDataStore(newAddresses, nil) // skipped: this changeset deploys only chain-singletons
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

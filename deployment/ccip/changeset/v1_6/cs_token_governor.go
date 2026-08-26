@@ -275,6 +275,7 @@ func DeployTokenGovernor(env cldf.Environment, c TokenGovernorChangesetConfig) (
 
 	state, _ := stateview.LoadOnchainState(env)
 	newAddresses := cldf.NewMemoryAddressBook()
+	qualifiers := make(map[shared.AddressKey]string)
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := env.BlockChains.EVMChains()[chainSelector]
@@ -293,7 +294,7 @@ func DeployTokenGovernor(env cldf.Environment, c TokenGovernorChangesetConfig) (
 				return cldf.ChangesetOutput{}, fmt.Errorf("token governor already exists for %s", governor.Token)
 			}
 
-			_, err := cldf.DeployContract(env.Logger, chain, newAddresses,
+			deploy, err := cldf.DeployContract(env.Logger, chain, newAddresses,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*token_governor.TokenGovernor] {
 					tgAddress, tx, tokenGovernor, err := token_governor.DeployTokenGovernor(chain.DeployerKey, chain.Client, governor.Token, governor.InitialDelay, governor.InitialDefaultAdmin)
 					return cldf.ContractDeploy[*token_governor.TokenGovernor]{
@@ -308,10 +309,11 @@ func DeployTokenGovernor(env cldf.Environment, c TokenGovernorChangesetConfig) (
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy token governor on %s: %w", chain, err)
 			}
+			qualifiers[shared.AddressKey{ChainSelector: chainSelector, Address: deploy.Address.Hex()}] = string(token)
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(newAddresses)
+	ds, err := shared.PopulateDataStore(newAddresses, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

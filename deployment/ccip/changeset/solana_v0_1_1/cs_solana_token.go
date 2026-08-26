@@ -206,7 +206,11 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(newAddresses)
+	qualifiers, err := shared.QualifiersForAddressBook(newAddresses, string(cfg.TokenSymbol))
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build token qualifiers: %w", err)
+	}
+	ds, err := shared.PopulateDataStore(newAddresses, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

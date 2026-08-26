@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -57,22 +58,23 @@ func DeployPrerequisitesChangeset(env cldf.Environment, cfg DeployPrerequisiteCo
 		return cldf.ChangesetOutput{}, fmt.Errorf("%w: %w", err, cldf.ErrInvalidConfig)
 	}
 	ab := cldf.NewMemoryAddressBook()
-	err = deployPrerequisiteChainContracts(env, ab, cfg)
+	addrToSymbol := make(map[shared.AddressKey]string)
+	err = deployPrerequisiteChainContracts(env, ab, cfg, addrToSymbol)
 	if err != nil {
 		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", ab)
 
-		ds, err := shared.PopulateDataStore(ab)
-		if err != nil {
-			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
+		ds, err3 := shared.PopulateDataStore(ab, addrToSymbol)
+		if err3 != nil {
+			err3 = fmt.Errorf("failed to populate in-memory DataStore: %w", err3)
 		}
 
 		return cldf.ChangesetOutput{
 			AddressBook: ab,
 			DataStore:   ds,
-		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
+		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", errors.Join(err, err3))
 	}
 
-	ds, err := shared.PopulateDataStore(ab)
+	ds, err := shared.PopulateDataStore(ab, addrToSymbol)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
@@ -153,17 +155,22 @@ func WithLegacyDeploymentEnabled(cfg V1_5DeploymentConfig) PrerequisiteOpt {
 	}
 }
 
-func deployPrerequisiteChainContracts(e cldf.Environment, ab cldf.AddressBook, cfg DeployPrerequisiteConfig) error {
+func deployPrerequisiteChainContracts(e cldf.Environment, ab cldf.AddressBook, cfg DeployPrerequisiteConfig, addrToSymbol map[shared.AddressKey]string) error {
 	state, err := stateview.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
 	}
 	deployGrp := errgroup.Group{}
-	for _, c := range cfg.Configs {
+	perChain := make([]map[shared.AddressKey]string, len(cfg.Configs))
+	for i, c := range cfg.Configs {
 		chain := e.BlockChains.EVMChains()[c.ChainSelector]
+		// Each goroutine writes to its own map to avoid a concurrent map-write race; merge
+		// them below after the group completes.
+		local := make(map[shared.AddressKey]string)
+		perChain[i] = local
 		deployGrp.Go(func() error {
-			err := deployPrerequisiteContracts(e, ab, state, chain, c.Opts...)
+			err := deployPrerequisiteContracts(e, ab, state, chain, local, c.Opts...)
 			if err != nil {
 				e.Logger.Errorw("Failed to deploy prerequisite contracts", "chain", chain.String(), "err", err)
 				return err
@@ -171,12 +178,21 @@ func deployPrerequisiteChainContracts(e cldf.Environment, ab cldf.AddressBook, c
 			return nil
 		})
 	}
-	return deployGrp.Wait()
+	// Merge every successful per-chain qualifier map even if another chain failed, so the
+	// error path can still build a correctly-qualified partial datastore for the chains that
+	// did deploy their multi-instance contracts.
+	err = deployGrp.Wait()
+	for _, m := range perChain {
+		for addr, sym := range m {
+			addrToSymbol[addr] = sym
+		}
+	}
+	return err
 }
 
 // deployPrerequisiteContracts deploys the contracts that can be ported from previous CCIP version to the new one.
 // This is only required for staging and test environments where the contracts are not already deployed.
-func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain cldf_evm.Chain, opts ...PrerequisiteOpt) error {
+func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state stateview.CCIPOnChainState, chain cldf_evm.Chain, addrToSymbol map[shared.AddressKey]string, opts ...PrerequisiteOpt) error {
 	deployOpts := &DeployPrerequisiteContractsOpts{}
 	for _, opt := range opts {
 		if opt != nil {
@@ -539,6 +555,14 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			"burnWithFromMintTokenPool", burnWithFromMintTokenPool.Address(),
 			"lockReleaseTokenPool", lockReleaseTokenPool.Address(),
 		)
+		// These token pools (and the factory token) are multi-instance per chain and carry
+		// the Factory-BnM-ERC20 symbol as qualifier.
+		sym := string(shared.FactoryBurnMintERC20Symbol)
+		addrToSymbol[shared.AddressKey{ChainSelector: chain.Selector, Address: factoryBurnMintERC20.Address().Hex()}] = sym
+		addrToSymbol[shared.AddressKey{ChainSelector: chain.Selector, Address: burnMintTokenPool.Address().Hex()}] = sym
+		addrToSymbol[shared.AddressKey{ChainSelector: chain.Selector, Address: burnFromMintTokenPool.Address().Hex()}] = sym
+		addrToSymbol[shared.AddressKey{ChainSelector: chain.Selector, Address: burnWithFromMintTokenPool.Address().Hex()}] = sym
+		addrToSymbol[shared.AddressKey{ChainSelector: chain.Selector, Address: lockReleaseTokenPool.Address().Hex()}] = sym
 	}
 	if deployOpts.Multicall3Enabled && mc3 == nil {
 		_, err := cldf.DeployContract(e.Logger, chain, ab,
@@ -577,6 +601,9 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			"transmitter", transmitter.Address(),
 			"messenger", messenger.Address(),
 		)
+		// USDC token and pool are multi-instance and carry the USDC symbol qualifier.
+		addrToSymbol[shared.AddressKey{ChainSelector: chain.Selector, Address: token.Address().Hex()}] = string(shared.USDCSymbol)
+		addrToSymbol[shared.AddressKey{ChainSelector: chain.Selector, Address: pool.Address().Hex()}] = string(shared.USDCSymbol)
 	}
 	if deployOpts.LBTCEnabled {
 		token, pool, err1 := deployLBTC(e.Logger, chain, ab, rmnProxy.Address(), r.Address())
@@ -588,6 +615,9 @@ func deployPrerequisiteContracts(e cldf.Environment, ab cldf.AddressBook, state 
 			"token", token.Address(),
 			"pool", pool.Address(),
 		)
+		// LBTC token and pool are multi-instance and carry the LBTC symbol qualifier.
+		addrToSymbol[shared.AddressKey{ChainSelector: chain.Selector, Address: token.Address().Hex()}] = string(shared.LBTCSymbol)
+		addrToSymbol[shared.AddressKey{ChainSelector: chain.Selector, Address: pool.Address().Hex()}] = string(shared.LBTCSymbol)
 	}
 	if chainState.Receiver == nil {
 		_, err := cldf.DeployContract(e.Logger, chain, ab,

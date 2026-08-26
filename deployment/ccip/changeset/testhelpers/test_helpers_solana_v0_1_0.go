@@ -293,7 +293,7 @@ func DeployTestContracts(t *testing.T,
 	chains map[uint64]cldf_evm.Chain,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
-) deployment.CapabilityRegistryConfig {
+) (deployment.CapabilityRegistryConfig, map[shared.TokenSymbol]common.Address) {
 	capReg, err := cldf.DeployContract(lggr, chains[homeChainSel], ab,
 		func(chain cldf_evm.Chain) cldf.ContractDeploy[*capabilities_registry.CapabilitiesRegistry] {
 			crAddr, tx, cr, err2 := capabilities_registry.DeployCapabilitiesRegistry(
@@ -306,7 +306,7 @@ func DeployTestContracts(t *testing.T,
 		})
 	require.NoError(t, err)
 
-	_, err = DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
+	feedSymbolToAddress, err := DeployFeeds(lggr, ab, chains[feedChainSel], linkPrice, wethPrice)
 	require.NoError(t, err)
 
 	evmChainID, err := chainsel.ChainIdFromSelector(homeChainSel)
@@ -316,7 +316,7 @@ func DeployTestContracts(t *testing.T,
 		EVMChainID:  evmChainID,
 		Contract:    capReg.Address,
 		NetworkType: relay.NetworkEVM,
-	}
+	}, feedSymbolToAddress
 }
 
 func LatestBlock(ctx context.Context, env cldf.Environment, chainSelector uint64) (uint64, error) {
@@ -1335,7 +1335,7 @@ func DeployFeeds(
 	chain cldf_evm.Chain,
 	linkPrice *big.Int,
 	wethPrice *big.Int,
-) (map[string]common.Address, error) {
+) (map[shared.TokenSymbol]common.Address, error) {
 	linkTV := cldf.NewTypeAndVersion(shared.PriceFeed, deployment.Version1_0_0)
 	mockLinkFeed := func(chain cldf_evm.Chain) cldf.ContractDeploy[*aggregator_v3_interface.AggregatorV3Interface] {
 		linkFeed, tx, _, err1 := mock_v3_aggregator_contract.DeployMockV3Aggregator(
@@ -1364,22 +1364,20 @@ func DeployFeeds(
 		}
 	}
 
-	linkFeedAddress, linkFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockLinkFeed, shared.LinkSymbol)
+	linkFeedAddress, _, err := deploySingleFeed(lggr, ab, chain, mockLinkFeed, shared.LinkSymbol)
 	if err != nil {
 		return nil, err
 	}
 
-	wethFeedAddress, wethFeedDescription, err := deploySingleFeed(lggr, ab, chain, mockWethFeed, shared.WethSymbol)
+	wethFeedAddress, _, err := deploySingleFeed(lggr, ab, chain, mockWethFeed, shared.WethSymbol)
 	if err != nil {
 		return nil, err
 	}
 
-	descriptionToAddress := map[string]common.Address{
-		linkFeedDescription: linkFeedAddress,
-		wethFeedDescription: wethFeedAddress,
-	}
-
-	return descriptionToAddress, nil
+	return map[shared.TokenSymbol]common.Address{
+		shared.LinkSymbol: linkFeedAddress,
+		shared.WethSymbol: wethFeedAddress,
+	}, nil
 }
 
 func deploySingleFeed(

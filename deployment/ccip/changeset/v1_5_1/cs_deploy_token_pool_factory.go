@@ -118,7 +118,7 @@ func deployTokenPoolFactoryLogic(e cldf.Environment, config DeployTokenPoolFacto
 		e.Logger.Infof("Successfully deployed token pool factory %s on %s", tpfReport.Output.Address.Hex(), chain.String())
 	}
 
-	ds, err := shared.PopulateDataStore(addressBook)
+	ds, err := shared.PopulateDataStore(addressBook, nil) // skipped: this changeset deploys only chain-singletons
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

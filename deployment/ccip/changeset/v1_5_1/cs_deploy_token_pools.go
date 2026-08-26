@@ -231,7 +231,11 @@ func DeployTokenPoolContractsChangeset(env cldf.Environment, c DeployTokenPoolCo
 			c.TokenSymbol, err)
 	}
 
-	ds, err := shared.PopulateDataStore(newAddresses)
+	qualifiers, err := shared.QualifiersForAddressBook(newAddresses, string(c.TokenSymbol))
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build token pool qualifiers: %w", err)
+	}
+	ds, err := shared.PopulateDataStore(newAddresses, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

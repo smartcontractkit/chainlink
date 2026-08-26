@@ -1249,7 +1249,7 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 	if err != nil {
 		e.Logger.Errorw("Failed to deploy donIDClaimer contract", "err", err, "addressBook", ab)
 
-		ds, err2 := shared.PopulateDataStore(ab)
+		ds, err2 := shared.PopulateDataStore(ab, nil) // skipped: DonIDClaimer is a chain singleton; no multi-instance refs
 		if err2 != nil {
 			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
 		}
@@ -1260,7 +1260,7 @@ func deployDonIDClaimerChangesetLogic(e cldf.Environment, _ DeployDonIDClaimerCo
 		}, fmt.Errorf("failed to deploy donIDClaimer contract: %w", errors.Join(err, err2))
 	}
 
-	ds, err := shared.PopulateDataStore(ab)
+	ds, err := shared.PopulateDataStore(ab, nil) // skipped: DonIDClaimer is a chain singleton; no multi-instance refs
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

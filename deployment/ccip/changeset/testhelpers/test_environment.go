@@ -771,11 +771,17 @@ func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	require.NotEmpty(t, dEnv.HomeChainSel)
 	require.NotEmpty(t, dEnv.Env.BlockChains.EVMChains())
 	ab := cldf.NewMemoryAddressBook()
-	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.BlockChains.EVMChains(), tc.LinkPrice, tc.WethPrice)
+	crConfig, feedSymbolToAddress := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.BlockChains.EVMChains(), tc.LinkPrice, tc.WethPrice)
 	tEnv.StartNodes(t, crConfig)
 	dEnv = tEnv.DeployedEnvironment()
 	dEnv.Env.ExistingAddresses = ab
-	ds, err := shared.PopulateDataStore(ab)
+	// Qualify the multi-instance seed price feeds by (chain, address) with their symbol so they
+	// do not collide in the datastore. Singletons (e.g. CapabilitiesRegistry) carry no qualifier.
+	qualifiers := make(map[shared.AddressKey]string)
+	for sym, addr := range feedSymbolToAddress {
+		qualifiers[shared.AddressKey{ChainSelector: dEnv.FeedChainSel, Address: addr.Hex()}] = string(sym)
+	}
+	ds, err := shared.PopulateDataStore(ab, qualifiers)
 	require.NoError(t, err)
 	dEnv.Env.DataStore = ds.Seal()
 	return dEnv

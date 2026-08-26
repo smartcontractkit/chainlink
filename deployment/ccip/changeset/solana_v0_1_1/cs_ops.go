@@ -489,7 +489,7 @@ func DeployReceiverForTest(e cldf.Environment, cfg DeployForTestConfig) (cldf.Ch
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(ab)
+	ds, err := shared.PopulateDataStore(ab, nil) // skipped: this Solana ops changeset deploys only chain-singletons
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

@@ -51,12 +51,13 @@ func DeployBurnMintERC20PausableFreezableTransparent(e cldf.Environment, c BurnM
 	}
 
 	addressBook := cldf.NewMemoryAddressBook()
+	qualifiers := make(map[shared.AddressKey]string)
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := e.BlockChains.EVMChains()[chainSelector]
 
 		for _, token := range tokens {
-			_, err := cldf.DeployContract(e.Logger, chain, addressBook,
+			deploy, err := cldf.DeployContract(e.Logger, chain, addressBook,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*burn_mint_erc20_pausable_freezable_transparent.BurnMintERC20PausableFreezableTransparent] {
 					address, tx, transparent, err := burn_mint_erc20_pausable_freezable_transparent.DeployBurnMintERC20PausableFreezableTransparent(chain.DeployerKey, chain.Client)
 					return cldf.ContractDeploy[*burn_mint_erc20_pausable_freezable_transparent.BurnMintERC20PausableFreezableTransparent]{
@@ -72,14 +73,14 @@ func DeployBurnMintERC20PausableFreezableTransparent(e cldf.Environment, c BurnM
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy BurnMintERC20PausableFreezableTransparent for %s token on %s: %w", token, chain, err)
 			}
+			qualifiers[shared.AddressKey{ChainSelector: chainSelector, Address: deploy.Address.Hex()}] = token
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(addressBook)
+	ds, err := shared.PopulateDataStore(addressBook, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
-
 	return cldf.ChangesetOutput{
 		AddressBook: addressBook,
 		DataStore:   ds,

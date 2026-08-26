@@ -2,6 +2,7 @@ package shared
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/Masterminds/semver/v3"
@@ -84,7 +85,56 @@ func MustABIEncode(abiString string, args ...any) []byte {
 	return encoded
 }
 
-func PopulateDataStore(addressBook deployment.AddressBook) (*datastore.MemoryDataStore, error) {
+// AddressKey identifies an address in an address book. The chain selector is part of the key
+// because the same address can legitimately be used on multiple chains.
+type AddressKey struct {
+	ChainSelector uint64
+	Address       string
+}
+
+// QualifiersForAddressBook returns explicit qualifiers for every address in an address book.
+// Use it only when the address book is scoped to one logical instance, such as one token pool.
+func QualifiersForAddressBook(addressBook deployment.AddressBook, qualifier string) (map[AddressKey]string, error) {
+	addrs, err := addressBook.Addresses()
+	if err != nil {
+		return nil, err
+	}
+	qualifiers := make(map[AddressKey]string)
+	for chainSelector, chainAddresses := range addrs {
+		for address := range chainAddresses {
+			qualifiers[AddressKey{ChainSelector: chainSelector, Address: address}] = qualifier
+		}
+	}
+	return qualifiers, nil
+}
+
+// QualifiersByAddress scopes an address-only qualifier map to the chains present in an address
+// book. It is useful for legacy callers that already collect qualifiers by address while
+// constructing a single-chain address book.
+func QualifiersByAddress(addressBook deployment.AddressBook, byAddress map[string]string) (map[AddressKey]string, error) {
+	addrs, err := addressBook.Addresses()
+	if err != nil {
+		return nil, err
+	}
+	qualifiers := make(map[AddressKey]string, len(byAddress))
+	for chainSelector, chainAddresses := range addrs {
+		for address := range chainAddresses {
+			if qualifier, ok := byAddress[address]; ok {
+				qualifiers[AddressKey{ChainSelector: chainSelector, Address: address}] = qualifier
+			}
+		}
+	}
+	return qualifiers, nil
+}
+
+// PopulateDataStore converts a changeset's OWN freshly-deployed address book into a datastore.
+// Callers must provide a qualifier for every multi-instance address they deployed; all other refs
+// use the empty qualifier. It FAILS if two refs map to the same datastore key
+// (chain, type, version, qualifier) — the address is not part of the key — because silently
+// keeping only one would lose data nondeterministically. It must never be called on a merged or
+// pre-existing address book that cannot carry qualifiers; resolve existing state from a ref slice
+// via CollectAddressRefs instead.
+func PopulateDataStore(addressBook deployment.AddressBook, qualifiers map[AddressKey]string) (*datastore.MemoryDataStore, error) {
 	addrs, err := addressBook.Addresses()
 	if err != nil {
 		return nil, err
@@ -98,10 +148,7 @@ func PopulateDataStore(addressBook deployment.AddressBook) (*datastore.MemoryDat
 				Address:       addr,
 				Type:          datastore.ContractType(typever.Type),
 				Version:       &typever.Version,
-				// Since the address book does not have a qualifier, we use the address and type as a
-				// unique identifier for the addressRef. Otherwise, we would have some clashes in the
-				// between address refs.
-				Qualifier: fmt.Sprintf("%s-%s", addr, typever.Type),
+				Qualifier:     qualifiers[AddressKey{ChainSelector: chainselector, Address: addr}],
 			}
 
 			// If the address book has labels, we need to add them to the addressRef
@@ -110,12 +157,61 @@ func PopulateDataStore(addressBook deployment.AddressBook) (*datastore.MemoryDat
 			}
 
 			if err = ds.Addresses().Add(ref); err != nil {
+				if errors.Is(err, datastore.ErrAddressRefExists) {
+					return nil, fmt.Errorf(
+						"address book has multiple refs that map to the same datastore key (chain=%d, type=%s, version=%s, qualifier=%q); provide distinct qualifiers for each multi-instance contract",
+						chainselector, typever.Type, typever.Version, ref.Qualifier)
+				}
 				return nil, err
 			}
 		}
 	}
 
 	return ds, nil
+}
+
+// CollectAddressRefs returns a plain (unkeyed) slice of address refs drawn from both the
+// environment's datastore and its existing address book, including labels. It does not key or
+// dedup, so duplicate/multi-instance refs are all retained. Use it to resolve chain-singleton
+// contracts (e.g. FeeQuoter) over existing state without going through a keyed datastore. It
+// returns an error if either source cannot be read, so callers do not silently resolve from an
+// incomplete set.
+func CollectAddressRefs(e deployment.Environment) ([]datastore.AddressRef, error) {
+	var refs []datastore.AddressRef
+	if e.DataStore != nil {
+		r, err := e.DataStore.Addresses().Fetch()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch address refs from environment datastore: %w", err)
+		}
+		refs = append(refs, r...)
+	}
+	if e.ExistingAddresses != nil {
+		addrs, err := e.ExistingAddresses.Addresses()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch addresses from environment address book: %w", err)
+		}
+		for sel, chainAddresses := range addrs {
+			for addr, tv := range chainAddresses {
+				ref := datastore.AddressRef{
+					ChainSelector: sel,
+					Address:       addr,
+					Type:          datastore.ContractType(tv.Type),
+					Version:       &tv.Version,
+				}
+				if !tv.Labels.IsEmpty() {
+					ref.Labels = datastore.NewLabelSet(tv.Labels.List()...)
+				}
+				refs = append(refs, ref)
+			}
+		}
+	}
+	return refs, nil
+}
+
+// TokenPoolLookupTableQualifier returns the datastore qualifier for a Solana token-pool lookup
+// table, which is uniquely identified by (token mint, pool type, metadata).
+func TokenPoolLookupTableQualifier(tokenPubKey, poolType, metadata string) string {
+	return fmt.Sprintf("%s/%s/%s", tokenPubKey, poolType, metadata)
 }
 
 // ResolveFeeQuoterAddressAndVersion returns the FeeQuoter with the highest semver for a chain.

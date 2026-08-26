@@ -51,7 +51,7 @@ func DeployChainContractsChangeset(env cldf.Environment, c ccipseq.DeployChainCo
 			}
 		}
 	}
-	ds, err := shared.PopulateDataStore(addressBook)
+	ds, err := shared.PopulateDataStore(addressBook, nil) // skipped: this changeset deploys only chain-singletons
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}

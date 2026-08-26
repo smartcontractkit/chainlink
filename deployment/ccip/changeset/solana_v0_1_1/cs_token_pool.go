@@ -215,6 +215,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 	}
 	chain := e.BlockChains.SolanaChains()[cfg.ChainSelector]
 	addressBook := cldf.NewMemoryAddressBook()
+	qualifiers := make(map[shared.AddressKey]string)
 	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	rmnRemoteAddress := chainState.RMNRemote
 
@@ -401,6 +402,16 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
 		}
+		// the token pool lookup table is qualified by its full identity (token mint, pool type, metadata)
+		tableAddresses, err := csOutput.AddressBook.Addresses()
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token pool lookup table addresses: %w", err)
+		}
+		for _, chainAddrs := range tableAddresses {
+			for addr := range chainAddrs {
+				qualifiers[shared.AddressKey{ChainSelector: cfg.ChainSelector, Address: addr}] = shared.TokenPoolLookupTableQualifier(tokenPoolCfg.TokenPubKey.String(), tokenPoolCfg.PoolType.String(), tokenPoolCfg.Metadata)
+			}
+		}
 	}
 
 	if len(txns) > 0 {
@@ -409,7 +420,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		ds, err := shared.PopulateDataStore(addressBook)
+		ds, err := shared.PopulateDataStore(addressBook, qualifiers)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 		}
@@ -420,11 +431,10 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 		}, nil
 	}
 
-	ds, err := shared.PopulateDataStore(addressBook)
+	ds, err := shared.PopulateDataStore(addressBook, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
-
 	return cldf.ChangesetOutput{
 		AddressBook: addressBook,
 		DataStore:   ds,
@@ -2040,11 +2050,12 @@ func AddTokenPoolLookupTable(e cldf.Environment, cfg TokenPoolLookupTableConfig)
 	}
 	e.Logger.Infow("Added token pool lookup table", "token_pubkey", tokenPubKey.String())
 
-	ds, err := shared.PopulateDataStore(newAddressBook)
+	// the token pool lookup table is qualified by its full identity (token mint, pool type, metadata)
+	qualifiers := map[shared.AddressKey]string{{ChainSelector: cfg.ChainSelector, Address: table.String()}: shared.TokenPoolLookupTableQualifier(tokenPubKey.String(), cfg.PoolType.String(), cfg.Metadata)}
+	ds, err := shared.PopulateDataStore(newAddressBook, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
-
 	return cldf.ChangesetOutput{
 		AddressBook: newAddressBook,
 		DataStore:   ds,

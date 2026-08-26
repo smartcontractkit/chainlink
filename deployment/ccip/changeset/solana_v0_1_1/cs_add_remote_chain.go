@@ -109,13 +109,18 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 	}
 
 	ab := cldf.NewMemoryAddressBook()
-	txns, err := doAddRemoteChainToRouter(e, s, cfg, ab)
+	addrToSelector := make(map[string]string)
+	txns, err := doAddRemoteChainToRouter(e, s, cfg, ab, addrToSelector)
 	if err != nil {
-		ds, err2 := shared.PopulateDataStore(ab)
+		qualifiers, err2 := shared.QualifiersByAddress(ab, addrToSelector)
 		if err2 != nil {
-			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
+			err2 = fmt.Errorf("failed to build Solana lane qualifiers: %w", err2)
 		}
-		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2)
+		ds, err3 := shared.PopulateDataStore(ab, qualifiers)
+		if err3 != nil {
+			err3 = fmt.Errorf("failed to populate in-memory DataStore: %w", err3)
+		}
+		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2, err3)
 	}
 
 	// create proposals for ixns
@@ -125,7 +130,11 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		ds, err := shared.PopulateDataStore(ab)
+		qualifiers, err := shared.QualifiersByAddress(ab, addrToSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build Solana lane qualifiers: %w", err)
+		}
+		ds, err := shared.PopulateDataStore(ab, qualifiers)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 		}
@@ -136,7 +145,11 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 		}, nil
 	}
 
-	ds, err := shared.PopulateDataStore(ab)
+	qualifiers, err := shared.QualifiersByAddress(ab, addrToSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build Solana lane qualifiers: %w", err)
+	}
+	ds, err := shared.PopulateDataStore(ab, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
@@ -149,6 +162,7 @@ func doAddRemoteChainToRouter(
 	s stateview.CCIPOnChainState,
 	cfg AddRemoteChainToRouterConfig,
 	ab cldf.AddressBook,
+	addrToSelector map[string]string,
 ) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
@@ -282,6 +296,8 @@ func doAddRemoteChainToRouter(
 			if err != nil {
 				return txns, fmt.Errorf("failed to save dest chain state to address book: %w", err)
 			}
+			// the lane qualifier is the remote chain selector
+			addrToSelector[routerRemoteStatePDA.String()] = remoteChainSelStr
 		}
 	}
 
@@ -358,7 +374,9 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 	ab := cldf.NewMemoryAddressBook()
 	txns, err := doAddRemoteChainToFeeQuoter(e, s, cfg, ab)
 	if err != nil {
-		ds, err2 := shared.PopulateDataStore(ab)
+		// skipped: doAddRemoteChainToFeeQuoter does not save any lane/multi-instance refs,
+		// so the datastore needs no additional qualifier pass.
+		ds, err2 := shared.PopulateDataStore(ab, nil)
 		if err2 != nil {
 			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
 		}
@@ -372,7 +390,9 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		ds, err := shared.PopulateDataStore(ab)
+		// skipped: doAddRemoteChainToFeeQuoter does not save any lane/multi-instance refs,
+		// so the datastore needs no additional qualifier pass.
+		ds, err := shared.PopulateDataStore(ab, nil)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 		}
@@ -383,7 +403,9 @@ func AddRemoteChainToFeeQuoter(e cldf.Environment, cfg AddRemoteChainToFeeQuoter
 		}, nil
 	}
 
-	ds, err := shared.PopulateDataStore(ab)
+	// skipped: doAddRemoteChainToFeeQuoter does not save any lane/multi-instance refs,
+	// so the datastore needs no additional qualifier pass.
+	ds, err := shared.PopulateDataStore(ab, nil)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
@@ -553,14 +575,19 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 	}
 
 	ab := cldf.NewMemoryAddressBook()
-	txns, err := doAddRemoteChainToOffRamp(e, s, cfg, ab)
+	addrToSelector := make(map[string]string)
+	txns, err := doAddRemoteChainToOffRamp(e, s, cfg, ab, addrToSelector)
 	if err != nil {
-		ds, err2 := shared.PopulateDataStore(ab)
+		qualifiers, err2 := shared.QualifiersByAddress(ab, addrToSelector)
 		if err2 != nil {
-			err2 = fmt.Errorf("failed to populate in-memory DataStore: %w", err2)
+			err2 = fmt.Errorf("failed to build Solana lane qualifiers: %w", err2)
+		}
+		ds, err3 := shared.PopulateDataStore(ab, qualifiers)
+		if err3 != nil {
+			err3 = fmt.Errorf("failed to populate in-memory DataStore: %w", err3)
 		}
 
-		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2)
+		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2, err3)
 	}
 
 	// create proposals for ixns
@@ -570,7 +597,11 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		ds, err := shared.PopulateDataStore(ab)
+		qualifiers, err := shared.QualifiersByAddress(ab, addrToSelector)
+		if err != nil {
+			return cldf.ChangesetOutput{}, fmt.Errorf("failed to build Solana lane qualifiers: %w", err)
+		}
+		ds, err := shared.PopulateDataStore(ab, qualifiers)
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 		}
@@ -581,7 +612,11 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 		}, nil
 	}
 
-	ds, err := shared.PopulateDataStore(ab)
+	qualifiers, err := shared.QualifiersByAddress(ab, addrToSelector)
+	if err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build Solana lane qualifiers: %w", err)
+	}
+	ds, err := shared.PopulateDataStore(ab, qualifiers)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
@@ -594,6 +629,7 @@ func doAddRemoteChainToOffRamp(
 	s stateview.CCIPOnChainState,
 	cfg AddRemoteChainToOffRampConfig,
 	ab cldf.AddressBook,
+	addrToSelector map[string]string,
 ) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	chainSel := cfg.ChainSelector
@@ -677,6 +713,8 @@ func doAddRemoteChainToOffRamp(
 			if err != nil {
 				return txns, fmt.Errorf("failed to save source chain state to address book: %w", err)
 			}
+			// the lane qualifier is the remote chain selector
+			addrToSelector[offRampRemoteStatePDA.String()] = remoteChainSelStr
 		}
 
 		if offRampUsingMCMS {
