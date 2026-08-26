@@ -321,7 +321,7 @@ func ExecuteVaultMixedAuthTest(t *testing.T, fixture *vaultScenarioFixture, test
 		prepareVaultUserJSONRPCRequestLikeGateway(t, &jsonRequest, vaultParsedPublicKey, false)
 		jsonRequest.Auth = mintVaultJWTDigestForPreparedRequest(t, issuer, &jsonRequest, orgID, nil)
 
-		jsonResponse := sendVaultSignedOCRRequestToGateway(t, gwURL, jsonRequest, uniqueRequestID)
+		jsonResponse := sendVaultSignedOCRRequestToGateway(t, gwURL, jsonRequest, derivedJWTWorkflowOwner)
 		require.Equal(t, uniqueRequestID, jsonResponse.ID)
 		require.Nil(t, jsonResponse.Error)
 		require.Equal(t, vaulttypes.MethodSecretsCreate, jsonResponse.Method)
@@ -577,7 +577,6 @@ func ExecuteVaultBlobBatchingSmokeTest(t *testing.T, fixture *vaultScenarioFixtu
 	if linkingService != nil {
 		orgID = "org" + strings.ReplaceAll(uuid.NewString(), "-", "")
 		linkingService.SetOwnerOrg(owner, orgID)
-		expectedResponseOwner = orgID
 	}
 
 	wfRegAddr := crecontracts.MustGetAddressFromDataStore(testEnv.CreEnvironment.CldfEnvironment.DataStore, testEnv.CreEnvironment.Blockchains[0].ChainSelector(), keystone_changeset.WorkflowRegistry.String(), testEnv.CreEnvironment.ContractVersions[keystone_changeset.WorkflowRegistry.String()], "")
