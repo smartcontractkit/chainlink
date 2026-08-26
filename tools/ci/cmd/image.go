@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -36,18 +35,33 @@ func newImageResolveCmd() *cobra.Command {
 		Use:   "resolve",
 		Short: "Resolve a Chainlink Docker image URI based on ECR type and environment variables",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			act := ghaction.New(cmd.OutOrStdout(), "", "")
+			act := ghaction.NewAction(cmd.OutOrStdout())
+			if ecrType == "" {
+				ecrType = act.GetInput("ecr_type")
+			}
 			if ecrType == "" {
 				ecrType = act.Getenv("ECR_TYPE")
+			}
+			if repositoryPath == "" {
+				repositoryPath = act.GetInput("repo_path")
 			}
 			if repositoryPath == "" {
 				repositoryPath = act.Getenv("CHAINLINK_IMAGE_REPO_PATH")
 			}
 			if imageTag == "" {
+				imageTag = act.GetInput("tag")
+			}
+			if imageTag == "" {
 				imageTag = act.Getenv("CHAINLINK_IMAGE_TAG")
 			}
 			if awsAccount == "" {
+				awsAccount = act.GetInput("aws_account")
+			}
+			if awsAccount == "" {
 				awsAccount = act.Getenv("AWS_ACCOUNT_NUMBER")
+			}
+			if awsRegion == "" {
+				awsRegion = act.GetInput("aws_region")
 			}
 			if awsRegion == "" {
 				awsRegion = act.Getenv("AWS_REGION")
@@ -64,7 +78,7 @@ func newImageResolveCmd() *cobra.Command {
 				return err
 			}
 
-			if os.Getenv("GITHUB_OUTPUT") != "" {
+			if act.Getenv("GITHUB_OUTPUT") != "" {
 				if err := act.SetOutput("resolved_image", resolved); err != nil {
 					return err
 				}
