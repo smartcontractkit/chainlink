@@ -188,10 +188,11 @@ func (d *Delegate) NewServices(
 ) ([]job.ServiceCtx, error) {
 	log := d.logger.Named("StandardCapabilities").Named(strconv.Itoa(int(jobID))).Named(jobName)
 
-	// Bootstrap peers are always resolved from TOML config; the job spec must not
-	// carry them. Fail early when the node is not configured with default bootstrappers.
+	// Warn when neither the job spec nor the TOML config provide bootstrap peers.
+	// The oracle factory will fail at startup if it can't find peers, so the error
+	// surfaces anyway — but logging here gives an earlier, clearer signal.
 	if oracleFactoryConfig != nil && oracleFactoryConfig.Enabled && len(oracleFactoryConfig.BootstrapPeers) == 0 && len(d.defaultBootstrappers) == 0 {
-		return nil, errors.New("no bootstrap peers configured in Capabilities.Peering.V2.DefaultBootstrappers")
+		log.Warnw("no bootstrap peers found in job spec or Capabilities.Peering.V2.DefaultBootstrappers; the oracle factory may fail to start")
 	}
 
 	kvStore := job.NewKVStore(jobID, d.ds)
@@ -254,7 +255,6 @@ func (d *Delegate) NewServices(
 	}
 
 	var ocrEvmKeyBundle ocr2key.KeyBundle
-
 	if ocrContractConfig != nil {
 		// Always select the exact bundle matching the on-chain OCR config from the
 		// Capabilities Registry. If none matches, OCR won't work, so we fail here
@@ -262,18 +262,24 @@ func (d *Delegate) NewServices(
 		// TODO: extend to cover other chain families besides EVM.
 		kb, ok := generic.SelectOCRKeyBundleForConfig(ocrEvmKeyBundles, ocrContractConfig)
 		if !ok {
-			return nil, errors.New("none of the node's EVM OCR key bundles match the signers in the on-chain OCR config")
-		}
-		ocrEvmKeyBundle = kb
-	} else if len(ocrEvmKeyBundles) == 0 {
-		ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, corekeys.EVM)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to create OCR key bundle")
+			log.Warnw("none of the node's EVM OCR key bundles match the signers in the on-chain OCR config; using the first bundle, which may cause unexpected behavior",
+				"numBundles", len(ocrEvmKeyBundles))
+			ocrEvmKeyBundle = ocrEvmKeyBundles[0]
+		} else {
+			ocrEvmKeyBundle = kb
 		}
 	} else {
-		// No on-chain OCR config available yet; use the first bundle as a fallback, which may cause unexpected behavior
-		// if using the OracleFactory.
-		ocrEvmKeyBundle = ocrEvmKeyBundles[0]
+		// No on-chain OCR config available yet.
+		if len(ocrEvmKeyBundles) == 0 {
+			ocrEvmKeyBundle, err = d.ks.OCR2().Create(ctx, corekeys.EVM)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to create OCR key bundle")
+			}
+		} else {
+			// Use the first bundle as a fallback, which may cause unexpected behavior
+			// if using the OracleFactory.
+			ocrEvmKeyBundle = ocrEvmKeyBundles[0]
+		}
 	}
 
 	// Best-effort resolve the authoritative capability DON ID for this plugin
@@ -309,6 +315,12 @@ func (d *Delegate) NewServices(
 	var resolvedSigning job.OnchainSigningStrategy
 	var resolveErr error
 	if oracleFactoryConfig == nil {
+		log.Infow("resolving oracle factory config from Capabilities Registry and node keystore",
+			"capabilityID", capabilityID,
+			"capRegistryAddress", d.capRegistryAddress,
+			"capRegistryChainID", d.capRegistryChainID,
+			"transmitter", transmitter,
+			"hasOCRContractConfig", ocrContractConfig != nil)
 		oracleFactoryCfg, resolvedSigning, resolveErr = generic.ResolveOracleFactoryConfig(ctx, generic.ResolveOracleFactoryConfigParams{
 			CapRegistryAddress: d.capRegistryAddress,
 			CapRegistryChainID: d.capRegistryChainID,
@@ -321,6 +333,14 @@ func (d *Delegate) NewServices(
 			return nil, fmt.Errorf("failed to resolve oracle factory config: %w", resolveErr)
 		}
 	} else {
+		log.Infow("using oracle factory config from job spec",
+			"capabilityID", capabilityID,
+			"enabled", oracleFactoryConfig.Enabled,
+			"ocrContractAddress", oracleFactoryConfig.OCRContractAddress,
+			"chainID", oracleFactoryConfig.ChainID,
+			"ocrKeyBundleID", oracleFactoryConfig.OCRKeyBundleID,
+			"transmitterID", oracleFactoryConfig.TransmitterID,
+			"numBootstrapPeers", len(oracleFactoryConfig.BootstrapPeers))
 		oracleFactoryCfg = *oracleFactoryConfig
 		resolvedSigning = oracleFactoryConfig.OnchainSigning
 	}
