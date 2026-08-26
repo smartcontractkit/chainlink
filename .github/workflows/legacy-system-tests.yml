@@ -64,7 +64,7 @@ jobs:
       deployment: false
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.chainlink_version || github.sha }}
       # we cannot pass this resolved image to `test-nightly` job, because when it contains secrets
@@ -205,7 +205,7 @@ jobs:
             logs_archive_name: "vrfv2-batch-fulfillment"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ inputs.chainlink_version || github.sha }}

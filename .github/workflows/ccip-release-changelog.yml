@@ -52,7 +52,7 @@ jobs:
           echo "safe_old=${old//[^a-zA-Z0-9._-]/-}" >> "$GITHUB_OUTPUT"
           echo "safe_new=${new//[^a-zA-Z0-9._-]/-}" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history + tags for ref resolution and git log
 
