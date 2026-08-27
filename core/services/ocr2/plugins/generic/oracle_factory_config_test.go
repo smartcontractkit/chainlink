@@ -169,3 +169,33 @@ func TestSelectOCRKeyBundleForConfig(t *testing.T) {
 	_, ok = SelectOCRKeyBundleForConfig([]ocr2key.KeyBundle{kb1, kb2}, noMatch)
 	assert.False(t, ok)
 }
+
+func TestDefaultTransmitterForChain_InvalidChainID(t *testing.T) {
+	t.Parallel()
+
+	// defaultTransmitterForChain requires a real keystore; covered indirectly via integration.
+	_, err := defaultTransmitterForChain(context.Background(), nil, "not-a-number")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid chain_id")
+}
+
+func TestResolveOracleFactoryConfig_keystoreFallbackTransmitter(t *testing.T) {
+	t.Parallel()
+
+	// When no transmitter is provided from the on-chain OCR config, and the job spec
+	// doesn't set one, ResolveOracleFactoryConfig should fall back to the keystore.
+	// We can't test the full keystore path without a real keystore, but we can verify
+	// that the function doesn't set a transmitter when EthKeystore is nil and ChainID is set.
+	cfg, _, err := ResolveOracleFactoryConfig(context.Background(), ResolveOracleFactoryConfigParams{
+		Config:             job.OracleFactoryConfig{Enabled: true},
+		CapRegistryAddress: "0xabc",
+		CapRegistryChainID: "1337",
+		Transmitter:        "",  // no on-chain transmitter
+		EthKeystore:        nil, // no keystore
+		Logger:             logger.TestLogger(t),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "0xabc", cfg.OCRContractAddress)
+	assert.Equal(t, "1337", cfg.ChainID)
+	assert.Empty(t, cfg.TransmitterID, "transmitter should be empty when no keystore fallback available")
+}

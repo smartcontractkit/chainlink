@@ -101,6 +101,69 @@ func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 	assert.True(t, ok)
 }
 
+func TestOCRConfigService_GetContractConfig(t *testing.T) {
+	lggr := logger.Test(t)
+	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
+
+	ctx := t.Context()
+	require.NoError(t, svc.Start(ctx))
+	defer svc.Close()
+
+	// Before any registry update, GetContractConfig should return false.
+	_, ok := svc.GetContractConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
+	assert.False(t, ok)
+
+	// Add config via registry update.
+	ocrConfig := &capabilitiespb.OCR3Config{
+		Signers:               [][]byte{[]byte("signer1"), []byte("signer2"), []byte("signer3"), []byte("signer4")},
+		Transmitters:          [][]byte{[]byte("tx1"), []byte("tx2"), []byte("tx3"), []byte("tx4")},
+		F:                     1,
+		OnchainConfig:         []byte("onchain"),
+		OffchainConfigVersion: 1,
+		OffchainConfig:        []byte("offchain"),
+		ConfigCount:           5,
+	}
+
+	capConfig := &capabilitiespb.CapabilityConfig{
+		Ocr3Configs: map[string]*capabilitiespb.OCR3Config{
+			capabilitiespb.OCR3ConfigDefaultKey: ocrConfig,
+		},
+	}
+
+	configBytes, err := proto.Marshal(capConfig)
+	require.NoError(t, err)
+
+	don := registrysyncer.DON{
+		CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
+			"consensus@1.0.0": {Config: configBytes},
+		},
+	}
+	don.Members = []ragetypes.PeerID{testPeerID()}
+
+	registry := &registrysyncer.LocalRegistry{
+		Logger: lggr,
+		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
+			1: don,
+		},
+		IDsToNodes:        map[ragetypes.PeerID]registrysyncer.NodeInfo{},
+		IDsToCapabilities: map[string]registrysyncer.Capability{},
+	}
+
+	err = svc.OnNewRegistry(ctx, registry)
+	require.NoError(t, err)
+
+	// After registry update, GetContractConfig should return the cached config.
+	got, ok := svc.GetContractConfig("consensus@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
+	require.True(t, ok)
+	assert.Equal(t, uint64(5), got.ConfigCount)
+	assert.Len(t, got.Signers, 4)
+	assert.Len(t, got.Transmitters, 4)
+
+	// Unknown capability should return false.
+	_, ok = svc.GetContractConfig("unknown@1.0.0", capabilitiespb.OCR3ConfigDefaultKey)
+	assert.False(t, ok)
+}
+
 func TestOCRConfigService_GetConfigTracker(t *testing.T) {
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
