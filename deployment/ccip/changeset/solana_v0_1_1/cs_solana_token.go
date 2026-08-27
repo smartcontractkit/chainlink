@@ -206,7 +206,7 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 		}
 	}
 
-	qualifiers, err := shared.QualifiersForAddressBook(newAddresses, string(cfg.TokenSymbol))
+	qualifiers, err := shared.QualifiersForAddressBook(newAddresses, cfg.TokenSymbol)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build token qualifiers: %w", err)
 	}

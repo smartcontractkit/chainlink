@@ -552,7 +552,8 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 				// losing the record of everything deployed.
 				return cldf.ChangesetOutput{
 					MCMSTimelockProposals: report.Output.Proposals,
-					AddressBook:           report.Output.AddressBook,
+					//nolint:staticcheck // SA1019: AddressBook is deprecated, migration to DataStore pending
+					AddressBook: report.Output.AddressBook,
 				}, fmt.Errorf("lane ref %s (%s) on chain %d must carry exactly one selector label, got %d", address, tv.Type, chainSelector, len(labels))
 			}
 			// the sole label is the remote chain selector; the lane qualifier is that selector
@@ -563,7 +564,8 @@ func addEVMAndSolanaLaneLogic(env cldf.Environment, input AddMultiEVMSolanaLaneC
 	if err != nil {
 		return cldf.ChangesetOutput{
 			MCMSTimelockProposals: report.Output.Proposals,
-			AddressBook:           report.Output.AddressBook,
+			//nolint:staticcheck // SA1019: AddressBook is deprecated, migration to DataStore pending
+			AddressBook: report.Output.AddressBook,
 		}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 

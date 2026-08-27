@@ -51,7 +51,7 @@ func TestPopulateDataStoreQualifiersDryRun(t *testing.T) {
 	for _, tp := range []string{"Router", "FeeQuoter", "NonceManager"} {
 		r := byKey(tp)
 		require.NotEmpty(t, r.Address, "singleton %s missing from datastore", tp)
-		require.Equal(t, "", r.Qualifier, "singleton %s must have empty qualifier", tp)
+		require.Empty(t, r.Qualifier, "singleton %s must have empty qualifier", tp)
 	}
 
 	// Both pools are qualified with the token symbol the caller supplied and are

@@ -120,7 +120,11 @@ func AddRemoteChainToRouter(e cldf.Environment, cfg AddRemoteChainToRouterConfig
 		if err3 != nil {
 			err3 = fmt.Errorf("failed to populate in-memory DataStore: %w", err3)
 		}
-		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2, err3)
+		return cldf.ChangesetOutput{
+			//nolint:staticcheck // SA1019: AddressBook is deprecated, migration to DataStore pending
+			AddressBook: ab,
+			DataStore:   ds,
+		}, errors.Join(err, err2, err3)
 	}
 
 	// create proposals for ixns
@@ -587,7 +591,11 @@ func AddRemoteChainToOffRamp(e cldf.Environment, cfg AddRemoteChainToOffRampConf
 			err3 = fmt.Errorf("failed to populate in-memory DataStore: %w", err3)
 		}
 
-		return cldf.ChangesetOutput{AddressBook: ab, DataStore: ds}, errors.Join(err, err2, err3)
+		return cldf.ChangesetOutput{
+			//nolint:staticcheck // SA1019: AddressBook is deprecated, migration to DataStore pending
+			AddressBook: ab,
+			DataStore:   ds,
+		}, errors.Join(err, err2, err3)
 	}
 
 	// create proposals for ixns

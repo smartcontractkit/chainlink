@@ -3,6 +3,7 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -183,9 +184,7 @@ func deployPrerequisiteChainContracts(e cldf.Environment, ab cldf.AddressBook, c
 	// did deploy their multi-instance contracts.
 	err = deployGrp.Wait()
 	for _, m := range perChain {
-		for addr, sym := range m {
-			addrToSymbol[addr] = sym
-		}
+		maps.Copy(addrToSymbol, m)
 	}
 	return err
 }

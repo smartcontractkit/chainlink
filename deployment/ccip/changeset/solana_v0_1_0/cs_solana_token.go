@@ -169,7 +169,7 @@ func DeploySolanaToken(e cldf.Environment, cfg DeploySolanaTokenConfig) (cldf.Ch
 
 	e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", mint.String(), "chain", chain.String())
 
-	qualifiers, err := shared.QualifiersForAddressBook(newAddresses, string(cfg.TokenSymbol))
+	qualifiers, err := shared.QualifiersForAddressBook(newAddresses, cfg.TokenSymbol)
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to build token qualifiers: %w", err)
 	}

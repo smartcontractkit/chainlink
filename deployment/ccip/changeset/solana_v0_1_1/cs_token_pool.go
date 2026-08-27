@@ -403,7 +403,7 @@ func AddTokenPoolAndLookupTable(e cldf.Environment, cfg AddTokenPoolAndLookupTab
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book: %w", err)
 		}
 		// the token pool lookup table is qualified by its full identity (token mint, pool type, metadata)
-		tableAddresses, err := csOutput.AddressBook.Addresses()
+		tableAddresses, err := csOutput.AddressBook.Addresses() //nolint:staticcheck // SA1019: AddressBook is deprecated, migration to DataStore pending
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to get token pool lookup table addresses: %w", err)
 		}
