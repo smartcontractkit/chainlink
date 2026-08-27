@@ -452,9 +452,27 @@ func InitMonitoringResources() (em *EngineMetrics, err error) {
 	return em, nil
 }
 
+// platformEngineHistogramBoundaries caps Prometheus le-cardinality on high-workflow-count
+// CRE nodes. Each slice has 7 explicit boundaries (8 buckets including +Inf).
+var platformEngineHistogramBoundaries = struct {
+	workflowCompletedTime        []float64
+	triggerEventQueueWait        []float64
+	triggerQueueToExecutionStart []float64
+	triggerPayloadBytes          []float64
+	executionSemaphoreWait       []float64
+}{
+	// Workflows-Engine p95/p99; coarser than prior 16-bucket layout but keeps SLO range.
+	workflowCompletedTime:        []float64{0, 10, 40, 90, 150, 300, 900},
+	triggerEventQueueWait:        []float64{0, 0.001, 0.01, 0.1, 1, 10, 60},
+	triggerQueueToExecutionStart: []float64{0, 0.01, 0.1, 1, 10, 60, 300},
+	triggerPayloadBytes:          []float64{0, 512, 4096, 32768, 262144, 1048576, 4194304},
+	executionSemaphoreWait:       []float64{0, 0.001, 0.01, 0.1, 1, 10, 60},
+}
+
 // Note: due to the OTEL specification, all histogram buckets
 // Must be defined when the beholder client is created
 func MetricViews() []sdkmetric.View {
+	b := platformEngineHistogramBoundaries
 	return []sdkmetric.View{
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_workflow_earlyexit_time_seconds"},
@@ -465,8 +483,7 @@ func MetricViews() []sdkmetric.View {
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_workflow_completed_time_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				// increased granularity for the workflow execution latencies near expected values
-				Boundaries: []float64{0, 10, 20, 40, 50, 70, 90, 120, 150, 180, 210, 300, 600, 900, 1200},
+				Boundaries: b.workflowCompletedTime,
 			}},
 		),
 		sdkmetric.NewView(
@@ -490,25 +507,32 @@ func MetricViews() []sdkmetric.View {
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_trigger_event_queue_wait_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60},
+				Boundaries: b.triggerEventQueueWait,
 			}},
 		),
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_trigger_queue_to_execution_start_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60, 120, 300},
+				Boundaries: b.triggerQueueToExecutionStart,
 			}},
 		),
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_trigger_payload_bytes"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576, 2097152, 4194304},
+				Boundaries: b.triggerPayloadBytes,
 			}},
 		),
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_execution_semaphore_wait_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30, 60},
+				Boundaries: b.executionSemaphoreWait,
+			}},
+		),
+		// Default OTel buckets (16) for this instrument; Capabilities dashboards use p50/p90.
+		sdkmetric.NewView(
+			sdkmetric.Instrument{Name: "platform_engine_get_secrets_duration_ms"},
+			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0, 10, 50, 100, 250, 500, 1000},
 			}},
 		),
 	}
