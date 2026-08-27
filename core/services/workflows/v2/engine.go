@@ -2,6 +2,7 @@ package v2
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"maps"
@@ -24,6 +25,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
+	cronpb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
 	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -435,6 +438,40 @@ func (e *Engine) localNodeSync(ctx context.Context) {
 	e.cfg.Hooks.OnNodeSynced(localNode, nil)
 }
 
+// triggerRegistrationLogFields extracts trigger-specific fields from the registration payload
+// for structured logging. Returns key-value pairs suitable for use with logger.Infow.
+func triggerRegistrationLogFields(payload *anypb.Any) []any {
+	if payload == nil {
+		return nil
+	}
+	switch string(payload.MessageName()) {
+	case string((&cronpb.Config{}).ProtoReflect().Descriptor().FullName()):
+		cfg := &cronpb.Config{}
+		if err := payload.UnmarshalTo(cfg); err != nil {
+			return []any{"payloadUnmarshalErr", err}
+		}
+		return []any{"schedule", cfg.Schedule}
+	case string((&evm.FilterLogTriggerRequest{}).ProtoReflect().Descriptor().FullName()):
+		cfg := &evm.FilterLogTriggerRequest{}
+		if err := payload.UnmarshalTo(cfg); err != nil {
+			return []any{"payloadUnmarshalErr", err}
+		}
+		addrs := make([]string, 0, len(cfg.Addresses))
+		for _, a := range cfg.Addresses {
+			addrs = append(addrs, "0x"+hex.EncodeToString(a))
+		}
+		var sigs []string
+		if len(cfg.Topics) > 0 {
+			for _, v := range cfg.Topics[0].Values {
+				sigs = append(sigs, "0x"+hex.EncodeToString(v))
+			}
+		}
+		return []any{"addresses", addrs, "eventSignatures", sigs, "confidence", cfg.Confidence.String()}
+	default:
+		return []any{"payloadType", string(payload.MessageName())}
+	}
+}
+
 func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 	// call into the workflow to get trigger subscriptions
 	subCtx, subCancel, err := e.cfg.LocalLimiters.TriggerSubscriptionTime.WithTimeout(ctx)
@@ -535,7 +572,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		triggerCap := triggers[i]
 		g.Go(func() error {
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, i)
-			e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
+			e.logger().Infow("Registering trigger", append([]any{"triggerID", sub.Id, "method", sub.Method}, triggerRegistrationLogFields(sub.Payload)...)...)
 			metadata := capabilities.RequestMetadata{
 				WorkflowID:                    e.cfg.WorkflowID,
 				WorkflowOwner:                 e.cfg.WorkflowOwner,
