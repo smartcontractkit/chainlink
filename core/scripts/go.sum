@@ -1650,8 +1650,8 @@ github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260727172856-734bee1b24
 github.com/smartcontractkit/chainlink-stellar v0.0.3-0.20260727172856-734bee1b2489/go.mod h1:3/LaXFXZH64X1ohaawxJKIPo/KA4qOVDEmPpN0ChEZ8=
 github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260727172856-734bee1b2489 h1:z6inZEs6BcVKARjvnUNJQ4+7N4905L/Y1eDBFtkkRDI=
 github.com/smartcontractkit/chainlink-stellar/bindings v0.0.0-20260727172856-734bee1b2489/go.mod h1:uZEMU0BN48tmRP/Hu+RdnM70g17pgAv4s/Nux7asr2U=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20260827120130-362c4a408695 h1:EPCKKMypUPDgmTXeBV5Fd3yhwcDjVR6EP1tHoK+XUrU=
-github.com/smartcontractkit/chainlink-sui v0.0.0-20260827120130-362c4a408695/go.mod h1:PruXFX6Np9pGTRX2gvNe+HphUW7oh6APpBqee/CvB8w=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20260821005832-e896796fceed h1:aAORERZOfiP4mAQAhKZMuCog1KkjBW47qYInGkEq5zA=
+github.com/smartcontractkit/chainlink-sui v0.0.0-20260821005832-e896796fceed/go.mod h1:ayMAswIoOUfKXjnPml593ODmVTgUO4FBTFpG1zjdr/I=
 github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96 h1:3R9f6pguDIjei+nKx5dUT9j6fX8urGmlZA7Ad3x9UBs=
 github.com/smartcontractkit/chainlink-sui/codec v0.0.0-20260720132736-e99278bfdc96/go.mod h1:pSW9q0/YqQE5R65Z/2zsyD9c50JZf+yRJJvN6Jo3LCU=
 github.com/smartcontractkit/chainlink-testing-framework/framework v0.16.6 h1:2cW+w652PdfdxG2muvMS14pACeP3tfZXCaIkiYD8s7M=
