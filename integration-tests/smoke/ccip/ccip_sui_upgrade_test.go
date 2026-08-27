@@ -217,7 +217,6 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
-	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	// Allow CCIP system to fully transition to new versions before blocking old ones
 	waitForSuiRPCSyncCritical(t, e.Env.BlockChains.SuiChains()[destChain])
@@ -253,9 +252,6 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	require.NoError(t, err)
 
 	e.RefreshAdapters()
-
-	// Extended wait after blocking operations for CCIP system reconfiguration
-	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	var (
 		nonce  uint64
@@ -374,9 +370,6 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 	require.NoError(t, err)
 
 	e.RefreshAdapters()
-
-	// Extended wait after upgrade operations for CCIP system reconfiguration
-	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	var (
 		nonce  uint64
@@ -526,9 +519,6 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	require.NoError(t, err)
 
 	e.RefreshAdapters()
-
-	// Extended wait after blocking operations for CCIP system reconfiguration
-	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	setup = messagingtest.NewTestSetupWithDeployedEnv(
 		t,
