@@ -1,5 +1,11 @@
 # Changelog Chainlink Core
 
+## 2.58.1
+
+### Minor Changes
+
+- [#23250](https://github.com/smartcontractkit/chainlink/pull/23250) [`1543766`](https://github.com/smartcontractkit/chainlink/commit/15437660cdb66db2e9706f7e4b5cd179b319fb18) - #added Added head-reporter ability to expose heads in beholder metrics along with prom metrics and sending telemetry over OTI
+
 ## 2.58.0
 
 ### Minor Changes
