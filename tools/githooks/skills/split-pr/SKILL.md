@@ -11,6 +11,7 @@ Use when branch is **LARGE** (>500 lines), touches multiple modules, or mixes re
 
 - Commits must be signed with a touch-only GPG key. You must ask the user to make the commit, or prompt the user to tap their key.
 - Generated code doesn't count towards layer size; generated code must be fully up to date.
+- If `gh` or `gh stack` is unavailable, STOP! Prompt the user to install them before continuing.
 
 ## 1. Splitting Heuristics
 
@@ -27,6 +28,9 @@ develop (trunk) <- layer-1-types <- layer-2-logic <- layer-3-cli (top)
 
 ### Option A: Reset & Stage by File Set (Messy/Uncommitted History)
 ```bash
+# 0. Help for stack CLI
+gh stack --help
+
 # 1. Backup current branch
 git branch backup-feature-branch
 
@@ -82,14 +86,6 @@ gh stack checkout <ticket>/1-types
 git commit --amend --no-edit
 gh stack rebase --upstack
 gh stack submit --auto
-```
-
-### Fallback: Native `gh pr create`
-If `gh stack` is unavailable:
-```bash
-gh pr create --base develop --head <ticket>/1-types --title "[<ticket>] Part 1/3: Types" --body "Base layer."
-gh pr create --base <ticket>/1-types --head <ticket>/2-logic --title "[<ticket>] Part 2/3: Logic" --body "Stacked on #<PR1>."
-gh pr create --base <ticket>/2-logic --head <ticket>/3-cli --title "[<ticket>] Part 3/3: CLI" --body "Stacked on #<PR2>."
 ```
 
 ## 4. Verification Checklist

@@ -369,8 +369,8 @@ func FormatReport(stat *DiffStat, class Classification, cfg Config) string {
 	if len(stat.IgnoredFiles) > 0 {
 		fmt.Fprintf(&sb, "   (Excluded %d lock/ignored files: %s)\n", len(stat.IgnoredFiles), strings.Join(stat.IgnoredFiles, ", "))
 	}
-	sb.WriteString("   Please split into smaller, focused PRs or a GitHub PR stack.\n")
-	sb.WriteString("   📖 PR Split Guide & Stack Recipes: tools/githooks/skills/split-pr/SKILL.md\n")
+	sb.WriteString("   Split into smaller, focused PRs or a GitHub PR stack.\n")
+	sb.WriteString("   AI skill to split PR: tools/githooks/skills/split-pr/SKILL.md\n")
 
 	return sb.String()
 }
