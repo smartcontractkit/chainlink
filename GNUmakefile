@@ -296,6 +296,7 @@ CI_CLI_BIN = tools/ci/.bin/ci
 CI_CLI_SRCS = $(shell find tools/ci -name "*.go" -not -path "*/.bin/*" 2>/dev/null)
 
 $(CI_CLI_BIN): $(CI_CLI_SRCS) tools/ci/go.mod tools/ci/go.sum
+	@mkdir -p tools/ci/.bin
 	@go -C tools/ci build -o .bin/ci .
 
 .PHONY: ci-cli

@@ -25,7 +25,9 @@ runs:
     - name: Build CI CLI
       if: ${{ steps.cache-ci-cli.outputs.cache-hit != 'true' }}
       shell: bash
-      run: go -C tools/ci build -o .bin/ci .
+      run: |
+        mkdir -p tools/ci/.bin
+        go -C tools/ci build -o .bin/ci .
 
     - name: Export CI CLI Path
       id: set-path
