@@ -38,7 +38,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	clhttp "github.com/smartcontractkit/chainlink-common/pkg/http"
-	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/promutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -90,7 +89,7 @@ func metricViews() []sdkmetric.View {
 	)
 }
 
-func initGlobals(cfgProm config.Prometheus, cfgTelemetry config.Telemetry, cfgTracing config.Tracing, lggr common.Logger, beholderClient *beholder.Client) error {
+func initGlobals(cfgProm config.Prometheus, cfgTelemetry config.Telemetry, cfgTracing config.Tracing, lggr logger.Logger, beholderClient *beholder.Client) error {
 	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
 	var err error
 	initGlobalsOnce.Do(func() {
@@ -116,7 +115,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTelemetry config.Telemetry, cfgTr
 	return err
 }
 
-func tracingConfig(cfgTracing config.Tracing, lggr common.Logger) loop.TracingConfig {
+func tracingConfig(cfgTracing config.Tracing, lggr logger.Logger) loop.TracingConfig {
 	return loop.TracingConfig{
 		Enabled:         cfgTracing.Enabled(),
 		CollectorTarget: cfgTracing.CollectorTarget(),
@@ -130,7 +129,7 @@ func tracingConfig(cfgTracing config.Tracing, lggr common.Logger) loop.TracingCo
 // newBeholderClient builds a Beholder client from tracing/telemetry config
 // and sets the CSA signer used for auth header refresh.
 func newBeholderClient(
-	lggr common.Logger,
+	lggr logger.Logger,
 	keyStore keystore.Master,
 	cfgTracing config.Tracing,
 	cfgTelemetry config.Telemetry,
@@ -543,7 +542,7 @@ type server struct {
 	httpServer *http.Server
 	tlsServer  *http.Server
 	handler    *gin.Engine
-	lggr       common.Logger
+	lggr       logger.Logger
 }
 
 func (s *server) runFn(ip net.IP, port uint16, writeTimeout time.Duration) func() error {
@@ -596,7 +595,7 @@ type authenticatedHTTPClient struct {
 
 // NewAuthenticatedHTTPClient uses the CookieAuthenticator to generate a sessionID
 // which is then used for all subsequent HTTP API requests.
-func NewAuthenticatedHTTPClient(lggr common.Logger, clientOpts ClientOpts, cookieAuth CookieAuthenticator, sessionRequest sessions.SessionRequest) HTTPClient {
+func NewAuthenticatedHTTPClient(lggr logger.Logger, clientOpts ClientOpts, cookieAuth CookieAuthenticator, sessionRequest sessions.SessionRequest) HTTPClient {
 	return &authenticatedHTTPClient{
 		client:         newHTTPClient(lggr, clientOpts.InsecureSkipVerify),
 		cookieAuth:     cookieAuth,
@@ -605,7 +604,7 @@ func NewAuthenticatedHTTPClient(lggr common.Logger, clientOpts ClientOpts, cooki
 	}
 }
 
-func newHTTPClient(lggr common.Logger, insecureSkipVerify bool) *http.Client {
+func newHTTPClient(lggr logger.Logger, insecureSkipVerify bool) *http.Client {
 	tr := &http.Transport{
 		// User enables this at their own risk!
 		// #nosec G402
@@ -704,13 +703,13 @@ type ClientOpts struct {
 type SessionCookieAuthenticator struct {
 	config ClientOpts
 	store  CookieStore
-	lggr   common.SugaredLogger
+	lggr   logger.SugaredLogger
 }
 
 // NewSessionCookieAuthenticator creates a SessionCookieAuthenticator using the passed config
 // and builder.
-func NewSessionCookieAuthenticator(config ClientOpts, store CookieStore, lggr common.Logger) CookieAuthenticator {
-	return &SessionCookieAuthenticator{config: config, store: store, lggr: common.Sugared(lggr)}
+func NewSessionCookieAuthenticator(config ClientOpts, store CookieStore, lggr logger.Logger) CookieAuthenticator {
+	return &SessionCookieAuthenticator{config: config, store: store, lggr: logger.Sugared(lggr)}
 }
 
 // Cookie Returns the previously saved authentication cookie.
@@ -995,7 +994,7 @@ func (f fileAPIInitializer) Initialize(ctx context.Context, orm sessions.BasicAd
 	return user, nil
 }
 
-func attemptAssumeAdminUser(users []sessions.User, lggr common.Logger) (sessions.User, bool) {
+func attemptAssumeAdminUser(users []sessions.User, lggr logger.Logger) (sessions.User, bool) {
 	if len(users) == 0 {
 		return sessions.User{}, false
 	}
@@ -1031,7 +1030,7 @@ func attemptAssumeAdminUser(users []sessions.User, lggr common.Logger) (sessions
 
 var ErrNoCredentialFile = errors.New("no API user credential file was passed")
 
-func credentialsFromFile(file string, lggr common.Logger) (sessions.SessionRequest, error) {
+func credentialsFromFile(file string, lggr logger.Logger) (sessions.SessionRequest, error) {
 	if len(file) == 0 {
 		return sessions.SessionRequest{}, ErrNoCredentialFile
 	}

@@ -130,13 +130,13 @@ type LCAPresenter struct {
 }
 
 // ToRow presents the EVMChainResource as a slice of strings.
-func (p LCAPresenter) ToRow() []string {
+func (p *LCAPresenter) ToRow() []string {
 	return []string{p.EVMChainID.String(), p.Hash, strconv.FormatInt(p.BlockNumber, 10)}
 }
 
 // RenderTable implements TableRenderer
 // Just renders a single row
-func (p LCAPresenter) RenderTable(rt RendererTable) error {
+func (p *LCAPresenter) RenderTable(rt RendererTable) error {
 	renderList([]string{"ChainID", "Block Hash", "Block Number"}, [][]string{p.ToRow()}, rt.Writer)
 
 	return nil
