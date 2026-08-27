@@ -147,7 +147,7 @@ func TestExecutionHelper_VaultSecretsGetSharedCallCounter(t *testing.T) {
 	defer cancel()
 	_, err = exec.CallCapability(callCtx, req)
 	require.Error(t, err, "expected call to fail at zero-capacity semaphore")
-	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.Equal(t, 3, exec.sharedSecretsCounter.called, "shared counter should be incremented to 3 after a non-limit failure")
 
 	// 4th call: should be rejected at the limit check (counter 3 > limit 3).

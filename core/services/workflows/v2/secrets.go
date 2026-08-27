@@ -177,8 +177,8 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	}
 	vaultRequestID := vault.BuildWorkflowGetSecretsRequestID(metadata)
 	s.lggr.Debugw("get secrets request received", "vaultRequestID", vaultRequestID, "metadata", metadata)
-	if err := s.callCounter.acquire(ctx, s.secretsCallsLimit); err != nil {
-		return nil, err
+	if acqErr := s.callCounter.acquire(ctx, s.secretsCallsLimit); acqErr != nil {
+		return nil, acqErr
 	}
 	start := time.Now()
 	resp, err := func() ([]*sdkpb.SecretResponse, error) {
