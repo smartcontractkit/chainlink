@@ -69,11 +69,25 @@ type secretsFetcher struct {
 }
 
 // secretsCallCounter holds the mutable call-count state shared between a
-// secretsFetcher and any clones created via WithEncryptionKeyFetcher. It is
-// referenced by pointer so the struct can be copied without copying the lock.
+// secretsFetcher and the ExecutionHelper so that both the GetSecrets and
+// CallCapability code paths increment the same counter. It is referenced by
+// pointer so the struct can be copied without copying the lock.
 type secretsCallCounter struct {
 	mu     sync.Mutex
 	called int
+}
+
+// acquire increments the counter and checks it against limiter. The counter
+// is only incremented when the check passes, a failed check leaves the counter unchanged.
+func (c *secretsCallCounter) acquire(ctx context.Context, limiter limits.BoundLimiter[int]) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	next := c.called + 1
+	if err := limiter.Check(ctx, next); err != nil {
+		return err
+	}
+	c.called = next
+	return nil
 }
 
 func NewSecretsFetcher(
@@ -163,14 +177,9 @@ func (s *secretsFetcher) GetSecrets(ctx context.Context, request *sdkpb.GetSecre
 	}
 	vaultRequestID := vault.BuildWorkflowGetSecretsRequestID(metadata)
 	s.lggr.Debugw("get secrets request received", "vaultRequestID", vaultRequestID, "metadata", metadata)
-	s.callCounter.mu.Lock()
-	secretsCalled := s.callCounter.called + 1
-	if err := s.secretsCallsLimit.Check(ctx, secretsCalled); err != nil {
-		s.callCounter.mu.Unlock()
+	if err := s.callCounter.acquire(ctx, s.secretsCallsLimit); err != nil {
 		return nil, err
 	}
-	s.callCounter.called = secretsCalled
-	s.callCounter.mu.Unlock()
 	start := time.Now()
 	resp, err := func() ([]*sdkpb.SecretResponse, error) {
 		free, err := s.semaphore.Wait(ctx, 1)

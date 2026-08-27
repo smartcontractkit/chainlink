@@ -1008,6 +1008,9 @@ func (e *Engine) startExecution(ctx context.Context, wrappedTriggerEvent enqueue
 	}
 
 	execHelper.initLimiters(e.cfg.LocalLimiters)
+	if sf, ok := execHelper.SecretsFetcher.(*secretsFetcher); ok {
+		execHelper.sharedSecretsCounter = sf.callCounter
+	}
 	e.metrics.With(platform.KeyTriggerID, wrappedTriggerEvent.triggerCapID).RecordTriggerPayloadBytes(ctx, int64(proto.Size(triggerEvent.Payload)))
 	var result *sdkpb.ExecutionResult
 	result, execErr = e.cfg.Module.Execute(execCtx, &sdkpb.ExecuteRequest{
