@@ -188,6 +188,7 @@ ok Sui.67.RelayerService
 ok Sui.67.RelayerService.PluginRelayerClient
 ok Sui.67.RelayerService.PluginRelayerClient.PluginSui
 ok Sui.67.RelayerService.PluginRelayerClient.PluginSui.PluginRelayerConfigEmitter
+ok Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiIndexers
 ok Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiTxm
 ok Sui.67.RelayerService.PluginRelayerClient.SuiRelayer
 ok TON.-217.RelayerService
@@ -859,6 +860,15 @@ ok WorkflowStore
       "id": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.PluginRelayerConfigEmitter",
       "attributes": {
         "name": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.PluginRelayerConfigEmitter",
+        "status": "passing",
+        "output": ""
+      }
+    },
+    {
+      "type": "checks",
+      "id": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiIndexers",
+      "attributes": {
+        "name": "Sui.67.RelayerService.PluginRelayerClient.PluginSui.SuiRelayer.SuiIndexers",
         "status": "passing",
         "output": ""
       }
