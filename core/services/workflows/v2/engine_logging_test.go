@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/chain-capabilities/evm"
 	cronpb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
@@ -88,7 +89,7 @@ func TestTriggerRegistrationLogFields_EVMLog_NoTopics(t *testing.T) {
 func TestTriggerRegistrationLogFields_UnknownPayloadType(t *testing.T) {
 	t.Parallel()
 
-	payload, err := anypb.New(&cronpb.LegacyPayload{})
+	payload, err := anypb.New(&emptypb.Empty{})
 	require.NoError(t, err)
 
 	result := triggerRegistrationLogFields(payload)
@@ -96,5 +97,5 @@ func TestTriggerRegistrationLogFields_UnknownPayloadType(t *testing.T) {
 	assert.Equal(t, "payloadType", result[0])
 	msgName, ok := result[1].(string)
 	require.True(t, ok)
-	assert.Contains(t, msgName, "LegacyPayload")
+	assert.Contains(t, msgName, "Empty")
 }
