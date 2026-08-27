@@ -258,6 +258,39 @@ func Test_DataSource(t *testing.T) {
 			ds.Close()
 		})
 
+		t.Run("caches nothing for a pipeline whose quote violates the bid/benchmark/ask invariant", func(t *testing.T) {
+			t.Parallel()
+			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
+			ds := newDataSource(lggr, reg, telem.NullTelemeter)
+
+			reg.mu.Lock()
+			sids := []streams.StreamID{1, 2, 3}
+			multi := makePipelineWithMultipleStreamResults(sids, []any{
+				decimal.NewFromInt(2181),
+				decimal.NewFromInt(40602),
+				map[string]any{
+					"streamValueType": int64(lloprotocol.LLOStreamValue_Quote),
+					"bid":             "9.9", // above the benchmark
+					"benchmark":       "2.2",
+					"ask":             "3.3",
+				},
+			})
+			for _, sid := range sids {
+				reg.pipelines[sid] = multi
+			}
+			reg.mu.Unlock()
+
+			vals := makeStreamValues()
+			ctx, cancel := context.WithTimeout(mainCtx, observationTimeout)
+			defer cancel()
+			require.NoError(t, ds.Observe(ctx, vals, opts))
+
+			// The whole group failed, so nothing was cached: every stream of the
+			// pipeline stays nil, not just the one with the bad quote.
+			assert.Equal(t, makeStreamValues(), vals, "vals: %v", vals)
+			ds.Close()
+		})
+
 		t.Run("observes each stream and returns success/errors", func(t *testing.T) {
 			t.Parallel()
 			reg := &mockRegistry{pipelines: make(map[streams.StreamID]*mockPipeline)}
