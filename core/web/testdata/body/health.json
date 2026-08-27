@@ -69,7 +69,7 @@
       "attributes": {
         "name": "EVM.1399100.HeadTracker.HeadListener",
         "status": "failing",
-        "output": "Listener connected = true, receiving heads = false"
+        "output": "Listener connected = false, receiving heads = false"
       }
     },
     {
