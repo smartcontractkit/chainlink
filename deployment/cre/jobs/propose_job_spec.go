@@ -104,9 +104,6 @@ func (u ProposeJobSpec) Apply(e cldf.Environment, input ProposeJobSpecInput) (cl
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to convert inputs to standard capability job: %w", err)
 		}
 		job.GenerateOracleFactory = requiresOracleFactory(input.Template)
-		if input.Template == job_types.Consensus {
-			job.MinimalOracleFactory = true
-		}
 
 		r, rErr := operations.ExecuteSequence(
 			e.OperationsBundle,
