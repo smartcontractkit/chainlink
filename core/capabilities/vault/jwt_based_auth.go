@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crelimits"
 )
 
 var (
@@ -220,7 +221,7 @@ func (v *jwtBasedAuth) close() error {
 
 // AuthorizeRequest verifies JWTBasedAuth state and token claims, and returns a common AuthResult.
 func (v *jwtBasedAuth) AuthorizeRequest(ctx context.Context, req jsonrpc.Request[json.RawMessage]) (*AuthResult, error) {
-	isEnabled, err := v.authEnabledGate.Limit(ctx)
+	isEnabled, err := crelimits.GateOpen(ctx, v.authEnabledGate)
 	if err != nil {
 		v.lggr.Errorw("failed to resolve JWTBasedAuth gate", "method", req.Method, "requestID", req.ID, "error", err)
 		return nil, fmt.Errorf("failed to resolve JWTBasedAuth gate: %w", err)

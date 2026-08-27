@@ -15,20 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crelimits"
 )
 
 // gateAllows reports whether the given CRE gate allows the gated behavior.
 // When evaluation errors for reasons other than ErrorNotAllowed, it logs an error and returns false.
 func gateAllows(ctx context.Context, lggr logger.Logger, gate limits.GateLimiter, gateName string) bool {
-	err := gate.AllowErr(ctx)
-	if err == nil {
-		return true
-	}
-	if errors.Is(err, limits.ErrorNotAllowed{}) {
-		return false
-	}
-	lggr.Errorw("unexpected error evaluating CRE gate", "gate", gateName, "error", err)
-	return false
+	return crelimits.GateAllows(ctx, lggr, gate, gateName)
 }
 
 // resolveVaultOCRBoundLimitInt builds a short-lived BoundLimiter for an integer-sized CRE setting, reads Limit once, and closes the limiter.

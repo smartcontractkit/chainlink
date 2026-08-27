@@ -3,6 +3,7 @@ package v2
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jonboulle/clockwork"
 
@@ -87,7 +88,7 @@ type EngineLimiters struct {
 	TriggerRegistrationsTime limits.TimeLimiter
 	TriggerSubscription      limits.BoundLimiter[int]
 	TriggerEventQueue        limits.QueueLimiter[enqueuedTriggerEvent]
-	TriggerEventQueueTime    limits.TimeLimiter
+	TriggerEventMaxAge       limits.BoundLimiter[time.Duration]
 	ExecutionConcurrency     limits.ResourcePoolLimiter[int]
 
 	WASMBinarySize           limits.BoundLimiter[config.Size]
@@ -155,7 +156,7 @@ func (l *EngineLimiters) init(lf limits.Factory, cfgFn func(*cresettings.Workflo
 	if err != nil {
 		return
 	}
-	l.TriggerEventQueueTime, err = lf.MakeTimeLimiter(cfg.TriggerEventQueueTimeout)
+	l.TriggerEventMaxAge, err = limits.MakeUpperBoundLimiter(lf, cfg.TriggerEventQueueTimeout)
 	if err != nil {
 		return
 	}
@@ -292,7 +293,7 @@ func (l *EngineLimiters) EvictWorkflow(workflowID string) error {
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
 		l.TriggerEventQueue,
-		l.TriggerEventQueueTime,
+		l.TriggerEventMaxAge,
 		l.ExecutionConcurrency,
 		l.WASMBinarySize,
 		l.WASMMemorySize,
@@ -336,7 +337,7 @@ func (l *EngineLimiters) Close() error {
 		l.TriggerRegistrationsTime,
 		l.TriggerSubscription,
 		l.TriggerEventQueue,
-		l.TriggerEventQueueTime,
+		l.TriggerEventMaxAge,
 		l.ExecutionConcurrency,
 		l.WASMBinarySize,
 		l.WASMMemorySize,
