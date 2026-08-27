@@ -173,8 +173,8 @@ func TestSelectOCRKeyBundleForConfig(t *testing.T) {
 func TestDefaultTransmitterForChain_InvalidChainID(t *testing.T) {
 	t.Parallel()
 
-	// defaultTransmitterForChain requires a real keystore; covered indirectly via integration.
-	_, err := defaultTransmitterForChain(context.Background(), nil, "not-a-number")
+	// DefaultTransmitterForChain requires a real keystore; covered indirectly via integration.
+	_, err := DefaultTransmitterForChain(context.Background(), nil, "not-a-number")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid chain_id")
 }

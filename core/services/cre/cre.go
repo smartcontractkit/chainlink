@@ -47,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr/capregconfig"
+	ocr "github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	p2pmain "github.com/smartcontractkit/chainlink/v2/core/services/p2p"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
@@ -65,6 +66,9 @@ import (
 	wftypes "github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 )
+
+// dontimeCapabilityID is the registry capability ID for DONTime.
+const dontimeCapabilityID = "dontime@1.0.0"
 
 // Keystore is the minimal interface needed from keystore for CRE
 type Keystore interface {
@@ -125,6 +129,9 @@ type Services struct {
 
 	// callback to wire Delegates into CRE services (e.g. Launcher) when ready
 	SetDelegatesDeps func(*standardcapabilities.Delegate) (commonsrv.Service, error)
+
+	// callback to wire OCR2 Delegates into CRE services (e.g. Launcher) when ready
+	SetOCR2DelegatesDeps func(*ocr.Delegate) (commonsrv.Service, error)
 }
 
 func (s *Services) close() error {
@@ -480,6 +487,29 @@ func (s *Services) newRegistrySyncer(
 			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
 			if lcmErr != nil {
 				return nil, fmt.Errorf("could not create local capability manager: %w", lcmErr)
+			}
+			wfLauncher.SetLocalCapabilityManager(localCapMgr)
+			return localCapMgr, nil
+		}
+	}
+
+	// Wire OCR2 delegate for registry-driven launch of DONTime.
+	// DONTime uses the OCR2 delegate (plugin type DonTimePlugin) but follows the same
+	// registry-driven pattern: LocalCapabilityManager watches the registry and calls
+	// NewServices when the capability config changes.
+	if localCfg != nil && len(localCfg.RegistryBasedLaunchAllowlist()) > 0 {
+		s.SetOCR2DelegatesDeps = func(ocr2Delegate *ocr.Delegate) (commonsrv.Service, error) {
+			newServicesFn := func(ctx context.Context, capID string, donID uint32, command string, configJSON string, ocr3Config *ocrtypes.ContractConfig) ([]job.ServiceCtx, error) {
+				// Map capability ID to OCR2 plugin type.
+				// TODO: extend to support other OCR2 plugins (ring, etc.)
+				if capID != dontimeCapabilityID {
+					return nil, fmt.Errorf("unsupported OCR2 capability %q for registry-driven launch", capID)
+				}
+				return ocr2Delegate.NewServices(ctx, capID, donID, commontypes.DonTimePlugin, configJSON, ocr3Config)
+			}
+			localCapMgr, lcmErr := localcapmgr.NewLocalCapabilityManager(lggr, localCfg, newServicesFn)
+			if lcmErr != nil {
+				return nil, fmt.Errorf("could not create local capability manager for OCR2: %w", lcmErr)
 			}
 			wfLauncher.SetLocalCapabilityManager(localCapMgr)
 			return localCapMgr, nil

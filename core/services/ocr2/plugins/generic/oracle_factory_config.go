@@ -86,7 +86,7 @@ func ResolveOracleFactoryConfig(ctx context.Context, params ResolveOracleFactory
 	// Fall back to a round-robin keystore address when no transmitter was resolved
 	// from the on-chain OCR config.
 	if cfg.TransmitterID == "" && params.EthKeystore != nil && cfg.ChainID != "" {
-		transmitter, err := defaultTransmitterForChain(ctx, params.EthKeystore, cfg.ChainID)
+		transmitter, err := DefaultTransmitterForChain(ctx, params.EthKeystore, cfg.ChainID)
 		if err != nil {
 			return cfg, signing, fmt.Errorf("failed to resolve transmitter: %w", err)
 		}
@@ -130,7 +130,7 @@ func TransmitterForSigner(cc ocrtypes.ContractConfig, signer ocrtypes.OnchainPub
 	return "", false
 }
 
-func defaultTransmitterForChain(ctx context.Context, ethKS keystore.Eth, chainID string) (string, error) {
+func DefaultTransmitterForChain(ctx context.Context, ethKS keystore.Eth, chainID string) (string, error) {
 	chainIDBig, ok := new(big.Int).SetString(chainID, 10)
 	if !ok {
 		return "", fmt.Errorf("invalid chain_id %q", chainID)
