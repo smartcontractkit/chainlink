@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -26,8 +27,6 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/durableemitter"
@@ -50,12 +49,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr"
 	evmutils "github.com/smartcontractkit/chainlink-evm/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	configtoml "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -88,7 +88,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
@@ -251,23 +250,28 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	var ringStoreForShard0 *ring.Store
 	var shardOrchestratorClient shardorchestrator.ClientInterface
 	if cfg.Sharding().ShardingEnabled() {
-		shardIdx := cfg.Sharding().ShardIndex()
-		if shardIdx == 0 {
-			ringStoreForShard0 = ring.NewStore()
-			server := shardorchestrator.NewServer(ringStoreForShard0, globalLogger)
-			shardOrchestratorClient = shardorchestrator.NewLocalClient(server, globalLogger)
-			globalLogger.Infow("ShardOrchestrator in-process client created", "shardID", shardIdx)
+		assignmentMode := cfg.Sharding().ShardAssignmentMode()
+		if assignmentMode == configtoml.ShardAssignmentModeManualOnly {
+			globalLogger.Infow("Sharding enabled in manual-only mode; skipping ShardOrchestrator infrastructure")
 		} else {
-			shardOrchestratorAddr := cfg.Sharding().ShardOrchestratorAddress()
-			if shardOrchestratorAddr == nil {
-				return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress when sharding is enabled", shardIdx)
+			shardIdx := cfg.Sharding().ShardIndex()
+			if shardIdx == 0 {
+				ringStoreForShard0 = ring.NewStore()
+				server := shardorchestrator.NewServer(ringStoreForShard0, globalLogger)
+				shardOrchestratorClient = shardorchestrator.NewLocalClient(server, globalLogger)
+				globalLogger.Infow("ShardOrchestrator in-process client created", "shardID", shardIdx)
+			} else {
+				shardOrchestratorAddr := cfg.Sharding().ShardOrchestratorAddress()
+				if shardOrchestratorAddr == nil {
+					return nil, fmt.Errorf("shard %d requires ShardOrchestratorAddress when sharding is enabled", shardIdx)
+				}
+				client, err := shardorchestrator.NewClient(shardOrchestratorAddr.String(), globalLogger.Named("ShardOrchestratorClient"))
+				if err != nil {
+					return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
+				}
+				shardOrchestratorClient = client
+				globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardIdx, "serverAddress", shardOrchestratorAddr.String())
 			}
-			client, err := shardorchestrator.NewClient(shardOrchestratorAddr.String(), globalLogger.Named("ShardOrchestratorClient"))
-			if err != nil {
-				return nil, fmt.Errorf("failed to create ShardOrchestrator gRPC client: %w", err)
-			}
-			shardOrchestratorClient = client
-			globalLogger.Infow("ShardOrchestrator gRPC client created", "shardID", shardIdx, "serverAddress", shardOrchestratorAddr.String())
 		}
 	} else {
 		globalLogger.Debug("Sharding not enabled, running without shard orchestrator client")
@@ -280,6 +284,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	globalLogger.Debugf("# CRESettings defaults: \n%s", creSettingsTOML)
 	atomicSettings := &loop.AtomicSettings{}
 	atomicSettings.SetGetter(commoncresettings.DefaultGetter)
+	shardAssignmentSettings := &loop.AtomicSettings{}
 	// Capability runner binaries have no RPC surface, so they read settings off
 	// the filesystem. One wrapper for the node, constructed here alongside the
 	// broadcaster it wraps, so there is a single writer for the dumped file.
@@ -297,7 +302,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 	}
 	loopRegistry := plugins.NewLoopRegistry(globalLogger, cfg.AppID().String(), cfg.Feature().LogPoller(),
 		cfg.Database(), cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(),
-		beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
+		cfg.Metering(), beholderAuthHeaders, csaPubKeyHex, cfg.LOOPP())
 
 	relayerFactory := RelayerFactory{
 		Logger:                opts.Logger,
@@ -460,9 +465,8 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			CapabilitiesRegistry:    opts.CapabilitiesRegistry,
 			ExecutionHandlers:       &confidentialrelay.ExecutionHandlers{},
 			CapabilitiesDispatcher:  opts.CapabilitiesDispatcher,
-			CapabilitiesPeerWrapper: opts.CapabilitiesPeerWrapper,
+			CapabilitiesSharedPeer:  opts.CapabilitiesSharedPeer,
 			FetcherFunc:             opts.FetcherFunc,
-			FetcherFactoryFn:        opts.FetcherFactoryFn,
 			BillingClient:           opts.BillingClient,
 			LinkingClient:           opts.LinkingClient,
 			Meter:                   meter,
@@ -473,10 +477,11 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 			WorkflowKey:             workflowKey,
 			JWTGenerator:            jwtGenerator,
 			ShardOrchestratorClient: shardOrchestratorClient,
+			ShardAssignmentSettings: shardAssignmentSettings,
 		},
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initilize CRE: %w", err)
+		return nil, fmt.Errorf("failed to initialize CRE: %w", err)
 	}
 	srvcs = append(srvcs, creServices)
 
@@ -615,7 +620,16 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 
 	legacyEVMTelemReporter := headreporter.NewLegacyEVMTelemetryReporter(telemetryManager, globalLogger, evmChainIDs...)
 	loopTelemReporter := headreporter.NewTelemetryReporter(telemetryManager, globalLogger, relayChainInterops.GetIDToRelayerMap())
-	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, promReporter, legacyEVMTelemReporter, loopTelemReporter)
+	headReporters := []headreporter.HeadReporter{promReporter, legacyEVMTelemReporter, loopTelemReporter}
+	if headMetrics, metricsErr := headreporter.NewBeholderHeadMetrics(); metricsErr != nil {
+		globalLogger.Errorw("Failed to initialize head reporter Beholder metrics; skipping head metrics reporters", "err", metricsErr)
+	} else {
+		headReporters = append(headReporters, headreporter.NewEVMMetricsReporter(headMetrics, globalLogger, evmChainIDs...))
+		if relayerMetricsReporter := headreporter.NewRelayerMetricsReporter(headMetrics, globalLogger, relayChainInterops.GetIDToRelayerMap()); relayerMetricsReporter != nil {
+			headReporters = append(headReporters, relayerMetricsReporter)
+		}
+	}
+	headReporter := headreporter.NewHeadReporterService(opts.DS, globalLogger, headReporters...)
 	srvcs = append(srvcs, headReporter)
 	for _, chain := range legacyEVMChains.Slice() {
 		legacyChain, ok := chain.(legacyevm.Chain)
@@ -755,22 +769,15 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		}
 	)
 
-	delegates[job.Workflow] = workflows.NewDelegate(
-		globalLogger,
-		opts.CapabilitiesRegistry,
-		opts.DonTimeStore,
-		workflowORM,
-		creServices.WorkflowRateLimiter,
-		creServices.WorkflowLimits,
-		workflows.WithBillingClient(creServices.BillingClient),
-		workflows.WithWorkflowRegistry(cfg.Capabilities().WorkflowRegistry().Address(), cfg.Capabilities().WorkflowRegistry().ChainID()),
-	)
+	// Workflow job type has been removed; use a deprecated delegate so existing jobs
+	// surface a visible error in the UI rather than silently doing nothing.
+	delegates[job.Workflow] = &job.DeprecatedDelegate{Type: job.Workflow}
 
 	// FluxMonitor has been removed; use a deprecated delegate so existing jobs
 	// surface a visible error in the UI rather than silently doing nothing.
 	delegates[job.FluxMonitor] = &job.DeprecatedDelegate{Type: job.FluxMonitor}
 
-	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings)
+	delegates[job.CRESettings] = cresettings.NewDelegate(globalLogger, atomicSettings, shardAssignmentSettings)
 	delegates[job.CapabilityRunner] = capabilityrunner.NewDelegate(globalLogger, loopRegistrarConfig, fileBackedSettings)
 
 	// If peer wrapper is initialized, Oracle Factory dependency will be available to standard capabilities
@@ -787,7 +794,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		creServices.GetPeerID,
 		peerWrapper,
 		opts.NewOracleFactoryFn,
-		opts.FetcherFactoryFn,
 		creServices.OrgResolver,
 		atomicSettings,
 		creServices.OCRConfigService,
@@ -1097,8 +1103,7 @@ func (app *ChainlinkApplication) stop() (err error) {
 		app.logger.Info("Gracefully exiting...")
 
 		// Stop services in the reverse order from which they were started
-		for i := len(app.srvcs) - 1; i >= 0; i-- {
-			service := app.srvcs[i]
+		for _, service := range slices.Backward(app.srvcs) {
 			app.logger.Debugw("Closing service...", "name", service.Name())
 			err = stderrors.Join(err, service.Close())
 		}

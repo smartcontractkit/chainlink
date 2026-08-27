@@ -35,7 +35,7 @@ var deployRegistryCmd = &cobra.Command{
 var verifyRegistryCmd = &cobra.Command{
 	Use:   "verify",
 	Short: "Verify keeper registry",
-	Long:  `This command verifys a keeper registry.`,
+	Long:  `This command verifies a keeper registry.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfg := config.New()
 		hdlr := handler.NewKeeper(cfg)

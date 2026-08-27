@@ -252,7 +252,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
-	err = registerFiltersAndAssertUniquness(l, lpTestEnv.registry, lpTestEnv.upkeepIDs, lpTestEnv.logEmitters, cfg, lpTestEnv.upKeepsNeeded)
+	err = registerFiltersAndAssertUniqueness(l, lpTestEnv.registry, lpTestEnv.upkeepIDs, lpTestEnv.logEmitters, cfg, lpTestEnv.upKeepsNeeded)
 	require.NoError(t, err, "Error registering filters")
 
 	l.Info().Msg("No duplicate filters found. OK!")
@@ -266,7 +266,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	if sb > math.MaxInt64 {
 		t.Fatalf("start block overflows int64: %d", sb)
 	}
-	startBlock := int64(sb)
+	startBlock := int64(sb) //nolint:gosec // G115
 
 	l.Info().Int64("Starting Block", startBlock).Msg("STARTING EVENT EMISSION")
 	startTime := time.Now()
@@ -304,7 +304,7 @@ func executePollerTest(t *testing.T, cfg *Config, allowedLogMessages ...products
 	}
 	// use ridciuously high end block so that we don't have to find out the block number of the last block in which logs were emitted
 	// as that's not trivial to do (i.e.  just because chain was at block X when log emission ended it doesn't mean all events made it to that block)
-	endBlock := int64(eb) + 10000
+	endBlock := int64(eb) + 10000 //nolint:gosec // G115
 
 	allNodesLogCountMatches, err := checkIfAllNodesHaveLogCount("5m", startBlock, endBlock, totalLogsEmitted, expectedFilters, l, nil, lpTestEnv)
 	require.NoError(t, err, "Error checking if CL nodes have expected log count")
@@ -417,7 +417,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	if sb > math.MaxInt64 {
 		t.Fatalf("start block overflows int64: %d", sb)
 	}
-	startBlock := int64(sb)
+	startBlock := int64(sb) //nolint:gosec // G115
 
 	l.Info().Int64("Starting Block", startBlock).Msg("STARTING EVENT EMISSION")
 	startTime := time.Now()
@@ -434,8 +434,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 	if eb > math.MaxInt64 {
 		t.Fatalf("end block overflows int64: %d", eb)
 	}
-
-	endBlock, err := getEndBlockToWaitFor(int64(eb), pdConfig.Config[0])
+	endBlock, err := getEndBlockToWaitFor(int64(eb), pdConfig.Config[0]) //nolint:gosec // G115
 	require.NoError(t, err, "Error getting end block to wait for")
 
 	require.NotZero(t, duration, "test duration cannot be zero")
@@ -450,7 +449,7 @@ func executeLogPollerReplay(t *testing.T, cfg *Config, consistencyTimeout string
 
 	// Register log triggered upkeep for each combination of log emitter contract and event signature (topic)
 	// We need to register a separate upkeep for each event signature, because log trigger doesn't support multiple topics (even if log poller does)
-	err = registerFiltersAndAssertUniquness(l, lpTestEnv.registry, lpTestEnv.upkeepIDs, lpTestEnv.logEmitters, cfg, lpTestEnv.upKeepsNeeded)
+	err = registerFiltersAndAssertUniqueness(l, lpTestEnv.registry, lpTestEnv.upkeepIDs, lpTestEnv.logEmitters, cfg, lpTestEnv.upKeepsNeeded)
 	require.NoError(t, err, "Error registering filters")
 
 	waitForAllNodesToHaveExpectedFiltersRegisteredOrFail(ctx, l, nil, t, lpTestEnv, expectedFilters)

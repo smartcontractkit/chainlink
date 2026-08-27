@@ -7,8 +7,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3_1types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
@@ -324,8 +325,8 @@ func (s *KVStore) deletePendingQueue() error {
 			return fmt.Errorf("failed to unmarshal existing pending queue index: %w", err)
 		}
 
-		for i := 0; i < int(index.Length); i++ {
-			if err := s.writer.Delete([]byte(pendingQueueItemPrefix + strconv.Itoa(i))); err != nil {
+		for i := range index.Length {
+			if err := s.writer.Delete([]byte(pendingQueueItemPrefix + strconv.FormatInt(i, 10))); err != nil {
 				return fmt.Errorf("failed to delete pending queue item at index %d: %w", i, err)
 			}
 		}

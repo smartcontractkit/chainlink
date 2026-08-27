@@ -63,7 +63,7 @@ func (g *Graph) AddImplicitDependenciesAsEdges() {
 		for _, attr := range graphNode.Attributes() {
 			for _, item := range variableRegexp.FindAll([]byte(attr.Value), -1) {
 				expr := strings.TrimSpace(string(item[2 : len(item)-1]))
-				param := strings.Split(expr, ".")[0]
+				param, _, _ := strings.Cut(expr, ".")
 				params[param] = true
 			}
 		}
@@ -214,7 +214,6 @@ func Parse(text string) (*Pipeline, error) {
 	}
 	g := NewGraph()
 	err := g.UnmarshalText([]byte(text))
-
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +226,6 @@ func Parse(text string) (*Pipeline, error) {
 
 	// toposort all the nodes: dependencies ordered before outputs. This also does cycle checking for us.
 	nodes, err := topo.SortStabilized(g, nil)
-
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to topologically sort the graph, cycle detected")
 	}

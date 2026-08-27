@@ -19,26 +19,23 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/usdc_reader_tester"
-	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
-	ccipocr3common "github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-	"github.com/smartcontractkit/chainlink-evm/pkg/read"
-
 	sel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/usdc_reader_tester"
+	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/contractreader"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-evm/pkg/client"
+	"github.com/smartcontractkit/chainlink-evm/pkg/config"
 	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
+	"github.com/smartcontractkit/chainlink-evm/pkg/read"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -48,23 +45,23 @@ const ChainID = 1337
 func Test_USDCReader_MessageHashes(t *testing.T) {
 	finalityDepth := 5
 
-	ctx := testutils.Context(t)
-	ethereumChain := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
+	ctx := t.Context()
+	ethereumChain := ccipocr3.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
 	ethereumDomainCCTP := reader.CCTPDestDomains[uint64(ethereumChain)]
-	avalancheChain := cciptypes.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
+	avalancheChain := ccipocr3.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
 	avalancheDomainCCTP := reader.CCTPDestDomains[uint64(avalancheChain)]
-	polygonChain := cciptypes.ChainSelector(sel.POLYGON_MAINNET.Selector)
+	polygonChain := ccipocr3.ChainSelector(sel.POLYGON_MAINNET.Selector)
 	polygonDomainCCTP := reader.CCTPDestDomains[uint64(polygonChain)]
 
 	ts := testSetup(ctx, t, ethereumChain, evmconfig.USDCReaderConfig, finalityDepth, false)
 
 	mokAddrCodec := typepkgmock.NewMockAddressCodec(t)
 	mokAddrCodec.On("AddressBytesToString", mock.Anything, mock.Anything).
-		Return(func(addr cciptypes.UnknownAddress, _ cciptypes.ChainSelector) string {
+		Return(func(addr ccipocr3.UnknownAddress, _ ccipocr3.ChainSelector) string {
 			return "0x" + hex.EncodeToString(addr)
 		}, nil).Maybe()
 	mokAddrCodec.On("AddressStringToBytes", mock.Anything, mock.Anything).
-		Return(func(addr string, _ cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
+		Return(func(addr string, _ ccipocr3.ChainSelector) (ccipocr3.UnknownAddress, error) {
 			addrBytes, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(addr, "0x")))
 			if err != nil {
 				return nil, err
@@ -74,16 +71,17 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	usdcReader, err := reader.NewUSDCMessageReader(
 		ctx,
 		logger.Test(t),
-		map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
+		map[ccipocr3.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 			ethereumChain: {
 				SourceMessageTransmitterAddr: ts.contractAddr.String(),
 			},
 		},
 		nil,
 		nil,
-		map[cciptypes.ChainSelector]contractreader.Extended{
+		map[ccipocr3.ChainSelector]contractreader.Extended{
 			ethereumChain: ts.reader,
-		}, mokAddrCodec)
+		}, mokAddrCodec,
+	)
 	require.NoError(t, err)
 
 	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 11)
@@ -104,21 +102,21 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 
 	tt := []struct {
 		name           string
-		tokens         map[reader.MessageTokenID]cciptypes.RampTokenAmount
-		sourceChain    cciptypes.ChainSelector
-		destChain      cciptypes.ChainSelector
+		tokens         map[reader.MessageTokenID]ccipocr3.RampTokenAmount
+		sourceChain    ccipocr3.ChainSelector
+		destChain      ccipocr3.ChainSelector
 		expectedMsgIDs []reader.MessageTokenID
 	}{
 		{
 			name:           "empty messages should return empty response",
-			tokens:         map[reader.MessageTokenID]cciptypes.RampTokenAmount{},
+			tokens:         map[reader.MessageTokenID]ccipocr3.RampTokenAmount{},
 			sourceChain:    ethereumChain,
 			destChain:      avalancheChain,
 			expectedMsgIDs: []reader.MessageTokenID{},
 		},
 		{
 			name: "single token message",
-			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+			tokens: map[reader.MessageTokenID]ccipocr3.RampTokenAmount{
 				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
@@ -129,7 +127,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		},
 		{
 			name: "single token message but different chain",
-			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+			tokens: map[reader.MessageTokenID]ccipocr3.RampTokenAmount{
 				reader.NewMessageTokenID(1, 2): {
 					ExtraData: reader.NewSourceTokenDataPayload(31, ethereumDomainCCTP).ToBytes(),
 				},
@@ -140,7 +138,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		},
 		{
 			name: "message without matching nonce",
-			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+			tokens: map[reader.MessageTokenID]ccipocr3.RampTokenAmount{
 				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(1234, ethereumDomainCCTP).ToBytes(),
 				},
@@ -151,7 +149,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		},
 		{
 			name: "message without matching source domain",
-			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+			tokens: map[reader.MessageTokenID]ccipocr3.RampTokenAmount{
 				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, avalancheDomainCCTP).ToBytes(),
 				},
@@ -162,7 +160,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		},
 		{
 			name: "message with multiple tokens",
-			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+			tokens: map[reader.MessageTokenID]ccipocr3.RampTokenAmount{
 				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
@@ -179,7 +177,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		},
 		{
 			name: "message with multiple tokens, one without matching nonce",
-			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+			tokens: map[reader.MessageTokenID]ccipocr3.RampTokenAmount{
 				reader.NewMessageTokenID(1, 1): {
 					ExtraData: reader.NewSourceTokenDataPayload(11, ethereumDomainCCTP).ToBytes(),
 				},
@@ -199,7 +197,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		},
 		{
 			name: "not finalized events are not returned",
-			tokens: map[reader.MessageTokenID]cciptypes.RampTokenAmount{
+			tokens: map[reader.MessageTokenID]ccipocr3.RampTokenAmount{
 				reader.NewMessageTokenID(1, 5): {
 					ExtraData: reader.NewSourceTokenDataPayload(51, ethereumDomainCCTP).ToBytes(),
 				},
@@ -251,11 +249,11 @@ func Benchmark_MessageHashes(b *testing.B) {
 
 	mokAddrCodec := typepkgmock.NewMockAddressCodec(b)
 	mokAddrCodec.On("AddressBytesToString", mock.Anything, mock.Anything).
-		Return(func(addr cciptypes.UnknownAddress, _ cciptypes.ChainSelector) string {
+		Return(func(addr ccipocr3.UnknownAddress, _ ccipocr3.ChainSelector) string {
 			return "0x" + hex.EncodeToString(addr)
 		}, nil).Maybe()
 	mokAddrCodec.On("AddressStringToBytes", mock.Anything, mock.Anything).
-		Return(func(addr string, _ cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
+		Return(func(addr string, _ ccipocr3.ChainSelector) (ccipocr3.UnknownAddress, error) {
 			addrBytes, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(addr, "0x")))
 			if err != nil {
 				return nil, err
@@ -265,10 +263,10 @@ func Benchmark_MessageHashes(b *testing.B) {
 
 	for _, tc := range testCases {
 		b.Run(tc.name, func(b *testing.B) {
-			ctx := testutils.Context(b)
-			sourceChain := cciptypes.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
+			ctx := b.Context()
+			sourceChain := ccipocr3.ChainSelector(sel.ETHEREUM_MAINNET_OPTIMISM_1.Selector)
 			sourceDomainCCTP := reader.CCTPDestDomains[uint64(sourceChain)]
-			destChain := cciptypes.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
+			destChain := ccipocr3.ChainSelector(sel.AVALANCHE_MAINNET.Selector)
 			destDomainCCTP := reader.CCTPDestDomains[uint64(destChain)]
 
 			ts := testSetup(ctx, b, sourceChain, evmconfig.USDCReaderConfig, finalityDepth, true)
@@ -276,26 +274,27 @@ func Benchmark_MessageHashes(b *testing.B) {
 			usdcReader, err := reader.NewUSDCMessageReader(
 				ctx,
 				logger.Test(b),
-				map[cciptypes.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
+				map[ccipocr3.ChainSelector]pluginconfig.USDCCCTPTokenConfig{
 					sourceChain: {
 						SourceMessageTransmitterAddr: ts.contractAddr.String(),
 					},
 				},
 				nil,
 				nil,
-				map[cciptypes.ChainSelector]contractreader.Extended{
+				map[ccipocr3.ChainSelector]contractreader.Extended{
 					sourceChain: ts.reader,
-				}, mokAddrCodec)
+				}, mokAddrCodec,
+			)
 			require.NoError(b, err)
 
 			// Populate the database with the specified number of logs
 			populateDatabase(b, ts, sourceChain, sourceDomainCCTP, destDomainCCTP, tc.startNonce, tc.msgCount, finalityDepth)
 
 			// Create a map of tokens to query for, with the specified tokenCount
-			tokens := make(map[reader.MessageTokenID]cciptypes.RampTokenAmount)
+			tokens := make(map[reader.MessageTokenID]ccipocr3.RampTokenAmount)
 			for i := 1; i <= tc.tokenCount; i++ {
 				//nolint:gosec // disable G115
-				tokens[reader.NewMessageTokenID(cciptypes.SeqNum(i), 1)] = cciptypes.RampTokenAmount{
+				tokens[reader.NewMessageTokenID(ccipocr3.SeqNum(i), 1)] = ccipocr3.RampTokenAmount{
 					ExtraData: reader.NewSourceTokenDataPayload(uint64(tc.startNonce)+uint64(i), sourceDomainCCTP).ToBytes(),
 				}
 			}
@@ -313,18 +312,19 @@ func Benchmark_MessageHashes(b *testing.B) {
 
 func populateDatabase(b *testing.B,
 	testEnv *testSetupData,
-	source cciptypes.ChainSelector,
+	source ccipocr3.ChainSelector,
 	sourceDomainCCTP uint32,
 	destDomainCCTP uint32,
 	startNonce int64,
 	numOfMessages int,
-	finalityDepth int) {
-	ctx := testutils.Context(b)
+	finalityDepth int,
+) {
+	ctx := b.Context()
 
 	abi, err := usdc_reader_tester.USDCReaderTesterMetaData.GetAbi()
 	require.NoError(b, err)
 
-	var logs []logpoller.Log
+	logs := make([]logpoller.Log, 0, numOfMessages)
 	messageSentEventSig := abi.Events["MessageSent"].ID
 	require.NoError(b, err)
 	messageTransmitterAddress := testEnv.contractAddr
@@ -355,7 +355,7 @@ func populateDatabase(b *testing.B,
 	require.NoError(b, testEnv.orm.InsertBlock(ctx, utils.RandomHash(), int64(numOfMessages+finalityDepth), time.Now(), int64(numOfMessages+finalityDepth), int64(numOfMessages+finalityDepth)))
 }
 
-func createMessageSentLogPollerData(startNonce int64, i int, sourceDomainCCTP uint32, destDomainCCTP uint32) []byte {
+func createMessageSentLogPollerData(startNonce int64, i int, sourceDomainCCTP, destDomainCCTP uint32) []byte {
 	nonce := int(startNonce) + i
 
 	var buf []byte
@@ -374,14 +374,14 @@ func createMessageSentLogPollerData(startNonce int64, i int, sourceDomainCCTP ui
 	var message [32]byte
 	copy(message[:], buf)
 
-	data := make([]byte, 0)
-
 	offsetBytes := make([]byte, 32)
 	binary.BigEndian.PutUint64(offsetBytes[24:], 32)
-	data = append(data, offsetBytes...)
 
 	lengthBytes := make([]byte, 32)
 	binary.BigEndian.PutUint64(lengthBytes[24:], uint64(len(message)))
+
+	data := make([]byte, 0, len(offsetBytes)+len(lengthBytes)+len(message))
+	data = append(data, offsetBytes...)
 	data = append(data, lengthBytes...)
 
 	data = append(data, message[:]...)
@@ -406,7 +406,7 @@ func emitMessageSent(t *testing.T, testEnv *testSetupData, source, dest uint32, 
 	testEnv.sb.Commit()
 }
 
-func testSetup(ctx context.Context, t testing.TB, readerChain ccipocr3common.ChainSelector, cfg config.ChainReaderConfig, depth int, useHeavyDB bool) *testSetupData {
+func testSetup(ctx context.Context, t testing.TB, readerChain ccipocr3.ChainSelector, cfg config.ChainReaderConfig, depth int, useHeavyDB bool) *testSetupData {
 	// Generate a new key pair for the simulated account
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -474,7 +474,8 @@ func testSetup(ctx context.Context, t testing.TB, readerChain ccipocr3common.Cha
 
 	// Convert to the extended contract reader interface.
 	ecr := contractreader.NewExtendedContractReader(
-		(contractreader.ContractReaderFacade)(cr))
+		contractreader.ContractReaderFacade(cr),
+	)
 	return &testSetupData{
 		contractAddr: address,
 		contract:     contract,

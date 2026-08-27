@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey"
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
-
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
@@ -42,7 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
@@ -59,6 +57,7 @@ type createBridgeInput struct {
 	URL                    string
 	Confirmations          int32
 	MinimumContractPayment string
+	UseConnectionManager   *bool
 }
 
 // CreateBridge creates a new bridge.
@@ -85,6 +84,7 @@ func (r *Resolver) CreateBridge(ctx context.Context, args struct{ Input createBr
 		URL:                    webURL,
 		Confirmations:          uint32(max(0, args.Input.Confirmations)),
 		MinimumContractPayment: minContractPayment,
+		UseConnectionManager:   args.Input.UseConnectionManager != nil && *args.Input.UseConnectionManager,
 	}
 
 	bta, bt, err := bridges.NewBridgeType(btr)
@@ -452,6 +452,7 @@ type updateBridgeInput struct {
 	URL                    string
 	Confirmations          int32
 	MinimumContractPayment string
+	UseConnectionManager   *bool
 }
 
 func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
@@ -480,6 +481,7 @@ func (r *Resolver) UpdateBridge(ctx context.Context, args struct {
 		URL:                    webURL,
 		Confirmations:          uint32(max(0, args.Input.Confirmations)),
 		MinimumContractPayment: minContractPayment,
+		UseConnectionManager:   args.Input.UseConnectionManager != nil && *args.Input.UseConnectionManager,
 	}
 
 	taskType, err := bridges.ParseBridgeName(string(args.ID))
@@ -1109,7 +1111,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	case job.Gateway:
 		jb, err = gateway.ValidatedGatewaySpec(args.Input.TOML)
 	case job.Workflow:
-		jb, err = workflows.ValidatedWorkflowJobSpec(ctx, args.Input.TOML)
+		return nil, fmt.Errorf("cannot create job of type %q: %w", job.Workflow, job.ErrJobTypeRemoved)
 	case job.StandardCapabilities:
 		jb, err = standardcapabilities.ValidatedStandardCapabilitiesSpec(args.Input.TOML)
 	case job.Stream:

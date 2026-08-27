@@ -25,8 +25,8 @@
   # Durations are written as durations: these become --evm.* flags on the binary.
   LogTriggerPollInterval = "1.5s"
   ReceiverGasMinimum = 500
-  # LogTriggerSendChannelBufferSize = 1000 # default 1000, ommited here to use default
-  # LogTriggerLimitQueryLogSize = 1000 # default 1000, ommited here to use default
+  # LogTriggerSendChannelBufferSize = 1000 # default 1000, omitted here to use default
+  # LogTriggerLimitQueryLogSize = 1000 # default 1000, omitted here to use default
   # The chain, the forwarder and this node's account are resolved from the environment
   # the capability runs in, so they are not settings here.
 

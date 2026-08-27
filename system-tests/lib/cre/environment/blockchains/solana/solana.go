@@ -108,7 +108,7 @@ func (s *Blockchain) Fund(ctx context.Context, address string, amount uint64) er
 	s.testLogger.Info().Msgf("Attempting to fund Solana account %s", recipient.String())
 
 	err := libfunding.SendFundsSol(ctx, s.testLogger, s.SolClient, libfunding.FundsToSendSol{
-		Recipent:   recipient,
+		Recipient:  recipient,
 		PrivateKey: s.PrivateKey,
 		Amount:     amount,
 	})
@@ -222,7 +222,7 @@ func initSolanaInput(bi *blockchain.Input) error {
 			}
 
 			// TODO PLEX-1718 use latest contracts sha for now. Derive commit sha from go.mod once contracts are in a separate go module
-			err2 = solutils.DownloadChainlinkSolanaProgramArtifacts(context.Background(), bi.ContractsDir, "ea62f88cbdb4", logger.Nop())
+			err2 = solutils.DownloadChainlinkSolanaProgramArtifacts(context.Background(), bi.ContractsDir, "90043607d911", logger.Nop())
 		})
 		if err2 != nil {
 			return fmt.Errorf("failed to download solana artifacts: %w", err2)

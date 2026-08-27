@@ -7,12 +7,13 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
-	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
@@ -20,11 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/dontime"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/workflowkey"
-	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
+	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/shardorchestrator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
@@ -80,6 +77,7 @@ type EngineConfig struct {
 	ShardingEnabled         bool
 	MyShardID               uint32
 	ShardRoutingSteady      *shardownership.SteadySignal
+	ShardResolver           shardownership.ShardResolver
 }
 
 type EngineLimiters struct {
@@ -371,7 +369,11 @@ func (l *EngineLimiters) Close() error {
 }
 
 type EngineFeatureFlags struct {
-	// put feature flags here and create them in NewFeatureFlags
+	// WorkflowTagBackfill gates the reconciler backfill of workflow_specs_v2.workflow_tag.
+	// The Check succeeds only when time.Now() is inside the configured active period,
+	// which lets ops schedule a healing window across the DON via cresettings.
+	// Nil when construction fails; call sites must nil-check.
+	WorkflowTagBackfill limits.RangeLimiter[config.Timestamp]
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -379,9 +381,13 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
-	// example:
-	// featureXYZFlag, err := limits.MakeRangeLimiter(lf, cfg.FeatureXYZActivePeriod)
-	return &EngineFeatureFlags{}, nil
+	workflowTagBackfill, err := limits.MakeRangeLimiter[config.Timestamp](lf, cfg.FeatureWorkflowTagBackfillActivePeriod)
+	if err != nil {
+		return nil, fmt.Errorf("workflow tag backfill flag: %w", err)
+	}
+	return &EngineFeatureFlags{
+		WorkflowTagBackfill: workflowTagBackfill,
+	}, nil
 }
 
 const (
@@ -491,6 +497,9 @@ func (h *LifecycleHooks) setDefaultHooks() {
 	originalHook := h.OnResultReceived
 	h.OnResultReceived = func(res *sdkpb.ExecutionResult) {
 		originalHook(res)
+		if res == nil {
+			return
+		}
 		switch r := res.Result.(type) {
 		case *sdkpb.ExecutionResult_Value:
 			v, _ := values.FromProto(r.Value)

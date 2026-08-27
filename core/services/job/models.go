@@ -16,14 +16,13 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
+	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
-
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys"
-	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/vrfkey/secp256k1"
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
@@ -849,9 +848,13 @@ type WorkflowSpec struct {
 	UpdatedAt     time.Time          `toml:"-" db:"updated_at"`
 	SpecType      WorkflowSpecType   `toml:"spec_type" db:"spec_type"`
 	Attributes    []byte             `db:"attributes"`
-	sdkWorkflow   *sdk.WorkflowSpec
-	rawSpec       []byte
-	config        []byte
+	RegisteredAt  int64              `toml:"-" db:"registered_at"`
+	// Source records which workflow metadata source produced this spec (e.g.
+	// "ContractWorkflowSource").
+	Source      string `toml:"-" db:"source"`
+	sdkWorkflow *sdk.WorkflowSpec
+	rawSpec     []byte
+	config      []byte
 }
 
 var (

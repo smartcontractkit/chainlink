@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/jonboulle/clockwork"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
@@ -18,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
@@ -68,22 +66,25 @@ type gateway struct {
 }
 
 func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger, lf limits.Factory) (Gateway, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid gateway config: %w", err)
+	}
+	if len(cfg.Services) == 0 || len(cfg.ShardedDONs) == 0 {
+		return nil, errors.New("no services or DONs configured - Gateway has to use service-based configuration")
+	}
+
 	codec := &api.JsonRPCCodec{}
 	gMetrics, err := monitoring.NewGatewayMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("error creating gateway metrics: %w", err)
 	}
-	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, lggr, lf)
-	if err != nil {
-		return nil, err
-	}
 	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), gMetrics, lggr, lf)
 	if err != nil {
 		return nil, err
 	}
-
-	if len(cfg.Services) == 0 || len(cfg.ShardedDONs) == 0 {
-		return nil, errors.New("no services or DONs configured - Gateway has to use service-based configuration")
+	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, connMgr.ReadyForTraffic, lggr, lf)
+	if err != nil {
+		return nil, err
 	}
 
 	lggr.Infow("setting up gateway from config", "nServices", len(cfg.Services), "nShardedDONs", len(cfg.ShardedDONs))

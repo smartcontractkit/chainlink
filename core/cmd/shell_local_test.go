@@ -32,7 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
 	"github.com/smartcontractkit/chainlink-evm/pkg/txmgr/txmgrtest"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
@@ -75,7 +74,7 @@ func genTestEVMRelayers(t *testing.T, cfg chainlink.GeneralConfig, ds sqlutil.Da
 	f := chainlink.RelayerFactory{
 		Logger: lggr,
 		LoopRegistry: plugins.NewLoopRegistry(lggr, cfg.AppID().String(), cfg.Feature().LogPoller(), cfg.Database(),
-			cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(), nil, "", cfg.LOOPP()),
+			cfg.Mercury(), cfg.Pyroscope(), cfg.AutoPprof(), cfg.Tracing(), cfg.Telemetry(), cfg.Metering(), nil, "", cfg.LOOPP()),
 		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
 	}
 
@@ -128,7 +127,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			keyStore := cltest.NewKeyStore(t, db)
-			_, err := keyStore.Eth().Create(testutils.Context(t), &cltest.FixtureChainID)
+			_, err := keyStore.Eth().Create(t.Context(), &cltest.FixtureChainID)
 			require.NoError(t, err)
 
 			ethClient := evmtest.NewEthClientMock(t)
@@ -401,7 +400,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 			if !test.enableAddress {
-				err := keyStore.Eth().Disable(testutils.Context(t), fromAddress, testutils.FixtureChainID)
+				err := keyStore.Eth().Disable(t.Context(), fromAddress, testutils.FixtureChainID)
 				require.NoError(t, err, "failed to disable test key")
 			}
 
@@ -551,8 +550,8 @@ func TestShell_BeforeNode(t *testing.T) {
 				correctPwd, err := utils.PasswordFromFile("../internal/fixtures/correct_password.txt")
 				require.NoError(t, err)
 				ks := keystore.New(db, commonkeystore.FastScryptParams, logger.TestLogger(t).Infof)
-				require.NoError(t, ks.Unlock(testutils.Context(t), correctPwd))
-				_, err = ks.CSA().Create(testutils.Context(t))
+				require.NoError(t, ks.Unlock(t.Context(), correctPwd))
+				_, err = ks.CSA().Create(t.Context())
 				require.NoError(t, err)
 			}
 

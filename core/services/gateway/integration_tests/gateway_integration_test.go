@@ -16,16 +16,13 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/onsi/gomega"
 	"github.com/pelletier/go-toml/v2"
-
-	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
 	"github.com/stretchr/testify/require"
 
+	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -107,7 +104,7 @@ func parseGatewayConfig(t *testing.T, tomlConfig string) *config.GatewayConfig {
 	return &cfg
 }
 
-func parseConnectorConfig(t *testing.T, tomlConfig string, nodeAddress string, nodeURL string) *connector.ConnectorConfig {
+func parseConnectorConfig(t *testing.T, tomlConfig, nodeAddress, nodeURL string) *connector.ConnectorConfig {
 	nodeConfig := fmt.Sprintf(tomlConfig, nodeAddress, nodeURL)
 	var cfg connector.ConnectorConfig
 	require.NoError(t, toml.Unmarshal([]byte(nodeConfig), &cfg))
@@ -198,6 +195,8 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	userPort, nodePort := gateway.GetUserPort(), gateway.GetNodePort()
 	userURL := fmt.Sprintf("http://localhost:%d/user", userPort)
 	nodeURL := fmt.Sprintf("ws://localhost:%d/node", nodePort)
+	require.Equal(t, http.StatusServiceUnavailable, getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", userPort)))
+	require.Equal(t, http.StatusOK, getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", nodePort)))
 
 	// Launch Connector
 	client := &client{privateKey: nodeKeys.PrivateKey}
@@ -207,6 +206,9 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	require.NoError(t, connector.AddHandler(t.Context(), []string{"test"}, client))
 	client.connector = connector
 	servicetest.Run(t, connector)
+	require.Eventually(t, func() bool {
+		return getHTTPStatus(t, fmt.Sprintf("http://localhost:%d/health", userPort)) == http.StatusOK
+	}, testutils.WaitTimeout(t), testutils.TestInterval)
 
 	// Send requests until one of them reaches Connector (i.e. the node)
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -234,7 +236,17 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	require.JSONEq(t, nodeResponsePayload, string(respMsg.Body.Payload))
 }
 
-func newJSONRPCHTTPRequestObject(t *testing.T, messageID string, userURL string, signerKey *ecdsa.PrivateKey) *http.Request {
+func getHTTPStatus(t *testing.T, url string) int {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, url, nil)
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	return resp.StatusCode
+}
+
+func newJSONRPCHTTPRequestObject(t *testing.T, messageID, userURL string, signerKey *ecdsa.PrivateKey) *http.Request {
 	msg := &api.Message{Body: api.MessageBody{MessageId: messageID, Method: "test"}}
 	require.NoError(t, msg.Sign(signerKey))
 	msgBytes, err := json.Marshal(msg)
@@ -248,7 +260,7 @@ func newJSONRPCHTTPRequestObject(t *testing.T, messageID string, userURL string,
 	}
 	rawMsg, err := json.Marshal(&request)
 	require.NoError(t, err)
-	req, err := http.NewRequestWithContext(testutils.Context(t), "POST", userURL, bytes.NewBuffer(rawMsg))
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, userURL, bytes.NewBuffer(rawMsg))
 	require.NoError(t, err)
 	return req
 }

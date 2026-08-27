@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -17,9 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/webapicap"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
@@ -41,7 +42,8 @@ type webapiTrigger struct {
 	workflowID     string
 	allowedSenders map[string]bool
 	allowedTopics  map[string]bool
-	ch             chan<- capabilities.TriggerResponse
+	ch             chan<- capabilities.TriggerResponse // set nil after closing
+	chWriteMu      sync.Mutex                          // must hold to send or close
 	config         webapicap.TriggerConfig
 	rateLimiter    *ratelimit.RateLimiter
 }
@@ -54,7 +56,7 @@ type triggerConnectorHandler struct {
 	connector           core.GatewayConnector
 	lggr                logger.Logger
 	mu                  sync.Mutex
-	registeredWorkflows map[string]webapiTrigger
+	registeredWorkflows map[string]*webapiTrigger
 	registry            core.CapabilitiesRegistry
 }
 
@@ -69,7 +71,7 @@ func NewTrigger(config string, registry core.CapabilitiesRegistry, connector cor
 		CapabilityInfo:      webapiTriggerInfo,
 		Validator:           capabilities.NewValidator[webapicap.TriggerConfig, struct{}, webapicap.TriggerRequestPayload](capabilities.ValidatorArgs{Info: webapiTriggerInfo}),
 		connector:           connector,
-		registeredWorkflows: map[string]webapiTrigger{},
+		registeredWorkflows: map[string]*webapiTrigger{},
 		registry:            registry,
 		lggr:                logger.Named(lggr, "WorkflowConnectorHandler"),
 	}
@@ -91,11 +93,15 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 		return errors.New("empty Workflow Topics")
 	}
 
+	h.mu.Lock()
+	triggers := slices.Collect(maps.Values(h.registeredWorkflows))
+	h.mu.Unlock()
+
 	// workflows that have matched topics
 	matchedWorkflows := 0
 	// workflows that have matched topic and passed all checks
 	fullyMatchedWorkflows := 0
-	for _, trigger := range h.registeredWorkflows {
+	for _, trigger := range triggers {
 		for _, topic := range topics {
 			if trigger.allowedTopics[topic] {
 				matchedWorkflows++
@@ -129,10 +135,17 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 						Outputs:     wrappedPayload,
 					},
 				}
+				trigger.chWriteMu.Lock()
+				if trigger.ch == nil {
+					trigger.chWriteMu.Unlock()
+					return nil
+				}
 				select {
 				case <-ctx.Done():
+					trigger.chWriteMu.Unlock()
 					return nil
 				case trigger.ch <- tr:
+					trigger.chWriteMu.Unlock()
 					// Sending n topics that match a workflow with n allowedTopics, can only be triggered once.
 					break
 				}
@@ -241,7 +254,7 @@ func (h *triggerConnectorHandler) RegisterTrigger(ctx context.Context, req capab
 
 	ch := make(chan capabilities.TriggerResponse, defaultSendChannelBufferSize)
 
-	h.registeredWorkflows[req.TriggerID] = webapiTrigger{
+	h.registeredWorkflows[req.TriggerID] = &webapiTrigger{
 		workflowID:     req.Metadata.WorkflowID,
 		allowedTopics:  allowedTopicsMap,
 		allowedSenders: allowedSendersMap,
@@ -261,7 +274,10 @@ func (h *triggerConnectorHandler) UnregisterTrigger(ctx context.Context, req cap
 		return fmt.Errorf("triggerId %s not registered", req.TriggerID)
 	}
 
+	workflow.chWriteMu.Lock()
 	close(workflow.ch)
+	workflow.ch = nil
+	workflow.chWriteMu.Unlock()
 	delete(h.registeredWorkflows, req.TriggerID)
 	return nil
 }

@@ -9,13 +9,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestUtils_NewBytes32ID(t *testing.T) {
@@ -262,7 +261,7 @@ func TestWithCloseChan(t *testing.T) {
 		t.Parallel()
 
 		ch := make(chan struct{})
-		ctx, cancel := utils.WithCloseChan(testutils.Context(t), ch)
+		ctx, cancel := utils.WithCloseChan(t.Context(), ch)
 		defer cancel()
 
 		close(ch)
@@ -275,7 +274,7 @@ func TestWithCloseChan(t *testing.T) {
 
 		ch := make(chan struct{})
 		defer close(ch)
-		ctx, cancel := utils.WithCloseChan(testutils.Context(t), ch)
+		ctx, cancel := utils.WithCloseChan(t.Context(), ch)
 		cancel()
 
 		assertCtxCancelled(ctx, t)
@@ -286,7 +285,7 @@ func TestWithCloseChan(t *testing.T) {
 
 		ch := make(chan struct{})
 		defer close(ch)
-		pctx, pcancel := context.WithCancel(testutils.Context(t))
+		pctx, pcancel := context.WithCancel(t.Context())
 		ctx, cancel := utils.WithCloseChan(pctx, ch)
 		defer cancel()
 
@@ -382,6 +381,10 @@ func TestValidateCronSchedule(t *testing.T) {
 }
 
 func TestPausableTicker(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	var counter atomic.Int32
@@ -428,6 +431,10 @@ func TestPausableTicker(t *testing.T) {
 }
 
 func TestCronTicker(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	var counter atomic.Int32
@@ -488,7 +495,7 @@ func TestErrorBuffer(t *testing.T) {
 		assert.Equal(t, err2.Error(), errs[1].Error())
 	})
 
-	t.Run("ovewrite oldest error when cap exceeded", func(t *testing.T) {
+	t.Run("overwrite oldest error when cap exceeded", func(t *testing.T) {
 		t.Parallel()
 		buff := utils.ErrorBuffer{}
 		buff.SetCap(2)

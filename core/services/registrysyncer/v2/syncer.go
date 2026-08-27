@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -16,15 +18,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	capabilities_registry_v2 "github.com/smartcontractkit/chainlink-evm/gethwrappers/workflow/generated/capabilities_registry_wrapper_v2"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config"
-
-	p2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
+type Listener interface {
+	OnNewRegistry(ctx context.Context, registry *registrysyncer.LocalRegistry) error
+}
+
 type Syncer interface {
 	services.Service
-	AddListener(h ...registrysyncer.Listener)
+	AddListener(h ...Listener)
 }
 
 type ContractReaderFactory interface {
@@ -33,7 +36,7 @@ type ContractReaderFactory interface {
 
 type RegistrySyncer interface {
 	Sync(ctx context.Context, isInitialSync bool) error
-	AddListener(listeners ...registrysyncer.Listener)
+	AddListener(listeners ...Listener)
 	Start(ctx context.Context) error
 	Close() error
 	Ready() error
@@ -45,7 +48,7 @@ type registrySyncer struct {
 	services.StateMachine
 	metrics              *syncerMetricLabeler
 	stopCh               services.StopChan
-	listeners            []registrysyncer.Listener
+	listeners            []Listener
 	reader               types.ContractReader
 	initReader           func(ctx context.Context, lggr logger.Logger, relayer ContractReaderFactory, capabilitiesContract types.BoundContract) (types.ContractReader, error)
 	relayer              ContractReaderFactory
@@ -307,7 +310,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	defer s.mu.RUnlock()
 
 	if len(s.listeners) == 0 {
-		s.lggr.Warn("sync called, but no listeners are registered; nooping")
+		s.lggr.Warn("sync called, but no listeners are registered; no-op")
 		return nil
 	}
 
@@ -410,7 +413,7 @@ func toDONInfo(don capabilities_registry_v2.CapabilitiesRegistryDONInfo) *capabi
 	}
 }
 
-func (s *registrySyncer) AddListener(listeners ...registrysyncer.Listener) {
+func (s *registrySyncer) AddListener(listeners ...Listener) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.listeners = append(s.listeners, listeners...)

@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/orgresolver"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -102,6 +101,24 @@ func NewStandardCapabilities(
 	}
 }
 
+// initialiseDependencies builds the StandardCapabilitiesDependencies delivered to
+// the capability LOOP via Initialise.
+func (s *StandardCapabilities) initialiseDependencies() core.StandardCapabilitiesDependencies {
+	return core.StandardCapabilitiesDependencies{
+		Config:             s.config,
+		Store:              s.store,
+		CapabilityRegistry: s.CapabilitiesRegistry,
+		RelayerSet:         s.relayerSet,
+		OracleFactory:      s.oracleFactory,
+		GatewayConnector:   s.gatewayConnector,
+		P2PKeystore:        s.keystore,
+		OrgResolver:        s.orgResolver,
+		CRESettings:        s.creSettings,
+		TriggerEventStore:  s.triggerEventStore,
+		CapabilityDonID:    s.capabilityDonID,
+	}
+}
+
 func (s *StandardCapabilities) Start(ctx context.Context) error {
 	return s.StartOnce("StandardCapabilities", func() error {
 		envVars, err := plugins.ParseEnvFile(env.CapabilitiesPlugin.Env.Get())
@@ -138,19 +155,7 @@ func (s *StandardCapabilities) Start(ctx context.Context) error {
 				return
 			}
 
-			dependencies := core.StandardCapabilitiesDependencies{
-				Config:             s.config,
-				Store:              s.store,
-				CapabilityRegistry: s.CapabilitiesRegistry,
-				RelayerSet:         s.relayerSet,
-				OracleFactory:      s.oracleFactory,
-				GatewayConnector:   s.gatewayConnector,
-				P2PKeystore:        s.keystore,
-				OrgResolver:        s.orgResolver,
-				CRESettings:        s.creSettings,
-				TriggerEventStore:  s.triggerEventStore,
-				CapabilityDonID:    s.capabilityDonID,
-			}
+			dependencies := s.initialiseDependencies()
 			if err = s.capabilitiesLoop.Service.Initialise(cctx, dependencies); err != nil {
 				s.log.Errorf("error initialising standard capabilities service: %v", err)
 				s.setReadyErr(fmt.Errorf("initialising standard capabilities service: %w", err))

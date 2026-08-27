@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 
@@ -66,8 +66,8 @@ func TestPlugin_Outcome(t *testing.T) {
 		require.NoError(t, err)
 
 		ctx := t.Context()
-		intialSeqNr := uint64(42)
-		outcomeCtx := ocr3types.OutcomeContext{SeqNr: intialSeqNr}
+		initialSeqNr := uint64(42)
+		outcomeCtx := ocr3types.OutcomeContext{SeqNr: initialSeqNr}
 
 		// Observations from 4 NOPs reporting health, workflows, and wantShards=3
 		observations := []struct {
@@ -134,7 +134,7 @@ func TestPlugin_Outcome(t *testing.T) {
 		require.NotNil(t, outcomeProto.State)
 		// When bootstrapping without PreviousOutcome, we use wantShards from observations (3)
 		// Since consensus wantShards (3) equals bootstrap shards, no transition needed - ID stays the same
-		require.Equal(t, intialSeqNr, outcomeProto.State.Id, "ID should match SeqNr (no transition needed)")
+		require.Equal(t, initialSeqNr, outcomeProto.State.Id, "ID should match SeqNr (no transition needed)")
 		t.Logf("Outcome - ID: %d, HealthyShards: %v", outcomeProto.State.Id, outcomeProto.State.GetRoutableShards())
 		t.Logf("Workflows assigned: %d", len(outcomeProto.Routes))
 

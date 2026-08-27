@@ -134,7 +134,7 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 	}
 
 	md := request.Metadata
-	id := vaultutils.BuildWorkflowGetSecretsRequestID(md)
+	id := vaultcommon.BuildWorkflowGetSecretsRequestID(md)
 	s.lggr.Debugw("received workflow get secrets request", "requestID", id, "request", r.String())
 
 	resp, err := s.handleRequest(ctx, id, r)

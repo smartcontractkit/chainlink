@@ -5,12 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-
-	"github.com/stretchr/testify/assert"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 )
 

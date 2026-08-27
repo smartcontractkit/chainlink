@@ -12,25 +12,28 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
-	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	cldchangeset "github.com/smartcontractkit/cld-changesets/pkg/cldfutil/changeset"
+
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
-	shard_config "github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/dev/generated/latest/shard_config"
+	"github.com/smartcontractkit/chainlink-evm/contracts/cre/gobindings/dev/generated/latest/shard_config"
 	ringpb "github.com/smartcontractkit/chainlink-protos/ring/go"
 	commonevents "github.com/smartcontractkit/chainlink-protos/workflows/go/common"
 	workflowevents "github.com/smartcontractkit/chainlink-protos/workflows/go/events"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-
 	crontypes "github.com/smartcontractkit/chainlink/core/scripts/cre/environment/examples/workflows/cron/types"
 	deployment_contracts "github.com/smartcontractkit/chainlink/deployment/cre/contracts"
 	shard_config_changeset "github.com/smartcontractkit/chainlink/deployment/cre/shard_config/v1/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/evm"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/sharding"
+	libcrypto "github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
 	t_helpers "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers"
 	ttypes "github.com/smartcontractkit/chainlink/system-tests/tests/test-helpers/configuration"
 )
@@ -50,10 +53,108 @@ Prerequisites:
   CTF_CONFIGS=configs/workflow-gateway-sharded-don.toml go run . env start
 
 - Run the test:
-  go test -timeout 20m -run "^Test_CRE_Sharding$" -v
+  go test -timeout 20m -run "^Test_CRE_V2_Sharding" -v
 */
 
-func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
+func ExecuteShardingTestWithCronTrigger(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
+	workflowConfig := crontypes.WorkflowConfig{
+		Schedule: "*/30 * * * * *",
+	}
+	const numWorkflows = 5
+	workflowNames := make([]string, numWorkflows)
+	for i := range numWorkflows {
+		workflowNames[i] = fmt.Sprintf("shardtest-cron-%d", i)
+	}
+	ExecuteShardingTemplate(t, testEnv, workflowFileLocation, &workflowConfig, workflowNames, "Amazing workflow user log")
+}
+
+func ExecuteShardingTestWithEVMLogTrigger(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	testLogger := framework.L
+
+	singleAckFound, stopACKLogScans := startTriggerEventACKLogWatch(t, testLogger)
+	defer stopACKLogScans()
+
+	enabledChains := t_helpers.GetEVMEnabledChains(t, testEnv)
+	logTriggerChainIndex := -1
+	for i, bcOutput := range testEnv.CreEnvironment.Blockchains {
+		chainID := bcOutput.CtfOutput().ChainID
+		if _, ok := enabledChains[chainID]; ok {
+			logTriggerChainIndex = i
+			break
+		}
+	}
+	require.NotEqual(t, -1, logTriggerChainIndex, "Expected at least one EVM-enabled chain for sharding log trigger workflow")
+	logTriggerChain := testEnv.CreEnvironment.Blockchains[logTriggerChainIndex]
+	logTriggerChainID := logTriggerChain.CtfOutput().ChainID
+	workflowConfig, msgEmitter := configureEVMLogTriggerWorkflow(t, testLogger, logTriggerChain)
+	expectedMessage := "Data for sharding log trigger chain " + logTriggerChainID
+	emitCtx, emitCancelFn := context.WithCancel(t.Context())
+	defer emitCancelFn()
+	startEVMLogTriggerEventEmitter(emitCtx, t, testLogger, logTriggerChainID, logTriggerChain, msgEmitter, expectedMessage)
+
+	workflowFileLocation := "./evm/logtrigger/main.go"
+
+	const numWorkflows = 5
+	workflowNames := make([]string, numWorkflows)
+	for i := range numWorkflows {
+		workflowNames[i] = fmt.Sprintf("shardtest-evmlogtrigger-%d", i)
+	}
+	ExecuteShardingTemplate(t, testEnv, workflowFileLocation, &workflowConfig, workflowNames, expectedMessage)
+
+	requireTriggerEventACKLog(t, testLogger, singleAckFound)
+}
+
+func ExecuteShardingTestWithHTTPTrigger(t *testing.T, testEnv *ttypes.TestEnvironment) {
+	testLogger := framework.L
+
+	publicKeyAddr, signingKey, newKeysErr := libcrypto.GenerateNewKeyPair()
+	require.NoError(t, newKeysErr, "failed to generate new public key")
+
+	// Debug: compare the authorized key with the signing key address
+	signerAddr := crypto.PubkeyToAddress(signingKey.PublicKey).Hex()
+	testLogger.Info().
+		Str("config_authorized_key", publicKeyAddr.Hex()).
+		Str("signing_key_address", signerAddr).
+		Msg("Generated key pair for workflow authorization")
+
+	fakeServer, err := startTestOrderServer(t, testEnv.Config.Fake.Port)
+	require.NoError(t, err, "failed to start fake HTTP server")
+
+	httpWorkflowConfig := t_helpers.HTTPWorkflowConfig{
+		AuthorizedKey: publicKeyAddr,
+		URL:           fakeServer.BaseURLHost,
+	}
+	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/http_simple/main.go"
+
+	gatewayConfig := testEnv.Dons.GatewayConnectors.Configurations[0].Incoming
+	testEnv.Logger.Info().
+		Str("protocol", gatewayConfig.Protocol).
+		Str("host", gatewayConfig.Host).
+		Int("port", gatewayConfig.ExternalPort).
+		Str("path", gatewayConfig.Path).
+		Msg("Gateway configuration details")
+
+	newGatewayURL := gatewayConfig.Protocol + "://" + gatewayConfig.Host + ":" + strconv.Itoa(gatewayConfig.ExternalPort) + gatewayConfig.Path
+	gatewayURL, err := url.Parse(newGatewayURL)
+	require.NoError(t, err, "failed to parse gateway URL")
+
+	workflowOwner := testEnv.CreEnvironment.Blockchains[0].(*evm.Blockchain).SethClient.MustGetRootPrivateKey()
+	workflowOwnerAddress := strings.ToLower(crypto.PubkeyToAddress(workflowOwner.PublicKey).Hex())
+
+	const numWorkflows = 5
+	workflowNames := make([]string, numWorkflows)
+	for i := range numWorkflows {
+		workflowNames[i] = fmt.Sprintf("shard-httptrigger-%d", i)
+		go executeHTTPTriggerRequest(t, testEnv, gatewayURL, workflowNames[i], "", signingKey, workflowOwnerAddress) //nolint:testifylint // require.Eventually inside a goroutine is unsafe
+	}
+
+	ExecuteShardingTemplate(t, testEnv, workflowFileLocation, &httpWorkflowConfig, workflowNames, "Successfully processed order")
+
+	validateHTTPWorkflowRequest(t, testEnv)
+}
+
+func ExecuteShardingTemplate[T t_helpers.WorkflowConfig](t *testing.T, testEnv *ttypes.TestEnvironment, workflowFileLocation string, workflowConfig *T, workflowNames []string, expectedMessage string) {
 	testLogger := framework.L
 
 	shardDONs := testEnv.Dons.DonsWithFlag(cre.ShardDON)
@@ -113,15 +214,9 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	testLogger.Info().Msg("Verifying Ring OCR Oracle health on shard0 nodes...")
 	waitForRingOracleHealthy(t, shardZero)
 
-	const numWorkflows = 5
-	workflowFileLocation := "../../../../core/scripts/cre/environment/examples/workflows/cron/main.go"
 	var workflowIDs []string
-	for i := range numWorkflows {
-		workflowName := fmt.Sprintf("shardtest%d", i)
-		workflowConfig := crontypes.WorkflowConfig{
-			Schedule: "*/30 * * * * *",
-		}
-		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, &workflowConfig, workflowFileLocation)
+	for _, workflowName := range workflowNames {
+		workflowID := t_helpers.CompileAndDeployWorkflow(t, testEnv, testLogger, workflowName, workflowConfig, workflowFileLocation)
 		workflowIDs = append(workflowIDs, workflowID)
 	}
 	testLogger.Info().Strs("workflowIDs", workflowIDs).Msg("Deployed real workflows for sharding test")
@@ -150,7 +245,7 @@ func ExecuteShardingTest(t *testing.T, testEnv *ttypes.TestEnvironment) {
 	// TODO: we should modify arbiter not to report or report something else when health data is not available from Scaler
 	initializeAllArbiterStates(t, testEnv, shardZero, len(shardDONs))
 
-	validateShardingScaleScenario(t, testEnv, rpcHost, workflowIDs)
+	validateShardingScaleScenario(t, testEnv, rpcHost, workflowIDs, expectedMessage)
 
 	testLogger.Info().Msg("Sharding test completed successfully")
 }
@@ -222,7 +317,13 @@ func initializeAllArbiterStates(t *testing.T, testEnv *ttypes.TestEnvironment, s
 	logger.Info().Int("numShards", numShards).Msg("Arbiter states initialized on all shard0 nodes")
 }
 
-func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment, rpcHost string, workflowIDs []string) {
+func validateShardingScaleScenario(
+	t *testing.T,
+	testEnv *ttypes.TestEnvironment,
+	rpcHost string,
+	workflowIDs []string,
+	expectedUserLog string,
+) {
 	t.Helper()
 	logger := framework.L
 	ctx := t.Context()
@@ -344,7 +445,7 @@ func validateShardingScaleScenario(t *testing.T, testEnv *ttypes.TestEnvironment
 	defer cancelCause(nil)
 	go t_helpers.FailOnBaseMessage(execCtx, cancelCause, t, logger, baseMessageCh, t_helpers.WorkflowEngineInitErrorLog)
 
-	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, logger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, execTimeout)
+	executedWorkflows := waitForAllWorkflowsExecuted(execCtx, t, logger, userLogsCh, workflowIDs, workflowToShardIndex, nodeP2PIDToShardIndex, expectedUserLog, execTimeout)
 	require.Len(t, executedWorkflows, len(workflowIDs), "Not all workflows executed")
 	logger.Info().Int("executedCount", len(executedWorkflows)).Msg("All workflows executed on correct shards")
 }
@@ -529,9 +630,11 @@ func waitForRingOCRRounds(t *testing.T, client ringpb.ShardOrchestratorServiceCl
 			Uint64("currentVersion", resp.MappingVersion).
 			Uint64("initialVersion", initialVersion).
 			Int("mappingsCount", len(resp.Mappings)).
+			Bool("routingSteady", resp.RoutingSteady).
+			Uint64("routingStateId", resp.RoutingStateId).
 			Msg("Ring OCR round check")
 		return resp.MappingVersion > initialVersion
-	}, 90*time.Second, 5*time.Second, "Ring OCR rounds not completing - mapping_version not increasing. Initial: %d", initialVersion)
+	}, 3*time.Minute, 5*time.Second, "Ring OCR rounds not completing - mapping_version not increasing. Initial: %d", initialVersion)
 }
 
 func waitForWorkflowsRegistered(t *testing.T, client ringpb.ShardOrchestratorServiceClient, workflowIDs []string) {
@@ -659,7 +762,7 @@ func waitForMappingVersionStable(t *testing.T, client ringpb.ShardOrchestratorSe
 	}, timeout, 2*time.Second, "Mapping content did not stabilize within %s (stableDuration=%s)", timeout, stableDuration)
 }
 
-func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, userLogsCh <-chan *workflowevents.UserLogs, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, timeout time.Duration) map[string]struct{} {
+func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerolog.Logger, userLogsCh <-chan *workflowevents.UserLogs, workflowIDs []string, workflowToShardIndex map[string]uint32, nodeP2PIDToShardIndex map[string]uint32, expectedUserLog string, timeout time.Duration) map[string]struct{} {
 	t.Helper()
 
 	expectedWorkflows := make(map[string]struct{}, len(workflowIDs))
@@ -695,7 +798,7 @@ func waitForAllWorkflowsExecuted(ctx context.Context, t *testing.T, logger zerol
 			}
 			hasExpectedLog := false
 			for _, line := range userLogs.LogLines {
-				if strings.Contains(line.Message, "Amazing workflow user log") {
+				if strings.Contains(line.Message, expectedUserLog) {
 					hasExpectedLog = true
 					break
 				}

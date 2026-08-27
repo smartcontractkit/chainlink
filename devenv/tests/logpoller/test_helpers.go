@@ -873,7 +873,7 @@ type PauseData struct {
 	StartBlock      uint64
 	EndBlock        uint64
 	TargetComponent string
-	ContaineName    string
+	ContainerName   string
 }
 
 var ChaosPauses = []PauseData{}
@@ -927,7 +927,7 @@ func chaosPauseSyncFn(ctx context.Context, dtc *chaos.DockerChaos, l zerolog.Log
 		StartBlock:      pauseStartBlock,
 		EndBlock:        pauseEndBlock,
 		TargetComponent: targetComponent,
-		ContaineName:    containerName,
+		ContainerName:   containerName,
 	}}
 }
 
@@ -993,7 +993,7 @@ func executeChaosExperiment(ctx context.Context, l zerolog.Logger, nodes *nodese
 		errorCh <- nil // Only send nil once, after all errors have been handled and the channel is closed
 
 		for _, p := range pauseData {
-			l.Debug().Str("Target component", p.TargetComponent).Str("Container", p.ContaineName).Str("Block range", fmt.Sprintf("%d - %d", p.StartBlock, p.EndBlock)).Msgf("Details of executed chaos pause")
+			l.Debug().Str("Target component", p.TargetComponent).Str("Container", p.ContainerName).Str("Block range", fmt.Sprintf("%d - %d", p.StartBlock, p.EndBlock)).Msgf("Details of executed chaos pause")
 		}
 	}()
 }
@@ -1067,9 +1067,9 @@ func assertContractAddressUniquneness(logEmitters []contracts.LogEmitter) error 
 	return nil
 }
 
-// registerFiltersAndAssertUniquness registers the configured log filters and asserts that the filters are unique
+// registerFiltersAndAssertUniqueness registers the configured log filters and asserts that the filters are unique
 // meaning that for each log emitter address and topic there is only one filter
-func registerFiltersAndAssertUniquness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []contracts.LogEmitter, cfg *Config, upKeepsNeeded int) error {
+func registerFiltersAndAssertUniqueness(l zerolog.Logger, registry contracts.KeeperRegistry, upkeepIDs []*big.Int, logEmitters []contracts.LogEmitter, cfg *Config, upKeepsNeeded int) error {
 	uniqueFilters := make(map[string]bool)
 
 	upkeepIDIndex := 0

@@ -12,13 +12,11 @@ import (
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink-common/keystore/corekeys/p2pkey"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 )
 
@@ -231,7 +229,7 @@ func Test_createDON(t *testing.T) {
 			if tt.expect != nil {
 				tt.expect(t, tt.args, tt.args.oracleCreator, tt.args.homeChainReader)
 			}
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 
 			latestConfigs, err := getConfigsForDon(ctx, tt.args.homeChainReader, tt.args.don)
 			require.NoError(t, err)
@@ -492,7 +490,7 @@ func Test_updateDON(t *testing.T) {
 			if tt.expect != nil {
 				tt.expect(t, tt.args, tt.args.oracleCreator, tt.args.homeChainReader)
 			}
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 
 			latestConfigs, err := getConfigsForDon(ctx, tt.args.homeChainReader, tt.args.don)
 			require.NoError(t, err)
@@ -520,7 +518,7 @@ func Test_launcher_processDiff(t *testing.T) {
 		homeChainReader *mocks.HomeChainReader
 		oracleCreator   *mocks.OracleCreator
 		instances       map[registrysyncer.DonID]pluginRegistry
-		regState        registrysyncer.LocalRegistry
+		regState        *registrysyncer.LocalRegistry
 	}
 	type args struct {
 		diff diffResult
@@ -549,7 +547,7 @@ func Test_launcher_processDiff(t *testing.T) {
 							}),
 					},
 				},
-				regState: registrysyncer.LocalRegistry{
+				regState: &registrysyncer.LocalRegistry{
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 						1: defaultRegistryDon,
 					},
@@ -616,7 +614,7 @@ func Test_launcher_processDiff(t *testing.T) {
 						Return(execOracle, nil)
 				}),
 				instances: map[registrysyncer.DonID]pluginRegistry{},
-				regState: registrysyncer.LocalRegistry{
+				regState: &registrysyncer.LocalRegistry{
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{},
 				},
 			},
@@ -702,7 +700,7 @@ func Test_launcher_processDiff(t *testing.T) {
 						}, func(m *mocks.CCIPOracle) {}),
 					},
 				},
-				regState: registrysyncer.LocalRegistry{
+				regState: &registrysyncer.LocalRegistry{
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 						1: defaultRegistryDon,
 					},
@@ -770,7 +768,7 @@ func Test_launcher_processDiff(t *testing.T) {
 						Return(execOracle, nil)
 				}),
 				instances: map[registrysyncer.DonID]pluginRegistry{},
-				regState: registrysyncer.LocalRegistry{
+				regState: &registrysyncer.LocalRegistry{
 					IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{},
 				},
 			},
@@ -813,7 +811,7 @@ func Test_launcher_processDiff(t *testing.T) {
 				homeChainReader: tt.fields.homeChainReader,
 				oracleCreator:   tt.fields.oracleCreator,
 			}
-			err := l.processDiff(testutils.Context(t), tt.args.diff)
+			err := l.processDiff(t.Context(), tt.args.diff)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -831,6 +829,7 @@ func getOCR3Nodes(p2pIDs ...int64) []ccipreaderpkg.OCR3Node {
 	}
 	return nodes
 }
+
 func newMock[T any](t *testing.T, newer func(t *testing.T) T, expect func(m T)) T {
 	o := newer(t)
 	expect(o)

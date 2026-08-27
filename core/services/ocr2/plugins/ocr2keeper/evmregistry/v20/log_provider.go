@@ -16,9 +16,7 @@ import (
 	pluginutils "github.com/smartcontractkit/chainlink-automation/pkg/util"
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 	"github.com/smartcontractkit/chainlink-automation/pkg/v2/encoding"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/keeper_registry_wrapper2_0"
 	evmclient "github.com/smartcontractkit/chainlink-evm/pkg/client"
 	"github.com/smartcontractkit/chainlink-evm/pkg/logpoller"

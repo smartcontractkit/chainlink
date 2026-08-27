@@ -64,7 +64,10 @@ func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 		{"evm", "GetTransactionReceipt"}: limiters.ChainReadCalls,
 		{"evm", "HeaderByNumber"}:        limiters.ChainReadCalls,
 
-		{"aptos", "View"}: limiters.ChainReadCalls,
+		{"aptos", "AccountAPTBalance"}:   limiters.ChainReadCalls,
+		{"aptos", "View"}:                limiters.ChainReadCalls,
+		{"aptos", "TransactionByHash"}:   limiters.ChainReadCalls,
+		{"aptos", "AccountTransactions"}: limiters.ChainReadCalls,
 
 		{"solana", "GetAccountInfoWithOpts"}:      limiters.ChainReadCalls,
 		{"solana", "GetBalance"}:                  limiters.ChainReadCalls,
@@ -74,6 +77,7 @@ func (c *ExecutionHelper) initLimiters(limiters *EngineLimiters) {
 		{"solana", "GetSignatureStatuses"}:        limiters.ChainReadCalls,
 		{"solana", "GetSlotHeight"}:               limiters.ChainReadCalls,
 		{"solana", "GetTransaction"}:              limiters.ChainReadCalls,
+		{"solana", "GetProgramAccounts"}:          limiters.ChainReadCalls,
 
 		{"stellar", "GetLatestLedger"}: limiters.ChainReadCalls,
 		{"stellar", "ReadContract"}:    limiters.ChainReadCalls,
@@ -257,8 +261,7 @@ func (c *ExecutionHelper) callCapability(ctx context.Context, request *sdkpb.Cap
 
 	c.metrics.With(platform.KeyCapabilityID, request.Id).UpdateCapabilityExecutionDurationHistogram(ctx, int64(executionDuration.Seconds()))
 	if err != nil {
-		var capabilityError caperrors.Error
-		if errors.As(err, &capabilityError) {
+		if capabilityError, ok := errors.AsType[caperrors.Error](err); ok {
 			if capabilityError.Origin() == caperrors.OriginUser {
 				execLogger.Debugw("Capability execution failed with user error", "userErr", err)
 				_ = events.EmitCapabilityFinishedEvent(ctx, loggerLabels, c.WorkflowExecutionID, request.Id, meteringRef, store.StatusCompleted, request.Method, err)

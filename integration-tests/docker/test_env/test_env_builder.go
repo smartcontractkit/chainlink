@@ -276,13 +276,17 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 					}
 					return false
 				}
-
+				logsDirRoot, err := os.OpenRoot(logsDir)
+				if err != nil {
+					b.l.Error().Err(err).Msg("Error opening root directory for logs")
+					return
+				}
 				fileWalkErr := filepath.Walk(logsDir, func(path string, info os.FileInfo, err error) error {
 					if err != nil {
 						return err
 					}
 					if !info.IsDir() && belongsToCurrentEnv(info.Name()) {
-						file, fileErr := os.Open(path)
+						file, fileErr := logsDirRoot.Open(path)
 						if fileErr != nil {
 							return fmt.Errorf("failed to open file %s: %w", path, fileErr)
 						}

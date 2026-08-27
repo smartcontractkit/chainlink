@@ -136,9 +136,10 @@ func Test_decodeExtraData(t *testing.T) {
 	})
 
 	t.Run("error on unknown tag", func(t *testing.T) {
-		dataWithUnknownTag := []byte{0xde, 0xad, 0xbe, 0xef}
 		dummyData, err := bcs.SerializeU256(*big.NewInt(1))
 		require.NoError(t, err)
+		dataWithUnknownTag := make([]byte, 0, 4+len(dummyData))
+		dataWithUnknownTag = append(dataWithUnknownTag, 0xde, 0xad, 0xbe, 0xef)
 		dataWithUnknownTag = append(dataWithUnknownTag, dummyData...)
 		_, err = extraDataDecoder.DecodeExtraArgsToMap(dataWithUnknownTag)
 		require.Error(t, err)

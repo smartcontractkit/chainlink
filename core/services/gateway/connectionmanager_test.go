@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -14,12 +15,11 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -31,19 +31,21 @@ const defaultConfig = `
 [nodeServerConfig]
 Path = "/node"
 
-[[dons]]
-DonId = "my_don_1"
-HandlerName = "dummy"
+[[shardedDONs]]
+DonName = "my_don_1"
+F = 0
 
-[[dons.members]]
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "example_node"
 Address = "0x68902D681C28119F9B2531473A417088BF008E59"
 
-[[dons]]
-DonId = "my_don_2"
-HandlerName = "dummy"
+[[shardedDONs]]
+DonName = "my_don_2"
+F = 0
 
-[[dons.members]]
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "example_node"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 `
@@ -61,28 +63,42 @@ func TestConnectionManager_NewConnectionManager_InvalidConfig(t *testing.T) {
 
 	invalidCases := map[string]string{
 		"duplicate DON ID": `
-[[dons]]
-DonId = "my_don"
-[[dons]]
-DonId = "my_don"
-`,
-		"duplicate node address": `
-[[dons]]
-DonId = "my_don"
-[[dons.members]]
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "node_1"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
-[[dons.members]]
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "node_2"
+Address = "0x1111111111111111111111111111111111111111"
+`,
+		"duplicate node address": `
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
+Name = "node_1"
+Address = "0x68902d681c28119f9b2531473a417088bf008e59"
+[[shardedDONs.Shards.Nodes]]
 Name = "node_2"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 `,
 		"duplicate node address with different casing": `
-[[dons]]
-DonId = "my_don"
-[[dons.members]]
+[[shardedDONs]]
+DonName = "my_don"
+F = 0
+[[shardedDONs.Shards]]
+[[shardedDONs.Shards.Nodes]]
 Name = "node_1"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
-[[dons.members]]
+[[shardedDONs.Shards.Nodes]]
 Name = "node_2"
 Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 `,
@@ -113,13 +129,14 @@ Path = "/node"
 AuthGatewayId = "my_gateway_no_3"
 AuthTimestampToleranceSec = 5
 AuthChallengeLen = 100
-[[dons]]
-DonId = "my_don_1"
-HandlerName = "dummy"
+[[shardedDONs]]
+DonName = "my_don_1"
+F = 0
+[[shardedDONs.Shards]]
 `)
 
 	for i := range nNodes {
-		config.WriteString(`[[dons.members]]` + "\n")
+		config.WriteString(`[[shardedDONs.Shards.Nodes]]` + "\n")
 		config.WriteString(fmt.Sprintf(`Name = "node_%d"`, i) + "\n")
 		config.WriteString(fmt.Sprintf(`Address = "%s"`, nodes[i].Address) + "\n")
 	}
@@ -228,11 +245,11 @@ func TestConnectionManager_SendToNode_Failures(t *testing.T) {
 	mgr := newConnectionManager(t, config, clock)
 
 	donMgr := mgr.DONConnectionManager("my_don_1")
-	err := donMgr.SendToNode(testutils.Context(t), nodes[0].Address, nil)
+	err := donMgr.SendToNode(t.Context(), nodes[0].Address, nil)
 	require.Error(t, err)
 
 	message := &jsonrpc.Request[json.RawMessage]{}
-	err = donMgr.SendToNode(testutils.Context(t), "some_other_node", message)
+	err = donMgr.SendToNode(t.Context(), "some_other_node", message)
 	require.Error(t, err)
 }
 
@@ -244,7 +261,7 @@ func TestConnectionManager_CleanStartClose(t *testing.T) {
 	clock := clockwork.NewFakeClock()
 	mgr := newConnectionManager(t, config, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 
 	err = mgr.Close()
@@ -384,11 +401,11 @@ Address = "0x0001020304050607080900010203040506070809"
 	donMgr := mgr.DONConnectionManager(config.ShardDONID("myDON", 0))
 	require.NotNil(t, donMgr)
 
-	err := donMgr.SendToNode(testutils.Context(t), "0x0001020304050607080900010203040506070809", nil)
+	err := donMgr.SendToNode(t.Context(), "0x0001020304050607080900010203040506070809", nil)
 	require.Error(t, err, "nil request should fail")
 
 	message := &jsonrpc.Request[json.RawMessage]{}
-	err = donMgr.SendToNode(testutils.Context(t), "0xdeadbeef", message)
+	err = donMgr.SendToNode(t.Context(), "0xdeadbeef", message)
 	require.Error(t, err, "unknown node should fail")
 }
 
@@ -414,7 +431,7 @@ Address = "0x0001020304050607080900010203040506070809"
 	cfg := parseTOMLConfig(t, tomlConfig)
 	mgr := newConnectionManager(t, cfg, clockwork.NewFakeClock())
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 
 	err = mgr.Close()
@@ -452,10 +469,14 @@ func newWebSocketPair(t *testing.T) (serverConn, clientConn *websocket.Conn) {
 
 // doHandshake performs StartHandshake + FinalizeHandshake with the given conn.
 func doHandshake(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Clock, node gc.TestNode, conn *websocket.Conn) {
+	doHandshakeForDON(t, mgr, clock, "my_don_1", node, conn)
+}
+
+func doHandshakeForDON(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Clock, donID string, node gc.TestNode, conn *websocket.Conn) {
 	t.Helper()
 	authHeaderElems := network.AuthHeaderElems{
 		Timestamp: uint32(clock.Now().Unix()), //nolint:gosec // test clock is always small positive
-		DonId:     "my_don_1",
+		DonId:     donID,
 		GatewayId: "my_gateway_no_3",
 	}
 	attemptID, challenge, err := mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, node.PrivateKey))
@@ -465,7 +486,125 @@ func doHandshake(t *testing.T, mgr gateway.ConnectionManager, clock clockwork.Cl
 	require.NoError(t, mgr.FinalizeHandshake(attemptID, response, conn))
 }
 
+func TestConnectionManager_ReadyForTraffic(t *testing.T) {
+	t.Parallel()
+
+	cfg, nodes := newTestConfig(t, 4)
+	cfg.ShardedDONs[0].F = 1
+	clock := clockwork.NewFakeClock()
+	mgr := newConnectionManager(t, cfg, clock)
+	require.NoError(t, mgr.Start(t.Context()))
+	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
+
+	require.Error(t, mgr.ReadyForTraffic(t.Context()))
+	for i := range 2 {
+		serverConn, _ := newWebSocketPair(t)
+		doHandshake(t, mgr, clock, nodes[i], serverConn)
+	}
+	require.Error(t, mgr.ReadyForTraffic(t.Context()), "2F connections must not be ready")
+
+	serverConn, clientConn := newWebSocketPair(t)
+	doHandshake(t, mgr, clock, nodes[2], serverConn)
+	require.NoError(t, mgr.ReadyForTraffic(t.Context()), "2F+1 connections must be ready")
+
+	require.NoError(t, clientConn.Close())
+	require.Eventually(t, func() bool {
+		return mgr.ReadyForTraffic(t.Context()) != nil
+	}, 5*time.Second, 10*time.Millisecond, "disconnect below 2F+1 must revoke readiness")
+}
+
+func TestConnectionManager_ReadyForTrafficRequiresEveryShard(t *testing.T) {
+	t.Parallel()
+
+	cfg, nodes := newTestConfig(t, 8)
+	cfg.ShardedDONs[0].F = 1
+	cfg.ShardedDONs[0].Shards = []config.Shard{
+		{Nodes: cfg.ShardedDONs[0].Shards[0].Nodes[:4]},
+		{Nodes: cfg.ShardedDONs[0].Shards[0].Nodes[4:]},
+	}
+	clock := clockwork.NewFakeClock()
+	mgr := newConnectionManager(t, cfg, clock)
+	require.NoError(t, mgr.Start(t.Context()))
+	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
+
+	for i := range 3 {
+		serverConn, _ := newWebSocketPair(t)
+		doHandshakeForDON(t, mgr, clock, "my_don_1", nodes[i], serverConn)
+	}
+	require.Error(t, mgr.ReadyForTraffic(t.Context()), "one ready shard must not mask an unready shard")
+
+	for i := 4; i < 7; i++ {
+		serverConn, _ := newWebSocketPair(t)
+		doHandshakeForDON(t, mgr, clock, "my_don_1_1", nodes[i], serverConn)
+	}
+	require.NoError(t, mgr.ReadyForTraffic(t.Context()))
+}
+
+func TestConnectionManager_ReadyForTrafficLogsDisconnectedNodes(t *testing.T) {
+	t.Parallel()
+
+	cfg, nodes := newTestConfig(t, 4)
+	cfg.ShardedDONs[0].F = 1
+	lggr, logs := logger.TestObserved(t, zapcore.DebugLevel)
+	gMetrics, err := monitoring.NewGatewayMetrics()
+	require.NoError(t, err)
+	mgr, err := gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, limits.Factory{Logger: lggr})
+	require.NoError(t, err)
+
+	require.Error(t, mgr.ReadyForTraffic(t.Context()))
+	entries := logs.FilterMessage("DON shard is not ready for traffic").All()
+	require.Len(t, entries, 1)
+	fields := entries[0].ContextMap()
+	require.Equal(t, "my_don_1", fields["donID"])
+	require.Equal(t, int64(0), fields["connected"])
+	require.Equal(t, int64(3), fields["required"])
+
+	disconnected := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		disconnected = append(disconnected, node.Address)
+	}
+	sort.Strings(disconnected)
+	disconnectedValues := make([]any, len(disconnected))
+	for i, address := range disconnected {
+		disconnectedValues[i] = address
+	}
+	require.Equal(t, disconnectedValues, fields["disconnectedNodeAddresses"])
+}
+
+func TestConnectionManager_ReadyForTrafficFailsClosedAndSortsErrors(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	gMetrics, err := monitoring.NewGatewayMetrics()
+	require.NoError(t, err)
+	lf := limits.Factory{Logger: lggr}
+
+	empty, err := gateway.NewConnectionManager(&config.GatewayConfig{
+		NodeServerConfig: network.WebSocketServerConfig{HTTPServerConfig: network.HTTPServerConfig{Path: "/node"}},
+	}, clockwork.NewFakeClock(), gMetrics, lggr, lf)
+	require.NoError(t, err)
+	require.EqualError(t, empty.ReadyForTraffic(t.Context()), "no DON shards configured")
+
+	nodes := gc.NewTestNodes(t, 2)
+	cfg := &config.GatewayConfig{
+		NodeServerConfig: network.WebSocketServerConfig{HTTPServerConfig: network.HTTPServerConfig{Path: "/node"}},
+		ShardedDONs: []config.ShardedDONConfig{
+			{DonName: "z-don", F: 0, Shards: []config.Shard{{Nodes: []config.NodeConfig{{Name: "z", Address: nodes[0].Address}}}}},
+			{DonName: "a-don", F: 0, Shards: []config.Shard{{Nodes: []config.NodeConfig{{Name: "a", Address: nodes[1].Address}}}}},
+		},
+	}
+	mgr, err := gateway.NewConnectionManager(cfg, clockwork.NewFakeClock(), gMetrics, lggr, lf)
+	require.NoError(t, err)
+	err = mgr.ReadyForTraffic(t.Context())
+	require.Error(t, err)
+	require.Less(t, strings.Index(err.Error(), "a-don"), strings.Index(err.Error(), "z-don"))
+}
+
 func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	cfg, nodes := newTestConfig(t, 1)
@@ -474,7 +613,7 @@ func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
 	clock := clockwork.NewRealClock()
 	mgr := newConnectionManager(t, cfg, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
 
@@ -491,15 +630,19 @@ func TestConnectionManager_ReadDeadline_ClosesIdleConnection(t *testing.T) {
 
 	// Verify connection works initially.
 	msg := &jsonrpc.Request[json.RawMessage]{ID: "pre-check"}
-	require.NoError(t, donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg))
+	require.NoError(t, donMgr.SendToNode(t.Context(), nodes[0].Address, msg))
 
 	assert.Eventually(t, func() bool {
 		msg := &jsonrpc.Request[json.RawMessage]{ID: "test"}
-		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+		return donMgr.SendToNode(t.Context(), nodes[0].Address, msg) != nil
 	}, 6*time.Second, 200*time.Millisecond, "connection should be closed by read deadline")
 }
 
 func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	cfg, nodes := newTestConfig(t, 1)
@@ -508,7 +651,7 @@ func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
 	clock := clockwork.NewRealClock()
 	mgr := newConnectionManager(t, cfg, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
 
@@ -534,11 +677,15 @@ func TestConnectionManager_ReadDeadline_ConnectionAliveWithPongs(t *testing.T) {
 
 	assert.Never(t, func() bool {
 		msg := &jsonrpc.Request[json.RawMessage]{ID: "alive-check"}
-		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+		return donMgr.SendToNode(t.Context(), nodes[0].Address, msg) != nil
 	}, 5*time.Second, 500*time.Millisecond, "connection should stay alive when pongs are received")
 }
 
 func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	cfg, nodes := newTestConfig(t, 1)
@@ -547,7 +694,7 @@ func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
 	clock := clockwork.NewRealClock()
 	mgr := newConnectionManager(t, cfg, clock)
 
-	err := mgr.Start(testutils.Context(t))
+	err := mgr.Start(t.Context())
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, mgr.Close()) })
 
@@ -563,7 +710,7 @@ func TestConnectionManager_ReadDeadline_DisabledWhenZero(t *testing.T) {
 
 	assert.Never(t, func() bool {
 		msg := &jsonrpc.Request[json.RawMessage]{ID: "test"}
-		return donMgr.SendToNode(testutils.Context(t), nodes[0].Address, msg) != nil
+		return donMgr.SendToNode(t.Context(), nodes[0].Address, msg) != nil
 	}, 4*time.Second, 500*time.Millisecond, "connection should stay alive when deadline enforcement is disabled")
 }
 

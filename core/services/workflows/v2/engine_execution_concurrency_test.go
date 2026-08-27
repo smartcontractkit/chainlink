@@ -18,12 +18,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/cresettings"
+	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	modulemocks "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host/mocks"
 	sdkpb "github.com/smartcontractkit/chainlink-protos/cre/go/sdk"
-
-	regmocks "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	capmocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
@@ -161,6 +159,10 @@ func TestEngine_ExecutionConcurrencySerializesOverlappingRuns(t *testing.T) {
 // fresh events are sent and all execute. Total: 10 events, 5 expire, 5
 // execute.
 func TestEngine_StaleTriggerEventIsSkipped(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	const queueTimeout = 5 * time.Second

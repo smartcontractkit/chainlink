@@ -96,7 +96,7 @@ func (f *fakeOrderedKeyProvider) ListKeys(ctx context.Context, chainID *big.Int,
 	return f.keys, nil
 }
 
-func generateWrapper(t *testing.T, privateKey *ecdsa.PrivateKey, keystoreKey *ecdsa.PrivateKey) (*gatewayconnector.ServiceWrapper, error) {
+func generateWrapper(t *testing.T, privateKey, keystoreKey *ecdsa.PrivateKey) (*gatewayconnector.ServiceWrapper, error) {
 	lggr := logger.Test(t)
 	privateKeyV2 := ethkey.FromPrivateKey(privateKey)
 	addr := privateKeyV2.Address
@@ -184,7 +184,7 @@ func TestGatewayConnectorServiceWrapper_CleanStartClose(t *testing.T) {
 	wrapper, err := generateWrapper(t, key, key)
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	err = wrapper.Start(ctx)
 	require.NoError(t, err)
 
@@ -201,7 +201,7 @@ func TestGatewayConnectorServiceWrapper_NonexistentKey(t *testing.T) {
 	wrapper, err := generateWrapper(t, key, keystoreKey)
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	err = wrapper.Start(ctx)
 	require.Error(t, err)
 }
@@ -229,7 +229,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscoverNodeAddress(t *testing.T) {
 	wrapper, err := setupAutoDiscoverTest(t, nil, orderedKeyProvider, []ethkey.KeyV2{key1V2, keystoreKeyV2}, addressToKey)
 	require.NoError(t, err)
 
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 	err = wrapper.Start(ctx)
 	require.NoError(t, err)
 
@@ -294,7 +294,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscover(t *testing.T) {
 			t.Parallel()
 
 			keystoreKeysV2 := make([]ethkey.KeyV2, tt.keystoreKeyCount)
-			for i := 0; i < tt.keystoreKeyCount; i++ {
+			for i := range tt.keystoreKeyCount {
 				key, _ := testutils.NewPrivateKeyAndAddress(t)
 				keystoreKeysV2[i] = ethkey.FromPrivateKey(key)
 			}
@@ -302,7 +302,7 @@ func TestGatewayConnectorServiceWrapper_AutoDiscover(t *testing.T) {
 			wrapper, err := setupAutoDiscoverTest(t, tt.nodeAddress, tt.orderedKeyProvider, keystoreKeysV2, nil)
 			require.NoError(t, err)
 
-			ctx := testutils.Context(t)
+			ctx := t.Context()
 			err = wrapper.Start(ctx)
 			if tt.wantErr {
 				require.Error(t, err)

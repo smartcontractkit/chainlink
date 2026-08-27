@@ -193,12 +193,12 @@ func PeeringCfgs(bt PeeringNode) (CapabilitiesPeeringData, OCRPeeringData, error
 		return CapabilitiesPeeringData{}, OCRPeeringData{}, errors.New("cannot create peering configs, node has no P2P key")
 	}
 	return CapabilitiesPeeringData{
-			GlobalBootstraperPeerID: p,
-			GlobalBootstraperHost:   bt.GetHost(),
-			Port:                    CapabilitiesPeeringPort,
-		}, OCRPeeringData{
-			OCRBootstraperPeerID: p,
-			OCRBootstraperHost:   bt.GetHost(),
-			Port:                 OCRPeeringPort,
-		}, nil
+		GlobalBootstrapperPeerID: p,
+		GlobalBootstrapperHost:   bt.GetHost(),
+		Port:                     CapabilitiesPeeringPort,
+	}, OCRPeeringData{
+		OCRBootstrapperPeerID: p,
+		OCRBootstrapperHost:   bt.GetHost(), // typos:ignore // 'bootstraper', fixing at this point could cause errors
+		Port:                  OCRPeeringPort,
+	}, nil
 }

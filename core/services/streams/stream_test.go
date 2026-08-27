@@ -12,8 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
@@ -30,9 +28,11 @@ type mockRunner struct {
 func (m *mockRunner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error) {
 	return m.run, m.trrs, m.err
 }
+
 func (m *mockRunner) InitializePipeline(spec pipeline.Spec) (p *pipeline.Pipeline, err error) {
 	return m.p, m.err
 }
+
 func (m *mockRunner) InsertFinishedRun(ctx context.Context, ds sqlutil.DataSource, run *pipeline.Run, saveSuccessfulTaskRuns bool) error {
 	return m.err
 }
@@ -59,7 +59,7 @@ func (m *MockTask) TaskMaxBackoff() time.Duration      { return 0 }
 func Test_Stream(t *testing.T) {
 	lggr := logger.Test(t)
 	runner := &mockRunner{}
-	ctx := testutils.Context(t)
+	ctx := t.Context()
 
 	t.Run("errors with empty pipeline", func(t *testing.T) {
 		jbInvalid := job.Job{StreamID: new(StreamID(123)), PipelineSpec: &pipeline.Spec{DotDagSource: ``}}
@@ -78,7 +78,7 @@ succeed;
 
 		t.Run("executes the pipeline (success)", func(t *testing.T) {
 			runner.run = &pipeline.Run{ID: 42}
-			runner.trrs = []pipeline.TaskRunResult{pipeline.TaskRunResult{ID: UUID}}
+			runner.trrs = []pipeline.TaskRunResult{{ID: UUID}}
 			runner.err = nil
 
 			run, trrs, err := strm.Run(ctx)

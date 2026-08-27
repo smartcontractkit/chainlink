@@ -62,7 +62,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["60051:50051", "19876:9876"]
-      user_config_overrides = ""
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-only\"\n"
 
   # Node 1 - expose Arbiter for test to seed state on all nodes
   [[nodesets.node_specs]]
@@ -72,7 +72,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["19877:9876"]
-      user_config_overrides = ""
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-only\"\n"
 
   # Node 2
   [[nodesets.node_specs]]
@@ -82,7 +82,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["19878:9876"]
-      user_config_overrides = ""
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-only\"\n"
 
   # Node 3
   [[nodesets.node_specs]]
@@ -92,7 +92,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       custom_ports = ["19879:9876"]
-      user_config_overrides = ""
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-only\"\n"
 
 [[nodesets]]
   nodes = 4
@@ -120,7 +120,7 @@
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # image = "chainlink-tmp:latest"
-      user_config_overrides = ""
+      user_config_overrides = "[Sharding]\nShardAssignmentMode = \"ringocr-only\"\n"
 
 [[nodesets]]
   nodes = 1

@@ -667,7 +667,7 @@ func CreateChainConfigFromNetworks(
 		if net.ChainID < 0 {
 			t.Fatalf("negative chain ID: %d", net.ChainID)
 		}
-		networkPvtKeys[uint64(net.ChainID)] = net.PrivateKeys
+		networkPvtKeys[uint64(net.ChainID)] = net.PrivateKeys //nolint:gosec // G115
 	}
 	type chainDetails struct {
 		chainId  uint64
@@ -683,7 +683,7 @@ func CreateChainConfigFromNetworks(
 				t.Fatalf("negative chain ID: %d", chainId)
 			}
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  uint64(chainId),
+				chainId:  uint64(chainId), //nolint:gosec // G115
 				wsRPCs:   net.URLs,
 				httpRPCs: net.HTTPURLs,
 			})
@@ -697,7 +697,7 @@ func CreateChainConfigFromNetworks(
 			rpcProvider, err := env.GetRpcProvider(int64(chainId))
 			require.NoError(t, err, "Error getting rpc provider")
 			chaindetails = append(chaindetails, chainDetails{
-				chainId:  uint64(chainId),
+				chainId:  uint64(chainId), //nolint:gosec // G115
 				wsRPCs:   rpcProvider.PublicWsUrls(),
 				httpRPCs: rpcProvider.PublicHttpUrls(),
 			})

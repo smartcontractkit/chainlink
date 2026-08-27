@@ -1,5 +1,45 @@
 # Changelog Chainlink Core
 
+## 2.62.0
+
+### Minor Changes
+
+- [#23445](https://github.com/smartcontractkit/chainlink/pull/23445) [`22f4d8a`](https://github.com/smartcontractkit/chainlink/commit/22f4d8a0b17dc311b20ef42a94de0cef6135c9d4) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23472](https://github.com/smartcontractkit/chainlink/pull/23472) [`3aaa5fb`](https://github.com/smartcontractkit/chainlink/commit/3aaa5fbcccaefd0db2915ae3b176c213e8ffd0b0) - Bump chainlink-ccip to latest main
+
+## 2.61.0
+
+### Minor Changes
+
+- [#23389](https://github.com/smartcontractkit/chainlink/pull/23389) [`7433cf1`](https://github.com/smartcontractkit/chainlink/commit/7433cf1f55afe2d1281d3fda6a80a81d1a63f6cb) - Minor bump to start next version
+
+## 2.60.0
+
+### Minor Changes
+
+- [#23372](https://github.com/smartcontractkit/chainlink/pull/23372) [`7e14931`](https://github.com/smartcontractkit/chainlink/commit/7e1493120d585bdc67764835d73db3655d6d9973) - #added adds V2 call_capability to wasm with proper response handling #bugfix
+
+- [#23327](https://github.com/smartcontractkit/chainlink/pull/23327) [`d2f97d2`](https://github.com/smartcontractkit/chainlink/commit/d2f97d2cd6c5fcca678123f954b499049850b6bd) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23037](https://github.com/smartcontractkit/chainlink/pull/23037) [`003236a`](https://github.com/smartcontractkit/chainlink/commit/003236a45e91c858c09226eba4bb0efcf228be09) - #internal Add node-measured round-trip metrics to the confidential workflows ConfidentialModule: `enclave_execution_time_ms` (histogram) and `enclave_execution_failures` (counter), labeled by workflow. These are trusted (node-measured) and complement the non-attested `enclave.*` metrics forwarded from the enclave.
+
+- [#23375](https://github.com/smartcontractkit/chainlink/pull/23375) [`3e2a831`](https://github.com/smartcontractkit/chainlink/commit/3e2a83144bc06c43c34a12ebe82723e2ca9c9a6c) - #internal Move `BuildWorkflowGetSecretsRequestID` to chainlink-common's vault capability package and use it in place of the `vaultutils` copy, so all consumers derive the VaultDON GetSecrets request ID from a single definition.
+
+## 2.59.0
+
+### Minor Changes
+
+- [#23261](https://github.com/smartcontractkit/chainlink/pull/23261) [`9f65859`](https://github.com/smartcontractkit/chainlink/commit/9f65859dba91b912652644f0fe008cef281073fb) - Minor bump to start next version
+
+### Patch Changes
+
+- [#23284](https://github.com/smartcontractkit/chainlink/pull/23284) [`545a34e`](https://github.com/smartcontractkit/chainlink/commit/545a34e9ed063c6e5a1a3fe5827c06db0def1bd5) - #internal Confidential relay: on the workflow node, briefly wait (after attestation and Workflow-DON authorization pass) for a not-yet-registered execution handler before failing the enclave's relay callback. This lets a node that has not yet started its copy of the DON-shared execution register and sign in time, instead of failing the callback outright and eroding the relay quorum. The wait is bounded so a callback for an execution the node never runs still fails promptly.
+
 ## 2.58.0
 
 ### Minor Changes

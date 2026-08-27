@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	registrymock "github.com/smartcontractkit/chainlink-common/pkg/types/core/mocks"
 	"github.com/smartcontractkit/chainlink-protos/cre/go/values"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	capmock "github.com/smartcontractkit/chainlink/v2/core/capabilities/mocks"
 	appmocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
@@ -33,7 +32,7 @@ func TestCapabilityController_ExecuteCapability_MissingBody(t *testing.T) {
 	engine := gin.New()
 	engine.POST("/v2/capabilities/execute", controller.ExecuteCapability)
 
-	req, err := http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/v2/capabilities/execute", nil)
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -58,7 +57,7 @@ func TestCapabilityController_ExecuteCapability_RegistryNotInitialized(t *testin
 
 	reqJSON, err := json.Marshal(requestBody)
 	require.NoError(t, err)
-	req, err := http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -78,7 +77,7 @@ func TestCapabilityController_ExecuteCapability_MissingRequiredFields(t *testing
 	engine.POST("/v2/capabilities/execute", controller.ExecuteCapability)
 
 	invalidRequest := `{"capabilityName": ""}` // missing capabilityRequest
-	req, err := http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBufferString(invalidRequest))
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/v2/capabilities/execute", bytes.NewBufferString(invalidRequest))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 
@@ -138,7 +137,7 @@ func TestCapabilityController_ExecuteCapability(t *testing.T) {
 	engine := gin.New()
 	engine.POST("/v2/capabilities/execute", controller.ExecuteCapability)
 
-	req, err := http.NewRequestWithContext(t.Context(), "POST", "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, "/v2/capabilities/execute", bytes.NewBuffer(reqJSON))
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 

@@ -13,11 +13,39 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
 var upgrader = websocket.Upgrader{}
+
+func newWebSocketPair(t *testing.T) (*websocket.Conn, *websocket.Conn) {
+	t.Helper()
+
+	type upgradeResult struct {
+		conn *websocket.Conn
+		err  error
+	}
+	serverConnCh := make(chan upgradeResult, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		serverConnCh <- upgradeResult{conn: conn, err: err}
+	}))
+	t.Cleanup(server.Close)
+
+	clientConn, resp, err := websocket.DefaultDialer.Dial("ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	require.NoError(t, err)
+	result := <-serverConnCh
+	require.NoError(t, result.err)
+	serverConn := result.conn
+	t.Cleanup(func() {
+		_ = clientConn.Close()
+		_ = serverConn.Close()
+	})
+	return serverConn, clientConn
+}
 
 type serverSideLogic struct {
 	connWrapper network.WSConnectionWrapper
@@ -73,6 +101,53 @@ func TestWSConnectionWrapper_WriteError_TriggersClose(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("closeCh was not signaled after write error; stale connection will block reconnect indefinitely")
 	}
+	require.False(t, clientConnWrapper.IsConnected())
+}
+
+func TestWSConnectionWrapper_ConnectedState(t *testing.T) {
+	t.Parallel()
+
+	connWrapper := network.NewWSConnectionWrapper(logger.Test(t))
+	servicetest.Run(t, connWrapper)
+	require.False(t, connWrapper.IsConnected())
+
+	serverConn, clientConn := newWebSocketPair(t)
+	closeCh := connWrapper.Reset(serverConn)
+	require.True(t, connWrapper.IsConnected())
+
+	require.NoError(t, clientConn.Close())
+	select {
+	case <-closeCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("connection close was not observed")
+	}
+	require.False(t, connWrapper.IsConnected())
+}
+
+func TestWSConnectionWrapper_OldReadPumpCannotClearReplacement(t *testing.T) {
+	t.Parallel()
+
+	connWrapper := network.NewWSConnectionWrapper(logger.Test(t))
+	servicetest.Run(t, connWrapper)
+
+	serverConnA, _ := newWebSocketPair(t)
+	closeA := connWrapper.Reset(serverConnA)
+	serverConnB, clientConnB := newWebSocketPair(t)
+	connWrapper.Reset(serverConnB)
+
+	select {
+	case <-closeA:
+	case <-time.After(5 * time.Second):
+		t.Fatal("old connection close was not observed")
+	}
+	require.True(t, connWrapper.IsConnected())
+
+	payload := []byte("replacement connection")
+	require.NoError(t, connWrapper.Write(t.Context(), websocket.TextMessage, payload))
+	msgType, got, err := clientConnB.ReadMessage()
+	require.NoError(t, err)
+	require.Equal(t, websocket.TextMessage, msgType)
+	require.Equal(t, payload, got)
 }
 
 func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
@@ -96,13 +171,13 @@ func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	func() {
 		defer func() { assert.NoError(t, conn.Close()) }()
 		clientConnWrapper.Reset(conn)
-		writeErr := clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("hello"))
+		writeErr := clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("hello"))
 		require.NoError(t, writeErr)
 		<-ssl.connWrapper.ReadChannel() // consumed by server
 	}()
 
 	// try to write without a connection
-	writeErr := clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("failed send"))
+	writeErr := clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("failed send"))
 	require.Error(t, writeErr)
 
 	// re-connect, write another message, disconnect
@@ -110,7 +185,7 @@ func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
 	clientConnWrapper.Reset(conn)
-	writeErr = clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("hello again"))
+	writeErr = clientConnWrapper.Write(t.Context(), websocket.TextMessage, []byte("hello again"))
 	require.NoError(t, writeErr)
 	<-ssl.connWrapper.ReadChannel() // consumed by server
 }
