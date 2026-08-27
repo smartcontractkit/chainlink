@@ -516,7 +516,7 @@ jobs:
   core-scripts-tests:
     name: test-scripts
     needs: [filter]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu22.04-8cores-32GB
     if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
     steps:
       - name: Checkout
