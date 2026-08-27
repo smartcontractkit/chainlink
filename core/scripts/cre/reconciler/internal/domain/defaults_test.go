@@ -27,6 +27,8 @@ func TestParseCapabilityDefaults(t *testing.T) {
 	require.Contains(t, defaults, "cron")
 	require.Equal(t, "cron", defaults["cron"].BinaryName)
 
-	require.Contains(t, defaults, "http-action")
-	require.Equal(t, "http_action", defaults["http-action"].BinaryName)
+	// One binary serves both HTTP capabilities now, and it is named by the trigger's
+	// entry: see the http feature, which starts the pair.
+	require.Contains(t, defaults, "http-trigger")
+	require.Equal(t, "http", defaults["http-trigger"].BinaryName)
 }

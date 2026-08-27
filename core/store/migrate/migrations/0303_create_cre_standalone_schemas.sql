@@ -9,9 +9,11 @@
 -- right to create a schema in it.
 CREATE SCHEMA IF NOT EXISTS crecore;
 CREATE SCHEMA IF NOT EXISTS evm_capability;
+CREATE SCHEMA IF NOT EXISTS http_capability;
 
 -- +goose Down
 -- Dropped with what is in them: the tables belong to those processes, and a schema kept without them
 -- is not the node's to hold either.
 DROP SCHEMA IF EXISTS crecore CASCADE;
 DROP SCHEMA IF EXISTS evm_capability CASCADE;
+DROP SCHEMA IF EXISTS http_capability CASCADE;

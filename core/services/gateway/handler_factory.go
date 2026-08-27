@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/confidentialrelay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/vault"
@@ -28,7 +27,6 @@ const (
 	FunctionsHandlerType         HandlerType = "functions"
 	DummyHandlerType             HandlerType = "dummy"
 	WebAPICapabilitiesType       HandlerType = "web-api-capabilities" //  Handler for v0.1 HTTP capabilities for DAG workflows
-	HTTPCapabilityType           HandlerType = "http-capabilities"    // Handler for v1.0 HTTP capabilities for NoDAG workflows
 	VaultHandlerType             HandlerType = "vault"
 	ConfidentialRelayHandlerType HandlerType = "confidential-compute-relay"
 )
@@ -85,8 +83,6 @@ func (hf *handlerFactory) NewHandler(
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
 	case WebAPICapabilitiesType:
 		return capabilities.NewHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr)
-	case HTTPCapabilityType:
-		return v2.NewGatewayHandler(handlerConfig, donConfig, don, hf.httpClient, hf.lggr, hf.lf, hf.httpClientFactory)
 	case VaultHandlerType:
 		return vault.NewHandler(handlerConfig, donConfig, don, hf.capabilitiesRegistry, hf.workflowRegistrySyncer, hf.lggr, clockwork.NewRealClock(), hf.lf)
 	case ConfidentialRelayHandlerType:

@@ -51,7 +51,7 @@
   supported_sol_chains = ["22222222222222222222222222222222222222222222"]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS_DEFAULT = '{"PerWorkflow":{"LogLineLimit":"100kb"}}' }
-  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time"]
+  capabilities = ["cron", "http-trigger", "consensus", "don-time"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -122,5 +122,5 @@
       # image = "chainlink-tmp:latest"
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
-      custom_ports = ["5002:5002","15002:15002"]
+      custom_ports = ["5002:5002","5012:5012","15002:15002"]
       user_config_overrides = ""

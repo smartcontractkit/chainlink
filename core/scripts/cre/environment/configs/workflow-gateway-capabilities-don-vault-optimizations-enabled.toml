@@ -38,7 +38,7 @@
   http_port_range_start = 10100
   supported_evm_chains = [1337, 2337]
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}', CL_CRE_SETTINGS_DEFAULT = '{"VaultOptimizationsEnabled":"true"}' }
-  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
+  capabilities = ["cron", "http-trigger", "consensus", "don-time", "evm-1337"]
 
   [nodesets.db]
     image = "postgres:12.0"
@@ -96,5 +96,5 @@
       docker_ctx = "../../../.."
       docker_file = "core/chainlink.Dockerfile"
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
-      custom_ports = ["5002:5002","15002:15002"]
+      custom_ports = ["5002:5002","5012:5012","15002:15002"]
       user_config_overrides = ""

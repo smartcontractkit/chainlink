@@ -48,7 +48,7 @@
   supported_evm_chains = [1337, 2337]
 
   env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
-  capabilities = ["cron", "http-action", "http-trigger", "consensus", "don-time", "evm-1337"]
+  capabilities = ["cron", "http-trigger", "consensus", "don-time", "evm-1337"]
 
   # See ./examples/workflow-don-overrides.toml to learn how to override capability configs
 
@@ -221,6 +221,6 @@ HTTPPort = 50052
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
-      custom_ports = ["5002:5002","15002:15002"]
+      custom_ports = ["5002:5002","5012:5012","15002:15002"]
       # image = "chainlink-tmp:latest"
       user_config_overrides = ""

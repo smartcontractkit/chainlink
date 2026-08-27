@@ -30,39 +30,25 @@
   # The chain, the forwarder and this node's account are resolved from the environment
   # the capability runs in, so they are not settings here.
 
-[capability_configs.http-action]
-  binary_name = "http_action"
-
 [capability_configs.solana]
   binary_name = "solana"
 
-[capability_configs.http-action.values]
-  # HTTP Action capability configuration
-  ProxyMode = "gateway"
-  IncomingGlobalBurst = 10
-  IncomingGlobalRPS = 50
-  IncomingPerSenderBurst = 10
-  IncomingPerSenderRPS = 10
-  OutgoingGlobalBurst = 10
-  OutgoingGlobalRPS = 50
-  OutgoingPerSenderBurst = 10
-  OutgoingPerSenderRPS = 10
-
+# One binary serves both HTTP capabilities, and the gateway they talk to is
+# another binary of the same module: see the http feature, which starts both.
 [capability_configs.http-trigger]
-  binary_name = "http_trigger"
+  binary_name = "http"
 
 [capability_configs.http-trigger.values]
-  # HTTP Trigger capability configuration
-  IncomingGlobalBurst = 10
-  IncomingGlobalRPS = 50
-  IncomingPerSenderBurst = 10
-  IncomingPerSenderRPS = 10
-  OutgoingGlobalBurst = 10
-  OutgoingGlobalRPS = 50
-  OutgoingPerSenderBurst = 10
-  OutgoingPerSenderRPS = 10
+  # 1 is gateway mode: an outbound request goes through the gateway, so that every
+  # node of the DON is answered with the same thing. 0 makes each node fetch for
+  # itself.
+  ProxyMode = 1
+  # The rest are left out to use the binary's own defaults; uncomment to override.
+  # SendChannelBufferSize = 1000
+  # RequestCacheTTL = 300
+  # MaxAuthorizedKeysPerWorkflow = 5
 
-#[capability_configs.vault]
+[capability_configs.vault]
 #  no binary path for vault, it's built-in
 
 [capability_configs.vault.values]
@@ -101,6 +87,14 @@
   PollPeriod = "2s"
   SkipPreflight = true
   Local = true
+
+# Stellar chain capability plugin (read path: GetLatestLedger + ReadContract).
+[capability_configs.stellar]
+  binary_name = "stellar"
+
+[capability_configs.stellar.values]
+  RequestTimeout = "30s"
+  DeltaStage = "15s"
 
 [capability_configs.mock]
   binary_name = "mock"

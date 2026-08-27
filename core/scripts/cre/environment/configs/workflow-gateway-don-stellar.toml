@@ -101,6 +101,6 @@
       docker_build_args = { "CL_IS_PROD_BUILD" = "false" }
       # 5002 is the web API capabilities port for incoming requests
       # 15002 is the vault port for incoming requests
-      custom_ports = ["5002:5002", "15002:15002"]
+      custom_ports = ["5002:5002", "5012:5012", "15002:15002"]
       # image = "chainlink-tmp:latest"
       user_config_overrides = ""

@@ -7,8 +7,7 @@ import (
 	cron_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/cron"
 	don_time_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/don_time"
 	evm_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/evm/v2"
-	http_actions_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_action"
-	http_trigger_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http_trigger"
+	http_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/http"
 	solana_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/solana/v2"
 	stellar_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/stellar"
 	vault_feature "github.com/smartcontractkit/chainlink/system-tests/lib/cre/features/vault"
@@ -20,8 +19,7 @@ func New() cre.Features {
 		&cron_feature.Cron{},
 		&don_time_feature.DONTime{},
 		&evm_feature.EVM{},
-		&http_actions_feature.HTTPAction{},
-		&http_trigger_feature.HTTPTrigger{},
+		&http_feature.HTTP{},
 		&aptos_feature.Aptos{},
 		&solana_feature.Solana{},
 		&stellar_feature.Stellar{},

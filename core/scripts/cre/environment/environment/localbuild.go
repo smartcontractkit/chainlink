@@ -62,15 +62,21 @@ type capBuildSpec struct {
 	dir    string
 	binary string
 	flags  []string
+
+	// pkg is what to build inside dir, for a module that produces more than one
+	// binary. Empty builds the module itself.
+	pkg string
 }
 
 // knownCapabilities is the set of CRE capability plugins that can be built from
 // the local capabilities repo. Keys accept both dash and underscore forms.
 var knownCapabilities = map[string]capBuildSpec{
-	"cron":         {dir: "cron", binary: "cron", flags: []string{"-tags", "timetzdata"}},
-	"consensus":    {dir: "consensus", binary: "consensus"},
-	"http-action":  {dir: "http_action", binary: "http_action"},
-	"http-trigger": {dir: "http_trigger", binary: "http_trigger"},
+	"cron":      {dir: "cron", binary: "cron", flags: []string{"-tags", "timetzdata"}},
+	"consensus": {dir: "consensus", binary: "consensus"},
+	// One module, two binaries: the capabilities that talk to a gateway, and the
+	// gateway they talk to.
+	"http":         {dir: "http", binary: "http"},
+	"http-gateway": {dir: "http", binary: "http-gateway", pkg: "./gateway"},
 	"evm":          {dir: "chain_capabilities/evm", binary: "evm"},
 	"crecore":      {dir: "crecore", binary: "crecore"},
 }
@@ -251,8 +257,12 @@ func (c *LocalBuildConfig) buildCapabilities(ctx context.Context, specs []capBui
 		modDir := filepath.Join(c.CapabilitiesPath, s.dir)
 		binPath := filepath.Join(outDir, s.binary)
 		framework.L.Info().Msgf("Building capability %q (from %s)", s.binary, s.dir)
+		pkg := s.pkg
+		if pkg == "" {
+			pkg = "."
+		}
 		args := append([]string{"build"}, s.flags...)
-		args = append(args, "-o", binPath, ".")
+		args = append(args, "-o", binPath, pkg)
 		cmd := exec.CommandContext(ctx, "go", args...)
 		cmd.Dir = modDir
 		cmd.Env = append(os.Environ(), append([]string{"CGO_ENABLED=0"}, c.goEnv()...)...)
