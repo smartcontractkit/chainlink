@@ -102,6 +102,7 @@ func TestOCRConfigService_OnNewRegistry(t *testing.T) {
 }
 
 func TestOCRConfigService_GetContractConfig(t *testing.T) {
+	t.Parallel()
 	lggr := logger.Test(t)
 	svc := NewOCRConfigService(lggr, testPeerIDProvider(), 1, "0x1234567890abcdef")
 
