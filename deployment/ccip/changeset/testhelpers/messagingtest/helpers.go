@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccipocr3"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	ccipclient "github.com/smartcontractkit/chainlink/deployment/ccip/shared/client"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
@@ -129,13 +129,14 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Errorf("unsupported dest chain: %v", tc.DestChain)
 	}
 
-	destFamily, err := chain_selectors.GetSelectorFamily(tc.DestChain)
-	require.NoError(tc.T, err)
-	if destFamily == chain_selectors.FamilySui {
-		tip, err := tc.Env.BlockChains.SuiChains()[tc.DestChain].Client.GetLatestCheckpoint(tc.T.Context())
+	// Capture the Sui source's latest checkpoint before the send so we can replay from it
+	// afterwards (replaces the removed bind-time RescanRecent — see ReplaySuiSourceFromCheckpoint).
+	var suiSourceStart *uint64
+	if sourceFamily == chain_selectors.FamilySui {
+		tip, err := tc.Env.BlockChains.SuiChains()[tc.SourceChain].Client.GetLatestCheckpoint(tc.T.Context())
 		require.NoError(tc.T, err)
 		seq := tip.GetSequenceNumber()
-		startBlock = &seq
+		suiSourceStart = &seq
 	}
 
 	msg, err := sourceAdapter.BuildMessage(testhelpers.MessageComponents{
@@ -250,6 +251,14 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 	// return all message sent events.
 	out.AllMsgSentEvents = msgSentEvents
 
+	// Replay the Sui source from its pre-send checkpoint so the relayer re-indexes the onramp
+	// event it advanced past. Runs outside the `!tc.Replayed` block below so Sui2EVM cases that
+	// set Replayed=true (e.g. Test_CCIP_Messaging_Sui2EVM_Success) still replay the source.
+	// ReplaySuiSourceFromCheckpoint settles first so the CCIPMessageSent selector is registered.
+	if suiSourceStart != nil && tc.Env.Offchain != nil {
+		testhelpers.ReplaySuiSourceFromCheckpoint(tc.T, tc.Env, tc.SourceChain, *suiSourceStart)
+	}
+
 	// HACK: if the node booted or the logpoller filters got registered after ccipSend,
 	// we need to replay missed logs
 	if !tc.Replayed {
@@ -257,8 +266,9 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		destFamily, err := chain_selectors.GetSelectorFamily(tc.DestChain)
 		require.NoError(tc.T, err)
 		if destFamily == chain_selectors.FamilySui {
-			// Sui replay is a no-op in nodetestutils; only EVM log replay matters. Use
-			// SleepReplayAndSettle because ReplayAsync returns before the poller finishes.
+			// Only the EVM source needs log replay; the Sui destination is observed via the
+			// SuiEventEmitter, not via relayer replay. Use SleepReplayAndSettle because
+			// ReplayAsync returns before the poller finishes.
 			SleepReplayAndSettle(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain)
 		} else {
 			SleepReplayAndSettle(tc.T, tc.DeployedEnv.Env, 30*time.Second, tc.SourceChain, tc.DestChain)

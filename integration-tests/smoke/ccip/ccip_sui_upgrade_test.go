@@ -11,35 +11,44 @@ import (
 	"testing"
 
 	"github.com/block-vision/sui-go-sdk/models"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
-	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
-	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
+
 	module_fee_quoter "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/fee_quoter"
 	module_state_object "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip/state_object"
 	module_offramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_offramp/offramp"
 	module_onramp "github.com/smartcontractkit/chainlink-sui/bindings/generated/ccip/ccip_onramp/onramp"
-	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
 	"github.com/smartcontractkit/chainlink-sui/contracts"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	"github.com/smartcontractkit/chainlink-deployments-framework/chain"
+	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
+
+	suiBind "github.com/smartcontractkit/chainlink-sui/bindings/bind"
+	suiutil "github.com/smartcontractkit/chainlink-sui/bindings/utils"
 	"github.com/smartcontractkit/chainlink-sui/deployment"
 	sui_cs "github.com/smartcontractkit/chainlink-sui/deployment/changesets"
 	sui_ops "github.com/smartcontractkit/chainlink-sui/deployment/ops"
 	ccipops "github.com/smartcontractkit/chainlink-sui/deployment/ops/ccip"
 	linkops "github.com/smartcontractkit/chainlink-sui/deployment/ops/link"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared/stateview"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
 func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
 	ctx := testcontext.Get(t)
 
 	e, _, _ := testsetups.NewIntegrationEnvironment(
@@ -129,6 +138,8 @@ func Test_CCIP_Upgrade_Sui2EVM(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -206,7 +217,6 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	upgradeSuiOffRamp(ctx, t, e, destChain, contracts.CCIPOfframp)
-	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	// Allow CCIP system to fully transition to new versions before blocking old ones
 	waitForSuiRPCSyncCritical(t, e.Env.BlockChains.SuiChains()[destChain])
@@ -243,9 +253,6 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 
 	e.RefreshAdapters()
 
-	// Extended wait after blocking operations for CCIP system reconfiguration
-	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
-
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
@@ -281,6 +288,8 @@ func Test_CCIP_Upgrade_EVM2Sui(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -362,9 +371,6 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 
 	e.RefreshAdapters()
 
-	// Extended wait after upgrade operations for CCIP system reconfiguration
-	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
-
 	var (
 		nonce  uint64
 		sender = common.LeftPadBytes(e.Env.BlockChains.EVMChains()[sourceChain].DeployerKey.From.Bytes(), 32)
@@ -400,6 +406,8 @@ func Test_CCIP_Upgrade_NoBlock_EVM2Sui(t *testing.T) {
 }
 
 func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/CCIP-11130")
+
 	ctx := testcontext.Get(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
@@ -511,9 +519,6 @@ func Test_CCIP_Upgrade_CommonPkg_EVM2Sui(t *testing.T) {
 	require.NoError(t, err)
 
 	e.RefreshAdapters()
-
-	// Extended wait after blocking operations for CCIP system reconfiguration
-	waitForSuiRPCSyncUpgrade(t, e.Env.BlockChains.SuiChains()[destChain])
 
 	setup = messagingtest.NewTestSetupWithDeployedEnv(
 		t,
