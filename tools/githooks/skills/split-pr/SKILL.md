@@ -1,149 +1,102 @@
 ---
 name: split-pr
-description: Context, strategies, and step-by-step workflows for an agent or developer to break a large PR/branch into smaller, reviewable chunks and GitHub stacked pull requests.
+description: Break large git branches into small, reviewable pull requests.
 ---
 
-# Splitting Large PRs & GitHub Stacked Pull Requests
+# Split PR & Stacked PRs
 
-Use this skill when a Git branch or pull request is classified as **LARGE** (>500 effective lines) or when changes span multiple layers, modules, or concerns.
+Use when branch is **LARGE** (>500 lines), touches multiple modules, or mixes refactoring with feature code.
 
-## Why PRs Must Be Small
+## 0. Rules
 
-1. **Review Speed & Quality**: Reviewers review diffs $\le 200$ lines in minutes with high scrutiny. Diff sizes $> 500$ lines experience $3\times$ higher review latency and higher defect escape rates.
-2. **CI Isolation**: In the `chainlink` monorepo, smaller package-targeted diffs trigger focused test shards (`tools/githooks test` and CI shards) rather than entire module test cascades.
-3. **Merge Safety**: Smaller PRs minimize merge conflict windows and make rollbacks trivial.
+- Commits must be signed with a touch-only GPG key. You must ask the user to make the commit, or prompt the user to tap their key.
+- Generated code doesn't count towards layer size; generated code must be fully up to date.
 
----
+## 1. Splitting Heuristics
 
-## PR Splitting Strategies
-
-Choose the strategy that matches the nature of the branch:
-
-### Strategy 1: Stacked Layers (Recommended for Features)
-Split by architectural dependency order from foundational to high-level:
-1. **Layer 1 (Bottom)**: Interfaces, proto definitions, database schemas, core types, shared models.
-2. **Layer 2 (Middle)**: Core service logic, handlers, internal adapters.
-3. **Layer 3 (Top)**: API routes, CLI commands, documentation, UI/integration tests.
+Order layers bottom (trunk-adjacent) to top:
+- **Layered Architecture**: Interfaces/types/schemas (bottom) -> Core service logic -> APIs/CLI/routes (top).
+- **Module / Package**: Slice by Go module (`deployment/`, `core/`, `tools/`).
+- **Refactor vs Feature**: Pure non-breaking refactor first -> new behavior on top.
 
 ```text
-   ┌── feat/part3-api-and-cli  → PR #3 (base: feat/part2-service-logic)   ← Top
-  ┌── feat/part2-service-logic → PR #2 (base: feat/part1-interfaces-types)
- ┌── feat/part1-interfaces-types → PR #1 (base: develop)                  ← Bottom
-develop (default branch)
+develop (trunk) <- layer-1-types <- layer-2-logic <- layer-3-cli (top)
 ```
 
-### Strategy 2: By Go Module / Package (Recommended for Refactors & Sweeps)
-If changes touch multiple Go modules (e.g. root `.`, `deployment`, `integration-tests`, `tools/`):
-- PR 1: Module A changes (`./deployment/...`)
-- PR 2: Module B changes (`./core/...`)
-- PR 3: Shared tooling / config updates
+## 2. Break Existing Branch into Stacked Layers
 
-### Strategy 3: Refactor / Cleanup First, Feature Second
-Separate mechanical refactoring (renaming, reformatting, signature changes) from behavioral additions:
-- PR 1: Pure refactor (existing behavior preserved, tests green).
-- PR 2: New feature logic built on top of refactored code.
-
-### Strategy 4: Generated Files & Dependencies
-Put massive generated files (mocks from mockery, protobuf generated `.pb.go`, config docs) into their own stacked PR layer after the generator input files.
-
----
-
-## How to Create GitHub Stacked PRs Fast
-
-GitHub supports stacked pull requests natively. Each PR targets the branch below it.
-
-### Step 1: Identify the Commits or File Sets
-List commits on the current large branch:
+### Option A: Reset & Stage by File Set (Messy/Uncommitted History)
 ```bash
-git log --oneline origin/develop..HEAD
-```
+# 1. Backup current branch
+git branch backup-feature-branch
 
-### Step 2: Create Stacked Branches
-
-#### Option A: Using Git Cherry-Pick (Commit-Based)
-```bash
-# 1. Branch 1: Base layer from default branch
-git checkout -b <ticket>/layer-1-types origin/develop
-git cherry-pick <commit-sha-1> <commit-sha-2>
-git push -u origin <ticket>/layer-1-types
-
-# 2. Branch 2: Next layer stacked ON TOP of layer 1
-git checkout -b <ticket>/layer-2-logic <ticket>/layer-1-types
-git cherry-pick <commit-sha-3> <commit-sha-4>
-git push -u origin <ticket>/layer-2-logic
-
-# 3. Branch 3: Top layer stacked ON TOP of layer 2
-git checkout -b <ticket>/layer-3-cli <ticket>/layer-2-logic
-git cherry-pick <commit-sha-5>
-git push -u origin <ticket>/layer-3-cli
-```
-
-#### Option B: Using Mixed Reset (File-Set Based)
-If commits are messy or everything is uncommitted:
-```bash
-# Save branch reference
-git branch backup-large-branch
-
-# Reset to merge-base
+# 2. Reset merge-base without losing changes
 git reset $(git merge-base origin/develop HEAD)
 
-# Layer 1: Stage foundational files
-git checkout -b <ticket>/layer-1-types origin/develop
-git add core/types/ schema/
-git commit -m "feat(types): foundational interfaces and types"
-git push -u origin <ticket>/layer-1-types
+# 3. Layer 1 (Bottom): Types/Interfaces
+git checkout -b <ticket>/1-types origin/develop
+git add path/to/types/ path/to/schemas/
+git commit -m "feat(types): foundational interfaces"
 
-# Layer 2: Stage core logic
-git checkout -b <ticket>/layer-2-logic <ticket>/layer-1-types
-git add core/services/
+# 4. Layer 2: Core Logic
+git checkout -b <ticket>/2-logic <ticket>/1-types
+git add path/to/services/
 git commit -m "feat(services): implement core logic"
-git push -u origin <ticket>/layer-2-logic
+
+# 5. Layer 3 (Top): APIs / CLI
+git checkout -b <ticket>/3-cli <ticket>/2-logic
+git add path/to/cli/
+git commit -m "feat(cli): endpoints and wiring"
 ```
 
----
+### Option B: Cherry-Pick Commits (Clean Commit History)
+```bash
+git checkout -b <ticket>/1-types origin/develop && git cherry-pick <sha1> <sha2>
+git checkout -b <ticket>/2-logic <ticket>/1-types && git cherry-pick <sha3>
+git checkout -b <ticket>/3-cli <ticket>/2-logic && git cherry-pick <sha4>
+```
 
-### Step 3: Open PRs Targeting Previous Layers
+## 3. Submit & Manage Stack with `gh stack`
 
-Use GitHub CLI (`gh`) to open the pull requests with the correct base:
+Always use non-interactive flags to prevent agent hangs:
 
 ```bash
-# PR 1 targets develop
-gh pr create --base develop --head <ticket>/layer-1-types \
-  --title "[<ticket>] Part 1/2: Interfaces & Types" \
-  --body "Stacked PR 1 of 2. Foundational types."
+# Initialize stack from existing branches (bottom to top)
+gh stack init <ticket>/1-types <ticket>/2-logic <ticket>/3-cli
 
-# PR 2 targets layer-1-types
-gh pr create --base <ticket>/layer-1-types --head <ticket>/layer-2-logic \
-  --title "[<ticket>] Part 2/2: Service Logic" \
-  --body "Stacked PR 2 of 2. Builds on top of #<PR-1-NUMBER>."
+# Submit/update PRs non-interactively (--auto avoids interactive editor)
+gh stack submit --auto
+
+# View stack state (JSON prevents TUI freeze)
+gh stack view --json
+
+# Navigate stack (never use interactive `gh stack switch`)
+gh stack bottom
+gh stack up
+gh stack down
+gh stack top
+
+# Edit lower layer & propagate changes upstack
+gh stack checkout <ticket>/1-types
+# ...make edits...
+git commit --amend --no-edit
+gh stack rebase --upstack
+gh stack submit --auto
 ```
 
-*(Note: When PR #1 merges into `develop`, GitHub automatically re-targets PR #2's base branch to `develop` and cascades rebases.)*
-
----
-
-## Rebasing a Stacked PR Chain
-
-When code in a lower layer changes (e.g. PR review feedback on Layer 1):
+### Fallback: Native `gh pr create`
+If `gh stack` is unavailable:
 ```bash
-# 1. Update Layer 1
-git checkout <ticket>/layer-1-types
-# make edits...
-git commit --amend # or git commit
-git push origin <ticket>/layer-1-types --force-with-lease
-
-# 2. Rebase Layer 2 onto updated Layer 1
-git checkout <ticket>/layer-2-logic
-git rebase <ticket>/layer-1-types
-git push origin <ticket>/layer-2-logic --force-with-lease
+gh pr create --base develop --head <ticket>/1-types --title "[<ticket>] Part 1/3: Types" --body "Base layer."
+gh pr create --base <ticket>/1-types --head <ticket>/2-logic --title "[<ticket>] Part 2/3: Logic" --body "Stacked on #<PR1>."
+gh pr create --base <ticket>/2-logic --head <ticket>/3-cli --title "[<ticket>] Part 3/3: CLI" --body "Stacked on #<PR2>."
 ```
 
----
+## 4. Verification Checklist
 
-## Agent Verification Checklist
-
-When splitting a PR:
-- [ ] Each layer compiles independently (`go build ./...`).
-- [ ] Unit tests pass in each layer (`tools/githooks test`).
-- [ ] PR size guard classifies each individual layer as **SMALL** or **MEDIUM** (`tools/githooks pr-size`).
-- [ ] The PR description references the stack order (e.g. "Part 1 of 3: base for #...").
+Before PR submission:
+- [ ] Generated code up to date: `make rm-mocked & make generate`
+- [ ] Each layer compiles and passes lints independently: `tools/githooks lint`
+- [ ] Unit tests pass per layer: `tools/githooks test`
+- [ ] Layer size is **SMALL** or **MEDIUM**: `tools/githooks pr-size`
+- [ ] Check that all commits are signed with a GPG key: `git log --show-signature`. If not, prompt the user to sign them.
