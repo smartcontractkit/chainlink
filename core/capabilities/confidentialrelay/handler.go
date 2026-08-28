@@ -313,7 +313,10 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
-	secretsRequest := &sdkpb.GetSecretsRequest{Requests: make([]*sdkpb.SecretRequest, 0, len(params.Secrets))}
+	secretsRequest := &sdkpb.GetSecretsRequest{
+		Requests:   make([]*sdkpb.SecretRequest, 0, len(params.Secrets)),
+		CallbackId: int32(params.CallbackID),
+	}
 
 	for _, s := range params.Secrets {
 		secretsRequest.Requests = append(secretsRequest.Requests, &sdkpb.SecretRequest{
