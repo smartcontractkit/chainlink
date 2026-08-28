@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"time"
 
@@ -313,6 +314,9 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInvalidParams, err)
 	}
 
+	if params.CallbackID > math.MaxInt32 || params.CallbackID < math.MinInt32 {
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, fmt.Errorf("callback_id out of int32 range: %d", params.CallbackID))
+	}
 	secretsRequest := &sdkpb.GetSecretsRequest{
 		Requests:   make([]*sdkpb.SecretRequest, 0, len(params.Secrets)),
 		CallbackId: int32(params.CallbackID),
