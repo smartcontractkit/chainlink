@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	vaultMock "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault/mock"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	cronpb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/v2/triggers/cron"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -456,14 +455,14 @@ func TestEngine_TriggerRegistrationLogging(t *testing.T) {
 		},
 	}
 
-	cronPayload, err := anypb.New(&cronpb.Config{Schedule: "*/5 * * * *"})
+	payload, err := anypb.New(&emptypb.Empty{})
 	require.NoError(t, err)
 
 	subs := &sdkpb.ExecutionResult{
 		Result: &sdkpb.ExecutionResult_TriggerSubscriptions{
 			TriggerSubscriptions: &sdkpb.TriggerSubscriptionRequest{
 				Subscriptions: []*sdkpb.TriggerSubscription{
-					{Id: "cron-trigger@1.0.0", Method: "Trigger", Payload: cronPayload},
+					{Id: "cron-trigger@1.0.0", Method: "Trigger", Payload: payload},
 				},
 			},
 		},
@@ -493,7 +492,9 @@ func TestEngine_TriggerRegistrationLogging(t *testing.T) {
 	assert.Equal(t, zapcore.InfoLevel, entry.Level)
 	assert.Equal(t, "cron-trigger@1.0.0", entry.ContextMap()["triggerID"])
 	assert.Equal(t, "Trigger", entry.ContextMap()["method"])
-	assert.Equal(t, "*/5 * * * *", entry.ContextMap()["schedule"])
+	payloadStr, ok := entry.ContextMap()["payload"].(string)
+	require.True(t, ok, "expected payload field in log")
+	assert.Contains(t, payloadStr, "Empty")
 }
 
 func wantExecutionID(t *testing.T, workflowID, triggerEventID string, triggerIndex int) string {
