@@ -779,6 +779,101 @@ func HandleTokenAndBurnMintTokenPoolDeploymentForSUI(e cldf.Environment, suiChai
 	return e, evmToken, evmPool, nil
 }
 
+// HandleMaliciousBurnMintTokenPoolDeploymentForSUI mirrors
+// HandleTokenAndBurnMintTokenPoolDeploymentForSUI but deploys the TEST-only
+// malicious burn-mint LINK pool on Sui, registered with releaseOrMintParams
+// the attacker controls, e.g. an executor-transmitter-owned SUI coin id. The
+// pool self-registers during initialize, so its release_or_mint_params are fixed
+// at deploy time which is why the coin id must be known before this call.
+// The EVM-side token/pool deploy + cross-registration steps are identical to the
+// standard helper. Used by the ReleaseOrMintParams ownership guard E2E test.
+//
+// Returns the malicious pool package id and BurnMintTokenPoolState object id in
+// addition to the standard helper outputs, since the malicious pool is not
+// recorded in the Sui onchain state view.
+func HandleMaliciousBurnMintTokenPoolDeploymentForSUI(
+	e cldf.Environment, suiChainSel, evmChainSel uint64,
+	mcmsOwner string, releaseOrMintParams []string,
+) (env cldf.Environment, evmToken *burn_mint_erc677.BurnMintERC677, evmPool *burn_mint_token_pool.BurnMintTokenPool, maliciousPkgID, maliciousStateObjID string, err error) {
+	suiChain := e.BlockChains.SuiChains()[suiChainSel]
+	evmChain := e.BlockChains.EVMChains()[evmChainSel]
+	evmDeployerKey := evmChain.DeployerKey
+
+	deployerAddr, err := suiChain.Signer.GetAddress()
+	if err != nil {
+		return cldf.Environment{}, nil, nil, "", "", errors.New("failed to get deployer address " + err.Error())
+	}
+
+	state, err := stateview.LoadOnchainState(e)
+	if err != nil {
+		return cldf.Environment{}, nil, nil, "", "", errors.New("failed load onchain state chains " + err.Error())
+	}
+
+	linkTokenPkgID := state.SuiChains[suiChainSel].LinkTokenAddress
+	linkTokenObjectMetadataID := state.SuiChains[suiChainSel].LinkTokenCoinMetadataId
+	linkTokenTreasuryCapID := state.SuiChains[suiChainSel].LinkTokenTreasuryCapId
+
+	// EVM: deploy transferrable token + burn-mint pool, attach to the registry.
+	evmToken, evmPool, err = deployTransferTokenOneEnd(e.Logger, evmChain, evmDeployerKey, e.ExistingAddresses, "TOKEN")
+	if err != nil {
+		return cldf.Environment{}, nil, nil, "", "", errors.New("failed to deploy transfer token for evm chain " + err.Error())
+	}
+
+	err = attachTokenToTheRegistry(evmChain, state.MustGetEVMChainState(evmChain.Selector), evmDeployerKey, evmToken.Address(), evmPool.Address())
+	if err != nil {
+		return cldf.Environment{}, nil, nil, "", "", errors.New("failed to attach token to registry for evm " + err.Error())
+	}
+
+	// Sui: deploy the TEST-only malicious burn-mint LINK pool, registered with
+	// releaseOrMintParams. The pool self-registers during initialize.
+	_, output, err := commoncs.ApplyChangesets(&testing.T{}, e, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(sui_cs.DeployMaliciousTokenPool{}, sui_cs.DeployMaliciousTokenPoolConfig{
+			SuiChainSelector:       suiChainSel,
+			McmsOwner:              mcmsOwner,
+			CoinObjectTypeArg:      linkTokenPkgID + "::link::LINK",
+			CCIPObjectRefObjectId:  state.SuiChains[suiChainSel].CCIPObjectRef,
+			CoinMetadataObjectId:   linkTokenObjectMetadataID,
+			TreasuryCapObjectId:    linkTokenTreasuryCapID,
+			TokenPoolAdministrator: deployerAddr,
+			ReleaseOrMintParams:    releaseOrMintParams,
+		}),
+	})
+	if err != nil {
+		return cldf.Environment{}, nil, nil, "", "", err
+	}
+
+	rawOutput := output[0].Reports[0]
+	poolOutput, ok := rawOutput.Output.(sui_ops.OpTxResult[ccipops.DeployMaliciousTokenPoolObjects])
+	if !ok {
+		return cldf.Environment{}, nil, nil, "", "", errors.New("unexpected malicious token pool deploy output type")
+	}
+	maliciousPkgID = poolOutput.PackageId
+	maliciousStateObjID = poolOutput.Objects.StateObjectId
+
+	// EVM onramp: set the Sui counterpart. Remote pool is the malicious pool and
+	// remote token is Sui LINK, matching the standard helper's encoding.
+	suiTokenBytes, err := hex.DecodeString(strings.TrimPrefix(linkTokenObjectMetadataID, "0x"))
+	if err != nil {
+		return cldf.Environment{}, nil, nil, "", "", errors.New("error while decoding suiToken " + err.Error())
+	}
+	suiPoolBytes, err := hex.DecodeString(strings.TrimPrefix(maliciousPkgID, "0x"))
+	if err != nil {
+		return cldf.Environment{}, nil, nil, "", "", errors.New("error while decoding suiPool " + err.Error())
+	}
+
+	err = setTokenPoolCounterPart(e.BlockChains.EVMChains()[evmChain.Selector], evmPool, evmDeployerKey, suiChain.Selector, suiTokenBytes, suiPoolBytes)
+	if err != nil {
+		return cldf.Environment{}, nil, nil, "", "", errors.New("failed to add token to the counterparty " + err.Error())
+	}
+
+	err = grantMintBurnPermissions(e.Logger, e.BlockChains.EVMChains()[evmChain.Selector], evmToken, evmDeployerKey, evmPool.Address())
+	if err != nil {
+		return cldf.Environment{}, nil, nil, "", "", errors.New("failed to grant burnMint " + err.Error())
+	}
+
+	return e, evmToken, evmPool, maliciousPkgID, maliciousStateObjID, nil
+}
+
 // HandleTokenAndManagedTokenPoolDeploymentForSUI deploys a transferrable token and a burn mint token pool on the EVM chain.
 // It also deploys a managed token pool on the SUI chain and configures it to work with the transferrable token on the EVM chain.
 func HandleTokenAndManagedTokenPoolDeploymentForSUI(e cldf.Environment, suiChainSel, evmChainSel uint64, rateLimiterConfigs []TokenPoolRateLimiterConfig) (cldf.Environment, *burn_mint_erc677.BurnMintERC677, *burn_mint_token_pool.BurnMintTokenPool, error) {
