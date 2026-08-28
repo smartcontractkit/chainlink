@@ -23,12 +23,10 @@ Enabled = false
 Enabled = true
 
 [Capabilities.SharedPeering.StreamConfig]
-
 [Capabilities.Dispatcher]
 SendToSharedPeer = true
 
 [Capabilities.Dispatcher.RateLimit]
-
 [Capabilities.ExternalRegistry]
 Address = '0x1234567890123456789012345678901234567890'
 NetworkID = 'evm'
