@@ -433,7 +433,7 @@ flowchart LR
 	click chainlink-sui href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-sui/codec --> chainlink-common
 	click chainlink-sui/codec href "https://github.com/smartcontractkit/chainlink-sui"
-	chainlink-sui/deployment --> mcms
+	chainlink-sui/deployment
 	click chainlink-sui/deployment href "https://github.com/smartcontractkit/chainlink-sui"
 	chainlink-testing-framework/framework --> chainlink-testing-framework/wasp
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
@@ -463,6 +463,7 @@ flowchart LR
 	chainlink-ton --> chainlink-ccip
 	chainlink-ton --> chainlink-common/pkg/monitoring
 	chainlink-ton --> chainlink-framework/metrics
+	chainlink-ton --> chainlink-ton/cciplib
 	click chainlink-ton href "https://github.com/smartcontractkit/chainlink-ton"
 	chainlink-ton/cciplib --> chainlink-common
 	click chainlink-ton/cciplib href "https://github.com/smartcontractkit/chainlink-ton"
