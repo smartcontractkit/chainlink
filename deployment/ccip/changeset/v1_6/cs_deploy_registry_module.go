@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Masterminds/semver/v3"
-
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
 	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
@@ -82,7 +80,10 @@ func DeployRegistryModuleChangeset(e cldf.Environment, cfg DeployRegistryModuleC
 
 		e.Logger.Infow("Deploying RegistryModuleOwnerCustom 1.6.0", "chain", chainSel)
 
-		registryModule, err := cldf.DeployContract(e.Logger, chain, addressBook,
+		tv := cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0)
+		tv.Labels = cldf.NewLabelSet("RegistryModuleOwnerCustom 1.6.0")
+
+		registryModule, err := shared.DeployContractAndRecord(e.Logger, chain, addressBook, ds, tv, "",
 			func(chain cldf_evm.Chain) cldf.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
 				regModAddr, tx, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
 					chain.DeployerKey,
@@ -94,27 +95,13 @@ func DeployRegistryModuleChangeset(e cldf.Environment, cfg DeployRegistryModuleC
 					Address:  regModAddr,
 					Contract: regMod,
 					Tx:       tx,
-					Tv:       cldf.NewTypeAndVersion(shared.RegistryModule, deployment.Version1_6_0),
+					Tv:       tv,
 					Err:      err2,
 				}
 			})
 
 		if err != nil {
 			return cldf.ChangesetOutput{DataStore: ds}, fmt.Errorf("failed to deploy registry module on chain %d: %w", chainSel, err)
-		}
-
-		// Add the address reference to the datastore
-		if err = ds.Addresses().Add(datastore.AddressRef{
-			ChainSelector: chainSel,
-			Address:       registryModule.Address.Hex(),
-			Type:          datastore.ContractType(shared.RegistryModule),
-			Version:       semver.MustParse("1.6.0"),
-			Labels: datastore.NewLabelSet(
-				"RegistryModuleOwnerCustom 1.6.0",
-			),
-		}); err != nil {
-			return cldf.ChangesetOutput{DataStore: ds},
-				fmt.Errorf("failed to save address ref for chain %d: %w", chainSel, err)
 		}
 
 		e.Logger.Infow("Successfully deployed RegistryModuleOwnerCustom 1.6.0",

@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/ccip-contract-examples/chains/evm/gobindings/generated/1_6_1/transparent_upgradeable_proxy"
 
 	cldf_evm "github.com/smartcontractkit/chainlink-deployments-framework/chain/evm"
+	"github.com/smartcontractkit/chainlink-deployments-framework/datastore"
 	cldf "github.com/smartcontractkit/chainlink-deployments-framework/deployment"
 	cldfproposalutils "github.com/smartcontractkit/chainlink-deployments-framework/engine/cld/mcms/proposalutils"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/1_5_0/burn_mint_erc20_transparent"
@@ -152,12 +153,13 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 	}
 
 	addressBook := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := e.BlockChains.EVMChains()[chainSelector]
 
 		for token, config := range tokens {
-			_, err := cldf.DeployContract(e.Logger, chain, addressBook,
+			_, err := shared.DeployContractAndRecord(e.Logger, chain, addressBook, ds, cldf.NewTypeAndVersion(shared.TransparentUpgradeableProxy, deployment.Version1_6_1), config.Symbol,
 				func(chain cldf_evm.Chain) cldf.ContractDeploy[*transparent_upgradeable_proxy.TransparentUpgradeableProxy] {
 					var errs []error
 
@@ -214,11 +216,6 @@ func DeployTransparentUpgradeableProxy(e cldf.Environment, c TransparentUpgradea
 		}
 	}
 
-	ds, err := shared.PopulateDataStore(addressBook)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-	}
-
 	return cldf.ChangesetOutput{
 		AddressBook: addressBook,
 		DataStore:   ds,
@@ -233,6 +230,7 @@ func SaveProxyAdmin(e cldf.Environment, c TransparentUpgradeableProxyChangesetCo
 	}
 
 	addressBook := cldf.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore()
 
 	for chainSelector, tokens := range c.Tokens {
 		chain := e.BlockChains.EVMChains()[chainSelector]
@@ -254,15 +252,10 @@ func SaveProxyAdmin(e cldf.Environment, c TransparentUpgradeableProxyChangesetCo
 			}
 
 			proxyAdmin := common.BytesToAddress(storageBytes)
-			if err := addressBook.Save(chainSelector, proxyAdmin.String(), cldf.NewTypeAndVersion(shared.ProxyAdmin, deployment.Version1_6_1)); err != nil {
+			if err := shared.RecordAddress(addressBook, ds, chainSelector, proxyAdmin.String(), cldf.NewTypeAndVersion(shared.ProxyAdmin, deployment.Version1_6_1), config.Symbol); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to save ProxyAdmin at %s for %s token on %s: %w", proxyAdmin, config.Symbol, chain.Name(), err)
 			}
 		}
-	}
-
-	ds, err := shared.PopulateDataStore(addressBook)
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
 	return cldf.ChangesetOutput{
