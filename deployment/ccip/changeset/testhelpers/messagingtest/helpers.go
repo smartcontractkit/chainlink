@@ -129,6 +129,18 @@ func Run(t *testing.T, tc TestCase) (out TestCaseOutput) {
 		tc.T.Errorf("unsupported dest chain: %v", tc.DestChain)
 	}
 
+	// Capture the Sui destination's latest checkpoint at send time so the dest-side
+	// SuiEventEmitter seeds its scan from here (tip-50 backfill misses events that land
+	// between send and subscription). Mirrors develop's #23272 EVM2Sui event-capture fix.
+	destFamily, err := chain_selectors.GetSelectorFamily(tc.DestChain)
+	require.NoError(tc.T, err)
+	if destFamily == chain_selectors.FamilySui {
+		tip, err := tc.Env.BlockChains.SuiChains()[tc.DestChain].Client.GetLatestCheckpoint(tc.T.Context())
+		require.NoError(tc.T, err)
+		seq := tip.GetSequenceNumber()
+		startBlock = &seq
+	}
+
 	// Capture the Sui source's latest checkpoint before the send so we can replay from it
 	// afterwards (replaces the removed bind-time RescanRecent — see ReplaySuiSourceFromCheckpoint).
 	var suiSourceStart *uint64

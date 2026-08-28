@@ -91,7 +91,7 @@ answer1      [type=median index=0];
 			name: "unparseable toml",
 			toml: `not toml`,
 			assertion: func(t *testing.T, jb job.Job, err error) {
-				assert.EqualError(t, err, "toml unmarshal error on job: toml: expected character =")
+				assert.EqualError(t, err, "toml unmarshal error on job: toml: expected '=' after key")
 			},
 		},
 		{
