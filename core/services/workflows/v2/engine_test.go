@@ -428,6 +428,75 @@ func TestEngine_TriggerSubscriptions(t *testing.T) {
 	})
 }
 
+func TestEngine_TriggerRegistrationLogging(t *testing.T) {
+	t.Parallel()
+
+	var (
+		lggr, obs = logger.TestObserved(t, zapcore.InfoLevel)
+		module    = modulemocks.NewModuleV2(t)
+		capreg    = regmocks.NewCapabilitiesRegistry(t)
+	)
+
+	capreg.EXPECT().LocalNode(matches.AnyContext).Return(newNode(t), nil)
+
+	initDoneCh := make(chan error)
+	subscribedToTriggersCh := make(chan []string, 1)
+
+	cfg := defaultTestConfig(t, nil)
+	cfg.Lggr = lggr
+	cfg.Module = module
+	cfg.CapRegistry = capreg
+	cfg.Hooks = v2.LifecycleHooks{
+		OnInitialized: func(err error) {
+			initDoneCh <- err
+		},
+		OnSubscribedToTriggers: func(triggerIDs []string) {
+			subscribedToTriggersCh <- triggerIDs
+		},
+	}
+
+	payload, err := anypb.New(&emptypb.Empty{})
+	require.NoError(t, err)
+
+	subs := &sdkpb.ExecutionResult{
+		Result: &sdkpb.ExecutionResult_TriggerSubscriptions{
+			TriggerSubscriptions: &sdkpb.TriggerSubscriptionRequest{
+				Subscriptions: []*sdkpb.TriggerSubscription{
+					{Id: "cron-trigger@1.0.0", Method: "Trigger", Payload: payload},
+				},
+			},
+		},
+	}
+
+	engine, err := v2.NewEngine(cfg)
+	require.NoError(t, err)
+
+	module.EXPECT().Start()
+	module.EXPECT().Close()
+	module.EXPECT().Execute(matches.AnyContext, mock.Anything, mock.Anything).Return(subs, nil).Once()
+
+	trigger0 := capmocks.NewTriggerCapability(t)
+	capreg.EXPECT().GetTrigger(matches.AnyContext, "cron-trigger@1.0.0").Return(trigger0, nil).Once()
+	tr0Ch := make(chan capabilities.TriggerResponse)
+	trigger0.EXPECT().RegisterTrigger(matches.AnyContext, mock.Anything).Return(tr0Ch, nil).Once()
+	trigger0.EXPECT().UnregisterTrigger(matches.AnyContext, mock.Anything).Return(nil).Once()
+
+	servicetest.Run(t, engine)
+	require.NoError(t, <-initDoneCh)
+	require.Equal(t, []string{"cron-trigger@1.0.0"}, <-subscribedToTriggersCh)
+
+	entries := obs.FilterMessage("Registering trigger").All()
+	require.Len(t, entries, 1, "expected exactly one 'Registering trigger' log")
+	entry := entries[0]
+
+	assert.Equal(t, zapcore.InfoLevel, entry.Level)
+	assert.Equal(t, "cron-trigger@1.0.0", entry.ContextMap()["triggerID"])
+	assert.Equal(t, "Trigger", entry.ContextMap()["method"])
+	payloadStr, ok := entry.ContextMap()["payload"].(string)
+	require.True(t, ok, "expected payload field in log")
+	assert.Contains(t, payloadStr, "Empty")
+}
+
 func wantExecutionID(t *testing.T, workflowID, triggerEventID string, triggerIndex int) string {
 	t.Helper()
 	id, err := workflows.GenerateExecutionIDWithTriggerIndex(workflowID, triggerEventID, triggerIndex)

@@ -535,7 +535,11 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context) error {
 		triggerCap := triggers[i]
 		g.Go(func() error {
 			registrationID := TriggerRegistrationID(e.cfg.WorkflowID, i)
-			e.logger().Debugw("Registering trigger", "triggerID", sub.Id, "method", sub.Method)
+			args := []any{"triggerID", sub.Id, "method", sub.Method}
+			if sub.Payload != nil {
+				args = append(args, "payload", protojson.Format(sub.Payload))
+			}
+			e.logger().Infow("Registering trigger", args...)
 			metadata := capabilities.RequestMetadata{
 				WorkflowID:                    e.cfg.WorkflowID,
 				WorkflowOwner:                 e.cfg.WorkflowOwner,
