@@ -90,7 +90,7 @@ func DeployChainContractsToAptosCS(t *testing.T, e DeployedEnv, chainSelector ui
 				Canceller:        cldftesthelpers.SingleGroupMCMS(t),
 				Proposer:         cldftesthelpers.SingleGroupMCMS(t),
 				Bypasser:         cldftesthelpers.SingleGroupMCMS(t),
-				TimelockMinDelay: big.NewInt(1),
+				TimelockMinDelay: big.NewInt(0),
 			},
 		},
 		MCMSTimelockConfigPerChain: map[uint64]cldfproposalutils.TimelockConfig{

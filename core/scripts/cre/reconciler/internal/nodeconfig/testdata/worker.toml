@@ -23,12 +23,10 @@ Enabled = false
 Enabled = true
 
 [Capabilities.SharedPeering.StreamConfig]
-
 [Capabilities.Dispatcher]
 SendToSharedPeer = true
 
 [Capabilities.Dispatcher.RateLimit]
-
 [Capabilities.ExternalRegistry]
 Address = '0x1234567890123456789012345678901234567890'
 NetworkID = 'evm'
@@ -44,9 +42,7 @@ SyncStrategy = 'reconciliation'
 AdditionalSources = []
 
 [Capabilities.WorkflowRegistry.WorkflowStorage]
-
 [Capabilities.WorkflowRegistry.ModuleCache]
-
 [Capabilities.Local]
 RegistryBasedLaunchAllowlist = ['cron-trigger@1.0.0', 'evm-1337']
 
