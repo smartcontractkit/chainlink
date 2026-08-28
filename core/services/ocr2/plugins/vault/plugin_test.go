@@ -6533,11 +6533,7 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 	o1b, err := proto.Marshal(o1)
 	require.NoError(t, err)
 
-	// In the real OCR flow, ValidateObservation rejects observations with
-	// duplicate blob items before they reach StateTransition. If duplicates
-	// are encountered here it indicates a node-local bug, so StateTransition
-	// must error to avoid non-determinism.
-	_, err = r.StateTransition(
+	reportPrecursor, err := r.StateTransition(
 		t.Context(),
 		seqNr,
 		types.AttributedQuery{},
@@ -6547,8 +6543,25 @@ func TestPlugin_StateTransition_StoresPendingQueue_DoesntDoubleCountObservations
 		rdr,
 		bf,
 	)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "duplicate sha found for oracle")
+	require.NoError(t, err)
+
+	os := &vaultcommon.Outcomes{}
+	err = proto.Unmarshal(reportPrecursor, os)
+	require.NoError(t, err)
+
+	assert.Empty(t, os.Outcomes)
+
+	pq, err := newTestReadStore(t, rdr).GetPendingQueue(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, pq, 0)
+
+	ids := []string{}
+	for _, item := range pq {
+		ids = append(ids, item.Id)
+	}
+
+	// 1 oracle submitted duplicates, so skipping
+	assert.ElementsMatch(t, []string{}, ids)
 }
 
 // TestPlugin_ValidateObservation_AcceptsFullPendingQueueObservation verifies that an observation

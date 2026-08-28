@@ -1556,7 +1556,9 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 	for _, ao := range aos {
 		obs := &vaultcommon.Observations{}
 		if err := proto.Unmarshal([]byte(ao.Observation), obs); err != nil {
-			return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("failed to unmarshal observations: %w", err)
+			// Note: this shouldn't happen as all observations are validated in ValidateObservation.
+			r.lggr.Errorw("failed to unmarshal observations", "error", err, "observation", ao.Observation)
+			continue
 		}
 		marshalledObs[uint8(ao.Observer)] = obs
 	}
@@ -1667,7 +1669,8 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		for _, ob := range obs {
 			sha, err := r.shaForObservation(ob)
 			if err != nil {
-				return ocr3_1types.ReportsPlusPrecursor{}, fmt.Errorf("failed to compute sha for observation: %w", err)
+				r.lggr.Errorw("failed to compute sha for observation", "error", err, "observation", ob)
+				continue
 			}
 			shaToObs[sha] = append(shaToObs[sha], ob)
 		}
@@ -1794,7 +1797,8 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 		for _, pqi := range o.PendingQueueItems {
 			bh, err := r.unmarshalBlob(pqi)
 			if err != nil {
-				return fmt.Errorf("failed to unmarshal blob handle from pending queue item: %w", err)
+				r.lggr.Errorw("failed to unmarshal blob handle from pending queue item", "error", err, "item", pqi)
+				continue
 			}
 
 			blob, err := blobFetcher.FetchBlob(ctx, bh)
@@ -1804,7 +1808,8 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 
 			items, err := unmarshalPendingQueueBlob(blob)
 			if err != nil {
-				return fmt.Errorf("failed to unmarshal blob into pending queue item(s): %w", err)
+				r.lggr.Errorw("failed to unmarshal blob into pending queue item(s)", "error", err, "item", pqi)
+				continue
 			}
 
 			for _, i := range items {
@@ -1812,11 +1817,13 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 
 				sha, err := shaForProto(i)
 				if err != nil {
-					return fmt.Errorf("failed to compute sha for pending queue item: %w", err)
+					r.lggr.Errorw("failed to compute sha for pending queue item", "error", err, "item", pqi)
+					continue
 				}
 
 				if shaSeenForOracle[sha] {
-					return fmt.Errorf("duplicate sha found for oracle %d", oid)
+					r.lggr.Warnw("duplicate sha found for oracle, skipping...", "oracleID", oid, "sha", sha, "item", pqi, "blobHandle", bh)
+					continue
 				}
 
 				shaSeenForOracle[sha] = true
