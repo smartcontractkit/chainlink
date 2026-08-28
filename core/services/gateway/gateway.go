@@ -66,25 +66,22 @@ type gateway struct {
 }
 
 func NewGatewayFromConfig(cfg *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger, lf limits.Factory) (Gateway, error) {
-	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid gateway config: %w", err)
-	}
-	if len(cfg.Services) == 0 || len(cfg.ShardedDONs) == 0 {
-		return nil, errors.New("no services or DONs configured - Gateway has to use service-based configuration")
-	}
-
 	codec := &api.JsonRPCCodec{}
 	gMetrics, err := monitoring.NewGatewayMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("error creating gateway metrics: %w", err)
 	}
+	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, lggr, lf)
+	if err != nil {
+		return nil, err
+	}
 	connMgr, err := NewConnectionManager(cfg, clockwork.NewRealClock(), gMetrics, lggr, lf)
 	if err != nil {
 		return nil, err
 	}
-	httpServer, err := gw_net.NewHTTPServer(&cfg.UserServerConfig, connMgr.ReadyForTraffic, lggr, lf)
-	if err != nil {
-		return nil, err
+
+	if len(cfg.Services) == 0 || len(cfg.ShardedDONs) == 0 {
+		return nil, errors.New("no services or DONs configured - Gateway has to use service-based configuration")
 	}
 
 	lggr.Infow("setting up gateway from config", "nServices", len(cfg.Services), "nShardedDONs", len(cfg.ShardedDONs))

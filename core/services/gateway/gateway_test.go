@@ -64,36 +64,6 @@ func TestGateway_NewGatewayFromConfig_NoServicesOrDONs(t *testing.T) {
 	require.ErrorContains(t, err, "no services or DONs configured")
 }
 
-func TestGateway_NewGatewayFromConfig_ValidatesConfig(t *testing.T) {
-	t.Parallel()
-
-	tomlConfig := buildConfig(`
-[connectionManagerConfig]
-HeartbeatIntervalSec = 20
-PongTimeoutSec = 10
-
-[[shardedDONs]]
-DonName = "donA"
-F = 0
-
-[[shardedDONs.Shards]]
-[[shardedDONs.Shards.Nodes]]
-Name = "n0"
-Address = "0x0001020304050607080900010203040506070809"
-
-[[services]]
-ServiceName = "workflows"
-DONs = ["donA"]
-
-[[services.Handlers]]
-Name = "dummy"
-`)
-
-	lggr := logger.Test(t)
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), newGatewayHandler(t), lggr, limits.Factory{Logger: lggr})
-	require.ErrorContains(t, err, "invalid gateway config: PongTimeoutSec (10) must be greater than HeartbeatIntervalSec (20)")
-}
-
 func TestGateway_NewGatewayFromConfig_InvalidHandler(t *testing.T) {
 	t.Parallel()
 

@@ -2,7 +2,6 @@ package network
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -33,9 +32,6 @@ type HTTPServer interface {
 type HTTPRequestHandler interface {
 	ProcessRequest(ctx context.Context, rawMessage []byte, auth string) (rawResponse []byte, httpStatusCode int)
 }
-
-// HealthChecker gates whether the user HTTP server should receive traffic.
-type HealthChecker func(context.Context) error
 
 type HTTPServerConfig struct {
 	Host                   string
@@ -72,7 +68,6 @@ type httpServer struct {
 	doneCh            chan struct{}
 	cancelBaseContext context.CancelFunc
 	hMetrics          *monitoring.HTTPServerMetrics
-	healthChecker     HealthChecker
 	lggr              logger.Logger
 }
 
@@ -81,13 +76,7 @@ const (
 	HealthCheckResponse = "OK"
 )
 
-func NewHTTPServer(config *HTTPServerConfig, healthChecker HealthChecker, lggr logger.Logger, lf limits.Factory) (HTTPServer, error) {
-	if healthChecker == nil {
-		return nil, errors.New("health checker is required")
-	}
-	if config.Path == HealthCheckPath {
-		return nil, fmt.Errorf("HTTP request path %q conflicts with health check path", config.Path)
-	}
+func NewHTTPServer(config *HTTPServerConfig, lggr logger.Logger, lf limits.Factory) (HTTPServer, error) {
 	if err := config.ensureLimiters(lf); err != nil {
 		return nil, fmt.Errorf("failed to create limiters: %w", err)
 	}
@@ -101,7 +90,6 @@ func NewHTTPServer(config *HTTPServerConfig, healthChecker HealthChecker, lggr l
 		doneCh:            make(chan struct{}),
 		cancelBaseContext: cancelBaseCtx,
 		hMetrics:          hMetrics,
-		healthChecker:     healthChecker,
 		lggr:              logger.Named(lggr, "HTTPServer"),
 	}
 	mux := http.NewServeMux()
@@ -124,13 +112,10 @@ func NewHTTPServer(config *HTTPServerConfig, healthChecker HealthChecker, lggr l
 }
 
 func (s *httpServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
-	if err := s.healthChecker(r.Context()); err != nil {
-		http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
-		return
-	}
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write([]byte(HealthCheckResponse)); err != nil {
-		s.lggr.Debug("error when writing response for health check", err)
+	_, err := w.Write([]byte(HealthCheckResponse))
+	if err != nil {
+		s.lggr.Debug("error when writing response for healthcheck", err)
 	}
 }
 
