@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-deployments-framework/operations"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipcommoncs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/internal/opsutils"
 	ccipops "github.com/smartcontractkit/chainlink/deployment/ccip/operation/evm"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/shared"
@@ -332,7 +333,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 			if err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to deploy token pool for token %s: %w", token, err)
 			}
-			if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+			if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 				return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 			}
 			newAddresses, err := output.AddressBook.Addresses() //nolint:staticcheck // Addressbook is deprecated, but we still use it for the time being
@@ -366,7 +367,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 						return cldf.ChangesetOutput{}, fmt.Errorf("failed to run TransferToMCMSWithTimelock on chain with selector %d: %w", chainID, err)
 					}
 
-					if err := cldf.MergeChangesetOutput(e, finalCSOut, transferOwnershipProposalOutput); err != nil {
+					if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, transferOwnershipProposalOutput); err != nil {
 						return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after transferring ownership of pool(s): %w", err)
 					}
 				}
@@ -382,7 +383,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to propose admin role for token %s: %w", token, err)
 		}
-		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to changeset output after configuring token admin reg for token %s: %w",
 				token, err)
 		}
@@ -414,7 +415,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to accept admin role for token %s: %w", token, err)
 		}
-		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 		}
 		e.Logger.Infow("accepted admin role", "token", token, "config", updatedConfigureTokenAdminReg)
@@ -422,7 +423,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to set pool for token %s: %w", token, err)
 		}
-		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address book for token %s: %w", token, err)
 		}
 		e.Logger.Infow("set pool", "token", token, "config", updatedConfigureTokenAdminReg)
@@ -444,7 +445,7 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		if err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to configure token pool for token %s: %w", token, err)
 		}
-		if err := cldf.MergeChangesetOutput(e, finalCSOut, output); err != nil {
+		if err := ccipcommoncs.MergeChangesetOutput(e, finalCSOut, output); err != nil {
 			return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge changeset output after configuring token pool for token %s: %w", token, err)
 		}
 		e.Logger.Infow("configured token pool", "token", token)
@@ -465,12 +466,21 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		finalCSOut.MCMSTimelockProposals = []mcms.TimelockProposal{*aggregatedProposals}
 	}
 
-	ds, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
+	// Preserve the datastore accumulated by MergeChangesetOutput: it already carries the
+	// sub-changesets' semantic qualifiers, metadata, and deletions. Rebuilding it from the
+	// address book would discard all of that. The address book has no qualifiers, so it can only
+	// contribute the singleton refs the sub-changesets did not write to the datastore; merge
+	// those in rather than replacing the accumulated store.
+	singletons, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
 	if err != nil {
 		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
 	}
 
-	finalCSOut.DataStore = ds
+	if finalCSOut.DataStore == nil {
+		finalCSOut.DataStore = singletons
+	} else if err := finalCSOut.DataStore.Merge(singletons.Seal()); err != nil {
+		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address-book refs into DataStore: %w", err)
+	}
 	return *finalCSOut, nil
 }
 
