@@ -143,22 +143,24 @@ func TestValidateObservation_IncludeInvalid_AcceptsNonMaximalPrefix(t *testing.T
 	t.Parallel()
 	_, pk, shares, err := tdh2easy.GenerateKeys(1, 3)
 	require.NoError(t, err)
-	r := newTestReportingPlugin(t,
-		withKeys(pk, shares[0]),
-		withOnchainCfg(4, 1),
-		withMaxObservationBytes(10*1024*1024),
-	)
 
 	rdr := &kv{m: make(map[string]response)}
 	writeDeleteSecretsPendingQueueItems(t, rdr, "request-1", "request-2")
-	fullObs := observePendingQueueOnly(t, r, rdr)
+
+	rCalib := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withMaxObservationBytes(10*1024*1024))
+	fullObs := observePendingQueueOnly(t, rCalib, rdr)
 	require.Len(t, fullObs.Observations, 2)
 
-	prefixObs := &vaultcommon.Observations{
+	oneItemObs := &vaultcommon.Observations{
 		Observations:      fullObs.Observations[:1],
 		PendingQueueItems: fullObs.PendingQueueItems,
 		SortNonce:         fullObs.SortNonce,
 	}
+	sizeOne := proto.Size(oneItemObs)
+
+	r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withMaxObservationBytes(sizeOne))
+	prefixObs := observePendingQueueOnly(t, r, rdr)
+	require.Len(t, prefixObs.Observations, 1)
 	require.NoError(t, validatePendingQueueObservation(t, r, rdr, prefixObs))
 }
 

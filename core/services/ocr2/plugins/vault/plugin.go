@@ -62,7 +62,6 @@ type ReportingPluginConfig struct {
 	MaxPendingQueueWriteSize               limits.BoundLimiter[int]
 	MaxBlobPayloadBytes                    limits.BoundLimiter[pkgconfig.Size]
 	VaultForceEmptyOCRRounds               limits.GateLimiter
-	VaultOptimizationsEnabled              limits.GateLimiter
 	VaultCiphertextlessObservationsEnabled limits.GateLimiter
 	VaultPendingQueueStallThreshold        limits.BoundLimiter[int]
 }
@@ -204,17 +203,11 @@ func newReportingPluginConfigLimiters(factory limits.Factory) (*ReportingPluginC
 		return nil, fmt.Errorf("VaultPendingQueueWriteSizeLimit: %w", err)
 	}
 
-	vaultOptimizationsEnabled, err := limits.MakeGateLimiter(factory, cresettings.Default.VaultOptimizationsEnabled)
-	if err != nil {
-		return nil, fmt.Errorf("VaultOptimizationsEnabled: %w", err)
-	}
-
 	return &ReportingPluginConfig{
 		MaxShareLengthBytes:                    maxShareLengthBytesLimiter,
 		MaxBlobPayloadBytes:                    maxBlobPayloadBytesLimiter,
 		MaxPendingQueueWriteSize:               maxPendingQueueWriteSizeLimiter,
 		VaultForceEmptyOCRRounds:               vaultForceEmptyOCRRounds,
-		VaultOptimizationsEnabled:              vaultOptimizationsEnabled,
 		VaultCiphertextlessObservationsEnabled: vaultCiphertextlessObservationsEnabled,
 		VaultPendingQueueStallThreshold:        vaultPendingQueueStallThreshold,
 	}, nil
@@ -625,10 +618,6 @@ func (r *ReportingPlugin) ciphertextlessObservationsEnabled(ctx context.Context)
 	return gateAllows(ctx, r.lggr, r.cfg.VaultCiphertextlessObservationsEnabled, "VaultCiphertextlessObservationsEnabled")
 }
 
-func (r *ReportingPlugin) optimizationsEnabled(ctx context.Context) bool {
-	return gateAllows(ctx, r.lggr, r.cfg.VaultOptimizationsEnabled, "VaultOptimizationsEnabled")
-}
-
 type pendingQueueStore interface {
 	WritePendingQueue(ctx context.Context, pending []*vaultcommon.StoredPendingQueueItem) error
 }
@@ -740,7 +729,7 @@ func (r *ReportingPlugin) Observation(ctx context.Context, seqNr uint64, aq type
 	obspb.PendingQueueItems = pendingQueueItems
 
 	// Observe store-backed pending queue items after local-queue blob broadcast so blob wire size is known first.
-	observedIDs := r.appendPendingQueueObservations(ctx, seqNr, readKV, currentPendingQueueItems, obspb, r.optimizationsEnabled(ctx))
+	observedIDs := r.appendPendingQueueObservations(ctx, seqNr, readKV, currentPendingQueueItems, obspb)
 	if len(currentPendingQueueItems) > 0 && len(obspb.Observations) < len(currentPendingQueueItems) {
 		r.lggr.Infow("observation: more pending queue items than can be observed",
 			"seqNr", seqNr,
@@ -839,10 +828,6 @@ func (r *ReportingPlugin) validatePendingQueueObservations(
 		}
 	}
 
-	if !r.optimizationsEnabled(ctx) {
-		return nil
-	}
-
 	if len(obs.Observations) >= len(observable) {
 		return nil
 	}
@@ -873,7 +858,6 @@ func (r *ReportingPlugin) appendPendingQueueObservations(
 	readKV *KVStore,
 	currentPendingQueueItems []*vaultcommon.StoredPendingQueueItem,
 	obspb *vaultcommon.Observations,
-	_ bool,
 ) []string {
 	ids := make([]string, 0, len(currentPendingQueueItems))
 	for _, req := range currentPendingQueueItems {
@@ -2802,7 +2786,6 @@ func (r *ReportingPlugin) Close() error {
 		r.cfg.MaxPendingQueueWriteSize.Close(),
 		r.cfg.MaxBlobPayloadBytes.Close(),
 		r.cfg.VaultForceEmptyOCRRounds.Close(),
-		r.cfg.VaultOptimizationsEnabled.Close(),
 		r.cfg.VaultCiphertextlessObservationsEnabled.Close(),
 		r.cfg.VaultPendingQueueStallThreshold.Close(),
 	)

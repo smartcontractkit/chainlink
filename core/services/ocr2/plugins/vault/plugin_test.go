@@ -3740,7 +3740,7 @@ func TestPlugin_ValidateObservation_RejectsTruncatedObservations(t *testing.T) {
 		kv,
 		nil,
 	)
-	require.NoError(t, err)
+	require.ErrorContains(t, err, "omitted pending queue item")
 }
 
 func TestPlugin_ValidateObservation_RejectsOutOfOrderObservations(t *testing.T) {
@@ -7091,7 +7091,7 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 		rdr := &kv{m: make(map[string]response)}
 		writeGetSecretsPendingQueueItems(t, rdr, pk, "request-1", "request-2")
 
-		rCalib := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(10*1024*1024))
+		rCalib := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withMaxObservationBytes(10*1024*1024))
 		fullObs := observePendingQueueOnly(t, rCalib, rdr)
 		require.Len(t, fullObs.Observations, 2)
 
@@ -7104,7 +7104,7 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 		sizeTwo := proto.Size(fullObs)
 		require.Greater(t, sizeTwo, sizeOne)
 
-		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(sizeOne))
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withMaxObservationBytes(sizeOne))
 		truncatedObs := observePendingQueueOnly(t, r, rdr)
 		require.Len(t, truncatedObs.Observations, 1)
 
@@ -7115,7 +7115,7 @@ func TestPlugin_ValidateObservation_PendingQueueObservations(t *testing.T) {
 		rdr := &kv{m: make(map[string]response)}
 		writeGetSecretsPendingQueueItems(t, rdr, pk, "request-1", "request-2")
 
-		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withVaultOptimizationsEnabled(), withMaxObservationBytes(10*1024*1024))
+		r := newTestReportingPlugin(t, withKeys(pk, shares[0]), withOnchainCfg(4, 1), withMaxObservationBytes(10*1024*1024))
 		fullObs := observePendingQueueOnly(t, r, rdr)
 		require.Len(t, fullObs.Observations, 2)
 

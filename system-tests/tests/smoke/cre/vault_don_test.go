@@ -911,10 +911,6 @@ func assertVaultOCRWireTruncationSignalsInDockerLogs(t *testing.T) {
 	}
 }
 
-func TestVaultOptimizationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
-	require.False(t, cresettings.Default.VaultOptimizationsEnabled.DefaultValue)
-}
-
 func TestVaultCiphertextlessObservationsEnabled_CRESettingDefaultsDisabled(t *testing.T) {
 	require.False(t, cresettings.Default.VaultCiphertextlessObservationsEnabled.DefaultValue)
 }
