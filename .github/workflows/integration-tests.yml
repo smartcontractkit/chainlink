@@ -34,7 +34,7 @@ on:
 # Only run 1 of this workflow at a time per PR, but don't cancel runs on develop
 concurrency:
   group: ${{ github.ref != 'refs/heads/develop' && format('{0}-{1}-{2}-e2e-tests-{3}', github.ref, github.repository, github.event_name, inputs.distinct_run_name) || github.sha }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 env:
   # for run-test variables and environment
@@ -231,8 +231,8 @@ jobs:
           OPT_OUT: ${{ steps.label-runs-on-opt-out.outputs.check-label-found || 'false' }}
           GH_BUILDER_RUNNER: ubuntu22.04-8cores-32GB
           # include unique label (core/plugins) to ensure jobs are not competing for the same runner
-          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=16/memory=32/family=c7i+c8i/spot=co/extras=s3-cache+tmpfs
-          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=16/memory=32/family=c7i+c8i/spot=co/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_CORE: runs-on=${{ github.run_id }}-core/cpu=16/ram=128/family=r7i+r8i/spot=co/extras=s3-cache+tmpfs
+          SH_BUILDER_RUNNER_PLUGINS: runs-on=${{ github.run_id }}-plugins/cpu=16/ram=128/family=r7i+r8i/spot=co/extras=s3-cache+tmpfs
         run: |
           if [[ "${OPT_OUT}" == "true" ]]; then
             echo "builder-runner-label=${GH_BUILDER_RUNNER}" | tee -a "$GITHUB_OUTPUT"

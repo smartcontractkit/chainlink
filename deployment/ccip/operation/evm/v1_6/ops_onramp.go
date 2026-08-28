@@ -21,9 +21,8 @@ var (
 		shared.OnRamp,
 		onramp.OnRampMetaData,
 		&opsutils.ContractOpts{
-			Version:          &deployment.Version1_6_0,
-			EVMBytecode:      common.FromHex(onramp.OnRampBin),
-			ZkSyncVMBytecode: onramp.ZkBytecode,
+			Version:     &deployment.Version1_6_0,
+			EVMBytecode: common.FromHex(onramp.OnRampBin),
 		},
 		func(input DeployOnRampInput) []any {
 			return []any{
