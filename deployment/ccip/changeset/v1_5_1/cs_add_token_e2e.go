@@ -474,21 +474,12 @@ func addTokenE2ELogic(env cldf.Environment, config AddTokensE2EConfig) (cldf.Cha
 		finalCSOut.MCMSTimelockProposals = []mcms.TimelockProposal{*aggregatedProposals}
 	}
 
-	// Preserve the datastore accumulated by MergeChangesetOutput: it already carries the
-	// sub-changesets' semantic qualifiers, metadata, and deletions. Rebuilding it from the
-	// address book would discard all of that. The address book has no qualifiers, so it can only
-	// contribute the singleton refs the sub-changesets did not write to the datastore; merge
-	// those in rather than replacing the accumulated store.
-	singletons, err := shared.PopulateDataStore(finalCSOut.AddressBook) //nolint:staticcheck //SA1019 ignoring deprecated
-	if err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to populate in-memory DataStore: %w", err)
-	}
-
-	if finalCSOut.DataStore == nil {
-		finalCSOut.DataStore = singletons
-	} else if err := finalCSOut.DataStore.Merge(singletons.Seal()); err != nil {
-		return cldf.ChangesetOutput{}, fmt.Errorf("failed to merge address-book refs into DataStore: %w", err)
-	}
+	// Preserve the datastore accumulated by MergeChangesetOutput: it carries the
+	// sub-changesets' semantic qualifiers, metadata, and deletions. Every sub-changeset merged
+	// above writes it natively (deployTokens records each token under its symbol;
+	// DeployTokenPoolContractsChangeset records each pool under its symbol; the admin/config
+	// changesets deploy nothing). Rebuilding from the merged address book could only mint
+	// address-derived qualifiers, so nothing is re-derived.
 	return *finalCSOut, nil
 }
 

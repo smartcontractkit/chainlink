@@ -407,6 +407,13 @@ func (p *changesetMergePlan) planDataStore(env cldf.Environment, dest, src datas
 			return fmt.Errorf("failed to merge data store: address %s on chain %d has no version: %w",
 				ref.Address, ref.ChainSelector, datastore.ErrAddressRefVersionRequired)
 		}
+		// An empty address is not a record of a deployed contract: it is a reservation
+		// (ReserveRefs) that the changeset never filled. Merged, it would persist as a ref that
+		// resolves to nothing and is mistaken for progress.
+		if ref.Address == "" {
+			return fmt.Errorf("failed to merge data store: %s has no address; a reserved key was never filled",
+				ref.Key().String())
+		}
 	}
 
 	// MemoryDataStore keeps a record alongside a staged deletion until Merge applies it. Do not
