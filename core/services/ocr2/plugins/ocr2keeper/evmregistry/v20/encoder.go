@@ -28,7 +28,7 @@ var (
 	ErrUnexpectedResult = errors.New("unexpected result struct")
 	packFn              = reportArgs.Pack
 	unpackIntoMapFn     = reportArgs.UnpackIntoMap
-	mKeys               = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas"}
+	mKeys               = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformData"}
 	reportArgs          = abi.Arguments{
 		{Name: mKeys[0], Type: Uint256},
 		{Name: mKeys[1], Type: Uint256},
@@ -152,7 +152,7 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 
 	res = make([]ocr2keepers.UpkeepResult, len(upkeepIds))
 
-	for i := 0; i < len(upkeepIds); i++ {
+	for i := range upkeepIds {
 		r := EVMAutomationUpkeepResult20{
 			Block:            performs[i].CheckBlockNumber,
 			ID:               upkeepIds[i],
@@ -217,15 +217,13 @@ type wrappedPerform struct {
 	PerformData      []byte   `abi:"performData"`
 }
 
-type BlockKeyHelper[T uint32 | int64] struct {
-}
+type BlockKeyHelper[T uint32 | int64] struct{}
 
 func (kh BlockKeyHelper[T]) MakeBlockKey(b T) ocr2keepers.BlockKey {
 	return ocr2keepers.BlockKey(fmt.Sprintf("%d", b))
 }
 
-type UpkeepKeyHelper[T uint32 | int64] struct {
-}
+type UpkeepKeyHelper[T uint32 | int64] struct{}
 
 func (kh UpkeepKeyHelper[T]) MakeUpkeepKey(b T, id *big.Int) ocr2keepers.UpkeepKey {
 	return ocr2keepers.UpkeepKey(fmt.Sprintf("%d%s%s", b, separator, id))

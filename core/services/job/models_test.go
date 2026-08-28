@@ -30,7 +30,7 @@ func TestStandardCapabilitiesSpec_Deserialization(t *testing.T) {
 	forwardingAllowed = false
 	command = "consensus"
 	config = """"""
-	
+
 	[oracle_factory]
 	enabled = true
 	bootstrap_peers = ["12D3KooWBAzThfs9pD4WcsFKCi68EUz2fZgZskDBT6JcJRndPss5@cl-keystone-two-bt-0:5001"]
@@ -313,6 +313,10 @@ func TestOCR2OracleSpec(t *testing.T) {
 }
 
 func TestWorkflowSpec_Validate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	type fields struct {
 		Workflow string
 	}
@@ -386,7 +390,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 	})
 
 	t.Run("WASM can validate from TOML", func(t *testing.T) {
-		const wasmWorkfowTomlTemplate = `
+		const wasmWorkflowTomlTemplate = `
 			workflow_owner = "%s"
 			workflow_name = "%s"
 			spec_type = "%s"
@@ -394,7 +398,7 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 			config = "%s"
 		`
 		configLocation := "testdata/config.json"
-		tomlSpec := fmt.Sprintf(wasmWorkfowTomlTemplate,
+		tomlSpec := fmt.Sprintf(wasmWorkflowTomlTemplate,
 			"0x0123456789012345678901234567890123456788",
 			"wf-2",
 			job.WASMFile,

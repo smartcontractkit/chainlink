@@ -367,7 +367,11 @@ func (l *EngineLimiters) Close() error {
 }
 
 type EngineFeatureFlags struct {
-	// put feature flags here and create them in NewFeatureFlags
+	// WorkflowTagBackfill gates the reconciler backfill of workflow_specs_v2.workflow_tag.
+	// The Check succeeds only when time.Now() is inside the configured active period,
+	// which lets ops schedule a healing window across the DON via cresettings.
+	// Nil when construction fails; call sites must nil-check.
+	WorkflowTagBackfill limits.RangeLimiter[config.Timestamp]
 }
 
 func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*EngineFeatureFlags, error) {
@@ -375,9 +379,13 @@ func NewFeatureFlags(lf limits.Factory, cfgFn func(*cresettings.Workflows)) (*En
 	if cfgFn != nil {
 		cfgFn(&cfg)
 	}
-	// example:
-	// featureXYZFlag, err := limits.MakeRangeLimiter(lf, cfg.FeatureXYZActivePeriod)
-	return &EngineFeatureFlags{}, nil
+	workflowTagBackfill, err := limits.MakeRangeLimiter[config.Timestamp](lf, cfg.FeatureWorkflowTagBackfillActivePeriod)
+	if err != nil {
+		return nil, fmt.Errorf("workflow tag backfill flag: %w", err)
+	}
+	return &EngineFeatureFlags{
+		WorkflowTagBackfill: workflowTagBackfill,
+	}, nil
 }
 
 const (

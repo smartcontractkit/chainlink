@@ -184,9 +184,9 @@ func capabilitiesCommonInputs(routerURL string) *commonInputs {
 
 func testOCRPeeringData() cre.OCRPeeringData {
 	return cre.OCRPeeringData{
-		OCRBootstraperPeerID: "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X",
-		OCRBootstraperHost:   "bootstrap",
-		Port:                 4222,
+		OCRBootstrapperPeerID: "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X",
+		OCRBootstrapperHost:   "bootstrap",
+		Port:                  4222,
 	}
 }
 

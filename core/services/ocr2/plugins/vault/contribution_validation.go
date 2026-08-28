@@ -9,6 +9,7 @@ import (
 
 	vaultcommon "github.com/smartcontractkit/chainlink-common/pkg/capabilities/actions/vault"
 	pkgconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/contexts"
 	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
@@ -78,7 +79,6 @@ func observationToErrContribution(o *vaultcommon.Observation, msg string) *vault
 // StateTransition-only and are intentionally not checked here.
 func (r *ReportingPlugin) validateContribution(
 	ctx context.Context,
-	_ ReadKVStore,
 	pendingItem *vaultcommon.StoredPendingQueueItem,
 	o *vaultcommon.Observation,
 ) error {
@@ -275,8 +275,7 @@ func (r *ReportingPlugin) validateListSecretIdentifiersContribution(ctx context.
 	}
 
 	if err := r.validateListSecretIdentifiersResponseSize(ctx, req.Owner, len(resp.Identifiers)); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[int]
-		if errors.As(err, &errBoundLimited) {
+		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
 			return fmt.Errorf("ListSecretIdentifiers response exceeds maximum number of secrets per owner (have=%d, limit=%d): %w", len(resp.Identifiers), errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check max secrets per owner limit: %w", err)
@@ -311,7 +310,7 @@ func consensusObservationError(errObs []*vaultcommon.Observation, f int) string 
 	return fallback
 }
 
-func classifyContributions(obs []*vaultcommon.Observation) (ok []*vaultcommon.Observation, err []*vaultcommon.Observation) {
+func classifyContributions(obs []*vaultcommon.Observation) (ok, err []*vaultcommon.Observation) {
 	for _, o := range obs {
 		switch {
 		case observationContributionIsErr(o):
@@ -334,11 +333,39 @@ func (r *ReportingPlugin) validateEncryptedShareSize(ctx context.Context, es *va
 		return err
 	}
 	if err := r.cfg.MaxShareLengthBytes.Check(ctx, pkgconfig.Size(shareSize)*pkgconfig.Byte); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(err, &errBoundLimited) {
+		if _, ok := errors.AsType[limits.ErrorBoundLimited[pkgconfig.Size]](err); ok {
 			return fmt.Errorf("share provided exceeds maximum size allowed: %w", err)
 		}
 		return errors.New("failed to check share size")
 	}
+	return nil
+}
+
+// validateGetSecretsResponseShares checks TDH2 share labels and per-share size
+// limits for every GetSecrets response carrying data.
+func (r *ReportingPlugin) validateGetSecretsResponseShares(ctx context.Context, req *vaultcommon.GetSecretsRequest, respMap map[string]*vaultcommon.SecretResponse) error {
+	for _, rsp := range respMap {
+		d := rsp.GetData()
+		if d == nil {
+			continue
+		}
+
+		secretReq, err := secretRequestForID(req, rsp.Id)
+		if err != nil {
+			return fmt.Errorf("GetSecrets response id not found in pending queue request: %w", err)
+		}
+		if err := validateGetSecretsShareLabels(secretReq, d); err != nil {
+			return err
+		}
+
+		// TODO orgID https://smartcontractkit-it.atlassian.net/browse/CRE-1707
+		innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: rsp.Id.Owner})
+		for _, ds := range d.GetEncryptedDecryptionKeyShares() {
+			if err := r.validateEncryptedShareSize(innerCtx, ds); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }

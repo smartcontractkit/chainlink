@@ -19,9 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaultutils"
 )
 
-var (
-	isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
-)
+var isValidIDComponent = regexp.MustCompile(`^[a-zA-Z0-9_]+$`).MatchString
 
 type RequestValidator struct {
 	MaxRequestBatchSizeLimiter          limits.BoundLimiter[int]
@@ -46,8 +44,7 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 		return errors.New("request ID must not be empty")
 	}
 	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, len(encryptedSecrets)); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[int]
-		if errors.As(err, &errBoundLimited) {
+		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
 			return fmt.Errorf("request batch size exceeds maximum of %d: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check request batch size limit: %w", err)
@@ -96,7 +93,7 @@ func (r *RequestValidator) validateWriteRequest(ctx context.Context, publicKey *
 	return nil
 }
 
-func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner string, encryptedValue string) error {
+func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner, encryptedValue string) error {
 	rawCiphertext, err := hex.DecodeString(encryptedValue)
 	if err != nil {
 		return fmt.Errorf("failed to decode encrypted value: %w", err)
@@ -104,8 +101,7 @@ func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner str
 	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	innerCtx := contexts.WithCRE(ctx, contexts.CRE{Owner: owner})
 	if err := r.MaxCiphertextLengthLimiter.Check(innerCtx, pkgconfig.Size(len(rawCiphertext))*pkgconfig.Byte); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(err, &errBoundLimited) {
+		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[pkgconfig.Size]](err); ok {
 			return fmt.Errorf("ciphertext size exceeds maximum allowed size: %s: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check ciphertext size limit: %w", err)
@@ -113,7 +109,7 @@ func (r *RequestValidator) ValidateCiphertextSize(ctx context.Context, owner str
 	return nil
 }
 
-func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey string, idOwner string, idNamespace string) error {
+func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey, idOwner, idNamespace string) error {
 	if idKey == "" {
 		return errors.New("key cannot be empty")
 	}
@@ -128,24 +124,21 @@ func (r *RequestValidator) ValidateSecretIdentifier(ctx context.Context, idKey s
 	// TODO orgID https://smartcontract-it.atlassian.net/browse/CRE-1707
 	ctx = contexts.WithCRE(ctx, contexts.CRE{Owner: idOwner})
 	if err := r.MaxIdentifierOwnerLengthLimiter.Check(ctx, pkgconfig.Size(len(idOwner))); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(err, &errBoundLimited) {
+		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[pkgconfig.Size]](err); ok {
 			return fmt.Errorf("owner exceeds maximum length of %s: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check owner length limit: %w", err)
 	}
 
 	if err := r.MaxIdentifierNamespaceLengthLimiter.Check(ctx, pkgconfig.Size(len(idNamespace))); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(err, &errBoundLimited) {
+		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[pkgconfig.Size]](err); ok {
 			return fmt.Errorf("namespace exceeds maximum length of %s: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check namespace length limit: %w", err)
 	}
 
 	if err := r.MaxIdentifierKeyLengthLimiter.Check(ctx, pkgconfig.Size(len(idKey))); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[pkgconfig.Size]
-		if errors.As(err, &errBoundLimited) {
+		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[pkgconfig.Size]](err); ok {
 			return fmt.Errorf("key exceeds maximum length of %s: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check key length limit: %w", err)
@@ -200,8 +193,7 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 		return errors.New("request ID must not be empty")
 	}
 	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, len(request.Ids)); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[int]
-		if errors.As(err, &errBoundLimited) {
+		if errBoundLimited, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
 			return fmt.Errorf("request batch size exceeds maximum of %d: %w", errBoundLimited.Limit, err)
 		}
 		return fmt.Errorf("failed to check request batch size limit: %w", err)
@@ -231,8 +223,7 @@ func (r *RequestValidator) ValidateDeleteSecretsRequest(ctx context.Context, req
 
 func (r *RequestValidator) CheckRequestBatchSize(ctx context.Context, batchSize int) error {
 	if err := r.MaxRequestBatchSizeLimiter.Check(ctx, batchSize); err != nil {
-		var errBoundLimited limits.ErrorBoundLimited[int]
-		if errors.As(err, &errBoundLimited) {
+		if _, ok := errors.AsType[limits.ErrorBoundLimited[int]](err); ok {
 			return fmt.Errorf("max batch size exceeded for request: %w", err)
 		}
 		return errors.New("failed to check batch size")
@@ -297,7 +288,7 @@ func NewRequestValidatorFromLimitsFactory(limitsFactory limits.Factory) (*Reques
 // owner label (Ethereum address, left-padded to 32 bytes). owner must be non-empty;
 // when the public key is nil, verification is skipped for the same reasons as
 // verifyEncryptedSecret.
-func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret string, owner string) error {
+func EnsureRightLabelOnSecret(publicKey *tdh2easy.PublicKey, secret, owner string) error {
 	cipherText, err := verifyEncryptedSecret(publicKey, secret)
 	if err != nil {
 		return err

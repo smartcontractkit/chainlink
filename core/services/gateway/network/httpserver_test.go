@@ -2,6 +2,8 @@ package network_test
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,7 +25,7 @@ const (
 	HTTPTestPath = "/test_path"
 )
 
-func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint32, enabledCORS bool, allowedOrigins []string) (server network.HTTPServer, handler *mocks.HTTPRequestHandler, url string) {
+func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint32, enabledCORS bool, allowedOrigins []string, healthCheckers ...network.HealthChecker) (server network.HTTPServer, handler *mocks.HTTPRequestHandler, url string) {
 	t.Helper()
 	config := &network.HTTPServerConfig{
 		Host:                 HTTPTestHost,
@@ -41,7 +43,11 @@ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint3
 
 	handler = mocks.NewHTTPRequestHandler(t)
 	lggr := logger.Test(t)
-	server, err := network.NewHTTPServer(config, lggr, limits.Factory{Logger: lggr})
+	healthChecker := network.HealthChecker(func(context.Context) error { return nil })
+	if len(healthCheckers) > 0 {
+		healthChecker = healthCheckers[0]
+	}
+	server, err := network.NewHTTPServer(config, healthChecker, lggr, limits.Factory{Logger: lggr})
 	require.NoError(t, err)
 	server.SetHTTPRequestHandler(handler)
 	servicetest.Run(t, server)
@@ -88,12 +94,43 @@ func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 
 func TestHTTPServer_HandleHealthCheck(t *testing.T) {
 	t.Parallel()
-	_, _, url := startNewServer(t, 100_000, 100_000, false, nil)
 
-	url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
-	resp, respBytes := sendRequest(t, url, []byte{}, http.MethodPost, nil)
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-	require.Equal(t, []byte(network.HealthCheckResponse), respBytes)
+	t.Run("ready for traffic", func(t *testing.T) {
+		t.Parallel()
+		_, _, url := startNewServer(t, 100_000, 100_000, false, nil)
+		url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
+		resp, respBytes := sendRequest(t, url, nil, http.MethodGet, nil) //nolint:bodyclose // sendRequest closes the body.
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.Equal(t, []byte(network.HealthCheckResponse), respBytes)
+	})
+
+	t.Run("not ready for traffic", func(t *testing.T) {
+		t.Parallel()
+		checker := func(context.Context) error { return errors.New("relay DON unavailable") }
+		_, _, url := startNewServer(t, 100_000, 100_000, false, nil, checker)
+		url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
+		resp, respBytes := sendRequest(t, url, nil, http.MethodGet, nil) //nolint:bodyclose // sendRequest closes the body.
+		require.Equal(t, http.StatusServiceUnavailable, resp.StatusCode)
+		require.Equal(t, []byte("Service Unavailable\n"), respBytes)
+		require.NotContains(t, string(respBytes), "relay DON")
+	})
+}
+
+func TestHTTPServer_RequiresHealthChecker(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	_, err := network.NewHTTPServer(&network.HTTPServerConfig{}, nil, lggr, limits.Factory{Logger: lggr})
+	require.EqualError(t, err, "health checker is required")
+}
+
+func TestHTTPServer_RejectsHealthCheckRequestPath(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	checker := func(context.Context) error { return nil }
+	_, err := network.NewHTTPServer(&network.HTTPServerConfig{Path: network.HealthCheckPath}, checker, lggr, limits.Factory{Logger: lggr})
+	require.EqualError(t, err, `HTTP request path "/health" conflicts with health check path`)
 }
 
 func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {

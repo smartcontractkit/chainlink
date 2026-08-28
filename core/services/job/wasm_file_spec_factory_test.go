@@ -19,6 +19,10 @@ import (
 )
 
 func TestWasmFileSpecFactory(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	binaryLocation := createTestBinary(t)
 	configLocation := "testdata/config.json"
 	config, err := os.ReadFile(configLocation)

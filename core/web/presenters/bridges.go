@@ -17,6 +17,7 @@ type BridgeResource struct {
 	IncomingToken          string       `json:"incomingToken,omitempty"`
 	OutgoingToken          string       `json:"outgoingToken"`
 	MinimumContractPayment *assets.Link `json:"minimumContractPayment"`
+	UseConnectionManager   bool         `json:"useConnectionManager"`
 	CreatedAt              time.Time    `json:"createdAt"`
 }
 
@@ -35,6 +36,7 @@ func NewBridgeResource(b bridges.BridgeType) *BridgeResource {
 		Confirmations:          b.Confirmations,
 		OutgoingToken:          b.OutgoingToken,
 		MinimumContractPayment: b.MinimumContractPayment,
+		UseConnectionManager:   b.UseConnectionManager,
 		CreatedAt:              b.CreatedAt,
 	}
 }

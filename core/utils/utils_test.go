@@ -381,6 +381,10 @@ func TestValidateCronSchedule(t *testing.T) {
 }
 
 func TestPausableTicker(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	var counter atomic.Int32
@@ -427,6 +431,10 @@ func TestPausableTicker(t *testing.T) {
 }
 
 func TestCronTicker(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	var counter atomic.Int32
@@ -487,7 +495,7 @@ func TestErrorBuffer(t *testing.T) {
 		assert.Equal(t, err2.Error(), errs[1].Error())
 	})
 
-	t.Run("ovewrite oldest error when cap exceeded", func(t *testing.T) {
+	t.Run("overwrite oldest error when cap exceeded", func(t *testing.T) {
 		t.Parallel()
 		buff := utils.ErrorBuffer{}
 		buff.SetCap(2)

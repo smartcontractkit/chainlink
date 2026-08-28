@@ -14,18 +14,16 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	jsonrpc "github.com/smartcontractkit/chainlink-common/pkg/jsonrpc2"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/settings/limits"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/vault/vaulttypes"
 )
 
-func testAggregator(t *testing.T, mcr *mockCapabilitiesRegistry, signedResponseRequestIDEnabled bool) *baseAggregator {
+func testAggregator(t *testing.T, mcr *mockCapabilitiesRegistry) *baseAggregator {
 	t.Helper()
 	m, err := newMetrics()
 	require.NoError(t, err)
 	return &baseAggregator{
-		capabilitiesRegistry:        mcr,
-		metrics:                     m,
-		signedResponseRequestIDGate: limits.NewGateLimiter(signedResponseRequestIDEnabled),
+		capabilitiesRegistry: mcr,
+		metrics:              m,
 	}
 }
 
@@ -42,7 +40,7 @@ func makeNodes(t *testing.T, signers []string) []capabilities.Node {
 func TestAggregator_Valid_Signatures(t *testing.T) {
 	currResp, nodes := makeSignedCreateSecretsResponse(t, "1", 2)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
-	agg := testAggregator(t, mcr, false)
+	agg := testAggregator(t, mcr)
 
 	responses := map[string]jsonrpc.Response[json.RawMessage]{
 		"a": currResp,
@@ -56,7 +54,7 @@ func TestAggregator_SignedResponseRequestIDMismatch(t *testing.T) {
 	t.Parallel()
 	currResp, nodes := makeSignedCreateSecretsResponse(t, "signed-for-other-request", 2)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
-	agg := testAggregator(t, mcr, true)
+	agg := testAggregator(t, mcr)
 
 	responses := map[string]jsonrpc.Response[json.RawMessage]{
 		"a": currResp,
@@ -72,7 +70,7 @@ func TestAggregator_PublicKeyGet_SkipsSignatureValidation(t *testing.T) {
 	currResp.Method = vaulttypes.MethodPublicKeyGet
 
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
-	agg := testAggregator(t, mcr, true)
+	agg := testAggregator(t, mcr)
 
 	responses := map[string]jsonrpc.Response[json.RawMessage]{
 		"a": currResp,
@@ -89,7 +87,7 @@ func TestAggregator_SignedResponseMissingRequestID_Accepted(t *testing.T) {
 	payload := json.RawMessage([]byte(`{"responses":[{"error":"failed to verify ciphertext: cannot unmarshal data: unexpected end of JSON input","id":{"key":"W","namespace":"","owner":"foo"},"success":false}]}`))
 	currResp, nodes := makeSignedVaultResponse(t, vaulttypes.MethodSecretsCreate, "expected-request", payload, 2)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
-	agg := testAggregator(t, mcr, true)
+	agg := testAggregator(t, mcr)
 
 	responses := map[string]jsonrpc.Response[json.RawMessage]{
 		"a": currResp,
@@ -143,7 +141,7 @@ func TestAggregator_Valid_FallsBackToQuorum(t *testing.T) {
 	}
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
-	agg := testAggregator(t, mcr, false)
+	agg := testAggregator(t, mcr)
 
 	currResp := jsonrpc.Response[json.RawMessage]{
 		Version: jsonrpc.JsonRpcVersion,
@@ -175,7 +173,7 @@ func TestAggregator_Valid_FallsBackToQuorum_ExcludesSignaturesInSha(t *testing.T
 	}
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
-	agg := testAggregator(t, mcr, false)
+	agg := testAggregator(t, mcr)
 
 	oldResp1 := newMessage(t)
 	oldResp2 := newMessage(t)
@@ -256,7 +254,7 @@ func TestValidateUsingQuorum_tiedMajoritiesPickDigestDeterministically(t *testin
 
 func TestAggregator_InsufficientResponses(t *testing.T) {
 	mcr := &mockCapabilitiesRegistry{F: 1}
-	agg := testAggregator(t, mcr, false)
+	agg := testAggregator(t, mcr)
 
 	rm := json.RawMessage([]byte(`{}`))
 	currResp := jsonrpc.Response[json.RawMessage]{
@@ -282,7 +280,7 @@ func TestAggregator_QuorumUnobtainable(t *testing.T) {
 	}
 	nodes := makeNodes(t, signers)
 	mcr := &mockCapabilitiesRegistry{F: 1, Nodes: nodes}
-	agg := testAggregator(t, mcr, false)
+	agg := testAggregator(t, mcr)
 
 	rm1 := json.RawMessage([]byte(`{}`))
 	resp1 := &jsonrpc.Response[json.RawMessage]{
@@ -341,9 +339,8 @@ func TestAggregator_MultipleRegistryDONs_SelectsByVaultHandlerDonName(t *testing
 	donMine := makeDONWithNodesForTest(t, "cre-reliability-vault", 2, 1, 0x20, 4)
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donOther, donMine}}
 	agg := &baseAggregator{
-		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:           "cre-reliability-vault",
-		signedResponseRequestIDGate: limits.NewGateLimiter(false),
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    "cre-reliability-vault",
 	}
 
 	rm := json.RawMessage([]byte(`{}`))
@@ -368,9 +365,8 @@ func TestAggregator_MultipleRegistryDONs_SelectsByIDWhenNameEmpty(t *testing.T) 
 	donMine := makeDONWithNodesForTest(t, "", 99, 1, 0x20, 4)
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donOther, donMine}}
 	agg := &baseAggregator{
-		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:           "99",
-		signedResponseRequestIDGate: limits.NewGateLimiter(false),
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    "99",
 	}
 
 	rm := json.RawMessage([]byte(`{}`))
@@ -395,9 +391,8 @@ func TestAggregator_MultipleRegistryDONs_NoMatchingVaultHandlerDonId(t *testing.
 	donB := makeDONWithNodesForTest(t, "don-b", 2, 1, 0x20, 4)
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donA, donB}}
 	agg := &baseAggregator{
-		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:           "unknown-vault",
-		signedResponseRequestIDGate: limits.NewGateLimiter(false),
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    "unknown-vault",
 	}
 
 	rm := json.RawMessage([]byte(`{}`))
@@ -417,9 +412,8 @@ func TestAggregator_MultipleRegistryDONs_AmbiguousMatchingVaultHandlerDonId(t *t
 	donB := makeDONWithNodesForTest(t, "same-name", 2, 1, 0x20, 4)
 	mcr := &mockCapabilitiesRegistry{DONs: []capabilities.DONWithNodes{donA, donB}}
 	agg := &baseAggregator{
-		capabilitiesRegistry:        mcr,
-		vaultHandlerDonID:           "same-name",
-		signedResponseRequestIDGate: limits.NewGateLimiter(false),
+		capabilitiesRegistry: mcr,
+		vaultHandlerDonID:    "same-name",
 	}
 
 	rm := json.RawMessage([]byte(`{}`))

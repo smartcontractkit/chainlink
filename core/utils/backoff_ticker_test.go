@@ -45,6 +45,10 @@ func TestBackoffTicker_StopTwice(t *testing.T) {
 }
 
 func TestBackoffTicker_NoTicksAfterStop(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	min := 100 * time.Millisecond
@@ -78,6 +82,10 @@ func TestBackoffTicker_NoTicksAfterStop(t *testing.T) {
 }
 
 func TestBackoffTicker_Ticks(t *testing.T) {
+	if testing.Short() {
+		t.Skip("too slow for testing.Short")
+	}
+
 	t.Parallel()
 
 	min := 100 * time.Millisecond

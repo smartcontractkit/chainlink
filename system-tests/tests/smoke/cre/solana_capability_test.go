@@ -319,10 +319,10 @@ func waitForFeedUpdate(t *testing.T, solclient *rpc.Client, s *setup) {
 			}
 			var r report
 			data := decimalReportAccount.Value.Data.GetBinary()
-			descriminatorLen := 8
-			expectedLen := descriminatorLen + 4 + 16
+			discriminatorLen := 8
+			expectedLen := discriminatorLen + 4 + 16
 			require.GreaterOrEqual(t, len(data), expectedLen)
-			offset := descriminatorLen
+			offset := discriminatorLen
 			r.timestamp = binary.LittleEndian.Uint32(data[offset : offset+4])
 			offset += 4
 			answerLE := data[offset : offset+16]
