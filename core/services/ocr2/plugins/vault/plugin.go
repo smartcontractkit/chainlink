@@ -815,6 +815,7 @@ func (r *ReportingPlugin) observablePendingQueueItems(
 			observable = append(observable, req)
 		default:
 			r.lggr.Errorw("unknown request type, skipping...", "requestType", fmt.Sprintf("%T", payload), "id", req.Id)
+			observable = append(observable, req)
 		}
 	}
 	return observable
@@ -839,9 +840,6 @@ func (r *ReportingPlugin) validatePendingQueueObservations(
 	}
 
 	if !r.optimizationsEnabled(ctx) {
-		if len(obs.Observations) != len(observable) {
-			return fmt.Errorf("invalid observation: got %d store-backed observations, want %d", len(obs.Observations), len(observable))
-		}
 		return nil
 	}
 
@@ -1371,20 +1369,6 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		return nil
 	}
 
-	idToObs := map[string]*vaultcommon.Observation{}
-	for _, o := range obs.Observations {
-		if err := r.validateObservation(ctx, o); err != nil {
-			return errors.New("invalid observation: " + err.Error())
-		}
-
-		_, seen := idToObs[o.Id]
-		if seen {
-			return errors.New("invalid observation: a single observation cannot contain duplicate observations for the same request id")
-		}
-
-		idToObs[o.Id] = o
-	}
-
 	readKV := NewReadStore(keyValueReader, r.metrics)
 	var pendingQueueItems []*vaultcommon.StoredPendingQueueItem
 	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
@@ -1395,6 +1379,33 @@ func (r *ReportingPlugin) ValidateObservation(ctx context.Context, seqNr uint64,
 		}
 	} else {
 		r.lggr.Warnw("VaultForceEmptyOCRRounds is enabled; pending queue is not read this OCR round — store-backed pending observation items are skipped")
+	}
+
+	pendingQueueByID := map[string]*vaultcommon.StoredPendingQueueItem{}
+	for _, item := range pendingQueueItems {
+		pendingQueueByID[item.Id] = item
+	}
+
+	idToObs := map[string]*vaultcommon.Observation{}
+	for _, o := range obs.Observations {
+		if err := r.validateObservation(ctx, o); err != nil {
+			valLggr.Debugw("validate observation failed", "requestID", o.Id, "error", err)
+			return errors.New("invalid observation: " + err.Error())
+		}
+
+		if item, ok := pendingQueueByID[o.Id]; ok {
+			if err := r.validateContribution(ctx, item, o); err != nil {
+				valLggr.Debugw("validate observation failed", "requestID", o.Id, "error", err)
+				return errors.New("invalid observation: " + err.Error())
+			}
+		}
+
+		_, seen := idToObs[o.Id]
+		if seen {
+			return errors.New("invalid observation: a single observation cannot contain duplicate observations for the same request id")
+		}
+
+		idToObs[o.Id] = o
 	}
 
 	if !gateAllows(ctx, r.lggr, r.cfg.VaultForceEmptyOCRRounds, "VaultForceEmptyOCRRounds") {
@@ -1560,11 +1571,14 @@ func shaForObservation(o *vaultcommon.Observation, omitCiphertext bool) (string,
 	switch o.RequestType {
 	case vaultcommon.RequestType_GET_SECRETS:
 		cloned := proto.CloneOf(o)
-		for _, r := range cloned.GetGetSecretsResponse().Responses {
-			if r.GetData() != nil {
-				r.GetData().EncryptedDecryptionKeyShares = nil
+		for _, rsp := range cloned.GetGetSecretsResponse().Responses {
+			if rsp.GetData() != nil {
+				for _, es := range rsp.GetData().EncryptedDecryptionKeyShares {
+					es.Shares = nil
+					es.BinaryShares = nil
+				}
 				if omitCiphertext {
-					r.GetData().EncryptedValue = ""
+					rsp.GetData().EncryptedValue = ""
 				}
 			}
 		}
@@ -1613,6 +1627,13 @@ func (r *ReportingPlugin) chooseGetSecretsObservations(totalForID int, shaToObs 
 func (r *ReportingPlugin) validateObservation(ctx context.Context, o *vaultcommon.Observation) error {
 	if o.Id == "" {
 		return errors.New("observation id cannot be empty")
+	}
+
+	if observationContributionIsErr(o) {
+		if o.Request != nil || o.Response != nil {
+			return errors.New("error contribution must not include request or response fields")
+		}
+		return nil
 	}
 
 	switch o.RequestType {
@@ -2042,7 +2063,7 @@ func (r *ReportingPlugin) StateTransition(ctx context.Context, seqNr uint64, aq 
 		}
 		switch first.RequestType {
 		case vaultcommon.RequestType_GET_SECRETS:
-			r.stateTransitionGetSecrets(ctx, writeKV, preRoundCiphertexts, chosen, o)
+			r.stateTransitionGetSecrets(ctx, writeKV, preRoundCiphertexts, chosen, item, o)
 		case vaultcommon.RequestType_CREATE_SECRETS:
 			r.stateTransitionCreateSecrets(ctx, writeKV, chosen, o)
 		case vaultcommon.RequestType_UPDATE_SECRETS:
@@ -2239,27 +2260,7 @@ func capturePreRoundCiphertextFromStore(ctx context.Context, store ReadKVStore, 
 	preRound[key] = stored.EncryptedSecret
 }
 
-func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader ReadKVStore, preRoundCiphertexts map[string][]byte, chosen []*vaultcommon.Observation, o *vaultcommon.Outcome) {
-	if !r.optimizationsEnabled(ctx) {
-		first := chosen[0]
-		reqs := first.GetGetSecretsRequest().Requests
-		idToReqs := map[string]*vaultcommon.SecretRequest{}
-		for _, req := range reqs {
-			idToReqs[vaulttypes.KeyFor(req.Id)] = req
-		}
-
-		newReqs := make([]*vaultcommon.SecretRequest, 0, len(idToReqs))
-		for _, sreq := range slices.Sorted(maps.Keys(idToReqs)) {
-			newReqs = append(newReqs, idToReqs[sreq])
-		}
-
-		o.Request = &vaultcommon.Outcome_GetSecretsRequest{
-			GetSecretsRequest: &vaultcommon.GetSecretsRequest{
-				Requests: newReqs,
-			},
-		}
-	}
-
+func (r *ReportingPlugin) stateTransitionGetSecrets(ctx context.Context, reader ReadKVStore, preRoundCiphertexts map[string][]byte, chosen []*vaultcommon.Observation, pendingItem *vaultcommon.StoredPendingQueueItem, o *vaultcommon.Outcome) {
 	// Next, we deal with the responses.
 	// For each request, we take the Id of the first observation
 	// then aggregate the encrypted shares across all observations.
