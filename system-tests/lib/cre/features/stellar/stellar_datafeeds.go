@@ -6,11 +6,10 @@ import (
 
 	"github.com/stellar/go-stellar-sdk/xdr"
 
-	"github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache"
-	"github.com/smartcontractkit/chainlink-stellar/bindings/scval"
-	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"
-	datafeeds "github.com/smartcontractkit/chainlink-stellar/deployment/data-feeds"
-
+	"github.com/smartcontractkit/chainlink-stellar/bindings/contracts/data_feeds_cache" //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
+	"github.com/smartcontractkit/chainlink-stellar/bindings/scval"                      //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
+	stellardeployment "github.com/smartcontractkit/chainlink-stellar/deployment"        //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
+	datafeeds "github.com/smartcontractkit/chainlink-stellar/deployment/data-feeds"     //nolint:gomodguard_v2 // system tests drive the deployed contracts directly; the LOOPP rule targets node code
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre"
 	stellchain "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment/blockchains/stellar"
 )
