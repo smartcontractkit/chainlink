@@ -343,11 +343,7 @@ func (h *Handler) handleSecretsGet(ctx context.Context, gatewayID string, req *j
 
 	result, err := translateVaultResponse(vaultResp, params.EnclavePublicKey)
 	if err != nil {
-		code := jsonrpc.ErrInternal
-		if IsUserError(err) {
-			code = jsonrpc.ErrInvalidParams
-		}
-		return h.errorResponse(ctx, gatewayID, req, code, err)
+		return h.errorResponse(ctx, gatewayID, req, jsonrpc.ErrInternal, err)
 	}
 
 	signedResult, err := h.signSecretsResponse(params, result)
@@ -386,7 +382,7 @@ func translateVaultResponse(vaultResp []*vault.SecretResponse, enclaveKey string
 
 	for _, sr := range vaultResp {
 		if sr.GetError() != "" {
-			return nil, newVaultSecretError(sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
+			return nil, fmt.Errorf("vault error for secret %s/%s: %s", sr.Id.GetNamespace(), sr.Id.GetKey(), sr.GetError())
 		}
 
 		data := sr.GetData()

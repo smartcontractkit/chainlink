@@ -8434,22 +8434,18 @@ func TestPlugin_ValidateObservation_ListSecretIdentifiersExceedsMaxSecretsPerOwn
 }
 
 func TestUserFacingError(t *testing.T) {
-	t.Parallel()
 	t.Run("returns error message for userError", func(t *testing.T) {
-		t.Parallel()
-		err := vaulttypes.NewUserError("key does not exist")
+		err := newUserError("key does not exist")
 		assert.Equal(t, "key does not exist", userFacingError(err, "fallback"))
 	})
 
 	t.Run("returns fallback for non-userError", func(t *testing.T) {
-		t.Parallel()
 		err := errors.New("internal failure")
 		assert.Equal(t, "fallback msg", userFacingError(err, "fallback msg"))
 	})
 
 	t.Run("returns wrapped error message for wrapped userError", func(t *testing.T) {
-		t.Parallel()
-		err := fmt.Errorf("context: %w", vaulttypes.NewUserError("bad key"))
+		err := fmt.Errorf("context: %w", newUserError("bad key"))
 		assert.Equal(t, "context: bad key", userFacingError(err, "fallback"))
 	})
 }
@@ -8457,7 +8453,7 @@ func TestUserFacingError(t *testing.T) {
 func TestLogUserErrorAware(t *testing.T) {
 	t.Run("logs at debug level for userError", func(t *testing.T) {
 		lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-		err := vaulttypes.NewUserError("key does not exist")
+		err := newUserError("key does not exist")
 
 		logUserErrorAware(lggr, "failed to observe request", err, "id", "req-1")
 
@@ -8493,7 +8489,7 @@ func TestLogUserErrorAware(t *testing.T) {
 
 	t.Run("logs at debug level for wrapped userError", func(t *testing.T) {
 		lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-		err := fmt.Errorf("validation: %w", vaulttypes.NewUserError("bad input"))
+		err := fmt.Errorf("validation: %w", newUserError("bad input"))
 
 		logUserErrorAware(lggr, "request failed", err, "op", "create")
 
