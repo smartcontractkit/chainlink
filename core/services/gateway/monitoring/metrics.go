@@ -84,8 +84,8 @@ func (m *GatewayMetrics) RecordKeepalivePongsReceived(ctx context.Context, nodeA
 	))
 }
 
-func (m *GatewayMetrics) RecordDONConnectionState(ctx context.Context, donID string, connected, required, configured int) {
-	attrs := metric.WithAttributes(attribute.String("donID", donID))
+func (m *GatewayMetrics) RecordDONConnectionState(ctx context.Context, donShardID string, connected, required, configured int) {
+	attrs := metric.WithAttributes(attribute.String("donShardID", donShardID))
 	m.donConnectedNodes.Record(ctx, int64(connected), attrs)
 	m.donRequiredNodes.Record(ctx, int64(required), attrs)
 	m.donConfiguredNodes.Record(ctx, int64(configured), attrs)
