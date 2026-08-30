@@ -23,6 +23,10 @@ import (
 
 var _ capabilities.ExecutableCapability = (*Capability)(nil)
 
+type WorkflowOwnerResolver interface {
+	ResolveOwner(ctx context.Context, donID uint32, workflowID string) (string, error)
+}
+
 type Capability struct {
 	lggr                 logger.Logger
 	clock                clockwork.Clock
@@ -32,6 +36,7 @@ type Capability struct {
 	publicKey            *LazyPublicKey
 	lifecycle            *RequestLifecycleTracker
 	zoneBRestrictor      *zoneBRestrictor
+	ownerResolver        WorkflowOwnerResolver
 	*RequestValidator
 }
 
@@ -130,6 +135,20 @@ func (s *Capability) Execute(ctx context.Context, request capabilities.Capabilit
 		if req.Id != nil && vaultutils.NormalizeOwner(req.Id.Owner) != vaultutils.NormalizeOwner(request.Metadata.WorkflowOwner) {
 			s.lggr.Errorw("get secrets request owner mismatch", "index", idx, "secretOwner", req.Id.Owner, "workflowOwner", request.Metadata.WorkflowOwner)
 			return capabilities.CapabilityResponse{}, fmt.Errorf("secret identifier owner %q does not match workflow owner %q at index %d", req.Id.Owner, request.Metadata.WorkflowOwner, idx)
+		}
+	}
+
+	if s.ownerResolver != nil {
+		resolvedOwner, err := s.ownerResolver.ResolveOwner(ctx, request.Metadata.WorkflowDonID, request.Metadata.WorkflowID)
+		if err != nil {
+			s.lggr.Errorw("could not resolve workflow owner for vault get secrets",
+				"workflowDonID", request.Metadata.WorkflowDonID, "workflowID", request.Metadata.WorkflowID, "err", err)
+			return capabilities.CapabilityResponse{}, fmt.Errorf("could not resolve workflow owner: %w", err)
+		}
+		if vaultutils.NormalizeOwner(resolvedOwner) != vaultutils.NormalizeOwner(request.Metadata.WorkflowOwner) {
+			s.lggr.Errorw("resolved workflow owner does not match claimed workflow owner",
+				"resolvedOwner", resolvedOwner, "claimedWorkflowOwner", request.Metadata.WorkflowOwner)
+			return capabilities.CapabilityResponse{}, fmt.Errorf("resolved workflow owner %q does not match claimed workflow owner %q", resolvedOwner, request.Metadata.WorkflowOwner)
 		}
 	}
 
@@ -340,4 +359,8 @@ func NewCapability(
 		zoneBRestrictor:      zoneBRestrictor,
 		RequestValidator:     requestValidator,
 	}, nil
+}
+
+func (s *Capability) SetOwnerResolver(resolver WorkflowOwnerResolver) {
+	s.ownerResolver = resolver
 }
