@@ -243,6 +243,7 @@ func Test_CCIPRollingUpgrade(t *testing.T) {
 					MsgData:                []byte(fmt.Sprintf("message after upgrading node %d", i)),
 					ExtraArgs:              nil,
 					ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+					Replayed:               true, // skip replay after upgrade since the node restarts and the log poller starts fresh
 				},
 			)
 		})
@@ -260,6 +261,7 @@ func Test_CCIPRollingUpgrade(t *testing.T) {
 				MsgData:                []byte("final message after rolling upgrade"),
 				ExtraArgs:              nil,
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				Replayed:               true, // skip replay after upgrades since the nodes restart and the log poller starts fresh
 			},
 		)
 	})
