@@ -267,7 +267,6 @@ func (d *delegate) newOracleV31(i int, configTracker ocr2types.ContractConfigTra
 			OutcomeTelemetryCh:               d.telem.GetOutcomeTelemetryCh(),
 			ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
 			DonID:                            d.cfg.DonID,
-			BlobThreshold:                    0, // 0 => llov31.DefaultBlobThreshold
 		}),
 		lggr,
 		"",

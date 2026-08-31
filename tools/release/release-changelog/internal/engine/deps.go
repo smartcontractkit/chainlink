@@ -1,4 +1,4 @@
-package changelog
+package engine
 
 import (
 	"context"
@@ -19,7 +19,10 @@ type PluginPin struct {
 // one git ref.
 type DepSnapshot struct {
 	Ref string
-	SHA string
+	// ResolvedRef is the git ref actually used for resolution when it differs
+	// from Ref (e.g. a CCIP image tag normalized to its source git tag).
+	ResolvedRef string
+	SHA         string
 	// Modules maps go.mod module path -> version string (tracked modules only).
 	Modules map[string]string
 	// Plugins maps plugins.public.yaml key -> plugin pin (tracked plugins only).
@@ -46,15 +49,15 @@ func VersionSHA(version string) string {
 	return ""
 }
 
-// ParseGoMod parses a root go.mod and extracts the versions of all tracked
-// modules (per TrackedRepos configuration).
-func ParseGoMod(data []byte) (map[string]string, error) {
+// ParseGoMod parses a root go.mod and extracts the versions of all modules
+// tracked by the given repos.
+func ParseGoMod(data []byte, repos []RepoConfig) (map[string]string, error) {
 	f, err := modfile.Parse("go.mod", data, nil)
 	if err != nil {
 		return nil, fmt.Errorf("parsing go.mod: %w", err)
 	}
 	tracked := map[string]bool{}
-	for _, repo := range TrackedRepos {
+	for _, repo := range repos {
 		for _, m := range repo.GoModules {
 			tracked[m] = true
 		}
@@ -77,14 +80,14 @@ type pluginsFile struct {
 }
 
 // ParsePluginsYAML parses plugins.public.yaml and extracts the pins of all
-// tracked plugin keys.
-func ParsePluginsYAML(data []byte) (map[string]PluginPin, error) {
+// plugin keys tracked by the given repos.
+func ParsePluginsYAML(data []byte, repos []RepoConfig) (map[string]PluginPin, error) {
 	var pf pluginsFile
 	if err := yaml.Unmarshal(data, &pf); err != nil {
 		return nil, fmt.Errorf("parsing plugins.public.yaml: %w", err)
 	}
 	tracked := map[string]bool{}
-	for _, repo := range TrackedRepos {
+	for _, repo := range repos {
 		for _, k := range repo.PluginKeys {
 			tracked[k] = true
 		}
@@ -100,9 +103,11 @@ func ParsePluginsYAML(data []byte) (map[string]PluginPin, error) {
 }
 
 // LoadSnapshot resolves ref and loads the dependency snapshot at that ref
-// from the local core-repo checkout.
-func LoadSnapshot(ctx context.Context, g gitRunner, ref string) (DepSnapshot, error) {
-	sha, err := g.ResolveRef(ctx, ref)
+// from the local core-repo checkout. Product-specific ref shapes (e.g. CCIP
+// image tags) are normalized to git refs first via the product's normalizer.
+func LoadSnapshot(ctx context.Context, g gitRunner, product Product, ref string) (DepSnapshot, error) {
+	normalized := product.normalize(ref)
+	sha, err := g.ResolveRef(ctx, normalized)
 	if err != nil {
 		return DepSnapshot{}, err
 	}
@@ -116,18 +121,19 @@ func LoadSnapshot(ctx context.Context, g gitRunner, ref string) (DepSnapshot, er
 	if err != nil {
 		return DepSnapshot{}, err
 	}
-	modules, err := ParseGoMod(goMod)
+	modules, err := ParseGoMod(goMod, product.Repos)
 	if err != nil {
 		return DepSnapshot{}, err
 	}
-	pluginRefs, err := ParsePluginsYAML(plugins)
+	pluginRefs, err := ParsePluginsYAML(plugins, product.Repos)
 	if err != nil {
 		return DepSnapshot{}, err
 	}
-	return DepSnapshot{
-		Ref: ref, SHA: sha,
-		Modules: modules, Plugins: pluginRefs,
-	}, nil
+	snap := DepSnapshot{Ref: ref, SHA: sha, Modules: modules, Plugins: pluginRefs}
+	if normalized != ref {
+		snap.ResolvedRef = normalized
+	}
+	return snap, nil
 }
 
 // repoPin holds the resolved pins of one tracked repo at one ref.

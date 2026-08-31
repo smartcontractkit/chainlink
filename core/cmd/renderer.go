@@ -83,7 +83,7 @@ func (rt RendererTable) renderLogPkgConfig(serviceLevelLog webpresenters.Service
 }
 
 func (rt RendererTable) renderVRFKeys(keys []VRFKeyPresenter) error {
-	var rows [][]string
+	rows := make([][]string, 0, len(keys))
 
 	for _, key := range keys {
 		rows = append(rows, []string{
@@ -115,10 +115,10 @@ func renderList(fields []string, items [][]string, writer io.Writer) {
 			maxLabelLength = len(field)
 		}
 	}
-	var itemsRendered []string
+	itemsRendered := make([]string, 0, len(items))
 	var maxLineLength int
 	for _, row := range items {
-		var lines []string
+		lines := make([]string, 0, len(fields))
 		for i, field := range fields {
 			diff := maxLabelLength - len(field)
 			spaces := strings.Repeat(" ", diff)

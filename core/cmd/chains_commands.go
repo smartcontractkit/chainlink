@@ -66,14 +66,14 @@ type ChainPresenter struct {
 }
 
 // ToRow presents the ChainResource as a slice of strings.
-func (p *ChainPresenter) ToRow() []string {
+func (p ChainPresenter) ToRow() []string {
 	return []string{p.GetID(), strconv.FormatBool(p.Enabled), p.Config}
 }
 
 // RenderTable implements TableRenderer
 // Just renders a single row
 func (p ChainPresenter) RenderTable(rt RendererTable) error {
-	rows := [][]string{}
+	rows := make([][]string, 0, 1)
 	rows = append(rows, p.ToRow())
 
 	renderList(chainHeaders, rows, rt.Writer)
@@ -86,7 +86,7 @@ type ChainPresenters []ChainPresenter
 
 // RenderTable implements TableRenderer
 func (ps ChainPresenters) RenderTable(rt RendererTable) error {
-	rows := [][]string{}
+	rows := make([][]string, 0, len(ps))
 
 	for _, p := range ps {
 		rows = append(rows, p.ToRow())

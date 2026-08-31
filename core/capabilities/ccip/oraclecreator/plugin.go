@@ -292,7 +292,8 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 				Named(destRelayID.String()).
 				Named(offrampAddrStr),
 			false,
-			func(ctx context.Context, msg string) {}),
+			func(ctx context.Context, msg string) {},
+		),
 		MetricsRegisterer: wrappedRegisterer,
 		MonitoringEndpoint: i.monitoringEndpointGen.GenMonitoringEndpoint(
 			destChainFamily,
@@ -346,7 +347,8 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
 	pluginConfig := pluginServices.PluginConfig
-	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
+	switch config.Config.PluginType {
+	case uint8(cctypes.PluginTypeCCIPCommit):
 		factory = commitocr3.NewCommitPluginFactory(
 			commitocr3.CommitPluginFactoryParams{
 				Lggr: i.lggr.
@@ -365,7 +367,8 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				LOOPPCCIPProviderSupported: pluginServices.CCIPProviderSupported,
 				ExtendedReaders:            extendedReaders,
 				ContractWriters:            chainWriters,
-			})
+			},
+		)
 		factory = promwrapper.NewReportingPluginFactory(
 			factory,
 			i.lggr,
@@ -421,7 +424,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				transmitAccount,
 			)
 		}
-	} else if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec) {
+	case uint8(cctypes.PluginTypeCCIPExec):
 		factory = execocr3.NewExecutePluginFactory(
 			execocr3.PluginFactoryParams{
 				Lggr: i.lggr.
@@ -441,7 +444,8 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ChainAccessors:             chainAccessors,
 				ExtendedReaders:            extendedReaders,
 				ContractWriters:            chainWriters,
-			})
+			},
+		)
 		factory = promwrapper.NewReportingPluginFactory(
 			factory,
 			i.lggr,
@@ -492,7 +496,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				transmitAccount,
 			)
 		}
-	} else {
+	default:
 		return nil, nil, fmt.Errorf("unsupported Plugin type %d", config.Config.PluginType)
 	}
 	return factory, transmitter, nil
@@ -621,7 +625,7 @@ func (i *pluginOracleCreator) populateCodecRegistriesWithProviderCodecs(
 }
 
 func (i *pluginOracleCreator) getTransmitterFromPublicConfig(publicConfig ocr3confighelper.PublicConfig) (ocrtypes.Account, error) {
-	var myIndex = -1
+	myIndex := -1
 	for idx, identity := range publicConfig.OracleIdentities {
 		if identity.PeerID == strings.TrimPrefix(i.p2pID.PeerID().String(), "p2p_") {
 			myIndex = idx

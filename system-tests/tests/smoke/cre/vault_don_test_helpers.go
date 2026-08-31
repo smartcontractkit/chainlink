@@ -58,10 +58,7 @@ import (
 
 const (
 	vaultDefaultConfigPath                   = "/configs/workflow-gateway-capabilities-don.toml"
-	vaultJWTAuthEnabledConfigPath            = "/configs/workflow-gateway-capabilities-don-vault-jwt_auth-enabled.toml"
-	vaultOptimizationsEnabledConfigPath      = "/configs/workflow-gateway-capabilities-don-vault-optimizations-enabled.toml"
 	vaultWorkflowDONBindingEnabledConfigPath = "/configs/workflow-gateway-capabilities-don-vault-workflow-don-binding-enabled.toml"
-	vaultIncludeInvalidEnabledConfigPath     = "/configs/workflow-gateway-capabilities-don-vault-include-invalid-enabled.toml"
 	vaultStallPurgeConfigPath                = "/configs/workflow-gateway-capabilities-don-vault-stall-purge.toml"
 	vaultJWTIssuerListenAddr                 = "0.0.0.0:18123"
 	// vaultJWTTestTenantID is the tenant_id / urn:chainlink:tenant_id claim for Vault JWT tests and
@@ -289,28 +286,10 @@ type vaultRequestAuth struct {
 	authorize    func(t *testing.T, req *jsonrpc.Request[json.RawMessage])
 }
 
-func getVaultJWTAuthEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
-	t.Helper()
-
-	return t_helpers.GetTestConfig(t, vaultJWTAuthEnabledConfigPath)
-}
-
 func getVaultDefaultTestConfig(t *testing.T) *ttypes.TestConfig {
 	t.Helper()
 
 	return t_helpers.GetTestConfig(t, vaultDefaultConfigPath)
-}
-
-func getVaultOptimizationsEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
-	t.Helper()
-
-	return t_helpers.GetTestConfig(t, vaultOptimizationsEnabledConfigPath)
-}
-
-func getVaultIncludeInvalidEnabledTestConfig(t *testing.T) *ttypes.TestConfig {
-	t.Helper()
-
-	return t_helpers.GetTestConfig(t, vaultIncludeInvalidEnabledConfigPath)
 }
 
 func getVaultStallPurgeTestConfig(t *testing.T) *ttypes.TestConfig {
@@ -323,18 +302,6 @@ func getVaultWorkflowDONBindingEnabledTestConfig(t *testing.T) *ttypes.TestConfi
 	t.Helper()
 
 	return t_helpers.GetTestConfig(t, vaultWorkflowDONBindingEnabledConfigPath)
-}
-
-func isVaultJWTAuthEnabledTopology(topologyName string) bool {
-	return strings.Contains(topologyName, "vault-jwt_auth-enabled")
-}
-
-func isVaultOptimizationsEnabledTopology(topologyName string) bool {
-	return strings.Contains(topologyName, "vault-optimizations-enabled")
-}
-
-func isVaultIncludeInvalidEnabledTopology(topologyName string) bool {
-	return strings.Contains(topologyName, "vault-include-invalid-enabled")
 }
 
 func isVaultStallPurgeTopology(topologyName string) bool {
@@ -561,10 +528,7 @@ func requireSignedPayloadRequestID(t *testing.T, method, userRequestID, authoriz
 
 	signedRequestID, err := vaultutils.SignedPayloadRequestID(method, payload)
 	require.NoError(t, err)
-	if signedRequestID == "" {
-		// VaultSignedResponseRequestIDEnabled is off on vault nodes; skip until the gate is enabled in the test stack.
-		return
-	}
+	require.NotEmpty(t, signedRequestID, "signed payload requestId should not be empty")
 
 	expectedSuffix := vaulttypes.RequestIDSeparator + userRequestID
 	require.True(t, strings.HasSuffix(signedRequestID, expectedSuffix),
@@ -1425,7 +1389,7 @@ func executeVaultSecretsDeleteTest(t *testing.T, secretID, requestOwner, expecte
 }
 
 // executeVaultBinaryEncodedSharesSmokeTest verifies a workflow can fetch a secret when the vault
-// DON emits binary-encoded decryption shares (VaultOptimizationsEnabled). GetSecrets is not
+// DON emits binary-encoded decryption shares. GetSecrets is not
 // exposed on the vault gateway; binary encoding is confirmed via vault node logs after the
 // workflow triggers a capability get.
 func executeVaultBinaryEncodedSharesSmokeTest(

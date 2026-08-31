@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -26,11 +27,15 @@ const (
 )
 
 func startNewWSServer(t *testing.T, readTimeoutMillis uint32) (server network.WebSocketServer, acceptor *mocks.ConnectionAcceptor, url string) {
+	return startNewWSServerWithPath(t, readTimeoutMillis, WSTestPath)
+}
+
+func startNewWSServerWithPath(t *testing.T, readTimeoutMillis uint32, path string) (server network.WebSocketServer, acceptor *mocks.ConnectionAcceptor, url string) {
 	config := &network.WebSocketServerConfig{
 		HTTPServerConfig: network.HTTPServerConfig{
 			Host:                 WSTestHost,
 			Port:                 0,
-			Path:                 "/ws_test_path",
+			Path:                 path,
 			TLSEnabled:           false,
 			ContentTypeHeader:    "application/jsonrpc",
 			ReadTimeoutMillis:    readTimeoutMillis,
@@ -48,7 +53,7 @@ func startNewWSServer(t *testing.T, readTimeoutMillis uint32) (server network.We
 	servicetest.Run(t, server)
 
 	port := server.GetPort()
-	url = fmt.Sprintf("http://%s:%d%s", WSTestHost, port, WSTestPath)
+	url = fmt.Sprintf("http://%s:%d%s", WSTestHost, port, path)
 	return server, acceptor, url
 }
 
@@ -91,9 +96,41 @@ func TestWSServer_HandleRequest_AuthHeaderInvalid(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 }
 
+func TestWSServer_RejectsHealthCheckRequestPath(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	config := &network.WebSocketServerConfig{HTTPServerConfig: network.HTTPServerConfig{Path: network.HealthCheckPath}}
+	_, err := network.NewWebSocketServer(config, mocks.NewConnectionAcceptor(t), lggr, limits.Factory{Logger: lggr})
+	require.EqualError(t, err, `WebSocket request path "/health" conflicts with health check path`)
+}
+
+func TestWSServer_HealthEndpointBypassesAuthentication(t *testing.T) {
+	t.Parallel()
+
+	_, _, baseURL := startNewWSServerWithPath(t, 100_000, "/")
+	baseURL = strings.TrimSuffix(baseURL, "/")
+	resp := sendRequestWithHeader(t, baseURL+network.HealthCheckPath, "unused", "unused")
+	body, readErr := io.ReadAll(resp.Body)
+	require.NoError(t, resp.Body.Close())
+	require.NoError(t, readErr)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, []byte(network.HealthCheckResponse), body)
+}
+
+func TestWSServer_UnauthenticatedConnectorPathStillRejected(t *testing.T) {
+	t.Parallel()
+
+	_, acceptor, urlStr := startNewWSServerWithPath(t, 100_000, "/")
+	acceptor.On("StartHandshake", mock.Anything).Return("", []byte{}, errors.New("invalid auth header")).Once()
+	resp := sendRequestWithHeader(t, urlStr, "unused", "unused")
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+}
+
 func TestWSServer_WSClient_DefaultConfig_Success(t *testing.T) {
 	t.Parallel()
-	_, acceptor, urlStr := startNewWSServer(t, 10_000)
+	_, acceptor, urlStr := startNewWSServerWithPath(t, 10_000, "/")
 
 	waitCh := make(chan struct{})
 	acceptor.On("StartHandshake", mock.Anything).Return("", []byte("challenge"), nil)

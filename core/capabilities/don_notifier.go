@@ -72,11 +72,11 @@ func (n *donNotifier) Subscribe(ctx context.Context) (<-chan capabilities.DON, f
 		n.subscribers.Delete(s)
 	}
 
-	n.subscribers.Store(s, struct{}{})
-
 	if n.don.Load() != nil {
 		s <- *n.don.Load()
 	}
+
+	n.subscribers.Store(s, struct{}{})
 
 	return s, unsubscribe, nil
 }

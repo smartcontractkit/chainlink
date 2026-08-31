@@ -107,8 +107,9 @@ func (prc *PipelineRunsController) Create(c *gin.Context) {
 	}
 
 	_, isUser := auth.GetAuthenticatedUser(c)
+	_, isEI := auth.GetAuthenticatedExternalInitiator(c)
 	// only users are allowed to run jobs using int IDs - EIs not allowed
-	if isUser {
+	if isUser && !isEI {
 		// Is it an int32? Then process it regardless of type
 		var jobID int32
 		jobID64, err := strconv.ParseInt(idStr, 10, 32)

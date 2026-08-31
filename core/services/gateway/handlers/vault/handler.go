@@ -147,10 +147,9 @@ type handler struct {
 	nodeRateLimiter *ratelimit.RateLimiter
 	requestTimeout  time.Duration
 
-	writeMethodsEnabled            limits.GateLimiter
-	signedResponseRequestIDEnabled limits.GateLimiter
-	activeRequests                 map[string]*activeRequest
-	metrics                        *metrics
+	writeMethodsEnabled limits.GateLimiter
+	activeRequests      map[string]*activeRequest
+	metrics             *metrics
 
 	aggregator aggregator
 
@@ -244,32 +243,25 @@ func newHandlerWithAuthorizer(methodConfig json.RawMessage, donConfig *config.DO
 		return nil, fmt.Errorf("failed to create gateway vault request processor: %w", err)
 	}
 
-	signedResponseRequestIDEnabled, err := limits.MakeGateLimiter(limitsFactory, cresettings.Default.VaultSignedResponseRequestIDEnabled)
-	if err != nil {
-		return nil, fmt.Errorf("could not create VaultSignedResponseRequestIDEnabled limiter: %w", err)
-	}
-
 	return &handler{
-		methodConfig:                   cfg,
-		donConfig:                      donConfig,
-		don:                            don,
-		lggr:                           logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
-		requestTimeout:                 time.Duration(cfg.RequestTimeoutSec) * time.Second,
-		nodeRateLimiter:                nodeRateLimiter,
-		writeMethodsEnabled:            writeMethodsEnabled,
-		signedResponseRequestIDEnabled: signedResponseRequestIDEnabled,
-		activeRequests:                 make(map[string]*activeRequest),
-		mu:                             sync.RWMutex{},
-		authorizer:                     authorizer,
-		jwtAuth:                        jwtAuth,
-		stopCh:                         make(services.StopChan),
-		metrics:                        metrics,
+		methodConfig:        cfg,
+		donConfig:           donConfig,
+		don:                 don,
+		lggr:                logger.Named(lggr, "VaultHandler:"+donConfig.DonId),
+		requestTimeout:      time.Duration(cfg.RequestTimeoutSec) * time.Second,
+		nodeRateLimiter:     nodeRateLimiter,
+		writeMethodsEnabled: writeMethodsEnabled,
+		activeRequests:      make(map[string]*activeRequest),
+		mu:                  sync.RWMutex{},
+		authorizer:          authorizer,
+		jwtAuth:             jwtAuth,
+		stopCh:              make(services.StopChan),
+		metrics:             metrics,
 		aggregator: &baseAggregator{
-			capabilitiesRegistry:        capabilitiesRegistry,
-			metrics:                     metrics,
-			donID:                       donConfig.DonId,
-			vaultHandlerDonID:           donConfig.DonId,
-			signedResponseRequestIDGate: signedResponseRequestIDEnabled,
+			capabilitiesRegistry: capabilitiesRegistry,
+			metrics:              metrics,
+			donID:                donConfig.DonId,
+			vaultHandlerDonID:    donConfig.DonId,
 		},
 		clock:            clock,
 		requestProcessor: requestProcessor,
@@ -319,7 +311,6 @@ func (h *handler) Close() error {
 			jwtAuthErr,
 			h.writeMethodsEnabled.Close(),
 			h.requestProcessor.Close(),
-			h.signedResponseRequestIDEnabled.Close(),
 		)
 	})
 }
