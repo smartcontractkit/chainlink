@@ -59,7 +59,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	metmocks "github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
-	triggertype "github.com/smartcontractkit/chainlink/v2/core/services/workflows/trigger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/services/workflows/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
@@ -2431,8 +2430,8 @@ func TestEngine_ExecuteTrigger(t *testing.T) {
 		Workflow: baseCfg.WorkflowID,
 	})
 
-	makeEvent := func(eventID string) triggertype.RoutedTriggerEvent {
-		return triggertype.RoutedTriggerEvent{
+	makeEvent := func(eventID string) v2.RoutedTriggerEvent {
+		return v2.RoutedTriggerEvent{
 			WorkflowID:   baseCfg.WorkflowID,
 			TriggerCapID: "id_0",
 			TriggerIndex: 0,

@@ -1,4 +1,4 @@
-package trigger
+package v2
 
 import (
 	"context"

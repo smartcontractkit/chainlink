@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/metering"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/trigger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 )
 
@@ -79,7 +78,7 @@ type EngineConfig struct {
 	ShardRoutingSteady      *shardownership.SteadySignal
 	ShardResolver           shardownership.ShardResolver
 
-	TriggerAcknowledger trigger.Acknowledger
+	TriggerAcknowledger Acknowledger
 }
 
 type EngineLimiters struct {

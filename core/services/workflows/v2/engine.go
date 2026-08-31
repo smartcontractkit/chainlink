@@ -44,7 +44,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/monitoring"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/shardownership"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/trigger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/safe"
 )
@@ -68,8 +67,8 @@ var (
 const pinnedWorkflowDonConfigVersion = 1
 
 // TODO: remove acknowledger check after CRE-6002 is implemented.
-var _ trigger.Acknowledger = (*Engine)(nil)
-var _ trigger.EventSink = (*Engine)(nil)
+var _ Acknowledger = (*Engine)(nil)
+var _ EventSink = (*Engine)(nil)
 
 type Engine struct {
 	services.Service
@@ -302,7 +301,7 @@ type resolvedOrg struct {
 }
 
 // ExecuteTrigger is the engine's single execution entry point. It performs no admission control, the caller is responsible for those.
-func (e *Engine) ExecuteTrigger(ctx context.Context, event trigger.RoutedTriggerEvent) error {
+func (e *Engine) ExecuteTrigger(ctx context.Context, event RoutedTriggerEvent) error {
 	e.activeExecutions.Add(1)
 	defer e.activeExecutions.Add(-1)
 
@@ -384,7 +383,7 @@ func (e *Engine) Draining() bool {
 
 // Put enqueues a trigger event into the engine's internal queue. It is a transitional method that wraps the existing queue.
 // It exists only until the dispatcher owns admission (CRE-6179). At that point the engine's queue is removed and the dispatcher calls HandleTriggerEvent directly.
-func (e *Engine) Put(ctx context.Context, event trigger.RoutedTriggerEvent) error { // transitional
+func (e *Engine) Put(ctx context.Context, event RoutedTriggerEvent) error { // transitional
 	triggerID := event.TriggerCapID
 	eventID := event.Event.Event.ID
 	idx := event.TriggerIndex
@@ -772,7 +771,7 @@ func (e *Engine) runTriggerSubscriptionPhase(ctx context.Context, subscriptions 
 						continue
 					}
 
-					routed := trigger.RoutedTriggerEvent{
+					routed := RoutedTriggerEvent{
 						WorkflowID:   e.cfg.WorkflowID,
 						TriggerCapID: triggerID,
 						TriggerIndex: idx,
@@ -833,7 +832,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 
 		e.srvcEng.GoCtx(context.WithoutCancel(ctx), func(ctx context.Context) {
 			defer free()
-			routed := trigger.RoutedTriggerEvent{
+			routed := RoutedTriggerEvent{
 				WorkflowID:   e.cfg.WorkflowID,
 				TriggerCapID: queueHead.triggerCapID,
 				TriggerIndex: queueHead.triggerIndex,
@@ -850,7 +849,7 @@ func (e *Engine) handleAllTriggerEvents(ctx context.Context) {
 }
 
 // startExecution initiates a new workflow execution, blocking until completed
-func (e *Engine) startExecution(ctx context.Context, event trigger.RoutedTriggerEvent) error {
+func (e *Engine) startExecution(ctx context.Context, event RoutedTriggerEvent) error {
 	triggerDrop := func(reason string) {
 		e.metrics.With(platform.KeyTriggerID, event.TriggerCapID).IncrementTriggerEventDroppedTotal(ctx, reason)
 	}
