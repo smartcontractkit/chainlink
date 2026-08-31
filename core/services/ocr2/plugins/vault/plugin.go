@@ -1803,8 +1803,7 @@ func (r *ReportingPlugin) stateTransitionPendingQueue(ctx context.Context, seqNr
 
 			blob, err := blobFetcher.FetchBlob(ctx, bh)
 			if err != nil {
-				r.lggr.Errorw("failed to fetch blob for pending queue item", "error", err, "item", pqi)
-				continue
+				return fmt.Errorf("failed to fetch blob for pending queue item: %w", err)
 			}
 
 			items, err := unmarshalPendingQueueBlob(blob)
