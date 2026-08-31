@@ -1,0 +1,259 @@
+# Mixed-env topology for the confidential workflows engine E2E test (template).
+#
+# This is the confidential-workflows topology
+# (configs/workflow-gateway-capabilities-don-confidential-workflows.toml), except
+# every multi-node DON runs 2 nodes on the PR image and 2 nodes on the develop
+# image, so any behavioral divergence between the two code versions surfaces as a
+# consensus/DON2DON log warning (see docs/mixed-env.md). The confidential relay
+# handler's DON2DON GetSecrets request is the consensus-sensitive path this
+# topology exists to gate.
+#
+# Do NOT edit the two image refs by hand — render this template into
+# configs/mixed-env-confidential-workflows.toml with:
+#
+#   CRE_PR_IMAGE=<pr image>  CRE_BASELINE_IMAGE=<develop image> \
+#     ./configs/render-mixed-env.sh
+#
+# Add --local to render with pull_image = false (uses local daemon images
+# instead of pulling from a registry). CRE_PULL_IMAGE is substituted with
+# "true" by default, or "false" when --local is passed.
+#
+# The rendered configs/mixed-env-confidential-workflows.toml is gitignored.
+#
+# IMPORTANT: do not set CTF_CHAINLINK_IMAGE when using this topology — a non-empty
+# value forces every node onto a single image and defeats the mix.
+#
+# The confidential-workflows capability binary ships in the node image via
+# plugins/plugins.public.yaml. The enclave side is driven from a
+# chainlink-confidential-compute checkout (CONFIDENTIAL_COMPUTE_ROOT) by the test,
+# which starts fake enclaves on ports 8080-8083 — pass those to `env start -e`.
+
+# Fake enclaves emit a sentinel attestation document rather than real PCRs, so
+# attestation validation is relaxed. INSECURE; for tests only.
+[capability_configs.confidential-relay]
+  [capability_configs.confidential-relay.values]
+    trustEnclaves = true
+    requireBFTQuorum = true
+
+# The "enclaves" value is a JSON array of enclaves the capability routes to.
+# Whoever starts the enclaves supplies it, since their addresses are only known
+# once they are running; absent it, the capability registers an empty list.
+[capability_configs.confidential-workflows]
+  binary_name = "confidential-workflows"
+  [capability_configs.confidential-workflows.values]
+    version = "1.0.0-alpha"
+
+[chip_router]
+  image = "local-cre-chip-router:v1.0.1"
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "1337"
+  container_name = "anvil-1337"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[[blockchains]]
+  type = "anvil"
+  chain_id = "2337"
+  container_name = "anvil-2337"
+  port = "8546"
+  docker_cmd_params = ["-b", "0.5", "--mixed-mining"]
+
+[jd]
+  csa_encryption_key = "d1093c0060d50a3c89c189b2e485da5a3ce57f3dcb38ab7e2c0d5f0bb2314a44" # any random 32 byte string
+  image = "job-distributor:0.28.0"
+
+[fake]
+  port = 8171
+
+[fake_http]
+  port = 8666
+
+[infra]
+  # either "docker" or "kubernetes"
+  type = "docker"
+
+[[nodesets]]
+  nodes = 4
+  name = "workflow"
+  don_family = "test-don-family"
+  don_types = ["workflow"]
+  # "each" lets us assign a different image per node (2 PR + 2 develop).
+  override_mode = "each"
+  http_port_range_start = 10100
+
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"VaultOrgIdAsSecretOwnerEnabled":false}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true","PerWorkflow":{"ConfidentialWorkflows":{"Enabled":"true"}}}' }
+  capabilities = ["consensus", "confidential-workflows", "confidential-relay", "cron", "http-action", "http-trigger", "don-time", "evm-1337"]
+  exposes_remote_capabilities = true
+  registry_based_launch_allowlist = ["cron-trigger@1.0.0"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+
+  [[nodesets.node_specs]] # node 0 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = ${CRE_PULL_IMAGE}
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      # The test copies the workflow binary and config into the containers, so the
+      # syncer reads them from disk rather than fetching them remotely.
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+  [[nodesets.node_specs]] # node 1 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = ${CRE_PULL_IMAGE}
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+  [[nodesets.node_specs]] # node 2 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = ${CRE_PULL_IMAGE}
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+  [[nodesets.node_specs]] # node 3 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = ${CRE_PULL_IMAGE}
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+
+      [CRE.WorkflowFetcher]
+      URL = "file:///home/chainlink/workflows"
+      """
+
+[[nodesets]]
+  nodes = 4
+  name = "capabilities"
+  don_family = "test-don-family"
+  don_types = ["capabilities"]
+  exposes_remote_capabilities = true
+  override_mode = "each"
+  http_port_range_start = 10200
+
+  # we need to have chain 1337 configured (even if no capability uses it), because we use node addresses on chain 1337
+  # to identify nodes in the gateway configuration (required by vault and gateway-based HTTP capabilities)
+  supported_evm_chains = [1337, 2337]
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"VaultOrgIdAsSecretOwnerEnabled":false}}', CL_CRE_SETTINGS_DEFAULT = '{"RemoteExecutableWorkflowDONBindingEnabled":"true"}' }
+  capabilities = ["vault", "evm-2337"]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+
+  [[nodesets.node_specs]] # node 0 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = ${CRE_PULL_IMAGE}
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+      """
+
+  [[nodesets.node_specs]] # node 1 - PR
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_PR_IMAGE}"
+      pull_image = ${CRE_PULL_IMAGE}
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+      """
+
+  [[nodesets.node_specs]] # node 2 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = ${CRE_PULL_IMAGE}
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+      """
+
+  [[nodesets.node_specs]] # node 3 - develop
+    roles = ["plugin"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = ${CRE_PULL_IMAGE}
+      user_config_overrides = """
+      [P2P]
+      EnableExperimentalRageP2P = true
+
+      [CRE]
+      EnableDKGRecipient = true
+      """
+
+[[nodesets]]
+  nodes = 1
+  name = "bootstrap-gateway"
+  don_family = "test-don-family"
+  don_types = ["bootstrap", "gateway"]
+  override_mode = "each"
+  http_port_range_start = 10300
+
+  env_vars = { CL_EVM_CMD = "", OTEL_SERVICE_NAME = "chainlink-node", CL_CRE_SETTINGS = '{"global":{"PerOrg":{"BaseTriggerRetransmitEnabled":"true"}}}' }
+  supported_evm_chains = [1337, 2337]
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  # The bootstrap/gateway node does not run the reporting plugin, so its code
+  # version does not affect the non-determinism signal. Keep it on develop for stability.
+  [[nodesets.node_specs]]
+    roles = ["bootstrap", "gateway"]
+    [nodesets.node_specs.node]
+      image = "${CRE_BASELINE_IMAGE}"
+      pull_image = ${CRE_PULL_IMAGE}
+      # 5002 is the web API capabilities port for incoming requests
+      # 15002 is the vault port for incoming requests
+      custom_ports = ["5002:5002","15002:15002"]
+      user_config_overrides = ""
