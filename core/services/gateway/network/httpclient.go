@@ -10,6 +10,7 @@ import (
 	"maps"
 	"net/http"
 	"net/http/httptrace"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -358,6 +359,20 @@ type redirectsDisabledError struct{}
 
 func (e *redirectsDisabledError) Error() string { return "redirects are not allowed" }
 
+func truncateLogError(err error) error {
+	var urlErr *url.Error
+	if !errors.As(err, &urlErr) {
+		return err
+	}
+	u, parseErr := url.Parse(urlErr.URL)
+	if parseErr != nil {
+		return urlErr.Err
+	}
+	// trim to scheme + host only
+	sanitized := &url.Error{Op: urlErr.Op, URL: u.Scheme + "://" + u.Host, Err: urlErr.Err}
+	return sanitized
+}
+
 // isBlockedRequest checks if an error is caused by blocked/invalid input (e.g., blocked IP, invalid scheme, blocked headers)
 // It checks for safeurl typed errors.
 func isBlockedRequest(err error) bool {
@@ -463,10 +478,10 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 	if err != nil {
 		c.metrics.recordTotal(ctx, req.Method, 0, false, traceState.connReused.Load(), time.Since(requestStart))
 		if isBlockedRequest(err) {
-			c.lggr.Warnw("HTTP request blocked", "err", err)
+			c.lggr.Warnw("HTTP request blocked", "err", truncateLogError(err))
 			return nil, fmt.Errorf("%w: %w", ErrBlockedRequest, err)
 		}
-		c.lggr.Errorw("failed to send HTTP request", "err", err)
+		c.lggr.Errorw("failed to send HTTP request", "err", truncateLogError(err))
 		return nil, errors.Join(err, ErrHTTPSend)
 	}
 	defer resp.Body.Close()
