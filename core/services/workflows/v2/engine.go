@@ -67,7 +67,7 @@ var (
 // to validation on the forwarder side. What matters is DON ID and the set of signer public keys.
 const pinnedWorkflowDonConfigVersion = 1
 
-// Acknowledger check is only valid for M1, in M2 the OCR reporting plugin implements the Acknowledger interface.
+// TODO: remove acknowledger check after CRE-6002 is implemented.
 var _ trigger.Acknowledger = (*Engine)(nil)
 var _ trigger.EventSink = (*Engine)(nil)
 
