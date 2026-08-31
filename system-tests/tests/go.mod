@@ -260,7 +260,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.54.9 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.52.0 // indirect
-	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260824214358-1805ed24ab6a // indirect
+	github.com/smartcontractkit/chainlink-ton/cciplib v0.1.1-0.20260831185223-909bce615de9 // indirect
 	github.com/smartcontractkit/go-daml v0.0.0-20260615231356-88c6ee9b5774 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20260810200708-618b5bf7f342 // indirect
 	github.com/sony/gobreaker/v2 v2.4.0 // indirect
